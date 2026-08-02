@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.clipboard
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.content.R
+
 /**
  * A kind of fragment worth pulling out of a clip on its own: the six digits
  * buried in a verification SMS, the number in "call me on …", the link inside a
@@ -12,19 +15,21 @@ enum class ClipEntityKind {
     URL;
 
     /** Two-word noun for the info popup and the chip's accessibility label. */
-    val label: String
+    @get:StringRes
+    val labelRes: Int
         get() = when (this) {
-            OTP -> "One-time code"
-            PHONE -> "Phone number"
-            URL -> "Link"
+            OTP -> R.string.core_content_clip_entity_otp_label
+            PHONE -> R.string.core_content_clip_entity_phone_label
+            URL -> R.string.core_content_clip_entity_url_label
         }
 
     /** All-caps tag printed on the chip itself. */
-    val tag: String
+    @get:StringRes
+    val tagRes: Int
         get() = when (this) {
-            OTP -> "CODE"
-            PHONE -> "PHONE"
-            URL -> "LINK"
+            OTP -> R.string.core_content_clip_entity_otp_tag
+            PHONE -> R.string.core_content_clip_entity_phone_tag
+            URL -> R.string.core_content_clip_entity_url_tag
         }
 }
 

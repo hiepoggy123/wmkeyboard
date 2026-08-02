@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Shared by several in-keyboard tool panels (search box, settings link, insert). -->
+    <string name="ime_media_search_active_hint">Type to search…</string>
+    <string name="ime_open_settings_action">Open settings</string>
+    <!-- Button that types the result of a tool into the text the user is writing. -->
+    <string name="ime_insert_action">Insert</string>
+
+    <!-- Action rail on the right of the voice and handwriting panels. Screen reader labels. -->
+    <string name="ime_rail_space_desc">Space</string>
+    <string name="ime_rail_enter_desc">Enter</string>
+    <string name="ime_rail_back_desc">Back to the keyboard</string>
+
+    <!-- Voice typing panel. -->
+    <string name="ime_voice_secure_field_notice">Voice typing does not work in password fields.</string>
+    <string name="ime_voice_permission_body">Voice typing needs permission to use the microphone. The app records audio only while you speak.</string>
+    <string name="ime_voice_unavailable_notice">Speech recognition is not available on your device.</string>
+    <string name="ime_voice_permission_action">Allow microphone</string>
+    <string name="ime_voice_undo_action">Undo</string>
+    <!-- Screen reader labels for the big microphone button. -->
+    <string name="ime_voice_start_desc">Start listening</string>
+    <string name="ime_voice_stop_desc">Stop listening</string>
+    <!-- Line under the microphone button that reports what the panel is doing. -->
+    <string name="ime_voice_status_idle">Press to speak</string>
+    <string name="ime_voice_status_listening">Listening…</string>
+    <!-- Shown while an offline model listens. It gives no live text, so the user says when to stop. -->
+    <string name="ime_voice_status_listening_hint">Listening. Press when you are done.</string>
+    <string name="ime_voice_status_transcribing">Transcribing…</string>
+    <string name="ime_voice_status_no_model">No offline voice model yet</string>
+    <string name="ime_voice_status_error">Speech recognition did not work. Try again.</string>
+    <string name="ime_voice_download_model_action">Download a voice model</string>
+    <!-- Chip that turns translation to English on and off. The first value is the on state. -->
+    <string name="ime_voice_translate_on_label">English translation is on</string>
+    <string name="ime_voice_translate_label">Translate to English</string>
+    <!-- %1$s is the English name of a language, for example "Spanish". -->
+    <string name="ime_voice_model_get_language_action">Get <xliff:g id="language" example="Spanish">%1$s</xliff:g> for offline voice typing</string>
+    <string name="ime_voice_model_get_action">Get this language for offline voice typing</string>
+    <string name="ime_voice_model_downloading">Downloading the offline model…</string>
+    <!-- %1$d is the download progress, from 0 to 100. -->
+    <string name="ime_voice_model_downloading_progress">Downloading the offline model: %1$d%%</string>
+    <!-- %1$s is the English name of a language, for example "Spanish". -->
+    <string name="ime_voice_model_downloading_language">Downloading the offline model for <xliff:g id="language" example="Spanish">%1$s</xliff:g>…</string>
+    <!-- %1$s is the English name of a language. %2$d is the progress, from 0 to 100. -->
+    <string name="ime_voice_model_downloading_language_progress">Downloading the offline model for <xliff:g id="language" example="Spanish">%1$s</xliff:g>: %2$d%%</string>
+
+    <!-- Compact voice typing bar that replaces the suggestion strip. One short line only. -->
+    <string name="ime_voice_strip_idle">Press the mic to use voice typing</string>
+    <string name="ime_voice_strip_listening_hint">Listening. Press when you are done.</string>
+    <string name="ime_voice_strip_secure_field">Not available in password fields</string>
+    <string name="ime_voice_strip_permission">The app needs microphone permission</string>
+    <string name="ime_voice_strip_unavailable">Speech recognition is not available</string>
+    <string name="ime_voice_strip_no_model">No offline voice model. Open settings.</string>
+    <string name="ime_voice_strip_allow_action">Allow</string>
+    <string name="ime_voice_strip_undo_desc">Undo voice typing</string>
+    <string name="ime_voice_strip_close_desc">Stop voice typing</string>
+
+    <!-- Handwriting panel. -->
+    <string name="ime_handwriting_checking_progress">Checking the handwriting model…</string>
+    <!-- %1$s is the name of a language, for example "English". -->
+    <string name="ime_handwriting_downloading_progress">Downloading the <xliff:g id="language" example="English">%1$s</xliff:g> model…</string>
+    <!-- %1$s is the name of a language, for example "English". -->
+    <string name="ime_handwriting_need_model_body">Handwriting for <xliff:g id="language" example="English">%1$s</xliff:g> needs a model download of about 20 MB. This happens one time.</string>
+    <string name="ime_handwriting_canvas_hint">Write here</string>
+    <string name="ime_handwriting_undo_stroke_desc">Undo the last stroke</string>
+
+    <!-- Camera panel. -->
+    <string name="ime_camera_permission_body">The camera tool needs permission to use the camera. The app takes a photo only when you press the shutter.</string>
+    <string name="ime_camera_starting_progress">Starting the camera…</string>
+    <string name="ime_camera_permission_action">Allow camera</string>
+    <string name="ime_camera_retake_action">Retake</string>
+    <string name="ime_camera_send_action">Send</string>
+    <!-- Screen reader labels for the controls over the viewfinder. -->
+    <string name="ime_camera_close_desc">Close the camera</string>
+    <string name="ime_camera_captured_photo_desc">The photo you took</string>
+    <string name="ime_camera_shutter_desc">Take a photo</string>
+    <string name="ime_camera_flash_desc">Flash mode</string>
+    <string name="ime_camera_timer_desc">Self-timer</string>
+    <string name="ime_camera_switch_desc">Change to the other camera</string>
+    <!-- %1$f is the zoom of the lens. It shows as "2.0x". -->
+    <string name="ime_camera_zoom_label">%1$.1fx</string>
+    <!-- %1$d is the self-timer delay in seconds. It shows as "3s". -->
+    <string name="ime_camera_timer_seconds_label">%1$ds</string>
+    <string name="ime_camera_no_camera_error">Your device has no camera.</string>
+
+    <!-- Media control panel: the track that plays now, and its buttons. -->
+    <string name="ime_media_control_empty_title">Nothing plays now</string>
+    <string name="ime_media_control_empty_body">Start a song, video or podcast in any app. The controls show here.</string>
+    <!-- Shown in place of the track name when the app gives none. -->
+    <string name="ime_media_control_unknown_title">Unknown title</string>
+    <!-- Screen reader labels for the transport buttons. -->
+    <string name="ime_media_control_previous_desc">Previous</string>
+    <string name="ime_media_control_play_desc">Play</string>
+    <string name="ime_media_control_pause_desc">Pause</string>
+    <string name="ime_media_control_next_desc">Next</string>
+    <string name="ime_media_control_access_body">WM Keyboard needs notification access to show and control the media. The app reads no notifications. It reads only the media session.</string>
+    <string name="ime_media_control_access_action">Allow access</string>
+
+    <!-- GIF and sticker panel. -->
+    <string name="ime_gif_search_hint">Search GIFs</string>
+    <string name="ime_sticker_search_hint">Search stickers</string>
+    <!-- Credit under the search box. %1$s is a list of providers, for example "Klipy · GIPHY". -->
+    <string name="ime_media_attribution">from <xliff:g id="providers" example="Klipy · GIPHY">%1$s</xliff:g></string>
+    <!-- Bar over the grid when the text field takes no pictures. -->
+    <string name="ime_gif_unsupported_field_notice">This field does not accept GIFs. Try a chat app or a notes app.</string>
+    <string name="ime_sticker_unsupported_field_notice">This field does not accept stickers. Try a chat app or a notes app.</string>
+    <string name="ime_gif_need_key_body">The GIF tool needs an API key from Klipy or GIPHY. Both keys are free. Add a key in the settings for this tool.</string>
+    <string name="ime_sticker_need_key_body">The sticker tool needs an API key from Klipy or GIPHY. Both keys are free. Add a key in the settings for this tool.</string>
+    <string name="ime_media_trending_empty">No trending results now</string>
+    <!-- %1$s is what the user typed in the search box. -->
+    <string name="ime_gif_search_empty">No GIFs for “<xliff:g id="query" example="cat">%1$s</xliff:g>”</string>
+    <!-- %1$s is what the user typed in the search box. -->
+    <string name="ime_sticker_search_empty">No stickers for “<xliff:g id="query" example="cat">%1$s</xliff:g>”</string>
+    <!-- Empty result inside the packs the user made. %1$s is the search text. -->
+    <string name="ime_sticker_local_search_empty">No stickers of yours match “<xliff:g id="query" example="cat">%1$s</xliff:g>”</string>
+    <string name="ime_sticker_no_packs_empty">No sticker packs yet. Make a pack in the settings. You can also press and hold a sticker from Klipy or GIPHY to save it here.</string>
+    <string name="ime_sticker_pack_empty">This pack is empty.</string>
+    <!-- Chip that shows the stickers of every pack together. -->
+    <string name="ime_sticker_pack_all_label">All</string>
+    <string name="ime_sticker_manage_packs_action">Manage packs</string>
+    <string name="ime_sticker_save_new_pack_action">Save to a new pack</string>
+    <!-- %1$s is the name the user gave the pack. -->
+    <string name="ime_sticker_save_to_pack_action">Save to <xliff:g id="pack" example="My stickers">%1$s</xliff:g></string>
+    <string name="ime_media_report_action">Report</string>
+    <!-- Screen reader label for one picture in the GIF grid. -->
+    <string name="ime_gif_item_desc">GIF</string>
+
+    <!-- Web search panel. -->
+    <string name="ime_web_search_idle">Type a search and press enter.\nPress a result to insert its link.</string>
+    <string name="ime_web_search_need_key_body">Web search needs an API key from Brave Search. Add a key in the settings for this tool.</string>
+    <!-- %1$s is what the user typed in the search box. -->
+    <string name="ime_web_search_empty">No results for “<xliff:g id="query" example="weather">%1$s</xliff:g>”</string>
+    <string name="ime_web_search_open_desc">Open in the browser</string>
+
+    <!-- Image search panel. -->
+    <string name="ime_image_search_idle">Type a search and press enter.\nPress an image to insert it. Press and hold to insert its link.</string>
+    <string name="ime_image_search_need_key_body">Image search needs an API key from Brave Search. Add a key in the settings for this tool.</string>
+    <!-- %1$s is what the user typed in the search box. -->
+    <string name="ime_image_search_empty">No images for “<xliff:g id="query" example="weather">%1$s</xliff:g>”</string>
+
+    <!-- Translate panel. -->
+    <!-- Stands for the source language while the app still works out which one it is. -->
+    <string name="ime_translate_auto_detect_label">Detect language</string>
+    <string name="ime_translate_idle">The translation shows here as you type.</string>
+    <string name="ime_translate_progress">Translating…</string>
+    <string name="ime_translate_select_language_desc">Select the language</string>
+    <string name="ime_translate_replace_action">Replace text</string>
+
+    <!-- Plugins panel. -->
+    <string name="ime_plugin_empty_title">No plugins yet</string>
+    <string name="ime_plugin_empty_body">A plugin is a small tool in a sandbox. You can add plugins from an add-on repository or from a .wmplugin file. A plugin cannot see what you type.</string>
+    <string name="ime_plugin_manage_action">Manage plugins</string>
+    <!-- Second line of a plugin row when the plugin gives no description. %1$s is its version. -->
+    <string name="ime_plugin_version_label">Version <xliff:g id="version" example="1.2.0">%1$s</xliff:g></string>
+
+</resources>

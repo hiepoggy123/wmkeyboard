@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!--
+      Downloadable CJK conversion dictionary packs. Each pack has a row on the
+      language detail screen: the title names the pack, the subtitle says what is
+      inside it and which input method needs it.
+      "Hanzi" are the Chinese characters. "Kana" and "kanji" are the two
+      Japanese scripts. CC-CEDICT and mozc are the names of the source projects.
+    -->
+    <string name="core_input_cjk_pack_pinyin_title">Chinese Pinyin dictionary</string>
+    <string name="core_input_cjk_pack_pinyin_subtitle">Hanzi characters and phrases from CC-CEDICT, 120,000 entries. The keyboard needs this pack for Chinese conversion.</string>
+
+    <string name="core_input_cjk_pack_ja_kana_title">Japanese kana to kanji dictionary</string>
+    <string name="core_input_cjk_pack_ja_kana_subtitle">Kana readings from mozc, 1.08 million entries, about 42 MB. The keyboard needs this pack for Japanese conversion.</string>
+
+    <string name="core_input_cjk_pack_stroke_title">Chinese stroke (笔画) dictionary</string>
+    <string name="core_input_cjk_pack_stroke_subtitle">A table of stroke order to Hanzi characters. The keyboard needs this pack for the stroke layout.</string>
+
+    <string name="core_input_cjk_pack_cangjie_title">Cangjie (倉頡) dictionary</string>
+    <string name="core_input_cjk_pack_cangjie_subtitle">A table of radical codes to Hanzi characters, 29,000 characters. The keyboard needs this pack for the Cangjie and Quick layouts.</string>
+
+    <string name="core_input_cjk_pack_jyutping_title">Cantonese Jyutping dictionary</string>
+    <string name="core_input_cjk_pack_jyutping_subtitle">A table of Jyutping readings to Hanzi characters, 163,000 entries. The keyboard needs this pack for Cantonese conversion.</string>
+
+    <!--
+      Failure text for a CJK dictionary pack download. Each string replaces the
+      pack row subtitle after the download stops.
+    -->
+    <string name="core_input_cjk_download_error_unavailable">This pack is not available yet.</string>
+    <string name="core_input_cjk_download_error_no_space">There is not enough storage on your device. Free up some space first.</string>
+    <!-- %1$s is the HTTP status code the server sent back, for example 500. -->
+    <string name="core_input_cjk_download_error_http">The server returned HTTP status <xliff:g id="status" example="500">%1$s</xliff:g>.</string>
+    <string name="core_input_cjk_download_error_checksum">The downloaded file is damaged. Its checksum does not match. Try the download again.</string>
+    <!-- "Resume" is the button on the pack row. Keep the two words the same. -->
+    <string name="core_input_cjk_download_error_truncated">The connection stopped during the download. Press Resume to continue.</string>
+    <string name="core_input_cjk_download_error_network">The download did not work. Check your connection and try again.</string>
+    <!-- %1$s is the message the system gives for the error. It is in English only. -->
+    <string name="core_input_cjk_download_error_network_detail">The download did not work: <xliff:g id="detail" example="Unable to resolve host">%1$s</xliff:g></string>
+
+    <!--
+      Double Pinyin schemes. Every scheme but the first is the name of the
+      company or the product that defined the key table, so it is a proper noun
+      and stays as it is in every language.
+    -->
+    <string name="core_input_double_pinyin_off_label">Off (full Pinyin)</string>
+    <string name="core_input_double_pinyin_microsoft_label" translatable="false">Microsoft</string>
+    <string name="core_input_double_pinyin_sogou_label" translatable="false">Sogou</string>
+    <string name="core_input_double_pinyin_xiaohe_label" translatable="false">Xiaohe (小鹤)</string>
+    <string name="core_input_double_pinyin_ziranma_label" translatable="false">Ziranma (自然码)</string>
+    <string name="core_input_double_pinyin_pinyinpp_label" translatable="false">Pinyin++ (拼音加加)</string>
+
+</resources>

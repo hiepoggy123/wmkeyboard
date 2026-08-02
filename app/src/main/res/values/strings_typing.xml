@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ==== Typing settings screen: group headings ==== -->
+    <string name="typing_group_corrections_title">Automatic corrections</string>
+    <string name="typing_group_suggestions_title">Suggestions</string>
+    <string name="typing_group_smart_chips_title">Smart chips</string>
+    <string name="typing_group_gestures_title">Gestures</string>
+    <string name="typing_group_backspace_title">Backspace</string>
+    <string name="typing_group_enter_title">Enter key</string>
+    <string name="typing_group_volume_title">Volume keys</string>
+    <string name="typing_group_hardware_title">Physical keyboard</string>
+
+    <!-- ==== Typing settings: slider value labels ==== -->
+    <!-- %1$s is the already formatted number, for example 2.5 -->
+    <string name="typing_value_multiplier_prefix">×%1$s</string>
+    <!-- %1$s is the already formatted number, for example 2.5 -->
+    <string name="typing_value_multiplier_suffix">%1$s×</string>
+    <!-- %1$d is a whole number of milliseconds. "ms" is a unit symbol, not a
+         countable noun: it does not inflect. -->
+    <string name="typing_value_milliseconds" tools:ignore="PluralsCandidate">%1$d ms</string>
+    <!-- %1$d is a whole number of density independent pixels. "dp" is a unit
+         symbol, not a countable noun: it does not inflect. -->
+    <string name="typing_value_dp" tools:ignore="PluralsCandidate">%1$d dp</string>
+    <!-- %1$d is a whole number from 0 to 100 -->
+    <string name="typing_value_percent">%1$d%%</string>
+
+    <!-- ==== Typing settings: automatic corrections ==== -->
+    <string name="typing_autocorrect_title">Autocorrect</string>
+    <string name="typing_autocorrect_subtitle">Fix typos automatically when you press space</string>
+    <string name="typing_autocorrect_info">When you press space, the keyboard compares the word you typed with the word list. If the word looks like a slip of a much more common word, the keyboard replaces it. The keyboard never corrects a word that you taught it. Autocorrect stays off in password fields.</string>
+
+    <string name="typing_autocorrect_confidence_title">Autocorrect confidence</string>
+    <string name="typing_autocorrect_confidence_subtitle">How certain the keyboard must be before it corrects a word</string>
+    <string name="typing_autocorrect_confidence_info">The keyboard corrects a word only when the best candidate scores higher than the second candidate by this factor. A low value corrects more typos, but it guesses wrong more often. A high value corrects only when the word is almost certain. The keyboard always applies a correction that two sources agree on.</string>
+
+    <string name="typing_undo_autocorrect_title">Undo autocorrect with backspace</string>
+    <string name="typing_undo_autocorrect_subtitle">Backspace right after a correction restores what you typed</string>
+    <string name="typing_undo_autocorrect_info">Press backspace immediately after autocorrect changes a word. The keyboard puts your original spelling back and learns it, so it does not correct that word again. Turn this off to make backspace always delete one character.</string>
+
+    <string name="typing_skip_all_caps_title">Skip words in capital letters</string>
+    <string name="typing_skip_all_caps_subtitle">Leave words typed in capital letters alone</string>
+    <string name="typing_skip_all_caps_info">You usually type acronyms, or words in capital letters for emphasis, on purpose. Examples: ASAP, OFC, NOOO. Autocorrect leaves every word in capital letters alone. Turn this off to correct these words like any other word.</string>
+
+    <string name="typing_block_offensive_title">Block offensive words</string>
+    <string name="typing_block_offensive_subtitle">Keep profanity and slurs out of the suggestions</string>
+    <string name="typing_block_offensive_info">The keyboard does not offer offensive words in the suggestion strip. Autocorrect does not change a neutral typo into an offensive word. You can still type any word yourself. This setting only stops the suggestions.</string>
+
+    <string name="typing_auto_apostrophe_title">Fix missing apostrophes</string>
+    <!-- Example data. The words are English spellings and are not translated. -->
+    <string name="typing_auto_apostrophe_subtitle" translatable="false">arent → aren\'t, im → I\'m, dont → don\'t</string>
+    <string name="typing_auto_apostrophe_info">You type a contraction without its apostrophe (arent, isnt, youre, oclock…). When you press space, the keyboard puts the apostrophe back, and a lone \"i\" becomes \"I\". The keyboard leaves alone the words that are also real English words without the apostrophe (its, well, ill, shell…). This setting works even when autocorrect is off.</string>
+
+    <string name="typing_auto_capitalize_title">Automatic capital letters</string>
+    <string name="typing_auto_capitalize_subtitle">Put a capital letter at the start of each sentence</string>
+    <string name="typing_auto_capitalize_info">Shift turns on by itself at the start of a text field, and after the punctuation that ends a sentence (. ! ? ।). This happens only in the fields that ask for sentence capitals, and only in English mode. The keyboard never changes caps lock by itself.</string>
+
+    <string name="typing_double_space_period_title">Double space for a full stop</string>
+    <string name="typing_double_space_period_subtitle">Press space two times to type a full stop and a space</string>
+    <string name="typing_double_space_period_info">Press space two times quickly at the end of a word. The keyboard replaces the first space with a full stop. You can end a sentence with no change to the symbols layout.</string>
+
+    <string name="typing_double_space_tab_title">Double space for a tab</string>
+    <string name="typing_double_space_tab_subtitle">Press space two times to type a tab</string>
+    <string name="typing_double_space_tab_info">Press space two times quickly. The keyboard replaces the first space with a tab character, which helps with indents and forms. While this setting is on, the tab has priority over the full stop.</string>
+
+    <string name="typing_auto_space_punctuation_title">Automatic space after punctuation</string>
+    <string name="typing_auto_space_punctuation_subtitle">The keyboard adds a space after you type . , ? ! ; or :</string>
+    <string name="typing_auto_space_punctuation_info">You do not need to press space at the end of a clause: \"hello,\" becomes \"hello, \" by itself. A group of marks (\"...\", \"?!\") stays together. If you press space yourself, the keyboard does not add a second space. Shift immediately after the space removes it. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads. A space in these fields is a mistake.</string>
+
+    <string name="typing_space_after_suggestion_title">Space after a suggestion</string>
+    <string name="typing_space_after_suggestion_subtitle">Add a space when you select a word from the suggestion strip</string>
+    <string name="typing_space_after_suggestion_info">This setting is on by default. When you press a suggestion, the keyboard types the word and a space after it, so the next word starts clean. Turn it off to type the word without the space. This helps in the languages or fields where a space after a word is usually wrong. If you go back to a word and continue it, the keyboard never adds a second space.</string>
+
+    <string name="typing_wrap_selection_title">Wrap the selection with brackets</string>
+    <string name="typing_wrap_selection_subtitle">Press ( [ { &lt; \" \' or ` to put the pair around the selected text</string>
+    <string name="typing_wrap_selection_info">When you select text and press a bracket, a brace or a quote key, the keyboard puts the pair around the selection. It does not replace the selection. Example: select \"foo\", press ( and you get \"(foo)\". The wrapped text stays selected, so you can wrap it again. Turn this off to make these keys always replace the selection, like any other character.</string>
+
+    <string name="typing_shift_recase_title">Shift changes the case of the selection</string>
+    <string name="typing_shift_recase_subtitle">Shift with text selected steps through lowercase, Title Case and UPPERCASE</string>
+    <string name="typing_shift_recase_info">When you select text and press shift, the keyboard changes the case of the selection. It does not arm shift for the next letter. Each press steps through lowercase, Title Case and UPPERCASE. Nothing changes for the scripts without case, such as Bengali. Turn this off to keep shift for the next character only, even while text is selected.</string>
+
+    <!-- ==== Typing settings: suggestions ==== -->
+    <string name="typing_suggestions_title">Suggestions</string>
+    <string name="typing_suggestions_subtitle">Show word predictions above the keyboard</string>
+    <string name="typing_suggestions_info">The keyboard shows up to three candidates above the keys while you type: completions, corrections and next word predictions. The keyboard learns the predictions from your typing. Press a candidate to type it with a space after it.</string>
+
+    <string name="typing_punctuation_suggestions_title">Punctuation suggestions</string>
+    <string name="typing_punctuation_suggestions_subtitle">Chips for . , ? ! and \' beside the word candidates</string>
+    <string name="typing_punctuation_suggestions_info">The keyboard adds a short row of common punctuation to the end of the suggestion strip while candidates show. A full stop or a comma is one press away, with no change to the symbols layout. A press acts the same as the key. When the keyboard offers an emoji prediction, the emoji takes the end of the strip instead.</string>
+
+    <string name="typing_suggestions_all_fields_title">Suggestions in every field</string>
+    <string name="typing_suggestions_all_fields_subtitle">Show the suggestion strip even where an app asks to hide it</string>
+    <string name="typing_suggestions_all_fields_info">Some apps, such as Instagram and Google Keep, tell the keyboard to hide the suggestion strip on ordinary text fields. This setting is on by default, and the keyboard shows the strip anyway, as most keyboards do. Turn it off to follow the app and hide the strip. Autocorrect, glide typing and Bengali (Avro) composing work either way, because they no longer depend on the strip. Password fields and number pads never show suggestions.</string>
+
+    <string name="typing_suggestions_first_title">Suggestion strip always visible</string>
+    <string name="typing_suggestions_first_subtitle">Keep the suggestion strip visible before you type</string>
+    <string name="typing_suggestions_first_info">Usually the top bar shows the toolbar, and it changes to suggestions only while candidates exist. With this setting on, the top bar shows the suggestion strip at rest, so next word predictions are always visible. The arrow on its left opens the toolbar when you need a tool.</string>
+
+    <string name="typing_primary_center_title">Best suggestion in the middle</string>
+    <string name="typing_primary_center_subtitle">Show the best candidate in the middle slot</string>
+    <string name="typing_primary_center_info">The best candidate, the one that autocorrect selects, goes in the middle of the strip. The second candidate goes on its left. Most keyboards use this layout. Turn this off to order the candidates from left to right.</string>
+
+    <string name="typing_contact_names_title">Suggest contact names</string>
+    <string name="typing_contact_names_subtitle">Complete names from your contacts as you type</string>
+    <string name="typing_contact_names_info">The words in your contact names complete in the same way as the words in the word list. Example: \"was\" gives Wasi. The names also chain: after Wasi, the keyboard offers the family name. The keyboard reads the names into memory only. It stores nothing and sends nothing, and autocorrect never changes a name that it knows. This setting needs the Contacts permission.</string>
+
+    <string name="typing_contact_emails_title">Suggest contact emails</string>
+    <string name="typing_contact_emails_subtitle">Complete the email address of a contact as you type it</string>
+    <string name="typing_contact_emails_info">Type the start of the email address of a contact, for example \"john\". The keyboard offers the full address (john.doe@gmail.com) in the suggestion strip. The keyboard reads the addresses into memory only. It stores nothing and sends nothing, and autocorrect never changes them. This setting needs the Contacts permission.</string>
+
+    <string name="typing_contact_emails_in_email_fields_title">Contact emails in email fields too</string>
+    <string name="typing_contact_emails_in_email_fields_subtitle">Show them even where the app hides the suggestions</string>
+    <string name="typing_contact_emails_in_email_fields_info">Email fields usually tell the keyboard to hide the suggestion strip. This would hide these completions where they help most. With this setting on, contact email completions still show in email fields. Other suggestions stay hidden there. Turn it off to follow the field, and complete email addresses only in ordinary text.</string>
+
+    <string name="typing_app_names_title">Suggest app names</string>
+    <string name="typing_app_names_subtitle">Complete the names of installed apps as you type</string>
+    <string name="typing_app_names_info">The words in the names of your installed apps complete in the same way as the words in the word list. Example: \"sign\" gives Signal. Autocorrect never changes one. They rank below contact names, because ordinary words such as Files and Clock are also app names. The keyboard reads the names into memory only. It stores nothing and sends nothing, and it needs no permission.</string>
+
+    <string name="typing_inline_emoji_search_title">Inline emoji search</string>
+    <string name="typing_inline_emoji_search_subtitle">Type \":\" and a word to find emoji, such as :smi for 😄</string>
+    <string name="typing_inline_emoji_search_info">Type a colon at the start of a word to change the suggestion strip into an emoji search. \":cat\" offers 🐱, and a press replaces the text you typed. Press backspace over the colon to go back to normal word suggestions. Press space to keep the text exactly as you typed it.</string>
+
+    <string name="typing_inline_autofill_title">Password manager suggestions</string>
+    <string name="typing_inline_autofill_subtitle">Show saved logins from your autofill service in the suggestion strip</string>
+    <string name="typing_inline_autofill_info">When you select a login field, your password manager can offer saved entries as chips in the suggestion strip, instead of a separate popup. The password manager draws the chips itself. The keyboard gets only their size, and never sees the user name or the password inside them. Incognito mode turns this off by itself. This setting needs Android 11 or newer, and a password manager set as your system autofill service.</string>
+
+    <string name="typing_smart_replies_title">Smart replies</string>
+    <string name="typing_smart_replies_subtitle">Let the system offer replies to the message you answer</string>
+    <string name="typing_smart_replies_info">Android System Intelligence can read the conversation on the screen and offer short answers, such as \"On my way!\". The answers show as chips beside the word suggestions, up to three at a time. The system draws them, not the keyboard. They come over the same channel as the password manager chips, but they count and switch apart from them. You can have saved logins in the suggestion strip without the system reading your messages, or the opposite. Incognito mode turns this off by itself. This setting needs Android 11 or newer, and only some apps offer replies.</string>
+
+    <string name="typing_smart_hit_detection_title">Smart detection of key hits</string>
+    <string name="typing_smart_hit_detection_subtitle">Move a press at a key edge to the letter you probably wanted</string>
+    <string name="typing_smart_hit_detection_info">As you type a word, the word list predicts the letters that come next. The keyboard makes the touch area of each key larger toward those letters. A press that lands just inside the key next to it still gives the letter you wanted, but only near the shared edge. The keyboard never changes a press in the middle of a key. This works on the letters layer only, and it needs Suggestions on.</string>
+
+    <string name="typing_personal_dictionary_title">Personal dictionary</string>
+    <string name="typing_personal_dictionary_subtitle">Review, delete or add the words that the keyboard learned</string>
+
+    <string name="typing_custom_dictionaries_title">Custom dictionaries</string>
+    <string name="typing_custom_dictionaries_subtitle">Import your own word lists for each language</string>
+
+    <string name="typing_blacklist_title">Suggestion blacklist</string>
+    <string name="typing_blacklist_subtitle">Words to never suggest or autocorrect to</string>
+    <!-- %1$d is the number of blocked words -->
+    <plurals name="typing_blacklist_count_subtitle">
+        <item quantity="one">%1$d word never suggested</item>
+        <item quantity="other">%1$d words never suggested</item>
+    </plurals>
+
+    <!-- ==== Typing settings: smart chips ==== -->
+    <string name="typing_smart_chips_title">Smart chips</string>
+    <string name="typing_smart_chips_subtitle">Answer sums, conversions and tool keywords in the suggestion strip</string>
+    <string name="typing_smart_chips_info">When a tool can answer the text you typed, the suggestion strip offers the answer instead of word candidates. Press the answer to type the result. Press the button on its right to open the full tool with the same numbers in it. The keyboard recognises everything on your device. It downloads only exchange rates, and only after you type an amount in a currency.</string>
+
+    <string name="typing_smart_calc_title">Calculate as you type</string>
+    <string name="typing_smart_calc_subtitle">\"12*4\" offers 48</string>
+
+    <string name="typing_smart_currency_title">Convert currencies</string>
+    <!-- %1$s is the currency code to convert into, for example EUR -->
+    <string name="typing_smart_currency_subtitle">\"150 usd\", \"150$\" or \"150 dollars\" offers the amount in <xliff:g id="currency_code" example="EUR">%1$s</xliff:g></string>
+
+    <string name="typing_smart_units_title">Convert units</string>
+    <string name="typing_smart_units_subtitle">\"1 ft\" offers the same length in metres</string>
+
+    <string name="typing_smart_tool_keywords_title">Tool keywords</string>
+    <string name="typing_smart_tool_keywords_subtitle">Type \"wiki\" and the strip offers to open Wikipedia</string>
+    <string name="typing_smart_tool_keywords_info">Each tool has a few keywords. Type one keyword alone and the suggestion strip offers to open that tool and delete the word you typed. The settings of each tool list its keywords, where you can change them or clear them.</string>
+
+    <!-- ==== Typing settings: gestures ==== -->
+    <string name="typing_glide_typing_title">Glide typing</string>
+    <string name="typing_glide_typing_subtitle">Swipe across the letters to type a word</string>
+    <string name="typing_glide_typing_info">Swipe your finger from letter to letter without a lift. The keyboard types the word when you lift your finger. Other readings show in the suggestion strip, so one press corrects a wrong guess. This works in English only at the moment.</string>
+
+    <string name="typing_letter_swipe_action_title">Handwrite with swipes</string>
+    <string name="typing_letter_swipe_action_subtitle">Draw letters over the keys instead of glide typing</string>
+    <string name="typing_letter_swipe_action_info">With Handwrite selected, the keyboard reads a swipe across the keys as handwriting. Draw a letter or a word. After a short pause the keyboard recognises it and types it, and offers other readings in the suggestion strip. This needs a handwriting model (Settings → Handwriting). A plain press still types its key.</string>
+    <string name="typing_letter_swipe_type_words_label">Type words</string>
+    <string name="typing_letter_swipe_handwrite_label">Handwrite</string>
+
+    <string name="typing_space_glide_multiword_title">Glide across the spacebar</string>
+    <string name="typing_space_glide_multiword_subtitle">Swipe over the spacebar to continue with the next word</string>
+    <string name="typing_space_glide_multiword_info">Keep your finger down. Glide a word, swipe across the spacebar, then glide the next word. Each crossing types the word and a space, so one stroke gives a full phrase. When this setting is off, a swipe across the spacebar makes one word.</string>
+
+    <string name="typing_swipe_start_distance_title">Swipe start distance</string>
+    <string name="typing_swipe_start_distance_subtitle">How far to move before a glide starts. A low value is more sensitive</string>
+    <string name="typing_swipe_start_distance_info">This is the finger movement that changes a press into a glide. It is a multiple of the system touch slop. A low value starts the glide sooner and is more sensitive, but a still press can start a glide. A high value needs a more deliberate swipe.</string>
+
+    <string name="typing_gesture_cooldown_title">Delay after typing</string>
+    <string name="typing_gesture_cooldown_subtitle">Resist the start of a glide immediately after a press</string>
+    <string name="typing_gesture_cooldown_info">Immediately after you press a key, a small movement off the key can look like a glide. In this window a glide must travel further before it starts, and the extra distance decreases across the window. Fast typing stays clean, and a deliberate swipe still starts. A high value stops more accidents, but a glide immediately after typing starts more slowly. 0 turns this off.</string>
+
+    <string name="typing_handwrite_dot_title">Extra time for a dot or a cross</string>
+    <string name="typing_handwrite_dot_subtitle">Time to add a dot or a cross before the press types a letter</string>
+    <string name="typing_handwrite_dot_info">Letters such as i, j and t need a separate mark after the main stroke. For this time after you draw a stroke, a press over the letters becomes another stroke of the same character, the dot or the cross. It does not type that key. A press after the window types as usual. 0 turns this off.</string>
+
+    <string name="typing_trail_width_title">Trail width</string>
+    <string name="typing_trail_width_subtitle">Thickness of the glide trail</string>
+
+    <string name="typing_trail_length_title">Trail length</string>
+    <string name="typing_trail_length_subtitle">How long the trail stays behind your finger</string>
+
+    <string name="typing_trail_opacity_title">Trail opacity</string>
+
+    <string name="typing_space_short_swipe_title">Quick swipe on the spacebar</string>
+    <string name="typing_space_short_swipe_subtitle">A swipe that starts to move immediately</string>
+    <string name="typing_space_short_swipe_info">Swipe left or right on the spacebar without a pause. \"Language\" steps through your input modes, with a live preview above the spacebar. Lift your finger to switch. Press and hold the spacebar to show the picker before you swipe. \"Cursor\" moves the text cursor one character for each step. A press without movement always types a space.</string>
+
+    <string name="typing_space_long_swipe_title">Press and hold, then swipe</string>
+    <string name="typing_space_long_swipe_subtitle">Press and hold the spacebar, then swipe</string>
+    <string name="typing_space_long_swipe_info">Press and hold the spacebar past the hold delay, then swipe. This gives the spacebar a second, separate swipe action. Example: a quick swipe switches the language, and a press and hold with a swipe moves the cursor. You can also set both to the same action.</string>
+
+    <string name="typing_space_cursor_2d_title">2-D cursor touchpad</string>
+    <string name="typing_space_cursor_2d_subtitle">The cursor swipe also moves up and down</string>
+    <string name="typing_space_cursor_2d_info">This setting changes the spacebar cursor swipe into a touchpad. The cursor moves left and right, and a swipe up or down moves the cursor between lines. This applies only to the swipe actions set to \"Cursor\" above.</string>
+
+    <string name="typing_space_swipe_down_hide_title">Swipe down to hide the keyboard</string>
+    <string name="typing_space_swipe_down_hide_subtitle">A swipe down on the spacebar closes the keyboard</string>
+    <string name="typing_space_swipe_down_hide_info">Swipe straight down on the spacebar to close the keyboard. This setting is off by default, so an accidental swipe down never closes the keyboard. When the 2-D cursor touchpad is on, a swipe down moves the cursor instead. The touchpad has priority.</string>
+
+    <string name="typing_spacebar_language_arrows_title">Arrows on the spacebar</string>
+    <string name="typing_spacebar_language_arrows_subtitle">Show that a swipe switches the language</string>
+    <string name="typing_spacebar_language_arrows_info">The keyboard draws a small ◀ and ▶ on each side of the language name on the spacebar. They are only a hint, and the swipe works without them. They stay hidden while one input mode only is on.</string>
+
+    <string name="typing_spacebar_display_title">The spacebar shows</string>
+    <string name="typing_spacebar_display_subtitle">What the spacebar label shows at rest</string>
+    <string name="typing_spacebar_display_info">Language shows the name of the current language. Layout shows the name of the current layout. Both shows \"Language (Layout)\". When one language has more than one layout on, the keyboard adds the layout name, so you can see the difference.</string>
+    <string name="typing_spacebar_display_language_label">Language</string>
+    <string name="typing_spacebar_display_layout_label">Layout</string>
+    <string name="typing_spacebar_display_both_label">Both</string>
+
+    <string name="typing_spacebar_text_label">Spacebar text</string>
+    <!-- %1$s is the literal token %s, which the user types into the field. Keep it as it is. -->
+    <string name="typing_spacebar_text_hint">Leave this blank to keep the normal spacebar label. Type <xliff:g id="token" example="%s">%1$s</xliff:g> to put that label in your text. Example: ~ <xliff:g id="token" example="%s">%1$s</xliff:g> ~</string>
+
+    <!-- ==== Typing settings: backspace ==== -->
+    <string name="typing_backspace_swipe_title">Swipe to delete words</string>
+    <string name="typing_backspace_swipe_subtitle">Swipe sideways on backspace to delete full words</string>
+    <string name="typing_backspace_swipe_info">Press backspace and swipe left. Each step deletes one more word, not one character. A plain press, or a press and hold, still deletes one character at a time.</string>
+
+    <!-- ==== Typing settings: enter key ==== -->
+    <string name="typing_shift_enter_title">Shift and Enter type a new line</string>
+    <string name="typing_shift_enter_subtitle">Add a line break in a chat app instead of sending the message</string>
+    <string name="typing_shift_enter_info">Chat and search fields tell the keyboard that Enter means Send, Go or Search. Usually you cannot put a line break in a message without sending it. With this setting on, press shift first, or hold shift on a physical keyboard, and Enter types a real new line. The Enter key shows the new line symbol while shift is armed, so you can see the result before you press it.\n\nOnly a shift that you press yourself counts. The keyboard ignores the shift that automatic capital letters arms at the start of a message, so the first line of a message still sends. The keyboard also ignores caps lock.\n\nThis setting is off by default, because the standard behaviour is to follow the Enter action of the app.</string>
+
+    <!-- ==== Typing settings: volume keys ==== -->
+    <string name="typing_volume_cursor_title">Volume keys move the cursor</string>
+    <string name="typing_volume_cursor_subtitle">Volume up and volume down move the text cursor</string>
+    <string name="typing_volume_cursor_info">While the keyboard is open, volume down moves the cursor one character left, and volume up moves it one character right. Press and hold a key to repeat. Everywhere else, and as soon as the keyboard closes, the volume keys work as usual.</string>
+
+    <string name="typing_volume_cursor_media_title">Release the keys while audio plays</string>
+    <string name="typing_volume_cursor_media_subtitle">Keep the volume control while something plays</string>
+    <string name="typing_volume_cursor_media_info">While music, a video or a podcast plays, the volume keys change the volume again, even with the keyboard open. You can always turn the sound down while you type a reply. Cursor control comes back when the audio stops.\n\nTurn this off to make the volume keys always move the cursor while the keyboard shows.</string>
+
+    <!-- ==== Typing settings: physical keyboard ==== -->
+    <string name="typing_hardware_input_title">Process the physical keys</string>
+    <string name="typing_hardware_input_subtitle">Transliterate, correct and suggest as you type on a physical keyboard</string>
+    <string name="typing_hardware_input_info">With a physical keyboard connected, the keys go through the same engine as the on-screen keyboard. Phonetic layouts transliterate, so \"ami\" gives \"আমি\". Words compose for suggestions, and autocorrect runs when you press space. The word you type shows with an underline in the field until you finish it.\n\nShortcuts (Ctrl+C, Ctrl+Z), the arrow keys, the function keys and everything in password fields always go straight to the app, at any setting.\n\nTurn this off to type the raw characters straight into the field. The layout of the physical keyboard then controls the input.</string>
+
+    <string name="typing_hw_shortcuts_title">Tool shortcuts</string>
+    <string name="typing_hw_shortcuts_subtitle">Open tools from a physical keyboard without touching the screen</string>
+    <string name="typing_hw_shortcuts_info">Press the shortcut key, then a letter. The letter opens that tool. T opens the full toolbox, and ? shows the list of letters.\n\nThe shortcut key is two presses of Ctrl by default. No app uses this, because a Ctrl alone makes no character, and the keyboard still passes it through. You can change the shortcut key and every letter below.</string>
+
+    <string name="typing_hw_shortcuts_list_title">Tool shortcuts list</string>
+    <string name="typing_hw_shortcuts_list_subtitle">Which letter opens which tool</string>
+
+    <string name="typing_hw_panel_nav_title">Arrow keys move a highlight</string>
+    <string name="typing_hw_panel_nav_subtitle">Arrows move a highlight in a tool, Enter selects it, Esc closes the tool</string>
+    <string name="typing_hw_panel_nav_info">In a tool, the arrow keys move a highlight over the emoji, the clips or the results. Enter uses the item with the highlight. Tab moves between the search box, the category chips and the results.\n\nThe highlight shows only after you press a key. It never shows while you use the keyboard by touch.</string>
+
+    <string name="typing_hw_esc_title">Esc closes the tool</string>
+    <string name="typing_hw_esc_subtitle">Escape closes an open tool instead of going to the app</string>
+    <string name="typing_hw_esc_info">Escape closes only what the keyboard has open. With no tool open, Escape goes straight to the app, so it still stops a page load or exits insert mode in an editor.</string>
+
+    <string name="typing_hw_suggestion_hotkeys_title">Number keys select suggestions</string>
+    <string name="typing_hw_suggestion_hotkeys_subtitle">Type a suggestion by its number in the suggestion strip</string>
+    <!-- The two quoted names are the choice labels of this same setting. -->
+    <string name="typing_hw_suggestion_hotkeys_info">You cannot press the suggestion strip while you type on a physical keyboard. A number key selects a suggestion instead.\n\n\"After the shortcut key\" is the safe choice, because nothing else uses it. \"Alt + number\" needs one key less, but browsers, editors and chat apps use a modifier with a number to switch tabs and workspaces.</string>
+
+    <string name="typing_hw_auto_show_title">Show the keyboard for shortcuts</string>
+    <string name="typing_hw_auto_show_subtitle">A shortcut that opens a tool also shows the keyboard</string>
+    <string name="typing_hw_auto_show_info">With a physical keyboard, there is usually no on-screen keyboard, and a tool has no space to draw. With this setting on, a shortcut that opens a tool shows the keyboard. When you close the tool, the keyboard hides again.</string>
+
+</resources>

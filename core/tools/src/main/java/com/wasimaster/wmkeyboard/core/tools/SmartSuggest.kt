@@ -228,7 +228,7 @@ object SmartSuggest {
             replaceSpan = match.value.length,
             tool = ToolbarTool.UNIT_CONVERT,
             prefill = ToolPrefill.Units(
-                category = category.name,
+                category = category.id,
                 from = from.symbol,
                 to = to.symbol,
                 value = tidyNumber(amountRaw),
@@ -248,7 +248,7 @@ object SmartSuggest {
     ): UnitConvert.ConvUnit? {
         val saved = unitLast.split(';').firstOrNull { entry ->
             val parts = entry.split('|')
-            parts.size == 3 && parts[0] == category.name && parts[1] == from.symbol
+            parts.size == 3 && parts[0] == category.id && parts[1] == from.symbol
         }?.split('|')?.getOrNull(2)
         saved?.let { symbol ->
             category.units.firstOrNull { it.symbol == symbol && it.symbol != from.symbol }

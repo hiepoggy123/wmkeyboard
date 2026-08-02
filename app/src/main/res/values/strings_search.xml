@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Settings search. The index in SettingsSearch.kt reads the row titles and
+        subtitles straight from the screens that draw them, so almost nothing
+        belongs here. A key lands in this file only when the screen has no
+        resource of its own to point at.
+    -->
+
+    <!--
+        The Languages row on the settings home names the languages that are
+        turned on, so it has no fixed subtitle for the index to reuse. This is
+        what a search result says about that screen instead.
+    -->
+    <string name="search_languages_subtitle">Add, delete and reorder your typing languages</string>
+</resources>

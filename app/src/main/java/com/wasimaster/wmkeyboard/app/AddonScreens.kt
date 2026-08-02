@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.content.Intent
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -87,6 +88,8 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -100,6 +103,8 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.addons.AddonApply
 import com.wasimaster.wmkeyboard.core.addons.AddonDownloadManager
 import com.wasimaster.wmkeyboard.core.addons.AddonEntry
@@ -112,8 +117,10 @@ import com.wasimaster.wmkeyboard.core.addons.AddonRepoRef
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.addons.InstalledAddon
+import com.wasimaster.wmkeyboard.core.addons.resolve
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.ime.R as ImeR
 import com.wasimaster.wmkeyboard.ime.ui.rememberMediaImageLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -233,7 +240,11 @@ private fun addonMetaLine(version: String, sizeBytes: Long?, author: String): St
  * colour. Read from the cached manifest, or — for something installed from a
  * repository that has since gone away — from the install record.
  */
-internal data class AddonHeading(val title: String, val icon: ImageVector, val accent: Color)
+internal data class AddonHeading(
+    @StringRes val titleRes: Int,
+    val icon: ImageVector,
+    val accent: Color,
+)
 
 /**
  * A repository's own page, as flights name it, and what that page is headed
@@ -249,12 +260,13 @@ internal fun rememberRepoHeading(manifestUrl: String): RepoHeading {
     val context = LocalContext.current
     val store = remember { AddonStore.get(context) }
     val revision by store.revision.collectAsStateWithLifecycle()
-    return remember(revision, manifestUrl) {
+    val fallbackName = stringResource(R.string.addon_repo_title_fallback)
+    return remember(revision, manifestUrl, fallbackName) {
         val repo = store.repo(manifestUrl)
             ?.let { AddonDownloadManager.cachedManifest(it) }
             ?.repo
         RepoHeading(
-            name = repo?.name?.ifBlank { null } ?: "Browse addons",
+            name = repo?.name?.ifBlank { null } ?: fallbackName,
             author = repo?.author.orEmpty(),
         )
     }
@@ -272,7 +284,7 @@ internal fun rememberAddonHeading(manifestUrl: String, addonId: String): AddonHe
             ?: store.installedFor(manifestUrl, addonId)?.second?.type
             ?: AddonType.Unknown
     }
-    return AddonHeading(type.singularLabel, type.icon, tintFor(type))
+    return AddonHeading(type.singularLabelRes, type.icon, tintFor(type))
 }
 
 /**
@@ -340,6 +352,14 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
     // it without the user having to know to pull to refresh.
     LaunchedEffect(Unit) { refreshAll() }
 
+    // Resolved here rather than in the coroutine below: a background lambda is
+    // not a composable, so it cannot read a resource itself.
+    val badUrlMessage = stringResource(
+        R.string.addon_repo_add_invalid_url_error,
+        AddonRepoCodec.MANIFEST_NAME,
+    )
+    val unreadableRepoMessage = stringResource(R.string.addon_repo_add_unreadable_error)
+
     if (showAdd) {
         AddRepositoryDialog(
             initialUrl = prefillUrl,
@@ -349,9 +369,7 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
                 scope.launch {
                     val ref = store.addRepo(pasted)
                     if (ref == null) {
-                        message = "That doesn't look like a repository URL. It has to be an " +
-                            "https link — a GitHub repository, or a direct link to a " +
-                            "${AddonRepoCodec.MANIFEST_NAME} file."
+                        message = badUrlMessage
                         return@launch
                     }
                     val manifest = withContext(Dispatchers.IO) {
@@ -359,7 +377,7 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
                     }
                     if (manifest == null) {
                         store.removeRepo(ref.manifestUrl)
-                        message = "Couldn't read an addon repository at that address."
+                        message = unreadableRepoMessage
                     } else {
                         onNavigate(addonRepoRoute(ref.manifestUrl))
                     }
@@ -372,18 +390,17 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
         AlertDialog(
             onDismissRequest = { message = null },
             text = { Text(text) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
         )
     }
 
     AddonApplyPrompt()
 
-    CaptionText(
-        "Addon repositories are ordinary web pages listing themes, layouts, " +
-            "dictionaries, snippets, sticker packs, icon packs, fonts, emoji " +
-            "fonts and key sounds. Everything they hold is plain data — " +
-            "installing an addon never runs code.",
-    )
+    CaptionText(stringResource(R.string.addon_repos_intro_body))
 
     Row(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -393,18 +410,21 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
         Button(onClick = { showAdd = true }) {
             Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Add repository")
+            Text(stringResource(R.string.addon_repo_add_action))
         }
         OutlinedButton(onClick = ::refreshAll, enabled = !refreshing && repos.isNotEmpty()) {
-            Text(if (refreshing) "Refreshing…" else "Refresh")
+            Text(
+                if (refreshing) stringResource(R.string.addon_repo_refreshing_progress)
+                else stringResource(R.string.addon_repo_refresh_action),
+            )
         }
     }
 
     if (repos.isEmpty()) {
-        CaptionText("No repositories yet. Add one with its URL to browse what it offers.")
+        CaptionText(stringResource(R.string.addon_repos_empty))
     }
 
-    SettingsGroup(if (repos.isEmpty()) null else "Repositories") {
+    SettingsGroup(if (repos.isEmpty()) null else stringResource(R.string.addon_repos_section_title)) {
         for (ref in repos) {
             item { RepositoryRow(ref, store, onNavigate) }
         }
@@ -419,7 +439,7 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
                 AddonDownloadManager.cachedManifest(ref)?.repo?.id?.let { it to ref.manifestUrl }
             }.toMap()
         }
-        SettingsGroup("Installed") {
+        SettingsGroup(stringResource(R.string.addon_installed_section_title)) {
             for ((key, record) in installed) {
                 item {
                     val url = record.manifestUrl
@@ -444,7 +464,7 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
                         supporting = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    record.type.singularLabel,
+                                    stringResource(record.type.singularLabelRes),
                                     modifier = Modifier.wmSharedBounds(takeOffKey("title", page)),
                                 )
                                 if (record.version.isNotBlank()) {
@@ -502,11 +522,13 @@ private fun AddonApplyPrompt() {
     AlertDialog(
         onDismissRequest = { AddonDownloadManager.clearPendingApply() },
         title = {
-            Text(
-                "Installed ${ask.record.name.ifBlank { ask.record.type.singularLabel.lowercase() }}",
-            )
+            // The kind's own name stands in when the addon states none. It is
+            // read as a resource rather than lower-cased: a translated name
+            // has its own capital letters and they are not ours to change.
+            val kind = stringResource(ask.record.type.singularLabelRes)
+            Text(stringResource(R.string.addon_apply_installed_title, ask.record.name.ifBlank { kind }))
         },
-        text = { Text(ask.question) },
+        text = { Text(stringResource(ask.questionRes)) },
         confirmButton = {
             TextButton(
                 // Applied on the download manager's own scope rather than this
@@ -514,10 +536,12 @@ private fun AddonApplyPrompt() {
                 // dialog, and a scope that dies with it would cancel the write
                 // it was asked to make.
                 onClick = { AddonDownloadManager.applyPending(context) },
-            ) { Text(AddonApply.confirmLabel(ask.record.type)) }
+            ) { Text(stringResource(AddonApply.confirmLabelRes(ask.record.type))) }
         },
         dismissButton = {
-            TextButton(onClick = { AddonDownloadManager.clearPendingApply() }) { Text("Not now") }
+            TextButton(onClick = { AddonDownloadManager.clearPendingApply() }) {
+                Text(stringResource(R.string.addon_apply_not_now_action))
+            }
         },
     )
 }
@@ -543,10 +567,17 @@ private fun RepositoryRow(
         supporting = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 when {
-                    manifest == null && ref.fetchedAt == 0L -> Text("Not loaded yet")
-                    manifest == null -> Text("Couldn't be read")
+                    manifest == null && ref.fetchedAt == 0L ->
+                        Text(stringResource(R.string.addon_repo_not_loaded))
+                    manifest == null -> Text(stringResource(R.string.addon_repo_unreadable))
                     else -> {
-                        Text("${manifest.addons.size} addons")
+                        Text(
+                            pluralStringResource(
+                                R.plurals.addon_repo_addon_count,
+                                manifest.addons.size,
+                                manifest.addons.size,
+                            ),
+                        )
                         if (author.isNotBlank()) {
                             Text(" · ")
                             Text(
@@ -576,11 +607,14 @@ private fun RepositoryRow(
         trailing = {
             Box {
                 IconButton(onClick = { menu = true }) {
-                    Icon(Icons.Outlined.MoreVert, contentDescription = "Repository options")
+                    Icon(
+                        Icons.Outlined.MoreVert,
+                        contentDescription = stringResource(R.string.addon_repo_options_desc),
+                    )
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
-                        text = { Text("Refresh") },
+                        text = { Text(stringResource(R.string.addon_repo_refresh_action)) },
                         onClick = {
                             menu = false
                             scope.launch {
@@ -593,7 +627,7 @@ private fun RepositoryRow(
                     val homepage = manifest?.repo?.homepage.orEmpty()
                     if (homepage.startsWith("https://")) {
                         DropdownMenuItem(
-                            text = { Text("Open homepage") },
+                            text = { Text(stringResource(R.string.addon_repo_homepage_action)) },
                             onClick = {
                                 menu = false
                                 runCatching {
@@ -605,7 +639,7 @@ private fun RepositoryRow(
                         )
                     }
                     DropdownMenuItem(
-                        text = { Text("Remove") },
+                        text = { Text(stringResource(CommonR.string.common_remove)) },
                         onClick = {
                             menu = false
                             store.removeRepo(ref.manifestUrl)
@@ -630,19 +664,18 @@ private fun AddRepositoryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add repository") },
+        title = { Text(stringResource(R.string.addon_repo_add_action)) },
         text = {
             Column {
                 Text(
-                    "Paste the repository's address — a GitHub link, or a direct " +
-                        "link to its ${AddonRepoCodec.MANIFEST_NAME}.",
+                    stringResource(R.string.addon_repo_add_body, AddonRepoCodec.MANIFEST_NAME),
                 )
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
                     singleLine = true,
-                    label = { Text("Repository URL") },
+                    label = { Text(stringResource(R.string.addon_repo_url_label)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (text.isNotBlank()) {
@@ -650,8 +683,11 @@ private fun AddRepositoryDialog(
                     // Show what will actually be fetched, so a lookalike host is
                     // visible before it is trusted.
                     Text(
-                        resolved?.let { "Will read: $it" }
-                            ?: "That isn't an https address this app can read.",
+                        if (resolved == null) {
+                            stringResource(R.string.addon_repo_url_invalid_error)
+                        } else {
+                            stringResource(R.string.addon_repo_resolved_label, resolved)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = if (resolved == null) {
                             MaterialTheme.colorScheme.error
@@ -663,9 +699,13 @@ private fun AddRepositoryDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onAdd(text) }, enabled = resolved != null) { Text("Add") }
+            TextButton(onClick = { onAdd(text) }, enabled = resolved != null) {
+                Text(stringResource(CommonR.string.common_add))
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
     )
 }
 
@@ -692,7 +732,7 @@ internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) 
     }
 
     if (ref == null || manifest == null) {
-        CaptionText("This repository couldn't be read. Try refreshing it from the Addons list.")
+        CaptionText(stringResource(R.string.addon_repo_read_error))
         return
     }
 
@@ -710,7 +750,7 @@ internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) 
         value = query,
         onValueChange = { query = it },
         singleLine = true,
-        label = { Text("Search") },
+        label = { Text(stringResource(CommonR.string.common_search)) },
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -731,14 +771,14 @@ internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) 
         FilterChip(
             selected = typeFilter == null,
             onClick = { typeFilterName = "" },
-            label = { Text("All") },
+            label = { Text(stringResource(R.string.addon_filter_all_label)) },
         )
         for (type in presentTypes) {
             val tint = tintFor(type)
             FilterChip(
                 selected = typeFilter == type,
                 onClick = { typeFilterName = if (typeFilter == type) "" else type.name },
-                label = { Text(type.label) },
+                label = { Text(stringResource(type.labelRes)) },
                 leadingIcon = {
                     Icon(type.icon, contentDescription = null, modifier = Modifier.size(18.dp))
                 },
@@ -758,7 +798,7 @@ internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) 
         }
     }
 
-    if (shown.isEmpty()) CaptionText("Nothing here matches that.")
+    if (shown.isEmpty()) CaptionText(stringResource(R.string.addon_catalogue_empty))
 
     // Two per row, the same shape the themes gallery uses. A card can show the
     // addon's first screenshot, which a list row cannot, and screenshots are
@@ -908,7 +948,7 @@ private fun AddonCard(
         // The type is what the addon's page is headed with, so this is the
         // word that grows into that heading.
         Text(
-            entry.type.singularLabel,
+            stringResource(entry.type.singularLabelRes),
             style = MaterialTheme.typography.labelSmall,
             color = tint,
             maxLines = 1,
@@ -963,12 +1003,15 @@ private fun StatusBadge(
         is AddonDownloadManager.AddonStatus.Installed -> scrim {
             Icon(
                 Icons.Outlined.Check,
-                contentDescription = "Installed",
+                contentDescription = stringResource(R.string.addon_status_installed),
                 tint = MaterialTheme.colorScheme.primary,
             )
         }
         is AddonDownloadManager.AddonStatus.UpdateAvailable ->
-            AssistChip(onClick = onInstall, label = { Text("Update") })
+            AssistChip(
+                onClick = onInstall,
+                label = { Text(stringResource(CommonR.string.common_update)) },
+            )
         is AddonDownloadManager.AddonStatus.Downloading,
         AddonDownloadManager.AddonStatus.Verifying,
         AddonDownloadManager.AddonStatus.Installing,
@@ -976,13 +1019,16 @@ private fun StatusBadge(
         is AddonDownloadManager.AddonStatus.Failed -> scrim {
             Icon(
                 Icons.Outlined.Close,
-                contentDescription = "Failed",
+                contentDescription = stringResource(R.string.addon_status_failed_desc),
                 tint = MaterialTheme.colorScheme.error,
             )
         }
         AddonDownloadManager.AddonStatus.NotInstalled -> scrim {
             IconButton(onClick = onInstall, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Outlined.Download, contentDescription = "Install")
+                Icon(
+                    Icons.Outlined.Download,
+                    contentDescription = stringResource(CommonR.string.common_install),
+                )
             }
         }
     }
@@ -1029,24 +1075,25 @@ private val AddonType.settingsRoute: String
  * Null where the screen *is* the control — the themes gallery is nothing but
  * the choice, so there is nothing to single out.
  */
-private val AddonType.settingsAnchor: String?
+@get:StringRes
+private val AddonType.settingsAnchor: Int
     get() = when (this) {
-        AddonType.Theme -> null
+        AddonType.Theme -> 0
         // Languages is a long screen and the layout switches are two thirds of
         // the way down it, under the languages themselves.
-        AddonType.Layout -> "Your layouts"
-        AddonType.Dictionary -> null
-        AddonType.EmojiKeywords -> null
-        AddonType.Snippets -> null
-        AddonType.Stickers -> "Your packs"
-        AddonType.IconPack -> "Icon pack"
-        AddonType.Font -> "Installed fonts"
-        AddonType.EmojiFont -> "Emoji font"
-        AddonType.Sound -> "Sound style"
+        AddonType.Layout -> R.string.langemoji_lang_your_layouts_title
+        AddonType.Dictionary -> 0
+        AddonType.EmojiKeywords -> 0
+        AddonType.Snippets -> 0
+        AddonType.Stickers -> R.string.import_sticker_packs_section_title
+        AddonType.IconPack -> R.string.plugins_icons_pack_title
+        AddonType.Font -> R.string.fonts_installed_header
+        AddonType.EmojiFont -> R.string.langemoji_emoji_font_title
+        AddonType.Sound -> R.string.hardware_sound_style_title
         // The master switch, not the installed list: someone sent here has
         // almost always come from "plugins are off".
-        AddonType.Plugin -> "Allow plugins"
-        AddonType.Unknown -> null
+        AddonType.Plugin -> R.string.plugins_allow_title
+        AddonType.Unknown -> 0
     }
 
 /**
@@ -1056,25 +1103,32 @@ private val AddonType.settingsAnchor: String?
  * during their first composition — the same order the search screen uses.
  */
 private fun AddonType.openSettings(onNavigate: (String) -> Unit) {
-    settingsAnchor?.let(SettingsHighlight::request)
+    settingsAnchor.takeIf { it != 0 }?.let(SettingsHighlight::request)
     onNavigate(settingsRoute)
 }
 
-/** What the Use button promises, in the language of the screen it opens. */
-private val AddonType.useLabel: String
+/**
+ * What the Use button promises, in the language of the screen it opens.
+ *
+ * Three of these destinations are tools, and a tool has one name across the
+ * whole app: those read the keyboard module's own resource rather than carry a
+ * second copy for translators to keep in step.
+ */
+@get:StringRes
+private val AddonType.useLabelRes: Int
     get() = when (this) {
-        AddonType.Theme -> "Themes"
-        AddonType.Layout -> "Languages"
-        AddonType.Dictionary -> "Custom dictionaries"
-        AddonType.EmojiKeywords -> "Emoji keywords"
-        AddonType.Snippets -> "Snippets"
-        AddonType.Stickers -> "Sticker packs"
-        AddonType.IconPack -> "Icons"
-        AddonType.Font -> "Fonts"
-        AddonType.EmojiFont -> "Emoji"
-        AddonType.Sound -> "Key press"
-        AddonType.Plugin -> "Plugins"
-        AddonType.Unknown -> "Settings"
+        AddonType.Theme -> R.string.addon_use_target_theme_label
+        AddonType.Layout -> R.string.addon_use_target_layout_label
+        AddonType.Dictionary -> R.string.addon_use_target_dictionary_label
+        AddonType.EmojiKeywords -> R.string.addon_use_target_emoji_keywords_label
+        AddonType.Snippets -> ImeR.string.ime_tool_snippets
+        AddonType.Stickers -> R.string.addon_use_target_stickers_label
+        AddonType.IconPack -> R.string.addon_use_target_icons_label
+        AddonType.Font -> R.string.addon_use_target_font_label
+        AddonType.EmojiFont -> ImeR.string.ime_tool_emoji
+        AddonType.Sound -> R.string.addon_use_target_sound_label
+        AddonType.Plugin -> ImeR.string.ime_tool_plugins
+        AddonType.Unknown -> CommonR.string.common_settings
     }
 
 @Composable
@@ -1120,8 +1174,8 @@ internal fun AddonDetailScreen(
         LaunchedEffect(local != null) { if (local != null) hadLocal = true }
         when {
             local != null -> InstalledAddonDetail(local.first, local.second, store, onNavigate)
-            hadLocal -> CaptionText("Uninstalled.")
-            else -> CaptionText("That addon couldn't be found. The repository may have changed.")
+            hadLocal -> CaptionText(stringResource(R.string.addon_uninstalled_body))
+            else -> CaptionText(stringResource(R.string.addon_detail_not_found))
         }
         return
     }
@@ -1179,28 +1233,33 @@ internal fun AddonDetailScreen(
         AddonPreviewSection(manifestUrl, entry)
     }
 
-    SettingsGroup("Details") {
+    SettingsGroup(stringResource(R.string.addon_details_section_title)) {
         item {
             // The host is the security-relevant fact — a repository can call
             // itself anything, so show where the file actually comes from.
             val host = remember(manifestUrl) {
                 runCatching { manifestUrl.toUri().host }.getOrNull().orEmpty()
             }
+            // Read before the buildString: that block is not a composable.
+            val unnamed = stringResource(R.string.addon_repo_unnamed)
+            val notInList = stringResource(R.string.addon_detail_repo_not_added)
             DetailRow(
-                "Repository",
+                stringResource(R.string.addon_detail_repository_label),
                 buildString {
-                    append(loaded.repo.name.ifBlank { "Unnamed repository" })
+                    append(loaded.repo.name.ifBlank { unnamed })
                     if (host.isNotBlank()) append("\n$host")
-                    if (ref == null) append("\nNot in your list — installing adds it")
+                    if (ref == null) append("\n$notInList")
                 },
             )
         }
-        entry.sizeBytes?.let { item { DetailRow("Size", formatBytes(it)) } }
+        entry.sizeBytes?.let {
+            item { DetailRow(stringResource(R.string.addon_detail_size_label), formatBytes(it)) }
+        }
         val languages = entry.languages
         if (languages.isNotEmpty()) {
             item {
                 DetailRow(
-                    if (languages.size == 1) "Language" else "Languages",
+                    pluralStringResource(R.plurals.addon_detail_language_label, languages.size),
                     languages.joinToString { LanguageRegistry.byId(it).displayName },
                 )
             }
@@ -1213,7 +1272,7 @@ internal fun AddonDetailScreen(
     val minAppVersion = entry.minAppVersion
     val tooOld = minAppVersion != null && minAppVersion > BuildConfig.VERSION_CODE
     if (tooOld) {
-        CaptionText("This addon needs a newer version of WM Keyboard.")
+        CaptionText(stringResource(R.string.addon_detail_needs_newer_app))
     }
 
     // The plugin master switch gates installing, so say so *before* the tap
@@ -1226,11 +1285,7 @@ internal fun AddonDetailScreen(
         entry.type == AddonType.Plugin && !pluginStore.subsystemEnabled()
     }
     if (pluginsOff) {
-        CaptionText(
-            "Plugins are switched off. Turn on “Allow plugins” under Tools › " +
-                "Plugins, then install this. (The Plugins *tool* on the toolbar " +
-                "is a separate setting — it only decides where the panel appears.)",
-        )
+        CaptionText(stringResource(R.string.addon_detail_plugins_off_body))
         OutlinedButton(
             onClick = { AddonType.Plugin.openSettings(onNavigate) },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -1241,7 +1296,12 @@ internal fun AddonDetailScreen(
                 modifier = Modifier.size(18.dp),
             )
             Spacer(Modifier.width(8.dp))
-            Text("Open Plugins")
+            Text(
+                stringResource(
+                    R.string.addon_open_screen_action,
+                    stringResource(ImeR.string.ime_tool_plugins),
+                ),
+            )
         }
     }
 
@@ -1314,7 +1374,7 @@ private fun PreviewGallery(previews: List<String>, heroKey: String? = null) {
             ) {
                 AsyncImage(
                     model = url,
-                    contentDescription = "Screenshot",
+                    contentDescription = stringResource(R.string.addon_screenshot_desc),
                     imageLoader = loader,
                     contentScale = ContentScale.Fit,
                     onSuccess = { state ->
@@ -1352,7 +1412,10 @@ private fun PreviewGallery(previews: List<String>, heroKey: String? = null) {
                 ) {
                     AsyncImage(
                         model = url,
-                        contentDescription = "Screenshot ${index + 1}",
+                        contentDescription = stringResource(
+                            R.string.addon_screenshot_numbered_desc,
+                            index + 1,
+                        ),
                         imageLoader = loader,
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
@@ -1403,9 +1466,11 @@ private fun InstalledAddonDetail(
                 modifier = Modifier.size(18.dp),
             )
             Spacer(Modifier.width(6.dp))
+            // Read before the buildString: that block is not a composable.
+            val kind = stringResource(record.type.singularLabelRes)
             Text(
                 buildString {
-                    append(record.type.singularLabel)
+                    append(kind)
                     if (record.version.isNotBlank()) append(" · ${record.version}")
                     if (record.author.isNotBlank()) append(" · ${record.author}")
                 },
@@ -1419,15 +1484,23 @@ private fun InstalledAddonDetail(
         }
     }
 
-    SettingsGroup("Details") {
-        item { DetailRow("Status", "Installed") }
-        if (record.repoName.isNotBlank()) item { DetailRow("Repository", record.repoName) }
+    SettingsGroup(stringResource(R.string.addon_details_section_title)) {
+        item {
+            DetailRow(
+                stringResource(R.string.addon_detail_status_label),
+                stringResource(R.string.addon_status_installed),
+            )
+        }
+        if (record.repoName.isNotBlank()) {
+            item {
+                DetailRow(
+                    stringResource(R.string.addon_detail_repository_label),
+                    record.repoName,
+                )
+            }
+        }
     }
-    CaptionText(
-        "Showing what was saved when this was installed — the repository " +
-            "couldn't be read just now, so there is nothing to check for updates " +
-            "against.",
-    )
+    CaptionText(stringResource(R.string.addon_detail_offline_body))
 
     Row(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -1447,7 +1520,12 @@ private fun InstalledAddonDetail(
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(8.dp))
-        Text("Use — open ${record.type.useLabel}")
+        Text(
+            stringResource(
+                R.string.addon_use_open_action,
+                stringResource(record.type.useLabelRes),
+            ),
+        )
     }
     Spacer(Modifier.height(24.dp))
 }
@@ -1482,22 +1560,28 @@ private fun AddonActions(
                 Spacer(Modifier.height(8.dp))
                 Text(
                     if (status.totalBytes > 0) {
-                        "${formatBytes(status.bytes)} of ${formatBytes(status.totalBytes)}"
+                        stringResource(
+                            R.string.addon_download_progress,
+                            formatBytes(status.bytes),
+                            formatBytes(status.totalBytes),
+                        )
                     } else {
                         formatBytes(status.bytes)
                     },
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = { AddonDownloadManager.cancel() }) { Text("Cancel") }
+                OutlinedButton(onClick = { AddonDownloadManager.cancel() }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
             }
         }
 
         AddonDownloadManager.AddonStatus.Verifying ->
-            CaptionText("Checking the download…")
+            CaptionText(stringResource(R.string.addon_checking_progress))
 
         AddonDownloadManager.AddonStatus.Installing ->
-            CaptionText("Installing…")
+            CaptionText(stringResource(CommonR.string.common_installing))
 
         else -> {
             val installed = status is AddonDownloadManager.AddonStatus.Installed
@@ -1524,9 +1608,9 @@ private fun AddonActions(
                 ) {
                     Text(
                         when {
-                            updatable -> "Update"
-                            installed -> "Installed"
-                            else -> "Install"
+                            updatable -> stringResource(CommonR.string.common_update)
+                            installed -> stringResource(R.string.addon_status_installed)
+                            else -> stringResource(CommonR.string.common_install)
                         },
                     )
                 }
@@ -1545,12 +1629,17 @@ private fun AddonActions(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text("Use — open ${entry.type.useLabel}")
+                    Text(
+                        stringResource(
+                            R.string.addon_use_open_action,
+                            stringResource(entry.type.useLabelRes),
+                        ),
+                    )
                 }
             }
             if (status is AddonDownloadManager.AddonStatus.Failed) {
                 Text(
-                    status.message,
+                    status.text.resolve(context),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -1577,7 +1666,7 @@ private fun UninstallButton(onClick: () -> Unit) {
     ) {
         Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
-        Text("Uninstall")
+        Text(stringResource(CommonR.string.common_uninstall))
     }
 }
 
@@ -1612,10 +1701,14 @@ private fun LicenseRow(manifestUrl: String, entry: AddonEntry) {
         loading = false
     }
 
+    val licenceHint = if (canShowText) {
+        stringResource(R.string.addon_licence_read_hint)
+    } else {
+        stringResource(R.string.addon_licence_not_stated)
+    }
     WmRow(
-        title = "Licence",
-        subtitle = entry.license?.takeIf { it.isNotBlank() }
-            ?: if (canShowText) "Tap to read the licence" else "Not stated",
+        title = stringResource(R.string.addon_licence_title),
+        subtitle = entry.license?.takeIf { it.isNotBlank() } ?: licenceHint,
         leading = { Icon(Icons.Outlined.Gavel, contentDescription = null) },
         trailing = if (canShowText) {
             { Icon(Icons.Outlined.Description, contentDescription = null) }
@@ -1629,7 +1722,12 @@ private fun LicenseRow(manifestUrl: String, entry: AddonEntry) {
     if (showing) {
         AlertDialog(
             onDismissRequest = { showing = false },
-            title = { Text(entry.license?.takeIf { it.isNotBlank() } ?: "Licence") },
+            title = {
+                Text(
+                    entry.license?.takeIf { it.isNotBlank() }
+                        ?: stringResource(R.string.addon_licence_title),
+                )
+            },
             text = {
                 // A licence runs to hundreds of lines; the dialog body scrolls
                 // rather than pushing its own buttons off the screen.
@@ -1639,14 +1737,18 @@ private fun LicenseRow(manifestUrl: String, entry: AddonEntry) {
                         .verticalScroll(rememberScrollState()),
                 ) {
                     val body = when {
-                        loading -> "Loading…"
-                        text.isBlank() -> "The licence text couldn't be fetched."
+                        loading -> stringResource(CommonR.string.common_loading)
+                        text.isBlank() -> stringResource(R.string.addon_licence_download_error)
                         else -> text
                     }
                     Text(withLinks(body), style = MaterialTheme.typography.bodySmall)
                 }
             },
-            confirmButton = { TextButton(onClick = { showing = false }) { Text("Close") } },
+            confirmButton = {
+                TextButton(onClick = { showing = false }) {
+                    Text(stringResource(CommonR.string.common_close))
+                }
+            },
         )
     }
 }
@@ -1729,11 +1831,14 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
                 modifier = Modifier.size(18.dp),
             )
             Spacer(Modifier.width(8.dp))
-            Text(if (loading) "Loading preview…" else "Preview")
+            Text(
+                if (loading) stringResource(R.string.addon_preview_loading_progress)
+                else stringResource(R.string.addon_preview_action),
+            )
         }
         if (failed) {
             Text(
-                "The preview couldn't be downloaded.",
+                stringResource(R.string.addon_preview_error),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -1742,8 +1847,9 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
         return
     }
 
+    val previewTitle = stringResource(R.string.addon_preview_section_title)
     when (val shown = content) {
-        is AddonPreviewContent.Snippets -> SettingsGroup("Preview") {
+        is AddonPreviewContent.Snippets -> SettingsGroup(previewTitle) {
             for (snippet in shown.entries) {
                 item {
                     WmRow(
@@ -1758,18 +1864,30 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
                 }
             }
             if (shown.total > shown.entries.size) {
-                item { CaptionText("…and ${shown.total - shown.entries.size} more") }
+                item {
+                    val more = shown.total - shown.entries.size
+                    CaptionText(pluralStringResource(R.plurals.addon_preview_more_count, more, more))
+                }
             }
         }
 
         is AddonPreviewContent.Dictionary -> DictionaryPreview(shown)
 
-        is AddonPreviewContent.EmojiKeywords -> SettingsGroup("Preview") {
+        is AddonPreviewContent.EmojiKeywords -> SettingsGroup(previewTitle) {
             item {
                 CaptionText(
-                    buildString {
-                        append(if (shown.truncated) "Over " else "")
-                        append("${shown.total} emoji named")
+                    if (shown.truncated) {
+                        pluralStringResource(
+                            R.plurals.addon_preview_emoji_count_over,
+                            shown.total,
+                            shown.total,
+                        )
+                    } else {
+                        pluralStringResource(
+                            R.plurals.addon_preview_emoji_count,
+                            shown.total,
+                            shown.total,
+                        )
                     },
                 )
             }
@@ -1788,10 +1906,10 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
             }
         }
 
-        is AddonPreviewContent.Sound -> SettingsGroup("Preview") {
+        is AddonPreviewContent.Sound -> SettingsGroup(previewTitle) {
             item {
                 WmRow(
-                    title = "Play the sound",
+                    title = stringResource(R.string.addon_preview_play_sound_title),
                     leading = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
                     onClick = { AddonSoundPreview.play(shown.file) },
                 )
@@ -1799,8 +1917,16 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
         }
 
         is AddonPreviewContent.Stickers -> {
-            SettingsGroup("Preview") {
-                item { CaptionText("${shown.total} stickers") }
+            SettingsGroup(previewTitle) {
+                item {
+                    CaptionText(
+                        pluralStringResource(
+                            R.plurals.addon_preview_sticker_count,
+                            shown.total,
+                            shown.total,
+                        ),
+                    )
+                }
             }
             val loader = rememberMediaImageLoader()
             Row(
@@ -1826,7 +1952,7 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
 
         is AddonPreviewContent.Plugin -> PluginPreview(shown)
 
-        is AddonPreviewContent.Unreadable -> CaptionText(shown.message)
+        is AddonPreviewContent.Unreadable -> CaptionText(shown.text.resolve(context))
         null -> Unit
     }
 }
@@ -1847,11 +1973,11 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
  */
 @Composable
 private fun PluginPreview(plugin: AddonPreviewContent.Plugin) {
-    SettingsGroup("What this plugin can do") {
+    SettingsGroup(stringResource(R.string.addon_plugin_permissions_title)) {
         if (plugin.permissions.isEmpty()) {
             item {
                 WmRow(
-                    title = "Nothing outside its own panel",
+                    title = stringResource(R.string.addon_plugin_no_permissions_title),
                     leading = {
                         Icon(Icons.Outlined.CheckCircle, contentDescription = null)
                     },
@@ -1861,7 +1987,7 @@ private fun PluginPreview(plugin: AddonPreviewContent.Plugin) {
             for (permission in plugin.permissions) {
                 item {
                     WmRow(
-                        title = permission.label,
+                        title = stringResource(permission.labelRes),
                         leading = {
                             Icon(Icons.Outlined.Save, contentDescription = null)
                         },
@@ -1870,10 +1996,7 @@ private fun PluginPreview(plugin: AddonPreviewContent.Plugin) {
             }
         }
         item {
-            CaptionText(
-                "Plugins run in a sandbox. This one cannot see what you type, read your " +
-                    "clipboard, or use the internet — those aren't things a plugin can ask for.",
-            )
+            CaptionText(stringResource(R.string.addon_plugin_sandbox_body))
         }
     }
 }
@@ -1893,12 +2016,21 @@ private const val INLINE_WORDS = 60
 private fun DictionaryPreview(shown: AddonPreviewContent.Dictionary) {
     var listing by remember(shown) { mutableStateOf(false) }
 
-    SettingsGroup("Preview") {
+    SettingsGroup(stringResource(R.string.addon_preview_section_title)) {
         item {
             CaptionText(
-                buildString {
-                    append(if (shown.truncated) "Over " else "")
-                    append("${shown.total} words")
+                if (shown.truncated) {
+                    pluralStringResource(
+                        R.plurals.addon_preview_word_count_over,
+                        shown.total,
+                        shown.total,
+                    )
+                } else {
+                    pluralStringResource(
+                        R.plurals.addon_preview_word_count,
+                        shown.total,
+                        shown.total,
+                    )
                 },
             )
         }
@@ -1920,7 +2052,17 @@ private fun DictionaryPreview(shown: AddonPreviewContent.Dictionary) {
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(if (shown.partial) "Show ${shown.words.size} words" else "Show all words")
+                Text(
+                    if (shown.partial) {
+                        pluralStringResource(
+                            R.plurals.addon_preview_show_words_action,
+                            shown.words.size,
+                            shown.words.size,
+                        )
+                    } else {
+                        stringResource(R.string.addon_preview_show_all_words_action)
+                    },
+                )
             }
         }
     }
@@ -1928,13 +2070,34 @@ private fun DictionaryPreview(shown: AddonPreviewContent.Dictionary) {
     if (!listing) return
     AlertDialog(
         onDismissRequest = { listing = false },
-        title = { Text("${shown.words.size} words") },
+        title = {
+            Text(
+                pluralStringResource(
+                    R.plurals.addon_preview_word_count,
+                    shown.words.size,
+                    shown.words.size,
+                ),
+            )
+        },
         text = {
             Column {
                 if (shown.partial) {
                     CaptionText(
-                        "The first ${shown.words.size} of ${if (shown.truncated) "over " else ""}" +
-                            "${shown.total} — the rest install normally.",
+                        if (shown.truncated) {
+                            pluralStringResource(
+                                R.plurals.addon_preview_partial_words_over,
+                                shown.words.size,
+                                shown.words.size,
+                                shown.total,
+                            )
+                        } else {
+                            pluralStringResource(
+                                R.plurals.addon_preview_partial_words,
+                                shown.words.size,
+                                shown.words.size,
+                                shown.total,
+                            )
+                        },
                     )
                 }
                 // One Text of newline-joined words, not a lazy list. A
@@ -1954,7 +2117,11 @@ private fun DictionaryPreview(shown: AddonPreviewContent.Dictionary) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { listing = false }) { Text("Close") } },
+        confirmButton = {
+            TextButton(onClick = { listing = false }) {
+                Text(stringResource(CommonR.string.common_close))
+            }
+        },
     )
 }
 

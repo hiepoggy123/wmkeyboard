@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.plugins
 
+import com.wasimaster.wmkeyboard.plugins.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -115,7 +116,13 @@ class PluginFileTest {
             PluginFile.MANIFEST to PluginManifestCodec.encode(manifest()).toByteArray(),
         )
         val result = import(bytes, store()) as PluginImportResult.Rejected
-        assertTrue(result.reason.contains("main.lua"))
+        // Which line refused, rather than the English that line happens to be
+        // worded in today. The arguments are what fill %1$s and %2$s, so this
+        // still proves the message names the script file the manifest asked for.
+        assertEquals(
+            PluginText.Resource(R.string.core_plugins_reject_missing_script, "Demo", "main.lua"),
+            result.reasonText,
+        )
     }
 
     @Test
@@ -135,7 +142,11 @@ class PluginFileTest {
             "main.lua" to chunk,
         )
         val result = import(bytes, store()) as PluginImportResult.Rejected
-        assertTrue(result.reason.contains("compiled"))
+        // The resource id is the assertion; the plugin name fills %1$s.
+        assertEquals(
+            PluginText.Resource(R.string.core_plugins_reject_compiled_lua, "Demo"),
+            result.reasonText,
+        )
     }
 
     @Test
@@ -155,7 +166,17 @@ class PluginFileTest {
             "main.lua" to script.toByteArray(),
         )
         val result = import(bytes, store()) as PluginImportResult.Rejected
-        assertTrue(result.reason.contains("larger than"))
+        // %1$s is the plugin name and %2$d the cap in KB, so the message still
+        // tells the user how big is too big — checked as an argument now, which
+        // survives the sentence being reworded or translated.
+        assertEquals(
+            PluginText.Resource(
+                R.string.core_plugins_reject_script_too_large,
+                "Demo",
+                PluginFile.MAX_SCRIPT_BYTES / 1024,
+            ),
+            result.reasonText,
+        )
     }
 
     @Test

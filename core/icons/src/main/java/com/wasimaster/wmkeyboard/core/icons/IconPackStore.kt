@@ -151,6 +151,8 @@ class IconPackStore(private var baseDir: File?) {
         if (packs.any { it.id == packId }) return null
         val pack = IconPack(
             id = packId,
+            // The fallback only fires when a caller passes a blank name, which
+            // the app never does: it always has a name to give.
             name = uniqueName(name.trim().ifBlank { "My icons" }),
             createdAt = now,
         )
@@ -160,10 +162,17 @@ class IconPackStore(private var baseDir: File?) {
         return pack
     }
 
-    /** The "My icons" pack, created on first use. */
+    /**
+     * The "My icons" pack, created on first use.
+     *
+     * [name] is what a new one is called. The caller passes it because the
+     * store has no context of its own to read a resource with: the wording is
+     * `R.string.core_icons_pack_mine_label`, and the screen that starts the
+     * pack resolves it.
+     */
     @Synchronized
-    fun mine(now: Long = System.currentTimeMillis()): IconPack? =
-        pack(MINE_ID) ?: createPack("My icons", id = MINE_ID, now = now)
+    fun mine(name: String, now: Long = System.currentTimeMillis()): IconPack? =
+        pack(MINE_ID) ?: createPack(name, id = MINE_ID, now = now)
 
     /** Registers a pack whose directory was already filled (the import path). */
     @Synchronized

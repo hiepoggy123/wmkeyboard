@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Key press settings screen, "Haptic feedback" group. -->
+    <string name="keypress_haptics_group_title">Haptic feedback</string>
+
+    <string name="keypress_haptics_title">Key press haptics</string>
+    <string name="keypress_haptics_subtitle">Vibrate on each key press</string>
+    <string name="keypress_haptics_info">A short vibration confirms each key press. This includes each step of the cursor movement on the spacebar. You can change the style and the strength below.</string>
+
+    <!-- Key, Tap, Click, Heavy click, Sharp and Custom are the names of the haptic styles.
+         Gboard, SwiftKey and Samsung are product names and stay untranslated. -->
+    <string name="keypress_haptic_style_title">Haptic style</string>
+    <string name="keypress_haptic_style_info">Key and Tap are the recommended styles. They give the vibration to the key haptic of the platform, the same call that stock keyboards use. On tuned devices you get the vibration of the vendor, and it follows the system haptic intensity setting.\n\nKey asks for the \"virtual key\" feel that Gboard and SwiftKey use. Tap asks for the softer \"keyboard tap\" feel of the Samsung keyboard.\n\nClick and Heavy click use the hardware haptic effects of your device (Android 10 and later). Sharp plays the hardware click primitive (Android 11 and later). It is a short, hard thump. Its strength follows the intensity slider.\n\nCustom drives the vibration motor directly with the duration and intensity sliders. It does not use the overdrive and the braking of the hardware, so it feels softer.\n\nWhen a style is not available, the keyboard uses a hardware Click, then Custom.</string>
+
+    <string name="keypress_haptic_strength_title">Haptic strength</string>
+    <string name="keypress_haptic_strength_subtitle">Vibration length for each key press</string>
+    <string name="keypress_haptic_strength_info">This is the length of the vibration pulse in milliseconds. Longer pulses feel stronger on most devices.</string>
+
+    <string name="keypress_haptic_intensity_title">Haptic intensity</string>
+    <string name="keypress_haptic_intensity_subtitle">Vibration amplitude for each key press</string>
+    <string name="keypress_haptic_intensity_info">This sets how hard the keyboard drives the vibration motor, from 1 to 255.\n\nFor Sharp it scales the hardware click primitive. The length stays fixed and only the strength changes.\n\nFor Custom it works only on devices whose vibration motor supports amplitude control. On other devices only the duration above has an effect.\n\nThe system \"Touch feedback\" vibration setting also scales the final strength.</string>
+
+    <string name="keypress_long_press_haptics_title">Press and hold haptics</string>
+    <string name="keypress_long_press_haptics_subtitle">Vibrate when a press and hold starts</string>
+    <string name="keypress_long_press_haptics_info">The keyboard vibrates a second time when a press and hold starts. This happens when the popup of alternate characters opens, or when a press and hold action runs. It tells your finger that it can lift.\n\nDelete and space do not change. Their key repeat already vibrates on each repeat.</string>
+
+    <string name="keypress_long_press_release_title">Press and hold release haptics</string>
+    <string name="keypress_long_press_release_subtitle">Vibrate on release after a press and hold</string>
+    <string name="keypress_long_press_release_info">The keyboard vibrates again when you lift your finger at the end of a press and hold. This completes the press, hold and release loop. It is off by default. Some users find a third vibration too much.</string>
+
+    <string name="keypress_vibrate_space_title">Vibrate on space</string>
+    <string name="keypress_vibrate_space_subtitle">Vibrate when you press the spacebar</string>
+    <string name="keypress_vibrate_space_info">Turn this off to stop the vibration of the spacebar only. Every other key continues to vibrate. This helps if the long spacebar feels heavy under your thumb. The key press sound still plays if it is on. This setting is on by default.</string>
+
+    <string name="keypress_vibrate_delete_swipe_title">Vibrate on delete swipe</string>
+    <string name="keypress_vibrate_delete_swipe_subtitle">Vibrate for each word that a backspace swipe deletes</string>
+    <string name="keypress_vibrate_delete_swipe_info">When you swipe left on the backspace key, the keyboard deletes word by word and vibrates for each word. Turn this off to delete a sentence with one smooth pull and no vibration. A plain press on backspace does not change. This setting is on by default.</string>
+
+    <string name="keypress_vibrate_repeat_title">Vibrate on key repeat</string>
+    <string name="keypress_vibrate_repeat_subtitle">Vibrate on each repeat while you hold a key</string>
+    <string name="keypress_vibrate_repeat_info">When you hold backspace or space, the key repeats. By default each repeat vibrates. Turn this off to vibrate on the first press only and to keep the repeats silent. Their key sound still plays if it is on. This setting is on by default.</string>
+
+    <string name="keypress_dnd_mute_title">Mute haptics in Do Not Disturb</string>
+    <string name="keypress_dnd_mute_subtitle">Stop all keyboard vibration while Do Not Disturb is on</string>
+    <string name="keypress_dnd_mute_info">By default the keyboard continues to vibrate in Do Not Disturb. Do Not Disturb applies to notifications, not to touch feedback. Turn this on to make the keyboard fully silent while Do Not Disturb is on. This setting is off by default.</string>
+
+    <!-- Key press settings screen, "Key popup" group. -->
+    <string name="keypress_popup_group_title">Key popup</string>
+
+    <string name="keypress_popup_title">Key popup</string>
+    <string name="keypress_popup_subtitle">Show a character bubble above the pressed key</string>
+    <string name="keypress_popup_info">While you hold a key, its character floats in a bubble above your finger. This lets you see the key that you pressed.</string>
+
+    <string name="keypress_popup_numeric_title">Popup on number pads</string>
+    <string name="keypress_popup_numeric_subtitle">Also show the bubble on number, phone, and date fields</string>
+    <string name="keypress_popup_numeric_info">Number, phone, and date and time fields use a keypad. The floating character adds little there. Over a PIN it shows each digit large enough for another person to read it.\n\nTurn this off to hide the bubble on those keypads. Normal text fields do not change.</string>
+
+    <string name="keypress_popup_min_duration_title">Minimum popup duration</string>
+    <string name="keypress_popup_min_duration_subtitle">How long the bubble stays visible after a quick press</string>
+    <string name="keypress_popup_min_duration_info">On a quick press the keyboard releases the key almost at once, so the bubble can be a flicker that you cannot see. The bubble stays after the release until it has been visible for this time. A value of 0 hides it the moment that you lift your finger.</string>
+
+    <string name="keypress_popup_max_duration_title">Maximum popup duration</string>
+    <string name="keypress_popup_max_duration_subtitle">A limit that hides a bubble left on screen by lag</string>
+    <string name="keypress_popup_max_duration_info">The bubble normally disappears when you lift your finger. If the keyboard lags, most often as it inserts a new line, it can miss the release and the bubble stays on screen.\n\nThis is the hard limit on the life of the bubble, measured from the press. After this time the bubble always hides.\n\nUnlike the minimum, this is not about feel. It exists only to recover from a lost release, so keep it high unless you still see a bubble that stays.</string>
+
+    <string name="keypress_popup_on_key_title">Popup on key</string>
+    <string name="keypress_popup_on_key_subtitle">Grow the bubble upward from the pressed key itself</string>
+    <string name="keypress_popup_on_key_info">On: the bubble sits on the key that you press and stretches upward. It is as wide as the key, with a large character near its top. This is the look of a stock keyboard.\n\nOff: a small bubble floats above your fingertip, with a gap.</string>
+
+    <string name="keypress_popup_font_size_title">Popup font size</string>
+    <string name="keypress_popup_font_size_subtitle">Text size in the preview bubble and the alternate keys</string>
+    <string name="keypress_popup_font_size_info">This multiplies the text size inside the character bubble that appears while you press a key, and in the popup of alternate keys. The size of the key labels does not change.</string>
+
+    <string name="keypress_popup_height_title">Popup height</string>
+    <string name="keypress_popup_height_subtitle">Height of the key preview bubble</string>
+    <!-- "Popup on key" is the title of the setting keypress_popup_on_key_title. -->
+    <string name="keypress_popup_height_info">This is the height of the character bubble. With \"Popup on key\" turned on, the keyboard measures it from the bottom of the key that you press. A bubble taller than the key goes above it and stays visible past your finger.</string>
+
+    <!-- Key press settings screen, "Timing" group. -->
+    <string name="keypress_timing_group_title">Timing</string>
+
+    <string name="keypress_long_press_delay_title">Press and hold delay</string>
+    <string name="keypress_long_press_delay_subtitle">How long you hold a key before the alternate characters appear</string>
+    <string name="keypress_long_press_delay_info">This is how long you hold a key before its alternate characters appear. The alternates are accents, digits and symbols. A lower value is faster, but the popup opens by accident more easily.</string>
+
+    <string name="keypress_key_repeat_title">Key repeat interval</string>
+    <string name="keypress_key_repeat_subtitle">How fast delete repeats while you hold it</string>
+    <string name="keypress_key_repeat_info">While you hold delete or space, the key repeats at this interval. Lower values delete faster.</string>
+
+    <string name="keypress_caps_lock_title">Caps lock double press</string>
+    <string name="keypress_caps_lock_subtitle">How fast a second press of shift turns on caps lock</string>
+    <string name="keypress_caps_lock_info">Two presses of shift inside this time turn on caps lock. A shorter time makes caps lock faster, but it starts by accident more easily. A longer time accepts a slower double press. The default is 350 ms.</string>
+
+    <!-- Key press settings screen, "Press and hold shortcuts" group. -->
+    <string name="keypress_shortcuts_group_title">Press and hold shortcuts</string>
+
+    <string name="keypress_long_press_hints_title">Press and hold hints</string>
+    <string name="keypress_long_press_hints_subtitle">Show the alternate character of each key in its corner</string>
+    <string name="keypress_long_press_hints_info">A small label in the top right corner of each key shows its first press and hold character. This is the digit, symbol or accent at the start of the popup. Keys that run a clipboard shortcut below show no hint.</string>
+
+    <string name="keypress_all_accents_title">All accents on press and hold</string>
+    <string name="keypress_all_accents_subtitle">Fill the popup of every letter with its full set of accents</string>
+    <string name="keypress_all_accents_info">This adds the complete set of accents for each Latin letter (à á â ä ã å ā …) to its press and hold popup. The keyboard keeps the characters that the layout already lists.\n\nThis setting is off by default. The built-in popups are short on purpose, and the full set has many characters. It applies to letters only.</string>
+
+    <!-- ?123 is the label printed on the symbols key. Keep it as is. -->
+    <string name="keypress_symbols_numpad_title">Press and hold ?123 for the number pad</string>
+    <string name="keypress_symbols_numpad_subtitle">Press and hold the symbols key to open the number pad</string>
+    <string name="keypress_symbols_numpad_info">Normally the ?123 key only changes to the symbol layer. With this setting on, hold it to open the number pad panel over any field. You get a full number pad without leaving the current text box. A quick press still changes the layer.</string>
+
+    <string name="keypress_currency_keys_title">Currency keys</string>
+    <!-- $ is the currency key on the symbol layer. The listed characters are the default set. -->
+    <string name="keypress_currency_keys_info">These are the characters in the press and hold popup of the $ key, in order. Put your own currency first. Separate the characters with spaces. Keep the default (৳ € £ ¥ ₹ ₿), or clear the field to restore the built-in set.</string>
+
+    <string name="keypress_ctrl_raw_title">Ctrl shortcuts as raw key events</string>
+    <string name="keypress_ctrl_raw_subtitle">For terminals. Off means that Ctrl+A, C, V and X use the clipboard</string>
+    <string name="keypress_ctrl_raw_info">A Ctrl key on a custom layout normally runs A, C, V and X through the clipboard actions of Android. Those work everywhere, including web pages and apps built with Compose.\n\nA terminal needs the raw key event instead. There Ctrl+C means interrupt, not copy. The keyboard cannot tell the two apart, so this is a setting and not a guess.</string>
+
+    <string name="keypress_hold_a_title">Press and hold A to select all</string>
+    <string name="keypress_hold_a_subtitle">A press and hold on A selects all the text</string>
+    <string name="keypress_hold_a_info">This replaces the accent popup of the A key with a select all shortcut. Turn it off to get the accents back (à á â ä å).</string>
+
+    <string name="keypress_hold_c_title">Press and hold C to copy</string>
+    <string name="keypress_hold_c_subtitle">Copies the selection, or all the text if you select nothing</string>
+    <string name="keypress_hold_c_info">With text selected, a press and hold on C copies that selection only. With no selection the keyboard selects all the text first, so one hold copies the whole field. This replaces the accent popup of the C key (ç ć).</string>
+
+    <string name="keypress_hold_x_title">Press and hold X to cut</string>
+    <string name="keypress_hold_x_subtitle">Cuts the selection, or all the text if you select nothing</string>
+    <string name="keypress_hold_x_info">With text selected, a press and hold on X cuts that selection only. With no selection the keyboard selects all the text first, so one hold cuts the whole field.</string>
+
+    <string name="keypress_hold_v_title">Press and hold V to paste</string>
+    <string name="keypress_hold_v_subtitle">A press and hold on V pastes the clipboard</string>
+    <string name="keypress_hold_v_info">This pastes the current clipboard content at the cursor. It replaces any selection. It is the classic Ctrl+V, one hold away.</string>
+
+    <string name="keypress_hold_z_title">Press and hold Z to undo</string>
+    <string name="keypress_hold_z_subtitle">A press and hold on Z undoes the last edit</string>
+    <string name="keypress_hold_z_info">This sends the same undo shortcut as the Undo tool on the toolbar. It replaces the accent popup of the Z key.</string>
+
+    <string name="keypress_hold_y_title">Press and hold Y to redo</string>
+    <string name="keypress_hold_y_subtitle">A press and hold on Y redoes the last undone edit</string>
+    <string name="keypress_hold_y_info">This sends the same redo shortcut as the Redo tool on the toolbar. That is Ctrl+Y or Ctrl+Shift+Z, from the redo shortcut setting.</string>
+
+    <!-- Slider readouts on the key press settings screen. -->
+    <!-- %1$d is a length of time in milliseconds, for example 120.
+         "ms" is a unit symbol, not a countable noun: it does not inflect. -->
+    <string name="keypress_value_ms" tools:ignore="PluralsCandidate">%1$d ms</string>
+    <!-- %1$d is a percentage from 0 to 100. -->
+    <string name="keypress_value_percent">%1$d%%</string>
+    <!-- %1$f is a scale factor, for example 0.80. The × is the multiplication sign. -->
+    <string name="keypress_value_multiplier">×%1$.2f</string>
+    <!-- %1$d is a length in density independent pixels, for example 64.
+         "dp" is a unit symbol, not a countable noun: it does not inflect. -->
+    <string name="keypress_value_dp" tools:ignore="PluralsCandidate">%1$d dp</string>
+
+</resources>

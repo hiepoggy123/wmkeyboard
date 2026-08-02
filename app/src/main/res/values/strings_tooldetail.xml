@@ -1,0 +1,444 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ==================================================================
+         Tool detail screen: one screen for each keyboard tool. The strings
+         below are grouped by tool, in the same order as the screen builds
+         them. Strings shared by more than one tool come first.
+         ================================================================== -->
+
+    <!-- Shared by every tool: the on/off switch and the icon colour row. -->
+    <string name="tooldetail_enabled_subtitle">Show this tool on the toolbar and in the toolbox</string>
+    <string name="tooldetail_icon_colour_title">Icon colour</string>
+    <string name="tooldetail_icon_colour_custom_subtitle">Custom. Press to change</string>
+    <string name="tooldetail_icon_colour_default_subtitle">Default. Press to change</string>
+    <!-- Title of the colour picker dialog. %1$s is the name of the tool, for example "Clipboard". -->
+    <string name="tooldetail_icon_colour_dialog_title">%1$s icon colour</string>
+    <!-- Heading of the options group. Many tools use this one heading. -->
+    <string name="tooldetail_options_group">Options</string>
+
+    <!-- Rows that send the user to a bigger settings screen. -->
+    <string name="tooldetail_layout_nav_title">All layout and size settings</string>
+    <string name="tooldetail_layout_nav_split_subtitle">Keyboard height, width, alignment and split</string>
+    <string name="tooldetail_layout_nav_floating_subtitle">Keyboard height, width, alignment and floating mode</string>
+    <string name="tooldetail_layout_nav_one_handed_subtitle">Keyboard height, width, alignment and one-handed mode</string>
+
+    <!-- Plugins tool. -->
+    <string name="tooldetail_plugins_group">Plugins</string>
+    <string name="tooldetail_plugins_manage_title">Manage plugins</string>
+    <string name="tooldetail_plugins_manage_subtitle">Turn plugins on, see which ones are installed, and see what each one can do</string>
+
+    <!-- Emoji tool. -->
+    <string name="tooldetail_emoji_group">Emoji</string>
+    <string name="tooldetail_emoji_toolbar_title">Emoji button in the toolbar</string>
+    <string name="tooldetail_emoji_toolbar_subtitle">Keep the emoji button visible next to the suggestions</string>
+    <string name="tooldetail_emoji_all_title">All emoji settings</string>
+    <string name="tooldetail_emoji_all_subtitle">Suggestions, the history tab, the emoji row, skin tones and favourites</string>
+
+    <!-- Clipboard tool: the history group. -->
+    <string name="tooldetail_clipboard_history_group">History</string>
+    <string name="tooldetail_clipboard_history_title">Clipboard history</string>
+    <string name="tooldetail_clipboard_history_subtitle">Save copied text so that you can paste it quickly</string>
+    <string name="tooldetail_clipboard_suggest_recent_title">Suggest the last copy</string>
+    <string name="tooldetail_clipboard_suggest_recent_subtitle">Show the last copied text as a chip on the suggestion strip. One press pastes it</string>
+    <string name="tooldetail_clipboard_toast_title">Pop-up when you copy</string>
+    <string name="tooldetail_clipboard_toast_subtitle">Show a short \"Copied\" pop-up when you copy or cut text from the keyboard</string>
+    <string name="tooldetail_clipboard_toast_info">This works for the copy actions of the keyboard: the A/C/V/X clipboard shortcuts and the copy button of the text editing panel. It works only for fields that give no copy feedback of their own. This setting is off by default.</string>
+    <string name="tooldetail_clipboard_expiry_title">Clipboard expiry</string>
+    <string name="tooldetail_clipboard_expiry_subtitle">Delete unpinned clips after this time</string>
+    <!-- Slider readout when the clipboard expiry is set to zero, so clips never expire. -->
+    <string name="tooldetail_clipboard_expiry_never">never</string>
+    <string name="tooldetail_clipboard_max_title">Maximum entries</string>
+    <string name="tooldetail_clipboard_max_subtitle">How many unpinned clips the history keeps</string>
+    <string name="tooldetail_clipboard_max_info">This is the second limit on the history. The clipboard expiry above is the first one. A busy day of copying can make hundreds of clips well inside the expiry time. When the panel is full, each new copy deletes the oldest unpinned clip. Pinned clips do not count against this limit, and the keyboard never deletes them.</string>
+    <string name="tooldetail_clipboard_bottom_row_title">Bottom control row</string>
+    <string name="tooldetail_clipboard_bottom_row_subtitle">Show an abc, space and backspace row at the bottom of the clipboard panel, like the emoji panel</string>
+    <string name="tooldetail_clipboard_pinned_last_title">Pinned entries last</string>
+    <string name="tooldetail_clipboard_pinned_last_subtitle">List pinned clips at the end of the panel instead of the top</string>
+    <string name="tooldetail_clipboard_search_title">Search bar</string>
+    <string name="tooldetail_clipboard_search_subtitle">Show a search bar at the top of the clipboard panel. It filters the history as you type</string>
+    <string name="tooldetail_clipboard_entities_title">Detect codes, numbers and links</string>
+    <string name="tooldetail_clipboard_entities_subtitle">Take one-time codes, phone numbers and links out of your clips. Each one becomes its own chip</string>
+    <string name="tooldetail_clipboard_entities_info">The chips sit above the history in dashed outlines, so they read as parts of a clip and not as clips of their own. Press and hold a chip to see it marked inside the clip that it comes from. A press pastes only that part, and the clip stays in the history. The keyboard finds these parts on your device.</string>
+    <string name="tooldetail_clipboard_password_paste_title">Forget after you paste a password</string>
+    <string name="tooldetail_clipboard_password_paste_subtitle">Delete a clip from the history and from the system clipboard as soon as you paste it into a password field</string>
+    <string name="tooldetail_clipboard_password_paste_info">Every app on your device can read the system clipboard. Without this setting, a password from a password manager stays readable there until it expires. This applies to the pastes that you make with the keyboard into a password field: the clipboard panel, the paste chip, hold V and Ctrl+V. This setting is on by default.</string>
+    <string name="tooldetail_clipboard_link_previews_title">Link previews</string>
+    <string name="tooldetail_clipboard_link_previews_subtitle">Get the page title of a copied link and show it in the panel. This contacts the linked site</string>
+    <string name="tooldetail_clipboard_screenshots_title">Your screenshots</string>
+    <string name="tooldetail_clipboard_screenshots_subtitle">Show your screenshots in the clipboard next to copied text and images</string>
+    <string name="tooldetail_clipboard_storage_permission_title">The app needs the storage permission</string>
+    <string name="tooldetail_clipboard_storage_permission_subtitle">Open the system settings to give the permission</string>
+    <string name="tooldetail_clipboard_track_source_title">Show the source app</string>
+    <string name="tooldetail_clipboard_track_source_subtitle">Record which app a clip comes from. Press and hold a clip to see it. This needs the Usage Access permission</string>
+    <string name="tooldetail_clipboard_track_source_info">The keyboard reads the app in the foreground at the moment you copy, through Usage Access. Some copies have no source app, for example a copy from a background sync. Nothing about your app usage leaves your device.</string>
+    <string name="tooldetail_clipboard_usage_permission_title">The app needs the Usage Access permission</string>
+    <string name="tooldetail_clipboard_usage_permission_subtitle">Without it, the keyboard saves clips with no source app</string>
+
+    <!-- Clipboard tool: the group for sensitive clips. -->
+    <string name="tooldetail_clipboard_sensitive_group">Passwords and codes</string>
+    <string name="tooldetail_clipboard_sensitive_title">Sensitive clips</string>
+    <string name="tooldetail_clipboard_sensitive_subtitle">What to do with a copied password or one-time code</string>
+    <string name="tooldetail_clipboard_sensitive_info">Android lets an app mark what it puts on the clipboard as sensitive. A password manager does this when you copy a login. Nothing else on your device acts on that mark, so the keyboard acts on it here. A hidden clip shows as dots in the panel. The keyboard never offers it as a paste chip and never puts it in a settings backup. It deletes itself on the short timer below and not on the history expiry. If you pin the clip, none of that applies, because a pin means \"keep this\".</string>
+    <string name="tooldetail_clipboard_detect_sensitive_title">Let the keyboard find them</string>
+    <string name="tooldetail_clipboard_detect_sensitive_subtitle">Also treat a clip that looks like a password or a bare verification code as sensitive, not only the clips that the copying app marks</string>
+    <string name="tooldetail_clipboard_detect_sensitive_info">Most password managers are older than the sensitive mark of Android, and a code that you copy by hand out of a message carries no mark at all. The keyboard looks for these clips on your device, and the test is narrow on purpose. A clip matches only when the whole clip is one token: a short run of capital letters and digits, or a long mix of capital letters, small letters, digits and symbols. Sentences, links and email addresses never match.</string>
+    <string name="tooldetail_clipboard_sensitive_expiry_title">Forget sensitive clips after</string>
+    <string name="tooldetail_clipboard_sensitive_expiry_subtitle">This time is separate from the history expiry above</string>
+
+    <!-- Split keyboard tool. -->
+    <string name="tooldetail_split_gap_title">Split gap</string>
+    <string name="tooldetail_split_gap_subtitle">Width of the gap between the two halves</string>
+
+    <!-- Floating keyboard tool. -->
+    <string name="tooldetail_floating_width_title">Floating keyboard width</string>
+    <string name="tooldetail_floating_width_subtitle">You can also drag the corner grip of the panel to change this</string>
+
+    <!-- Flashlight tool. -->
+    <string name="tooldetail_flashlight_auto_off_title">Turn off with the keyboard</string>
+    <string name="tooldetail_flashlight_auto_off_subtitle">Turn the torch off when the keyboard closes</string>
+    <string name="tooldetail_flashlight_auto_off_info">On: the torch goes off when the keyboard closes or when you change apps, so it is never left on in your pocket. Off: the torch stays on until you turn it off again, from the tool or from the quick settings tile of the system.</string>
+
+    <!-- Compass tool. -->
+    <string name="tooldetail_compass_degrees_title">Degree readout</string>
+    <string name="tooldetail_compass_degrees_subtitle">Show the heading in numbers under the compass rose</string>
+    <string name="tooldetail_compass_qibla_title">Show the qibla</string>
+    <string name="tooldetail_compass_qibla_subtitle">Mark the direction of the Kaaba on the compass</string>
+    <string name="tooldetail_compass_qibla_info">The keyboard computes the qibla bearing from the location that you save in the weather tool. The two tools share that location. The keyboard computes everything on your device, and the compass never uses the network.</string>
+    <string name="tooldetail_compass_no_location_error">No location is saved yet. Set one under Tools → Weather.</string>
+
+    <!-- Bubble level tool. -->
+    <string name="tooldetail_level_angles_title">Angle readout</string>
+    <string name="tooldetail_level_angles_subtitle">Show the pitch and the roll in degrees under the bubble</string>
+
+    <!-- Undo and redo tools. -->
+    <string name="tooldetail_redo_ctrl_y_title">Redo sends Ctrl+Y</string>
+    <string name="tooldetail_redo_ctrl_y_subtitle">Instead of the default Ctrl+Shift+Z</string>
+    <string name="tooldetail_redo_ctrl_y_info">Both shortcuts are standard for redo. Which one works depends on the app that you type in. If redo does nothing, try the other one.</string>
+
+    <!-- Moon phase tool. -->
+    <string name="tooldetail_moon_southern_title">Southern hemisphere</string>
+    <string name="tooldetail_moon_southern_subtitle">Show the moon the way it looks south of the equator</string>
+
+    <!-- Weather tool. -->
+    <string name="tooldetail_weather_fahrenheit_title">Fahrenheit</string>
+    <string name="tooldetail_weather_fahrenheit_subtitle">Show temperatures in °F instead of °C</string>
+    <string name="tooldetail_weather_info">The weather and the place search both use Open-Meteo, only when you use them. The keyboard makes no other network requests.</string>
+
+    <!-- Calendar tool. -->
+    <string name="tooldetail_calendar_group">Next to the Gregorian calendar</string>
+    <string name="tooldetail_calendar_first_title">First calendar</string>
+    <string name="tooldetail_calendar_first_subtitle">Its day number also shows inside each day cell</string>
+    <string name="tooldetail_calendar_second_title">Second calendar</string>
+    <string name="tooldetail_calendar_second_subtitle">The keyboard shows it in the header and under the selected day</string>
+    <string name="tooldetail_calendar_hijri_title">Hijri day adjustment</string>
+    <string name="tooldetail_calendar_hijri_subtitle">Move the computed Hijri date to match the local moon sighting</string>
+    <string name="tooldetail_calendar_hijri_info">The tool uses the arithmetic (tabular) Hijri calendar. Real Islamic months start at the sighting of the crescent moon. That can differ from the tables by one or two days. Set the offset that matches your local authority.</string>
+    <string name="tooldetail_calendar_info">Select any two calendars to show next to the Gregorian one. The keyboard computes Chinese dates from astronomy. The Hebrew, Persian, Hindu (Saka), Buddhist and Japanese calendars are exact arithmetic. Hijri is the tabular calendar, so it has the day offset above.\n\nAll three start from the region of your device: the Bengali calendar in Bangladesh, era years in Japan, a Friday and Saturday weekend across much of the Middle East. That is only a guess at what you want. You can change all of it here.</string>
+    <string name="tooldetail_calendar_events_info">Press a day to see its events from the calendar of your device. The keyboard asks for calendar access the first time that you open the tool. It only reads events and never changes them.</string>
+
+    <!-- Camera tool. -->
+    <string name="tooldetail_camera_front_title">Start with the selfie camera</string>
+    <string name="tooldetail_camera_front_subtitle">Open the tool on the front camera instead of the back one</string>
+    <string name="tooldetail_camera_mirror_title">Mirror selfies</string>
+    <string name="tooldetail_camera_mirror_subtitle">Save front camera photos the way the preview shows them</string>
+    <string name="tooldetail_camera_mirror_info">Camera sensors record selfies without a mirror. The text then reads correctly, but the photo looks turned around next to the preview. On: the saved photo matches what you saw while you framed it. Off: the keyboard keeps the true orientation of the sensor.</string>
+    <string name="tooldetail_camera_gallery_title">Save to the gallery</string>
+    <string name="tooldetail_camera_gallery_subtitle">Also keep photos in Pictures/WM Keyboard</string>
+    <string name="tooldetail_camera_gallery_info">This setting is off by default, because photos that you take here are normally one-time sends and not photos to keep. On: the keyboard copies every photo into the gallery and also sends it.</string>
+    <string name="tooldetail_camera_feedback_group">Feedback</string>
+    <string name="tooldetail_camera_shutter_title">Shutter sound</string>
+    <string name="tooldetail_camera_shutter_subtitle">Play the camera click when you take a photo</string>
+    <string name="tooldetail_camera_haptics_title">Haptics</string>
+    <string name="tooldetail_camera_haptics_subtitle">Vibrate on the shutter, the controls and the timer countdown</string>
+    <string name="tooldetail_camera_haptics_info">This uses the haptic style and strength of the keyboard, under Typing → Feedback. If the keyboard haptics are off, the camera tool stays silent too.</string>
+    <string name="tooldetail_camera_info">The keyboard cuts photos down to what the viewfinder shows, saves them in the private storage of the app and sends them into the chat. Nothing goes into your gallery, and the camera runs only while the tool is open.</string>
+
+    <!-- Dictionary tool. -->
+    <string name="tooldetail_dictionary_auto_title">Look up the word at the cursor</string>
+    <string name="tooldetail_dictionary_auto_subtitle">The tool searches the selected word or the current word when it opens</string>
+    <string name="tooldetail_dictionary_info">Definitions come from the Free Dictionary API (dictionaryapi.dev). The keyboard sends the word that you look up to that service, only when you use the tool.</string>
+
+    <!-- Text editing tool. -->
+    <string name="tooldetail_text_edit_repeat_title">Key repeat interval</string>
+    <string name="tooldetail_text_edit_repeat_subtitle">Pause between repeats while you hold an arrow or backspace. A lower value is faster</string>
+
+    <!-- Numpad tool. -->
+    <string name="tooldetail_numpad_calc_title">Calculator layout</string>
+    <string name="tooldetail_numpad_calc_subtitle">7 8 9 on the top row, like a desk keypad. Off puts 1 2 3 on top, like a dialer</string>
+
+    <!-- Incognito tool. -->
+    <string name="tooldetail_incognito_group">While incognito is on</string>
+    <string name="tooldetail_incognito_learning_title">Pause learning</string>
+    <string name="tooldetail_incognito_learning_subtitle">The keyboard learns no words and no emoji habits from your typing</string>
+    <string name="tooldetail_incognito_clipboard_title">Pause clipboard capture</string>
+    <string name="tooldetail_incognito_clipboard_subtitle">Copies do not go into the history of the clipboard tool</string>
+    <string name="tooldetail_incognito_auto_group">Automatic</string>
+    <string name="tooldetail_incognito_auto_title">Follow private browsing</string>
+    <string name="tooldetail_incognito_auto_subtitle">Turn on by itself in incognito tabs and private fields</string>
+    <string name="tooldetail_incognito_info">Press the tool to turn incognito on. Press it again to go back to normal typing. This is the same switch as Settings → Privacy.</string>
+
+    <!-- Power saving tool: when power saving runs. -->
+    <string name="tooldetail_power_group">Power saving</string>
+    <string name="tooldetail_power_now_title">Power saving now</string>
+    <string name="tooldetail_power_now_subtitle">The same switch that the toolbar tool uses</string>
+    <string name="tooldetail_power_now_info">This drops the features below until you turn it off again. It stays on after a restart and at any battery level. A full battery does not turn it off.\n\nNothing is lost. The features come back exactly as you had them, because power saving never rewrites your settings. It only hides them while it is on.</string>
+    <string name="tooldetail_power_trigger_title">Turn on by itself</string>
+    <string name="tooldetail_power_trigger_subtitle">As well as the switch above</string>
+    <string name="tooldetail_power_trigger_info">\"Android battery saver\" follows the system switch, so the keyboard saves power exactly when you already asked your device to. \"Battery is low\" uses your own percentage below instead.</string>
+    <string name="tooldetail_power_battery_title">Low battery is</string>
+    <string name="tooldetail_power_battery_subtitle">Power saving starts at this level or below it</string>
+    <string name="tooldetail_power_charging_title">Off while charging</string>
+    <string name="tooldetail_power_charging_subtitle">Ignore the automatic triggers while the charger is in</string>
+    <string name="tooldetail_power_charging_info">There is nothing to save while the battery fills, so the automatic triggers stop. This does not change the switch above. If you turn power saving on by hand, it stays on.</string>
+
+    <!-- Power saving tool: which features it drops. -->
+    <string name="tooldetail_power_drop_group">What to drop</string>
+    <string name="tooldetail_power_drop_haptics_title">Key vibration</string>
+    <string name="tooldetail_power_drop_haptics_subtitle">Stop the vibration motor</string>
+    <string name="tooldetail_power_drop_sound_title">Key sounds</string>
+    <string name="tooldetail_power_drop_sound_subtitle">Stop the key click</string>
+    <string name="tooldetail_power_drop_anim_title">Animations</string>
+    <string name="tooldetail_power_drop_anim_subtitle">Stop transitions and motion, as reduced motion does</string>
+    <string name="tooldetail_power_drop_trail_title">Glide trail</string>
+    <string name="tooldetail_power_drop_trail_subtitle">Stop drawing the trail behind a swiped word</string>
+    <string name="tooldetail_power_drop_trail_info">This drops only the trail. Glide typing still works. The keyboard draws the trail on every frame of a gesture, so it costs more than the decode that it decorates.</string>
+    <string name="tooldetail_power_drop_popup_title">Key popup</string>
+    <string name="tooldetail_power_drop_popup_subtitle">Stop the character bubble over each key</string>
+    <string name="tooldetail_power_drop_glide_title">Glide typing</string>
+    <string name="tooldetail_power_drop_glide_subtitle">Turn glide typing off</string>
+    <string name="tooldetail_power_drop_glide_info">A swipe decode is the most expensive thing the keyboard does. It is also why many people use the keyboard, so this setting is off by default and only the trail is dropped.</string>
+    <string name="tooldetail_power_drop_emoji_title">Emoji suggestions</string>
+    <string name="tooldetail_power_drop_emoji_subtitle">Stop reading what you type for emoji to offer</string>
+    <string name="tooldetail_power_drop_chips_title">Smart chips</string>
+    <string name="tooldetail_power_drop_chips_subtitle">Stop matching sums, conversions and tool keywords as you type</string>
+    <string name="tooldetail_power_drop_network_title">Background network</string>
+    <string name="tooldetail_power_drop_network_subtitle">No link previews and no automatic look-ups</string>
+    <string name="tooldetail_power_drop_network_info">This stops the requests that happen without you asking: previews for copied links and for scanned QR codes, and the look-up of the dictionary when you select a word. Tools that you open yourself still work, such as translate, search and GIFs.</string>
+    <string name="tooldetail_power_drop_screenshot_title">Screenshot watching</string>
+    <string name="tooldetail_power_drop_screenshot_subtitle">Stop watching for new screenshots to offer in the clipboard</string>
+    <string name="tooldetail_power_drop_models_title">On-device models</string>
+    <string name="tooldetail_power_drop_models_subtitle">Use the system recognizer for voice typing, and glide a word instead of writing it</string>
+    <string name="tooldetail_power_drop_models_info">Offline voice typing and handwriting both run a neural model on the processor, which is the most expensive work the keyboard does. Voice typing goes back to the system recognizer, and the letter swipe goes back to glide typing.</string>
+    <string name="tooldetail_power_info">Power saving is a view of your settings and never a rewrite of them. Everything that it turns off here comes back exactly as you had it the moment power saving ends.</string>
+
+    <!-- Autocorrect tool. -->
+    <string name="tooldetail_autocorrect_title">Autocorrect</string>
+    <string name="tooldetail_autocorrect_subtitle">The tool uses this same switch. You can also find it under Typing</string>
+    <string name="tooldetail_typing_nav_title">All typing settings</string>
+    <string name="tooldetail_typing_nav_subtitle">Suggestions, autocorrect, capital letters and more</string>
+
+    <!-- Sound and haptics tool. -->
+    <string name="tooldetail_keypress_nav_title">All key press settings</string>
+    <string name="tooldetail_keypress_nav_subtitle">Haptic style and strength, key preview, press and hold</string>
+    <string name="tooldetail_sound_haptics_info">The haptic style and strength are under Key press → Haptic feedback. The panel of the tool changes the same settings from the keyboard.</string>
+
+    <!-- Handwriting tool. -->
+    <string name="tooldetail_handwriting_input_group">Input</string>
+    <string name="tooldetail_handwriting_stylus_title">Stylus only</string>
+    <string name="tooldetail_handwriting_stylus_subtitle">Only an S Pen or another stylus draws. The keyboard ignores finger touches</string>
+    <string name="tooldetail_handwriting_stylus_info">This helps to reject the palm while you write with a stylus. Even with this setting off, the keyboard ignores finger touches for a short time after stylus strokes, so a resting palm does not draw.</string>
+    <string name="tooldetail_handwriting_auto_space_title">Automatic space</string>
+    <string name="tooldetail_handwriting_auto_space_subtitle">Put a space between words that you write one after another</string>
+    <string name="tooldetail_handwriting_pause_title">Recognition pause</string>
+    <string name="tooldetail_handwriting_pause_subtitle">How long after the last stroke the keyboard waits before it recognizes the word</string>
+    <string name="tooldetail_handwriting_pause_info">A shorter pause feels faster, but it can cut multi-stroke letters and Bengali conjuncts in half. A longer pause gives you more time between strokes. Gboard uses about half a second.</string>
+    <string name="tooldetail_handwriting_models_header">Recognition models</string>
+    <string name="tooldetail_handwriting_models_info">One model for each language that you type in. Recognition runs fully on your device with Google ML Kit. Each language needs a one-time download of about 20 MB. After that, handwriting works offline.</string>
+    <string name="tooldetail_handwriting_languages_title">Languages and layouts</string>
+    <string name="tooldetail_handwriting_languages_subtitle">Add a language to get its handwriting model here</string>
+
+    <!-- Themes tool. -->
+    <string name="tooldetail_themes_nav_title">All theme settings</string>
+    <string name="tooldetail_themes_nav_subtitle">Create, edit, import and export keyboard themes</string>
+
+    <!-- Translate tool. -->
+    <string name="tooldetail_translate_key_group">API key</string>
+    <string name="tooldetail_translate_key_label">Cloud Translation API key (optional)</string>
+    <string name="tooldetail_translate_key_hint">Without a key, translation uses the free public endpoint of Google</string>
+    <string name="tooldetail_translate_info">The keyboard sends the text that you translate to Google either way, and only while the translate panel is open. The free endpoint is unofficial and rate limited. A Cloud Translation key makes it official and reliable.</string>
+
+    <!-- GIF and sticker tools. -->
+    <string name="tooldetail_sticker_packs_group">Your stickers</string>
+    <string name="tooldetail_sticker_packs_title">Sticker packs</string>
+    <string name="tooldetail_sticker_packs_subtitle">Make, edit, import and export your own packs</string>
+    <string name="tooldetail_media_layout_group">Layout</string>
+    <string name="tooldetail_media_full_bleed_title">Full-screen picker</string>
+    <string name="tooldetail_media_full_bleed_subtitle">Hide the toolbar and move the search up next to a back button</string>
+    <string name="tooldetail_media_full_bleed_info">The GIF and sticker panels take the whole keyboard. The toolbar, the emoji row and the symbol row step aside, and the search box moves into the row that they leave. The grid then gets every pixel. This applies to both tools.</string>
+    <string name="tooldetail_media_keys_group">Sources and API keys</string>
+    <string name="tooldetail_media_klipy_label">Klipy API key</string>
+    <string name="tooldetail_media_klipy_hint">Free from partner.klipy.com. The Tenor API closed in the middle of 2026</string>
+    <string name="tooldetail_media_giphy_label">GIPHY API key</string>
+    <string name="tooldetail_media_giphy_hint">Free from developers.giphy.com</string>
+    <string name="tooldetail_media_info">The GIF and sticker tools share all of this, and the content filter below. Any one key is enough. Every source that has a key shows up in the panel.</string>
+    <string name="tooldetail_media_sending_group">Sending</string>
+    <string name="tooldetail_media_sticker_send_title">Send stickers as</string>
+    <string name="tooldetail_media_sticker_send_subtitle">What the sticker tool gives to the chat app</string>
+    <string name="tooldetail_media_sticker_send_info">Android has no sticker mark. The only signal is the MIME type of the file, and the receiving app decides. Sticker: the keyboard offers the WhatsApp sticker type first, so stickers arrive as real stickers there. Apps that do not support it get a normal image. Image: the keyboard always sends a plain image.</string>
+    <string name="tooldetail_media_gif_send_title">Send GIFs as</string>
+    <string name="tooldetail_media_gif_send_subtitle">Images by default, because most chat apps animate them</string>
+    <string name="tooldetail_media_gif_send_info">Sticker mode works only for GIFs that the source gives in WebP form. Android ships no encoder for animated WebP, so the keyboard cannot turn a real animated GIF into a sticker. Those GIFs always go out as images.</string>
+    <!-- The two ways to hand a picture to the chat app. -->
+    <string name="tooldetail_media_send_sticker_option">Sticker</string>
+    <string name="tooldetail_media_send_image_option">Image</string>
+    <string name="tooldetail_media_sources_header">Multiple sources</string>
+    <!-- One chip for each source. -->
+    <string name="tooldetail_media_source_tabs">Tabs</string>
+    <!-- One grid with the results of every source together. -->
+    <string name="tooldetail_media_source_mixed">Mixed</string>
+    <string name="tooldetail_media_sources_info">Tabs: one chip for each source on the panel. Mixed: one grid with the results from every source mixed evenly.</string>
+    <string name="tooldetail_media_filter_header">Content filter</string>
+    <!-- Strength of the content filter. "Med" is short for medium and must stay short. -->
+    <string name="tooldetail_media_filter_low">Low</string>
+    <string name="tooldetail_media_filter_medium">Med</string>
+    <string name="tooldetail_media_filter_high">High</string>
+    <string name="tooldetail_media_filter_info">High hides the most and Off hides nothing. This maps to the rating of Klipy and GIPHY, where High is G and Off is R.</string>
+
+    <!-- Web search and image search tools. -->
+    <string name="tooldetail_search_group">Brave Search</string>
+    <string name="tooldetail_search_key_label">Brave API key</string>
+    <string name="tooldetail_search_key_hint">From api-dashboard.search.brave.com, with a free monthly credit</string>
+    <string name="tooldetail_search_info">Web search and image search share everything here. They search the whole web. The Brave plan includes a free monthly credit of about a thousand searches. Brave asks for attribution, so the panel shows \"via Brave\".</string>
+    <string name="tooldetail_search_results_group">Results</string>
+    <string name="tooldetail_search_safe_title">SafeSearch</string>
+    <string name="tooldetail_search_safe_subtitle">Filter explicit results</string>
+    <string name="tooldetail_search_count_title">Results for each search</string>
+    <string name="tooldetail_search_count_subtitle">Each search uses one API request either way</string>
+
+    <!-- Text scan (OCR) tool. -->
+    <string name="tooldetail_ocr_select_all_title">Start with everything selected</string>
+    <string name="tooldetail_ocr_select_all_subtitle">Deselect words to cut the capture down. Off starts empty, and you select the words one by one</string>
+    <string name="tooldetail_ocr_info">Recognition runs on your device with ML Kit. No photo and no text leaves your device, and it works offline. It reads Latin script text, for example English. The text recognizer of ML Kit does not support Bengali yet. After a capture, press words to select exactly what the keyboard types or copies.</string>
+
+    <!-- QR and barcode scanner tool. -->
+    <string name="tooldetail_qr_scan_auto_title">Insert automatically</string>
+    <string name="tooldetail_qr_scan_auto_subtitle">Type the text of the code as soon as the keyboard finds one, with no confirm press</string>
+    <string name="tooldetail_qr_scan_haptics_title">Vibrate on detection</string>
+    <string name="tooldetail_qr_scan_haptics_subtitle">A short buzz when the keyboard finds a code</string>
+    <string name="tooldetail_qr_scan_preview_title">Load link details</string>
+    <string name="tooldetail_qr_scan_preview_subtitle">When a code is a web link, get the page title and description and show them above it. This needs an internet connection</string>
+    <string name="tooldetail_qr_scan_info">Decoding runs on your device with ML Kit. It works offline and uploads nothing. It reads QR codes and the common product barcode formats, such as EAN, UPC and Code 128. Insert types the text of the code at the cursor. A link also gets an Open button.</string>
+
+    <!-- Document scanner tool. -->
+    <string name="tooldetail_doc_scan_gallery_title">Save to the gallery</string>
+    <string name="tooldetail_doc_scan_gallery_subtitle">Also keep scanned pages in Pictures/WM Keyboard</string>
+    <string name="tooldetail_doc_scan_info">This opens the document scanner of Google, which is part of Google Play services, with edge detection, crop and shadow cleanup. Scanned pages come back as images. The keyboard puts them into the chat like a camera photo when it opens again. The processing runs on your device.</string>
+
+    <!-- Voice typing tool. -->
+    <string name="tooldetail_voice_engine_group">Engine</string>
+    <string name="tooldetail_voice_engine_title">Recognition engine</string>
+    <string name="tooldetail_voice_engine_subtitle">How the keyboard turns speech into text</string>
+    <string name="tooldetail_voice_engine_info">The system recognizer is fast and shows the words while you speak, but it depends on the operating system and its languages. Offline Whisper runs fully on your device across many languages and sends no audio anywhere. It transcribes each phrase after you stop speaking.</string>
+    <string name="tooldetail_voice_engine_system">System recognizer</string>
+    <string name="tooldetail_voice_engine_whisper">Offline Whisper</string>
+    <string name="tooldetail_voice_dictation_group">Voice typing</string>
+    <string name="tooldetail_voice_strip_title">Compact bar</string>
+    <string name="tooldetail_voice_strip_subtitle">Speak over the keys instead of in a full panel</string>
+    <string name="tooldetail_voice_continuous_title">Keep listening</string>
+    <string name="tooldetail_voice_continuous_subtitle">Start the next sentence automatically after each one goes into the field</string>
+    <string name="tooldetail_voice_punctuation_title">Spoken punctuation</string>
+    <!-- The three quoted words are spoken examples. Translate them into words that the user would say. -->
+    <string name="tooldetail_voice_punctuation_subtitle">Say \"comma\", \"question mark\" or \"দাঁড়ি\" to type the mark</string>
+    <string name="tooldetail_voice_offline_group">Offline transcription</string>
+    <string name="tooldetail_voice_translate_title">Translate to English</string>
+    <string name="tooldetail_voice_translate_subtitle">Speak any language and type its English translation</string>
+    <string name="tooldetail_voice_system_info">Recognition uses the speech recognizer of your device. On Android 12 and later it runs on your device when the language model is installed. If it is not, the audio goes to the recognizer service while you speak. Press and hold the microphone to speak in walkie-talkie style. It stops when you let go.</string>
+
+    <!-- Grammar check tool. -->
+    <string name="tooldetail_grammar_dialect_title">English dialect</string>
+    <string name="tooldetail_grammar_dialect_subtitle">The spelling and style rules to check against</string>
+    <string name="tooldetail_grammar_debounce_title">Re-check delay</string>
+    <string name="tooldetail_grammar_debounce_subtitle">Pause after you stop typing before the issues refresh. A lower value feels faster, a higher value does less work</string>
+    <string name="tooldetail_grammar_system_group">System-wide</string>
+    <string name="tooldetail_grammar_system_title">Use Harper everywhere</string>
+    <string name="tooldetail_grammar_system_subtitle">Set WM Keyboard as the spell checker of Android</string>
+    <string name="tooldetail_grammar_no_suggestions_title">Underline only, no fix popup</string>
+    <string name="tooldetail_grammar_no_suggestions_subtitle">Mark the spelling mistakes but offer no corrections</string>
+    <string name="tooldetail_grammar_info">Grammar checking runs on your device with the Harper engine, the same one behind harper-ls. It works offline and uploads nothing that you type. Open the tool while you write to see the issues with one-press fixes. The dialect chip on the panel also changes the dialect.\n\nHarper can also act as the system spell checker of Android. The underlines and correction menus inside other apps then come from it as well. The button above opens the system Spell checker screen. Select WM Keyboard there. It follows the dialect that you select above. If your device hides that screen, the button opens the input method settings instead.</string>
+
+    <!-- Wikipedia tool. -->
+    <string name="tooldetail_wiki_language_label">Wikipedia language</string>
+    <string name="tooldetail_wiki_language_hint">Subdomain code: en, bn, de, fr, es …</string>
+    <string name="tooldetail_wiki_markdown_title">Markdown links</string>
+    <!-- [Title](url) is Markdown syntax and must stay as it is. -->
+    <string name="tooldetail_wiki_markdown_subtitle">Insert links as [Title](url) instead of the plain address</string>
+    <string name="tooldetail_wiki_info">The searches and the article text come from the free APIs of wikipedia.org, only while you use the tool.</string>
+
+    <!-- Special symbols tool. -->
+    <string name="tooldetail_symbols_recents_group">Recents</string>
+    <string name="tooldetail_symbols_clear_title">Clear the recent symbols</string>
+    <string name="tooldetail_symbols_clear_empty">No recent symbols yet</string>
+    <!-- %1$d is how many symbols the tool remembers. -->
+    <plurals name="tooldetail_symbols_remembered_count">
+        <item quantity="one">%1$d symbol remembered</item>
+        <item quantity="other">%1$d symbols remembered</item>
+    </plurals>
+    <string name="tooldetail_symbols_info">Fractions, math operators, Greek letters, arrows, currency signs, superscripts, subscripts and typographic marks. Everything types on your device, like a normal key.</string>
+
+    <!-- Calculator tool. -->
+    <string name="tooldetail_calc_smart_title">Calculate as you type</string>
+    <string name="tooldetail_calc_smart_subtitle">Offer the result on the suggestion strip when you type a sum</string>
+    <string name="tooldetail_calc_smart_info">If you type \"12*4\", the keyboard puts 48 on the suggestion strip. Press it to replace the sum with the answer. If you end with \"=\", the keyboard adds the answer and keeps the sum. It ignores runs that can be dates (12/04) or phone numbers, unless you type the \"=\" yourself. This needs \"Smart chips\" on, under Typing.</string>
+    <string name="tooldetail_calc_degrees_title">Degrees</string>
+    <string name="tooldetail_calc_degrees_subtitle">Trigonometry functions use degrees. Off uses radians</string>
+    <string name="tooldetail_calc_precision_title">Result precision</string>
+    <string name="tooldetail_calc_precision_subtitle">Maximum number of decimal places. The unit converter uses it too</string>
+
+    <!-- Unit converter tool. -->
+    <string name="tooldetail_units_smart_title">Convert as you type</string>
+    <string name="tooldetail_units_smart_subtitle">Offer the conversion on the suggestion strip when you type a measurement</string>
+    <string name="tooldetail_units_smart_info">If you type \"1 ft\" or \"1ft\", the keyboard puts the same length in metres on the suggestion strip. The button on the chip opens the converter on that category, with the pair and the amount already filled in. The unit that it converts into is the one that you paired it with last here. One-letter abbreviations count only when you write them against the number, so \"30c\" counts and \"30 c\" does not. Ordinary sentences stay untouched. This needs \"Smart chips\" on, under Typing.</string>
+    <string name="tooldetail_units_info">There are 14 categories: length, mass, temperature, area, volume, speed, time, data, energy, power, pressure, angle, frequency and fuel economy. All conversions run on your device. The result precision follows the calculator setting. The panel opens again on the category and the units that you used last.</string>
+
+    <!-- Currency converter tool. -->
+    <string name="tooldetail_currency_smart_title">Convert as you type</string>
+    <!-- %1$s is the currency code that the tool converts into, for example USD. -->
+    <string name="tooldetail_currency_smart_subtitle">Offer the amount in %1$s when you type one in another currency</string>
+    <string name="tooldetail_currency_smart_info">\"150 usd\", \"150usd\", \"150$\" and \"150 dollars\" all put the converted amount on the suggestion strip. The keyboard converts into the \"to\" currency of the pair below. If you type an amount that is already in that currency, it converts into the \"from\" one. The rate fetch starts when you type an amount, and nothing is requested before that.</string>
+    <string name="tooldetail_currency_decimals_title">Decimal places</string>
+    <string name="tooldetail_currency_decimals_subtitle">Rounding of the converted amount</string>
+    <string name="tooldetail_currency_refresh_title">Refresh the rates every</string>
+    <string name="tooldetail_currency_refresh_subtitle">How long a fetched exchange rate stays fresh</string>
+    <string name="tooldetail_currency_refresh_info">The upstream rates update about one time each day. A value below 24 hours mostly changes how soon the keyboard tries a failed fetch again.</string>
+    <string name="tooldetail_currency_info">Rates come from open.er-api.com, which has about 160 currencies and updates daily. frankfurter.app (European Central Bank) is the fallback. Both are free and need no API key. The keyboard remembers the from and to pair that you select on the panel.</string>
+
+    <!-- QR code generator tool. -->
+    <string name="tooldetail_qr_gen_size_title">Image size</string>
+    <string name="tooldetail_qr_gen_size_subtitle">Side length of the PNG that the keyboard inserts</string>
+    <string name="tooldetail_qr_gen_send_title">Send as</string>
+    <string name="tooldetail_qr_gen_send_subtitle">QR codes go out as images by default</string>
+    <string name="tooldetail_qr_gen_send_info">Some chat apps draw a plain incoming image with no bubble. That can look like a sticker, even though it was sent as an image. Sticker mode offers the WhatsApp sticker type instead, where the app supports it.</string>
+    <string name="tooldetail_qr_gen_gallery_title">Save to the gallery</string>
+    <string name="tooldetail_qr_gen_gallery_subtitle">Also keep generated codes in Pictures/WM Keyboard</string>
+    <string name="tooldetail_qr_gen_ecc_header">Error correction</string>
+    <string name="tooldetail_qr_gen_ecc_info">Higher levels survive more dirt and damage but hold less text. The keyboard generates the code on your device and follows what the text field contains.</string>
+
+    <!-- Password generator tool. -->
+    <string name="tooldetail_password_group">Password</string>
+    <string name="tooldetail_password_length_title">Length</string>
+    <string name="tooldetail_password_uppercase_title">Capital letters</string>
+    <string name="tooldetail_password_uppercase_subtitle">A to Z</string>
+    <string name="tooldetail_password_digits_title">Digits</string>
+    <string name="tooldetail_password_digits_subtitle">0 to 9</string>
+    <string name="tooldetail_password_symbols_title">Symbols</string>
+    <!-- A sample of the symbol characters. Not translated. -->
+    <string name="tooldetail_password_symbols_subtitle" translatable="false" formatted="false">!@#$%…</string>
+    <string name="tooldetail_password_ambiguous_title">Exclude look-alikes</string>
+    <!-- The run of characters is sample data and must stay as it is. -->
+    <string name="tooldetail_password_ambiguous_subtitle">Skip Il1O0o5S8B and similar characters</string>
+    <string name="tooldetail_passphrase_group">Passphrase</string>
+    <string name="tooldetail_passphrase_words_title">Words</string>
+    <string name="tooldetail_passphrase_separator_label">Separator</string>
+    <string name="tooldetail_passphrase_separator_hint">Between words, for example - or . Leave it blank for none</string>
+    <string name="tooldetail_passphrase_capitalize_title">Capitalize the words</string>
+    <!-- Sample of what capitalization does. Not translated. -->
+    <string name="tooldetail_passphrase_capitalize_subtitle" translatable="false">correct-Horse → Correct-Horse</string>
+    <string name="tooldetail_passphrase_digit_title">Include a digit</string>
+    <string name="tooldetail_passphrase_digit_subtitle">The keyboard adds it to a random word</string>
+    <string name="tooldetail_password_info">The keyboard generates everything on your device with a cryptographic random source. It never stores it and never logs it. Passphrase words come from the bundled English word list of the keyboard.</string>
+
+    <!-- Keyboard modes tool. -->
+    <string name="tooldetail_modes_group">Modes</string>
+    <string name="tooldetail_modes_edit_title">Edit the keyboard modes</string>
+    <string name="tooldetail_modes_edit_subtitle">Setups for each app and each field, and what each one changes</string>
+</resources>

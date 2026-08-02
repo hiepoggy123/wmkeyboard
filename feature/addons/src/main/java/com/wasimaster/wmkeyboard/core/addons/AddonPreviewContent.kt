@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.addons
 
+import com.wasimaster.wmkeyboard.addons.feature.R
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginManifestResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginPermission
@@ -89,7 +90,7 @@ sealed interface AddonPreviewContent {
     ) : AddonPreviewContent
 
     /** The payload downloaded but couldn't be read as its declared type. */
-    data class Unreadable(val message: String) : AddonPreviewContent
+    data class Unreadable(val text: AddonText) : AddonPreviewContent
 }
 
 /** Reads a downloaded payload into something showable. Blocking; call on IO. */
@@ -128,7 +129,9 @@ object AddonPreviewReader {
         AddonType.Sound -> AddonPreviewContent.Sound(payload)
         AddonType.Stickers -> readStickers(payload)
         AddonType.Plugin -> readPlugin(payload)
-        else -> AddonPreviewContent.Unreadable("This addon can't be previewed")
+        else -> AddonPreviewContent.Unreadable(
+            AddonText.of(R.string.faddons_preview_error_no_preview),
+        )
     }
 
     private fun readPlugin(payload: File): AddonPreviewContent {
@@ -143,8 +146,11 @@ object AddonPreviewReader {
                 permissions = read.permissions,
             )
 
-            is PluginManifestResult.Rejected -> AddonPreviewContent.Unreadable(read.reason)
-            else -> AddonPreviewContent.Unreadable("That file isn't a WM Keyboard plugin")
+            is PluginManifestResult.Rejected ->
+                AddonPreviewContent.Unreadable(read.reasonText.toAddonText())
+            else -> AddonPreviewContent.Unreadable(
+                AddonText.of(R.string.faddons_error_not_a_plugin),
+            )
         }
     }
 
@@ -179,7 +185,9 @@ object AddonPreviewReader {
             }
         }.isSuccess
         if (!ok || samples.isEmpty()) {
-            return AddonPreviewContent.Unreadable("That file isn't an emoji keyword pack")
+            return AddonPreviewContent.Unreadable(
+                AddonText.of(R.string.faddons_preview_error_not_keyword_pack),
+            )
         }
         return AddonPreviewContent.EmojiKeywords(
             samples = samples,
@@ -190,7 +198,9 @@ object AddonPreviewReader {
 
     private fun readSnippets(payload: File): AddonPreviewContent {
         val imported = runCatching { SnippetFile.decode(payload.readText()) }.getOrNull()
-            ?: return AddonPreviewContent.Unreadable("That file isn't a snippet pack")
+            ?: return AddonPreviewContent.Unreadable(
+                AddonText.of(R.string.faddons_preview_error_not_snippet_pack),
+            )
         return AddonPreviewContent.Snippets(
             entries = imported.snippets.take(MAX_SNIPPETS).map {
                 AddonPreviewContent.Snippets.Entry(it.label, it.text, it.trigger.orEmpty())
@@ -216,7 +226,9 @@ object AddonPreviewReader {
             }
         }.isSuccess
         if (!ok || counted == 0) {
-            return AddonPreviewContent.Unreadable("No words could be read out of that file")
+            return AddonPreviewContent.Unreadable(
+                AddonText.of(R.string.faddons_error_no_words),
+            )
         }
         return AddonPreviewContent.Dictionary(
             words = words,
@@ -261,7 +273,9 @@ object AddonPreviewReader {
             }
         }.isSuccess
         if (!ok || images.isEmpty()) {
-            return AddonPreviewContent.Unreadable("The sticker images couldn't be read")
+            return AddonPreviewContent.Unreadable(
+                AddonText.of(R.string.faddons_preview_error_stickers_unreadable),
+            )
         }
         return AddonPreviewContent.Stickers(images = images, total = total)
     }

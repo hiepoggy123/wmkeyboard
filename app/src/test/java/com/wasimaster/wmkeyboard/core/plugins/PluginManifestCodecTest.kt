@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.plugins
 
+import com.wasimaster.wmkeyboard.plugins.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -88,7 +89,17 @@ class PluginManifestCodecTest {
     fun `an unknown permission refuses the whole manifest`() {
         val read = PluginManifestCodec.read(manifest(permissions = """["network:evil.com"]"""))
         val rejected = read as PluginManifestResult.Rejected
-        assertTrue(rejected.reason.contains("network:evil.com"))
+        // The permission the manifest asked for is echoed back to the user: it
+        // fills %1$s, and the plugin's name fills %2$s. Asserting the resource id
+        // and the arguments proves that without pinning the English sentence.
+        assertEquals(
+            PluginText.Resource(
+                R.string.core_plugins_reject_unknown_permission,
+                "network:evil.com",
+                "Cipher Tool",
+            ),
+            rejected.reasonText,
+        )
     }
 
     @Test

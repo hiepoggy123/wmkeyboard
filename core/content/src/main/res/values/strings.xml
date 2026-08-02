@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  :core:content holds the clipboard, snippets, stickers, fonts and saved media.
+
+  Other modules refer to these as
+  com.wasimaster.wmkeyboard.content.R.string.core_content_… because the R
+  classes are non-transitive, so the import has to name this module.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ================================================================== -->
+    <!-- Clipboard chips.                                                   -->
+    <!--                                                                    -->
+    <!-- The panel pulls a one-time code, a phone number or a link out of a -->
+    <!-- copied clip and offers it as a chip of its own. Each chip carries  -->
+    <!-- a short tag above the fragment, and the same kind name is read out -->
+    <!-- by a screen reader and shown in the press-and-hold popup.          -->
+    <!-- ================================================================== -->
+
+    <string name="core_content_clip_entity_otp_label">One-time code</string>
+    <!-- Tag drawn on the chip. The app prints it in capital letters. -->
+    <string name="core_content_clip_entity_otp_tag">CODE</string>
+
+    <string name="core_content_clip_entity_phone_label">Phone number</string>
+    <!-- Tag drawn on the chip. The app prints it in capital letters. -->
+    <string name="core_content_clip_entity_phone_tag">PHONE</string>
+
+    <string name="core_content_clip_entity_url_label">Link</string>
+    <!-- Tag drawn on the chip. The app prints it in capital letters. -->
+    <string name="core_content_clip_entity_url_tag">LINK</string>
+
+    <!-- ================================================================== -->
+    <!-- Snippet variables.                                                 -->
+    <!--                                                                    -->
+    <!-- The snippet screen lists every variable a snippet can contain. The -->
+    <!-- token itself ({date}, {clip}) is code and is never translated. The -->
+    <!-- lines below are what the screen shows next to each token.          -->
+    <!-- ================================================================== -->
+
+    <string name="core_content_snippet_var_date_info">Today\'s date</string>
+    <string name="core_content_snippet_var_time_info">The time now in 24-hour form</string>
+    <string name="core_content_snippet_var_time12_info">The time now in 12-hour form</string>
+    <string name="core_content_snippet_var_datetime_info">The date and the time</string>
+    <string name="core_content_snippet_var_isodate_info">The date in ISO form, for example 2026-07-19</string>
+    <string name="core_content_snippet_var_isotime_info">The date and the time in ISO form</string>
+    <string name="core_content_snippet_var_weekday_info">The name of the day, for example Sunday</string>
+    <string name="core_content_snippet_var_day_info">The day of the month</string>
+    <string name="core_content_snippet_var_month_info">The name of the month</string>
+    <string name="core_content_snippet_var_year_info">The year, with four digits</string>
+    <string name="core_content_snippet_var_timezone_info">The time zone, for example GMT+06:00</string>
+    <string name="core_content_snippet_var_timestamp_info">The time in Unix seconds</string>
+    <string name="core_content_snippet_var_clip_info">The newest clipboard entry</string>
+    <string name="core_content_snippet_var_selection_info">The text you select in the field</string>
+    <string name="core_content_snippet_var_app_info">The name of the app you type in</string>
+    <string name="core_content_snippet_var_package_info">The package name of that app</string>
+    <string name="core_content_snippet_var_uuid_info">A new random UUID</string>
+    <string name="core_content_snippet_var_cursor_info">The place where the cursor lands</string>
+
+    <!-- ================================================================== -->
+    <!-- Font import errors.                                                -->
+    <!--                                                                    -->
+    <!-- Shown when the user picks a file for the font library and the app  -->
+    <!-- cannot use it. Each one says which mistake it was, because the     -->
+    <!-- usual mistake is a web font or a zip that was renamed by hand.     -->
+    <!-- ================================================================== -->
+
+    <string name="core_content_font_error_empty">The file is empty.</string>
+    <string name="core_content_font_error_too_short">The file is too short to be a font.</string>
+    <string name="core_content_font_error_woff">The app cannot read WOFF web fonts. Use the .ttf or .otf version of the font.</string>
+    <string name="core_content_font_error_woff2">The app cannot read WOFF2 web fonts. Use the .ttf or .otf version of the font.</string>
+    <string name="core_content_font_error_zip">This file is a zip archive, not a font.</string>
+    <string name="core_content_font_error_markup">This file is an HTML or XML file, not a font.</string>
+    <string name="core_content_font_error_not_a_font">This file does not look like a .ttf or .otf font.</string>
+    <string name="core_content_font_error_load">The app cannot load this font file.</string>
+    <string name="core_content_font_error_no_storage">No storage is available for the font.</string>
+    <!-- %1$d is the size limit for one font file, in megabytes.
+         Not a plural: "MB" is a unit symbol, not a countable noun, and it does
+         not inflect. -->
+    <string name="core_content_font_error_too_large" tools:ignore="PluralsCandidate">A font must be smaller than <xliff:g id="limit" example="32">%1$d</xliff:g> MB.</string>
+    <string name="core_content_font_error_save">The app cannot save the font.</string>
+    <string name="core_content_font_error_read">The app cannot read the font.</string>
+
+    <!-- ================================================================== -->
+    <!-- Sticker pack import.                                               -->
+    <!--                                                                    -->
+    <!-- One line for each thing the app had to drop out of a .wmstickers   -->
+    <!-- file, so the import dialog can say what it changed instead of      -->
+    <!-- losing the images without a word. The name in quotation marks is   -->
+    <!-- the name the pack file gives the sticker, so it is not translated. -->
+    <!-- ================================================================== -->
+
+    <!-- The name for an imported pack whose own file gives no name. -->
+    <string name="core_content_sticker_pack_imported_label">Imported stickers</string>
+
+    <!-- %1$d is the number of stickers the pack file lists. %2$d is the
+         number the app keeps, which is the limit for one pack. -->
+    <plurals name="core_content_sticker_repair_kept_first">
+        <item quantity="one">The pack has %1$d sticker. The app keeps the first %2$d.</item>
+        <item quantity="other">The pack has %1$d stickers. The app keeps the first %2$d.</item>
+    </plurals>
+
+    <string name="core_content_sticker_repair_no_image_named">The app dropped a sticker. The sticker names no image file.</string>
+
+    <!-- %1$s is the name of the sticker, as the pack file spells it. -->
+    <string name="core_content_sticker_repair_image_missing">The app dropped \"<xliff:g id="sticker" example="happy">%1$s</xliff:g>\". Its image is missing.</string>
+
+    <!-- %1$s is the name of the sticker, as the pack file spells it. -->
+    <string name="core_content_sticker_repair_image_unreadable">The app dropped \"<xliff:g id="sticker" example="happy">%1$s</xliff:g>\". The app cannot read its image.</string>
+
+    <!-- %1$s is the name of the sticker, as the pack file spells it. -->
+    <string name="core_content_sticker_repair_not_saved">The app dropped \"<xliff:g id="sticker" example="happy">%1$s</xliff:g>\". The app cannot save it.</string>
+
+    <string name="core_content_sticker_repair_none_listed">The pack file lists no stickers.</string>
+
+    <!-- ================================================================== -->
+    <!-- Snippet import. The same repair notes, for a .wmsnippets.json file. -->
+    <!-- ================================================================== -->
+
+    <!-- %1$d is the largest number of snippets the app keeps from one file. -->
+    <plurals name="core_content_snippet_repair_kept_first">
+        <item quantity="one">The file has more snippets than the app keeps. The app imported the first %1$d.</item>
+        <item quantity="other">The file has more snippets than the app keeps. The app imported the first %1$d.</item>
+    </plurals>
+
+    <!-- %1$s is the name of the snippet, as the file spells it. -->
+    <string name="core_content_snippet_repair_no_text">The app dropped \"<xliff:g id="snippet" example="Address">%1$s</xliff:g>\". It has no text.</string>
+
+    <!-- %1$s is the name of the snippet. %2$d is the largest number of
+         characters a snippet can hold, and is also what picks the form. -->
+    <plurals name="core_content_snippet_repair_shortened">
+        <item quantity="one">The app shortened \"<xliff:g id="snippet" example="Address">%1$s</xliff:g>\". It was longer than %2$d character.</item>
+        <item quantity="other">The app shortened \"<xliff:g id="snippet" example="Address">%1$s</xliff:g>\". It was longer than %2$d characters.</item>
+    </plurals>
+
+    <string name="core_content_snippet_repair_named_after_text">A snippet has no name, so the app named it after its first line.</string>
+
+</resources>

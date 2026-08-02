@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Wikipedia tool panel: search, article summary, links and full text. -->
+    <string name="ime_wiki_tab_summary_label">Summary</string>
+    <string name="ime_wiki_tab_links_label">Links</string>
+    <string name="ime_wiki_tab_full_label">Full article</string>
+    <string name="ime_wiki_search_hint">Search Wikipedia…</string>
+    <!-- Shown in the search bar while the key rows type into it. -->
+    <string name="ime_wiki_search_active_hint">Search Wikipedia. Press enter to search</string>
+    <!-- %1$s is the Wikipedia language code, for example "en". -->
+    <string name="ime_wiki_idle_info">Search for a subject on <xliff:g id="language_code" example="en">%1$s</xliff:g>.wikipedia.org. Read the summary, open the links, and insert text or the address of the article.</string>
+    <string name="ime_wiki_no_summary_empty">This article has no summary.</string>
+    <string name="ime_wiki_links_empty">This article has no links to other articles.</string>
+    <!-- %1$s is what the user searched for. -->
+    <string name="ime_wiki_no_results_empty">The search found nothing for “<xliff:g id="query" example="Bangla">%1$s</xliff:g>”.</string>
+    <string name="ime_wiki_links_progress">Loading links…</string>
+    <string name="ime_wiki_full_progress">Loading the full article…</string>
+    <string name="ime_wiki_back_desc">Back to the results</string>
+    <string name="ime_wiki_insert_summary_action">Insert summary</string>
+    <string name="ime_wiki_insert_link_action">Insert link</string>
+    <string name="ime_wiki_insert_title_action">Insert title</string>
+    <!-- Inserts the link of one article from the list of links. -->
+    <string name="ime_wiki_insert_action">Insert</string>
+    <string name="ime_wiki_full_error">The app cannot load the text of the article.</string>
+
+    <!-- Dictionary tool panel: English word lookup. -->
+    <string name="ime_dict_search_hint">Look up a word…</string>
+    <!-- Shown in the search bar while the key rows type into it. -->
+    <string name="ime_dict_search_active_hint">Type a word…</string>
+    <string name="ime_dict_idle_info">Look up an English word. Press the search bar and type. You can also put the cursor on a word before you open the tool.</string>
+    <string name="ime_dict_synonyms_label">Synonyms</string>
+    <string name="ime_dict_antonyms_label">Antonyms</string>
+    <!-- %1$s is the word the user asked for. -->
+    <string name="ime_dict_lookup_progress">Looking up “<xliff:g id="word" example="keyboard">%1$s</xliff:g>”…</string>
+    <string name="ime_dict_lookup_desc">Look up the word</string>
+    <string name="ime_dict_play_desc">Play the pronunciation</string>
+    <!-- Inserts the headword at the cursor. -->
+    <string name="ime_dict_insert_action">Insert</string>
+    <string name="ime_dict_error">The app cannot reach the dictionary. Check your network and try again.</string>
+    <!-- %1$s is the word the user asked for. -->
+    <string name="ime_dict_not_found_empty">No entry for “<xliff:g id="word" example="keyboard">%1$s</xliff:g>”. Check the spelling, or try the base form of the word.</string>
+
+    <!-- Text editing tool panel: cursor keys, selection and clipboard. -->
+    <string name="ime_textedit_select_label">Select</string>
+    <string name="ime_textedit_left_desc">Move left</string>
+    <string name="ime_textedit_right_desc">Move right</string>
+    <string name="ime_textedit_up_desc">Move up</string>
+    <string name="ime_textedit_down_desc">Move down</string>
+    <string name="ime_textedit_select_desc">Turn the selection on or off</string>
+    <string name="ime_textedit_home_desc">Move to the start of the line</string>
+    <string name="ime_textedit_end_desc">Move to the end of the line</string>
+
+    <!-- Password and passphrase generator tool panel. -->
+    <string name="ime_password_length_label">Length</string>
+    <string name="ime_password_words_label">Words</string>
+    <!-- Leaves out characters that look the same, such as 0 and O. -->
+    <string name="ime_password_exclude_ambiguous_label">No look-alike characters</string>
+    <!-- %1$s is the separator character, or "None". -->
+    <string name="ime_password_separator_label">Separator: %1$s</string>
+    <string name="ime_password_capitalize_label">Capital letters</string>
+    <string name="ime_password_add_digit_label">Add a digit</string>
+    <!-- %1$d is how many bits of entropy the password has. -->
+    <!-- "bits" is the unit of an approximate measurement, not a count of things: no plural. -->
+    <string name="ime_password_entropy_info" tools:ignore="PluralsCandidate">≈%1$d bits of entropy</string>
+    <string name="ime_password_regenerate_desc">Generate again</string>
+    <!-- Inserts the generated password at the cursor. -->
+    <string name="ime_password_insert_action">Insert</string>
+    <string name="ime_password_copied_toast">Copied to the clipboard</string>
+
+    <!-- QR code generator tool panel. -->
+    <string name="ime_qr_content_hint">Type the QR code text on the keys below…</string>
+    <!-- %1$d is how many characters the user typed, %2$s the error correction level (L, M, Q or H). -->
+    <plurals name="ime_qr_meta_info">
+        <item quantity="one">%1$d character · error correction <xliff:g id="level" example="M">%2$s</xliff:g></item>
+        <item quantity="other">%1$d characters · error correction <xliff:g id="level" example="M">%2$s</xliff:g></item>
+    </plurals>
+    <string name="ime_qr_image_desc">QR code</string>
+    <string name="ime_qr_send_action">Send as an image</string>
+    <string name="ime_qr_empty">Type on the keys below to make a QR code.</string>
+    <!-- %1$d is how many characters the user typed. -->
+    <plurals name="ime_qr_too_long_error">
+        <item quantity="one">The text is too long for one QR code. It has %1$d character.</item>
+        <item quantity="other">The text is too long for one QR code. It has %1$d characters.</item>
+    </plurals>
+
+    <!-- Typing speed tool panel: the run and the results. -->
+    <string name="ime_typing_new_best_label">New best</string>
+    <!-- Caption under the seconds that are left in a timed run. -->
+    <string name="ime_typing_time_left_label">left</string>
+    <!-- Caption under the count of words that are typed. -->
+    <string name="ime_typing_words_left_label">words</string>
+    <!-- Short for words per minute. It sits after a number. -->
+    <string name="ime_typing_wpm_label">wpm</string>
+    <!-- Short for accuracy. It sits after a number and there is little room. -->
+    <string name="ime_typing_accuracy_short_label">acc</string>
+    <string name="ime_typing_accuracy_label">accuracy</string>
+    <!-- Speed before the mistakes are subtracted. -->
+    <string name="ime_typing_raw_label">raw</string>
+    <string name="ime_typing_consistency_label">consistency</string>
+    <string name="ime_typing_time_label">time</string>
+    <string name="ime_typing_mode_time_label">Time</string>
+    <string name="ime_typing_mode_words_label">Words</string>
+    <string name="ime_typing_mode_quote_label">Quote</string>
+    <string name="ime_typing_punctuation_label">Punctuation</string>
+    <string name="ime_typing_numbers_label">Numbers</string>
+    <!-- %1$d is the best speed in words per minute for the current settings. -->
+    <string name="ime_typing_best_info">best %1$d</string>
+    <!-- The four counts are, in order: correct, wrong, extra and missed characters. -->
+    <!-- Four separate counts in one line, and each number is followed by an adjective, not by the
+         noun it counts: one <plurals> cannot agree with four quantities, so no plural. -->
+    <string name="ime_typing_char_counts_info" tools:ignore="PluralsCandidate">%1$d correct · %2$d wrong · %3$d extra · %4$d missed</string>
+    <!-- %1$d is how many past runs the graph below shows. -->
+    <plurals name="ime_typing_history_count">
+        <item quantity="one">The last %1$d run</item>
+        <item quantity="other">The last %1$d runs</item>
+    </plurals>
+    <!-- Starts one more run with the same settings. -->
+    <string name="ime_typing_again_action">Again</string>
+    <string name="ime_typing_insert_score_action">Insert score</string>
+
+    <!-- Symbols tool panel. -->
+    <!-- Chip for the symbols the user selected most recently. -->
+    <string name="ime_symbols_recents_label">Recents</string>
+
+    <!-- Calculator tool panel. -->
+    <!-- Short for degrees. It names the unit the trigonometry keys work in. -->
+    <string name="ime_calc_degrees_label">deg</string>
+    <!-- Short for radians. It names the unit the trigonometry keys work in. -->
+    <string name="ime_calc_radians_label">rad</string>
+    <!-- Inserts the result at the cursor. -->
+    <string name="ime_calc_insert_action">Insert</string>
+
+    <!-- Unit and currency converter tool panels. -->
+    <string name="ime_converter_from_label">From</string>
+    <string name="ime_converter_to_label">To</string>
+    <string name="ime_units_swap_desc">Swap the units</string>
+    <!-- Inserts the converted value at the cursor. -->
+    <string name="ime_units_insert_action">Insert</string>
+    <string name="ime_currency_progress">Downloading the exchange rates…</string>
+    <string name="ime_currency_swap_desc">Swap the currencies</string>
+    <string name="ime_currency_refresh_desc">Update the exchange rates</string>
+    <!-- Inserts the converted amount at the cursor. -->
+    <string name="ime_currency_insert_action">Insert</string>
+
+    <!-- Compass tool panel. -->
+    <string name="ime_compass_calibrating_progress">Calibrating…</string>
+    <!-- %1$d is the bearing in degrees, %2$s the compass point, for example NNE. -->
+    <string name="ime_compass_qibla_info">Qibla %1$d° <xliff:g id="compass_point" example="NNE">%2$s</xliff:g></string>
+    <string name="ime_compass_qibla_no_location_info">Qibla needs a saved location. Save one in the settings of the weather tool.</string>
+    <string name="ime_compass_no_sensor_empty">Your device has no orientation sensor.</string>
+
+    <!-- Bubble level tool panel. -->
+    <string name="ime_level_no_sensor_empty">Your device has no accelerometer.</string>
+
+    <!-- Moon phase tool panel. -->
+    <!-- %1$d is the lit part of the moon in percent, %2$d the day of the 30 day cycle. -->
+    <!-- The first number is followed by the percent sign and the second is a position in a cycle
+         ("day 7 of 30"), not a count of days: neither field inflects a noun. -->
+    <string name="ime_moon_detail_info" tools:ignore="PluralsCandidate">%1$d%% illuminated · day %2$d of 30</string>
+    <!-- %1$s is a date. -->
+    <string name="ime_moon_full_info">Full moon: %1$s</string>
+    <!-- %1$s is a date. -->
+    <string name="ime_moon_new_info">New moon: %1$s</string>
+
+    <!-- Weather tool panel. -->
+    <!-- %1$d is the high temperature, %2$d the low temperature. H and L are short for high and low. -->
+    <string name="ime_weather_high_low_info">H %1$d° L %2$d°</string>
+    <!-- Caption under the temperature the weather feels like. -->
+    <string name="ime_weather_feels_like_label">feels like</string>
+    <string name="ime_weather_humidity_label">humidity</string>
+    <string name="ime_weather_wind_label">wind</string>
+    <!-- Caption under the chance of rain in percent. -->
+    <string name="ime_weather_rain_chance_label">rain chance</string>
+    <string name="ime_weather_clouds_label">clouds</string>
+    <!-- Caption under the highest ultraviolet index of the day. -->
+    <string name="ime_weather_uv_label">UV max</string>
+    <string name="ime_weather_sunrise_label">sunrise</string>
+    <string name="ime_weather_sunset_label">sunset</string>
+    <string name="ime_weather_progress">Loading the weather…</string>
+    <string name="ime_weather_refresh_desc">Update the weather</string>
+    <string name="ime_weather_open_settings_action">Open settings</string>
+    <string name="ime_weather_no_location_empty">No location is set. Search for your city in the settings of the weather tool.</string>
+    <string name="ime_weather_error">The app cannot download the weather. Check your network.</string>
+
+    <!-- Calendar tool panel. -->
+    <string name="ime_calendar_today_label">Today</string>
+    <string name="ime_calendar_tomorrow_label">Tomorrow</string>
+    <string name="ime_calendar_yesterday_label">Yesterday</string>
+    <string name="ime_calendar_all_day_label">All day</string>
+    <!-- %1$d is how many days after today the selected day is. -->
+    <plurals name="ime_calendar_in_days_info">
+        <item quantity="one">in %1$d day</item>
+        <item quantity="other">in %1$d days</item>
+    </plurals>
+    <!-- %1$d is how many days before today the selected day is. -->
+    <plurals name="ime_calendar_days_ago_info">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
+    <!-- The first letter of each weekday, from Sunday to Saturday. -->
+    <string-array name="ime_calendar_weekday_initials">
+        <item>S</item>
+        <item>M</item>
+        <item>T</item>
+        <item>W</item>
+        <item>T</item>
+        <item>F</item>
+        <item>S</item>
+    </string-array>
+    <string name="ime_calendar_permission_info">See the events of the day from your calendar here.</string>
+    <string name="ime_calendar_previous_month_desc">Previous month</string>
+    <string name="ime_calendar_next_month_desc">Next month</string>
+    <!-- Gives the keyboard permission to read the calendar of the device. -->
+    <string name="ime_calendar_allow_action">Allow</string>
+    <string name="ime_calendar_no_events_empty">No events</string>
+
+    <!-- Themes tool panel. -->
+    <!-- %1$s is the name of the keyboard mode that is active. -->
+    <string name="ime_themes_mode_locked_info">The <xliff:g id="mode_name" example="Work">%1$s</xliff:g> mode sets the theme while it is active.</string>
+    <string name="ime_themes_auto_on_info">The automatic theme is on. It selects between your light and dark themes.</string>
+    <string name="ime_themes_pick_info">Press a theme to use it.</string>
+    <string name="ime_themes_edit_action">Edit themes</string>
+    <string name="ime_themes_edit_desc">Create and edit themes in the settings</string>
+
+    <!-- Sound and haptics tool panel. -->
+    <string name="ime_sound_haptics_title">Haptics</string>
+    <string name="ime_sound_key_sound_title">Key sound</string>
+    <string name="ime_sound_intensity_label">Intensity</string>
+    <string name="ime_sound_duration_label">Duration</string>
+    <string name="ime_sound_volume_label">Volume</string>
+    <string name="ime_sound_style_click_label">Click</string>
+    <string name="ime_sound_style_standard_label">Standard</string>
+    <string name="ime_sound_style_pop_label">Pop</string>
+    <!-- The deep sound of a mechanical key. -->
+    <string name="ime_sound_style_thock_label">Thock</string>
+    <string name="ime_sound_style_chime_label">Chime</string>
+    <string name="ime_sound_haptic_system_key_info">The system key haptic, like Gboard and SwiftKey. It follows the haptic intensity setting of your device.</string>
+    <string name="ime_sound_haptic_system_tap_info">The system keyboard tap. It is softer, like the Samsung keyboard. It follows the setting of your device.</string>
+    <string name="ime_sound_vibrate_info">Your device is on vibrate. The key press sounds do not play.</string>
+    <string name="ime_sound_silent_info">Your device is silent. The key press sounds do not play.</string>
+
+    <!-- Number pad tool panel. -->
+    <string name="ime_numpad_enter_desc">Enter</string>
+
+</resources>

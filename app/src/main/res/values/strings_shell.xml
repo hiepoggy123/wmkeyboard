@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Settings search screen: the search field and its two empty states. -->
+    <!-- Placeholder inside the search field at the top of the search screen. -->
+    <string name="shell_search_hint">Search settings</string>
+    <!-- Shown while the search field is still empty. The three quoted words are examples of what to type. -->
+    <string name="shell_search_help_body">Search every setting by name, for example \"haptic\", \"number row\" or \"incognito\". You can also search by the tool that the setting belongs to.</string>
+    <!-- Shown when a search finds nothing. %1$s = the text the user typed. -->
+    <string name="shell_search_empty">No setting matches \"<xliff:g id="query" example="haptic">%1$s</xliff:g>\".</string>
+
+    <!-- Full screen image viewer for add-on screenshots. -->
+    <!-- Screen reader description of one screenshot. %1$d = its position, %2$d = how many there are.
+         %1$d is a position in the list, not a count of screenshots, and the
+         word after it is "of": always one screenshot, never a plural. -->
+    <string name="shell_image_viewer_page_desc" tools:ignore="PluralsCandidate">Screenshot %1$d of %2$d</string>
+    <!-- Counter under the image. %1$d = the current position, %2$d = how many images there are. -->
+    <string name="shell_image_viewer_counter">%1$d / %2$d</string>
+
+    <!-- Debug log screen: the text above the first group. -->
+    <string name="shell_debug_log_intro_body">This log shows what the keyboard recorded about itself since the app last started. It also shows a crash that the app did not survive. The keyboard never records what you type.</string>
+
+    <!-- Debug log screen: the Report group. -->
+    <string name="shell_debug_log_report_title">Report</string>
+    <string name="shell_debug_log_share_title">Share diagnostics</string>
+    <string name="shell_debug_log_share_subtitle">Send the report to an email, an issue tracker or a notes app</string>
+    <string name="shell_debug_log_copy_title">Copy to clipboard</string>
+    <string name="shell_debug_log_copy_subtitle">The same report, as text</string>
+    <string name="shell_debug_log_system_title">Include the system log</string>
+    <string name="shell_debug_log_system_subtitle">Add the Android log of this app to the report</string>
+    <!-- Long explanation behind the "?" button on the "Include the system log" row. -->
+    <string name="shell_debug_log_system_info">The keyboard writes the app log above. It holds only what the keyboard chose to record. The system log is everything this app printed, including its libraries. It helps more with a problem that is difficult to repeat. The keyboard does not control what goes into it. Read the system log before you send it to anyone.</string>
+
+    <!-- Debug log screen: the Diagnostic build group. Only a build made with the crash screen turned on shows it. -->
+    <string name="shell_debug_log_diagnostic_title">Diagnostic build</string>
+    <string name="shell_debug_log_diagnostic_body">This build shows a crash report on the screen. It does not show the \"app has stopped\" dialog of Android. You can then copy a crash trace from a device with no computer.</string>
+    <string name="shell_debug_log_crash_test_title">Test the crash screen</string>
+    <string name="shell_debug_log_crash_test_subtitle">The app crashes on purpose so you can check that the report opens</string>
+
+    <!-- Debug log screen: the Crashes group. -->
+    <string name="shell_debug_log_crashes_title">Crashes</string>
+    <string name="shell_debug_log_delete_crashes_action">Delete crashes</string>
+
+    <!-- Debug log screen: the App log group. -->
+    <string name="shell_debug_log_app_log_title">App log</string>
+    <!-- Label of the field that narrows the log down to the lines that contain this text. -->
+    <string name="shell_debug_log_filter_hint">Filter</string>
+    <string name="shell_debug_log_refresh_action">Refresh</string>
+    <string name="shell_debug_log_delete_app_log_action">Delete the app log</string>
+    <string name="shell_debug_log_empty">The keyboard recorded nothing yet. Open the keyboard, make the problem happen, then come back. The app keeps the log in memory. The log stays only while the app runs.</string>
+    <string name="shell_debug_log_filter_empty">No entries match this filter.</string>
+
+    <!-- Debug log screen: the System log group. -->
+    <string name="shell_debug_log_system_log_title">System log</string>
+    <string name="shell_debug_log_system_unavailable">This device did not let the app read its own log.</string>
+
+    <!-- Debug log screen: what the user sees outside the app once the report leaves it. -->
+    <!-- Subject of the shared report, and the name the clipboard gives it. -->
+    <string name="shell_debug_log_report_subject">WM Keyboard diagnostics</string>
+    <string name="shell_debug_log_copied_info">The app copied the report.</string>
+    <string name="shell_debug_log_write_error">The app cannot write the report.</string>
+
+    <!-- ================================================================== -->
+    <!-- Debug log screen: the chips that select how much of the log to      -->
+    <!-- show. Each one names a level of the log, from the most detailed to  -->
+    <!-- the most serious.                                                   -->
+    <!-- ================================================================== -->
+
+    <string name="shell_debug_log_level_debug_label">Debug</string>
+    <string name="shell_debug_log_level_info_label">Info</string>
+    <string name="shell_debug_log_level_warn_label">Warn</string>
+    <string name="shell_debug_log_level_error_label">Error</string>
+
+</resources>

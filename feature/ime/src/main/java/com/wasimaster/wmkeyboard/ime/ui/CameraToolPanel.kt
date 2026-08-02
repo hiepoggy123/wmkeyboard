@@ -72,6 +72,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
@@ -87,6 +88,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.R
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -179,8 +181,7 @@ internal fun CameraPanel(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    "The camera tool needs permission to use the camera. " +
-                        "Photos are only taken when you tap the shutter.",
+                    stringResource(R.string.ime_camera_permission_body),
                     color = kb.toolbarIcon,
                     fontSize = 13.sp,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -194,8 +195,11 @@ internal fun CameraPanel(
                         .pointerInput(Unit) { detectTapGestures { onRequestPermission() } }
                         .padding(horizontal = 20.dp, vertical = 10.dp),
                 ) {
-                    Text("Allow camera", color = kb.toolCircleActiveIcon,
-                        fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text(
+                        stringResource(R.string.ime_camera_permission_action),
+                        color = kb.toolCircleActiveIcon,
+                        fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                    )
                 }
             }
         }
@@ -206,7 +210,7 @@ internal fun CameraPanel(
             Box(modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
                 CameraChipButton(
                     icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                    description = "Close camera",
+                    description = stringResource(R.string.ime_camera_close_desc),
                     active = false,
                 ) {
                     if (state.settings.camera.haptics) keyFeedback()
@@ -383,7 +387,7 @@ private fun CameraContent(
             // FillBounds would squish the picture into the box.
             Image(
                 bitmap = captured.bitmap.asImageBitmap(),
-                contentDescription = "Captured photo",
+                contentDescription = stringResource(R.string.ime_camera_captured_photo_desc),
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .layout { measurable, constraints ->
@@ -406,7 +410,7 @@ private fun CameraContent(
             ) {
                 CaptureActionButton(
                     icon = Icons.Outlined.Refresh,
-                    label = "Retake",
+                    label = stringResource(R.string.ime_camera_retake_action),
                     accent = false,
                 ) {
                     feedback()
@@ -415,7 +419,7 @@ private fun CameraContent(
                 }
                 CaptureActionButton(
                     icon = Icons.AutoMirrored.Outlined.Send,
-                    label = "Send",
+                    label = stringResource(R.string.ime_camera_send_action),
                     accent = true,
                 ) {
                     // Send's vibration comes from the service handler.
@@ -427,7 +431,13 @@ private fun CameraContent(
         }
 
         if (selector == null) {
-            PanelCenteredMessage(if (provider == null) "Starting camera…" else "This device has no camera.")
+            PanelCenteredMessage(
+                if (provider == null) {
+                    stringResource(R.string.ime_camera_starting_progress)
+                } else {
+                    stringResource(R.string.ime_camera_no_camera_error)
+                },
+            )
             return@Box
         }
 
@@ -471,7 +481,7 @@ private fun CameraContent(
                     .padding(horizontal = 10.dp, vertical = 4.dp),
             ) {
                 Text(
-                    "%.1fx".format(zoomRatio),
+                    stringResource(R.string.ime_camera_zoom_label, zoomRatio),
                     color = Color.White,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -515,7 +525,7 @@ private fun CameraContent(
                             ImageCapture.FLASH_MODE_AUTO -> Icons.Outlined.FlashAuto
                             else -> Icons.Outlined.FlashOff
                         },
-                        description = "Flash mode",
+                        description = stringResource(R.string.ime_camera_flash_desc),
                         active = flashMode != ImageCapture.FLASH_MODE_OFF,
                     ) {
                         feedback()
@@ -529,9 +539,13 @@ private fun CameraContent(
                 }
                 CameraChipButton(
                     icon = if (timerSeconds == 0) Icons.Outlined.TimerOff else Icons.Outlined.Timer,
-                    description = "Self-timer",
+                    description = stringResource(R.string.ime_camera_timer_desc),
                     active = timerSeconds > 0,
-                    label = if (timerSeconds > 0) "${timerSeconds}s" else null,
+                    label = if (timerSeconds > 0) {
+                        stringResource(R.string.ime_camera_timer_seconds_label, timerSeconds)
+                    } else {
+                        null
+                    },
                 ) {
                     feedback()
                     timerSeconds = when (timerSeconds) {
@@ -541,7 +555,9 @@ private fun CameraContent(
                     }
                 }
             }
-            // Shutter: white ring with a fill that dims while busy.
+            // Shutter: white ring with a fill that dims while busy. The
+            // semantics lambda is not composable, so the label is read here.
+            val shutterDescription = stringResource(R.string.ime_camera_shutter_desc)
             Box(
                 modifier = Modifier
                     .size(54.dp)
@@ -551,7 +567,7 @@ private fun CameraContent(
                     .clip(CircleShape)
                     .background(if (capturing) Color.LightGray else Color.White)
                     .pointerInput(capturing) { detectTapGestures { takePhoto() } }
-                    .semantics { contentDescription = "Take photo" },
+                    .semantics { contentDescription = shutterDescription },
             )
             Row(
                 modifier = Modifier.weight(1f),
@@ -560,7 +576,7 @@ private fun CameraContent(
                 if (hasFront && hasBack) {
                     CameraChipButton(
                         icon = Icons.Outlined.Cameraswitch,
-                        description = "Switch camera",
+                        description = stringResource(R.string.ime_camera_switch_desc),
                         active = usingFront,
                     ) {
                         feedback()
@@ -583,7 +599,7 @@ private fun BoxScope.BackChip(offsetY: Int, feedback: () -> Unit, onClose: () ->
     ) {
         CameraChipButton(
             icon = Icons.AutoMirrored.Outlined.ArrowBack,
-            description = "Close camera",
+            description = stringResource(R.string.ime_camera_close_desc),
             active = false,
         ) {
             feedback()

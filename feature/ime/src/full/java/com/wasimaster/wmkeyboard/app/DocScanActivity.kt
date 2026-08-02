@@ -9,6 +9,7 @@ import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
+import com.wasimaster.wmkeyboard.ime.R
 import java.io.File
 
 /**
@@ -80,7 +81,7 @@ class DocScanActivity : ComponentActivity() {
                 // be missing (or still downloading) on some devices.
                 Toast.makeText(
                     this,
-                    "Document scanner unavailable — it needs Google Play services",
+                    R.string.ime_docscan_unavailable_error,
                     Toast.LENGTH_LONG,
                 ).show()
                 finish()

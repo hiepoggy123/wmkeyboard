@@ -40,6 +40,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -49,8 +51,10 @@ import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.tools.PasswordGen
 import com.wasimaster.wmkeyboard.core.tools.QrCodeGen
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PwSettingAction
+import com.wasimaster.wmkeyboard.ime.R
 import java.security.SecureRandom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -122,6 +126,10 @@ internal fun PasswordPanel(
         PasswordGen.passwordEntropyBits(passwordSpec)
     }
 
+    // Read here rather than in the Copy chip's click handler: that lambda is
+    // not composable, so it cannot resolve a string itself.
+    val copiedMessage = stringResource(R.string.ime_password_copied_toast)
+
     // The Password/Passphrase tabs live in the FullBleedTool header next to
     // the back button; the body starts at the generated result.
     Column(
@@ -150,25 +158,27 @@ internal fun PasswordPanel(
             IconButton(onClick = { regenerateKey++ }, modifier = Modifier.size(30.dp)) {
                 Icon(
                     Icons.Outlined.Refresh,
-                    contentDescription = "Regenerate",
+                    contentDescription = stringResource(R.string.ime_password_regenerate_desc),
                     tint = kb.accent,
                     modifier = Modifier.size(18.dp),
                 )
             }
             Spacer(Modifier.width(4.dp))
-            ToolPanelChip("Copy") {
+            ToolPanelChip(stringResource(CommonR.string.common_copy)) {
                 if (generated.isNotEmpty()) {
                     val clipboard =
                         context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     clipboard.setPrimaryClip(ClipData.newPlainText("Password", generated))
-                    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
                 }
             }
             Spacer(Modifier.width(4.dp))
-            ToolPanelChip("Insert") { if (generated.isNotEmpty()) onInsert(generated) }
+            ToolPanelChip(stringResource(R.string.ime_password_insert_action)) {
+                if (generated.isNotEmpty()) onInsert(generated)
+            }
         }
         Text(
-            "≈$entropy bits of entropy",
+            stringResource(R.string.ime_password_entropy_info, entropy),
             color = kb.secondaryText,
             fontSize = 11.sp,
             modifier = Modifier
@@ -183,7 +193,7 @@ internal fun PasswordPanel(
         ) {
             if (!passphraseMode) {
                 StepperRow(
-                    label = "Length",
+                    label = stringResource(R.string.ime_password_length_label),
                     value = settings.passwordGenerator.pwLength,
                     onChange = { onSetting(PwSettingAction.Length(it)) },
                 )
@@ -200,13 +210,16 @@ internal fun PasswordPanel(
                     ToolPanelChip("#!&", selected = settings.passwordGenerator.pwSymbols) {
                         onSetting(PwSettingAction.Symbols(!settings.passwordGenerator.pwSymbols))
                     }
-                    ToolPanelChip("No look-alikes", selected = settings.passwordGenerator.pwExcludeAmbiguous) {
+                    ToolPanelChip(
+                        stringResource(R.string.ime_password_exclude_ambiguous_label),
+                        selected = settings.passwordGenerator.pwExcludeAmbiguous,
+                    ) {
                         onSetting(PwSettingAction.ExcludeAmbiguous(!settings.passwordGenerator.pwExcludeAmbiguous))
                     }
                 }
             } else {
                 StepperRow(
-                    label = "Words",
+                    label = stringResource(R.string.ime_password_words_label),
                     value = settings.passwordGenerator.ppWordCount,
                     onChange = { onSetting(PwSettingAction.Words(it)) },
                 )
@@ -219,13 +232,24 @@ internal fun PasswordPanel(
                         (separators.indexOf(settings.passwordGenerator.ppSeparator) + 1).mod(separators.size),
                     ]
                     val separator = settings.passwordGenerator.ppSeparator
+                    val separatorName = if (separator.isEmpty()) {
+                        stringResource(CommonR.string.common_none)
+                    } else {
+                        "“$separator”"
+                    }
                     ToolPanelChip(
-                        "Sep: ${if (separator.isEmpty()) "none" else "“$separator”"}",
+                        stringResource(R.string.ime_password_separator_label, separatorName),
                     ) { onSetting(PwSettingAction.Separator(next)) }
-                    ToolPanelChip("Capitalize", selected = settings.passwordGenerator.ppCapitalize) {
+                    ToolPanelChip(
+                        stringResource(R.string.ime_password_capitalize_label),
+                        selected = settings.passwordGenerator.ppCapitalize,
+                    ) {
                         onSetting(PwSettingAction.Capitalize(!settings.passwordGenerator.ppCapitalize))
                     }
-                    ToolPanelChip("Add digit", selected = settings.passwordGenerator.ppIncludeDigit) {
+                    ToolPanelChip(
+                        stringResource(R.string.ime_password_add_digit_label),
+                        selected = settings.passwordGenerator.ppIncludeDigit,
+                    ) {
                         onSetting(PwSettingAction.IncludeDigit(!settings.passwordGenerator.ppIncludeDigit))
                     }
                 }
@@ -291,7 +315,7 @@ internal fun QrGeneratorPanel(
         ) {
             SearchQueryText(
                 query = content.replace("\n", " "),
-                placeholder = "Type QR content on the keys below…",
+                placeholder = stringResource(R.string.ime_qr_content_hint),
                 active = state.mediaSearchActive,
                 textColor = kb.suggestionText,
                 placeholderColor = kb.secondaryText,
@@ -310,9 +334,13 @@ internal fun QrGeneratorPanel(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         if (content.length > QrCodeGen.MAX_CHARS) {
-                            "Too much text for one QR code (${content.length} characters)."
+                            pluralStringResource(
+                                R.plurals.ime_qr_too_long_error,
+                                content.length,
+                                content.length,
+                            )
                         } else {
-                            "Type on the keys below to build a QR code."
+                            stringResource(R.string.ime_qr_empty)
                         },
                         color = kb.secondaryText,
                         fontSize = 13.sp,
@@ -323,7 +351,7 @@ internal fun QrGeneratorPanel(
             } else {
                 Image(
                     bitmap = bitmap.asImageBitmap(),
-                    contentDescription = "QR code",
+                    contentDescription = stringResource(R.string.ime_qr_image_desc),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxHeight()
@@ -338,10 +366,15 @@ internal fun QrGeneratorPanel(
                         .padding(start = 12.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    ToolPanelChip("Send as image") { onSend() }
+                    ToolPanelChip(stringResource(R.string.ime_qr_send_action)) { onSend() }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "${content.length} chars · ECC ${state.settings.qrEcc.name}",
+                        pluralStringResource(
+                            R.plurals.ime_qr_meta_info,
+                            content.length,
+                            content.length,
+                            state.settings.qrEcc.name,
+                        ),
                         color = kb.secondaryText,
                         fontSize = 10.sp,
                     )

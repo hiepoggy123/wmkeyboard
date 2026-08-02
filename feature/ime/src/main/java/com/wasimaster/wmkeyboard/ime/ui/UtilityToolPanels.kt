@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,10 +53,12 @@ import com.wasimaster.wmkeyboard.core.tools.SymbolCatalog
 import androidx.compose.ui.graphics.Color
 import com.wasimaster.wmkeyboard.core.tools.ToolPrefill
 import com.wasimaster.wmkeyboard.core.tools.UnitConvert
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.ime.CurrencyUi
 import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.ime.R
 
 // Shared building blocks for the utility tool panels (symbols, calculator,
 // unit & currency converters): a pill chip and a compact keypad button.
@@ -122,6 +125,26 @@ private fun KeypadButton(
 // ---- symbols tool ----
 
 /**
+ * The id of the pseudo-category that holds the symbols used most recently.
+ * It is a stored selection key, never shown, and never translated.
+ */
+internal const val SYMBOL_RECENTS_ID = "Recents"
+
+/** The category ids the picker shows, with Recents first when it has any. */
+private fun symbolCategoryIds(hasRecents: Boolean): List<String> = buildList {
+    if (hasRecents) add(SYMBOL_RECENTS_ID)
+    SymbolCatalog.categories.forEach { add(it.id) }
+}
+
+/** The chip label for a category id. */
+@Composable
+private fun symbolCategoryName(id: String): String {
+    if (id == SYMBOL_RECENTS_ID) return stringResource(R.string.ime_symbols_recents_label)
+    val category = SymbolCatalog.categories.firstOrNull { it.id == id } ?: return id
+    return stringResource(category.nameRes)
+}
+
+/**
  * One-tap picker for the special characters people otherwise hunt down
  * online — fractions, math operators, Greek, arrows and friends. Tapping a
  * symbol types it and files it under Recents.
@@ -137,11 +160,7 @@ internal fun RowScope.SymbolCategoryChips(
     selected: String,
     onSelect: (String) -> Unit,
 ) {
-    val recents = state.settings.symbolRecents
-    val categoryNames = buildList {
-        if (recents.isNotEmpty()) add("Recents")
-        SymbolCatalog.categories.forEach { add(it.name) }
-    }
+    val categoryIds = symbolCategoryIds(state.settings.symbolRecents.isNotEmpty())
     val focusedChip = state.focusedIndex(FocusRegion.CHIPS)
     Row(
         modifier = Modifier
@@ -150,12 +169,12 @@ internal fun RowScope.SymbolCategoryChips(
             .padding(horizontal = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        categoryNames.forEachIndexed { index, name ->
+        categoryIds.forEachIndexed { index, id ->
             ToolPanelChip(
-                name,
-                selected = name == selected,
+                symbolCategoryName(id),
+                selected = id == selected,
                 modifier = Modifier.focusRing(index == focusedChip, RoundedCornerShape(12.dp)),
-            ) { onSelect(name) }
+            ) { onSelect(id) }
         }
     }
 }
@@ -169,8 +188,8 @@ internal fun SymbolsPanel(
 ) {
     val kb = LocalKbTheme.current
     val recents = state.settings.symbolRecents
-    val symbols = if (selectedCategory == "Recents") recents
-    else SymbolCatalog.categories.firstOrNull { it.name == selectedCategory }?.symbols.orEmpty()
+    val symbols = if (selectedCategory == SYMBOL_RECENTS_ID) recents
+    else SymbolCatalog.categories.firstOrNull { it.id == selectedCategory }?.symbols.orEmpty()
 
     val gridState = rememberLazyGridState()
     // The grid is Adaptive, so its width in cells is only knowable after layout.
@@ -186,18 +205,15 @@ internal fun SymbolsPanel(
         onActivate = { index -> symbols.getOrNull(index)?.let(onSymbol) },
     )
     // Tab reaches the category chips, which are drawn in the panel header by
-    // [SymbolCategoryChips] — the names are recomputed here rather than hoisted,
+    // [SymbolCategoryChips] — the ids are recomputed here rather than hoisted,
     // so the header keeps owning its own selection.
-    val categoryNames = buildList {
-        if (recents.isNotEmpty()) add("Recents")
-        SymbolCatalog.categories.forEach { add(it.name) }
-    }
+    val categoryIds = symbolCategoryIds(recents.isNotEmpty())
     PanelFocusTarget(
         panel = PanelMode.SYMBOLS,
         region = FocusRegion.CHIPS,
-        count = categoryNames.size,
-        columns = categoryNames.size.coerceAtLeast(1),
-        onActivate = { index -> categoryNames.getOrNull(index)?.let(onSelectCategory) },
+        count = categoryIds.size,
+        columns = categoryIds.size.coerceAtLeast(1),
+        onActivate = { index -> categoryIds.getOrNull(index)?.let(onSelectCategory) },
     )
     val focused = state.focusedIndex()
     ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
@@ -284,9 +300,16 @@ internal fun CalculatorPanel(
                     textAlign = TextAlign.End,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                // The engine reports a failure as a string resource plus the
+                // piece of the expression it names, so the wording follows the
+                // language the keyboard is read in.
+                val failure = result?.exceptionOrNull() as? CalcEngine.CalcException
+                val failureText = failure?.let {
+                    stringResource(it.messageRes, it.detail)
+                }
                 val resultText = result?.fold(
                     onSuccess = { "= $it" },
-                    onFailure = { it.message ?: "…" },
+                    onFailure = { failureText ?: "…" },
                 )
                 if (resultText != null) {
                     Text(
@@ -302,7 +325,9 @@ internal fun CalculatorPanel(
             }
             if (result?.isSuccess == true) {
                 Spacer(Modifier.width(8.dp))
-                ToolPanelChip("Insert") { onInsert(result.getOrThrow()) }
+                ToolPanelChip(stringResource(R.string.ime_calc_insert_action)) {
+                    onInsert(result.getOrThrow())
+                }
             }
         }
         // Scientific row.
@@ -321,7 +346,12 @@ internal fun CalculatorPanel(
             }
             // Tapping the chip flips the trig unit and persists it — the same
             // switch the tool's settings page carries, within reach of `sin(`.
-            ToolPanelChip(if (degrees) "deg" else "rad", selected = true) { onToggleDegrees() }
+            val trigUnit = if (degrees) {
+                stringResource(R.string.ime_calc_degrees_label)
+            } else {
+                stringResource(R.string.ime_calc_radians_label)
+            }
+            ToolPanelChip(trigUnit, selected = true) { onToggleDegrees() }
         }
         // Keypad.
         val rows = listOf(
@@ -423,18 +453,18 @@ internal fun UnitConverterPanel(
     var categoryIndex by rememberSaveable {
         mutableIntStateOf(
             UnitConvert.categories
-                .indexOfFirst { it.name == (prefill?.category ?: savedEntries.firstOrNull()?.first) }
+                .indexOfFirst { it.id == (prefill?.category ?: savedEntries.firstOrNull()?.first) }
                 .takeIf { it >= 0 } ?: 0
         )
     }
     val category = UnitConvert.categories[categoryIndex.coerceIn(UnitConvert.categories.indices)]
     fun savedUnit(pick: (Triple<String, String, String>) -> String, fallback: Int): Int =
-        savedEntries.firstOrNull { it.first == category.name }?.let { entry ->
+        savedEntries.firstOrNull { it.first == category.id }?.let { entry ->
             category.units.indexOfFirst { it.symbol == pick(entry) }.takeIf { it >= 0 }
         } ?: fallback
     /** The prefilled unit, but only while the panel is on its category. */
     fun prefilledUnit(pick: (ToolPrefill.Units) -> String): Int? =
-        prefill?.takeIf { it.category == category.name }
+        prefill?.takeIf { it.category == category.id }
             ?.let { category.units.indexOfFirst { unit -> unit.symbol == pick(it) } }
             ?.takeIf { it >= 0 }
     var fromIndex by rememberSaveable(categoryIndex) {
@@ -447,9 +477,9 @@ internal fun UnitConverterPanel(
 
     val from = category.units.getOrElse(fromIndex) { category.units.first() }
     val to = category.units.getOrElse(toIndex) { category.units.last() }
-    LaunchedEffect(category.name, from.symbol, to.symbol) {
-        val others = savedEntries.filter { it.first != category.name }
-        val encoded = (listOf(Triple(category.name, from.symbol, to.symbol)) + others)
+    LaunchedEffect(category.id, from.symbol, to.symbol) {
+        val others = savedEntries.filter { it.first != category.id }
+        val encoded = (listOf(Triple(category.id, from.symbol, to.symbol)) + others)
             .joinToString(";") { "${it.first}|${it.second}|${it.third}" }
         onSelectionChange(encoded)
     }
@@ -470,18 +500,18 @@ internal fun UnitConverterPanel(
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             UnitConvert.categories.forEachIndexed { index, cat ->
-                ToolPanelChip(cat.name, selected = index == categoryIndex) {
+                ToolPanelChip(stringResource(cat.nameRes), selected = index == categoryIndex) {
                     categoryIndex = index
                 }
             }
         }
         UnitChipRow(
-            label = "From",
+            label = stringResource(R.string.ime_converter_from_label),
             units = category.units,
             selected = fromIndex,
         ) { fromIndex = it }
         UnitChipRow(
-            label = "To",
+            label = stringResource(R.string.ime_converter_to_label),
             units = category.units,
             selected = toIndex,
         ) { toIndex = it }
@@ -506,7 +536,7 @@ internal fun UnitConverterPanel(
             ) {
                 Icon(
                     Icons.Outlined.SwapHoriz,
-                    contentDescription = "Swap units",
+                    contentDescription = stringResource(R.string.ime_units_swap_desc),
                     tint = kb.accent,
                     modifier = Modifier.size(18.dp),
                 )
@@ -521,7 +551,9 @@ internal fun UnitConverterPanel(
                 modifier = Modifier.weight(1f),
             )
             if (resultText != null) {
-                ToolPanelChip("Insert") { onInsert(resultText) }
+                ToolPanelChip(stringResource(R.string.ime_units_insert_action)) {
+                    onInsert(resultText)
+                }
             }
         }
         ConverterKeypad(
@@ -600,7 +632,7 @@ internal fun CurrencyPanel(
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         when (val currency = state.currency) {
-            CurrencyUi.Loading -> ConverterMessage("Fetching exchange rates…")
+            CurrencyUi.Loading -> ConverterMessage(stringResource(R.string.ime_currency_progress))
             is CurrencyUi.Error -> Column(
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -614,7 +646,7 @@ internal fun CurrencyPanel(
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
                 Spacer(Modifier.height(8.dp))
-                ToolPanelChip("Retry") { onRefresh() }
+                ToolPanelChip(stringResource(CommonR.string.common_retry)) { onRefresh() }
             }
             is CurrencyUi.Ready -> {
                 val codes = remember(currency.rates) {
@@ -622,8 +654,16 @@ internal fun CurrencyPanel(
                     CurrencyClient.popular.filter { it in currency.rates.rates } +
                         all.filterNot { it in CurrencyClient.popular }
                 }
-                CurrencyChipRow("From", codes, from) { onPairChange(it, to) }
-                CurrencyChipRow("To", codes, to) { onPairChange(from, it) }
+                CurrencyChipRow(
+                    stringResource(R.string.ime_converter_from_label),
+                    codes,
+                    from,
+                ) { onPairChange(it, to) }
+                CurrencyChipRow(
+                    stringResource(R.string.ime_converter_to_label),
+                    codes,
+                    to,
+                ) { onPairChange(from, it) }
                 val amount = amountText.toDoubleOrNull()
                 val converted = amount?.let {
                     CurrencyClient.convert(it, from, to, currency.rates)
@@ -651,7 +691,7 @@ internal fun CurrencyPanel(
                     ) {
                         Icon(
                             Icons.Outlined.SwapHoriz,
-                            contentDescription = "Swap currencies",
+                            contentDescription = stringResource(R.string.ime_currency_swap_desc),
                             tint = kb.accent,
                             modifier = Modifier.size(18.dp),
                         )
@@ -666,12 +706,16 @@ internal fun CurrencyPanel(
                         modifier = Modifier.weight(1f),
                     )
                     if (resultText != null) {
-                        ToolPanelChip("Insert") { onInsert(resultText) }
+                        ToolPanelChip(stringResource(R.string.ime_currency_insert_action)) {
+                            onInsert(resultText)
+                        }
                     }
                     IconButton(onClick = onRefresh, modifier = Modifier.size(28.dp)) {
                         Icon(
                             Icons.Outlined.Refresh,
-                            contentDescription = "Refresh rates",
+                            contentDescription = stringResource(
+                                R.string.ime_currency_refresh_desc,
+                            ),
                             tint = kb.toolbarIcon,
                             modifier = Modifier.size(16.dp),
                         )

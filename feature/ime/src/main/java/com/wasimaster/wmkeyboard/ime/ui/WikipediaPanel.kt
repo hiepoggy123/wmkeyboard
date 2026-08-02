@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,17 +33,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.WikiUi
 
 /** Tabs on an open Wikipedia article. */
-private enum class WikiTab(val label: String) { SUMMARY("Summary"), LINKS("Links"), FULL("Full article") }
+private enum class WikiTab(@StringRes val labelRes: Int) {
+    SUMMARY(R.string.ime_wiki_tab_summary_label),
+    LINKS(R.string.ime_wiki_tab_links_label),
+    FULL(R.string.ime_wiki_tab_full_label),
+}
 
 /**
  * Wikipedia in the tool viewbox: search (the query types on the key rows,
@@ -89,9 +97,9 @@ internal fun WikipediaPanel(
             SearchQueryText(
                 query = state.mediaQuery,
                 placeholder = if (state.mediaSearchActive) {
-                    "Search Wikipedia… (enter to search)"
+                    stringResource(R.string.ime_wiki_search_active_hint)
                 } else {
-                    "Search Wikipedia…"
+                    stringResource(R.string.ime_wiki_search_hint)
                 },
                 active = state.mediaSearchActive,
                 textColor = kb.modifierKeyText,
@@ -104,10 +112,9 @@ internal fun WikipediaPanel(
 
         when (val wiki = state.wiki) {
             WikiUi.Idle -> WikiMessage(
-                "Search any topic on ${state.settings.wikiLanguage}.wikipedia.org — " +
-                    "read the summary, follow links, insert text or the article's URL.",
+                stringResource(R.string.ime_wiki_idle_info, state.settings.wikiLanguage),
             )
-            WikiUi.Loading -> WikiMessage("Loading…")
+            WikiUi.Loading -> WikiMessage(stringResource(CommonR.string.common_loading))
             is WikiUi.Error -> Column(
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -121,11 +128,11 @@ internal fun WikipediaPanel(
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
                 Spacer(Modifier.height(8.dp))
-                ToolPanelChip("Retry") { onRetry() }
+                ToolPanelChip(stringResource(CommonR.string.common_retry)) { onRetry() }
             }
             is WikiUi.SearchResults -> {
                 if (wiki.results.isEmpty()) {
-                    WikiMessage("Nothing found for “${wiki.query}”.")
+                    WikiMessage(stringResource(R.string.ime_wiki_no_results_empty, wiki.query))
                 } else {
                     // Published from inside this branch, so the panel-local tab
                     // state never has to be hoisted to say what is on screen.
@@ -222,7 +229,7 @@ private fun WikiArticle(
                 IconButton(onClick = onBack, modifier = Modifier.size(30.dp)) {
                     Icon(
                         Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "Back to results",
+                        contentDescription = stringResource(R.string.ime_wiki_back_desc),
                         tint = kb.toolbarIcon,
                         modifier = Modifier.size(18.dp),
                     )
@@ -239,7 +246,7 @@ private fun WikiArticle(
             )
             for (wikiTab in WikiTab.entries) {
                 Spacer(Modifier.width(4.dp))
-                ToolPanelChip(wikiTab.label, selected = tab == wikiTab) {
+                ToolPanelChip(stringResource(wikiTab.labelRes), selected = tab == wikiTab) {
                     tab = wikiTab
                     when (wikiTab) {
                         WikiTab.LINKS -> if (wiki.links == null) onLoadLinks()
@@ -256,11 +263,15 @@ private fun WikiArticle(
             ) {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ToolPanelChip("Insert summary") {
+                        ToolPanelChip(stringResource(R.string.ime_wiki_insert_summary_action)) {
                             if (wiki.summary.extract.isNotBlank()) onInsert(wiki.summary.extract)
                         }
-                        ToolPanelChip("Insert link") { onInsert(linkText) }
-                        ToolPanelChip("Insert title") { onInsert(wiki.summary.title) }
+                        ToolPanelChip(stringResource(R.string.ime_wiki_insert_link_action)) {
+                            onInsert(linkText)
+                        }
+                        ToolPanelChip(stringResource(R.string.ime_wiki_insert_title_action)) {
+                            onInsert(wiki.summary.title)
+                        }
                     }
                 }
                 if (wiki.summary.description.isNotBlank()) {
@@ -275,7 +286,9 @@ private fun WikiArticle(
                 }
                 item {
                     Text(
-                        wiki.summary.extract.ifBlank { "No summary available." },
+                        wiki.summary.extract.ifBlank {
+                            stringResource(R.string.ime_wiki_no_summary_empty)
+                        },
                         color = kb.modifierKeyText,
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
@@ -284,8 +297,10 @@ private fun WikiArticle(
                 }
             }
             WikiTab.LINKS -> when {
-                wiki.loadingExtra && wiki.links == null -> WikiMessage("Loading links…")
-                wiki.links.isNullOrEmpty() -> WikiMessage("No outgoing article links found.")
+                wiki.loadingExtra && wiki.links == null ->
+                    WikiMessage(stringResource(R.string.ime_wiki_links_progress))
+                wiki.links.isNullOrEmpty() ->
+                    WikiMessage(stringResource(R.string.ime_wiki_links_empty))
                 else -> {
                     PanelFocusTarget(
                         panel = PanelMode.WIKIPEDIA,
@@ -320,7 +335,7 @@ private fun WikiArticle(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
                             )
-                            ToolPanelChip("Insert") {
+                            ToolPanelChip(stringResource(R.string.ime_wiki_insert_action)) {
                                 val url = com.wasimaster.wmkeyboard.core.tools.WikipediaClient
                                     .articleUrl(title, lang)
                                 onInsert(if (markdownLinks) "[$title]($url)" else url)
@@ -331,8 +346,10 @@ private fun WikiArticle(
                 }
             }
             WikiTab.FULL -> when {
-                wiki.loadingExtra && wiki.fullText == null -> WikiMessage("Loading the full article…")
-                wiki.fullText.isNullOrBlank() -> WikiMessage("Couldn't load the article text.")
+                wiki.loadingExtra && wiki.fullText == null ->
+                    WikiMessage(stringResource(R.string.ime_wiki_full_progress))
+                wiki.fullText.isNullOrBlank() ->
+                    WikiMessage(stringResource(R.string.ime_wiki_full_error))
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),

@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ===================================================================
+         Key layouts gallery: the list of every layout the user can edit.
+         =================================================================== -->
+
+    <string name="layout_editor_gallery_caption">A layout is a key grid. It types the language of the layout it is based on. A Bengali grid that you rearrange still uses the Bengali word list.</string>
+    <string name="layout_editor_your_layouts_title">Your layouts</string>
+    <string name="layout_editor_empty_title">No layouts of your own yet</string>
+    <string name="layout_editor_empty_subtitle">Copy a layout below to start from a grid that already works</string>
+    <string name="layout_editor_import_title">Import a layout</string>
+    <!-- .wmlayout.json is a file name ending. Do not translate it. -->
+    <string name="layout_editor_import_subtitle">Opens a .wmlayout.json file that someone shared</string>
+    <string name="layout_editor_built_in_title">Built in</string>
+
+    <!-- Name given to the copy of a layout. %1$s is the name of the layout the
+         user copied, for example "Probhat". -->
+    <string name="layout_editor_duplicate_name_format"><xliff:g id="layout_name" example="Probhat">%1$s</xliff:g> copy</string>
+
+    <!-- Shape of one layout, shown under its name. -->
+    <plurals name="layout_editor_row_count">
+        <item quantity="one">%1$d row</item>
+        <item quantity="other">%1$d rows</item>
+    </plurals>
+    <plurals name="layout_editor_key_count">
+        <item quantity="one">%1$d key</item>
+        <item quantity="other">%1$d keys</item>
+    </plurals>
+    <plurals name="layout_editor_custom_layer_count">
+        <item quantity="one">%1$d custom layer</item>
+        <item quantity="other">%1$d custom layers</item>
+    </plurals>
+
+    <!-- Button descriptions for a screen reader. %1$s is the layout name. -->
+    <string name="layout_editor_export_desc">Export <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g></string>
+    <string name="layout_editor_duplicate_desc">Duplicate <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g></string>
+    <string name="layout_editor_reset_desc">Reset <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g></string>
+    <string name="layout_editor_delete_desc">Delete <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g></string>
+
+    <!-- Import dialog. %1$s is the name of the layout inside the file. -->
+    <string name="layout_editor_import_confirm_title">Import <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g>?</string>
+    <string name="layout_editor_import_confirm_body">The app adds the layout to your layouts, but it does not turn it on. Turn it on under Languages when you are ready to type with it.</string>
+    <string name="layout_editor_import_changes_title">Changed during the import:</string>
+    <!-- One line in the list of changes the app made to the file. %1$s is the line. -->
+    <string name="layout_editor_repair_note">• <xliff:g id="note">%1$s</xliff:g></string>
+
+    <!-- Reset dialog for a built-in layout the user changed. %1$s is the layout name. -->
+    <string name="layout_editor_reset_confirm_title">Reset <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g>?</string>
+    <string name="layout_editor_reset_confirm_body">The app discards your changes to this built-in layout. The original grid comes back. Nothing else changes.</string>
+    <!-- Delete dialog for a layout the user made. %1$s is the layout name. -->
+    <string name="layout_editor_delete_confirm_title">Delete <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g>?</string>
+    <string name="layout_editor_delete_confirm_body">The app deletes this layout. If the layout is on under Languages, the app turns it off and the keyboard goes back to QWERTY.</string>
+
+    <!-- Result messages. %1$s is the layout name. -->
+    <string name="layout_editor_export_done_message">The app saved <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g>.</string>
+    <string name="layout_editor_import_done_message">The app imported <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g>.</string>
+    <string name="layout_editor_export_error">The app could not write that file.</string>
+    <string name="layout_editor_import_wrong_file_error">That file is not a WM Keyboard layout.</string>
+
+    <!-- ===================================================================
+         Key layout editor: the grid of keys, one layer at a time.
+         =================================================================== -->
+
+    <string name="layout_editor_missing_layout_message">This layout does not exist any more.</string>
+
+    <!-- Names of the layers a layout can hold. Each one is a tab at the top of
+         the editor. Fn is the name printed on the key that reaches this layer. -->
+    <string name="layout_editor_layer_letters">Letters</string>
+    <string name="layout_editor_layer_symbols">Symbols</string>
+    <string name="layout_editor_layer_symbols_2">Symbols 2</string>
+    <string name="layout_editor_layer_number">Number</string>
+    <string name="layout_editor_layer_phone">Phone</string>
+    <string name="layout_editor_layer_date">Date</string>
+    <string name="layout_editor_layer_time">Time</string>
+    <string name="layout_editor_layer_date_time">Date &amp; time</string>
+    <string name="layout_editor_layer_fn">Fn</string>
+
+    <!-- Screen reader text for the pencil on a layer tab. -->
+    <string name="layout_editor_customised_desc">You changed this layer</string>
+
+    <string name="layout_editor_fn_missing_caption">This layout has no Fn layer yet. Add one, then put an Fn key on another layer to reach it.</string>
+    <string name="layout_editor_add_fn_title">Add an Fn layer</string>
+    <!-- Esc, F1, F12, Tab, Home and End are the names printed on those keys. -->
+    <string name="layout_editor_add_fn_subtitle">Starts from Esc, F1 to F12, Tab, the arrows and Home/End</string>
+    <!-- Shown while a layer still comes from the built-in layout. %1$s is a
+         layer name from the list above, for example "Symbols". -->
+    <string name="layout_editor_inherited_layer_caption">This is the built-in grid for the <xliff:g id="layer_name" example="Symbols">%1$s</xliff:g> layer. If you change anything here, this layout gets its own copy of it.</string>
+
+    <string name="layout_editor_undo_desc">Undo</string>
+    <string name="layout_editor_redo_desc">Redo</string>
+    <string name="layout_editor_autosave_label">The app saves every change</string>
+
+    <string name="layout_editor_layer_empty_message">This layer has no rows.</string>
+    <!-- Drawn on a key that types a space and carries no label of its own. -->
+    <string name="layout_editor_space_key_label">space</string>
+
+    <!-- Row tools. %1$d is the number of the row, counted from 1. -->
+    <string name="layout_editor_row_number">Row %1$d</string>
+    <!-- Warning under a row that is not as wide as the rest of the grid.
+         %1$.2f is the width of the row, %2$.2f the width of the grid. -->
+    <string name="layout_editor_row_width_mismatch">This row is <xliff:g id="row_width" example="9.50">%1$.2f</xliff:g> wide. The grid is <xliff:g id="grid_width" example="10.00">%2$.2f</xliff:g>.</string>
+    <string name="layout_editor_add_key_desc">Add a key to row %1$d</string>
+    <string name="layout_editor_duplicate_row_desc">Duplicate row %1$d</string>
+    <string name="layout_editor_delete_row_desc">Delete row %1$d</string>
+    <!-- Height of one row, as a multiple of the standard key height.
+         %1$.2f is the multiple, for example 1.25. -->
+    <string name="layout_editor_row_height_label">Row height ×<xliff:g id="multiple" example="1.25">%1$.2f</xliff:g></string>
+
+    <string name="layout_editor_add_row_title">Add a row</string>
+    <string name="layout_editor_add_row_subtitle">Adds an empty row at the end of this layer</string>
+    <string name="layout_editor_reorder_rows_title">Reorder rows</string>
+    <string name="layout_editor_row_order_dialog_title">Row order</string>
+    <!-- %1$d is the number of the row, counted from 1. -->
+    <string name="layout_editor_reorder_keys_title">Reorder the keys in row %1$d</string>
+    <string name="layout_editor_key_order_dialog_title">Key order</string>
+    <!-- Stands in for a key that has no label and no known action. -->
+    <string name="layout_editor_key_fallback_label">Key</string>
+
+    <string name="layout_editor_show_shift_title">Show the shift plane</string>
+    <string name="layout_editor_show_shift_subtitle">Draws each key as it looks when you hold shift</string>
+    <string name="layout_editor_json_title">Edit as JSON</string>
+    <string name="layout_editor_json_subtitle">Reach anything that this screen has no control for</string>
+    <string name="layout_editor_reset_layer_title">Reset this layer</string>
+    <!-- %1$s is a layer name, for example "Symbols". -->
+    <string name="layout_editor_reset_layer_subtitle">Deletes your <xliff:g id="layer_name" example="Symbols">%1$s</xliff:g> grid and uses the built-in one</string>
+
+    <string name="layout_editor_problems_title">Problems</string>
+    <string name="layout_editor_problem_blocking_subtitle">You must fix this before you turn this layout on</string>
+    <string name="layout_editor_problem_warning_subtitle">Look at this, but the layout still works</string>
+    <string name="layout_editor_not_live_caption">Your changes here do not affect typing until you turn the layout on under Languages.</string>
+
+    <!-- ===================================================================
+         Key edit sheet: everything about the one key you selected.
+         =================================================================== -->
+
+    <!-- %1$d is the number of the row, %2$d the number of the key in that row. -->
+    <string name="layout_editor_key_position_title">Row %1$d, key %2$d</string>
+
+    <string name="layout_editor_key_label_label">Label</string>
+    <string name="layout_editor_key_label_hint">What the app draws on the key</string>
+    <string name="layout_editor_key_output_label">Output</string>
+    <string name="layout_editor_key_output_hint">Blank: the key types the label</string>
+    <string name="layout_editor_key_shift_label_label">Shift label</string>
+    <string name="layout_editor_key_shift_label_hint">Blank: shift types the capital letter of the label</string>
+
+    <string name="layout_editor_action_row_title">Action</string>
+    <string name="layout_editor_action_unknown">Unknown</string>
+
+    <string name="layout_editor_broadcast_field_label">Broadcast action</string>
+    <!-- com.example.MACRO is an example of an intent action name. Do not translate it. -->
+    <string name="layout_editor_broadcast_field_hint">The intent action that an automation app listens for, for example com.example.MACRO. If you leave it blank, the key does nothing.</string>
+
+    <string name="layout_editor_dot_field_label">Dot number</string>
+    <string name="layout_editor_dot_field_hint">1 to 6: dots 1-2-3 down the left column, 4-5-6 down the right</string>
+
+    <!-- Width of one key, in grid units. %1$.2f is the width, for example 1.50. -->
+    <string name="layout_editor_key_width_label">Width <xliff:g id="width" example="1.50">%1$.2f</xliff:g></string>
+    <!-- Button that gives the key all the width the row has left.
+         %1$.2f is that width, for example 1.75. -->
+    <string name="layout_editor_fill_row_action">Fill the row (<xliff:g id="width" example="1.75">%1$.2f</xliff:g>)</string>
+
+    <string name="layout_editor_icon_field_label">Icon</string>
+    <string name="layout_editor_icon_hint_field_label">Icon hint</string>
+    <!-- search, mic, arrow_up and emoji are icon names. Do not translate them. -->
+    <string name="layout_editor_icon_field_hint">The name of a built-in icon, for example search, mic, arrow_up or emoji. Blank draws the label</string>
+    <!-- %1$s is an icon name the user typed, for example "mic". -->
+    <string name="layout_editor_icon_found_hint">Shows the \"<xliff:g id="icon_name" example="mic">%1$s</xliff:g>\" icon</string>
+    <string name="layout_editor_icon_missing_hint">There is no icon with the name \"<xliff:g id="icon_name" example="mik">%1$s</xliff:g>\". The app draws the label instead</string>
+
+    <string name="layout_editor_alternates_field_label">Alternates for press and hold</string>
+    <!-- .com is an example of an entry with more than one character. Do not translate it. -->
+    <string name="layout_editor_alternates_field_hint">Separate the entries with spaces, so an alternate cannot be a space. Entries of more than one character, such as .com, are correct. The app also draws the first one in the corner of the key.</string>
+    <!-- Small badge on the first alternate, which the keyboard also draws in the corner of the key. -->
+    <string name="layout_editor_alternate_hint_badge">hint</string>
+
+    <string name="layout_editor_role_title">Field adaptation</string>
+    <string name="layout_editor_role_subtitle">Email and web fields put @ and / in these two slots</string>
+    <string name="layout_editor_role_comma">Comma slot</string>
+    <string name="layout_editor_role_period">Full stop slot</string>
+
+    <string name="layout_editor_delete_key_action">Delete the key</string>
+    <string name="layout_editor_move_left_desc">Move left</string>
+    <string name="layout_editor_move_right_desc">Move right</string>
+    <string name="layout_editor_duplicate_key_desc">Duplicate the key</string>
+
+    <!-- ===================================================================
+         Action picker: what one key does. The titles are the names of the
+         actions, the details say what each one does.
+         =================================================================== -->
+
+    <string name="layout_editor_action_picker_title">What this key does</string>
+
+    <string name="layout_editor_action_group_typing">Typing</string>
+    <string name="layout_editor_action_group_layers">Layers</string>
+    <string name="layout_editor_action_group_modifiers">Modifiers</string>
+    <string name="layout_editor_action_group_send_key">Keys that apps understand</string>
+    <string name="layout_editor_action_group_chorded">Chorded input</string>
+    <string name="layout_editor_action_group_other">Other</string>
+
+    <string name="layout_editor_action_text_title">Types text</string>
+    <string name="layout_editor_action_text_detail">The label, or the output if you set one</string>
+    <!-- Name of the key that types capital letters. -->
+    <string name="layout_editor_action_shift_title">Shift</string>
+    <string name="layout_editor_action_shift_detail">Press for one capital letter. Press two times for caps lock</string>
+    <!-- Name of the key that deletes the character before the cursor. -->
+    <string name="layout_editor_action_delete_title">Delete</string>
+    <string name="layout_editor_action_delete_detail">Backspace. It repeats while you hold it</string>
+    <string name="layout_editor_action_forward_delete_title">Forward delete</string>
+    <string name="layout_editor_action_forward_delete_detail">⌦ deletes the text after the cursor. It repeats while you hold it</string>
+    <!-- Name of the key that types a space. -->
+    <string name="layout_editor_action_space_title">Space</string>
+    <string name="layout_editor_action_space_detail">A swipe on this key moves the cursor or changes the layout</string>
+    <!-- Name of the key that ends a line or sends the text. -->
+    <string name="layout_editor_action_enter_title">Enter</string>
+    <string name="layout_editor_action_enter_detail">Does the app\'s own action: send, search or done</string>
+
+    <string name="layout_editor_action_symbols_title">Symbols page</string>
+    <!-- ?123 and =\\&lt; are printed on the two symbol keys. Do not translate them. -->
+    <string name="layout_editor_action_symbols_detail">Changes between the ?123 and =\\&lt; pages</string>
+    <string name="layout_editor_action_letters_title">Letters page</string>
+    <string name="layout_editor_action_letters_detail">Goes back to the letter grid</string>
+    <string name="layout_editor_action_emoji_title">Emoji panel</string>
+    <string name="layout_editor_action_emoji_detail">Opens the emoji picker</string>
+    <string name="layout_editor_action_switch_layout_title">Switch layout</string>
+    <string name="layout_editor_action_switch_layout_detail">Changes to the next layout that you turned on</string>
+    <string name="layout_editor_action_fn_title">Fn layer</string>
+    <string name="layout_editor_action_fn_detail">Changes to the Fn grid of this layout for one key</string>
+
+    <!-- Names of the three modifier keys, as they are printed on a keyboard. -->
+    <string name="layout_editor_action_ctrl_title">Ctrl</string>
+    <string name="layout_editor_action_alt_title">Alt</string>
+    <string name="layout_editor_action_meta_title">Meta</string>
+    <!-- Shown for Ctrl and for Alt. -->
+    <string name="layout_editor_action_modifier_detail">Applies to the next key. Press two times to lock it</string>
+    <string name="layout_editor_action_meta_detail">The ⌘ or Windows modifier</string>
+
+    <!-- Names of keys a physical keyboard also has. -->
+    <string name="layout_editor_action_tab_title">Tab</string>
+    <string name="layout_editor_action_tab_detail">Sends a real Tab key press</string>
+    <string name="layout_editor_action_escape_title">Escape</string>
+    <string name="layout_editor_action_escape_detail">Sends a real Esc key press</string>
+    <string name="layout_editor_action_arrow_up_title">Arrow up</string>
+    <string name="layout_editor_action_arrow_up_detail">Moves the cursor up a line</string>
+    <string name="layout_editor_action_arrow_down_title">Arrow down</string>
+    <string name="layout_editor_action_arrow_down_detail">Moves the cursor down a line</string>
+    <string name="layout_editor_action_arrow_left_title">Arrow left</string>
+    <string name="layout_editor_action_arrow_left_detail">Moves the cursor left</string>
+    <string name="layout_editor_action_arrow_right_title">Arrow right</string>
+    <string name="layout_editor_action_arrow_right_detail">Moves the cursor right</string>
+
+    <string name="layout_editor_action_braille_dot_title">Braille dot</string>
+    <string name="layout_editor_action_braille_dot_detail">One dot of a braille chord of six keys. Set the dot number below</string>
+    <string name="layout_editor_action_morse_dot_title">Morse dot</string>
+    <string name="layout_editor_action_morse_dot_detail">Adds a short signal. The letter commits after a pause</string>
+    <string name="layout_editor_action_morse_dash_title">Morse dash</string>
+    <string name="layout_editor_action_morse_dash_detail">Adds a long signal. The letter commits after a pause</string>
+
+    <string name="layout_editor_action_broadcast_title">Broadcast intent</string>
+    <!-- Tasker is the name of an automation app. Do not translate it. -->
+    <string name="layout_editor_action_broadcast_detail">Sends an Android broadcast for automation apps such as Tasker. Set the action below</string>
+    <string name="layout_editor_action_none_title">Nothing</string>
+    <string name="layout_editor_action_none_detail">A gap on purpose. The app draws empty space and ignores presses</string>
+
+    <!-- ===================================================================
+         Raw JSON editor: the layout as text.
+         =================================================================== -->
+
+    <string name="layout_editor_json_caption">This is the layout as the app stores it. Edit here to reach anything that the grid editor has no control for. When you open this screen again, the app formats the text again. It leaves out the values that match the default, and it does not keep your spacing.</string>
+    <string name="layout_editor_json_field_label">Layout JSON</string>
+    <string name="layout_editor_json_applied_title">Applied, with changes</string>
+    <string name="layout_editor_apply_action">Apply</string>
+    <string name="layout_editor_json_invalid_error">That is not valid layout JSON.</string>
+
+</resources>

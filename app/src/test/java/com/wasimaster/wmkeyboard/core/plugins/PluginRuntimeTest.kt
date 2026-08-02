@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.plugins
 
+import com.wasimaster.wmkeyboard.plugins.R
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -29,6 +30,9 @@ class PluginRuntimeTest {
     private val events = ArrayList<String>()
     private val uis = ArrayList<RenderedUi>()
 
+    /** The message behind every `error` and `stopped:` event, in arrival order. */
+    private val messages = ArrayList<PluginText>()
+
     private val listener = object : PluginRuntime.Listener {
         override fun onUi(pluginId: String, ui: RenderedUi) = synchronized(lock) {
             uis += ui
@@ -37,16 +41,22 @@ class PluginRuntimeTest {
 
         override fun onBusy(pluginId: String, busy: Boolean) = Unit
 
-        override fun onError(pluginId: String, message: String) {
-            synchronized(lock) { events += "error:$message" }
+        override fun onError(pluginId: String, message: PluginText) {
+            synchronized(lock) {
+                messages += message
+                events += "error"
+            }
         }
 
         override fun onInputWrite(pluginId: String, inputId: String, text: String) {
             synchronized(lock) { events += "input:$inputId=$text" }
         }
 
-        override fun onStopped(pluginId: String, message: String, disabled: Boolean) {
-            synchronized(lock) { events += "stopped:disabled=$disabled" }
+        override fun onStopped(pluginId: String, message: PluginText, disabled: Boolean) {
+            synchronized(lock) {
+                messages += message
+                events += "stopped:disabled=$disabled"
+            }
         }
     }
 
@@ -97,10 +107,20 @@ class PluginRuntimeTest {
     private fun reset() = synchronized(lock) {
         events.clear()
         uis.clear()
+        messages.clear()
     }
 
     private fun lastLabel(): String =
         synchronized(lock) { (uis.last().root.single() as PluginWidget.Label).text }
+
+    /**
+     * The message behind the last error or stop.
+     *
+     * These arrive as [PluginText] rather than as words, and this is a host JVM
+     * test with no Context, so what gets checked is *which* line the runtime
+     * chose. That is the stronger check anyway: it outlives a rewording.
+     */
+    private fun lastMessage(): PluginText = synchronized(lock) { messages.last() }
 
     // ---- the happy path ---------------------------------------------------
 
@@ -225,6 +245,9 @@ class PluginRuntimeTest {
         install("this is not lua at all !!!")
         engine.open("com.example.demo")
         awaitTag("error")
+        // The Lua virtual machine wrote the complaint, so it reaches the panel as
+        // the script's own words rather than as one of this build's strings.
+        assertTrue(lastMessage() is PluginText.Script)
     }
 
     @Test
@@ -233,6 +256,8 @@ class PluginRuntimeTest {
         install("local x = 1")
         engine.open("com.example.demo")
         awaitTag("error")
+        // "says so" is the point of the test, so check which line it said.
+        assertEquals(PluginText.Resource(R.string.core_plugins_error_no_render), lastMessage())
     }
 
     @Test
@@ -249,6 +274,10 @@ class PluginRuntimeTest {
 
         engine.dispatch(PluginEvent.Click("boom"))
         awaitTag("error")
+        // Text from the virtual machine keeps its own words, so what the script
+        // author wrote is still what the user reads.
+        val failure = lastMessage() as PluginText.Script
+        assertTrue(failure.text, failure.text.contains("handler exploded"))
 
         // Still loaded, so the next event still arrives.
         reset()
@@ -265,6 +294,12 @@ class PluginRuntimeTest {
         install("while true do end function render() return ui.label{text='x'} end")
         engine.open("com.example.demo")
         awaitTag("stopped")
+        // Reported as the reason it was stopped for: the instruction allowance ran
+        // out, which is a different line from a deadline or a cancellation.
+        assertEquals(
+            PluginText.Resource(PluginAbortReason.INSTRUCTIONS.messageRes),
+            lastMessage(),
+        )
     }
 
     @Test
@@ -351,6 +386,7 @@ class PluginRuntimeTest {
         val engine = runtime()
         engine.open("com.example.absent")
         awaitTag("error")
+        assertEquals(PluginText.Resource(R.string.core_plugins_error_not_installed), lastMessage())
     }
 
     @Test
@@ -360,6 +396,9 @@ class PluginRuntimeTest {
         store.setEnabled("com.example.demo", false)
         engine.open("com.example.demo")
         awaitTag("error")
+        // Turned off rather than missing: two different lines for two different
+        // fixes, and only the resource id can tell them apart here.
+        assertEquals(PluginText.Resource(R.string.core_plugins_error_turned_off), lastMessage())
     }
 
     private companion object {

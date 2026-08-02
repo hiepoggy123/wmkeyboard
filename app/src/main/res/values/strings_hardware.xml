@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Physical keyboard shortcuts, and the key press sound controls (:app).
+
+  Modifier names printed on real keycaps (Ctrl, Alt, Shift, Meta), the letters
+  a shortcut is bound to, sound file names and the .mp3 extension stay literals
+  in the Kotlin: they are what the hardware says, not text to translate.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ================================================================== -->
+    <!-- Hardware shortcuts screen: one letter per tool.                    -->
+    <!-- ================================================================== -->
+
+    <!-- %1$s is the toolbox letter, for example T. %2$s is the cheat sheet key, for example ?. -->
+    <string name="hardware_shortcuts_intro_body">Press the shortcut key, then a letter. <xliff:g id="toolbox_letter" example="T">%1$s</xliff:g> opens the toolbox. <xliff:g id="cheat_sheet_key" example="?">%2$s</xliff:g> shows this list on the keyboard.</string>
+
+    <!-- The key that arms the tool letters. Used as a group header, as a row title and as a dialog title. -->
+    <string name="hardware_shortcuts_leader_title">Shortcut key</string>
+    <string name="hardware_shortcuts_leader_subtitle">The key that turns on the tool letters</string>
+
+    <string name="hardware_shortcuts_tools_group_title">Tools</string>
+    <!-- Shown under a tool the user turned off on the Tools screen. -->
+    <string name="hardware_shortcuts_tool_off_subtitle">This tool is off in Tools</string>
+
+    <!-- Content description of the button that takes the letter away from a tool. %1$s is the tool name. -->
+    <string name="hardware_shortcuts_unbind_desc">Delete the letter for <xliff:g id="tool_name" example="Emoji">%1$s</xliff:g></string>
+
+    <string name="hardware_shortcuts_reset_title">Reset the tool shortcuts?</string>
+    <string name="hardware_shortcuts_reset_body">Every letter goes back to its default tool.</string>
+
+    <!-- ================================================================== -->
+    <!-- Dialog that picks the shortcut key.                                -->
+    <!-- ================================================================== -->
+
+    <string name="hardware_shortcuts_double_tap_body">Press a modifier key two times. Nothing else uses it.</string>
+    <!-- Content description of the tick next to the shortcut key in use. -->
+    <string name="hardware_shortcuts_current_desc">The current shortcut key</string>
+    <string name="hardware_shortcuts_capture_body">Or press a shortcut on the attached keyboard.</string>
+    <string name="hardware_shortcuts_waiting_progress">Waiting for a key…</string>
+    <!-- %1$s is the shortcut the user pressed, for example Ctrl+C. -->
+    <string name="hardware_shortcuts_reserved_error"><xliff:g id="shortcut" example="Ctrl+C">%1$s</xliff:g> is usually the app\'s own shortcut.</string>
+    <string name="hardware_shortcuts_use_action">Use this shortcut</string>
+
+    <!-- ================================================================== -->
+    <!-- Dialog that picks the letter for one tool.                         -->
+    <!-- ================================================================== -->
+
+    <string name="hardware_shortcuts_letter_label">Letter</string>
+    <string name="hardware_shortcuts_letter_hint">Type one letter or one digit.</string>
+    <!-- %1$s is the letter the user typed. %2$s is the toolbox letter. %3$s is the cheat sheet key. -->
+    <string name="hardware_shortcuts_letter_reserved_error"><xliff:g id="letter" example="T">%1$s</xliff:g> is reserved. <xliff:g id="toolbox_letter" example="T">%2$s</xliff:g> opens the toolbox and <xliff:g id="cheat_sheet_key" example="?">%3$s</xliff:g> shows the list.</string>
+    <!-- %1$s is the letter the user typed. %2$s is the tool that letter opens today. -->
+    <string name="hardware_shortcuts_letter_clash_body"><xliff:g id="letter" example="E">%1$s</xliff:g> now opens <xliff:g id="tool_name" example="Emoji">%2$s</xliff:g>. That tool loses its letter.</string>
+    <string name="hardware_shortcuts_letter_move_action">Move the letter</string>
+
+    <!-- ================================================================== -->
+    <!-- Key press sound.                                                   -->
+    <!-- ================================================================== -->
+
+    <string name="hardware_sound_group_title">Key press sound</string>
+    <string name="hardware_sound_key_title">Key sound</string>
+    <string name="hardware_sound_key_subtitle">Play a sound on every key press</string>
+
+    <string name="hardware_sound_style_title">Sound style</string>
+    <string name="hardware_sound_style_info">Click and Standard come from the system sound pack of your device. They match the stock keyboard. Click is the classic key tick. Standard is the softer key press of the Android Open Source Project.\n\nPop, Thock and Chime are the sounds of WMKeyboard. Pop is a soft bubble pop. Thock is a deep mechanical bottom out. Chime is a small bell. These three sound the same on every device.\n\nCustom plays a sound file. Select Custom to see the sounds you installed from Add-ons, and to import your own MP3 file.</string>
+
+    <!-- The six key sound styles. Names of sounds, so keep them short. -->
+    <string name="hardware_sound_style_click_label">Click</string>
+    <string name="hardware_sound_style_standard_label">Standard</string>
+    <string name="hardware_sound_style_pop_label">Pop</string>
+    <string name="hardware_sound_style_thock_label">Thock</string>
+    <string name="hardware_sound_style_chime_label">Chime</string>
+
+    <string name="hardware_sound_volume_title">Sound volume</string>
+    <string name="hardware_sound_volume_subtitle">Relative to the media volume of your device</string>
+
+    <!-- ================================================================== -->
+    <!-- The key sounds installed on this device.                           -->
+    <!-- ================================================================== -->
+
+    <string name="hardware_sound_empty">You have no installed sounds. Install sounds from Add-ons, or import your own MP3 file.</string>
+    <!-- Content description of the tick next to the sound in use. -->
+    <string name="hardware_sound_selected_desc">Selected</string>
+    <!-- Content description of the delete button. %1$s is the sound name. -->
+    <string name="hardware_sound_delete_desc">Delete <xliff:g id="sound_name" example="Bubble">%1$s</xliff:g></string>
+    <string name="hardware_sound_import_action">Import a sound file (.mp3)</string>
+    <!-- %1$d is the largest number of sounds the app keeps, for example 30. -->
+    <plurals name="hardware_sound_limit_error">
+        <item quantity="one">You already have %1$d sound. Delete one first.</item>
+        <item quantity="other">You already have %1$d sounds. Delete one first.</item>
+    </plurals>
+
+</resources>

@@ -46,6 +46,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +58,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.wasimaster.wmkeyboard.core.media.MediaSnapshot
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.R
 import kotlinx.coroutines.delay
 
 /**
@@ -111,8 +113,8 @@ internal fun MediaControlPanel(
             track == null -> Notice(
                 kb,
                 Icons.Outlined.MusicNote,
-                "Nothing playing right now",
-                "Start a song, video or podcast in any app and its controls appear here.",
+                stringResource(R.string.ime_media_control_empty_title),
+                stringResource(R.string.ime_media_control_empty_body),
             )
             else -> NowPlaying(kb, track, onPlayPause, onNext, onPrevious, onSeek)
         }
@@ -174,8 +176,9 @@ private fun NowPlaying(
                 .padding(vertical = 4.dp),
             verticalArrangement = Arrangement.Center,
         ) {
+            val unknownTitle = stringResource(R.string.ime_media_control_unknown_title)
             Text(
-                track.title.ifBlank { "Unknown title" },
+                track.title.ifBlank { unknownTitle },
                 color = kb.keyText,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -220,17 +223,23 @@ private fun NowPlaying(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 MediaButton(
-                    kb, Icons.Outlined.SkipPrevious, "Previous",
+                    kb, Icons.Outlined.SkipPrevious,
+                    stringResource(R.string.ime_media_control_previous_desc),
                     size = 44.dp, enabled = track.canPrev, onClick = onPrevious,
                 )
                 MediaButton(
                     kb,
                     if (track.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                    if (track.playing) "Pause" else "Play",
+                    if (track.playing) {
+                        stringResource(R.string.ime_media_control_pause_desc)
+                    } else {
+                        stringResource(R.string.ime_media_control_play_desc)
+                    },
                     size = 56.dp, accent = true, onClick = onPlayPause,
                 )
                 MediaButton(
-                    kb, Icons.Outlined.SkipNext, "Next",
+                    kb, Icons.Outlined.SkipNext,
+                    stringResource(R.string.ime_media_control_next_desc),
                     size = 44.dp, enabled = track.canNext, onClick = onNext,
                 )
             }
@@ -335,8 +344,7 @@ private fun AccessPrompt(kb: KbTheme, onRequestAccess: () -> Unit) {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "To show and control what's playing, WM Keyboard needs notification " +
-                "access. It reads no notifications — only the media session.",
+            stringResource(R.string.ime_media_control_access_body),
             color = kb.secondaryText,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
@@ -351,7 +359,7 @@ private fun AccessPrompt(kb: KbTheme, onRequestAccess: () -> Unit) {
                 .padding(horizontal = 20.dp, vertical = 10.dp),
         ) {
             Text(
-                "Grant access",
+                stringResource(R.string.ime_media_control_access_action),
                 color = kb.toolCircleActiveIcon,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,

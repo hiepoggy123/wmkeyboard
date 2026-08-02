@@ -8,12 +8,14 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.wasimaster.wmkeyboard.common.R
 
 /**
  * The three grants Android does not hand out through a permission dialog:
@@ -30,9 +32,9 @@ import androidx.compose.ui.platform.LocalContext
  * The wording matters more than usual for these three, because what the system
  * screen says is alarming and generic ("full control of your device", "read all
  * notifications") while what this app actually does with each is narrow. The
- * copy below states the narrow truth without arguing with the system warning —
- * a reviewer reads both, and a disclosure that contradicts the platform's own
- * text reads as a dodge.
+ * copy (in `strings_ui.xml`, under `common_special_access_*`) states the narrow
+ * truth without arguing with the system warning — a reviewer reads both, and a
+ * disclosure that contradicts the platform's own text reads as a dodge.
  */
 enum class SpecialAccess {
     /** Notification listener, for the media-control tool's transport buttons. */
@@ -45,40 +47,22 @@ enum class SpecialAccess {
     ACCESSIBILITY,
     ;
 
-    val title: String
+    /** Dialog heading: the grant and the feature that wants it. */
+    @get:StringRes
+    val titleRes: Int
         get() = when (this) {
-            NOTIFICATIONS -> "Notification access for media controls"
-            USAGE -> "Usage access for clipboard source apps"
-            ACCESSIBILITY -> "Accessibility service for keyboard gestures"
+            NOTIFICATIONS -> R.string.common_special_access_notifications_title
+            USAGE -> R.string.common_special_access_usage_title
+            ACCESSIBILITY -> R.string.common_special_access_accessibility_title
         }
 
-    val body: String
+    /** What is read, why, where it goes, and that the feature is optional. */
+    @get:StringRes
+    val bodyRes: Int
         get() = when (this) {
-            NOTIFICATIONS ->
-                "Android hands the play/pause/skip controls of whatever is playing only to " +
-                    "apps that hold notification access, which is why the media tool needs " +
-                    "it. The keyboard's listener is empty: it reads no notification, no " +
-                    "title, no sender and no content, and exists only so the platform will " +
-                    "let the tool see the current media session. Nothing is stored and " +
-                    "nothing leaves the device. The system screen you are about to open " +
-                    "describes the full access the permission can give — this app uses the " +
-                    "media-session part of it and nothing else. The tool is optional."
-            USAGE ->
-                "With usage access, the keyboard can note which app was in front when you " +
-                    "copied something, and show it when you press and hold that clip. It " +
-                    "reads the foreground app at the moment of a copy — not your history, " +
-                    "not how long you spend anywhere — and the answer is kept with the clip " +
-                    "on this device only. Nothing about your app usage leaves the phone. " +
-                    "The setting is optional and stays off until you turn it on."
-            ACCESSIBILITY ->
-                "This service exists so the keyboard's own gestures — the spacebar cursor " +
-                    "slide, the backspace word swipe, glide typing, handwriting — keep " +
-                    "working while a screen reader is running, which only an accessibility " +
-                    "service is allowed to arrange. It subscribes to no accessibility " +
-                    "events, cannot read window content, and marks nothing but the " +
-                    "keyboard's own key grid. It collects no data at all. Android's " +
-                    "accessibility screen warns about the full power the category can have; " +
-                    "this service declares none of it."
+            NOTIFICATIONS -> R.string.common_special_access_notifications_body
+            USAGE -> R.string.common_special_access_usage_body
+            ACCESSIBILITY -> R.string.common_special_access_accessibility_body
         }
 
     /**
@@ -124,9 +108,9 @@ fun rememberDisclosedSpecialAccess(access: SpecialAccess): () -> Unit {
     var showing by remember { mutableStateOf(false) }
     if (showing) {
         DisclosureDialog(
-            title = access.title,
-            body = access.body,
-            continueLabel = "Open settings",
+            titleRes = access.titleRes,
+            bodyRes = access.bodyRes,
+            continueLabelRes = R.string.common_open_system_settings,
             onContinue = {
                 showing = false
                 access.openSettings(context)
@@ -162,9 +146,9 @@ class SpecialAccessActivity : ComponentActivity() {
         setContent {
             DisclosureTheme {
                 DisclosureDialog(
-                    title = access.title,
-                    body = access.body,
-                    continueLabel = "Open settings",
+                    titleRes = access.titleRes,
+                    bodyRes = access.bodyRes,
+                    continueLabelRes = R.string.common_open_system_settings,
                     onContinue = {
                         access.openSettings(this, component)
                         finish()

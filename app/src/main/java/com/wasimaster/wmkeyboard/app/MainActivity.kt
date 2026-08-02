@@ -70,7 +70,6 @@ import com.wasimaster.wmkeyboard.core.tools.ReservedLetters
 import com.wasimaster.wmkeyboard.core.tools.TapModifier
 import com.wasimaster.wmkeyboard.core.tools.ToolboxLetter
 import com.wasimaster.wmkeyboard.core.tools.describeChord
-import com.wasimaster.wmkeyboard.core.tools.describeLeader
 import com.wasimaster.wmkeyboard.core.tools.formatChord
 import com.wasimaster.wmkeyboard.core.tools.formatLeader
 import com.wasimaster.wmkeyboard.core.tools.parseLeader
@@ -148,6 +147,16 @@ import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColorArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.PluralsRes
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.content.R as ContentR
+import com.wasimaster.wmkeyboard.feedback.R as FeedbackR
+import com.wasimaster.wmkeyboard.ime.R as ImeR
+import com.wasimaster.wmkeyboard.core.tools.leaderLabel
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
@@ -515,7 +524,7 @@ private fun SettingsNavGraph(
                 onOpen = { result ->
                     // Arm the flash before navigating: the destination's rows
                     // read it during their first composition.
-                    SettingsHighlight.request(result.title)
+                    SettingsHighlight.request(result.titleRes)
                     // The search screen itself is dropped from the back stack,
                     // so backing out of the setting lands on the home list.
                     navController.popBackStack()
@@ -524,7 +533,11 @@ private fun SettingsNavGraph(
             )
         }
         composable("typing") {
-            SettingsScreen("Typing", { navController.popBackStack() }, route = "typing") {
+            SettingsScreen(
+                stringResource(R.string.home_typing_title),
+                { navController.popBackStack() },
+                route = "typing",
+            ) {
                 TypingSettings(
                     repository, settings,
                     onOpenDictionary = { navController.navigate("dictionary") },
@@ -535,42 +548,74 @@ private fun SettingsNavGraph(
             }
         }
         composable("keypress") {
-            SettingsScreen("Key press", { navController.popBackStack() }, route = "keypress") {
+            SettingsScreen(
+                stringResource(R.string.home_keypress_title),
+                { navController.popBackStack() },
+                route = "keypress",
+            ) {
                 KeyPressSettings(repository, settings)
             }
         }
         composable("dictionary") {
-            SettingsScreen("Personal dictionary", { navController.popBackStack() }, route = "dictionary") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_dictionary_title),
+                { navController.popBackStack() },
+                route = "dictionary",
+            ) {
                 DictionarySettings(repository)
             }
         }
         composable("backup") {
-            SettingsScreen("Backup & restore", { navController.popBackStack() }, route = "backup") {
+            SettingsScreen(
+                stringResource(R.string.home_backup_title),
+                { navController.popBackStack() },
+                route = "backup",
+            ) {
                 BackupSettings(repository)
             }
         }
         composable("customdictionaries") {
-            SettingsScreen("Custom dictionaries", { navController.popBackStack() }, route = "customdictionaries") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_custom_dictionaries_title),
+                { navController.popBackStack() },
+                route = "customdictionaries",
+            ) {
                 CustomDictionarySettings(repository, settings)
             }
         }
         composable("emojikeywords") {
-            SettingsScreen("Emoji keywords", { navController.popBackStack() }, route = "emojikeywords") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_emoji_keywords_title),
+                { navController.popBackStack() },
+                route = "emojikeywords",
+            ) {
                 EmojiKeywordSettings(repository, settings)
             }
         }
         composable("blacklist") {
-            SettingsScreen("Suggestion blacklist", { navController.popBackStack() }, route = "blacklist") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_blacklist_title),
+                { navController.popBackStack() },
+                route = "blacklist",
+            ) {
                 BlacklistSettings(repository, settings)
             }
         }
         composable("hwshortcuts") {
-            SettingsScreen("Tool shortcuts list", { navController.popBackStack() }, route = "hwshortcuts") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_hwshortcuts_title),
+                { navController.popBackStack() },
+                route = "hwshortcuts",
+            ) {
                 HardwareShortcutsSettings(repository, settings)
             }
         }
         composable("appearance") {
-            SettingsScreen("Appearance", { navController.popBackStack() }, route = "appearance") {
+            SettingsScreen(
+                stringResource(R.string.home_appearance_title),
+                { navController.popBackStack() },
+                route = "appearance",
+            ) {
                 AppearanceSettings(
                     repository, settings,
                     onOpenThemes = { navController.navigate("themes") },
@@ -580,49 +625,77 @@ private fun SettingsNavGraph(
             }
         }
         composable("layout") {
-            SettingsScreen("Layout & size", { navController.popBackStack() }, route = "layout") {
+            SettingsScreen(
+                stringResource(R.string.home_layout_title),
+                { navController.popBackStack() },
+                route = "layout",
+            ) {
                 LayoutSettings(repository, settings)
             }
         }
         composable("fonts") {
-            SettingsScreen("Keyboard font", { navController.popBackStack() }, route = "fonts") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_fonts_title),
+                { navController.popBackStack() },
+                route = "fonts",
+            ) {
                 FontSettings(repository, settings)
             }
         }
         composable("icons") {
-            SettingsScreen("Icons", { navController.popBackStack() }, route = "icons") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_icons_title),
+                { navController.popBackStack() },
+                route = "icons",
+            ) {
                 IconsScreen(repository, settings)
             }
         }
         composable("themes") {
-            SettingsScreen("Keyboard themes", { navController.popBackStack() }, route = "themes") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_themes_title),
+                { navController.popBackStack() },
+                route = "themes",
+            ) {
                 ThemesScreen(repository, settings) { id -> navController.navigate("theme_edit/$id") }
             }
         }
         composable("theme_edit/{themeId}") { backStackEntry ->
             val themeId = backStackEntry.arguments?.getString("themeId").orEmpty()
-            SettingsScreen("Edit theme", { navController.popBackStack() }) {
+            SettingsScreen(stringResource(R.string.home_screen_theme_edit_title), { navController.popBackStack() }) {
                 ThemeEditorScreen(repository, settings, themeId)
             }
         }
         composable("keymaps") {
-            SettingsScreen("Key layouts", { navController.popBackStack() }, route = "keymaps") {
+            SettingsScreen(
+                stringResource(R.string.home_keymaps_title),
+                { navController.popBackStack() },
+                route = "keymaps",
+            ) {
                 KeyLayoutsScreen(repository, settings) { route -> navController.navigate(route) }
             }
         }
         composable("sticker_packs") {
-            SettingsScreen("Sticker packs", { navController.popBackStack() }, route = "sticker_packs") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_sticker_packs_title),
+                { navController.popBackStack() },
+                route = "sticker_packs",
+            ) {
                 StickerPacksScreen { route -> navController.navigate(route) }
             }
         }
         composable("plugins") {
-            SettingsScreen("Plugins", { navController.popBackStack() }, route = "plugins") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_plugins_title),
+                { navController.popBackStack() },
+                route = "plugins",
+            ) {
                 PluginsScreen { route -> navController.navigate(route) }
             }
         }
         composable("plugin/{pluginId}") { entry ->
             val pluginId = entry.arguments?.getString("pluginId").orEmpty()
-            SettingsScreen("Plugin", { navController.popBackStack() }) {
+            SettingsScreen(stringResource(R.string.home_screen_plugin_title), { navController.popBackStack() }) {
                 PluginDetailScreen(pluginId) { navController.popBackStack() }
             }
         }
@@ -636,7 +709,11 @@ private fun SettingsNavGraph(
             ),
         ) { backStackEntry ->
             val prefill = decodeRouteArg(backStackEntry.arguments?.getString("add"))
-            SettingsScreen("Addons", { navController.popBackStack() }, route = "addons") {
+            SettingsScreen(
+                stringResource(R.string.home_addons_title),
+                { navController.popBackStack() },
+                route = "addons",
+            ) {
                 AddonsScreen(prefill) { route -> navController.navigate(route) }
             }
         }
@@ -666,7 +743,7 @@ private fun SettingsNavGraph(
             // is the word that can grow into the heading.
             val heading = rememberAddonHeading(url, addonId)
             SettingsScreen(
-                heading.title,
+                stringResource(heading.titleRes),
                 { navController.popBackStack() },
                 route = addonFlightRoute(url, addonId),
                 icon = {
@@ -686,13 +763,13 @@ private fun SettingsNavGraph(
         }
         composable("sticker_pack/{packId}") { backStackEntry ->
             val packId = backStackEntry.arguments?.getString("packId").orEmpty()
-            SettingsScreen("Edit sticker pack", { navController.popBackStack() }) {
+            SettingsScreen(stringResource(R.string.home_screen_sticker_pack_edit_title), { navController.popBackStack() }) {
                 StickerPackScreen(packId)
             }
         }
         composable("keymap_edit/{layoutId}") { backStackEntry ->
             val layoutId = backStackEntry.arguments?.getString("layoutId").orEmpty()
-            SettingsScreen("Edit layout", { navController.popBackStack() }) {
+            SettingsScreen(stringResource(R.string.home_screen_layout_edit_title), { navController.popBackStack() }) {
                 KeyLayoutEditorScreen(repository, settings, layoutId) { route ->
                     navController.navigate(route)
                 }
@@ -700,17 +777,25 @@ private fun SettingsNavGraph(
         }
         composable("keymap_json/{layoutId}") { backStackEntry ->
             val layoutId = backStackEntry.arguments?.getString("layoutId").orEmpty()
-            SettingsScreen("Layout JSON", { navController.popBackStack() }) {
+            SettingsScreen(stringResource(R.string.home_screen_layout_json_title), { navController.popBackStack() }) {
                 KeyLayoutJsonScreen(repository, settings, layoutId) { navController.popBackStack() }
             }
         }
         composable("languages") {
-            SettingsScreen("Languages", { navController.popBackStack() }, route = "languages") {
+            SettingsScreen(
+                stringResource(R.string.home_languages_title),
+                { navController.popBackStack() },
+                route = "languages",
+            ) {
                 LanguageSettings(repository, settings) { route -> navController.navigate(route) }
             }
         }
         composable("add_language") {
-            SettingsScreen("Add language", { navController.popBackStack() }, route = "add_language") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_add_language_title),
+                { navController.popBackStack() },
+                route = "add_language",
+            ) {
                 AddLanguageScreen(repository, settings) { langId ->
                     navController.navigate("language/$langId")
                 }
@@ -731,12 +816,20 @@ private fun SettingsNavGraph(
             }
         }
         composable("emoji") {
-            SettingsScreen("Emoji", { navController.popBackStack() }, route = "emoji") {
+            SettingsScreen(
+                stringResource(R.string.home_emoji_title),
+                { navController.popBackStack() },
+                route = "emoji",
+            ) {
                 EmojiSettings(repository, settings) { navController.navigate(it) }
             }
         }
         composable("tools") {
-            SettingsScreen("Tools", { navController.popBackStack() }, route = "tools") {
+            SettingsScreen(
+                stringResource(R.string.home_tools_title),
+                { navController.popBackStack() },
+                route = "tools",
+            ) {
                 ToolsSettings(repository, settings) { tool -> navController.navigate("tool/${tool.name}") }
             }
         }
@@ -752,7 +845,7 @@ private fun SettingsNavGraph(
                 // from it. It stays through the collapse — it is the only
                 // thing naming which tool this is.
                 SettingsScreen(
-                    toolTitle(tool),
+                    stringResource(toolTitle(tool)),
                     { navController.popBackStack() },
                     route = toolRoute(tool),
                     icon = { ToolGlyph(tool) },
@@ -767,7 +860,11 @@ private fun SettingsNavGraph(
             }
         }
         composable("accessibility") {
-            SettingsScreen("Accessibility", { navController.popBackStack() }, route = "accessibility") {
+            SettingsScreen(
+                stringResource(R.string.home_accessibility_title),
+                { navController.popBackStack() },
+                route = "accessibility",
+            ) {
                 AccessibilitySettings(
                     repository, settings,
                     onOpenFonts = { navController.navigate("fonts") },
@@ -777,34 +874,50 @@ private fun SettingsNavGraph(
             }
         }
         composable("privacy") {
-            SettingsScreen("Privacy", { navController.popBackStack() }, route = "privacy") {
+            SettingsScreen(
+                stringResource(R.string.home_privacy_title),
+                { navController.popBackStack() },
+                route = "privacy",
+            ) {
                 PrivacySettings(repository, settings)
             }
         }
         composable("rows") {
-            SettingsScreen("Rows & bars", { navController.popBackStack() }, route = "rows") {
+            SettingsScreen(
+                stringResource(R.string.home_rows_title),
+                { navController.popBackStack() },
+                route = "rows",
+            ) {
                 RowsSettings(repository, settings) { navController.navigate(it) }
             }
         }
         composable("symbol_set_edit/{setId}") { backStackEntry ->
             val setId = backStackEntry.arguments?.getString("setId").orEmpty()
-            SettingsScreen("Edit symbol set", { navController.popBackStack() }) {
+            SettingsScreen(stringResource(R.string.home_screen_symbol_set_edit_title), { navController.popBackStack() }) {
                 SymbolSetEditor(repository, settings, setId) { navController.popBackStack() }
             }
         }
         composable("modes") {
-            SettingsScreen("Keyboard modes", { navController.popBackStack() }, route = "modes") {
+            SettingsScreen(
+                stringResource(R.string.home_modes_title),
+                { navController.popBackStack() },
+                route = "modes",
+            ) {
                 ModesSettings(repository, settings) { navController.navigate(it) }
             }
         }
         composable("mode_edit/{modeId}") { backStackEntry ->
             val modeId = backStackEntry.arguments?.getString("modeId").orEmpty()
-            SettingsScreen("Edit mode", { navController.popBackStack() }) {
+            SettingsScreen(stringResource(R.string.home_screen_mode_edit_title), { navController.popBackStack() }) {
                 ModeEditor(repository, settings, modeId) { navController.popBackStack() }
             }
         }
         composable("about") {
-            SettingsScreen("About", { navController.popBackStack() }, route = "about") {
+            SettingsScreen(
+                stringResource(R.string.home_about_title),
+                { navController.popBackStack() },
+                route = "about",
+            ) {
                 AboutSettings(
                     onOpenLicenses = { navController.navigate("licenses") },
                     onOpenLicenseText = { navController.navigate("license_text/$it") },
@@ -813,18 +926,26 @@ private fun SettingsNavGraph(
             }
         }
         composable("debug_log") {
-            SettingsScreen("Diagnostics", { navController.popBackStack() }, route = "debug_log") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_debug_log_title),
+                { navController.popBackStack() },
+                route = "debug_log",
+            ) {
                 DebugLogScreen()
             }
         }
         composable("licenses") {
-            SettingsScreen("Open-source licences", { navController.popBackStack() }, route = "licenses") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_licenses_title),
+                { navController.popBackStack() },
+                route = "licenses",
+            ) {
                 LicensesScreen { navController.navigate("license_text/$it") }
             }
         }
         composable("license_text/{asset}") { backStackEntry ->
             val asset = backStackEntry.arguments?.getString("asset").orEmpty()
-            SettingsScreen("Licence", { navController.popBackStack() }) {
+            SettingsScreen(stringResource(R.string.home_screen_license_title), { navController.popBackStack() }) {
                 LicenseTextScreen(asset)
             }
         }
@@ -845,10 +966,10 @@ private fun AnimatedVisibilityScope.HomeScreen(
     // Once there is nothing to set up, the card saying so would be a whole
     // card spent on good news — it becomes a line under the heading instead.
     WmScreen(
-        title = "WM Keyboard",
+        title = stringResource(R.string.app_name),
         route = "home",
         centerTitle = true,
-        subtitle = if (setup.ready) "Your currently active keyboard" else null,
+        subtitle = if (setup.ready) stringResource(R.string.home_active_subtitle) else null,
         subtitleIcon = if (setup.ready) Icons.Outlined.CheckCircle else null,
         subtitleIconTint = ActiveGreen,
         badge = { AppIconBadge() },
@@ -856,7 +977,10 @@ private fun AnimatedVisibilityScope.HomeScreen(
         anim = this,
         actions = {
             IconButton(onClick = { onNavigate("search") }) {
-                Icon(Icons.Outlined.Search, contentDescription = "Search settings")
+                Icon(
+                    Icons.Outlined.Search,
+                    contentDescription = stringResource(R.string.home_search_desc),
+                )
             }
         },
     ) {
@@ -866,17 +990,19 @@ private fun AnimatedVisibilityScope.HomeScreen(
             }
             Spacer(Modifier.height(8.dp))
         }
-        SettingsGroup("Typing") {
+        SettingsGroup(stringResource(R.string.home_group_typing_title)) {
             item {
                 HomeItem(
-                    "typing", Icons.Outlined.Keyboard, "Typing",
-                    "Autocorrect, suggestions, gestures", onNavigate,
+                    "typing", Icons.Outlined.Keyboard,
+                    stringResource(R.string.home_typing_title),
+                    stringResource(R.string.home_typing_subtitle), onNavigate,
                 )
             }
             item {
                 HomeItem(
-                    "keypress", Icons.Outlined.TouchApp, "Key press",
-                    "Haptics, key popup, long-press shortcuts", onNavigate,
+                    "keypress", Icons.Outlined.TouchApp,
+                    stringResource(R.string.home_keypress_title),
+                    stringResource(R.string.home_keypress_subtitle), onNavigate,
                 )
             }
             item {
@@ -884,90 +1010,103 @@ private fun AnimatedVisibilityScope.HomeScreen(
                 // enabled set now starts from the phone's own languages, so
                 // there is no one right answer to hard-code here.
                 HomeItem(
-                    "languages", Icons.Outlined.Language, "Languages",
+                    "languages", Icons.Outlined.Language,
+                    stringResource(R.string.home_languages_title),
                     enabledLanguagesSummary(settings), onNavigate,
                 )
             }
         }
-        SettingsGroup("Keyboard") {
+        SettingsGroup(stringResource(R.string.home_group_keyboard_title)) {
             item {
                 HomeItem(
-                    "appearance", Icons.Outlined.Palette, "Appearance",
-                    "Themes, fonts, toolbar style", onNavigate,
+                    "appearance", Icons.Outlined.Palette,
+                    stringResource(R.string.home_appearance_title),
+                    stringResource(R.string.home_appearance_subtitle), onNavigate,
                 )
             }
             item {
                 HomeItem(
-                    "layout", Icons.Outlined.AspectRatio, "Layout & size",
-                    "Key size, number row, one-handed, split & floating", onNavigate,
+                    "layout", Icons.Outlined.AspectRatio,
+                    stringResource(R.string.home_layout_title),
+                    stringResource(R.string.home_layout_subtitle), onNavigate,
                 )
             }
             item {
                 HomeItem(
-                    "keymaps", Icons.Outlined.GridOn, "Key layouts",
-                    "Design your own key grid, or start from a built-in one", onNavigate,
+                    "keymaps", Icons.Outlined.GridOn,
+                    stringResource(R.string.home_keymaps_title),
+                    stringResource(R.string.home_keymaps_subtitle), onNavigate,
                 )
             }
             item {
                 HomeItem(
-                    "rows", Icons.Outlined.ViewAgenda, "Rows & bars",
-                    "Symbol row, emoji row, row order & symbol sets", onNavigate,
+                    "rows", Icons.Outlined.ViewAgenda,
+                    stringResource(R.string.home_rows_title),
+                    stringResource(R.string.home_rows_subtitle), onNavigate,
                 )
             }
             item {
                 HomeItem(
-                    "modes", Icons.Outlined.Tune, "Keyboard modes",
-                    "Per-app setups: email, browser, coding, passwords", onNavigate,
-                )
-            }
-        }
-        SettingsGroup("Features") {
-            item {
-                HomeItem(
-                    "emoji", Icons.Outlined.EmojiEmotions, "Emoji",
-                    "Suggestions, emoji row, emoji style, favourites", onNavigate,
-                )
-            }
-            item {
-                HomeItem(
-                    "tools", Icons.Outlined.Widgets, "Tools",
-                    "Flashlight, compass, snippets, calendar & more", onNavigate,
-                )
-            }
-            item {
-                HomeItem(
-                    "addons", Icons.Outlined.Extension, "Addons",
-                    "Install themes, layouts, fonts and more from the web", onNavigate,
+                    "modes", Icons.Outlined.Tune,
+                    stringResource(R.string.home_modes_title),
+                    stringResource(R.string.home_modes_subtitle), onNavigate,
                 )
             }
         }
-        SettingsGroup("Accessibility") {
+        SettingsGroup(stringResource(R.string.home_group_features_title)) {
             item {
                 HomeItem(
-                    "accessibility", Icons.Outlined.Accessibility, "Accessibility",
-                    "Contrast, colour vision, TalkBack, reduced motion", onNavigate,
+                    "emoji", Icons.Outlined.EmojiEmotions,
+                    stringResource(R.string.home_emoji_title),
+                    stringResource(R.string.home_emoji_subtitle), onNavigate,
+                )
+            }
+            item {
+                HomeItem(
+                    "tools", Icons.Outlined.Widgets,
+                    stringResource(R.string.home_tools_title),
+                    stringResource(R.string.home_tools_subtitle), onNavigate,
+                )
+            }
+            item {
+                HomeItem(
+                    "addons", Icons.Outlined.Extension,
+                    stringResource(R.string.home_addons_title),
+                    stringResource(R.string.home_addons_subtitle), onNavigate,
                 )
             }
         }
-        SettingsGroup("Data") {
+        SettingsGroup(stringResource(R.string.home_group_accessibility_title)) {
             item {
                 HomeItem(
-                    "privacy", Icons.Outlined.Security, "Privacy",
-                    "On-device learning, incognito", onNavigate,
-                )
-            }
-            item {
-                HomeItem(
-                    "backup", Icons.Outlined.Save, "Backup & restore",
-                    "Export your settings to a file, or restore them", onNavigate,
+                    "accessibility", Icons.Outlined.Accessibility,
+                    stringResource(R.string.home_accessibility_title),
+                    stringResource(R.string.home_accessibility_subtitle), onNavigate,
                 )
             }
         }
-        SettingsGroup("About") {
+        SettingsGroup(stringResource(R.string.home_group_data_title)) {
             item {
                 HomeItem(
-                    "about", Icons.Outlined.Info, "About",
-                    "Version, licence, open-source notices", onNavigate,
+                    "privacy", Icons.Outlined.Security,
+                    stringResource(R.string.home_privacy_title),
+                    stringResource(R.string.home_privacy_subtitle), onNavigate,
+                )
+            }
+            item {
+                HomeItem(
+                    "backup", Icons.Outlined.Save,
+                    stringResource(R.string.home_backup_title),
+                    stringResource(R.string.home_backup_subtitle), onNavigate,
+                )
+            }
+        }
+        SettingsGroup(stringResource(R.string.home_group_about_title)) {
+            item {
+                HomeItem(
+                    "about", Icons.Outlined.Info,
+                    stringResource(R.string.home_about_title),
+                    stringResource(R.string.home_about_subtitle), onNavigate,
                 )
             }
         }
@@ -1006,7 +1145,7 @@ private fun AppIconBadge() {
         )
         Image(
             painterResource(com.wasimaster.wmkeyboard.R.mipmap.ic_launcher_fg),
-            contentDescription = "WM Keyboard",
+            contentDescription = stringResource(R.string.app_name),
             modifier = Modifier.size(layer),
         )
     }
@@ -1080,7 +1219,7 @@ internal fun SetupCard(
                 )
                 Spacer(Modifier.width(12.dp))
                 Text(
-                    "WM Keyboard is your active keyboard.",
+                    stringResource(R.string.home_setup_active_body),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -1090,11 +1229,14 @@ internal fun SetupCard(
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Setup", style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.home_setup_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
             Spacer(Modifier.height(8.dp))
             Text(
-                if (enabled) "WM Keyboard is enabled. Use the button below to switch to it."
-                else "Enable WM Keyboard in system settings, then select it as your input method.",
+                if (enabled) stringResource(R.string.home_setup_enabled_body)
+                else stringResource(R.string.home_setup_disabled_body),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(12.dp))
@@ -1102,11 +1244,11 @@ internal fun SetupCard(
                 if (!enabled) {
                     Button(onClick = {
                         context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-                    }) { Text("Enable keyboard") }
+                    }) { Text(stringResource(R.string.home_setup_enable_action)) }
                     Spacer(Modifier.width(8.dp))
                 }
                 OutlinedButton(onClick = { imm.showInputMethodPicker() }) {
-                    Text("Switch keyboard")
+                    Text(stringResource(R.string.home_setup_switch_action))
                 }
             }
         }
@@ -1205,6 +1347,7 @@ internal class SettingsGroupScope {
 @Composable
 internal fun SettingsGroup(
     title: String? = null,
+    @StringRes highlightKey: Int = 0,
     builder: SettingsGroupScope.() -> Unit,
 ) {
     // The builder runs during composition, so rows may be added
@@ -1216,7 +1359,7 @@ internal fun SettingsGroup(
     // arrives at from search — or from an addon's Use button — are a whole
     // section rather than one row: "Icon pack", "Your packs", "Installed
     // fonts". Unnamed groups have nothing to match on and stay plain.
-    HighlightableRow(title) {
+    HighlightableRow(title, highlightKey) {
         if (title != null) SectionHeader(title)
         Column(
             modifier = Modifier.padding(horizontal = 16.dp),
@@ -1253,7 +1396,7 @@ internal fun InfoButton(title: String, detail: String) {
     IconButton(onClick = { open = true }) {
         Icon(
             Icons.AutoMirrored.Outlined.HelpOutline,
-            contentDescription = "More about $title",
+            contentDescription = stringResource(R.string.home_info_desc, title),
             modifier = Modifier.size(20.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
         )
@@ -1263,7 +1406,11 @@ internal fun InfoButton(title: String, detail: String) {
             onDismissRequest = { open = false },
             title = { Text(title) },
             text = { Text(detail) },
-            confirmButton = { TextButton(onClick = { open = false }) { Text("Got it") } },
+            confirmButton = {
+                TextButton(onClick = { open = false }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
         )
     }
 }
@@ -1363,9 +1510,10 @@ internal fun NavRow(
     subtitle: String? = null,
     value: String? = null,
     route: String? = null,
+    @StringRes highlightKey: Int = 0,
     onClick: () -> Unit,
 ) {
-    HighlightableRow(title) {
+    HighlightableRow(title, highlightKey) {
         WmRow(
             title = title,
             subtitle = subtitle,
@@ -1399,9 +1547,10 @@ internal fun ToggleSetting(
     checked: Boolean,
     info: String? = null,
     switchKey: String? = null,
+    @StringRes highlightKey: Int = 0,
     onChange: (Boolean) -> Unit,
 ) {
-    HighlightableRow(title) {
+    HighlightableRow(title, highlightKey) {
         WmRow(
             title = title,
             subtitle = subtitle,
@@ -1500,10 +1649,11 @@ internal fun SliderSetting(
     range: ClosedFloatingPointRange<Float>,
     display: (Float) -> String,
     info: String? = null,
+    @StringRes highlightKey: Int = 0,
     onChange: (Float) -> Unit,
 ) {
     val slider = rememberLiveSlider(value, onChange)
-    HighlightableRow(title) {
+    HighlightableRow(title, highlightKey) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(title, style = MaterialTheme.typography.bodyLarge)
@@ -1537,33 +1687,34 @@ internal fun SliderSetting(
 @Composable
 private fun ResetPinnedToolsSetting(repository: SettingsRepository, scope: CoroutineScope) {
     var confirm by remember { mutableStateOf(false) }
-    HighlightableRow("Reset pinned tools") {
+    val title = stringResource(R.string.home_reset_pinned_tools_title)
+    HighlightableRow(title) {
         WmRow(
-            title = "Reset pinned tools",
-            subtitle = "Restore the default toolbar tools",
+            title = title,
+            subtitle = stringResource(R.string.home_reset_pinned_tools_subtitle),
             trailing = {
-                OutlinedButton(onClick = { confirm = true }) { Text("Reset") }
+                OutlinedButton(onClick = { confirm = true }) {
+                    Text(stringResource(CommonR.string.common_reset))
+                }
             },
         )
     }
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            title = { Text("Reset pinned tools?") },
-            text = {
-                Text(
-                    "The toolbar goes back to its default tools. Tools you pinned or " +
-                        "removed by hand are forgotten. This affects the global toolbar; a " +
-                        "mode's own toolbar is reset from that mode's editor.",
-                )
-            },
+            title = { Text(stringResource(R.string.home_reset_pinned_tools_confirm_title)) },
+            text = { Text(stringResource(R.string.home_reset_pinned_tools_confirm_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirm = false
                     scope.launch { repository.setToolbarTools(DefaultToolbarTools) }
-                }) { Text("Reset") }
+                }) { Text(stringResource(CommonR.string.common_reset)) }
             },
-            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } },
+            dismissButton = {
+                TextButton(onClick = { confirm = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
         )
     }
 }
@@ -1576,9 +1727,10 @@ internal fun <T> ChoiceSetting(
     info: String? = null,
     options: List<Pair<T, String>>,
     selected: T,
+    @StringRes highlightKey: Int = 0,
     onChange: (T) -> Unit,
 ) {
-    HighlightableRow(title) {
+    HighlightableRow(title, highlightKey) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(title, style = MaterialTheme.typography.bodyLarge)
@@ -1617,16 +1769,20 @@ private fun SpaceSwipeSetting(
     value: SpaceSwipeAction,
     onChange: (SpaceSwipeAction) -> Unit,
 ) {
+    val nothing = stringResource(R.string.home_space_swipe_none_label)
+    val language = stringResource(R.string.home_space_swipe_language_label)
+    val cursor = stringResource(R.string.home_space_swipe_cursor_label)
+    val numpad = stringResource(R.string.home_space_swipe_numpad_label)
     ChoiceSetting(
         title = title,
         subtitle = subtitle,
         info = info,
         options = SpaceSwipeAction.entries.map { action ->
             action to when (action) {
-                SpaceSwipeAction.NONE -> "Nothing"
-                SpaceSwipeAction.LANGUAGE -> "Language"
-                SpaceSwipeAction.CURSOR -> "Cursor"
-                SpaceSwipeAction.NUMPAD -> "Numpad"
+                SpaceSwipeAction.NONE -> nothing
+                SpaceSwipeAction.LANGUAGE -> language
+                SpaceSwipeAction.CURSOR -> cursor
+                SpaceSwipeAction.NUMPAD -> numpad
             }
         },
         selected = value,
@@ -1646,203 +1802,157 @@ private fun TypingSettings(
     onOpenHardwareShortcuts: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    SettingsGroup("Automatic corrections") {
+    SettingsGroup(stringResource(R.string.typing_group_corrections_title)) {
         item {
             ToggleSetting(
-                "Autocorrect", "Fix typos automatically when you press space", settings.autocorrect,
-                info = "When you press space, the word you just typed is checked against the " +
-                    "dictionary. If it looks like a slip of an obviously more common word, it is " +
-                    "replaced. Words you have taught the keyboard are never \"corrected\" away, " +
-                    "and autocorrect stays off in password fields.",
+                stringResource(R.string.typing_autocorrect_title),
+                stringResource(R.string.typing_autocorrect_subtitle),
+                settings.autocorrect,
+                info = stringResource(R.string.typing_autocorrect_info),
             ) { scope.launch { repository.setAutocorrect(it) } }
         }
         if (settings.autocorrect) {
             item {
+                val valueFormat = stringResource(R.string.typing_value_multiplier_prefix)
                 SliderSetting(
-                    "Autocorrect confidence",
-                    subtitle = "How sure a correction must be before it is applied",
+                    stringResource(R.string.typing_autocorrect_confidence_title),
+                    subtitle = stringResource(R.string.typing_autocorrect_confidence_subtitle),
                     value = settings.autocorrectConfidence,
                     range = 1.5f..10f,
-                    display = { "×%.1f".format(it) },
-                    info = "A correction only fires when the best candidate outscores the " +
-                        "runner-up by this factor. Low corrects eagerly and catches more " +
-                        "typos, but guesses wrong more often; high only corrects when the " +
-                        "word is nearly unambiguous. Corrections that two sources agree on " +
-                        "are applied regardless.",
+                    display = { valueFormat.format("%.1f".format(it)) },
+                    info = stringResource(R.string.typing_autocorrect_confidence_info),
                 ) { scope.launch { repository.setAutocorrectConfidence(it) } }
             }
             item {
                 ToggleSetting(
-                    "Undo autocorrect with backspace",
-                    "Backspace right after a correction restores what you typed",
+                    stringResource(R.string.typing_undo_autocorrect_title),
+                    stringResource(R.string.typing_undo_autocorrect_subtitle),
                     settings.revertAutocorrectOnBackspace,
-                    info = "Pressing backspace immediately after autocorrect changed a word " +
-                        "puts your original spelling back and teaches it to the keyboard, so " +
-                        "it is not corrected again. Turn this off to have backspace always " +
-                        "just delete a character.",
+                    info = stringResource(R.string.typing_undo_autocorrect_info),
                 ) { scope.launch { repository.setRevertAutocorrectOnBackspace(it) } }
             }
             item {
                 ToggleSetting(
-                    "Skip all-caps words",
-                    "Leave words typed in capitals alone",
+                    stringResource(R.string.typing_skip_all_caps_title),
+                    stringResource(R.string.typing_skip_all_caps_subtitle),
                     settings.autocorrectSkipAllCaps,
-                    info = "Acronyms and shouting (ASAP, OFC, NOOO) are usually typed in " +
-                        "capitals on purpose, so autocorrect leaves any word in all caps " +
-                        "alone. Turn this off to have such words corrected like any other.",
+                    info = stringResource(R.string.typing_skip_all_caps_info),
                 ) { scope.launch { repository.setAutocorrectSkipAllCaps(it) } }
             }
             item {
                 ToggleSetting(
-                    "Block offensive words",
-                    "Keep profanity and slurs out of suggestions",
+                    stringResource(R.string.typing_block_offensive_title),
+                    stringResource(R.string.typing_block_offensive_subtitle),
                     settings.suggestionStrip.blockOffensiveWords,
-                    info = "Potentially offensive words are never offered in the suggestion " +
-                        "strip and a neutral typo is never autocorrected into one. You can " +
-                        "still type and commit any word yourself — this only stops the " +
-                        "keyboard from suggesting them.",
+                    info = stringResource(R.string.typing_block_offensive_info),
                 ) { scope.launch { repository.setBlockOffensiveWords(it) } }
             }
         }
         item {
             ToggleSetting(
-                "Fix missing apostrophes", "arent → aren't, im → I'm, dont → don't",
+                stringResource(R.string.typing_auto_apostrophe_title),
+                stringResource(R.string.typing_auto_apostrophe_subtitle),
                 settings.autoApostrophe,
-                info = "When you press space after a contraction typed without its " +
-                    "apostrophe (arent, isnt, youre, oclock…), the apostrophe is put " +
-                    "back — and a lone \"i\" becomes \"I\". Words that are also real " +
-                    "English words without the apostrophe (its, well, ill, shell…) are " +
-                    "deliberately left alone. Works independently of autocorrect.",
+                info = stringResource(R.string.typing_auto_apostrophe_info),
             ) { scope.launch { repository.setAutoApostrophe(it) } }
         }
         item {
             ToggleSetting(
-                "Auto-capitalize", "Capitalize the first letter of sentences", settings.autoCapitalize,
-                info = "Shift turns on by itself at the start of a text field and after " +
-                    "sentence-ending punctuation (. ! ? ।). It only applies in fields that ask " +
-                    "for sentence capitalization, and only in English mode. Caps lock is never " +
-                    "changed automatically.",
+                stringResource(R.string.typing_auto_capitalize_title),
+                stringResource(R.string.typing_auto_capitalize_subtitle),
+                settings.autoCapitalize,
+                info = stringResource(R.string.typing_auto_capitalize_info),
             ) { scope.launch { repository.setAutoCapitalize(it) } }
         }
         item {
             ToggleSetting(
-                "Double-space period", "Double-tapping space inserts “. ”", settings.doubleSpacePeriod,
-                info = "Tapping space twice quickly at the end of a word replaces the first " +
-                    "space with a period, so you can end sentences without visiting the symbols " +
-                    "layout.",
+                stringResource(R.string.typing_double_space_period_title),
+                stringResource(R.string.typing_double_space_period_subtitle),
+                settings.doubleSpacePeriod,
+                info = stringResource(R.string.typing_double_space_period_info),
             ) { scope.launch { repository.setDoubleSpacePeriod(it) } }
         }
         item {
             ToggleSetting(
-                "Double-space tab", "Double-tapping space inserts a tab", settings.doubleSpaceTab,
-                info = "Tapping space twice quickly replaces the first space with a tab " +
-                    "character — handy for indentation and forms. While this is on it takes " +
-                    "priority over double-space period.",
+                stringResource(R.string.typing_double_space_tab_title),
+                stringResource(R.string.typing_double_space_tab_subtitle),
+                settings.doubleSpaceTab,
+                info = stringResource(R.string.typing_double_space_tab_info),
             ) { scope.launch { repository.setDoubleSpaceTab(it) } }
         }
         item {
             ToggleSetting(
-                "Auto-space after punctuation",
-                "Typing . , ? ! ; or : adds the space after it",
+                stringResource(R.string.typing_auto_space_punctuation_title),
+                stringResource(R.string.typing_auto_space_punctuation_subtitle),
                 settings.autoSpaceAfterPunctuation,
-                info = "Saves the spacebar trip at the end of every clause: \"hello,\" " +
-                    "becomes \"hello, \" on its own. Runs of marks (\"...\", \"?!\") stay " +
-                    "together, pressing space yourself does not double the space up, and " +
-                    "shift right afterwards takes it back. Structured fields — passwords, " +
-                    "email addresses, web addresses, number and phone pads — are left alone, " +
-                    "since a space there is a typo rather than a courtesy.",
+                info = stringResource(R.string.typing_auto_space_punctuation_info),
             ) { scope.launch { repository.setAutoSpaceAfterPunctuation(it) } }
         }
         item {
             ToggleSetting(
-                "Space after a suggestion",
-                "Add a space when you pick a word from the strip",
+                stringResource(R.string.typing_space_after_suggestion_title),
+                stringResource(R.string.typing_space_after_suggestion_subtitle),
                 settings.suggestionStrip.autoSpaceAfterSuggestion,
-                info = "On (the default), tapping a suggestion commits the word and a trailing " +
-                    "space so the next word starts cleanly. Turn it off to commit the word bare " +
-                    "— for languages or fields where a trailing space is wrong more often than " +
-                    "right. A word you go back and resume never gets a doubled space either way.",
+                info = stringResource(R.string.typing_space_after_suggestion_info),
             ) { scope.launch { repository.setAutoSpaceAfterSuggestion(it) } }
         }
         item {
             ToggleSetting(
-                "Wrap selection with brackets",
-                "Typing ( [ { < \" ' or ` around selected text wraps it",
+                stringResource(R.string.typing_wrap_selection_title),
+                stringResource(R.string.typing_wrap_selection_subtitle),
                 settings.textEditing.wrapSelectionWithPair,
-                info = "With text selected, pressing a bracket, brace or quote key surrounds " +
-                    "the selection with the pair — select \"foo\", press ( and you get " +
-                    "\"(foo)\" — instead of replacing it. The wrapped text stays selected so " +
-                    "you can wrap it again. Turn off to have those keys always replace the " +
-                    "selection, like any other character.",
+                info = stringResource(R.string.typing_wrap_selection_info),
             ) { scope.launch { repository.setWrapSelectionWithPair(it) } }
         }
         item {
             ToggleSetting(
-                "Shift re-cases selection",
-                "Shift with text selected cycles lowercase, Title, UPPERCASE",
+                stringResource(R.string.typing_shift_recase_title),
+                stringResource(R.string.typing_shift_recase_subtitle),
                 settings.textEditing.recapitalizeSelectionWithShift,
-                info = "With text selected, tapping shift changes its case instead of arming " +
-                    "shift for the next letter — pressing it repeatedly cycles lowercase → " +
-                    "Title Case → UPPERCASE. Nothing changes for caseless scripts like " +
-                    "Bengali. Turn off to keep shift meaning \"capitalize the next character\" " +
-                    "even while text is selected.",
+                info = stringResource(R.string.typing_shift_recase_info),
             ) { scope.launch { repository.setRecapitalizeSelectionWithShift(it) } }
         }
     }
 
-    SettingsGroup("Suggestions") {
+    SettingsGroup(stringResource(R.string.typing_group_suggestions_title)) {
         item {
             ToggleSetting(
-                "Suggestions", "Show word predictions above the keyboard", settings.suggestions,
-                info = "Shows up to three candidates above the keys while you type: completions, " +
-                    "corrections, and next-word predictions learned from your typing. Tap one to " +
-                    "insert it followed by a space.",
+                stringResource(R.string.typing_suggestions_title),
+                stringResource(R.string.typing_suggestions_subtitle),
+                settings.suggestions,
+                info = stringResource(R.string.typing_suggestions_info),
             ) { scope.launch { repository.setSuggestions(it) } }
         }
         item {
             ToggleSetting(
-                "Punctuation suggestions",
-                "Quick . , ? ! ' chips beside the word candidates",
+                stringResource(R.string.typing_punctuation_suggestions_title),
+                stringResource(R.string.typing_punctuation_suggestions_subtitle),
                 settings.suggestionStrip.punctuation,
-                info = "Adds a short row of common punctuation to the end of the suggestion " +
-                    "strip while candidates are showing, so a full stop or comma is one tap " +
-                    "away without switching to the symbols layout. Tapping one behaves exactly " +
-                    "like typing that key. When an emoji prediction is offered it takes the " +
-                    "tail instead.",
+                info = stringResource(R.string.typing_punctuation_suggestions_info),
             ) { scope.launch { repository.setPunctuationSuggestions(it) } }
         }
         item {
             ToggleSetting(
-                "Suggestions in every field",
-                "Show the suggestion strip even where apps ask it hidden",
+                stringResource(R.string.typing_suggestions_all_fields_title),
+                stringResource(R.string.typing_suggestions_all_fields_subtitle),
                 settings.showSuggestionsInAllFields,
-                info = "Some apps — Instagram, Google Keep and others — tell the keyboard to " +
-                    "hide the suggestion strip on ordinary text fields. On (the default), the " +
-                    "strip is shown anyway, the way most keyboards quietly do; turn off to " +
-                    "respect the app and hide it. Either way, autocorrect, gesture typing and " +
-                    "Bengali (Avro) composing keep working — those are no longer tied to the " +
-                    "strip. Password fields and number pads never show suggestions.",
+                info = stringResource(R.string.typing_suggestions_all_fields_info),
             ) { scope.launch { repository.setShowSuggestionsInAllFields(it) } }
         }
         item {
             ToggleSetting(
-                "Suggestions bar always visible",
-                "Keep the suggestion strip up even before you type",
+                stringResource(R.string.typing_suggestions_first_title),
+                stringResource(R.string.typing_suggestions_first_subtitle),
                 settings.suggestionStrip.suggestionsFirst,
-                info = "Normally the top bar rests on the toolbar and only switches to " +
-                    "suggestions while candidates exist. With this on, the suggestion strip is " +
-                    "the resting state instead — next-word predictions are always one glance " +
-                    "away — and the chevron on its left opens the toolbar when you need a tool.",
+                info = stringResource(R.string.typing_suggestions_first_info),
             ) { scope.launch { repository.setSuggestionsFirst(it) } }
         }
         item {
             ToggleSetting(
-                "Best suggestion in the middle",
-                "Show the top candidate in the center slot",
+                stringResource(R.string.typing_primary_center_title),
+                stringResource(R.string.typing_primary_center_subtitle),
                 settings.suggestionStrip.suggestionPrimaryCenter,
-                info = "The strongest candidate (the one autocorrect would pick) sits in the " +
-                    "middle of the strip with the runner-up on its left — the layout most " +
-                    "keyboards use. Turn off to rank candidates left to right instead.",
+                info = stringResource(R.string.typing_primary_center_info),
             ) { scope.launch { repository.setSuggestionPrimaryCenter(it) } }
         }
         item {
@@ -1854,14 +1964,10 @@ private fun TypingSettings(
                     scope.launch { repository.setContactSuggestions(true) }
                 }
             ToggleSetting(
-                "Suggest contact names",
-                "Complete names from your contacts as you type",
+                stringResource(R.string.typing_contact_names_title),
+                stringResource(R.string.typing_contact_names_subtitle),
                 settings.contactSuggestions,
-                info = "Words from your contacts' names complete like dictionary words " +
-                    "(\"was\" → Wasi) and chain onto each other (after Wasi, the surname is " +
-                    "offered next). Names are read into memory only — nothing is stored or " +
-                    "sent anywhere, and autocorrect will never \"fix\" a name it knows. " +
-                    "Needs the Contacts permission.",
+                info = stringResource(R.string.typing_contact_names_info),
             ) { enabled ->
                 when {
                     !enabled -> scope.launch { repository.setContactSuggestions(false) }
@@ -1879,14 +1985,10 @@ private fun TypingSettings(
                     scope.launch { repository.setContactEmailSuggestions(true) }
                 }
             ToggleSetting(
-                "Suggest contact emails",
-                "Complete a contact's email as you type the start of it",
+                stringResource(R.string.typing_contact_emails_title),
+                stringResource(R.string.typing_contact_emails_subtitle),
                 settings.contactEmailSuggestions,
-                info = "Type the start of a contact's email address (\"john\") and their full " +
-                    "address (john.doe@gmail.com) is offered in the strip to complete. " +
-                    "Addresses are read into memory only — nothing is stored or sent " +
-                    "anywhere, and autocorrect will never touch them. Needs the Contacts " +
-                    "permission.",
+                info = stringResource(R.string.typing_contact_emails_info),
             ) { enabled ->
                 when {
                     !enabled -> scope.launch { repository.setContactEmailSuggestions(false) }
@@ -1900,97 +2002,67 @@ private fun TypingSettings(
         if (settings.contactEmailSuggestions) {
             item {
                 ToggleSetting(
-                    "Contact emails in email fields too",
-                    "Show them even where the app hides suggestions",
+                    stringResource(R.string.typing_contact_emails_in_email_fields_title),
+                    stringResource(R.string.typing_contact_emails_in_email_fields_subtitle),
                     settings.contactEmailSuggestionsInEmailFields,
-                    info = "Email fields normally tell the keyboard to hide the suggestion " +
-                        "strip, which would suppress these completions just where they are " +
-                        "most useful. With this on, contact-email completions still appear in " +
-                        "email fields; other suggestions stay hidden there as before. Turn " +
-                        "off to respect the field and only complete emails in ordinary text.",
+                    info = stringResource(R.string.typing_contact_emails_in_email_fields_info),
                 ) { scope.launch { repository.setContactEmailSuggestionsInEmailFields(it) } }
             }
         }
         item {
             ToggleSetting(
-                "Suggest app names",
-                "Complete the names of installed apps as you type",
+                stringResource(R.string.typing_app_names_title),
+                stringResource(R.string.typing_app_names_subtitle),
                 settings.appNameSuggestions,
-                info = "Words from the names of your installed apps complete like dictionary " +
-                    "words (\"sign\" → Signal), and autocorrect will never \"fix\" one. They " +
-                    "rank below contact names, since ordinary words like Files and Clock are " +
-                    "app names too. Read into memory only — nothing is stored or sent " +
-                    "anywhere, and no permission is needed.",
+                info = stringResource(R.string.typing_app_names_info),
             ) { scope.launch { repository.setAppNameSuggestions(it) } }
         }
         item {
             ToggleSetting(
-                "Inline emoji search",
-                "Type \":\" then a word to find emoji — :smi → 😄",
+                stringResource(R.string.typing_inline_emoji_search_title),
+                stringResource(R.string.typing_inline_emoji_search_subtitle),
                 settings.inlineEmojiSearch,
-                info = "Typing a colon at the start of a word turns the suggestion strip into " +
-                    "an emoji search: \":cat\" offers 🐱, and tapping one replaces what you " +
-                    "typed. Backspacing over the colon returns to normal word suggestions, " +
-                    "and pressing space leaves the text exactly as typed.",
+                info = stringResource(R.string.typing_inline_emoji_search_info),
             ) { scope.launch { repository.setInlineEmojiSearch(it) } }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             item {
                 ToggleSetting(
-                    "Password manager suggestions",
-                    "Show saved logins from your autofill service in the strip",
+                    stringResource(R.string.typing_inline_autofill_title),
+                    stringResource(R.string.typing_inline_autofill_subtitle),
                     settings.inlineAutofill,
-                    info = "When a login field is focused, your password manager can offer " +
-                        "saved entries as chips in the suggestion strip instead of a separate " +
-                        "popup. The chips are drawn by the manager itself — the keyboard is " +
-                        "only given their size, and never sees the username or password " +
-                        "inside them. Turned off automatically in incognito mode. " +
-                        "Requires Android 11 or newer and a password manager set as your " +
-                        "system autofill service.",
+                    info = stringResource(R.string.typing_inline_autofill_info),
                 ) { scope.launch { repository.setInlineAutofill(it) } }
             }
             item {
                 ToggleSetting(
-                    "Smart replies",
-                    "Let the system offer replies to the message you're answering",
+                    stringResource(R.string.typing_smart_replies_title),
+                    stringResource(R.string.typing_smart_replies_subtitle),
                     settings.suggestionStrip.systemSmartReplies,
-                    info = "Android System Intelligence can read the conversation on screen " +
-                        "and propose short answers (\"On my way!\"), which appear as chips " +
-                        "beside the word suggestions — up to three at a time, drawn by the " +
-                        "system rather than the keyboard. They arrive over the same channel " +
-                        "as password manager chips but are counted and switched separately, " +
-                        "so you can have saved logins in the strip without the system reading " +
-                        "your messages, or the other way round. Turned off automatically in " +
-                        "incognito mode. Requires Android 11 or newer, and only some apps " +
-                        "offer replies at all.",
+                    info = stringResource(R.string.typing_smart_replies_info),
                 ) { scope.launch { repository.setSystemSmartReplies(it) } }
             }
         }
         item {
             ToggleSetting(
-                "Smart key-hit detection",
-                "Nudge boundary taps toward the letter you likely meant",
+                stringResource(R.string.typing_smart_hit_detection_title),
+                stringResource(R.string.typing_smart_hit_detection_subtitle),
                 settings.layoutBehavior.smartHitDetection,
-                info = "As you type a word, the dictionary predicts which letters are likely to " +
-                    "come next, and the touch target of each key is quietly widened toward them. " +
-                    "A tap that lands just inside a neighbouring key still commits the letter you " +
-                    "meant — but only near the shared edge; a deliberate press in the middle of a " +
-                    "key is never changed. Only affects the letters layer, and needs Suggestions " +
-                    "on so the prediction has something to work with.",
+                info = stringResource(R.string.typing_smart_hit_detection_info),
             ) { scope.launch { repository.setSmartHitDetection(it) } }
         }
         item {
             NavRow(
-                "Personal dictionary",
-                "Words the keyboard has learned — review, remove, add your own",
+                stringResource(R.string.typing_personal_dictionary_title),
+                stringResource(R.string.typing_personal_dictionary_subtitle),
                 route = "dictionary",
                 onClick = onOpenDictionary,
             )
         }
         item {
             NavRow(
-                "Custom dictionaries",
-                "Import your own word lists, per language",
+                stringResource(R.string.typing_custom_dictionaries_title),
+                stringResource(R.string.typing_custom_dictionaries_subtitle),
                 route = "customdictionaries",
                 onClick = onOpenCustomDictionaries,
             )
@@ -1998,11 +2070,11 @@ private fun TypingSettings(
         item {
             val count = settings.suggestionBlacklist.size
             NavRow(
-                "Suggestion blacklist",
+                stringResource(R.string.typing_blacklist_title),
                 if (count == 0) {
-                    "Words to never suggest or autocorrect to"
+                    stringResource(R.string.typing_blacklist_subtitle)
                 } else {
-                    "$count word${if (count == 1) "" else "s"} never suggested"
+                    pluralStringResource(R.plurals.typing_blacklist_count_subtitle, count, count)
                 },
                 route = "blacklist",
                 onClick = onOpenBlacklist,
@@ -2010,63 +2082,55 @@ private fun TypingSettings(
         }
     }
 
-    SettingsGroup("Smart chips") {
+    SettingsGroup(stringResource(R.string.typing_group_smart_chips_title)) {
         item {
             ToggleSetting(
-                "Smart chips",
-                "Answer sums, conversions and tool keywords in the strip",
+                stringResource(R.string.typing_smart_chips_title),
+                stringResource(R.string.typing_smart_chips_subtitle),
                 settings.smartSuggestions,
-                info = "When what you have typed is something a tool can answer, the " +
-                    "suggestion strip offers the answer instead of word candidates — " +
-                    "tap it to type the result, or use the button on its right to open " +
-                    "the full tool with the same numbers already loaded. Everything is " +
-                    "recognised on-device; only exchange rates are fetched, and only " +
-                    "once you type an amount in a currency.",
+                info = stringResource(R.string.typing_smart_chips_info),
             ) { scope.launch { repository.setSmartSuggestions(it) } }
         }
         if (settings.smartSuggestions) {
             item {
                 ToggleSetting(
-                    "Calculate as you type",
-                    "\"12*4\" offers 48",
+                    stringResource(R.string.typing_smart_calc_title),
+                    stringResource(R.string.typing_smart_calc_subtitle),
                     settings.smartCalc,
                 ) { scope.launch { repository.setSmartCalc(it) } }
             }
             item {
                 ToggleSetting(
-                    "Convert currencies",
-                    "\"150 usd\", \"150$\" or \"150 dollars\" offers the amount in ${settings.currencyTo}",
+                    stringResource(R.string.typing_smart_currency_title),
+                    stringResource(R.string.typing_smart_currency_subtitle, settings.currencyTo),
                     settings.smartCurrency,
                 ) { scope.launch { repository.setSmartCurrency(it) } }
             }
             item {
                 ToggleSetting(
-                    "Convert units",
-                    "\"1 ft\" offers the same length in metres",
+                    stringResource(R.string.typing_smart_units_title),
+                    stringResource(R.string.typing_smart_units_subtitle),
                     settings.smartUnits,
                 ) { scope.launch { repository.setSmartUnits(it) } }
             }
             item {
                 ToggleSetting(
-                    "Tool keywords",
-                    "Typing \"wiki\" offers to open Wikipedia",
+                    stringResource(R.string.typing_smart_tool_keywords_title),
+                    stringResource(R.string.typing_smart_tool_keywords_subtitle),
                     settings.smartToolKeywords,
-                    info = "Each tool answers to a few words; type one on its own and " +
-                        "the strip offers to open that tool, dropping the word you " +
-                        "typed. The words are listed under each tool's own settings, " +
-                        "where you can change or clear them.",
+                    info = stringResource(R.string.typing_smart_tool_keywords_info),
                 ) { scope.launch { repository.setSmartToolKeywords(it) } }
             }
         }
     }
 
-    SettingsGroup("Gestures") {
+    SettingsGroup(stringResource(R.string.typing_group_gestures_title)) {
         item {
             ToggleSetting(
-                "Gesture typing", "Swipe across letters to type a word", settings.gestureTyping,
-                info = "Slide your finger from letter to letter without lifting; the word is " +
-                    "committed when you lift. Alternate interpretations appear in the suggestion " +
-                    "bar, so a wrong guess is one tap away from fixed. English only for now.",
+                stringResource(R.string.typing_glide_typing_title),
+                stringResource(R.string.typing_glide_typing_subtitle),
+                settings.gestureTyping,
+                info = stringResource(R.string.typing_glide_typing_info),
             ) { scope.launch { repository.setGestureTyping(it) } }
         }
         // What a letter swipe does — glide a word or handwrite it. Full builds
@@ -2075,16 +2139,14 @@ private fun TypingSettings(
         if (BuildConfig.ENABLE_ML_KIT_HANDWRITING && settings.gestureTyping) {
             item {
                 ChoiceSetting(
-                    title = "Handwrite with swipes",
-                    subtitle = "Draw letters over the keys instead of gliding",
-                    info = "With this set to Handwrite, a swipe across the keys is treated as " +
-                        "handwriting: draw a letter or word and it is recognized on a short " +
-                        "pause and inserted, with other readings offered in the suggestion bar. " +
-                        "Needs a handwriting model (Settings → Handwriting). A plain tap still " +
-                        "types its key.",
+                    title = stringResource(R.string.typing_letter_swipe_action_title),
+                    subtitle = stringResource(R.string.typing_letter_swipe_action_subtitle),
+                    info = stringResource(R.string.typing_letter_swipe_action_info),
                     options = listOf(
-                        LetterSwipeAction.TYPE_WORDS to "Type words",
-                        LetterSwipeAction.HANDWRITE to "Handwrite",
+                        LetterSwipeAction.TYPE_WORDS to
+                            stringResource(R.string.typing_letter_swipe_type_words_label),
+                        LetterSwipeAction.HANDWRITE to
+                            stringResource(R.string.typing_letter_swipe_handwrite_label),
                     ),
                     selected = settings.letterSwipeAction,
                     onChange = { scope.launch { repository.setLetterSwipeAction(it) } },
@@ -2097,44 +2159,37 @@ private fun TypingSettings(
             if (settings.letterSwipeAction == LetterSwipeAction.TYPE_WORDS) {
                 item {
                     ToggleSetting(
-                        "Glide across spacebar",
-                        "Swipe over space to keep gliding the next word",
+                        stringResource(R.string.typing_space_glide_multiword_title),
+                        stringResource(R.string.typing_space_glide_multiword_subtitle),
                         settings.gesture.spaceGlideMultiWord,
-                        info = "Without lifting your finger, glide a word, slide across the spacebar, " +
-                            "then glide the next — each crossing commits the word so far and a space, " +
-                            "so a whole phrase lands in one stroke. Off treats a swipe that crosses " +
-                            "the spacebar as a single word.",
+                        info = stringResource(R.string.typing_space_glide_multiword_info),
                     ) { scope.launch { repository.setGestureSpaceMultiWord(it) } }
                 }
             }
             item {
+                val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)
                 SliderSetting(
-                    "Swipe start distance",
-                    subtitle = "How far to move before a glide begins — lower is more sensitive",
+                    stringResource(R.string.typing_swipe_start_distance_title),
+                    subtitle = stringResource(R.string.typing_swipe_start_distance_subtitle),
                     value = settings.gesture.startThresholdSlop,
                     range = 0.5f..4f,
-                    display = { "${"%.1f".format(it)}×" },
-                    info = "The finger travel that turns a press into a glide, as a multiple of " +
-                        "the system's touch slop. Lower starts gliding sooner (more sensitive) but " +
-                        "can trip on a stationary tap; higher needs a more deliberate swipe.",
+                    display = { valueFormat.format("%.1f".format(it)) },
+                    info = stringResource(R.string.typing_swipe_start_distance_info),
                 ) { scope.launch { repository.setGestureStartThresholdSlop(it) } }
             }
             // Glide-word only: the guard raises the swipe-start bar, which never
             // runs in handwrite mode (there is no word glide to suppress).
             if (settings.letterSwipeAction == LetterSwipeAction.TYPE_WORDS) {
                 item {
+                    val offLabel = stringResource(CommonR.string.common_off)
+                    val msFormat = stringResource(R.string.typing_value_milliseconds)
                     SliderSetting(
-                        "Cooldown after typing",
-                        subtitle = "Briefly resist starting a glide right after a tap",
+                        stringResource(R.string.typing_gesture_cooldown_title),
+                        subtitle = stringResource(R.string.typing_gesture_cooldown_subtitle),
                         value = settings.gesture.postTypeCooldownMs.toFloat(),
                         range = 0f..500f,
-                        display = { if (it.roundToInt() == 0) "Off" else "${it.roundToInt()} ms" },
-                        info = "Just after you tap a key, a stray slide off it can be misread as a " +
-                            "swipe-word. During this window a glide has to travel further before it " +
-                            "takes over, and the extra distance fades away across the window, so fast " +
-                            "tapping stays clean while a deliberate swipe still starts. Higher is " +
-                            "safer against accidents but makes gliding right after typing slower to " +
-                            "begin; 0 turns the guard off.",
+                        display = { if (it.roundToInt() == 0) offLabel else msFormat.format(it.roundToInt()) },
+                        info = stringResource(R.string.typing_gesture_cooldown_info),
                     ) { scope.launch { repository.setGesturePostTypeCooldownMs(it.roundToInt()) } }
                 }
             }
@@ -2144,67 +2199,61 @@ private fun TypingSettings(
                 settings.letterSwipeAction == LetterSwipeAction.HANDWRITE
             ) {
                 item {
+                    val offLabel = stringResource(CommonR.string.common_off)
+                    val msFormat = stringResource(R.string.typing_value_milliseconds)
                     SliderSetting(
-                        "Dot leeway after drawing",
-                        subtitle = "Time to tap a dot or cross before it types instead",
+                        stringResource(R.string.typing_handwrite_dot_title),
+                        subtitle = stringResource(R.string.typing_handwrite_dot_subtitle),
                         value = settings.gesture.handwriteDotCooldownMs.toFloat(),
                         range = 0f..1500f,
-                        display = { if (it.roundToInt() == 0) "Off" else "${it.roundToInt()} ms" },
-                        info = "Letters like i, j and t need a separate mark after the main stroke. " +
-                            "For this long after you draw a stroke, a tap over the letters is added " +
-                            "to the same character as another stroke (the dot or cross) instead of " +
-                            "typing that key. A tap after the window types as normal; 0 turns the " +
-                            "leeway off.",
+                        display = { if (it.roundToInt() == 0) offLabel else msFormat.format(it.roundToInt()) },
+                        info = stringResource(R.string.typing_handwrite_dot_info),
                     ) { scope.launch { repository.setGestureHandwriteDotCooldownMs(it.roundToInt()) } }
                 }
             }
             item {
+                val dpFormat = stringResource(R.string.typing_value_dp)
                 SliderSetting(
-                    "Trail width",
-                    subtitle = "Thickness of the glide trail",
+                    stringResource(R.string.typing_trail_width_title),
+                    subtitle = stringResource(R.string.typing_trail_width_subtitle),
                     value = settings.gesture.trailWidthDp,
                     range = 2f..24f,
-                    display = { "${it.roundToInt()} dp" },
+                    display = { dpFormat.format(it.roundToInt()) },
                 ) { scope.launch { repository.setGestureTrailWidthDp(it) } }
             }
             item {
+                val msFormat = stringResource(R.string.typing_value_milliseconds)
                 SliderSetting(
-                    "Trail length",
-                    subtitle = "How long the trail lingers behind your finger",
+                    stringResource(R.string.typing_trail_length_title),
+                    subtitle = stringResource(R.string.typing_trail_length_subtitle),
                     value = settings.gesture.trailDurationMs.toFloat(),
                     range = 100f..1200f,
-                    display = { "${it.roundToInt()} ms" },
+                    display = { msFormat.format(it.roundToInt()) },
                 ) { scope.launch { repository.setGestureTrailDurationMs(it.roundToInt()) } }
             }
             item {
+                val percentFormat = stringResource(R.string.typing_value_percent)
                 SliderSetting(
-                    "Trail opacity",
+                    stringResource(R.string.typing_trail_opacity_title),
                     value = settings.gesture.trailOpacity,
                     range = 0.1f..1f,
-                    display = { "${(it * 100).roundToInt()}%" },
+                    display = { percentFormat.format((it * 100).roundToInt()) },
                 ) { scope.launch { repository.setGestureTrailOpacity(it) } }
             }
         }
         item {
             SpaceSwipeSetting(
-                title = "Quick swipe on spacebar",
-                subtitle = "A swipe that starts moving right away",
-                info = "Slide horizontally on the spacebar without pausing. \"Language\" cycles " +
-                    "your enabled input modes with a live preview above the spacebar — release " +
-                    "to switch, and holding the spacebar just past a tap shows the picker even " +
-                    "before you swipe. \"Cursor\" moves the text cursor one character per step. " +
-                    "A tap without movement always types a space.",
+                title = stringResource(R.string.typing_space_short_swipe_title),
+                subtitle = stringResource(R.string.typing_space_short_swipe_subtitle),
+                info = stringResource(R.string.typing_space_short_swipe_info),
                 value = settings.spaceShortSwipe,
             ) { scope.launch { repository.setSpaceShortSwipe(it) } }
         }
         item {
             SpaceSwipeSetting(
-                title = "Hold + swipe on spacebar",
-                subtitle = "Hold the spacebar briefly, then swipe",
-                info = "Hold the spacebar past the long-press delay first, then slide. This " +
-                    "gives the spacebar a second, independent swipe action — for example a " +
-                    "quick swipe to switch language and a hold + swipe to move the cursor. " +
-                    "Both may also be set to the same action.",
+                title = stringResource(R.string.typing_space_long_swipe_title),
+                subtitle = stringResource(R.string.typing_space_long_swipe_subtitle),
+                info = stringResource(R.string.typing_space_long_swipe_info),
                 value = settings.spaceLongSwipe,
             ) { scope.launch { repository.setSpaceLongSwipe(it) } }
         }
@@ -2214,24 +2263,19 @@ private fun TypingSettings(
         ) {
             item {
                 ToggleSetting(
-                    "2-D cursor touchpad",
-                    "Cursor slide also moves up and down, not just left and right",
+                    stringResource(R.string.typing_space_cursor_2d_title),
+                    stringResource(R.string.typing_space_cursor_2d_subtitle),
                     settings.layoutBehavior.spaceCursor2d,
-                    info = "Turns the spacebar cursor slide into a touchpad: as well as moving " +
-                        "left and right, dragging up or down moves the cursor between lines. " +
-                        "Only applies to the swipe slot(s) set to \"Cursor\" above.",
+                    info = stringResource(R.string.typing_space_cursor_2d_info),
                 ) { scope.launch { repository.setSpaceCursor2d(it) } }
             }
         }
         item {
             ToggleSetting(
-                "Swipe down to hide",
-                "A downward swipe on the spacebar dismisses the keyboard",
+                stringResource(R.string.typing_space_swipe_down_hide_title),
+                stringResource(R.string.typing_space_swipe_down_hide_subtitle),
                 settings.layoutBehavior.spaceSwipeDownHide,
-                info = "Slide straight down on the spacebar to close the keyboard. Off by " +
-                    "default so a stray vertical drag never dismisses it. When the 2-D cursor " +
-                    "touchpad is on, downward drags move the cursor instead, so that takes " +
-                    "precedence.",
+                info = stringResource(R.string.typing_space_swipe_down_hide_info),
             ) { scope.launch { repository.setSpaceSwipeDownHide(it) } }
         }
         if (settings.spaceShortSwipe == SpaceSwipeAction.LANGUAGE ||
@@ -2239,137 +2283,113 @@ private fun TypingSettings(
         ) {
             item {
                 ToggleSetting(
-                    "Arrows on spacebar",
-                    "Hint that a swipe switches language",
+                    stringResource(R.string.typing_spacebar_language_arrows_title),
+                    stringResource(R.string.typing_spacebar_language_arrows_subtitle),
                     settings.spacebarLanguageArrows,
-                    info = "Draws a small ◀ and ▶ either side of the language name on the " +
-                        "spacebar. They are only a hint — the swipe works either way — and stay " +
-                        "hidden while a single input mode is enabled.",
+                    info = stringResource(R.string.typing_spacebar_language_arrows_info),
                 ) { scope.launch { repository.setSpacebarLanguageArrows(it) } }
             }
         }
         item {
             ChoiceSetting(
-                "Spacebar shows",
-                subtitle = "What the resting spacebar label displays",
-                info = "Language shows the current language name, Layout the current layout name, " +
-                    "Both shows \"Language (Layout)\". When one language has more than one layout " +
-                    "enabled, the layout name is added anyway so you can tell them apart.",
+                stringResource(R.string.typing_spacebar_display_title),
+                subtitle = stringResource(R.string.typing_spacebar_display_subtitle),
+                info = stringResource(R.string.typing_spacebar_display_info),
                 options = listOf(
-                    SpacebarDisplay.LANGUAGE to "Language",
-                    SpacebarDisplay.LAYOUT to "Layout",
-                    SpacebarDisplay.BOTH to "Both",
+                    SpacebarDisplay.LANGUAGE to
+                        stringResource(R.string.typing_spacebar_display_language_label),
+                    SpacebarDisplay.LAYOUT to
+                        stringResource(R.string.typing_spacebar_display_layout_label),
+                    SpacebarDisplay.BOTH to
+                        stringResource(R.string.typing_spacebar_display_both_label),
                 ),
                 selected = settings.layoutBehavior.spacebarDisplay,
             ) { scope.launch { repository.setSpacebarDisplay(it) } }
         }
         item {
             TextFieldSetting(
-                label = "Spacebar text",
+                label = stringResource(R.string.typing_spacebar_text_label),
                 value = settings.spacebarLabel,
-                hint = "Blank = current spacebar label. %s inserts it, e.g. \"— %s —\".",
+                // The %s token is text the user types, so it travels as an argument.
+                hint = stringResource(R.string.typing_spacebar_text_hint, "%s"),
             ) { repository.setSpacebarLabel(it) }
         }
     }
 
-    SettingsGroup("Backspace") {
+    SettingsGroup(stringResource(R.string.typing_group_backspace_title)) {
         item {
             ToggleSetting(
-                "Swipe to delete words",
-                "Drag sideways on backspace to delete whole words",
+                stringResource(R.string.typing_backspace_swipe_title),
+                stringResource(R.string.typing_backspace_swipe_subtitle),
                 settings.backspaceSwipeDelete,
-                info = "Press backspace and slide left: each step of travel deletes one more " +
-                    "word instead of one character. A plain tap or hold still deletes " +
-                    "character by character.",
+                info = stringResource(R.string.typing_backspace_swipe_info),
             ) { scope.launch { repository.setBackspaceSwipeDelete(it) } }
         }
     }
 
-    SettingsGroup("Enter key") {
+    SettingsGroup(stringResource(R.string.typing_group_enter_title)) {
         item {
             ToggleSetting(
-                "Shift + Enter types a newline",
-                "Add a line break in a chat app instead of sending the message",
+                stringResource(R.string.typing_shift_enter_title),
+                stringResource(R.string.typing_shift_enter_subtitle),
                 settings.layoutBehavior.shiftEnterNewline,
-                info = "Chat and search fields tell the keyboard that Enter means Send, Go or " +
-                    "Search, so there is normally no way to put a line break in a message " +
-                    "without sending it. With this on, pressing shift first — or holding shift " +
-                    "on a physical keyboard — makes Enter type a real newline instead. The " +
-                    "Enter key changes to the newline symbol while shift is armed, so you can " +
-                    "see which one you are about to get.\n\n" +
-                    "Only a shift you pressed yourself counts: the one auto-capitalize arms at " +
-                    "the start of a message is ignored, so the first line of a message still " +
-                    "sends. Caps lock is ignored too.\n\n" +
-                    "Off by default — following the app's own Enter action is the standard " +
-                    "behaviour.",
+                info = stringResource(R.string.typing_shift_enter_info),
             ) { scope.launch { repository.setShiftEnterNewline(it) } }
         }
     }
 
-    SettingsGroup("Volume keys") {
+    SettingsGroup(stringResource(R.string.typing_group_volume_title)) {
         item {
             ToggleSetting(
-                "Volume cursor control",
-                "Volume up and down move the text cursor",
+                stringResource(R.string.typing_volume_cursor_title),
+                stringResource(R.string.typing_volume_cursor_subtitle),
                 settings.volumeCursor,
-                info = "While the keyboard is open, volume down moves the cursor one character " +
-                    "left and volume up moves it one character right; hold a key to repeat. " +
-                    "The volume keys behave normally everywhere else, and as soon as the " +
-                    "keyboard closes.",
+                info = stringResource(R.string.typing_volume_cursor_info),
             ) { scope.launch { repository.setVolumeCursor(it) } }
         }
         if (settings.volumeCursor) {
             item {
                 ToggleSetting(
-                    "Release while audio plays",
-                    "Keep volume control when something is playing",
+                    stringResource(R.string.typing_volume_cursor_media_title),
+                    stringResource(R.string.typing_volume_cursor_media_subtitle),
                     settings.volumeCursorMediaAware,
-                    info = "With music, a video or a podcast playing, the volume keys go back to " +
-                        "changing the volume even with the keyboard open — so typing a reply " +
-                        "never costs you the ability to turn the sound down. Cursor control " +
-                        "returns once playback stops.\n\n" +
-                        "Turn this off if you want the volume keys to always move the cursor " +
-                        "while the keyboard is showing.",
+                    info = stringResource(R.string.typing_volume_cursor_media_info),
                 ) { scope.launch { repository.setVolumeCursorMediaAware(it) } }
             }
         }
     }
 
-    SettingsGroup("Physical keyboard") {
+    SettingsGroup(stringResource(R.string.typing_group_hardware_title)) {
         item {
             ToggleSetting(
-                "Process hardware keys",
-                "Transliterate, correct and suggest as you type on a physical keyboard",
+                stringResource(R.string.typing_hardware_input_title),
+                stringResource(R.string.typing_hardware_input_subtitle),
                 settings.hardwareKeyboardInput,
-                info = "With a physical keyboard attached, keys flow through the same engine as " +
-                    "the on-screen keyboard: phonetic layouts transliterate (typing \"ami\" gives " +
-                    "\"আমি\"), words compose for suggestions, and autocorrect fires on space — the " +
-                    "word you are typing shows underlined in the field until you finish it.\n\n" +
-                    "Shortcuts (Ctrl+C, Ctrl+Z), the arrow and function keys, and everything in " +
-                    "password fields always go straight to the app, whichever way this is set.\n\n" +
-                    "Turn this off to type the raw characters straight into the field and let the " +
-                    "physical keyboard's own layout own input entirely.",
+                info = stringResource(R.string.typing_hardware_input_info),
             ) { scope.launch { repository.setHardwareKeyboardInput(it) } }
         }
         val hw = settings.hardwareKeyboard
         item {
             ToggleSetting(
-                "Tool shortcuts",
-                "Open tools from a physical keyboard without touching the screen",
+                stringResource(R.string.typing_hw_shortcuts_title),
+                stringResource(R.string.typing_hw_shortcuts_subtitle),
                 hw.shortcutsEnabled,
-                info = "Press the shortcut key, then a letter: the letter opens that tool. " +
-                    "T opens the full toolbox and ? shows the list of letters.\n\n" +
-                    "The shortcut key is a double-tapped Ctrl by default, which no app uses — a " +
-                    "lone Ctrl produces no character, and it is still passed through either way. " +
-                    "Both the shortcut key and every letter can be changed below.",
+                info = stringResource(R.string.typing_hw_shortcuts_info),
             ) { scope.launch { repository.setHwShortcutsEnabled(it) } }
         }
         if (hw.shortcutsEnabled) {
             item {
+                // A chord spells itself, so it arrives with no template around it.
+                val leaderParts = leaderLabel(parseLeader(hw.leader) ?: DefaultLeader)
+                val leaderText = if (leaderParts.templateRes == 0) {
+                    leaderParts.text
+                } else {
+                    stringResource(leaderParts.templateRes, leaderParts.text)
+                }
                 NavRow(
-                    "Tool shortcuts list",
-                    "Which letter opens which tool",
-                    value = describeLeader(parseLeader(hw.leader) ?: DefaultLeader),
+                    stringResource(R.string.typing_hw_shortcuts_list_title),
+                    stringResource(R.string.typing_hw_shortcuts_list_subtitle),
+                    value = leaderText,
                     route = "hwshortcuts",
                     onClick = onOpenHardwareShortcuts,
                 )
@@ -2377,47 +2397,35 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                "Arrow keys move a highlight",
-                "Arrows move a highlight in tool panels, Enter picks it, Esc closes",
+                stringResource(R.string.typing_hw_panel_nav_title),
+                stringResource(R.string.typing_hw_panel_nav_subtitle),
                 hw.panelNavigation,
-                info = "Inside a tool, the arrow keys move a highlight over the emojis, clips or " +
-                    "results, Enter uses the highlighted one, and Tab moves between the search box, " +
-                    "the category chips and the results.\n\n" +
-                    "The highlight only appears once you press a key — it never shows up while " +
-                    "you are using the keyboard by touch.",
+                info = stringResource(R.string.typing_hw_panel_nav_info),
             ) { scope.launch { repository.setHwPanelNavigation(it) } }
         }
         item {
             ToggleSetting(
-                "Esc closes the tool",
-                "Escape shuts an open tool instead of going to the app",
+                stringResource(R.string.typing_hw_esc_title),
+                stringResource(R.string.typing_hw_esc_subtitle),
                 hw.escClosesPanel,
-                info = "Escape only ever closes something the keyboard itself has open. With no " +
-                    "tool open it goes straight to the app, so it still stops a page loading or " +
-                    "leaves insert mode in an editor.",
+                info = stringResource(R.string.typing_hw_esc_info),
             ) { scope.launch { repository.setHwEscClosesPanel(it) } }
         }
         item {
             ChoiceSetting(
-                "Number keys pick suggestions",
-                subtitle = "Commit a suggestion by its number in the strip",
-                info = "The suggestion strip cannot be tapped while you type on a physical " +
-                    "keyboard, so a number can commit one instead.\n\n" +
-                    "\"After the shortcut key\" is the safe choice: nothing else uses it. " +
-                    "\"Alt + number\" is one keystroke fewer, but browsers, editors and chat apps " +
-                    "use modifier+number to switch tabs and workspaces.",
-                options = SuggestionHotkeyMode.entries.map { it to it.label },
+                stringResource(R.string.typing_hw_suggestion_hotkeys_title),
+                subtitle = stringResource(R.string.typing_hw_suggestion_hotkeys_subtitle),
+                info = stringResource(R.string.typing_hw_suggestion_hotkeys_info),
+                options = SuggestionHotkeyMode.entries.map { it to stringResource(it.labelRes) },
                 selected = hw.suggestionHotkeys,
             ) { scope.launch { repository.setHwSuggestionHotkeys(it) } }
         }
         item {
             ToggleSetting(
-                "Show the keyboard for shortcuts",
-                "A shortcut that opens a tool also brings the keyboard up",
+                stringResource(R.string.typing_hw_auto_show_title),
+                stringResource(R.string.typing_hw_auto_show_subtitle),
                 hw.autoShowUi,
-                info = "A physical keyboard normally means no on-screen keyboard at all, which " +
-                    "leaves a tool nowhere to draw. With this on, opening a tool by shortcut shows " +
-                    "the keyboard, and closing the tool hides it again.",
+                info = stringResource(R.string.typing_hw_auto_show_info),
             ) { scope.launch { repository.setHwAutoShowUi(it) } }
         }
     }
@@ -2448,33 +2456,45 @@ private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: 
             .sortedWith(compareBy({ letterOf[it] == null }, { letterOf[it] ?: ' ' }, { it.name }))
     }
     val letterOf = hw.toolByLetter.entries.associate { (letter, tool) -> tool to letter }
+    // A chord spells itself, so it arrives as plain text; a double tap needs the
+    // wording around the modifier name, which only this layer can resolve.
+    val leaderSpec = leaderLabel(leader)
+    val leaderName = if (leaderSpec.templateRes == 0) {
+        leaderSpec.text
+    } else {
+        stringResource(leaderSpec.templateRes, leaderSpec.text)
+    }
+    val leaderTitle = stringResource(R.string.hardware_shortcuts_leader_title)
 
     Column {
         CaptionText(
-            "Press the shortcut key, then a letter. $ToolboxLetter opens the toolbox and " +
-                "$CheatSheetLetter shows this list on the keyboard.",
+            stringResource(
+                R.string.hardware_shortcuts_intro_body,
+                ToolboxLetter,
+                CheatSheetLetter,
+            ),
         )
-        SettingsGroup("Shortcut key") {
+        SettingsGroup(leaderTitle) {
             item {
                 NavRow(
-                    "Shortcut key",
-                    "What arms the tool letters",
-                    value = describeLeader(leader),
+                    leaderTitle,
+                    stringResource(R.string.hardware_shortcuts_leader_subtitle),
+                    value = leaderName,
                     onClick = { editingLeader = true },
                 )
             }
         }
-        SettingsGroup("Tools") {
+        SettingsGroup(stringResource(R.string.hardware_shortcuts_tools_group_title)) {
             for (tool in tools) {
                 item {
                     val letter = letterOf[tool]
                     WmRow(
-                        title = toolTitle(tool),
+                        title = stringResource(toolTitle(tool)),
                         leading = {
                             SlotIcon(IconSlots.forTool(tool), contentDescription = null)
                         },
                         supporting = if (tool !in settings.enabledTools) {
-                            { CaptionText("Turned off in Tools") }
+                            { CaptionText(stringResource(R.string.hardware_shortcuts_tool_off_subtitle)) }
                         } else null,
                         trailing = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2493,7 +2513,10 @@ private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: 
                                     }) {
                                         Icon(
                                             Icons.Outlined.Close,
-                                            contentDescription = "Unbind ${toolTitle(tool)}",
+                                            contentDescription = stringResource(
+                                                R.string.hardware_shortcuts_unbind_desc,
+                                                toolTitle(tool),
+                                            ),
                                         )
                                     }
                                 }
@@ -2507,7 +2530,7 @@ private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: 
         TextButton(
             onClick = { confirmReset = true },
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-        ) { Text("Reset to defaults") }
+        ) { Text(stringResource(CommonR.string.common_reset_defaults)) }
     }
 
     if (editingLeader) {
@@ -2535,8 +2558,8 @@ private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: 
     if (confirmReset) {
         AlertDialog(
             onDismissRequest = { confirmReset = false },
-            title = { Text("Reset tool shortcuts?") },
-            text = { Text("Every letter goes back to its default tool.") },
+            title = { Text(stringResource(R.string.hardware_shortcuts_reset_title)) },
+            text = { Text(stringResource(R.string.hardware_shortcuts_reset_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmReset = false
@@ -2544,10 +2567,12 @@ private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: 
                         repository.setHwToolLetters(DefaultToolLetters)
                         repository.setHwLeader(formatLeader(DefaultLeader))
                     }
-                }) { Text("Reset") }
+                }) { Text(stringResource(CommonR.string.common_reset)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmReset = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmReset = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
             },
         )
     }
@@ -2572,24 +2597,32 @@ private fun LeaderCaptureDialog(
     LaunchedEffect(Unit) { runCatching { requester.requestFocus() } }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Shortcut key") },
+        title = { Text(stringResource(R.string.hardware_shortcuts_leader_title)) },
         text = {
             Column {
-                CaptionText("Double-tap a modifier — nothing else uses it.")
+                CaptionText(stringResource(R.string.hardware_shortcuts_double_tap_body))
                 for (modifier in TapModifier.entries) {
                     val trigger = LeaderTrigger.DoubleTap(modifier)
+                    // The same wording the row on the settings screen shows, and
+                    // a double tap always carries a template to fill.
+                    val spec = leaderLabel(trigger)
                     WmRow(
-                        title = "Double-tap ${modifier.label}",
+                        title = stringResource(spec.templateRes, spec.text),
                         trailing = {
                             if (current == trigger && captured == null) {
-                                Icon(Icons.Outlined.Check, contentDescription = "Current")
+                                Icon(
+                                    Icons.Outlined.Check,
+                                    contentDescription = stringResource(
+                                        R.string.hardware_shortcuts_current_desc,
+                                    ),
+                                )
                             }
                         },
                         onClick = { onPick(trigger) },
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                CaptionText("…or press a shortcut on the attached keyboard.")
+                CaptionText(stringResource(R.string.hardware_shortcuts_capture_body))
                 // A real focusable window, unlike the keyboard's own, so Compose
                 // focus is the right tool here.
                 Column(
@@ -2617,14 +2650,18 @@ private fun LeaderCaptureDialog(
                         },
                 ) {
                     Text(
-                        captured?.let(::describeChord) ?: "Waiting for a key…",
+                        captured?.let(::describeChord)
+                            ?: stringResource(R.string.hardware_shortcuts_waiting_progress),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
                 captured?.let { chord ->
                     if (chord in ReservedChords) {
                         CaptionText(
-                            "${describeChord(chord)} is usually the app's own shortcut.",
+                            stringResource(
+                                R.string.hardware_shortcuts_reserved_error,
+                                describeChord(chord),
+                            ),
                             error = true,
                         )
                     }
@@ -2635,9 +2672,11 @@ private fun LeaderCaptureDialog(
             TextButton(
                 enabled = captured != null,
                 onClick = { captured?.let { onPick(LeaderTrigger.Chord(it)) } },
-            ) { Text("Use shortcut") }
+            ) { Text(stringResource(R.string.hardware_shortcuts_use_action)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
     )
 }
 
@@ -2660,13 +2699,13 @@ private fun LetterCaptureDialog(
     val clash = letter?.let(takenBy)?.takeIf { it != tool }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(toolTitle(tool)) },
+        title = { Text(stringResource(toolTitle(tool))) },
         text = {
             Column {
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it.takeLast(1) },
-                    label = { Text("Letter") },
+                    label = { Text(stringResource(R.string.hardware_shortcuts_letter_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Characters,
@@ -2675,23 +2714,39 @@ private fun LetterCaptureDialog(
                 Spacer(Modifier.height(8.dp))
                 when {
                     letter in ReservedLetters -> CaptionText(
-                        "$letter is reserved: $ToolboxLetter opens the toolbox and " +
-                            "$CheatSheetLetter shows the list.",
+                        stringResource(
+                            R.string.hardware_shortcuts_letter_reserved_error,
+                            letter?.toString().orEmpty(),
+                            ToolboxLetter,
+                            CheatSheetLetter,
+                        ),
                         error = true,
                     )
                     clash != null -> CaptionText(
-                        "$letter currently opens ${toolTitle(clash)}, which will lose its letter.",
+                        stringResource(
+                            R.string.hardware_shortcuts_letter_clash_body,
+                            letter.toString(),
+                            toolTitle(clash),
+                        ),
                     )
-                    else -> CaptionText("A single letter or digit.")
+                    else -> CaptionText(stringResource(R.string.hardware_shortcuts_letter_hint))
                 }
             }
         },
         confirmButton = {
             TextButton(enabled = valid, onClick = { letter?.let(onPick) }) {
-                Text(if (clash != null) "Reassign" else "Save")
+                Text(
+                    if (clash != null) {
+                        stringResource(R.string.hardware_shortcuts_letter_move_action)
+                    } else {
+                        stringResource(CommonR.string.common_save)
+                    },
+                )
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
     )
 }
 
@@ -2710,10 +2765,16 @@ private fun KeySoundGroup(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    SettingsGroup("Key press sound") {
+    // Slider readouts are plain lambdas, so their format strings are resolved
+    // here and captured. The format also puts the number through the locale,
+    // which is what gives Bengali or Arabic digits.
+    val percentFormat = stringResource(R.string.typing_value_percent)
+    SettingsGroup(stringResource(R.string.hardware_sound_group_title)) {
         item {
             ToggleSetting(
-                "Key sound", "Play a sound on every key press", settings.keySound,
+                stringResource(R.string.hardware_sound_key_title),
+                stringResource(R.string.hardware_sound_key_subtitle),
+                settings.keySound,
             ) {
                 scope.launch { repository.setKeySound(it) }
                 if (it) {
@@ -2725,24 +2786,22 @@ private fun KeySoundGroup(
             // Hand-built rather than a ChoiceSetting (the chips need their own
             // row), so the highlight wrapper every other control gets for free
             // is spelled out here — this is where the Sound addon's Use button
-            // lands.
-            HighlightableRow("Sound style") {
+            // lands. The anchor is the row's own string resource, so the match
+            // holds in every language.
+            HighlightableRow(null, highlightKey = R.string.hardware_sound_style_title) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 16.dp, end = 16.dp, top = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Sound style", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(R.string.hardware_sound_style_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
                     InfoButton(
-                        "Sound style",
-                        "Click and Standard come from the device's system sound pack, so " +
-                            "they match the stock keyboard: Click is the classic key tick, " +
-                            "Standard the softer AOSP key press. Pop, Thock and Chime are " +
-                            "WMKeyboard's own sounds — a soft bubble pop, a deep mechanical " +
-                            "bottom-out, and a small bell — identical on every device. " +
-                            "Custom plays a sound file: pick Custom to see the sounds " +
-                            "you have installed from Addons and to import your own MP3.",
+                        stringResource(R.string.hardware_sound_style_title),
+                        stringResource(R.string.hardware_sound_style_info),
                     )
                 }
                 // Custom is a segment like any other, so the styles read as one
@@ -2802,14 +2861,21 @@ private fun KeySoundGroup(
                             },
                             label = {
                                 Text(
-                                    when (style) {
-                                        KeySoundStyle.CLICK -> "Click"
-                                        KeySoundStyle.STANDARD -> "Standard"
-                                        KeySoundStyle.POP -> "Pop"
-                                        KeySoundStyle.THOCK -> "Thock"
-                                        KeySoundStyle.CHIME -> "Chime"
-                                        KeySoundStyle.CUSTOM -> "Custom"
-                                    },
+                                    stringResource(
+                                        when (style) {
+                                            KeySoundStyle.CLICK ->
+                                                R.string.hardware_sound_style_click_label
+                                            KeySoundStyle.STANDARD ->
+                                                R.string.hardware_sound_style_standard_label
+                                            KeySoundStyle.POP ->
+                                                R.string.hardware_sound_style_pop_label
+                                            KeySoundStyle.THOCK ->
+                                                R.string.hardware_sound_style_thock_label
+                                            KeySoundStyle.CHIME ->
+                                                R.string.hardware_sound_style_chime_label
+                                            KeySoundStyle.CUSTOM -> CommonR.string.common_custom
+                                        },
+                                    ),
                                     maxLines = 1,
                                 )
                             },
@@ -2826,11 +2892,11 @@ private fun KeySoundGroup(
         }
         item {
             SliderSetting(
-                "Sound volume",
-                subtitle = "Relative to the system media volume",
+                stringResource(R.string.hardware_sound_volume_title),
+                subtitle = stringResource(R.string.hardware_sound_volume_subtitle),
                 value = settings.keySoundVolume,
                 range = 0.05f..1f,
-                display = { "${(it * 100).roundToInt()}%" },
+                display = { percentFormat.format((it * 100).roundToInt()) },
             ) {
                 scope.launch { repository.setKeySoundVolume(it) }
                 // Debounced inside the player, so dragging previews smoothly.
@@ -2867,7 +2933,9 @@ private fun InstalledSoundSection(repository: SettingsRepository, settings: Keyb
                     context.contentResolver.requireInputStream(uri).use {
                         SoundFile.import(it, store, name = fontFileLabel(context, uri))
                     }
-                }.getOrElse { SoundImportResult.Failed(it.message ?: "Couldn't read that file") }
+                }.getOrElse {
+                    SoundImportResult.Failed(FeedbackR.string.core_feedback_sound_import_read_error)
+                }
             }
             when (result) {
                 is SoundImportResult.Imported -> {
@@ -2876,10 +2944,19 @@ private fun InstalledSoundSection(repository: SettingsRepository, settings: Keyb
                         context, KeySoundStyle.CUSTOM, settings.keySoundVolume, result.sound.id,
                     )
                 }
-                is SoundImportResult.NotASound -> message = result.message
+                is SoundImportResult.NotASound -> message = context.getString(result.messageRes)
                 SoundImportResult.TooManySounds ->
-                    message = "You already have ${SoundStore.MAX_SOUNDS} sounds. Remove one first."
-                is SoundImportResult.Failed -> message = result.message
+                    message = context.resources.getQuantityString(
+                        R.plurals.hardware_sound_limit_error,
+                        SoundStore.MAX_SOUNDS,
+                        SoundStore.MAX_SOUNDS,
+                    )
+                // The refusal carries at most one argument, and "" means none.
+                is SoundImportResult.Failed -> message = if (result.messageArg.isEmpty()) {
+                    context.getString(result.messageRes)
+                } else {
+                    context.getString(result.messageRes, result.messageArg)
+                }
             }
         }
     }
@@ -2888,16 +2965,17 @@ private fun InstalledSoundSection(repository: SettingsRepository, settings: Keyb
         AlertDialog(
             onDismissRequest = { message = null },
             text = { Text(text) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
         )
     }
 
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         if (sounds.isEmpty()) {
-            CaptionText(
-                "No installed sounds yet. Install some from Addons, or import an " +
-                    "MP3 of your own.",
-            )
+            CaptionText(stringResource(R.string.hardware_sound_empty))
         }
         for (sound in sounds) {
             val selected = settings.keySoundStyle == KeySoundStyle.CUSTOM &&
@@ -2910,7 +2988,9 @@ private fun InstalledSoundSection(repository: SettingsRepository, settings: Keyb
                         if (selected) {
                             Icon(
                                 Icons.Outlined.Check,
-                                contentDescription = "Selected",
+                                contentDescription = stringResource(
+                                    R.string.hardware_sound_selected_desc,
+                                ),
                                 tint = MaterialTheme.colorScheme.primary,
                             )
                         }
@@ -2923,7 +3003,13 @@ private fun InstalledSoundSection(repository: SettingsRepository, settings: Keyb
                                 KeySoundPlayer.forgetCustom(sound.id)
                             }
                         }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "Remove ${sound.name}")
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(
+                                    R.string.hardware_sound_delete_desc,
+                                    sound.name,
+                                ),
+                            )
                         }
                     }
                 },
@@ -2938,7 +3024,7 @@ private fun InstalledSoundSection(repository: SettingsRepository, settings: Keyb
         OutlinedButton(
             onClick = { importLauncher.launch(SoundFile.IMPORT_MIME_TYPES) },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        ) { Text("Import sound file (.mp3)") }
+        ) { Text(stringResource(R.string.hardware_sound_import_action)) }
     }
 }
 
@@ -2948,12 +3034,13 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
     val context = LocalContext.current
     // Lets the SYSTEM_* preview fire through the real platform key haptic.
     val view = LocalView.current
-    SettingsGroup("Haptic feedback") {
+    SettingsGroup(stringResource(R.string.keypress_haptics_group_title)) {
         item {
             ToggleSetting(
-                "Key press haptics", "Vibrate on every key press", settings.hapticFeedback,
-                info = "A short vibration confirms each key press, including spacebar cursor " +
-                    "movement steps. Style and strength are adjustable below.",
+                stringResource(R.string.keypress_haptics_title),
+                stringResource(R.string.keypress_haptics_subtitle),
+                settings.hapticFeedback,
+                info = stringResource(R.string.keypress_haptics_info),
             ) {
                 scope.launch { repository.setHapticFeedback(it) }
                 if (it) {
@@ -2970,22 +3057,13 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                     .padding(start = 16.dp, end = 16.dp, top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Haptic style", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(R.string.keypress_haptic_style_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
                 InfoButton(
-                    "Haptic style",
-                    "Key and Tap are the recommended styles: they hand the buzz to the " +
-                        "platform's own key haptic (the same call stock keyboards use), so on " +
-                        "tuned phones you get the vendor's crafted click and it follows the " +
-                        "system haptic-intensity setting. Key asks for the \"virtual key\" feel " +
-                        "(what Gboard and SwiftKey use); Tap asks for the softer \"keyboard tap\" " +
-                        "feel (Samsung's own keyboard). " +
-                        "Click and Heavy click use the device's hardware-tuned haptic effects " +
-                        "(Android 10+). Sharp plays the hardware click primitive (Android 11+) — " +
-                        "a short, hard thump whose strength follows the intensity slider. " +
-                        "Custom drives the vibration motor directly using the duration and " +
-                        "intensity sliders — without the hardware's overdrive and braking it " +
-                        "feels softer. When a style isn't available it falls back to a hardware " +
-                        "Click, then Custom.",
+                    stringResource(R.string.keypress_haptic_style_title),
+                    stringResource(R.string.keypress_haptic_style_info),
                 )
             }
             // Six styles overflow a segmented row; wrapping chips give each a
@@ -3007,7 +3085,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                                 context, style, settings.hapticAmplitude, settings.hapticStrengthMs, view,
                             )
                         },
-                        label = { Text(style.label, maxLines = 1) },
+                        label = { Text(stringResource(style.labelRes), maxLines = 1) },
                     )
                 }
             }
@@ -3015,13 +3093,12 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         if (settings.hapticStyle == HapticStyle.CUSTOM) {
             item {
                 SliderSetting(
-                    "Haptic strength",
-                    subtitle = "Vibration length per key press",
+                    stringResource(R.string.keypress_haptic_strength_title),
+                    subtitle = stringResource(R.string.keypress_haptic_strength_subtitle),
                     value = settings.hapticStrengthMs.toFloat(),
                     range = 5f..60f,
-                    display = { "${it.roundToInt()} ms" },
-                    info = "Duration of the vibration pulse in milliseconds. Longer pulses feel " +
-                        "stronger on most phones.",
+                    display = { context.getString(R.string.keypress_value_ms, it.roundToInt()) },
+                    info = stringResource(R.string.keypress_haptic_strength_info),
                 ) {
                     scope.launch { repository.setHapticStrengthMs(it.toInt()) }
                     // Debounced inside the player, so dragging previews smoothly.
@@ -3032,17 +3109,14 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         if (settings.hapticStyle == HapticStyle.CUSTOM || settings.hapticStyle == HapticStyle.SHARP) {
             item {
                 SliderSetting(
-                    "Haptic intensity",
-                    subtitle = "Vibration amplitude per key press",
+                    stringResource(R.string.keypress_haptic_intensity_title),
+                    subtitle = stringResource(R.string.keypress_haptic_intensity_subtitle),
                     value = settings.hapticAmplitude.toFloat(),
                     range = 1f..255f,
-                    display = { "${it.roundToInt() * 100 / 255}%" },
-                    info = "How hard the vibration motor is driven (1–255). For Sharp this scales " +
-                        "the hardware click primitive; the length stays fixed, only the punch " +
-                        "changes. For Custom it only takes effect on devices whose vibrator " +
-                        "supports amplitude control; on others only the duration above matters. " +
-                        "The system-wide \"Touch feedback\" vibration setting still scales the " +
-                        "final strength on top of this.",
+                    display = {
+                        context.getString(R.string.keypress_value_percent, it.roundToInt() * 100 / 255)
+                    },
+                    info = stringResource(R.string.keypress_haptic_intensity_info),
                 ) {
                     scope.launch { repository.setHapticAmplitude(it.toInt()) }
                     HapticPlayer.preview(context, settings.hapticStyle, it.toInt(), settings.hapticStrengthMs, view)
@@ -3051,20 +3125,18 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                "Long-press haptics", "Vibrate when a long press registers", settings.hapticOnLongPress,
-                info = "A second buzz the moment a long press kicks in — when the alternate-" +
-                    "character popup opens, or a long-press action fires — telling your finger " +
-                    "it can let go. Delete and space are unaffected; their key-repeat already " +
-                    "vibrates on every repeat.",
+                stringResource(R.string.keypress_long_press_haptics_title),
+                stringResource(R.string.keypress_long_press_haptics_subtitle),
+                settings.hapticOnLongPress,
+                info = stringResource(R.string.keypress_long_press_haptics_info),
             ) { scope.launch { repository.setHapticOnLongPress(it) } }
         }
         item {
             ToggleSetting(
-                "Long-press release haptics", "Vibrate on release after a long press",
+                stringResource(R.string.keypress_long_press_release_title),
+                stringResource(R.string.keypress_long_press_release_subtitle),
                 settings.hapticOnLongPressRelease,
-                info = "An extra buzz when you lift your finger at the end of a long press, " +
-                    "closing the press-hold-release loop. Off by default; some find the third " +
-                    "vibration excessive.",
+                info = stringResource(R.string.keypress_long_press_release_info),
             ) { scope.launch { repository.setHapticOnLongPressRelease(it) } }
         }
         // Per-event gates: only meaningful while the master switch above is on,
@@ -3072,39 +3144,34 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         if (settings.hapticFeedback) {
             item {
                 ToggleSetting(
-                    "Vibrate on space", "Buzz when you press the space bar",
+                    stringResource(R.string.keypress_vibrate_space_title),
+                    stringResource(R.string.keypress_vibrate_space_subtitle),
                     settings.feedback.vibrateOnSpace,
-                    info = "Silences the space bar's press buzz on its own — useful if the long " +
-                        "space bar feels heavy under the thumb — while every other key keeps " +
-                        "vibrating. The key press sound, if on, still plays. On by default.",
+                    info = stringResource(R.string.keypress_vibrate_space_info),
                 ) { scope.launch { repository.setVibrateOnSpace(it) } }
             }
             item {
                 ToggleSetting(
-                    "Vibrate on delete swipe", "Buzz on each word a backspace swipe removes",
+                    stringResource(R.string.keypress_vibrate_delete_swipe_title),
+                    stringResource(R.string.keypress_vibrate_delete_swipe_subtitle),
                     settings.feedback.vibrateOnDeleteSwipe,
-                    info = "When you swipe left on the backspace key to delete word by word, each " +
-                        "word buzzes. Off makes clearing a sentence one smooth pull with no " +
-                        "buzz-saw. The plain backspace tap is unaffected. On by default.",
+                    info = stringResource(R.string.keypress_vibrate_delete_swipe_info),
                 ) { scope.launch { repository.setVibrateOnDeleteSwipe(it) } }
             }
             item {
                 ToggleSetting(
-                    "Vibrate on key repeat", "Buzz on every auto-repeat while a key is held",
+                    stringResource(R.string.keypress_vibrate_repeat_title),
+                    stringResource(R.string.keypress_vibrate_repeat_subtitle),
                     settings.feedback.vibrateOnRepeat,
-                    info = "Holding backspace or space auto-repeats; by default every repeat buzzes. " +
-                        "Off keeps only the first press buzzing and lets the repeats run silent " +
-                        "(their key sound, if on, still plays). On by default.",
+                    info = stringResource(R.string.keypress_vibrate_repeat_info),
                 ) { scope.launch { repository.setVibrateOnRepeat(it) } }
             }
             item {
                 ToggleSetting(
-                    "Mute haptics in Do Not Disturb",
-                    "Stop all keyboard vibration while Do Not Disturb is on",
+                    stringResource(R.string.keypress_dnd_mute_title),
+                    stringResource(R.string.keypress_dnd_mute_subtitle),
                     settings.feedback.hapticsRespectDnd,
-                    info = "By default the keyboard keeps buzzing in Do Not Disturb — DND targets " +
-                        "notifications, not touch feedback. Turn this on to fall fully silent " +
-                        "while DND is active. Off by default.",
+                    info = stringResource(R.string.keypress_dnd_mute_info),
                 ) { scope.launch { repository.setHapticsRespectDnd(it) } }
             }
         }
@@ -3112,159 +3179,131 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
 
     KeySoundGroup(repository, settings)
 
-    SettingsGroup("Key popup") {
+    SettingsGroup(stringResource(R.string.keypress_popup_group_title)) {
         item {
             ToggleSetting(
-                "Key popup", "Show a character bubble above the pressed key", settings.popup.enabled,
-                info = "While a key is held, its character floats in a bubble above your finger " +
-                    "so you can see what you hit.",
+                stringResource(R.string.keypress_popup_title),
+                stringResource(R.string.keypress_popup_subtitle),
+                settings.popup.enabled,
+                info = stringResource(R.string.keypress_popup_info),
             ) { scope.launch { repository.setKeyPopup(it) } }
         }
         if (settings.popup.enabled) {
             item {
                 ToggleSetting(
-                    "Popup on number pads",
-                    "Also show the bubble on number, phone, and date fields",
+                    stringResource(R.string.keypress_popup_numeric_title),
+                    stringResource(R.string.keypress_popup_numeric_subtitle),
                     settings.popup.inNumericFields,
-                    info = "Number, phone, and date/time fields use a keypad, where the " +
-                        "floating character adds little — and over a PIN it echoes each " +
-                        "digit large enough to be read over your shoulder. Off hides the " +
-                        "bubble on those keypads; regular text fields are unaffected.",
+                    info = stringResource(R.string.keypress_popup_numeric_info),
                 ) { scope.launch { repository.setKeyPopupInNumericFields(it) } }
             }
             item {
                 SliderSetting(
-                    "Minimum popup duration",
-                    subtitle = "How long the bubble stays up even on a fast tap",
+                    stringResource(R.string.keypress_popup_min_duration_title),
+                    subtitle = stringResource(R.string.keypress_popup_min_duration_subtitle),
                     value = settings.popup.minDurationMs.toFloat(),
                     range = 0f..300f,
-                    display = { "${it.toInt()} ms" },
-                    info = "On a quick tap the key is released almost instantly, which can make " +
-                        "the bubble a barely-visible flicker. The bubble lingers after release " +
-                        "until it has been shown for at least this long. 0 hides it the moment " +
-                        "you let go.",
+                    display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                    info = stringResource(R.string.keypress_popup_min_duration_info),
                 ) { scope.launch { repository.setKeyPopupMinDurationMs(it.toInt()) } }
             }
             item {
                 SliderSetting(
-                    "Maximum popup duration",
-                    subtitle = "Safety cap that clears a bubble stuck by lag",
+                    stringResource(R.string.keypress_popup_max_duration_title),
+                    subtitle = stringResource(R.string.keypress_popup_max_duration_subtitle),
                     value = settings.popup.maxDurationMs.toFloat(),
                     range = 400f..2000f,
-                    display = { "${it.toInt()} ms" },
-                    info = "The bubble normally disappears when you lift your finger. If the " +
-                        "keyboard lags — most often as a new line is inserted — the release can " +
-                        "be missed and the bubble strands on screen. This is the hard ceiling on " +
-                        "its life, measured from the press: past it the bubble hides no matter " +
-                        "what. Unlike the minimum, this isn't about feel — it only exists to " +
-                        "recover from a dropped release, so leave it high unless you still see a " +
-                        "bubble lingering.",
+                    display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                    info = stringResource(R.string.keypress_popup_max_duration_info),
                 ) { scope.launch { repository.setKeyPopupMaxDurationMs(it.toInt()) } }
             }
         }
         item {
             ToggleSetting(
-                "Popup on key",
-                "Grow the bubble upward from the pressed key itself",
+                stringResource(R.string.keypress_popup_on_key_title),
+                stringResource(R.string.keypress_popup_on_key_subtitle),
                 settings.popup.onKey,
-                info = "On: the preview bubble sits on the pressed key and stretches upward, " +
-                    "key-wide with a large character near its top — the stock-keyboard look. " +
-                    "Off: a compact bubble floats above your fingertip with a gap.",
+                info = stringResource(R.string.keypress_popup_on_key_info),
             ) { scope.launch { repository.setKeyPopupOnKey(it) } }
         }
         item {
             SliderSetting(
-                "Popup font size",
-                subtitle = "Scale of the key preview bubble and long-press alternates",
+                stringResource(R.string.keypress_popup_font_size_title),
+                subtitle = stringResource(R.string.keypress_popup_font_size_subtitle),
                 value = settings.popup.fontScale,
                 range = 0.7f..1.6f,
-                display = { "×%.2f".format(it) },
-                info = "Multiplies the text size inside the character bubble shown while a key " +
-                    "is pressed and in the long-press alternates popup, independently of the " +
-                    "key label size.",
+                display = { context.getString(R.string.keypress_value_multiplier, it) },
+                info = stringResource(R.string.keypress_popup_font_size_info),
             ) { scope.launch { repository.setPopupFontScale(it) } }
         }
         item {
             SliderSetting(
-                "Popup height",
-                subtitle = "Height of the key preview bubble",
+                stringResource(R.string.keypress_popup_height_title),
+                subtitle = stringResource(R.string.keypress_popup_height_subtitle),
                 value = settings.popup.heightDp.toFloat(),
                 range = 32f..160f,
-                display = { "${it.toInt()} dp" },
-                info = "Height of the character bubble. With \"Popup on key\" enabled this is " +
-                    "measured from the bottom of the pressed key, so anything taller than the " +
-                    "key extends above it and stays visible past your finger.",
+                display = { context.getString(R.string.keypress_value_dp, it.toInt()) },
+                info = stringResource(R.string.keypress_popup_height_info),
             ) { scope.launch { repository.setKeyPopupHeightDp(it.toInt()) } }
         }
     }
 
-    SettingsGroup("Timing") {
+    SettingsGroup(stringResource(R.string.keypress_timing_group_title)) {
         item {
             SliderSetting(
-                "Long-press delay",
-                subtitle = "Hold time before alternate characters appear",
+                stringResource(R.string.keypress_long_press_delay_title),
+                subtitle = stringResource(R.string.keypress_long_press_delay_subtitle),
                 value = settings.longPressDelayMs.toFloat(),
                 range = 150f..700f,
-                display = { "${it.toInt()} ms" },
-                info = "How long a key must be held before its long-press alternates (accents, " +
-                    "digits, symbols) pop up. Lower is faster but easier to trigger by accident.",
+                display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                info = stringResource(R.string.keypress_long_press_delay_info),
             ) { scope.launch { repository.setLongPressDelayMs(it.toInt()) } }
         }
         item {
             SliderSetting(
-                "Key repeat interval",
-                subtitle = "Speed of repeated delete while held",
+                stringResource(R.string.keypress_key_repeat_title),
+                subtitle = stringResource(R.string.keypress_key_repeat_subtitle),
                 value = settings.keyRepeatIntervalMs.toFloat(),
                 range = 20f..200f,
-                display = { "${it.toInt()} ms" },
-                info = "While delete (or space) is held it repeats at this interval. Lower " +
-                    "values delete faster.",
+                display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                info = stringResource(R.string.keypress_key_repeat_info),
             ) { scope.launch { repository.setKeyRepeatIntervalMs(it.toInt()) } }
         }
         item {
             SliderSetting(
-                "Caps-lock double-tap",
-                subtitle = "How fast a second shift tap turns on caps lock",
+                stringResource(R.string.keypress_caps_lock_title),
+                subtitle = stringResource(R.string.keypress_caps_lock_subtitle),
                 value = settings.layoutBehavior.shiftCapsLockMs.toFloat(),
                 range = ShiftCapsLockMsRange.first.toFloat()..ShiftCapsLockMsRange.last.toFloat(),
-                display = { "${it.toInt()} ms" },
-                info = "Two shift taps within this window lock caps. Shorter makes caps lock " +
-                    "quicker but easier to trigger by accident; longer is more forgiving of a " +
-                    "slow double-tap. 350 ms is the default.",
+                display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                info = stringResource(R.string.keypress_caps_lock_info),
             ) { scope.launch { repository.setShiftCapsLockMs(it.toInt()) } }
         }
     }
 
-    SettingsGroup("Long-press shortcuts") {
+    SettingsGroup(stringResource(R.string.keypress_shortcuts_group_title)) {
         item {
             ToggleSetting(
-                "Long-press hints", "Show each key's long-press character in its corner",
+                stringResource(R.string.keypress_long_press_hints_title),
+                stringResource(R.string.keypress_long_press_hints_subtitle),
                 settings.longPressHints,
-                info = "A small label in the top-right corner of each key previews its first " +
-                    "long-press character — the digit, symbol or accent the popup leads with. " +
-                    "Keys running a clipboard shortcut below show no hint.",
+                info = stringResource(R.string.keypress_long_press_hints_info),
             ) { scope.launch { repository.setLongPressHints(it) } }
         }
         item {
             ToggleSetting(
-                "All accents on long-press",
-                "Fill every letter's popup with its full set of accents",
+                stringResource(R.string.keypress_all_accents_title),
+                stringResource(R.string.keypress_all_accents_subtitle),
                 settings.layoutBehavior.showAllPopupKeys,
-                info = "Adds the complete accent set for each Latin letter (à á â ä ã å ā …) to " +
-                    "its long-press popup, on top of whatever the layout already lists. Off by " +
-                    "default: the built-in popups are deliberately short, and the full set is a " +
-                    "lot of glyphs. Letters only.",
+                info = stringResource(R.string.keypress_all_accents_info),
             ) { scope.launch { repository.setShowAllPopupKeys(it) } }
         }
         item {
             ToggleSetting(
-                "Hold ?123 for numpad",
-                "Long-press the symbols key to open the number pad",
+                stringResource(R.string.keypress_symbols_numpad_title),
+                stringResource(R.string.keypress_symbols_numpad_subtitle),
                 settings.layoutBehavior.symbolsLongPressNumpad,
-                info = "Normally the ?123 key only switches to the symbol layer. With this on, " +
-                    "holding it opens the numeric keypad panel over any field — a full number " +
-                    "pad without leaving the current text box. A quick tap still switches " +
-                    "layers as usual.",
+                info = stringResource(R.string.keypress_symbols_numpad_info),
             ) { scope.launch { repository.setSymbolsLongPressNumpad(it) } }
         }
         item {
@@ -3279,12 +3318,13 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
             }
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Currency keys", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(R.string.keypress_currency_keys_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
                     InfoButton(
-                        "Currency keys",
-                        "The glyphs offered on the \$ key's long-press popup, in order — put " +
-                            "your own currency first. Separate them with spaces. Leave it at the " +
-                            "default (৳ € £ ¥ ₹ ₿) or clear it to restore the built-in set.",
+                        stringResource(R.string.keypress_currency_keys_title),
+                        stringResource(R.string.keypress_currency_keys_info),
                     )
                 }
                 OutlinedTextField(
@@ -3302,64 +3342,58 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                "Ctrl shortcuts as raw key events",
-                "For terminals; off means Ctrl+A/C/V/X use the clipboard directly",
+                stringResource(R.string.keypress_ctrl_raw_title),
+                stringResource(R.string.keypress_ctrl_raw_subtitle),
                 settings.rawClipboardShortcuts,
-                info = "A Ctrl key on a custom layout normally runs A, C, V and X through " +
-                    "Android's own clipboard actions, which work everywhere including web " +
-                    "pages and apps built with Compose. A terminal needs the raw key event " +
-                    "instead — Ctrl+C there means interrupt, not copy. There is no way for " +
-                    "the keyboard to tell the two apart, so this is a switch rather than a " +
-                    "guess.",
+                info = stringResource(R.string.keypress_ctrl_raw_info),
             ) { scope.launch { repository.setRawClipboardShortcuts(it) } }
         }
         item {
             ToggleSetting(
-                "Hold A to select all", "Long-pressing A selects all text",
+                stringResource(R.string.keypress_hold_a_title),
+                stringResource(R.string.keypress_hold_a_subtitle),
                 settings.longPressLetterActions.selectAll,
-                info = "Replaces the A key's accent popup with a select-all shortcut. Turn it " +
-                    "off to get the accents (à á â ä å) back.",
+                info = stringResource(R.string.keypress_hold_a_info),
             ) { scope.launch { repository.setLongPressASelectAll(it) } }
         }
         item {
             ToggleSetting(
-                "Hold C to copy", "Copies the selection, or everything if nothing is selected",
+                stringResource(R.string.keypress_hold_c_title),
+                stringResource(R.string.keypress_hold_c_subtitle),
                 settings.longPressLetterActions.copy,
-                info = "With text selected, a long press on C copies just that selection. With " +
-                    "no selection it selects all first, so one hold copies the whole field. " +
-                    "Replaces the C key's accent popup (ç ć) while enabled.",
+                info = stringResource(R.string.keypress_hold_c_info),
             ) { scope.launch { repository.setLongPressCCopy(it) } }
         }
         item {
             ToggleSetting(
-                "Hold X to cut", "Cuts the selection, or everything if nothing is selected",
+                stringResource(R.string.keypress_hold_x_title),
+                stringResource(R.string.keypress_hold_x_subtitle),
                 settings.longPressLetterActions.cut,
-                info = "With text selected, a long press on X cuts just that selection. With " +
-                    "no selection it selects all first, so one hold cuts the whole field.",
+                info = stringResource(R.string.keypress_hold_x_info),
             ) { scope.launch { repository.setLongPressXCut(it) } }
         }
         item {
             ToggleSetting(
-                "Hold V to paste", "Long-pressing V pastes the clipboard",
+                stringResource(R.string.keypress_hold_v_title),
+                stringResource(R.string.keypress_hold_v_subtitle),
                 settings.longPressLetterActions.paste,
-                info = "Pastes the current clipboard content at the cursor, replacing any " +
-                    "selection — the classic Ctrl+V, one hold away.",
+                info = stringResource(R.string.keypress_hold_v_info),
             ) { scope.launch { repository.setLongPressVPaste(it) } }
         }
         item {
             ToggleSetting(
-                "Hold Z to undo", "Long-pressing Z undoes the last edit",
+                stringResource(R.string.keypress_hold_z_title),
+                stringResource(R.string.keypress_hold_z_subtitle),
                 settings.longPressLetterActions.undo,
-                info = "Sends the same undo shortcut as the toolbar's Undo tool. Replaces the " +
-                    "Z key's accent popup while enabled.",
+                info = stringResource(R.string.keypress_hold_z_info),
             ) { scope.launch { repository.setLongPressZUndo(it) } }
         }
         item {
             ToggleSetting(
-                "Hold Y to redo", "Long-pressing Y redoes the last undone edit",
+                stringResource(R.string.keypress_hold_y_title),
+                stringResource(R.string.keypress_hold_y_subtitle),
                 settings.longPressLetterActions.redo,
-                info = "Sends the same redo shortcut as the toolbar's Redo tool " +
-                    "(Ctrl+Y or Ctrl+Shift+Z, per the redo shortcut setting).",
+                info = stringResource(R.string.keypress_hold_y_info),
             ) { scope.launch { repository.setLongPressYRedo(it) } }
         }
     }
@@ -3376,26 +3410,40 @@ private fun AppearanceSettings(
     onOpenIcons: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    // Slider readouts are plain lambdas, so their format strings are resolved
+    // here and captured. The format also puts the number through the locale,
+    // which is what gives Bengali or Arabic digits.
+    val dpFormat = stringResource(R.string.typing_value_dp)
+    val spFormat = stringResource(R.string.values_sp)
+    val multiplierFormat = stringResource(R.string.keypress_value_multiplier)
     // Turning the toolbar off is guarded — it hides suggestions and every tool.
     var confirmDisableToolbar by remember { mutableStateOf(false) }
-    SettingsGroup("Style") {
+    SettingsGroup(stringResource(R.string.appearance_style_section_title)) {
         item {
             val selected = settings.customThemes.find { it.id == settings.keyboardThemeId }
                 ?: com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
                     .find { it.id == settings.keyboardThemeId }
             NavRow(
-                "Keyboard themes",
-                "Light/dark/AMOLED, colors, background images, import/export",
-                value = selected?.name ?: "Default",
+                stringResource(R.string.appearance_themes_title),
+                stringResource(R.string.appearance_themes_subtitle),
+                value = if (selected == null) {
+                    stringResource(CommonR.string.common_default)
+                } else {
+                    com.wasimaster.wmkeyboard.core.theme.themeName(selected)
+                },
                 route = "themes",
                 onClick = onOpenThemes,
             )
         }
         item {
             NavRow(
-                "Keyboard font",
-                "Google Fonts, or import your own font file",
-                value = KeyboardFonts.displayName(settings.keyFontId, settings.customFontName),
+                stringResource(R.string.appearance_font_title),
+                stringResource(R.string.appearance_font_subtitle),
+                value = KeyboardFonts.genericDisplayName(
+                    LocalContext.current,
+                    settings.keyFontId,
+                    settings.customFontName,
+                ),
                 route = "fonts",
                 onClick = onOpenFonts,
             )
@@ -3403,14 +3451,19 @@ private fun AppearanceSettings(
         item {
             val active = settings.icons.activePackId
             val changed = settings.icons.overrides.size
+            val defaultLabel = stringResource(CommonR.string.common_default)
             NavRow(
-                "Icons",
-                "Swap any tool or key icon, or install an icon pack",
+                stringResource(R.string.appearance_icons_title),
+                stringResource(R.string.appearance_icons_subtitle),
                 value = when {
                     active.isNotEmpty() ->
-                        IconPackStore.get(LocalContext.current).pack(active)?.name ?: "Default"
-                    changed > 0 -> "$changed changed"
-                    else -> "Default"
+                        IconPackStore.get(LocalContext.current).pack(active)?.name ?: defaultLabel
+                    changed > 0 -> pluralStringResource(
+                        R.plurals.appearance_icons_changed_count,
+                        changed,
+                        changed,
+                    )
+                    else -> defaultLabel
                 },
                 route = "icons",
                 onClick = onOpenIcons,
@@ -3418,52 +3471,46 @@ private fun AppearanceSettings(
         }
     }
 
-    SettingsGroup("Keys") {
+    SettingsGroup(stringResource(R.string.appearance_keys_section_title)) {
         item {
             SliderSetting(
-                "Key corner radius",
-                subtitle = "Roundness of the key corners",
+                stringResource(R.string.appearance_key_corner_radius_title),
+                subtitle = stringResource(R.string.appearance_key_corner_radius_subtitle),
                 value = settings.keyCornerRadiusDp.toFloat(),
                 range = 0f..28f,
-                display = { "${it.toInt()} dp" },
-                info = "0 gives square keys, 28 gives fully pill-shaped keys.",
+                display = { dpFormat.format(it.toInt()) },
+                info = stringResource(R.string.appearance_key_corner_radius_info),
             ) { scope.launch { repository.setKeyCornerRadiusDp(it.toInt()) } }
         }
         item {
             SliderSetting(
-                "Key label font size",
-                subtitle = "Scale of the labels printed on the keys",
+                stringResource(R.string.appearance_key_label_size_title),
+                subtitle = stringResource(R.string.appearance_key_label_size_subtitle),
                 value = settings.fontScale,
                 range = 0.7f..1.5f,
-                display = { "×%.2f".format(it) },
-                info = "Multiplies the size of every label on the keys themselves. Popup " +
-                    "bubbles have their own font size under Key press → Key popup.",
+                display = { multiplierFormat.format(it) },
+                info = stringResource(R.string.appearance_key_label_size_info),
             ) { scope.launch { repository.setFontScale(it) } }
         }
         item {
             SliderSetting(
-                "Key hint font size",
-                subtitle = "Scale of the small corner hint character on each key",
+                stringResource(R.string.appearance_key_hint_size_title),
+                subtitle = stringResource(R.string.appearance_key_hint_size_subtitle),
                 value = settings.layoutBehavior.hintFontScale,
                 range = 0.5f..2.0f,
-                display = { "×%.2f".format(it) },
-                info = "Resizes the little long-press hint printed in the corner of a key " +
-                    "(shown when \"Long-press hints\" is on). Larger values make the hints " +
-                    "easier to read; ×1.00 is the default.",
+                display = { multiplierFormat.format(it) },
+                info = stringResource(R.string.appearance_key_hint_size_info),
             ) { scope.launch { repository.setHintFontScale(it) } }
         }
     }
 
-    SettingsGroup("Toolbar") {
+    SettingsGroup(stringResource(R.string.appearance_toolbar_section_title)) {
         item {
             ToggleSetting(
-                "Show the toolbar",
-                "The strip above the keys that carries suggestions and tools",
+                stringResource(R.string.appearance_toolbar_show_title),
+                stringResource(R.string.appearance_toolbar_show_subtitle),
                 settings.toolbarBehavior.enabled,
-                info = "The toolbar is the row above the keys — it shows word suggestions " +
-                    "while you type and your pinned tools (emoji, clipboard, cursor keys …) " +
-                    "otherwise. Turn it off to reclaim its height for the keys; you'll be " +
-                    "asked to confirm, because it also hides suggestions and every tool.",
+                info = stringResource(R.string.appearance_toolbar_show_info),
             ) { on ->
                 // Enabling is harmless; disabling loses real features, so confirm.
                 if (on) scope.launch { repository.setToolbarEnabled(true) }
@@ -3472,101 +3519,78 @@ private fun AppearanceSettings(
         }
         item {
             ToggleSetting(
-                "Swipe down to hide",
-                "A downward flick on the toolbar dismisses the keyboard",
+                stringResource(R.string.appearance_toolbar_swipe_down_title),
+                stringResource(R.string.appearance_toolbar_swipe_down_subtitle),
                 settings.toolbarBehavior.swipeDownHide,
-                info = "When on, flicking down anywhere on the toolbar strip closes the " +
-                    "keyboard. Off by default so the gesture never fires while you scroll " +
-                    "or rearrange the bar. Reordering a tool is a press-and-hold, so it " +
-                    "won't trigger this.",
+                info = stringResource(R.string.appearance_toolbar_swipe_down_info),
             ) { scope.launch { repository.setToolbarSwipeDownHide(it) } }
         }
         item {
             ToggleSetting(
-                "Only toolbar with hardware keyboard",
-                "When a physical keyboard is attached, show just the toolbar",
+                stringResource(R.string.appearance_toolbar_hardware_only_title),
+                stringResource(R.string.appearance_toolbar_hardware_only_subtitle),
                 settings.toolbarBehavior.onlyWithHardwareKeyboard,
-                info = "With a Bluetooth or dock keyboard connected, the on-screen keys step " +
-                    "aside and only the toolbar stays — so emoji, clipboard and the other " +
-                    "tools remain one tap away while you type on the hardware keyboard. Off " +
-                    "by default.",
+                info = stringResource(R.string.appearance_toolbar_hardware_only_info),
             ) { scope.launch { repository.setToolbarOnlyWithHardwareKeyboard(it) } }
         }
         item {
             ToggleSetting(
-                "Reverse order for RTL languages",
-                "Mirror the tool order when typing a right-to-left script",
+                stringResource(R.string.appearance_toolbar_rtl_title),
+                stringResource(R.string.appearance_toolbar_rtl_subtitle),
                 settings.toolbarBehavior.reverseForRtl,
-                info = "For right-to-left scripts (Arabic, Hebrew …) the pinned tools read " +
-                    "right-to-left too, so the bar flows with the text. On by default. The " +
-                    "toolbox grid is unaffected.",
+                info = stringResource(R.string.appearance_toolbar_rtl_info),
             ) { scope.launch { repository.setReverseToolbarForRtl(it) } }
         }
         item {
             ToggleSetting(
-                "Spread tools across the bar",
-                "Toolbar tools split the available width evenly",
+                stringResource(R.string.appearance_toolbar_spread_title),
+                stringResource(R.string.appearance_toolbar_spread_subtitle),
                 settings.toolbarBehavior.greedy,
-                info = "On: the tools on the top toolbar greedily share the whole bar, like " +
-                    "the suggestion candidates do. Off: they pack to the left at a fixed " +
-                    "size. Which tools appear there is customized from the keyboard itself: " +
-                    "open the toolbox (grid button on the toolbar), then hold and drag tools " +
-                    "between the toolbar and the toolbox.",
+                info = stringResource(R.string.appearance_toolbar_spread_info),
             ) { scope.launch { repository.setToolbarGreedy(it) } }
         }
         item {
             SliderSetting(
-                "Toolbar height",
-                subtitle = "Height of the top toolbar / suggestion strip",
+                stringResource(R.string.appearance_toolbar_height_title),
+                subtitle = stringResource(R.string.appearance_toolbar_height_subtitle),
                 value = settings.toolbarHeightDp.toFloat(),
                 range = 32f..80f,
-                display = { "${it.roundToInt()} dp" },
-                info = "The default is 44 dp. Taller gives bigger tap targets and room for " +
-                    "tool labels; shorter reclaims screen height. This is the strip that " +
-                    "carries both the word suggestions and the toolbar.",
+                display = { dpFormat.format(it.roundToInt()) },
+                info = stringResource(R.string.appearance_toolbar_height_info),
             ) { scope.launch { repository.setToolbarHeightDp(it.roundToInt()) } }
         }
         item {
             ToggleSetting(
-                "Scroll the toolbar",
-                "Swipe the tools sideways instead of shrinking them to fit",
+                stringResource(R.string.appearance_toolbar_scroll_title),
+                stringResource(R.string.appearance_toolbar_scroll_subtitle),
                 settings.toolbarBehavior.scrollable,
-                info = "When you pin more tools than fit the bar, this keeps each at a " +
-                    "comfortable size and lets you scroll through them. It packs the tools " +
-                    "to the left (overriding \"Spread tools across the bar\"). Reorder from " +
-                    "the toolbox; dragging within a scrolling bar is fiddly.",
+                info = stringResource(R.string.appearance_toolbar_scroll_info),
             ) { scope.launch { repository.setToolbarScrollable(it) } }
         }
         item {
             ToggleSetting(
-                "Hide toolbar & clipboard on lock screen",
-                "Drop the top strip and block the clipboard while the device is locked",
+                stringResource(R.string.appearance_toolbar_lock_title),
+                stringResource(R.string.appearance_toolbar_lock_subtitle),
                 settings.toolbarBehavior.hideWhenLocked,
-                info = "When the keyboard comes up over your lock screen — replying to a " +
-                    "notification, a lock-screen search box — this hides the whole top strip " +
-                    "(word suggestions and every pinned tool, so the clipboard tool and its " +
-                    "paste chip go too) and blocks the clipboard panel. Copied text like " +
-                    "one-time codes and passwords stays off a screen anyone can wake. Off by " +
-                    "default; unlocked, the keyboard is unchanged.",
+                info = stringResource(R.string.appearance_toolbar_lock_info),
             ) { scope.launch { repository.setToolbarHideWhenLocked(it) } }
         }
         item {
             ToggleSetting(
-                "Tool labels",
-                "Show each tool's name under its icon on the toolbar",
+                stringResource(R.string.appearance_toolbar_labels_title),
+                stringResource(R.string.appearance_toolbar_labels_subtitle),
                 settings.toolbarLabels,
-                info = "Draws a small caption beneath every pinned tool. You'll likely want " +
-                    "to raise the toolbar height to give the labels room.",
+                info = stringResource(R.string.appearance_toolbar_labels_info),
             ) { scope.launch { repository.setToolbarLabels(it) } }
         }
         if (settings.toolbarLabels) {
             item {
                 SliderSetting(
-                    "Label text size",
-                    subtitle = "Font size of the toolbar tool labels",
+                    stringResource(R.string.appearance_toolbar_label_size_title),
+                    subtitle = stringResource(R.string.appearance_toolbar_label_size_subtitle),
                     value = settings.toolbarLabelSize.toFloat(),
                     range = 7f..14f,
-                    display = { "${it.roundToInt()} sp" },
+                    display = { spFormat.format(it.roundToInt()) },
                 ) { scope.launch { repository.setToolbarLabelSize(it.roundToInt()) } }
             }
         }
@@ -3574,95 +3598,81 @@ private fun AppearanceSettings(
             ResetPinnedToolsSetting(repository, scope)
         }
         item {
+            val offLabel = stringResource(CommonR.string.common_off)
             SliderSetting(
-                "Tool circle radius",
-                subtitle = "Roundness of the circle behind each toolbar tool",
+                stringResource(R.string.appearance_tool_circle_title),
+                subtitle = stringResource(R.string.appearance_tool_circle_subtitle),
                 value = settings.toolCircleRadiusDp.toFloat(),
                 range = 0f..20f,
-                display = { if (it.toInt() == 0) "off" else "${it.toInt()} dp" },
-                info = "20 draws a full circle behind every tool icon (Gboard style), " +
-                    "smaller values give rounded squares, and 0 removes the background " +
-                    "entirely, leaving bare icons.",
+                display = { if (it.toInt() == 0) offLabel else dpFormat.format(it.toInt()) },
+                info = stringResource(R.string.appearance_tool_circle_info),
             ) { scope.launch { repository.setToolCircleRadiusDp(it.toInt()) } }
         }
         item {
             ChoiceSetting(
-                "Toolbox layout",
-                subtitle = "How the toolbox draws its tools",
+                stringResource(R.string.appearance_toolbox_layout_title),
+                subtitle = stringResource(R.string.appearance_toolbox_layout_subtitle),
                 options = listOf(
-                    ToolboxLayout.ICONS to "Icons",
-                    ToolboxLayout.PILLS to "Pills",
+                    ToolboxLayout.ICONS to
+                        stringResource(R.string.appearance_toolbox_layout_icons_label),
+                    ToolboxLayout.PILLS to
+                        stringResource(R.string.appearance_toolbox_layout_pills_label),
                 ),
                 selected = settings.toolbox.layout,
-                info = "Icons is the original grid: a round icon per tool with its name " +
-                    "underneath. Pills gives each tool a wide rounded row instead — icon on " +
-                    "the left, name beside it, and an arrow on the right for the tools that " +
-                    "open something (Themes, Clipboard …) rather than acting on the spot " +
-                    "(Flashlight, Undo). Fewer tools fit, but every name is readable.",
+                info = stringResource(R.string.appearance_toolbox_layout_info),
             ) { scope.launch { repository.setToolboxLayout(it) } }
         }
         if (settings.toolbox.layout == ToolboxLayout.ICONS) {
             item {
+                val perRow = stringResource(R.string.appearance_slider_per_row_value)
                 SliderSetting(
-                    "Toolbox grid size",
-                    subtitle = "Tools per row in the toolbox grid",
+                    stringResource(R.string.appearance_toolbox_columns_title),
+                    subtitle = stringResource(R.string.appearance_toolbox_columns_subtitle),
                     value = settings.toolboxColumns.toFloat(),
                     range = 3f..6f,
-                    display = { "${it.roundToInt()} per row" },
-                    info = "The toolbox is the grid behind the toolbar's grid button. " +
-                        "Fewer per row makes each tool bigger and easier to hit; more " +
-                        "per row fits more tools without scrolling.",
+                    display = { perRow.format(it.roundToInt()) },
+                    info = stringResource(R.string.appearance_toolbox_columns_info),
                 ) { scope.launch { repository.setToolboxColumns(it.roundToInt()) } }
             }
         } else {
             item {
+                val perRow = stringResource(R.string.appearance_slider_per_row_value)
                 SliderSetting(
-                    "Pills per row",
-                    subtitle = "How many tool pills sit side by side",
+                    stringResource(R.string.appearance_toolbox_pill_columns_title),
+                    subtitle = stringResource(R.string.appearance_toolbox_pill_columns_subtitle),
                     value = settings.toolbox.pillColumns.toFloat(),
                     range = 1f..3f,
-                    display = { "${it.roundToInt()} per row" },
-                    info = "Two is the default. One gives every tool the full width (good " +
-                        "for long names and big text); three only really works in landscape " +
-                        "or on a tablet, where names start truncating otherwise.",
+                    display = { perRow.format(it.roundToInt()) },
+                    info = stringResource(R.string.appearance_toolbox_pill_columns_info),
                 ) { scope.launch { repository.setToolboxPillColumns(it.roundToInt()) } }
             }
             item {
                 ToggleSetting(
-                    "Fill pills with the tool color",
-                    "Color the whole pill instead of just its icon",
+                    stringResource(R.string.appearance_toolbox_pill_filled_title),
+                    stringResource(R.string.appearance_toolbox_pill_filled_subtitle),
                     settings.toolbox.pillFilled,
-                    info = "Off, each pill keeps the theme's own background and only the " +
-                        "icon carries the tool's color. On, the pill itself is that color " +
-                        "and the icon and name flip to whatever reads on it — white on most " +
-                        "colors, near-black on the pale ones. Needs \"Colorful tool icons\" " +
-                        "(Settings → Tools) on; with it off there's no color to fill with.",
+                    info = stringResource(R.string.appearance_toolbox_pill_filled_info),
                 ) { scope.launch { repository.setToolboxPillFilled(it) } }
             }
         }
         item {
             ToggleSetting(
-                "Swipe the toolbox in pages",
-                "Fixed pages you swipe sideways instead of one scrolling grid",
+                stringResource(R.string.appearance_toolbox_paginate_title),
+                stringResource(R.string.appearance_toolbox_paginate_subtitle),
                 settings.toolbox.paginate,
-                info = "Off, the toolbox is one grid that scrolls up and down. On, it " +
-                    "breaks into pages you swipe between, with dots underneath showing " +
-                    "where you are — every tool then sits in the same spot every time, " +
-                    "which is what makes them findable by muscle memory. Dragging a tool " +
-                    "to reorder it works within the page you're on.",
+                info = stringResource(R.string.appearance_toolbox_paginate_info),
             ) { scope.launch { repository.setToolboxPaginate(it) } }
         }
         if (settings.toolbox.paginate) {
             item {
+                val perPage = stringResource(R.string.appearance_slider_per_page_value)
                 SliderSetting(
-                    "Tools per page",
-                    subtitle = "How many tools each toolbox page holds",
+                    stringResource(R.string.appearance_toolbox_page_size_title),
+                    subtitle = stringResource(R.string.appearance_toolbox_page_size_subtitle),
                     value = settings.toolbox.pageSize.toFloat(),
                     range = ToolboxPageSizeRange.first.toFloat()..ToolboxPageSizeRange.last.toFloat(),
-                    display = { "${it.roundToInt()} per page" },
-                    info = "Pick a multiple of your row size and the last row of every page " +
-                        "comes out full. Ask for more than fits the panel and the page " +
-                        "scrolls as well as swipes, which rather defeats the point.",
+                    display = { perPage.format(it.roundToInt()) },
+                    info = stringResource(R.string.appearance_toolbox_page_size_info),
                 ) { scope.launch { repository.setToolboxPageSize(it.roundToInt()) } }
             }
         }
@@ -3671,23 +3681,18 @@ private fun AppearanceSettings(
     if (confirmDisableToolbar) {
         AlertDialog(
             onDismissRequest = { confirmDisableToolbar = false },
-            title = { Text("Disable the toolbar?") },
-            text = {
-                Text(
-                    "The whole top strip goes away — you'll lose word suggestions and " +
-                        "quick access to every pinned tool (emoji, clipboard, cursor keys, " +
-                        "and the rest). The keys claim the reclaimed height. You can turn " +
-                        "it back on here any time.",
-                )
-            },
+            title = { Text(stringResource(R.string.appearance_toolbar_disable_dialog_title)) },
+            text = { Text(stringResource(R.string.appearance_toolbar_disable_dialog_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDisableToolbar = false
                     scope.launch { repository.setToolbarEnabled(false) }
-                }) { Text("Disable") }
+                }) { Text(stringResource(CommonR.string.common_disable)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDisableToolbar = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmDisableToolbar = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
             },
         )
     }
@@ -3698,157 +3703,135 @@ private fun AppearanceSettings(
 @Composable
 private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
-    SettingsGroup("Number row") {
+    // Slider readouts are plain lambdas, so their format strings are resolved
+    // here and captured. The format also puts the number through the locale,
+    // which is what gives Bengali or Arabic digits.
+    val dpFormat = stringResource(R.string.typing_value_dp)
+    val percentFormat = stringResource(R.string.typing_value_percent)
+    val multiplierFormat = stringResource(R.string.keypress_value_multiplier)
+    SettingsGroup(stringResource(R.string.layout_number_row_title)) {
         item {
             ToggleSetting(
-                "Number row", "Show a dedicated digit row above the letters", settings.numberRow,
-                info = "Adds a 1–0 row on top of the letter layout so you never long-press for " +
-                    "digits. The digits normally on the top letter row's long press are dropped " +
-                    "while this is on. Costs one extra row of height.",
+                stringResource(R.string.layout_number_row_title),
+                stringResource(R.string.layout_number_row_subtitle),
+                settings.numberRow,
+                info = stringResource(R.string.layout_number_row_info),
             ) { scope.launch { repository.setNumberRow(it) } }
         }
         if (settings.numberRow) {
             item {
                 SliderSetting(
-                    "Number row height",
-                    subtitle = "Height of the digit row, independent of the letter keys",
+                    stringResource(R.string.layout_number_row_height_title),
+                    subtitle = stringResource(R.string.layout_number_row_height_subtitle),
                     value = settings.numberRowHeightDp.toFloat(),
                     range = 32f..100f,
-                    display = { "${it.toInt()} dp" },
-                    info = "A shorter digit row keeps quick number access without costing a " +
-                        "full row of extra keyboard height.",
+                    display = { dpFormat.format(it.toInt()) },
+                    info = stringResource(R.string.layout_number_row_height_info),
                 ) { scope.launch { repository.setNumberRowHeightDp(it.toInt()) } }
             }
             item {
                 ToggleSetting(
-                    "Symbols on shift",
-                    "Hold shift to turn the digit row into symbols",
+                    stringResource(R.string.layout_number_row_shift_symbols_title),
+                    stringResource(R.string.layout_number_row_shift_symbols_subtitle),
                     settings.layoutBehavior.numberRowShiftSymbols,
-                    info = "While shift is held on the letter layout, the number row shows the " +
-                        "symbol layer's fill row (= \\ < > [ ] { } | ~) instead of digits, so those " +
-                        "symbols are one shift away without switching to the symbols layer. The " +
-                        "number row already becomes extra arrow and comparison symbols on the " +
-                        "second symbols layer.",
+                    info = stringResource(R.string.layout_number_row_shift_symbols_info),
                 ) { scope.launch { repository.setNumberRowShiftSymbols(it) } }
             }
             item {
                 ToggleSetting(
-                    "Number row in symbols",
-                    "Also keep the digit row on the ?123 symbols layer",
+                    stringResource(R.string.layout_number_row_in_symbols_title),
+                    stringResource(R.string.layout_number_row_in_symbols_subtitle),
                     settings.layoutBehavior.numberRowInSymbols,
-                    info = "On (the default), the digit row stays put when you switch to the " +
-                        "symbols layer. Turn it off to drop the number row from ?123 — where the " +
-                        "symbols already carry their own top row — while keeping it on the letters. " +
-                        "The keyboard shrinks by a row on the symbols layer when this is off.",
+                    info = stringResource(R.string.layout_number_row_in_symbols_info),
                 ) { scope.launch { repository.setNumberRowInSymbols(it) } }
             }
         }
     }
 
-    SettingsGroup("Numerals") {
+    SettingsGroup(stringResource(R.string.layout_numerals_title)) {
         item {
             ChoiceSetting(
-                "Type native digits in",
-                subtitle = "Where the native digits are actually inserted",
-                info = "Which glyphs the digit keys show is picked per language, in Languages → " +
-                    "the language → Numerals. This setting decides where those glyphs are also " +
-                    "typed. Text fields only (default) keeps plain 0-9 in number, phone, date " +
-                    "and time fields so they stay machine-readable, and types native digits " +
-                    "everywhere else. Everywhere types native digits in those fields too. " +
-                    "Display only shows the glyphs on the keys but always inserts 0-9.",
-                options = NumeralCommitScope.entries.map { it to it.label },
+                stringResource(R.string.layout_numeral_scope_title),
+                subtitle = stringResource(R.string.layout_numeral_scope_subtitle),
+                info = stringResource(R.string.layout_numeral_scope_info),
+                options = NumeralCommitScope.entries.map { it to stringResource(it.labelRes) },
                 selected = settings.layoutBehavior.numeralCommitScope,
             ) { scope.launch { repository.setNumeralCommitScope(it) } }
         }
         item {
-            CaptionText(
-                "The digits each language draws — Latin 0-9, Arabic ٠-٩, Persian ۰-۹, " +
-                    "Bengali ০-৯, Devanagari ०-९ — are set per language under Languages.",
-            )
+            CaptionText(stringResource(R.string.layout_numerals_caption))
         }
     }
 
-    SettingsGroup("Size & position") {
+    SettingsGroup(stringResource(R.string.layout_size_position_title)) {
         item {
             SliderSetting(
-                "Key height",
-                subtitle = "Height of each key row — sets the overall input height",
+                stringResource(R.string.layout_key_height_title),
+                subtitle = stringResource(R.string.layout_key_height_subtitle),
                 value = settings.keyHeightDp.toFloat(),
                 range = 32f..100f,
-                display = { "${it.toInt()} dp" },
-                info = "Taller keys are easier to hit but the keyboard covers more of the " +
-                    "screen. The emoji, clipboard and snippet panels scale with this value too.",
+                display = { dpFormat.format(it.toInt()) },
+                info = stringResource(R.string.layout_key_height_info),
             ) { scope.launch { repository.setKeyHeightDp(it.toInt()) } }
         }
         item {
+            val followKeys = stringResource(R.string.layout_bottom_row_follow_keys_label)
             SliderSetting(
-                "Bottom row height",
-                subtitle = "Height of the space / enter row, on its own",
+                stringResource(R.string.layout_bottom_row_height_title),
+                subtitle = stringResource(R.string.layout_bottom_row_height_subtitle),
                 value = settings.layoutBehavior.bottomRowHeightDp.toFloat(),
                 range = 0f..BottomRowHeightRange.last.toFloat(),
-                display = { if (it < 1f) "Follow keys" else "${it.toInt()} dp" },
-                info = "Give the bottom row — spacebar and enter — its own height, taller or " +
-                    "shorter than the letter keys, for an easier spacebar without growing the " +
-                    "whole keyboard. \"Follow keys\" (the default) keeps it the same as the rest. " +
-                    "Custom layouts that set their own row heights ignore this.",
+                display = { if (it < 1f) followKeys else dpFormat.format(it.toInt()) },
+                info = stringResource(R.string.layout_bottom_row_height_info),
             ) { scope.launch { repository.setBottomRowHeightDp(it.toInt()) } }
         }
         item {
             SliderSetting(
-                "Side padding",
-                subtitle = "Shave the keyboard's left and right edges toward the centre",
+                stringResource(R.string.layout_side_padding_title),
+                subtitle = stringResource(R.string.layout_side_padding_subtitle),
                 value = settings.layoutBehavior.sidePadScale,
                 range = SidePadScaleRange.start..SidePadScaleRange.endInclusive,
-                display = { "${(it * 100).toInt()}%" },
-                info = "Adds an equal margin on both sides, narrowing the keys toward the middle " +
-                    "for thumb reach — without docking to one edge the way one-handed mode does. " +
-                    "0% is the default. Stacks on top of the keyboard width above.",
+                display = { percentFormat.format((it * 100).toInt()) },
+                info = stringResource(R.string.layout_side_padding_info),
             ) { scope.launch { repository.setSidePadScale(it) } }
         }
         item {
             SliderSetting(
-                "Key spacing",
-                subtitle = "Gap between the keys",
+                stringResource(R.string.layout_key_spacing_title),
+                subtitle = stringResource(R.string.layout_key_spacing_subtitle),
                 value = settings.keyGapScale,
                 range = 0f..2f,
-                display = { "${(it * 100).toInt()}%" },
-                info = "Adjusts the space around every key. Higher spreads the keys apart (and " +
-                    "makes the keyboard a little taller, since the gap is part of each row); " +
-                    "lower packs them tighter. 100% is the default.",
+                display = { percentFormat.format((it * 100).toInt()) },
+                info = stringResource(R.string.layout_key_spacing_info),
             ) { scope.launch { repository.setKeyGapScale(it) } }
         }
         item {
             SliderSetting(
-                "Bottom padding",
-                subtitle = "Extra space below the keys, above the navigation bar",
+                stringResource(R.string.layout_bottom_padding_title),
+                subtitle = stringResource(R.string.layout_bottom_padding_subtitle),
                 value = settings.bottomPaddingDp.toFloat(),
                 range = 0f..40f,
-                display = { "${it.toInt()} dp" },
-                info = "Raises the whole keyboard away from the bottom edge and the gesture " +
-                    "navigation bar. Increase it if the bottom row feels cramped against the " +
-                    "edge of the screen or you keep triggering system navigation.",
+                display = { dpFormat.format(it.toInt()) },
+                info = stringResource(R.string.layout_bottom_padding_info),
             ) { scope.launch { repository.setBottomPaddingDp(it.toInt()) } }
         }
         item {
             SliderSetting(
-                "Keyboard width",
-                subtitle = "Shrink the keyboard horizontally",
+                stringResource(R.string.layout_keyboard_width_title),
+                subtitle = stringResource(R.string.layout_keyboard_width_subtitle),
                 value = settings.keyboardWidthPercent.toFloat(),
                 range = 50f..100f,
-                display = { "${it.toInt()}%" },
-                info = "Below 100% the keyboard no longer spans the whole screen; choose which " +
-                    "edge it sits at below. Handy on very wide screens. One-handed mode " +
-                    "(below) is a quick preset that overrides this while active.",
+                display = { percentFormat.format(it.toInt()) },
+                info = stringResource(R.string.layout_keyboard_width_info),
             ) { scope.launch { repository.setKeyboardWidthPercent(it.toInt()) } }
         }
         if (settings.keyboardWidthPercent < 100) {
             item {
                 ChoiceSetting(
-                    title = "Keyboard position",
-                    info = "Where the narrowed keyboard sits: hugging the left edge, centered, " +
-                        "or hugging the right edge.",
+                    title = stringResource(R.string.layout_keyboard_position_title),
+                    info = stringResource(R.string.layout_keyboard_position_info),
                     options = KeyboardAlignment.entries.map { alignment ->
-                        alignment to alignment.name.lowercase().replaceFirstChar { it.uppercase() }
+                        alignment to stringResource(layoutAlignmentLabelRes(alignment))
                     },
                     selected = settings.keyboardAlignment,
                 ) { scope.launch { repository.setKeyboardAlignment(it) } }
@@ -3857,26 +3840,24 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
     }
 
     var expandedVariant by remember { mutableStateOf<ScreenVariant?>(null) }
-    SettingsGroup("Per-screen sizing") {
+    SettingsGroup(stringResource(R.string.layout_per_screen_title)) {
         item {
-            CaptionText(
-                "The sizes above are your portrait (folded) sizes. Landscape and unfolded " +
-                    "screens can override any of them, or scale the whole keyboard at once — " +
-                    "handy on a foldable, where the roomy inner display often wants a smaller " +
-                    "keyboard than the cover screen. Anything you leave untouched follows " +
-                    "portrait.",
-            )
+            CaptionText(stringResource(R.string.layout_per_screen_caption))
         }
         for (variant in ScreenVariant.entries.filter { it.isOverride }) {
             val override = settings.sizingOverrides[variant]
             val values = settings.sizingValuesFor(variant)
             item {
                 NavRow(
-                    variant.label,
+                    stringResource(variant.labelRes),
                     if (override == null || override.isEmpty) {
-                        "Following portrait"
+                        stringResource(R.string.layout_variant_follows_portrait_label)
                     } else {
-                        "${values.keyHeightDp} dp keys · ${values.keyboardWidthPercent}% wide"
+                        stringResource(
+                            R.string.layout_variant_summary,
+                            values.keyHeightDp ?: settings.keyHeightDp,
+                            values.keyboardWidthPercent ?: settings.keyboardWidthPercent,
+                        )
                     },
                     onClick = {
                         expandedVariant = if (expandedVariant == variant) null else variant
@@ -3886,28 +3867,28 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
             if (expandedVariant == variant) {
                 item {
                     SliderSetting(
-                        "Keyboard scale",
-                        subtitle = "Shrink or grow the whole keyboard for this screen",
+                        stringResource(R.string.layout_keyboard_scale_title),
+                        subtitle = stringResource(R.string.layout_keyboard_scale_subtitle),
                         value = values.keyboardScale ?: 1f,
                         range = 0.5f..1.5f,
-                        display = { "${(it * 100).toInt()}%" },
+                        display = { percentFormat.format((it * 100).toInt()) },
                     ) { scope.launch { repository.setVariantKeyboardScale(variant, it) } }
                 }
                 item {
                     SliderSetting(
-                        "Key height",
+                        stringResource(R.string.layout_key_height_title),
                         value = (values.keyHeightDp ?: settings.keyHeightDp).toFloat(),
                         range = 32f..100f,
-                        display = { "${it.toInt()} dp" },
+                        display = { dpFormat.format(it.toInt()) },
                     ) { scope.launch { repository.setVariantKeyHeightDp(variant, it.toInt()) } }
                 }
                 if (settings.numberRow) {
                     item {
                         SliderSetting(
-                            "Number row height",
+                            stringResource(R.string.layout_number_row_height_title),
                             value = (values.numberRowHeightDp ?: settings.numberRowHeightDp).toFloat(),
                             range = 32f..100f,
-                            display = { "${it.toInt()} dp" },
+                            display = { dpFormat.format(it.toInt()) },
                         ) {
                             scope.launch {
                                 repository.setVariantNumberRowHeightDp(variant, it.toInt())
@@ -3917,35 +3898,34 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 }
                 item {
                     SliderSetting(
-                        "Bottom padding",
+                        stringResource(R.string.layout_bottom_padding_title),
                         value = (values.bottomPaddingDp ?: settings.bottomPaddingDp).toFloat(),
                         range = 0f..40f,
-                        display = { "${it.toInt()} dp" },
+                        display = { dpFormat.format(it.toInt()) },
                     ) { scope.launch { repository.setVariantBottomPaddingDp(variant, it.toInt()) } }
                 }
                 item {
                     SliderSetting(
-                        "Keyboard width",
+                        stringResource(R.string.layout_keyboard_width_title),
                         value = (values.keyboardWidthPercent ?: settings.keyboardWidthPercent).toFloat(),
                         range = 50f..100f,
-                        display = { "${it.toInt()}%" },
+                        display = { percentFormat.format(it.toInt()) },
                     ) { scope.launch { repository.setVariantWidthPercent(variant, it.toInt()) } }
                 }
                 item {
                     SliderSetting(
-                        "Font size",
+                        stringResource(R.string.layout_font_size_title),
                         value = values.fontScale ?: settings.fontScale,
                         range = 0.7f..1.5f,
-                        display = { "×%.2f".format(it) },
+                        display = { multiplierFormat.format(it) },
                     ) { scope.launch { repository.setVariantFontScale(variant, it) } }
                 }
                 if ((values.keyboardWidthPercent ?: settings.keyboardWidthPercent) < 100) {
                     item {
                         ChoiceSetting(
-                            title = "Keyboard position",
+                            title = stringResource(R.string.layout_keyboard_position_title),
                             options = KeyboardAlignment.entries.map { alignment ->
-                                alignment to alignment.name.lowercase()
-                                    .replaceFirstChar { it.uppercase() }
+                                alignment to stringResource(layoutAlignmentLabelRes(alignment))
                             },
                             selected = values.keyboardAlignment ?: settings.keyboardAlignment,
                         ) { scope.launch { repository.setVariantAlignment(variant, it) } }
@@ -3954,8 +3934,11 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 if (override != null && !override.isEmpty) {
                     item {
                         NavRow(
-                            "Follow portrait again",
-                            "Clear the overrides set for ${variant.label.lowercase()}",
+                            stringResource(R.string.layout_follow_portrait_title),
+                            stringResource(
+                                R.string.layout_follow_portrait_subtitle,
+                                stringResource(variant.labelRes),
+                            ),
                             onClick = { scope.launch { repository.clearVariantSizing(variant) } },
                         )
                     }
@@ -3964,55 +3947,68 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         }
     }
 
-    SettingsGroup("One-handed, split & floating") {
+    SettingsGroup(stringResource(R.string.layout_one_handed_group_title)) {
         item {
             ChoiceSetting(
-                title = "One-handed mode",
-                subtitle = "Shrink the keyboard toward one edge",
+                title = stringResource(R.string.layout_one_handed_title),
+                subtitle = stringResource(R.string.layout_one_handed_subtitle),
                 options = OneHandedMode.entries.map { mode ->
-                    mode to mode.name.lowercase().replaceFirstChar { it.uppercase() }
+                    mode to stringResource(layoutOneHandedModeLabelRes(mode))
                 },
                 selected = settings.oneHandedMode,
             ) { scope.launch { repository.setOneHandedMode(it) } }
         }
         item {
-            CaptionText(
-                "Tune one-handed mode separately for each orientation. In the keyboard, the " +
-                    "rail's arrow flips the side and remembers it here for that orientation.",
-            )
+            CaptionText(stringResource(R.string.layout_one_handed_caption))
         }
-        for ((landscape, orientationLabel) in listOf(false to "Portrait", true to "Landscape")) {
+        val orientations = listOf(
+            false to R.string.layout_orientation_portrait_label,
+            true to R.string.layout_orientation_landscape_label,
+        )
+        for ((landscape, orientationRes) in orientations) {
             val profile = settings.oneHanded.forLandscape(landscape)
             item {
+                val orientationLabel = stringResource(orientationRes)
                 SliderSetting(
-                    "$orientationLabel · width",
-                    subtitle = "How wide the keyboard is in $orientationLabel",
+                    stringResource(R.string.layout_one_handed_width_title, orientationLabel),
+                    subtitle = stringResource(
+                        R.string.layout_one_handed_width_subtitle,
+                        orientationLabel,
+                    ),
                     value = profile.widthPercent.toFloat(),
                     range = SettingsRepository.ONE_HANDED_WIDTH_MIN.toFloat()..
                         SettingsRepository.ONE_HANDED_WIDTH_MAX.toFloat(),
-                    display = { "${it.toInt()}%" },
-                    info = "The keyboard's share of the screen width while one-handed is active. " +
-                        "The rest holds the rail and empty space toward the centre.",
+                    display = { percentFormat.format(it.toInt()) },
+                    info = stringResource(R.string.layout_one_handed_width_info),
                 ) { scope.launch { repository.setOneHandedWidthPercent(landscape, it.toInt()) } }
             }
             item {
                 SliderSetting(
-                    "$orientationLabel · height",
-                    subtitle = "Shrink the keys vertically for reach",
+                    stringResource(
+                        R.string.layout_one_handed_height_title,
+                        stringResource(orientationRes),
+                    ),
+                    subtitle = stringResource(R.string.layout_one_handed_height_subtitle),
                     value = profile.heightScale.toFloat(),
                     range = SettingsRepository.ONE_HANDED_HEIGHT_SCALE_MIN.toFloat()..
                         SettingsRepository.ONE_HANDED_HEIGHT_SCALE_MAX.toFloat(),
-                    display = { "${it.toInt()}%" },
-                    info = "Scales the key height while one-handed is active, bringing the top " +
-                        "rows down into thumb reach. 100% keeps the normal height.",
+                    display = { percentFormat.format(it.toInt()) },
+                    info = stringResource(R.string.layout_one_handed_height_info),
                 ) { scope.launch { repository.setOneHandedHeightScale(landscape, it.toInt()) } }
             }
             item {
+                val orientationLabel = stringResource(orientationRes)
                 ChoiceSetting(
-                    title = "$orientationLabel · side",
-                    subtitle = "Which edge it docks to in $orientationLabel",
+                    title = stringResource(
+                        R.string.layout_one_handed_side_title,
+                        orientationLabel,
+                    ),
+                    subtitle = stringResource(
+                        R.string.layout_one_handed_side_subtitle,
+                        orientationLabel,
+                    ),
                     options = OneHandedSide.entries.map { side ->
-                        side to side.name.lowercase().replaceFirstChar { it.uppercase() }
+                        side to stringResource(layoutOneHandedSideLabelRes(side))
                     },
                     selected = profile.side,
                 ) { scope.launch { repository.setOneHandedSide(landscape, it) } }
@@ -4020,75 +4016,87 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         }
         item {
             ToggleSetting(
-                "Split keyboard", "Divide the keys into left and right halves", settings.splitKeyboard,
-                info = "Splits every row down the middle with a gap between the halves, so " +
-                    "your thumbs travel less on wide screens — most useful on tablets, " +
-                    "foldables and phones in landscape. The spacebar is divided between the " +
-                    "two halves.",
+                stringResource(R.string.layout_split_title),
+                stringResource(R.string.layout_split_subtitle),
+                settings.splitKeyboard,
+                info = stringResource(R.string.layout_split_info),
             ) { scope.launch { repository.setSplitKeyboard(it) } }
         }
         if (settings.splitKeyboard) {
             item {
                 SliderSetting(
-                    "Split gap",
-                    subtitle = "Width of the gap between the halves",
+                    stringResource(R.string.layout_split_gap_title),
+                    subtitle = stringResource(R.string.layout_split_gap_subtitle),
                     value = settings.splitGapPercent.toFloat(),
                     range = 5f..40f,
-                    display = { "${it.toInt()}%" },
-                    info = "The center gap, as a percentage of the keyboard width. Bigger gaps " +
-                        "push the halves further toward the edges but make each key narrower.",
+                    display = { percentFormat.format(it.toInt()) },
+                    info = stringResource(R.string.layout_split_gap_info),
                 ) { scope.launch { repository.setSplitGapPercent(it.toInt()) } }
             }
         }
         item {
             ToggleSetting(
-                "Floating keyboard", "Detach the keyboard into a movable panel", settings.floatingKeyboard,
-                info = "The keyboard becomes a compact floating panel that hovers over apps " +
-                    "instead of docking to the bottom of the screen. Drag the pill at the top " +
-                    "of the panel to move it, drag the corner grip to resize it, and tap the " +
-                    "dock button to return to the normal keyboard. Apps are no longer resized " +
-                    "while it floats, and touches outside the panel go straight to the app.",
+                stringResource(R.string.layout_floating_title),
+                stringResource(R.string.layout_floating_subtitle),
+                settings.floatingKeyboard,
+                info = stringResource(R.string.layout_floating_info),
             ) { scope.launch { repository.setFloatingKeyboard(it) } }
         }
         if (settings.floatingKeyboard) {
             item {
                 SliderSetting(
-                    "Floating keyboard width",
-                    subtitle = "Also adjustable by dragging the panel's corner grip",
+                    stringResource(R.string.layout_floating_width_title),
+                    subtitle = stringResource(R.string.layout_floating_width_subtitle),
                     value = settings.floatingWidthDp.toFloat(),
                     range = 240f..500f,
-                    display = { "${it.toInt()} dp" },
-                    info = "Width of the floating panel. Key heights still follow the sliders " +
-                        "above.",
+                    display = { dpFormat.format(it.toInt()) },
+                    info = stringResource(R.string.layout_floating_width_info),
                 ) { scope.launch { repository.setFloatingWidthDp(it.toInt()) } }
             }
         }
     }
 
-    SettingsGroup("Bottom-row keys") {
+    SettingsGroup(stringResource(R.string.layout_bottom_row_keys_title)) {
         item {
             ToggleSetting(
-                "Comma key opens emoji",
-                "Replace the comma key with an emoji key",
+                stringResource(R.string.layout_comma_emoji_title),
+                stringResource(R.string.layout_comma_emoji_subtitle),
                 settings.commaAsEmoji,
-                info = "The bottom-row comma key becomes an emoji-panel key; comma moves " +
-                    "into its long-press alternates. Turning this on also removes the " +
-                    "emoji tool from the toolbar since the key replaces it — drag it back " +
-                    "out of the toolbox if you want both.",
+                info = stringResource(R.string.layout_comma_emoji_info),
             ) { scope.launch { repository.setCommaAsEmoji(it) } }
         }
         item {
             ToggleSetting(
-                "Emoji key instead of 🌐",
-                "Replace the language key with an emoji key",
+                stringResource(R.string.layout_globe_emoji_title),
+                stringResource(R.string.layout_globe_emoji_subtitle),
                 settings.globeAsEmoji,
-                info = "The bottom-row 🌐 key opens the emoji panel instead of switching " +
-                    "language. Language switching stays available on the spacebar: set a " +
-                    "swipe to \"Language\" under Typing → Gestures (a quick swipe does it " +
-                    "by default). Turn this off to get the 🌐 key back.",
+                info = stringResource(R.string.layout_globe_emoji_info),
             ) { scope.launch { repository.setGlobeAsEmoji(it) } }
         }
     }
+}
+
+/** The name drawn on the segmented button for each [KeyboardAlignment]. */
+@StringRes
+private fun layoutAlignmentLabelRes(alignment: KeyboardAlignment): Int = when (alignment) {
+    KeyboardAlignment.LEFT -> R.string.layout_edge_left_label
+    KeyboardAlignment.CENTER -> R.string.layout_edge_centre_label
+    KeyboardAlignment.RIGHT -> R.string.layout_edge_right_label
+}
+
+/** The name drawn on the segmented button for each [OneHandedMode]. */
+@StringRes
+private fun layoutOneHandedModeLabelRes(mode: OneHandedMode): Int = when (mode) {
+    OneHandedMode.OFF -> CommonR.string.common_off
+    OneHandedMode.LEFT -> R.string.layout_edge_left_label
+    OneHandedMode.RIGHT -> R.string.layout_edge_right_label
+}
+
+/** The name drawn on the segmented button for each [OneHandedSide]. */
+@StringRes
+private fun layoutOneHandedSideLabelRes(side: OneHandedSide): Int = when (side) {
+    OneHandedSide.LEFT -> R.string.layout_edge_left_label
+    OneHandedSide.RIGHT -> R.string.layout_edge_right_label
 }
 
 // ---- languages ----
@@ -4101,13 +4109,10 @@ private fun LanguageSettings(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    CaptionText(
-        "Every enabled layout is its own input mode; cycle between them with " +
-            "the 🌐 key or a spacebar swipe.",
-    )
+    CaptionText(stringResource(R.string.langemoji_lang_intro_body))
     // "Your languages" is the enabled set (deduped, in switch order); each opens
     // its detail. Adding one is a search over the whole registry.
-    SettingsGroup("Your languages") {
+    SettingsGroup(stringResource(R.string.langemoji_lang_your_languages_title)) {
         for (language in settings.enabledLanguages) {
             item {
                 val names = settings.enabledLayoutIds
@@ -4122,8 +4127,12 @@ private fun LanguageSettings(
         }
         item {
             NavRow(
-                "Add language",
-                subtitle = "Type in any of ${LanguageRegistry.all.size} languages",
+                stringResource(R.string.langemoji_lang_add_title),
+                subtitle = pluralStringResource(
+                    R.plurals.langemoji_lang_add_subtitle,
+                    LanguageRegistry.all.size,
+                    LanguageRegistry.all.size,
+                ),
                 route = "add_language",
             ) { onNavigate("add_language") }
         }
@@ -4132,7 +4141,7 @@ private fun LanguageSettings(
     // through the full registry. The reasoning lives in LanguageSuggestions.
     val suggested = rememberSuggestedLanguages(settings, limit = LANGUAGE_SCREEN_SUGGESTIONS)
     if (suggested.isNotEmpty()) {
-        SettingsGroup("Suggested for you") {
+        SettingsGroup(stringResource(R.string.langemoji_lang_suggested_title)) {
             for (suggestion in suggested) {
                 item {
                     NavRow(
@@ -4145,10 +4154,7 @@ private fun LanguageSettings(
                 }
             }
             item {
-                CaptionText(
-                    "From your phone's own language settings and region. Nothing " +
-                        "you type is looked at, and nothing leaves the device.",
-                )
+                CaptionText(stringResource(R.string.langemoji_lang_suggested_source_body))
             }
         }
     }
@@ -4158,8 +4164,8 @@ private fun LanguageSettings(
         SettingsGroup {
             item {
                 ReorderSetting(
-                    "Switch order",
-                    "Reorder input languages",
+                    stringResource(R.string.langemoji_lang_switch_order_title),
+                    stringResource(R.string.langemoji_lang_switch_order_dialog_title),
                     settings.enabledLayoutIds,
                     label = { resolveLayout(settings.customLayouts, it).name },
                     onReordered = { scope.launch { repository.setEnabledLayoutIds(it) } },
@@ -4179,12 +4185,15 @@ private fun LanguageSettings(
                 com.wasimaster.wmkeyboard.core.layout.AssetLayouts.byId(it.id) == null
         }
         .sortedBy { it.name.lowercase() }
-    SettingsGroup("Your layouts") {
+    SettingsGroup(stringResource(R.string.langemoji_lang_your_layouts_title)) {
         for (layout in customs) {
             item {
                 ToggleSetting(
                     layout.name,
-                    "Types with the ${baseModeTitle(layout)} dictionary",
+                    stringResource(
+                        R.string.langemoji_lang_custom_layout_subtitle,
+                        baseModeTitle(layout),
+                    ),
                     layout.id in settings.enabledLayoutIds,
                 ) { enable ->
                     scope.launch {
@@ -4198,69 +4207,51 @@ private fun LanguageSettings(
         }
         item {
             NavRow(
-                "Key layouts",
+                stringResource(R.string.langemoji_lang_keymaps_title),
                 subtitle = if (customs.isEmpty()) {
-                    "Design your own key grid, or start from a built-in one"
+                    stringResource(R.string.langemoji_lang_keymaps_empty_subtitle)
                 } else {
-                    "Edit, add and remove layouts"
+                    stringResource(R.string.langemoji_lang_keymaps_subtitle)
                 },
                 route = "keymaps",
             ) { onNavigate("keymaps") }
         }
     }
-    SettingsGroup("Per-app language") {
+    SettingsGroup(stringResource(R.string.langemoji_lang_per_app_title)) {
         item {
             ToggleSetting(
-                "Remember language per app",
-                "Reopen each app in the layout you last used there",
+                stringResource(R.string.langemoji_lang_per_app_toggle_title),
+                stringResource(R.string.langemoji_lang_per_app_toggle_subtitle),
                 settings.perAppLanguage.enabled,
-                info = "When you switch language (🌐 key, spacebar swipe or the picker) while " +
-                    "typing in an app, the keyboard remembers that choice against the app and " +
-                    "restores it the next time you type there. Apps you haven't picked a " +
-                    "language in follow your last-used one. A field that requires Latin (like a " +
-                    "password box) or advertises its own language still overrides this.",
+                info = stringResource(R.string.langemoji_lang_per_app_toggle_info),
             ) { scope.launch { repository.setRememberLayoutPerApp(it) } }
         }
     }
-    SettingsGroup("System language switcher") {
+    SettingsGroup(stringResource(R.string.langemoji_lang_system_switcher_title)) {
         item {
             ToggleSetting(
-                "List languages in Android's switcher",
-                "Add each language to the system input-method switcher",
+                stringResource(R.string.langemoji_lang_os_switcher_title),
+                stringResource(R.string.langemoji_lang_os_switcher_subtitle),
                 settings.osLanguageSwitcher,
-                info = "Registers every enabled layout as an Android input-method subtype, so " +
-                    "the system's \"Choose input method\" sheet lists them and can switch " +
-                    "between them. Turn this off to keep language switching entirely inside " +
-                    "the keyboard (🌐 key, spacebar swipe, or the picker) and expose no " +
-                    "subtypes to the system.\n\n" +
-                    "Registering a language and it being switchable are two different " +
-                    "things: Android only lists the ones that are *enabled*, and until " +
-                    "something enables them it picks them itself from your phone's " +
-                    "languages — usually one. On Android 14 and newer the keyboard enables " +
-                    "them all for you. Below that, tick them by hand in system settings " +
-                    "using the row underneath.",
+                info = stringResource(R.string.langemoji_lang_os_switcher_info),
             ) { scope.launch { repository.setOsLanguageSwitcher(it) } }
         }
         if (settings.osLanguageSwitcher) {
             item {
                 ToggleSetting(
-                    "Show app name first",
-                    "Label reads \"WM Keyboard · <language>\"",
+                    stringResource(R.string.langemoji_lang_app_name_first_title),
+                    stringResource(R.string.langemoji_lang_app_name_first_subtitle),
                     settings.subtypeAppNameFirst,
-                    info = "Puts the app name ahead of the language in the switcher's label. " +
-                        "Android itself decides how the label and the app name are styled " +
-                        "(which one is bold or greyed), so this changes only the label text, " +
-                        "not that styling.",
+                    info = stringResource(R.string.langemoji_lang_app_name_first_info),
                 ) { scope.launch { repository.setSubtypeAppNameFirst(it) } }
             }
             item {
                 NavRow(
-                    "Choose languages in system settings",
+                    stringResource(R.string.langemoji_lang_subtype_enabler_title),
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                        "Android's own list — only needed if the switcher looks wrong"
+                        stringResource(R.string.langemoji_lang_subtype_enabler_subtitle)
                     } else {
-                        "Android 13 and older: tick each language here or the switcher " +
-                            "shows only one"
+                        stringResource(R.string.langemoji_lang_subtype_enabler_legacy_subtitle)
                     },
                 ) { openSubtypeEnabler(context) }
             }
@@ -4281,70 +4272,64 @@ private fun EmojiSettings(
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    // The slider readout is a plain lambda, so its format string is resolved
+    // here and captured. The format also puts the number through the locale,
+    // which is what gives Bengali or Arabic digits.
+    val numberFormat = stringResource(R.string.values_number)
     // Examples in the user's own languages: "type জন্মদিন" only reads as proof
     // the feature works to someone who reads Bengali.
     val languageIds = settings.enabledLanguages.map { it.id }
     val birthdayWord = EmojiSearchExamples.one(EmojiSearchExamples.birthday, languageIds)
-    SettingsGroup("Access") {
+    SettingsGroup(stringResource(R.string.langemoji_emoji_access_title)) {
         item {
             ToggleSetting(
-                "Emoji button in toolbar", "One-tap emoji access from the top bar", settings.emojiToolbar,
-                info = "Keeps the emoji button visible in the top bar even while suggestions " +
-                    "are showing. The emoji panel itself has tabs per category, search in " +
-                    "English and Bengali (and any language you add a keyword pack for), " +
-                    "and skin-tone variants on long-press.",
+                stringResource(R.string.langemoji_emoji_toolbar_title),
+                stringResource(R.string.langemoji_emoji_toolbar_subtitle),
+                settings.emojiToolbar,
+                info = stringResource(R.string.langemoji_emoji_toolbar_info),
             ) { scope.launch { repository.setEmojiToolbar(it) } }
         }
         item {
             ToggleSetting(
-                "Full-screen emoji panel",
-                "Hide the toolbar and move the category tabs up next to a back button",
+                stringResource(R.string.langemoji_emoji_full_bleed_title),
+                stringResource(R.string.langemoji_emoji_full_bleed_subtitle),
                 settings.emojiFullBleed,
-                info = "The emoji panel takes over the whole keyboard: the toolbar, emoji " +
-                    "row and symbol row step aside and the category tabs move into the row " +
-                    "they leave behind, next to a back button. Turn this off to keep the " +
-                    "toolbar within reach while picking emoji.",
+                info = stringResource(R.string.langemoji_emoji_full_bleed_info),
             ) { scope.launch { repository.setEmojiFullBleed(it) } }
         }
     }
-    SettingsGroup("Suggestions") {
+    SettingsGroup(stringResource(R.string.langemoji_emoji_suggestions_title)) {
         item {
             ToggleSetting(
-                "Emoji suggestions",
-                "Offer emojis while typing — birthday suggests 🎂 🎉 🥳",
+                stringResource(R.string.langemoji_emoji_prediction_title),
+                stringResource(R.string.langemoji_emoji_prediction_subtitle),
                 settings.emojiPrediction,
-                info = "Matching emojis appear at the end of the suggestion strip while you " +
-                    "type, in English or in any language whose keywords you have " +
-                    "($birthdayWord also suggests 🎂).",
+                info = stringResource(R.string.langemoji_emoji_prediction_info, birthdayWord),
             ) { scope.launch { repository.setEmojiPrediction(it) } }
         }
         if (settings.emojiPrediction) {
             item {
                 ChoiceSetting(
-                    title = "Emoji suggestion tap",
-                    subtitle = "What happens to the word you typed",
-                    info = "\"Replace word\" swaps the typed word for the emoji (typing " +
-                        "birthday and tapping 🎂 leaves just 🎂, like Gboard). \"Keep word\" " +
-                        "adds the emoji after it: birthday 🎂.",
+                    title = stringResource(R.string.langemoji_emoji_insert_mode_title),
+                    subtitle = stringResource(R.string.langemoji_emoji_insert_mode_subtitle),
+                    info = stringResource(R.string.langemoji_emoji_insert_mode_info),
                     options = listOf(
-                        EmojiInsertMode.REPLACE to "Replace word",
-                        EmojiInsertMode.APPEND to "Keep word",
+                        EmojiInsertMode.REPLACE to
+                            stringResource(R.string.langemoji_emoji_insert_replace_label),
+                        EmojiInsertMode.APPEND to
+                            stringResource(R.string.langemoji_emoji_insert_append_label),
                     ),
                     selected = settings.emojiInsertMode,
                 ) { scope.launch { repository.setEmojiInsertMode(it) } }
             }
         }
     }
-    SettingsGroup("Skin tone") {
+    SettingsGroup(stringResource(R.string.langemoji_emoji_skin_tone_group_title)) {
         item {
             ChoiceSetting(
-                title = "Default skin tone",
-                subtitle = "For toned emoji in the panel, suggestions and search",
-                info = "Toned emoji (👍, 🙏, 🧑…) are shown with this Fitzpatrick tone in the " +
-                    "emoji panel's grid, the suggestion strip and the emoji search results, " +
-                    "and inserted that way. An emoji you have picked a tone for yourself keeps " +
-                    "that tone while \"Override with last used\" is on. \"None\" keeps the " +
-                    "neutral yellow base.",
+                title = stringResource(R.string.langemoji_emoji_skin_tone_title),
+                subtitle = stringResource(R.string.langemoji_emoji_skin_tone_subtitle),
+                info = stringResource(R.string.langemoji_emoji_skin_tone_info),
                 options = listOf(
                     EmojiSkinTone.NONE to "✋",
                     EmojiSkinTone.LIGHT to "✋🏻",
@@ -4358,91 +4343,79 @@ private fun EmojiSettings(
         }
         item {
             ToggleSetting(
-                "Override with last used",
-                "Prefer the tone you last picked for an emoji over the default",
+                stringResource(R.string.langemoji_emoji_tone_override_title),
+                stringResource(R.string.langemoji_emoji_tone_override_subtitle),
                 settings.emoji.toneOverrideByLastUsed,
-                info = "When on (the default), an emoji you have already picked a tone for " +
-                    "(from its long-press popup on the panel) keeps that tone everywhere — " +
-                    "panel, suggestions and search — instead of taking the default above. " +
-                    "Off means the default skin tone always wins.",
+                info = stringResource(R.string.langemoji_emoji_tone_override_info),
             ) { scope.launch { repository.setEmojiToneOverrideByLastUsed(it) } }
         }
     }
-    SettingsGroup("Emoji panel") {
+    SettingsGroup(stringResource(R.string.langemoji_emoji_panel_title)) {
         item {
             ToggleSetting(
-                "Return to keyboard after inserting",
-                "Close the panel the moment you insert one emoji or paste one clip",
+                stringResource(R.string.langemoji_emoji_close_after_insert_title),
+                stringResource(R.string.langemoji_emoji_close_after_insert_subtitle),
                 settings.emoji.closeAfterInsert,
-                info = "By default the emoji and clipboard panels stay open so you can pick " +
-                    "several items in a row. Turn this on to jump straight back to the keys " +
-                    "after a single emoji or clipboard paste.",
+                info = stringResource(R.string.langemoji_emoji_close_after_insert_info),
             ) { scope.launch { repository.setEmojiCloseAfterInsert(it) } }
         }
         item {
             ChoiceSetting(
-                title = "History tab",
-                subtitle = "What the first emoji-panel tab shows",
-                info = "\"Recent\" lists emojis in the order you last used them; \"Most used\" " +
-                    "ranks them by how often you use them. Favourited emojis are always " +
-                    "pinned to the front of either list.",
+                title = stringResource(R.string.langemoji_emoji_tab_mode_title),
+                subtitle = stringResource(R.string.langemoji_emoji_tab_mode_subtitle),
+                info = stringResource(R.string.langemoji_emoji_tab_mode_info),
                 options = listOf(
-                    EmojiTabMode.RECENTS to "Recent",
-                    EmojiTabMode.MOST_USED to "Most used",
+                    EmojiTabMode.RECENTS to stringResource(R.string.langemoji_emoji_recent_label),
+                    EmojiTabMode.MOST_USED to
+                        stringResource(R.string.langemoji_emoji_most_used_label),
                 ),
                 selected = settings.emojiTabMode,
             ) { scope.launch { repository.setEmojiTabMode(it) } }
         }
         item {
             ToggleSetting(
-                "Clear recents button",
-                "A button on the Recent tab to wipe the recents list",
+                stringResource(R.string.langemoji_emoji_clear_recents_title),
+                stringResource(R.string.langemoji_emoji_clear_recents_subtitle),
                 settings.emojiClearRecentsButton,
-                info = "Adds a \"Clear recents\" button to the emoji panel's Recent tab. " +
-                    "Off by default so the tab stays uncluttered.",
+                info = stringResource(R.string.langemoji_emoji_clear_recents_info),
             ) { scope.launch { repository.setEmojiClearRecentsButton(it) } }
         }
         item {
             ToggleSetting(
-                "Kaomoji and Emoticons",
-                "Two extra tabs: ¯\\_(ツ)_/¯ and :-)",
+                stringResource(R.string.langemoji_emoji_kaomoji_title),
+                stringResource(R.string.langemoji_emoji_kaomoji_subtitle),
                 settings.emoji.kaomojiTabs,
-                info = "Adds a Kaomoji tab (Japanese-style faces like (╯°□°）╯︵ ┻━┻) and an " +
-                    "Emoticons tab (Western ASCII ones like :-D and <3) to the end of the " +
-                    "emoji panel's tabs, each grouped by mood. Tapping one types it as plain " +
-                    "text — it isn't added to your emoji history.",
+                info = stringResource(R.string.langemoji_emoji_kaomoji_info),
             ) { scope.launch { repository.setEmojiKaomojiTabs(it) } }
         }
         item {
             ToggleSetting(
-                "Emoji descriptions",
-                "Name the emoji at the top of its long-press popup",
+                stringResource(R.string.langemoji_emoji_long_press_name_title),
+                stringResource(R.string.langemoji_emoji_long_press_name_subtitle),
                 settings.emojiLongPressName,
-                info = "Long-pressing an emoji shows its Unicode name (\"skull and " +
-                    "crossbones\") above the favourite and variant controls, so you can " +
-                    "tell near-identical emojis apart.",
+                info = stringResource(R.string.langemoji_emoji_long_press_name_info),
             ) { scope.launch { repository.setEmojiLongPressName(it) } }
         }
         item {
             NavRow(
-                "Emoji keywords",
-                "Download or import keywords to search emoji in another language",
+                stringResource(R.string.langemoji_emoji_keywords_title),
+                stringResource(R.string.langemoji_emoji_keywords_subtitle),
                 route = "emojikeywords",
             ) { onNavigate("emojikeywords") }
         }
     }
-    SettingsGroup("Emoji row") {
+    SettingsGroup(stringResource(R.string.langemoji_emoji_row_title)) {
         item {
             ChoiceSetting(
-                title = "Emoji row",
-                subtitle = "A dedicated row of your emojis, like Gboard",
-                info = "\"Own row\" keeps a persistent emoji row between the toolbar and the " +
-                    "keys. \"Button\" adds a toggle at the right edge of the toolbar that " +
-                    "swaps the strip for the emoji row. \"Off\" hides both.",
+                title = stringResource(R.string.langemoji_emoji_row_title),
+                subtitle = stringResource(R.string.langemoji_emoji_bar_mode_subtitle),
+                info = stringResource(R.string.langemoji_emoji_bar_mode_info),
                 options = listOf(
-                    EmojiBarMode.OFF to "Off",
-                    EmojiBarMode.BUTTON to "Button",
-                    EmojiBarMode.ALWAYS to "Own row",
+                    EmojiBarMode.OFF to stringResource(CommonR.string.common_off),
+                    EmojiBarMode.BUTTON to
+                        stringResource(R.string.langemoji_emoji_bar_button_label),
+                    EmojiBarMode.ALWAYS to
+                        stringResource(R.string.langemoji_emoji_bar_always_label),
                 ),
                 selected = settings.emojiBarMode,
             ) { scope.launch { repository.setEmojiBarMode(it) } }
@@ -4450,69 +4423,61 @@ private fun EmojiSettings(
         if (settings.emojiBarMode != EmojiBarMode.OFF) {
             item {
                 ChoiceSetting(
-                    title = "Emoji row content",
-                    subtitle = "Favourites always come first",
+                    title = stringResource(R.string.langemoji_emoji_bar_content_title),
+                    subtitle = stringResource(R.string.langemoji_emoji_bar_content_subtitle),
                     options = listOf(
-                        EmojiBarContent.MOST_USED to "Most used",
-                        EmojiBarContent.RECENTS to "Recent",
-                        EmojiBarContent.FAVOURITES to "Favourites",
+                        EmojiBarContent.MOST_USED to
+                            stringResource(R.string.langemoji_emoji_most_used_label),
+                        EmojiBarContent.RECENTS to
+                            stringResource(R.string.langemoji_emoji_recent_label),
+                        EmojiBarContent.FAVOURITES to
+                            stringResource(R.string.langemoji_emoji_favourites_label),
                     ),
                     selected = settings.emojiBarContent,
                 ) { scope.launch { repository.setEmojiBarContent(it) } }
             }
             item {
                 SliderSetting(
-                    title = "Emojis in the row",
-                    subtitle = "How many fit across — higher packs them tighter",
+                    title = stringResource(R.string.langemoji_emoji_bar_count_title),
+                    subtitle = stringResource(R.string.langemoji_emoji_bar_count_subtitle),
                     value = settings.emoji.barCount.toFloat(),
                     range = EmojiBarCountRange.first.toFloat()..EmojiBarCountRange.last.toFloat(),
-                    display = { "${it.roundToInt()}" },
-                    info = "The row splits its width into this many slots and shrinks the " +
-                        "emoji to fit them, so a higher number means smaller, more tightly " +
-                        "packed emoji. With scrolling off, emoji past the last slot are not " +
-                        "shown at all; with it on, they are a swipe away.",
+                    display = { numberFormat.format(it.roundToInt()) },
+                    info = stringResource(R.string.langemoji_emoji_bar_count_info),
                 ) { scope.launch { repository.setEmojiBarCount(it.roundToInt()) } }
             }
             item {
                 ToggleSetting(
-                    "Scroll the emoji row",
-                    "Swipe sideways for the emoji past the visible ones",
+                    stringResource(R.string.langemoji_emoji_bar_scroll_title),
+                    stringResource(R.string.langemoji_emoji_bar_scroll_subtitle),
                     settings.emoji.barScrollable,
-                    info = "Off (the default) the row is a fixed set of taps: it shows only " +
-                        "as many emoji as fit and never moves, so a sideways swipe can't " +
-                        "slide it out from under your finger. On, the extras stay reachable " +
-                        "by scrolling.",
+                    info = stringResource(R.string.langemoji_emoji_bar_scroll_info),
                 ) { scope.launch { repository.setEmojiBarScrollable(it) } }
             }
         }
     }
     if (settings.emojiBarMode == EmojiBarMode.ALWAYS) {
-        CaptionText(
-            "Where the emoji row sits relative to the toolbar and symbol row " +
-                "is set in Rows & bars on the settings home screen.",
-        )
+        CaptionText(stringResource(R.string.langemoji_emoji_row_position_body))
     }
-    SettingsGroup("Emoji style") {
+    SettingsGroup(stringResource(R.string.langemoji_emoji_style_title)) {
         item {
             val context = LocalContext.current
             // Bumped after an import so the preview re-resolves the (same-named) file.
             var fontRefresh by remember { mutableIntStateOf(0) }
             ChoiceSetting(
-                title = "Emoji font",
-                subtitle = "How emojis look on the keyboard itself",
-                info = "\"System\" uses your phone's emoji pack — on Samsung phones " +
-                    "that is Samsung's own set. \"Google\" fetches Noto Color Emoji " +
-                    "(the stock-Android look) once through the system font provider " +
-                    "and caches it on the device. \"Installed\" uses an emoji font " +
-                    "from Addons, such as Twemoji or OpenMoji. \"Custom\" uses a " +
-                    "single emoji font file you import below. Text you send is plain " +
-                    "Unicode either way — other apps and other phones still draw it " +
-                    "with their own emoji font.",
+                title = stringResource(R.string.langemoji_emoji_font_title),
+                subtitle = stringResource(R.string.langemoji_emoji_font_subtitle),
+                info = stringResource(R.string.langemoji_emoji_font_info),
+                // Where the Emoji font addon's Use button lands.
+                highlightKey = R.string.langemoji_emoji_font_title,
                 options = listOf(
-                    EmojiFontChoice.SYSTEM to "System",
-                    EmojiFontChoice.NOTO to "Google",
-                    EmojiFontChoice.INSTALLED to "Installed",
-                    EmojiFontChoice.CUSTOM to "Custom",
+                    EmojiFontChoice.SYSTEM to
+                        stringResource(R.string.langemoji_emoji_font_system_label),
+                    EmojiFontChoice.NOTO to
+                        stringResource(R.string.langemoji_emoji_font_noto_label),
+                    EmojiFontChoice.INSTALLED to
+                        stringResource(R.string.langemoji_emoji_font_installed_label),
+                    EmojiFontChoice.CUSTOM to stringResource(CommonR.string.common_custom),
                 ),
                 selected = settings.emojiFont,
             ) { scope.launch { repository.setEmojiFont(it) } }
@@ -4579,17 +4544,22 @@ private fun EmojiSettings(
                 val imported = KeyboardFonts.customEmojiFontFile(context).exists()
                 if (!imported) {
                     Text(
-                        "No emoji font imported yet — the system font is used until then.",
+                        stringResource(R.string.langemoji_emoji_font_missing_error),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
                 Spacer(Modifier.height(8.dp))
+                val importLabel = if (imported) {
+                    stringResource(R.string.langemoji_emoji_font_replace_action)
+                } else {
+                    stringResource(R.string.langemoji_emoji_font_import_action)
+                }
                 OutlinedButton(
                     onClick = { importEmojiFont.launch(FONT_MIME_TYPES) },
                     modifier = Modifier.padding(horizontal = 16.dp),
-                ) { Text(if (imported) "Replace emoji font file" else "Import emoji font file") }
+                ) { Text(importLabel) }
                 Spacer(Modifier.height(8.dp))
             }
         }
@@ -4598,32 +4568,18 @@ private fun EmojiSettings(
             // font is missing is drawn in the phone's own emoji font instead,
             // so the only emoji that stay blank are the ones neither has.
             val ownFont = settings.emojiFont != EmojiFontChoice.SYSTEM
+            val hideInfo = stringResource(R.string.langemoji_emoji_hide_unrenderable_info)
+            val ownFontInfo =
+                stringResource(R.string.langemoji_emoji_hide_unrenderable_own_font_info)
             ToggleSetting(
-                "Hide emoji this phone can't display",
-                "Skip emoji that show as a blank box in the panel, search and suggestions",
+                stringResource(R.string.langemoji_emoji_hide_unrenderable_title),
+                stringResource(R.string.langemoji_emoji_hide_unrenderable_subtitle),
                 settings.emoji.hideUnrenderable,
-                info = "Older phones (and some brands) ship an emoji font that predates the " +
-                    "newest emoji, which then render as an empty \"tofu\" box. This hides " +
-                    "any emoji your phone's emoji font can't draw. To see them all instead, " +
-                    "set the emoji font above to \"Google\" (Noto Color Emoji), or install a " +
-                    "complete emoji font (such as Twemoji or OpenMoji) from Addons — WM " +
-                    "Keyboard ships no emoji font of its own, it uses the one you choose " +
-                    "here." + if (ownFont) {
-                        "\n\nThe font chosen above only covers the emoji it was built " +
-                            "with, and the newest ones are usually missing from anything " +
-                            "but the latest release. Those are not hidden: each one is " +
-                            "drawn in the phone's own emoji font instead, so it still " +
-                            "appears — in a different style."
-                    } else {
-                        ""
-                    },
+                info = if (ownFont) "$hideInfo\n\n$ownFontInfo" else hideInfo,
             ) { scope.launch { repository.setHideUnrenderableEmoji(it) } }
         }
     }
-    CaptionText(
-        "Tip: long-press any emoji in the panel to favourite it or pick skin tones — " +
-            "two-person emojis like 🤝 let you set each person's tone separately.",
-    )
+    CaptionText(stringResource(R.string.langemoji_emoji_tip_body))
 }
 
 /**
@@ -4642,10 +4598,7 @@ private fun InstalledEmojiFontList(repository: SettingsRepository, settings: Key
     val fonts = remember(revision) { store.emojiFonts() }
 
     if (fonts.isEmpty()) {
-        CaptionText(
-            "No emoji fonts installed. Install one from Addons — Twemoji, OpenMoji " +
-                "and the like — or import a single file under \"Custom\".",
-        )
+        CaptionText(stringResource(R.string.langemoji_emoji_fonts_empty))
         return
     }
     for (font in fonts) {
@@ -4658,7 +4611,8 @@ private fun InstalledEmojiFontList(repository: SettingsRepository, settings: Key
                     if (selected) {
                         Icon(
                             Icons.Outlined.Check,
-                            contentDescription = "Selected",
+                            contentDescription =
+                                stringResource(R.string.langemoji_emoji_font_selected_desc),
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
@@ -4668,7 +4622,13 @@ private fun InstalledEmojiFontList(repository: SettingsRepository, settings: Key
                             withContext(Dispatchers.IO) { store.delete(font.id) }
                         }
                     }) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Remove ${font.name}")
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = stringResource(
+                                R.string.langemoji_emoji_font_delete_desc,
+                                font.name,
+                            ),
+                        )
                     }
                 }
             },
@@ -4715,32 +4675,34 @@ private fun DictionarySettings(repository: SettingsRepository) {
     }
 
     Text(
-        "Words the keyboard has learned from your typing, plus any you add " +
-            "yourself. They are suggested while typing and never autocorrected " +
-            "away. Everything stays on this device.",
+        stringResource(R.string.backup_dictionary_info),
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
     Button(
         onClick = { showAdd = true },
         modifier = Modifier.padding(horizontal = 16.dp),
-    ) { Text("Add word") }
+    ) { Text(stringResource(R.string.backup_add_word_action)) }
     Spacer(Modifier.height(12.dp))
     if (words.isEmpty()) {
-        CaptionText(
-            "Nothing here yet — words appear as you type (with \"Learn from " +
-                "typing\" on under Privacy), or add one above.",
-        )
+        CaptionText(stringResource(R.string.backup_dictionary_empty))
     }
     SettingsGroup {
         for ((word, count) in words) {
             item {
                 WmRow(
                     title = word,
-                    subtitle = if (count >= 200) "Added by you" else "Seen $count×",
+                    subtitle = if (count >= 200) {
+                        stringResource(R.string.backup_dictionary_added_subtitle)
+                    } else {
+                        pluralStringResource(R.plurals.backup_dictionary_seen_count, count, count)
+                    },
                     trailing = {
                         IconButton(onClick = { persist { it.forget(word) } }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "Remove $word")
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(R.string.backup_delete_word_desc, word),
+                            )
                         }
                     },
                 )
@@ -4752,12 +4714,12 @@ private fun DictionarySettings(repository: SettingsRepository) {
         var input by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showAdd = false },
-            title = { Text("Add word") },
+            title = { Text(stringResource(R.string.backup_add_word_title)) },
             text = {
                 OutlinedTextField(
                     value = input,
                     onValueChange = { input = it },
-                    label = { Text("Word") },
+                    label = { Text(stringResource(R.string.backup_word_field_label)) },
                     singleLine = true,
                 )
             },
@@ -4768,9 +4730,13 @@ private fun DictionarySettings(repository: SettingsRepository) {
                         persist { it.addWord(input.trim()) }
                         showAdd = false
                     },
-                ) { Text("Add") }
+                ) { Text(stringResource(CommonR.string.common_add)) }
             },
-            dismissButton = { TextButton(onClick = { showAdd = false }) { Text("Cancel") } },
+            dismissButton = {
+                TextButton(onClick = { showAdd = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
         )
     }
 }
@@ -4791,19 +4757,17 @@ private fun BlacklistSettings(repository: SettingsRepository, settings: Keyboard
     var showAdd by remember { mutableStateOf(false) }
 
     Text(
-        "Words the keyboard should never suggest or autocorrect to. You can " +
-            "still type and send them — they just stay out of the suggestion " +
-            "strip. Matching ignores capitalization.",
+        stringResource(R.string.backup_blacklist_info),
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
     Button(
         onClick = { showAdd = true },
         modifier = Modifier.padding(horizontal = 16.dp),
-    ) { Text("Add word") }
+    ) { Text(stringResource(R.string.backup_add_word_action)) }
     Spacer(Modifier.height(12.dp))
     if (words.isEmpty()) {
-        CaptionText("Nothing blacklisted yet — add a word above.")
+        CaptionText(stringResource(R.string.backup_blacklist_empty))
     }
     SettingsGroup {
         for (word in words) {
@@ -4814,7 +4778,10 @@ private fun BlacklistSettings(repository: SettingsRepository, settings: Keyboard
                         IconButton(onClick = {
                             scope.launch { repository.removeSuggestionBlacklistWord(word) }
                         }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "Remove $word")
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(R.string.backup_delete_word_desc, word),
+                            )
                         }
                     },
                 )
@@ -4826,12 +4793,12 @@ private fun BlacklistSettings(repository: SettingsRepository, settings: Keyboard
         var input by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showAdd = false },
-            title = { Text("Add word") },
+            title = { Text(stringResource(R.string.backup_add_word_title)) },
             text = {
                 OutlinedTextField(
                     value = input,
                     onValueChange = { input = it },
-                    label = { Text("Word") },
+                    label = { Text(stringResource(R.string.backup_word_field_label)) },
                     singleLine = true,
                 )
             },
@@ -4842,9 +4809,13 @@ private fun BlacklistSettings(repository: SettingsRepository, settings: Keyboard
                         scope.launch { repository.addSuggestionBlacklistWord(input) }
                         showAdd = false
                     },
-                ) { Text("Add") }
+                ) { Text(stringResource(CommonR.string.common_add)) }
             },
-            dismissButton = { TextButton(onClick = { showAdd = false }) { Text("Cancel") } },
+            dismissButton = {
+                TextButton(onClick = { showAdd = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
         )
     }
 }
@@ -4852,30 +4823,58 @@ private fun BlacklistSettings(repository: SettingsRepository, settings: Keyboard
 // ---- backup ----
 
 /** Human name for a bundle section, used in toggles and the import dialog. */
-internal fun sectionLabel(section: ConfigBackup.Section): String = when (section) {
-    ConfigBackup.Section.SETTINGS -> "Settings"
-    ConfigBackup.Section.THEMES -> "Themes"
-    ConfigBackup.Section.DICTIONARY -> "Dictionary"
-    ConfigBackup.Section.CLIPBOARD -> "Clipboard"
-    ConfigBackup.Section.SNIPPETS -> "Snippets"
-    ConfigBackup.Section.STICKERS -> "Sticker packs"
-    ConfigBackup.Section.ICONS -> "Icon packs"
-    ConfigBackup.Section.WORDLISTS -> "Custom word lists"
-    ConfigBackup.Section.ADDONS -> "Addon repositories"
+@StringRes
+internal fun sectionLabelRes(section: ConfigBackup.Section): Int = when (section) {
+    ConfigBackup.Section.SETTINGS -> R.string.backup_section_settings_label
+    ConfigBackup.Section.THEMES -> R.string.backup_section_themes_label
+    ConfigBackup.Section.DICTIONARY -> R.string.backup_section_dictionary_label
+    ConfigBackup.Section.CLIPBOARD -> R.string.backup_section_clipboard_label
+    ConfigBackup.Section.SNIPPETS -> R.string.backup_section_snippets_label
+    ConfigBackup.Section.STICKERS -> R.string.backup_section_stickers_label
+    ConfigBackup.Section.ICONS -> R.string.backup_section_icons_label
+    ConfigBackup.Section.WORDLISTS -> R.string.backup_section_wordlists_label
+    ConfigBackup.Section.ADDONS -> R.string.backup_section_addons_label
 }
 
-/** "3 themes", "1 snippet" — the count line shown per section on import. */
-internal fun sectionSummary(section: ConfigBackup.Section, count: Int): String = when (section) {
-    ConfigBackup.Section.SETTINGS -> "$count settings"
-    ConfigBackup.Section.THEMES -> if (count == 1) "1 custom theme" else "$count custom themes"
-    ConfigBackup.Section.DICTIONARY -> if (count == 1) "1 learned word" else "$count learned words"
-    ConfigBackup.Section.CLIPBOARD -> if (count == 1) "1 clip" else "$count clips"
-    ConfigBackup.Section.SNIPPETS -> if (count == 1) "1 snippet" else "$count snippets"
-    ConfigBackup.Section.STICKERS -> if (count == 1) "1 sticker" else "$count stickers"
-    ConfigBackup.Section.ICONS -> if (count == 1) "1 icon" else "$count icons"
-    ConfigBackup.Section.WORDLISTS -> if (count == 1) "1 word list" else "$count word lists"
-    ConfigBackup.Section.ADDONS -> if (count == 1) "1 repository" else "$count repositories"
+internal fun sectionLabel(context: Context, section: ConfigBackup.Section): String =
+    context.getString(sectionLabelRes(section))
+
+/**
+ * The same name for the middle of a sentence ("Restored themes, snippets.").
+ * A translation cannot be lowercased in code, so each name carries its own
+ * lower-case value.
+ */
+internal fun sectionLabelLowercase(context: Context, section: ConfigBackup.Section): String =
+    context.getString(
+        when (section) {
+            ConfigBackup.Section.SETTINGS -> R.string.backup_section_settings_label_lowercase
+            ConfigBackup.Section.THEMES -> R.string.backup_section_themes_label_lowercase
+            ConfigBackup.Section.DICTIONARY -> R.string.backup_section_dictionary_label_lowercase
+            ConfigBackup.Section.CLIPBOARD -> R.string.backup_section_clipboard_label_lowercase
+            ConfigBackup.Section.SNIPPETS -> R.string.backup_section_snippets_label_lowercase
+            ConfigBackup.Section.STICKERS -> R.string.backup_section_stickers_label_lowercase
+            ConfigBackup.Section.ICONS -> R.string.backup_section_icons_label_lowercase
+            ConfigBackup.Section.WORDLISTS -> R.string.backup_section_wordlists_label_lowercase
+            ConfigBackup.Section.ADDONS -> R.string.backup_section_addons_label_lowercase
+        },
+    )
+
+@PluralsRes
+private fun sectionCountPlural(section: ConfigBackup.Section): Int = when (section) {
+    ConfigBackup.Section.SETTINGS -> R.plurals.backup_section_settings_count
+    ConfigBackup.Section.THEMES -> R.plurals.backup_section_themes_count
+    ConfigBackup.Section.DICTIONARY -> R.plurals.backup_section_dictionary_count
+    ConfigBackup.Section.CLIPBOARD -> R.plurals.backup_section_clipboard_count
+    ConfigBackup.Section.SNIPPETS -> R.plurals.backup_section_snippets_count
+    ConfigBackup.Section.STICKERS -> R.plurals.backup_section_stickers_count
+    ConfigBackup.Section.ICONS -> R.plurals.backup_section_icons_count
+    ConfigBackup.Section.WORDLISTS -> R.plurals.backup_section_wordlists_count
+    ConfigBackup.Section.ADDONS -> R.plurals.backup_section_addons_count
 }
+
+/** "3 themes", "1 snippet": the count line shown per section on import. */
+internal fun sectionSummary(context: Context, section: ConfigBackup.Section, count: Int): String =
+    context.resources.getQuantityString(sectionCountPlural(section), count, count)
 
 /** A file picked for import, once we know which of the two formats it is. */
 private sealed interface PendingImport {
@@ -4943,10 +4942,10 @@ private fun BackupSettings(repository: SettingsRepository) {
                 }
             }.isSuccess
             message = when {
-                !ok -> "Could not write that file."
+                !ok -> context.getString(R.string.backup_export_write_error)
                 includeSettings && includeSecrets ->
-                    "Backup exported, API keys included. Treat that file as a password."
-                else -> "Backup exported."
+                    context.getString(R.string.backup_export_done_with_keys)
+                else -> context.getString(R.string.backup_export_done)
             }
         }
     }
@@ -4966,115 +4965,102 @@ private fun BackupSettings(repository: SettingsRepository) {
                 }.getOrNull()
             }
             confirmImport = when {
-                text == null -> { message = "Could not read that file."; null }
+                text == null -> {
+                    message = context.getString(R.string.backup_import_read_error); null
+                }
                 ConfigBackup.decode(text) != null -> PendingImport.Config(text)
                 SettingsBackup.decode(text) != null -> PendingImport.Legacy(text)
-                else -> { message = "That file is not a WMKeyboard backup."; null }
+                else -> {
+                    message = context.getString(R.string.backup_not_a_backup); null
+                }
             }
         }
     }
 
     Text(
-        "Save your keyboard to a file you can keep, move to another phone, or " +
-            "restore after a reinstall. Choose what goes in it below — settings, " +
-            "themes, your learned dictionary, clipboard history and snippets can " +
-            "each be included or left out.",
+        stringResource(R.string.backup_info),
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
 
-    SettingsGroup("Include in export") {
+    SettingsGroup(stringResource(R.string.backup_include_group_title)) {
         item {
             ToggleSetting(
-                "Settings",
-                "Every keyboard preference",
+                stringResource(R.string.backup_section_settings_label),
+                stringResource(R.string.backup_include_settings_subtitle),
                 includeSettings,
             ) { includeSettings = it }
         }
         if (includeSettings) {
             item {
                 ToggleSetting(
-                    "Include API keys",
-                    "Translate, GIF, search and AI keys",
+                    stringResource(R.string.backup_include_secrets_title),
+                    stringResource(R.string.backup_include_secrets_subtitle),
                     includeSecrets,
-                    info = "Off by default, because a backup file is easy to mail to " +
-                        "yourself or drop in a shared folder, and these keys spend real " +
-                        "money on your accounts.\n\n" +
-                        "Turn it on only for a backup you keep to yourself — anyone who " +
-                        "opens that file can use your keys.",
+                    info = stringResource(R.string.backup_include_secrets_info),
                 ) { includeSecrets = it }
             }
         }
         item {
             ToggleSetting(
-                "Themes",
-                "Your custom themes",
+                stringResource(R.string.backup_section_themes_label),
+                stringResource(R.string.backup_include_themes_subtitle),
                 includeThemes,
-                info = "Colours, gradients and layout of your saved themes. A theme's " +
-                    "background image doesn't travel to another phone — only the theme " +
-                    "itself does.",
+                info = stringResource(R.string.backup_include_themes_info),
             ) { includeThemes = it }
         }
         item {
             ToggleSetting(
-                "Dictionary",
-                "Words the keyboard learned from you",
+                stringResource(R.string.backup_section_dictionary_label),
+                stringResource(R.string.backup_include_dictionary_subtitle),
                 includeDictionary,
-                info = "Your personal vocabulary and next-word patterns. Off by default " +
-                    "since it's personal typing data — turn it on for a backup you keep " +
-                    "to yourself.",
+                info = stringResource(R.string.backup_include_dictionary_info),
             ) { includeDictionary = it }
         }
         item {
             ToggleSetting(
-                "Clipboard",
-                "Saved clipboard history",
+                stringResource(R.string.backup_section_clipboard_label),
+                stringResource(R.string.backup_include_clipboard_subtitle),
                 includeClipboard,
-                info = "Your pinned and recent text clips. Images and files are left out " +
-                    "because they live on this device and wouldn't open elsewhere.",
+                info = stringResource(R.string.backup_include_clipboard_info),
             ) { includeClipboard = it }
         }
         item {
             ToggleSetting(
-                "Snippets",
-                "Your saved text snippets",
+                stringResource(R.string.backup_section_snippets_label),
+                stringResource(R.string.backup_include_snippets_subtitle),
                 includeSnippets,
             ) { includeSnippets = it }
         }
         item {
             ToggleSetting(
-                "Sticker packs",
-                "Your own sticker packs, images and all",
+                stringResource(R.string.backup_section_stickers_label),
+                stringResource(R.string.backup_include_stickers_subtitle),
                 includeStickers,
-                info = "The images travel inside the backup, so a restore on another " +
-                    "phone gets working packs — but it can add megabytes to the file. " +
-                    "For one pack, exporting a .wmstickers file is smaller.",
+                info = stringResource(R.string.backup_include_stickers_info),
             ) { includeStickers = it }
         }
         item {
             ToggleSetting(
-                "Icon packs",
-                "Your own icon packs, images and all",
+                stringResource(R.string.backup_section_icons_label),
+                stringResource(R.string.backup_include_icons_subtitle),
                 includeIcons,
-                info = "The SVGs travel inside the backup, so a restore on another " +
-                    "phone gets working packs — but it can add to the file size.",
+                info = stringResource(R.string.backup_include_icons_info),
             ) { includeIcons = it }
         }
         item {
             ToggleSetting(
-                "Custom word lists",
-                "Word lists you imported for any language",
+                stringResource(R.string.backup_section_wordlists_label),
+                stringResource(R.string.backup_include_wordlists_subtitle),
                 includeWordlists,
             ) { includeWordlists = it }
         }
         item {
             ToggleSetting(
-                "Addon repositories",
-                "The addon sources you added, so you can reinstall from them",
+                stringResource(R.string.backup_section_addons_label),
+                stringResource(R.string.backup_include_addons_subtitle),
                 includeAddons,
-                info = "Just the list of addresses. The addons themselves ride along " +
-                    "in the sections above — an installed theme is a custom theme, an " +
-                    "installed pack is an icon pack.",
+                info = stringResource(R.string.backup_include_addons_info),
             ) { includeAddons = it }
         }
     }
@@ -5095,23 +5081,19 @@ private fun BackupSettings(repository: SettingsRepository) {
                     )
                 },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            ) { Text("Export backup") }
+            ) { Text(stringResource(R.string.backup_export_action)) }
         }
     }
 
-    SettingsGroup("Import") {
+    SettingsGroup(stringResource(R.string.backup_import_group_title)) {
         item {
             OutlinedButton(
                 onClick = { importLauncher.launch(arrayOf("*/*")) },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            ) { Text("Import backup") }
+            ) { Text(stringResource(R.string.backup_import_action)) }
         }
     }
-    CaptionText(
-        "Importing settings overwrites only the preferences named in the file " +
-            "and leaves the rest as they are. Dictionary, clipboard and snippets " +
-            "in the file replace what's on this device.",
-    )
+    CaptionText(stringResource(R.string.backup_import_note))
     Spacer(Modifier.height(16.dp))
 
     when (val pending = confirmImport) {
@@ -5121,19 +5103,27 @@ private fun BackupSettings(repository: SettingsRepository) {
             val hasSecrets = remember(pending.text) { parsed?.let { repository.configContainsSecrets(it) } ?: false }
             AlertDialog(
                 onDismissRequest = { confirmImport = null },
-                title = { Text("Import backup?") },
+                title = { Text(stringResource(R.string.backup_import_confirm_title)) },
                 text = {
                     Text(
                         buildString {
-                            append("This file contains:\n")
+                            append(context.getString(R.string.backup_import_contains))
+                            append("\n")
                             for ((section, count) in counts) {
-                                append("\n• ${sectionLabel(section)}: ${sectionSummary(section, count)}")
+                                append("\n")
+                                append(
+                                    context.getString(
+                                        R.string.backup_import_section_line,
+                                        sectionLabel(context, section),
+                                        sectionSummary(context, section, count),
+                                    ),
+                                )
                             }
-                            append("\n\nSettings merge into your current ones; dictionary, ")
-                            append("clipboard and snippets replace what's on this device.")
+                            append("\n\n")
+                            append(context.getString(R.string.backup_import_merge_note))
                             if (hasSecrets) {
-                                append("\n\nThe file includes API keys, which will replace the ")
-                                append("ones set here.")
+                                append("\n\n")
+                                append(context.getString(R.string.backup_import_api_keys_note))
                             }
                         },
                     )
@@ -5145,25 +5135,34 @@ private fun BackupSettings(repository: SettingsRepository) {
                             message = when (val result = repository.importConfig(pending.text)) {
                                 is SettingsRepository.ConfigImportResult.Applied -> buildString {
                                     if (result.restored.isEmpty()) {
-                                        append("Nothing to restore from that file.")
+                                        append(context.getString(R.string.backup_restore_nothing))
                                     } else {
-                                        append("Restored ")
-                                        append(result.restored.joinToString { sectionLabel(it).lowercase() })
-                                        append(".")
+                                        append(
+                                            context.getString(
+                                                R.string.backup_restore_done,
+                                                result.restored.joinToString {
+                                                    sectionLabelLowercase(context, it)
+                                                },
+                                            ),
+                                        )
                                     }
                                     if (result.settingsFailed) {
-                                        append("\n\nThe settings couldn't be applied and were " +
-                                            "left unchanged.")
+                                        append("\n\n")
+                                        append(
+                                            context.getString(R.string.backup_restore_settings_failed),
+                                        )
                                     }
                                 }
                                 SettingsRepository.ConfigImportResult.NotABackup ->
-                                    "That file is not a WMKeyboard backup."
+                                    context.getString(R.string.backup_not_a_backup)
                             }
                         }
-                    }) { Text("Import") }
+                    }) { Text(stringResource(CommonR.string.common_import)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { confirmImport = null }) { Text("Cancel") }
+                    TextButton(onClick = { confirmImport = null }) {
+                        Text(stringResource(CommonR.string.common_cancel))
+                    }
                 },
             )
         }
@@ -5171,19 +5170,32 @@ private fun BackupSettings(repository: SettingsRepository) {
             val parsed = remember(pending.text) { SettingsBackup.decode(pending.text) }
             AlertDialog(
                 onDismissRequest = { confirmImport = null },
-                title = { Text("Import settings?") },
+                title = { Text(stringResource(R.string.backup_import_settings_confirm_title)) },
                 text = {
                     Text(
                         buildString {
-                            append("This will overwrite ${parsed?.entries?.size ?: 0} settings ")
-                            append("with the values in that file.")
+                            val entries = parsed?.entries?.size ?: 0
+                            append(
+                                context.resources.getQuantityString(
+                                    R.plurals.backup_import_settings_overwrite,
+                                    entries,
+                                    entries,
+                                ),
+                            )
                             if (parsed?.containsSecrets == true) {
-                                append("\n\nThe file includes API keys, which will replace the ones ")
-                                append("set here.")
+                                append("\n\n")
+                                append(context.getString(R.string.backup_import_api_keys_note))
                             }
-                            if ((parsed?.skipped ?: 0) > 0) {
-                                append("\n\n${parsed?.skipped} entries could not be read and will ")
-                                append("be skipped.")
+                            val skipped = parsed?.skipped ?: 0
+                            if (skipped > 0) {
+                                append("\n\n")
+                                append(
+                                    context.resources.getQuantityString(
+                                        R.plurals.backup_import_settings_skipped,
+                                        skipped,
+                                        skipped,
+                                    ),
+                                )
                             }
                         },
                     )
@@ -5194,17 +5206,23 @@ private fun BackupSettings(repository: SettingsRepository) {
                         scope.launch {
                             message = when (val result = repository.importSettings(pending.text)) {
                                 is SettingsRepository.ImportResult.Applied ->
-                                    "Restored ${result.settings} settings."
+                                    context.resources.getQuantityString(
+                                        R.plurals.backup_restore_settings_count,
+                                        result.settings,
+                                        result.settings,
+                                    )
                                 SettingsRepository.ImportResult.RolledBack ->
-                                    "That backup could not be applied — your settings are unchanged."
+                                    context.getString(R.string.backup_restore_rolled_back)
                                 SettingsRepository.ImportResult.NotABackup ->
-                                    "That file is not a WMKeyboard settings backup."
+                                    context.getString(R.string.backup_not_a_settings_backup)
                             }
                         }
-                    }) { Text("Import") }
+                    }) { Text(stringResource(CommonR.string.common_import)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { confirmImport = null }) { Text("Cancel") }
+                    TextButton(onClick = { confirmImport = null }) {
+                        Text(stringResource(CommonR.string.common_cancel))
+                    }
                 },
             )
         }
@@ -5216,7 +5234,11 @@ private fun BackupSettings(repository: SettingsRepository) {
         AlertDialog(
             onDismissRequest = { message = null },
             text = { Text(messageText) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
         )
     }
 }
@@ -5281,10 +5303,15 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
             }
             busy = false
             message = when {
-                result == -2 -> "Only http:// and https:// links are supported."
-                result < 0 -> "Could not download that list — check the URL and try again."
-                result == 0 -> "No words found in that file — is it a word list?"
-                else -> "Added $result words to ${languageLabel(langId)}."
+                result == -2 -> context.getString(R.string.customdict_url_scheme_error)
+                result < 0 -> context.getString(R.string.customdict_url_download_error)
+                result == 0 -> context.getString(R.string.customdict_import_empty_error)
+                else -> context.resources.getQuantityString(
+                    R.plurals.customdict_import_added_words,
+                    result,
+                    result,
+                    languageLabel(langId),
+                )
             }
             if (result > 0) {
                 refresh()
@@ -5321,9 +5348,14 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
             }
             busy = false
             message = when {
-                result < 0 -> "That file is too large to import."
-                result == 0 -> "No words found in that file — is it a word list?"
-                else -> "Added $result words to ${languageLabel(language)}."
+                result < 0 -> context.getString(R.string.customdict_import_too_large_error)
+                result == 0 -> context.getString(R.string.customdict_import_empty_error)
+                else -> context.resources.getQuantityString(
+                    R.plurals.customdict_import_added_words,
+                    result,
+                    result,
+                    languageLabel(language),
+                )
             }
             if (result > 0) {
                 refresh()
@@ -5333,14 +5365,7 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
     }
 
     Text(
-        "Import your own word lists so the keyboard can complete and correct " +
-            "words it does not ship with. Most languages have no bundled " +
-            "dictionary, so a list here — imported, or downloaded from " +
-            "Settings → Languages — is what gives them suggestions; where one " +
-            "is bundled, your lists stack on top of it.\n\n" +
-            "Format: one word per line, optionally followed by a space and a " +
-            "frequency number. Lines starting with # are ignored. Imported " +
-            "words are never autocorrected away.",
+        stringResource(R.string.customdict_info),
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
@@ -5352,7 +5377,11 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
                 item {
                     WmRow(
                         title = entry.file.nameWithoutExtension,
-                        subtitle = "${entry.words} words",
+                        subtitle = pluralStringResource(
+                            R.plurals.customdict_word_count,
+                            entry.words,
+                            entry.words,
+                        ),
                         trailing = {
                             IconButton(
                                 enabled = !busy,
@@ -5368,8 +5397,10 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
                             ) {
                                 Icon(
                                     Icons.Outlined.Delete,
-                                    contentDescription =
-                                        "Remove ${entry.file.nameWithoutExtension}",
+                                    contentDescription = stringResource(
+                                        R.string.customdict_delete_list_desc,
+                                        entry.file.nameWithoutExtension,
+                                    ),
                                 )
                             }
                         },
@@ -5384,12 +5415,19 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
                             pending = language.id
                             importList.launch(arrayOf("*/*"))
                         },
-                    ) { Text(if (entries.isEmpty()) "Import word list" else "Import another") }
+                    ) {
+                        Text(
+                            stringResource(
+                                if (entries.isEmpty()) R.string.customdict_import_action
+                                else R.string.customdict_import_another_action,
+                            ),
+                        )
+                    }
                     Spacer(Modifier.width(8.dp))
                     OutlinedButton(
                         enabled = !busy,
                         onClick = { urlDialogFor = language.id },
-                    ) { Text("From URL") }
+                    ) { Text(stringResource(R.string.customdict_from_url_action)) }
                 }
             }
         }
@@ -5401,7 +5439,11 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
         AlertDialog(
             onDismissRequest = { message = null },
             text = { Text(messageText) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
         )
     }
 
@@ -5410,14 +5452,14 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
         var url by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { urlDialogFor = null },
-            title = { Text("Load dictionary from URL") },
+            title = { Text(stringResource(R.string.customdict_url_dialog_title)) },
             text = {
                 OutlinedTextField(
                     value = url,
                     onValueChange = { url = it },
                     singleLine = true,
                     label = { Text("https://…") },
-                    placeholder = { Text("Link to a plain-text word list") },
+                    placeholder = { Text(stringResource(R.string.customdict_url_dialog_hint)) },
                 )
             },
             confirmButton = {
@@ -5427,9 +5469,13 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
                         urlDialogFor = null
                         importFromUrl(urlLanguage, url)
                     },
-                ) { Text("Download") }
+                ) { Text(stringResource(CommonR.string.common_download)) }
             },
-            dismissButton = { TextButton(onClick = { urlDialogFor = null }) { Text("Cancel") } },
+            dismissButton = {
+                TextButton(onClick = { urlDialogFor = null }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
         )
     }
 }
@@ -5495,10 +5541,15 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
     suspend fun finish(langId: String, result: Int) {
         busy = false
         message = when {
-            result == -2 -> "Only http:// and https:// links are supported."
-            result == -1 -> "That file is too large to import."
-            result == 0 -> "No emoji found in that file — is it a keyword pack?"
-            else -> "Added keywords for $result emoji to ${languageLabel(langId)}."
+            result == -2 -> context.getString(R.string.customdict_url_scheme_error)
+            result == -1 -> context.getString(R.string.customdict_import_too_large_error)
+            result == 0 -> context.getString(R.string.customdict_emoji_import_empty_error)
+            else -> context.resources.getQuantityString(
+                R.plurals.customdict_emoji_import_added,
+                result,
+                result,
+                languageLabel(langId),
+            )
         }
         if (result > 0) {
             refresh()
@@ -5571,24 +5622,18 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
         .pick(EmojiSearchExamples.money, settings.enabledLanguages.map { it.id }, limit = 3)
         .joinToString(", ")
     Text(
-        "Emoji search ships with English and Bengali keywords. A pack adds " +
-            "another language, so $packExamples all find 💰 — and its " +
-            "words show up as emoji suggestions while you type.\n\n" +
-            "Packs stack on top of the bundled keywords rather than replacing " +
-            "them, and a language may have several.",
+        stringResource(R.string.customdict_emoji_info, packExamples),
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
 
-    SettingsGroup("Downloads") {
+    SettingsGroup(stringResource(R.string.customdict_emoji_downloads_title)) {
         item {
             ToggleSetting(
-                "Download automatically",
-                "Fetch keywords for the languages you type",
+                stringResource(R.string.customdict_emoji_auto_download_title),
+                stringResource(R.string.customdict_emoji_auto_download_subtitle),
                 settings.emoji.autoDownloadKeywords,
-                info = "When you turn a language on, its emoji keywords are fetched in " +
-                    "the background — around 100 KB, once. Off means the Download " +
-                    "buttons below are the only way to get them.",
+                info = stringResource(R.string.customdict_emoji_auto_download_info),
             ) { scope.launch { repository.setEmojiAutoDownloadKeywords(it) } }
         }
     }
@@ -5604,7 +5649,11 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
                 item {
                     WmRow(
                         title = entry.file.nameWithoutExtension,
-                        subtitle = "${entry.emoji} emoji",
+                        subtitle = pluralStringResource(
+                            R.plurals.customdict_emoji_count,
+                            entry.emoji,
+                            entry.emoji,
+                        ),
                         trailing = {
                             IconButton(
                                 enabled = !busy,
@@ -5620,8 +5669,10 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
                             ) {
                                 Icon(
                                     Icons.Outlined.Delete,
-                                    contentDescription =
-                                        "Remove ${entry.file.nameWithoutExtension}",
+                                    contentDescription = stringResource(
+                                        R.string.customdict_delete_pack_desc,
+                                        entry.file.nameWithoutExtension,
+                                    ),
                                 )
                             }
                         },
@@ -5636,22 +5687,26 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
                             pending = languageId
                             importPack.launch(arrayOf("*/*"))
                         },
-                    ) { Text(if (entries.isEmpty()) "Import pack" else "Import another") }
+                    ) {
+                        Text(
+                            stringResource(
+                                if (entries.isEmpty()) R.string.customdict_emoji_import_action
+                                else R.string.customdict_import_another_action,
+                            ),
+                        )
+                    }
                     Spacer(Modifier.width(8.dp))
                     OutlinedButton(
                         enabled = !busy,
                         onClick = { urlDialogFor = languageId },
-                    ) { Text("From URL") }
+                    ) { Text(stringResource(R.string.customdict_from_url_action)) }
                 }
             }
         }
     }
 
     Text(
-        "Import format: a tab-separated file, one emoji per line, then its " +
-            "comma-separated keywords, and optionally another tab and a display " +
-            "name. Lines starting with \"# \" are ignored. The JSON emoji " +
-            "dictionaries from the wmkeyboard-data repository import as they are.",
+        stringResource(R.string.customdict_emoji_format_info),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -5663,7 +5718,11 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
         AlertDialog(
             onDismissRequest = { message = null },
             text = { Text(messageText) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
         )
     }
 
@@ -5672,14 +5731,16 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
         var url by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { urlDialogFor = null },
-            title = { Text("Load emoji pack from URL") },
+            title = { Text(stringResource(R.string.customdict_emoji_url_dialog_title)) },
             text = {
                 OutlinedTextField(
                     value = url,
                     onValueChange = { url = it },
                     singleLine = true,
                     label = { Text("https://…") },
-                    placeholder = { Text("Link to an emoji keyword TSV") },
+                    placeholder = {
+                        Text(stringResource(R.string.customdict_emoji_url_dialog_hint))
+                    },
                 )
             },
             confirmButton = {
@@ -5689,9 +5750,13 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
                         urlDialogFor = null
                         importFromUrl(urlLanguage, url)
                     },
-                ) { Text("Download") }
+                ) { Text(stringResource(CommonR.string.common_download)) }
             },
-            dismissButton = { TextButton(onClick = { urlDialogFor = null }) { Text("Cancel") } },
+            dismissButton = {
+                TextButton(onClick = { urlDialogFor = null }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
         )
     }
 }
@@ -5701,6 +5766,21 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
 /** Mime types SAF offers when picking a font; octet-stream covers file managers that don't tag fonts. */
 private val FONT_MIME_TYPES = arrayOf(
     "font/ttf", "font/otf", "font/*", "application/x-font-ttf", "application/octet-stream",
+)
+
+/**
+ * A refused font import, kept as resource ids rather than finished words: the
+ * import runs off the main thread with no way to draw, so the dialog is what
+ * resolves the wording against the language the app is running in.
+ *
+ * A message that counts fonts sets [pluralsRes] and [quantity] instead of
+ * [stringRes]; [args] fills the placeholders of [stringRes].
+ */
+private data class FontMessage(
+    @StringRes val stringRes: Int = 0,
+    @PluralsRes val pluralsRes: Int = 0,
+    val quantity: Int = 0,
+    val args: List<Any> = emptyList(),
 )
 
 /**
@@ -5724,7 +5804,8 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
     // Text faces only: an emoji font is chosen on the Emoji screen, and picking
     // one for the key labels would draw the alphabet as coloured pictograms.
     val installedFonts = remember(fontRevision) { fontStore.textFonts() }
-    var fontMessage by remember { mutableStateOf<String?>(null) }
+    // The failure to show, still unresolved; see [FontMessage].
+    var fontMessage by remember { mutableStateOf<FontMessage?>(null) }
 
     fun importIntoLibrary(uri: android.net.Uri, apply: suspend (String) -> Unit) {
         scope.launch {
@@ -5733,14 +5814,19 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
                     context.contentResolver.requireInputStream(uri).use {
                         FontFile.import(it, fontStore, name = fontFileLabel(context, uri))
                     }
-                }.getOrElse { FontImportResult.Failed(it.message ?: "Couldn't read that file") }
+                }.getOrElse {
+                    FontImportResult.Failed(ContentR.string.core_content_font_error_read)
+                }
             }
             when (result) {
                 is FontImportResult.Imported -> apply(FontStore.fontIdFor(result.font.id))
-                is FontImportResult.NotAFont -> fontMessage = result.message
-                FontImportResult.TooManyFonts ->
-                    fontMessage = "You already have ${FontStore.MAX_FONTS} fonts. Remove one first."
-                is FontImportResult.Failed -> fontMessage = result.message
+                is FontImportResult.NotAFont -> fontMessage = FontMessage(result.messageRes)
+                FontImportResult.TooManyFonts -> fontMessage = FontMessage(
+                    pluralsRes = R.plurals.fonts_import_limit_message,
+                    quantity = FontStore.MAX_FONTS,
+                )
+                is FontImportResult.Failed ->
+                    fontMessage = FontMessage(result.messageRes, args = result.messageArgs)
             }
         }
     }
@@ -5755,26 +5841,36 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
         }
     }
 
-    fontMessage?.let { text ->
+    fontMessage?.let { message ->
+        // Spelled out rather than spread: no font message takes more than one
+        // argument, and a spread copies the array on every recomposition.
+        val text = when {
+            message.pluralsRes != 0 -> pluralStringResource(
+                message.pluralsRes,
+                message.quantity,
+                message.quantity,
+            )
+            message.args.isEmpty() -> stringResource(message.stringRes)
+            else -> stringResource(message.stringRes, message.args.first())
+        }
         AlertDialog(
             onDismissRequest = { fontMessage = null },
             text = { Text(text) },
-            confirmButton = { TextButton(onClick = { fontMessage = null }) { Text("OK") } },
+            confirmButton = {
+                TextButton(onClick = { fontMessage = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
         )
     }
 
     Text(
-        "Applies to key labels, suggestions and the keyboard's panels. Each " +
-            "script gets its own face, picked below and used whenever you're " +
-            "typing a language that writes in it; the English font also covers " +
-            "Cyrillic and Greek. Google fonts are fetched once through the " +
-            "system font provider and cached on-device; missing glyphs fall " +
-            "back to the system font automatically.",
+        stringResource(R.string.fonts_info),
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
     FontPickerSection(
-        header = "English font",
+        header = stringResource(R.string.fonts_english_header),
         sample = "The quick brown fox jumps over the lazy dog",
         selectedId = settings.keyFontId,
         googleNames = KeyboardFonts.googleFonts,
@@ -5784,7 +5880,7 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
         onSelect = { id -> scope.launch { repository.setKeyFontId(id) } },
         onImport = { uri -> importIntoLibrary(uri) { repository.setKeyFontId(it) } },
         installedFonts = installedFonts,
-        installedTitle = "Installed fonts",
+        installedTitle = stringResource(R.string.fonts_installed_header),
         // The English picker also drives Cyrillic and Greek, which have no
         // picker of their own — a font claiming any of the three belongs here.
         scripts = setOf(ScriptId.LATIN, ScriptId.CYRILLIC, ScriptId.GREEK),
@@ -5806,19 +5902,21 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
         val onImportFont: ((Uri) -> Unit)? = customId?.let {
             { uri: Uri -> importIntoLibrary(uri) { id -> repository.setScriptFontId(script, id) } }
         }
+        // The name of the script, drawn into both headers of this picker.
+        val scriptName = stringResource(choices.labelRes)
         FontPickerSection(
-            header = "${choices.label} font",
+            header = stringResource(R.string.fonts_script_header, scriptName),
             sample = choices.sample,
             selectedId = settings.scriptFontIds[script] ?: KeyboardFonts.DEFAULT_ID,
             googleNames = choices.fonts,
-            defaultLabel = "Automatic (Noto)",
+            defaultLabel = stringResource(R.string.fonts_default_noto_label),
             customId = customId,
             customFile = KeyboardFonts.customScriptFontFile(context, choices.script),
             customName = settings.customScriptFontNames[script].orEmpty(),
             onSelect = { id -> scope.launch { repository.setScriptFontId(script, id) } },
             onImport = onImportFont,
             installedFonts = if (importable) installedFonts else emptyList(),
-            installedTitle = "Installed ${choices.label} fonts",
+            installedTitle = stringResource(R.string.fonts_installed_script_header, scriptName),
             scripts = setOf(choices.script),
             onDeleteInstalled = if (importable) ::deleteInstalled else null,
         )
@@ -5850,14 +5948,14 @@ private fun FontPickerSection(
     selectedId: String,
     googleNames: List<String>,
     onSelect: (String) -> Unit,
-    defaultLabel: String = "System default",
+    defaultLabel: String = stringResource(R.string.fonts_default_system_label),
     /** The imported-file id this picker writes, or null if it takes no import. */
     customId: String? = KeyboardFonts.CUSTOM_ID,
     customFile: java.io.File? = null,
     customName: String = "",
     onImport: ((android.net.Uri) -> Unit)? = null,
     installedFonts: List<InstalledFont> = emptyList(),
-    installedTitle: String = "Installed fonts",
+    installedTitle: String = stringResource(R.string.fonts_installed_header),
     scripts: Set<ScriptId> = emptySet(),
     onDeleteInstalled: ((InstalledFont) -> Unit)? = null,
 ) {
@@ -5913,8 +6011,9 @@ private fun FontPickerSection(
         // sees the row.
         if (customId != null && customFile?.exists() == true) {
             item {
+                val importedLabel = stringResource(R.string.fonts_imported_label)
                 FontChoiceRow(
-                    label = customName.ifBlank { "Imported font" },
+                    label = customName.ifBlank { importedLabel },
                     family = remember(customName) { KeyboardFonts.family(context, customId) },
                     sample = sample,
                     selected = selectedId == customId,
@@ -5926,7 +6025,7 @@ private fun FontPickerSection(
                 OutlinedButton(
                     onClick = { importFont.launch(FONT_MIME_TYPES) },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                ) { Text("Import font file (.ttf / .otf)") }
+                ) { Text(stringResource(R.string.fonts_import_action)) }
             }
         }
     }
@@ -5960,13 +6059,19 @@ private fun FontChoiceRow(
                     if (selected) {
                         Icon(
                             Icons.Outlined.Check,
-                            contentDescription = "Selected",
+                            contentDescription = stringResource(R.string.fonts_selected_desc),
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                     if (onDelete != null) {
                         IconButton(onClick = onDelete) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "Remove $label")
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(
+                                    R.string.fonts_delete_desc,
+                                    label,
+                                ),
+                            )
                         }
                     }
                 }
@@ -5995,7 +6100,8 @@ private fun fontFileLabel(context: Context, uri: android.net.Uri): String {
             if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
         }
     }.getOrNull() ?: uri.lastPathSegment
-    return name?.substringBeforeLast('.')?.trim().orEmpty().ifBlank { "Imported font" }
+    return name?.substringBeforeLast('.')?.trim().orEmpty()
+        .ifBlank { context.getString(R.string.fonts_imported_label) }
 }
 
 private fun importFontFile(context: Context, uri: android.net.Uri, dest: java.io.File): String? {
@@ -6041,130 +6147,143 @@ private fun toolHasOptions(tool: ToolbarTool): Boolean =
         ToolbarTool.MEDIA_CONTROL,
     )
 
-internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
-    ToolbarTool.EMOJI -> "Emoji"
-    ToolbarTool.CLIPBOARD -> "Clipboard"
-    ToolbarTool.SNIPPETS -> "Snippets"
-    ToolbarTool.TEXT_EDIT -> "Text editing"
-    ToolbarTool.ONE_HANDED -> "One-handed mode"
-    ToolbarTool.SPLIT -> "Split keyboard"
-    ToolbarTool.FLOATING -> "Floating keyboard"
-    ToolbarTool.SETTINGS -> "Settings shortcut"
-    ToolbarTool.FLASHLIGHT -> "Flashlight"
-    ToolbarTool.COMPASS -> "Compass"
-    ToolbarTool.LEVEL -> "Bubble level"
-    ToolbarTool.UNDO -> "Undo"
-    ToolbarTool.REDO -> "Redo"
-    ToolbarTool.MOON_PHASE -> "Moon phase"
-    ToolbarTool.WEATHER -> "Weather"
-    ToolbarTool.CALENDAR -> "Calendar"
-    ToolbarTool.INCOGNITO -> "Incognito"
-    ToolbarTool.POWER_SAVING -> "Power saving"
-    ToolbarTool.THEMES -> "Themes"
-    ToolbarTool.AUTOCORRECT -> "Autocorrect"
-    ToolbarTool.SOUND_HAPTICS -> "Sound & haptics"
-    ToolbarTool.NUMPAD -> "Numpad"
-    ToolbarTool.HANDWRITING -> "Handwriting"
-    ToolbarTool.CAMERA -> "Camera"
-    ToolbarTool.DICTIONARY -> "Dictionary"
-    ToolbarTool.TRANSLATE -> "Translate"
-    ToolbarTool.GIF -> "GIFs"
-    ToolbarTool.STICKER -> "Stickers"
-    ToolbarTool.WEB_SEARCH -> "Web search"
-    ToolbarTool.IMAGE_SEARCH -> "Image search"
-    ToolbarTool.OCR -> "Text scan (OCR)"
-    ToolbarTool.QR_SCAN -> "QR & barcode scanner"
-    ToolbarTool.DOC_SCAN -> "Document scanner"
-    ToolbarTool.VOICE -> "Voice typing"
-    ToolbarTool.GRAMMAR -> "Grammar check"
-    ToolbarTool.WIKIPEDIA -> "Wikipedia"
-    ToolbarTool.SYMBOLS -> "Special symbols"
-    ToolbarTool.CALCULATOR -> "Calculator"
-    ToolbarTool.UNIT_CONVERT -> "Unit converter"
-    ToolbarTool.CURRENCY -> "Currency converter"
-    ToolbarTool.QR_GEN -> "QR code generator"
-    ToolbarTool.PASSWORD_GEN -> "Password generator"
-    ToolbarTool.TYPING_TEST -> "Typing speed test"
-    ToolbarTool.MEDIA_CONTROL -> "Media controls"
-    ToolbarTool.PLUGINS -> "Plugins"
-    ToolbarTool.AI -> "AI writing tools"
-    ToolbarTool.MODES -> "Keyboard modes"
-    ToolbarTool.CURSOR_LEFT -> "Cursor left"
-    ToolbarTool.CURSOR_RIGHT -> "Cursor right"
-    ToolbarTool.CURSOR_WORD_LEFT -> "Word left"
-    ToolbarTool.CURSOR_WORD_RIGHT -> "Word right"
-    ToolbarTool.CURSOR_UP -> "Cursor up"
-    ToolbarTool.CURSOR_DOWN -> "Cursor down"
-    ToolbarTool.CURSOR_HOME -> "Line start"
-    ToolbarTool.CURSOR_END -> "Line end"
-    ToolbarTool.PAGE_UP -> "Page up"
-    ToolbarTool.PAGE_DOWN -> "Page down"
-    ToolbarTool.SELECT_WORD -> "Select word"
-    ToolbarTool.SELECT_LINE -> "Select line"
-    ToolbarTool.HIDE_KEYBOARD -> "Hide keyboard"
+/**
+ * The name of a tool on its settings screen, as a string resource the caller
+ * resolves while it draws.
+ *
+ * The keyboard toolbar names the same tools in `toolLabelRes`, and half of them
+ * word it identically: those reuse the keyboard's own resource rather than
+ * carry a second copy for translators. The rest are the settings-screen wording,
+ * which has room for the longer name the toolbar cannot fit ("Bubble level"
+ * against "Level"), and those live in this module.
+ */
+@StringRes
+internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
+    ToolbarTool.EMOJI -> ImeR.string.ime_tool_emoji
+    ToolbarTool.CLIPBOARD -> ImeR.string.ime_tool_clipboard
+    ToolbarTool.SNIPPETS -> ImeR.string.ime_tool_snippets
+    ToolbarTool.TEXT_EDIT -> ImeR.string.ime_tool_text_edit
+    ToolbarTool.ONE_HANDED -> R.string.fonts_tool_one_handed_title
+    ToolbarTool.SPLIT -> R.string.fonts_tool_split_title
+    ToolbarTool.FLOATING -> R.string.fonts_tool_floating_title
+    ToolbarTool.SETTINGS -> R.string.fonts_tool_settings_title
+    ToolbarTool.FLASHLIGHT -> ImeR.string.ime_tool_flashlight
+    ToolbarTool.COMPASS -> ImeR.string.ime_tool_compass
+    ToolbarTool.LEVEL -> R.string.fonts_tool_level_title
+    ToolbarTool.UNDO -> ImeR.string.ime_tool_undo
+    ToolbarTool.REDO -> ImeR.string.ime_tool_redo
+    ToolbarTool.MOON_PHASE -> R.string.fonts_tool_moon_phase_title
+    ToolbarTool.WEATHER -> ImeR.string.ime_tool_weather
+    ToolbarTool.CALENDAR -> ImeR.string.ime_tool_calendar
+    ToolbarTool.INCOGNITO -> ImeR.string.ime_tool_incognito
+    ToolbarTool.POWER_SAVING -> ImeR.string.ime_tool_power_saving
+    ToolbarTool.THEMES -> ImeR.string.ime_tool_themes
+    ToolbarTool.AUTOCORRECT -> ImeR.string.ime_tool_autocorrect
+    ToolbarTool.SOUND_HAPTICS -> ImeR.string.ime_tool_sound_haptics
+    ToolbarTool.NUMPAD -> ImeR.string.ime_tool_numpad
+    ToolbarTool.HANDWRITING -> ImeR.string.ime_tool_handwriting
+    ToolbarTool.CAMERA -> ImeR.string.ime_tool_camera
+    ToolbarTool.DICTIONARY -> ImeR.string.ime_tool_dictionary
+    ToolbarTool.TRANSLATE -> ImeR.string.ime_tool_translate
+    ToolbarTool.GIF -> ImeR.string.ime_tool_gif
+    ToolbarTool.STICKER -> ImeR.string.ime_tool_sticker
+    ToolbarTool.WEB_SEARCH -> R.string.fonts_tool_web_search_title
+    ToolbarTool.IMAGE_SEARCH -> R.string.fonts_tool_image_search_title
+    ToolbarTool.OCR -> R.string.fonts_tool_ocr_title
+    ToolbarTool.QR_SCAN -> R.string.fonts_tool_qr_scan_title
+    ToolbarTool.DOC_SCAN -> R.string.fonts_tool_doc_scan_title
+    ToolbarTool.VOICE -> R.string.fonts_tool_voice_title
+    ToolbarTool.GRAMMAR -> R.string.fonts_tool_grammar_title
+    ToolbarTool.WIKIPEDIA -> ImeR.string.ime_tool_wikipedia
+    ToolbarTool.SYMBOLS -> R.string.fonts_tool_symbols_title
+    ToolbarTool.CALCULATOR -> ImeR.string.ime_tool_calculator
+    ToolbarTool.UNIT_CONVERT -> R.string.fonts_tool_unit_convert_title
+    ToolbarTool.CURRENCY -> R.string.fonts_tool_currency_title
+    ToolbarTool.QR_GEN -> R.string.fonts_tool_qr_gen_title
+    ToolbarTool.PASSWORD_GEN -> R.string.fonts_tool_password_gen_title
+    ToolbarTool.TYPING_TEST -> R.string.fonts_tool_typing_test_title
+    ToolbarTool.MEDIA_CONTROL -> R.string.fonts_tool_media_control_title
+    ToolbarTool.PLUGINS -> ImeR.string.ime_tool_plugins
+    ToolbarTool.AI -> R.string.fonts_tool_ai_title
+    ToolbarTool.MODES -> R.string.fonts_tool_modes_title
+    ToolbarTool.CURSOR_LEFT -> R.string.fonts_tool_cursor_left_title
+    ToolbarTool.CURSOR_RIGHT -> R.string.fonts_tool_cursor_right_title
+    ToolbarTool.CURSOR_WORD_LEFT -> ImeR.string.ime_tool_cursor_word_left
+    ToolbarTool.CURSOR_WORD_RIGHT -> ImeR.string.ime_tool_cursor_word_right
+    ToolbarTool.CURSOR_UP -> R.string.fonts_tool_cursor_up_title
+    ToolbarTool.CURSOR_DOWN -> R.string.fonts_tool_cursor_down_title
+    ToolbarTool.CURSOR_HOME -> ImeR.string.ime_tool_cursor_home
+    ToolbarTool.CURSOR_END -> ImeR.string.ime_tool_cursor_end
+    ToolbarTool.PAGE_UP -> ImeR.string.ime_tool_page_up
+    ToolbarTool.PAGE_DOWN -> ImeR.string.ime_tool_page_down
+    ToolbarTool.SELECT_WORD -> ImeR.string.ime_tool_select_word
+    ToolbarTool.SELECT_LINE -> ImeR.string.ime_tool_select_line
+    ToolbarTool.HIDE_KEYBOARD -> R.string.fonts_tool_hide_keyboard_title
 }
 
-internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
-    ToolbarTool.EMOJI -> "Emoji panel with search and skin tones"
-    ToolbarTool.CLIPBOARD -> "Paste from clipboard history"
-    ToolbarTool.SNIPPETS -> "Insert saved text snippets"
-    ToolbarTool.TEXT_EDIT -> "Cursor, selection and clipboard controls"
-    ToolbarTool.ONE_HANDED -> "Shrink the keyboard toward one edge"
-    ToolbarTool.SPLIT -> "Split the keys into two halves"
-    ToolbarTool.FLOATING -> "Detach the keyboard into a movable panel"
-    ToolbarTool.SETTINGS -> "Open this settings app"
-    ToolbarTool.FLASHLIGHT -> "Toggle the torch from the keyboard"
-    ToolbarTool.COMPASS -> "Live compass with degree readout and optional qibla"
-    ToolbarTool.LEVEL -> "Bubble level using the accelerometer"
-    ToolbarTool.UNDO -> "One tap sends the editor's undo shortcut (Ctrl+Z)"
-    ToolbarTool.REDO -> "One tap sends the editor's redo shortcut"
-    ToolbarTool.MOON_PHASE -> "Current phase, illumination, next full/new moon"
-    ToolbarTool.WEATHER -> "Current conditions for a saved location"
-    ToolbarTool.CALENDAR -> "Month view with your events and two calendars of your choice"
-    ToolbarTool.INCOGNITO -> "One tap pauses learning and clipboard capture"
-    ToolbarTool.POWER_SAVING -> "Drop features that cost battery, on demand or when it runs low"
-    ToolbarTool.THEMES -> "Quick theme switcher on the keyboard"
-    ToolbarTool.AUTOCORRECT -> "One tap turns autocorrect on or off"
-    ToolbarTool.SOUND_HAPTICS -> "Adjust key sound and vibration from the keyboard"
-    ToolbarTool.NUMPAD -> "Dedicated number pad layout"
-    ToolbarTool.HANDWRITING -> "Write words by hand — finger or S Pen — with on-device recognition"
-    ToolbarTool.CAMERA -> "Take a photo and send it without leaving the keyboard"
-    ToolbarTool.DICTIONARY -> "English definitions, pronunciation and synonyms"
-    ToolbarTool.TRANSLATE -> "Translate what you type, live, into any language"
-    ToolbarTool.GIF -> "Search GIFs (Klipy, GIPHY) and send them without leaving the keyboard"
-    ToolbarTool.STICKER -> "Search stickers — transparent, chat-ready"
-    ToolbarTool.WEB_SEARCH -> "Search the web (Brave) and insert a result's link"
-    ToolbarTool.IMAGE_SEARCH -> "Image search from the keyboard; tap to send an image"
-    ToolbarTool.OCR -> "Point the camera at printed text and type it — pick just the words you need"
-    ToolbarTool.QR_SCAN -> "Scan a QR code or barcode and insert its text"
-    ToolbarTool.DOC_SCAN -> "Scan a document with Google's scanner and send it as an image"
-    ToolbarTool.VOICE -> "Dictate text with the device's speech recognizer — any language it supports"
-    ToolbarTool.GRAMMAR -> "Check the text you're writing for grammar issues — fully offline (Harper)"
-    ToolbarTool.WIKIPEDIA -> "Search Wikipedia, read summaries and insert text or links"
-    ToolbarTool.SYMBOLS -> "Fractions, math, Greek, arrows and more — one tap to type"
-    ToolbarTool.CALCULATOR -> "Scientific calculator; insert the result at the cursor"
-    ToolbarTool.UNIT_CONVERT -> "Convert length, mass, temperature, data and 10+ more categories"
-    ToolbarTool.CURRENCY -> "Live exchange rates from free APIs — no key needed"
-    ToolbarTool.QR_GEN -> "Turn the text in the field into a QR code and send it as an image"
-    ToolbarTool.PASSWORD_GEN -> "Strong passwords and passphrases, generated on-device"
-    ToolbarTool.TYPING_TEST -> "Time your typing on this keyboard and track your best scores"
-    ToolbarTool.MEDIA_CONTROL -> "Play, pause and skip whatever's playing — with album art and a seek bar"
-    ToolbarTool.PLUGINS -> "Run installed plugins — small sandboxed tools you add yourself"
-    ToolbarTool.AI -> "Rewrite, summarize, translate and more — your own API key or local server"
-    ToolbarTool.MODES -> "Switch between per-app setups: emoji row, pinned tools, symbol sets"
-    ToolbarTool.CURSOR_LEFT -> "Move the cursor one character left"
-    ToolbarTool.CURSOR_RIGHT -> "Move the cursor one character right"
-    ToolbarTool.CURSOR_WORD_LEFT -> "Move the cursor one word left"
-    ToolbarTool.CURSOR_WORD_RIGHT -> "Move the cursor one word right"
-    ToolbarTool.CURSOR_UP -> "Move the cursor one line up"
-    ToolbarTool.CURSOR_DOWN -> "Move the cursor one line down"
-    ToolbarTool.CURSOR_HOME -> "Jump to the start of the line"
-    ToolbarTool.CURSOR_END -> "Jump to the end of the line"
-    ToolbarTool.PAGE_UP -> "Scroll the cursor up a page"
-    ToolbarTool.PAGE_DOWN -> "Scroll the cursor down a page"
-    ToolbarTool.SELECT_WORD -> "Select the word at the cursor"
-    ToolbarTool.SELECT_LINE -> "Select the entire line at the cursor"
-    ToolbarTool.HIDE_KEYBOARD -> "Dismiss the keyboard in one tap"
+/** The one-line description under a tool's name, as a string resource. */
+@StringRes
+internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
+    ToolbarTool.EMOJI -> R.string.fonts_tool_emoji_desc
+    ToolbarTool.CLIPBOARD -> R.string.fonts_tool_clipboard_desc
+    ToolbarTool.SNIPPETS -> R.string.fonts_tool_snippets_desc
+    ToolbarTool.TEXT_EDIT -> R.string.fonts_tool_text_edit_desc
+    ToolbarTool.ONE_HANDED -> R.string.fonts_tool_one_handed_desc
+    ToolbarTool.SPLIT -> R.string.fonts_tool_split_desc
+    ToolbarTool.FLOATING -> R.string.fonts_tool_floating_desc
+    ToolbarTool.SETTINGS -> R.string.fonts_tool_settings_desc
+    ToolbarTool.FLASHLIGHT -> R.string.fonts_tool_flashlight_desc
+    ToolbarTool.COMPASS -> R.string.fonts_tool_compass_desc
+    ToolbarTool.LEVEL -> R.string.fonts_tool_level_desc
+    ToolbarTool.UNDO -> R.string.fonts_tool_undo_desc
+    ToolbarTool.REDO -> R.string.fonts_tool_redo_desc
+    ToolbarTool.MOON_PHASE -> R.string.fonts_tool_moon_phase_desc
+    ToolbarTool.WEATHER -> R.string.fonts_tool_weather_desc
+    ToolbarTool.CALENDAR -> R.string.fonts_tool_calendar_desc
+    ToolbarTool.INCOGNITO -> R.string.fonts_tool_incognito_desc
+    ToolbarTool.POWER_SAVING -> R.string.fonts_tool_power_saving_desc
+    ToolbarTool.THEMES -> R.string.fonts_tool_themes_desc
+    ToolbarTool.AUTOCORRECT -> R.string.fonts_tool_autocorrect_desc
+    ToolbarTool.SOUND_HAPTICS -> R.string.fonts_tool_sound_haptics_desc
+    ToolbarTool.NUMPAD -> R.string.fonts_tool_numpad_desc
+    ToolbarTool.HANDWRITING -> R.string.fonts_tool_handwriting_desc
+    ToolbarTool.CAMERA -> R.string.fonts_tool_camera_desc
+    ToolbarTool.DICTIONARY -> R.string.fonts_tool_dictionary_desc
+    ToolbarTool.TRANSLATE -> R.string.fonts_tool_translate_desc
+    ToolbarTool.GIF -> R.string.fonts_tool_gif_desc
+    ToolbarTool.STICKER -> R.string.fonts_tool_sticker_desc
+    ToolbarTool.WEB_SEARCH -> R.string.fonts_tool_web_search_desc
+    ToolbarTool.IMAGE_SEARCH -> R.string.fonts_tool_image_search_desc
+    ToolbarTool.OCR -> R.string.fonts_tool_ocr_desc
+    ToolbarTool.QR_SCAN -> R.string.fonts_tool_qr_scan_desc
+    ToolbarTool.DOC_SCAN -> R.string.fonts_tool_doc_scan_desc
+    ToolbarTool.VOICE -> R.string.fonts_tool_voice_desc
+    ToolbarTool.GRAMMAR -> R.string.fonts_tool_grammar_desc
+    ToolbarTool.WIKIPEDIA -> R.string.fonts_tool_wikipedia_desc
+    ToolbarTool.SYMBOLS -> R.string.fonts_tool_symbols_desc
+    ToolbarTool.CALCULATOR -> R.string.fonts_tool_calculator_desc
+    ToolbarTool.UNIT_CONVERT -> R.string.fonts_tool_unit_convert_desc
+    ToolbarTool.CURRENCY -> R.string.fonts_tool_currency_desc
+    ToolbarTool.QR_GEN -> R.string.fonts_tool_qr_gen_desc
+    ToolbarTool.PASSWORD_GEN -> R.string.fonts_tool_password_gen_desc
+    ToolbarTool.TYPING_TEST -> R.string.fonts_tool_typing_test_desc
+    ToolbarTool.MEDIA_CONTROL -> R.string.fonts_tool_media_control_desc
+    ToolbarTool.PLUGINS -> R.string.fonts_tool_plugins_desc
+    ToolbarTool.AI -> R.string.fonts_tool_ai_desc
+    ToolbarTool.MODES -> R.string.fonts_tool_modes_desc
+    ToolbarTool.CURSOR_LEFT -> R.string.fonts_tool_cursor_left_desc
+    ToolbarTool.CURSOR_RIGHT -> R.string.fonts_tool_cursor_right_desc
+    ToolbarTool.CURSOR_WORD_LEFT -> R.string.fonts_tool_cursor_word_left_desc
+    ToolbarTool.CURSOR_WORD_RIGHT -> R.string.fonts_tool_cursor_word_right_desc
+    ToolbarTool.CURSOR_UP -> R.string.fonts_tool_cursor_up_desc
+    ToolbarTool.CURSOR_DOWN -> R.string.fonts_tool_cursor_down_desc
+    ToolbarTool.CURSOR_HOME -> R.string.fonts_tool_cursor_home_desc
+    ToolbarTool.CURSOR_END -> R.string.fonts_tool_cursor_end_desc
+    ToolbarTool.PAGE_UP -> R.string.fonts_tool_page_up_desc
+    ToolbarTool.PAGE_DOWN -> R.string.fonts_tool_page_down_desc
+    ToolbarTool.SELECT_WORD -> R.string.fonts_tool_select_word_desc
+    ToolbarTool.SELECT_LINE -> R.string.fonts_tool_select_line_desc
+    ToolbarTool.HIDE_KEYBOARD -> R.string.fonts_tool_hide_keyboard_desc
 }
 
 internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector =
@@ -6181,15 +6300,10 @@ private fun ToolsSettings(
     onOpenTool: (ToolbarTool) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    CaptionText(
-        "Tools live on the keyboard's toolbar and in the toolbox (grid button on " +
-            "the toolbar). The switch enables a tool; tap a row for its settings — " +
-            "the ⚙ marks tools with options of their own.",
-    )
+    CaptionText(stringResource(R.string.tools_intro_info))
     ToggleSetting(
-        title = "Colorful tool icons",
-        subtitle = "Tint each tool its own accent colour here and in the toolbox. " +
-            "Open a tool to recolour just that icon.",
+        title = stringResource(R.string.tools_colored_icons_title),
+        subtitle = stringResource(R.string.tools_colored_icons_subtitle),
         checked = settings.coloredToolIcons,
         onChange = { scope.launch { repository.setColoredToolIcons(it) } },
     )
@@ -6199,48 +6313,49 @@ private fun ToolsSettings(
             horizontalArrangement = Arrangement.End,
         ) {
             TextButton(onClick = { scope.launch { repository.clearToolColors() } }) {
-                Text("Reset custom colours")
+                Text(stringResource(R.string.tools_reset_colors_action))
             }
         }
     }
     val groups = listOf(
-        "Panels" to listOf(
+        stringResource(R.string.tools_group_panels_title) to listOf(
             ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
             ToolbarTool.TEXT_EDIT, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
             ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.DICTIONARY,
             ToolbarTool.GRAMMAR,
         ),
-        "Scanners" to listOf(
+        stringResource(R.string.tools_group_scanners_title) to listOf(
             ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN,
         ),
-        "Online tools" to listOf(
+        stringResource(R.string.tools_group_online_title) to listOf(
             ToolbarTool.TRANSLATE, ToolbarTool.GIF, ToolbarTool.STICKER,
             ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH,
             ToolbarTool.WIKIPEDIA, ToolbarTool.CURRENCY, ToolbarTool.AI,
         ),
-        "Create & convert" to listOf(
+        stringResource(R.string.tools_group_create_title) to listOf(
             ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT,
             ToolbarTool.QR_GEN, ToolbarTool.PASSWORD_GEN, ToolbarTool.TYPING_TEST,
         ),
-        "Keyboard modes" to listOf(
+        stringResource(R.string.tools_group_modes_title) to listOf(
             ToolbarTool.MODES, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
         ),
-        "Cursor" to (CursorTools + ToolbarTool.HIDE_KEYBOARD),
-        "Quick actions" to listOf(
+        stringResource(R.string.tools_group_cursor_title) to (CursorTools + ToolbarTool.HIDE_KEYBOARD),
+        stringResource(R.string.tools_group_quick_actions_title) to listOf(
             ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.AUTOCORRECT,
             ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS, ToolbarTool.THEMES,
             ToolbarTool.POWER_SAVING, ToolbarTool.SETTINGS,
         ),
-        "Utilities" to listOf(
+        stringResource(R.string.tools_group_utilities_title) to listOf(
             ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL,
             ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.MOON_PHASE,
         ),
     )
+    val otherTitle = stringResource(R.string.tools_group_other_title)
     // Safety net: a tool added to the enum but forgotten here still gets a
     // settings entry (this menu is the only path to a tool's options).
     val grouped = groups.flatMap { it.second }.toSet()
     val ungrouped = ToolbarTool.entries.filterNot { it in grouped }
-    val allGroups = (if (ungrouped.isEmpty()) groups else groups + ("Other" to ungrouped))
+    val allGroups = (if (ungrouped.isEmpty()) groups else groups + (otherTitle to ungrouped))
         // Tools this build can't provide (lite flavor) get no settings entry.
         .map { (title, tools) -> title to tools.filter(::isSupportedTool) }
         .filter { it.second.isNotEmpty() }
@@ -6249,8 +6364,8 @@ private fun ToolsSettings(
             for (tool in tools) {
                 item {
                     WmRow(
-                        title = toolTitle(tool),
-                        subtitle = toolDescription(tool),
+                        title = stringResource(toolTitle(tool)),
+                        subtitle = stringResource(toolDescription(tool)),
                         leading = {
                             SlotIcon(
                                 IconSlots.forTool(tool),
@@ -6269,7 +6384,9 @@ private fun ToolsSettings(
                                 if (toolHasOptions(tool)) {
                                     Icon(
                                         Icons.Outlined.Tune,
-                                        contentDescription = "Has more settings",
+                                        contentDescription = stringResource(
+                                            R.string.tools_has_options_desc,
+                                        ),
                                         modifier = Modifier
                                             .padding(end = 8.dp)
                                             .size(16.dp),
@@ -6320,15 +6437,27 @@ private fun ToolDetailSettings(
     onNavigate: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
+    // Slider readouts are plain lambdas, so their format strings are resolved
+    // here and captured. The format also puts the number through the locale,
+    // which is what gives Bengali or Arabic digits.
+    val numberFormat = stringResource(R.string.values_number)
+    val percentFormat = stringResource(R.string.typing_value_percent)
+    val dpFormat = stringResource(R.string.typing_value_dp)
+    val msFormat = stringResource(R.string.typing_value_milliseconds)
+    val minutesFormat = stringResource(R.string.values_minutes)
+    val hoursFormat = stringResource(R.string.values_hours)
+    val pixelsFormat = stringResource(R.string.values_pixels)
+    val daysFormat = stringResource(R.string.values_days)
+    val daysAheadFormat = stringResource(R.string.values_days_ahead)
     CaptionText(
-        toolDescription(tool),
+        stringResource(toolDescription(tool)),
         modifier = Modifier.wmSharedBounds(landingKey("subtitle")),
     )
     SettingsGroup {
         item {
             ToggleSetting(
-                "Enabled",
-                "Show this tool on the toolbar and in the toolbox",
+                stringResource(CommonR.string.common_enable),
+                stringResource(R.string.tooldetail_enabled_subtitle),
                 tool in settings.enabledTools,
                 switchKey = landingKey("switch"),
             ) { scope.launch { repository.setToolEnabled(tool, it) } }
@@ -6341,14 +6470,21 @@ private fun ToolDetailSettings(
                 val override = settings.toolColorOverrides[tool]
                 val resolved = override ?: toolAccentColorArgb(tool)
                 WmRow(
-                    title = "Icon colour",
-                    subtitle = if (override != null) "Custom — tap to change" else "Default — tap to customise",
+                    title = stringResource(R.string.tooldetail_icon_colour_title),
+                    subtitle = if (override != null) {
+                        stringResource(R.string.tooldetail_icon_colour_custom_subtitle)
+                    } else {
+                        stringResource(R.string.tooldetail_icon_colour_default_subtitle)
+                    },
                     leading = { Swatch(resolved) },
                     onClick = { showPicker = true },
                 )
                 if (showPicker) {
                     ColorPickerDialog(
-                        title = "${toolTitle(tool)} icon colour",
+                        title = stringResource(
+                            R.string.tooldetail_icon_colour_dialog_title,
+                            stringResource(toolTitle(tool)),
+                        ),
                         initial = resolved,
                         supportsAlpha = false,
                         showReset = override != null,
@@ -6368,27 +6504,27 @@ private fun ToolDetailSettings(
     }
     ToolKeywordSetting(repository, settings, tool)
     when (tool) {
-        ToolbarTool.PLUGINS -> SettingsGroup("Plugins") {
+        ToolbarTool.PLUGINS -> SettingsGroup(stringResource(R.string.tooldetail_plugins_group)) {
             item {
                 WmRow(
-                    title = "Manage plugins",
-                    subtitle = "Turn plugins on, see what's installed, and what each one can do",
+                    title = stringResource(R.string.tooldetail_plugins_manage_title),
+                    subtitle = stringResource(R.string.tooldetail_plugins_manage_subtitle),
                     onClick = { onNavigate("plugins") },
                 )
             }
         }
-        ToolbarTool.EMOJI -> SettingsGroup("Emoji") {
+        ToolbarTool.EMOJI -> SettingsGroup(stringResource(R.string.tooldetail_emoji_group)) {
             item {
                 ToggleSetting(
-                    "Emoji button in toolbar",
-                    "Keep the emoji button visible next to suggestions",
+                    stringResource(R.string.tooldetail_emoji_toolbar_title),
+                    stringResource(R.string.tooldetail_emoji_toolbar_subtitle),
                     settings.emojiToolbar,
                 ) { scope.launch { repository.setEmojiToolbar(it) } }
             }
             item {
                 NavRow(
-                    "All emoji settings",
-                    "Suggestions, history tab, emoji row, skin tones & favourites",
+                    stringResource(R.string.tooldetail_emoji_all_title),
+                    stringResource(R.string.tooldetail_emoji_all_subtitle),
                     onClick = { onNavigate("emoji") },
                 )
             }
@@ -6400,116 +6536,100 @@ private fun ToolDetailSettings(
             // with the permission in hand, instead of on the next unrelated redraw.
             val screenshotsGranted = rememberGrantState(::hasImagesPermission)
             val usageAccessGranted = rememberGrantState(::hasUsageAccess)
-            SettingsGroup("History") {
+            SettingsGroup(stringResource(R.string.tooldetail_clipboard_history_group)) {
                 item {
                     ToggleSetting(
-                        "Clipboard history", "Save copied text for quick paste",
+                        stringResource(R.string.tooldetail_clipboard_history_title),
+                        stringResource(R.string.tooldetail_clipboard_history_subtitle),
                         settings.clipboard.history,
                     ) { scope.launch { repository.setClipboardHistory(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Suggest recent copy",
-                        "Show the last copied text as a chip on the suggestion strip, " +
-                            "one tap from pasting it.",
+                        stringResource(R.string.tooldetail_clipboard_suggest_recent_title),
+                        stringResource(R.string.tooldetail_clipboard_suggest_recent_subtitle),
                         settings.clipboard.suggestRecent,
                     ) { scope.launch { repository.setClipboardSuggestRecent(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Toast on copy",
-                        "Show a brief \"Copied\" pop-up when you copy or cut text from the keyboard.",
+                        stringResource(R.string.tooldetail_clipboard_toast_title),
+                        stringResource(R.string.tooldetail_clipboard_toast_subtitle),
                         settings.feedback.toastOnCopy,
-                        info = "Fires for the keyboard's own copy actions — the A/C/V/X clipboard " +
-                            "shortcuts and the text-editing panel's copy button — for fields that " +
-                            "give no copy feedback of their own. Off by default.",
+                        info = stringResource(R.string.tooldetail_clipboard_toast_info),
                     ) { scope.launch { repository.setToastOnCopy(it) } }
                 }
                 item {
+                    // The readout lambda is not composable, so the "never" word
+                    // is resolved here and captured, like the hours format.
+                    val never = stringResource(R.string.tooldetail_clipboard_expiry_never)
                     SliderSetting(
-                        "Clipboard expiry",
-                        subtitle = "Remove unpinned items after this long",
+                        stringResource(R.string.tooldetail_clipboard_expiry_title),
+                        subtitle = stringResource(R.string.tooldetail_clipboard_expiry_subtitle),
                         value = settings.clipboard.expiryHours.toFloat(),
                         range = 0f..168f,
-                        display = { if (it.toInt() == 0) "never" else "${it.toInt()} h" },
+                        display = { if (it.toInt() == 0) never else hoursFormat.format(it.toInt()) },
                     ) { scope.launch { repository.setClipboardExpiryHours(it.toInt()) } }
                 }
                 item {
                     SliderSetting(
-                        "Maximum entries",
-                        subtitle = "How many unpinned clips history keeps",
+                        stringResource(R.string.tooldetail_clipboard_max_title),
+                        subtitle = stringResource(R.string.tooldetail_clipboard_max_subtitle),
                         value = settings.clipboard.maxItems.toFloat(),
                         range = 5f..500f,
-                        display = { "${it.toInt()}" },
-                        info = "The other half of the bound clipboard expiry sets — a busy " +
-                            "day of copying can pile up hundreds of clips well inside the " +
-                            "expiry window. Once the panel is full, the oldest unpinned clip " +
-                            "drops off with each new copy. Pinned entries never count against " +
-                            "this and never fall off.",
+                        display = { numberFormat.format(it.toInt()) },
+                        info = stringResource(R.string.tooldetail_clipboard_max_info),
                     ) { scope.launch { repository.setClipboardMaxItems(it.toInt()) } }
                 }
                 item {
                     ToggleSetting(
-                        "Bottom control row",
-                        "Show an abc, space and backspace row at the bottom of the " +
-                            "clipboard panel, like the emoji panel.",
+                        stringResource(R.string.tooldetail_clipboard_bottom_row_title),
+                        stringResource(R.string.tooldetail_clipboard_bottom_row_subtitle),
                         settings.clipboard.bottomRow,
                     ) { scope.launch { repository.setClipboardBottomRow(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Pinned entries last",
-                        "List pinned clips at the end of the panel instead of the top.",
+                        stringResource(R.string.tooldetail_clipboard_pinned_last_title),
+                        stringResource(R.string.tooldetail_clipboard_pinned_last_subtitle),
                         settings.clipboard.pinnedLast,
                     ) { scope.launch { repository.setClipboardPinnedLast(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Search bar",
-                        "Show a search bar at the top of the clipboard panel to filter " +
-                            "history as you type.",
+                        stringResource(R.string.tooldetail_clipboard_search_title),
+                        stringResource(R.string.tooldetail_clipboard_search_subtitle),
                         settings.clipboard.search,
                     ) { scope.launch { repository.setClipboardSearch(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Detect codes, numbers & links",
-                        "Pull one-time codes, phone numbers and links out of your clips " +
-                            "and offer each one as its own chip.",
+                        stringResource(R.string.tooldetail_clipboard_entities_title),
+                        stringResource(R.string.tooldetail_clipboard_entities_subtitle),
                         settings.clipboard.detectEntities,
-                        info = "The chips sit above the history in dashed outlines, so they " +
-                            "read as parts of a clip rather than clips of their own — " +
-                            "press and hold one to see it highlighted inside the entry it " +
-                            "came from. Tapping pastes only that fragment; the clip itself " +
-                            "stays put. Detection runs entirely on the device.",
+                        info = stringResource(R.string.tooldetail_clipboard_entities_info),
                     ) { scope.launch { repository.setClipboardDetectEntities(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Forget after pasting a password",
-                        "Delete a clip from history and from the system clipboard as " +
-                            "soon as it is pasted into a password field.",
+                        stringResource(R.string.tooldetail_clipboard_password_paste_title),
+                        stringResource(R.string.tooldetail_clipboard_password_paste_subtitle),
                         settings.clipboard.clearAfterPasswordPaste,
-                        info = "Every app on the device can read the system clipboard, so a " +
-                            "password pasted out of a manager would otherwise sit there " +
-                            "readable until it expired. Applies to pastes made with the " +
-                            "keyboard — the clipboard panel, the paste chip, hold-V and " +
-                            "Ctrl+V — into a password field. On by default.",
+                        info = stringResource(R.string.tooldetail_clipboard_password_paste_info),
                     ) { scope.launch { repository.setClipboardClearAfterPasswordPaste(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Link previews",
-                        "Fetch the page title of copied links and show it in the panel. " +
-                            "This contacts the linked site.",
+                        stringResource(R.string.tooldetail_clipboard_link_previews_title),
+                        stringResource(R.string.tooldetail_clipboard_link_previews_subtitle),
                         settings.clipboard.linkPreviews,
                     ) { scope.launch { repository.setClipboardLinkPreviews(it) } }
                 }
                 item {
                     val context = LocalContext.current
                     ToggleSetting(
-                        "User screenshots",
-                        "Show user screenshots in the clipboard alongside copied text and images.",
+                        stringResource(R.string.tooldetail_clipboard_screenshots_title),
+                        stringResource(R.string.tooldetail_clipboard_screenshots_subtitle),
                         settings.clipboard.userScreenshots,
                     ) { on ->
                         scope.launch { repository.setClipboardUserScreenshots(on) }
@@ -6527,8 +6647,8 @@ private fun ToolDetailSettings(
                     item {
                         val context = LocalContext.current
                         NavRow(
-                            "Storage permission required",
-                            "Open system settings to grant it",
+                            stringResource(R.string.tooldetail_clipboard_storage_permission_title),
+                            stringResource(R.string.tooldetail_clipboard_storage_permission_subtitle),
                         ) {
                             runCatching {
                                 context.startActivity(
@@ -6544,13 +6664,10 @@ private fun ToolDetailSettings(
                     val context = LocalContext.current
                     val usageAccess = rememberDisclosedSpecialAccess(SpecialAccess.USAGE)
                     ToggleSetting(
-                        "Show source app",
-                        "Record which app a clip was copied from, shown when you press " +
-                            "and hold an entry. Needs Usage Access permission.",
+                        stringResource(R.string.tooldetail_clipboard_track_source_title),
+                        stringResource(R.string.tooldetail_clipboard_track_source_subtitle),
                         settings.clipboard.trackSource,
-                        info = "Best-effort: it reads the foreground app at copy time via " +
-                            "Usage Access. Some copies (e.g. from background sync) may have no " +
-                            "source. Nothing about your app usage leaves the device.",
+                        info = stringResource(R.string.tooldetail_clipboard_track_source_info),
                     ) { on ->
                         scope.launch { repository.setClipboardTrackSource(on) }
                         // Disclosure then the grant screen, the first time they
@@ -6563,55 +6680,42 @@ private fun ToolDetailSettings(
                     item {
                         val usageAccessRow = rememberDisclosedSpecialAccess(SpecialAccess.USAGE)
                         NavRow(
-                            "Usage Access permission required",
-                            "Without it, clips are saved with no source app",
+                            stringResource(R.string.tooldetail_clipboard_usage_permission_title),
+                            stringResource(R.string.tooldetail_clipboard_usage_permission_subtitle),
                         ) { usageAccessRow() }
                     }
                 }
             }
-            SettingsGroup("Passwords & codes") {
+            SettingsGroup(stringResource(R.string.tooldetail_clipboard_sensitive_group)) {
                 item {
                     ChoiceSetting(
-                        title = "Sensitive clips",
-                        subtitle = "What to do with a copied password or one-time code",
-                        info = "Android lets an app mark what it puts on the clipboard as " +
-                            "sensitive, which is what a password manager does when you copy " +
-                            "a login. Nothing else on the phone acts on that mark, so this " +
-                            "is where it is honoured. Hidden clips show as dots in the " +
-                            "panel, are never offered as a paste chip, are left out of " +
-                            "settings backups, and delete themselves on the short timer " +
-                            "below instead of the history expiry. Pinning one overrides all " +
-                            "of that — pinning is an explicit \"keep this\".",
-                        options = SensitiveClipHandling.entries.map { it to it.label },
+                        title = stringResource(R.string.tooldetail_clipboard_sensitive_title),
+                        subtitle = stringResource(R.string.tooldetail_clipboard_sensitive_subtitle),
+                        info = stringResource(R.string.tooldetail_clipboard_sensitive_info),
+                        options = SensitiveClipHandling.entries.map { it to stringResource(it.labelRes) },
                         selected = settings.clipboard.sensitiveHandling,
                     ) { scope.launch { repository.setClipboardSensitiveHandling(it) } }
                 }
                 if (settings.clipboard.sensitiveHandling != SensitiveClipHandling.KEEP) {
                     item {
                         ToggleSetting(
-                            "Recognise them yourself",
-                            "Also treat clips that look like a password or a bare " +
-                                "verification code as sensitive, not only the ones the " +
-                                "copying app marks.",
+                            stringResource(R.string.tooldetail_clipboard_detect_sensitive_title),
+                            stringResource(R.string.tooldetail_clipboard_detect_sensitive_subtitle),
                             settings.clipboard.detectSensitive,
-                            info = "Most password managers still predate Android's sensitive " +
-                                "flag, and a code copied by hand out of a message carries no " +
-                                "flag at all. Detection runs entirely on the device and is " +
-                                "deliberately narrow: a clip qualifies only when the whole " +
-                                "of it is one token — a short run of capitals and digits, or " +
-                                "a long mix of cases, digits and symbols. Sentences, links " +
-                                "and email addresses never match.",
+                            info = stringResource(R.string.tooldetail_clipboard_detect_sensitive_info),
                         ) { scope.launch { repository.setClipboardDetectSensitive(it) } }
                     }
                 }
                 if (settings.clipboard.sensitiveHandling == SensitiveClipHandling.SHORT_LIVED) {
                     item {
                         SliderSetting(
-                            "Forget sensitive clips after",
-                            subtitle = "Independent of the history expiry above",
+                            stringResource(R.string.tooldetail_clipboard_sensitive_expiry_title),
+                            subtitle = stringResource(
+                                R.string.tooldetail_clipboard_sensitive_expiry_subtitle,
+                            ),
                             value = settings.clipboard.sensitiveExpiryMinutes.toFloat(),
                             range = 1f..120f,
-                            display = { "${it.toInt()} min" },
+                            display = { minutesFormat.format(it.toInt()) },
                         ) {
                             scope.launch { repository.setClipboardSensitiveExpiryMinutes(it.toInt()) }
                         }
@@ -6619,143 +6723,135 @@ private fun ToolDetailSettings(
                 }
             }
         }
-        ToolbarTool.SPLIT -> SettingsGroup("Options") {
+        ToolbarTool.SPLIT -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 SliderSetting(
-                    "Split gap",
-                    subtitle = "Width of the gap between the halves",
+                    stringResource(R.string.tooldetail_split_gap_title),
+                    subtitle = stringResource(R.string.tooldetail_split_gap_subtitle),
                     value = settings.splitGapPercent.toFloat(),
                     range = 5f..40f,
-                    display = { "${it.toInt()}%" },
+                    display = { percentFormat.format(it.toInt()) },
                 ) { scope.launch { repository.setSplitGapPercent(it.toInt()) } }
             }
             item {
                 NavRow(
-                    "All layout & size settings",
-                    "Keyboard height, width, alignment and split",
+                    stringResource(R.string.tooldetail_layout_nav_title),
+                    stringResource(R.string.tooldetail_layout_nav_split_subtitle),
                     onClick = { onNavigate("layout") },
                 )
             }
         }
-        ToolbarTool.FLOATING -> SettingsGroup("Options") {
+        ToolbarTool.FLOATING -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 SliderSetting(
-                    "Floating keyboard width",
-                    subtitle = "Also adjustable by dragging the panel's corner grip",
+                    stringResource(R.string.tooldetail_floating_width_title),
+                    subtitle = stringResource(R.string.tooldetail_floating_width_subtitle),
                     value = settings.floatingWidthDp.toFloat(),
                     range = 240f..500f,
-                    display = { "${it.toInt()} dp" },
+                    display = { dpFormat.format(it.toInt()) },
                 ) { scope.launch { repository.setFloatingWidthDp(it.toInt()) } }
             }
             item {
                 NavRow(
-                    "All layout & size settings",
-                    "Keyboard height, width, alignment and floating mode",
+                    stringResource(R.string.tooldetail_layout_nav_title),
+                    stringResource(R.string.tooldetail_layout_nav_floating_subtitle),
                     onClick = { onNavigate("layout") },
                 )
             }
         }
-        ToolbarTool.FLASHLIGHT -> SettingsGroup("Options") {
+        ToolbarTool.FLASHLIGHT -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
-                    "Auto-off with keyboard",
-                    "Turn the torch off when the keyboard is dismissed",
+                    stringResource(R.string.tooldetail_flashlight_auto_off_title),
+                    stringResource(R.string.tooldetail_flashlight_auto_off_subtitle),
                     settings.flashlightAutoOff,
-                    info = "On: closing the keyboard (or switching apps) switches the " +
-                        "torch off with it, so it is never left burning in your " +
-                        "pocket. Off: the torch stays on until toggled again — from " +
-                        "the tool or from the system quick-settings tile.",
+                    info = stringResource(R.string.tooldetail_flashlight_auto_off_info),
                 ) { scope.launch { repository.setFlashlightAutoOff(it) } }
             }
         }
         ToolbarTool.COMPASS -> {
-            SettingsGroup("Options") {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        "Degree readout",
-                        "Show the numeric heading under the compass rose",
+                        stringResource(R.string.tooldetail_compass_degrees_title),
+                        stringResource(R.string.tooldetail_compass_degrees_subtitle),
                         settings.compassShowDegrees,
                     ) { scope.launch { repository.setCompassShowDegrees(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Show qibla",
-                        "Mark the direction of the Kaaba on the compass",
+                        stringResource(R.string.tooldetail_compass_qibla_title),
+                        stringResource(R.string.tooldetail_compass_qibla_subtitle),
                         settings.compassShowQibla,
-                        info = "The qibla bearing is computed from the location saved in the " +
-                            "weather tool's settings (the two tools share it). Everything is " +
-                            "calculated on-device; the compass never touches the network.",
+                        info = stringResource(R.string.tooldetail_compass_qibla_info),
                     ) { scope.launch { repository.setCompassShowQibla(it) } }
                 }
             }
             if (settings.compassShowQibla && settings.weatherLatitude == null) {
                 CaptionText(
-                    "No location saved yet — set one under Tools → Weather.",
+                    stringResource(R.string.tooldetail_compass_no_location_error),
                     error = true,
                 )
             }
         }
-        ToolbarTool.LEVEL -> SettingsGroup("Options") {
+        ToolbarTool.LEVEL -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
-                    "Angle readout",
-                    "Show pitch and roll in degrees under the bubble",
+                    stringResource(R.string.tooldetail_level_angles_title),
+                    stringResource(R.string.tooldetail_level_angles_subtitle),
                     settings.levelShowAngles,
                 ) { scope.launch { repository.setLevelShowAngles(it) } }
             }
         }
-        ToolbarTool.UNDO, ToolbarTool.REDO -> SettingsGroup("Options") {
-            item {
-                ToggleSetting(
-                    "Redo sends Ctrl+Y",
-                    "Instead of the default Ctrl+Shift+Z",
-                    settings.redoUsesCtrlY,
-                    info = "Both are standard redo shortcuts; which one works depends " +
-                        "on the app you are typing in. If redo does nothing, try " +
-                        "the other one.",
-                ) { scope.launch { repository.setRedoUsesCtrlY(it) } }
+        ToolbarTool.UNDO, ToolbarTool.REDO ->
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
+                item {
+                    ToggleSetting(
+                        stringResource(R.string.tooldetail_redo_ctrl_y_title),
+                        stringResource(R.string.tooldetail_redo_ctrl_y_subtitle),
+                        settings.redoUsesCtrlY,
+                        info = stringResource(R.string.tooldetail_redo_ctrl_y_info),
+                    ) { scope.launch { repository.setRedoUsesCtrlY(it) } }
+                }
             }
-        }
-        ToolbarTool.MOON_PHASE -> SettingsGroup("Options") {
+        ToolbarTool.MOON_PHASE -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
-                    "Southern hemisphere",
-                    "Mirror the moon the way it appears south of the equator",
+                    stringResource(R.string.tooldetail_moon_southern_title),
+                    stringResource(R.string.tooldetail_moon_southern_subtitle),
                     settings.moonSouthernHemisphere,
                 ) { scope.launch { repository.setMoonSouthernHemisphere(it) } }
             }
         }
         ToolbarTool.WEATHER -> {
-            SettingsGroup("Options") {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item { WeatherLocationSetting(repository, settings) }
                 item {
                     ToggleSetting(
-                        "Fahrenheit", "Show temperatures in °F instead of °C",
+                        stringResource(R.string.tooldetail_weather_fahrenheit_title),
+                        stringResource(R.string.tooldetail_weather_fahrenheit_subtitle),
                         settings.weatherFahrenheit,
                     ) { scope.launch { repository.setWeatherFahrenheit(it) } }
                 }
             }
-            CaptionText(
-                "Weather and place search both use Open-Meteo, only when you use " +
-                    "them — the keyboard makes no other network requests.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_weather_info))
         }
         ToolbarTool.CALENDAR -> {
             val showsHijri = settings.calendarAltOne == AltCalendar.HIJRI ||
                 settings.calendarAltTwo == AltCalendar.HIJRI
-            SettingsGroup("Alongside the Gregorian calendar") {
+            SettingsGroup(stringResource(R.string.tooldetail_calendar_group)) {
                 item {
                     AltCalendarSetting(
-                        title = "First calendar",
-                        subtitle = "Its day number also rides inside each day cell",
+                        title = stringResource(R.string.tooldetail_calendar_first_title),
+                        subtitle = stringResource(R.string.tooldetail_calendar_first_subtitle),
                         selected = settings.calendarAltOne,
                         onChange = { scope.launch { repository.setCalendarAltOne(it) } },
                     )
                 }
                 item {
                     AltCalendarSetting(
-                        title = "Second calendar",
-                        subtitle = "Shown in the header and under the selected day",
+                        title = stringResource(R.string.tooldetail_calendar_second_title),
+                        subtitle = stringResource(R.string.tooldetail_calendar_second_subtitle),
                         selected = settings.calendarAltTwo,
                         onChange = { scope.launch { repository.setCalendarAltTwo(it) } },
                     )
@@ -6768,189 +6864,145 @@ private fun ToolDetailSettings(
                 if (showsHijri) {
                     item {
                         SliderSetting(
-                            "Hijri day adjustment",
-                            subtitle = "Shift the computed Hijri date to match local moon sighting",
+                            stringResource(R.string.tooldetail_calendar_hijri_title),
+                            subtitle = stringResource(R.string.tooldetail_calendar_hijri_subtitle),
                             value = settings.hijriAdjustDays.toFloat(),
                             range = -2f..2f,
                             display = { days ->
                                 val d = days.roundToInt()
-                                if (d > 0) "+$d d" else "$d d"
+                                if (d > 0) daysAheadFormat.format(d) else daysFormat.format(d)
                             },
-                            info = "The tool uses the arithmetic (tabular) Hijri calendar. " +
-                                "Real Islamic months begin at the sighting of the crescent, " +
-                                "which can differ from the tables by a day or two either " +
-                                "way — set the offset that matches your local authority.",
+                            info = stringResource(R.string.tooldetail_calendar_hijri_info),
                         ) { scope.launch { repository.setHijriAdjustDays(it.roundToInt()) } }
                     }
                 }
             }
-            CaptionText(
-                "Pick any two calendars to show next to the Gregorian one. Chinese dates " +
-                    "are computed astronomically; Hebrew, Persian, Hindu (Saka), Buddhist " +
-                    "and Japanese are exact arithmetic; Hijri is the tabular calendar, so " +
-                    "it has the day offset above.\n\n" +
-                    "All three start from your phone's region — the Bengali calendar in " +
-                    "Bangladesh, era years in Japan, a Friday–Saturday weekend across much " +
-                    "of the Middle East. That is only a guess at what you'd want; change " +
-                    "any of it here.",
-            )
-            CaptionText(
-                "Tapping a day shows its events from your device calendar. The keyboard " +
-                    "asks for calendar access the first time you open the tool; it only " +
-                    "reads events, never changes them.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_calendar_info))
+            CaptionText(stringResource(R.string.tooldetail_calendar_events_info))
         }
         ToolbarTool.CAMERA -> {
-            SettingsGroup("Options") {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        "Start with the selfie camera",
-                        "Open the tool on the front camera instead of the back one",
+                        stringResource(R.string.tooldetail_camera_front_title),
+                        stringResource(R.string.tooldetail_camera_front_subtitle),
                         settings.camera.preferFront,
                     ) { scope.launch { repository.setCameraPreferFront(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Mirror selfies",
-                        "Save front-camera photos the way the preview shows them",
+                        stringResource(R.string.tooldetail_camera_mirror_title),
+                        stringResource(R.string.tooldetail_camera_mirror_subtitle),
                         settings.camera.mirrorFront,
-                        info = "Camera sensors record selfies un-mirrored (text reads " +
-                            "correctly, but the photo looks flipped compared to the " +
-                            "preview). On: the saved photo matches what you saw while " +
-                            "framing. Off: keep the sensor's true orientation.",
+                        info = stringResource(R.string.tooldetail_camera_mirror_info),
                     ) { scope.launch { repository.setCameraMirrorFront(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Save to gallery",
-                        "Also keep captures in Pictures/WM Keyboard",
+                        stringResource(R.string.tooldetail_camera_gallery_title),
+                        stringResource(R.string.tooldetail_camera_gallery_subtitle),
                         settings.camera.saveToGallery,
-                        info = "Off by default: photos taken here are normally " +
-                            "one-shot sends, not keepsakes. On: every capture is " +
-                            "copied into the gallery as well as sent.",
+                        info = stringResource(R.string.tooldetail_camera_gallery_info),
                     ) { scope.launch { repository.setCameraSaveToGallery(it) } }
                 }
             }
-            SettingsGroup("Feedback") {
+            SettingsGroup(stringResource(R.string.tooldetail_camera_feedback_group)) {
                 item {
                     ToggleSetting(
-                        "Shutter sound",
-                        "Play the camera click when a photo is taken",
+                        stringResource(R.string.tooldetail_camera_shutter_title),
+                        stringResource(R.string.tooldetail_camera_shutter_subtitle),
                         settings.camera.shutterSound,
                     ) { scope.launch { repository.setCameraShutterSound(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Haptics",
-                        "Vibrate on the shutter, controls and timer countdown",
+                        stringResource(R.string.tooldetail_camera_haptics_title),
+                        stringResource(R.string.tooldetail_camera_haptics_subtitle),
                         settings.camera.haptics,
-                        info = "Uses the keyboard's haptic style and strength " +
-                            "(Typing → Feedback). If keyboard haptics are off " +
-                            "entirely, the camera tool stays silent too.",
+                        info = stringResource(R.string.tooldetail_camera_haptics_info),
                     ) { scope.launch { repository.setCameraHaptics(it) } }
                 }
             }
-            CaptionText(
-                "Photos are cropped to what the viewfinder shows, saved in the " +
-                    "app's private storage and sent straight into the chat. " +
-                    "Nothing is added to your gallery, and the camera runs only " +
-                    "while the tool is open.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_camera_info))
         }
         ToolbarTool.DICTIONARY -> {
-            SettingsGroup("Options") {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        "Look up the word at the cursor",
-                        "Opening the tool searches the selected or current word",
+                        stringResource(R.string.tooldetail_dictionary_auto_title),
+                        stringResource(R.string.tooldetail_dictionary_auto_subtitle),
                         settings.dictionaryAutoLookup,
                     ) { scope.launch { repository.setDictionaryAutoLookup(it) } }
                 }
             }
-            CaptionText(
-                "Definitions come from the Free Dictionary API " +
-                    "(dictionaryapi.dev). The word you look up is sent to that " +
-                    "service — only when you use the tool.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_dictionary_info))
         }
-        ToolbarTool.TEXT_EDIT -> SettingsGroup("Options") {
+        ToolbarTool.TEXT_EDIT -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 SliderSetting(
-                    "Key repeat interval",
-                    subtitle = "Pause between repeats while holding an arrow or " +
-                        "backspace — lower is faster",
+                    stringResource(R.string.tooldetail_text_edit_repeat_title),
+                    subtitle = stringResource(R.string.tooldetail_text_edit_repeat_subtitle),
                     value = settings.textEditing.repeatMs.toFloat(),
                     range = 30f..200f,
-                    display = { "${it.toInt()} ms" },
+                    display = { msFormat.format(it.toInt()) },
                 ) { scope.launch { repository.setTextEditRepeatMs(it.toInt()) } }
             }
         }
-        ToolbarTool.NUMPAD -> SettingsGroup("Options") {
+        ToolbarTool.NUMPAD -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
-                    "Calculator-style layout",
-                    "7 8 9 on the top row, like a desk keypad. Off puts 1 2 3 " +
-                        "on top, like a dialer.",
+                    stringResource(R.string.tooldetail_numpad_calc_title),
+                    stringResource(R.string.tooldetail_numpad_calc_subtitle),
                     settings.numpadCalculatorLayout,
                 ) { scope.launch { repository.setNumpadCalculatorLayout(it) } }
             }
         }
         ToolbarTool.INCOGNITO -> {
-            SettingsGroup("While incognito") {
+            SettingsGroup(stringResource(R.string.tooldetail_incognito_group)) {
                 item {
                     ToggleSetting(
-                        "Pause learning",
-                        "No words or emoji habits are learned from typing",
+                        stringResource(R.string.tooldetail_incognito_learning_title),
+                        stringResource(R.string.tooldetail_incognito_learning_subtitle),
                         settings.incognitoPausesLearning,
                     ) { scope.launch { repository.setIncognitoPausesLearning(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Pause clipboard capture",
-                        "Copies don't join the clipboard tool's history",
+                        stringResource(R.string.tooldetail_incognito_clipboard_title),
+                        stringResource(R.string.tooldetail_incognito_clipboard_subtitle),
                         settings.incognitoPausesClipboard,
                     ) { scope.launch { repository.setIncognitoPausesClipboard(it) } }
                 }
             }
-            SettingsGroup("Automatic") {
+            SettingsGroup(stringResource(R.string.tooldetail_incognito_auto_group)) {
                 item {
                     ToggleSetting(
-                        "Follow private browsing",
-                        "Switch on by itself in incognito tabs and private fields",
+                        stringResource(R.string.tooldetail_incognito_auto_title),
+                        stringResource(R.string.tooldetail_incognito_auto_subtitle),
                         settings.autoIncognito,
-                        info = AUTO_INCOGNITO_INFO,
+                        info = stringResource(AUTO_INCOGNITO_INFO),
                     ) { scope.launch { repository.setAutoIncognito(it) } }
                 }
             }
-            CaptionText(
-                "Tapping the tool turns incognito on; tapping again resumes " +
-                    "normal typing. Same switch as Settings → Privacy.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_incognito_info))
         }
         ToolbarTool.POWER_SAVING -> {
             val ps = settings.powerSaving
-            SettingsGroup("Power saving") {
+            SettingsGroup(stringResource(R.string.tooldetail_power_group)) {
                 item {
                     ToggleSetting(
-                        "Power saving now",
-                        "The same switch the toolbar tool flips",
+                        stringResource(R.string.tooldetail_power_now_title),
+                        stringResource(R.string.tooldetail_power_now_subtitle),
                         ps.manual,
-                        info = "Drops the features below until you turn it back off. It stays " +
-                            "on across restarts and whatever the battery is doing — a full " +
-                            "battery does not switch it off again.\n\n" +
-                            "Nothing is saved over: the features come back exactly as you had " +
-                            "them, because power saving never rewrites your settings, it only " +
-                            "hides them while it is on.",
+                        info = stringResource(R.string.tooldetail_power_now_info),
                     ) { scope.launch { repository.setPowerSavingManual(it) } }
                 }
                 item {
                     ChoiceSetting(
-                        "Switch on by itself",
-                        subtitle = "As well as the switch above",
-                        info = "\"Android's battery saver\" follows the system switch, so the " +
-                            "keyboard economizes exactly when you have already asked the phone " +
-                            "to. \"Battery is low\" uses your own percentage below instead.",
-                        options = PowerSavingTrigger.entries.map { it to it.label },
+                        stringResource(R.string.tooldetail_power_trigger_title),
+                        subtitle = stringResource(R.string.tooldetail_power_trigger_subtitle),
+                        info = stringResource(R.string.tooldetail_power_trigger_info),
+                        options = PowerSavingTrigger.entries.map { it to stringResource(it.labelRes) },
                         selected = ps.trigger,
                     ) { scope.launch { repository.setPowerSavingTrigger(it) } }
                 }
@@ -6959,138 +7011,122 @@ private fun ToolDetailSettings(
                 ) {
                     item {
                         SliderSetting(
-                            "Low battery is",
-                            subtitle = "Power saving starts at or below this level",
+                            stringResource(R.string.tooldetail_power_battery_title),
+                            subtitle = stringResource(R.string.tooldetail_power_battery_subtitle),
                             value = ps.batteryPercent.toFloat(),
                             range = 5f..50f,
-                            display = { "${it.toInt()}%" },
+                            display = { percentFormat.format(it.toInt()) },
                         ) { scope.launch { repository.setPowerSavingBatteryPercent(it.toInt()) } }
                     }
                 }
                 if (ps.trigger != PowerSavingTrigger.OFF) {
                     item {
                         ToggleSetting(
-                            "Off while charging",
-                            "Ignore the automatic triggers with the charger in",
+                            stringResource(R.string.tooldetail_power_charging_title),
+                            stringResource(R.string.tooldetail_power_charging_subtitle),
                             ps.offWhileCharging,
-                            info = "There is nothing to save while the battery is filling, so " +
-                                "the automatic triggers stand down. The switch above is " +
-                                "unaffected — turning power saving on by hand means it.",
+                            info = stringResource(R.string.tooldetail_power_charging_info),
                         ) { scope.launch { repository.setPowerSavingOffWhileCharging(it) } }
                     }
                 }
             }
-            SettingsGroup("What to drop") {
+            SettingsGroup(stringResource(R.string.tooldetail_power_drop_group)) {
                 item {
                     ToggleSetting(
-                        "Key vibration",
-                        "Silence the vibration motor",
+                        stringResource(R.string.tooldetail_power_drop_haptics_title),
+                        stringResource(R.string.tooldetail_power_drop_haptics_subtitle),
                         ps.dropHaptics,
                     ) { scope.launch { repository.setPowerSavingDropHaptics(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Key sounds",
-                        "Stop playing the key click",
+                        stringResource(R.string.tooldetail_power_drop_sound_title),
+                        stringResource(R.string.tooldetail_power_drop_sound_subtitle),
                         ps.dropKeySound,
                     ) { scope.launch { repository.setPowerSavingDropKeySound(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Animations",
-                        "Cut transitions and motion, as reduced motion does",
+                        stringResource(R.string.tooldetail_power_drop_anim_title),
+                        stringResource(R.string.tooldetail_power_drop_anim_subtitle),
                         ps.dropAnimations,
                     ) { scope.launch { repository.setPowerSavingDropAnimations(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Glide trail",
-                        "Stop drawing the trail behind a swiped word",
+                        stringResource(R.string.tooldetail_power_drop_trail_title),
+                        stringResource(R.string.tooldetail_power_drop_trail_subtitle),
                         ps.dropGlideTrail,
-                        info = "Only the trail — swiping to type still works. The trail is " +
-                            "redrawn every frame of a gesture, so it costs more than the " +
-                            "decode it decorates.",
+                        info = stringResource(R.string.tooldetail_power_drop_trail_info),
                     ) { scope.launch { repository.setPowerSavingDropGlideTrail(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Key popup",
-                        "Stop showing the character bubble over each key",
+                        stringResource(R.string.tooldetail_power_drop_popup_title),
+                        stringResource(R.string.tooldetail_power_drop_popup_subtitle),
                         ps.dropKeyPopup,
                     ) { scope.launch { repository.setPowerSavingDropKeyPopup(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Gesture typing",
-                        "Turn swipe-to-type off entirely",
+                        stringResource(R.string.tooldetail_power_drop_glide_title),
+                        stringResource(R.string.tooldetail_power_drop_glide_subtitle),
                         ps.dropGestureTyping,
-                        info = "Decoding a swipe is the most expensive thing the keyboard " +
-                            "does, but it is also why many people use it — so this is off by " +
-                            "default and only the trail is dropped.",
+                        info = stringResource(R.string.tooldetail_power_drop_glide_info),
                     ) { scope.launch { repository.setPowerSavingDropGestureTyping(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Emoji suggestions",
-                        "Stop scanning what you type for emoji to offer",
+                        stringResource(R.string.tooldetail_power_drop_emoji_title),
+                        stringResource(R.string.tooldetail_power_drop_emoji_subtitle),
                         ps.dropEmojiPrediction,
                     ) { scope.launch { repository.setPowerSavingDropEmojiPrediction(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Smart chips",
-                        "Stop matching sums, conversions and tool keywords as you type",
+                        stringResource(R.string.tooldetail_power_drop_chips_title),
+                        stringResource(R.string.tooldetail_power_drop_chips_subtitle),
                         ps.dropSmartChips,
                     ) { scope.launch { repository.setPowerSavingDropSmartChips(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Background network",
-                        "No link previews or automatic look-ups",
+                        stringResource(R.string.tooldetail_power_drop_network_title),
+                        stringResource(R.string.tooldetail_power_drop_network_subtitle),
                         ps.dropBackgroundNetwork,
-                        info = "Stops the fetches that happen without being asked: previews " +
-                            "for copied links and scanned QR codes, and the dictionary's " +
-                            "look-up when you select a word. Tools you open yourself — " +
-                            "translate, search, GIFs — still work.",
+                        info = stringResource(R.string.tooldetail_power_drop_network_info),
                     ) { scope.launch { repository.setPowerSavingDropBackgroundNetwork(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Screenshot watching",
-                        "Stop watching for new screenshots to offer in the clipboard",
+                        stringResource(R.string.tooldetail_power_drop_screenshot_title),
+                        stringResource(R.string.tooldetail_power_drop_screenshot_subtitle),
                         ps.dropScreenshotWatch,
                     ) { scope.launch { repository.setPowerSavingDropScreenshotWatch(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "On-device models",
-                        "Dictate through the system recognizer, and swipe to type not to write",
+                        stringResource(R.string.tooldetail_power_drop_models_title),
+                        stringResource(R.string.tooldetail_power_drop_models_subtitle),
                         ps.dropOnDeviceModels,
-                        info = "Offline dictation and handwriting both run a neural model on " +
-                            "the CPU, which is as expensive as the keyboard gets. Dictation " +
-                            "falls back to the system recognizer and the letter swipe goes " +
-                            "back to gliding words.",
+                        info = stringResource(R.string.tooldetail_power_drop_models_info),
                     ) { scope.launch { repository.setPowerSavingDropOnDeviceModels(it) } }
                 }
             }
-            CaptionText(
-                "Power saving is a view of your settings, never a rewrite of them: " +
-                    "everything switched off here comes back exactly as you had it the " +
-                    "moment power saving ends.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_power_info))
         }
-        ToolbarTool.AUTOCORRECT -> SettingsGroup("Options") {
+        ToolbarTool.AUTOCORRECT -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
-                    "Autocorrect",
-                    "The tool flips this same switch (also under Typing)",
+                    stringResource(R.string.tooldetail_autocorrect_title),
+                    stringResource(R.string.tooldetail_autocorrect_subtitle),
                     settings.autocorrect,
                 ) { scope.launch { repository.setAutocorrect(it) } }
             }
             item {
                 NavRow(
-                    "All typing settings",
-                    "Suggestions, autocorrect, capitalization and more",
+                    stringResource(R.string.tooldetail_typing_nav_title),
+                    stringResource(R.string.tooldetail_typing_nav_subtitle),
                     onClick = { onNavigate("typing") },
                 )
             }
@@ -7099,189 +7135,161 @@ private fun ToolDetailSettings(
             KeySoundGroup(repository, settings) {
                 item {
                     NavRow(
-                        "All key press settings",
-                        "Haptic style and strength, key preview, long-press",
+                        stringResource(R.string.tooldetail_keypress_nav_title),
+                        stringResource(R.string.tooldetail_keypress_nav_subtitle),
                         onClick = { onNavigate("keypress") },
                     )
                 }
             }
-            CaptionText(
-                "Haptic style and strength live under Key press → Haptic feedback; " +
-                    "the tool's panel changes the same settings from the keyboard.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_sound_haptics_info))
         }
         ToolbarTool.HANDWRITING -> {
-            SettingsGroup("Input") {
+            SettingsGroup(stringResource(R.string.tooldetail_handwriting_input_group)) {
                 item {
                     ToggleSetting(
-                        "Stylus only",
-                        "Only an S Pen or other stylus draws; finger touches are ignored",
+                        stringResource(R.string.tooldetail_handwriting_stylus_title),
+                        stringResource(R.string.tooldetail_handwriting_stylus_subtitle),
                         settings.handwritingStylusOnly,
-                        info = "Useful for palm rejection while writing with a stylus. Even " +
-                            "with this off, finger touches are briefly ignored right after " +
-                            "stylus strokes, so a resting palm doesn't scribble.",
+                        info = stringResource(R.string.tooldetail_handwriting_stylus_info),
                     ) { scope.launch { repository.setHandwritingStylusOnly(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Auto space",
-                        "Insert a space between consecutively written words",
+                        stringResource(R.string.tooldetail_handwriting_auto_space_title),
+                        stringResource(R.string.tooldetail_handwriting_auto_space_subtitle),
                         settings.handwritingAutoSpace,
                     ) { scope.launch { repository.setHandwritingAutoSpace(it) } }
                 }
                 item {
                     SliderSetting(
-                        "Recognition pause",
-                        subtitle = "How long after the last stroke before the word is recognized",
+                        stringResource(R.string.tooldetail_handwriting_pause_title),
+                        subtitle = stringResource(R.string.tooldetail_handwriting_pause_subtitle),
                         value = settings.handwritingCommitDelayMs.toFloat(),
                         range = 300f..2000f,
-                        display = { "${it.roundToInt()} ms" },
-                        info = "Shorter feels snappier but can cut multi-stroke letters and " +
-                            "Bengali conjuncts in half; longer gives you more time between " +
-                            "strokes. Gboard uses roughly half a second.",
+                        display = { msFormat.format(it.roundToInt()) },
+                        info = stringResource(R.string.tooldetail_handwriting_pause_info),
                     ) { scope.launch { repository.setHandwritingCommitDelayMs(it.roundToInt()) } }
                 }
             }
-            SectionHeader("Recognition models")
-            CaptionText(
-                "One model per language you type in. Recognition runs fully on-device " +
-                    "with Google ML Kit; each language needs a one-time download (about " +
-                    "20 MB), and after that handwriting works offline.",
-            )
+            SectionHeader(stringResource(R.string.tooldetail_handwriting_models_header))
+            CaptionText(stringResource(R.string.tooldetail_handwriting_models_info))
             HandwritingModelManager(settings)
             SettingsGroup {
                 item {
                     NavRow(
-                        "Languages & layouts",
-                        "Add a language to get its handwriting model here",
+                        stringResource(R.string.tooldetail_handwriting_languages_title),
+                        stringResource(R.string.tooldetail_handwriting_languages_subtitle),
                         onClick = { onNavigate("languages") },
                     )
                 }
             }
         }
-        ToolbarTool.THEMES -> SettingsGroup("Options") {
+        ToolbarTool.THEMES -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 NavRow(
-                    "All theme settings",
-                    "Create, edit, import and export keyboard themes",
+                    stringResource(R.string.tooldetail_themes_nav_title),
+                    stringResource(R.string.tooldetail_themes_nav_subtitle),
                     onClick = { onNavigate("themes") },
                 )
             }
         }
-        ToolbarTool.ONE_HANDED -> SettingsGroup("Options") {
+        ToolbarTool.ONE_HANDED -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 NavRow(
-                    "All layout & size settings",
-                    "Keyboard height, width, alignment and one-handed mode",
+                    stringResource(R.string.tooldetail_layout_nav_title),
+                    stringResource(R.string.tooldetail_layout_nav_one_handed_subtitle),
                     onClick = { onNavigate("layout") },
                 )
             }
         }
         ToolbarTool.TRANSLATE -> {
-            SettingsGroup("Options") {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item { TranslateLanguageSetting(repository, settings) }
             }
-            SettingsGroup("API key") {
+            SettingsGroup(stringResource(R.string.tooldetail_translate_key_group)) {
                 item {
                     ApiKeyField(
-                        label = "Cloud Translation API key (optional)",
+                        label = stringResource(R.string.tooldetail_translate_key_label),
                         value = settings.translateApiKey,
                         builtInAvailable = ToolApiKeys.builtInTranslate,
-                        emptyHint = "Without a key, translation uses Google's free public endpoint",
+                        emptyHint = stringResource(R.string.tooldetail_translate_key_hint),
                     ) { repository.setTranslateApiKey(it) }
                 }
             }
-            CaptionText(
-                "Text you translate is sent to Google either way — only while the " +
-                    "translate panel is open. The free endpoint is unofficial and " +
-                    "rate-limited; a Cloud Translation key makes it official and reliable.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_translate_info))
         }
         ToolbarTool.GIF, ToolbarTool.STICKER -> {
             if (tool == ToolbarTool.STICKER) {
-                SettingsGroup("Your stickers") {
+                SettingsGroup(stringResource(R.string.tooldetail_sticker_packs_group)) {
                     item {
                         NavRow(
-                            "Sticker packs",
-                            "Make, edit, import and export packs of your own",
+                            stringResource(R.string.tooldetail_sticker_packs_title),
+                            stringResource(R.string.tooldetail_sticker_packs_subtitle),
                             route = "sticker_packs",
                             onClick = { onNavigate("sticker_packs") },
                         )
                     }
                 }
             }
-            SettingsGroup("Layout") {
+            SettingsGroup(stringResource(R.string.tooldetail_media_layout_group)) {
                 item {
                     ToggleSetting(
-                        "Full-screen picker",
-                        "Hide the toolbar and move search up next to a back button",
+                        stringResource(R.string.tooldetail_media_full_bleed_title),
+                        stringResource(R.string.tooldetail_media_full_bleed_subtitle),
                         settings.mediaFullBleed,
-                        info = "The GIF and sticker panels take over the whole keyboard: " +
-                            "the toolbar, emoji row and symbol row step aside and the search " +
-                            "box moves into the row they leave behind, so the grid gets every " +
-                            "pixel. Applies to both tools.",
+                        info = stringResource(R.string.tooldetail_media_full_bleed_info),
                     ) { scope.launch { repository.setMediaFullBleed(it) } }
                 }
             }
-            SettingsGroup("Sources & API keys") {
+            SettingsGroup(stringResource(R.string.tooldetail_media_keys_group)) {
                 item {
                     ApiKeyField(
-                        label = "Klipy API key",
+                        label = stringResource(R.string.tooldetail_media_klipy_label),
                         value = settings.klipyApiKey,
                         builtInAvailable = ToolApiKeys.builtInKlipy,
-                        emptyHint = "Free from partner.klipy.com (Tenor's API was retired mid-2026)",
+                        emptyHint = stringResource(R.string.tooldetail_media_klipy_hint),
                     ) { repository.setKlipyApiKey(it) }
                 }
                 item {
                     ApiKeyField(
-                        label = "GIPHY API key",
+                        label = stringResource(R.string.tooldetail_media_giphy_label),
                         value = settings.giphyApiKey,
                         builtInAvailable = ToolApiKeys.builtInGiphy,
-                        emptyHint = "Free from developers.giphy.com",
+                        emptyHint = stringResource(R.string.tooldetail_media_giphy_hint),
                     ) { repository.setGiphyApiKey(it) }
                 }
             }
-            CaptionText(
-                "The GIF and sticker tools share all of this, including the content " +
-                    "filter below. Any one key is enough; every configured source " +
-                    "shows up in the panel.",
-            )
-            SettingsGroup("Sending") {
+            CaptionText(stringResource(R.string.tooldetail_media_info))
+            // Resolved out here: the group builder lambda is not composable.
+            val stickerOption = stringResource(R.string.tooldetail_media_send_sticker_option)
+            val imageOption = stringResource(R.string.tooldetail_media_send_image_option)
+            SettingsGroup(stringResource(R.string.tooldetail_media_sending_group)) {
                 item {
                     ChoiceSetting(
-                        title = "Send stickers as",
-                        subtitle = "What the sticker tool hands the chat app",
-                        info = "Android has no sticker flag — the only signal is the " +
-                            "file's MIME type, and the receiving app decides. " +
-                            "Sticker: offer WhatsApp's sticker type first, so " +
-                            "stickers arrive as real stickers there; apps that " +
-                            "don't support it get a normal image instead. " +
-                            "Image: always send as a plain image.",
+                        title = stringResource(R.string.tooldetail_media_sticker_send_title),
+                        subtitle = stringResource(R.string.tooldetail_media_sticker_send_subtitle),
+                        info = stringResource(R.string.tooldetail_media_sticker_send_info),
                         options = listOf(
-                            MediaSendMode.STICKER to "Sticker",
-                            MediaSendMode.IMAGE to "Image",
+                            MediaSendMode.STICKER to stickerOption,
+                            MediaSendMode.IMAGE to imageOption,
                         ),
                         selected = settings.stickerSendMode,
                     ) { scope.launch { repository.setStickerSendMode(it) } }
                 }
                 item {
                     ChoiceSetting(
-                        title = "Send GIFs as",
-                        subtitle = "Images by default — most chat apps animate them",
-                        info = "Sticker mode only takes effect for GIFs the source " +
-                            "provides in WebP form. Android ships no animated-WebP " +
-                            "encoder, so a real animated GIF cannot be converted " +
-                            "into a sticker — those keep sending as images no " +
-                            "matter what this is set to.",
+                        title = stringResource(R.string.tooldetail_media_gif_send_title),
+                        subtitle = stringResource(R.string.tooldetail_media_gif_send_subtitle),
+                        info = stringResource(R.string.tooldetail_media_gif_send_info),
                         options = listOf(
-                            MediaSendMode.IMAGE to "Image",
-                            MediaSendMode.STICKER to "Sticker",
+                            MediaSendMode.IMAGE to imageOption,
+                            MediaSendMode.STICKER to stickerOption,
                         ),
                         selected = settings.gifSendMode,
                     ) { scope.launch { repository.setGifSendMode(it) } }
                 }
             }
-            SectionHeader("Multiple sources")
+            SectionHeader(stringResource(R.string.tooldetail_media_sources_header))
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -7295,19 +7303,18 @@ private fun ToolDetailSettings(
                     ) {
                         Text(
                             when (mode) {
-                                GifSourceMode.TABS -> "Tabs"
-                                GifSourceMode.MIX -> "Mixed"
+                                GifSourceMode.TABS ->
+                                    stringResource(R.string.tooldetail_media_source_tabs)
+                                GifSourceMode.MIX ->
+                                    stringResource(R.string.tooldetail_media_source_mixed)
                             },
                             maxLines = 1,
                         )
                     }
                 }
             }
-            CaptionText(
-                "Tabs: a chip per source on the panel. Mixed: one grid with results " +
-                    "from every source interleaved evenly.",
-            )
-            SectionHeader("Content filter")
+            CaptionText(stringResource(R.string.tooldetail_media_sources_info))
+            SectionHeader(stringResource(R.string.tooldetail_media_filter_header))
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -7321,229 +7328,201 @@ private fun ToolDetailSettings(
                     ) {
                         Text(
                             when (filter) {
-                                GifContentFilter.OFF -> "Off"
-                                GifContentFilter.LOW -> "Low"
-                                GifContentFilter.MEDIUM -> "Med"
-                                GifContentFilter.HIGH -> "High"
+                                GifContentFilter.OFF ->
+                                    stringResource(CommonR.string.common_off)
+                                GifContentFilter.LOW ->
+                                    stringResource(R.string.tooldetail_media_filter_low)
+                                GifContentFilter.MEDIUM ->
+                                    stringResource(R.string.tooldetail_media_filter_medium)
+                                GifContentFilter.HIGH ->
+                                    stringResource(R.string.tooldetail_media_filter_high)
                             },
                             maxLines = 1,
                         )
                     }
                 }
             }
-            CaptionText(
-                "High hides the most; Off hides nothing. Maps to Klipy's and " +
-                    "GIPHY's rating (High = G … Off = R).",
-            )
+            CaptionText(stringResource(R.string.tooldetail_media_filter_info))
         }
         ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH -> {
-            SettingsGroup("Brave Search") {
+            SettingsGroup(stringResource(R.string.tooldetail_search_group)) {
                 item {
                     ApiKeyField(
-                        label = "Brave API key",
+                        label = stringResource(R.string.tooldetail_search_key_label),
                         value = settings.braveApiKey,
                         builtInAvailable = ToolApiKeys.builtInBrave,
-                        emptyHint = "From api-dashboard.search.brave.com — monthly free credit",
+                        emptyHint = stringResource(R.string.tooldetail_search_key_hint),
                     ) { repository.setBraveApiKey(it) }
                 }
             }
-            CaptionText(
-                "Web and image search share everything here. Searches the whole " +
-                    "web. Brave's plan includes a monthly free credit (roughly a " +
-                    "thousand searches) and asks for attribution — the panel shows " +
-                    "“via Brave”.",
-            )
-            SettingsGroup("Results") {
+            CaptionText(stringResource(R.string.tooldetail_search_info))
+            SettingsGroup(stringResource(R.string.tooldetail_search_results_group)) {
                 item {
                     ToggleSetting(
-                        "SafeSearch", "Filter explicit results",
+                        stringResource(R.string.tooldetail_search_safe_title),
+                        stringResource(R.string.tooldetail_search_safe_subtitle),
                         settings.searchSafe,
                     ) { scope.launch { repository.setSearchSafe(it) } }
                 }
                 item {
                     SliderSetting(
-                        "Results per search",
-                        subtitle = "Each search uses one API request either way",
+                        stringResource(R.string.tooldetail_search_count_title),
+                        subtitle = stringResource(R.string.tooldetail_search_count_subtitle),
                         value = settings.searchResultCount.toFloat(),
                         range = 1f..10f,
-                        display = { "${it.roundToInt()}" },
+                        display = { numberFormat.format(it.roundToInt()) },
                     ) { scope.launch { repository.setSearchResultCount(it.roundToInt()) } }
                 }
             }
         }
         ToolbarTool.OCR -> {
-            SettingsGroup("Options") {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        "Start with everything selected",
-                        "Deselect words to trim the capture. Off starts empty " +
-                            "and words are picked one by one.",
+                        stringResource(R.string.tooldetail_ocr_select_all_title),
+                        stringResource(R.string.tooldetail_ocr_select_all_subtitle),
                         settings.ocrAutoSelectWords,
                     ) { scope.launch { repository.setOcrAutoSelectWords(it) } }
                 }
             }
-            CaptionText(
-                "Recognition runs on this device with ML Kit — no photo or text " +
-                    "leaves the phone, and it works offline. Reads Latin-script " +
-                    "text (English etc.); Bengali isn't supported by ML Kit's " +
-                    "text recognizer yet. After a capture, tap words to choose " +
-                    "exactly what gets inserted or copied.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_ocr_info))
         }
         ToolbarTool.QR_SCAN -> {
-            SettingsGroup("Options") {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        "Insert automatically",
-                        "Type the code's text the moment one is spotted, no " +
-                            "confirm tap",
+                        stringResource(R.string.tooldetail_qr_scan_auto_title),
+                        stringResource(R.string.tooldetail_qr_scan_auto_subtitle),
                         settings.qrScanAutoInsert,
                     ) { scope.launch { repository.setQrScanAutoInsert(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Vibrate on detection",
-                        "A short buzz when a code is spotted",
+                        stringResource(R.string.tooldetail_qr_scan_haptics_title),
+                        stringResource(R.string.tooldetail_qr_scan_haptics_subtitle),
                         settings.qrScanHaptics,
                     ) { scope.launch { repository.setQrScanHaptics(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Load link details",
-                        "When a code is a web link, fetch the page title and " +
-                            "description to show above it (needs internet)",
+                        stringResource(R.string.tooldetail_qr_scan_preview_title),
+                        stringResource(R.string.tooldetail_qr_scan_preview_subtitle),
                         settings.qrScanLinkPreviews,
                     ) { scope.launch { repository.setQrScanLinkPreviews(it) } }
                 }
             }
-            CaptionText(
-                "Decoding runs on this device with ML Kit — offline, nothing is " +
-                    "uploaded. Reads QR codes plus the common product barcode " +
-                    "formats (EAN, UPC, Code 128 …). Insert types the code's " +
-                    "text at the cursor; a link also gets an Open button.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_qr_scan_info))
         }
         ToolbarTool.DOC_SCAN -> {
-            SettingsGroup("Options") {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        "Save to gallery",
-                        "Also keep scanned pages in Pictures/WM Keyboard",
+                        stringResource(R.string.tooldetail_doc_scan_gallery_title),
+                        stringResource(R.string.tooldetail_doc_scan_gallery_subtitle),
                         settings.docScanSaveToGallery,
                     ) { scope.launch { repository.setDocScanSaveToGallery(it) } }
                 }
             }
-            CaptionText(
-            "Opens Google's document scanner (part of Google Play services) " +
-                "with edge detection, crop and shadow cleanup. Scanned pages " +
-                "come back as images and are inserted into the chat like a " +
-                "camera photo, once the keyboard reopens. Processing is " +
-                "on-device.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_doc_scan_info))
         }
         ToolbarTool.VOICE -> {
             val whisperEnabled = com.wasimaster.wmkeyboard.core.settings.isWhisperEnabled()
             val usingWhisper = whisperEnabled && settings.whisper.engine == "whisper"
             if (whisperEnabled) {
-                SettingsGroup("Engine") {
+                val systemEngine = stringResource(R.string.tooldetail_voice_engine_system)
+                val whisperEngine = stringResource(R.string.tooldetail_voice_engine_whisper)
+                SettingsGroup(stringResource(R.string.tooldetail_voice_engine_group)) {
                     item {
                         ChoiceSetting(
-                            "Recognition engine",
-                            subtitle = "How speech is turned into text",
-                            info = "The system recognizer is fast and streams words as " +
-                                "you speak, but depends on the OS and its languages. " +
-                                "Offline Whisper runs entirely on this device across many " +
-                                "languages and never sends audio anywhere — it transcribes " +
-                                "each phrase after you stop speaking.",
+                            stringResource(R.string.tooldetail_voice_engine_title),
+                            subtitle = stringResource(R.string.tooldetail_voice_engine_subtitle),
+                            info = stringResource(R.string.tooldetail_voice_engine_info),
                             options = listOf(
-                                "system" to "System recognizer",
-                                "whisper" to "Offline Whisper",
+                                "system" to systemEngine,
+                                "whisper" to whisperEngine,
                             ),
                             selected = settings.whisper.engine,
                         ) { scope.launch { repository.setVoiceEngine(it) } }
                     }
                 }
             }
-            SettingsGroup("Dictation") {
+            SettingsGroup(stringResource(R.string.tooldetail_voice_dictation_group)) {
                 item {
                     ToggleSetting(
-                        "Compact bar",
-                        "Dictate over the keys instead of a full panel",
+                        stringResource(R.string.tooldetail_voice_strip_title),
+                        stringResource(R.string.tooldetail_voice_strip_subtitle),
                         settings.voiceStripMode,
                     ) { scope.launch { repository.setVoiceStripMode(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Keep listening",
-                        "Start the next sentence automatically after each one commits",
+                        stringResource(R.string.tooldetail_voice_continuous_title),
+                        stringResource(R.string.tooldetail_voice_continuous_subtitle),
                         settings.voiceContinuous,
                     ) { scope.launch { repository.setVoiceContinuous(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Spoken punctuation",
-                        "Saying \"comma\", \"question mark\" or \"দাঁড়ি\" types the mark",
+                        stringResource(R.string.tooldetail_voice_punctuation_title),
+                        stringResource(R.string.tooldetail_voice_punctuation_subtitle),
                         settings.voiceSpokenPunctuation,
                     ) { scope.launch { repository.setVoiceSpokenPunctuation(it) } }
                 }
             }
             if (usingWhisper) {
-                SettingsGroup("Offline transcription") {
+                SettingsGroup(stringResource(R.string.tooldetail_voice_offline_group)) {
                     item {
                         ToggleSetting(
-                            "Translate to English",
-                            "Speak any language and type its English translation",
+                            stringResource(R.string.tooldetail_voice_translate_title),
+                            stringResource(R.string.tooldetail_voice_translate_subtitle),
                             settings.whisper.translate,
                         ) { scope.launch { repository.setWhisperTranslate(it) } }
                     }
                 }
                 WhisperModelManager(repository, settings)
             } else {
-                CaptionText(
-                    "Recognition uses the device's speech recognizer. On Android " +
-                        "12+ it runs on-device when the language model is " +
-                        "installed; otherwise audio goes to the recognizer " +
-                        "service while you dictate. Long-press the mic to " +
-                        "dictate walkie-talkie style — it stops when you let go.",
-                )
+                CaptionText(stringResource(R.string.tooldetail_voice_system_info))
             }
         }
         ToolbarTool.GRAMMAR -> {
-            SettingsGroup("Options") {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ChoiceSetting(
-                        "English dialect",
-                        subtitle = "Spelling and style conventions to lint against",
-                        options = GrammarDialect.entries.map { it to it.label },
+                        stringResource(R.string.tooldetail_grammar_dialect_title),
+                        subtitle = stringResource(R.string.tooldetail_grammar_dialect_subtitle),
+                        options = GrammarDialect.entries.map { it to stringResource(it.labelRes) },
                         selected = settings.grammarDialect,
                     ) { scope.launch { repository.setGrammarDialect(it) } }
                 }
                 item {
                     SliderSetting(
-                        "Re-check delay",
-                        subtitle = "Pause after typing stops before issues refresh — " +
-                            "lower feels snappier, higher churns less",
+                        stringResource(R.string.tooldetail_grammar_debounce_title),
+                        subtitle = stringResource(R.string.tooldetail_grammar_debounce_subtitle),
                         value = settings.grammarDebounceMs.toFloat(),
                         range = 100f..1500f,
-                        display = { "${it.toInt()} ms" },
+                        display = { msFormat.format(it.toInt()) },
                     ) { scope.launch { repository.setGrammarDebounceMs(it.toInt()) } }
                 }
             }
             if (BuildConfig.ENABLE_GRAMMAR) {
                 val context = LocalContext.current
-                SettingsGroup("System-wide") {
+                SettingsGroup(stringResource(R.string.tooldetail_grammar_system_group)) {
                     item {
                         NavRow(
-                            "Use Harper everywhere",
-                            "Set WM Keyboard as Android's spell checker",
+                            stringResource(R.string.tooldetail_grammar_system_title),
+                            stringResource(R.string.tooldetail_grammar_system_subtitle),
                             onClick = { openSpellCheckerSettings(context) },
                         )
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         item {
                             ToggleSetting(
-                                "Underline only, no fix popup",
-                                "Mark misspellings but don't offer corrections",
+                                stringResource(
+                                    R.string.tooldetail_grammar_no_suggestions_title,
+                                ),
+                                stringResource(
+                                    R.string.tooldetail_grammar_no_suggestions_subtitle,
+                                ),
                                 settings.spellCheckerNoSuggestions,
                             ) {
                                 scope.launch {
@@ -7554,194 +7533,156 @@ private fun ToolDetailSettings(
                     }
                 }
             }
-            CaptionText(
-                "Grammar checking runs on this device with the Harper engine " +
-                    "(the same one behind harper-ls) — offline, nothing you " +
-                    "type is uploaded. Open the tool while writing to see " +
-                    "issues with one-tap fixes; the dialect chip on the panel " +
-                    "switches dialects too.\n\n" +
-                    "Harper can also act as Android's system spell checker, so " +
-                    "the underlines and correction menus inside other apps come " +
-                    "from it as well. The button above opens the system Spell " +
-                    "checker screen — pick WM Keyboard there; it follows the " +
-                    "dialect chosen above. If your device hides that screen, it " +
-                    "falls back to the input-method settings.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_grammar_info))
         }
         ToolbarTool.WIKIPEDIA -> {
-            SettingsGroup("Options") {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     TextFieldSetting(
-                        label = "Wikipedia language",
+                        label = stringResource(R.string.tooldetail_wiki_language_label),
                         value = settings.wikiLanguage,
-                        hint = "Subdomain code: en, bn, de, fr, es …",
+                        hint = stringResource(R.string.tooldetail_wiki_language_hint),
                     ) { repository.setWikiLanguage(it) }
                 }
                 item {
                     ToggleSetting(
-                        "Markdown links",
-                        "Insert links as [Title](url) instead of the bare URL",
+                        stringResource(R.string.tooldetail_wiki_markdown_title),
+                        stringResource(R.string.tooldetail_wiki_markdown_subtitle),
                         settings.wikiLinksMarkdown,
                     ) { scope.launch { repository.setWikiLinksMarkdown(it) } }
                 }
             }
-            CaptionText(
-                "Searches and article text come from wikipedia.org's free APIs — " +
-                    "only while you use the tool.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_wiki_info))
         }
         ToolbarTool.SYMBOLS -> {
-            SettingsGroup("Recents") {
+            SettingsGroup(stringResource(R.string.tooldetail_symbols_recents_group)) {
                 item {
+                    val remembered = settings.symbolRecents.size
                     WmRow(
-                        title = "Clear recent symbols",
-                        subtitle = if (settings.symbolRecents.isEmpty()) "No recents yet"
-                            else "${settings.symbolRecents.size} symbols remembered",
+                        title = stringResource(R.string.tooldetail_symbols_clear_title),
+                        subtitle = if (remembered == 0) {
+                            stringResource(R.string.tooldetail_symbols_clear_empty)
+                        } else {
+                            pluralStringResource(
+                                R.plurals.tooldetail_symbols_remembered_count,
+                                remembered,
+                                remembered,
+                            )
+                        },
                         onClick = { scope.launch { repository.clearSymbolRecents() } },
                     )
                 }
             }
-            CaptionText(
-                "Fractions, math operators, Greek letters, arrows, currency signs, " +
-                    "super/subscripts and typographic marks — everything types " +
-                    "locally, like a regular key.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_symbols_info))
         }
-        ToolbarTool.CALCULATOR -> SettingsGroup("Options") {
+        ToolbarTool.CALCULATOR -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
-                    "Calculate as you type",
-                    "Offer the result on the strip when you type a sum",
+                    stringResource(R.string.tooldetail_calc_smart_title),
+                    stringResource(R.string.tooldetail_calc_smart_subtitle),
                     settings.smartCalc,
-                    info = "Typing \"12*4\" puts 48 on the suggestion strip; tapping it " +
-                        "replaces the expression with the answer. End with \"=\" and the " +
-                        "answer is appended instead, leaving the sum in place. Ambiguous " +
-                        "runs like dates (12/04) and phone numbers are ignored unless you " +
-                        "type the \"=\" yourself. Needs \"Smart chips\" on, under Typing.",
+                    info = stringResource(R.string.tooldetail_calc_smart_info),
                 ) { scope.launch { repository.setSmartCalc(it) } }
             }
             item {
                 ToggleSetting(
-                    "Degrees",
-                    "Trig functions use degrees; off = radians",
+                    stringResource(R.string.tooldetail_calc_degrees_title),
+                    stringResource(R.string.tooldetail_calc_degrees_subtitle),
                     settings.calcDegrees,
                 ) { scope.launch { repository.setCalcDegrees(it) } }
             }
             item {
                 SliderSetting(
-                    "Result precision",
-                    subtitle = "Maximum decimal places (also used by the unit converter)",
+                    stringResource(R.string.tooldetail_calc_precision_title),
+                    subtitle = stringResource(R.string.tooldetail_calc_precision_subtitle),
                     value = settings.calcPrecision.toFloat(),
                     range = 0f..12f,
-                    display = { "${it.roundToInt()}" },
+                    display = { numberFormat.format(it.roundToInt()) },
                 ) { scope.launch { repository.setCalcPrecision(it.roundToInt()) } }
             }
         }
         ToolbarTool.UNIT_CONVERT -> {
-            SettingsGroup("Options") {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        "Convert as you type",
-                        "Offer the conversion on the strip when you type a measurement",
+                        stringResource(R.string.tooldetail_units_smart_title),
+                        stringResource(R.string.tooldetail_units_smart_subtitle),
                         settings.smartUnits,
-                        info = "Typing \"1 ft\" (or \"1ft\") puts the same length in metres " +
-                            "on the suggestion strip; the button on the chip opens the " +
-                            "converter on that category with the pair and amount already " +
-                            "filled in. The unit it converts into is whatever you last " +
-                            "paired it with here. One-letter abbreviations only count " +
-                            "when written against the number (\"30c\", not \"30 c\"), so " +
-                            "ordinary sentences are left alone. " +
-                            "Needs \"Smart chips\" on, under Typing.",
+                        info = stringResource(R.string.tooldetail_units_smart_info),
                     ) { scope.launch { repository.setSmartUnits(it) } }
                 }
             }
-            CaptionText(
-                "14 categories — length, mass, temperature, area, volume, speed, " +
-                "time, data, energy, power, pressure, angle, frequency and fuel " +
-                "economy. All conversions run on-device; result precision " +
-                "follows the calculator's setting. The panel reopens on the " +
-                    "category and units you used last.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_units_info))
         }
         ToolbarTool.CURRENCY -> {
-            SettingsGroup("Options") {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        "Convert as you type",
-                        "Offer the amount in ${settings.currencyTo} when you type one in another currency",
+                        stringResource(R.string.tooldetail_currency_smart_title),
+                        stringResource(
+                            R.string.tooldetail_currency_smart_subtitle,
+                            settings.currencyTo,
+                        ),
                         settings.smartCurrency,
-                        info = "\"150 usd\", \"150usd\", \"150$\" and \"150 dollars\" all put " +
-                            "the converted amount on the suggestion strip. It converts into " +
-                            "the \"to\" currency of the pair below — or the \"from\" one when " +
-                            "you type an amount that is already in the target. Typing an " +
-                            "amount is what triggers the rate fetch; nothing is requested " +
-                            "before that.",
+                        info = stringResource(R.string.tooldetail_currency_smart_info),
                     ) { scope.launch { repository.setSmartCurrency(it) } }
                 }
                 item {
                     SliderSetting(
-                        "Decimal places",
-                        subtitle = "Rounding of the converted amount",
+                        stringResource(R.string.tooldetail_currency_decimals_title),
+                        subtitle = stringResource(R.string.tooldetail_currency_decimals_subtitle),
                         value = settings.currencyDecimals.toFloat(),
                         range = 0f..6f,
-                        display = { "${it.toInt()}" },
+                        display = { numberFormat.format(it.toInt()) },
                     ) { scope.launch { repository.setCurrencyDecimals(it.toInt()) } }
                 }
                 item {
                     SliderSetting(
-                        "Refresh rates every",
-                        subtitle = "How long fetched exchange rates stay fresh",
+                        stringResource(R.string.tooldetail_currency_refresh_title),
+                        subtitle = stringResource(R.string.tooldetail_currency_refresh_subtitle),
                         value = settings.currencyCacheHours.toFloat(),
                         range = 1f..48f,
-                        display = { "${it.toInt()} h" },
-                        info = "Upstream rates update about once a day, so " +
-                            "anything below 24 hours mostly affects how soon " +
-                            "a failed fetch is retried.",
+                        display = { hoursFormat.format(it.toInt()) },
+                        info = stringResource(R.string.tooldetail_currency_refresh_info),
                     ) { scope.launch { repository.setCurrencyCacheHours(it.toInt()) } }
                 }
             }
-            CaptionText(
-                "Rates come from open.er-api.com (about 160 currencies, updated " +
-                    "daily), with frankfurter.app (European Central Bank) as a " +
-                    "fallback — both free, no API key. The from/to pair you pick " +
-                    "on the panel is remembered.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_currency_info))
         }
         ToolbarTool.QR_GEN -> {
-            SettingsGroup("Options") {
+            val qrImageOption = stringResource(R.string.tooldetail_media_send_image_option)
+            val qrStickerOption = stringResource(R.string.tooldetail_media_send_sticker_option)
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     SliderSetting(
-                        "Image size",
-                        subtitle = "Side length of the inserted PNG",
+                        stringResource(R.string.tooldetail_qr_gen_size_title),
+                        subtitle = stringResource(R.string.tooldetail_qr_gen_size_subtitle),
                         value = settings.qrSizePx.toFloat(),
                         range = 256f..2048f,
-                        display = { "${it.roundToInt()} px" },
+                        display = { pixelsFormat.format(it.roundToInt()) },
                     ) { scope.launch { repository.setQrSizePx(it.roundToInt()) } }
                 }
                 item {
                     ChoiceSetting(
-                        title = "Send as",
-                        subtitle = "QR codes go out as images by default",
-                        info = "Some chat apps render a bare incoming image with no " +
-                            "bubble, which can look like a sticker even though it " +
-                            "was sent as an image. Sticker mode offers WhatsApp's " +
-                            "sticker type instead, where supported.",
+                        title = stringResource(R.string.tooldetail_qr_gen_send_title),
+                        subtitle = stringResource(R.string.tooldetail_qr_gen_send_subtitle),
+                        info = stringResource(R.string.tooldetail_qr_gen_send_info),
                         options = listOf(
-                            MediaSendMode.IMAGE to "Image",
-                            MediaSendMode.STICKER to "Sticker",
+                            MediaSendMode.IMAGE to qrImageOption,
+                            MediaSendMode.STICKER to qrStickerOption,
                         ),
                         selected = settings.qrSendMode,
                     ) { scope.launch { repository.setQrSendMode(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Save to gallery",
-                        "Also keep generated codes in Pictures/WM Keyboard",
+                        stringResource(R.string.tooldetail_qr_gen_gallery_title),
+                        stringResource(R.string.tooldetail_qr_gen_gallery_subtitle),
                         settings.qrSaveToGallery,
                     ) { scope.launch { repository.setQrSaveToGallery(it) } }
                 }
             }
-            SectionHeader("Error correction")
+            SectionHeader(stringResource(R.string.tooldetail_qr_gen_ecc_header))
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -7755,85 +7696,87 @@ private fun ToolDetailSettings(
                     ) { Text(level.name, maxLines = 1) }
                 }
             }
-            CaptionText(
-                "Higher levels survive more smudging and damage but fit less " +
-                    "text. The code is generated on-device and follows whatever " +
-                    "the text field contains.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_qr_gen_ecc_info))
         }
         ToolbarTool.PASSWORD_GEN -> {
-            SettingsGroup("Password") {
+            SettingsGroup(stringResource(R.string.tooldetail_password_group)) {
                 item {
                     SliderSetting(
-                        "Length",
+                        stringResource(R.string.tooldetail_password_length_title),
                         value = settings.passwordGenerator.pwLength.toFloat(),
                         range = 4f..64f,
-                        display = { "${it.roundToInt()}" },
+                        display = { numberFormat.format(it.roundToInt()) },
                     ) { scope.launch { repository.setPwLength(it.roundToInt()) } }
                 }
                 item {
-                    ToggleSetting("Uppercase letters", "A–Z", settings.passwordGenerator.pwUppercase) {
-                        scope.launch { repository.setPwUppercase(it) }
-                    }
-                }
-                item {
-                    ToggleSetting("Digits", "0–9", settings.passwordGenerator.pwDigits) {
-                        scope.launch { repository.setPwDigits(it) }
-                    }
-                }
-                item {
-                    ToggleSetting("Symbols", "!@#\$%…", settings.passwordGenerator.pwSymbols) {
-                        scope.launch { repository.setPwSymbols(it) }
-                    }
+                    ToggleSetting(
+                        stringResource(R.string.tooldetail_password_uppercase_title),
+                        stringResource(R.string.tooldetail_password_uppercase_subtitle),
+                        settings.passwordGenerator.pwUppercase,
+                    ) { scope.launch { repository.setPwUppercase(it) } }
                 }
                 item {
                     ToggleSetting(
-                        "Exclude look-alikes",
-                        "Skip Il1O0o5S8B and similar",
+                        stringResource(R.string.tooldetail_password_digits_title),
+                        stringResource(R.string.tooldetail_password_digits_subtitle),
+                        settings.passwordGenerator.pwDigits,
+                    ) { scope.launch { repository.setPwDigits(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        stringResource(R.string.tooldetail_password_symbols_title),
+                        stringResource(R.string.tooldetail_password_symbols_subtitle),
+                        settings.passwordGenerator.pwSymbols,
+                    ) { scope.launch { repository.setPwSymbols(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        stringResource(R.string.tooldetail_password_ambiguous_title),
+                        stringResource(R.string.tooldetail_password_ambiguous_subtitle),
                         settings.passwordGenerator.pwExcludeAmbiguous,
                     ) { scope.launch { repository.setPwExcludeAmbiguous(it) } }
                 }
             }
-            SettingsGroup("Passphrase") {
+            SettingsGroup(stringResource(R.string.tooldetail_passphrase_group)) {
                 item {
                     SliderSetting(
-                        "Words",
+                        stringResource(R.string.tooldetail_passphrase_words_title),
                         value = settings.passwordGenerator.ppWordCount.toFloat(),
                         range = 2f..10f,
-                        display = { "${it.roundToInt()}" },
+                        display = { numberFormat.format(it.roundToInt()) },
                     ) { scope.launch { repository.setPpWordCount(it.roundToInt()) } }
                 }
                 item {
                     TextFieldSetting(
-                        label = "Separator",
+                        label = stringResource(R.string.tooldetail_passphrase_separator_label),
                         value = settings.passwordGenerator.ppSeparator,
-                        hint = "Between words, e.g. - or . (blank = none)",
+                        hint = stringResource(R.string.tooldetail_passphrase_separator_hint),
                     ) { repository.setPpSeparator(it) }
                 }
                 item {
-                    ToggleSetting("Capitalize words", "correct-Horse → Correct-Horse", settings.passwordGenerator.ppCapitalize) {
-                        scope.launch { repository.setPpCapitalize(it) }
-                    }
+                    ToggleSetting(
+                        stringResource(R.string.tooldetail_passphrase_capitalize_title),
+                        stringResource(R.string.tooldetail_passphrase_capitalize_subtitle),
+                        settings.passwordGenerator.ppCapitalize,
+                    ) { scope.launch { repository.setPpCapitalize(it) } }
                 }
                 item {
-                    ToggleSetting("Include a digit", "Appended to a random word", settings.passwordGenerator.ppIncludeDigit) {
-                        scope.launch { repository.setPpIncludeDigit(it) }
-                    }
+                    ToggleSetting(
+                        stringResource(R.string.tooldetail_passphrase_digit_title),
+                        stringResource(R.string.tooldetail_passphrase_digit_subtitle),
+                        settings.passwordGenerator.ppIncludeDigit,
+                    ) { scope.launch { repository.setPpIncludeDigit(it) } }
                 }
             }
-            CaptionText(
-                "Everything is generated on this device with a cryptographic " +
-                    "random source, never stored or logged. Passphrase words come " +
-                    "from the keyboard's bundled English dictionary.",
-            )
+            CaptionText(stringResource(R.string.tooldetail_password_info))
         }
         ToolbarTool.TYPING_TEST -> TypingTestToolSettings(repository, settings)
         ToolbarTool.AI -> AiToolSettings(repository, settings)
-        ToolbarTool.MODES -> SettingsGroup("Modes") {
+        ToolbarTool.MODES -> SettingsGroup(stringResource(R.string.tooldetail_modes_group)) {
             item {
                 NavRow(
-                    "Edit keyboard modes",
-                    "Per-app and per-field setups, and what each one changes",
+                    stringResource(R.string.tooldetail_modes_edit_title),
+                    stringResource(R.string.tooldetail_modes_edit_subtitle),
                     value = "${settings.keyboardModes.size}",
                 ) { onNavigate("modes") }
             }
@@ -7850,12 +7793,17 @@ private fun ToolDetailSettings(
 @Composable
 private fun TypingTestToolSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
+    // Slider readouts are plain lambdas, so their format strings are resolved
+    // here and captured. The format also puts the number through the locale,
+    // which is what gives Bengali or Arabic digits.
+    val secondsFormat = stringResource(R.string.values_seconds)
+    val numberFormat = stringResource(R.string.values_number)
     val bests = remember(settings.typingTestBests) { TypingBests.decode(settings.typingTestBests) }
     val history = remember(settings.typingTestHistory) {
         TypingHistory.decode(settings.typingTestHistory)
     }
 
-    SectionHeader("Default test")
+    SectionHeader(stringResource(R.string.toolai_typing_default_test_title))
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
@@ -7868,74 +7816,87 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
                 onClick = { scope.launch { repository.setTypingTestMode(mode) } },
                 label = {
                     Text(
-                        when (mode) {
-                            TypingTestMode.TIME -> "Timed"
-                            TypingTestMode.WORDS -> "Word count"
-                            TypingTestMode.QUOTE -> "Quote"
-                        },
+                        stringResource(
+                            when (mode) {
+                                TypingTestMode.TIME -> R.string.toolai_typing_mode_time_label
+                                TypingTestMode.WORDS -> R.string.toolai_typing_mode_words_label
+                                TypingTestMode.QUOTE -> R.string.toolai_typing_mode_quote_label
+                            },
+                        ),
                     )
                 },
             )
         }
     }
 
-    SettingsGroup("Length") {
+    SettingsGroup(stringResource(R.string.toolai_typing_length_title)) {
         when (settings.typingTestMode) {
             TypingTestMode.TIME -> item {
                 SliderSetting(
-                    "Seconds",
+                    stringResource(R.string.toolai_typing_seconds_label),
                     value = settings.typingTestDuration.toFloat(),
                     range = 15f..120f,
-                    display = { "${it.roundToInt()}s" },
+                    display = { secondsFormat.format(it.roundToInt()) },
                 ) { scope.launch { repository.setTypingTestDuration(it.roundToInt()) } }
             }
             TypingTestMode.WORDS -> item {
                 SliderSetting(
-                    "Words",
+                    stringResource(R.string.toolai_typing_words_label),
                     value = settings.typingTestWordCount.toFloat(),
                     range = 10f..100f,
-                    display = { "${it.roundToInt()}" },
+                    display = { numberFormat.format(it.roundToInt()) },
                 ) { scope.launch { repository.setTypingTestWordCount(it.roundToInt()) } }
             }
             // Quotes come at whatever length they were written.
             TypingTestMode.QUOTE -> item {
-                CaptionText("Quote tests run to the end of the quotation.")
+                CaptionText(stringResource(R.string.toolai_typing_quote_info))
             }
         }
     }
 
     if (settings.typingTestMode != TypingTestMode.QUOTE) {
-        SettingsGroup("Difficulty") {
+        SettingsGroup(stringResource(R.string.toolai_typing_difficulty_title)) {
             item {
                 ToggleSetting(
-                    "Punctuation",
-                    "Capitals, commas and full stops in the prompt",
+                    stringResource(R.string.toolai_typing_punctuation_title),
+                    stringResource(R.string.toolai_typing_punctuation_subtitle),
                     settings.typingTestPunctuation,
                 ) { scope.launch { repository.setTypingTestPunctuation(it) } }
             }
             item {
                 ToggleSetting(
-                    "Numbers",
-                    "Mixes numerals into the word list",
+                    stringResource(R.string.toolai_typing_numbers_title),
+                    stringResource(R.string.toolai_typing_numbers_subtitle),
                     settings.typingTestNumbers,
                 ) { scope.launch { repository.setTypingTestNumbers(it) } }
             }
         }
     }
 
-    SettingsGroup("Records") {
+    SettingsGroup(stringResource(R.string.toolai_typing_records_title)) {
         item {
             WmRow(
-                title = "Tests completed",
+                title = stringResource(R.string.toolai_typing_tests_completed_title),
                 trailing = { Text("${settings.typingTestsCompleted}") },
             )
         }
         if (history.isNotEmpty()) {
             item {
                 WmRow(
-                    title = "Recent average",
-                    subtitle = "Across the last ${history.size} runs",
-                    trailing = { Text("${history.average().roundToInt()} wpm") },
+                    title = stringResource(R.string.toolai_typing_recent_average_title),
+                    subtitle = pluralStringResource(
+                        R.plurals.toolai_typing_recent_average_subtitle,
+                        history.size,
+                        history.size,
+                    ),
+                    trailing = {
+                        Text(
+                            stringResource(
+                                R.string.toolai_typing_wpm_value,
+                                history.average().roundToInt(),
+                            ),
+                        )
+                    },
                 )
             }
         }
@@ -7944,32 +7905,35 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
             item {
                 WmRow(
                     title = typingBestLabel(key),
-                    trailing = { Text("${wpm.roundToInt()} wpm") },
+                    trailing = {
+                        Text(stringResource(R.string.toolai_typing_wpm_value, wpm.roundToInt()))
+                    },
                 )
             }
         }
         if (bests.isNotEmpty() || settings.typingTestsCompleted > 0) {
             item {
-                NavRow("Clear records", "Deletes every best score and the run history") {
+                NavRow(
+                    stringResource(R.string.toolai_typing_clear_records_title),
+                    stringResource(R.string.toolai_typing_clear_records_subtitle),
+                ) {
                     scope.launch { repository.clearTypingStats() }
                 }
             }
         }
     }
 
-    CaptionText(
-        "The test runs on the keyboard itself, so it measures the layout, " +
-            "the key sizes and the gestures you actually type with. Nothing " +
-            "you type during a test reaches the text field, and no scores " +
-            "leave the device.",
-    )
+    CaptionText(stringResource(R.string.toolai_typing_info))
 }
 
 /** Turns a stored best's key ("time30", "quote") back into a heading. */
+@Composable
 private fun typingBestLabel(key: String): String = when {
-    key == "quote" -> "Quote"
-    key.startsWith("time") -> "${key.removePrefix("time")} seconds"
-    key.startsWith("words") -> "${key.removePrefix("words")} words"
+    key == "quote" -> stringResource(R.string.toolai_typing_mode_quote_label)
+    key.startsWith("time") ->
+        stringResource(R.string.toolai_typing_best_seconds_label, key.removePrefix("time"))
+    key.startsWith("words") ->
+        stringResource(R.string.toolai_typing_best_words_label, key.removePrefix("words"))
     else -> key
 }
 
@@ -7977,7 +7941,11 @@ private fun typingBestLabel(key: String): String = when {
 @Composable
 private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
-    SectionHeader("Provider")
+    // The slider readout is a plain lambda, so its format string is resolved
+    // here and captured. The format also puts the number through the locale,
+    // which is what gives Bengali or Arabic digits.
+    val numberFormat = stringResource(R.string.values_number)
+    SectionHeader(stringResource(R.string.toolai_ai_provider_title))
     // Six providers no longer fit a segmented row; chips wrap instead.
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -7992,144 +7960,157 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             FilterChip(
                 selected = settings.aiProvider == provider,
                 onClick = { scope.launch { repository.setAiProvider(provider) } },
-                label = { Text(provider.label, maxLines = 1) },
+                label = { Text(stringResource(provider.labelRes), maxLines = 1) },
             )
         }
     }
     when (settings.aiProvider) {
-        AiProvider.ANTHROPIC -> SettingsGroup("Claude (Anthropic)") {
+        AiProvider.ANTHROPIC -> SettingsGroup(
+            stringResource(R.string.toolai_ai_anthropic_group_title),
+        ) {
             item {
                 ApiKeyField(
-                    label = "Anthropic API key",
+                    label = stringResource(R.string.toolai_ai_anthropic_key_label),
                     value = settings.aiAnthropicKey,
                     builtInAvailable = false,
-                    emptyHint = "From console.anthropic.com → API keys",
+                    emptyHint = stringResource(R.string.toolai_ai_anthropic_key_hint),
                 ) { repository.setAiAnthropicKey(it) }
             }
             item {
                 TextFieldSetting(
-                    label = "Model",
+                    label = stringResource(R.string.toolai_ai_model_label),
                     value = settings.aiAnthropicModel,
-                    hint = "Blank = ${AiClient.DefaultModels.ANTHROPIC}",
+                    hint = stringResource(
+                        R.string.toolai_ai_model_hint,
+                        AiClient.DefaultModels.ANTHROPIC,
+                    ),
                 ) { repository.setAiAnthropicModel(it) }
             }
         }
-        AiProvider.OPENAI -> SettingsGroup("OpenAI") {
+        AiProvider.OPENAI -> SettingsGroup(
+            stringResource(R.string.toolai_ai_openai_group_title),
+        ) {
             item {
                 ApiKeyField(
-                    label = "OpenAI API key",
+                    label = stringResource(R.string.toolai_ai_openai_key_label),
                     value = settings.aiOpenAiKey,
                     builtInAvailable = false,
-                    emptyHint = "From platform.openai.com → API keys",
+                    emptyHint = stringResource(R.string.toolai_ai_openai_key_hint),
                 ) { repository.setAiOpenAiKey(it) }
             }
             item {
                 TextFieldSetting(
-                    label = "Model",
+                    label = stringResource(R.string.toolai_ai_model_label),
                     value = settings.aiOpenAiModel,
-                    hint = "Blank = ${AiClient.DefaultModels.OPENAI}",
+                    hint = stringResource(
+                        R.string.toolai_ai_model_hint,
+                        AiClient.DefaultModels.OPENAI,
+                    ),
                 ) { repository.setAiOpenAiModel(it) }
             }
         }
-        AiProvider.GEMINI -> SettingsGroup("Gemini (Google)") {
+        AiProvider.GEMINI -> SettingsGroup(
+            stringResource(R.string.toolai_ai_gemini_group_title),
+        ) {
             item {
                 ApiKeyField(
-                    label = "Gemini API key",
+                    label = stringResource(R.string.toolai_ai_gemini_key_label),
                     value = settings.aiGeminiKey,
                     builtInAvailable = false,
-                    emptyHint = "Free tier from aistudio.google.com",
+                    emptyHint = stringResource(R.string.toolai_ai_gemini_key_hint),
                 ) { repository.setAiGeminiKey(it) }
             }
             item {
                 TextFieldSetting(
-                    label = "Model",
+                    label = stringResource(R.string.toolai_ai_model_label),
                     value = settings.aiGeminiModel,
-                    hint = "Blank = ${AiClient.DefaultModels.GEMINI}",
+                    hint = stringResource(
+                        R.string.toolai_ai_model_hint,
+                        AiClient.DefaultModels.GEMINI,
+                    ),
                 ) { repository.setAiGeminiModel(it) }
             }
         }
-        AiProvider.OLLAMA -> SettingsGroup("Ollama server") {
+        AiProvider.OLLAMA -> SettingsGroup(
+            stringResource(R.string.toolai_ai_ollama_group_title),
+        ) {
             item {
                 TextFieldSetting(
-                    label = "Server address",
+                    label = stringResource(R.string.toolai_ai_server_address_label),
                     value = settings.aiOllamaUrl,
-                    hint = "e.g. http://192.168.0.10:11434 (your computer's LAN IP)",
+                    hint = stringResource(R.string.toolai_ai_ollama_url_hint),
                 ) { repository.setAiOllamaUrl(it) }
             }
             item {
                 TextFieldSetting(
-                    label = "Model",
+                    label = stringResource(R.string.toolai_ai_model_label),
                     value = settings.aiOllamaModel,
-                    hint = "Blank = ${AiClient.DefaultModels.OLLAMA}",
+                    hint = stringResource(
+                        R.string.toolai_ai_model_hint,
+                        AiClient.DefaultModels.OLLAMA,
+                    ),
                 ) { repository.setAiOllamaModel(it) }
             }
         }
-        AiProvider.LM_STUDIO -> SettingsGroup("LM Studio server") {
+        AiProvider.LM_STUDIO -> SettingsGroup(
+            stringResource(R.string.toolai_ai_lm_studio_group_title),
+        ) {
             item {
                 TextFieldSetting(
-                    label = "Server address",
+                    label = stringResource(R.string.toolai_ai_server_address_label),
                     value = settings.aiLmStudioUrl,
-                    hint = "e.g. http://192.168.0.10:1234 (enable the local server in LM Studio)",
+                    hint = stringResource(R.string.toolai_ai_lm_studio_url_hint),
                 ) { repository.setAiLmStudioUrl(it) }
             }
             item {
                 TextFieldSetting(
-                    label = "Model",
+                    label = stringResource(R.string.toolai_ai_model_label),
                     value = settings.aiLmStudioModel,
-                    hint = "Blank = whatever model the server has loaded",
+                    hint = stringResource(R.string.toolai_ai_lm_studio_model_hint),
                 ) { repository.setAiLmStudioModel(it) }
             }
         }
         AiProvider.ON_DEVICE -> LocalLlmModelManager(repository, settings)
     }
     if (settings.aiProvider == AiProvider.OLLAMA || settings.aiProvider == AiProvider.LM_STUDIO) {
-        CaptionText(
-            "Start Ollama with OLLAMA_HOST=0.0.0.0 (or enable “serve on local " +
-                "network” in LM Studio) so the phone can reach it. Plain-HTTP " +
-                "traffic stays on your network.",
-        )
+        CaptionText(stringResource(R.string.toolai_ai_local_server_info))
     }
-    SettingsGroup("Output") {
+    SettingsGroup(stringResource(R.string.toolai_ai_output_title)) {
         if (settings.aiProvider != AiProvider.ON_DEVICE) {
             item {
                 SliderSetting(
-                    "Max response length",
-                    subtitle = "Upper bound in tokens (≈ ¾ of a word each). " +
-                        "Reasoning models automatically get 4× this, since their " +
-                        "thinking is spent from the same budget.",
+                    stringResource(R.string.toolai_ai_max_tokens_title),
+                    subtitle = stringResource(R.string.toolai_ai_max_tokens_subtitle),
                     value = settings.aiMaxTokens.toFloat(),
                     range = 256f..8192f,
-                    display = { "${it.roundToInt()}" },
+                    display = { numberFormat.format(it.roundToInt()) },
                 ) { scope.launch { repository.setAiMaxTokens(it.roundToInt()) } }
             }
         }
         item {
             TextFieldSetting(
-                label = "Translate action's target language",
+                label = stringResource(R.string.toolai_ai_translate_to_label),
                 value = settings.aiTranslateTo,
-                hint = "e.g. English, Bengali, Japanese",
+                hint = stringResource(R.string.toolai_ai_translate_to_hint),
             ) { repository.setAiTranslateTo(it) }
         }
         item {
             ToggleSetting(
-                "Show model reasoning",
-                "Stream reasoning models' <think> passages instead of a progress bar",
+                stringResource(R.string.toolai_ai_show_thinking_title),
+                stringResource(R.string.toolai_ai_show_thinking_subtitle),
                 settings.aiShowThinking,
             ) { scope.launch { repository.setAiShowThinking(it) } }
         }
         item {
             ToggleSetting(
-                "Model picker on the panel",
-                "Switch between configured providers and downloaded models right on the keyboard",
+                stringResource(R.string.toolai_ai_model_picker_title),
+                stringResource(R.string.toolai_ai_model_picker_subtitle),
                 settings.aiPanelModelPicker,
             ) { scope.launch { repository.setAiPanelModelPicker(it) } }
         }
     }
-    SectionHeader("Prompts")
-    CaptionText(
-        "Each action's system prompt, editable. Clearing a field restores " +
-            "the built-in prompt.",
-    )
+    SectionHeader(stringResource(R.string.toolai_ai_prompts_title))
+    CaptionText(stringResource(R.string.toolai_ai_prompts_info))
     for (action in AiAction.entries) {
         // Custom has no stored prompt — its instruction is typed per run.
         if (action == AiAction.CUSTOM) continue
@@ -8145,7 +8126,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
         }
         val builtIn = AiPrompts.defaultPrompt(action, settings.aiTranslateTo)
         PromptFieldSetting(
-            label = action.label,
+            label = stringResource(action.labelRes),
             // Pre-filled with the built-in prompt so editing starts from the
             // real text instead of a blank field; saving identical text is a
             // no-op override.
@@ -8154,14 +8135,13 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
         ) { repository.setAiPrompt(action, it) }
     }
     CaptionText(
-        if (settings.aiProvider == AiProvider.ON_DEVICE) {
-            "On-device models run entirely on this phone — the text you run " +
-                "an action on never leaves it. Response length is bounded by " +
-                "the model's context window."
-        } else {
-            "The text you run an action on is sent to the selected provider, " +
-                "only when you tap the action. Keys are stored on this device."
-        },
+        stringResource(
+            if (settings.aiProvider == AiProvider.ON_DEVICE) {
+                R.string.toolai_ai_on_device_info
+            } else {
+                R.string.toolai_ai_cloud_info
+            },
+        ),
     )
 }
 
@@ -8180,7 +8160,7 @@ private fun ToolKeywordSetting(
     val scope = rememberCoroutineScope()
     val saved = SmartSuggest.keywordsFor(tool, settings.toolKeywords)
     var text by remember(tool) { mutableStateOf(saved.joinToString(", ")) }
-    SettingsGroup("Keyword shortcut") {
+    SettingsGroup(stringResource(R.string.toolai_keyword_group_title)) {
         item {
             OutlinedTextField(
                 value = text,
@@ -8188,16 +8168,17 @@ private fun ToolKeywordSetting(
                     text = it
                     scope.launch { repository.setToolKeywords(tool, it.split(',')) }
                 },
-                label = { Text("Trigger words") },
+                label = { Text(stringResource(R.string.toolai_keyword_field_label)) },
                 singleLine = true,
                 supportingText = {
                     Text(
                         if (saved.isEmpty()) {
-                            "No trigger words — this tool never offers itself."
+                            stringResource(R.string.toolai_keyword_empty_hint)
                         } else {
-                            "Type one of these on its own and the suggestion strip " +
-                                "offers to open ${toolTitle(tool)}, dropping the word. " +
-                                "Separate several with commas."
+                            stringResource(
+                                R.string.toolai_keyword_hint,
+                                stringResource(toolTitle(tool)),
+                            )
                         }
                     )
                 },
@@ -8209,7 +8190,7 @@ private fun ToolKeywordSetting(
         if (saved != defaults) {
             item {
                 WmRow(
-                    title = "Reset to default",
+                    title = stringResource(CommonR.string.common_reset_defaults),
                     subtitle = defaults.joinToString(", "),
                     onClick = {
                         text = defaults.joinToString(", ")
@@ -8220,7 +8201,7 @@ private fun ToolKeywordSetting(
         }
     }
     if (!settings.smartSuggestions || !settings.smartToolKeywords) {
-        CaptionText("Tool keywords are currently off — turn them back on under Typing → Smart chips.")
+        CaptionText(stringResource(R.string.toolai_keyword_off_info))
     }
 }
 
@@ -8279,8 +8260,8 @@ private fun PromptFieldSetting(
             Text(
                 when {
                     text.isBlank() -> defaultPrompt
-                    text == defaultPrompt -> "Built-in prompt"
-                    else -> "Custom prompt (clear to restore the default)"
+                    text == defaultPrompt -> stringResource(R.string.toolai_prompt_builtin_hint)
+                    else -> stringResource(R.string.toolai_prompt_custom_hint)
                 },
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
@@ -8320,8 +8301,8 @@ internal fun ApiKeyField(
             supportingText = {
                 Text(
                     when {
-                        text.isNotBlank() -> "Using your key"
-                        builtInAvailable -> "Blank — using the key built into this app"
+                        text.isNotBlank() -> stringResource(R.string.toolai_api_key_yours_hint)
+                        builtInAvailable -> stringResource(R.string.toolai_api_key_builtin_hint)
                         else -> emptyHint
                     },
                 )
@@ -8346,13 +8327,16 @@ internal fun AltCalendarSetting(
     onChange: (AltCalendar) -> Unit,
 ) {
     var dialogOpen by remember { mutableStateOf(false) }
+    // The label of every calendar but NONE reads "English name · own name";
+    // the row has room for the first half only. NONE's label is already short.
     NavRow(
         title,
         subtitle = subtitle,
-        value = if (selected == AltCalendar.NONE) "None" else selected.label.substringBefore(" ·"),
+        value = stringResource(selected.labelRes).substringBefore(" ·"),
         onClick = { dialogOpen = true },
     )
     if (dialogOpen) {
+        val selectedDesc = stringResource(R.string.toolai_selected_desc)
         AlertDialog(
             onDismissRequest = { dialogOpen = false },
             title = { Text(title) },
@@ -8360,9 +8344,9 @@ internal fun AltCalendarSetting(
                 LazyColumn {
                     items(AltCalendar.entries) { calendar ->
                         ListItem(
-                            headlineContent = { Text(calendar.label) },
+                            headlineContent = { Text(stringResource(calendar.labelRes)) },
                             trailingContent = if (calendar == selected) {
-                                { Icon(Icons.Outlined.Check, contentDescription = "Selected") }
+                                { Icon(Icons.Outlined.Check, contentDescription = selectedDesc) }
                             } else null,
                             modifier = Modifier.clickable {
                                 dialogOpen = false
@@ -8373,7 +8357,9 @@ internal fun AltCalendarSetting(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { dialogOpen = false }) { Text("Close") }
+                TextButton(onClick = { dialogOpen = false }) {
+                    Text(stringResource(CommonR.string.common_close))
+                }
             },
         )
     }
@@ -8387,22 +8373,23 @@ internal fun AltCalendarSetting(
 internal fun WeekendSetting(selected: Weekend, onChange: (Weekend) -> Unit) {
     var dialogOpen by remember { mutableStateOf(false) }
     NavRow(
-        "Weekend",
-        subtitle = "Which weekday initials the month grid tints",
-        value = selected.label,
+        stringResource(R.string.toolai_weekend_title),
+        subtitle = stringResource(R.string.toolai_weekend_subtitle),
+        value = stringResource(selected.labelRes),
         onClick = { dialogOpen = true },
     )
     if (dialogOpen) {
+        val selectedDesc = stringResource(R.string.toolai_selected_desc)
         AlertDialog(
             onDismissRequest = { dialogOpen = false },
-            title = { Text("Weekend") },
+            title = { Text(stringResource(R.string.toolai_weekend_title)) },
             text = {
                 LazyColumn {
                     items(Weekend.entries) { weekend ->
                         ListItem(
-                            headlineContent = { Text(weekend.label) },
+                            headlineContent = { Text(stringResource(weekend.labelRes)) },
                             trailingContent = if (weekend == selected) {
-                                { Icon(Icons.Outlined.Check, contentDescription = "Selected") }
+                                { Icon(Icons.Outlined.Check, contentDescription = selectedDesc) }
                             } else null,
                             modifier = Modifier.clickable {
                                 dialogOpen = false
@@ -8413,7 +8400,9 @@ internal fun WeekendSetting(selected: Weekend, onChange: (Weekend) -> Unit) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = { dialogOpen = false }) { Text("Close") }
+                TextButton(onClick = { dialogOpen = false }) {
+                    Text(stringResource(CommonR.string.common_close))
+                }
             },
         )
     }
@@ -8425,22 +8414,23 @@ private fun TranslateLanguageSetting(repository: SettingsRepository, settings: K
     val scope = rememberCoroutineScope()
     var dialogOpen by remember { mutableStateOf(false) }
     NavRow(
-        "Translate into",
-        subtitle = "Source language is auto-detected; also changeable from the panel",
+        stringResource(R.string.toolai_translate_into_title),
+        subtitle = stringResource(R.string.toolai_translate_into_subtitle),
         value = TranslateClient.languageName(settings.translateTargetLang),
         onClick = { dialogOpen = true },
     )
     if (dialogOpen) {
+        val selectedDesc = stringResource(R.string.toolai_selected_desc)
         AlertDialog(
             onDismissRequest = { dialogOpen = false },
-            title = { Text("Translate into") },
+            title = { Text(stringResource(R.string.toolai_translate_into_title)) },
             text = {
                 LazyColumn {
                     items(TranslateClient.languages) { (code, name) ->
                         ListItem(
                             headlineContent = { Text(name) },
                             trailingContent = if (code == settings.translateTargetLang) {
-                                { Icon(Icons.Outlined.Check, contentDescription = "Selected") }
+                                { Icon(Icons.Outlined.Check, contentDescription = selectedDesc) }
                             } else null,
                             modifier = Modifier.clickable {
                                 dialogOpen = false
@@ -8451,7 +8441,9 @@ private fun TranslateLanguageSetting(repository: SettingsRepository, settings: K
                 }
             },
             confirmButton = {
-                TextButton(onClick = { dialogOpen = false }) { Text("Close") }
+                TextButton(onClick = { dialogOpen = false }) {
+                    Text(stringResource(CommonR.string.common_close))
+                }
             },
         )
     }
@@ -8527,10 +8519,7 @@ private fun HandwritingModelManager(settings: KeyboardSettings) {
         }
     }
     if (languages.isEmpty()) {
-        CaptionText(
-            "None of your enabled languages has an ML Kit handwriting model. " +
-                "Add a language under Languages & layouts and its model appears here.",
-        )
+        CaptionText(stringResource(R.string.privacy_handwriting_none_info))
         return
     }
     SettingsGroup {
@@ -8540,11 +8529,11 @@ private fun HandwritingModelManager(settings: KeyboardSettings) {
                 WmRow(
                     title = language.displayName,
                     subtitle = when (status) {
-                            "checking" -> "Checking…"
-                            "downloaded" -> "Downloaded — works offline"
-                            "downloading" -> "Downloading…"
-                            "error" -> "Download failed — check your connection"
-                            else -> "Not downloaded"
+                            "checking" -> stringResource(R.string.privacy_handwriting_status_checking)
+                            "downloaded" -> stringResource(R.string.privacy_handwriting_status_downloaded)
+                            "downloading" -> stringResource(CommonR.string.common_downloading)
+                            "error" -> stringResource(R.string.privacy_handwriting_status_failed)
+                            else -> stringResource(R.string.privacy_handwriting_status_missing)
                         },
                     trailing = {
                         when (status) {
@@ -8561,7 +8550,10 @@ private fun HandwritingModelManager(settings: KeyboardSettings) {
                             }) {
                                 Icon(
                                     Icons.Outlined.Delete,
-                                    contentDescription = "Delete ${language.displayName} model",
+                                    contentDescription = stringResource(
+                                        R.string.privacy_handwriting_delete_desc,
+                                        language.displayName,
+                                    ),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -8571,7 +8563,7 @@ private fun HandwritingModelManager(settings: KeyboardSettings) {
                                     val ok = runCancellable { HandwritingModels.download(language.tag) }.isSuccess
                                     statuses[language.tag] = if (ok) "downloaded" else "error"
                                 }
-                            }) { Text("Download") }
+                            }) { Text(stringResource(CommonR.string.common_download)) }
                         }
                     },
                 )
@@ -8580,9 +8572,10 @@ private fun HandwritingModelManager(settings: KeyboardSettings) {
     }
     if (missing.isNotEmpty()) {
         CaptionText(
-            "No handwriting model exists for " +
-                missing.joinToString(", ") { it.englishName } +
-                " — writing switches to the nearest language that has one.",
+            stringResource(
+                R.string.privacy_handwriting_missing_info,
+                missing.joinToString(", ") { it.englishName },
+            ),
         )
     }
 }
@@ -8595,16 +8588,28 @@ private fun HandwritingModelManager(settings: KeyboardSettings) {
 internal fun WeatherLocationSetting(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf(false) }
-    val summary = if (settings.weatherLatitude != null && settings.weatherLongitude != null) {
-        val place = settings.weatherPlaceName.ifBlank { "Unnamed location" }
-        "%s — %.3f, %.3f".format(place, settings.weatherLatitude, settings.weatherLongitude)
+    val unnamedPlace = stringResource(R.string.privacy_weather_place_unnamed)
+    val savedLatitude = settings.weatherLatitude
+    val savedLongitude = settings.weatherLongitude
+    val summary = if (savedLatitude != null && savedLongitude != null) {
+        stringResource(
+            R.string.privacy_weather_location_summary,
+            settings.weatherPlaceName.ifBlank { unnamedPlace },
+            savedLatitude,
+            savedLongitude,
+        )
     } else {
-        "Not set — tap to add coordinates"
+        stringResource(R.string.privacy_weather_location_empty)
     }
     WmRow(
-        title = "Location",
+        title = stringResource(R.string.privacy_weather_location_title),
         subtitle = summary,
-        trailing = { Icon(Icons.Outlined.Edit, contentDescription = "Edit location") },
+        trailing = {
+            Icon(
+                Icons.Outlined.Edit,
+                contentDescription = stringResource(R.string.privacy_weather_edit_desc),
+            )
+        },
         onClick = { editing = true },
     )
     if (!editing) return
@@ -8644,26 +8649,30 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
         // and silently swallow the half-entered location. Explicit
         // Cancel/Save only; back still dismisses.
         properties = DialogProperties(dismissOnClickOutside = false),
-        title = { Text("Weather location") },
+        title = { Text(stringResource(R.string.privacy_weather_dialog_title)) },
         text = {
+            val unknownRegion = stringResource(R.string.privacy_weather_region_unknown)
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
-                        label = { Text("Search city or place") },
+                        label = { Text(stringResource(R.string.privacy_weather_search_hint)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(8.dp))
                     Button(onClick = { search() }, enabled = query.isNotBlank() && !searching) {
-                        Text(if (searching) "…" else "Search")
+                        Text(if (searching) "…" else stringResource(CommonR.string.common_search))
                     }
                 }
                 if (searchFailed) {
                     Text(
-                        if (results.isEmpty() && !searching) "No matches — try another spelling."
-                        else "Search failed — check your connection.",
+                        if (results.isEmpty() && !searching) {
+                            stringResource(R.string.privacy_weather_no_matches_error)
+                        } else {
+                            stringResource(R.string.privacy_weather_search_error)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 4.dp),
@@ -8674,9 +8683,11 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
                         headlineContent = { Text(result.name) },
                         supportingContent = {
                             Text(
-                                "%s · %.3f, %.3f".format(
-                                    result.region.ifBlank { "—" },
-                                    result.latitude, result.longitude,
+                                stringResource(
+                                    R.string.privacy_weather_result_summary,
+                                    result.region.ifBlank { unknownRegion },
+                                    result.latitude,
+                                    result.longitude,
                                 )
                             )
                         },
@@ -8692,22 +8703,21 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Or enter coordinates yourself (decimal degrees; south and " +
-                        "west are negative).",
+                    stringResource(R.string.privacy_weather_manual_info),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = place,
                     onValueChange = { place = it },
-                    label = { Text("Name (shown on the panel)") },
+                    label = { Text(stringResource(R.string.privacy_weather_name_hint)) },
                     singleLine = true,
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = lat,
                     onValueChange = { lat = it },
-                    label = { Text("Latitude, e.g. 23.81") },
+                    label = { Text(stringResource(R.string.privacy_weather_latitude_hint)) },
                     singleLine = true,
                     isError = lat.isNotBlank() && parsedLat == null,
                 )
@@ -8715,7 +8725,7 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
                 OutlinedTextField(
                     value = lon,
                     onValueChange = { lon = it },
-                    label = { Text("Longitude, e.g. 90.41") },
+                    label = { Text(stringResource(R.string.privacy_weather_longitude_hint)) },
                     singleLine = true,
                     isError = lon.isNotBlank() && parsedLon == null,
                 )
@@ -8730,7 +8740,7 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
                     }
                     editing = false
                 },
-            ) { Text("Save") }
+            ) { Text(stringResource(CommonR.string.common_save)) }
         },
         dismissButton = {
             Row {
@@ -8738,9 +8748,11 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
                     TextButton(onClick = {
                         scope.launch { repository.setWeatherLocation(null, null, "") }
                         editing = false
-                    }) { Text("Clear") }
+                    }) { Text(stringResource(CommonR.string.common_clear)) }
                 }
-                TextButton(onClick = { editing = false }) { Text("Cancel") }
+                TextButton(onClick = { editing = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
             }
         },
     )
@@ -8748,96 +8760,71 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
 
 // ---- privacy ----
 
-private const val AUTO_INCOGNITO_INFO =
-    "Apps can mark a text field as one the keyboard should not learn from. Chrome does " +
-        "this for every field in an incognito tab, and other browsers and password " +
-        "managers do the same for their private screens. While such a field has focus, " +
-        "incognito switches on for it and the incognito badge appears next to the " +
-        "toolbar; leaving the field restores normal typing. Apps that never send the " +
-        "flag can't be detected, so this can't cover private modes that don't use it."
-
-private const val BACKUP_INFO =
-    "Off by default, so nothing this keyboard stores is copied anywhere — not to Google " +
-        "Drive, not to a new phone. Turn it on and Android's backup treats the keyboard " +
-        "like any other app: settings, themes, layouts, snippets, learned words, sticker " +
-        "and icon packs and plugins come back on a new device or after a reinstall. " +
-        "Anything the keyboard can fetch again by itself is left out to stay inside " +
-        "Android's size limit — voice and AI models, downloaded dictionaries, emoji " +
-        "keyword packs. Note that this does include saved API keys, and that a cloud " +
-        "backup is only made on devices that can encrypt it with your screen lock. " +
-        "Settings → Backup & restore is the alternative that never involves Google at " +
-        "all: the same data, in a file you move yourself."
+/**
+ * The explanation of "Follow private browsing". Two screens show it: the
+ * Privacy screen below, and the incognito tool's own settings. It is a
+ * resource id, not the text, so it is read where it is drawn.
+ */
+@StringRes
+private val AUTO_INCOGNITO_INFO = R.string.privacy_auto_incognito_info
 
 @Composable
 private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    SettingsGroup("On-device learning") {
+    SettingsGroup(stringResource(R.string.privacy_learning_group_title)) {
         item {
             ToggleSetting(
-                "Learn from typing",
-                "Personalize suggestions on-device. Nothing ever leaves your phone.",
+                stringResource(R.string.privacy_learn_typing_title),
+                stringResource(R.string.privacy_learn_typing_subtitle),
                 settings.learnFromTyping,
-                info = "Words and word pairs you type are stored in a private on-device " +
-                    "dictionary to improve suggestions and gesture typing. Learning is skipped " +
-                    "in password fields and while incognito mode is on, and can be wiped below " +
-                    "at any time.",
+                info = stringResource(R.string.privacy_learn_typing_info),
             ) { scope.launch { repository.setLearnFromTyping(it) } }
         }
         item {
             ToggleSetting(
-                "Add words to the system dictionary",
-                "Share learned words with Android's personal dictionary",
+                stringResource(R.string.privacy_system_dictionary_title),
+                stringResource(R.string.privacy_system_dictionary_subtitle),
                 settings.addWordsToSystemDictionary,
-                info = "Also saves words you type into Android's system personal dictionary, " +
-                    "so other keyboards and the platform spell checker recognize them too — " +
-                    "the same list you can edit under System Settings → Languages & input → " +
-                    "Dictionary. Off by default: this keyboard's own learning already covers " +
-                    "it, and this writes outside the app. Follows \"Learn from typing\" and " +
-                    "incognito, and existing entries are left alone when you turn it off.",
+                info = stringResource(R.string.privacy_system_dictionary_info),
             ) { scope.launch { repository.setAddWordsToSystemDictionary(it) } }
         }
         item {
             ToggleSetting(
-                "Expand dictionary shortcuts",
-                "Type a shortcut, get its full phrase as a suggestion",
+                stringResource(R.string.privacy_dict_shortcuts_title),
+                stringResource(R.string.privacy_dict_shortcuts_subtitle),
                 settings.suggestionStrip.expandUserDictShortcuts,
-                info = "Android's personal dictionary lets each entry carry a shortcut — the same " +
-                    "list under System Settings → Languages & input → Dictionary. With this on, " +
-                    "typing a shortcut (say \"omw\") offers its full phrase (\"on my way\") as the " +
-                    "top suggestion. Off by default. Reloads when the keyboard next opens, so a " +
-                    "shortcut you just added shows up after switching apps.",
+                info = stringResource(R.string.privacy_dict_shortcuts_info),
             ) { scope.launch { repository.setExpandUserDictShortcuts(it) } }
         }
         item {
             ToggleSetting(
-                "Incognito mode",
-                "Pause learning and clipboard capture",
+                stringResource(R.string.privacy_incognito_title),
+                stringResource(R.string.privacy_incognito_subtitle),
                 settings.incognito,
-                info = "While on, the keyboard learns nothing from your typing and clipboard " +
-                    "history is not recorded. Existing learned words are untouched.",
+                info = stringResource(R.string.privacy_incognito_info),
             ) { scope.launch { repository.setIncognito(it) } }
         }
         item {
             ToggleSetting(
-                "Follow private browsing",
-                "Turn incognito on by itself in private tabs and fields",
+                stringResource(R.string.privacy_auto_incognito_title),
+                stringResource(R.string.privacy_auto_incognito_subtitle),
                 settings.autoIncognito,
-                info = AUTO_INCOGNITO_INFO,
+                info = stringResource(AUTO_INCOGNITO_INFO),
             ) { scope.launch { repository.setAutoIncognito(it) } }
         }
     }
-    SettingsGroup("Android backup") {
+    SettingsGroup(stringResource(R.string.privacy_backup_group_title)) {
         item {
             ToggleSetting(
-                "Back up with Android",
-                "Include the keyboard in Android's own backup and phone-to-phone transfer",
+                stringResource(R.string.privacy_backup_title),
+                stringResource(R.string.privacy_backup_subtitle),
                 settings.cloudBackup,
-                info = BACKUP_INFO,
+                info = stringResource(R.string.privacy_backup_info),
             ) { scope.launch { repository.setCloudBackup(it) } }
         }
     }
-    SettingsGroup("Your data") {
+    SettingsGroup(stringResource(R.string.privacy_data_group_title)) {
         item {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                 OutlinedButton(onClick = {
@@ -8847,19 +8834,11 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
                     // lexicon, so clearing has to name them or they survive it.
                     java.io.File(context.filesDir, "learning/cjk_history.json").delete()
                     CjkLearning.store?.clear()
-                }) { Text("Clear learned words") }
+                }) { Text(stringResource(R.string.privacy_delete_learned_words_action)) }
             }
         }
     }
-    CaptionText(
-        "Typing runs entirely on this device. Dictionaries, prediction, " +
-            "autocorrect, transliteration and emoji search are bundled with the " +
-            "app, and none of them need a network connection. There is no " +
-            "telemetry and no analytics. Network access is per tool and only on " +
-            "the tap that uses it — translate, weather, web and image search, " +
-            "GIFs and stickers, dictionary lookup and the AI tools — and every " +
-            "one of them can be switched off under Tools.",
-    )
+    CaptionText(stringResource(R.string.privacy_on_device_info))
 }
 
 // ---- snippets ----
@@ -8913,7 +8892,13 @@ private fun SnippetSettings() {
                     } ?: error("no stream")
                 }.isSuccess
             }
-            message = if (ok) "Saved ${current.size} snippets." else "Could not write that file."
+            message = if (ok) {
+                context.resources.getQuantityString(
+                    R.plurals.privacy_snippets_saved_count, current.size, current.size,
+                )
+            } else {
+                context.getString(R.string.privacy_snippets_export_error)
+            }
         }
     }
 
@@ -8930,7 +8915,7 @@ private fun SnippetSettings() {
                 }.getOrNull()
             }
             message = if (imported == null) {
-                "That file is not a WMKeyboard snippet pack."
+                context.getString(R.string.privacy_snippets_import_error)
             } else {
                 // Added alongside what's already there, with fresh ids — an
                 // import should never quietly replace snippets someone wrote.
@@ -8943,10 +8928,19 @@ private fun SnippetSettings() {
                 }
                 snippets = s.items()
                 buildString {
-                    append("Imported ${imported.snippets.size} snippets.")
+                    append(
+                        context.resources.getQuantityString(
+                            R.plurals.privacy_snippets_imported_count,
+                            imported.snippets.size,
+                            imported.snippets.size,
+                        ),
+                    )
                     if (imported.repairs.isNotEmpty()) {
-                        append("\n\nChanged on the way in:")
-                        for (line in imported.repairs) append("\n• $line")
+                        append("\n\n")
+                        append(context.getString(R.string.privacy_snippets_import_repairs_title))
+                        // The reader hands back a resource and its arguments,
+                        // so the note is worded here.
+                        for (line in imported.repairs) append("\n• ${line.resolve(context)}")
                     }
                 }
             }
@@ -8957,13 +8951,16 @@ private fun SnippetSettings() {
         AlertDialog(
             onDismissRequest = { message = null },
             text = { Text(text) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
         )
     }
 
     Text(
-        "Snippets are reusable pieces of text — an address, an email sign-off, a " +
-            "canned reply — inserted from the keyboard's snippet panel with one tap.",
+        stringResource(R.string.privacy_snippets_intro_info),
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
@@ -8971,23 +8968,28 @@ private fun SnippetSettings() {
         .fillMaxWidth()
         .padding(horizontal = 16.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Template variables", style = MaterialTheme.typography.titleSmall)
+            Text(
+                stringResource(R.string.privacy_snippets_variables_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
             Spacer(Modifier.height(8.dp))
             // Live examples: expand the actual templates so the preview always
             // matches what an insertion would produce right now. The variables
             // the IME alone can fill in get a stand-in example instead.
             for (variable in SnippetVariable.entries) {
-                VariableRow(variable.token, variable.description, sampleFor(variable))
+                VariableRow(
+                    variable.token,
+                    stringResource(variable.descriptionRes),
+                    sampleFor(variable),
+                )
             }
             VariableRow(
-                "{date:…}", "any date format you like",
+                "{date:…}", stringResource(R.string.privacy_snippets_var_date_pattern_info),
                 SnippetStore.expand("{date:EEE d MMM}"),
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "Variables expand at the moment the snippet is inserted, not when it " +
-                    "is saved — so {date} always produces the current date. " +
-                    "{date:…} takes a pattern, e.g. {date:EEEE} or {date:dd/MM/yy}.",
+                stringResource(R.string.privacy_snippets_variables_info),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -8999,14 +9001,16 @@ private fun SnippetSettings() {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Button(onClick = { showAdd = true }) { Text("Add snippet") }
+        Button(onClick = { showAdd = true }) {
+            Text(stringResource(R.string.privacy_snippets_add_action))
+        }
         OutlinedButton(
             onClick = { importLauncher.launch(SnippetFile.IMPORT_MIME_TYPES) },
-        ) { Text("Import") }
+        ) { Text(stringResource(CommonR.string.common_import)) }
         OutlinedButton(
             onClick = { exportLauncher.launch(SnippetFile.fileName()) },
             enabled = snippets.isNotEmpty(),
-        ) { Text("Export") }
+        ) { Text(stringResource(CommonR.string.common_export)) }
     }
     Spacer(Modifier.height(12.dp))
     SettingsGroup {
@@ -9023,15 +9027,22 @@ private fun SnippetSettings() {
                             ).text
                             if (snippet.text != preview) {
                                 Text(
-                                    "Inserts as: $preview",
+                                    stringResource(
+                                        R.string.privacy_snippets_inserts_as_label,
+                                        preview,
+                                    ),
                                     maxLines = 2,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                             }
-                            if (snippet.trigger != null) {
+                            val trigger = snippet.trigger
+                            if (trigger != null) {
                                 Text(
-                                    "Auto-expands from: ${snippet.trigger}",
+                                    stringResource(
+                                        R.string.privacy_snippets_trigger_label,
+                                        trigger,
+                                    ),
                                     maxLines = 1,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -9042,10 +9053,16 @@ private fun SnippetSettings() {
                     trailing = {
                         Row {
                             IconButton(onClick = { editing = snippet }) {
-                                Icon(Icons.Outlined.Edit, contentDescription = "Edit")
+                                Icon(
+                                    Icons.Outlined.Edit,
+                                    contentDescription = stringResource(CommonR.string.common_edit),
+                                )
                             }
                             IconButton(onClick = { mutate { it.remove(snippet.id) } }) {
-                                Icon(Icons.Outlined.Delete, contentDescription = "Delete")
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = stringResource(CommonR.string.common_delete),
+                                )
                             }
                         }
                     },
@@ -9070,25 +9087,32 @@ private fun SnippetSettings() {
     }
 }
 
-/** Stand-in values so the settings preview shows a realistic expansion. */
-private val SNIPPET_PREVIEW_CONTEXT = SnippetStore.Companion.Context(
-    clipboard = "…",
-    appName = "this app",
-    packageName = "com.example.app",
-    selection = "…",
-)
+/**
+ * Stand-in values so the settings preview shows a realistic expansion.
+ *
+ * The getter is composable because one of the stand-ins is text the user
+ * reads. Every read of this property has to sit in a composable body.
+ */
+private val SNIPPET_PREVIEW_CONTEXT: SnippetStore.Companion.Context
+    @Composable get() = SnippetStore.Companion.Context(
+        clipboard = "…",
+        appName = stringResource(R.string.rows_snippet_preview_app_name),
+        packageName = "com.example.app",
+        selection = "…",
+    )
 
 /**
  * Example value for the reference card. Most variables can be expanded for
  * real; the ones that depend on the keyboard's live context (clipboard, app,
  * selection) get a description of what they'd produce instead.
  */
+@Composable
 private fun sampleFor(variable: SnippetVariable): String = when (variable) {
-    SnippetVariable.CLIP -> "whatever you copied last"
-    SnippetVariable.SELECTION -> "the text you had selected"
+    SnippetVariable.CLIP -> stringResource(R.string.rows_snippet_sample_clip)
+    SnippetVariable.SELECTION -> stringResource(R.string.rows_snippet_sample_selection)
     SnippetVariable.APP -> "Messages"
     SnippetVariable.PACKAGE -> "com.google.android.apps.messaging"
-    SnippetVariable.CURSOR -> "nothing — it only moves the cursor"
+    SnippetVariable.CURSOR -> stringResource(R.string.rows_snippet_sample_cursor)
     else -> SnippetStore.expand(variable.token)
 }
 
@@ -9106,7 +9130,7 @@ private fun VariableRow(variable: String, meaning: String, example: String) {
         Column {
             Text(meaning, style = MaterialTheme.typography.bodyMedium)
             Text(
-                "e.g. $example",
+                stringResource(R.string.rows_snippet_variable_example, example),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -9125,31 +9149,41 @@ private fun SnippetDialog(
     var trigger by remember { mutableStateOf(initial?.trigger.orEmpty()) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "New snippet" else "Edit snippet") },
+        title = {
+            Text(
+                stringResource(
+                    if (initial == null) {
+                        R.string.rows_snippet_new_title
+                    } else {
+                        R.string.rows_snippet_edit_title
+                    },
+                ),
+            )
+        },
         text = {
             Column {
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it },
-                    label = { Text("Label") },
+                    label = { Text(stringResource(R.string.rows_snippet_label_label)) },
                     singleLine = true,
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
-                    label = { Text("Text — supports {date} {time} {clip} {app} {cursor} …") },
+                    label = { Text(stringResource(R.string.rows_snippet_text_label)) },
                     minLines = 3,
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = trigger,
                     onValueChange = { trigger = it },
-                    label = { Text("Trigger word (optional)") },
+                    label = { Text(stringResource(R.string.rows_snippet_trigger_label)) },
                     singleLine = true,
                 )
                 Text(
-                    "Typing this word on its own auto-expands it to the text above.",
+                    stringResource(R.string.rows_snippet_trigger_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -9159,28 +9193,36 @@ private fun SnippetDialog(
             TextButton(
                 enabled = label.isNotBlank() && text.isNotBlank(),
                 onClick = { onSave(label.trim(), text, trigger.trim().ifBlank { null }) },
-            ) { Text("Save") }
+            ) { Text(stringResource(CommonR.string.common_save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
     )
 }
 
 // ---- rows & bars ----
 
-private fun barRowTitle(row: BarRow): String = when (row) {
-    BarRow.TOPBAR -> "Suggestions & toolbar"
-    BarRow.EMOJI -> "Emoji row"
-    BarRow.SYMBOL -> "Symbol row"
+@StringRes
+private fun barRowTitle(row: BarRow): Int = when (row) {
+    BarRow.TOPBAR -> R.string.rows_bar_topbar_title
+    BarRow.EMOJI -> R.string.rows_bar_emoji_title
+    BarRow.SYMBOL -> R.string.rows_symbol_row_title
 }
 
-private fun barRowSubtitle(row: BarRow, settings: KeyboardSettings): String = when (row) {
-    BarRow.TOPBAR -> "Always shown"
+@StringRes
+private fun barRowSubtitle(row: BarRow, settings: KeyboardSettings): Int = when (row) {
+    BarRow.TOPBAR -> R.string.rows_bar_topbar_subtitle
     BarRow.EMOJI -> when (settings.emojiBarMode) {
-        EmojiBarMode.OFF -> "Off — enable it in Emoji settings"
-        EmojiBarMode.BUTTON -> "Behind a toolbar button"
-        EmojiBarMode.ALWAYS -> "Own row"
+        EmojiBarMode.OFF -> R.string.rows_bar_emoji_off_subtitle
+        EmojiBarMode.BUTTON -> R.string.rows_bar_emoji_button_subtitle
+        EmojiBarMode.ALWAYS -> R.string.rows_bar_emoji_always_subtitle
     }
-    BarRow.SYMBOL -> if (settings.symbolRowEnabled) "On" else "Off"
+    BarRow.SYMBOL -> if (settings.symbolRowEnabled) {
+        CommonR.string.common_on
+    } else {
+        CommonR.string.common_off
+    }
 }
 
 /** Row layout above the keys: symbol row, row order and symbol sets. */
@@ -9191,26 +9233,23 @@ private fun RowsSettings(
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    SettingsGroup("Symbol row") {
+    SettingsGroup(stringResource(R.string.rows_symbol_row_title)) {
         item {
             ToggleSetting(
-                "Symbol row",
-                "A row of special characters and snippets above the keys",
+                stringResource(R.string.rows_symbol_row_title),
+                stringResource(R.string.rows_symbol_row_subtitle),
                 settings.symbolRowEnabled,
-                info = "Shows one symbol set at a time — @gmail.com and friends for " +
-                    "email, https:// for browsing, brackets for coding. The chip at " +
-                    "the row's left edge switches sets; keyboard modes can pick a " +
-                    "set per app automatically.",
+                info = stringResource(R.string.rows_symbol_row_info),
             ) { scope.launch { repository.setSymbolRowEnabled(it) } }
         }
     }
-    SettingsGroup("Row order") {
+    SettingsGroup(stringResource(R.string.rows_row_order_title)) {
         val order = settings.barOrder
         order.forEachIndexed { index, row ->
             item {
                 WmRow(
-                    title = barRowTitle(row),
-                    subtitle = barRowSubtitle(row, settings),
+                    title = stringResource(barRowTitle(row)),
+                    subtitle = stringResource(barRowSubtitle(row, settings)),
                     trailing = {
                         if (row != BarRow.TOPBAR) {
                             Row {
@@ -9222,7 +9261,10 @@ private fun RowsSettings(
                                         scope.launch { repository.setBarOrder(next) }
                                     },
                                 ) {
-                                    Icon(Icons.Outlined.ArrowUpward, contentDescription = "Move up")
+                                    Icon(
+                                        Icons.Outlined.ArrowUpward,
+                                        contentDescription = stringResource(R.string.rows_move_up_desc),
+                                    )
                                 }
                                 IconButton(
                                     enabled = index < order.lastIndex,
@@ -9232,7 +9274,10 @@ private fun RowsSettings(
                                         scope.launch { repository.setBarOrder(next) }
                                     },
                                 ) {
-                                    Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move down")
+                                    Icon(
+                                        Icons.Outlined.ArrowDownward,
+                                        contentDescription = stringResource(R.string.rows_move_down_desc),
+                                    )
                                 }
                             }
                         }
@@ -9241,16 +9286,24 @@ private fun RowsSettings(
             }
         }
     }
-    CaptionText("Rows are stacked top to bottom in this order. Hidden rows keep their slot.")
-    SettingsGroup("Symbol sets") {
+    CaptionText(stringResource(R.string.rows_row_order_caption))
+    SettingsGroup(stringResource(R.string.rows_symbol_sets_title)) {
         val allSets = resolveSymbolSets(settings.customSymbolSets)
         for (set in allSets) {
             item {
                 val enabled = set.id in settings.symbolRowSetIds
                 val edited = settings.customSymbolSets.any { it.id == set.id }
                 val builtIn = BuiltInSymbolSets.byId(set.id) != null
+                // A shipped set the user has not renamed draws its translated
+                // name; anything the user named draws that name as typed.
+                val shippedNameRes = BuiltInSymbolSets.nameRes(set)
+                val setName = if (shippedNameRes != null) {
+                    stringResource(shippedNameRes)
+                } else {
+                    set.name
+                }
                 WmRow(
-                    title = set.name,
+                    title = setName,
                     supporting = {
                         Text(
                             set.chars.take(8).joinToString(" ") + if (set.chars.size > 8) " …" else "",
@@ -9282,11 +9335,13 @@ private fun RowsSettings(
                         IconButton(onClick = { onNavigate("symbol_set_edit/${set.id}") }) {
                             Icon(
                                 Icons.Outlined.Edit,
-                                contentDescription = if (builtIn && !edited) {
-                                    "Edit built-in set"
-                                } else {
-                                    "Edit set"
-                                },
+                                contentDescription = stringResource(
+                                    if (builtIn && !edited) {
+                                        R.string.rows_symbol_set_edit_builtin_desc
+                                    } else {
+                                        R.string.rows_symbol_set_edit_desc
+                                    },
+                                ),
                             )
                         }
                     },
@@ -9295,8 +9350,8 @@ private fun RowsSettings(
         }
         item {
             WmRow(
-                title = "New symbol set",
-                subtitle = "Your own characters and snippets",
+                title = stringResource(R.string.rows_symbol_set_new_title),
+                subtitle = stringResource(R.string.rows_symbol_set_new_subtitle),
                 leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
                 onClick = {
                     onNavigate("symbol_set_edit/custom_${System.currentTimeMillis()}")
@@ -9304,11 +9359,7 @@ private fun RowsSettings(
             )
         }
     }
-    CaptionText(
-        "Checked sets appear in the symbol row's picker. Editing a built-in set " +
-            "keeps its name in modes that use it; reset one to get the shipped " +
-            "characters back.",
-    )
+    CaptionText(stringResource(R.string.rows_symbol_sets_caption))
 }
 
 /**
@@ -9331,17 +9382,23 @@ private fun SymbolSetEditor(
     var name by remember(setId) { mutableStateOf(existing?.name.orEmpty()) }
     var charsText by remember(setId) { mutableStateOf(existing?.chars?.joinToString(" ").orEmpty()) }
     if (builtIn != null) {
-        CaptionText(
-            "This is a built-in set. Your changes shadow it — everything already " +
-                "using “${builtIn.name}” picks them up, and Reset restores the original.",
-        )
+        // The stored English name is what a shipped set is keyed on, so only
+        // the drawn name is resolved here. Nothing writes it back.
+        val shippedNameRes = BuiltInSymbolSets.nameRes(builtIn)
+        val shippedName = if (shippedNameRes != null) {
+            stringResource(shippedNameRes)
+        } else {
+            builtIn.name
+        }
+        CaptionText(stringResource(R.string.rows_symbol_set_builtin_caption, shippedName))
     }
+    val defaultSetName = stringResource(R.string.rows_symbol_set_default_name)
     SettingsGroup {
         item {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Name") },
+                label = { Text(stringResource(R.string.rows_symbol_set_name_label)) },
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -9352,9 +9409,9 @@ private fun SymbolSetEditor(
             OutlinedTextField(
                 value = charsText,
                 onValueChange = { charsText = it },
-                label = { Text("Characters & snippets") },
+                label = { Text(stringResource(R.string.rows_symbol_set_chars_label)) },
                 supportingText = {
-                    Text("Separate entries with spaces — single characters (© § →) or whole snippets (@gmail.com https://)")
+                    Text(stringResource(R.string.rows_symbol_set_chars_hint))
                 },
                 minLines = 3,
                 modifier = Modifier
@@ -9379,7 +9436,15 @@ private fun SymbolSetEditor(
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(4.dp))
-                Text(if (builtIn != null) "Reset set" else "Delete set")
+                Text(
+                    stringResource(
+                        if (builtIn != null) {
+                            R.string.rows_symbol_set_reset_action
+                        } else {
+                            R.string.rows_symbol_set_delete_action
+                        },
+                    ),
+                )
             }
         }
         Spacer(Modifier.weight(1f))
@@ -9391,7 +9456,7 @@ private fun SymbolSetEditor(
                     repository.upsertSymbolSet(
                         SymbolSet(
                             setId,
-                            name.trim().ifEmpty { builtIn?.name ?: "My set" },
+                            name.trim().ifEmpty { builtIn?.name ?: defaultSetName },
                             chars,
                         ),
                     )
@@ -9402,32 +9467,65 @@ private fun SymbolSetEditor(
                 }
                 onDone()
             },
-        ) { Text("Save") }
+        ) { Text(stringResource(CommonR.string.common_save)) }
     }
 }
 
 // ---- keyboard modes ----
 
-/** One-line recap of a mode's bindings for the list screen. */
+/**
+ * One-line recap of a mode's bindings for the list screen.
+ *
+ * The parts are joined, so nothing here may be re-cased afterwards: the first
+ * letter of a translated word is not ours to change. The lower-case field
+ * names are their own resources for the same reason.
+ */
+@Composable
 private fun modeBindingsSummary(mode: KeyboardMode): String {
+    val resources = LocalContext.current.resources
     val parts = mutableListOf<String>()
     if (mode.apps.isNotEmpty()) {
-        parts += if (mode.apps.size == 1) "1 app" else "${mode.apps.size} apps"
+        parts += resources.getQuantityString(
+            R.plurals.rows_mode_bindings_apps, mode.apps.size, mode.apps.size,
+        )
     }
     if (mode.fieldKinds.isNotEmpty()) {
-        parts += mode.fieldKinds.joinToString(", ") { modeFieldLabel(it).lowercase() } + " fields"
+        parts += resources.getString(
+            R.string.rows_mode_bindings_fields,
+            mode.fieldKinds.joinToString(", ") {
+                resources.getString(modeFieldLowercaseLabel(it))
+            },
+        )
     }
     // " + " rather than " · ": with both set, both have to match.
-    return if (parts.isEmpty()) "Manual only (Modes tool)" else "Auto: " + parts.joinToString(" + ")
+    return if (parts.isEmpty()) {
+        resources.getString(R.string.rows_mode_bindings_manual)
+    } else {
+        resources.getString(R.string.rows_mode_bindings_auto, parts.joinToString(" + "))
+    }
 }
 
-private fun modeFieldLabel(field: ModeField): String = when (field) {
-    ModeField.PASSWORD -> "Password"
-    ModeField.EMAIL -> "Email"
-    ModeField.URL -> "URL"
-    ModeField.NUMBER -> "Number"
-    ModeField.PHONE -> "Phone"
-    ModeField.TEXT -> "Text"
+@Composable
+private fun modeFieldLabel(field: ModeField): String = stringResource(
+    when (field) {
+        ModeField.PASSWORD -> R.string.rows_mode_field_password_label
+        ModeField.EMAIL -> R.string.rows_mode_field_email_label
+        ModeField.URL -> R.string.rows_mode_field_url_label
+        ModeField.NUMBER -> R.string.rows_mode_field_number_label
+        ModeField.PHONE -> R.string.rows_mode_field_phone_label
+        ModeField.TEXT -> R.string.rows_mode_field_text_label
+    },
+)
+
+/** The same names, written the way they read inside a sentence. */
+@StringRes
+private fun modeFieldLowercaseLabel(field: ModeField): Int = when (field) {
+    ModeField.PASSWORD -> R.string.rows_mode_field_password_lowercase_label
+    ModeField.EMAIL -> R.string.rows_mode_field_email_lowercase_label
+    ModeField.URL -> R.string.rows_mode_field_url_lowercase_label
+    ModeField.NUMBER -> R.string.rows_mode_field_number_lowercase_label
+    ModeField.PHONE -> R.string.rows_mode_field_phone_lowercase_label
+    ModeField.TEXT -> R.string.rows_mode_field_text_lowercase_label
 }
 
 /** Row height inside [ReorderDialog] — fixed, so drags map to index shifts. */
@@ -9460,7 +9558,7 @@ internal fun <T> ReorderDialog(
         title = { Text(title) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                CaptionText("Drag the handles to reorder. Top of the list comes first.")
+                CaptionText(stringResource(R.string.rows_reorder_caption))
                 // Deliberately not a LazyColumn: every row has to stay
                 // composed for a drag to swap past it, and these lists are
                 // short enough that laying them all out is free.
@@ -9476,7 +9574,7 @@ internal fun <T> ReorderDialog(
                             .graphicsLayer { translationY = if (dragging) dragOffset else 0f },
                     ) {
                         Text(
-                            "${index + 1}.",
+                            stringResource(R.string.rows_reorder_position_label, index + 1),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.width(28.dp),
@@ -9489,7 +9587,9 @@ internal fun <T> ReorderDialog(
                         )
                         Icon(
                             Icons.Outlined.DragHandle,
-                            contentDescription = "Reorder ${label(item)}",
+                            contentDescription = stringResource(
+                                R.string.rows_reorder_handle_desc, label(item),
+                            ),
                             modifier = Modifier
                                 .padding(start = 8.dp)
                                 .size(28.dp)
@@ -9534,9 +9634,13 @@ internal fun <T> ReorderDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(working) }) { Text("Save") }
+            TextButton(onClick = { onConfirm(working) }) {
+                Text(stringResource(CommonR.string.common_save))
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
     )
 }
 
@@ -9559,7 +9663,7 @@ internal fun <T> ReorderSetting(
         subtitle = if (enabled) {
                 items.joinToString(" · ", limit = 4) { label(it) }
             } else {
-                "Pick at least two above to set an order"
+                stringResource(R.string.rows_reorder_empty_subtitle)
             },
         trailing = { Icon(Icons.Outlined.DragHandle, contentDescription = null) },
         enabled = enabled,
@@ -9595,7 +9699,7 @@ private fun ToolChips(
             FilterChip(
                 selected = tool in selected,
                 onClick = { onToggle(tool) },
-                label = { Text(toolTitle(tool), maxLines = 1) },
+                label = { Text(stringResource(toolTitle(tool)), maxLines = 1) },
             )
         }
     }
@@ -9609,12 +9713,9 @@ private fun ModesSettings(
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    CaptionText(
-        "A mode is a bundle of overrides — emoji row, pinned tools, symbol sets — " +
-            "that switches on automatically for chosen apps or field types " +
-            "(passwords, email boxes…), or manually from the Modes tool on the keyboard.",
-    )
-    SettingsGroup("Modes") {
+    CaptionText(stringResource(R.string.modes_intro_body))
+    val deleteModeDesc = stringResource(R.string.modes_delete_action)
+    SettingsGroup(stringResource(R.string.modes_group_title)) {
         for (mode in settings.keyboardModes) {
             item {
                 WmRow(
@@ -9627,7 +9728,7 @@ private fun ModesSettings(
                         IconButton(onClick = {
                             scope.launch { repository.deleteKeyboardMode(mode.id) }
                         }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "Delete mode")
+                            Icon(Icons.Outlined.Delete, contentDescription = deleteModeDesc)
                         }
                     },
                     onClick = { onNavigate("mode_edit/${mode.id}") },
@@ -9636,31 +9737,23 @@ private fun ModesSettings(
         }
         item {
             WmRow(
-                title = "New mode",
+                title = stringResource(R.string.modes_new_title),
                 leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
                 onClick = { onNavigate("mode_edit/mode_custom_${System.currentTimeMillis()}") },
             )
         }
     }
-    SettingsGroup("Rearranging tools") {
+    SettingsGroup(stringResource(R.string.modes_rearrange_group_title)) {
         item {
             ToggleSetting(
-                "Drags edit the active mode",
-                "Hold-and-drag on the keyboard saves into the mode that is on",
+                stringResource(R.string.modes_drag_edits_title),
+                stringResource(R.string.modes_drag_edits_subtitle),
                 settings.modeToolOrderEdits,
-                info = "A mode that prescribes its own pinned tools or toolbox order wins " +
-                    "over the global lists while it is active. With this on, rearranging " +
-                    "tools on the keyboard is written back into that mode, so the change " +
-                    "sticks where you made it — and apps on a different mode keep their own " +
-                    "arrangement. With it off, drags always edit the global order and the " +
-                    "mode's list keeps overriding it.",
+                info = stringResource(R.string.modes_drag_edits_info),
             ) { scope.launch { repository.setModeToolOrderEdits(it) } }
         }
     }
-    CaptionText(
-        "Tool order can differ per app: whichever mode an app resolves to decides " +
-            "the arrangement you see there.",
-    )
+    CaptionText(stringResource(R.string.modes_tool_order_body))
 }
 
 /** Everything one mode overrides, and when it activates. */
@@ -9673,8 +9766,12 @@ private fun ModeEditor(
     onDeleted: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
+    // Resolved up here: the name lands in stored settings from a plain lambda,
+    // which is no place for stringResource().
+    val newModeName = stringResource(R.string.modes_new_default_name)
+    val unnamedModeName = stringResource(R.string.modes_unnamed_name)
     val mode = settings.keyboardModes.firstOrNull { it.id == modeId }
-        ?: KeyboardMode(modeId, "New mode")
+        ?: KeyboardMode(modeId, newModeName)
     // A brand-new mode is only persisted on its first edit — backing out of
     // an untouched editor leaves nothing behind.
     val save: (KeyboardMode) -> Unit = { scope.launch { repository.upsertKeyboardMode(it) } }
@@ -9686,16 +9783,20 @@ private fun ModeEditor(
     SettingsGroup {
         item {
             TextFieldSetting(
-                label = "Name",
+                label = stringResource(R.string.modes_name_label),
                 value = mode.name,
-                hint = "Shown in the Modes tool",
-            ) { repository.upsertKeyboardMode(mode.copy(name = it.trim().ifEmpty { "Mode" })) }
+                hint = stringResource(R.string.modes_name_hint),
+            ) {
+                repository.upsertKeyboardMode(
+                    mode.copy(name = it.trim().ifEmpty { unnamedModeName }),
+                )
+            }
         }
         item {
             var pickerOpen by remember { mutableStateOf(false) }
             WmRow(
-                title = "Icon",
-                subtitle = "Shown beside the name in the Modes tool",
+                title = stringResource(R.string.modes_icon_title),
+                subtitle = stringResource(R.string.modes_icon_subtitle),
                 leading = {
                     Icon(ModeIcons.icon(mode.icon), contentDescription = null)
                 },
@@ -9713,27 +9814,27 @@ private fun ModeEditor(
             }
         }
     }
-    SettingsGroup("What this mode changes") {
+    SettingsGroup(stringResource(R.string.modes_changes_group_title)) {
         item {
             ChoiceSetting(
-                title = "Emoji row",
-                subtitle = "While this mode is active",
+                title = stringResource(R.string.modes_emoji_row_title),
+                subtitle = stringResource(R.string.modes_active_subtitle),
                 options = listOf(
-                    null to "Inherit",
-                    EmojiBarMode.OFF to "Off",
-                    EmojiBarMode.BUTTON to "Button",
-                    EmojiBarMode.ALWAYS to "Row",
+                    null to stringResource(R.string.modes_inherit_label),
+                    EmojiBarMode.OFF to stringResource(CommonR.string.common_off),
+                    EmojiBarMode.BUTTON to stringResource(R.string.modes_emoji_row_button_label),
+                    EmojiBarMode.ALWAYS to stringResource(R.string.modes_emoji_row_row_label),
                 ),
                 selected = mode.emojiBarMode,
             ) { save(mode.copy(emojiBarMode = it)) }
         }
         item {
             ChoiceSetting(
-                title = "Symbol row",
+                title = stringResource(R.string.modes_symbol_row_title),
                 options = listOf(
-                    null to "Inherit",
-                    true to "On",
-                    false to "Off",
+                    null to stringResource(R.string.modes_inherit_label),
+                    true to stringResource(CommonR.string.common_on),
+                    false to stringResource(CommonR.string.common_off),
                 ),
                 selected = mode.symbolRowEnabled,
             ) { save(mode.copy(symbolRowEnabled = it)) }
@@ -9741,12 +9842,14 @@ private fun ModeEditor(
         item {
             var themePickerOpen by remember { mutableStateOf(false) }
             WmRow(
-                title = "Theme",
+                title = stringResource(R.string.modes_theme_title),
                 subtitle = mode.themeId?.let { themeDisplayName(settings, it) }
-                    ?: "Inherit — whatever theme is set",
+                    ?: stringResource(R.string.modes_theme_inherit_subtitle),
                 trailing = {
                     if (mode.themeId != null) {
-                        TextButton(onClick = { save(mode.copy(themeId = null)) }) { Text("Clear") }
+                        TextButton(onClick = { save(mode.copy(themeId = null)) }) {
+                            Text(stringResource(CommonR.string.common_clear))
+                        }
                     }
                 },
                 onClick = { themePickerOpen = true },
@@ -9765,18 +9868,13 @@ private fun ModeEditor(
         }
         if (mode.themeId != null) {
             item {
-                CaptionText(
-                    "While this mode is active the keyboard wears this theme, whatever is " +
-                        "set elsewhere — including an auto light/dark pair, which stands " +
-                        "down for the mode's lifetime. Your own choice is untouched and " +
-                        "comes straight back when the mode ends.",
-                )
+                CaptionText(stringResource(R.string.modes_theme_override_body))
             }
         }
         item {
             ToggleSetting(
-                "Custom pinned tools",
-                "Change the toolbar's pinned tools while active",
+                stringResource(R.string.modes_pinned_tools_title),
+                stringResource(R.string.modes_pinned_tools_subtitle),
                 mode.toolbarTools != null,
             ) { on ->
                 save(
@@ -9797,13 +9895,16 @@ private fun ModeEditor(
         if (pinned != null) {
             item {
                 ChoiceSetting(
-                    title = "Pinned tools behaviour",
+                    title = stringResource(R.string.modes_pinned_behaviour_title),
                     subtitle = if (mode.toolbarToolsAppend) {
-                        "Added after the tools you pinned yourself"
+                        stringResource(R.string.modes_pinned_behaviour_append_subtitle)
                     } else {
-                        "Only these tools are pinned while active"
+                        stringResource(R.string.modes_pinned_behaviour_replace_subtitle)
                     },
-                    options = listOf(true to "Add to mine", false to "Replace mine"),
+                    options = listOf(
+                        true to stringResource(R.string.modes_pinned_behaviour_append_label),
+                        false to stringResource(R.string.modes_pinned_behaviour_replace_label),
+                    ),
                     selected = mode.toolbarToolsAppend,
                 ) { append ->
                     // Switching to append: the copied-in global pins would
@@ -9830,18 +9931,24 @@ private fun ModeEditor(
                 }
             }
             item {
+                // toolTitle() hands back a resource id, and the reorder dialog
+                // takes a plain (T) -> String, so the names are resolved here.
+                val toolNames = mutableMapOf<ToolbarTool, String>()
+                for (tool in pinned) {
+                    toolNames[tool] = stringResource(toolTitle(tool))
+                }
                 ReorderSetting(
-                    title = "Modify pinned tool order",
-                    dialogTitle = "Pinned tool order",
+                    title = stringResource(R.string.modes_pinned_order_title),
+                    dialogTitle = stringResource(R.string.modes_pinned_order_dialog_title),
                     items = pinned,
-                    label = ::toolTitle,
+                    label = { toolNames[it].orEmpty() },
                 ) { save(mode.copy(toolbarTools = it)) }
             }
         }
         item {
             ToggleSetting(
-                "Custom toolbox order",
-                "Float this mode's tools to the front of the toolbox panel",
+                stringResource(R.string.modes_toolbox_order_title),
+                stringResource(R.string.modes_toolbox_order_subtitle),
                 mode.toolboxOrder != null,
             ) { on ->
                 save(mode.copy(toolboxOrder = if (on) emptyList() else null))
@@ -9864,24 +9971,25 @@ private fun ModeEditor(
                 }
             }
             item {
+                val toolNames = mutableMapOf<ToolbarTool, String>()
+                for (tool in order) {
+                    toolNames[tool] = stringResource(toolTitle(tool))
+                }
                 ReorderSetting(
-                    title = "Modify toolbox order",
-                    dialogTitle = "Toolbox order",
+                    title = stringResource(R.string.modes_toolbox_order_reorder_title),
+                    dialogTitle = stringResource(R.string.modes_toolbox_order_dialog_title),
                     items = order,
-                    label = ::toolTitle,
+                    label = { toolNames[it].orEmpty() },
                 ) { save(mode.copy(toolboxOrder = it)) }
             }
             item {
-                CaptionText(
-                    "Picked tools lead the toolbox; everything else keeps its " +
-                        "usual place behind them.",
-                )
+                CaptionText(stringResource(R.string.modes_toolbox_order_body))
             }
         }
         item {
             ToggleSetting(
-                "Custom symbol sets",
-                "The symbol row offers only this mode's sets while active",
+                stringResource(R.string.modes_symbol_sets_title),
+                stringResource(R.string.modes_symbol_sets_subtitle),
                 mode.symbolSetIds != null,
             ) { on ->
                 save(
@@ -9903,6 +10011,11 @@ private fun ModeEditor(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     for (set in resolveSymbolSets(settings.customSymbolSets)) {
+                        // A shipped set that still carries its shipped name is
+                        // drawn from resources; a renamed one keeps the name
+                        // the user typed.
+                        val setLabel = BuiltInSymbolSets.nameRes(set)
+                            ?.let { stringResource(it) } ?: set.name
                         FilterChip(
                             selected = set.id in modeSets,
                             onClick = {
@@ -9910,32 +10023,34 @@ private fun ModeEditor(
                                     if (set.id in modeSets) modeSets - set.id else modeSets + set.id
                                 if (next.isNotEmpty()) save(mode.copy(symbolSetIds = next))
                             },
-                            label = { Text(set.name, maxLines = 1) },
+                            label = { Text(setLabel, maxLines = 1) },
                         )
                     }
                 }
             }
             item {
-                val allSets = resolveSymbolSets(settings.customSymbolSets)
-                val setName = { id: String ->
-                    allSets.firstOrNull { it.id == id }?.name ?: id
+                val setNames = mutableMapOf<String, String>()
+                for (set in resolveSymbolSets(settings.customSymbolSets)) {
+                    setNames[set.id] = BuiltInSymbolSets.nameRes(set)
+                        ?.let { stringResource(it) } ?: set.name
                 }
+                val setName = { id: String -> setNames[id] ?: id }
                 ReorderSetting(
-                    title = "Modify symbol set order",
-                    dialogTitle = "Symbol set order",
+                    title = stringResource(R.string.modes_symbol_set_order_title),
+                    dialogTitle = stringResource(R.string.modes_symbol_set_order_dialog_title),
                     items = modeSets,
                     label = setName,
                 ) { save(mode.copy(symbolSetIds = it)) }
             }
             item {
-                CaptionText("The first set in the order is what the row opens on.")
+                CaptionText(stringResource(R.string.modes_symbol_set_order_body))
             }
         }
     }
-    SettingsGroup("Activate automatically for") {
+    SettingsGroup(stringResource(R.string.modes_auto_group_title)) {
         item {
             Text(
-                "Field types",
+                stringResource(R.string.modes_field_types_title),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
@@ -9960,10 +10075,7 @@ private fun ModeEditor(
                 }
             }
             if (mode.apps.isNotEmpty() && mode.fieldKinds.isNotEmpty()) {
-                CaptionText(
-                    "Both have to match: this mode switches on only for these " +
-                        "field types inside the apps listed below.",
-                )
+                CaptionText(stringResource(R.string.modes_auto_both_match_body))
             }
         }
         for (pkg in mode.apps) {
@@ -9983,7 +10095,10 @@ private fun ModeEditor(
                     } else null,
                     trailing = {
                         IconButton(onClick = { save(mode.copy(apps = mode.apps - pkg)) }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "Remove app")
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(R.string.modes_app_remove_desc),
+                            )
                         }
                     },
                 )
@@ -9992,11 +10107,11 @@ private fun ModeEditor(
         item {
             var pickerOpen by remember { mutableStateOf(false) }
             WmRow(
-                title = "Add app",
+                title = stringResource(R.string.modes_add_app_title),
                 subtitle = if (mode.fieldKinds.isEmpty()) {
-                        "This mode switches on when the app's fields are focused"
+                        stringResource(R.string.modes_add_app_subtitle_any)
                     } else {
-                        "Plus one of the field types above"
+                        stringResource(R.string.modes_add_app_subtitle_fields)
                     },
                 leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
                 onClick = { pickerOpen = true },
@@ -10013,15 +10128,7 @@ private fun ModeEditor(
             }
         }
     }
-    CaptionText(
-        "Setting apps and field types together means both must match — bind a mode " +
-            "to your chat apps and the Text field type and it stays off their search " +
-            "boxes. Setting only one matches on that alone, and setting neither makes " +
-            "the mode manual-only. When several modes match, one that names field " +
-            "types beats one that only names apps — a password box in a code editor " +
-            "still gets the password mode. A mode picked by hand from the Modes tool " +
-            "wins until you switch apps.",
-    )
+    CaptionText(stringResource(R.string.modes_matching_body))
     Row(modifier = Modifier.padding(horizontal = 16.dp)) {
         if (builtInDefault != null) {
             TextButton(onClick = { confirmReset = true }) {
@@ -10031,7 +10138,7 @@ private fun ModeEditor(
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(4.dp))
-                Text("Reset to default")
+                Text(stringResource(R.string.modes_reset_default_action))
             }
             Spacer(Modifier.width(8.dp))
         }
@@ -10041,28 +10148,26 @@ private fun ModeEditor(
         }) {
             Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(4.dp))
-            Text("Delete mode")
+            Text(stringResource(R.string.modes_delete_action))
         }
     }
     if (confirmReset && builtInDefault != null) {
         AlertDialog(
             onDismissRequest = { confirmReset = false },
-            title = { Text("Reset ${builtInDefault.name} to default?") },
-            text = {
-                Text(
-                    "This built-in mode goes back to the pinned tools, toolbox order, " +
-                        "symbol row, apps and field types it ships with. Your edits to it " +
-                        "are discarded.",
-                )
+            title = {
+                Text(stringResource(R.string.modes_reset_confirm_title, builtInDefault.name))
             },
+            text = { Text(stringResource(R.string.modes_reset_confirm_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmReset = false
                     scope.launch { repository.resetKeyboardModeToDefault(modeId) }
-                }) { Text("Reset") }
+                }) { Text(stringResource(CommonR.string.common_reset)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmReset = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmReset = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
             },
         )
     }
@@ -10082,7 +10187,7 @@ private fun ModeIconPickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Mode icon") },
+        title = { Text(stringResource(R.string.modes_icon_picker_title)) },
         text = {
             FlowRow(
                 modifier = Modifier
@@ -10102,7 +10207,9 @@ private fun ModeIconPickerDialog(
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
     )
 }
 
@@ -10130,13 +10237,13 @@ private fun AppPickerDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Choose an app") },
+        title = { Text(stringResource(R.string.modes_app_picker_title)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = { Text("Search") },
+                    label = { Text(stringResource(CommonR.string.common_search)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -10155,6 +10262,8 @@ private fun AppPickerDialog(
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
     )
 }

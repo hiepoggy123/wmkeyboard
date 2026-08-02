@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings owned by :core:settings.
+
+  This module holds the settings model. The enums here carry the option labels
+  that the pickers in the app and in the keyboard draw, so each enum stores a
+  string resource id and the UI layer resolves it. That keeps one option list in
+  one place and keeps every label translatable.
+
+  Referenced from another module as
+  com.wasimaster.wmkeyboard.settings.R.string.core_settings_… — the R classes
+  are non-transitive, so the import has to name this module.
+-->
+<resources>
+
+    <!-- ================================================================== -->
+    <!-- Automatic theme. What decides which half of a light and dark pair  -->
+    <!-- is showing. Segmented button labels.                               -->
+    <!-- ================================================================== -->
+
+    <string name="core_settings_auto_theme_trigger_system_label">System light or dark</string>
+    <string name="core_settings_auto_theme_trigger_schedule_label">Time of day</string>
+    <string name="core_settings_auto_theme_trigger_sun_label">Sunrise and sunset</string>
+
+    <!-- ================================================================== -->
+    <!-- AI tool: which service answers. The first five are product names   -->
+    <!-- and stay in English in every language.                             -->
+    <!-- ================================================================== -->
+
+    <string name="core_settings_ai_provider_anthropic_label" translatable="false">Claude</string>
+    <string name="core_settings_ai_provider_openai_label" translatable="false">OpenAI</string>
+    <string name="core_settings_ai_provider_gemini_label" translatable="false">Gemini</string>
+    <string name="core_settings_ai_provider_ollama_label" translatable="false">Ollama</string>
+    <string name="core_settings_ai_provider_lm_studio_label" translatable="false">LM Studio</string>
+    <!-- The model runs on the phone itself, with no service behind it. -->
+    <string name="core_settings_ai_provider_on_device_label">On your device</string>
+
+    <!-- ================================================================== -->
+    <!-- AI tool: which processor runs a model on the device. Both are      -->
+    <!-- hardware acronyms and stay in English in every language.           -->
+    <!-- ================================================================== -->
+
+    <string name="core_settings_ai_backend_cpu_label" translatable="false">CPU</string>
+    <string name="core_settings_ai_backend_gpu_label" translatable="false">GPU</string>
+
+    <!-- ================================================================== -->
+    <!-- AI tool: the one-press writing actions on its panel. Each one is a -->
+    <!-- command given to the model about the text in the field.            -->
+    <!-- ================================================================== -->
+
+    <string name="core_settings_ai_action_rewrite_label">Rewrite</string>
+    <string name="core_settings_ai_action_summarize_label">Summarize</string>
+    <string name="core_settings_ai_action_translate_label">Translate</string>
+    <string name="core_settings_ai_action_improve_label">Improve</string>
+    <string name="core_settings_ai_action_fix_grammar_label">Fix grammar</string>
+    <string name="core_settings_ai_action_explain_label">Explain</string>
+    <!-- Write more text that carries on from what is already in the field. -->
+    <string name="core_settings_ai_action_continue_label">Continue</string>
+
+    <!-- ================================================================== -->
+    <!-- Grammar tool: which English the offline checker reads against.     -->
+    <!-- ================================================================== -->
+
+    <string name="core_settings_grammar_dialect_american_label">American</string>
+    <string name="core_settings_grammar_dialect_british_label">British</string>
+    <string name="core_settings_grammar_dialect_canadian_label">Canadian</string>
+    <string name="core_settings_grammar_dialect_australian_label">Australian</string>
+
+    <!-- ================================================================== -->
+    <!-- Haptics: the shape of the buzz on a key press. Short chip labels.  -->
+    <!-- ================================================================== -->
+
+    <!-- Android's own key haptic, the one most keyboards use. -->
+    <string name="core_settings_haptic_style_system_key_label">Key</string>
+    <!-- Android's own keyboard-tap haptic, which is softer than Key. -->
+    <string name="core_settings_haptic_style_system_tap_label">Tap</string>
+    <string name="core_settings_haptic_style_click_label">Click</string>
+    <string name="core_settings_haptic_style_heavy_label">Heavy</string>
+    <string name="core_settings_haptic_style_sharp_label">Sharp</string>
+
+    <!-- ================================================================== -->
+    <!-- Physical keyboard: how to select a suggestion, where nothing on    -->
+    <!-- the screen can be pressed.                                         -->
+    <!-- ================================================================== -->
+
+    <!-- "The shortcut key" is the leader key the user sets for the tools. -->
+    <string name="core_settings_suggestion_hotkey_leader_digit_label">After the shortcut key</string>
+    <!-- Alt is the name of the key on a physical keyboard. -->
+    <string name="core_settings_suggestion_hotkey_alt_digit_label">Alt + number</string>
+
+    <!-- ================================================================== -->
+    <!-- Clipboard: what the history does with a clip that holds a secret.  -->
+    <!-- Each option has a label and a subtitle under it.                   -->
+    <!-- ================================================================== -->
+
+    <string name="core_settings_sensitive_clip_keep_label">Keep it like any other clip</string>
+    <string name="core_settings_sensitive_clip_keep_subtitle">The keyboard gives it no special treatment</string>
+    <string name="core_settings_sensitive_clip_short_lived_label">Hide it and delete it quickly</string>
+    <string name="core_settings_sensitive_clip_short_lived_subtitle">The panel hides it, and a short timer deletes it</string>
+    <string name="core_settings_sensitive_clip_never_save_label">Never save it</string>
+    <string name="core_settings_sensitive_clip_never_save_subtitle">Passwords and codes never reach the clipboard history</string>
+
+    <!-- ================================================================== -->
+    <!-- Per-screen sizing: the screen shapes that carry their own sizes.   -->
+    <!-- "Unfolded" is an open foldable or a tablet.                        -->
+    <!-- ================================================================== -->
+
+    <string name="core_settings_screen_variant_portrait_label">Portrait</string>
+    <string name="core_settings_screen_variant_landscape_label">Landscape</string>
+    <string name="core_settings_screen_variant_portrait_unfolded_label">Portrait, unfolded</string>
+    <string name="core_settings_screen_variant_landscape_unfolded_label">Landscape, unfolded</string>
+
+    <!-- ================================================================== -->
+    <!-- Power saving: what turns it on, beside the manual switch.          -->
+    <!-- ================================================================== -->
+
+    <string name="core_settings_power_saving_trigger_off_label">Only when I turn it on</string>
+    <string name="core_settings_power_saving_trigger_system_saver_label">Android\'s battery saver is on</string>
+    <string name="core_settings_power_saving_trigger_low_battery_label">The battery is low</string>
+    <string name="core_settings_power_saving_trigger_either_label">Battery saver or a low battery</string>
+
+</resources>

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Privacy screen, plus three neighbours that live in the same slice of the
+  settings code:
+
+  * the handwriting model manager (one row per language ML Kit can recognise),
+  * the weather location picker (shared with the onboarding tool setup),
+  * the snippet manager.
+-->
+<resources>
+
+    <!-- ================================================================== -->
+    <!-- Handwriting models: download and delete one model per language.    -->
+    <!-- ================================================================== -->
+
+    <string name="privacy_handwriting_none_info">None of the languages you turned on has an ML Kit handwriting model. Add a language on the Languages screen. The model of that language then shows here.</string>
+
+    <!-- Row subtitles. Each one says what the model of that language is doing. -->
+    <string name="privacy_handwriting_status_checking">Checking…</string>
+    <string name="privacy_handwriting_status_downloaded">Downloaded. It works without a network connection</string>
+    <string name="privacy_handwriting_status_missing">Not downloaded</string>
+    <string name="privacy_handwriting_status_failed">The download did not work. Check your network connection</string>
+
+    <!-- Content description of the delete button. %1$s is the name of a language. -->
+    <string name="privacy_handwriting_delete_desc">Delete the model for %1$s</string>
+
+    <!-- %1$s is a list of language names, separated by commas. -->
+    <string name="privacy_handwriting_missing_info">No handwriting model exists for %1$s. Handwriting changes to the nearest language that has a model.</string>
+
+    <!-- ================================================================== -->
+    <!-- Weather location: the row, and the dialog that edits it.           -->
+    <!-- ================================================================== -->
+
+    <string name="privacy_weather_location_title">Location</string>
+    <!--
+      Subtitle of the Location row. %1$s is the name of the place, %2$.3f is the
+      latitude and %3$.3f is the longitude. Both numbers are decimal degrees.
+    -->
+    <string name="privacy_weather_location_summary">%1$s (%2$.3f, %3$.3f)</string>
+    <string name="privacy_weather_location_empty">Not set. Press to add the coordinates</string>
+    <!-- Stands in for the name of a place that the user saved without a name. -->
+    <string name="privacy_weather_place_unnamed">Location with no name</string>
+    <string name="privacy_weather_edit_desc">Edit the location</string>
+
+    <string name="privacy_weather_dialog_title">Weather location</string>
+    <string name="privacy_weather_search_hint">Search for a city or a place</string>
+    <!--
+      One search result. %1$s is the region of the place, %2$.3f is the latitude
+      and %3$.3f is the longitude. Both numbers are decimal degrees.
+    -->
+    <string name="privacy_weather_result_summary">%1$s (%2$.3f, %3$.3f)</string>
+    <!-- Stands in for the region when the search result carries none. -->
+    <string name="privacy_weather_region_unknown">Region not known</string>
+    <string name="privacy_weather_manual_info">You can also type the coordinates yourself. Use decimal degrees. South and west are negative.</string>
+    <string name="privacy_weather_name_hint">Name shown on the panel</string>
+    <string name="privacy_weather_latitude_hint">Latitude, for example 23.81</string>
+    <string name="privacy_weather_longitude_hint">Longitude, for example 90.41</string>
+    <string name="privacy_weather_no_matches_error">No matches. Try a different spelling.</string>
+    <string name="privacy_weather_search_error">The search did not work. Check your network connection.</string>
+
+    <!-- ================================================================== -->
+    <!-- Privacy screen: what the keyboard learns, and what it sends.       -->
+    <!-- ================================================================== -->
+
+    <string name="privacy_learning_group_title">Learning on this device</string>
+
+    <string name="privacy_learn_typing_title">Learn from typing</string>
+    <string name="privacy_learn_typing_subtitle">The keyboard adjusts the suggestions to your typing. Nothing leaves your device</string>
+    <string name="privacy_learn_typing_info">The keyboard keeps the words and the word pairs that you type in a private word list on this device. This makes the suggestions and glide typing better. The keyboard learns nothing in a password field, and nothing while incognito mode is on. You can delete the learned words below at any time.</string>
+
+    <string name="privacy_system_dictionary_title">Add words to the system dictionary</string>
+    <string name="privacy_system_dictionary_subtitle">Share the learned words with the Android personal dictionary</string>
+    <string name="privacy_system_dictionary_info">The keyboard also saves the words that you type in the Android personal dictionary. Other keyboards and the spell checker of the system then know these words too. It is the same list that you can edit in System settings → Languages &amp; input → Dictionary. This setting is off at the start: the keyboard has its own learning, and this setting writes outside the app. It obeys \"Learn from typing\" and incognito mode. When you turn it off, the words that are already in the list stay there.</string>
+
+    <string name="privacy_dict_shortcuts_title">Expand dictionary shortcuts</string>
+    <string name="privacy_dict_shortcuts_subtitle">Type a shortcut to get its full phrase as a suggestion</string>
+    <string name="privacy_dict_shortcuts_info">Each entry in the Android personal dictionary can have a shortcut. It is the same list in System settings → Languages &amp; input → Dictionary. With this setting on, you type a shortcut, for example \"omw\", and its full phrase, \"on my way\", becomes the top suggestion. This setting is off at the start. The keyboard reads the list again when it next opens, so a shortcut that you just added shows after you change to a different app.</string>
+
+    <string name="privacy_incognito_title">Incognito mode</string>
+    <string name="privacy_incognito_subtitle">Pause learning and clipboard capture</string>
+    <string name="privacy_incognito_info">While this setting is on, the keyboard learns nothing from your typing and keeps no clipboard history. The words that it learned before stay as they are.</string>
+
+    <string name="privacy_auto_incognito_title">Follow private browsing</string>
+    <string name="privacy_auto_incognito_subtitle">Turn incognito mode on by itself in private tabs and fields</string>
+    <string name="privacy_auto_incognito_info">An app can mark a text field as a field that the keyboard must not learn from. Chrome does this for every field in an incognito tab. Other browsers and password managers do the same on their private screens. While such a field has the focus, the keyboard turns incognito mode on for it, and the incognito badge shows next to the toolbar. When you leave the field, typing goes back to normal. The keyboard cannot detect an app that never sends this mark. This setting does not work for a private mode of that kind.</string>
+
+    <string name="privacy_backup_group_title">Android backup</string>
+    <string name="privacy_backup_title">Back up with Android</string>
+    <string name="privacy_backup_subtitle">Include the keyboard in the Android backup and in the device-to-device transfer</string>
+    <string name="privacy_backup_info">This setting is off at the start. The keyboard copies nothing that it stores to Google Drive or to a new device. Turn it on, and the Android backup treats the keyboard like any other app. Your settings, themes, layouts, snippets, learned words, sticker packs, icon packs and plugins come back on a new device, or after you install the app again. The backup leaves out the voice models, the AI models, the downloaded word lists and the emoji keyword packs. The keyboard can download these again by itself, and the backup must stay inside the size limit of Android. The backup does include your saved API keys. Android makes a cloud backup only on a device that can encrypt it with your screen lock. Backup &amp; restore in Settings is the other way, and it never uses Google. It saves the same data in a file that you move yourself.</string>
+
+    <string name="privacy_data_group_title">Your data</string>
+    <string name="privacy_delete_learned_words_action">Delete the learned words</string>
+
+    <!-- Caption at the end of the Privacy screen. -->
+    <string name="privacy_on_device_info">Typing works fully on this device. The word lists, prediction, autocorrect, transliteration and emoji search are part of the app, and none of them needs a network connection. The app has no telemetry and no analytics. Only a tool uses the network, and only at the moment that you press it: translate, weather, web search, image search, GIFs, stickers, dictionary lookup and the AI tools. You can turn off each one of them on the Tools screen.</string>
+
+    <!-- ================================================================== -->
+    <!-- Snippets: the reference card, the list and the import and export.  -->
+    <!-- ================================================================== -->
+
+    <string name="privacy_snippets_intro_info">A snippet is a piece of text that you use again and again, for example an address, an email sign-off or a standard reply. You insert a snippet from the snippet panel of the keyboard with one press.</string>
+
+    <string name="privacy_snippets_variables_title">Template variables</string>
+    <!-- Meaning of the {date:…} variable, shown next to the token itself. -->
+    <string name="privacy_snippets_var_date_pattern_info">any date format that you want</string>
+    <!-- The braces and the words inside them are code. Do not translate them. -->
+    <string name="privacy_snippets_variables_info">A variable expands at the moment that you insert the snippet, not when you save it. Because of this, {date} always gives the current date. {date:…} takes a pattern, for example {date:EEEE} or {date:dd/MM/yy}.</string>
+
+    <string name="privacy_snippets_add_action">Add snippet</string>
+
+    <!-- %1$s is the snippet text after every variable in it expands. -->
+    <string name="privacy_snippets_inserts_as_label">Inserts as: %1$s</string>
+    <!-- %1$s is the short text that the user types to insert the snippet. -->
+    <string name="privacy_snippets_trigger_label">Expands by itself from: %1$s</string>
+
+    <!-- Result of an export. %1$d is the number of snippets in the file. -->
+    <plurals name="privacy_snippets_saved_count">
+        <item quantity="one">The app saved %1$d snippet.</item>
+        <item quantity="other">The app saved %1$d snippets.</item>
+    </plurals>
+    <string name="privacy_snippets_export_error">The app cannot write that file.</string>
+
+    <!-- Result of an import. %1$d is the number of snippets that came in. -->
+    <plurals name="privacy_snippets_imported_count">
+        <item quantity="one">The app imported %1$d snippet.</item>
+        <item quantity="other">The app imported %1$d snippets.</item>
+    </plurals>
+    <!-- Heading above the list of repairs the app made to an imported file. -->
+    <string name="privacy_snippets_import_repairs_title">Changed during the import:</string>
+    <string name="privacy_snippets_import_error">That file is not a WMKeyboard snippet pack.</string>
+
+</resources>

@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.tools.R
+
 /**
  * Curated special-character catalog for the symbols tool: the characters
  * people otherwise hunt down on the web (fractions, real math operators,
@@ -8,18 +11,27 @@ package com.wasimaster.wmkeyboard.core.tools
  */
 object SymbolCatalog {
 
-    data class SymbolCategory(val name: String, val symbols: List<String>)
+    /**
+     * [id] is the key the picker tracks its selection by. It is never shown and
+     * is never translated. [nameRes] is the chip label; resolve it where you
+     * draw the chip.
+     */
+    data class SymbolCategory(
+        val id: String,
+        @StringRes val nameRes: Int,
+        val symbols: List<String>,
+    )
 
     val categories: List<SymbolCategory> = listOf(
         SymbolCategory(
-            "Fractions",
+            "Fractions", R.string.core_tools_symbol_category_fractions_label,
             listOf(
                 "½", "⅓", "⅔", "¼", "¾", "⅕", "⅖", "⅗", "⅘", "⅙", "⅚",
                 "⅐", "⅛", "⅜", "⅝", "⅞", "⅑", "⅒", "⁄",
             ),
         ),
         SymbolCategory(
-            "Math",
+            "Math", R.string.core_tools_symbol_category_math_label,
             listOf(
                 "±", "∓", "×", "÷", "≠", "≈", "≡", "≤", "≥", "≪", "≫",
                 "∞", "√", "∛", "∜", "∝", "∴", "∵", "∈", "∉", "⊂", "⊃",
@@ -30,7 +42,7 @@ object SymbolCatalog {
             ),
         ),
         SymbolCategory(
-            "Greek",
+            "Greek", R.string.core_tools_symbol_category_greek_label,
             listOf(
                 "α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι", "κ", "λ",
                 "μ", "ν", "ξ", "ο", "π", "ρ", "σ", "ς", "τ", "υ", "φ",
@@ -41,7 +53,7 @@ object SymbolCatalog {
             ),
         ),
         SymbolCategory(
-            "Arrows",
+            "Arrows", R.string.core_tools_symbol_category_arrows_label,
             listOf(
                 "←", "→", "↑", "↓", "↔", "↕", "↖", "↗", "↘", "↙",
                 "⇐", "⇒", "⇑", "⇓", "⇔", "⇕", "↩", "↪", "↰", "↱",
@@ -50,7 +62,7 @@ object SymbolCatalog {
             ),
         ),
         SymbolCategory(
-            "Currency",
+            "Currency", R.string.core_tools_symbol_category_currency_label,
             listOf(
                 "$", "¢", "€", "£", "¥", "₹", "₽", "₩", "₺", "₴", "₦",
                 "₱", "฿", "₫", "₪", "₨", "৳", "₡", "₭", "₮", "₲", "₵",
@@ -58,7 +70,7 @@ object SymbolCatalog {
             ),
         ),
         SymbolCategory(
-            "Superscript",
+            "Superscript", R.string.core_tools_symbol_category_superscript_label,
             listOf(
                 "⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹",
                 "⁺", "⁻", "⁼", "⁽", "⁾", "ⁿ", "ⁱ",
@@ -67,7 +79,7 @@ object SymbolCatalog {
             ),
         ),
         SymbolCategory(
-            "Punctuation",
+            "Punctuation", R.string.core_tools_symbol_category_punctuation_label,
             listOf(
                 "–", "—", "―", "…", "•", "·", "‣", "§", "¶", "†", "‡",
                 "‘", "’", "“", "”", "‚", "„", "‹", "›", "«", "»",
@@ -76,7 +88,7 @@ object SymbolCatalog {
             ),
         ),
         SymbolCategory(
-            "Shapes & stars",
+            "Shapes & stars", R.string.core_tools_symbol_category_shapes_label,
             listOf(
                 "★", "☆", "✦", "✧", "✪", "✯", "✶", "✳", "✴", "❋",
                 "■", "□", "▪", "▫", "▲", "△", "▼", "▽", "◆", "◇",
@@ -86,7 +98,7 @@ object SymbolCatalog {
             ),
         ),
         SymbolCategory(
-            "Misc",
+            "Misc", R.string.core_tools_symbol_category_other_label,
             listOf(
                 "♩", "♪", "♫", "♬", "♭", "♮", "♯",
                 "☀", "☁", "☂", "☃", "☄", "☾", "☽", "☼",

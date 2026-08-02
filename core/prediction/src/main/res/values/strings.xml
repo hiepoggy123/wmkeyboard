@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Word list download strings.
+
+  These belong to the downloadable dictionaries in :core:prediction. The
+  catalog and the download manager are plain objects with no Context, so they
+  carry string ids and the settings screen resolves them.
+
+  Referenced from other modules as
+  com.wasimaster.wmkeyboard.prediction.R.string.core_pred_wordlist_size_small_label
+  because the R classes are non-transitive.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ================================================================== -->
+    <!-- Word list download. Size picker in the language settings screen.   -->
+    <!-- ================================================================== -->
+
+    <!-- Download size. Keeps the 50000 most frequent words. -->
+    <string name="core_pred_wordlist_size_small_label">Small</string>
+    <!-- Download size. Keeps the 150000 most frequent words. -->
+    <string name="core_pred_wordlist_size_medium_label">Medium</string>
+    <!-- Download size. Keeps the 300000 most frequent words. -->
+    <string name="core_pred_wordlist_size_large_label">Large</string>
+
+    <!-- Names the word list of one region when a language has more than one.
+         Portuguese has a European list and a Brazilian list. -->
+    <string name="core_pred_wordlist_variant_europe_label">Europe</string>
+    <string name="core_pred_wordlist_variant_brazil_label">Brazil</string>
+
+    <!-- ================================================================== -->
+    <!-- Word list download errors. Shown under the row that failed.        -->
+    <!-- ================================================================== -->
+
+    <string name="core_pred_wordlist_no_space_error">There is not enough storage on your device. Delete some files, then try again.</string>
+    <!-- %1$s is the HTTP status code the server sent. -->
+    <string name="core_pred_wordlist_http_error">The server did not send the file. The error code is HTTP <xliff:g id="status_code" example="404">%1$s</xliff:g>.</string>
+    <string name="core_pred_wordlist_malformed_error">That word list is empty or unreadable.</string>
+    <string name="core_pred_wordlist_save_error">The app cannot save the word list. Try again.</string>
+
+</resources>

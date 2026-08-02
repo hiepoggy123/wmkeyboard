@@ -1,6 +1,9 @@
 package com.wasimaster.wmkeyboard.core.addons
 
 import android.content.Context
+import androidx.annotation.PluralsRes
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.addons.feature.R
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.feedback.SoundFile
 import com.wasimaster.wmkeyboard.core.feedback.SoundImportResult
@@ -15,6 +18,7 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginImportResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
+import com.wasimaster.wmkeyboard.core.plugins.PluginText
 import com.wasimaster.wmkeyboard.core.emoji.EmojiKeywordPacks
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
@@ -29,6 +33,84 @@ import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
 import java.io.File
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
+
+/**
+ * A line of text for the user that the thing producing it cannot put into
+ * words itself.
+ *
+ * The installer, the downloader and the preview reader all run off the main
+ * thread, and their results outlive the screen that asked for them: a download
+ * carries on while the user opens another page, and a status flow survives
+ * rotation. So a message travels as a string resource with its arguments, and
+ * the screen that shows it calls [resolve]. That also keeps the words in the
+ * language the user reads at the moment they read them.
+ */
+sealed interface AddonText {
+
+    /**
+     * A line this build wrote. [arg1] and [arg2] fill `%1$s` and `%2$s`, in
+     * that order.
+     *
+     * Set [textRes] for a plain line, or [pluralsRes] together with [quantity]
+     * when the wording depends on a count, the same shape `ContentText` uses in
+     * :core:content. A count needs it: languages disagree about how many number
+     * forms a sentence has, so only the plural resource keeps the agreement
+     * right outside English. For a plural line the count is normally [arg1] as
+     * well, once to pick the form and once to fill `%1$d`.
+     */
+    data class Resource(
+        @get:StringRes val textRes: Int = 0,
+        @get:PluralsRes val pluralsRes: Int = 0,
+        val quantity: Int = 0,
+        val arg1: Any? = null,
+        val arg2: Any? = null,
+    ) : AddonText
+
+    /**
+     * Text that arrived already in words: a plugin author's own error line, or
+     * a message an importer in another module resolved before handing it over.
+     */
+    data class Literal(val text: String) : AddonText
+
+    companion object {
+        /** A message with no arguments. */
+        fun of(@StringRes textRes: Int): AddonText = Resource(textRes)
+
+        /** A message with one argument. */
+        fun of(@StringRes textRes: Int, arg1: Any): AddonText = Resource(textRes, arg1 = arg1)
+
+        /**
+         * A message whose wording depends on [count]. The count both picks the
+         * form and fills the line's first placeholder.
+         */
+        fun ofCount(@PluralsRes pluralsRes: Int, count: Int): AddonText =
+            Resource(pluralsRes = pluralsRes, quantity = count, arg1 = count)
+    }
+}
+
+/** Puts an [AddonText] into words. Call this where the text is drawn. */
+fun AddonText.resolve(context: Context): String = when (this) {
+    is AddonText.Literal -> text
+    is AddonText.Resource -> if (pluralsRes != 0) {
+        when {
+            arg1 == null -> context.resources.getQuantityString(pluralsRes, quantity)
+            arg2 == null -> context.resources.getQuantityString(pluralsRes, quantity, arg1)
+            else -> context.resources.getQuantityString(pluralsRes, quantity, arg1, arg2)
+        }
+    } else {
+        when {
+            arg1 == null -> context.getString(textRes)
+            arg2 == null -> context.getString(textRes, arg1)
+            else -> context.getString(textRes, arg1, arg2)
+        }
+    }
+}
+
+/** The same line, carried out of the plugin subsystem unresolved. */
+fun PluginText.toAddonText(): AddonText = when (this) {
+    is PluginText.Script -> AddonText.Literal(text)
+    is PluginText.Resource -> AddonText.Resource(textRes, arg1 = arg1, arg2 = arg2)
+}
 
 /**
  * Turning a downloaded payload into an installed addon.
@@ -57,7 +139,7 @@ object AddonInstaller {
         data class Installed(val localRef: String, val repairs: List<String> = emptyList()) : Outcome
 
         /** The importer refused it, with a line worth showing the user. */
-        data class Rejected(val message: String) : Outcome
+        data class Rejected(val text: AddonText) : Outcome
     }
 
     suspend fun install(context: Context, entry: AddonEntry, payload: File): Outcome {
@@ -77,13 +159,14 @@ object AddonInstaller {
             AddonType.Dictionary -> installDictionary(context, entry, payload)
             AddonType.EmojiKeywords -> installEmojiKeywords(context, entry, payload)
             AddonType.Snippets -> installSnippets(context, payload)
-            AddonType.Stickers -> installStickers(context, payload)
-            AddonType.IconPack -> installIconPack(context, payload)
+            AddonType.Stickers -> installStickers(context, entry, payload)
+            AddonType.IconPack -> installIconPack(context, entry, payload)
             AddonType.Font -> installFont(context, entry, payload, emoji = false)
             AddonType.EmojiFont -> installFont(context, entry, payload, emoji = true)
             AddonType.Sound -> installSound(context, entry, payload)
             AddonType.Plugin -> installPlugin(context, payload)
-            AddonType.Unknown -> Outcome.Rejected("This app version doesn't support that addon type")
+            AddonType.Unknown ->
+                Outcome.Rejected(AddonText.of(R.string.faddons_install_error_unknown_type))
         }
 
     /**
@@ -154,8 +237,7 @@ object AddonInstaller {
             // reads as already done to anyone who has enabled the Plugins tool
             // on the toolbar, which is a different setting.
             return Outcome.Rejected(
-                "Plugins are switched off. Turn on “Allow plugins” under " +
-                    "Tools › Plugins, then install this again.",
+                AddonText.of(R.string.faddons_install_error_plugins_turned_off),
             )
         }
         return when (val result = payload.inputStream().use { PluginFile.import(it, store) }) {
@@ -166,12 +248,18 @@ object AddonInstaller {
                 store.setEnabled(result.plugin.id, false)
                 Outcome.Installed(result.plugin.id)
             }
-            is PluginImportResult.Rejected -> Outcome.Rejected(result.reason)
-            PluginImportResult.NotAPlugin -> Outcome.Rejected("That file isn't a WM Keyboard plugin")
-            PluginImportResult.TooManyPlugins ->
-                Outcome.Rejected("You already have the maximum of ${PluginStore.MAX_PLUGINS} plugins")
+            is PluginImportResult.Rejected -> Outcome.Rejected(result.reasonText.toAddonText())
+            PluginImportResult.NotAPlugin ->
+                Outcome.Rejected(AddonText.of(R.string.faddons_error_not_a_plugin))
+            PluginImportResult.TooManyPlugins -> Outcome.Rejected(
+                AddonText.ofCount(
+                    R.plurals.faddons_install_error_too_many_plugins,
+                    PluginStore.MAX_PLUGINS,
+                ),
+            )
 
-            PluginImportResult.Failed -> Outcome.Rejected("That plugin couldn't be installed")
+            PluginImportResult.Failed ->
+                Outcome.Rejected(AddonText.of(R.string.faddons_install_error_plugin_failed))
         }
     }
 
@@ -179,7 +267,7 @@ object AddonInstaller {
 
     private suspend fun installTheme(context: Context, payload: File): Outcome {
         val theme = ThemeCodec.decode(payload.readText())
-            ?: return Outcome.Rejected("That file isn't a WM Keyboard theme")
+            ?: return Outcome.Rejected(AddonText.of(R.string.faddons_install_error_not_a_theme))
         val id = "custom_${System.currentTimeMillis()}"
         // withExtractedImages writes any base64-embedded background out to
         // app-private storage and rewrites the path, which is also what drops
@@ -194,22 +282,29 @@ object AddonInstaller {
 
     private suspend fun installLayout(context: Context, payload: File): Outcome {
         val imported = LayoutFile.decode(payload.readText())
-            ?: return Outcome.Rejected("That file isn't a WM Keyboard layout")
+            ?: return Outcome.Rejected(AddonText.of(R.string.faddons_install_error_not_a_layout))
         val id = "custom_${System.currentTimeMillis()}"
         SettingsRepository(context).upsertCustomLayout(imported.layout.copy(id = id))
-        return Outcome.Installed(id, imported.repairs)
+        // The layout repairer hands back resource ids; the other importers hand
+        // back finished lines. They meet here, so the layout notes are put into
+        // words now rather than travelling on as a second kind of repair.
+        return Outcome.Installed(id, imported.repairNotes.map { it.format(context.resources) })
     }
 
     // ---- dictionaries ---------------------------------------------------
 
     private fun installDictionary(context: Context, entry: AddonEntry, payload: File): Outcome {
         val langId = entry.langId?.takeIf { it.isNotBlank() }
-            ?: return Outcome.Rejected("This dictionary doesn't say which language it's for")
+            ?: return Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_dictionary_no_language),
+            )
         // byId falls back to a generic definition rather than failing, so the
         // registry has to be asked directly. A repository can ship words for a
         // language the app knows; it cannot add a new language.
         if (LanguageRegistry.all.none { it.id == langId }) {
-            return Outcome.Rejected("This app version doesn't support the language “$langId”")
+            return Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_unknown_language, langId),
+            )
         }
 
         val name = entry.name.ifBlank { entry.id }
@@ -217,13 +312,15 @@ object AddonInstaller {
             CustomDictionaries.import(context.filesDir, langId, name, stream)
         }
         if (words == 0) {
-            return Outcome.Rejected("No words could be read out of that file")
+            return Outcome.Rejected(AddonText.of(R.string.faddons_error_no_words))
         }
         // import() names the file itself to avoid collisions, so the newest
         // file in the language's folder is the one it just wrote.
         val created = CustomDictionaries.lists(context.filesDir, langId)
             .maxByOrNull { it.lastModified() }
-            ?: return Outcome.Rejected("The dictionary couldn't be saved")
+            ?: return Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_dictionary_not_saved),
+            )
         return Outcome.Installed(created.absolutePath)
     }
 
@@ -239,9 +336,13 @@ object AddonInstaller {
      */
     private fun installEmojiKeywords(context: Context, entry: AddonEntry, payload: File): Outcome {
         val langId = entry.langId?.takeIf { it.isNotBlank() }
-            ?: return Outcome.Rejected("This pack doesn't say which language it's for")
+            ?: return Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_keywords_no_language),
+            )
         if (LanguageRegistry.all.none { it.id == langId }) {
-            return Outcome.Rejected("This app version doesn't support the language “$langId”")
+            return Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_unknown_language, langId),
+            )
         }
 
         val name = entry.name.ifBlank { entry.id }
@@ -249,16 +350,20 @@ object AddonInstaller {
             EmojiKeywordPacks.import(context.filesDir, langId, name, stream)
         }
         if (emoji == EmojiKeywordPacks.TOO_LARGE) {
-            return Outcome.Rejected("That keyword pack is too large to import")
+            return Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_keywords_too_large),
+            )
         }
         if (emoji == 0) {
-            return Outcome.Rejected("No emoji keywords could be read out of that file")
+            return Outcome.Rejected(AddonText.of(R.string.faddons_install_error_no_keywords))
         }
         // import() names the file itself to avoid collisions, so the newest
         // file in the language's folder is the one it just wrote.
         val created = EmojiKeywordPacks.packs(context.filesDir, langId)
             .maxByOrNull { it.lastModified() }
-            ?: return Outcome.Rejected("The keyword pack couldn't be saved")
+            ?: return Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_keywords_not_saved),
+            )
         return Outcome.Installed(created.absolutePath)
     }
 
@@ -272,9 +377,13 @@ object AddonInstaller {
 
     private fun installSnippets(context: Context, payload: File): Outcome {
         val imported = SnippetFile.decode(payload.readText())
-            ?: return Outcome.Rejected("That file isn't a WM Keyboard snippet pack")
+            ?: return Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_not_a_snippet_pack),
+            )
         if (imported.snippets.isEmpty()) {
-            return Outcome.Rejected("That snippet pack is empty")
+            return Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_snippet_pack_empty),
+            )
         }
         val store = SnippetStore(snippetsFile(context))
         // Ids in the file are ignored — add() assigns fresh ones — so the ids
@@ -282,7 +391,7 @@ object AddonInstaller {
         val added = imported.snippets.map { store.add(it.label, it.text, it.trigger).id }
         // add() only mutates the in-memory list; nothing reaches disk until save().
         store.save()
-        return Outcome.Installed(added.joinToString(","), imported.repairs)
+        return Outcome.Installed(added.joinToString(","), imported.repairs.map { it.resolve(context) })
     }
 
     private fun removeSnippets(context: Context, localRef: String) {
@@ -295,29 +404,46 @@ object AddonInstaller {
 
     // ---- packs -----------------------------------------------------------
 
-    private fun installStickers(context: Context, payload: File): Outcome {
+    private fun installStickers(context: Context, entry: AddonEntry, payload: File): Outcome {
         val store = StickerPackStore.get(context)
-        return when (val result = payload.inputStream().use { StickerPackFile.import(it, store) }) {
-            is StickerImportResult.Imported -> Outcome.Installed(result.pack.id, result.repairs)
-            StickerImportResult.NotAStickerPack -> Outcome.Rejected("That file isn't a sticker pack")
+        val result = payload.inputStream().use {
+            // Names a pack whose own file gives no name, as the icon path does.
+            StickerPackFile.import(it, store, defaultName = entry.name.ifBlank { entry.id })
+        }
+        return when (result) {
+            is StickerImportResult.Imported ->
+                Outcome.Installed(result.pack.id, result.repairs.map { it.resolve(context) })
+            StickerImportResult.NotAStickerPack ->
+                Outcome.Rejected(AddonText.of(R.string.faddons_install_error_not_a_sticker_pack))
             is StickerImportResult.NoStickers -> Outcome.Rejected(
-                "No stickers could be read out of that pack. " + result.repairs.first(),
+                AddonText.of(R.string.faddons_install_error_no_stickers, result.repairs.first().resolve(context)),
             )
-            StickerImportResult.TooManyPacks ->
-                Outcome.Rejected("You've reached the maximum number of sticker packs")
-            StickerImportResult.Failed -> Outcome.Rejected("The sticker pack couldn't be read")
+            StickerImportResult.TooManyPacks -> Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_too_many_sticker_packs),
+            )
+            StickerImportResult.Failed -> Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_sticker_pack_unreadable),
+            )
         }
     }
 
-    private fun installIconPack(context: Context, payload: File): Outcome {
+    private fun installIconPack(context: Context, entry: AddonEntry, payload: File): Outcome {
         val store = IconPackStore.get(context)
-        return when (val result = payload.inputStream().use { IconPackFile.import(it, store) }) {
+        val result = payload.inputStream().use {
+            // Names a pack whose own manifest gives no name.
+            IconPackFile.import(it, store, defaultName = entry.name.ifBlank { entry.id })
+        }
+        return when (result) {
             is IconImportResult.Imported ->
-                Outcome.Installed(result.pack.id, result.repairs)
-            IconImportResult.NotAnIconPack -> Outcome.Rejected("That file isn't an icon pack")
-            IconImportResult.TooManyPacks ->
-                Outcome.Rejected("You've reached the maximum number of icon packs")
-            IconImportResult.Failed -> Outcome.Rejected("The icon pack couldn't be read")
+                Outcome.Installed(result.pack.id, result.repairs.map { it.resolve(context) })
+            IconImportResult.NotAnIconPack ->
+                Outcome.Rejected(AddonText.of(R.string.faddons_install_error_not_an_icon_pack))
+            IconImportResult.TooManyPacks -> Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_too_many_icon_packs),
+            )
+            IconImportResult.Failed -> Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_icon_pack_unreadable),
+            )
         }
     }
 
@@ -354,10 +480,17 @@ object AddonInstaller {
             // (English, Bengali, per-script), but neither is filled here: the
             // font joins the library, and AddonApply asks about the emoji slot.
             is FontImportResult.Imported -> Outcome.Installed(result.font.id)
-            is FontImportResult.NotAFont -> Outcome.Rejected(result.message)
-            FontImportResult.TooManyFonts ->
-                Outcome.Rejected("You've reached the maximum number of installed fonts")
-            is FontImportResult.Failed -> Outcome.Rejected(result.message)
+            is FontImportResult.NotAFont -> Outcome.Rejected(AddonText.of(result.messageRes))
+            FontImportResult.TooManyFonts -> Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_too_many_fonts),
+            )
+            is FontImportResult.Failed -> Outcome.Rejected(
+                AddonText.Resource(
+                    result.messageRes,
+                    arg1 = result.messageArgs.getOrNull(0),
+                    arg2 = result.messageArgs.getOrNull(1),
+                ),
+            )
         }
     }
 
@@ -399,10 +532,14 @@ object AddonInstaller {
             // Added to the sound library and silent until chosen. Installing a
             // sound is not consent for the keyboard to start making it.
             is SoundImportResult.Imported -> Outcome.Installed(result.sound.id)
-            is SoundImportResult.NotASound -> Outcome.Rejected(result.message)
-            SoundImportResult.TooManySounds ->
-                Outcome.Rejected("You've reached the maximum number of installed key sounds")
-            is SoundImportResult.Failed -> Outcome.Rejected(result.message)
+            is SoundImportResult.NotASound -> Outcome.Rejected(AddonText.of(result.messageRes))
+            SoundImportResult.TooManySounds -> Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_too_many_sounds),
+            )
+            // An empty messageArg means the line takes no argument.
+            is SoundImportResult.Failed -> Outcome.Rejected(
+                AddonText.Resource(result.messageRes, arg1 = result.messageArg.ifEmpty { null }),
+            )
         }
     }
 

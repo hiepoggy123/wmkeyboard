@@ -83,8 +83,11 @@ class CalcEngineTest {
 
 class UnitConvertTest {
 
-    private fun unit(category: String, symbol: String): UnitConvert.ConvUnit =
-        UnitConvert.categories.first { it.name == category }.units.first { it.symbol == symbol }
+    // Looked up by the category's stored id, not by its label. The label is a
+    // string resource now; the id is the part that must never change once
+    // shipped, so it is the right thing for a test to name a category by.
+    private fun unit(categoryId: String, symbol: String): UnitConvert.ConvUnit =
+        UnitConvert.categories.first { it.id == categoryId }.units.first { it.symbol == symbol }
 
     @Test
     fun length() {
@@ -347,7 +350,9 @@ class QrToolTest {
     fun symbolCatalogHasNoDuplicatesWithinCategory() {
         for (category in SymbolCatalog.categories) {
             assertEquals(
-                "Duplicates in ${category.name}",
+                // The id, not the label: the label is a string resource that a
+                // JVM test cannot resolve, and the id is what names the group.
+                "Duplicates in ${category.id}",
                 category.symbols.size,
                 category.symbols.distinct().size,
             )

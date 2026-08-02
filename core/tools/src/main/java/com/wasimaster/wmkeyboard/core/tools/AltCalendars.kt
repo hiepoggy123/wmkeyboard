@@ -1,34 +1,38 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.tools.R
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import com.wasimaster.wmkeyboard.common.R as CommonR
 
 /**
  * A calendar the tool can show next to the Gregorian one. Two of these are
  * picked in settings; [NONE] is how a slot is left empty.
  *
- * [id] is the stored key and must not change once shipped.
+ * [id] is the stored key and must not change once shipped. [labelRes] is the
+ * name a screen draws; resolve it where you show it, not before.
  */
 enum class AltCalendar(
     val id: String,
-    val label: String,
+    @StringRes val labelRes: Int,
     /**
      * False where the calendar's days line up with the Gregorian ones, so a
      * second number inside a day cell would only repeat the first.
      */
     val hasDayLabel: Boolean = true,
 ) {
-    NONE("none", "None", hasDayLabel = false),
-    BENGALI("bengali", "Bengali · বঙ্গাব্দ"),
-    HIJRI("hijri", "Hijri · Islamic"),
-    CHINESE("chinese", "Chinese · 农历"),
-    HEBREW("hebrew", "Hebrew · לוח עברי"),
-    HINDU("hindu", "Hindu · Saka"),
-    PERSIAN("persian", "Persian · Solar Hijri"),
-    BUDDHIST("buddhist", "Buddhist · Thai solar", hasDayLabel = false),
-    JAPANESE("japanese", "Japanese · era years", hasDayLabel = false);
+    NONE("none", CommonR.string.common_none, hasDayLabel = false),
+    BENGALI("bengali", R.string.core_tools_calendar_bengali_label),
+    HIJRI("hijri", R.string.core_tools_calendar_hijri_label),
+    CHINESE("chinese", R.string.core_tools_calendar_chinese_label),
+    HEBREW("hebrew", R.string.core_tools_calendar_hebrew_label),
+    HINDU("hindu", R.string.core_tools_calendar_hindu_label),
+    PERSIAN("persian", R.string.core_tools_calendar_persian_label),
+    BUDDHIST("buddhist", R.string.core_tools_calendar_buddhist_label, hasDayLabel = false),
+    JAPANESE("japanese", R.string.core_tools_calendar_japanese_label, hasDayLabel = false);
 
     companion object {
         fun fromId(id: String?): AltCalendar = entries.firstOrNull { it.id == id } ?: NONE

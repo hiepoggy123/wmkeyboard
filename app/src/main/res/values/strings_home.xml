@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the settings home screen and for the shared settings widgets.
+
+  Three groups live here: the root list of the settings app (its heading, the
+  setup card and every row on it), the headings of the screens the navigation
+  graph opens, and the few words the widgets every screen reuses have of their
+  own.
+
+  A row on the home list and the screen it opens carry the same name, so both
+  read the same key. Do not split them.
+-->
+<resources>
+
+    <!-- ===================================================================
+         The settings home screen.
+         =================================================================== -->
+    <!-- Line under the app name, shown only when WM Keyboard is already the keyboard in use. -->
+    <string name="home_active_subtitle">Your active keyboard</string>
+    <!-- Screen reader name of the button that opens the settings search. -->
+    <string name="home_search_desc">Search settings</string>
+
+    <!-- Names of the groups of rows on the home list. -->
+    <string name="home_group_typing_title">Typing</string>
+    <string name="home_group_keyboard_title">Keyboard</string>
+    <string name="home_group_features_title">Features</string>
+    <string name="home_group_accessibility_title">Accessibility</string>
+    <string name="home_group_data_title">Data</string>
+    <string name="home_group_about_title">About</string>
+
+    <!-- ===================================================================
+         Rows on the home list. Each name is also the heading of the screen
+         that the row opens.
+         =================================================================== -->
+    <string name="home_typing_title">Typing</string>
+    <string name="home_typing_subtitle">Autocorrect, suggestions, gestures</string>
+
+    <string name="home_keypress_title">Key press</string>
+    <string name="home_keypress_subtitle">Haptics, key popup, press and hold shortcuts</string>
+
+    <string name="home_languages_title">Languages</string>
+
+    <string name="home_appearance_title">Appearance</string>
+    <string name="home_appearance_subtitle">Themes, fonts, toolbar style</string>
+
+    <string name="home_layout_title">Layout &amp; size</string>
+    <string name="home_layout_subtitle">Key size, number row, one-handed, split &amp; floating</string>
+
+    <string name="home_keymaps_title">Key layouts</string>
+    <string name="home_keymaps_subtitle">Design your own key grid, or start from a built-in one</string>
+
+    <string name="home_rows_title">Rows &amp; bars</string>
+    <string name="home_rows_subtitle">Symbol row, emoji row, row order &amp; symbol sets</string>
+
+    <string name="home_modes_title">Keyboard modes</string>
+    <string name="home_modes_subtitle">Per-app setups: email, browser, coding, passwords</string>
+
+    <string name="home_emoji_title">Emoji</string>
+    <string name="home_emoji_subtitle">Suggestions, emoji row, emoji style, favourites</string>
+
+    <string name="home_tools_title">Tools</string>
+    <string name="home_tools_subtitle">Flashlight, compass, snippets, calendar &amp; more</string>
+
+    <string name="home_addons_title">Add-ons</string>
+    <string name="home_addons_subtitle">Install themes, layouts, fonts and more from the web</string>
+
+    <string name="home_accessibility_title">Accessibility</string>
+    <string name="home_accessibility_subtitle">Contrast, colour vision, TalkBack, reduced motion</string>
+
+    <string name="home_privacy_title">Privacy</string>
+    <string name="home_privacy_subtitle">On-device learning, incognito</string>
+
+    <string name="home_backup_title">Backup &amp; restore</string>
+    <string name="home_backup_subtitle">Export your settings to a file, or restore them</string>
+
+    <string name="home_about_title">About</string>
+    <string name="home_about_subtitle">Version, licence, open-source notices</string>
+
+    <!-- ===================================================================
+         Headings of the screens that have no row on the home list. The user
+         reaches them from a row inside another screen, from a search result
+         or from a link.
+         =================================================================== -->
+    <string name="home_screen_dictionary_title">Personal dictionary</string>
+    <string name="home_screen_custom_dictionaries_title">Custom dictionaries</string>
+    <string name="home_screen_emoji_keywords_title">Emoji keywords</string>
+    <string name="home_screen_blacklist_title">Suggestion blacklist</string>
+    <string name="home_screen_hwshortcuts_title">Tool shortcuts list</string>
+    <string name="home_screen_fonts_title">Keyboard font</string>
+    <string name="home_screen_icons_title">Icons</string>
+    <string name="home_screen_themes_title">Keyboard themes</string>
+    <string name="home_screen_theme_edit_title">Edit theme</string>
+    <string name="home_screen_sticker_packs_title">Sticker packs</string>
+    <string name="home_screen_sticker_pack_edit_title">Edit sticker pack</string>
+    <string name="home_screen_plugins_title">Plugins</string>
+    <!-- Heading of the page of one plugin, shown before its own name is known. -->
+    <string name="home_screen_plugin_title">Plugin</string>
+    <string name="home_screen_layout_edit_title">Edit layout</string>
+    <!-- Heading of the screen that shows one key layout as JSON text. -->
+    <string name="home_screen_layout_json_title">Layout JSON</string>
+    <string name="home_screen_add_language_title">Add language</string>
+    <string name="home_screen_symbol_set_edit_title">Edit symbol set</string>
+    <string name="home_screen_mode_edit_title">Edit mode</string>
+    <string name="home_screen_debug_log_title">Diagnostics</string>
+    <string name="home_screen_licenses_title">Open-source licences</string>
+    <!-- Heading of the screen that shows the full text of one licence. -->
+    <string name="home_screen_license_title">Licence</string>
+
+    <!-- ===================================================================
+         The setup card: how to turn the keyboard on and select it.
+         =================================================================== -->
+    <string name="home_setup_title">Setup</string>
+    <!-- Shown when the keyboard is turned on and selected. -->
+    <string name="home_setup_active_body">WM Keyboard is your active keyboard.</string>
+    <!-- Shown when the keyboard is turned on but another keyboard is in use. -->
+    <string name="home_setup_enabled_body">WM Keyboard is turned on. Press the button below to switch to it.</string>
+    <!-- Shown when the keyboard is not turned on yet. -->
+    <string name="home_setup_disabled_body">Turn on WM Keyboard in the system settings. Then select it as your keyboard.</string>
+    <!-- Opens the keyboard list of the system settings. -->
+    <string name="home_setup_enable_action">Turn on keyboard</string>
+    <!-- Opens the keyboard picker of the system. -->
+    <string name="home_setup_switch_action">Switch keyboard</string>
+
+    <!-- ===================================================================
+         Shared settings widgets.
+         =================================================================== -->
+    <!-- Screen reader name of the "?" button beside a setting. %1$s = the name of that setting. -->
+    <string name="home_info_desc">More about %1$s</string>
+
+    <!-- Row that puts the pinned tools of the toolbar back to their defaults. -->
+    <string name="home_reset_pinned_tools_title">Reset pinned tools</string>
+    <string name="home_reset_pinned_tools_subtitle">Restore the default toolbar tools</string>
+    <string name="home_reset_pinned_tools_confirm_title">Reset pinned tools?</string>
+    <string name="home_reset_pinned_tools_confirm_body">The toolbar goes back to its default tools. The app forgets the tools that you pinned or deleted by hand. This changes the global toolbar only. To reset the toolbar of one mode, open the editor of that mode.</string>
+
+    <!-- What one spacebar swipe does. The four choices of one segmented row. -->
+    <string name="home_space_swipe_none_label">Nothing</string>
+    <string name="home_space_swipe_language_label">Language</string>
+    <string name="home_space_swipe_cursor_label">Cursor</string>
+    <string name="home_space_swipe_numpad_label">Numpad</string>
+
+</resources>

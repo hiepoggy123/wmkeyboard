@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings owned by :core:theme.
+
+  The module holds the theme model and the built-in theme gallery. The only
+  user-facing text here is the name of each built-in theme, which the theme
+  picker in the app, the onboarding screen and the keyboard theme panel all
+  draw.
+
+  A theme also has an id, and the id is not text. Ids are stored in the
+  settings and written into exported .wmtheme.json files, so they stay in the
+  Kotlin code and never change. The name below is the label only.
+
+  Referenced from another module as
+  com.wasimaster.wmkeyboard.theme.R.string.core_theme_… - the R classes are
+  non-transitive, so the import has to name this module.
+-->
+<resources>
+
+    <!-- ================================================================== -->
+    <!-- Built-in themes. Each name is one card in the theme picker.        -->
+    <!-- The names come from the colours of the theme, so translate them as -->
+    <!-- the colour word, not as a technical term.                          -->
+    <!-- ================================================================== -->
+
+    <!-- Blue. -->
+    <string name="core_theme_builtin_ocean_label">Ocean</string>
+    <!-- Green. -->
+    <string name="core_theme_builtin_forest_label">Forest</string>
+    <!-- Orange. -->
+    <string name="core_theme_builtin_sunset_label">Sunset</string>
+    <!-- Pink and purple. -->
+    <string name="core_theme_builtin_berry_label">Berry</string>
+    <!-- Deep red. -->
+    <string name="core_theme_builtin_crimson_label">Crimson</string>
+    <!-- Grey and blue. -->
+    <string name="core_theme_builtin_slate_label">Slate</string>
+    <!-- True black. The theme saves power on an OLED screen. -->
+    <string name="core_theme_builtin_pitch_label">Pitch black</string>
+    <!-- Light theme, cool white. -->
+    <string name="core_theme_builtin_snow_label">Snow</string>
+    <!-- Light theme, soft green. -->
+    <string name="core_theme_builtin_mint_label">Mint</string>
+    <!-- Light theme, soft pink. -->
+    <string name="core_theme_builtin_rose_label">Rose</string>
+    <!-- Light theme, warm brown. -->
+    <string name="core_theme_builtin_sand_label">Sand</string>
+
+    <!-- ================================================================== -->
+    <!-- Built-in themes that paint a gradient behind the keys.             -->
+    <!-- ================================================================== -->
+
+    <!-- Purple and blue, like a cloud of stars. -->
+    <string name="core_theme_builtin_nebula_label">Nebula</string>
+    <!-- Orange and red, and the gradient moves. -->
+    <string name="core_theme_builtin_sunset_drift_label">Sunset drift</string>
+    <!-- Green and blue, and the colours turn slowly. Named after the northern lights. -->
+    <string name="core_theme_builtin_aurora_label">Aurora</string>
+    <!-- Dark blue, darkest at the edges. -->
+    <string name="core_theme_builtin_deep_sea_label">Deep sea</string>
+    <!-- Light theme, pale blue ice. -->
+    <string name="core_theme_builtin_glacier_label">Glacier</string>
+
+    <!-- ================================================================== -->
+    <!-- Built-in themes that show off a key shape.                         -->
+    <!-- ================================================================== -->
+
+    <!-- The keys are round, like bubbles. -->
+    <string name="core_theme_builtin_bubble_label">Bubble</string>
+    <!-- The keys have cut corners, like a cut gem. -->
+    <string name="core_theme_builtin_facet_label">Facet</string>
+
+    <!-- ================================================================== -->
+    <!-- Built-in themes that copy a well-known code editor colour scheme.  -->
+    <!-- Each name is the name of that scheme, so it stays in English in    -->
+    <!-- every language.                                                    -->
+    <!-- ================================================================== -->
+
+    <string name="core_theme_builtin_dracula_label" translatable="false">Dracula</string>
+    <string name="core_theme_builtin_nord_label" translatable="false">Nord</string>
+    <string name="core_theme_builtin_solarized_dark_label" translatable="false">Solarized Dark</string>
+    <string name="core_theme_builtin_solarized_light_label" translatable="false">Solarized Light</string>
+    <string name="core_theme_builtin_catppuccin_mocha_label" translatable="false">Catppuccin Mocha</string>
+    <string name="core_theme_builtin_catppuccin_latte_label" translatable="false">Catppuccin Latte</string>
+    <string name="core_theme_builtin_tokyo_night_label" translatable="false">Tokyo Night</string>
+
+    <!-- Our own palette: neon pink and cyan on near black. -->
+    <string name="core_theme_builtin_cyberpunk_label">Cyberpunk</string>
+
+</resources>

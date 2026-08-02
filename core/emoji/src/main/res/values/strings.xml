@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  :core:emoji. Text the app writes about emoji keyword lists.
+
+  Emoji keywords, shortcodes and kaomoji are search data, not interface text.
+  They stay in the Kotlin source and in the bundled asset files, because the
+  search must find an emoji by the word the user typed, in the language they
+  typed it in. The example words in EmojiSearchExamples are the same kind of
+  data: each one belongs to one language and is picked by language id.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ================================================================== -->
+    <!-- Emoji keyword list downloads. Each value appears under the         -->
+    <!-- "Emoji keywords" row on the language screen when a download fails. -->
+    <!-- ================================================================== -->
+
+    <string name="core_emoji_dict_error_empty">That emoji keyword list is empty or unreadable.</string>
+    <string name="core_emoji_dict_error_not_a_list">That file is not an emoji keyword list.</string>
+    <string name="core_emoji_dict_error_too_large">That emoji keyword list is too large.</string>
+    <string name="core_emoji_dict_error_save">The app could not save the emoji keyword list.</string>
+    <!-- %1$s is the HTTP status code the server sent. -->
+    <string name="core_emoji_dict_error_http">The server did not send the file. The error code is HTTP <xliff:g id="status_code" example="404">%1$s</xliff:g>.</string>
+
+</resources>

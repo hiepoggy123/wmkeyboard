@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ==== Slider value labels shared by the settings screens ====
+         Each value here is the small readout that a slider draws next to its
+         title. The number goes through the format, so the digits follow the
+         numeral system of the language: Bengali, Arabic, Persian and
+         Devanagari digits all come out right. Put the unit symbol where your
+         language puts it. The unit symbols themselves stay as they are,
+         because they are international symbols.
+         The other shapes already live in strings_typing.xml and
+         strings_keypress.xml: use typing_value_dp, typing_value_percent,
+         typing_value_milliseconds and keypress_value_multiplier for those. -->
+
+    <!-- %1$d is a whole number of scale independent pixels, for example 11.
+         "sp" is a unit symbol, not a countable noun: it does not inflect. -->
+    <string name="values_sp" tools:ignore="PluralsCandidate">%1$d sp</string>
+    <!-- %1$d is a whole number of minutes, for example 30. "min" is a unit
+         symbol, not a countable noun: it does not inflect. -->
+    <string name="values_minutes" tools:ignore="PluralsCandidate">%1$d min</string>
+    <!-- %1$d is a whole number of hours, for example 24. "h" is a unit symbol,
+         not a countable noun: it does not inflect. -->
+    <string name="values_hours" tools:ignore="PluralsCandidate">%1$d h</string>
+    <!-- %1$d is a whole number of pixels, for example 512. "px" is a unit
+         symbol, not a countable noun: it does not inflect. -->
+    <string name="values_pixels" tools:ignore="PluralsCandidate">%1$d px</string>
+    <!-- %1$d is a whole number of seconds, for example 30. "s" is a unit
+         symbol, not a countable noun: it does not inflect. It sits against the
+         number with no space, as in 30s. -->
+    <string name="values_seconds" tools:ignore="PluralsCandidate">%1$ds</string>
+    <!-- %1$d is a plain whole number with no unit, for example 250. The format
+         is here so that the digits follow the numeral system of the language. -->
+    <string name="values_number">%1$d</string>
+    <!-- %1$d is a whole number of days that a date moves back, for example -2.
+         "d" is a unit symbol, not a countable noun: it does not inflect. -->
+    <string name="values_days" tools:ignore="PluralsCandidate">%1$d d</string>
+    <!-- %1$d is a whole number of days that a date moves forward, for example
+         2. The plus sign shows the direction. "d" is a unit symbol, not a
+         countable noun: it does not inflect. -->
+    <string name="values_days_ahead" tools:ignore="PluralsCandidate">+%1$d d</string>
+
+</resources>

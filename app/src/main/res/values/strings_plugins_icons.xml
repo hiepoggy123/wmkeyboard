@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for two settings screens in :app: plugin management and the icon
+  editor.
+
+  Every key starts with plugins_ so this file can never collide with the other
+  :app resource files; the icon editor's keys carry the extra plugins_icons_
+  prefix.
+
+  Not here: the permission lines a plugin declares (they live in :core:plugins
+  and the screen resolves PluginPermission.labelRes), the icon slot and slot
+  group names (:core:icons), and the Material Symbols names in the icon picker,
+  which the app derives from the icon id.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ================================================================== -->
+    <!-- Plugins: the master switch and what a plugin may reach.            -->
+    <!-- ================================================================== -->
+
+    <string name="plugins_allow_title">Allow plugins</string>
+    <string name="plugins_allow_subtitle">A plugin is a small tool that other people write. It runs inside a sandbox on this keyboard. This setting is not the Plugins tool on the toolbar, which only sets where the panel appears.</string>
+
+    <string name="plugins_facts_title">What a plugin can and cannot do</string>
+    <!-- Six list rows. Each one has a tick or a cross beside it. -->
+    <string name="plugins_fact_no_typing">It cannot see what you type</string>
+    <string name="plugins_fact_no_field">It cannot read the text field you write in</string>
+    <string name="plugins_fact_no_clipboard">It cannot read your clipboard</string>
+    <string name="plugins_fact_no_internet">It cannot use the internet</string>
+    <string name="plugins_fact_own_panel">It can draw its own panel and do its own maths</string>
+    <string name="plugins_fact_own_storage">It can save its own data, if it tells you before you install it</string>
+    <!-- Insert is the button inside a plugin panel that sends a result to the text field. -->
+    <string name="plugins_facts_info">These are not settings. A plugin has no way to ask for them. You give text to a plugin when you type or paste it into its own box. The results come back to you when you press Insert.</string>
+
+    <!-- ================================================================== -->
+    <!-- Plugins: the installed list and how to add one.                    -->
+    <!-- ================================================================== -->
+
+    <string name="plugins_installed_title">Installed</string>
+    <string name="plugins_installed_empty">No plugins are installed yet.</string>
+
+    <!-- Row subtitle under a plugin name. %1$s is the version the plugin states. -->
+    <string name="plugins_row_version">Version %1$s</string>
+    <!-- %1$s is the version, %2$s is the author name. -->
+    <string name="plugins_row_version_author">Version %1$s by %2$s</string>
+    <!-- The plugin is installed but turned off. %1$s is the version. -->
+    <string name="plugins_row_version_off">Version %1$s. Turned off</string>
+    <!-- The plugin is installed but turned off. %1$s is the version, %2$s is the author name. -->
+    <string name="plugins_row_version_author_off">Version %1$s by %2$s. Turned off</string>
+
+    <string name="plugins_add_title">Add</string>
+    <string name="plugins_install_file_title">Install from a file</string>
+    <string name="plugins_install_file_subtitle">Select a .wmplugin file</string>
+    <string name="plugins_install_repo_info">You can also install plugins from an add-on repository. Look under Add-ons.</string>
+
+    <!-- ================================================================== -->
+    <!-- One plugin: what it may do, what it saved, and its log.            -->
+    <!-- ================================================================== -->
+
+    <string name="plugins_detail_missing">That plugin is not installed anymore.</string>
+    <!-- Stands in for the description when the plugin gives none. -->
+    <string name="plugins_detail_no_description">No description.</string>
+
+    <string name="plugins_detail_enabled_title">Turned on</string>
+    <string name="plugins_detail_enabled_subtitle">Show this plugin in the Plugins panel</string>
+    <!-- Subtitle of the same row when the app turned the plugin off by itself. -->
+    <string name="plugins_detail_stopped_subtitle">The app turned this plugin off because it stopped responding two times</string>
+
+    <string name="plugins_permissions_title">What it can do</string>
+    <string name="plugins_permissions_none">Nothing outside its own panel</string>
+    <string name="plugins_permissions_info">The plugin declares this when you install it. A plugin cannot ask for more while it runs, because there is nothing more to ask for.</string>
+
+    <string name="plugins_storage_title">Stored data</string>
+    <!-- %1$d is the space the plugin uses, %2$d is the space it may use. Both are in kilobytes.
+         "KB" is a unit symbol, not a countable noun: it does not inflect. -->
+    <string name="plugins_storage_used_label" tools:ignore="PluralsCandidate">Uses %1$d KB of %2$d KB</string>
+    <string name="plugins_storage_subtitle">Saved on your device only</string>
+    <string name="plugins_storage_clear_action">Delete the stored data</string>
+
+    <string name="plugins_log_title">Log</string>
+    <string name="plugins_log_info">The log shows what the plugin printed, and its errors. This helps when you write a plugin.</string>
+    <string name="plugins_log_clear_action">Delete the log</string>
+
+    <!-- %1$s is the name of the plugin. -->
+    <string name="plugins_uninstall_confirm_title">Uninstall %1$s?</string>
+    <string name="plugins_uninstall_confirm_body">The app deletes its script and all the data it saved from your device.</string>
+
+    <!-- ================================================================== -->
+    <!-- The install dialog: what the file claims to be.                    -->
+    <!-- ================================================================== -->
+
+    <!-- %1$s is the name the plugin states. The quotation marks are part of the title. -->
+    <string name="plugins_install_confirm_title">Install “%1$s”?</string>
+    <string name="plugins_install_unreadable_title">The app cannot read that plugin</string>
+    <!-- Stands in for the description when the file gives none. -->
+    <string name="plugins_install_default_description">A WM Keyboard plugin.</string>
+    <string name="plugins_install_no_permissions">It does not ask for anything outside its own panel.</string>
+    <!-- Introduces the list of permissions the plugin declares. -->
+    <string name="plugins_install_permissions_intro">It can:</string>
+
+    <string name="plugins_not_a_plugin_error">That file is not a WM Keyboard plugin.</string>
+    <!-- %1$s is the name of the plugin the app just installed. -->
+    <string name="plugins_install_done_message">The app installed %1$s.</string>
+    <!-- %1$d is the largest number of plugins the app keeps. -->
+    <plurals name="plugins_too_many_error">
+        <item quantity="one">You already have %1$d plugin.</item>
+        <item quantity="other">You already have %1$d plugins.</item>
+    </plurals>
+    <string name="plugins_install_failed_error">The app could not install that plugin.</string>
+
+    <!-- ================================================================== -->
+    <!-- Icons: the screen that replaces one icon or a whole pack.          -->
+    <!-- ================================================================== -->
+
+    <string name="plugins_icons_intro_info">You can replace any keyboard icon with a different built-in icon or with your own SVG. The built-in set is Material Symbols from Google, outlined style. An icon that sets no colours of its own follows the theme and the accent colour of the tool. An icon that sets its own colours keeps them.</string>
+
+    <string name="plugins_icons_pack_title">Icon pack</string>
+    <string name="plugins_icons_pack_builtin_name">Built-in icons</string>
+    <string name="plugins_icons_pack_builtin_supporting">Material Symbols (outlined), the set that comes with WM Keyboard</string>
+
+    <!-- Row subtitle: how many icons a pack holds. -->
+    <plurals name="plugins_icons_pack_icon_count">
+        <item quantity="one">%1$d icon</item>
+        <item quantity="other">%1$d icons</item>
+    </plurals>
+    <!-- Added after the icon count. %1$s is the author of the pack. -->
+    <string name="plugins_icons_pack_author_suffix">, by %1$s</string>
+    <!-- Added last. %1$s is the version the pack states. -->
+    <string name="plugins_icons_pack_version_suffix">, version %1$s</string>
+
+    <!-- Screen reader text for the button that writes a pack to a file. %1$s is the pack name. -->
+    <string name="plugins_icons_pack_export_desc">Export %1$s</string>
+    <!-- Screen reader text for the button that deletes a pack. %1$s is the pack name. -->
+    <string name="plugins_icons_pack_delete_desc">Delete %1$s</string>
+    <!-- Screen reader text for the tick beside the pack the keyboard uses now. -->
+    <string name="plugins_icons_pack_active_desc">Active</string>
+
+    <string name="plugins_icons_import_title">Import an icon pack</string>
+    <string name="plugins_icons_import_subtitle">Opens a .wmicons file that a person shared</string>
+    <string name="plugins_icons_reset_title">Reset all icons</string>
+    <string name="plugins_icons_reset_subtitle">This turns the pack off and deletes every single-icon change. The app keeps the installed packs.</string>
+    <string name="plugins_icons_reset_message">Every icon is back to the built-in one.</string>
+
+    <!-- %1$s is the name of the pack the app wrote to a file. -->
+    <string name="plugins_icons_export_done_message">The app saved %1$s.</string>
+    <string name="plugins_icons_export_failed_message">The app could not write that file.</string>
+
+    <!-- %1$s is the name of the icon the user replaced, for example Backspace. -->
+    <string name="plugins_icons_slot_custom_message">The app set a custom icon for %1$s.</string>
+    <!-- %1$d is the largest size of an SVG file, in kilobytes. "KB" is a unit
+         symbol, not a countable noun: it does not inflect. -->
+    <string name="plugins_icons_slot_svg_error" tools:ignore="PluralsCandidate">The app cannot use that file as an icon. The file must be an SVG smaller than %1$d KB.</string>
+
+    <!-- Row subtitle: this icon comes from a pack. %1$s is the name of the pack. -->
+    <string name="plugins_icons_source_from_pack">From %1$s</string>
+
+    <!-- ================================================================== -->
+    <!-- Icons: import, delete and pick.                                    -->
+    <!-- ================================================================== -->
+
+    <!-- %1$s is the name of the pack, %2$d is how many icons it brought. -->
+    <plurals name="plugins_icons_import_done_message">
+        <item quantity="one">The app imported %1$s with %2$d icon.</item>
+        <item quantity="other">The app imported %1$s with %2$d icons.</item>
+    </plurals>
+    <!-- Introduces the list of parts of a pack the app had to change or drop. -->
+    <string name="plugins_icons_import_repairs_intro">The app changed this on the way in:</string>
+    <string name="plugins_icons_import_not_a_pack_error">That file is not a WM Keyboard icon pack.</string>
+    <!-- %1$d is the largest number of icon packs the app keeps. -->
+    <plurals name="plugins_icons_import_too_many_error">
+        <item quantity="one">You already have %1$d icon pack. Delete it first.</item>
+        <item quantity="other">You already have %1$d icon packs. Delete one first.</item>
+    </plurals>
+    <string name="plugins_icons_import_read_error">The app could not read that file.</string>
+
+    <!-- %1$s is the name of the pack. -->
+    <string name="plugins_icons_pack_delete_confirm_title">Delete %1$s?</string>
+    <!-- %1$d is how many icons the pack holds. -->
+    <plurals name="plugins_icons_pack_delete_confirm_body">
+        <item quantity="one">The app deletes its %1$d icon from your device.</item>
+        <item quantity="other">The app deletes its %1$d icons from your device.</item>
+    </plurals>
+
+    <string name="plugins_icons_picker_search_hint">Search Material Symbols</string>
+    <!-- %1$s is what the user typed in the search box. The quotation marks are part of the message. -->
+    <string name="plugins_icons_picker_no_match">No icon matches “%1$s”.</string>
+    <string name="plugins_icons_picker_use_svg_action">Use my own SVG…</string>
+    <string name="plugins_icons_picker_use_default_action">Use the default</string>
+
+</resources>

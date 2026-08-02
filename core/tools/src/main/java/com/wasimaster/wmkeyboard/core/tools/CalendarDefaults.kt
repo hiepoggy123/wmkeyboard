@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.tools.R
+
 /**
  * Which days the calendar tool tints as the weekend.
  *
@@ -8,16 +11,17 @@ package com.wasimaster.wmkeyboard.core.tools
  * grid to tick. [days] is 0 = Sunday through 6 = Saturday, matching the tool's
  * own column order.
  *
- * [id] is the stored key and must not change once shipped.
+ * [id] is the stored key and must not change once shipped. [labelRes] is the
+ * name a screen draws; resolve it where you show it, not before.
  */
-enum class Weekend(val id: String, val label: String, val days: Set<Int>) {
-    SAT_SUN("sat_sun", "Saturday & Sunday", setOf(6, 0)),
-    FRI_SAT("fri_sat", "Friday & Saturday", setOf(5, 6)),
-    THU_FRI("thu_fri", "Thursday & Friday", setOf(4, 5)),
-    FRI("fri", "Friday", setOf(5)),
-    SAT("sat", "Saturday", setOf(6)),
-    SUN("sun", "Sunday", setOf(0)),
-    NONE("none", "No weekend", emptySet());
+enum class Weekend(val id: String, @StringRes val labelRes: Int, val days: Set<Int>) {
+    SAT_SUN("sat_sun", R.string.core_tools_weekend_sat_sun_label, setOf(6, 0)),
+    FRI_SAT("fri_sat", R.string.core_tools_weekend_fri_sat_label, setOf(5, 6)),
+    THU_FRI("thu_fri", R.string.core_tools_weekend_thu_fri_label, setOf(4, 5)),
+    FRI("fri", R.string.core_tools_weekend_fri_label, setOf(5)),
+    SAT("sat", R.string.core_tools_weekend_sat_label, setOf(6)),
+    SUN("sun", R.string.core_tools_weekend_sun_label, setOf(0)),
+    NONE("none", R.string.core_tools_weekend_none_label, emptySet());
 
     companion object {
         fun fromId(id: String?): Weekend = entries.firstOrNull { it.id == id } ?: SAT_SUN

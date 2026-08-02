@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.app
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -20,9 +21,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.support.Support
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -47,23 +51,29 @@ private const val PRIVACY_POLICY_URL = "$DOCS_URL/privacy/overview/"
 private const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=${BuildConfig.APPLICATION_ID}"
 private const val FDROID_URL = "https://f-droid.org/packages/${BuildConfig.APPLICATION_ID}/"
 
-private const val SHARE_BLURB = "Try out an awesome keyboard app called WM Keyboard!"
-
-/** Opens the system share sheet with [SHARE_BLURB] and [url]. */
+/** Opens the system share sheet with the share blurb and [url]. */
 private fun shareLink(context: android.content.Context, url: String) {
+    val blurb = context.getString(R.string.about_share_blurb)
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, "$SHARE_BLURB\n$url")
+        putExtra(Intent.EXTRA_TEXT, "$blurb\n$url")
     }
-    context.startActivity(Intent.createChooser(intent, "Share WM Keyboard").apply {
+    val chooserTitle = context.getString(R.string.about_share_chooser_title)
+    context.startActivity(Intent.createChooser(intent, chooserTitle).apply {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     })
 }
 
-/** One row in the licences list. [licenseAsset] is a file in `assets/licenses/`. */
+/**
+ * One row in the licences list. [licenseAsset] is a file in `assets/licenses/`.
+ *
+ * Only [usedRes] is translated. [name], [copyright] and [license] are the legal
+ * identity of the component: a product name, a copyright notice and a licence
+ * identifier all have to travel verbatim, so they stay in English.
+ */
 private data class Attribution(
     val name: String,
-    val used: String,
+    @StringRes val usedRes: Int,
     val copyright: String,
     val license: String,
     val licenseAsset: String?,
@@ -78,7 +88,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "AndroidX & Jetpack Compose",
-            "UI toolkit, navigation, DataStore, CameraX, autofill",
+            R.string.about_bundled_androidx_used,
             "Copyright The Android Open Source Project",
             "Apache-2.0", "apache-2.0.txt",
             "https://developer.android.com/jetpack/androidx",
@@ -87,7 +97,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "Kotlin, coroutines & serialization",
-            "Language runtime, concurrency, settings serialisation",
+            R.string.about_bundled_kotlin_used,
             "Copyright JetBrains s.r.o. and Kotlin contributors",
             "Apache-2.0", "apache-2.0.txt",
             "https://github.com/JetBrains/kotlin",
@@ -96,7 +106,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "Coil",
-            "Image loading for the GIF, sticker and search panels",
+            R.string.about_bundled_coil_used,
             "Copyright Coil Contributors",
             "Apache-2.0", "apache-2.0.txt",
             "https://github.com/coil-kt/coil",
@@ -105,7 +115,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "OkHttp & Okio",
-            "HTTP client behind Coil and the network tools",
+            R.string.about_bundled_okhttp_used,
             "Copyright Square, Inc.",
             "Apache-2.0", "apache-2.0.txt",
             "https://github.com/square/okhttp",
@@ -114,7 +124,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "ZXing",
-            "QR code generation",
+            R.string.about_bundled_zxing_used,
             "Copyright ZXing authors",
             "Apache-2.0", "apache-2.0.txt",
             "https://github.com/zxing/zxing",
@@ -123,7 +133,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "LuaJ",
-            "Lua interpreter that runs plugins inside their sandbox",
+            R.string.about_bundled_luaj_used,
             "Copyright (c) 2007 LuaJ. All rights reserved.",
             "MIT", "mit-luaj.txt",
             "https://github.com/luaj/luaj",
@@ -133,7 +143,7 @@ private val bundledAttributions: List<Attribution> = buildList {
         add(
             Attribution(
                 "Harper",
-                "Offline grammar and style checking (native library)",
+                R.string.about_bundled_harper_used,
                 "Copyright Automattic, Inc. and Harper contributors",
                 "Apache-2.0", "apache-2.0.txt",
                 "https://github.com/automattic/harper",
@@ -142,7 +152,7 @@ private val bundledAttributions: List<Attribution> = buildList {
         add(
             Attribution(
                 "Rust crates used by Harper",
-                "Transitive dependencies linked into the grammar library",
+                R.string.about_bundled_rust_crates_used,
                 "Copyright the respective crate authors",
                 "MIT / Apache-2.0 / others", "harper-third-party.txt",
                 "https://crates.io",
@@ -153,7 +163,7 @@ private val bundledAttributions: List<Attribution> = buildList {
         add(
             Attribution(
                 "Google ML Kit",
-                "Handwriting recognition, text and barcode scanning, document scanner",
+                R.string.about_bundled_mlkit_used,
                 "Copyright Google LLC",
                 "Google APIs Terms of Service", null,
                 "https://developers.google.com/ml-kit/terms",
@@ -164,7 +174,7 @@ private val bundledAttributions: List<Attribution> = buildList {
         add(
             Attribution(
                 "LiteRT-LM",
-                "On-device language model runtime",
+                R.string.about_bundled_litert_lm_used,
                 "Copyright Google LLC",
                 "Apache-2.0", "apache-2.0.txt",
                 "https://github.com/google-ai-edge/LiteRT-LM",
@@ -175,7 +185,7 @@ private val bundledAttributions: List<Attribution> = buildList {
         add(
             Attribution(
                 "LiteRT",
-                "On-device runtime for offline Whisper speech-to-text",
+                R.string.about_bundled_litert_used,
                 "Copyright Google LLC",
                 "Apache-2.0", "apache-2.0.txt",
                 "https://github.com/google-ai-edge/LiteRT",
@@ -184,7 +194,7 @@ private val bundledAttributions: List<Attribution> = buildList {
         add(
             Attribution(
                 "OpenAI Whisper",
-                "Speech recognition model (TFLite conversions run on-device)",
+                R.string.about_bundled_whisper_used,
                 "Copyright (c) 2022 OpenAI",
                 "MIT", "mit-whisper.txt",
                 "https://github.com/openai/whisper",
@@ -193,7 +203,7 @@ private val bundledAttributions: List<Attribution> = buildList {
         add(
             Attribution(
                 "whisper_android",
-                "Reference for the mel-spectrogram and tokenizer port",
+                R.string.about_bundled_whisper_android_used,
                 "Copyright (c) 2023 Vilas Ninawe",
                 "MIT", "mit-whisper-android.txt",
                 "https://github.com/vilassn/whisper_android",
@@ -203,7 +213,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "Unicode CLDR & emoji data",
-            "Emoji catalogue, names, keywords and skin-tone sequences",
+            R.string.about_bundled_unicode_used,
             "Copyright Unicode, Inc.",
             "Unicode License v3", "unicode-3.0.txt",
             "https://www.unicode.org/license.txt",
@@ -212,7 +222,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "gemoji",
-            "Emoji shortcodes (the :tada: names GitHub, Discord and Slack use)",
+            R.string.about_bundled_gemoji_used,
             "Copyright (c) 2019 GitHub, Inc.",
             "MIT", "mit-gemoji.txt",
             "https://github.com/github/gemoji",
@@ -221,7 +231,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "OpenCC",
-            "Simplified↔Traditional character map and Taiwan/Hong Kong vocabulary",
+            R.string.about_bundled_opencc_used,
             "Copyright Carbo Kuo and OpenCC contributors",
             "Apache-2.0", "apache-2.0.txt",
             "https://github.com/BYVoid/OpenCC",
@@ -230,7 +240,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "LSHK Jyutping table",
-            "Cantonese Jyutping syllable inventory",
+            R.string.about_bundled_lshk_used,
             "Copyright the Linguistic Society of Hong Kong",
             "CC BY 4.0", "cc-by-4.0-lshk.txt",
             "https://github.com/lshk-org/jyutping-table",
@@ -239,7 +249,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "Editor colour palettes",
-            "Built-in themes: Dracula, Nord, Solarized, Catppuccin, Tokyo Night",
+            R.string.about_bundled_palettes_used,
             "Copyright the respective theme authors",
             "MIT", "mit-color-themes.txt",
             "https://github.com/dracula/dracula-theme",
@@ -248,7 +258,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "Google Fonts",
-            "Keyboard typefaces, downloaded on demand by the system",
+            R.string.about_bundled_fonts_used,
             "Copyright the respective font authors",
             "SIL Open Font License 1.1", "ofl-1.1.txt",
             "https://fonts.google.com/attribution",
@@ -266,57 +276,56 @@ private val bundledAttributions: List<Attribution> = buildList {
 private val dataPackAttributions: List<Attribution> = listOf(
     Attribution(
         "Frequency wordlists",
-        "Prediction wordlists for 300+ languages, from FrequencyWords " +
-            "(OpenSubtitles), Leipzig Corpora, Wikimedia, wordfreq and others",
+        R.string.about_pack_wordlists_used,
         "Copyright the respective corpus authors",
         "CC BY-SA 4.0 / CC BY 4.0 / MIT / others", "wordlist-sources.txt",
         "https://github.com/wasi-master/wmkeyboard-data",
     ),
     Attribution(
         "Offensive word lists",
-        "Optional suggestion-filter lists for downloaded languages",
+        R.string.about_pack_offensive_used,
         "Aggregated from LDNOOBW V2, profanity-list and other open lists",
         "CC0 / Unlicense / MIT", "wordlist-sources.txt",
         "https://github.com/wasi-master/wmkeyboard-data",
     ),
     Attribution(
         "Emoji keyword dictionaries",
-        "Emoji search keywords in 141 languages, extracted via KDE's kemoji",
+        R.string.about_pack_emoji_keywords_used,
         "Copyright Unicode, Inc. (CLDR annotations and emoji data)",
         "Unicode License v3", "unicode-3.0.txt",
         "https://github.com/KDE/kemoji",
     ),
     Attribution(
         "CC-CEDICT",
-        "Chinese Pinyin conversion dictionary",
+        R.string.about_pack_cedict_used,
         "Copyright MDBG and CC-CEDICT contributors",
         "CC BY-SA 4.0", "cc-by-sa-4.0.txt",
         "https://cc-cedict.org/",
     ),
     Attribution(
         "mozc",
-        "Japanese kana→kanji conversion dictionary (dictionary_oss)",
+        R.string.about_pack_mozc_used,
         "Copyright 2010-2021 Google Inc.",
         "BSD-3-Clause", "bsd-3-clause.txt",
         "https://github.com/google/mozc",
     ),
     Attribution(
         "rime-cantonese & CC-Canto",
-        "Cantonese Jyutping conversion dictionary",
+        R.string.about_pack_cantonese_used,
         "Copyright CanCLID and Pleco Inc.",
         "CC BY 4.0 / CC BY-SA 3.0", "jyutping-sources.txt",
         "https://github.com/rime/rime-cantonese",
     ),
     Attribution(
         "Chinese stroke code table",
-        "Stroke-sequence input for Chinese",
+        R.string.about_pack_stroke_used,
         "Copyright (c) 2021, FeiJiang Ye",
         "BSD-2-Clause", "bsd-2-clause-stroke.txt",
         "https://github.com/yefeijiang/Chinese-characters-code-table",
     ),
     Attribution(
         "Unicode Unihan database",
-        "Cangjie input code table (kCangjie field)",
+        R.string.about_pack_unihan_used,
         "Copyright Unicode, Inc.",
         "Unicode License v3", "unicode-3.0.txt",
         "https://www.unicode.org/",
@@ -329,57 +338,57 @@ private val dataPackAttributions: List<Attribution> = listOf(
  */
 private val serviceAttributions: List<Attribution> = listOf(
     Attribution(
-        "Brave Search", "Web and image search results", "",
+        "Brave Search", R.string.about_service_brave_used, "",
         "Brave Search API terms", null,
         "https://brave.com/search/api/",
     ),
     Attribution(
-        "KLIPY & GIPHY", "GIFs and stickers", "",
+        "KLIPY & GIPHY", R.string.about_service_gif_used, "",
         "Provider API terms", null,
         "https://developers.giphy.com/",
     ),
     Attribution(
-        "Wikipedia", "Article search and summaries", "",
-        "CC BY-SA — article text keeps its own licence", null,
+        "Wikipedia", R.string.about_service_wikipedia_used, "",
+        "CC BY-SA (article text keeps its own licence)", null,
         "https://en.wikipedia.org/wiki/Wikipedia:Copyrights",
     ),
     Attribution(
-        "Google Translate", "Translation tool", "",
+        "Google Translate", R.string.about_service_translate_used, "",
         "Google Cloud terms", null,
         "https://cloud.google.com/terms",
     ),
     Attribution(
-        "Open-Meteo", "Weather and geocoding", "",
+        "Open-Meteo", R.string.about_service_weather_used, "",
         "CC BY 4.0", null,
         "https://open-meteo.com/en/license",
     ),
     Attribution(
-        "Frankfurter & ExchangeRate-API", "Currency conversion rates", "",
+        "Frankfurter & ExchangeRate-API", R.string.about_service_currency_used, "",
         "Provider terms", null,
         "https://www.frankfurter.app/",
     ),
     Attribution(
-        "Free Dictionary API", "Word definitions", "",
+        "Free Dictionary API", R.string.about_service_dictionary_used, "",
         "Provider terms", null,
         "https://dictionaryapi.dev/",
     ),
     Attribution(
-        "Hugging Face", "Local model downloads", "",
+        "Hugging Face", R.string.about_service_models_used, "",
         "Per-model licence, accepted on the model's page", null,
         "https://huggingface.co/terms-of-service",
     ),
     Attribution(
-        "Anthropic", "Optional bring-your-own-key AI tool", "",
+        "Anthropic", R.string.about_service_byok_used, "",
         "Provider terms, under your own account", null,
         "https://www.anthropic.com/legal/consumer-terms",
     ),
     Attribution(
-        "OpenAI", "Optional bring-your-own-key AI tool", "",
+        "OpenAI", R.string.about_service_byok_used, "",
         "Provider terms, under your own account", null,
         "https://openai.com/policies/terms-of-use/",
     ),
     Attribution(
-        "Google AI", "Optional bring-your-own-key AI tool", "",
+        "Google AI", R.string.about_service_byok_used, "",
         "Provider terms, under your own account", null,
         "https://ai.google.dev/terms",
     ),
@@ -400,119 +409,136 @@ internal fun AboutSettings(
         else -> ""
     }
 
-    SettingsGroup("Share") {
+    // Read outside the click handlers: they are plain lambdas, not composables.
+    val bugReportSubject = stringResource(R.string.about_bug_report_email_subject)
+
+    SettingsGroup(stringResource(CommonR.string.common_share)) {
         if (!BuildConfig.ENABLE_FDROID) {
             item {
-                NavRow("Share Play Store link", PLAY_STORE_URL.removePrefix("https://")) {
+                NavRow(
+                    stringResource(R.string.about_share_play_link),
+                    PLAY_STORE_URL.removePrefix("https://"),
+                ) {
                     shareLink(context, PLAY_STORE_URL)
                 }
             }
         }
         if (!BuildConfig.ENABLE_PLAY_STORE) {
             item {
-                NavRow("Share F-Droid link", FDROID_URL.removePrefix("https://")) {
+                NavRow(
+                    stringResource(R.string.about_share_fdroid_link),
+                    FDROID_URL.removePrefix("https://"),
+                ) {
                     shareLink(context, FDROID_URL)
                 }
             }
             item {
-                NavRow("Share GitHub link", SOURCE_URL.removePrefix("https://")) {
+                NavRow(
+                    stringResource(R.string.about_share_github_link),
+                    SOURCE_URL.removePrefix("https://"),
+                ) {
                     shareLink(context, SOURCE_URL)
                 }
             }
         }
     }
 
-    SettingsGroup("App") {
+    SettingsGroup(stringResource(R.string.about_app_title)) {
         item {
             NavRow(
-                "Version",
-                "$flavor build (${BuildConfig.BUILD_TYPE}$channel) · code ${BuildConfig.VERSION_CODE}",
+                stringResource(R.string.about_version_title),
+                stringResource(
+                    R.string.about_version_subtitle,
+                    flavor,
+                    BuildConfig.BUILD_TYPE,
+                    channel,
+                    BuildConfig.VERSION_CODE,
+                ),
                 value = BuildConfig.VERSION_NAME,
             ) {}
         }
         item {
-            NavRow("Licence", "MIT — © 2026 Wasi Master") {
+            // The licence identifier and the copyright line travel verbatim.
+            NavRow(stringResource(R.string.about_licence_title), "MIT, © 2026 Wasi Master") {
                 onOpenLicenseText("mit-wmkeyboard.txt")
             }
         }
         item {
-            NavRow("Source code", SOURCE_URL.removePrefix("https://")) {
+            NavRow(
+                stringResource(R.string.about_source_title),
+                SOURCE_URL.removePrefix("https://"),
+            ) {
                 uriHandler.openUri(SOURCE_URL)
             }
         }
         item {
             NavRow(
-                "Diagnostics",
-                "What the keyboard recorded about itself — read it, or send it with a bug report",
+                stringResource(R.string.about_diagnostics_title),
+                stringResource(R.string.about_diagnostics_subtitle),
                 route = "debug_log",
                 onClick = onOpenDebugLog,
             )
         }
     }
-    CaptionText(
-        "WM Keyboard is free software: you may use, modify and redistribute it, " +
-            "provided the copyright notice and licence text travel with it.",
-    )
+    CaptionText(stringResource(R.string.about_free_software_body))
 
-    SettingsGroup("Feedback") {
+    SettingsGroup(stringResource(R.string.about_feedback_title)) {
         item {
             NavRow(
-                "Report a bug",
-                "Open an issue on GitHub — public, searchable, and it can be tracked",
+                stringResource(R.string.about_report_bug_title),
+                stringResource(R.string.about_report_bug_subtitle),
             ) {
                 uriHandler.openUri(Support.ISSUES_URL)
             }
         }
         item {
-            NavRow("Email the developer", Support.EMAIL) {
-                if (!Support.email(context, "WM Keyboard bug report", Support.bugReport())) {
+            NavRow(stringResource(R.string.about_email_developer_title), Support.EMAIL) {
+                if (!Support.email(context, bugReportSubject, Support.bugReport())) {
                     Toast.makeText(
                         context,
-                        "No email app on this device — write to ${Support.EMAIL}",
+                        context.getString(R.string.about_no_email_app_error, Support.EMAIL),
                         Toast.LENGTH_LONG,
                     ).show()
                 }
             }
         }
     }
-    CaptionText(
-        "An issue is the better first stop — someone else may have hit the same " +
-            "thing. Email works too if the report is private. Either way, take " +
-            "Diagnostics above along: it says which build and device this is, and " +
-            "it never contains anything you typed.",
-    )
+    CaptionText(stringResource(R.string.about_feedback_body))
 
-    SettingsGroup("Documentation") {
+    SettingsGroup(stringResource(R.string.about_documentation_title)) {
         item {
-            NavRow("User guide", DOCS_URL.removePrefix("https://")) {
+            NavRow(
+                stringResource(R.string.about_user_guide_title),
+                DOCS_URL.removePrefix("https://"),
+            ) {
                 uriHandler.openUri(DOCS_URL)
             }
         }
         item {
-            NavRow("Privacy policy", "What leaves the device, what never does") {
+            NavRow(
+                stringResource(R.string.about_privacy_policy_title),
+                stringResource(R.string.about_privacy_policy_subtitle),
+            ) {
                 uriHandler.openUri(PRIVACY_POLICY_URL)
             }
         }
     }
 
-    SettingsGroup("Third party") {
+    SettingsGroup(stringResource(R.string.about_third_party_title)) {
         item {
             NavRow(
-                "Open-source licences",
-                "Libraries and data bundled in this build",
+                stringResource(R.string.about_licences_title),
+                stringResource(R.string.about_licences_subtitle),
                 route = "licenses",
             ) { onOpenLicenses() }
         }
     }
 
-    SettingsGroup("Word lists") {
+    SettingsGroup(stringResource(R.string.about_word_lists_title)) {
         item {
             NavRow(
-                "Dictionaries",
-                "The seed bigrams, loanword map and offensive-word list are " +
-                    "hand-curated for this project and covered by its licence; " +
-                    "downloadable wordlists keep their sources' licences, listed " +
-                    "under Open-source licences",
+                stringResource(R.string.about_dictionaries_title),
+                stringResource(R.string.about_dictionaries_subtitle),
             ) {}
         }
     }
@@ -522,49 +548,53 @@ internal fun AboutSettings(
 internal fun LicensesScreen(onOpenLicenseText: (String) -> Unit) {
     val uriHandler = LocalUriHandler.current
 
-    CaptionText(
-        "Components bundled in this build and data the app can download. Tap a " +
-            "row for its full licence text; rows without a bundled text open " +
-            "the provider's terms.",
-    )
-    SettingsGroup("Bundled in the app") {
+    CaptionText(stringResource(R.string.about_licences_intro_body))
+    SettingsGroup(stringResource(R.string.about_section_bundled_title)) {
         bundledAttributions.forEach { entry ->
             item {
-                NavRow(entry.name, "${entry.used}\n${entry.copyright} · ${entry.license}") {
+                NavRow(entry.name, licenceRowSubtitle(entry)) {
                     if (entry.licenseAsset != null) onOpenLicenseText(entry.licenseAsset)
                     else uriHandler.openUri(entry.url)
                 }
             }
         }
     }
-    SettingsGroup("Downloadable data packs") {
+    SettingsGroup(stringResource(R.string.about_section_data_packs_title)) {
         dataPackAttributions.forEach { entry ->
             item {
-                NavRow(entry.name, "${entry.used}\n${entry.copyright} · ${entry.license}") {
+                NavRow(entry.name, licenceRowSubtitle(entry)) {
                     if (entry.licenseAsset != null) onOpenLicenseText(entry.licenseAsset)
                     else uriHandler.openUri(entry.url)
                 }
             }
         }
     }
-    CaptionText(
-        "Data packs are fetched on demand from the WM Keyboard data repository " +
-            "and keep their upstream licences whether or not they are installed.",
-    )
-    SettingsGroup("Online services") {
+    CaptionText(stringResource(R.string.about_data_packs_body))
+    SettingsGroup(stringResource(R.string.about_section_services_title)) {
         serviceAttributions.forEach { entry ->
             item {
-                NavRow(entry.name, "${entry.used} · ${entry.license}") {
+                val subtitle = stringResource(
+                    R.string.about_service_row_subtitle,
+                    stringResource(entry.usedRes),
+                    entry.license,
+                )
+                NavRow(entry.name, subtitle) {
                     uriHandler.openUri(entry.url)
                 }
             }
         }
     }
-    CaptionText(
-        "Online services are contacted only by the tool that uses them, and only " +
-            "when you open it. None of their code ships inside the app.",
-    )
+    CaptionText(stringResource(R.string.about_services_body))
 }
+
+/** "What it is used for", then the copyright line and the licence name. */
+@Composable
+private fun licenceRowSubtitle(entry: Attribution): String = stringResource(
+    R.string.about_licence_row_subtitle,
+    stringResource(entry.usedRes),
+    entry.copyright,
+    entry.license,
+)
 
 /** Renders one bundled licence file verbatim. */
 @Composable
@@ -575,7 +605,7 @@ internal fun LicenseTextScreen(assetName: String) {
         text = withContext(Dispatchers.IO) {
             runCatching {
                 context.assets.open("licenses/$assetName").use { it.readBytes().decodeToString() }
-            }.getOrElse { "Licence text unavailable." }
+            }.getOrElse { context.getString(R.string.about_licence_text_error) }
         }
     }
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {

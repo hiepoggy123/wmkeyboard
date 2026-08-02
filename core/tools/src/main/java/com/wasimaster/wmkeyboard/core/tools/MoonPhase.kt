@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.tools.R
 import kotlin.math.PI
 import kotlin.math.cos
 
@@ -43,14 +45,16 @@ object MoonPhase {
         return Info(age, fraction, illumination, phaseIndex, nextNew, nextFull)
     }
 
-    fun phaseName(index: Int): String = when (index) {
-        0 -> "New moon"
-        1 -> "Waxing crescent"
-        2 -> "First quarter"
-        3 -> "Waxing gibbous"
-        4 -> "Full moon"
-        5 -> "Waning gibbous"
-        6 -> "Last quarter"
-        else -> "Waning crescent"
+    /** The name of a phase, for the screen that draws it to resolve. */
+    @StringRes
+    fun phaseNameRes(index: Int): Int = when (index) {
+        0 -> R.string.core_tools_moon_new_label
+        1 -> R.string.core_tools_moon_waxing_crescent_label
+        2 -> R.string.core_tools_moon_first_quarter_label
+        3 -> R.string.core_tools_moon_waxing_gibbous_label
+        4 -> R.string.core_tools_moon_full_label
+        5 -> R.string.core_tools_moon_waning_gibbous_label
+        6 -> R.string.core_tools_moon_last_quarter_label
+        else -> R.string.core_tools_moon_waning_crescent_label
     }
 }

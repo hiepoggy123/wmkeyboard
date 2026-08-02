@@ -45,6 +45,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
@@ -52,12 +53,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.handwriting.HwPoint
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.ime.HandwritingStatus
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import kotlinx.coroutines.Job
@@ -106,7 +109,8 @@ internal fun HandwritingPanel(
         ) {
             when (hw.status) {
                 HandwritingStatus.READY -> WritingCanvas(state, onStroke)
-                HandwritingStatus.CHECKING -> StatusMessage("Checking handwriting model…")
+                HandwritingStatus.CHECKING ->
+                    StatusMessage(stringResource(R.string.ime_handwriting_checking_progress))
                 HandwritingStatus.DOWNLOADING -> Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -114,7 +118,10 @@ internal fun HandwritingPanel(
                 ) {
                     CircularProgressIndicator(color = kb.accent)
                     Text(
-                        "Downloading ${HandwritingModels.displayName(hw.languageTag)} model…",
+                        stringResource(
+                            R.string.ime_handwriting_downloading_progress,
+                            HandwritingModels.displayName(hw.languageTag),
+                        ),
                         color = kb.secondaryText,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(top = 12.dp),
@@ -126,10 +133,10 @@ internal fun HandwritingPanel(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        hw.errorMessage
-                            ?: ("Handwriting for " +
-                                "${HandwritingModels.displayName(hw.languageTag)} " +
-                                "needs a one-time model download (about 20 MB)."),
+                        hw.errorMessage ?: stringResource(
+                            R.string.ime_handwriting_need_model_body,
+                            HandwritingModels.displayName(hw.languageTag),
+                        ),
                         color = kb.secondaryText,
                         fontSize = 13.sp,
                         textAlign = TextAlign.Center,
@@ -154,7 +161,11 @@ internal fun HandwritingPanel(
                             tint = kb.toolCircleActiveIcon,
                         )
                         Text(
-                            if (hw.status == HandwritingStatus.ERROR) "Retry" else "Download",
+                            if (hw.status == HandwritingStatus.ERROR) {
+                                stringResource(CommonR.string.common_retry)
+                            } else {
+                                stringResource(CommonR.string.common_download)
+                            },
                             color = kb.toolCircleActiveIcon,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
@@ -202,7 +213,7 @@ internal fun HandwritingPanel(
             if (hw.strokes.isNotEmpty() && hw.status == HandwritingStatus.READY) {
                 Icon(
                     Icons.AutoMirrored.Outlined.Undo,
-                    contentDescription = "Undo last stroke",
+                    contentDescription = stringResource(R.string.ime_handwriting_undo_stroke_desc),
                     tint = kb.toolbarIcon,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -223,7 +234,7 @@ internal fun HandwritingPanel(
             .width(64.dp)
             .fillMaxHeight()) {
             HwRailKey(
-                description = "Delete",
+                description = stringResource(CommonR.string.common_delete),
                 icon = Icons.AutoMirrored.Outlined.Backspace,
                 repeatable = true,
                 modifier = Modifier.weight(1f),
@@ -232,7 +243,7 @@ internal fun HandwritingPanel(
                 onKey(Key("⌫", action = KeyAction.Delete))
             }
             HwRailKey(
-                description = "Space",
+                description = stringResource(R.string.ime_rail_space_desc),
                 icon = Icons.Outlined.SpaceBar,
                 modifier = Modifier.weight(1f),
             ) {
@@ -240,7 +251,7 @@ internal fun HandwritingPanel(
                 onKey(Key(" ", action = KeyAction.Space))
             }
             HwRailKey(
-                description = "Enter",
+                description = stringResource(R.string.ime_rail_enter_desc),
                 icon = Icons.AutoMirrored.Outlined.KeyboardReturn,
                 modifier = Modifier.weight(1f),
             ) {
@@ -248,7 +259,7 @@ internal fun HandwritingPanel(
                 onKey(Key("⏎", action = KeyAction.Enter))
             }
             HwRailKey(
-                description = "Back to keyboard",
+                description = stringResource(R.string.ime_rail_back_desc),
                 icon = Icons.Outlined.Keyboard,
                 modifier = Modifier.weight(1f),
             ) {
@@ -324,7 +335,7 @@ private fun WritingCanvas(
     ) {
         if (hw.strokes.isEmpty() && activeStroke.isEmpty() && !hw.recognizing) {
             Text(
-                "Write here",
+                stringResource(R.string.ime_handwriting_canvas_hint),
                 color = kb.secondaryText.copy(alpha = 0.45f),
                 fontSize = 15.sp,
                 modifier = Modifier.align(Alignment.Center),

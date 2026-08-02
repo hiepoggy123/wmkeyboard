@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -65,9 +66,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
@@ -84,8 +89,15 @@ import kotlinx.coroutines.delay
  * of them, while this needs only the six row helpers to read it.
  */
 internal object SettingsHighlight {
-    /** Title of the row to flash, or null when nothing is pending. */
-    var target: String? by mutableStateOf(null)
+    /**
+     * The string resource of the row to flash, or 0 when nothing is pending.
+     *
+     * A resource id rather than the drawn words: the index and the addon
+     * screens both name a row before the row is composed, and the words differ
+     * in every language while the id does not.
+     */
+    @get:StringRes
+    var target: Int by mutableIntStateOf(0)
         private set
 
     /**
@@ -101,35 +113,50 @@ internal object SettingsHighlight {
     var serial: Int by mutableIntStateOf(0)
         private set
 
-    fun request(title: String) {
-        target = title
+    fun request(@StringRes titleRes: Int) {
+        target = titleRes
         serial++
     }
 
     fun clear() {
-        target = null
+        target = 0
     }
 
     /** Clears only if nothing new was requested since [serialAtEntry]. */
     fun clearIfUnchanged(serialAtEntry: Int) {
-        if (serial == serialAtEntry) target = null
+        if (serial == serialAtEntry) target = 0
     }
 }
 
 /**
  * Wraps a settings row so it scrolls itself into view and pulses once when it
- * is the setting the user searched for. Matching is on the title, which is
- * unique within a screen — the only scope where two rows are ever composed at
- * the same time.
+ * is the setting the user searched for.
  *
- * A null [title] is a row nothing can match on — it still gets the wrapper, so
- * that a group which names itself only once it has content ("Repositories")
+ * Pass [highlightKey], the string resource of the row's own name, and the match
+ * is on the resource: exact, and the same in every language. A row that only
+ * has its drawn [title] is matched on the words instead, against the target id
+ * resolved through the same resources, which is as unique as a title is within
+ * one screen — the only scope where two rows are ever composed at the same
+ * time.
+ *
+ * A row with neither is a row nothing can match on. It still gets the wrapper,
+ * so that a group which names itself only once it has content ("Repositories")
  * keeps its children's state when the name appears. Branching on the title
  * around [content] instead would move the slot and discard everything inside.
  */
 @Composable
-internal fun HighlightableRow(title: String?, content: @Composable () -> Unit) {
-    val requested = title != null && SettingsHighlight.target == title
+internal fun HighlightableRow(
+    title: String?,
+    @StringRes highlightKey: Int = 0,
+    content: @Composable () -> Unit,
+) {
+    val target = SettingsHighlight.target
+    val requested = when {
+        target == 0 -> false
+        highlightKey != 0 -> highlightKey == target
+        title == null -> false
+        else -> title == stringResource(target)
+    }
     var flashing by remember { mutableStateOf(false) }
     val requester = remember { BringIntoViewRequester() }
     val color by animateColorAsState(
@@ -210,7 +237,11 @@ internal fun SettingsSearchScreen(
     onOpen: (SettingsSearchEntry) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    val results = remember(query) { searchSettings(query) }
+    // Built once per context: every entry resolves its own three strings, so
+    // rebuilding it on each keystroke would read ~1000 resources a character.
+    val context = LocalContext.current
+    val index = remember(context) { settingsSearchIndex(context.resources) }
+    val results = remember(query, index) { searchSettings(query, index) }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
@@ -222,14 +253,19 @@ internal fun SettingsSearchScreen(
                     TextField(
                         value = query,
                         onValueChange = { query = it },
-                        placeholder = { Text("Search settings") },
+                        placeholder = { Text(stringResource(R.string.shell_search_hint)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
                         trailingIcon = {
                             if (query.isNotEmpty()) {
                                 IconButton(onClick = { query = "" }) {
-                                    Icon(Icons.Outlined.Close, contentDescription = "Clear")
+                                    Icon(
+                                        Icons.Outlined.Close,
+                                        contentDescription = stringResource(
+                                            CommonR.string.common_clear,
+                                        ),
+                                    )
                                 }
                             }
                         },
@@ -250,7 +286,7 @@ internal fun SettingsSearchScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(CommonR.string.common_back),
                         )
                     }
                 },
@@ -270,7 +306,7 @@ internal fun SettingsSearchScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                items(results, key = { "${it.route}/${it.title}" }) { result ->
+                items(results, key = { "${it.route}/${it.titleRes}" }) { result ->
                     ResultRow(result, settings) {
                         keyboard?.hide()
                         onOpen(result)
@@ -340,10 +376,7 @@ private fun ResultIcon(entry: SettingsSearchEntry, settings: KeyboardSettings) {
 private fun SearchHint(modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
         Spacer(Modifier.height(24.dp))
-        CaptionText(
-            "Search every setting by name — \"haptic\", \"number row\", \"incognito\" — " +
-                "or by the tool it belongs to.",
-        )
+        CaptionText(stringResource(R.string.shell_search_help_body))
     }
 }
 
@@ -351,6 +384,6 @@ private fun SearchHint(modifier: Modifier = Modifier) {
 private fun EmptyResults(query: String, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
         Spacer(Modifier.height(24.dp))
-        CaptionText("No setting matches “$query”.")
+        CaptionText(stringResource(R.string.shell_search_empty, query))
     }
 }

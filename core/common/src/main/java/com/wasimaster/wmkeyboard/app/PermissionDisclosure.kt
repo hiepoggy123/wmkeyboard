@@ -13,6 +13,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
@@ -32,8 +33,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import com.wasimaster.wmkeyboard.common.R
 
 /**
  * One prominent disclosure: what the keyboard is about to ask Android for, what
@@ -63,9 +66,9 @@ data class PermissionDisclosure(
     /** The Android permission this disclosure precedes. */
     val permission: String,
     /** Dialog heading: the permission and the feature that wants it. */
-    val title: String,
+    @StringRes val titleRes: Int,
     /** What is read, why, where it goes, and that the feature is optional. */
-    val body: String,
+    @StringRes val bodyRes: Int,
 )
 
 /** The disclosure copy for every runtime permission this app asks for. */
@@ -73,50 +76,32 @@ object PermissionDisclosures {
 
     val MICROPHONE = PermissionDisclosure(
         permission = Manifest.permission.RECORD_AUDIO,
-        title = "Microphone access for voice input",
-        body = "WM Keyboard records audio only while you are dictating, and only after you " +
-            "tap the microphone. The recording goes to the speech recognition service " +
-            "selected in your Android settings so it can be turned into text — on most " +
-            "phones that is Google's, which may process the audio on its servers; an " +
-            "offline model keeps it on the phone. The keyboard does not keep the audio " +
-            "and does not send it anywhere else. Voice input is optional and everything " +
-            "else on the keyboard works without it.",
+        titleRes = R.string.common_permission_microphone_title,
+        bodyRes = R.string.common_permission_microphone_body,
     )
 
     val CAMERA = PermissionDisclosure(
         permission = Manifest.permission.CAMERA,
-        title = "Camera access for the camera tool",
-        body = "WM Keyboard opens the camera only while the camera tool is on screen, so you " +
-            "can take a photo and put it straight into whatever you are typing in. Photos " +
-            "are written to the keyboard's own private storage and handed to that app when " +
-            "you insert one; nothing is uploaded anywhere and no photo is sent to the " +
-            "keyboard's developer. The tool is optional.",
+        titleRes = R.string.common_permission_camera_title,
+        bodyRes = R.string.common_permission_camera_body,
     )
 
     val CALENDAR = PermissionDisclosure(
         permission = Manifest.permission.READ_CALENDAR,
-        title = "Calendar access for the calendar tool",
-        body = "WM Keyboard reads your events so the calendar tool can list them and insert " +
-            "one as text. It reads only while that tool is open, never writes to your " +
-            "calendar, and never sends events off the device. The tool is optional.",
+        titleRes = R.string.common_permission_calendar_title,
+        bodyRes = R.string.common_permission_calendar_body,
     )
 
     val CONTACT_NAMES = PermissionDisclosure(
         permission = Manifest.permission.READ_CONTACTS,
-        title = "Contacts access for name suggestions",
-        body = "WM Keyboard reads the names in your contacts so they complete as you type " +
-            "and autocorrect stops \"fixing\" them. Names are held in memory while the " +
-            "keyboard is running, are never written to disk, and never leave the device. " +
-            "The setting is optional and stays off until you turn it on.",
+        titleRes = R.string.common_permission_contact_names_title,
+        bodyRes = R.string.common_permission_contact_names_body,
     )
 
     val CONTACT_EMAILS = PermissionDisclosure(
         permission = Manifest.permission.READ_CONTACTS,
-        title = "Contacts access for email suggestions",
-        body = "WM Keyboard reads the email addresses in your contacts so typing the start " +
-            "of one offers the full address. Addresses are held in memory while the " +
-            "keyboard is running, are never written to disk, and never leave the device. " +
-            "The setting is optional and stays off until you turn it on.",
+        titleRes = R.string.common_permission_contact_emails_title,
+        bodyRes = R.string.common_permission_contact_emails_body,
     )
 
     /**
@@ -130,13 +115,8 @@ object PermissionDisclosures {
         } else {
             Manifest.permission.READ_EXTERNAL_STORAGE
         },
-        title = "Photo access for screenshots in the clipboard",
-        body = "WM Keyboard watches for new screenshots so they appear in the clipboard, " +
-            "ready to insert without leaving the app you are in. Android grants access to " +
-            "your photos as a whole — there is no screenshots-only permission — but the " +
-            "keyboard only ever looks at newly taken screenshots. Images stay on the " +
-            "device and are inserted only when you tap one. The setting is optional and " +
-            "stays off until you turn it on.",
+        titleRes = R.string.common_permission_images_title,
+        bodyRes = R.string.common_permission_images_body,
     )
 
     /**
@@ -145,12 +125,8 @@ object PermissionDisclosures {
      */
     val STORAGE = PermissionDisclosure(
         permission = Manifest.permission.WRITE_EXTERNAL_STORAGE,
-        title = "Storage access to save to your gallery",
-        body = "On Android 9 and older, saving an image from the keyboard into your gallery " +
-            "needs storage permission. Android's permission from that era covers reading " +
-            "your storage too, but the keyboard only writes the image you asked it to " +
-            "save — it reads nothing and uploads nothing. Newer Android versions do not " +
-            "need this at all.",
+        titleRes = R.string.common_permission_storage_title,
+        bodyRes = R.string.common_permission_storage_body,
     )
 }
 
@@ -239,34 +215,40 @@ private fun appSettingsIntent(context: Context) =
  */
 @Composable
 internal fun DisclosureDialog(
-    title: String,
-    body: String,
+    @StringRes titleRes: Int,
+    @StringRes bodyRes: Int,
     onContinue: () -> Unit,
     onDismiss: () -> Unit,
     blocked: Boolean = false,
-    continueLabel: String = if (blocked) "Open settings" else "Continue",
+    @StringRes continueLabelRes: Int =
+        if (blocked) R.string.common_open_system_settings else R.string.common_continue,
 ) {
+    val body = stringResource(bodyRes)
+    // Two resources rather than one: the note only applies when Android has
+    // stopped drawing the system dialog, and every disclosure body shares it.
+    val bodyText = if (blocked) {
+        body + "\n\n" + stringResource(R.string.common_disclosure_blocked_body)
+    } else {
+        body
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { Text(stringResource(titleRes)) },
         text = {
             // Long bodies on a short screen: scroll rather than clip, because a
             // clipped disclosure is not a disclosure.
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    if (blocked) body + BLOCKED_SUFFIX else body,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Text(bodyText, style = MaterialTheme.typography.bodyMedium)
             }
         },
-        confirmButton = { TextButton(onClick = onContinue) { Text(continueLabel) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Not now") } },
+        confirmButton = { TextButton(onClick = onContinue) { Text(stringResource(continueLabelRes)) } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_disclosure_not_now))
+            }
+        },
     )
 }
-
-private const val BLOCKED_SUFFIX =
-    "\n\nAndroid has stopped showing this request because the permission was refused " +
-        "before, so the choice now lives in the app's own settings page."
 
 /** Convenience wrapper for the runtime-permission case. */
 @Composable
@@ -276,8 +258,8 @@ fun PermissionDisclosureDialog(
     onDismiss: () -> Unit,
     blocked: Boolean = false,
 ) = DisclosureDialog(
-    title = disclosure.title,
-    body = disclosure.body,
+    titleRes = disclosure.titleRes,
+    bodyRes = disclosure.bodyRes,
     onContinue = onContinue,
     onDismiss = onDismiss,
     blocked = blocked,

@@ -8,7 +8,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.R
 
 /**
  * Lite-flavor stand-ins for the ML Kit scanner panels. The OCR and QR
@@ -21,7 +23,7 @@ internal fun OcrPanel(
     onInsert: (String) -> Unit,
     onRequestPermission: () -> Unit,
     onClose: () -> Unit,
-) = UnavailablePanel(state, "Text scanning isn't available in this build")
+) = UnavailablePanel(state, stringResource(R.string.ime_scanner_ocr_unavailable_info))
 
 @Composable
 internal fun QrScanPanel(
@@ -30,7 +32,7 @@ internal fun QrScanPanel(
     onOpenUrl: (String) -> Unit,
     onRequestPermission: () -> Unit,
     onClose: () -> Unit,
-) = UnavailablePanel(state, "QR scanning isn't available in this build")
+) = UnavailablePanel(state, stringResource(R.string.ime_scanner_qr_unavailable_info))
 
 @Composable
 private fun UnavailablePanel(state: KeyboardUiState, message: String) {

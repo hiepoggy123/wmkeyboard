@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Text the on-device model catalogue, the model downloader, the local model
+  runtime and the grammar checker show.
+
+  Referenced from other modules as
+  com.wasimaster.wmkeyboard.intelligence.R.string.core_intel_llm_tier_recommended_label.
+  The R classes are non-transitive, so the import has to name this module.
+
+  Both product flavours read this one file, so a string a lite stub and its
+  full counterpart share stays here and not in a flavour resource folder.
+
+  Data stays in the Kotlin sources and never comes here: model names, parameter
+  counts, Hugging Face repository paths and file names, handwriting language
+  names and language tags, and the Harper fix kinds.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ================================================================== -->
+    <!-- On-device model catalogue: the badge beside a model name.          -->
+    <!-- The middle tier has no badge, so it has no string.                 -->
+    <!-- ================================================================== -->
+
+    <string name="core_intel_llm_tier_recommended_label">Recommended</string>
+    <string name="core_intel_llm_tier_untested_label">Untested</string>
+    <string name="core_intel_llm_tier_experimental_label">Experimental</string>
+
+    <!-- ================================================================== -->
+    <!-- On-device model catalogue: the description of one model.           -->
+    <!-- Shown in the row under the model name, after the size.             -->
+    <!-- ================================================================== -->
+
+    <string name="core_intel_llm_model_gemma4_e2b_subtitle">The newest Gemma generation. It gives top quality on your device.</string>
+    <string name="core_intel_llm_model_gemma4_e4b_subtitle">The largest model. It writes the best, but it needs a powerful device.</string>
+    <string name="core_intel_llm_model_gemma3_1b_subtitle">A small Gemma from the previous generation. It has good quality and a context of 4K tokens.</string>
+    <string name="core_intel_llm_model_qwen25_15b_subtitle">Clearly smarter than the models below 1B. It needs a mid-range device.</string>
+    <string name="core_intel_llm_model_qwen3_06b_subtitle">A recent small model. The quality is high for its size.</string>
+    <string name="core_intel_llm_model_qwen25_05b_subtitle">A general-purpose model that still fits on a basic device.</string>
+    <string name="core_intel_llm_model_gemma3_270m_subtitle">The smallest Gemma from Google. It is fast on all devices.</string>
+    <string name="core_intel_llm_model_smollm2_135m_subtitle">Very small and fast. It is good for quick rewrites, but the reasoning is limited.</string>
+
+    <!-- ================================================================== -->
+    <!-- On-device model download: why a download stopped.                  -->
+    <!-- ================================================================== -->
+
+    <!-- %1$s is the free space the download needs, in gigabytes, with one decimal. -->
+    <string name="core_intel_llm_download_error_no_space">There is not enough storage on your device. Free about <xliff:g id="gigabytes" example="2.6">%1$s</xliff:g> GB first.</string>
+    <!-- A gated model needs an accepted licence and a Hugging Face token. -->
+    <string name="core_intel_llm_download_error_gated_no_token">This model is gated. Add your Hugging Face token first.</string>
+    <string name="core_intel_llm_download_error_token_rejected">Hugging Face did not accept the token. Check the token and try again.</string>
+    <string name="core_intel_llm_download_error_licence">Accept the licence of the model on its Hugging Face page. Then try again.</string>
+    <!-- %1$s is the HTTP status code the server sent, for example 500. -->
+    <string name="core_intel_llm_download_error_http">Hugging Face returned HTTP status <xliff:g id="status" example="500">%1$s</xliff:g>.</string>
+    <!-- A dropped connection uses the shared common_error_network line. -->
+    <!-- Resume is the button on the model row. -->
+    <string name="core_intel_llm_download_error_truncated">The connection stopped during the download. Press Resume to continue.</string>
+
+    <!-- ================================================================== -->
+    <!-- On-device model runtime: why a request to the model stopped.       -->
+    <!-- ================================================================== -->
+
+    <string name="core_intel_llm_engine_error_load">The model did not load. The file is probably damaged. Delete the model in settings and download it again.</string>
+    <!-- Compute is the name of the setting that selects the GPU or the CPU. -->
+    <string name="core_intel_llm_engine_error_gpu">The model failed on the GPU. The GPU memory is much smaller than the system memory. The next try uses the CPU. To always use the CPU, set Compute to CPU in settings. You can also select a smaller model.</string>
+    <string name="core_intel_llm_engine_error_memory">The model ran out of memory, or it failed. Select a smaller model.</string>
+
+</resources>

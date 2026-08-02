@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import android.content.Context
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.tools.R
 import java.io.File
 import java.io.IOException
 import java.net.ConnectException
@@ -11,6 +14,21 @@ import java.net.UnknownHostException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import com.wasimaster.wmkeyboard.common.R as CommonR
+
+/**
+ * A tool network call that failed with something the user should read.
+ *
+ * [apiMessage] holds the provider's own words when the response carried any;
+ * those are already in the provider's language and pass straight through.
+ * Otherwise [messageRes] names our wording and [status] is the one argument it
+ * takes. [ToolHttp.friendlyMessage] turns the pair into a line for a panel.
+ */
+class ToolHttpException(
+    @StringRes val messageRes: Int,
+    val status: Int = 0,
+    val apiMessage: String? = null,
+) : IOException(apiMessage ?: "HTTP $status")
 
 /**
  * Tiny blocking HTTP helper shared by the network tool clients (translate,
@@ -44,7 +62,7 @@ object ToolHttp {
             val status = connection.responseCode
             if (status !in 200..299) {
                 val body = connection.errorStream?.bufferedReader()?.use { it.readText() }
-                throw IOException(apiErrorMessage(status, body))
+                throw httpFailure(status, body)
             }
             return connection.inputStream.bufferedReader().use { it.readText() }
         } finally {
@@ -68,7 +86,7 @@ object ToolHttp {
             val status = connection.responseCode
             if (status !in 200..299) {
                 val error = connection.errorStream?.bufferedReader()?.use { it.readText() }
-                throw IOException(apiErrorMessage(status, error))
+                throw httpFailure(status, error)
             }
             return connection.inputStream.bufferedReader().use { it.readText() }
         } finally {
@@ -95,7 +113,7 @@ object ToolHttp {
             val status = connection.responseCode
             if (status !in 200..299) {
                 val error = connection.errorStream?.bufferedReader()?.use { it.readText() }
-                throw IOException(apiErrorMessage(status, error))
+                throw httpFailure(status, error)
             }
             return connection.inputStream.bufferedReader().use { it.readText() }
         } finally {
@@ -137,7 +155,7 @@ object ToolHttp {
             val status = connection.responseCode
             if (status !in 200..299) {
                 val error = connection.errorStream?.bufferedReader()?.use { it.readText() }
-                throw IOException(apiErrorMessage(status, error))
+                throw httpFailure(status, error)
             }
             onConnected()
             connection.inputStream.bufferedReader().use { reader ->
@@ -165,7 +183,7 @@ object ToolHttp {
             connection.setRequestProperty("User-Agent", USER_AGENT)
             connection.instanceFollowRedirects = true
             val status = connection.responseCode
-            if (status !in 200..299) throw IOException(apiErrorMessage(status, null))
+            if (status !in 200..299) throw httpFailure(status, null)
             connection.inputStream.use { input ->
                 target.outputStream().use { output ->
                     val buffer = ByteArray(8192)
@@ -174,7 +192,9 @@ object ToolHttp {
                         val read = input.read(buffer)
                         if (read < 0) break
                         total += read
-                        if (total > maxBytes) throw IOException("File exceeds the maximum allowed size")
+                        if (total > maxBytes) {
+                            throw ToolHttpException(R.string.core_tools_error_file_too_large)
+                        }
                         output.write(buffer, 0, read)
                     }
                 }
@@ -193,31 +213,49 @@ object ToolHttp {
      * A short, human-facing line for any failure a tool network call can throw.
      * Connectivity problems (no network, DNS, timeout, refused) get a plain
      * "you're offline"-style message instead of the raw
-     * `Unable to resolve host "api.giphy.com"…` the OS produces; HTTP errors
-     * already carry [apiErrorMessage] text, so those pass through.
+     * `Unable to resolve host "api.giphy.com"…` the OS produces. An HTTP error
+     * shows the provider's own words when it sent any, and our wording for the
+     * status when it did not.
      */
-    fun friendlyMessage(t: Throwable): String = when (t) {
-        is UnknownHostException ->
-            "No internet connection. Check your network and try again."
-        is SocketTimeoutException ->
-            "The connection timed out. Check your network and try again."
-        is ConnectException ->
-            "Couldn't reach the server. Check your network and try again."
-        else -> t.message?.takeIf { it.isNotBlank() } ?: "Something went wrong. Try again."
+    fun friendlyMessage(context: Context, t: Throwable): String = when (t) {
+        is ToolHttpException -> httpText(context, t)
+        is UnknownHostException -> context.getString(CommonR.string.common_error_network)
+        is SocketTimeoutException -> context.getString(CommonR.string.common_error_timeout)
+        is ConnectException -> context.getString(R.string.core_tools_error_server_unreachable)
+        else -> t.message?.takeIf { it.isNotBlank() }
+            ?: context.getString(CommonR.string.common_error_generic)
     }
 
-    fun apiErrorMessage(status: Int, body: String?): String {
-        val fromApi = body?.let {
-            runCatching {
-                Json.parseToJsonElement(it).jsonObject["error"]?.jsonObject
-                    ?.get("message")?.jsonPrimitive?.content
-            }.getOrNull()
-        }?.takeIf { it.isNotBlank() }
-        return fromApi ?: when (status) {
-            400 -> "Bad request (HTTP 400) — check the API key setup"
-            401, 403 -> "The API key was rejected (HTTP $status)"
-            429 -> "Rate limit or daily quota exceeded (HTTP 429)"
-            else -> "Request failed (HTTP $status)"
-        }
+    /** The provider's own words, or our wording for the status it answered with. */
+    private fun httpText(context: Context, t: ToolHttpException): String {
+        t.apiMessage?.takeIf { it.isNotBlank() }?.let { return it }
+        // A failure with no status of its own (the size cap) takes no argument.
+        if (t.status <= 0) return context.getString(t.messageRes)
+        return context.getString(t.messageRes, t.status)
+    }
+
+    /** The failure to throw for an HTTP status outside 200..299. */
+    fun httpFailure(status: Int, body: String?): ToolHttpException =
+        ToolHttpException(statusMessageRes(status), status, apiErrorText(body))
+
+    /**
+     * The provider's own error text, when the response body carried any.
+     * Google APIs return `{"error": {"message": …}}`; anything else reads as
+     * no message at all.
+     */
+    fun apiErrorText(body: String?): String? = body?.let {
+        runCatching {
+            Json.parseToJsonElement(it).jsonObject["error"]?.jsonObject
+                ?.get("message")?.jsonPrimitive?.content
+        }.getOrNull()
+    }?.takeIf { it.isNotBlank() }
+
+    /** Our own wording for an HTTP status, for when the API sent none. */
+    @StringRes
+    fun statusMessageRes(status: Int): Int = when (status) {
+        400 -> R.string.core_tools_error_http_bad_request
+        401, 403 -> R.string.core_tools_error_http_key_rejected
+        429 -> R.string.core_tools_error_http_rate_limit
+        else -> R.string.core_tools_error_http_failed
     }
 }

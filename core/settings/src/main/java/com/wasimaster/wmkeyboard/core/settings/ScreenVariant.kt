@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.settings
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.settings.R
 import kotlin.math.roundToInt
 
 /**
@@ -21,11 +23,11 @@ import kotlin.math.roundToInt
  * current width: a phone in landscape is wide but still a phone, while an
  * opened foldable or a tablet is wide in both orientations.
  */
-enum class ScreenVariant(val suffix: String, val label: String) {
-    PORTRAIT("", "Portrait"),
-    LANDSCAPE("landscape", "Landscape"),
-    PORTRAIT_UNFOLDED("unfolded", "Portrait, unfolded"),
-    LANDSCAPE_UNFOLDED("landscape_unfolded", "Landscape, unfolded"),
+enum class ScreenVariant(val suffix: String, @StringRes val labelRes: Int) {
+    PORTRAIT("", R.string.core_settings_screen_variant_portrait_label),
+    LANDSCAPE("landscape", R.string.core_settings_screen_variant_landscape_label),
+    PORTRAIT_UNFOLDED("unfolded", R.string.core_settings_screen_variant_portrait_unfolded_label),
+    LANDSCAPE_UNFOLDED("landscape_unfolded", R.string.core_settings_screen_variant_landscape_unfolded_label),
     ;
 
     /** Everything except [PORTRAIT], which is stored as the base values. */

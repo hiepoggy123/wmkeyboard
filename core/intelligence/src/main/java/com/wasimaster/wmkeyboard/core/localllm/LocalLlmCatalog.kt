@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.localllm
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.intelligence.R
+
 /**
  * Container format of a model file. Both load through the LiteRT-LM engine;
  * `.task` is the older MediaPipe bundle kept for models that don't publish
@@ -11,16 +14,17 @@ enum class ModelFormat(val extension: String) {
 
 /**
  * How much a model can be trusted, shown as a badge next to its name.
- * [STANDARD] is the unremarkable middle — it gets no badge.
+ * [STANDARD] is the unremarkable middle — it gets no badge, so its
+ * [badgeRes] is null.
  */
-enum class ModelTier(val badge: String?) {
+enum class ModelTier(@StringRes val badgeRes: Int?) {
     /** Verified good on this keyboard's prompts. */
-    RECOMMENDED("Recommended"),
+    RECOMMENDED(R.string.core_intel_llm_tier_recommended_label),
     STANDARD(null),
     /** In the catalog but never actually exercised here. */
-    UNTESTED("Untested"),
+    UNTESTED(R.string.core_intel_llm_tier_untested_label),
     /** Works, but small enough that output quality is a gamble. */
-    EXPERIMENTAL("Experimental"),
+    EXPERIMENTAL(R.string.core_intel_llm_tier_experimental_label),
 }
 
 /** One downloadable model in the curated catalog. */
@@ -42,7 +46,8 @@ data class LocalLlmModel(
     val tier: ModelTier,
     /** Advisory total-device-RAM floor; the UI warns below this, never blocks. */
     val minRamMb: Int,
-    val description: String,
+    /** One-line description for the model row; resolved by the UI layer. */
+    @StringRes val descriptionRes: Int,
     /**
      * Reasoning model whose template opens a think block in the prompt —
      * output is bare reasoning up to a `</think>` (see AiThinking).
@@ -75,7 +80,7 @@ object LocalLlmCatalog {
             format = ModelFormat.LITERTLM,
             tier = ModelTier.RECOMMENDED,
             minRamMb = 6144,
-            description = "Latest Gemma generation — flagship quality on-device.",
+            descriptionRes = R.string.core_intel_llm_model_gemma4_e2b_subtitle,
         ),
         LocalLlmModel(
             id = "gemma4-e4b",
@@ -88,7 +93,7 @@ object LocalLlmCatalog {
             format = ModelFormat.LITERTLM,
             tier = ModelTier.RECOMMENDED,
             minRamMb = 8192,
-            description = "The biggest — best writing, needs a high-end phone.",
+            descriptionRes = R.string.core_intel_llm_model_gemma4_e4b_subtitle,
         ),
         LocalLlmModel(
             id = "gemma3-1b",
@@ -101,7 +106,7 @@ object LocalLlmCatalog {
             format = ModelFormat.LITERTLM,
             tier = ModelTier.UNTESTED,
             minRamMb = 4096,
-            description = "Previous-generation small Gemma — good quality, 4K context.",
+            descriptionRes = R.string.core_intel_llm_model_gemma3_1b_subtitle,
         ),
         LocalLlmModel(
             id = "qwen25-1.5b",
@@ -114,7 +119,7 @@ object LocalLlmCatalog {
             format = ModelFormat.LITERTLM,
             tier = ModelTier.STANDARD,
             minRamMb = 6144,
-            description = "Noticeably smarter than the sub-1B models; needs a mid-range phone.",
+            descriptionRes = R.string.core_intel_llm_model_qwen25_15b_subtitle,
         ),
         LocalLlmModel(
             id = "qwen3-0.6b",
@@ -127,7 +132,7 @@ object LocalLlmCatalog {
             format = ModelFormat.LITERTLM,
             tier = ModelTier.EXPERIMENTAL,
             minRamMb = 3072,
-            description = "Recent small model with strong quality for its size.",
+            descriptionRes = R.string.core_intel_llm_model_qwen3_06b_subtitle,
             reasoning = true,
         ),
         LocalLlmModel(
@@ -141,7 +146,7 @@ object LocalLlmCatalog {
             format = ModelFormat.TASK,
             tier = ModelTier.EXPERIMENTAL,
             minRamMb = 3072,
-            description = "All-rounder that still fits modest phones.",
+            descriptionRes = R.string.core_intel_llm_model_qwen25_05b_subtitle,
         ),
         LocalLlmModel(
             id = "gemma3-270m",
@@ -154,7 +159,7 @@ object LocalLlmCatalog {
             format = ModelFormat.LITERTLM,
             tier = ModelTier.UNTESTED,
             minRamMb = 2048,
-            description = "Google's smallest Gemma. Snappy on any phone.",
+            descriptionRes = R.string.core_intel_llm_model_gemma3_270m_subtitle,
         ),
         LocalLlmModel(
             // SmolLM v1's .task bundle behaved like a base model (no chat
@@ -169,7 +174,7 @@ object LocalLlmCatalog {
             format = ModelFormat.LITERTLM,
             tier = ModelTier.EXPERIMENTAL,
             minRamMb = 2048,
-            description = "Tiny and fast. Fine for quick rewrites; limited reasoning.",
+            descriptionRes = R.string.core_intel_llm_model_smollm2_135m_subtitle,
         ),
     )
 

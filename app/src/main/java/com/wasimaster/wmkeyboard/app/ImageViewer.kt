@@ -38,11 +38,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.ime.ui.rememberMediaImageLoader
 
 /**
@@ -110,7 +113,11 @@ internal fun ImageViewerDialog(
             ) { page ->
                 AsyncImage(
                     model = urls[page],
-                    contentDescription = "Screenshot ${page + 1} of ${urls.size}",
+                    contentDescription = stringResource(
+                        R.string.shell_image_viewer_page_desc,
+                        page + 1,
+                        urls.size,
+                    ),
                     imageLoader = loader,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
@@ -153,12 +160,19 @@ internal fun ImageViewerDialog(
                     .align(Alignment.TopStart)
                     .padding(8.dp),
             ) {
-                Icon(Icons.Outlined.Close, contentDescription = "Close")
+                Icon(
+                    Icons.Outlined.Close,
+                    contentDescription = stringResource(CommonR.string.common_close),
+                )
             }
 
             if (urls.size > 1) {
                 Text(
-                    "${pagerState.currentPage + 1} / ${urls.size}",
+                    stringResource(
+                        R.string.shell_image_viewer_counter,
+                        pagerState.currentPage + 1,
+                        urls.size,
+                    ),
                     style = MaterialTheme.typography.labelLarge,
                     color = Color.White,
                     modifier = Modifier

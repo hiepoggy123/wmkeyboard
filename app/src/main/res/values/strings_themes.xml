@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Themes screen: the light/dark mode of the settings app and of the
+         Default theme. -->
+    <!-- The name of the theme that follows the system colours. Shown in the
+         theme gallery and in every theme picker. -->
+    <string name="theme_default_name">Default (system)</string>
+    <string name="theme_mode_section_title">Mode</string>
+    <string name="theme_mode_section_body">This applies to the settings app and to the Default theme.</string>
+    <string name="theme_mode_system_label">System</string>
+    <string name="theme_mode_light_label">Light</string>
+    <string name="theme_mode_dark_label">Dark</string>
+    <!-- Names a screen technology. Keep the capital letters. -->
+    <string name="theme_mode_amoled_label">AMOLED</string>
+    <string name="theme_material_you_title">Material You colors</string>
+    <string name="theme_material_you_subtitle">The Default theme takes its colors from your wallpaper</string>
+
+    <!-- Themes screen: the automatic light and dark pair. -->
+    <string name="theme_auto_section_title">Auto (light and dark)</string>
+    <string name="theme_auto_section_body">The keyboard changes between a light theme and a dark theme on its own. While this is on, the theme tool on the keyboard shows only a preview. The schedule selects the active theme.</string>
+    <string name="theme_auto_title">Auto theme</string>
+    <string name="theme_auto_subtitle">Use a light theme in the day and a dark theme at night</string>
+    <string name="theme_auto_light_title">Light theme</string>
+    <string name="theme_auto_dark_title">Dark theme</string>
+    <string name="theme_auto_trigger_system_body">The keyboard follows the light and dark setting of your device. This includes any schedule that Android runs for it.</string>
+    <string name="theme_auto_light_from_title">Light theme from</string>
+    <string name="theme_auto_dark_from_title">Dark theme from</string>
+    <!-- %1$s is the name of the saved place, for example "Berlin". When no
+         place name is saved it is theme_auto_trigger_sun_place_fallback. -->
+    <string name="theme_auto_trigger_sun_body">The light theme shows between sunrise and sunset at <xliff:g id="place" example="Berlin">%1$s</xliff:g>. Your device calculates the times without a network connection.</string>
+    <!-- Goes into theme_auto_trigger_sun_body when the saved place has no name. -->
+    <string name="theme_auto_trigger_sun_place_fallback">your saved location</string>
+    <string name="theme_auto_trigger_sun_no_location_body">No location is saved yet. Set one in the settings of the weather tool. Until then the keyboard uses the light and dark setting of your device.</string>
+    <!-- Button that accepts the time on the clock face. -->
+    <string name="theme_time_set_action">Set</string>
+
+    <!-- Theme pickers. -->
+    <string name="theme_mode_picker_title">Theme for this mode</string>
+    <!-- First row of the picker: this keyboard mode gets no theme of its own. -->
+    <string name="theme_mode_inherit_label">Inherit: use the theme that is set</string>
+
+    <!-- Themes screen: the gallery of themes. -->
+    <string name="theme_gallery_section_title">Themes</string>
+    <string name="theme_gallery_auto_on_body">Auto theme is on, so this selection does nothing. Turn it off above to select one theme yourself.</string>
+    <string name="theme_create_action">Create theme</string>
+    <!-- Name the app gives to a theme the user has just created. The user can
+         change it in the theme editor. -->
+    <string name="theme_new_default_name">My theme</string>
+    <!-- Name the app gives to a copy of a theme. %1$s is the name of the
+         theme that was copied. -->
+    <string name="theme_duplicate_name"><xliff:g id="theme_name" example="Midnight">%1$s</xliff:g> copy</string>
+    <!-- Name the app gives to a theme when the user clears the name field. -->
+    <string name="theme_untitled_name">Untitled</string>
+    <string name="theme_custom_section_title">Your themes</string>
+    <string name="theme_builtin_section_title">Built-in</string>
+    <string name="theme_builtin_section_body">Press a theme to use it. The pencil icon makes a copy that you can edit.</string>
+
+    <!-- Theme cards in the gallery. -->
+    <string name="theme_default_card_subtitle">Material You, follows light and dark</string>
+    <!-- Content description on the tick of the theme that is in use. -->
+    <string name="theme_selected_desc">Selected</string>
+    <!-- Content descriptions on the buttons of one theme card. %1$s is the
+         name of the theme. -->
+    <string name="theme_edit_desc">Edit <xliff:g id="theme_name" example="Midnight">%1$s</xliff:g></string>
+    <string name="theme_export_desc">Export <xliff:g id="theme_name" example="Midnight">%1$s</xliff:g></string>
+    <string name="theme_delete_desc">Delete <xliff:g id="theme_name" example="Midnight">%1$s</xliff:g></string>
+    <string name="theme_delete_title">Delete this theme?</string>
+    <!-- %1$s is the name of the theme. -->
+    <string name="theme_delete_message">The app deletes “<xliff:g id="theme_name" example="Midnight">%1$s</xliff:g>” permanently.</string>
+
+    <!-- Theme editor: name and seed colour. -->
+    <string name="theme_editor_missing_body">This theme does not exist any more.</string>
+    <string name="theme_name_label">Theme name</string>
+    <string name="theme_seed_section_title">Start from a color</string>
+    <string name="theme_seed_section_body">The app makes all the colors from one seed color. You can change each color below.</string>
+    <string name="theme_editor_dark_title">Dark theme</string>
+    <string name="theme_editor_dark_subtitle">The seed color makes a dark palette or a light palette</string>
+
+    <!-- Theme editor: the board behind the keys. -->
+    <string name="theme_board_section_title">Board</string>
+    <string name="theme_board_background_title">Background</string>
+    <string name="theme_board_gradient_title">Gradient background</string>
+    <string name="theme_board_gradient_subtitle">The keyboard paints this instead of the solid background color</string>
+    <string name="theme_background_image_title">Background image</string>
+    <string name="theme_background_image_none">None. Press to select a photo</string>
+    <string name="theme_background_image_replace">Press to change the image</string>
+    <string name="theme_image_opacity_title">Image opacity</string>
+    <string name="theme_image_blur_title">Image blur</string>
+    <string name="theme_background_image_alpha_body">The board color became transparent when you selected this image. The image shows at full strength. Increase the opacity of the background color to tint the image or to make it dark.</string>
+    <string name="theme_background_image_landscape_title">Landscape background image</string>
+    <string name="theme_background_image_landscape_none">Optional: the keyboard shows this image in landscape, or the image above if this one is empty</string>
+    <string name="theme_crop_landscape_title">Crop landscape image</string>
+
+    <!-- Theme editor: keys. -->
+    <string name="theme_keys_section_title">Keys</string>
+    <string name="theme_key_shape_title">Key shape</string>
+    <string name="theme_key_shape_rounded_label">Rounded</string>
+    <string name="theme_key_shape_pill_label">Pill</string>
+    <string name="theme_key_shape_cut_label">Cut</string>
+    <!-- A shape between a square and a circle. -->
+    <string name="theme_key_shape_squircle_label">Squircle</string>
+    <string name="theme_letter_keys_title">Letter keys</string>
+    <string name="theme_key_gradient_title">Key gradient</string>
+    <string name="theme_key_gradient_subtitle">The keyboard paints this sheen over the letter keys</string>
+    <string name="theme_key_text_title">Key text</string>
+    <!-- Shift, backspace, symbols and the other keys that are not letters. -->
+    <string name="theme_modifier_keys_title">Modifier keys</string>
+    <string name="theme_modifier_key_text_title">Modifier key text</string>
+    <string name="theme_enter_key_title">Enter key</string>
+    <string name="theme_enter_key_icon_title">Enter key icon</string>
+    <string name="theme_pressed_key_title">Pressed key</string>
+    <string name="theme_key_border_title">Key border</string>
+    <string name="theme_border_width_title">Border width</string>
+
+    <!-- Theme editor: accent colour and popups. -->
+    <string name="theme_accent_section_title">Accent and popups</string>
+    <string name="theme_accent_title">Accent</string>
+    <string name="theme_accent_body">This colors the shift key when it is on, the active tools, and the buttons in the panels.</string>
+    <string name="theme_gesture_trail_title">Gesture trail</string>
+    <string name="theme_popup_background_title">Popup background</string>
+    <string name="theme_popup_text_title">Popup text</string>
+
+    <!-- Theme editor: toolbar. -->
+    <string name="theme_toolbar_section_title">Toolbar</string>
+    <string name="theme_tool_icons_title">Tool icons</string>
+    <string name="theme_tool_circles_title">Tool circles</string>
+    <string name="theme_tool_circle_active_title">Active tool circle</string>
+
+    <!-- Theme editor: panels and the suggestion strip. -->
+    <string name="theme_panels_section_title">Panels and suggestions</string>
+    <string name="theme_cards_title">Cards and search bar</string>
+    <string name="theme_suggestion_text_title">Suggestion text</string>
+
+    <!-- Theme editor: corners. -->
+    <string name="theme_corners_section_title">Corners</string>
+    <string name="theme_custom_radii_title">Corner radii for this theme</string>
+    <!-- "Appearance" is the name of another settings screen. -->
+    <string name="theme_custom_radii_subtitle">Off: the theme follows the sliders in Appearance</string>
+    <string name="theme_key_radius_title">Key corner radius</string>
+    <string name="theme_popup_radius_title">Popup corner radius</string>
+    <string name="theme_tool_circle_radius_title">Tool circle radius</string>
+
+    <!-- Theme editor: animation. "Flow" and "Hue cycle" are the two names
+         below. -->
+    <string name="theme_animation_section_title">Animation</string>
+    <string name="theme_animation_section_body">Flow moves the board gradient slowly. Hue cycle turns the colors of the gradient, or the solid board color. The animation runs only while the keyboard is visible.</string>
+    <string name="theme_animation_flow_label">Flow</string>
+    <string name="theme_animation_hue_cycle_label">Hue cycle</string>
+    <string name="theme_animation_speed_title">Speed</string>
+
+    <!-- Gradient editor. -->
+    <string name="theme_gradient_linear_label">Linear</string>
+    <string name="theme_gradient_radial_label">Radial</string>
+    <string name="theme_gradient_sweep_label">Sweep</string>
+    <string name="theme_gradient_angle_title">Angle</string>
+    <!-- Row title for one color stop of a gradient. %1$d is its position,
+         which starts at 1. -->
+    <string name="theme_gradient_color_title">Color %1$d</string>
+    <string name="theme_gradient_add_color_action">Add color</string>
+    <string name="theme_gradient_delete_color_action">Delete color</string>
+
+    <!-- Image cropper. -->
+    <string name="theme_crop_image_title">Crop image</string>
+    <string name="theme_crop_image_subtitle">Pinch to zoom, drag to move the image</string>
+    <!-- Shapes of the crop frame. "Keyboard" is as wide as the keyboard. -->
+    <string name="theme_crop_ratio_keyboard_label">Keyboard</string>
+    <string name="theme_crop_ratio_wide_label">Wide</string>
+    <string name="theme_crop_ratio_square_label">Square</string>
+    <string name="theme_crop_saving_progress">Saving…</string>
+    <string name="theme_crop_action">Crop</string>
+
+    <!-- Color picker dialog. -->
+    <!-- AARRGGBB names the order of the digits: alpha, red, green, blue. -->
+    <string name="theme_color_hex_label">Hex (AARRGGBB)</string>
+    <string name="theme_color_hue_label">Hue</string>
+    <string name="theme_color_saturation_label">Saturation</string>
+    <string name="theme_color_brightness_label">Brightness</string>
+    <string name="theme_color_opacity_label">Opacity</string>
+    <string name="theme_color_apply_action">Apply</string>
+
+</resources>

@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import com.wasimaster.wmkeyboard.language.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -102,7 +103,16 @@ class LayoutEditOpsTest {
         // Phase 2 taught splitKeys and gridWeightOf to survive this; the editor
         // is allowed to produce it, and validate reports it.
         assertEquals(0f, gridWeightOf(edited.compile(layer).rows), 0.001f)
-        assertTrue(validateLayout(edited).any { it.message.contains("empty") })
+        // Matched by the resource the finding names, plus the row number and
+        // layer it carries, so a reworded warning does not fail this test.
+        val findings = validateLayout(edited)
+        assertTrue(
+            "findings were $findings",
+            LayoutMessage(
+                R.string.core_lang_layout_empty_row_warning,
+                args = listOf(1, layer.key),
+            ) in findings.map { it.text },
+        )
     }
 
     @Test

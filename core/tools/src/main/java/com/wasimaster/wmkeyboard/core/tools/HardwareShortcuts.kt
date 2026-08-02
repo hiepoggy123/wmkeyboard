@@ -1,15 +1,18 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 import android.view.KeyEvent
+import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
+import com.wasimaster.wmkeyboard.tools.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 
 /**
  * The physical keyboard's tool shortcuts: a *leader* press arms a picker, and
  * the next bare letter opens a tool. Everything here is pure — the only Android
- * types are `KeyEvent`'s integer constants, which the compiler inlines, so no
- * method on the android.jar stub is ever called and the whole engine runs in a
- * plain JVM test.
+ * types are `KeyEvent`'s integer constants and `R` string ids, which are plain
+ * integers, so no method on the android.jar stub is ever called and the whole
+ * engine runs in a plain JVM test.
  *
  * The IME owns the key events; this file owns what they mean.
  */
@@ -204,9 +207,20 @@ fun parseLeader(raw: String): LeaderTrigger? {
     return parseChord(text)?.let(LeaderTrigger::Chord)
 }
 
-fun describeLeader(leader: LeaderTrigger): String = when (leader) {
-    is LeaderTrigger.DoubleTap -> "Double-tap ${leader.modifier.label}"
-    is LeaderTrigger.Chord -> describeChord(leader.chord)
+/**
+ * The leader spelled for a human, as the UI needs it.
+ *
+ * A chord names itself ("Ctrl+Shift+K"), so it arrives as plain [text] with a
+ * [templateRes] of 0. A double tap needs words around the modifier name, so
+ * [templateRes] holds that wording and [text] is its one argument. The UI does
+ * the formatting, which keeps this file free of an Android context.
+ */
+data class LeaderLabel(@StringRes val templateRes: Int, val text: String)
+
+fun leaderLabel(leader: LeaderTrigger): LeaderLabel = when (leader) {
+    is LeaderTrigger.DoubleTap ->
+        LeaderLabel(R.string.core_tools_shortcut_leader_double_tap, leader.modifier.label)
+    is LeaderTrigger.Chord -> LeaderLabel(0, describeChord(leader.chord))
 }
 
 /**
@@ -438,12 +452,13 @@ enum class CheatGroup { TOOLS, ACTIONS }
 /**
  * One line of the cheat sheet. [tool] carries the label duty when it is set —
  * the UI resolves it with the same `toolLabel` the toolbar uses, so the legend
- * can never disagree with the button.
+ * can never disagree with the button. [labelRes] carries it otherwise, and is
+ * 0 on a row that has a [tool].
  */
 data class CheatRow(
     val trigger: String,
     val tool: ToolbarTool? = null,
-    val label: String? = null,
+    @StringRes val labelRes: Int = 0,
     val group: CheatGroup = CheatGroup.TOOLS,
 )
 
@@ -453,8 +468,32 @@ fun cheatSheetRows(
 ): List<CheatRow> = buildList {
     resolvedToolLetters(letters, enabled).entries.sortedBy { it.key }
         .forEach { (letter, tool) -> add(CheatRow(letter.toString(), tool = tool)) }
-    add(CheatRow(ToolboxLetter.toString(), label = "All tools", group = CheatGroup.ACTIONS))
-    add(CheatRow("1–9", label = "Pick a suggestion", group = CheatGroup.ACTIONS))
-    add(CheatRow(CheatSheetLetter.toString(), label = "This list", group = CheatGroup.ACTIONS))
-    add(CheatRow("Esc", label = "Cancel", group = CheatGroup.ACTIONS))
+    add(
+        CheatRow(
+            ToolboxLetter.toString(),
+            labelRes = R.string.core_tools_shortcut_cheat_all_tools,
+            group = CheatGroup.ACTIONS,
+        ),
+    )
+    add(
+        CheatRow(
+            "1–9",
+            labelRes = R.string.core_tools_shortcut_cheat_select_suggestion,
+            group = CheatGroup.ACTIONS,
+        ),
+    )
+    add(
+        CheatRow(
+            CheatSheetLetter.toString(),
+            labelRes = R.string.core_tools_shortcut_cheat_this_list,
+            group = CheatGroup.ACTIONS,
+        ),
+    )
+    add(
+        CheatRow(
+            "Esc",
+            labelRes = CommonR.string.common_cancel,
+            group = CheatGroup.ACTIONS,
+        ),
+    )
 }

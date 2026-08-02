@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.tools.R
 import kotlin.math.abs
 import kotlin.math.acos
 import kotlin.math.asin
@@ -28,7 +30,19 @@ import kotlin.math.tanh
  */
 object CalcEngine {
 
-    class CalcException(message: String) : Exception(message)
+    /**
+     * A sum the engine cannot finish.
+     *
+     * [messageRes] is the wording the display shows, and [detail] is the one
+     * argument that wording can take (the piece of the expression it names, or
+     * "" when it names none). The UI resolves the pair, so the message follows
+     * the language the user reads the keyboard in. The exception's own
+     * [message] stays English and is for logs only.
+     */
+    class CalcException(
+        @StringRes val messageRes: Int,
+        val detail: String = "",
+    ) : Exception("Calculator error $messageRes $detail")
 
     /**
      * Evaluates [expression]; throws [CalcException] with a short,
@@ -39,9 +53,11 @@ object CalcEngine {
         val parser = Parser(expression, degrees)
         val value = parser.parseExpression()
         parser.skipSpaces()
-        if (!parser.atEnd) throw CalcException("Unexpected “${parser.rest().take(8)}”")
-        if (value.isNaN()) throw CalcException("Undefined result")
-        if (value.isInfinite()) throw CalcException("Result is too large")
+        if (!parser.atEnd) {
+            throw CalcException(R.string.core_tools_calc_error_unexpected, parser.rest().take(8))
+        }
+        if (value.isNaN()) throw CalcException(R.string.core_tools_calc_error_undefined_result)
+        if (value.isInfinite()) throw CalcException(R.string.core_tools_calc_error_too_large)
         return value
     }
 
@@ -105,7 +121,7 @@ object CalcEngine {
                     c == '/' || c == '÷' -> {
                         pos++
                         val rhs = parseUnary()
-                        if (rhs == 0.0) throw CalcException("Division by zero")
+                        if (rhs == 0.0) throw CalcException(R.string.core_tools_calc_error_division_by_zero)
                         value /= rhs
                     }
                     c == '%' -> {
@@ -119,13 +135,13 @@ object CalcEngine {
                             value /= 100.0
                         } else {
                             val rhs = parseUnary()
-                            if (rhs == 0.0) throw CalcException("Division by zero")
+                            if (rhs == 0.0) throw CalcException(R.string.core_tools_calc_error_division_by_zero)
                             value = value.mod(rhs)
                         }
                     }
                     text.startsWith("mod", pos) -> { pos += 3
                         val rhs = parseUnary()
-                        if (rhs == 0.0) throw CalcException("Division by zero")
+                        if (rhs == 0.0) throw CalcException(R.string.core_tools_calc_error_division_by_zero)
                         value = value.mod(rhs)
                     }
                     // Implicit multiplication: 2π, 2(3+4), (1+2)(3+4), 3√4.
@@ -159,18 +175,20 @@ object CalcEngine {
 
         private fun parseAtom(): Double {
             skipSpaces()
-            val c = peek() ?: throw CalcException("Expression is incomplete")
+            val c = peek() ?: throw CalcException(R.string.core_tools_calc_error_incomplete)
             return when {
                 c == '(' -> {
                     pos++
                     val value = parseExpression()
-                    if (accept(')') == null) throw CalcException("Missing “)”")
+                    if (accept(')') == null) {
+                        throw CalcException(R.string.core_tools_calc_error_missing_bracket)
+                    }
                     value
                 }
                 c == '√' -> { pos++; applyChecked("√", sqrt(parseUnary())) }
                 c.isDigit() || c == '.' -> parseNumber()
                 c.isLetter() || c == 'π' -> parseNameOrFunction()
-                else -> throw CalcException("Unexpected “$c”")
+                else -> throw CalcException(R.string.core_tools_calc_error_unexpected, c.toString())
             }
         }
 
@@ -187,7 +205,10 @@ object CalcEngine {
                 }
             }
             return text.substring(start, pos).toDoubleOrNull()
-                ?: throw CalcException("Bad number “${text.substring(start, pos)}”")
+                ?: throw CalcException(
+                    R.string.core_tools_calc_error_bad_number,
+                    text.substring(start, pos),
+                )
         }
 
         private fun parseNameOrFunction(): Double {
@@ -203,7 +224,9 @@ object CalcEngine {
             val arg = if (peek() == '(') {
                 pos++
                 val value = parseExpression()
-                if (accept(')') == null) throw CalcException("Missing “)”")
+                if (accept(')') == null) {
+                    throw CalcException(R.string.core_tools_calc_error_missing_bracket)
+                }
                 value
             } else {
                 // sin 30, √-style tight binding for a parenless argument.
@@ -231,13 +254,15 @@ object CalcEngine {
                 "floor" -> floor(arg)
                 "ceil" -> ceil(arg)
                 "round" -> kotlin.math.round(arg)
-                else -> throw CalcException("Unknown function “$name”")
+                else -> throw CalcException(R.string.core_tools_calc_error_unknown_function, name)
             }
             return applyChecked(name, result)
         }
 
         private fun applyChecked(name: String, value: Double): Double {
-            if (value.isNaN()) throw CalcException("$name is undefined there")
+            if (value.isNaN()) {
+                throw CalcException(R.string.core_tools_calc_error_function_undefined, name)
+            }
             return value
         }
     }

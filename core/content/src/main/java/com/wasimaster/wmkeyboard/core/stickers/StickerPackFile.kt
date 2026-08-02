@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.stickers
 
+import com.wasimaster.wmkeyboard.content.R
+import com.wasimaster.wmkeyboard.core.content.ContentText
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -11,7 +13,11 @@ import java.util.zip.ZipOutputStream
 
 /** The outcome of reading a `.wmstickers` file. */
 sealed interface StickerImportResult {
-    data class Imported(val pack: StickerPack, val repairs: List<String>) : StickerImportResult
+    /**
+     * [repairs] says what the reader had to drop on the way in. Each line
+     * arrives unresolved, so the dialog calls [ContentText.resolve] on it.
+     */
+    data class Imported(val pack: StickerPack, val repairs: List<ContentText>) : StickerImportResult
 
     /** No manifest, or a manifest for something else entirely. */
     data object NotAStickerPack : StickerImportResult
@@ -24,7 +30,7 @@ sealed interface StickerImportResult {
      * which reads as the app losing the images. [repairs] says what went wrong
      * with each one.
      */
-    data class NoStickers(val repairs: List<String>) : StickerImportResult
+    data class NoStickers(val repairs: List<ContentText>) : StickerImportResult
 
     /** [StickerPackStore.MAX_PACKS] reached. */
     data object TooManyPacks : StickerImportResult
@@ -199,6 +205,11 @@ object StickerPackFile {
      * Reads a pack out of [input] and registers it with [store] under a fresh
      * id, so importing the same file twice can never collide with itself.
      *
+     * [defaultName] names a pack whose own file gives no name. The caller
+     * passes it because the import runs off the main thread with no context of
+     * its own: the wording is `R.string.core_content_sticker_pack_imported_label`,
+     * and the screen that starts the import resolves it.
+     *
      * [normalize] turns raw bytes into storable sticker bytes; the default runs
      * them through [StickerImage], which keeps conforming files untouched and
      * re-encodes everything else.
@@ -206,6 +217,7 @@ object StickerPackFile {
     fun import(
         input: InputStream,
         store: StickerPackStore,
+        defaultName: String,
         now: Long = System.currentTimeMillis(),
         normalize: (ByteArray) -> ProcessedSticker? = { bytes ->
             (StickerImage.process(bytes) as? StickerImage.Result.Ok)?.sticker
@@ -226,11 +238,14 @@ object StickerPackFile {
                 ?: return StickerImportResult.NotAStickerPack
             if (envelope.format != FORMAT) return StickerImportResult.NotAStickerPack
 
-            val repairs = ArrayList<String>()
+            val repairs = ArrayList<ContentText>()
             val declared = envelope.declared
             if (declared.size > StickerPackStore.MAX_STICKERS_PER_PACK) {
-                repairs += "Kept the first ${StickerPackStore.MAX_STICKERS_PER_PACK} stickers " +
-                    "of ${declared.size}"
+                repairs += ContentText(
+                    pluralsRes = R.plurals.core_content_sticker_repair_kept_first,
+                    quantity = declared.size,
+                    args = listOf(declared.size, StickerPackStore.MAX_STICKERS_PER_PACK),
+                )
             }
             val packId = store.freePackId(now)
             val packDir = store.packDir(packId) ?: return StickerImportResult.Failed
@@ -239,17 +254,23 @@ object StickerPackFile {
             for (declaredSticker in declared.take(StickerPackStore.MAX_STICKERS_PER_PACK)) {
                 val source = declaredSticker.source
                 if (source.isEmpty()) {
-                    repairs += "Dropped a sticker that doesn't name an image"
+                    repairs += ContentText(R.string.core_content_sticker_repair_no_image_named)
                     continue
                 }
                 val bytes = staged.lookUp(source)
                 if (bytes == null) {
-                    repairs += "Dropped “${declaredSticker.label()}” — its image is missing"
+                    repairs += ContentText(
+                        R.string.core_content_sticker_repair_image_missing,
+                        args = listOf(declaredSticker.label()),
+                    )
                     continue
                 }
                 val processed = normalize(bytes.readBytes())
                 if (processed == null) {
-                    repairs += "Dropped “${declaredSticker.label()}” — its image couldn't be read"
+                    repairs += ContentText(
+                        R.string.core_content_sticker_repair_image_unreadable,
+                        args = listOf(declaredSticker.label()),
+                    )
                     continue
                 }
                 val id = StickerPackStore.newStickerId()
@@ -257,7 +278,10 @@ object StickerPackFile {
                 val ok = runCatching { File(packDir, fileName).writeBytes(processed.bytes); true }
                     .getOrDefault(false)
                 if (!ok) {
-                    repairs += "Dropped “${declaredSticker.label()}” — it couldn't be saved"
+                    repairs += ContentText(
+                        R.string.core_content_sticker_repair_not_saved,
+                        args = listOf(declaredSticker.label()),
+                    )
                     continue
                 }
                 kept += CustomSticker(
@@ -277,13 +301,15 @@ object StickerPackFile {
             // own archive. The repairs say which it was.
             if (kept.isEmpty()) {
                 return StickerImportResult.NoStickers(
-                    repairs.ifEmpty { listOf("The manifest lists no stickers") },
+                    repairs.ifEmpty {
+                        listOf(ContentText(R.string.core_content_sticker_repair_none_listed))
+                    },
                 )
             }
 
             val pack = StickerPack(
                 id = packId,
-                name = envelope.pack.name.trim().ifBlank { "Imported stickers" },
+                name = envelope.pack.name.trim().ifBlank { defaultName },
                 stickers = kept,
                 createdAt = now,
             )

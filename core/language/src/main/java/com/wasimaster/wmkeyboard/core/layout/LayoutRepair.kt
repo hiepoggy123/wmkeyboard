@@ -1,5 +1,10 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import android.content.res.Resources
+import androidx.annotation.PluralsRes
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.language.R
+
 /**
  * Checking a layout comes in two flavours, and keeping them apart is what makes
  * the editor usable.
@@ -29,10 +34,58 @@ enum class LayoutSeverity {
     BLOCKING,
 }
 
+/**
+ * One line of user-facing text that this file produces, as a resource plus the
+ * values that fill its placeholders.
+ *
+ * Nothing here holds a `Context`: the checker runs on the import thread and in
+ * unit tests, and a line resolved that early would keep the language the device
+ * had when the file was read. The screen that shows the line calls [format], so
+ * the text always follows the current language.
+ *
+ * Set [stringRes] for a plain line, or [pluralsRes] together with [quantity]
+ * when the wording depends on a count. [args] fills the placeholders in order,
+ * and for a plural line the count is normally its first entry as well.
+ */
+data class LayoutMessage(
+    @StringRes val stringRes: Int = 0,
+    @PluralsRes val pluralsRes: Int = 0,
+    val quantity: Int = 0,
+    val args: List<Any> = emptyList(),
+) {
+
+    /**
+     * The finished line, in the language [resources] is configured for.
+     *
+     * The arguments go in one by one rather than spread out of [args]: a spread
+     * copies the array on every call, and the build reports that as a
+     * performance finding. The longest line here takes four.
+     */
+    fun format(resources: Resources): String {
+        val a = args
+        if (pluralsRes != 0) {
+            return when (a.size) {
+                0 -> resources.getQuantityString(pluralsRes, quantity)
+                1 -> resources.getQuantityString(pluralsRes, quantity, a[0])
+                2 -> resources.getQuantityString(pluralsRes, quantity, a[0], a[1])
+                3 -> resources.getQuantityString(pluralsRes, quantity, a[0], a[1], a[2])
+                else -> resources.getQuantityString(pluralsRes, quantity, a[0], a[1], a[2], a[3])
+            }
+        }
+        return when (a.size) {
+            0 -> resources.getString(stringRes)
+            1 -> resources.getString(stringRes, a[0])
+            2 -> resources.getString(stringRes, a[0], a[1])
+            3 -> resources.getString(stringRes, a[0], a[1], a[2])
+            else -> resources.getString(stringRes, a[0], a[1], a[2], a[3])
+        }
+    }
+}
+
 /** One thing wrong with a layout, in words the user can act on. */
 data class LayoutFinding(
     val severity: LayoutSeverity,
-    val message: String,
+    val text: LayoutMessage,
     /** The layer it was found in, or null when it is about the layout as a whole. */
     val layer: LayoutLayer? = null,
 )
@@ -44,7 +97,7 @@ data class LayoutFinding(
  * hand-written layouts, and a file that is ninety-five percent right should cost
  * its author a note, not a retype.
  */
-data class RepairedLayout(val spec: LayoutSpec, val repairs: List<String>)
+data class RepairedLayout(val spec: LayoutSpec, val repairNotes: List<LayoutMessage>)
 
 /** Widest a single key may be, in grid units — wider than the whole 10-column grid. */
 private const val MaxKeyWidth = 12f
@@ -81,7 +134,7 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
     } else if (letters.rows.all { it.isEmpty() }) {
         findings += LayoutFinding(
             LayoutSeverity.BLOCKING,
-            "The letters layer has no keys.",
+            LayoutMessage(R.string.core_lang_layout_letters_empty_error),
             LayoutLayer.LETTERS,
         )
     } else {
@@ -89,28 +142,28 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
         if (keys.none { it.action == KeyAction.Delete }) {
             findings += LayoutFinding(
                 LayoutSeverity.BLOCKING,
-                "No delete key — you would not be able to correct a mistake.",
+                LayoutMessage(R.string.core_lang_layout_no_delete_error),
                 LayoutLayer.LETTERS,
             )
         }
         if (keys.none { it.action == KeyAction.Enter }) {
             findings += LayoutFinding(
                 LayoutSeverity.BLOCKING,
-                "No enter key.",
+                LayoutMessage(R.string.core_lang_layout_no_enter_error),
                 LayoutLayer.LETTERS,
             )
         }
         if (keys.none { it.action == KeyAction.Space }) {
             findings += LayoutFinding(
                 LayoutSeverity.BLOCKING,
-                "No space key.",
+                LayoutMessage(R.string.core_lang_layout_no_space_error),
                 LayoutLayer.LETTERS,
             )
         }
         if (keys.none { it.action == KeyAction.Shift }) {
             findings += LayoutFinding(
                 LayoutSeverity.WARNING,
-                "No shift key. Capitals will only be reachable through long-press.",
+                LayoutMessage(R.string.core_lang_layout_no_shift_warning),
                 LayoutLayer.LETTERS,
             )
         }
@@ -123,7 +176,11 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
         if (rows.size > MaxRowsPerLayer) {
             findings += LayoutFinding(
                 LayoutSeverity.BLOCKING,
-                "The $label layer has ${rows.size} rows; $MaxRowsPerLayer is the most that fits.",
+                LayoutMessage(
+                    pluralsRes = R.plurals.core_lang_layout_too_many_rows_error,
+                    quantity = rows.size,
+                    args = listOf(label, rows.size, MaxRowsPerLayer),
+                ),
                 layer,
             )
         }
@@ -132,7 +189,10 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
         ) {
             findings += LayoutFinding(
                 LayoutSeverity.BLOCKING,
-                "The $label layer has no way back to the letters — you would be stranded on it.",
+                LayoutMessage(
+                    R.string.core_lang_layout_no_way_back_error,
+                    args = listOf(label),
+                ),
                 layer,
             )
         }
@@ -143,7 +203,10 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
             if (row.isEmpty()) {
                 findings += LayoutFinding(
                     LayoutSeverity.WARNING,
-                    "Row $number of the $label layer is empty.",
+                    LayoutMessage(
+                        R.string.core_lang_layout_empty_row_warning,
+                        args = listOf(number, label),
+                    ),
                     layer,
                 )
                 return@forEachIndexed
@@ -151,15 +214,21 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
             if (row.size > MaxKeysPerRow) {
                 findings += LayoutFinding(
                     LayoutSeverity.BLOCKING,
-                    "Row $number of the $label layer has ${row.size} keys; " +
-                        "$MaxKeysPerRow is the most that stays tappable.",
+                    LayoutMessage(
+                        pluralsRes = R.plurals.core_lang_layout_too_many_keys_error,
+                        quantity = row.size,
+                        args = listOf(number, label, row.size, MaxKeysPerRow),
+                    ),
                     layer,
                 )
             }
             if (row.any { !it.width.isFinite() || it.width <= 0f }) {
                 findings += LayoutFinding(
                     LayoutSeverity.BLOCKING,
-                    "Row $number of the $label layer has a key with no width.",
+                    LayoutMessage(
+                        R.string.core_lang_layout_key_no_width_error,
+                        args = listOf(number, label),
+                    ),
                     layer,
                 )
             }
@@ -167,8 +236,10 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
             if (total > gridWeight + 0.01f) {
                 findings += LayoutFinding(
                     LayoutSeverity.WARNING,
-                    "Row $number of the $label layer is wider than the rest of the layer, " +
-                        "so its keys will be drawn narrower.",
+                    LayoutMessage(
+                        R.string.core_lang_layout_wide_row_warning,
+                        args = listOf(number, label),
+                    ),
                     layer,
                 )
             }
@@ -183,8 +254,11 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
         if (badDots > 0) {
             findings += LayoutFinding(
                 LayoutSeverity.BLOCKING,
-                "$badDots braille dot key${if (badDots == 1) "" else "s"} in the $label layer " +
-                    "name a dot outside 1–6.",
+                LayoutMessage(
+                    pluralsRes = R.plurals.core_lang_layout_bad_braille_dots_error,
+                    quantity = badDots,
+                    args = listOf(badDots, label),
+                ),
                 layer,
             )
         }
@@ -193,8 +267,11 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
         if (unknown > 0) {
             findings += LayoutFinding(
                 LayoutSeverity.BLOCKING,
-                "$unknown key${if (unknown == 1) "" else "s"} in the $label layer " +
-                    "use an action this version does not know.",
+                LayoutMessage(
+                    pluralsRes = R.plurals.core_lang_layout_unknown_action_error,
+                    quantity = unknown,
+                    args = listOf(unknown, label),
+                ),
                 layer,
             )
         }
@@ -218,7 +295,7 @@ fun LayoutSpec.canBeEnabled(): Boolean =
  * it told me it added a backspace key, fine."
  */
 fun LayoutSpec.repair(): RepairedLayout {
-    val repairs = mutableListOf<String>()
+    val repairs = mutableListOf<LayoutMessage>()
 
     val layers = layers.mapNotNull { (key, layerSpec) ->
         val layer = LayoutLayer.entries.firstOrNull { it.key == key }
@@ -228,7 +305,11 @@ fun LayoutSpec.repair(): RepairedLayout {
             .filter { it.isNotEmpty() }
 
         if (rows.size > MaxRowsPerLayer) {
-            repairs += "The $label layer had ${rows.size} rows; kept the first $MaxRowsPerLayer."
+            repairs += LayoutMessage(
+                pluralsRes = R.plurals.core_lang_repair_rows_trimmed,
+                quantity = rows.size,
+                args = listOf(label, rows.size, MaxRowsPerLayer),
+            )
             rows = rows.take(MaxRowsPerLayer)
         }
         rows = rows.map { row -> row.repairRow(label, repairs) }
@@ -237,7 +318,10 @@ fun LayoutSpec.repair(): RepairedLayout {
         // shipped grid for anything it does not define, so dropping it restores
         // a working layer instead of leaving a blank one.
         if (rows.isEmpty()) {
-            repairs += "The $label layer had no usable keys; it now uses the built-in grid."
+            repairs += LayoutMessage(
+                R.string.core_lang_repair_layer_replaced,
+                args = listOf(label),
+            )
             return@mapNotNull null
         }
         // Per-row heights are positional, so they are only still valid if repair
@@ -251,13 +335,13 @@ fun LayoutSpec.repair(): RepairedLayout {
     layers[lettersKey]?.let { letters ->
         var rows = letters.rows
         rows = rows.ensuring(KeyAction.Delete, Key("⌫", action = KeyAction.Delete, width = 1.5f)) {
-            repairs += "The letters layer had no delete key; added one."
+            repairs += LayoutMessage(R.string.core_lang_repair_delete_key_added)
         }
         rows = rows.ensuring(KeyAction.Space, Key(" ", action = KeyAction.Space, width = 4f)) {
-            repairs += "The letters layer had no space key; added one."
+            repairs += LayoutMessage(R.string.core_lang_repair_space_key_added)
         }
         rows = rows.ensuring(KeyAction.Enter, Key("⏎", action = KeyAction.Enter, width = 1.5f)) {
-            repairs += "The letters layer had no enter key; added one."
+            repairs += LayoutMessage(R.string.core_lang_repair_enter_key_added)
         }
         // Same positional guard: a missing space/enter/delete key adds a row,
         // which would shift every per-row height down one.
@@ -271,7 +355,10 @@ fun LayoutSpec.repair(): RepairedLayout {
         val hasWayBack = spec.rows.flatten()
             .any { it.action == KeyAction.Letters || it.action == KeyAction.Symbols }
         if (!hasWayBack) {
-            repairs += "The ${layer.key} layer had no way back to the letters; added an ABC key."
+            repairs += LayoutMessage(
+                R.string.core_lang_repair_letters_key_added,
+                args = listOf(layer.key),
+            )
             layers[layer.key] = spec.copy(
                 rows = spec.rows.appendToLastRow(
                     Key("ABC", action = KeyAction.Letters, width = 1.5f),
@@ -288,23 +375,34 @@ fun LayoutSpec.repair(): RepairedLayout {
  * a placeholder lets the row re-flow around the gap, which is less confusing
  * than a button that is visibly there and silently does nothing.
  */
-private fun Key.repairKey(label: String, repairs: MutableList<String>): Key? {
+private fun Key.repairKey(label: String, repairs: MutableList<LayoutMessage>): Key? {
     if (action is KeyAction.Unknown) {
-        repairs += "Dropped a key in the $label layer using the unknown action " +
-            "\"${(action as KeyAction.Unknown).tag}\"."
+        repairs += LayoutMessage(
+            R.string.core_lang_repair_unknown_key_deleted,
+            args = listOf(label, (action as KeyAction.Unknown).tag),
+        )
         return null
     }
     if (action == KeyAction.Text && this.label.isEmpty() && output.isNullOrEmpty()) {
-        repairs += "Dropped a blank key in the $label layer."
+        repairs += LayoutMessage(
+            R.string.core_lang_repair_blank_key_deleted,
+            args = listOf(label),
+        )
         return null
     }
 
     var fixed = this
     if (!width.isFinite() || width <= 0f) {
-        repairs += "A key in the $label layer had no width; set it to 1."
+        repairs += LayoutMessage(
+            R.string.core_lang_repair_key_width_set,
+            args = listOf(label),
+        )
         fixed = fixed.copy(width = 1f)
     } else if (width > MaxKeyWidth) {
-        repairs += "A key in the $label layer was $width wide; capped it at $MaxKeyWidth."
+        repairs += LayoutMessage(
+            R.string.core_lang_repair_key_width_capped,
+            args = listOf(label, width, MaxKeyWidth),
+        )
         fixed = fixed.copy(width = MaxKeyWidth)
     }
     if (fixed.longPress.any { it.isEmpty() }) {
@@ -314,16 +412,23 @@ private fun Key.repairKey(label: String, repairs: MutableList<String>): Key? {
 }
 
 /** Truncates an over-long row and scales an over-wide one back into the grid. */
-private fun List<Key>.repairRow(label: String, repairs: MutableList<String>): List<Key> {
+private fun List<Key>.repairRow(label: String, repairs: MutableList<LayoutMessage>): List<Key> {
     var row = this
     if (row.size > MaxKeysPerRow) {
-        repairs += "A row in the $label layer had ${row.size} keys; kept the first $MaxKeysPerRow."
+        repairs += LayoutMessage(
+            pluralsRes = R.plurals.core_lang_repair_row_keys_trimmed,
+            quantity = row.size,
+            args = listOf(label, row.size, MaxKeysPerRow),
+        )
         row = row.take(MaxKeysPerRow)
     }
     val total = row.sumOf { it.width.toDouble() }.toFloat()
     if (total > MaxRowWidth) {
         val scale = MaxRowWidth / total
-        repairs += "A row in the $label layer totalled $total units; scaled it to fit."
+        repairs += LayoutMessage(
+            R.string.core_lang_repair_row_scaled,
+            args = listOf(label, total),
+        )
         row = row.map { it.copy(width = it.width * scale) }
     }
     return row

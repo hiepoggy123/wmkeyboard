@@ -52,7 +52,10 @@ class AiPromptsTest {
     fun `only Custom survives an empty field`() {
         assertTrue(AiAction.CUSTOM.worksWithoutText)
         for (action in AiAction.entries - AiAction.CUSTOM) {
-            assertFalse(action.label, action.worksWithoutText)
+            // The label is a string resource now and cannot be resolved off a
+            // device, so the failure message names the constant instead —
+            // which is what identifies the offending action anyway.
+            assertFalse(action.name, action.worksWithoutText)
         }
     }
 }

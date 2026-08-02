@@ -1,20 +1,36 @@
 package com.wasimaster.wmkeyboard.core.fonts
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.content.R
 import java.io.File
 import java.io.InputStream
 
-/** The outcome of reading a font file. */
+/**
+ * The outcome of reading a font file.
+ *
+ * The two failure cases carry a string resource rather than a finished
+ * sentence: the importer runs off the main thread and has no context of its
+ * own, so the screen that shows the message is the one that resolves it, and a
+ * user who changes the app language sees the new wording.
+ */
 sealed interface FontImportResult {
     data class Imported(val font: InstalledFont) : FontImportResult
 
     /** Not a font at all, or a format Android's text stack can't load. */
-    data class NotAFont(val message: String) : FontImportResult
+    data class NotAFont(@StringRes val messageRes: Int) : FontImportResult
+
+    /**
+     * Over [FontStore.MAX_BYTES], unreadable, or nowhere to write.
+     *
+     * [messageArgs] fills the format arguments of [messageRes], in order.
+     */
+    data class Failed(
+        @StringRes val messageRes: Int,
+        val messageArgs: List<Any> = emptyList(),
+    ) : FontImportResult
 
     /** [FontStore.MAX_FONTS] reached. */
     data object TooManyFonts : FontImportResult
-
-    /** Over [FontStore.MAX_BYTES], unreadable, or nowhere to write. */
-    data class Failed(val message: String) : FontImportResult
 }
 
 /**
@@ -70,7 +86,8 @@ object FontFile {
         loader: (File) -> Boolean = PLATFORM_LOADER,
     ): FontImportResult {
         if (store.fonts().size >= FontStore.MAX_FONTS) return FontImportResult.TooManyFonts
-        val staging = store.stagingDir() ?: return FontImportResult.Failed("No storage available")
+        val staging = store.stagingDir()
+            ?: return FontImportResult.Failed(R.string.core_content_font_error_no_storage)
         val staged = File(staging, "font.ttf")
 
         try {
@@ -83,22 +100,25 @@ object FontFile {
                     written += read
                     if (written > FontStore.MAX_BYTES) {
                         return FontImportResult.Failed(
-                            "Fonts are limited to ${FontStore.MAX_BYTES / (1024 * 1024)} MB",
+                            R.string.core_content_font_error_too_large,
+                            listOf(FontStore.MAX_BYTES / (1024 * 1024)),
                         )
                     }
                     sink.write(buffer, 0, read)
                 }
             }
-            if (written == 0L) return FontImportResult.NotAFont("The file is empty")
+            if (written == 0L) {
+                return FontImportResult.NotAFont(R.string.core_content_font_error_empty)
+            }
 
-            describeMagic(staged)?.let { return FontImportResult.NotAFont(it) }
+            magicErrorRes(staged)?.let { return FontImportResult.NotAFont(it) }
             if (!loader(staged)) {
-                return FontImportResult.NotAFont("This font file couldn't be loaded")
+                return FontImportResult.NotAFont(R.string.core_content_font_error_load)
             }
 
             val id = store.freeId(now)
             if (!store.adoptFile(id, staged)) {
-                return FontImportResult.Failed("Couldn't save the font")
+                return FontImportResult.Failed(R.string.core_content_font_error_save)
             }
             val font = store.adopt(
                 InstalledFont(
@@ -117,8 +137,10 @@ object FontFile {
                 return FontImportResult.TooManyFonts
             }
             return FontImportResult.Imported(font)
-        } catch (e: Exception) {
-            return FontImportResult.Failed(e.message ?: "Couldn't read the font")
+        } catch (_: Exception) {
+            // The exception's own message is developer text in whatever
+            // language the platform wrote it, so the user gets ours instead.
+            return FontImportResult.Failed(R.string.core_content_font_error_read)
         } finally {
             staging.deleteRecursively()
         }
@@ -126,16 +148,17 @@ object FontFile {
 
     /**
      * Null when the first four bytes look like a font this platform loads;
-     * otherwise a line naming what the file actually appears to be.
+     * otherwise the string resource that names what the file actually is.
      *
      * WOFF and WOFF2 get their own message because they are the likely mistake:
      * they are what a browser's network tab hands you for a web font, and
      * nothing on Android reads them.
      */
-    private fun describeMagic(file: File): String? {
+    @StringRes
+    private fun magicErrorRes(file: File): Int? {
         val header = ByteArray(4)
         val read = file.inputStream().use { it.read(header) }
-        if (read < 4) return "The file is too short to be a font"
+        if (read < 4) return R.string.core_content_font_error_too_short
 
         val tag = String(header, Charsets.ISO_8859_1)
         val asInt = ((header[0].toInt() and 0xFF) shl 24) or
@@ -147,11 +170,11 @@ object FontFile {
             // 0x00010000 TrueType · OTTO CFF/OpenType · "true"/"ttcf" Apple.
             asInt == 0x00010000 -> null
             tag == "OTTO" || tag == "true" || tag == "ttcf" -> null
-            tag == "wOFF" -> "WOFF web fonts aren't supported — use the .ttf or .otf version"
-            tag == "wOF2" -> "WOFF2 web fonts aren't supported — use the .ttf or .otf version"
-            tag.startsWith("PK") -> "That's a zip archive, not a font file"
-            tag.startsWith("<") -> "That's an HTML or XML file, not a font"
-            else -> "That doesn't look like a .ttf or .otf font file"
+            tag == "wOFF" -> R.string.core_content_font_error_woff
+            tag == "wOF2" -> R.string.core_content_font_error_woff2
+            tag.startsWith("PK") -> R.string.core_content_font_error_zip
+            tag.startsWith("<") -> R.string.core_content_font_error_markup
+            else -> R.string.core_content_font_error_not_a_font
         }
     }
 }

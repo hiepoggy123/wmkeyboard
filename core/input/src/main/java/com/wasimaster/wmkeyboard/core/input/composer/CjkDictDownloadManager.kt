@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.input.composer
 
 import android.os.StatFs
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.input.R
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
@@ -39,7 +41,18 @@ object CjkDictDownloadManager {
         /** Cancelled or interrupted with a `.part` on disk — resumable. */
         data class Paused(val bytes: Long, val total: Long) : DownloadStatus
         data object Downloaded : DownloadStatus
-        data class Failed(val reason: FailReason, val message: String) : DownloadStatus
+
+        /**
+         * [messageRes] is the text to show. It is a resource id, not a string,
+         * so the settings UI resolves it in the language the user reads.
+         * [messageArg] fills the one format argument of the strings that have
+         * one, and is null for the strings that have none.
+         */
+        data class Failed(
+            val reason: FailReason,
+            @StringRes val messageRes: Int,
+            val messageArg: String? = null,
+        ) : DownloadStatus
     }
 
     enum class FailReason { NETWORK, NO_SPACE, CHECKSUM, UNAVAILABLE, OTHER }
@@ -79,7 +92,13 @@ object CjkDictDownloadManager {
     fun start(filesDir: File, pack: CjkDictPack) {
         if (isBusy) return
         if (!pack.available) {
-            set(pack.id, DownloadStatus.Failed(FailReason.UNAVAILABLE, "This pack is not available yet."))
+            set(
+                pack.id,
+                DownloadStatus.Failed(
+                    FailReason.UNAVAILABLE,
+                    R.string.core_input_cjk_download_error_unavailable,
+                ),
+            )
             return
         }
         activeId = pack.id
@@ -100,14 +119,25 @@ object CjkDictDownloadManager {
                 // A checksum failure means the .part is garbage — drop it so a
                 // retry starts clean instead of resuming a poisoned file.
                 if (e.reason == FailReason.CHECKSUM) part.delete()
-                set(pack.id, DownloadStatus.Failed(e.reason, e.message.orEmpty()))
+                set(pack.id, DownloadStatus.Failed(e.reason, e.messageRes, e.messageArg))
             } catch (e: Exception) {
+                // The system writes its own message in English only, so it goes
+                // in as the argument of a translated sentence, never on its own.
+                val detail = e.message.orEmpty()
                 set(
                     pack.id,
-                    DownloadStatus.Failed(
-                        FailReason.NETWORK,
-                        e.message ?: "The download failed — check your connection and retry",
-                    ),
+                    if (detail.isBlank()) {
+                        DownloadStatus.Failed(
+                            FailReason.NETWORK,
+                            R.string.core_input_cjk_download_error_network,
+                        )
+                    } else {
+                        DownloadStatus.Failed(
+                            FailReason.NETWORK,
+                            R.string.core_input_cjk_download_error_network_detail,
+                            detail,
+                        )
+                    },
                 )
             } finally {
                 activeId = null
@@ -129,7 +159,16 @@ object CjkDictDownloadManager {
         _states.update { it + (id to status) }
     }
 
-    private class FailedException(val reason: FailReason, message: String) : IOException(message)
+    /**
+     * A failure with a message the user can read. The message travels as a
+     * resource id so the settings UI resolves it, not this object, which has
+     * no context and no locale of its own.
+     */
+    private class FailedException(
+        val reason: FailReason,
+        @StringRes val messageRes: Int,
+        val messageArg: String? = null,
+    ) : IOException(reason.name)
 
     private suspend fun downloadInto(pack: CjkDictPack, part: File) {
         part.parentFile?.mkdirs()
@@ -141,7 +180,10 @@ object CjkDictDownloadManager {
 
         val free = StatFs(part.parentFile!!.path).availableBytes
         if (free < pack.sizeBytes - resumeFrom + SPACE_MARGIN_BYTES) {
-            throw FailedException(FailReason.NO_SPACE, "Not enough storage — free up some space first")
+            throw FailedException(
+                FailReason.NO_SPACE,
+                R.string.core_input_cjk_download_error_no_space,
+            )
         }
 
         val connection = URL(pack.url).openConnection() as HttpURLConnection
@@ -164,7 +206,11 @@ object CjkDictDownloadManager {
             when (val status = connection.responseCode) {
                 HttpURLConnection.HTTP_PARTIAL -> Unit
                 HttpURLConnection.HTTP_OK -> resumeFrom = 0 // server ignored Range
-                else -> throw FailedException(FailReason.OTHER, "The server returned HTTP $status")
+                else -> throw FailedException(
+                    FailReason.OTHER,
+                    R.string.core_input_cjk_download_error_http,
+                    status.toString(),
+                )
             }
 
             val remaining = connection.contentLengthLong
@@ -193,7 +239,10 @@ object CjkDictDownloadManager {
             }
 
             if (total >= 0 && written != total) {
-                throw IOException("The connection dropped mid-download — resume to continue")
+                throw FailedException(
+                    FailReason.NETWORK,
+                    R.string.core_input_cjk_download_error_truncated,
+                )
             }
         } finally {
             connection.disconnect()
@@ -216,7 +265,7 @@ object CjkDictDownloadManager {
         if (!actual.equals(pack.sha256, ignoreCase = true)) {
             throw FailedException(
                 FailReason.CHECKSUM,
-                "The download was corrupted (checksum mismatch) — please retry",
+                R.string.core_input_cjk_download_error_checksum,
             )
         }
     }

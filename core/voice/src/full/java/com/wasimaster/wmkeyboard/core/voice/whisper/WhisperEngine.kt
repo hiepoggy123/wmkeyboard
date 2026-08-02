@@ -1,8 +1,8 @@
 package com.wasimaster.wmkeyboard.core.voice.whisper
 
+import com.wasimaster.wmkeyboard.voice.R
 import java.io.File
 import java.io.FileInputStream
-import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -48,8 +48,8 @@ object WhisperEngine {
      * [translate] forces the translate-to-English task where the model supports
      * it. [langToken] is the Whisper `<|xx|>` token id to force on a grouped
      * graph — null (or a graph without the input) means auto-detect. Call on a
-     * background dispatcher only. Throws [IOException] with a user-presentable
-     * message on failure.
+     * background dispatcher only. Throws [WhisperException] on failure, which
+     * carries the string resource the UI should show.
      */
     fun transcribe(
         modelFile: File,
@@ -65,11 +65,7 @@ object WhisperEngine {
                 obtainInterpreter(modelFile)
             } catch (e: Throwable) {
                 releaseLocked()
-                throw IOException(
-                    "The voice model failed to load — its file may be corrupted; " +
-                        "delete and re-download it in settings",
-                    e,
-                )
+                throw WhisperException(R.string.core_voice_whisper_model_load_error, cause = e)
             }
 
             requireMelBins(itp)
@@ -99,7 +95,7 @@ object WhisperEngine {
                 }
             } catch (e: Throwable) {
                 releaseLocked()
-                throw IOException("Transcription failed — try again or pick a smaller model", e)
+                throw WhisperException(R.string.core_voice_whisper_transcribe_error, cause = e)
             }
 
             return voc.decode(output[0]).trim()
@@ -132,10 +128,7 @@ object WhisperEngine {
             ?: return
         if (bins > 0 && bins != WhisperMel.N_MEL) {
             releaseLocked()
-            throw IOException(
-                "This voice model expects a $bins-band spectrogram, which this " +
-                    "build cannot produce — pick a different model in settings",
-            )
+            throw WhisperException(R.string.core_voice_whisper_mel_bins_error, bins.toString())
         }
     }
 

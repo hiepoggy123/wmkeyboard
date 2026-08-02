@@ -1,11 +1,14 @@
 package com.wasimaster.wmkeyboard.core.addons
 
 import android.content.Context
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.addons.feature.R
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import kotlinx.coroutines.flow.first
+import com.wasimaster.wmkeyboard.common.R as CommonR
 
 /**
  * Turning an installed addon on — separately from installing it.
@@ -20,9 +23,9 @@ import kotlinx.coroutines.flow.first
  *
  * So the two are split. [AddonInstaller] now only puts the thing on the device,
  * and this asks. Every type whose install has an obvious single slot to fill
- * gets a [question]; the ones that don't — a text font, a dictionary, a snippet
- * pack, stickers — are already doing everything they can do the moment they land
- * and have nothing to switch to.
+ * gets a [questionRes]; the ones that don't — a text font, a dictionary, a
+ * snippet pack, stickers — are already doing everything they can do the moment
+ * they land and have nothing to switch to.
  *
  * [isActive] exists for the update path rather than the UI: updating replaces
  * the local object with a freshly-minted one, so an addon that *was* the active
@@ -34,14 +37,19 @@ object AddonApply {
     /**
      * What to ask after installing this type, or null when there is nothing to
      * ask — installing is the whole of it.
+     *
+     * A resource id rather than the words: the question is asked by whichever
+     * addon screen is on top when the install lands, and that screen resolves
+     * it in the language the user is reading at that moment.
      */
-    fun question(type: AddonType): String? = when (type) {
-        AddonType.Theme -> "Use it as your keyboard theme now?"
-        AddonType.IconPack -> "Use its icons on the keyboard now?"
-        AddonType.EmojiFont -> "Draw emoji with it now?"
-        AddonType.Sound -> "Use it as your key sound now?"
-        AddonType.Layout -> "Turn it on so you can type with it?"
-        AddonType.Plugin -> "Turn it on so it shows in the plugins panel?"
+    @StringRes
+    fun questionRes(type: AddonType): Int? = when (type) {
+        AddonType.Theme -> R.string.faddons_apply_theme_question
+        AddonType.IconPack -> R.string.faddons_apply_icon_pack_question
+        AddonType.EmojiFont -> R.string.faddons_apply_emoji_font_question
+        AddonType.Sound -> R.string.faddons_apply_sound_question
+        AddonType.Layout -> R.string.faddons_apply_layout_question
+        AddonType.Plugin -> R.string.faddons_apply_plugin_question
         // A text font goes in one of several pickers and guessing wrong is
         // worse than letting the user choose; a dictionary, a keyword pack, a
         // snippet pack and a sticker pack are live the moment they are
@@ -51,13 +59,14 @@ object AddonApply {
         -> null
     }
 
-    /** The label on the button that says yes to [question]. */
-    fun confirmLabel(type: AddonType): String = when (type) {
-        AddonType.Layout, AddonType.Plugin -> "Turn on"
+    /** The label on the button that says yes to [questionRes]. */
+    @StringRes
+    fun confirmLabelRes(type: AddonType): Int = when (type) {
+        AddonType.Layout, AddonType.Plugin -> CommonR.string.common_enable
         AddonType.Theme, AddonType.IconPack, AddonType.EmojiFont, AddonType.Sound,
         AddonType.Font, AddonType.Dictionary, AddonType.EmojiKeywords,
         AddonType.Snippets, AddonType.Stickers, AddonType.Unknown,
-        -> "Switch to it"
+        -> R.string.faddons_apply_switch_action
     }
 
     /**
@@ -71,7 +80,7 @@ object AddonApply {
         if (record.type == AddonType.Plugin) {
             return PluginStore.get(app).plugin(ref)?.enabled == true
         }
-        if (question(record.type) == null) return false
+        if (questionRes(record.type) == null) return false
         val settings = SettingsRepository(app).settings.first()
         return when (record.type) {
             AddonType.Theme -> settings.keyboardThemeId == ref
@@ -84,7 +93,8 @@ object AddonApply {
                     settings.keySoundCustom.customId == ref
             AddonType.Layout -> ref in settings.enabledLayoutIds
             // Plugin returned above without reading settings, and the rest were
-            // filtered out by the question() guard: they have no slot to be in.
+            // filtered out by the questionRes() guard: they have no slot to be
+            // in.
             AddonType.Plugin, AddonType.Font, AddonType.Dictionary,
             AddonType.EmojiKeywords, AddonType.Snippets, AddonType.Stickers,
             AddonType.Unknown,

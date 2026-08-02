@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,9 +57,11 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.VoiceModelState
 import com.wasimaster.wmkeyboard.ime.VoiceStatus
 import com.wasimaster.wmkeyboard.core.layout.Key
@@ -119,7 +122,7 @@ internal fun VoicePanel(
         ) {
             when {
                 state.secureField -> VoiceNotice(
-                    "Voice input is unavailable in password fields.",
+                    stringResource(R.string.ime_voice_secure_field_notice),
                 )
                 !hasPermission -> Column(
                     modifier = Modifier.fillMaxSize(),
@@ -127,8 +130,7 @@ internal fun VoicePanel(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        "Voice typing needs permission to use the microphone. " +
-                            "Audio is only captured while you dictate.",
+                        stringResource(R.string.ime_voice_permission_body),
                         color = kb.secondaryText,
                         fontSize = 13.sp,
                         textAlign = TextAlign.Center,
@@ -143,7 +145,7 @@ internal fun VoicePanel(
                             .padding(horizontal = 20.dp, vertical = 10.dp),
                     ) {
                         Text(
-                            "Allow microphone",
+                            stringResource(R.string.ime_voice_permission_action),
                             color = kb.toolCircleActiveIcon,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
@@ -151,7 +153,7 @@ internal fun VoicePanel(
                     }
                 }
                 voice.status == VoiceStatus.UNAVAILABLE -> VoiceNotice(
-                    "Speech recognition is not available on this device.",
+                    stringResource(R.string.ime_voice_unavailable_notice),
                 )
                 else -> MicContent(state, onToggle, onDownloadModel, onToggleTranslate, onOpenVoiceSettings)
             }
@@ -211,7 +213,7 @@ internal fun VoicePanel(
                         tint = kb.toolbarIcon,
                     )
                     Text(
-                        "Undo",
+                        stringResource(R.string.ime_voice_undo_action),
                         color = kb.toolbarIcon,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(start = 4.dp),
@@ -227,7 +229,7 @@ internal fun VoicePanel(
                 .fillMaxHeight(),
         ) {
             VoiceRailKey(
-                description = "Delete",
+                description = stringResource(CommonR.string.common_delete),
                 icon = Icons.AutoMirrored.Outlined.Backspace,
                 repeatable = true,
                 modifier = Modifier.weight(1f),
@@ -236,7 +238,7 @@ internal fun VoicePanel(
                 onKey(Key("⌫", action = KeyAction.Delete))
             }
             VoiceRailKey(
-                description = "Space",
+                description = stringResource(R.string.ime_rail_space_desc),
                 icon = Icons.Outlined.SpaceBar,
                 modifier = Modifier.weight(1f),
             ) {
@@ -256,7 +258,7 @@ internal fun VoicePanel(
                 onKey(Key("⏎", action = KeyAction.Enter))
             }
             VoiceRailKey(
-                description = "Back to keyboard",
+                description = stringResource(R.string.ime_rail_back_desc),
                 icon = Icons.Outlined.Keyboard,
                 modifier = Modifier.weight(1f),
             ) {
@@ -353,7 +355,11 @@ private fun MicContent(
                 } else {
                     Icon(
                         Icons.Outlined.Mic,
-                        contentDescription = if (listening) "Stop listening" else "Start listening",
+                        contentDescription = if (listening) {
+                            stringResource(R.string.ime_voice_stop_desc)
+                        } else {
+                            stringResource(R.string.ime_voice_start_desc)
+                        },
                         modifier = Modifier.size(30.dp),
                         tint = if (listening) kb.toolCircleActiveIcon else kb.modifierKeyText,
                     )
@@ -361,16 +367,18 @@ private fun MicContent(
             }
         }
         Spacer(Modifier.height(12.dp))
+        // Read outside the when: ifEmpty takes a plain lambda, not a composable one.
+        val listeningLabel = stringResource(R.string.ime_voice_status_listening)
         val statusText = when {
-            voice.whisperNeedsModel -> "No offline voice model yet"
-            // Whisper gives no live partials, so guide the user to tap when done.
-            listening && voice.whisper -> "Listening — tap when you're done"
-            listening -> voice.partial.ifEmpty { "Listening…" }
-            transcribing -> "Transcribing…"
+            voice.whisperNeedsModel -> stringResource(R.string.ime_voice_status_no_model)
+            // Whisper gives no live partials, so guide the user to press when done.
+            listening && voice.whisper -> stringResource(R.string.ime_voice_status_listening_hint)
+            listening -> voice.partial.ifEmpty { listeningLabel }
+            transcribing -> stringResource(R.string.ime_voice_status_transcribing)
             finishing -> "…"
             voice.status == VoiceStatus.ERROR ->
-                voice.errorMessage ?: "Speech recognition failed — try again."
-            else -> "Tap to speak"
+                voice.errorMessage ?: stringResource(R.string.ime_voice_status_error)
+            else -> stringResource(R.string.ime_voice_status_idle)
         }
         Text(
             statusText,
@@ -403,7 +411,7 @@ private fun MicContent(
                         tint = kb.secondaryText,
                     )
                     Text(
-                        "Download a voice model",
+                        stringResource(R.string.ime_voice_download_model_action),
                         color = kb.secondaryText,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(start = 5.dp),
@@ -427,7 +435,11 @@ private fun MicContent(
                         tint = if (translate) kb.toolCircleActiveIcon else kb.secondaryText,
                     )
                     Text(
-                        if (translate) "Translating to English" else "Translate to English",
+                        if (translate) {
+                            stringResource(R.string.ime_voice_translate_on_label)
+                        } else {
+                            stringResource(R.string.ime_voice_translate_label)
+                        },
                         color = if (translate) kb.toolCircleActiveIcon else kb.secondaryText,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(start = 5.dp),
@@ -439,9 +451,9 @@ private fun MicContent(
 
         // Offline-model chip (API 33+): downloading the language's on-device
         // model makes dictation offline, faster, and beep-free.
-        // Whatever language dictation is actually set to, not a Bengali-or-else
-        // guess — "Get English for offline dictation" while dictating in Spanish
-        // is worse than saying nothing. An unrecognised tag stays generic.
+        // Whatever language voice typing is actually set to, not a Bengali-or-else
+        // guess: "Get English for offline voice typing" while the user speaks
+        // Spanish is worse than saying nothing. An unrecognised tag stays generic.
         val modelLanguage = LanguageRegistry.byLocale(voice.languageTag)?.englishName
         when (voice.modelState) {
             VoiceModelState.DOWNLOADABLE -> Row(
@@ -461,26 +473,36 @@ private fun MicContent(
                 )
                 Text(
                     if (modelLanguage != null) {
-                        "Get $modelLanguage for offline dictation"
+                        stringResource(R.string.ime_voice_model_get_language_action, modelLanguage)
                     } else {
-                        "Get this language for offline dictation"
+                        stringResource(R.string.ime_voice_model_get_action)
                     },
                     color = kb.secondaryText,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 5.dp),
                 )
             }
-            VoiceModelState.DOWNLOADING -> Text(
-                if (modelLanguage != null) {
-                    "Downloading $modelLanguage offline model"
-                } else {
-                    "Downloading offline model"
-                } +
-                    if (voice.modelProgress >= 0) " — ${voice.modelProgress}%" else "…",
-                color = kb.secondaryText,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+            VoiceModelState.DOWNLOADING -> {
+                val progress = voice.modelProgress
+                val downloadText = when {
+                    modelLanguage != null && progress >= 0 -> stringResource(
+                        R.string.ime_voice_model_downloading_language_progress,
+                        modelLanguage,
+                        progress,
+                    )
+                    modelLanguage != null ->
+                        stringResource(R.string.ime_voice_model_downloading_language, modelLanguage)
+                    progress >= 0 ->
+                        stringResource(R.string.ime_voice_model_downloading_progress, progress)
+                    else -> stringResource(R.string.ime_voice_model_downloading)
+                }
+                Text(
+                    downloadText,
+                    color = kb.secondaryText,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
             else -> {}
         }
     }
@@ -556,25 +578,33 @@ internal fun VoiceStripBar(
                 } else {
                     Icon(
                         Icons.Outlined.Mic,
-                        contentDescription = if (listening) "Stop listening" else "Start listening",
+                        contentDescription = if (listening) {
+                            stringResource(R.string.ime_voice_stop_desc)
+                        } else {
+                            stringResource(R.string.ime_voice_start_desc)
+                        },
                         modifier = Modifier.size(18.dp),
                         tint = if (listening) kb.toolCircleActiveIcon else kb.secondaryText,
                     )
                 }
             }
         }
+        // Read outside the when: ifEmpty takes a plain lambda, not a composable one.
+        val listeningLabel = stringResource(R.string.ime_voice_status_listening)
         val statusText = when {
-            state.secureField -> "Unavailable in password fields"
-            voice.status == VoiceStatus.NEED_PERMISSION -> "Microphone permission needed"
-            voice.status == VoiceStatus.UNAVAILABLE -> "Speech recognition unavailable"
-            voice.whisperNeedsModel -> "No offline voice model — open settings"
-            listening && voice.whisper -> "Listening — tap when done"
-            listening -> voice.partial.ifEmpty { "Listening…" }
-            transcribing -> "Transcribing…"
+            state.secureField -> stringResource(R.string.ime_voice_strip_secure_field)
+            voice.status == VoiceStatus.NEED_PERMISSION ->
+                stringResource(R.string.ime_voice_strip_permission)
+            voice.status == VoiceStatus.UNAVAILABLE ->
+                stringResource(R.string.ime_voice_strip_unavailable)
+            voice.whisperNeedsModel -> stringResource(R.string.ime_voice_strip_no_model)
+            listening && voice.whisper -> stringResource(R.string.ime_voice_strip_listening_hint)
+            listening -> voice.partial.ifEmpty { listeningLabel }
+            transcribing -> stringResource(R.string.ime_voice_status_transcribing)
             finishing -> "…"
             voice.status == VoiceStatus.ERROR ->
-                voice.errorMessage ?: "Speech recognition failed — try again."
-            else -> "Tap the mic to dictate"
+                voice.errorMessage ?: stringResource(R.string.ime_voice_status_error)
+            else -> stringResource(R.string.ime_voice_strip_idle)
         }
         Text(
             statusText,
@@ -588,7 +618,7 @@ internal fun VoiceStripBar(
         )
         if (voice.status == VoiceStatus.NEED_PERMISSION) {
             Text(
-                "Allow",
+                stringResource(R.string.ime_voice_strip_allow_action),
                 color = kb.toolCircleActiveIcon,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
@@ -602,7 +632,7 @@ internal fun VoiceStripBar(
         if (voice.canUndo && !listening && !finishing) {
             Icon(
                 Icons.AutoMirrored.Outlined.Undo,
-                contentDescription = "Undo dictation",
+                contentDescription = stringResource(R.string.ime_voice_strip_undo_desc),
                 tint = kb.toolbarIcon,
                 modifier = Modifier
                     .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
@@ -616,7 +646,7 @@ internal fun VoiceStripBar(
         }
         Icon(
             Icons.Outlined.Close,
-            contentDescription = "Stop voice typing",
+            contentDescription = stringResource(R.string.ime_voice_strip_close_desc),
             tint = kb.toolbarIcon,
             modifier = Modifier
                 .padding(end = 4.dp)

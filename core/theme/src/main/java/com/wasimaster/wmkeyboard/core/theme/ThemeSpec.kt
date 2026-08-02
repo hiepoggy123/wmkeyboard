@@ -1,10 +1,15 @@
 package com.wasimaster.wmkeyboard.core.theme
 
+import android.content.Context
 import android.util.Base64
+import androidx.annotation.StringRes
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
+import com.wasimaster.wmkeyboard.theme.R
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -45,6 +50,12 @@ enum class ThemeAnimation { NONE, FLOW, HUE_CYCLE }
 @Serializable
 data class ThemeSpec(
     val id: String,
+    /**
+     * The stored name. A theme the user makes keeps the name the user typed. A
+     * built-in theme holds its English name here, which is what an export and a
+     * copy start from; the name on screen comes from [themeName] instead, so it
+     * follows the language of the device.
+     */
     val name: String,
     val dark: Boolean = true,
     // Board
@@ -351,6 +362,57 @@ val BuiltInThemes: List<ThemeSpec> = listOf(
         keyBorderWidthDp = 1f,
     ),
 ) + PaletteThemes
+
+/**
+ * The name resource of every theme in [BuiltInThemes], keyed by the id of the
+ * theme. The ids stay exactly as they are stored and as they are written into a
+ * `.wmtheme.json` file; only the label on screen comes from the resource.
+ *
+ * The entries for [PaletteThemes] live next to those themes, in the same file.
+ */
+private val BuiltInThemeNameRes: Map<String, Int> = mapOf(
+    "builtin_ocean" to R.string.core_theme_builtin_ocean_label,
+    "builtin_forest" to R.string.core_theme_builtin_forest_label,
+    "builtin_sunset" to R.string.core_theme_builtin_sunset_label,
+    "builtin_berry" to R.string.core_theme_builtin_berry_label,
+    "builtin_crimson" to R.string.core_theme_builtin_crimson_label,
+    "builtin_slate" to R.string.core_theme_builtin_slate_label,
+    "builtin_pitch" to R.string.core_theme_builtin_pitch_label,
+    "builtin_snow" to R.string.core_theme_builtin_snow_label,
+    "builtin_mint" to R.string.core_theme_builtin_mint_label,
+    "builtin_rose" to R.string.core_theme_builtin_rose_label,
+    "builtin_sand" to R.string.core_theme_builtin_sand_label,
+    "builtin_nebula" to R.string.core_theme_builtin_nebula_label,
+    "builtin_sunset_drift" to R.string.core_theme_builtin_sunset_drift_label,
+    "builtin_aurora" to R.string.core_theme_builtin_aurora_label,
+    "builtin_deep_sea" to R.string.core_theme_builtin_deep_sea_label,
+    "builtin_glacier" to R.string.core_theme_builtin_glacier_label,
+    "builtin_bubble" to R.string.core_theme_builtin_bubble_label,
+    "builtin_facet" to R.string.core_theme_builtin_facet_label,
+) + PaletteThemeNameRes
+
+/**
+ * The name resource of the built-in theme with this [id], or null when the id
+ * belongs to a theme the user made. Use [themeName] to get the text itself.
+ */
+@StringRes
+fun builtInThemeNameRes(id: String): Int? = BuiltInThemeNameRes[id]
+
+/**
+ * The name to show for [theme]. A built-in theme gets its translated name. A
+ * theme the user made keeps the name the user typed, which is never translated.
+ */
+@Composable
+fun themeName(theme: ThemeSpec): String {
+    val nameRes = builtInThemeNameRes(theme.id)
+    return if (nameRes == null) theme.name else stringResource(nameRes)
+}
+
+/** [themeName] for code that has a [Context] and is not a composable. */
+fun themeName(context: Context, theme: ThemeSpec): String {
+    val nameRes = builtInThemeNameRes(theme.id)
+    return if (nameRes == null) theme.name else context.getString(nameRes)
+}
 
 /** Seed swatches offered by the editor's "start from a color" row. */
 val SeedSwatches: List<Long> = listOf(

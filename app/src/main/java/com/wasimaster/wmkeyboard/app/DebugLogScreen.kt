@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -36,11 +37,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.debug.LogEntry
 import com.wasimaster.wmkeyboard.core.debug.LogLevel
@@ -96,33 +99,27 @@ internal fun DebugLogScreen() {
             }
     }
 
-    CaptionText(
-        "What the keyboard has recorded about itself since this process started, plus any " +
-            "crash it did not survive. Nothing you type is ever recorded here.",
-    )
+    CaptionText(stringResource(R.string.shell_debug_log_intro_body))
 
-    SettingsGroup("Report") {
+    SettingsGroup(stringResource(R.string.shell_debug_log_report_title)) {
         item {
             NavRow(
-                "Share diagnostics",
-                "Send the report to an email, an issue tracker, or a notes app",
+                stringResource(R.string.shell_debug_log_share_title),
+                stringResource(R.string.shell_debug_log_share_subtitle),
             ) { shareReport(context, showSystemLog, systemLog) }
         }
         item {
-            NavRow("Copy to clipboard", "The same report, as text") {
-                copyReport(context, showSystemLog, systemLog)
-            }
+            NavRow(
+                stringResource(R.string.shell_debug_log_copy_title),
+                stringResource(R.string.shell_debug_log_copy_subtitle),
+            ) { copyReport(context, showSystemLog, systemLog) }
         }
         item {
             ToggleSetting(
-                "Include the system log",
-                "Add this process's own Android log to the report",
+                stringResource(R.string.shell_debug_log_system_title),
+                stringResource(R.string.shell_debug_log_system_subtitle),
                 showSystemLog,
-                info = "The app log above is written by the keyboard and holds only what it " +
-                    "chose to record. The system log is everything this process printed, " +
-                    "including its libraries — far more useful for a hard-to-reproduce bug, " +
-                    "but not something the keyboard controls the contents of. Read it before " +
-                    "sending it anywhere.",
+                info = stringResource(R.string.shell_debug_log_system_info),
             ) { showSystemLog = it }
         }
     }
@@ -133,25 +130,21 @@ internal fun DebugLogScreen() {
     // builds it wants to confirm the report screen actually comes up before
     // sending the APK anywhere.
     if (BuildConfig.ENABLE_CRASH_SCREEN) {
-        SettingsGroup("Diagnostic build") {
+        SettingsGroup(stringResource(R.string.shell_debug_log_diagnostic_title)) {
             item {
-                CaptionText(
-                    "This build shows a crash report on screen instead of Android's " +
-                        "\"app has stopped\" dialog, so a trace can be copied off a device " +
-                        "with no computer attached.",
-                )
+                CaptionText(stringResource(R.string.shell_debug_log_diagnostic_body))
             }
             item {
                 NavRow(
-                    "Test the crash screen",
-                    "Crashes the app on purpose so you can check the report comes up",
+                    stringResource(R.string.shell_debug_log_crash_test_title),
+                    stringResource(R.string.shell_debug_log_crash_test_subtitle),
                 ) { error("Crash screen test, triggered from settings") }
             }
         }
     }
 
     if (crashes.isNotBlank()) {
-        SettingsGroup("Crashes") {
+        SettingsGroup(stringResource(R.string.shell_debug_log_crashes_title)) {
             item {
                 LogBlock(crashes)
             }
@@ -163,18 +156,18 @@ internal fun DebugLogScreen() {
                     OutlinedButton(onClick = {
                         DebugLog.clearCrashes()
                         revision++
-                    }) { Text("Clear crashes") }
+                    }) { Text(stringResource(R.string.shell_debug_log_delete_crashes_action)) }
                 }
             }
         }
     }
 
-    SettingsGroup("App log") {
+    SettingsGroup(stringResource(R.string.shell_debug_log_app_log_title)) {
         item {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                label = { Text("Filter") },
+                label = { Text(stringResource(R.string.shell_debug_log_filter_hint)) },
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -194,22 +187,22 @@ internal fun DebugLogScreen() {
                     FilterChip(
                         selected = minLevel == level,
                         onClick = { minLevel = level },
-                        label = { Text(level.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                        label = { Text(stringResource(levelLabelRes(level))) },
                     )
                 }
                 Spacer(Modifier.width(4.dp))
-                OutlinedButton(onClick = { revision++ }) { Text("Refresh") }
+                OutlinedButton(onClick = { revision++ }) {
+                    Text(stringResource(R.string.shell_debug_log_refresh_action))
+                }
             }
         }
         if (shown.isEmpty()) {
             item {
                 CaptionText(
-                    if (entries.isEmpty()) {
-                        "Nothing recorded yet. Open the keyboard, reproduce the problem, then " +
-                            "come back — the log is kept in memory and lives as long as the app does."
-                    } else {
-                        "No entries match this filter."
-                    },
+                    stringResource(
+                        if (entries.isEmpty()) R.string.shell_debug_log_empty
+                        else R.string.shell_debug_log_filter_empty,
+                    ),
                 )
             }
         }
@@ -228,8 +221,11 @@ internal fun DebugLogScreen() {
     }
 
     if (showSystemLog) {
-        SettingsGroup("System log") {
-            item { LogBlock(systemLog.ifBlank { "This device did not let the app read its own log." }) }
+        SettingsGroup(stringResource(R.string.shell_debug_log_system_log_title)) {
+            item {
+                val unavailable = stringResource(R.string.shell_debug_log_system_unavailable)
+                LogBlock(systemLog.ifBlank { unavailable })
+            }
         }
     }
 
@@ -242,10 +238,26 @@ internal fun DebugLogScreen() {
                 Button(onClick = {
                     DebugLog.clear()
                     revision++
-                }) { Text("Clear app log") }
+                }) { Text(stringResource(R.string.shell_debug_log_delete_app_log_action)) }
             }
         }
     }
+}
+
+/**
+ * The name of one log level on its filter chip.
+ *
+ * The enum constant used to be title-cased in code. That gave the chips English
+ * names on every device, and `replaceFirstChar` follows the device language
+ * rather than the language of the word, so a Turkish device turned "Info" into
+ * "İnfo".
+ */
+@StringRes
+private fun levelLabelRes(level: LogLevel): Int = when (level) {
+    LogLevel.DEBUG -> R.string.shell_debug_log_level_debug_label
+    LogLevel.INFO -> R.string.shell_debug_log_level_info_label
+    LogLevel.WARN -> R.string.shell_debug_log_level_warn_label
+    LogLevel.ERROR -> R.string.shell_debug_log_level_error_label
 }
 
 @Composable
@@ -309,13 +321,16 @@ private fun report(includeSystemLog: Boolean, systemLog: String): String = build
 }
 
 private fun copyReport(context: Context, includeSystemLog: Boolean, systemLog: String) {
+    val label = context.getString(R.string.shell_debug_log_report_subject)
     runCatching {
         (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-            .setPrimaryClip(
-                ClipData.newPlainText("WM Keyboard diagnostics", report(includeSystemLog, systemLog)),
-            )
+            .setPrimaryClip(ClipData.newPlainText(label, report(includeSystemLog, systemLog)))
     }
-    Toast.makeText(context, "Diagnostics copied", Toast.LENGTH_SHORT).show()
+    Toast.makeText(
+        context,
+        context.getString(R.string.shell_debug_log_copied_info),
+        Toast.LENGTH_SHORT,
+    ).show()
 }
 
 /**
@@ -331,19 +346,28 @@ private fun shareReport(context: Context, includeSystemLog: Boolean, systemLog: 
         FileProvider.getUriForFile(context, "${context.packageName}.clipboard", file)
     }.getOrNull()
     if (uri == null) {
-        Toast.makeText(context, "Couldn't write the report", Toast.LENGTH_SHORT).show()
+        Toast.makeText(
+            context,
+            context.getString(R.string.shell_debug_log_write_error),
+            Toast.LENGTH_SHORT,
+        ).show()
         return
     }
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_STREAM, uri)
-        putExtra(Intent.EXTRA_SUBJECT, "WM Keyboard diagnostics")
+        putExtra(
+            Intent.EXTRA_SUBJECT,
+            context.getString(R.string.shell_debug_log_report_subject),
+        )
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     runCatching {
         context.startActivity(
-            Intent.createChooser(intent, "Share diagnostics")
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent.createChooser(
+                intent,
+                context.getString(R.string.shell_debug_log_share_title),
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
     }
 }

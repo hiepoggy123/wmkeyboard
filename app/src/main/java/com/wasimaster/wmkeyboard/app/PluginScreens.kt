@@ -21,18 +21,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginImportResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginLog
 import com.wasimaster.wmkeyboard.core.plugins.PluginManifestResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginStorage
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
+import com.wasimaster.wmkeyboard.core.plugins.resolve
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.ime.R as ImeR
 
 /**
  * Managing plugins: the master switch, what is installed, and what each one is
@@ -64,13 +69,13 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
     SettingsGroup {
         item {
             // Highlightable by name: an addon page that refused to install a
-            // plugin sends the user straight to this switch.
+            // plugin sends the user straight to this switch. The name is the
+            // match key the addon screen and the search index hold, so it stays
+            // an English literal; only the drawn title is a resource.
             HighlightableRow("Allow plugins") {
                 WmRow(
-                    title = "Allow plugins",
-                    subtitle = "Plugins are small tools written by other people that run inside " +
-                        "a sandbox on this keyboard. Separate from the Plugins tool on " +
-                        "the toolbar, which only decides where the panel appears.",
+                    title = stringResource(R.string.plugins_allow_title),
+                    subtitle = stringResource(R.string.plugins_allow_subtitle),
                     trailing = {
                         Switch(
                             checked = enabled,
@@ -82,36 +87,44 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
         }
     }
 
-    SettingsGroup("What a plugin can and can't do") {
-        item { PluginFact("Can't see what you type", allowed = false) }
-        item { PluginFact("Can't read the text you're writing in", allowed = false) }
-        item { PluginFact("Can't read your clipboard", allowed = false) }
-        item { PluginFact("Can't use the internet", allowed = false) }
-        item { PluginFact("Can draw its own panel and do its own maths", allowed = true) }
-        item { PluginFact("Can save its own data, if it says so before you install it", allowed = true) }
-        item {
-            CaptionText(
-                "These aren't settings — there is no way for a plugin to ask for any of " +
-                    "them. You give a plugin text by typing or pasting into its own box, " +
-                    "and its results reach you when you tap Insert.",
-            )
-        }
+    SettingsGroup(stringResource(R.string.plugins_facts_title)) {
+        item { PluginFact(stringResource(R.string.plugins_fact_no_typing), allowed = false) }
+        item { PluginFact(stringResource(R.string.plugins_fact_no_field), allowed = false) }
+        item { PluginFact(stringResource(R.string.plugins_fact_no_clipboard), allowed = false) }
+        item { PluginFact(stringResource(R.string.plugins_fact_no_internet), allowed = false) }
+        item { PluginFact(stringResource(R.string.plugins_fact_own_panel), allowed = true) }
+        item { PluginFact(stringResource(R.string.plugins_fact_own_storage), allowed = true) }
+        item { CaptionText(stringResource(R.string.plugins_facts_info)) }
     }
 
     if (enabled) {
-        SettingsGroup("Installed") {
+        SettingsGroup(stringResource(R.string.plugins_installed_title)) {
             if (plugins.isEmpty()) {
-                item { CaptionText("No plugins installed yet.") }
+                item { CaptionText(stringResource(R.string.plugins_installed_empty)) }
             } else {
                 for (plugin in plugins) {
                     item {
+                        val subtitle = when {
+                            plugin.author.isNotBlank() && !plugin.enabled -> stringResource(
+                                R.string.plugins_row_version_author_off,
+                                plugin.version,
+                                plugin.author,
+                            )
+
+                            plugin.author.isNotBlank() -> stringResource(
+                                R.string.plugins_row_version_author,
+                                plugin.version,
+                                plugin.author,
+                            )
+
+                            !plugin.enabled ->
+                                stringResource(R.string.plugins_row_version_off, plugin.version)
+
+                            else -> stringResource(R.string.plugins_row_version, plugin.version)
+                        }
                         WmRow(
                             title = plugin.name,
-                            subtitle = buildString {
-                                append("Version ${plugin.version}")
-                                if (plugin.author.isNotBlank()) append(" · ${plugin.author}")
-                                if (!plugin.enabled) append(" · turned off")
-                            },
+                            subtitle = subtitle,
                             trailing = {
                                 Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
                             },
@@ -124,19 +137,15 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
             }
         }
 
-        SettingsGroup("Add") {
+        SettingsGroup(stringResource(R.string.plugins_add_title)) {
             item {
                 WmRow(
-                    title = "Install from a file",
-                    subtitle = "Choose a .wmplugin file",
+                    title = stringResource(R.string.plugins_install_file_title),
+                    subtitle = stringResource(R.string.plugins_install_file_subtitle),
                     onClick = { picker.launch(PluginFile.IMPORT_MIME_TYPES) },
                 )
             }
-            item {
-                CaptionText(
-                    "You can also install plugins from an addon repository, under Addons.",
-                )
-            }
+            item { CaptionText(stringResource(R.string.plugins_install_repo_info)) }
         }
     }
 
@@ -157,9 +166,13 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
     importMessage?.let { message ->
         AlertDialog(
             onDismissRequest = { importMessage = null },
-            title = { Text("Plugins") },
+            // The tool's own name, read from the keyboard module: one copy of
+            // the word for translators, not two.
+            title = { Text(stringResource(ImeR.string.ime_tool_plugins)) },
             text = { Text(message) },
-            confirmButton = { TextButton({ importMessage = null }) { Text("OK") } },
+            confirmButton = {
+                TextButton({ importMessage = null }) { Text(stringResource(CommonR.string.common_ok)) }
+            },
         )
     }
 }
@@ -192,7 +205,7 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
     var confirmUninstall by remember { mutableStateOf(false) }
 
     if (plugin == null) {
-        Column { CaptionText("That plugin is no longer installed.") }
+        Column { CaptionText(stringResource(R.string.plugins_detail_missing)) }
         return
     }
 
@@ -207,22 +220,24 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
     // with an infinite maximum height, which Compose refuses outright.
     SettingsGroup {
         item {
+            val noDescription = stringResource(R.string.plugins_detail_no_description)
+            val versionLine = if (plugin.author.isNotBlank()) {
+                stringResource(R.string.plugins_row_version_author, plugin.version, plugin.author)
+            } else {
+                stringResource(R.string.plugins_row_version, plugin.version)
+            }
             WmRow(
                 title = plugin.name,
-                subtitle = buildString {
-                    append(plugin.description.ifBlank { "No description." })
-                    append("\n\nVersion ${plugin.version}")
-                    if (plugin.author.isNotBlank()) append(" by ${plugin.author}")
-                },
+                subtitle = plugin.description.ifBlank { noDescription } + "\n\n" + versionLine,
             )
         }
         item {
             WmRow(
-                title = "Enabled",
+                title = stringResource(R.string.plugins_detail_enabled_title),
                 subtitle = if (plugin.abandonedCount >= PluginStore.MAX_ABANDONS) {
-                    "Turned off because it stopped responding twice."
+                    stringResource(R.string.plugins_detail_stopped_subtitle)
                 } else {
-                    "Show this plugin in the Plugins panel"
+                    stringResource(R.string.plugins_detail_enabled_subtitle)
                 },
                 trailing = {
                     Switch(
@@ -234,45 +249,42 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
         }
     }
 
-    SettingsGroup("What it can do") {
+    SettingsGroup(stringResource(R.string.plugins_permissions_title)) {
         if (plugin.grantedPermissions.isEmpty()) {
             item {
-                WmRow(title = "Nothing outside its own panel")
+                WmRow(title = stringResource(R.string.plugins_permissions_none))
             }
         } else {
             for (permission in plugin.grantedPermissions) {
                 item {
-                    WmRow(title = permission.label)
+                    WmRow(title = stringResource(permission.labelRes))
                 }
             }
         }
-        item {
-            CaptionText(
-                "Declared when the plugin was installed. A plugin cannot ask for anything " +
-                    "else while it runs, because there is nothing else to ask for.",
-            )
-        }
+        item { CaptionText(stringResource(R.string.plugins_permissions_info)) }
     }
 
-    SettingsGroup("Stored data") {
+    SettingsGroup(stringResource(R.string.plugins_storage_title)) {
         item {
             WmRow(
-                title = "Using ${usedBytes / 1024} KB of ${PluginStorage.MAX_TOTAL_BYTES / 1024} KB",
-                subtitle = "Saved on this device only",
+                title = stringResource(
+                    R.string.plugins_storage_used_label,
+                    usedBytes / 1024,
+                    PluginStorage.MAX_TOTAL_BYTES / 1024,
+                ),
+                subtitle = stringResource(R.string.plugins_storage_subtitle),
             )
         }
         item {
-            TextButton(onClick = { storage.clear(); refresh++ }) { Text("Clear stored data") }
+            TextButton(onClick = { storage.clear(); refresh++ }) {
+                Text(stringResource(R.string.plugins_storage_clear_action))
+            }
         }
     }
 
     if (log.isNotEmpty()) {
-        SettingsGroup("Log") {
-            item {
-                CaptionText(
-                    "Anything the plugin printed, plus errors. Useful when writing one.",
-                )
-            }
+        SettingsGroup(stringResource(R.string.plugins_log_title)) {
+            item { CaptionText(stringResource(R.string.plugins_log_info)) }
             for (line in log.takeLast(LOG_LINES)) {
                 item {
                     WmRow(
@@ -283,7 +295,7 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
             }
             item {
                 TextButton(onClick = { PluginLog(store.logFile(pluginId)).clear(); refresh++ }) {
-                    Text("Clear log")
+                    Text(stringResource(R.string.plugins_log_clear_action))
                 }
             }
         }
@@ -293,7 +305,7 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
         item {
             TextButton(onClick = { confirmUninstall = true }) {
                 Icon(Icons.Outlined.Delete, contentDescription = null)
-                Text("  Uninstall")
+                Text("  " + stringResource(CommonR.string.common_uninstall))
             }
         }
     }
@@ -301,16 +313,20 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
     if (confirmUninstall) {
         AlertDialog(
             onDismissRequest = { confirmUninstall = false },
-            title = { Text("Uninstall ${plugin.name}?") },
-            text = { Text("Its script and anything it saved are deleted from this device.") },
+            title = { Text(stringResource(R.string.plugins_uninstall_confirm_title, plugin.name)) },
+            text = { Text(stringResource(R.string.plugins_uninstall_confirm_body)) },
             confirmButton = {
                 TextButton({
                     store.delete(pluginId)
                     confirmUninstall = false
                     onBack()
-                }) { Text("Uninstall") }
+                }) { Text(stringResource(CommonR.string.common_uninstall)) }
             },
-            dismissButton = { TextButton({ confirmUninstall = false }) { Text("Cancel") } },
+            dismissButton = {
+                TextButton({ confirmUninstall = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
         )
     }
 }
@@ -343,27 +359,50 @@ private fun PluginInstallDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(ok?.let { "Install “${it.manifest.name}”?" } ?: "Can't read that plugin") },
-        text = {
+        title = {
             Text(
-                ok?.let { manifest ->
-                    buildString {
-                        append(manifest.manifest.description.ifBlank { "A WM Keyboard plugin." })
-                        append("\n\nVersion ${manifest.manifest.pluginVersion}")
-                        if (manifest.manifest.author.isNotBlank()) {
-                            append(" by ${manifest.manifest.author}")
-                        }
-                        append("\n\n")
-                        if (manifest.permissions.isEmpty()) {
-                            append("It doesn't ask for anything beyond its own panel.")
-                        } else {
-                            append("It can:")
-                            for (permission in manifest.permissions) append("\n• ${permission.label}")
-                        }
-                    }
-                } ?: (read as? PluginManifestResult.Rejected)?.reason
-                    ?: "That file isn't a WM Keyboard plugin.",
+                if (ok != null) {
+                    stringResource(R.string.plugins_install_confirm_title, ok.manifest.name)
+                } else {
+                    stringResource(R.string.plugins_install_unreadable_title)
+                },
             )
+        },
+        text = {
+            val defaultDescription = stringResource(R.string.plugins_install_default_description)
+            val noPermissions = stringResource(R.string.plugins_install_no_permissions)
+            val permissionsIntro = stringResource(R.string.plugins_install_permissions_intro)
+            val notAPlugin = stringResource(R.string.plugins_not_a_plugin_error)
+            val body = if (ok != null) {
+                val versionLine = if (ok.manifest.author.isNotBlank()) {
+                    stringResource(
+                        R.string.plugins_row_version_author,
+                        ok.manifest.pluginVersion,
+                        ok.manifest.author,
+                    )
+                } else {
+                    stringResource(R.string.plugins_row_version, ok.manifest.pluginVersion)
+                }
+                // Resolved through the context rather than stringResource: the
+                // labels are read in a loop over a list, and this keeps the
+                // composable call out of a lambda.
+                val permissionLabels = ok.permissions.map { context.getString(it.labelRes) }
+                buildString {
+                    append(ok.manifest.description.ifBlank { defaultDescription })
+                    append("\n\n")
+                    append(versionLine)
+                    append("\n\n")
+                    if (permissionLabels.isEmpty()) {
+                        append(noPermissions)
+                    } else {
+                        append(permissionsIntro)
+                        for (label in permissionLabels) append("\n• $label")
+                    }
+                }
+            } else {
+                (read as? PluginManifestResult.Rejected)?.reasonText?.resolve(context) ?: notAPlugin
+            }
+            Text(body)
         },
         confirmButton = {
             if (ok != null) {
@@ -378,23 +417,34 @@ private fun PluginInstallDialog(
                         }
                         onDone(
                             when (result) {
-                                is PluginImportResult.Imported ->
-                                    "Installed ${result.plugin.name}."
+                                is PluginImportResult.Imported -> context.getString(
+                                    R.string.plugins_install_done_message,
+                                    result.plugin.name,
+                                )
 
-                                is PluginImportResult.Rejected -> result.reason
+                                is PluginImportResult.Rejected ->
+                                    result.reasonText.resolve(context)
+
                                 PluginImportResult.NotAPlugin ->
-                                    "That file isn't a WM Keyboard plugin."
+                                    context.getString(R.string.plugins_not_a_plugin_error)
 
                                 PluginImportResult.TooManyPlugins ->
-                                    "You already have ${PluginStore.MAX_PLUGINS} plugins."
+                                    context.resources.getQuantityString(
+                                        R.plurals.plugins_too_many_error,
+                                        PluginStore.MAX_PLUGINS,
+                                        PluginStore.MAX_PLUGINS,
+                                    )
 
-                                PluginImportResult.Failed -> "That plugin could not be installed."
+                                PluginImportResult.Failed ->
+                                    context.getString(R.string.plugins_install_failed_error)
                             },
                         )
                     }
-                }) { Text("Install") }
+                }) { Text(stringResource(CommonR.string.common_install)) }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
     )
 }

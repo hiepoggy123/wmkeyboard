@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tools screen: the list of every keyboard tool, with the on/off switch for each one. -->
+    <string name="tools_colored_icons_title">Colorful tool icons</string>
+    <string name="tools_colored_icons_subtitle">Each tool gets its own accent color here and in the toolbox. Open a tool to change the color of that one icon.</string>
+    <!-- Caption at the top of the Tools screen. The gear character marks a tool that has more settings. -->
+    <string name="tools_intro_info">Tools are on the keyboard toolbar and in the toolbox. The grid button on the toolbar opens the toolbox. The switch turns a tool on. Press a row to open the settings of that tool. The ⚙ marks the tools that have options of their own.</string>
+    <string name="tools_reset_colors_action">Reset custom colors</string>
+
+    <!-- Group headings on the Tools screen, one for each kind of tool. -->
+    <string name="tools_group_panels_title">Panels</string>
+    <string name="tools_group_scanners_title">Scanners</string>
+    <string name="tools_group_online_title">Online tools</string>
+    <string name="tools_group_create_title">Create and convert</string>
+    <string name="tools_group_modes_title">Keyboard modes</string>
+    <string name="tools_group_cursor_title">Cursor</string>
+    <string name="tools_group_quick_actions_title">Quick actions</string>
+    <string name="tools_group_utilities_title">Utilities</string>
+    <!-- Heading for the tools that are in no other group. -->
+    <string name="tools_group_other_title">Other</string>
+
+    <!-- Content description of the marker on a tool that has more than the on/off switch. -->
+    <string name="tools_has_options_desc">This tool has more settings</string>
+</resources>

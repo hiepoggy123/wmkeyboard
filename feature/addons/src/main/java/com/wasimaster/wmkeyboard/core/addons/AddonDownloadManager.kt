@@ -2,6 +2,8 @@ package com.wasimaster.wmkeyboard.core.addons
 
 import android.content.Context
 import android.os.StatFs
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.addons.feature.R
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import java.io.File
 import java.io.IOException
@@ -56,7 +58,8 @@ object AddonDownloadManager {
 
         data class UpdateAvailable(val installed: String, val latest: String) : AddonStatus
 
-        data class Failed(val reason: FailReason, val message: String) : AddonStatus
+        /** [text] is the line to show the user. Resolve it where it is drawn. */
+        data class Failed(val reason: FailReason, val text: AddonText) : AddonStatus
     }
 
     enum class FailReason {
@@ -109,7 +112,12 @@ object AddonDownloadManager {
      * A freshly installed addon that has a slot it could fill, waiting on the
      * user's answer. See [AddonApply] for why installing no longer fills it.
      */
-    data class PendingApply(val key: String, val record: InstalledAddon, val question: String)
+    data class PendingApply(
+        val key: String,
+        val record: InstalledAddon,
+        /** The question to ask. The dialog resolves it. */
+        @get:StringRes val questionRes: Int,
+    )
 
     private val _pendingApply = MutableStateFlow<PendingApply?>(null)
 
@@ -276,7 +284,13 @@ object AddonDownloadManager {
 
         val minAppVersion = entry.minAppVersion
         if (minAppVersion != null && minAppVersion > appVersionCode) {
-            set(key, AddonStatus.Failed(FailReason.APP_TOO_OLD, "Needs a newer version of the app"))
+            set(
+                key,
+                AddonStatus.Failed(
+                    FailReason.APP_TOO_OLD,
+                    AddonText.of(R.string.faddons_download_error_app_too_old),
+                ),
+            )
             return
         }
         // A missing checksum is tolerated everywhere else — the file arrived over
@@ -289,14 +303,20 @@ object AddonDownloadManager {
                 key,
                 AddonStatus.Failed(
                     FailReason.REJECTED,
-                    "This plugin has no checksum, so it can't be verified",
+                    AddonText.of(R.string.faddons_download_error_plugin_no_checksum),
                 ),
             )
             return
         }
         val url = AddonRepoCodec.resolveAsset(manifestUrl, entry.path)
         if (url == null) {
-            set(key, AddonStatus.Failed(FailReason.REJECTED, "The download link isn't a valid https URL"))
+            set(
+                key,
+                AddonStatus.Failed(
+                    FailReason.REJECTED,
+                    AddonText.of(R.string.faddons_download_error_bad_url),
+                ),
+            )
             return
         }
 
@@ -348,7 +368,7 @@ object AddonDownloadManager {
                             author = entry.author,
                         )
                         store.markInstalled(key, record)
-                        val question = AddonApply.question(entry.type)
+                        val questionRes = AddonApply.questionRes(entry.type)
                         when {
                             // An update of the thing the user was already using
                             // re-selects itself under its new id. Asking here
@@ -356,8 +376,8 @@ object AddonDownloadManager {
                             // never revoked — and saying no would look like the
                             // update had uninstalled their theme.
                             wasActive -> AddonApply.apply(appContext, record)
-                            question != null && previous == null ->
-                                _pendingApply.value = PendingApply(key, record, question)
+                            questionRes != null && previous == null ->
+                                _pendingApply.value = PendingApply(key, record, questionRes)
                         }
                         set(key, AddonStatus.Installed(entry.version))
                     }
@@ -366,7 +386,7 @@ object AddonDownloadManager {
                         // record has to go too — claiming it is still installed
                         // would offer an Update for something that is gone.
                         if (previous != null) store.markUninstalled(key)
-                        set(key, AddonStatus.Failed(FailReason.REJECTED, outcome.message))
+                        set(key, AddonStatus.Failed(FailReason.REJECTED, outcome.text))
                     }
                 }
             } catch (e: CancellationException) {
@@ -375,10 +395,18 @@ object AddonDownloadManager {
                 throw e
             } catch (e: FailedException) {
                 part.delete()
-                set(key, AddonStatus.Failed(e.reason, e.message.orEmpty()))
+                set(key, AddonStatus.Failed(e.reason, e.text))
             } catch (e: Exception) {
                 part.delete()
-                set(key, AddonStatus.Failed(FailReason.NETWORK, ToolHttp.friendlyMessage(e)))
+                // friendlyMessage needs a Context and hands back finished words,
+                // so this one line is already in the user's language here.
+                set(
+                    key,
+                    AddonStatus.Failed(
+                        FailReason.NETWORK,
+                        AddonText.Literal(ToolHttp.friendlyMessage(appContext, e)),
+                    ),
+                )
             } finally {
                 part.delete()
                 activeKey = null
@@ -423,7 +451,10 @@ object AddonDownloadManager {
             // file, so the partial we have is worthless and we start over.
             val appending = status == HttpURLConnection.HTTP_PARTIAL
             if (status != HttpURLConnection.HTTP_OK && !appending) {
-                throw FailedException(FailReason.NETWORK, "The server returned HTTP $status")
+                throw FailedException(
+                    FailReason.NETWORK,
+                    AddonText.of(R.string.faddons_download_error_http_status, status),
+                )
             }
             if (!appending && resumeFrom > 0) part.delete()
 
@@ -450,7 +481,10 @@ object AddonDownloadManager {
                         if (cap > 0 && written > cap) {
                             throw FailedException(
                                 FailReason.REJECTED,
-                                "This addon is larger than the ${cap / (1024 * 1024)} MB limit for its type",
+                                AddonText.of(
+                                    R.string.faddons_download_error_too_large,
+                                    cap / (1024 * 1024),
+                                ),
                             )
                         }
                         output.write(buffer, 0, read)
@@ -491,7 +525,7 @@ object AddonDownloadManager {
         if (actual != expected) {
             throw FailedException(
                 FailReason.CHECKSUM,
-                "The downloaded file doesn't match the checksum in the manifest",
+                AddonText.of(R.string.faddons_download_error_checksum),
             )
         }
     }
@@ -502,7 +536,10 @@ object AddonDownloadManager {
             StatFs(context.filesDir.absolutePath).availableBytes
         }.getOrDefault(Long.MAX_VALUE)
         if (available < needed) {
-            throw FailedException(FailReason.NO_SPACE, "Not enough free space to install this")
+            throw FailedException(
+                FailReason.NO_SPACE,
+                AddonText.of(R.string.faddons_download_error_no_space),
+            )
         }
     }
 
@@ -519,5 +556,10 @@ object AddonDownloadManager {
         _states.update { it + (key to status) }
     }
 
-    private class FailedException(val reason: FailReason, message: String) : IOException(message)
+    /**
+     * Carries the reason out of the transfer without putting it into words.
+     * [IOException] keeps no message of its own on purpose: [text] is the line
+     * the user reads, and it is resolved by the screen that draws it.
+     */
+    private class FailedException(val reason: FailReason, val text: AddonText) : IOException()
 }

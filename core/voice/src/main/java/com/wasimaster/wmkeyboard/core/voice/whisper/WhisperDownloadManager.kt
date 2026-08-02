@@ -1,11 +1,15 @@
 package com.wasimaster.wmkeyboard.core.voice.whisper
 
 import android.os.StatFs
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.voice.R
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,7 +48,19 @@ object WhisperDownloadManager {
         /** Cancelled or interrupted with a `.part` on disk — resumable. */
         data class Paused(val bytes: Long, val total: Long) : DownloadStatus
         data object Downloaded : DownloadStatus
-        data class Failed(val reason: FailReason, val message: String) : DownloadStatus
+
+        /**
+         * [messageRes] is the text to show the user. [messageArg] is the one
+         * format argument that text takes, or "" when it takes none. The UI
+         * resolves the pair together:
+         * `if (messageArg.isEmpty()) stringResource(messageRes)`
+         * `else stringResource(messageRes, messageArg)`.
+         */
+        data class Failed(
+            val reason: FailReason,
+            @StringRes val messageRes: Int,
+            val messageArg: String = "",
+        ) : DownloadStatus
     }
 
     enum class FailReason { NETWORK, NO_SPACE, OTHER }
@@ -99,14 +115,11 @@ object WhisperDownloadManager {
                 }
                 throw e
             } catch (e: FailedException) {
-                set(model.id, DownloadStatus.Failed(e.reason, e.message.orEmpty()))
-            } catch (e: Exception) {
+                set(model.id, DownloadStatus.Failed(e.reason, e.messageRes, e.messageArg))
+            } catch (_: Exception) {
                 set(
                     model.id,
-                    DownloadStatus.Failed(
-                        FailReason.NETWORK,
-                        e.message ?: "The download failed — check your connection and retry",
-                    ),
+                    DownloadStatus.Failed(FailReason.NETWORK, CommonR.string.common_error_network),
                 )
             } finally {
                 activeId = null
@@ -128,7 +141,16 @@ object WhisperDownloadManager {
         _states.update { it + (id to status) }
     }
 
-    private class FailedException(val reason: FailReason, message: String) : IOException(message)
+    /**
+     * A download failure that already knows which message the UI should show.
+     * The exception's own `message` stays null: the text lives in [messageRes]
+     * so it follows the app language.
+     */
+    private class FailedException(
+        val reason: FailReason,
+        @StringRes val messageRes: Int,
+        val messageArg: String = "",
+    ) : IOException()
 
     /**
      * One downloadable file within a model — the exact final file, its `.part`,
@@ -157,10 +179,11 @@ object WhisperDownloadManager {
             .sumOf { it.approxBytes - it.partFile.length() }
         val free = StatFs(dir.path).availableBytes
         if (free < stillNeeded + SPACE_MARGIN_BYTES) {
-            val neededMb = (stillNeeded + SPACE_MARGIN_BYTES) / 1e6
+            val neededMb = ((stillNeeded + SPACE_MARGIN_BYTES) / 1e6).roundToInt()
             throw FailedException(
                 FailReason.NO_SPACE,
-                "Not enough storage — free up about %.0f MB first".format(neededMb),
+                R.string.core_voice_download_space_error,
+                neededMb.toString(),
             )
         }
 
@@ -189,7 +212,11 @@ object WhisperDownloadManager {
             when (val status = connection.responseCode) {
                 HttpURLConnection.HTTP_PARTIAL -> Unit
                 HttpURLConnection.HTTP_OK -> resumeFrom = 0
-                else -> throw FailedException(FailReason.OTHER, "Hugging Face returned HTTP $status")
+                else -> throw FailedException(
+                    FailReason.OTHER,
+                    R.string.core_voice_download_http_error,
+                    status.toString(),
+                )
             }
 
             val remaining = connection.contentLengthLong
@@ -217,10 +244,13 @@ object WhisperDownloadManager {
                 }
             }
 
-            if (fileTotal >= 0 && written != fileTotal) {
-                throw IOException("The connection dropped mid-download — resume to continue")
-            } else if (fileTotal < 0 && written < p.approxBytes * 9 / 10) {
-                throw IOException("The connection dropped mid-download — resume to continue")
+            val incomplete =
+                if (fileTotal >= 0) written != fileTotal else written < p.approxBytes * 9 / 10
+            if (incomplete) {
+                throw FailedException(
+                    FailReason.NETWORK,
+                    R.string.core_voice_download_interrupted_error,
+                )
             }
             check(p.partFile.renameTo(p.finalFile)) {
                 "could not move the finished download into place"

@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ================================================================== -->
+    <!-- Typing test tool settings: the shape of a test run and the records. -->
+    <!-- ================================================================== -->
+
+    <string name="toolai_typing_default_test_title">Default test</string>
+    <!-- The test runs for a set number of seconds. -->
+    <string name="toolai_typing_mode_time_label">Timed</string>
+    <!-- The test runs until you type a set number of words. -->
+    <string name="toolai_typing_mode_words_label">Word count</string>
+    <!-- The test runs to the end of a quotation. -->
+    <string name="toolai_typing_mode_quote_label">Quote</string>
+
+    <string name="toolai_typing_length_title">Length</string>
+    <string name="toolai_typing_seconds_label">Seconds</string>
+    <string name="toolai_typing_words_label">Words</string>
+    <string name="toolai_typing_quote_info">Quote tests run to the end of the quotation.</string>
+
+    <string name="toolai_typing_difficulty_title">Difficulty</string>
+    <string name="toolai_typing_punctuation_title">Punctuation</string>
+    <string name="toolai_typing_punctuation_subtitle">Capital letters, commas and full stops in the test text</string>
+    <string name="toolai_typing_numbers_title">Numbers</string>
+    <string name="toolai_typing_numbers_subtitle">The keyboard mixes numbers into the test words</string>
+
+    <string name="toolai_typing_records_title">Records</string>
+    <string name="toolai_typing_tests_completed_title">Tests completed</string>
+    <string name="toolai_typing_recent_average_title">Recent average</string>
+    <!-- %1$d is how many past runs the average covers. -->
+    <plurals name="toolai_typing_recent_average_subtitle">
+        <item quantity="one">Across the last %1$d run</item>
+        <item quantity="other">Across the last %1$d runs</item>
+    </plurals>
+    <!-- %1$d is a typing speed. wpm is short for words per minute: a unit
+         abbreviation, not a countable noun, so it does not inflect. -->
+    <string name="toolai_typing_wpm_value" tools:ignore="PluralsCandidate">%1$d wpm</string>
+    <!-- Heading of one saved record. %1$s is how many seconds that test ran for. -->
+    <string name="toolai_typing_best_seconds_label">%1$s seconds</string>
+    <!-- Heading of one saved record. %1$s is how many words that test asked for. -->
+    <string name="toolai_typing_best_words_label">%1$s words</string>
+    <string name="toolai_typing_clear_records_title">Clear records</string>
+    <string name="toolai_typing_clear_records_subtitle">Deletes every best score and the run history</string>
+    <string name="toolai_typing_info">The test runs on the keyboard. It measures the layout, the key sizes and the gestures that you type with. The text that you type during a test does not go to the text field. The scores stay on your device.</string>
+
+    <!-- ================================================================== -->
+    <!-- AI tool settings: the provider, the credentials and the prompts.   -->
+    <!-- ================================================================== -->
+
+    <string name="toolai_ai_provider_title">Provider</string>
+
+    <!-- Group heading. Product names. -->
+    <string name="toolai_ai_anthropic_group_title" translatable="false">Claude (Anthropic)</string>
+    <string name="toolai_ai_openai_group_title" translatable="false">OpenAI</string>
+    <string name="toolai_ai_gemini_group_title" translatable="false">Gemini (Google)</string>
+    <!-- Group heading. Ollama is a product name. Keep it in English. -->
+    <string name="toolai_ai_ollama_group_title">Ollama server</string>
+    <!-- Group heading. LM Studio is a product name. Keep it in English. -->
+    <string name="toolai_ai_lm_studio_group_title">LM Studio server</string>
+
+    <!-- Field labels. Anthropic, OpenAI and Gemini are product names. -->
+    <string name="toolai_ai_anthropic_key_label">Anthropic API key</string>
+    <string name="toolai_ai_openai_key_label">OpenAI API key</string>
+    <string name="toolai_ai_gemini_key_label">Gemini API key</string>
+    <!-- Helper text under an empty key field. Do not translate the web address. -->
+    <string name="toolai_ai_anthropic_key_hint">Get the key from console.anthropic.com on the API keys page</string>
+    <!-- Helper text under an empty key field. Do not translate the web address. -->
+    <string name="toolai_ai_openai_key_hint">Get the key from platform.openai.com on the API keys page</string>
+    <!-- Helper text under an empty key field. Do not translate the web address. -->
+    <string name="toolai_ai_gemini_key_hint">Get a free key from aistudio.google.com</string>
+
+    <string name="toolai_ai_model_label">Model</string>
+    <!-- %1$s is the name of the model the app uses when the field is empty. Do not translate it. -->
+    <string name="toolai_ai_model_hint">Leave this blank to use %1$s</string>
+    <string name="toolai_ai_lm_studio_model_hint">Leave this blank to use the model that the server has loaded</string>
+
+    <string name="toolai_ai_server_address_label">Server address</string>
+    <!-- Helper text under the server address field. Do not translate the web address. -->
+    <string name="toolai_ai_ollama_url_hint">For example http://192.168.0.10:11434. Use the network address of your computer.</string>
+    <!-- Helper text under the server address field. Do not translate the web address or the name LM Studio. -->
+    <string name="toolai_ai_lm_studio_url_hint">For example http://192.168.0.10:1234. Turn on the local server in LM Studio.</string>
+    <!-- Caption below the self-hosted server fields. OLLAMA_HOST=0.0.0.0 is a
+         command setting and must stay as it is. The quoted text is the name of
+         a setting in LM Studio. -->
+    <string name="toolai_ai_local_server_info">Start Ollama with OLLAMA_HOST=0.0.0.0 so your device can reach it. In LM Studio, turn on \"serve on local network\". The plain HTTP traffic stays on your network.</string>
+
+    <string name="toolai_ai_output_title">Output</string>
+    <string name="toolai_ai_max_tokens_title">Maximum response length</string>
+    <string name="toolai_ai_max_tokens_subtitle">The limit in tokens. One token is about three quarters of a word. Reasoning models get four times this limit, because their thinking uses the same budget.</string>
+    <string name="toolai_ai_translate_to_label">Target language for the Translate action</string>
+    <!-- The three language names are examples. Keep them in English: the field takes an English language name. -->
+    <string name="toolai_ai_translate_to_hint">For example English, Bengali, Japanese</string>
+    <string name="toolai_ai_show_thinking_title">Show model reasoning</string>
+    <!-- &lt;think&gt; is a tag the model writes around its own reasoning. Keep it as it is. -->
+    <string name="toolai_ai_show_thinking_subtitle">The panel shows the &lt;think&gt; text of reasoning models instead of a progress bar</string>
+    <string name="toolai_ai_model_picker_title">Model picker on the panel</string>
+    <string name="toolai_ai_model_picker_subtitle">Change between the providers that you set up and the models that you download, on the keyboard</string>
+
+    <string name="toolai_ai_prompts_title">Prompts</string>
+    <string name="toolai_ai_prompts_info">You can edit the system prompt of each action. Clear a field to restore the built-in prompt.</string>
+    <!-- Caption at the foot of the AI screen when the model runs on the device. -->
+    <string name="toolai_ai_on_device_info">On-device models run on your device. The text that you run an action on stays on your device. The context window of the model limits the response length.</string>
+    <!-- Caption at the foot of the AI screen when the model runs on a server. -->
+    <string name="toolai_ai_cloud_info">The app sends the text that you run an action on to the selected provider. This happens only when you press the action. The app keeps your keys on your device.</string>
+
+    <!-- ================================================================== -->
+    <!-- Keyword shortcut: the words that make a tool offer itself on the   -->
+    <!-- suggestion strip.                                                  -->
+    <!-- ================================================================== -->
+
+    <string name="toolai_keyword_group_title">Keyword shortcut</string>
+    <string name="toolai_keyword_field_label">Trigger words</string>
+    <string name="toolai_keyword_empty_hint">This tool has no trigger words. It never offers itself.</string>
+    <!-- %1$s is the name of the tool, for example Calculator. -->
+    <string name="toolai_keyword_hint">Type one of these words alone. The suggestion strip then offers to open %1$s and deletes the word. Use commas to separate more than one word.</string>
+    <!-- Typing and Smart chips are the names of two settings screens. -->
+    <string name="toolai_keyword_off_info">The tool keywords are off. To turn them on, go to Typing, then Smart chips.</string>
+
+    <!-- ================================================================== -->
+    <!-- Shared text field rows: prompts and API keys.                      -->
+    <!-- ================================================================== -->
+
+    <string name="toolai_prompt_builtin_hint">Built-in prompt</string>
+    <string name="toolai_prompt_custom_hint">Custom prompt. Clear the field to restore the default.</string>
+    <string name="toolai_api_key_yours_hint">The app uses your key</string>
+    <string name="toolai_api_key_builtin_hint">This field is blank. The app uses the key that is built into the app.</string>
+
+    <!-- ================================================================== -->
+    <!-- Calendar and translate tool rows with a picker dialog.             -->
+    <!-- ================================================================== -->
+
+    <!-- Marks the row that is selected now. A screen reader reads it. -->
+    <string name="toolai_selected_desc">Selected</string>
+    <string name="toolai_weekend_title">Weekend</string>
+    <string name="toolai_weekend_subtitle">The weekday initials that the month grid tints</string>
+    <string name="toolai_translate_into_title">Translate into</string>
+    <string name="toolai_translate_into_subtitle">The keyboard detects the source language. You can also change this on the panel.</string>
+
+</resources>

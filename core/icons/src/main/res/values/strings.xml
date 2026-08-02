@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Icon customisation (:core:icons).
+
+  The names of the icons a user can replace, and the groups the icon settings
+  screen sorts them into. The slot *ids* are not here: they travel inside icon
+  pack files and in the saved overrides, so they stay literals in the Kotlin.
+
+  Referenced from other modules as
+  com.wasimaster.wmkeyboard.icons.R.string.core_icons_group_tools_title.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ================================================================== -->
+    <!-- Icon settings screen: the group each icon row sits under.          -->
+    <!-- ================================================================== -->
+
+    <string name="core_icons_group_tools_title">Tools</string>
+    <string name="core_icons_group_keys_title">Keys</string>
+    <string name="core_icons_group_toolbar_title">Toolbar</string>
+    <string name="core_icons_group_emoji_tabs_title">Emoji tabs</string>
+
+    <!-- ================================================================== -->
+    <!-- Key icons. Each one names a key on the keyboard.                   -->
+    <!-- ================================================================== -->
+
+    <string name="core_icons_slot_shift_label">Shift</string>
+    <!-- The shift key while it is on, so the next letter is a capital letter. -->
+    <string name="core_icons_slot_shift_on_label">Shift (on)</string>
+    <string name="core_icons_slot_caps_lock_label">Caps lock</string>
+    <string name="core_icons_slot_backspace_label">Backspace</string>
+    <!-- The key that deletes the character after the cursor. -->
+    <string name="core_icons_slot_forward_delete_label">Forward delete</string>
+    <string name="core_icons_slot_enter_label">Enter</string>
+    <!-- The enter key in a field that asks for a search action. The same
+         pattern follows for send, go, next, previous and done. -->
+    <string name="core_icons_slot_enter_search_label">Enter: search</string>
+    <string name="core_icons_slot_enter_send_label">Enter: send</string>
+    <string name="core_icons_slot_enter_go_label">Enter: go</string>
+    <string name="core_icons_slot_enter_next_label">Enter: next</string>
+    <string name="core_icons_slot_enter_previous_label">Enter: previous</string>
+    <string name="core_icons_slot_enter_done_label">Enter: done</string>
+    <!-- The globe key, which switches to the next language. -->
+    <string name="core_icons_slot_globe_label">Switch language</string>
+    <string name="core_icons_slot_emoji_key_label">Emoji key</string>
+
+    <!-- ================================================================== -->
+    <!-- Toolbar icons.                                                     -->
+    <!-- ================================================================== -->
+
+    <string name="core_icons_slot_toolbox_label">Toolbox</string>
+    <!-- Closes a tool panel and shows the keys again. -->
+    <string name="core_icons_slot_panel_back_label">Back to keys</string>
+    <!-- Opens the toolbar out of the suggestion strip. -->
+    <string name="core_icons_slot_suggestions_expand_label">Show tools</string>
+    <string name="core_icons_slot_emoji_shortcut_label">Emoji shortcut</string>
+    <string name="core_icons_slot_search_close_label">Close search</string>
+    <!-- The badge that marks the keyboard as incognito, so it learns nothing. -->
+    <string name="core_icons_slot_incognito_label">Incognito badge</string>
+
+    <!-- ================================================================== -->
+    <!-- Emoji tab icons. One per tab in the emoji panel.                   -->
+    <!-- The search tab reuses common_search.                               -->
+    <!-- ================================================================== -->
+
+    <string name="core_icons_slot_emoji_recent_label">Recent</string>
+    <string name="core_icons_slot_emoji_most_used_label">Most used</string>
+    <string name="core_icons_slot_emoji_smileys_label">Smileys</string>
+    <string name="core_icons_slot_emoji_people_label">People</string>
+    <string name="core_icons_slot_emoji_animals_label">Animals</string>
+    <string name="core_icons_slot_emoji_nature_label">Nature</string>
+    <string name="core_icons_slot_emoji_food_label">Food</string>
+    <string name="core_icons_slot_emoji_travel_label">Travel</string>
+    <string name="core_icons_slot_emoji_activities_label">Activities</string>
+    <string name="core_icons_slot_emoji_objects_label">Objects</string>
+    <string name="core_icons_slot_emoji_symbols_label">Symbols</string>
+    <string name="core_icons_slot_emoji_flags_label">Flags</string>
+
+    <!-- ================================================================== -->
+    <!-- Icon pack names. The screen that starts the pack passes these in,  -->
+    <!-- because the store has no context to read a resource with.          -->
+    <!-- ================================================================== -->
+
+    <!-- The pack that holds the icons the user imported one at a time. -->
+    <string name="core_icons_pack_mine_label">My icons</string>
+    <!-- The name for an imported pack whose own file gives no name. -->
+    <string name="core_icons_pack_imported_label">Imported icons</string>
+
+    <!-- ================================================================== -->
+    <!-- Icon pack repairs. One line for each thing the app had to drop out  -->
+    <!-- of an icon pack file, so the import dialog can say what it changed  -->
+    <!-- instead of losing the file without a word.                          -->
+    <!-- ================================================================== -->
+
+    <!-- %1$d is the number of files the app ignored. %2$s is the list of
+         their names, separated by commas. -->
+    <plurals name="core_icons_repair_files_ignored">
+        <item quantity="one">The app ignored %1$d file. This version has no icon for it: <xliff:g id="files" example="tool.timetravel.svg">%2$s</xliff:g></item>
+        <item quantity="other">The app ignored %1$d files. This version has no icon for them: <xliff:g id="files" example="tool.timetravel.svg, key.warp.svg">%2$s</xliff:g></item>
+    </plurals>
+
+    <!-- %1$s is the id of the icon, for example key.shift. Ids are not
+         translated: they are the same in every language. -->
+    <string name="core_icons_repair_svg_unreadable">The app dropped \"<xliff:g id="slot" example="key.shift">%1$s</xliff:g>\". The app cannot read its SVG file.</string>
+
+    <!-- %1$s is the id of the icon, for example key.shift. -->
+    <string name="core_icons_repair_not_saved">The app dropped \"<xliff:g id="slot" example="key.shift">%1$s</xliff:g>\". The app cannot save it.</string>
+
+</resources>

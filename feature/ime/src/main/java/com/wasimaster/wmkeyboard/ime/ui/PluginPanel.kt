@@ -31,11 +31,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.plugins.InstalledPlugin
 import com.wasimaster.wmkeyboard.core.plugins.PluginEvent
 import com.wasimaster.wmkeyboard.core.plugins.PluginLabelStyle
@@ -43,6 +45,7 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginWidget
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PluginPanelUi
+import com.wasimaster.wmkeyboard.ime.R
 import kotlinx.coroutines.delay
 
 /**
@@ -113,24 +116,23 @@ private fun PluginList(
             // says why — and "No plugins yet" beside it is simply untrue.
             if (panel.notice == null) {
                 Text(
-                    "No plugins yet",
+                    stringResource(R.string.ime_plugin_empty_title),
                     color = kb.keyText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    "Plugins are small sandboxed tools you can add from an addon repository " +
-                        "or a .wmplugin file. They can't see what you type.",
+                    stringResource(R.string.ime_plugin_empty_body),
                     color = kb.secondaryText,
                     fontSize = 12.sp,
                 )
             }
-            ToolPanelChip(label = "Manage plugins", onClick = onManage)
+            ToolPanelChip(label = stringResource(R.string.ime_plugin_manage_action), onClick = onManage)
         } else {
             for (plugin in panel.plugins) {
                 PluginRow(plugin) { onOpenPlugin(plugin.id) }
             }
-            ToolPanelChip(label = "Manage plugins", onClick = onManage)
+            ToolPanelChip(label = stringResource(R.string.ime_plugin_manage_action), onClick = onManage)
         }
     }
 }
@@ -154,7 +156,9 @@ private fun PluginRow(plugin: InstalledPlugin, onClick: () -> Unit) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        val subtitle = plugin.description.ifBlank { "Version ${plugin.version}" }
+        // Read outside ifBlank: that lambda is not a composable one.
+        val versionLabel = stringResource(R.string.ime_plugin_version_label, plugin.version)
+        val subtitle = plugin.description.ifBlank { versionLabel }
         Text(
             subtitle,
             color = kb.secondaryText,
@@ -371,10 +375,16 @@ private fun OutputWidget(
         if (widget.text.isNotEmpty() && (widget.insertable || widget.copyable)) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (widget.insertable) {
-                    ToolPanelChip(label = "Insert", onClick = { onToolInsert(widget.text) })
+                    ToolPanelChip(
+                        label = stringResource(R.string.ime_insert_action),
+                        onClick = { onToolInsert(widget.text) },
+                    )
                 }
                 if (widget.copyable) {
-                    ToolPanelChip(label = "Copy", onClick = { onCopy(widget.text) })
+                    ToolPanelChip(
+                        label = stringResource(CommonR.string.common_copy),
+                        onClick = { onCopy(widget.text) },
+                    )
                 }
             }
         }
@@ -447,7 +457,7 @@ private fun InputWidget(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            ToolPanelChip(label = "Paste", onClick = onPaste)
+            ToolPanelChip(label = stringResource(CommonR.string.common_paste), onClick = onPaste)
         }
     }
 }

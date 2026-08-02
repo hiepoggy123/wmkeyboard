@@ -1,15 +1,24 @@
 package com.wasimaster.wmkeyboard.core.plugins
 
-/** Why a plugin was stopped part-way through a run. */
-enum class PluginAbortReason(val message: String) {
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.plugins.R
+
+/**
+ * Why a plugin was stopped part-way through a run.
+ *
+ * [messageRes] is what the panel says about it. A resource id rather than the
+ * words: this module runs with no Context, so the host resolves the text where
+ * it draws it.
+ */
+enum class PluginAbortReason(@StringRes val messageRes: Int) {
     /** Burned through its instruction allowance — almost always an accidental infinite loop. */
-    INSTRUCTIONS("This plugin did too much work at once and was stopped."),
+    INSTRUCTIONS(R.string.core_plugins_stopped_instructions),
 
     /** Ran past its wall-clock deadline. */
-    DEADLINE("This plugin took too long and was stopped."),
+    DEADLINE(R.string.core_plugins_stopped_deadline),
 
     /** The host pulled the plug: panel closed, plugin switched, keyboard hidden. */
-    CANCELLED("This plugin was stopped."),
+    CANCELLED(R.string.core_plugins_stopped_cancelled),
 }
 
 /**
@@ -25,8 +34,11 @@ enum class PluginAbortReason(val message: String) {
  * The stack trace is deliberately not filled in: this is control flow on a hot
  * path, thrown from a hook that runs before every bytecode, and the trace would
  * be luaj interpreter frames that tell nobody anything.
+ *
+ * The throwable message is the reason's own name, which is for a crash log. What
+ * the user reads is [PluginAbortReason.messageRes], resolved by the host.
  */
-class PluginAbort(val reason: PluginAbortReason) : Error(reason.message) {
+class PluginAbort(val reason: PluginAbortReason) : Error(reason.name) {
     override fun fillInStackTrace(): Throwable = this
 }
 

@@ -19,6 +19,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import com.wasimaster.wmkeyboard.common.R
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.support.Support
 import java.io.File
@@ -41,10 +42,10 @@ import java.io.File
  *  * **Its own process** (`android:process=":crash"` in the manifest). The
  *    process that crashed is killed a moment after this is launched; an activity
  *    inside it would die with it.
- *  * **No Compose, no app theme, no app resources.** Plain views and a platform
- *    theme, built in code. If the crash was in the theme engine, in resource
- *    loading, or in Compose startup, anything reaching for those would crash the
- *    report screen too.
+ *  * **No Compose and no app theme.** Plain views and a platform theme, built in
+ *    code. If the crash was in the theme engine or in Compose startup, anything
+ *    reaching for those would crash the report screen too. The only resources it
+ *    reads are its own labels, so the screen can be translated.
  *  * **No initialisation.** [DebugLog.useCrashFile] points at the record and
  *    nothing else runs. It deliberately does *not* install a crash handler here,
  *    so a failure in this screen cannot launch another copy of it.
@@ -114,16 +115,14 @@ class CrashReportActivity : Activity() {
 
         root.addView(
             TextView(this).apply {
-                text = "WM Keyboard stopped"
+                text = getString(R.string.common_crash_title)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, TITLE_TEXT_SP)
                 setTypeface(typeface, Typeface.BOLD)
             },
         )
         root.addView(
             TextView(this).apply {
-                text = "This build shows crashes instead of hiding them. Copy or share the " +
-                    "report below and send it to the developer — it says what failed, on " +
-                    "which build and which device. It contains nothing you have typed."
+                text = getString(R.string.common_crash_body)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, BODY_TEXT_SP)
                 setPadding(0, dp(GAP_DP), 0, dp(GAP_DP))
             },
@@ -144,7 +143,7 @@ class CrashReportActivity : Activity() {
         )
 
         root.addView(
-            button("Email the developer") { emailReport() },
+            button(getString(R.string.common_crash_email_action)) { emailReport() },
             LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT),
         )
         root.addView(buttonRow())
@@ -157,9 +156,9 @@ class CrashReportActivity : Activity() {
             gravity = Gravity.CENTER
         }
         val even = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
-        row.addView(button("Copy") { copyReport() }, even)
-        row.addView(button("Share") { shareReport() }, even)
-        row.addView(button("Close") { finishAndRemoveTask() }, even)
+        row.addView(button(getString(R.string.common_copy)) { copyReport() }, even)
+        row.addView(button(getString(R.string.common_share)) { shareReport() }, even)
+        row.addView(button(getString(R.string.common_close)) { finishAndRemoveTask() }, even)
         return row
     }
 
@@ -174,7 +173,11 @@ class CrashReportActivity : Activity() {
             (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
                 .setPrimaryClip(ClipData.newPlainText("WM Keyboard crash", report))
         }.isSuccess
-        toast(if (copied) "Crash report copied" else "Couldn't reach the clipboard")
+        toast(
+            getString(
+                if (copied) R.string.common_crash_copied else R.string.common_crash_clipboard_error,
+            ),
+        )
     }
 
     /**
@@ -203,9 +206,11 @@ class CrashReportActivity : Activity() {
             }
         }
         val sent = runCatching {
-            startActivity(Intent.createChooser(intent, "Share crash report"))
+            startActivity(
+                Intent.createChooser(intent, getString(R.string.common_crash_share_chooser_title)),
+            )
         }.isSuccess
-        if (!sent) toast("Nothing on this device can share it — use Copy")
+        if (!sent) toast(getString(R.string.common_crash_share_error))
     }
 
     private fun emailReport() {
@@ -215,7 +220,7 @@ class CrashReportActivity : Activity() {
             report.take(EMAIL_BODY_LIMIT) + "\n… (truncated — use Share for the full report)"
         }
         if (!Support.email(this, "WM Keyboard crash report", body)) {
-            toast("No mail app on this device — use Copy or Share")
+            toast(getString(R.string.common_crash_email_error))
         }
     }
 

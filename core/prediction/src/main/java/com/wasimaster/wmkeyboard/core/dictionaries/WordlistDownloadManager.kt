@@ -1,8 +1,11 @@
 package com.wasimaster.wmkeyboard.core.dictionaries
 
 import android.os.StatFs
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrieCodec
+import com.wasimaster.wmkeyboard.prediction.R
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -50,7 +53,19 @@ object WordlistDownloadManager {
         data object Processing : DownloadStatus
 
         data class Downloaded(val wordCount: Int, val sizeBytes: Long) : DownloadStatus
-        data class Failed(val reason: FailReason, val message: String) : DownloadStatus
+
+        /**
+         * [messageRes] is the text to show the user. [messageArg] is the one
+         * format argument that text takes, or "" when it takes none. The UI
+         * resolves the pair together:
+         * `if (messageArg.isEmpty()) stringResource(messageRes)`
+         * `else stringResource(messageRes, messageArg)`.
+         */
+        data class Failed(
+            val reason: FailReason,
+            @StringRes val messageRes: Int,
+            val messageArg: String = "",
+        ) : DownloadStatus
     }
 
     enum class FailReason { NETWORK, NO_SPACE, MALFORMED, OTHER }
@@ -105,7 +120,9 @@ object WordlistDownloadManager {
                 val trie = PackedTrie.of(entries)
                 part.outputStream().use { PackedTrieCodec.write(trie, it) }
                 val final = DictionaryStore.downloadedFile(filesDir, entry.languageId)
-                check(part.renameTo(final)) { "could not move the finished dictionary into place" }
+                if (!part.renameTo(final)) {
+                    throw FailedException(FailReason.OTHER, R.string.core_pred_wordlist_save_error)
+                }
                 DictionaryStore.writeSourceEntryId(filesDir, entry.languageId, entry.id)
                 set(entry.id, DownloadStatus.Downloaded(trie.wordCount, final.length()))
                 // A language can have several catalog entries (pt); the one
@@ -117,15 +134,12 @@ object WordlistDownloadManager {
                 throw e
             } catch (e: FailedException) {
                 part.delete()
-                set(entry.id, DownloadStatus.Failed(e.reason, e.message.orEmpty()))
-            } catch (e: Exception) {
+                set(entry.id, DownloadStatus.Failed(e.reason, e.messageRes, e.messageArg))
+            } catch (_: Exception) {
                 part.delete()
                 set(
                     entry.id,
-                    DownloadStatus.Failed(
-                        FailReason.NETWORK,
-                        e.message ?: "The download failed — check your connection and retry",
-                    ),
+                    DownloadStatus.Failed(FailReason.NETWORK, CommonR.string.common_error_network),
                 )
             } finally {
                 activeId = null
@@ -159,7 +173,16 @@ object WordlistDownloadManager {
         _states.update { it + (id to status) }
     }
 
-    private class FailedException(val reason: FailReason, message: String) : IOException(message)
+    /**
+     * A download failure that already knows which message the UI should show.
+     * The exception's own `message` stays null: the text lives in [messageRes]
+     * so it follows the app language.
+     */
+    private class FailedException(
+        val reason: FailReason,
+        @StringRes val messageRes: Int,
+        val messageArg: String = "",
+    ) : IOException()
 
     /** An InputStream that counts what passes through, for progress against
      * the compressed size (the gzip stream's consumption, not inflated bytes). */
@@ -187,7 +210,7 @@ object WordlistDownloadManager {
         part.parentFile?.mkdirs()
         val free = StatFs(part.parentFile!!.path).availableBytes
         if (free < wordCap * BYTES_PER_WORD + SPACE_MARGIN_BYTES) {
-            throw FailedException(FailReason.NO_SPACE, "Not enough storage — free up some space first")
+            throw FailedException(FailReason.NO_SPACE, R.string.core_pred_wordlist_no_space_error)
         }
 
         val connection = URL(entry.url).openConnection() as HttpURLConnection
@@ -199,7 +222,11 @@ object WordlistDownloadManager {
             connection.setRequestProperty("Accept-Encoding", "identity")
             val status = connection.responseCode
             if (status != HttpURLConnection.HTTP_OK) {
-                throw FailedException(FailReason.OTHER, "The server returned HTTP $status")
+                throw FailedException(
+                    FailReason.OTHER,
+                    R.string.core_pred_wordlist_http_error,
+                    status.toString(),
+                )
             }
             val total = connection.contentLengthLong.takeIf { it > 0 } ?: entry.approxGzBytes
 
@@ -227,7 +254,7 @@ object WordlistDownloadManager {
                 }
             }
             if (entries.isEmpty()) {
-                throw FailedException(FailReason.MALFORMED, "The wordlist was empty or unreadable")
+                throw FailedException(FailReason.MALFORMED, R.string.core_pred_wordlist_malformed_error)
             }
             return entries
         } finally {

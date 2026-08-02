@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +46,7 @@ import com.wasimaster.wmkeyboard.core.tools.DictMeaning
 import com.wasimaster.wmkeyboard.ime.DictionaryUi
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.ime.R
 
 /**
  * English dictionary lookup in the tool viewbox. Opening the tool
@@ -84,7 +86,11 @@ internal fun RowScope.DictionaryHeaderSearchBar(
         Spacer(Modifier.width(8.dp))
         SearchQueryText(
             query = state.dictionaryQuery,
-            placeholder = if (state.dictionarySearchActive) "Type a word…" else "Look up a word…",
+            placeholder = if (state.dictionarySearchActive) {
+                stringResource(R.string.ime_dict_search_active_hint)
+            } else {
+                stringResource(R.string.ime_dict_search_hint)
+            },
             active = state.dictionarySearchActive,
             textColor = kb.modifierKeyText,
             placeholderColor = kb.toolbarIcon,
@@ -98,7 +104,7 @@ internal fun RowScope.DictionaryHeaderSearchBar(
             ) {
                 Icon(
                     Icons.AutoMirrored.Outlined.ArrowForward,
-                    contentDescription = "Look up",
+                    contentDescription = stringResource(R.string.ime_dict_lookup_desc),
                     modifier = Modifier.size(16.dp),
                     tint = kb.accent,
                 )
@@ -119,16 +125,13 @@ internal fun DictionaryPanel(
         if (state.dictionarySearchActive) return@Box
 
         when (val dict = state.dictionary) {
-            DictionaryUi.Idle -> DictionaryMessage(
-                "Look up any English word — tap the search bar and type, " +
-                    "or place the cursor on a word before opening the tool.",
+            DictionaryUi.Idle -> DictionaryMessage(stringResource(R.string.ime_dict_idle_info))
+            is DictionaryUi.Loading -> DictionaryMessage(
+                stringResource(R.string.ime_dict_lookup_progress, dict.word),
             )
-            is DictionaryUi.Loading -> DictionaryMessage("Looking up “${dict.word}”…")
-            is DictionaryUi.Error -> DictionaryMessage(
-                "Couldn't reach the dictionary. Check your connection and try again.",
-            )
+            is DictionaryUi.Error -> DictionaryMessage(stringResource(R.string.ime_dict_error))
             is DictionaryUi.NotFound -> DictionaryMessage(
-                "No entry found for “${dict.word}”. Check the spelling, or try the base form of the word.",
+                stringResource(R.string.ime_dict_not_found_empty, dict.word),
             )
             is DictionaryUi.Ready -> DictionaryEntries(state, dict.entries, onLookup, onInsert)
         }
@@ -225,13 +228,16 @@ private fun DictionaryEntries(
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Outlined.VolumeUp,
-                                contentDescription = "Play pronunciation",
+                                contentDescription = stringResource(R.string.ime_dict_play_desc),
                                 modifier = Modifier.size(18.dp),
                                 tint = kb.accent,
                             )
                         }
                     }
-                    DictionaryChip(label = "Insert", filled = true) { onInsert(entry.word) }
+                    DictionaryChip(
+                        label = stringResource(R.string.ime_dict_insert_action),
+                        filled = true,
+                    ) { onInsert(entry.word) }
                 }
             }
             entry.meanings.forEachIndexed { meaningIndex, meaning ->
@@ -292,10 +298,14 @@ private fun DictionaryMeaning(
         }
         val synonyms = (meaning.synonyms + meaning.definitions.flatMap { it.synonyms }).distinct()
         if (synonyms.isNotEmpty()) {
-            WordChipRow("Synonyms", synonyms, onLookup)
+            WordChipRow(stringResource(R.string.ime_dict_synonyms_label), synonyms, onLookup)
         }
         if (meaning.antonyms.isNotEmpty()) {
-            WordChipRow("Antonyms", meaning.antonyms, onLookup)
+            WordChipRow(
+                stringResource(R.string.ime_dict_antonyms_label),
+                meaning.antonyms,
+                onLookup,
+            )
         }
     }
 }

@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.settings
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.settings.R
+
 /**
  * What arms power saving by itself, on top of the manual switch.
  *
@@ -8,18 +11,18 @@ package com.wasimaster.wmkeyboard.core.settings
  * keyboard changing its feel is an answer to something they did, not a surprise
  * at some threshold they never set.
  */
-enum class PowerSavingTrigger(val label: String) {
+enum class PowerSavingTrigger(@StringRes val labelRes: Int) {
     /** Nothing but the manual switch. */
-    OFF("Only when I turn it on"),
+    OFF(R.string.core_settings_power_saving_trigger_off_label),
 
     /** The device's own battery saver is on. */
-    SYSTEM_SAVER("Android's battery saver is on"),
+    SYSTEM_SAVER(R.string.core_settings_power_saving_trigger_system_saver_label),
 
     /** The battery is at or under [PowerSavingSettings.batteryPercent]. */
-    LOW_BATTERY("Battery is low"),
+    LOW_BATTERY(R.string.core_settings_power_saving_trigger_low_battery_label),
 
     /** Either of the two above. */
-    EITHER("Battery saver or low battery"),
+    EITHER(R.string.core_settings_power_saving_trigger_either_label),
 }
 
 /**

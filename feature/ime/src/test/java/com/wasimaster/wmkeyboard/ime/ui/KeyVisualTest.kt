@@ -11,6 +11,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutSet
+import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.ShiftState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -86,17 +87,26 @@ class KeyVisualTest {
         assertNotEquals(visuals(off), visuals(on))
     }
 
+    /**
+     * The spoken name is compared as a [SpokenLabel], not as English: this test
+     * runs on the JVM with no resources to resolve against, and naming the
+     * resource is what the assertion is really about. Wording changes in the
+     * XML; which resource a key points at is the behaviour.
+     */
     @Test
     fun `the shift key's own icon and spoken name track the shift state`() {
         val shift = Key("⇧", action = KeyAction.Shift)
         val off = keyVisual(shift, state(), palette)
         assertEquals(IconSlots.KEY_SHIFT, off.iconSlot)
-        assertEquals("Shift", off.spoken)
+        assertEquals(SpokenLabel(R.string.ime_key_shift), off.spoken)
         assertEquals(false, off.iconActive)
+
+        val on = keyVisual(shift, state().copy(shiftState = ShiftState.ON), palette)
+        assertEquals(SpokenLabel(R.string.ime_key_shift_on), on.spoken)
 
         val locked = keyVisual(shift, state().copy(shiftState = ShiftState.CAPS_LOCK), palette)
         assertEquals(IconSlots.KEY_SHIFT_LOCK, locked.iconSlot)
-        assertEquals("Caps lock on", locked.spoken)
+        assertEquals(SpokenLabel(R.string.ime_key_caps_lock_on), locked.spoken)
         assertEquals(true, locked.iconActive)
     }
 
@@ -113,11 +123,14 @@ class KeyVisualTest {
             palette,
         )
         assertEquals("Post", custom.enterLabel)
+        // Wording the app chose is not ours to translate, so it rides in the
+        // label's own text rather than in a resource.
+        assertEquals(SpokenLabel(text = "Post"), custom.spoken)
 
         val search = keyVisual(enter, state().copy(enterAction = EnterAction.SEARCH), palette)
         assertNull(search.enterLabel)
         assertEquals(IconSlots.KEY_ENTER_SEARCH, search.iconSlot)
-        assertEquals("Search", search.spoken)
+        assertEquals(SpokenLabel(R.string.ime_enter_search), search.spoken)
     }
 
     /**

@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.Context
+import android.content.res.Resources
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.heightIn
@@ -31,12 +34,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
+import com.wasimaster.wmkeyboard.core.layout.LayoutMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.background
@@ -158,7 +165,11 @@ internal fun KeyLayoutsScreen(
             }.isSuccess
             // Reported either way. The theme export swallows its failures, and
             // the exported file may be the only copy of an hour's work.
-            message = if (ok) "Saved ${layout.name}." else "Could not write that file."
+            message = if (ok) {
+                context.getString(R.string.layout_editor_export_done_message, layout.name)
+            } else {
+                context.getString(R.string.layout_editor_export_error)
+            }
         }
     }
 
@@ -175,7 +186,7 @@ internal fun KeyLayoutsScreen(
             }
             val parsed = text?.let { LayoutFile.decode(it) }
             if (parsed == null) {
-                message = "That file is not a WMKeyboard layout."
+                message = context.getString(R.string.layout_editor_import_wrong_file_error)
                 return@launch
             }
             // Read first, ask, then write. Importing a layout is not something
@@ -205,10 +216,7 @@ internal fun KeyLayoutsScreen(
             .mapTo(HashSet()) { it.localRef }
     }
 
-    CaptionText(
-        "A layout is a key grid. It types the language of the layout it is based on, " +
-            "so a rearranged Bengali grid still uses the Bengali dictionary.",
-    )
+    CaptionText(stringResource(R.string.layout_editor_gallery_caption))
 
     /**
      * Copies a layout and opens the copy.
@@ -222,12 +230,13 @@ internal fun KeyLayoutsScreen(
     fun duplicateAndEdit(base: LayoutSpec) {
         scope.launch {
             val id = "custom_${System.currentTimeMillis()}"
-            repository.upsertCustomLayout(base.copy(id = id, name = "${base.name} copy"))
+            val name = context.getString(R.string.layout_editor_duplicate_name_format, base.name)
+            repository.upsertCustomLayout(base.copy(id = id, name = name))
             onNavigate("keymap_edit/$id")
         }
     }
 
-    SettingsGroup("Your layouts") {
+    SettingsGroup(stringResource(R.string.layout_editor_your_layouts_title)) {
         // Only enabled layouts are listed: this page manages the grids you
         // actually type with, not the whole registry. Enable others under
         // Languages first and they appear here.
@@ -245,8 +254,8 @@ internal fun KeyLayoutsScreen(
         if (customs.isEmpty()) {
             item {
                 WmRow(
-                    title = "No layouts of your own yet",
-                    subtitle = "Copy one below to start from a grid that already works.",
+                    title = stringResource(R.string.layout_editor_empty_title),
+                    subtitle = stringResource(R.string.layout_editor_empty_subtitle),
                 )
             }
         }
@@ -271,8 +280,8 @@ internal fun KeyLayoutsScreen(
     SettingsGroup {
         item {
             WmRow(
-                title = "Import a layout",
-                subtitle = "Opens a .wmlayout.json file someone shared",
+                title = stringResource(R.string.layout_editor_import_title),
+                subtitle = stringResource(R.string.layout_editor_import_subtitle),
                 leading = { Icon(Icons.Outlined.FileOpen, contentDescription = null) },
                 onClick = {
                     importLauncher.launch(LayoutFile.IMPORT_MIME_TYPES)
@@ -285,7 +294,7 @@ internal fun KeyLayoutsScreen(
         it.id in shippedIds && it.id in settings.enabledLayoutIds
     }
     if (builtIns.isNotEmpty()) {
-        SettingsGroup("Built in") {
+        SettingsGroup(stringResource(R.string.layout_editor_built_in_title)) {
             for (layout in builtIns) {
                 item {
                     LayoutRow(
@@ -315,32 +324,50 @@ internal fun KeyLayoutsScreen(
     confirmImport?.let { imported ->
         AlertDialog(
             onDismissRequest = { confirmImport = null },
-            title = { Text("Import ${imported.layout.name}?") },
+            title = {
+                Text(
+                    stringResource(
+                        R.string.layout_editor_import_confirm_title,
+                        imported.layout.name,
+                    ),
+                )
+            },
             text = {
                 Column {
-                    Text(
-                        "It is added to your layouts but not switched on — turn it on " +
-                            "under Languages when you are ready to type with it.",
-                    )
-                    if (imported.repairs.isNotEmpty()) {
+                    Text(stringResource(R.string.layout_editor_import_confirm_body))
+                    if (imported.repairNotes.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
-                        Text("Changed on the way in:", fontWeight = FontWeight.Medium)
-                        for (line in imported.repairs) Text("• $line")
+                        Text(
+                            stringResource(R.string.layout_editor_import_changes_title),
+                            fontWeight = FontWeight.Medium,
+                        )
+                        for (note in imported.repairNotes) {
+                            Text(
+                                stringResource(
+                                    R.string.layout_editor_repair_note,
+                                    note.format(context.resources),
+                                ),
+                            )
+                        }
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
                     val id = "custom_${System.currentTimeMillis()}"
+                    val name = imported.layout.name
                     scope.launch {
                         repository.upsertCustomLayout(imported.layout.copy(id = id))
-                        message = "Imported ${imported.layout.name}."
+                        message =
+                            context.getString(R.string.layout_editor_import_done_message, name)
                     }
                     confirmImport = null
-                }) { Text("Import") }
+                }) { Text(stringResource(CommonR.string.common_import)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmImport = null }) { Text("Cancel") }
+                TextButton(onClick = { confirmImport = null }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
             },
         )
     }
@@ -349,7 +376,11 @@ internal fun KeyLayoutsScreen(
         AlertDialog(
             onDismissRequest = { message = null },
             text = { Text(text) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
         )
     }
 
@@ -357,15 +388,21 @@ internal fun KeyLayoutsScreen(
         val reset = layout.id in shippedIds
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
-            title = { Text(if (reset) "Reset ${layout.name}?" else "Delete ${layout.name}?") },
+            title = {
+                Text(
+                    if (reset) {
+                        stringResource(R.string.layout_editor_reset_confirm_title, layout.name)
+                    } else {
+                        stringResource(R.string.layout_editor_delete_confirm_title, layout.name)
+                    },
+                )
+            },
             text = {
                 Text(
                     if (reset) {
-                        "Your changes to this built-in layout are discarded and the " +
-                            "original grid comes back. Nothing else changes."
+                        stringResource(R.string.layout_editor_reset_confirm_body)
                     } else {
-                        "This layout is removed. If it is switched on under Languages " +
-                            "it is switched off, and the keyboard falls back to QWERTY."
+                        stringResource(R.string.layout_editor_delete_confirm_body)
                     },
                 )
             },
@@ -373,10 +410,18 @@ internal fun KeyLayoutsScreen(
                 TextButton(onClick = {
                     scope.launch { repository.deleteCustomLayout(layout.id) }
                     confirmDelete = null
-                }) { Text(if (reset) "Reset" else "Delete") }
+                }) {
+                    Text(
+                        stringResource(
+                            if (reset) CommonR.string.common_reset else CommonR.string.common_delete,
+                        ),
+                    )
+                }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = null }) { Text("Cancel") }
+                TextButton(onClick = { confirmDelete = null }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
             },
         )
     }
@@ -392,23 +437,35 @@ private fun LayoutRow(
     onDelete: (() -> Unit)?,
     deleteIsReset: Boolean,
 ) {
+    val resources = LocalContext.current.resources
     WmRow(
         title = layout.name,
-        subtitle = layoutSummary(layout, enabled),
+        subtitle = layoutSummary(resources, layout, enabled),
         trailing = {
             Row {
                 IconButton(onClick = onExport) {
-                    Icon(Icons.Outlined.Share, contentDescription = "Export ${layout.name}")
+                    Icon(
+                        Icons.Outlined.Share,
+                        contentDescription =
+                            stringResource(R.string.layout_editor_export_desc, layout.name),
+                    )
                 }
                 IconButton(onClick = onDuplicate) {
-                    Icon(Icons.Outlined.ContentCopy, contentDescription = "Duplicate ${layout.name}")
+                    Icon(
+                        Icons.Outlined.ContentCopy,
+                        contentDescription =
+                            stringResource(R.string.layout_editor_duplicate_desc, layout.name),
+                    )
                 }
                 if (onDelete != null) {
                     IconButton(onClick = onDelete) {
                         Icon(
                             if (deleteIsReset) Icons.Outlined.Refresh else Icons.Outlined.Delete,
-                            contentDescription =
-                                if (deleteIsReset) "Reset ${layout.name}" else "Delete ${layout.name}",
+                            contentDescription = if (deleteIsReset) {
+                                stringResource(R.string.layout_editor_reset_desc, layout.name)
+                            } else {
+                                stringResource(R.string.layout_editor_delete_desc, layout.name)
+                            },
                         )
                     }
                 }
@@ -418,14 +475,34 @@ private fun LayoutRow(
     )
 }
 
-/** One line describing a layout: its language, its shape, and whether it is on. */
-internal fun layoutSummary(layout: LayoutSpec, enabled: Boolean): String {
+/**
+ * One line describing a layout: its language, its shape, and whether it is on.
+ *
+ * Takes [resources] rather than reading a string itself: the parts are counted
+ * words, so each one needs the plural rule of the language on the device now.
+ */
+internal fun layoutSummary(resources: Resources, layout: LayoutSpec, enabled: Boolean): String {
     val letters = layout.compile(LayoutLayer.LETTERS).rows
-    val shape = "${letters.size} rows · ${letters.sumOf { it.size }} keys"
+    val keyTotal = letters.sumOf { it.size }
     val extras = layout.layers.keys.count { it != LayoutLayer.LETTERS.key }
-    val layers = if (extras > 0) " · $extras custom layer${if (extras == 1) "" else "s"}" else ""
-    val state = if (enabled) "On" else "Off"
-    return "$state · ${baseModeTitle(layout)} · $shape$layers"
+    val parts = mutableListOf(
+        resources.getString(if (enabled) CommonR.string.common_on else CommonR.string.common_off),
+        baseModeTitle(layout),
+        resources.getQuantityString(
+            R.plurals.layout_editor_row_count,
+            letters.size,
+            letters.size,
+        ),
+        resources.getQuantityString(R.plurals.layout_editor_key_count, keyTotal, keyTotal),
+    )
+    if (extras > 0) {
+        parts += resources.getQuantityString(
+            R.plurals.layout_editor_custom_layer_count,
+            extras,
+            extras,
+        )
+    }
+    return parts.joinToString(" · ")
 }
 
 /**
@@ -459,10 +536,11 @@ internal fun KeyLayoutEditorScreen(
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val layout = resolveLayouts(settings.customLayouts).firstOrNull { it.id == layoutId }
     if (layout == null) {
         Text(
-            "This layout no longer exists.",
+            stringResource(R.string.layout_editor_missing_layout_message),
             modifier = Modifier.padding(16.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -572,15 +650,12 @@ internal fun KeyLayoutEditorScreen(
         if (layer == LayoutLayer.FN) {
             // Nothing ships an Fn layer, so there is no built-in to inherit and
             // the grid above is a stand-in. Offer the template instead.
-            CaptionText(
-                "This layout has no Fn layer yet. Add one and put an Fn key on " +
-                    "another layer to reach it.",
-            )
+            CaptionText(stringResource(R.string.layout_editor_fn_missing_caption))
             SettingsGroup {
                 item {
                     WmRow(
-                        title = "Add an Fn layer",
-                        subtitle = "Starts from Esc, F1–F12, Tab, the arrows and Home/End",
+                        title = stringResource(R.string.layout_editor_add_fn_title),
+                        subtitle = stringResource(R.string.layout_editor_add_fn_subtitle),
                         leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
                         onClick = {
                             edit { it.copy(layers = it.layers + (layer.key to BuiltInLayouts.FN_DEFAULT)) }
@@ -590,8 +665,10 @@ internal fun KeyLayoutEditorScreen(
             }
         } else {
             CaptionText(
-                "Showing the built-in ${layerTitle(layer).lowercase()} grid. Changing " +
-                    "anything here makes this layout's own copy of it.",
+                stringResource(
+                    R.string.layout_editor_inherited_layer_caption,
+                    stringResource(layerTitleRes(layer)),
+                ),
             )
         }
     }
@@ -609,7 +686,12 @@ internal fun KeyLayoutEditorScreen(
                 stepPushed = false
                 save(previous)
             },
-        ) { Icon(Icons.AutoMirrored.Outlined.Undo, contentDescription = "Undo") }
+        ) {
+            Icon(
+                Icons.AutoMirrored.Outlined.Undo,
+                contentDescription = stringResource(R.string.layout_editor_undo_desc),
+            )
+        }
         IconButton(
             enabled = redo.isNotEmpty(),
             onClick = {
@@ -619,10 +701,15 @@ internal fun KeyLayoutEditorScreen(
                 stepPushed = false
                 save(next)
             },
-        ) { Icon(Icons.AutoMirrored.Outlined.Redo, contentDescription = "Redo") }
+        ) {
+            Icon(
+                Icons.AutoMirrored.Outlined.Redo,
+                contentDescription = stringResource(R.string.layout_editor_redo_desc),
+            )
+        }
         Spacer(Modifier.weight(1f))
         Text(
-            "Saved automatically",
+            stringResource(R.string.layout_editor_autosave_label),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -683,8 +770,8 @@ internal fun KeyLayoutEditorScreen(
     SettingsGroup {
         item {
             WmRow(
-                title = "Add a row",
-                subtitle = "Appends an empty row to this layer",
+                title = stringResource(R.string.layout_editor_add_row_title),
+                subtitle = stringResource(R.string.layout_editor_add_row_subtitle),
                 leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
                 onClick = {
                     editLayer { ls ->
@@ -698,10 +785,10 @@ internal fun KeyLayoutEditorScreen(
         }
         item {
             ReorderSetting(
-                title = "Reorder rows",
-                dialogTitle = "Row order",
+                title = stringResource(R.string.layout_editor_reorder_rows_title),
+                dialogTitle = stringResource(R.string.layout_editor_row_order_dialog_title),
                 items = rows.indices.toList(),
-                label = { i -> "Row ${i + 1} · ${rows[i].size} keys" },
+                label = { i -> rowReorderLabel(context, i + 1, rows[i].size) },
             ) { order ->
                 editLayer { ls ->
                     ls.copy(
@@ -715,10 +802,13 @@ internal fun KeyLayoutEditorScreen(
             if (ref.row in rows.indices && rows[ref.row].size > 1) {
                 item {
                     ReorderSetting(
-                        title = "Reorder keys in row ${ref.row + 1}",
-                        dialogTitle = "Key order",
+                        title = stringResource(
+                            R.string.layout_editor_reorder_keys_title,
+                            ref.row + 1,
+                        ),
+                        dialogTitle = stringResource(R.string.layout_editor_key_order_dialog_title),
                         items = rows[ref.row],
-                        label = { keyReorderLabel(it) },
+                        label = { keyReorderLabel(context, it) },
                     ) { order ->
                         editRows { r -> r.mapIndexed { i, row -> if (i == ref.row) order else row } }
                         selection = null
@@ -728,22 +818,25 @@ internal fun KeyLayoutEditorScreen(
         }
         item {
             ToggleSetting(
-                "Show the shift plane",
-                "Draw each key as it appears with shift held",
+                stringResource(R.string.layout_editor_show_shift_title),
+                stringResource(R.string.layout_editor_show_shift_subtitle),
                 showShift,
             ) { showShift = it }
         }
         item {
             NavRow(
-                "Edit as JSON",
-                subtitle = "Reach anything this screen has no control for",
+                stringResource(R.string.layout_editor_json_title),
+                subtitle = stringResource(R.string.layout_editor_json_subtitle),
             ) { onNavigate("keymap_json/$layoutId") }
         }
         if (layout.layer(layer) != null) {
             item {
                 WmRow(
-                    title = "Reset this layer",
-                    subtitle = "Drops your ${layerTitle(layer).lowercase()} grid and uses the built-in one",
+                    title = stringResource(R.string.layout_editor_reset_layer_title),
+                    subtitle = stringResource(
+                        R.string.layout_editor_reset_layer_subtitle,
+                        stringResource(layerTitleRes(layer)),
+                    ),
                     leading = { Icon(Icons.Outlined.Refresh, contentDescription = null) },
                     onClick = {
                         edit { it.copy(layers = it.layers - layer.key) }
@@ -756,15 +849,15 @@ internal fun KeyLayoutEditorScreen(
 
     val findings = validateLayout(layout)
     if (findings.isNotEmpty()) {
-        SettingsGroup("Problems") {
+        SettingsGroup(stringResource(R.string.layout_editor_problems_title)) {
             for (finding in findings) {
                 item {
                     WmRow(
-                        title = finding.message,
+                        title = finding.text.format(context.resources),
                         subtitle = if (finding.severity == LayoutSeverity.BLOCKING) {
-                                "Has to be fixed before this layout can be switched on."
+                                stringResource(R.string.layout_editor_problem_blocking_subtitle)
                             } else {
-                                "Worth a look, but the layout still works."
+                                stringResource(R.string.layout_editor_problem_warning_subtitle)
                             },
                     )
                 }
@@ -772,10 +865,7 @@ internal fun KeyLayoutEditorScreen(
         }
     }
 
-    CaptionText(
-        "Nothing you change here affects typing until the layout is switched on " +
-            "under Languages.",
-    )
+    CaptionText(stringResource(R.string.layout_editor_not_live_caption))
 
     val ref = selection
     if (sheetOpen && ref != null && selectedKey != null) {
@@ -842,10 +932,29 @@ internal fun KeyLayoutEditorScreen(
     }
 }
 
-/** How a key reads in the reorder dialog, where there is no grid to look at. */
-private fun keyReorderLabel(key: Key): String = when {
+/** How a row reads in the reorder dialog: its number and how many keys it holds. */
+private fun rowReorderLabel(context: Context, number: Int, keyCount: Int): String {
+    val name = context.getString(R.string.layout_editor_row_number, number)
+    val keys = context.resources.getQuantityString(
+        R.plurals.layout_editor_key_count,
+        keyCount,
+        keyCount,
+    )
+    return "$name · $keys"
+}
+
+/**
+ * How a key reads in the reorder dialog, where there is no grid to look at.
+ *
+ * Takes a [context] because the label lambda it feeds is a plain lambda, and the
+ * name of an action is a resource now.
+ */
+private fun keyReorderLabel(context: Context, key: Key): String = when {
     key.label.isNotBlank() -> key.label
-    else -> KeyActionCatalog.firstOrNull { it.matches(key.action) }?.title ?: "Key"
+    else -> context.getString(
+        KeyActionCatalog.firstOrNull { it.matches(key.action) }?.titleRes
+            ?: R.string.layout_editor_key_fallback_label,
+    )
 }
 
 /** Contextual actions for the row the selected key sits in. */
@@ -863,27 +972,42 @@ private fun RowActionBar(
         modifier = Modifier.padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("Row ${rowIndex + 1}", style = MaterialTheme.typography.labelLarge)
+        Text(
+            stringResource(R.string.layout_editor_row_number, rowIndex + 1),
+            style = MaterialTheme.typography.labelLarge,
+        )
         Spacer(Modifier.width(8.dp))
         // Only worth saying when it disagrees with the grid — the width the
         // keyboard measures every other row against. Printed on every row it
         // would be five numbers that are correct and identical almost always.
         if (kotlin.math.abs(rowWidth - gridWeight) > 0.01f) {
             Text(
-                "%.2f wide, grid is %.2f".format(rowWidth, gridWeight),
+                stringResource(R.string.layout_editor_row_width_mismatch, rowWidth, gridWeight),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
         }
         Spacer(Modifier.weight(1f))
         IconButton(onClick = onAddKey) {
-            Icon(Icons.Outlined.Add, contentDescription = "Add key to row ${rowIndex + 1}")
+            Icon(
+                Icons.Outlined.Add,
+                contentDescription =
+                    stringResource(R.string.layout_editor_add_key_desc, rowIndex + 1),
+            )
         }
         IconButton(onClick = onDuplicateRow) {
-            Icon(Icons.Outlined.ContentCopy, contentDescription = "Duplicate row ${rowIndex + 1}")
+            Icon(
+                Icons.Outlined.ContentCopy,
+                contentDescription =
+                    stringResource(R.string.layout_editor_duplicate_row_desc, rowIndex + 1),
+            )
         }
         IconButton(enabled = rowCount > 1, onClick = onDeleteRow) {
-            Icon(Icons.Outlined.Delete, contentDescription = "Delete row ${rowIndex + 1}")
+            Icon(
+                Icons.Outlined.Delete,
+                contentDescription =
+                    stringResource(R.string.layout_editor_delete_row_desc, rowIndex + 1),
+            )
         }
     }
 }
@@ -904,12 +1028,13 @@ private fun LayerChips(
             FilterChip(
                 selected = layer == selected,
                 onClick = { onSelect(layer) },
-                label = { Text(layerTitle(layer), maxLines = 1) },
+                label = { Text(stringResource(layerTitleRes(layer)), maxLines = 1) },
                 leadingIcon = if (authored) {
                     {
                         Icon(
                             Icons.Outlined.Edit,
-                            contentDescription = "Customised",
+                            contentDescription =
+                                stringResource(R.string.layout_editor_customised_desc),
                             modifier = Modifier.size(16.dp),
                         )
                     }
@@ -921,16 +1046,23 @@ private fun LayerChips(
     }
 }
 
-internal fun layerTitle(layer: LayoutLayer): String = when (layer) {
-    LayoutLayer.LETTERS -> "Letters"
-    LayoutLayer.SYMBOLS -> "Symbols"
-    LayoutLayer.SYMBOLS_SHIFTED -> "Symbols 2"
-    LayoutLayer.NUMBER -> "Number"
-    LayoutLayer.PHONE -> "Phone"
-    LayoutLayer.DATE -> "Date"
-    LayoutLayer.TIME -> "Time"
-    LayoutLayer.DATETIME -> "Date & time"
-    LayoutLayer.FN -> "Fn"
+/**
+ * The name of a layer, as a resource id.
+ *
+ * The name is resolved where it is drawn rather than here, so a sentence that
+ * carries it never has to change the case of a translated word.
+ */
+@StringRes
+internal fun layerTitleRes(layer: LayoutLayer): Int = when (layer) {
+    LayoutLayer.LETTERS -> R.string.layout_editor_layer_letters
+    LayoutLayer.SYMBOLS -> R.string.layout_editor_layer_symbols
+    LayoutLayer.SYMBOLS_SHIFTED -> R.string.layout_editor_layer_symbols_2
+    LayoutLayer.NUMBER -> R.string.layout_editor_layer_number
+    LayoutLayer.PHONE -> R.string.layout_editor_layer_phone
+    LayoutLayer.DATE -> R.string.layout_editor_layer_date
+    LayoutLayer.TIME -> R.string.layout_editor_layer_time
+    LayoutLayer.DATETIME -> R.string.layout_editor_layer_date_time
+    LayoutLayer.FN -> R.string.layout_editor_layer_fn
 }
 
 /**
@@ -984,7 +1116,7 @@ private fun EditorGrid(
                     val gridWeight = gridWeightOf(layout.rows).takeIf { it > 0f } ?: 10f
                     if (layout.rows.isEmpty()) {
                         Text(
-                            "This layer has no rows.",
+                            stringResource(R.string.layout_editor_layer_empty_message),
                             modifier = Modifier.padding(12.dp),
                             color = kb.keyText.copy(alpha = 0.7f),
                             fontSize = 13.sp,
@@ -1036,6 +1168,9 @@ private fun RowScope.EditorKeyCell(
     // The user's own key height keeps the preview honest, but a 100dp setting
     // would put two rows on screen — clamping is cheaper than a zoom control.
     val height = heightDp.dp.coerceIn(38.dp, 56.dp)
+    // Read here rather than inside the ifBlank lambda below, which is not a
+    // composable and so cannot reach a resource itself.
+    val spaceLabel = stringResource(R.string.layout_editor_space_key_label)
     Box(
         modifier = modifier
             .height(height)
@@ -1068,7 +1203,7 @@ private fun RowScope.EditorKeyCell(
                 )
             } else {
                 Text(
-                    text = primary.ifBlank { actionGlyph(key.action) },
+                    text = primary.ifBlank { actionGlyph(key.action, spaceLabel) },
                     color = foreground,
                     fontSize = labelSize(primary),
                     fontWeight = FontWeight.Medium,
@@ -1105,9 +1240,14 @@ private fun labelSize(label: String) = when {
     else -> 11.sp
 }
 
-/** What to draw for an action key whose label is blank, like a keypad spacebar. */
-private fun actionGlyph(action: KeyAction): String = when (action) {
-    KeyAction.Space -> "space"
+/**
+ * What to draw for an action key whose label is blank, like a keypad spacebar.
+ *
+ * [spaceLabel] is the one glyph here that is a word, so the caller reads it and
+ * hands it over.
+ */
+private fun actionGlyph(action: KeyAction, spaceLabel: String): String = when (action) {
+    KeyAction.Space -> spaceLabel
     KeyAction.Enter -> "⏎"
     KeyAction.Delete -> "⌫"
     KeyAction.ForwardDelete -> "⌦"
@@ -1131,125 +1271,171 @@ private fun actionGlyph(action: KeyAction): String = when (action) {
  * moment payloads land.
  */
 internal data class KeyActionOption(
-    val title: String,
-    val group: String,
-    val detail: String,
+    @StringRes val titleRes: Int,
+    @StringRes val groupRes: Int,
+    @StringRes val detailRes: Int,
     val build: () -> KeyAction,
     val matches: (KeyAction) -> Boolean,
 )
 
 internal val KeyActionCatalog: List<KeyActionOption> = listOf(
     KeyActionOption(
-        "Types text", "Typing", "The label, or the output if you set one",
+        R.string.layout_editor_action_text_title,
+        R.string.layout_editor_action_group_typing,
+        R.string.layout_editor_action_text_detail,
         { KeyAction.Text }, { it == KeyAction.Text },
     ),
     KeyActionOption(
-        "Shift", "Typing", "Tap for one capital, double-tap for caps lock",
+        R.string.layout_editor_action_shift_title,
+        R.string.layout_editor_action_group_typing,
+        R.string.layout_editor_action_shift_detail,
         { KeyAction.Shift }, { it == KeyAction.Shift },
     ),
     KeyActionOption(
-        "Delete", "Typing", "Backspace; repeats while held",
+        R.string.layout_editor_action_delete_title,
+        R.string.layout_editor_action_group_typing,
+        R.string.layout_editor_action_delete_detail,
         { KeyAction.Delete }, { it == KeyAction.Delete },
     ),
     KeyActionOption(
-        "Forward delete", "Typing", "⌦ — deletes ahead of the cursor; repeats while held",
+        R.string.layout_editor_action_forward_delete_title,
+        R.string.layout_editor_action_group_typing,
+        R.string.layout_editor_action_forward_delete_detail,
         { KeyAction.ForwardDelete }, { it == KeyAction.ForwardDelete },
     ),
     KeyActionOption(
-        "Space", "Typing", "Swipes on it move the cursor or switch layout",
+        R.string.layout_editor_action_space_title,
+        R.string.layout_editor_action_group_typing,
+        R.string.layout_editor_action_space_detail,
         { KeyAction.Space }, { it == KeyAction.Space },
     ),
     KeyActionOption(
-        "Enter", "Typing", "Takes the app's own action — send, search, done",
+        R.string.layout_editor_action_enter_title,
+        R.string.layout_editor_action_group_typing,
+        R.string.layout_editor_action_enter_detail,
         { KeyAction.Enter }, { it == KeyAction.Enter },
     ),
     KeyActionOption(
-        "Symbols page", "Layers", "Cycles ?123 and =\\<",
+        R.string.layout_editor_action_symbols_title,
+        R.string.layout_editor_action_group_layers,
+        R.string.layout_editor_action_symbols_detail,
         { KeyAction.Symbols }, { it == KeyAction.Symbols },
     ),
     KeyActionOption(
-        "Letters page", "Layers", "Back to the letter grid",
+        R.string.layout_editor_action_letters_title,
+        R.string.layout_editor_action_group_layers,
+        R.string.layout_editor_action_letters_detail,
         { KeyAction.Letters }, { it == KeyAction.Letters },
     ),
     KeyActionOption(
-        "Emoji panel", "Layers", "Opens the emoji picker",
+        R.string.layout_editor_action_emoji_title,
+        R.string.layout_editor_action_group_layers,
+        R.string.layout_editor_action_emoji_detail,
         { KeyAction.Emoji }, { it == KeyAction.Emoji },
     ),
     KeyActionOption(
-        "Switch layout", "Layers", "Cycles the layouts you have switched on",
+        R.string.layout_editor_action_switch_layout_title,
+        R.string.layout_editor_action_group_layers,
+        R.string.layout_editor_action_switch_layout_detail,
         { KeyAction.LanguageSwitch }, { it == KeyAction.LanguageSwitch },
     ),
     KeyActionOption(
-        "Ctrl", "Modifiers", "Held for the next key — tap twice to lock it",
+        R.string.layout_editor_action_ctrl_title,
+        R.string.layout_editor_action_group_modifiers,
+        R.string.layout_editor_action_modifier_detail,
         { KeyAction.Mod(ModifierKey.CTRL) },
         { it is KeyAction.Mod && it.key == ModifierKey.CTRL },
     ),
     KeyActionOption(
-        "Alt", "Modifiers", "Held for the next key — tap twice to lock it",
+        R.string.layout_editor_action_alt_title,
+        R.string.layout_editor_action_group_modifiers,
+        R.string.layout_editor_action_modifier_detail,
         { KeyAction.Mod(ModifierKey.ALT) },
         { it is KeyAction.Mod && it.key == ModifierKey.ALT },
     ),
     KeyActionOption(
-        "Meta", "Modifiers", "The ⌘ or Windows modifier",
+        R.string.layout_editor_action_meta_title,
+        R.string.layout_editor_action_group_modifiers,
+        R.string.layout_editor_action_meta_detail,
         { KeyAction.Mod(ModifierKey.META) },
         { it is KeyAction.Mod && it.key == ModifierKey.META },
     ),
     KeyActionOption(
-        "Fn layer", "Layers", "Switches to this layout's Fn grid for one key",
+        R.string.layout_editor_action_fn_title,
+        R.string.layout_editor_action_group_layers,
+        R.string.layout_editor_action_fn_detail,
         { KeyAction.Fn }, { it == KeyAction.Fn },
     ),
     KeyActionOption(
-        "Tab", "Keys apps understand", "Sends a real Tab key press",
+        R.string.layout_editor_action_tab_title,
+        R.string.layout_editor_action_group_send_key,
+        R.string.layout_editor_action_tab_detail,
         { KeyAction.SendKey(KEYCODE_TAB) },
         { it is KeyAction.SendKey && it.keyCode == KEYCODE_TAB },
     ),
     KeyActionOption(
-        "Escape", "Keys apps understand", "Sends a real Esc key press",
+        R.string.layout_editor_action_escape_title,
+        R.string.layout_editor_action_group_send_key,
+        R.string.layout_editor_action_escape_detail,
         { KeyAction.SendKey(KEYCODE_ESCAPE) },
         { it is KeyAction.SendKey && it.keyCode == KEYCODE_ESCAPE },
     ),
     KeyActionOption(
-        "Arrow up", "Keys apps understand", "Moves the cursor up a line",
+        R.string.layout_editor_action_arrow_up_title,
+        R.string.layout_editor_action_group_send_key,
+        R.string.layout_editor_action_arrow_up_detail,
         { KeyAction.SendKey(KEYCODE_DPAD_UP) },
         { it is KeyAction.SendKey && it.keyCode == KEYCODE_DPAD_UP },
     ),
     KeyActionOption(
-        "Arrow down", "Keys apps understand", "Moves the cursor down a line",
+        R.string.layout_editor_action_arrow_down_title,
+        R.string.layout_editor_action_group_send_key,
+        R.string.layout_editor_action_arrow_down_detail,
         { KeyAction.SendKey(KEYCODE_DPAD_DOWN) },
         { it is KeyAction.SendKey && it.keyCode == KEYCODE_DPAD_DOWN },
     ),
     KeyActionOption(
-        "Arrow left", "Keys apps understand", "Moves the cursor left",
+        R.string.layout_editor_action_arrow_left_title,
+        R.string.layout_editor_action_group_send_key,
+        R.string.layout_editor_action_arrow_left_detail,
         { KeyAction.SendKey(KEYCODE_DPAD_LEFT) },
         { it is KeyAction.SendKey && it.keyCode == KEYCODE_DPAD_LEFT },
     ),
     KeyActionOption(
-        "Arrow right", "Keys apps understand", "Moves the cursor right",
+        R.string.layout_editor_action_arrow_right_title,
+        R.string.layout_editor_action_group_send_key,
+        R.string.layout_editor_action_arrow_right_detail,
         { KeyAction.SendKey(KEYCODE_DPAD_RIGHT) },
         { it is KeyAction.SendKey && it.keyCode == KEYCODE_DPAD_RIGHT },
     ),
     KeyActionOption(
-        "Braille dot", "Chorded input",
-        "One dot of a six-key braille chord; set the dot number below",
+        R.string.layout_editor_action_braille_dot_title,
+        R.string.layout_editor_action_group_chorded,
+        R.string.layout_editor_action_braille_dot_detail,
         { KeyAction.BrailleDot(1) }, { it is KeyAction.BrailleDot },
     ),
     KeyActionOption(
-        "Morse dot", "Chorded input",
-        "Adds a short signal; the letter commits after a pause",
+        R.string.layout_editor_action_morse_dot_title,
+        R.string.layout_editor_action_group_chorded,
+        R.string.layout_editor_action_morse_dot_detail,
         { KeyAction.MorseDot }, { it == KeyAction.MorseDot },
     ),
     KeyActionOption(
-        "Morse dash", "Chorded input",
-        "Adds a long signal; the letter commits after a pause",
+        R.string.layout_editor_action_morse_dash_title,
+        R.string.layout_editor_action_group_chorded,
+        R.string.layout_editor_action_morse_dash_detail,
         { KeyAction.MorseDash }, { it == KeyAction.MorseDash },
     ),
     KeyActionOption(
-        "Broadcast intent", "Other",
-        "Fires an Android broadcast for automation apps (Tasker); set the action below",
+        R.string.layout_editor_action_broadcast_title,
+        R.string.layout_editor_action_group_other,
+        R.string.layout_editor_action_broadcast_detail,
         { KeyAction.Broadcast("") }, { it is KeyAction.Broadcast },
     ),
     KeyActionOption(
-        "Nothing", "Other", "A deliberate gap: drawn as empty space, swallows taps",
+        R.string.layout_editor_action_none_title,
+        R.string.layout_editor_action_group_other,
+        R.string.layout_editor_action_none_detail,
         { KeyAction.None }, { it == KeyAction.None },
     ),
 )
@@ -1287,50 +1473,58 @@ private fun KeyEditSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 24.dp),
         ) {
-            SectionHeaderPublic("Row ${ref.row + 1}, key ${ref.col + 1}")
+            SectionHeaderPublic(
+                stringResource(
+                    R.string.layout_editor_key_position_title,
+                    ref.row + 1,
+                    ref.col + 1,
+                ),
+            )
 
             SheetField(
-                label = "Label",
+                label = stringResource(R.string.layout_editor_key_label_label),
                 value = key.label,
-                supporting = "What is drawn on the key",
+                supporting = stringResource(R.string.layout_editor_key_label_hint),
             ) { onChange(key.copy(label = it)) }
 
             SheetField(
-                label = "Output",
+                label = stringResource(R.string.layout_editor_key_output_label),
                 value = key.output.orEmpty(),
-                supporting = "Blank — types the label",
+                supporting = stringResource(R.string.layout_editor_key_output_hint),
             ) { onChange(key.copy(output = it.ifBlank { null })) }
 
             SheetField(
-                label = "Shift label",
+                label = stringResource(R.string.layout_editor_key_shift_label_label),
                 value = key.shiftLabel.orEmpty(),
-                supporting = "Blank — shift types the uppercase of the label",
+                supporting = stringResource(R.string.layout_editor_key_shift_label_hint),
             ) { onChange(key.copy(shiftLabel = it.ifBlank { null })) }
 
             val option = KeyActionCatalog.firstOrNull { it.matches(key.action) }
+            val actionDetail = option?.let { stringResource(it.detailRes) }
             NavRow(
-                title = "Action",
-                subtitle = option?.detail,
-                value = option?.title ?: "Unknown",
+                title = stringResource(R.string.layout_editor_action_row_title),
+                subtitle = actionDetail,
+                value = stringResource(
+                    option?.titleRes ?: R.string.layout_editor_action_unknown,
+                ),
             ) { pickingAction = true }
 
             // Broadcast keys carry a free-form action string the automation app
             // listens for; every other action is self-contained.
             (key.action as? KeyAction.Broadcast)?.let { broadcast ->
                 SheetField(
-                    label = "Broadcast action",
+                    label = stringResource(R.string.layout_editor_broadcast_field_label),
                     value = broadcast.action,
-                    supporting = "The intent action an automation app listens for, " +
-                        "e.g. com.example.MACRO. Left blank, the key does nothing.",
+                    supporting = stringResource(R.string.layout_editor_broadcast_field_hint),
                 ) { onChange(key.copy(action = KeyAction.Broadcast(it.trim()))) }
             }
 
             // Braille dot keys carry which of the six dots this key is.
             (key.action as? KeyAction.BrailleDot)?.let { brailleDot ->
                 SheetField(
-                    label = "Dot number",
+                    label = stringResource(R.string.layout_editor_dot_field_label),
                     value = brailleDot.dot.toString(),
-                    supporting = "1–6: dots 1-2-3 down the left column, 4-5-6 down the right",
+                    supporting = stringResource(R.string.layout_editor_dot_field_hint),
                 ) { text ->
                     text.trim().toIntOrNull()?.takeIf { it in 1..6 }?.let {
                         onChange(key.copy(action = KeyAction.BrailleDot(it)))
@@ -1346,23 +1540,21 @@ private fun KeyEditSheet(
 
             if (key.action == KeyAction.Text) {
                 SheetField(
-                    label = "Icon",
+                    label = stringResource(R.string.layout_editor_icon_field_label),
                     value = key.icon.orEmpty(),
                     supporting = iconFieldSupport(key.icon),
                 ) { onChange(key.copy(icon = it.ifBlank { null })) }
 
                 SheetField(
-                    label = "Icon hint",
+                    label = stringResource(R.string.layout_editor_icon_hint_field_label),
                     value = key.iconHint.orEmpty(),
                     supporting = iconFieldSupport(key.iconHint),
                 ) { onChange(key.copy(iconHint = it.ifBlank { null })) }
 
                 SheetField(
-                    label = "Long-press alternates",
+                    label = stringResource(R.string.layout_editor_alternates_field_label),
                     value = alternates,
-                    supporting = "Separate with spaces, so an alternate cannot itself be a " +
-                        "space. Multi-character entries like .com are fine. The first is " +
-                        "also printed in the key's corner.",
+                    supporting = stringResource(R.string.layout_editor_alternates_field_hint),
                 ) { text ->
                     alternates = text
                     onChange(key.copy(longPress = parseAlternates(text)))
@@ -1383,23 +1575,27 @@ private fun KeyEditSheet(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text("Delete key")
+                    Text(stringResource(R.string.layout_editor_delete_key_action))
                 }
                 Spacer(Modifier.weight(1f))
                 IconButton(enabled = ref.col > 0, onClick = { onMove(-1) }) {
                     Icon(
                         Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
-                        contentDescription = "Move left",
+                        contentDescription = stringResource(R.string.layout_editor_move_left_desc),
                     )
                 }
                 IconButton(enabled = ref.col < rowSize - 1, onClick = { onMove(+1) }) {
                     Icon(
                         Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                        contentDescription = "Move right",
+                        contentDescription = stringResource(R.string.layout_editor_move_right_desc),
                     )
                 }
                 IconButton(onClick = onDuplicate) {
-                    Icon(Icons.Outlined.ContentCopy, contentDescription = "Duplicate key")
+                    Icon(
+                        Icons.Outlined.ContentCopy,
+                        contentDescription =
+                            stringResource(R.string.layout_editor_duplicate_key_desc),
+                    )
                 }
             }
         }
@@ -1427,11 +1623,11 @@ private fun parseAlternates(text: String): List<String> =
     text.split(Regex("\\s+")).filter { it.isNotEmpty() }
 
 /** Inline validity feedback for the icon / icon-hint name fields. */
+@Composable
 private fun iconFieldSupport(name: String?): String = when {
-    name.isNullOrBlank() ->
-        "Name of a built-in icon (search, mic, arrow_up, emoji, …); blank draws the label"
-    KeyIcons.byName(name) != null -> "Shows the \"$name\" icon"
-    else -> "No icon named \"$name\" — the label is drawn instead"
+    name.isNullOrBlank() -> stringResource(R.string.layout_editor_icon_field_hint)
+    KeyIcons.byName(name) != null -> stringResource(R.string.layout_editor_icon_found_hint, name)
+    else -> stringResource(R.string.layout_editor_icon_missing_hint, name)
 }
 
 /** The first alternate is also the corner hint, and a flat string cannot say so. */
@@ -1448,7 +1644,12 @@ private fun AlternatePreview(alternates: List<String>) {
                 onClick = {},
                 label = { Text(alternate) },
                 leadingIcon = if (index == 0) {
-                    { Text("hint", style = MaterialTheme.typography.labelSmall) }
+                    {
+                        Text(
+                            stringResource(R.string.layout_editor_alternate_hint_badge),
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
                 } else {
                     null
                 },
@@ -1480,12 +1681,12 @@ private fun SheetField(
 @Composable
 private fun RoleRow(role: KeyRole?, onChange: (KeyRole?) -> Unit) {
     ChoiceSetting(
-        title = "Field adaptation",
-        subtitle = "Email and web fields swap these two slots for @ and /",
+        title = stringResource(R.string.layout_editor_role_title),
+        subtitle = stringResource(R.string.layout_editor_role_subtitle),
         options = listOf(
-            null to "None",
-            KeyRole.Comma to "Comma slot",
-            KeyRole.Period to "Period slot",
+            null to stringResource(CommonR.string.common_none),
+            KeyRole.Comma to stringResource(R.string.layout_editor_role_comma),
+            KeyRole.Period to stringResource(R.string.layout_editor_role_period),
         ),
         selected = role,
         onChange = onChange,
@@ -1503,7 +1704,10 @@ private fun RowHeightRow(
     onChange: (Float) -> Unit,
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Text("Row height  ×%.2f".format(height), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            stringResource(R.string.layout_editor_row_height_label, height),
+            style = MaterialTheme.typography.bodyLarge,
+        )
         Slider(
             value = height.coerceIn(0.5f, 2f),
             onValueChange = { onChange((it * 4f).roundToInt() / 4f) },
@@ -1531,7 +1735,10 @@ private fun KeyWidthRow(
 ) {
     val remaining = gridWeight - otherWidthsInRow
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Text("Width  %.2f".format(width), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            stringResource(R.string.layout_editor_key_width_label, width),
+            style = MaterialTheme.typography.bodyLarge,
+        )
         // Quarter steps. Every built-in width (1, 1.2, 1.3, 1.5, 4) lands on or
         // beside a step, and a free slider would write 1.0374 into a file people
         // are invited to hand-edit.
@@ -1556,7 +1763,7 @@ private fun KeyWidthRow(
             OutlinedButton(
                 onClick = { onChange((remaining * 4f).roundToInt() / 4f) },
                 modifier = Modifier.padding(top = 4.dp),
-            ) { Text("Fill the row (%.2f)".format(remaining)) }
+            ) { Text(stringResource(R.string.layout_editor_fill_row_action, remaining)) }
         }
     }
 }
@@ -1569,22 +1776,22 @@ private fun KeyActionPickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("What this key does") },
+        title = { Text(stringResource(R.string.layout_editor_action_picker_title)) },
         text = {
             Column(
                 modifier = Modifier
                     .heightIn(max = 380.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
-                var lastGroup: String? = null
+                var lastGroup: Int? = null
                 for (option in KeyActionCatalog) {
-                    if (option.group != lastGroup) {
-                        SectionHeaderPublic(option.group)
-                        lastGroup = option.group
+                    if (option.groupRes != lastGroup) {
+                        SectionHeaderPublic(stringResource(option.groupRes))
+                        lastGroup = option.groupRes
                     }
                     WmRow(
-                        title = option.title,
-                        subtitle = option.detail,
+                        title = stringResource(option.titleRes),
+                        subtitle = stringResource(option.detailRes),
                         leading = {
                             RadioButton(
                                 selected = option.matches(current),
@@ -1596,7 +1803,9 @@ private fun KeyActionPickerDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_close)) }
+        },
     )
 }
 
@@ -1621,10 +1830,11 @@ internal fun KeyLayoutJsonScreen(
     onDone: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val layout = resolveLayouts(settings.customLayouts).firstOrNull { it.id == layoutId }
     if (layout == null) {
         Text(
-            "This layout no longer exists.",
+            stringResource(R.string.layout_editor_missing_layout_message),
             modifier = Modifier.padding(16.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1633,18 +1843,16 @@ internal fun KeyLayoutJsonScreen(
 
     var text by rememberSaveable(layoutId) { mutableStateOf(LayoutCodec.encode(layout)) }
     var error by remember { mutableStateOf<String?>(null) }
-    var repairs by remember { mutableStateOf<List<String>>(emptyList()) }
+    var repairs by remember { mutableStateOf<List<LayoutMessage>>(emptyList()) }
+    // The Apply button is a plain lambda, so the message it may set is read here.
+    val invalidJsonMessage = stringResource(R.string.layout_editor_json_invalid_error)
 
-    CaptionText(
-        "The layout as it is stored. Editing here is the way to reach anything the " +
-            "grid editor has no control for. Re-opening this screen reformats what you " +
-            "wrote — values that match the default are left out, and spacing is not kept.",
-    )
+    CaptionText(stringResource(R.string.layout_editor_json_caption))
 
     OutlinedTextField(
         value = text,
         onValueChange = { text = it; error = null },
-        label = { Text("Layout JSON") },
+        label = { Text(stringResource(R.string.layout_editor_json_field_label)) },
         isError = error != null,
         supportingText = error?.let { { Text(it) } },
         visualTransformation = rememberJsonSyntaxHighlighter(),
@@ -1655,11 +1863,11 @@ internal fun KeyLayoutJsonScreen(
     )
 
     if (repairs.isNotEmpty()) {
-        SettingsGroup("Applied, with changes") {
-            for (line in repairs) {
+        SettingsGroup(stringResource(R.string.layout_editor_json_applied_title)) {
+            for (note in repairs) {
                 item {
                     WmRow(
-                        title = line,
+                        title = note.format(context.resources),
                     )
                 }
             }
@@ -1673,19 +1881,19 @@ internal fun KeyLayoutJsonScreen(
             onClick = {
                 val parsed = LayoutCodec.decode(text)
                 if (parsed == null) {
-                    error = "That is not valid layout JSON."
+                    error = invalidJsonMessage
                     return@Button
                 }
                 // The id in the text is ignored: this screen edits one layout,
                 // and honouring a pasted id would silently overwrite a different
                 // one — or create a second layout the user never asked for.
                 val repaired = parsed.copy(id = layoutId).repair()
-                repairs = repaired.repairs
+                repairs = repaired.repairNotes
                 scope.launch {
                     repository.upsertCustomLayout(repaired.spec)
-                    if (repaired.repairs.isEmpty()) onDone()
+                    if (repaired.repairNotes.isEmpty()) onDone()
                 }
             },
-        ) { Text("Apply") }
+        ) { Text(stringResource(R.string.layout_editor_apply_action)) }
     }
 }

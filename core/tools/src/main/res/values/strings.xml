@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Text the tool clients, the shortcut engine and the tool panels show.
+
+  Referenced from other modules as
+  com.wasimaster.wmkeyboard.tools.R.string.core_tools_ai_phase_preparing — the R
+  classes are non-transitive, so the import has to name this module.
+
+  Data stays in the Kotlin sources and never comes here: currency codes and
+  currency names, language codes and language names, weather API field names,
+  HTTP headers, endpoint URLs, unit symbols and the English typing-practice
+  words and sentences.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ================================================================== -->
+    <!-- Weather tool: the short line beside the temperature.               -->
+    <!-- One string per group of WMO weather codes.                         -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_weather_condition_clear_sky">Clear sky</string>
+    <string name="core_tools_weather_condition_mainly_clear">Mainly clear</string>
+    <string name="core_tools_weather_condition_partly_cloudy">Partly cloudy</string>
+    <string name="core_tools_weather_condition_overcast">Overcast</string>
+    <string name="core_tools_weather_condition_fog">Fog</string>
+    <string name="core_tools_weather_condition_drizzle">Drizzle</string>
+    <string name="core_tools_weather_condition_freezing_drizzle">Freezing drizzle</string>
+    <string name="core_tools_weather_condition_rain">Rain</string>
+    <string name="core_tools_weather_condition_freezing_rain">Freezing rain</string>
+    <string name="core_tools_weather_condition_snow">Snow</string>
+    <string name="core_tools_weather_condition_snow_grains">Snow grains</string>
+    <string name="core_tools_weather_condition_rain_showers">Rain showers</string>
+    <string name="core_tools_weather_condition_snow_showers">Snow showers</string>
+    <string name="core_tools_weather_condition_thunderstorm">Thunderstorm</string>
+    <string name="core_tools_weather_condition_thunderstorm_hail">Thunderstorm with hail</string>
+    <!-- A weather code this build does not know about. -->
+    <string name="core_tools_weather_condition_unknown">Unknown</string>
+
+    <!-- ================================================================== -->
+    <!-- AI tool: the step the request is on, in the progress readout.      -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_ai_phase_preparing">Preparing</string>
+    <string name="core_tools_ai_phase_connecting">Connecting</string>
+    <string name="core_tools_ai_phase_waiting">Waiting for the model</string>
+    <!-- The model writes its reasoning first. The answer has not started. -->
+    <string name="core_tools_ai_phase_thinking">Reasoning</string>
+
+    <!-- ================================================================== -->
+    <!-- GIF and sticker panel: the chips that select a source.             -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_gif_source_klipy" translatable="false">Klipy</string>
+    <string name="core_tools_gif_source_giphy" translatable="false">GIPHY</string>
+    <!-- The sticker packs the user keeps on the device. -->
+    <string name="core_tools_gif_source_local">My stickers</string>
+    <!-- One chip that stands for every online provider together. -->
+    <string name="core_tools_gif_source_online">Online</string>
+
+    <!-- ================================================================== -->
+    <!-- Physical keyboard: the tool picker and its cheat sheet.            -->
+    <!-- ================================================================== -->
+
+    <!--
+      What arms the tool picker. %1$s is the name printed on the modifier key,
+      such as Ctrl, Alt or Shift. Key names are not translated.
+    -->
+    <string name="core_tools_shortcut_leader_double_tap">Press <xliff:g id="modifier_key" example="Ctrl">%1$s</xliff:g> two times</string>
+    <!-- Opens the toolbox, which lists every tool. -->
+    <string name="core_tools_shortcut_cheat_all_tools">All tools</string>
+    <string name="core_tools_shortcut_cheat_select_suggestion">Select a suggestion</string>
+    <!-- Shows the cheat sheet the user is looking at. -->
+    <string name="core_tools_shortcut_cheat_this_list">This list</string>
+
+    <!-- ================================================================== -->
+    <!-- Typing test: the settings one run used, on the results screen.     -->
+    <!-- ================================================================== -->
+
+    <!-- %1$d is the length of the run in seconds. -->
+    <string name="core_tools_typing_config_seconds"><xliff:g id="seconds" example="30">%1$d</xliff:g>s</string>
+    <!-- The run types one quotation, however long it is. -->
+    <string name="core_tools_typing_config_quote">Quote</string>
+    <!-- %1$d is how many words the run asks for. -->
+    <plurals name="core_tools_typing_config_words">
+        <item quantity="one">%1$d word</item>
+        <item quantity="other">%1$d words</item>
+    </plurals>
+
+    <!-- ================================================================== -->
+    <!-- Calculator: what the display says in place of an answer.           -->
+    <!-- ================================================================== -->
+
+    <!-- %1$s is the part of the expression the calculator cannot read. -->
+    <string name="core_tools_calc_error_unexpected">Unexpected “<xliff:g id="text">%1$s</xliff:g>”</string>
+    <string name="core_tools_calc_error_undefined_result">Undefined result</string>
+    <string name="core_tools_calc_error_too_large">The result is too large</string>
+    <string name="core_tools_calc_error_division_by_zero">Division by zero</string>
+    <string name="core_tools_calc_error_incomplete">The expression is incomplete</string>
+    <!-- A bracket was opened and never closed. -->
+    <string name="core_tools_calc_error_missing_bracket">Missing “)”</string>
+    <!-- %1$s is the text the calculator tried to read as a number. -->
+    <string name="core_tools_calc_error_bad_number">Bad number “<xliff:g id="text">%1$s</xliff:g>”</string>
+    <!-- %1$s is the name the user typed, such as "sni". -->
+    <string name="core_tools_calc_error_unknown_function">Unknown function “<xliff:g id="name" example="sin">%1$s</xliff:g>”</string>
+    <!-- %1$s is a function name. The function has no value for that input. -->
+    <string name="core_tools_calc_error_function_undefined"><xliff:g id="name" example="sqrt">%1$s</xliff:g> is undefined there</string>
+
+    <!-- ================================================================== -->
+    <!-- Network tools: what a failed request tells the user.               -->
+    <!-- The plain connection failures reuse the :core:common messages.     -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_error_server_unreachable">The app cannot reach the server. Check your network and try again.</string>
+    <!-- %1$d is the HTTP status code, kept so a report can name it. -->
+    <string name="core_tools_error_http_bad_request">Bad request (HTTP <xliff:g id="status" example="400">%1$d</xliff:g>). Check the setup of the API key.</string>
+    <!-- %1$d is the HTTP status code. -->
+    <string name="core_tools_error_http_key_rejected">The API key was rejected (HTTP <xliff:g id="status" example="403">%1$d</xliff:g>)</string>
+    <!-- %1$d is the HTTP status code. The user must wait before trying again. -->
+    <string name="core_tools_error_http_rate_limit">The rate limit or the daily quota is used up (HTTP <xliff:g id="status" example="429">%1$d</xliff:g>)</string>
+    <!-- %1$d is the HTTP status code. -->
+    <string name="core_tools_error_http_failed">The request failed (HTTP <xliff:g id="status" example="500">%1$d</xliff:g>)</string>
+    <string name="core_tools_error_file_too_large">The file is larger than the maximum size</string>
+
+    <!-- ================================================================== -->
+    <!-- Calendar tool: events read from the device calendar.               -->
+    <!-- ================================================================== -->
+
+    <!-- Stands in for an event the calendar stores with no title. -->
+    <string name="core_tools_calendar_event_no_title">(No title)</string>
+
+</resources>

@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -53,8 +54,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiRenderCheck
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
@@ -143,7 +148,7 @@ internal fun OnboardingScreen(
             ) {
                 PageDots(index, pages.size)
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = finish) { Text("Skip") }
+                TextButton(onClick = finish) { Text(stringResource(CommonR.string.common_skip)) }
             }
             Column(
                 modifier = Modifier
@@ -179,11 +184,18 @@ internal fun OnboardingScreen(
                     .padding(16.dp),
             ) {
                 if (index > 0) {
-                    OutlinedButton(onClick = { current = pages[index - 1] }) { Text("Back") }
+                    OutlinedButton(onClick = { current = pages[index - 1] }) {
+                        Text(stringResource(CommonR.string.common_back))
+                    }
                 }
                 Spacer(Modifier.weight(1f))
                 Button(onClick = { if (onLastPage) finish() else current = pages[index + 1] }) {
-                    Text(if (onLastPage) "Finish" else "Next")
+                    Text(
+                        stringResource(
+                            if (onLastPage) R.string.onboarding_finish_action
+                            else CommonR.string.common_next,
+                        ),
+                    )
                 }
             }
         }
@@ -295,18 +307,18 @@ private fun PageHeader(title: String, subtitle: String) {
 private fun WelcomePage(onReady: () -> Unit) {
     val context = LocalContext.current
     PageHeader(
-        "Welcome to WM Keyboard",
-        "An offline multilingual keyboard: ${LanguageRegistry.all.size} languages " +
-            "built in, phonetic and native layouts, gesture typing, themes and " +
-            "more. First, make it your keyboard.",
+        stringResource(R.string.onboarding_welcome_title),
+        pluralStringResource(
+            R.plurals.onboarding_welcome_subtitle,
+            LanguageRegistry.all.size,
+            LanguageRegistry.all.size,
+        ),
     )
     Box(modifier = Modifier.padding(horizontal = 16.dp)) {
         SetupCard(context, onReady = onReady)
     }
     Text(
-        "The next few steps set up the things everyone likes differently — " +
-            "languages, look, feel and gestures. Everything can be changed later " +
-            "in settings.",
+        stringResource(R.string.onboarding_welcome_body),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(16.dp),
@@ -318,11 +330,12 @@ private fun WelcomePage(onReady: () -> Unit) {
 private fun LanguagesPage(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     PageHeader(
-        "Your languages",
-        "Type in as many as you like — switch between them with a quick swipe on " +
-            "the spacebar (or the 🌐 key). All ${LanguageRegistry.all.size} " +
-            "languages are built in, so add whichever you need now or later in " +
-            "Settings → Languages.",
+        stringResource(R.string.onboarding_languages_title),
+        pluralStringResource(
+            R.plurals.onboarding_languages_subtitle,
+            LanguageRegistry.all.size,
+            LanguageRegistry.all.size,
+        ),
     )
     // The enabled set, grouped by language (deduped, in switch order); toggling
     // a layout off is how you drop one during setup, and the search below adds
@@ -395,7 +408,7 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
     // the languages their phone is already in are the ones they came to add.
     if (suggested.isNotEmpty()) {
         Text(
-            "Suggested for you",
+            stringResource(R.string.onboarding_language_suggested_title),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 4.dp),
@@ -407,7 +420,10 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
                 trailingContent = {
                     Icon(
                         Icons.Outlined.Add,
-                        contentDescription = "Add ${suggestion.language.englishName}",
+                        contentDescription = stringResource(
+                            R.string.onboarding_language_add_desc,
+                            suggestion.language.englishName,
+                        ),
                     )
                 },
                 modifier = Modifier
@@ -416,14 +432,11 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
             )
             HorizontalDivider()
         }
-        CaptionText(
-            "Picked from your phone's own language settings and region. Nothing " +
-                "you type is looked at, and nothing leaves the device.",
-        )
+        CaptionText(stringResource(R.string.onboarding_language_suggested_info))
     }
 
     Text(
-        "Add a language",
+        stringResource(R.string.onboarding_language_add_title),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 4.dp),
@@ -431,7 +444,7 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
     OutlinedTextField(
         value = query,
         onValueChange = { query = it },
-        placeholder = { Text("Search languages") },
+        placeholder = { Text(stringResource(R.string.onboarding_language_search_hint)) },
         leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
         singleLine = true,
         modifier = Modifier
@@ -443,7 +456,13 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
             headlineContent = { Text(language.displayName) },
             supportingContent = { Text(languageRowSubtitle(language)) },
             trailingContent = {
-                Icon(Icons.Outlined.Add, contentDescription = "Add ${language.englishName}")
+                Icon(
+                    Icons.Outlined.Add,
+                    contentDescription = stringResource(
+                        R.string.onboarding_language_add_desc,
+                        language.englishName,
+                    ),
+                )
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -463,14 +482,12 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
     }
     if (matches.isEmpty()) {
         CaptionText(
-            if (q.isEmpty()) "Every language is already added."
-            else "No languages match “$query”.",
+            if (q.isEmpty()) stringResource(R.string.onboarding_language_all_added)
+            else stringResource(R.string.onboarding_language_no_match, query),
         )
     } else if (matches.size > ONBOARDING_LANGUAGE_LIMIT) {
-        CaptionText(
-            "…and ${matches.size - ONBOARDING_LANGUAGE_LIMIT} more — search to " +
-                "narrow the list.",
-        )
+        val extra = matches.size - ONBOARDING_LANGUAGE_LIMIT
+        CaptionText(pluralStringResource(R.plurals.onboarding_language_more_count, extra, extra))
     }
 }
 
@@ -478,9 +495,8 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
 private fun LookPage(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     PageHeader(
-        "Look & feel",
-        "How should the keyboard and app look? AMOLED is pitch black for OLED " +
-            "screens; Material You tints everything from your wallpaper.",
+        stringResource(R.string.onboarding_look_title),
+        stringResource(R.string.onboarding_look_subtitle),
     )
     SingleChoiceSegmentedButtonRow(modifier = Modifier
         .fillMaxWidth()
@@ -492,20 +508,24 @@ private fun LookPage(repository: SettingsRepository, settings: KeyboardSettings)
                 shape = SegmentedButtonDefaults.itemShape(index, ThemeMode.entries.size),
             ) {
                 Text(
-                    when (mode) {
-                        ThemeMode.SYSTEM -> "Auto"
-                        ThemeMode.LIGHT -> "Light"
-                        ThemeMode.DARK -> "Dark"
-                        ThemeMode.AMOLED -> "AMOLED"
-                    },
+                    stringResource(
+                        when (mode) {
+                            ThemeMode.SYSTEM -> R.string.onboarding_theme_mode_auto
+                            ThemeMode.LIGHT -> R.string.onboarding_theme_mode_light
+                            ThemeMode.DARK -> R.string.onboarding_theme_mode_dark
+                            ThemeMode.AMOLED -> R.string.onboarding_theme_mode_amoled
+                        },
+                    ),
                     maxLines = 1,
                 )
             }
         }
     }
     ListItem(
-        headlineContent = { Text("Material You colors") },
-        supportingContent = { Text("Tint the keyboard from your wallpaper (Android 12+)") },
+        headlineContent = { Text(stringResource(R.string.onboarding_dynamic_color_title)) },
+        supportingContent = {
+            Text(stringResource(R.string.onboarding_dynamic_color_subtitle))
+        },
         trailingContent = {
             Switch(
                 checked = settings.dynamicColor,
@@ -514,7 +534,7 @@ private fun LookPage(repository: SettingsRepository, settings: KeyboardSettings)
         },
     )
     Text(
-        "Keyboard theme",
+        stringResource(R.string.onboarding_keyboard_theme_title),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
@@ -535,10 +555,13 @@ private fun LookPage(repository: SettingsRepository, settings: KeyboardSettings)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("Default", style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        stringResource(CommonR.string.common_default),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
                 }
                 Text(
-                    "Material You",
+                    stringResource(R.string.onboarding_keyboard_theme_material_you_label),
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(6.dp),
                 )
@@ -560,28 +583,25 @@ private fun LookPage(repository: SettingsRepository, settings: KeyboardSettings)
         }
     }
     Text(
-        "Custom colors, background images and import/export live in " +
-            "Appearance → Keyboard themes.",
+        stringResource(R.string.onboarding_keyboard_theme_info),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(16.dp),
     )
     Text(
-        "Rows above the keys",
+        stringResource(R.string.onboarding_rows_title),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
     )
     Text(
-        "The toolbar (suggestions, tools and the toolbox) is always there. " +
-            "The emoji and symbol rows are up to you — both can be reordered " +
-            "and customized later in Rows & bars.",
+        stringResource(R.string.onboarding_rows_body),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp),
     )
     Text(
-        "Emoji row",
+        stringResource(R.string.onboarding_emoji_row_label),
         style = MaterialTheme.typography.bodyLarge,
         modifier = Modifier.padding(start = 16.dp, top = 12.dp),
     )
@@ -589,24 +609,24 @@ private fun LookPage(repository: SettingsRepository, settings: KeyboardSettings)
         .fillMaxWidth()
         .padding(horizontal = 16.dp, vertical = 8.dp)) {
         val options = listOf(
-            EmojiBarMode.OFF to "Off",
-            EmojiBarMode.BUTTON to "Button",
-            EmojiBarMode.ALWAYS to "Own row",
+            EmojiBarMode.OFF to CommonR.string.common_off,
+            EmojiBarMode.BUTTON to R.string.onboarding_emoji_row_button,
+            EmojiBarMode.ALWAYS to R.string.onboarding_emoji_row_always,
         )
-        options.forEachIndexed { index, (mode, label) ->
+        options.forEachIndexed { index, (mode, labelRes) ->
             SegmentedButton(
                 selected = settings.emojiBarMode == mode,
                 onClick = { scope.launch { repository.setEmojiBarMode(mode) } },
                 shape = SegmentedButtonDefaults.itemShape(index, options.size),
             ) {
-                Text(label, maxLines = 1)
+                Text(stringResource(labelRes), maxLines = 1)
             }
         }
     }
     ListItem(
-        headlineContent = { Text("Symbol row") },
+        headlineContent = { Text(stringResource(R.string.onboarding_symbol_row_title)) },
         supportingContent = {
-            Text("Special characters and snippets — @gmail.com, https://, brackets — one tap away")
+            Text(stringResource(R.string.onboarding_symbol_row_subtitle))
         },
         trailingContent = {
             Switch(
@@ -650,21 +670,23 @@ private fun EmojiPage(
 ) {
     val scope = rememberCoroutineScope()
     PageHeader(
-        "Emoji",
-        "Every phone ships its own emoji drawings, and older ones can't draw the " +
-            "newest emoji — those show up as an empty box.",
+        stringResource(R.string.onboarding_emoji_title),
+        stringResource(R.string.onboarding_emoji_subtitle),
     )
     Text(
-        "This phone can't display $missingCount of the emoji in the catalog. They'd " +
-            "show up as empty boxes.",
+        pluralStringResource(
+            R.plurals.onboarding_emoji_missing_count,
+            missingCount,
+            missingCount,
+        ),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     )
     ListItem(
-        headlineContent = { Text("Hide emoji this phone can't display") },
+        headlineContent = { Text(stringResource(R.string.onboarding_emoji_hide_title)) },
         supportingContent = {
-            Text("Skip the empty boxes in the emoji panel, search and suggestions")
+            Text(stringResource(R.string.onboarding_emoji_hide_subtitle))
         },
         trailingContent = {
             Switch(
@@ -674,10 +696,7 @@ private fun EmojiPage(
         },
     )
     Text(
-        "To see them all instead, use a complete emoji font: pick \"Google\" (Noto " +
-            "Color Emoji) or import an emoji font file (like Twemoji or OpenMoji) under " +
-            "Emoji → Emoji font. WM Keyboard uses this phone's emoji font by default and " +
-            "ships none of its own. You can change all of this later in Settings → Emoji.",
+        stringResource(R.string.onboarding_emoji_font_info),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(16.dp),
@@ -699,13 +718,12 @@ private fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSetti
         context, style, settings.hapticAmplitude, settings.hapticStrengthMs, view,
     )
     PageHeader(
-        "Typing feedback",
-        "Some people want every press confirmed, others want silence. " +
-            "Fine-tuning (strength, duration, popups) lives in Typing settings.",
+        stringResource(R.string.onboarding_feedback_title),
+        stringResource(R.string.onboarding_feedback_subtitle),
     )
     ListItem(
-        headlineContent = { Text("Key press haptics") },
-        supportingContent = { Text("Vibrate on every key press") },
+        headlineContent = { Text(stringResource(R.string.onboarding_haptics_title)) },
+        supportingContent = { Text(stringResource(R.string.onboarding_haptics_subtitle)) },
         trailingContent = {
             Switch(
                 checked = settings.hapticFeedback,
@@ -718,12 +736,12 @@ private fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSetti
     )
     if (settings.hapticFeedback) {
         Text(
-            "Haptic style",
+            stringResource(R.string.onboarding_haptic_style_label),
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
         )
         Text(
-            "Tap one to feel it.",
+            stringResource(R.string.onboarding_haptic_style_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 16.dp, top = 2.dp),
@@ -741,14 +759,14 @@ private fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSetti
                         scope.launch { repository.setHapticStyle(style) }
                         preview(style)
                     },
-                    label = { Text(style.label, maxLines = 1) },
+                    label = { Text(stringResource(style.labelRes), maxLines = 1) },
                 )
             }
         }
     }
     ListItem(
-        headlineContent = { Text("Key press sound") },
-        supportingContent = { Text("Click sound on every key press") },
+        headlineContent = { Text(stringResource(R.string.onboarding_key_sound_title)) },
+        supportingContent = { Text(stringResource(R.string.onboarding_key_sound_subtitle)) },
         trailingContent = {
             Switch(
                 checked = settings.keySound,
@@ -757,8 +775,8 @@ private fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSetti
         },
     )
     ListItem(
-        headlineContent = { Text("Key popup") },
-        supportingContent = { Text("Show a character bubble above the pressed key") },
+        headlineContent = { Text(stringResource(R.string.onboarding_key_popup_title)) },
+        supportingContent = { Text(stringResource(R.string.onboarding_key_popup_subtitle)) },
         trailingContent = {
             Switch(
                 checked = settings.popup.enabled,
@@ -774,34 +792,34 @@ private fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSetti
  * Typing → Gestures.
  */
 private enum class SpacebarChoice(
-    val title: String,
-    val subtitle: String,
+    @StringRes val titleRes: Int,
+    @StringRes val subtitleRes: Int,
     val short: SpaceSwipeAction,
     val long: SpaceSwipeAction,
 ) {
     CURSOR_THEN_LANGUAGE(
-        "Cursor + language (recommended)",
-        "Quick swipe moves the cursor · hold, then swipe switches language",
+        R.string.onboarding_spacebar_cursor_language_title,
+        R.string.onboarding_spacebar_cursor_language_subtitle,
         SpaceSwipeAction.CURSOR, SpaceSwipeAction.LANGUAGE,
     ),
     LANGUAGE_THEN_CURSOR(
-        "Language + cursor",
-        "Quick swipe switches language · hold, then swipe moves the cursor",
+        R.string.onboarding_spacebar_language_cursor_title,
+        R.string.onboarding_spacebar_language_cursor_subtitle,
         SpaceSwipeAction.LANGUAGE, SpaceSwipeAction.CURSOR,
     ),
     LANGUAGE_ONLY(
-        "Only switch language",
-        "Any spacebar swipe cycles through your languages",
+        R.string.onboarding_spacebar_language_only_title,
+        R.string.onboarding_spacebar_language_only_subtitle,
         SpaceSwipeAction.LANGUAGE, SpaceSwipeAction.LANGUAGE,
     ),
     CURSOR_ONLY(
-        "Only move the cursor",
-        "Any spacebar swipe moves the text cursor",
+        R.string.onboarding_spacebar_cursor_only_title,
+        R.string.onboarding_spacebar_cursor_only_subtitle,
         SpaceSwipeAction.CURSOR, SpaceSwipeAction.CURSOR,
     ),
     OFF(
-        "Nothing",
-        "Spacebar swipes are ignored",
+        R.string.onboarding_spacebar_off_title,
+        R.string.onboarding_spacebar_off_subtitle,
         SpaceSwipeAction.NONE, SpaceSwipeAction.NONE,
     ),
 }
@@ -810,16 +828,15 @@ private enum class SpacebarChoice(
 private fun GesturesPage(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     PageHeader(
-        "Spacebar & keys",
-        "Swiping sideways on the spacebar is the fastest way to switch language " +
-            "or nudge the text cursor. What should it do?",
+        stringResource(R.string.onboarding_gestures_title),
+        stringResource(R.string.onboarding_gestures_subtitle),
     )
     for (choice in SpacebarChoice.entries) {
         val selected = settings.spaceShortSwipe == choice.short &&
             settings.spaceLongSwipe == choice.long
         ListItem(
-            headlineContent = { Text(choice.title) },
-            supportingContent = { Text(choice.subtitle) },
+            headlineContent = { Text(stringResource(choice.titleRes)) },
+            supportingContent = { Text(stringResource(choice.subtitleRes)) },
             leadingContent = { RadioButton(selected = selected, onClick = null) },
             modifier = Modifier.clickable {
                 scope.launch {
@@ -831,9 +848,9 @@ private fun GesturesPage(repository: SettingsRepository, settings: KeyboardSetti
     }
     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
     ListItem(
-        headlineContent = { Text("Emoji key instead of 🌐") },
+        headlineContent = { Text(stringResource(R.string.onboarding_emoji_key_title)) },
         supportingContent = {
-            Text("The 🌐 key becomes an emoji key — handy once language switching is on the spacebar")
+            Text(stringResource(R.string.onboarding_emoji_key_subtitle))
         },
         trailingContent = {
             Switch(
@@ -843,8 +860,8 @@ private fun GesturesPage(repository: SettingsRepository, settings: KeyboardSetti
         },
     )
     ListItem(
-        headlineContent = { Text("Number row") },
-        supportingContent = { Text("Dedicated 1–0 row above the letters") },
+        headlineContent = { Text(stringResource(R.string.onboarding_number_row_title)) },
+        supportingContent = { Text(stringResource(R.string.onboarding_number_row_subtitle)) },
         trailingContent = {
             Switch(
                 checked = settings.numberRow,
@@ -868,25 +885,24 @@ private val ToolSetupTools = setOf(
 private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     PageHeader(
-        "Set up your tools",
-        "A few of the tools you enabled have choices of their own. " +
-            "All of this can be changed later in each tool's settings.",
+        stringResource(R.string.onboarding_tool_setup_title),
+        stringResource(R.string.onboarding_tool_setup_subtitle),
     )
     if (ToolbarTool.CALENDAR in settings.enabledTools) {
-        SectionTitle("Calendar")
+        SectionTitle(stringResource(toolTitle(ToolbarTool.CALENDAR)))
         // All three already open on what the device's region suggests — the
         // Bengali calendar in Bangladesh, era years in Japan, a Friday-Saturday
         // weekend across much of the Middle East. This page is where someone
         // sees that guess and corrects it.
         AltCalendarSetting(
-            title = "First calendar",
-            subtitle = "Shown alongside the Gregorian month, and inside each day cell",
+            title = stringResource(R.string.onboarding_calendar_first_title),
+            subtitle = stringResource(R.string.onboarding_calendar_first_subtitle),
             selected = settings.calendarAltOne,
             onChange = { scope.launch { repository.setCalendarAltOne(it) } },
         )
         AltCalendarSetting(
-            title = "Second calendar",
-            subtitle = "A second one for the header and the selected day",
+            title = stringResource(R.string.onboarding_calendar_second_title),
+            subtitle = stringResource(R.string.onboarding_calendar_second_subtitle),
             selected = settings.calendarAltTwo,
             onChange = { scope.launch { repository.setCalendarAltTwo(it) } },
         )
@@ -896,14 +912,16 @@ private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSett
         )
     }
     if (ToolbarTool.WEATHER in settings.enabledTools) {
-        SectionTitle("Weather")
+        SectionTitle(stringResource(toolTitle(ToolbarTool.WEATHER)))
         // The tool is dead without a place, so the same search-or-coordinates
         // editor the settings screen uses is right here rather than a pointer
         // to it.
         WeatherLocationSetting(repository, settings)
         ListItem(
-            headlineContent = { Text("Fahrenheit") },
-            supportingContent = { Text("Off shows temperatures in Celsius") },
+            headlineContent = { Text(stringResource(R.string.onboarding_weather_fahrenheit_title)) },
+            supportingContent = {
+                Text(stringResource(R.string.onboarding_weather_fahrenheit_subtitle))
+            },
             trailingContent = {
                 Switch(
                     checked = settings.weatherFahrenheit,
@@ -913,10 +931,12 @@ private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSett
         )
     }
     if (ToolbarTool.COMPASS in settings.enabledTools) {
-        SectionTitle("Compass")
+        SectionTitle(stringResource(toolTitle(ToolbarTool.COMPASS)))
         ListItem(
-            headlineContent = { Text("Show qibla") },
-            supportingContent = { Text("Mark the direction of the Kaaba on the compass rose") },
+            headlineContent = { Text(stringResource(R.string.onboarding_compass_qibla_title)) },
+            supportingContent = {
+                Text(stringResource(R.string.onboarding_compass_qibla_subtitle))
+            },
             trailingContent = {
                 Switch(
                     checked = settings.compassShowQibla,
@@ -926,7 +946,7 @@ private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSett
         )
         if (settings.compassShowQibla) {
             Text(
-                "The qibla bearing uses the same saved place as the weather tool.",
+                stringResource(R.string.onboarding_compass_qibla_info),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -959,10 +979,8 @@ private fun ToolsPage(
 ) {
     val scope = rememberCoroutineScope()
     PageHeader(
-        "Your tools",
-        "The toolbox packs everything from GIFs to a calculator into the " +
-            "toolbar's grid button. Start with just the tools you'll actually " +
-            "use — every one can be toggled any time in Tools settings.",
+        stringResource(R.string.onboarding_tools_title),
+        stringResource(R.string.onboarding_tools_subtitle),
     )
     // First visit swaps the enable-everything default for the recommended
     // starter set — but only over an untouched default, so a user who
@@ -978,10 +996,10 @@ private fun ToolsPage(
     }
     Row(modifier = Modifier.padding(horizontal = 8.dp)) {
         TextButton(onClick = { scope.launch { repository.setEnabledTools(RecommendedTools) } }) {
-            Text("Recommended")
+            Text(stringResource(R.string.onboarding_tools_recommended_action))
         }
         TextButton(onClick = { scope.launch { repository.setEnabledTools(ToolbarTool.entries) } }) {
-            Text("Everything")
+            Text(stringResource(R.string.onboarding_tools_everything_action))
         }
     }
     // Most-used-by-most-people first — same order the toolbox itself opens with.
@@ -994,8 +1012,8 @@ private fun ToolsPage(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
-            headlineContent = { Text(toolTitle(tool)) },
-            supportingContent = { Text(toolDescription(tool)) },
+            headlineContent = { Text(stringResource(toolTitle(tool))) },
+            supportingContent = { Text(stringResource(toolDescription(tool))) },
             trailingContent = {
                 Switch(
                     checked = tool in settings.enabledTools,

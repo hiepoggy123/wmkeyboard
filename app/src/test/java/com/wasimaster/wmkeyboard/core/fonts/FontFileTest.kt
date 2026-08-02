@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.fonts
 
+import com.wasimaster.wmkeyboard.content.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -88,19 +89,29 @@ class FontFileTest {
         val s = store()
         val result = import(s, "wOFF".toByteArray() + ByteArray(512))
         assertTrue("$result", result is FontImportResult.NotAFont)
-        assertTrue((result as FontImportResult.NotAFont).message.contains("WOFF"))
+        // Checked by resource id: a web font gets the message that tells the
+        // user to fetch the .ttf, not the generic "this is not a font". The id
+        // survives a rewording of that sentence; the sentence itself would not.
+        assertEquals(
+            R.string.core_content_font_error_woff,
+            (result as FontImportResult.NotAFont).messageRes,
+        )
         assertTrue(s.fonts().isEmpty())
     }
 
     @Test
     fun `a zip and an HTML page are refused as what they are`() {
-        assertTrue(
+        // Again by id — what matters is that the sniff reached the right
+        // diagnosis, which no rewording of the sentence can change.
+        assertEquals(
+            R.string.core_content_font_error_zip,
             (import(store(), "PK".toByteArray(Charsets.ISO_8859_1) + ByteArray(64))
-                as FontImportResult.NotAFont).message.contains("zip"),
+                as FontImportResult.NotAFont).messageRes,
         )
-        assertTrue(
+        assertEquals(
+            R.string.core_content_font_error_markup,
             (import(store(File(temp.root, "f2")), "<!DOCTYPE html>".toByteArray())
-                as FontImportResult.NotAFont).message.contains("HTML"),
+                as FontImportResult.NotAFont).messageRes,
         )
     }
 

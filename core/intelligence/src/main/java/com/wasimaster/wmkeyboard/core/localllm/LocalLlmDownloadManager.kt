@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.localllm
 
 import android.os.StatFs
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.intelligence.R
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.wasimaster.wmkeyboard.common.R as CommonR
 
 /**
  * Downloads catalog models from Hugging Face into [LocalLlmStore]'s layout.
@@ -42,7 +45,19 @@ object LocalLlmDownloadManager {
         /** Cancelled or interrupted with a `.part` on disk — resumable. */
         data class Paused(val bytes: Long, val total: Long) : DownloadStatus
         data object Downloaded : DownloadStatus
-        data class Failed(val reason: FailReason, val message: String) : DownloadStatus
+
+        /**
+         * [messageRes] is the text to show the user. [messageArg] is the one
+         * format argument that text takes, or "" when it takes none. The UI
+         * resolves the pair together:
+         * `if (messageArg.isEmpty()) stringResource(messageRes)`
+         * `else stringResource(messageRes, messageArg)`.
+         */
+        data class Failed(
+            val reason: FailReason,
+            @StringRes val messageRes: Int,
+            val messageArg: String = "",
+        ) : DownloadStatus
     }
 
     enum class FailReason { GATED_NO_TOKEN, LICENSE_NOT_ACCEPTED, NETWORK, NO_SPACE, OTHER }
@@ -102,15 +117,14 @@ object LocalLlmDownloadManager {
                 if (part.isFile) set(model.id, DownloadStatus.Paused(part.length(), model.sizeBytes))
                 throw e
             } catch (e: FailedException) {
-                set(model.id, DownloadStatus.Failed(e.reason, e.message.orEmpty()))
-            } catch (e: Exception) {
-                // IOException mid-stream leaves a resumable .part behind.
+                set(model.id, DownloadStatus.Failed(e.reason, e.messageRes, e.messageArg))
+            } catch (_: Exception) {
+                // IOException mid-stream leaves a resumable .part behind. The
+                // system writes its own message in English only, so the shared
+                // network line goes out instead of the text of the exception.
                 set(
                     model.id,
-                    DownloadStatus.Failed(
-                        FailReason.NETWORK,
-                        e.message ?: "The download failed — check your connection and retry",
-                    ),
+                    DownloadStatus.Failed(FailReason.NETWORK, CommonR.string.common_error_network),
                 )
             } finally {
                 activeId = null
@@ -132,7 +146,16 @@ object LocalLlmDownloadManager {
         _states.update { it + (id to status) }
     }
 
-    private class FailedException(val reason: FailReason, message: String) : IOException(message)
+    /**
+     * A download failure that already knows which message the UI should show.
+     * The exception's own `message` stays null: the text lives in [messageRes]
+     * so it follows the app language.
+     */
+    private class FailedException(
+        val reason: FailReason,
+        @StringRes val messageRes: Int,
+        val messageArg: String = "",
+    ) : IOException()
 
     private suspend fun downloadInto(model: LocalLlmModel, part: File, hfToken: String) {
         part.parentFile?.mkdirs()
@@ -143,7 +166,8 @@ object LocalLlmDownloadManager {
             val neededGb = (model.sizeBytes - resumeFrom + SPACE_MARGIN_BYTES) / 1e9
             throw FailedException(
                 FailReason.NO_SPACE,
-                "Not enough storage — free up about %.1f GB first".format(neededGb),
+                R.string.core_intel_llm_download_error_no_space,
+                "%.1f".format(neededGb),
             )
         }
 
@@ -167,17 +191,19 @@ object LocalLlmDownloadManager {
                 HttpURLConnection.HTTP_UNAUTHORIZED -> throw FailedException(
                     FailReason.GATED_NO_TOKEN,
                     if (hfToken.isBlank()) {
-                        "This model is gated — add your Hugging Face token first"
+                        R.string.core_intel_llm_download_error_gated_no_token
                     } else {
-                        "Hugging Face rejected the token — check it and try again"
+                        R.string.core_intel_llm_download_error_token_rejected
                     },
                 )
                 HttpURLConnection.HTTP_FORBIDDEN -> throw FailedException(
                     FailReason.LICENSE_NOT_ACCEPTED,
-                    "Accept the model's license on its Hugging Face page, then retry",
+                    R.string.core_intel_llm_download_error_licence,
                 )
                 else -> throw FailedException(
-                    FailReason.OTHER, "Hugging Face returned HTTP $status",
+                    FailReason.OTHER,
+                    R.string.core_intel_llm_download_error_http,
+                    status.toString(),
                 )
             }
 
@@ -208,7 +234,10 @@ object LocalLlmDownloadManager {
 
             if (total >= 0) {
                 if (written != total) {
-                    throw IOException("The connection dropped mid-download — resume to continue")
+                    throw FailedException(
+                        FailReason.NETWORK,
+                        R.string.core_intel_llm_download_error_truncated,
+                    )
                 }
             } else if (written < model.sizeBytes * 9 / 10) {
                 // No Content-Length to validate against. sizeBytes is only
@@ -217,7 +246,10 @@ object LocalLlmDownloadManager {
                 // rejecting a complete download whose real size differs a little
                 // from the catalog estimate. Otherwise a truncated file would be
                 // renamed into place and wrongly count as a valid model.
-                throw IOException("The connection dropped mid-download — resume to continue")
+                throw FailedException(
+                    FailReason.NETWORK,
+                    R.string.core_intel_llm_download_error_truncated,
+                )
             }
         } finally {
             connection.disconnect()

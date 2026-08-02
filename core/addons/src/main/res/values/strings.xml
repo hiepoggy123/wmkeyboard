@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings owned by :core:addons.
+
+  This module holds the add-on repository format. The only user-facing text in
+  it is the name of each add-on kind, which the catalogue draws as a section
+  heading, as a filter chip and on an add-on detail page. AddonType stores a
+  string resource id for each name and the UI layer resolves it.
+
+  Referenced from another module as
+  com.wasimaster.wmkeyboard.addons.R.string.core_addons_… — the R classes are
+  non-transitive, so the import has to name this module.
+-->
+<resources>
+
+    <!-- ================================================================== -->
+    <!-- Add-on kinds, plural. These head a section of the add-on           -->
+    <!-- catalogue and label the filter chip for that kind.                 -->
+    <!-- ================================================================== -->
+
+    <string name="core_addons_type_theme_label">Themes</string>
+    <string name="core_addons_type_layout_label">Layouts</string>
+    <string name="core_addons_type_dictionary_label">Dictionaries</string>
+    <string name="core_addons_type_emoji_keywords_label">Emoji keywords</string>
+    <string name="core_addons_type_snippets_label">Snippets</string>
+    <string name="core_addons_type_stickers_label">Sticker packs</string>
+    <string name="core_addons_type_icon_pack_label">Icon packs</string>
+    <string name="core_addons_type_font_label">Fonts</string>
+    <string name="core_addons_type_emoji_font_label">Emoji fonts</string>
+    <string name="core_addons_type_sound_label">Sounds</string>
+    <string name="core_addons_type_plugin_label">Plugins</string>
+    <!-- The kind shown for an add-on this version of the app does not know. -->
+    <string name="core_addons_type_unknown_label">Other</string>
+
+    <!-- ================================================================== -->
+    <!-- Add-on kinds, singular. These name one add-on, on its own page and  -->
+    <!-- in the line under its title.                                        -->
+    <!-- ================================================================== -->
+
+    <string name="core_addons_type_theme_singular_label">Theme</string>
+    <string name="core_addons_type_layout_singular_label">Layout</string>
+    <string name="core_addons_type_dictionary_singular_label">Dictionary</string>
+    <string name="core_addons_type_emoji_keywords_singular_label">Emoji keyword pack</string>
+    <string name="core_addons_type_snippets_singular_label">Snippet pack</string>
+    <string name="core_addons_type_stickers_singular_label">Sticker pack</string>
+    <string name="core_addons_type_icon_pack_singular_label">Icon pack</string>
+    <string name="core_addons_type_font_singular_label">Font</string>
+    <string name="core_addons_type_emoji_font_singular_label">Emoji font</string>
+    <!-- The sound the keyboard plays when you press a key. -->
+    <string name="core_addons_type_sound_singular_label">Key sound</string>
+    <string name="core_addons_type_plugin_singular_label">Plugin</string>
+    <!-- The name for one add-on of a kind this version of the app does not know. -->
+    <string name="core_addons_type_unknown_singular_label">Add-on</string>
+
+</resources>

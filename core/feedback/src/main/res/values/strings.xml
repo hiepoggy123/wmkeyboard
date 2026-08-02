@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Key sounds and haptics (:core:feedback).
+
+  Only the key-sound import refusals are here. Sound file names, the store
+  directory, the .snd extension and the audio format identifiers stay literals
+  in the Kotlin: they are data, not text a user reads.
+
+  Referenced from other modules as
+  com.wasimaster.wmkeyboard.feedback.R.string.core_feedback_sound_import_read_error.
+-->
+<resources>
+
+    <!-- ================================================================== -->
+    <!-- Key sound import: the file is not a sound the keyboard can play.   -->
+    <!-- Shown after the user picks a file, or after an add-on install.     -->
+    <!-- ================================================================== -->
+
+    <string name="core_feedback_sound_import_empty_error">The file is empty.</string>
+    <string name="core_feedback_sound_import_too_short_error">The file is too short to be a sound.</string>
+    <string name="core_feedback_sound_import_zip_error">This is a zip archive, not a sound file.</string>
+    <string name="core_feedback_sound_import_html_error">This is an HTML or XML file, not a sound.</string>
+    <string name="core_feedback_sound_import_mp4_error">The app does not play MP4 and M4A files. Use an MP3 file.</string>
+    <string name="core_feedback_sound_import_unknown_format_error">This does not look like an MP3, OGG or WAV file.</string>
+
+    <!-- ================================================================== -->
+    <!-- Key sound import: the app could not store the file.                -->
+    <!-- ================================================================== -->
+
+    <string name="core_feedback_sound_import_no_storage_error">No storage is available on your device.</string>
+    <!-- %1$s is the size limit in megabytes, for example 4. -->
+    <string name="core_feedback_sound_import_too_large_error">A key sound must be smaller than %1$s MB.</string>
+    <string name="core_feedback_sound_import_save_error">The app cannot save the sound.</string>
+    <string name="core_feedback_sound_import_read_error">The app cannot read the sound.</string>
+
+</resources>

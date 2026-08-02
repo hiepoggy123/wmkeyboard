@@ -1,7 +1,9 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import android.content.res.Resources
 import android.graphics.BitmapFactory
 import android.view.WindowManager
+import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.config.BuildConfig
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExitTransition
@@ -192,6 +194,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -228,6 +232,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
 import kotlinx.coroutines.delay
@@ -281,6 +287,7 @@ import com.wasimaster.wmkeyboard.core.settings.toolboxPage
 import com.wasimaster.wmkeyboard.core.settings.toolboxPageCount
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
+import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.tools.resolveSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
@@ -461,64 +468,122 @@ private fun rememberTouchExploration(): Boolean {
  */
 internal fun enterActionIcon(action: EnterAction): ImageVector = IconDefaults.forEnterAction(action)
 
-/** What to call the enter key in this field, for screen readers. */
-internal fun enterActionName(state: KeyboardUiState): String = when (state.effectiveEnterAction) {
-    EnterAction.SEARCH -> "Search"
-    EnterAction.SEND -> "Send"
-    EnterAction.GO -> "Go"
-    EnterAction.NEXT -> "Next"
-    EnterAction.PREVIOUS -> "Previous"
-    EnterAction.DONE -> "Done"
-    EnterAction.CUSTOM -> state.enterActionLabel ?: "Enter"
-    EnterAction.DEFAULT -> "Enter"
+/**
+ * What a screen reader says for one key, before it is worded.
+ *
+ * Held as a resource id rather than as finished text so that [keyVisual] stays
+ * free of an Android context — it is a plain function on purpose, see
+ * [KeyVisual] — and so a locale change re-reads every key.
+ */
+@Immutable
+internal data class SpokenLabel(
+    /** The wording. 0 when the key speaks [text] as it is (a letter, a symbol). */
+    @StringRes val textRes: Int = 0,
+    /** What the key itself supplies: its label, or wording the app chose. */
+    val text: String = "",
+    /** A name that fills the one argument of [textRes]; 0 when it takes none. */
+    @StringRes val argRes: Int = 0,
+) {
+    fun resolve(resources: Resources): String = when {
+        textRes == 0 -> text
+        argRes != 0 -> resources.getString(textRes, resources.getString(argRes))
+        else -> resources.getString(textRes)
+    }
 }
+
+/** [SpokenLabel.resolve] for a caller that is already drawing. */
+@Composable
+private fun SpokenLabel.resolved(): String = resolve(LocalContext.current.resources)
+
+/** What to call the enter key in this field, for screen readers. */
+internal fun enterActionSpoken(state: KeyboardUiState): SpokenLabel =
+    when (state.effectiveEnterAction) {
+        EnterAction.SEARCH -> SpokenLabel(R.string.ime_enter_search)
+        EnterAction.SEND -> SpokenLabel(R.string.ime_enter_send)
+        EnterAction.GO -> SpokenLabel(R.string.ime_enter_go)
+        EnterAction.NEXT -> SpokenLabel(R.string.ime_enter_next)
+        EnterAction.PREVIOUS -> SpokenLabel(R.string.ime_enter_previous)
+        EnterAction.DONE -> SpokenLabel(R.string.ime_enter_done)
+        EnterAction.CUSTOM -> state.enterActionLabel
+            ?.let { SpokenLabel(text = it) }
+            ?: SpokenLabel(R.string.ime_enter_default)
+        EnterAction.DEFAULT -> SpokenLabel(R.string.ime_enter_default)
+    }
+
+/** The enter key's name, worded for a caller that draws it. */
+@Composable
+internal fun enterActionName(state: KeyboardUiState): String = enterActionSpoken(state).resolved()
 
 /**
  * What a screen reader should call this key. Punctuation and whitespace get
  * spoken names because TalkBack either skips them or reads them as silence,
  * which makes a symbol layout unusable by ear.
  */
-private fun spokenLabel(key: Key, state: KeyboardUiState): String = when (key.action) {
-    KeyAction.Space -> "Space"
-    KeyAction.Delete -> "Delete"
-    KeyAction.ForwardDelete -> "Forward delete"
-    KeyAction.Enter -> enterActionName(state)
+private fun spokenLabel(key: Key, state: KeyboardUiState): SpokenLabel = when (key.action) {
+    KeyAction.Space -> SpokenLabel(R.string.ime_key_space)
+    KeyAction.Delete -> SpokenLabel(R.string.ime_key_delete)
+    KeyAction.ForwardDelete -> SpokenLabel(R.string.ime_key_forward_delete)
+    KeyAction.Enter -> enterActionSpoken(state)
     KeyAction.Shift -> when (state.shiftState) {
-        ShiftState.CAPS_LOCK -> "Caps lock on"
-        ShiftState.ON -> "Shift on"
-        ShiftState.OFF -> "Shift"
+        ShiftState.CAPS_LOCK -> SpokenLabel(R.string.ime_key_caps_lock_on)
+        ShiftState.ON -> SpokenLabel(R.string.ime_key_shift_on)
+        ShiftState.OFF -> SpokenLabel(R.string.ime_key_shift)
     }
-    KeyAction.LanguageSwitch -> "Switch language"
-    KeyAction.Emoji -> "Emoji"
+    KeyAction.LanguageSwitch -> SpokenLabel(R.string.ime_key_language_switch)
+    KeyAction.Emoji -> SpokenLabel(R.string.ime_key_emoji)
     is KeyAction.Mod -> {
-        val name = when ((key.action as KeyAction.Mod).key) {
-            ModifierKey.CTRL -> "Control"
-            ModifierKey.ALT -> "Alt"
-            ModifierKey.META -> "Meta"
+        val nameRes = when ((key.action as KeyAction.Mod).key) {
+            ModifierKey.CTRL -> R.string.ime_key_modifier_control
+            ModifierKey.ALT -> R.string.ime_key_modifier_alt
+            ModifierKey.META -> R.string.ime_key_modifier_meta
         }
         when (state.modifiers[(key.action as KeyAction.Mod).key]) {
-            ModifierState.LOCKED -> "$name locked"
-            ModifierState.ARMED -> "$name on"
-            ModifierState.OFF -> name
+            ModifierState.LOCKED -> SpokenLabel(R.string.ime_key_modifier_locked, argRes = nameRes)
+            ModifierState.ARMED -> SpokenLabel(R.string.ime_key_modifier_on, argRes = nameRes)
+            ModifierState.OFF -> SpokenLabel(nameRes)
         }
     }
-    is KeyAction.SendKey -> key.label.ifBlank { "Key" }
+    is KeyAction.SendKey ->
+        if (key.label.isBlank()) SpokenLabel(R.string.ime_key_generic) else SpokenLabel(text = key.label)
     else -> {
         val label = displayLabel(key, state)
-        punctuationNames[label] ?: label
+        punctuationNames[label]?.let { SpokenLabel(it) } ?: SpokenLabel(text = label)
     }
 }
 
 private val punctuationNames = mapOf(
-    "." to "Period", "," to "Comma", "?" to "Question mark", "!" to "Exclamation mark",
-    "'" to "Apostrophe", "\"" to "Quote", ";" to "Semicolon", ":" to "Colon",
-    "-" to "Hyphen", "_" to "Underscore", "/" to "Slash", "\\" to "Backslash",
-    "(" to "Left parenthesis", ")" to "Right parenthesis", "[" to "Left bracket",
-    "]" to "Right bracket", "{" to "Left brace", "}" to "Right brace",
-    "@" to "At sign", "#" to "Hash", "$" to "Dollar sign", "%" to "Percent",
-    "&" to "Ampersand", "*" to "Asterisk", "+" to "Plus", "=" to "Equals",
-    "<" to "Less than", ">" to "Greater than", "|" to "Vertical bar",
-    "~" to "Tilde", "^" to "Caret", "`" to "Backtick",
+    "." to R.string.ime_punct_period,
+    "," to R.string.ime_punct_comma,
+    "?" to R.string.ime_punct_question_mark,
+    "!" to R.string.ime_punct_exclamation_mark,
+    "'" to R.string.ime_punct_apostrophe,
+    "\"" to R.string.ime_punct_quote,
+    ";" to R.string.ime_punct_semicolon,
+    ":" to R.string.ime_punct_colon,
+    "-" to R.string.ime_punct_hyphen,
+    "_" to R.string.ime_punct_underscore,
+    "/" to R.string.ime_punct_slash,
+    "\\" to R.string.ime_punct_backslash,
+    "(" to R.string.ime_punct_left_parenthesis,
+    ")" to R.string.ime_punct_right_parenthesis,
+    "[" to R.string.ime_punct_left_bracket,
+    "]" to R.string.ime_punct_right_bracket,
+    "{" to R.string.ime_punct_left_brace,
+    "}" to R.string.ime_punct_right_brace,
+    "@" to R.string.ime_punct_at_sign,
+    "#" to R.string.ime_punct_hash,
+    "$" to R.string.ime_punct_dollar_sign,
+    "%" to R.string.ime_punct_percent,
+    "&" to R.string.ime_punct_ampersand,
+    "*" to R.string.ime_punct_asterisk,
+    "+" to R.string.ime_punct_plus,
+    "=" to R.string.ime_punct_equals,
+    "<" to R.string.ime_punct_less_than,
+    ">" to R.string.ime_punct_greater_than,
+    "|" to R.string.ime_punct_vertical_bar,
+    "~" to R.string.ime_punct_tilde,
+    "^" to R.string.ime_punct_caret,
+    "`" to R.string.ime_punct_backtick,
 )
 
 /** Root composable for the IME. Renders [KeyboardUiState] and forwards input. */
@@ -1102,7 +1167,7 @@ private fun FloatingHandleBar(
         IconButton(onClick = onDock, modifier = Modifier.size(30.dp)) {
             Icon(
                 Icons.Outlined.Fullscreen,
-                contentDescription = "Dock keyboard",
+                contentDescription = stringResource(R.string.ime_floating_dock_desc),
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1152,10 +1217,11 @@ private fun FloatingHandleBar(
             // arrows read as a "go fullscreen" button rather than a
             // drag-to-resize handle.
             val gripColor = MaterialTheme.colorScheme.onSurfaceVariant
+            val resizeDesc = stringResource(R.string.ime_floating_resize_desc)
             Canvas(
                 modifier = Modifier
                     .size(14.dp)
-                    .semantics { contentDescription = "Resize keyboard" },
+                    .semantics { contentDescription = resizeDesc },
             ) {
                 val stroke = 1.5.dp.toPx()
                 drawLine(
@@ -1195,14 +1261,14 @@ private fun OneHandedRail(
                 } else {
                     Icons.AutoMirrored.Outlined.ArrowBack
                 },
-                contentDescription = "Move keyboard to the other side",
+                contentDescription = stringResource(R.string.ime_one_handed_flip_desc),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         IconButton(onClick = onExit) {
             Icon(
                 Icons.Outlined.Fullscreen,
-                contentDescription = "Exit one-handed mode",
+                contentDescription = stringResource(R.string.ime_one_handed_exit_desc),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -1231,6 +1297,40 @@ private val ToolbarSlideSpring = spring(
     stiffness = Spring.StiffnessMedium,
     visibilityThreshold = IntOffset(1, 1),
 )
+
+/**
+ * How far a re-placed icon may have travelled and still be animated, when
+ * there is nothing better to size the limit against. Past this a move is
+ * taken for a layout jump — a scroll, a page flip — and sliding to catch up
+ * with one reads as lag, so it snaps instead.
+ */
+private const val PlacementSlideCap = 160f
+
+/**
+ * The same limit for an icon that lives in the toolbar, as a fraction of the
+ * bar's width.
+ *
+ * A fixed cap is wrong there. The bar spreads its buttons over equal weighted
+ * cells, so inserting one — the back chevron, when a panel opens — moves every
+ * icon, and the leftmost moves the furthest: from the middle of the first cell
+ * of n to the middle of the second of n+1. That is a quarter of the bar at its
+ * worst (a bar holding only the toolbox button), well past [PlacementSlideCap]
+ * on any phone. So the toolbox teleported into place on every panel open while
+ * the icons beside it — which travel less the further right they sit — slid.
+ * One icon snapping in a row of four sliding ones is the "jumpy" toolbar.
+ *
+ * Sized to clear that worst case with room to spare, while still refusing to
+ * animate a move on the order of the whole bar.
+ */
+private const val ToolbarSlideCapFraction = 0.35f
+
+/**
+ * A vertical move larger than this means the row itself shifted rather than an
+ * icon moving along it — a panel opened, the emoji row appeared or folded away.
+ * Sliding into a row that has moved reads as lag, so those snap. Small enough
+ * to ignore the sub-pixel rounding that weighted cells produce between passes.
+ */
+private const val ToolbarRowShiftPx = 4
 
 /**
  * The strip's candidates fade in when they arrive and out when they leave,
@@ -1573,7 +1673,7 @@ private fun TopBar(
             ) {
                 Icon(
                     Icons.Outlined.Close,
-                    contentDescription = "Close emoji row",
+                    contentDescription = stringResource(R.string.ime_emoji_row_close_desc),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -1639,7 +1739,9 @@ private fun TopBar(
             ) {
                 Icon(
                     Icons.Outlined.ChevronRight,
-                    contentDescription = if (showToolbar) "Show suggestions" else "Show toolbar",
+                    contentDescription = stringResource(
+                        if (showToolbar) R.string.ime_suggestions_show_desc else R.string.ime_toolbar_show_desc,
+                    ),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.graphicsLayer { rotationZ = chevronTurn },
                 )
@@ -1661,7 +1763,7 @@ private fun TopBar(
                 ) {
                     Icon(
                         Icons.Outlined.EmojiEmotions,
-                        contentDescription = "Show emoji row",
+                        contentDescription = stringResource(R.string.ime_emoji_row_show_desc),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -1670,7 +1772,7 @@ private fun TopBar(
             if (state.settings.emojiToolbar && ToolbarTool.EMOJI in state.settings.enabledTools) {
                 ToolCircle(
                     slot = IconSlots.CHROME_EMOJI_SHORTCUT,
-                    description = "Emoji",
+                    description = stringResource(R.string.ime_tool_emoji),
                     active = false,
                     // Same icon the toolbar pins: it slides between the two
                     // spots instead of vanishing here and reappearing there.
@@ -1678,7 +1780,7 @@ private fun TopBar(
                         drag.emojiPlacement,
                         enabled = !state.settings.reduceMotion,
                     ) { drag.bodyCoords },
-                    longPressLabel = "Emoji",
+                    longPressLabel = stringResource(R.string.ime_tool_emoji),
                 ) { onToolTap(ToolbarTool.EMOJI) }
             }
             // Autofill chips take the whole strip while they are up: they
@@ -1701,7 +1803,7 @@ private fun TopBar(
                 ) {
                     Icon(
                         Icons.Outlined.Close,
-                        contentDescription = "Dismiss autofill suggestions",
+                        contentDescription = stringResource(R.string.ime_autofill_dismiss_desc),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp),
                     )
@@ -1843,7 +1945,7 @@ private fun TopBar(
                 ) {
                     Icon(
                         Icons.Outlined.Close,
-                        contentDescription = "Dismiss smart replies",
+                        contentDescription = stringResource(R.string.ime_smart_replies_dismiss_desc),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp),
                     )
@@ -2289,7 +2391,7 @@ private fun RowScope.CandidateStrip(
     IconButton(onClick = onExpand, enabled = enabled) {
         Icon(
             Icons.Outlined.ArrowDropDown,
-            contentDescription = "More candidates",
+            contentDescription = stringResource(R.string.ime_candidates_more_desc),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -2457,7 +2559,7 @@ private fun ClipboardSuggestionChip(
                 // number, and the user has no way to tell it was lifted out of
                 // the message rather than being the whole copy.
                 Text(
-                    text = "CODE",
+                    text = stringResource(R.string.ime_clip_chip_code_badge),
                     color = tint.copy(alpha = 0.85f),
                     fontSize = 9.sp,
                     letterSpacing = 0.8.sp,
@@ -2467,10 +2569,17 @@ private fun ClipboardSuggestionChip(
             }
             val textToDisplay = when {
                 otp != null -> otp.value
-                clip.kind == ClipKind.IMAGE ->
-                    if (clip.sourceApp == "System UI") "Screenshot" else "Copied image"
+                clip.kind == ClipKind.IMAGE -> stringResource(
+                    // "System UI" is the package label Android gives a
+                    // screenshot, not wording anyone reads.
+                    if (clip.sourceApp == "System UI") {
+                        R.string.ime_clip_chip_screenshot
+                    } else {
+                        R.string.ime_clip_chip_image
+                    },
+                )
                 clip.text.isNotBlank() -> clip.text
-                else -> "Copied item"
+                else -> stringResource(R.string.ime_clip_chip_item)
             }
             Text(
                 text = textToDisplay,
@@ -2495,7 +2604,7 @@ private fun ClipboardSuggestionChip(
         ) {
             Icon(
                 Icons.Outlined.Close,
-                contentDescription = "Dismiss copied text",
+                contentDescription = stringResource(R.string.ime_clip_chip_dismiss_desc),
                 tint = tint.copy(alpha = 0.7f),
                 modifier = Modifier.size(15.dp),
             )
@@ -2547,7 +2656,7 @@ private fun EmojiBarStrip(
         IconButton(onClick = onOpenPanel, modifier = Modifier.size(36.dp)) {
             Icon(
                 Icons.Outlined.EmojiEmotions,
-                contentDescription = "Open emoji panel",
+                contentDescription = stringResource(R.string.ime_emoji_panel_open_desc),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -2618,6 +2727,15 @@ private fun EmojiBarCell(
 internal val SymbolRowHeight = 40.dp
 
 /**
+ * What to call one symbol set. A shipped set that still carries its shipped
+ * name is drawn from resources; a set the user made or renamed keeps the name
+ * the user typed.
+ */
+@Composable
+private fun symbolSetName(set: SymbolSet): String =
+    BuiltInSymbolSets.nameRes(set)?.let { stringResource(it) } ?: set.name
+
+/**
  * The dedicated symbol row: one symbol set's characters and snippets a tap
  * away, with a picker chip on the left switching between the enabled sets
  * (or the sets the active keyboard mode prescribes).
@@ -2660,14 +2778,14 @@ private fun SymbolRowStrip(
             ) {
                 if (enabledSets.size > 1) {
                     Text(
-                        active.name,
+                        symbolSetName(active),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                     )
                     Icon(
                         Icons.Outlined.ArrowDropDown,
-                        contentDescription = "Switch symbol set",
+                        contentDescription = stringResource(R.string.ime_symbol_set_switch_desc),
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -2676,7 +2794,7 @@ private fun SymbolRowStrip(
             DropdownMenu(expanded = pickerOpen, onDismissRequest = { pickerOpen = false }) {
                 for (set in enabledSets) {
                     DropdownMenuItem(
-                        text = { Text(set.name) },
+                        text = { Text(symbolSetName(set)) },
                         trailingIcon = if (set.id == active.id) {
                             {
                                 Icon(
@@ -2743,11 +2861,15 @@ private fun ModesPanel(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    "No modes yet — create one in Settings → Modes.",
+                    stringResource(R.string.ime_modes_empty),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(10.dp))
-                ToolPanelChip("Mode settings", selected = true, onClick = onOpenSettings)
+                ToolPanelChip(
+                    stringResource(R.string.ime_modes_settings_desc),
+                    selected = true,
+                    onClick = onOpenSettings,
+                )
             }
             return@Column
         }
@@ -2758,14 +2880,14 @@ private fun ModesPanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "A manual pick lasts until you switch apps.",
+                stringResource(R.string.ime_modes_manual_note),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
             ToolCircle(
                 slot = IconSlots.forTool(ToolbarTool.SETTINGS),
-                description = "Mode settings",
+                description = stringResource(R.string.ime_modes_settings_desc),
                 active = false,
                 onClick = onOpenSettings,
             )
@@ -2783,11 +2905,16 @@ private fun ModesPanel(
         val focused = state.focusedIndex()
         val listState = rememberLazyListState()
         ScrollFocusIntoView(focused) { listState.animateScrollToItem(it) }
+        // Hoisted out of the list: the summaries are worded per mode, and a
+        // LazyColumn's content block is not a composable scope.
+        val resources = LocalContext.current.resources
+        val autoTitle = stringResource(CommonR.string.common_auto)
+        val autoSubtitle = stringResource(R.string.ime_modes_auto_subtitle)
         LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
             item {
                 ModeRow(
-                    title = "Automatic",
-                    subtitle = "Follow each mode's app and field bindings",
+                    title = autoTitle,
+                    subtitle = autoSubtitle,
                     icon = Icons.Outlined.AutoAwesome,
                     selected = state.activeModeId == null,
                     focused = focused == 0,
@@ -2796,7 +2923,7 @@ private fun ModesPanel(
             itemsIndexed(modes) { index, mode ->
                 ModeRow(
                     title = mode.name,
-                    subtitle = modeSummary(mode),
+                    subtitle = modeSummary(resources, mode),
                     icon = ModeIcons.icon(mode.icon),
                     selected = state.activeModeId == mode.id,
                     focused = focused == index + 1,
@@ -2806,28 +2933,54 @@ private fun ModesPanel(
     }
 }
 
-/** One-line recap of what a mode changes and when it kicks in. */
-private fun modeSummary(mode: KeyboardMode): String {
+/**
+ * One-line recap of what a mode changes and when it kicks in.
+ *
+ * Each part is its own resource, written the way it reads at the start of the
+ * line: the parts are joined, so no part may be re-cased afterwards — the
+ * first letter of a translated word is not the compiler's to change.
+ */
+private fun modeSummary(resources: Resources, mode: KeyboardMode): String {
     val parts = mutableListOf<String>()
     mode.emojiBarMode?.let {
-        parts += when (it) {
-            EmojiBarMode.OFF -> "emoji row off"
-            EmojiBarMode.BUTTON -> "emoji button"
-            EmojiBarMode.ALWAYS -> "emoji row"
-        }
+        parts += resources.getString(
+            when (it) {
+                EmojiBarMode.OFF -> R.string.ime_mode_summary_emoji_row_off
+                EmojiBarMode.BUTTON -> R.string.ime_mode_summary_emoji_button
+                EmojiBarMode.ALWAYS -> R.string.ime_mode_summary_emoji_row
+            },
+        )
     }
     mode.toolbarTools?.let {
-        parts += if (mode.toolbarToolsAppend) "+${it.size} pinned tools" else "${it.size} pinned tools"
+        val plural = if (mode.toolbarToolsAppend) {
+            R.plurals.ime_mode_summary_pinned_tools_added
+        } else {
+            R.plurals.ime_mode_summary_pinned_tools
+        }
+        parts += resources.getQuantityString(plural, it.size, it.size)
     }
-    mode.symbolRowEnabled?.let { parts += if (it) "symbol row" else "symbol row off" }
+    mode.symbolRowEnabled?.let {
+        parts += resources.getString(
+            if (it) R.string.ime_mode_summary_symbol_row else R.string.ime_mode_summary_symbol_row_off,
+        )
+    }
     if (mode.apps.isNotEmpty()) {
-        parts += if (mode.apps.size == 1) "1 app" else "${mode.apps.size} apps"
+        parts += resources.getQuantityString(
+            R.plurals.ime_mode_summary_apps, mode.apps.size, mode.apps.size,
+        )
     }
     if (mode.fieldKinds.isNotEmpty()) {
-        parts += mode.fieldKinds.joinToString(", ") { it.name.lowercase() } + " fields"
+        // FieldKind has no name of its own yet, so the enum names stand in.
+        parts += resources.getString(
+            R.string.ime_mode_summary_fields,
+            mode.fieldKinds.joinToString(", ") { it.name.lowercase() },
+        )
     }
-    return if (parts.isEmpty()) "No overrides" else parts.joinToString(" · ")
-        .replaceFirstChar { it.uppercase() }
+    return if (parts.isEmpty()) {
+        resources.getString(R.string.ime_mode_summary_none)
+    } else {
+        parts.joinToString(" · ")
+    }
 }
 
 @Composable
@@ -2878,7 +3031,7 @@ private fun ModeRow(
         if (selected) {
             Icon(
                 Icons.Outlined.Check,
-                contentDescription = "Active",
+                contentDescription = stringResource(R.string.ime_modes_active_desc),
                 modifier = Modifier.size(20.dp),
                 tint = kb.accent,
             )
@@ -2890,68 +3043,78 @@ private fun ModeRow(
 
 internal fun toolIcon(tool: ToolbarTool): ImageVector = IconDefaults.forTool(tool)
 
-internal fun toolLabel(tool: ToolbarTool): String = when (tool) {
-    ToolbarTool.EMOJI -> "Emoji"
-    ToolbarTool.CLIPBOARD -> "Clipboard"
-    ToolbarTool.SNIPPETS -> "Snippets"
-    ToolbarTool.TEXT_EDIT -> "Text editing"
-    ToolbarTool.ONE_HANDED -> "One-handed"
-    ToolbarTool.SPLIT -> "Split"
-    ToolbarTool.FLOATING -> "Floating"
-    ToolbarTool.SETTINGS -> "Settings"
-    ToolbarTool.FLASHLIGHT -> "Flashlight"
-    ToolbarTool.COMPASS -> "Compass"
-    ToolbarTool.LEVEL -> "Level"
-    ToolbarTool.UNDO -> "Undo"
-    ToolbarTool.REDO -> "Redo"
-    ToolbarTool.MOON_PHASE -> "Moon"
-    ToolbarTool.WEATHER -> "Weather"
-    ToolbarTool.CALENDAR -> "Calendar"
-    ToolbarTool.INCOGNITO -> "Incognito"
-    ToolbarTool.POWER_SAVING -> "Power saving"
-    ToolbarTool.THEMES -> "Themes"
-    ToolbarTool.AUTOCORRECT -> "Autocorrect"
-    ToolbarTool.SOUND_HAPTICS -> "Sound & haptics"
-    ToolbarTool.NUMPAD -> "Numpad"
-    ToolbarTool.HANDWRITING -> "Handwriting"
-    ToolbarTool.CAMERA -> "Camera"
-    ToolbarTool.DICTIONARY -> "Dictionary"
-    ToolbarTool.TRANSLATE -> "Translate"
-    ToolbarTool.GIF -> "GIFs"
-    ToolbarTool.STICKER -> "Stickers"
-    ToolbarTool.WEB_SEARCH -> "Search"
-    ToolbarTool.IMAGE_SEARCH -> "Images"
-    ToolbarTool.OCR -> "Scan text"
-    ToolbarTool.QR_SCAN -> "QR scan"
-    ToolbarTool.DOC_SCAN -> "Doc scan"
-    ToolbarTool.VOICE -> "Voice"
-    ToolbarTool.GRAMMAR -> "Grammar"
-    ToolbarTool.WIKIPEDIA -> "Wikipedia"
-    ToolbarTool.SYMBOLS -> "Symbols"
-    ToolbarTool.CALCULATOR -> "Calculator"
-    ToolbarTool.UNIT_CONVERT -> "Units"
-    ToolbarTool.CURRENCY -> "Currency"
-    ToolbarTool.QR_GEN -> "QR code"
-    ToolbarTool.PASSWORD_GEN -> "Password"
-    ToolbarTool.TYPING_TEST -> "Typing speed"
-    ToolbarTool.MEDIA_CONTROL -> "Media"
-    ToolbarTool.PLUGINS -> "Plugins"
-    ToolbarTool.AI -> "AI"
-    ToolbarTool.MODES -> "Modes"
-    ToolbarTool.CURSOR_LEFT -> "Left"
-    ToolbarTool.CURSOR_RIGHT -> "Right"
-    ToolbarTool.CURSOR_WORD_LEFT -> "Word left"
-    ToolbarTool.CURSOR_WORD_RIGHT -> "Word right"
-    ToolbarTool.CURSOR_UP -> "Up"
-    ToolbarTool.CURSOR_DOWN -> "Down"
-    ToolbarTool.CURSOR_HOME -> "Line start"
-    ToolbarTool.CURSOR_END -> "Line end"
-    ToolbarTool.HIDE_KEYBOARD -> "Hide"
-    ToolbarTool.PAGE_UP -> "Page up"
-    ToolbarTool.PAGE_DOWN -> "Page down"
-    ToolbarTool.SELECT_WORD -> "Select word"
-    ToolbarTool.SELECT_LINE -> "Select line"
+/**
+ * What to call one tool. Every surface that names a tool reads this: the
+ * toolbar, the toolbox, the hardware shortcut legend and the settings screens.
+ * Resolve it where the name is drawn.
+ */
+@StringRes
+internal fun toolLabelRes(tool: ToolbarTool): Int = when (tool) {
+    ToolbarTool.EMOJI -> R.string.ime_tool_emoji
+    ToolbarTool.CLIPBOARD -> R.string.ime_tool_clipboard
+    ToolbarTool.SNIPPETS -> R.string.ime_tool_snippets
+    ToolbarTool.TEXT_EDIT -> R.string.ime_tool_text_edit
+    ToolbarTool.ONE_HANDED -> R.string.ime_tool_one_handed
+    ToolbarTool.SPLIT -> R.string.ime_tool_split
+    ToolbarTool.FLOATING -> R.string.ime_tool_floating
+    ToolbarTool.SETTINGS -> R.string.ime_tool_settings
+    ToolbarTool.FLASHLIGHT -> R.string.ime_tool_flashlight
+    ToolbarTool.COMPASS -> R.string.ime_tool_compass
+    ToolbarTool.LEVEL -> R.string.ime_tool_level
+    ToolbarTool.UNDO -> R.string.ime_tool_undo
+    ToolbarTool.REDO -> R.string.ime_tool_redo
+    ToolbarTool.MOON_PHASE -> R.string.ime_tool_moon_phase
+    ToolbarTool.WEATHER -> R.string.ime_tool_weather
+    ToolbarTool.CALENDAR -> R.string.ime_tool_calendar
+    ToolbarTool.INCOGNITO -> R.string.ime_tool_incognito
+    ToolbarTool.POWER_SAVING -> R.string.ime_tool_power_saving
+    ToolbarTool.THEMES -> R.string.ime_tool_themes
+    ToolbarTool.AUTOCORRECT -> R.string.ime_tool_autocorrect
+    ToolbarTool.SOUND_HAPTICS -> R.string.ime_tool_sound_haptics
+    ToolbarTool.NUMPAD -> R.string.ime_tool_numpad
+    ToolbarTool.HANDWRITING -> R.string.ime_tool_handwriting
+    ToolbarTool.CAMERA -> R.string.ime_tool_camera
+    ToolbarTool.DICTIONARY -> R.string.ime_tool_dictionary
+    ToolbarTool.TRANSLATE -> R.string.ime_tool_translate
+    ToolbarTool.GIF -> R.string.ime_tool_gif
+    ToolbarTool.STICKER -> R.string.ime_tool_sticker
+    ToolbarTool.WEB_SEARCH -> R.string.ime_tool_web_search
+    ToolbarTool.IMAGE_SEARCH -> R.string.ime_tool_image_search
+    ToolbarTool.OCR -> R.string.ime_tool_ocr
+    ToolbarTool.QR_SCAN -> R.string.ime_tool_qr_scan
+    ToolbarTool.DOC_SCAN -> R.string.ime_tool_doc_scan
+    ToolbarTool.VOICE -> R.string.ime_tool_voice
+    ToolbarTool.GRAMMAR -> R.string.ime_tool_grammar
+    ToolbarTool.WIKIPEDIA -> R.string.ime_tool_wikipedia
+    ToolbarTool.SYMBOLS -> R.string.ime_tool_symbols
+    ToolbarTool.CALCULATOR -> R.string.ime_tool_calculator
+    ToolbarTool.UNIT_CONVERT -> R.string.ime_tool_unit_convert
+    ToolbarTool.CURRENCY -> R.string.ime_tool_currency
+    ToolbarTool.QR_GEN -> R.string.ime_tool_qr_gen
+    ToolbarTool.PASSWORD_GEN -> R.string.ime_tool_password_gen
+    ToolbarTool.TYPING_TEST -> R.string.ime_tool_typing_test
+    ToolbarTool.MEDIA_CONTROL -> R.string.ime_tool_media_control
+    ToolbarTool.PLUGINS -> R.string.ime_tool_plugins
+    ToolbarTool.AI -> R.string.ime_tool_ai
+    ToolbarTool.MODES -> R.string.ime_tool_modes
+    ToolbarTool.CURSOR_LEFT -> R.string.ime_tool_cursor_left
+    ToolbarTool.CURSOR_RIGHT -> R.string.ime_tool_cursor_right
+    ToolbarTool.CURSOR_WORD_LEFT -> R.string.ime_tool_cursor_word_left
+    ToolbarTool.CURSOR_WORD_RIGHT -> R.string.ime_tool_cursor_word_right
+    ToolbarTool.CURSOR_UP -> R.string.ime_tool_cursor_up
+    ToolbarTool.CURSOR_DOWN -> R.string.ime_tool_cursor_down
+    ToolbarTool.CURSOR_HOME -> R.string.ime_tool_cursor_home
+    ToolbarTool.CURSOR_END -> R.string.ime_tool_cursor_end
+    ToolbarTool.HIDE_KEYBOARD -> R.string.ime_tool_hide_keyboard
+    ToolbarTool.PAGE_UP -> R.string.ime_tool_page_up
+    ToolbarTool.PAGE_DOWN -> R.string.ime_tool_page_down
+    ToolbarTool.SELECT_WORD -> R.string.ime_tool_select_word
+    ToolbarTool.SELECT_LINE -> R.string.ime_tool_select_line
 }
+
+/** [toolLabelRes], worded for a caller that is already drawing. */
+@Composable
+internal fun toolLabel(tool: ToolbarTool): String = stringResource(toolLabelRes(tool))
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
     ToolbarTool.EMOJI -> state.panel == PanelMode.EMOJI
@@ -3307,9 +3470,19 @@ private fun DraggableTool(
  * modifier: opening a panel adds the back chevron, which shifts every pinned
  * icon, so a disabled slide still needs to track the new position or the
  * icons would sit at their old offsets.
+ *
+ * [inRow] marks a node that only ever slides along a single row — everything
+ * on the toolbar. Those get the row rules [animateSharedPlacement] already
+ * used for the emoji tool: a vertical move snaps (the row itself has moved,
+ * see [ToolbarRowShiftPx]) and a horizontal one may travel as far as the bar
+ * is wide (see [ToolbarSlideCapFraction]). The toolbox grid leaves it false —
+ * its cells legitimately move between rows when the grid reflows, and its own
+ * scroll and pagination are exactly the jumps [PlacementSlideCap] is there to
+ * refuse.
  */
 private fun Modifier.animatePlacement(
     enabled: Boolean = true,
+    inRow: Boolean = false,
     anchor: () -> LayoutCoordinates? = { null },
 ): Modifier =
     composed {
@@ -3339,14 +3512,25 @@ private fun Modifier.animatePlacement(
                 // to have travelled from.
                 if (previous == null || previous == target) return@onPlaced
                 val delta = previous - target
+                // A row-bound icon that moved vertically did not move: its row
+                // did, and sliding after a row that has already arrived reads
+                // as lag. Snap — and snap for every icon in the bar alike. This
+                // was [animateSharedPlacement]'s rule alone, so opening the
+                // emoji panel over an always-on emoji row (the row folds away,
+                // the whole bar rises) left the emoji tool and the toolbox
+                // standing still while the clipboard and settings icons drifted
+                // in diagonally from where the old row had been.
+                val rowShifted = inRow &&
+                    (delta.x == 0 || kotlin.math.abs(delta.y) > ToolbarRowShiftPx)
                 val jump = delta.toOffset().getDistance()
                 // Deadband, and the big-jump escape. The toolbar's cells are
                 // weighted, so their widths land on fractions that round
                 // differently between passes; nothing travels a single pixel
                 // on purpose here, so a move that small is rounding, not
-                // motion. Anything over an icon-or-two is a layout jump
-                // (scroll, panel resize) and animating it reads as lag.
-                if (!enabled || jump < 2f || jump > 160f) {
+                // motion. A move past the cap is a layout jump (a scroll, a
+                // toolbox page flip) and animating it reads as lag.
+                val cap = placementCap(inRow, anchorCoords)
+                if (!enabled || rowShifted || jump < 2f || jump > cap) {
                     immediate = null
                     scope.launch { animatable.snapTo(IntOffset.Zero) }
                     return@onPlaced
@@ -3368,6 +3552,21 @@ private fun Modifier.animatePlacement(
                 translationY = shift.y.toFloat()
             }
     }
+
+/**
+ * The furthest a re-placed icon may have travelled and still be slid rather
+ * than snapped.
+ *
+ * A toolbar icon is measured against the bar it sits in ([anchorCoords] is the
+ * keyboard body, so its width is the bar's), because what the bar asks of its
+ * icons scales with how wide it is; see [ToolbarSlideCapFraction]. Anything
+ * else, and a bar with no anchor to measure, falls back to [PlacementSlideCap].
+ */
+private fun placementCap(inRow: Boolean, anchorCoords: LayoutCoordinates?): Float {
+    if (!inRow) return PlacementSlideCap
+    val width = anchorCoords?.size?.width?.toFloat() ?: return PlacementSlideCap
+    return (width * ToolbarSlideCapFraction).coerceAtLeast(PlacementSlideCap)
+}
 
 /**
  * Where an icon that lives in more than one branch of the tree last sat.
@@ -3469,16 +3668,16 @@ private fun Modifier.animateSharedPlacement(
                 // A slide along the bar never changes height; a vertical move
                 // means the rows themselves shifted (a panel opened, the emoji
                 // row appeared), which animating reads as lag — snap it.
-                if (delta.x == 0 || kotlin.math.abs(delta.y) > 4) {
+                if (delta.x == 0 || kotlin.math.abs(delta.y) > ToolbarRowShiftPx) {
                     immediate = null
                     scope.launch { offset.snapTo(IntOffset.Zero) }
                     return@onPlaced
                 }
-                // A reflow nudge is small; a jump of more than an icon or two is
-                // a layout change (scroll, panel resize), not motion. The
-                // handoff is exempt — it is deliberately a long slide.
+                // A reflow nudge is small; a jump past the bar's own cap is a
+                // layout change (a scroll, a resize), not motion. The handoff is
+                // exempt — it is deliberately a long slide.
                 val jump = delta.toOffset().getDistance()
-                if (!handoff && (jump < 2f || jump > 160f)) {
+                if (!handoff && (jump < 2f || jump > placementCap(true, anchorCoords))) {
                     immediate = null
                     scope.launch { offset.snapTo(IntOffset.Zero) }
                     return@onPlaced
@@ -3763,9 +3962,9 @@ private fun RowScope.ToolbarRow(
                 ) {
                     ToolCircle(
                         slot = IconSlots.CHROME_PANEL_BACK,
-                        description = "Back to keyboard",
+                        description = stringResource(R.string.ime_panel_back_desc),
                         active = false,
-                        longPressLabel = "Back to keyboard",
+                        longPressLabel = stringResource(R.string.ime_panel_back_desc),
                     ) { onPanelChange(state.panel) }
                 }
             }
@@ -3773,12 +3972,12 @@ private fun RowScope.ToolbarRow(
         Box(cell, contentAlignment = Alignment.Center) {
             ToolCircle(
                 slot = IconSlots.CHROME_TOOLBOX,
-                description = "Toolbox",
+                description = stringResource(R.string.ime_toolbox_desc),
                 active = customizing,
                 modifier = Modifier
                     .graphicsLayer { alpha = contentAlpha() }
-                    .animatePlacement(enabled = motion) { drag.bodyCoords },
-                longPressLabel = "Toolbox",
+                    .animatePlacement(enabled = motion, inRow = true) { drag.bodyCoords },
+                longPressLabel = stringResource(R.string.ime_toolbox_desc),
             ) { onPanelChange(PanelMode.TOOLBOX) }
         }
     }
@@ -3806,7 +4005,8 @@ private fun RowScope.ToolbarRow(
                         // ghost entry exists.
                         GhostToolCircle(
                             dragTool ?: return@Box,
-                            modifier = Modifier.animatePlacement(enabled = motion) { drag.bodyCoords },
+                            modifier = Modifier
+                                .animatePlacement(enabled = motion, inRow = true) { drag.bodyCoords },
                         )
                     } else {
                         // Drag is always live: hold-and-drag reorders the bar
@@ -3844,7 +4044,10 @@ private fun RowScope.ToolbarRow(
                                                 enabled = motion,
                                             ) { drag.bodyCoords }
                                         } else {
-                                            Modifier.animatePlacement(enabled = motion) { drag.bodyCoords }
+                                            Modifier.animatePlacement(
+                                                enabled = motion,
+                                                inRow = true,
+                                            ) { drag.bodyCoords }
                                         },
                                     )
                                     .alpha(if (tool == dragTool) 0f else 1f),
@@ -3904,7 +4107,7 @@ private fun RowScope.ToolbarRow(
     if (state.incognitoOn) {
         SlotIcon(
             IconSlots.CHROME_INCOGNITO,
-            contentDescription = "Incognito is on",
+            contentDescription = stringResource(R.string.ime_incognito_on_desc),
             modifier = Modifier
                 .padding(end = 6.dp)
                 .size(16.dp),
@@ -3972,14 +4175,13 @@ private fun ToolboxPanel(
                 // With a mode on, the arrangement being edited is that mode's
                 // own — say so, or the same keyboard looking different in the
                 // next app reads as the drag being lost.
+                val dragHint = stringResource(R.string.ime_toolbox_hint_drag)
                 Text(
                     if (activeMode != null) {
-                        "${activeMode.name} mode is on, so this arrangement is saved for it — " +
-                            "other apps keep their own. Hold and drag a tool onto the toolbar to " +
-                            "pin it, around this grid to reorder, or down here to remove it."
+                        stringResource(R.string.ime_toolbox_hint_mode, activeMode.name) +
+                            " " + dragHint
                     } else {
-                        "Hold and drag a tool onto the toolbar to pin it, around " +
-                            "this grid to reorder — or drag a toolbar tool down here to remove it."
+                        dragHint
                     },
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -3995,7 +4197,7 @@ private fun ToolboxPanel(
                 ) {
                     Icon(
                         Icons.Outlined.Close,
-                        contentDescription = "Dismiss hint",
+                        contentDescription = stringResource(R.string.ime_toolbox_hint_dismiss_desc),
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -4049,7 +4251,7 @@ private fun ToolboxPanel(
         if (display.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    "Every tool is on the toolbar.",
+                    stringResource(R.string.ime_toolbox_empty),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -4569,7 +4771,7 @@ private fun FullBleedTool(
             if (showBack) {
                 ToolCircle(
                     slot = IconSlots.CHROME_PANEL_BACK,
-                    description = "Back to keyboard",
+                    description = stringResource(R.string.ime_panel_back_desc),
                     active = false,
                     onClick = onClose,
                 )
@@ -4893,7 +5095,7 @@ private fun KeyboardBody(
                 // over the same rows, so the calendar buys itself another band
                 // of height the way the grammar strip and the typing test do.
                 PanelMode.CALENDAR -> FullBleedTool(
-                    state, "Calendar",
+                    state, stringResource(R.string.ime_tool_calendar),
                     onClose = { onPanelChange(PanelMode.CALENDAR) },
                     extraHeight = 140.dp,
                 ) { CalendarPanel(state, onRequestPermission = onCalendarPermissionRequest) }
@@ -4960,7 +5162,8 @@ private fun KeyboardBody(
                 )
                 PanelMode.PLUGINS -> FullBleedTool(
                     state,
-                    title = (state.plugins as? PluginPanelUi.Running)?.plugin?.name ?: "Plugins",
+                    title = (state.plugins as? PluginPanelUi.Running)?.plugin?.name
+                        ?: stringResource(R.string.ime_tool_plugins),
                     // Back out one level at a time: from a running plugin to the
                     // installed list, and only from the list itself out of the
                     // panel. Closing outright left no way back to the list short
@@ -4993,7 +5196,7 @@ private fun KeyboardBody(
                 }
                 PanelMode.MEDIA_CONTROL -> FullBleedTool(
                     state,
-                    title = "Media",
+                    title = stringResource(R.string.ime_tool_media_control),
                     onClose = { onPanelChange(PanelMode.MEDIA_CONTROL) },
                 ) {
                     MediaControlPanel(
@@ -5037,8 +5240,8 @@ private fun KeyboardBody(
                     headerActions = {
                         MediaHeaderSearchBar(
                             state = state,
-                            placeholder = "Type text to translate…",
-                            activePlaceholder = "Type text to translate…",
+                            placeholder = stringResource(R.string.ime_translate_hint),
+                            activePlaceholder = stringResource(R.string.ime_translate_hint),
                             onQueryTap = onMediaQueryTap,
                         )
                     },
@@ -5122,9 +5325,9 @@ private fun KeyboardBody(
                     headerActions = {
                         MediaHeaderSearchBar(
                             state = state,
-                            placeholder = "Search the web",
+                            placeholder = stringResource(R.string.ime_web_search_hint),
                             onQueryTap = onMediaQueryTap,
-                            attribution = "via Brave"
+                            attribution = stringResource(R.string.ime_search_attribution_brave)
                                 .takeIf { ToolApiKeys.hasSearchProvider(state.settings) },
                         )
                     },
@@ -5144,9 +5347,9 @@ private fun KeyboardBody(
                     headerActions = {
                         MediaHeaderSearchBar(
                             state = state,
-                            placeholder = "Search images",
+                            placeholder = stringResource(R.string.ime_image_search_hint),
                             onQueryTap = onMediaQueryTap,
-                            attribution = "via Brave"
+                            attribution = stringResource(R.string.ime_search_attribution_brave)
                                 .takeIf { ToolApiKeys.hasSearchProvider(state.settings) },
                         )
                     },
@@ -5173,10 +5376,12 @@ private fun KeyboardBody(
                     // Category selection lives up here so the header chips
                     // and the grid share it.
                     val recents = state.settings.symbolRecents
+                    // Tracked by id, never by the drawn name: the chips resolve
+                    // their own wording, and a translated name would not match.
                     var symbolCategory by rememberSaveable(recents.isNotEmpty()) {
                         mutableStateOf(
-                            if (recents.isNotEmpty()) "Recents"
-                            else SymbolCatalog.categories.first().name
+                            if (recents.isNotEmpty()) SYMBOL_RECENTS_ID
+                            else SymbolCatalog.categories.first().id
                         )
                     }
                     FullBleedTool(
@@ -5199,16 +5404,16 @@ private fun KeyboardBody(
                     }
                 }
                 PanelMode.CALCULATOR -> FullBleedTool(
-                    state, "Calculator",
+                    state, stringResource(R.string.ime_tool_calculator),
                     onClose = { onPanelChange(PanelMode.CALCULATOR) },
                 ) { CalculatorPanel(state, onToolInsert, onCalcDegreesToggle, onToolPrefillConsumed) }
                 PanelMode.UNIT_CONVERT -> FullBleedTool(
-                    state, "Unit converter",
+                    state, stringResource(R.string.ime_unit_convert_title),
                     onClose = { onPanelChange(PanelMode.UNIT_CONVERT) },
                     extraHeight = 120.dp,
                 ) { UnitConverterPanel(state, onToolInsert, onUnitSelection, onToolPrefillConsumed) }
                 PanelMode.CURRENCY -> FullBleedTool(
-                    state, "Currency",
+                    state, stringResource(R.string.ime_tool_currency),
                     onClose = { onPanelChange(PanelMode.CURRENCY) },
                     extraHeight = 120.dp,
                 ) {
@@ -5234,11 +5439,17 @@ private fun KeyboardBody(
                     headerActions = {
                         val passphraseMode = state.settings.passwordGenerator.pwPassphraseMode
                         Spacer(Modifier.width(4.dp))
-                        ToolPanelChip("Password", selected = !passphraseMode) {
+                        ToolPanelChip(
+                            stringResource(R.string.ime_tool_password_gen),
+                            selected = !passphraseMode,
+                        ) {
                             onPwSetting(PwSettingAction.PassphraseMode(false))
                         }
                         Spacer(Modifier.width(6.dp))
-                        ToolPanelChip("Passphrase", selected = passphraseMode) {
+                        ToolPanelChip(
+                            stringResource(R.string.ime_password_tab_passphrase),
+                            selected = passphraseMode,
+                        ) {
                             onPwSetting(PwSettingAction.PassphraseMode(true))
                         }
                         Spacer(Modifier.weight(1f))
@@ -5246,7 +5457,7 @@ private fun KeyboardBody(
                 ) { PasswordPanel(state, onPwSetting, onToolInsert) }
                 PanelMode.TYPING_TEST -> FullBleedTool(
                     state = state,
-                    title = "Typing speed",
+                    title = stringResource(R.string.ime_tool_typing_test),
                     onClose = { onPanelChange(PanelMode.TYPING_TEST) },
                     // A running test shares the window with the key rows —
                     // the user is typing on them — so the panel collapses
@@ -5255,7 +5466,7 @@ private fun KeyboardBody(
                     compact = state.typingTest.result == null,
                     compactHeight = 156.dp,
                     headerActions = {
-                        typingHeaderBest(state.settings)?.let { best ->
+                        typingHeaderBest(LocalContext.current, state.settings)?.let { best ->
                             Text(
                                 best,
                                 color = LocalKbTheme.current.secondaryText,
@@ -5263,12 +5474,14 @@ private fun KeyboardBody(
                                 modifier = Modifier.padding(end = 8.dp),
                             )
                         }
-                        ToolPanelChip("Restart") { onTypingTestAction(TypingTestAction.Restart) }
+                        ToolPanelChip(stringResource(R.string.ime_typing_test_restart)) {
+                            onTypingTestAction(TypingTestAction.Restart)
+                        }
                     },
                 ) { TypingTestPanel(state, onTypingTestAction) }
                 PanelMode.AI -> FullBleedTool(
                     state = state,
-                    title = "AI",
+                    title = stringResource(R.string.ime_tool_ai),
                     onClose = { onPanelChange(PanelMode.AI) },
                     // Reasoning models stream their think block into the same
                     // box as the answer, so that mode — and only that mode —
@@ -5282,16 +5495,19 @@ private fun KeyboardBody(
                     headerActions = {
                         val ai = state.ai
                         if (ai is AiUi.Ready && !ai.generating) {
-                            ToolPanelChip("Replace", selected = true) { onAiReplace() }
+                            ToolPanelChip(
+                                stringResource(R.string.ime_ai_replace),
+                                selected = true,
+                            ) { onAiReplace() }
                             Spacer(Modifier.width(5.dp))
-                            ToolPanelChip("Insert") { onAiInsert() }
+                            ToolPanelChip(stringResource(R.string.ime_ai_insert)) { onAiInsert() }
                             Spacer(Modifier.width(5.dp))
                             ToolPanelChip("↻") { onAiRetry() }
                             Spacer(Modifier.width(5.dp))
                         }
                         ToolCircle(
                             slot = IconSlots.forTool(ToolbarTool.SETTINGS),
-                            description = "AI settings",
+                            description = stringResource(R.string.ime_ai_settings_desc),
                             active = false,
                         ) { onOpenToolSettings(ToolbarTool.AI) }
                     },
@@ -5475,7 +5691,7 @@ internal data class KeyVisual(
     /** [displayLabel] for the live shift state, numeral system and vowel form. */
     val label: String,
     /** [spokenLabel]: the TalkBack description, and what PASSTHROUGH announces. */
-    val spoken: String,
+    val spoken: SpokenLabel,
     /** Latch of the modifier this key toggles; null when it is not a modifier. */
     val latch: ModifierState?,
     /** The key's face, and the colour a press paints over it. */
@@ -7242,7 +7458,9 @@ private fun KeyButton(
         ScreenReaderMode.PASSTHROUGH -> !passthrough
         else -> false
     }
-    val label = visual.spoken
+    val label = visual.spoken.resolved()
+    // Hoisted: the semantics block below is not a composable scope.
+    val typeAction = stringResource(R.string.ime_key_type_action, label)
     // Nothing announces the keys once the window is passed through — TalkBack
     // no longer sees the touches that would make it speak. The keyboard says
     // the key itself on press; the press only commits on release, so a key can
@@ -7261,7 +7479,7 @@ private fun KeyButton(
                         contentDescription = label
                         role = Role.Button
                         if (semanticsDriven) {
-                            onClick(label = "Type $label") { debounced(key); true }
+                            onClick(label = typeAction) { debounced(key); true }
                         }
                     }
                 } else {
@@ -7711,17 +7929,17 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
         // [spokenLabel] already words it the way this key wants read out.
         KeyAction.Shift -> SlotIcon(
             visual.iconSlot ?: IconSlots.KEY_SHIFT,
-            contentDescription = visual.spoken,
+            contentDescription = visual.spoken.resolved(),
             tint = if (visual.iconActive) MaterialTheme.colorScheme.primary else contentColor,
         )
         KeyAction.Delete -> SlotIcon(
             IconSlots.KEY_BACKSPACE,
-            contentDescription = "Delete",
+            contentDescription = stringResource(R.string.ime_key_delete),
             tint = contentColor,
         )
         KeyAction.ForwardDelete -> SlotIcon(
             IconSlots.KEY_FORWARD_DELETE,
-            contentDescription = "Forward delete",
+            contentDescription = stringResource(R.string.ime_key_forward_delete),
             tint = contentColor,
         )
         // An app-supplied actionLabel is drawn as text — that is the whole
@@ -7742,18 +7960,18 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
         } else {
             SlotIcon(
                 visual.iconSlot ?: IconSlots.KEY_ENTER,
-                contentDescription = "Enter",
+                contentDescription = stringResource(R.string.ime_enter_default),
                 tint = contentColor,
             )
         }
         KeyAction.LanguageSwitch -> SlotIcon(
             IconSlots.KEY_GLOBE,
-            contentDescription = "Switch language",
+            contentDescription = stringResource(R.string.ime_key_language_switch),
             tint = contentColor,
         )
         KeyAction.Emoji -> SlotIcon(
             IconSlots.KEY_EMOJI,
-            contentDescription = "Emoji",
+            contentDescription = stringResource(R.string.ime_key_emoji),
             tint = contentColor,
         )
         KeyAction.Space -> Box(
@@ -8737,7 +8955,7 @@ private fun EmojiSearchField(
         Box(modifier = Modifier.width(8.dp))
         SearchQueryText(
             query = state.emojiQuery,
-            placeholder = "Type to search…",
+            placeholder = stringResource(R.string.ime_emoji_search_hint),
             active = state.emojiSearchActive,
             textColor = MaterialTheme.colorScheme.onSurface,
             placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -8751,7 +8969,7 @@ private fun EmojiSearchField(
         if (state.emojiSearchActive) {
             Icon(
                 Icons.AutoMirrored.Outlined.Backspace,
-                contentDescription = "Delete from text field",
+                contentDescription = stringResource(R.string.ime_emoji_search_delete_desc),
                 modifier = Modifier
                     .padding(start = 8.dp)
                     .size(18.dp)
@@ -8902,7 +9120,7 @@ private fun EmojiPanel(
     val tabStrip: @Composable RowScope.() -> Unit = {
         EmojiTab(
             slot = IconSlots.EMOJI_TAB_SEARCH,
-            description = "Search emoji",
+            description = stringResource(R.string.ime_emoji_tab_search_desc),
             selected = false,
             focused = state.focusedIndex(FocusRegion.SEARCH) == 0,
             onClick = onEmojiQueryTap,
@@ -8911,10 +9129,16 @@ private fun EmojiPanel(
             EmojiTab(
                 slot = emojiTabSlot(tab, historyMode == EmojiTabMode.MOST_USED),
                 description = when (tab) {
-                    KAOMOJI_TAB -> "Kaomoji"
-                    EMOTICON_TAB -> "Emoticons"
-                    RECENT_TAB ->
-                        if (historyMode == EmojiTabMode.MOST_USED) "Most used" else "Recent"
+                    KAOMOJI_TAB -> stringResource(R.string.ime_emoji_tab_kaomoji)
+                    EMOTICON_TAB -> stringResource(R.string.ime_emoji_tab_emoticons)
+                    RECENT_TAB -> stringResource(
+                        if (historyMode == EmojiTabMode.MOST_USED) {
+                            R.string.ime_emoji_tab_most_used
+                        } else {
+                            R.string.ime_emoji_tab_recent
+                        },
+                    )
+                    // An emoji group name, which comes from the catalog data.
                     else -> tab.replaceFirstChar { it.uppercase() }
                 },
                 label = textArtTabLabel(tab),
@@ -8944,7 +9168,7 @@ private fun EmojiPanel(
             ) {
                 ToolCircle(
                     slot = IconSlots.CHROME_PANEL_BACK,
-                    description = "Back to keyboard",
+                    description = stringResource(R.string.ime_panel_back_desc),
                     active = false,
                     onClick = onClose,
                 )
@@ -9077,7 +9301,10 @@ private fun EmojiPanel(
                                         modifier = Modifier.size(16.dp),
                                     )
                                     Box(modifier = Modifier.width(4.dp))
-                                    Text("Clear recents", fontSize = 12.sp)
+                                    Text(
+                                        stringResource(R.string.ime_emoji_clear_recents),
+                                        fontSize = 12.sp,
+                                    )
                                 }
                             }
                         }
@@ -9363,7 +9590,9 @@ private fun EmojiBottomBar(
                 // still applies, with %s standing in for "Space".
                 val custom = settings.spacebarLabel
                 Text(
-                    text = if (custom.isEmpty()) "Space" else custom.replace("%s", "Space"),
+                    text = stringResource(R.string.ime_key_space).let { space ->
+                        if (custom.isEmpty()) space else custom.replace("%s", space)
+                    },
                     fontSize = 11.sp,
                     color = kb.keyText.copy(alpha = 0.5f),
                 )
@@ -9405,7 +9634,7 @@ private fun EmojiBottomBar(
             ) {
                 Icon(
                     Icons.AutoMirrored.Outlined.Backspace,
-                    contentDescription = "Backspace",
+                    contentDescription = stringResource(R.string.ime_key_delete),
                     modifier = Modifier.size(20.dp),
                     tint = kb.modifierKeyText,
                 )
@@ -9580,7 +9809,9 @@ private fun EmojiVariantPopup(
                     )
                     Box(modifier = Modifier.width(10.dp))
                     Text(
-                        if (starred) "Favourited" else "Favourite",
+                        stringResource(
+                            if (starred) R.string.ime_emoji_favourited else R.string.ime_emoji_favourite,
+                        ),
                         fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
@@ -9602,7 +9833,7 @@ private fun EmojiVariantPopup(
                         )
                         Box(modifier = Modifier.width(10.dp))
                         Text(
-                            "Reorder favourites",
+                            stringResource(R.string.ime_emoji_reorder_favourites),
                             fontSize = 15.sp,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
@@ -9624,7 +9855,7 @@ private fun EmojiVariantPopup(
                         )
                         Box(modifier = Modifier.width(10.dp))
                         Text(
-                            "Remove from recents",
+                            stringResource(R.string.ime_emoji_remove_from_recents),
                             fontSize = 15.sp,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
@@ -9715,13 +9946,13 @@ private fun FavouritesReorderPopup(
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        "Reorder favourites",
+                        stringResource(R.string.ime_emoji_reorder_favourites),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(bottom = 4.dp),
                     )
                     Text(
-                        "Drag the handles. Top of the list comes first.",
+                        stringResource(R.string.ime_emoji_reorder_hint),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp),
@@ -9745,7 +9976,7 @@ private fun FavouritesReorderPopup(
                                     },
                             ) {
                                 Text(
-                                    "${index + 1}.",
+                                    stringResource(R.string.ime_emoji_reorder_index, index + 1),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.width(28.dp),
@@ -9758,7 +9989,9 @@ private fun FavouritesReorderPopup(
                                 )
                                 Icon(
                                     Icons.Outlined.DragHandle,
-                                    contentDescription = "Reorder $emoji",
+                                    contentDescription = stringResource(
+                                        R.string.ime_emoji_reorder_handle_desc, emoji,
+                                    ),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier
                                         .padding(start = 8.dp)
@@ -9809,8 +10042,12 @@ private fun FavouritesReorderPopup(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        TextButton(onClick = onDismiss) { Text("Cancel") }
-                        TextButton(onClick = { onConfirm(working) }) { Text("Save") }
+                        TextButton(onClick = onDismiss) {
+                            Text(stringResource(CommonR.string.common_cancel))
+                        }
+                        TextButton(onClick = { onConfirm(working) }) {
+                            Text(stringResource(CommonR.string.common_save))
+                        }
                     }
                 }
             }
@@ -9929,12 +10166,16 @@ private fun SnippetsPanel(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    "No snippets yet.\nVariables: {date} {time} {datetime} {clip}",
+                    stringResource(R.string.ime_snippets_empty),
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(10.dp))
-                ToolPanelChip("Snippet settings", selected = true, onClick = onOpenSettings)
+                ToolPanelChip(
+                    stringResource(R.string.ime_snippets_settings_desc),
+                    selected = true,
+                    onClick = onOpenSettings,
+                )
             }
             return@Column
         }
@@ -9945,14 +10186,14 @@ private fun SnippetsPanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "Variables: {date} {time} {datetime} {clip}",
+                stringResource(R.string.ime_snippets_variables),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
             ToolCircle(
                 slot = IconSlots.forTool(ToolbarTool.SETTINGS),
-                description = "Snippet settings",
+                description = stringResource(R.string.ime_snippets_settings_desc),
                 active = false,
                 onClick = onOpenSettings,
             )
@@ -10087,7 +10328,7 @@ private fun ClipboardSearchField(
         Spacer(Modifier.width(8.dp))
         SearchQueryText(
             query = state.clipboardQuery,
-            placeholder = "Search clipboard…",
+            placeholder = stringResource(R.string.ime_clipboard_search_hint),
             active = active,
             textColor = MaterialTheme.colorScheme.onSurface,
             placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -10099,7 +10340,7 @@ private fun ClipboardSearchField(
         if (active) {
             Icon(
                 Icons.Outlined.Close,
-                contentDescription = "Clear search",
+                contentDescription = stringResource(R.string.ime_clipboard_search_clear_desc),
                 modifier = Modifier
                     .padding(start = 8.dp)
                     .size(18.dp)
@@ -10131,7 +10372,7 @@ private fun ClipboardPanelContent(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                "Clipboard history is empty.\nCopied text will appear here.",
+                stringResource(R.string.ime_clipboard_empty),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -10214,7 +10455,7 @@ private fun ClipboardPanelContent(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    "No clips match “$query”.",
+                    stringResource(R.string.ime_clipboard_no_match, query),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -10301,7 +10542,7 @@ private fun ClipboardPanelContent(
                     ) {
                         if (item.kind == ClipKind.HTML) {
                             Text(
-                                "Rich text",
+                                stringResource(R.string.ime_clip_type_rich_text),
                                 fontSize = 10.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -10309,13 +10550,15 @@ private fun ClipboardPanelContent(
                         Spacer(Modifier.weight(1f))
                         ClipActionCircle(
                             icon = if (item.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                            description = if (item.pinned) "Unpin" else "Pin",
+                            description = stringResource(
+                                if (item.pinned) R.string.ime_clip_unpin else R.string.ime_clip_pin,
+                            ),
                             tint = if (item.pinned) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                         ) { onClipboardPin(item) }
                         ClipActionCircle(
                             icon = Icons.Outlined.Delete,
-                            description = "Delete",
+                            description = stringResource(CommonR.string.common_delete),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         ) { onClipboardDelete(item) }
                     }
@@ -10355,7 +10598,7 @@ private fun ClipEntityStrip(
             )
             Spacer(Modifier.width(5.dp))
             Text(
-                "Found inside your clips · tap to paste just this part",
+                stringResource(R.string.ime_clip_entity_hint),
                 fontSize = 10.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -10405,14 +10648,14 @@ private fun ClipEntityChip(
                 ClipEntityKind.PHONE -> Icons.Outlined.Phone
                 ClipEntityKind.URL -> Icons.Outlined.Link
             },
-            contentDescription = entity.kind.label,
+            contentDescription = stringResource(entity.kind.labelRes),
             modifier = Modifier.size(15.dp),
             tint = accent,
         )
         Spacer(Modifier.width(6.dp))
         Column {
             Text(
-                entity.kind.tag,
+                stringResource(entity.kind.tagRes),
                 fontSize = 8.sp,
                 letterSpacing = 0.8.sp,
                 fontWeight = FontWeight.Medium,
@@ -10474,7 +10717,10 @@ private fun ClipEntitySourcePopup(entity: ClipEntity, onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 Text(
-                    "${entity.kind.label} · part of this clip",
+                    stringResource(
+                        R.string.ime_clip_entity_popup_title,
+                        stringResource(entity.kind.labelRes),
+                    ),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     color = kb.popupText.copy(alpha = 0.6f),
@@ -10553,15 +10799,20 @@ private fun ClipInfoPopup(item: ClipItem, onDismiss: () -> Unit) {
         java.text.SimpleDateFormat("MMM d, yyyy · h:mm a", java.util.Locale.getDefault())
             .format(java.util.Date(item.timestamp))
     }
-    val typeLabel = when (item.kind) {
-        ClipKind.TEXT -> "Text"
-        ClipKind.HTML -> "Rich text"
-        ClipKind.LINK -> "Link"
-        ClipKind.IMAGE -> "Image"
-        ClipKind.FILE -> "File"
-        ClipKind.FOLDER -> "Folder"
-        ClipKind.VIDEO -> "Video"
-    }
+    val typeLabel = stringResource(
+        when (item.kind) {
+            ClipKind.TEXT -> R.string.ime_clip_type_text
+            ClipKind.HTML -> R.string.ime_clip_type_rich_text
+            ClipKind.LINK -> R.string.ime_clip_type_link
+            ClipKind.IMAGE -> R.string.ime_clip_type_image
+            ClipKind.FILE -> R.string.ime_clip_type_file
+            ClipKind.FOLDER -> R.string.ime_clip_type_folder
+            ClipKind.VIDEO -> R.string.ime_clip_type_video
+        },
+    )
+    val characterCount = pluralStringResource(
+        R.plurals.ime_clip_character_count, item.text.length, item.text.length,
+    )
     val sizeLabel = when (item.kind) {
         ClipKind.IMAGE -> item.mimeType.substringAfterLast('/').takeIf { it.isNotBlank() }?.uppercase()
         ClipKind.FILE -> formatFileSize(item.fileSize)
@@ -10570,10 +10821,7 @@ private fun ClipInfoPopup(item: ClipItem, onDismiss: () -> Unit) {
             formatDuration(item.durationMs),
             formatFileSize(item.fileSize),
         ).joinToString(" · ").takeIf { it.isNotBlank() }
-        else -> {
-            val chars = item.text.length
-            "$chars character" + if (chars == 1) "" else "s"
-        }
+        else -> characterCount
     }
     Popup(
         popupPositionProvider = rememberAboveAnchorPopup(),
@@ -10590,14 +10838,22 @@ private fun ClipInfoPopup(item: ClipItem, onDismiss: () -> Unit) {
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                ClipInfoRow("Copied", "$relative\n$exact", kb.popupText)
-                item.sourceApp?.let { ClipInfoRow("From", it, kb.popupText) }
-                ClipInfoRow("Type", typeLabel, kb.popupText)
-                sizeLabel?.let { ClipInfoRow("Size", it, kb.popupText) }
+                ClipInfoRow(
+                    stringResource(R.string.ime_clip_info_copied),
+                    "$relative\n$exact",
+                    kb.popupText,
+                )
+                item.sourceApp?.let {
+                    ClipInfoRow(stringResource(R.string.ime_clip_info_from), it, kb.popupText)
+                }
+                ClipInfoRow(stringResource(R.string.ime_clip_info_type), typeLabel, kb.popupText)
+                sizeLabel?.let {
+                    ClipInfoRow(stringResource(R.string.ime_clip_info_size), it, kb.popupText)
+                }
                 if (item.sensitive) {
                     ClipInfoRow(
-                        "Private",
-                        "Hidden in the panel and deleted sooner than other clips",
+                        stringResource(R.string.ime_clip_info_private),
+                        stringResource(R.string.ime_clip_info_private_detail),
                         kb.popupText,
                     )
                 }
@@ -10690,7 +10946,9 @@ private fun ClipFileBody(item: ClipItem) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             if (isFolder) Icons.Outlined.Folder else fileIconFor(item.mimeType),
-            contentDescription = if (isFolder) "Folder" else "File",
+            contentDescription = stringResource(
+                if (isFolder) R.string.ime_clip_type_folder else R.string.ime_clip_type_file,
+            ),
             modifier = Modifier
                 .size(28.dp)
                 .padding(end = 6.dp),
@@ -10706,7 +10964,7 @@ private fun ClipFileBody(item: ClipItem) {
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = if (isFolder) "Folder" else listOfNotNull(
+                text = if (isFolder) stringResource(R.string.ime_clip_type_folder) else listOfNotNull(
                     formatFileSize(item.fileSize),
                     item.mimeType.substringAfterLast('/').takeIf { it.isNotBlank() }?.uppercase(),
                 ).joinToString(" · "),
@@ -10733,7 +10991,7 @@ private fun ClipSensitiveBody(item: ClipItem) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             Icons.Outlined.Lock,
-            contentDescription = "Hidden",
+            contentDescription = stringResource(R.string.ime_clip_hidden_desc),
             modifier = Modifier
                 .size(22.dp)
                 .padding(end = 6.dp),
@@ -10749,7 +11007,9 @@ private fun ClipSensitiveBody(item: ClipItem) {
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "Hidden · ${item.text.length} characters",
+                text = pluralStringResource(
+                    R.plurals.ime_clip_hidden_summary, item.text.length, item.text.length,
+                ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontSize = 10.sp,
@@ -10801,7 +11061,7 @@ private fun ClipVideoBody(item: ClipItem) {
         Box(contentAlignment = Alignment.Center) {
             Image(
                 bitmap = thumbnail,
-                contentDescription = "Copied video",
+                contentDescription = stringResource(R.string.ime_clip_video_desc),
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(
@@ -10867,7 +11127,7 @@ private fun ClipLinkBody(item: ClipItem) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 Icons.Outlined.Link,
-                contentDescription = "Link",
+                contentDescription = stringResource(R.string.ime_clip_type_link),
                 modifier = Modifier
                     .size(22.dp)
                     .padding(end = 4.dp),
@@ -10972,7 +11232,7 @@ private fun ClipThumbnail(item: ClipItem) {
         val ratio = natural.coerceIn(MIN_THUMBNAIL_RATIO, MAX_THUMBNAIL_RATIO)
         Image(
             bitmap = it,
-            contentDescription = "Copied image",
+            contentDescription = stringResource(R.string.ime_clip_chip_image),
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(ratio)

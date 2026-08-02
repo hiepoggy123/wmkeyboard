@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.tools.R
+
 /**
  * How far one AI request has got. A cloud request spends most of its life
  * waiting, and an anonymous spinner can't tell "your Wi-Fi is gone" from "the
@@ -29,12 +32,13 @@ enum class AiPhase {
     ;
 
     /** Step label for the panel's progress readout. */
-    val label: String
+    @get:StringRes
+    val labelRes: Int
         get() = when (this) {
-            PREPARING -> "Preparing"
-            CONNECTING -> "Connecting"
-            WAITING -> "Waiting for the model"
-            THINKING -> "Reasoning"
+            PREPARING -> R.string.core_tools_ai_phase_preparing
+            CONNECTING -> R.string.core_tools_ai_phase_connecting
+            WAITING -> R.string.core_tools_ai_phase_waiting
+            THINKING -> R.string.core_tools_ai_phase_thinking
         }
 
     /**

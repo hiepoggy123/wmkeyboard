@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the add-on catalogue screens in :app.
+
+  Three screens share this file: the list of add-on repositories the user has
+  added, one repository's catalogue, and one add-on's detail page. The names of
+  the add-on kinds themselves (Theme, Layout, Sticker pack, …) are not here.
+  They live in :core:addons and the UI resolves them from AddonType.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ================================================================== -->
+    <!-- The list of add-on repositories.                                   -->
+    <!-- ================================================================== -->
+
+    <!-- Heading of a repository page when the repository states no name. -->
+    <string name="addon_repo_title_fallback">Browse add-ons</string>
+    <string name="addon_repos_section_title">Repositories</string>
+    <!-- Section heading over the add-ons the user has installed. -->
+    <string name="addon_installed_section_title">Installed</string>
+    <string name="addon_repos_intro_body">Add-on repositories are ordinary web pages. They list themes, layouts, dictionaries, snippets, sticker packs, icon packs, fonts, emoji fonts and key sounds. An add-on holds plain data. The app does not run code when you install one.</string>
+    <string name="addon_repos_empty">No repositories yet. Add one with its address to see what it offers.</string>
+    <!-- Button that opens the add-repository dialog, and the title of that dialog. -->
+    <string name="addon_repo_add_action">Add repository</string>
+    <string name="addon_repo_refresh_action">Refresh</string>
+    <string name="addon_repo_refreshing_progress">Refreshing…</string>
+    <string name="addon_repo_options_desc">Repository options</string>
+    <string name="addon_repo_homepage_action">Open the homepage</string>
+    <!-- Row subtitle: the app has not read this repository one time yet. -->
+    <string name="addon_repo_not_loaded">Not loaded yet</string>
+    <!-- Row subtitle: the app got no answer, or an answer it cannot parse. -->
+    <string name="addon_repo_unreadable">The app cannot read it</string>
+    <!-- Row subtitle: how many add-ons this repository offers. -->
+    <plurals name="addon_repo_addon_count">
+        <item quantity="one">%1$d add-on</item>
+        <item quantity="other">%1$d add-ons</item>
+    </plurals>
+
+    <!-- ================================================================== -->
+    <!-- The add-repository dialog.                                         -->
+    <!-- ================================================================== -->
+
+    <!-- %1$s is the file name of a repository manifest, for example wmkeyboard-repo.json. -->
+    <string name="addon_repo_add_body">Paste the address of the repository. Use a GitHub link, or a direct link to its <xliff:g id="manifest_file" example="wmkeyboard-repo.json">%1$s</xliff:g> file.</string>
+    <string name="addon_repo_url_label">Repository URL</string>
+    <!-- Shown under the address field. %1$s is the address the app resolved. -->
+    <string name="addon_repo_resolved_label">The app reads <xliff:g id="url" example="https://example.com/wmkeyboard-repo.json">%1$s</xliff:g></string>
+    <string name="addon_repo_url_invalid_error">The app cannot read that address. It must be an https address.</string>
+    <!-- Dialog message. %1$s is the file name of a repository manifest. -->
+    <string name="addon_repo_add_invalid_url_error">That is not a repository address. It must be an https link to a GitHub repository, or a direct link to a <xliff:g id="manifest_file" example="wmkeyboard-repo.json">%1$s</xliff:g> file.</string>
+    <string name="addon_repo_add_unreadable_error">The app cannot read an add-on repository at that address.</string>
+
+    <!-- ================================================================== -->
+    <!-- The prompt after an install: use this add-on now, or later.        -->
+    <!-- ================================================================== -->
+
+    <!-- Dialog title. %1$s is the name of the add-on, or the name of its kind
+         (Theme, Layout, …) when the add-on states no name. -->
+    <string name="addon_apply_installed_title">%1$s is installed</string>
+    <string name="addon_apply_not_now_action">Not now</string>
+
+    <!-- ================================================================== -->
+    <!-- One repository: the catalogue of what it offers.                   -->
+    <!-- ================================================================== -->
+
+    <string name="addon_repo_read_error">The app cannot read this repository. Refresh it from the Add-ons screen.</string>
+    <!-- Filter chip that keeps every kind of add-on in the list. -->
+    <string name="addon_filter_all_label">All</string>
+    <string name="addon_catalogue_empty">Nothing here matches your search.</string>
+    <!-- Status of one add-on: on a card, in the Status row, and on the button. -->
+    <string name="addon_status_installed">Installed</string>
+    <!-- Content description of the badge on a card whose install did not work. -->
+    <string name="addon_status_failed_desc">The install failed</string>
+
+    <!-- ================================================================== -->
+    <!-- One add-on: its page.                                              -->
+    <!-- ================================================================== -->
+
+    <string name="addon_details_section_title">Details</string>
+    <string name="addon_detail_repository_label">Repository</string>
+    <string name="addon_detail_size_label">Size</string>
+    <string name="addon_detail_status_label">Status</string>
+    <!-- Row label over the list of languages an add-on holds. -->
+    <plurals name="addon_detail_language_label">
+        <item quantity="one">Language</item>
+        <item quantity="other">Languages</item>
+    </plurals>
+    <!-- Shown for a repository the user reached from a link but did not add. -->
+    <string name="addon_detail_repo_not_added">This repository is not in your list. Installing adds it.</string>
+    <!-- Name shown for a repository that states no name of its own. -->
+    <string name="addon_repo_unnamed">Unnamed repository</string>
+    <string name="addon_detail_not_found">The app cannot find that add-on. The repository possibly changed.</string>
+    <string name="addon_uninstalled_body">The app uninstalled this add-on.</string>
+    <string name="addon_detail_offline_body">This screen shows the data that the app saved at install time. The app cannot read the repository now, so it cannot check for updates.</string>
+    <string name="addon_detail_needs_newer_app">This add-on needs a newer version of WM Keyboard.</string>
+    <!-- Shown before the Install button when the plugin system is off. The
+         quoted words are the name of a setting on another screen. -->
+    <string name="addon_detail_plugins_off_body">Plugins are off. Turn on “Allow plugins” under Tools › Plugins. Then install this add-on.\nThe Plugins tool on the toolbar is a different setting. It only controls where the panel opens.</string>
+    <!-- Button that opens the screen where the user selects this add-on.
+         %1$s is the name of that screen, for example Themes or Fonts. -->
+    <string name="addon_use_open_action">Use it: open %1$s</string>
+    <!-- Transfer progress. %1$s is the size read so far, %2$s the total size.
+         Both are already formatted, for example "1.2 MB". -->
+    <string name="addon_download_progress">%1$s of %2$s</string>
+    <string name="addon_checking_progress">Checking the download…</string>
+    <string name="addon_screenshot_desc">Screenshot</string>
+    <!-- Content description. %1$d is the position of the screenshot in the row. -->
+    <string name="addon_screenshot_numbered_desc">Screenshot %1$d</string>
+
+    <!-- ================================================================== -->
+    <!-- The licence of one add-on.                                         -->
+    <!-- ================================================================== -->
+
+    <string name="addon_licence_title">Licence</string>
+    <string name="addon_licence_read_hint">Press to read the licence</string>
+    <!-- Row value for an add-on that names no licence. -->
+    <string name="addon_licence_not_stated">Not stated</string>
+    <string name="addon_licence_download_error">The app cannot download the licence text.</string>
+
+    <!-- ================================================================== -->
+    <!-- The preview of what is inside an add-on, before you install it.    -->
+    <!-- ================================================================== -->
+
+    <string name="addon_preview_action">Preview</string>
+    <string name="addon_preview_section_title">Preview</string>
+    <string name="addon_preview_loading_progress">Loading the preview…</string>
+    <string name="addon_preview_error">The app cannot download the preview.</string>
+    <!-- Last line of a short list. %1$d is how many more items the pack holds. -->
+    <plurals name="addon_preview_more_count">
+        <item quantity="one">…and %1$d more</item>
+        <item quantity="other">…and %1$d more</item>
+    </plurals>
+    <!-- How many emoji this pack gives a name to. %1$d is the count. -->
+    <plurals name="addon_preview_emoji_count">
+        <item quantity="one">%1$d emoji has a name</item>
+        <item quantity="other">%1$d emoji have names</item>
+    </plurals>
+    <!-- Same count, when the app stopped reading the file before the end. -->
+    <plurals name="addon_preview_emoji_count_over">
+        <item quantity="one">More than %1$d emoji has a name</item>
+        <item quantity="other">More than %1$d emoji have names</item>
+    </plurals>
+    <plurals name="addon_preview_sticker_count">
+        <item quantity="one">%1$d sticker</item>
+        <item quantity="other">%1$d stickers</item>
+    </plurals>
+    <string name="addon_preview_play_sound_title">Play the sound</string>
+    <!-- How many words a word list holds. %1$d is the count. -->
+    <plurals name="addon_preview_word_count">
+        <item quantity="one">%1$d word</item>
+        <item quantity="other">%1$d words</item>
+    </plurals>
+    <!-- Same count, when the app stopped reading the file before the end. -->
+    <plurals name="addon_preview_word_count_over">
+        <item quantity="one">More than %1$d word</item>
+        <item quantity="other">More than %1$d words</item>
+    </plurals>
+    <!-- Button that opens the full word list. %1$d is how many words it shows. -->
+    <plurals name="addon_preview_show_words_action">
+        <item quantity="one">Show %1$d word</item>
+        <item quantity="other">Show %1$d words</item>
+    </plurals>
+    <string name="addon_preview_show_all_words_action">Show all the words</string>
+    <!-- Note over a part of a word list. %1$d is how many words the app shows,
+         %2$d how many the word list holds. -->
+    <plurals name="addon_preview_partial_words">
+        <item quantity="one">This list shows the first %1$d word of %2$d. The app installs all of them.</item>
+        <item quantity="other">This list shows the first %1$d words of %2$d. The app installs all of them.</item>
+    </plurals>
+    <!-- Same note, when the app stopped reading the file before the end. -->
+    <plurals name="addon_preview_partial_words_over">
+        <item quantity="one">This list shows the first %1$d word of more than %2$d. The app installs all of them.</item>
+        <item quantity="other">This list shows the first %1$d words of more than %2$d. The app installs all of them.</item>
+    </plurals>
+
+    <!-- ================================================================== -->
+    <!-- What a plugin is permitted to do, shown before you install it.     -->
+    <!-- ================================================================== -->
+
+    <string name="addon_plugin_permissions_title">What this plugin can do</string>
+    <!-- Shown for a plugin that asks for no permission at all. -->
+    <string name="addon_plugin_no_permissions_title">Nothing outside its own panel</string>
+    <string name="addon_plugin_sandbox_body">Plugins run in a sandbox. This plugin cannot see what you type, read your clipboard, or use the internet. A plugin cannot ask for those abilities.</string>
+
+    <!-- ================================================================== -->
+    <!-- The Use button, which names the screen it opens. These are screen   -->
+    <!-- names only. The Snippets, Emoji and Plugins destinations are tools, -->
+    <!-- and they read their name from the keyboard module so that there is  -->
+    <!-- one copy of each tool name in the app.                              -->
+    <!-- ================================================================== -->
+
+    <string name="addon_use_target_theme_label">Themes</string>
+    <string name="addon_use_target_layout_label">Languages</string>
+    <string name="addon_use_target_dictionary_label">Custom dictionaries</string>
+    <string name="addon_use_target_emoji_keywords_label">Emoji keywords</string>
+    <string name="addon_use_target_stickers_label">Sticker packs</string>
+    <string name="addon_use_target_icons_label">Icons</string>
+    <string name="addon_use_target_font_label">Fonts</string>
+    <string name="addon_use_target_sound_label">Key press</string>
+    <!-- Button that opens another screen. %1$s is the name of that screen,
+         for example Plugins. -->
+    <string name="addon_open_screen_action">Open %1$s</string>
+
+</resources>

@@ -47,8 +47,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmDownloadManager
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmDownloadManager.DownloadStatus
@@ -118,19 +121,19 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
         }
     }
 
-    SettingsGroup("Hugging Face account") {
+    SettingsGroup(stringResource(R.string.models_llm_account_title)) {
         item {
             ApiKeyField(
-                label = "Access token",
+                label = stringResource(R.string.models_llm_token_label),
                 value = settings.hfToken,
                 builtInAvailable = false,
-                emptyHint = "Only needed for gated models (Gemma)",
+                emptyHint = stringResource(R.string.models_llm_token_hint),
             ) { repository.setHfToken(it) }
         }
         item {
             Row(modifier = Modifier.padding(horizontal = 16.dp)) {
                 TextButton(onClick = { uriHandler.openUri(LocalLlmCatalog.TOKEN_URL) }) {
-                    Text("Get a token")
+                    Text(stringResource(R.string.models_llm_get_token_action))
                 }
             }
         }
@@ -176,7 +179,10 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
     if (yours.isNotEmpty() || customModels.isNotEmpty()) {
         val downloadedBytes = yours.sumOf { it.sizeBytes } +
             customModels.sumOf { it.length() }
-        ModelsSectionHeader("Your models", formatBytes(downloadedBytes))
+        ModelsSectionHeader(
+            stringResource(R.string.models_llm_yours_title),
+            formatBytes(downloadedBytes),
+        )
     }
     SettingsGroup {
         for (model in yours) item { catalogRow(model) }
@@ -201,20 +207,15 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
         }
     }
     if (yours.isEmpty() && customModels.isEmpty()) {
-        CaptionText("No models on this device yet — download one below to use AI offline.")
+        CaptionText(stringResource(R.string.models_llm_empty))
     }
 
-    SettingsGroup("Available to download") {
+    SettingsGroup(stringResource(R.string.models_llm_available_title)) {
         for (model in available) item { catalogRow(model) }
     }
-    CaptionText(
-        "Ordered best-first, not smallest-first: the models at the top write " +
-            "better but download bigger, respond slower and need more memory. " +
-            "Gated models need a Hugging Face account — add your token above " +
-            "and accept the license on the model's page once.",
-    )
+    CaptionText(stringResource(R.string.models_llm_catalog_info))
 
-    SettingsGroup("Import your own") {
+    SettingsGroup(stringResource(R.string.models_llm_import_title)) {
         item {
             ImportModelButton(
                 importing = importing,
@@ -228,12 +229,9 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
         }
     }
     importError?.let { CaptionText(it, error = true) }
-    CaptionText(
-        "Import any LiteRT-LM model (.litertlm or .task file) — for example " +
-            "one you converted yourself or downloaded in a browser.",
-    )
+    CaptionText(stringResource(R.string.models_llm_import_info))
 
-    SectionHeader("Compute")
+    SectionHeader(stringResource(R.string.models_llm_compute_title))
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.padding(horizontal = 16.dp),
@@ -242,32 +240,21 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
             FilterChip(
                 selected = settings.aiLocalBackend == backend,
                 onClick = { scope.launch { repository.setAiLocalBackend(backend) } },
-                label = { Text(backend.label) },
+                label = { Text(stringResource(backend.labelRes)) },
             )
         }
     }
-    CaptionText(
-        "GPU is experimental. It falls back to CPU on its own if it fails to " +
-            "start, or if a model crashes mid-answer — GPU memory is much " +
-            "tighter than system RAM, so bigger models often need CPU. Pick " +
-            "CPU here if the GPU keeps failing.",
-    )
+    CaptionText(stringResource(R.string.models_llm_compute_info))
 
     if (storageUsed > 0) {
-        CaptionText(
-            "Models use ${formatBytes(storageUsed)} of storage, kept privately in " +
-                "app storage. A download you cancel or lose connection on " +
-                "resumes from where it stopped.",
-        )
+        CaptionText(stringResource(R.string.models_llm_storage_info, formatBytes(storageUsed)))
     }
     // A model dropped from the catalog leaves a directory no row can reach.
     // Report it and let the user decide rather than deleting a multi-GB file
     // they paid the bandwidth for.
     if (orphanBytes > 0) {
-        CaptionText(
-            "${formatBytes(orphanBytes)} belongs to models that are no longer in " +
-                "the catalog and can't be selected any more.",
-        )
+        CaptionText(stringResource(R.string.models_llm_orphan_info, formatBytes(orphanBytes)))
+        val freeUpLabel = stringResource(R.string.models_free_up_action, formatBytes(orphanBytes))
         Row(modifier = Modifier.padding(horizontal = 16.dp)) {
             TextButton(onClick = {
                 scope.launch {
@@ -277,28 +264,33 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
                         LocalLlmStore.totalBytesUsed(filesDir)
                     }
                 }
-            }) { Text("Free up ${formatBytes(orphanBytes)}") }
+            }) { Text(freeUpLabel) }
         }
     }
 
     meteredPending?.let { model ->
         AlertDialog(
             onDismissRequest = { meteredPending = null },
-            title = { Text("Use mobile data?") },
+            title = { Text(stringResource(R.string.models_metered_title)) },
             text = {
                 Text(
-                    "${model.displayName} is a ${formatBytes(model.sizeBytes)} download " +
-                        "and you're on a metered connection.",
+                    stringResource(
+                        R.string.models_metered_body,
+                        model.displayName,
+                        formatBytes(model.sizeBytes),
+                    ),
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     startDownload(model)
                     meteredPending = null
-                }) { Text("Download anyway") }
+                }) { Text(stringResource(R.string.models_metered_confirm_action)) }
             },
             dismissButton = {
-                TextButton(onClick = { meteredPending = null }) { Text("Wait for Wi-Fi") }
+                TextButton(onClick = { meteredPending = null }) {
+                    Text(stringResource(R.string.models_metered_dismiss_action))
+                }
             },
         )
     }
@@ -346,11 +338,14 @@ private fun CatalogModelRow(
     onOpenLicense: () -> Unit,
 ) {
     val downloaded = status is DownloadStatus.Downloaded
-    val subtitle = buildString {
-        append("${model.params} · ${formatBytes(model.sizeBytes)}")
-        append(" · ${model.description}")
-        if (tooBigForRam) append(" May be too large for this device.")
-    }
+    val facts = stringResource(
+        R.string.models_llm_row_subtitle,
+        model.params,
+        formatBytes(model.sizeBytes),
+        stringResource(model.descriptionRes),
+    )
+    val tooBigNote = stringResource(R.string.models_llm_row_too_big)
+    val subtitle = if (tooBigForRam) "$facts $tooBigNote" else facts
     // Tapping the row selects a downloaded model — the "Use this model"
     // button stays for discoverability, but the whole row is the target.
     val rowClick = if (downloaded && !selected) onSelect else null
@@ -366,7 +361,7 @@ private fun CatalogModelRow(
                     if (model.gated && !downloaded) {
                         Icon(
                             Icons.Outlined.Lock,
-                            contentDescription = "Requires a Hugging Face token",
+                            contentDescription = stringResource(R.string.models_llm_gated_desc),
                             modifier = Modifier
                                 .padding(start = 6.dp)
                                 .size(14.dp),
@@ -380,7 +375,7 @@ private fun CatalogModelRow(
                 Column {
                     if (selected && downloaded) {
                         Text(
-                            "In use",
+                            stringResource(R.string.models_in_use_label),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -389,7 +384,12 @@ private fun CatalogModelRow(
                 }
             },
             leading = if (selected && downloaded) {
-                { Icon(Icons.Outlined.Check, contentDescription = "Selected") }
+                {
+                    Icon(
+                        Icons.Outlined.Check,
+                        contentDescription = stringResource(R.string.models_selected_desc),
+                    )
+                }
             } else null,
             // The primary action for a row lives on its right edge, where a
             // list's actions belong — not on a button underneath it.
@@ -398,22 +398,38 @@ private fun CatalogModelRow(
                     is DownloadStatus.Downloaded -> IconButton(onClick = onDelete) {
                         Icon(
                             Icons.Outlined.Delete,
-                            contentDescription = "Delete ${model.displayName}",
+                            contentDescription = stringResource(
+                                R.string.models_delete_model_desc,
+                                model.displayName,
+                            ),
                         )
                     }
                     is DownloadStatus.Downloading -> IconButton(onClick = onCancel) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Cancel download")
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = stringResource(
+                                R.string.models_cancel_download_desc,
+                            ),
+                        )
                     }
                     is DownloadStatus.Paused -> TextButton(
                         onClick = onDownload,
                         enabled = !downloadBusy,
-                    ) { Text("Resume") }
+                    ) { Text(stringResource(R.string.models_resume_action)) }
                     is DownloadStatus.NotDownloaded, is DownloadStatus.Failed ->
                         if (!model.gated || hasToken) {
                             TextButton(
                                 onClick = onDownload,
                                 enabled = !downloadBusy,
-                            ) { Text(if (status is DownloadStatus.Failed) "Retry" else "Download") }
+                            ) {
+                                Text(
+                                    if (status is DownloadStatus.Failed) {
+                                        stringResource(CommonR.string.common_retry)
+                                    } else {
+                                        stringResource(CommonR.string.common_download)
+                                    },
+                                )
+                            }
                         }
                 }
             },
@@ -425,20 +441,30 @@ private fun CatalogModelRow(
         Column(modifier = Modifier.animateContentSize()) {
             when (status) {
                 is DownloadStatus.NotDownloaded -> if (model.gated && !hasToken) {
-                    CaptionText("Add your Hugging Face token above to download this model.")
+                    CaptionText(stringResource(R.string.models_llm_needs_token))
                 }
                 is DownloadStatus.Downloading -> DownloadProgress(status.bytes, status.total)
-                is DownloadStatus.Paused -> CaptionText("Paused at ${formatBytes(status.bytes)}")
+                is DownloadStatus.Paused -> CaptionText(
+                    stringResource(R.string.models_paused_progress, formatBytes(status.bytes)),
+                )
                 is DownloadStatus.Downloaded -> if (!selected) {
                     Row(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        TextButton(onClick = onSelect) { Text("Use this model") }
+                        TextButton(onClick = onSelect) {
+                            Text(stringResource(R.string.models_use_action))
+                        }
                     }
                 }
                 is DownloadStatus.Failed -> {
-                    CaptionText(status.message, error = true)
+                    CaptionText(
+                        if (status.messageArg.isEmpty()) stringResource(status.messageRes)
+                        else stringResource(status.messageRes, status.messageArg),
+                        error = true,
+                    )
                     if (status.reason == FailReason.LICENSE_NOT_ACCEPTED) {
                         Row(modifier = Modifier.padding(horizontal = 16.dp)) {
-                            TextButton(onClick = onOpenLicense) { Text("Open model page") }
+                            TextButton(onClick = onOpenLicense) {
+                                Text(stringResource(R.string.models_llm_open_model_page_action))
+                            }
                         }
                     }
                 }
@@ -465,7 +491,7 @@ private fun CustomModelRow(
                 Column {
                     if (selected) {
                         Text(
-                            "In use",
+                            stringResource(R.string.models_in_use_label),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -474,18 +500,31 @@ private fun CustomModelRow(
                 }
             },
             leading = if (selected) {
-                { Icon(Icons.Outlined.Check, contentDescription = "Selected") }
+                {
+                    Icon(
+                        Icons.Outlined.Check,
+                        contentDescription = stringResource(R.string.models_selected_desc),
+                    )
+                }
             } else null,
             trailing = {
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Delete ${file.name}")
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = stringResource(
+                            R.string.models_delete_model_desc,
+                            file.name,
+                        ),
+                    )
                 }
             },
             modifier = Modifier.padding(horizontal = 4.dp),
         )
         if (!selected) {
             Row(modifier = Modifier.padding(horizontal = 16.dp)) {
-                TextButton(onClick = onSelect) { Text("Use this model") }
+                TextButton(onClick = onSelect) {
+                    Text(stringResource(R.string.models_use_action))
+                }
             }
         }
     }
@@ -522,7 +561,8 @@ private fun SelectionHighlight(
 /** "Recommended" / "Untested" / "Experimental" chip next to a model's name. */
 @Composable
 private fun TierBadge(tier: ModelTier) {
-    val label = tier.badge ?: return
+    val badgeRes = tier.badgeRes ?: return
+    val label = stringResource(badgeRes)
     val container = if (tier == ModelTier.RECOMMENDED) {
         MaterialTheme.colorScheme.primaryContainer
     } else {
@@ -554,7 +594,12 @@ private fun DownloadProgress(bytes: Long, total: Long) {
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                "${formatBytes(bytes)} of ${formatBytes(total)} · ${(bytes * 100 / total)}%",
+                stringResource(
+                    R.string.models_download_progress,
+                    formatBytes(bytes),
+                    formatBytes(total),
+                    bytes * 100 / total,
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
@@ -600,7 +645,15 @@ private fun ImportModelButton(
         TextButton(
             onClick = { launcher.launch(arrayOf("*/*")) },
             enabled = !importing,
-        ) { Text(if (importing) "Importing…" else "Import model file") }
+        ) {
+            Text(
+                if (importing) {
+                    stringResource(R.string.models_llm_importing_label)
+                } else {
+                    stringResource(R.string.models_llm_import_action)
+                },
+            )
+        }
     }
 }
 
@@ -624,24 +677,31 @@ private fun importModel(context: Context, uri: android.net.Uri) {
     // DISPLAY_NAME comes straight from the provider and may contain path
     // separators, so it is reduced to its last segment before it is ever used
     // to build a path. File(..).name is that sanitisation step.
-    val reportedName = name ?: throw IllegalArgumentException("Couldn't read the file's name")
+    val reportedName = name
+        ?: throw IllegalArgumentException(
+            context.getString(R.string.models_llm_import_error_no_name),
+        )
     val fileName = File(reportedName).name
     val extension = fileName.substringAfterLast('.', "").lowercase()
     require(extension == "litertlm" || extension == "task") {
-        "Not a model file — expected a .litertlm or .task file"
+        context.getString(R.string.models_llm_import_error_not_a_model)
     }
     val dir = LocalLlmStore.customDir(context.filesDir).apply { mkdirs() }
     val free = android.os.StatFs(dir.path).availableBytes
     require(size < 0 || free > size + 64L * 1024 * 1024) {
-        "Not enough storage for this ${formatBytes(size)} file"
+        context.getString(R.string.models_llm_import_error_no_space, formatBytes(size))
     }
     val part = File(dir, "$fileName.part")
     val target = File(dir, fileName)
     try {
         context.contentResolver.openInputStream(uri)?.use { input ->
             part.outputStream().use { output -> input.copyTo(output) }
-        } ?: throw IllegalArgumentException("Couldn't open the selected file")
-        check(part.renameTo(target)) { "Couldn't move the imported file into place" }
+        } ?: throw IllegalArgumentException(
+            context.getString(R.string.models_llm_import_error_open),
+        )
+        check(part.renameTo(target)) {
+            context.getString(R.string.models_llm_import_error_move)
+        }
     } finally {
         part.delete()
     }

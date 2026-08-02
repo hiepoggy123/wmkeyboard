@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.tools
 import android.content.Context
 import android.provider.CalendarContract
 import android.text.format.DateUtils
+import com.wasimaster.wmkeyboard.tools.R
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -60,6 +61,8 @@ object DeviceCalendar {
             .build()
 
         val targetEpochDay = utcEpochDay(year, month, day)
+        // Read once, outside the cursor loop.
+        val noTitle = context.getString(R.string.core_tools_calendar_event_no_title)
         val events = ArrayList<DeviceCalendarEvent>()
         runCatching {
             context.contentResolver.query(
@@ -80,7 +83,7 @@ object DeviceCalendar {
                     events.add(
                         DeviceCalendarEvent(
                             id = c.getLong(0),
-                            title = c.getString(1)?.takeIf { it.isNotBlank() } ?: "(No title)",
+                            title = c.getString(1)?.takeIf { it.isNotBlank() } ?: noTitle,
                             begin = begin,
                             end = end,
                             allDay = allDay,

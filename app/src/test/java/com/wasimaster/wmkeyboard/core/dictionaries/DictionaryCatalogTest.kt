@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.dictionaries
 
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.prediction.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -63,8 +64,17 @@ class DictionaryCatalogTest {
             assertTrue("${entry.id} gz size", entry.approxGzBytes > 0)
         }
         // The pt special case: two entries, one language, distinct variants.
+        // The variant label is a string resource now, so the two are told apart
+        // by which resource each names — the point being that they name two
+        // different ones, whatever those two happen to say.
         val pt = DictionaryCatalog.forLanguage("pt")
         assertEquals(2, pt.size)
-        assertEquals(setOf("Europe", "Brazil"), pt.mapNotNull { it.variant }.toSet())
+        assertEquals(
+            setOf(
+                R.string.core_pred_wordlist_variant_europe_label,
+                R.string.core_pred_wordlist_variant_brazil_label,
+            ),
+            pt.mapNotNull { it.variantRes }.toSet(),
+        )
     }
 }

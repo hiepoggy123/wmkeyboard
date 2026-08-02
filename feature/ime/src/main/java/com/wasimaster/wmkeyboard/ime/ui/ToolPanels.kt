@@ -92,6 +92,9 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -111,8 +114,10 @@ import com.wasimaster.wmkeyboard.core.tools.DeviceCalendarEvent
 import com.wasimaster.wmkeyboard.core.tools.MoonPhase
 import com.wasimaster.wmkeyboard.core.tools.Qibla
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.WeatherUi
 import com.wasimaster.wmkeyboard.core.layout.Key
@@ -265,7 +270,7 @@ internal fun CompassPanel(state: KeyboardUiState) {
 
     if (sensor == null) {
         Box(Modifier.fillMaxSize()) {
-            PanelMessage("This device has no orientation sensor.")
+            PanelMessage(stringResource(R.string.ime_compass_no_sensor_empty))
         }
         return
     }
@@ -359,7 +364,11 @@ internal fun CompassPanel(state: KeyboardUiState) {
         if (state.settings.compassShowDegrees) {
             val shown = azimuth.roundToInt() % 360
             Text(
-                if (hasReading) "$shown°  ${cardinal(shown)}" else "Calibrating…",
+                if (hasReading) {
+                    "$shown°  ${cardinal(shown)}"
+                } else {
+                    stringResource(R.string.ime_compass_calibrating_progress)
+                },
                 color = kb.modifierKeyText,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -368,9 +377,13 @@ internal fun CompassPanel(state: KeyboardUiState) {
         if (state.settings.compassShowQibla) {
             Text(
                 if (qiblaBearing != null) {
-                    "Qibla ${qiblaBearing.roundToInt()}° ${cardinal(qiblaBearing.roundToInt())}"
+                    stringResource(
+                        R.string.ime_compass_qibla_info,
+                        qiblaBearing.roundToInt(),
+                        cardinal(qiblaBearing.roundToInt()),
+                    )
                 } else {
-                    "Qibla needs a saved location (weather tool settings)"
+                    stringResource(R.string.ime_compass_qibla_no_location_info)
                 },
                 color = kb.toolbarIcon,
                 fontSize = 12.sp,
@@ -445,7 +458,7 @@ internal fun LevelPanel(state: KeyboardUiState) {
 
     if (sensor == null) {
         Box(Modifier.fillMaxSize()) {
-            PanelMessage("This device has no accelerometer.")
+            PanelMessage(stringResource(R.string.ime_level_no_sensor_empty))
         }
         return
     }
@@ -618,25 +631,34 @@ internal fun MoonPhasePanel(state: KeyboardUiState) {
         Spacer(Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1.4f)) {
             Text(
-                MoonPhase.phaseName(info.phaseIndex),
+                stringResource(MoonPhase.phaseNameRes(info.phaseIndex)),
                 color = kb.modifierKeyText,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                "${(info.illumination * 100).roundToInt()}% illuminated · " +
-                    "day ${info.ageDays.roundToInt()} of 30",
+                stringResource(
+                    R.string.ime_moon_detail_info,
+                    (info.illumination * 100).roundToInt(),
+                    info.ageDays.roundToInt(),
+                ),
                 color = kb.toolbarIcon,
                 fontSize = 12.sp,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "Full moon: ${dateFormat.format(Date(info.nextFullMoonMillis))}",
+                stringResource(
+                    R.string.ime_moon_full_info,
+                    dateFormat.format(Date(info.nextFullMoonMillis)),
+                ),
                 color = kb.modifierKeyText,
                 fontSize = 13.sp,
             )
             Text(
-                "New moon: ${dateFormat.format(Date(info.nextNewMoonMillis))}",
+                stringResource(
+                    R.string.ime_moon_new_info,
+                    dateFormat.format(Date(info.nextNewMoonMillis)),
+                ),
                 color = kb.modifierKeyText,
                 fontSize = 13.sp,
             )
@@ -698,35 +720,37 @@ internal fun WeatherPanel(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    "No location set. Search for your city in the weather tool's settings.",
+                    stringResource(R.string.ime_weather_no_location_empty),
                     color = kb.toolbarIcon,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
                 Spacer(Modifier.height(10.dp))
+                val openSettings = stringResource(R.string.ime_weather_open_settings_action)
                 ToolPanelKey(
-                    description = "Open settings",
-                    label = "Open settings",
+                    description = openSettings,
+                    label = openSettings,
                     modifier = Modifier.height(40.dp).width(160.dp),
                 ) { onOpenSettings() }
             }
-            WeatherUi.Loading -> PanelMessage("Fetching weather…")
+            WeatherUi.Loading -> PanelMessage(stringResource(R.string.ime_weather_progress))
             WeatherUi.Error -> Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    "Couldn't fetch the weather. Check your connection.",
+                    stringResource(R.string.ime_weather_error),
                     color = kb.toolbarIcon,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(10.dp))
+                val retry = stringResource(CommonR.string.common_retry)
                 ToolPanelKey(
-                    description = "Retry",
-                    label = "Retry",
+                    description = retry,
+                    label = retry,
                     modifier = Modifier.height(40.dp).width(120.dp),
                 ) { onRefresh() }
             }
@@ -744,9 +768,12 @@ internal fun WeatherPanel(
                         Text(WeatherClient.emoji(info.weatherCode, info.isDay), fontSize = 40.sp)
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
+                            val conditions = stringResource(
+                                WeatherClient.describeRes(info.weatherCode),
+                            )
                             Text(
                                 "${WeatherClient.toDisplay(info.temperatureC, fahrenheit)}$unit · " +
-                                    WeatherClient.describe(info.weatherCode),
+                                    conditions,
                                 color = kb.modifierKeyText,
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -754,12 +781,13 @@ internal fun WeatherPanel(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             val place = state.settings.weatherPlaceName.ifBlank { null }
+                            val highLow = stringResource(
+                                R.string.ime_weather_high_low_info,
+                                WeatherClient.toDisplay(info.highC, fahrenheit),
+                                WeatherClient.toDisplay(info.lowC, fahrenheit),
+                            )
                             Text(
-                                listOfNotNull(
-                                    place,
-                                    "H ${WeatherClient.toDisplay(info.highC, fahrenheit)}° " +
-                                        "L ${WeatherClient.toDisplay(info.lowC, fahrenheit)}°",
-                                ).joinToString(" · "),
+                                listOfNotNull(place, highLow).joinToString(" · "),
                                 color = kb.toolbarIcon,
                                 fontSize = 12.sp,
                                 maxLines = 1,
@@ -769,7 +797,9 @@ internal fun WeatherPanel(
                         IconButton(onClick = onRefresh) {
                             Icon(
                                 Icons.Outlined.Refresh,
-                                contentDescription = "Refresh weather",
+                                contentDescription = stringResource(
+                                    R.string.ime_weather_refresh_desc,
+                                ),
                                 tint = kb.toolbarIcon,
                             )
                         }
@@ -778,40 +808,74 @@ internal fun WeatherPanel(
                     // All stats visible at once in a wrapping grid — the
                     // panel has spare height, so use it instead of making
                     // the user scroll sideways through a strip.
+                    // The captions are read before the list is built: the
+                    // builder lambda is a plain lambda, not a composable one.
+                    val feelsLikeCaption = stringResource(R.string.ime_weather_feels_like_label)
+                    val humidityCaption = stringResource(R.string.ime_weather_humidity_label)
+                    val windCaption = stringResource(R.string.ime_weather_wind_label)
+                    val rainCaption = stringResource(R.string.ime_weather_rain_chance_label)
+                    val cloudsCaption = stringResource(R.string.ime_weather_clouds_label)
+                    val uvCaption = stringResource(R.string.ime_weather_uv_label)
+                    val sunriseCaption = stringResource(R.string.ime_weather_sunrise_label)
+                    val sunsetCaption = stringResource(R.string.ime_weather_sunset_label)
                     val stats = buildList {
                         add(
                             Triple(
                                 Icons.Outlined.Thermostat,
                                 "${WeatherClient.toDisplay(info.feelsLikeC, fahrenheit)}$unit",
-                                "feels like",
+                                feelsLikeCaption,
                             )
                         )
-                        add(Triple(Icons.Outlined.WaterDrop, "${info.humidityPercent}%", "humidity"))
+                        add(
+                            Triple(
+                                Icons.Outlined.WaterDrop,
+                                "${info.humidityPercent}%",
+                                humidityCaption,
+                            )
+                        )
                         add(
                             Triple(
                                 Icons.Outlined.Air,
                                 "${info.windKmh.roundToInt()} km/h " +
                                     WeatherClient.windCardinal(info.windDirectionDeg),
-                                "wind",
+                                windCaption,
                             )
                         )
                         if (info.precipProbabilityPercent >= 0) {
-                            add(Triple(Icons.Outlined.Umbrella, "${info.precipProbabilityPercent}%", "rain chance"))
+                            add(
+                                Triple(
+                                    Icons.Outlined.Umbrella,
+                                    "${info.precipProbabilityPercent}%",
+                                    rainCaption,
+                                )
+                            )
                         }
                         if (info.cloudCoverPercent >= 0) {
-                            add(Triple(Icons.Outlined.Cloud, "${info.cloudCoverPercent}%", "clouds"))
+                            add(
+                                Triple(
+                                    Icons.Outlined.Cloud,
+                                    "${info.cloudCoverPercent}%",
+                                    cloudsCaption,
+                                )
+                            )
                         }
                         if (info.pressureHpa >= 0) {
                             add(Triple(Icons.Outlined.Compress, "${info.pressureHpa.roundToInt()}", "hPa"))
                         }
                         if (info.uvIndexMax >= 0) {
-                            add(Triple(Icons.Outlined.WbSunny, "%.1f".format(info.uvIndexMax), "UV max"))
+                            add(
+                                Triple(
+                                    Icons.Outlined.WbSunny,
+                                    "%.1f".format(info.uvIndexMax),
+                                    uvCaption,
+                                )
+                            )
                         }
                         if (info.sunrise.isNotEmpty()) {
-                            add(Triple(Icons.Outlined.WbTwilight, info.sunrise, "sunrise"))
+                            add(Triple(Icons.Outlined.WbTwilight, info.sunrise, sunriseCaption))
                         }
                         if (info.sunset.isNotEmpty()) {
-                            add(Triple(Icons.Outlined.WbTwilight, info.sunset, "sunset"))
+                            add(Triple(Icons.Outlined.WbTwilight, info.sunset, sunsetCaption))
                         }
                     }
                     for (row in stats.chunked(3)) {
@@ -903,7 +967,10 @@ internal fun CalendarPanel(
                     modifier = Modifier.size(30.dp),
                 ) {
                     Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
-                        contentDescription = "Previous month", tint = kb.toolbarIcon)
+                        contentDescription = stringResource(
+                            R.string.ime_calendar_previous_month_desc,
+                        ),
+                        tint = kb.toolbarIcon)
                 }
                 Column(
                     modifier = Modifier.weight(1f),
@@ -938,7 +1005,11 @@ internal fun CalendarPanel(
                             }
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
-                        Text("Today", color = kb.modifierKeyText, fontSize = 11.sp)
+                        Text(
+                            stringResource(R.string.ime_calendar_today_label),
+                            color = kb.modifierKeyText,
+                            fontSize = 11.sp,
+                        )
                     }
                 }
                 IconButton(
@@ -948,7 +1019,8 @@ internal fun CalendarPanel(
                     modifier = Modifier.size(30.dp),
                 ) {
                     Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                        contentDescription = "Next month", tint = kb.toolbarIcon)
+                        contentDescription = stringResource(R.string.ime_calendar_next_month_desc),
+                        tint = kb.toolbarIcon)
                 }
             }
             // Weekday initials, with the user's weekend tinted. Which days those
@@ -956,8 +1028,9 @@ internal fun CalendarPanel(
             // Saturday in much of the Middle East, Friday alone in Bangladesh,
             // Saturday and Sunday most other places.
             val weekend = state.settings.calendarWeekend.days
+            val weekdayInitials = stringArrayResource(R.array.ime_calendar_weekday_initials)
             Row(modifier = Modifier.fillMaxWidth()) {
-                listOf("S", "M", "T", "W", "T", "F", "S").forEachIndexed { index, initial ->
+                weekdayInitials.forEachIndexed { index, initial ->
                     Text(
                         initial,
                         color = if (index in weekend) kb.accent else kb.toolbarIcon,
@@ -1071,11 +1144,16 @@ internal fun CalendarPanel(
             val relativeDays =
                 (CalendarSystems.gregorianToJdn(selected.year, selected.month, selected.day) -
                     CalendarSystems.gregorianToJdn(today.year, today.month, today.day)).toInt()
-            val relativeText = when (relativeDays) {
-                0 -> "Today"
-                1 -> "Tomorrow"
-                -1 -> "Yesterday"
-                else -> if (relativeDays > 0) "in $relativeDays days" else "${-relativeDays} days ago"
+            val relativeText = when {
+                relativeDays == 0 -> stringResource(R.string.ime_calendar_today_label)
+                relativeDays == 1 -> stringResource(R.string.ime_calendar_tomorrow_label)
+                relativeDays == -1 -> stringResource(R.string.ime_calendar_yesterday_label)
+                relativeDays > 0 -> pluralStringResource(
+                    R.plurals.ime_calendar_in_days_info, relativeDays, relativeDays,
+                )
+                else -> pluralStringResource(
+                    R.plurals.ime_calendar_days_ago_info, -relativeDays, -relativeDays,
+                )
             }
             // The alternate calendars ride along as context on the second line.
             val altText = remember(selected, altCalendars, hijriAdjust) {
@@ -1159,7 +1237,7 @@ private fun CalendarDayEvents(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "See your calendar events for the day right here.",
+                stringResource(R.string.ime_calendar_permission_info),
                 color = kb.secondaryText,
                 fontSize = 12.sp,
                 modifier = Modifier.weight(1f),
@@ -1176,7 +1254,7 @@ private fun CalendarDayEvents(
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             ) {
                 Text(
-                    "Allow",
+                    stringResource(R.string.ime_calendar_allow_action),
                     color = kb.toolCircleActiveIcon,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
@@ -1199,7 +1277,7 @@ private fun CalendarDayEvents(
     when {
         list == null -> Unit
         list.isEmpty() -> Text(
-            "No events",
+            stringResource(R.string.ime_calendar_no_events_empty),
             color = kb.secondaryText,
             fontSize = 12.sp,
             modifier = modifier.padding(top = 6.dp),
@@ -1265,7 +1343,11 @@ private fun EventRow(event: DeviceCalendarEvent, timeFormat: SimpleDateFormat) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            val time = if (event.allDay) "All day" else timeFormat.format(Date(event.begin))
+            val time = if (event.allDay) {
+                stringResource(R.string.ime_calendar_all_day_label)
+            } else {
+                timeFormat.format(Date(event.begin))
+            }
             Text(
                 event.location?.let { "$time · $it" } ?: time,
                 color = kb.secondaryText,
@@ -1337,18 +1419,19 @@ internal fun ThemesPanel(
         ) {
             Text(
                 when {
-                    modeTheme != null ->
-                        "The ${modeTheme.name} mode sets the theme while it is active."
-                    autoOn -> "Auto theme is on — it picks between your light and dark themes."
-                    else -> "Tap a theme to apply it."
+                    modeTheme != null -> stringResource(
+                        R.string.ime_themes_mode_locked_info, modeTheme.name,
+                    )
+                    autoOn -> stringResource(R.string.ime_themes_auto_on_info)
+                    else -> stringResource(R.string.ime_themes_pick_info)
                 },
                 color = kb.toolbarIcon,
                 fontSize = 11.sp,
                 modifier = Modifier.weight(1f),
             )
             ToolPanelKey(
-                description = "Create and edit themes in settings",
-                label = "Edit themes",
+                description = stringResource(R.string.ime_themes_edit_desc),
+                label = stringResource(R.string.ime_themes_edit_action),
                 modifier = Modifier.height(32.dp).width(120.dp),
             ) { onOpenSettings() }
         }
@@ -1379,7 +1462,7 @@ internal fun ThemesPanel(
         ) {
             item(key = DEFAULT_THEME_ID) {
                 ThemeCard(
-                    name = "Auto",
+                    name = stringResource(CommonR.string.common_auto),
                     selected = selectedId == DEFAULT_THEME_ID,
                     nameOnDark = auto.board.luminance() < 0.5f,
                     focused = focused == 0,
@@ -1586,9 +1669,9 @@ internal fun SoundHapticsPanel(
                 )
                 Text(
                     if (ringerMode == AudioManager.RINGER_MODE_VIBRATE) {
-                        "Phone is on vibrate — key press sounds won't play."
+                        stringResource(R.string.ime_sound_vibrate_info)
                     } else {
-                        "Phone is silenced — key press sounds won't play."
+                        stringResource(R.string.ime_sound_silent_info)
                     },
                     color = MaterialTheme.colorScheme.onErrorContainer,
                     fontSize = 12.sp,
@@ -1597,7 +1680,8 @@ internal fun SoundHapticsPanel(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Haptics", color = kb.modifierKeyText, fontSize = 14.sp,
+            Text(stringResource(R.string.ime_sound_haptics_title), color = kb.modifierKeyText,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Switch(
                 checked = settings.hapticFeedback,
@@ -1611,16 +1695,16 @@ internal fun SoundHapticsPanel(
             ) {
                 for (style in HapticStyle.entries) {
                     StyleChip(
-                        label = style.label,
+                        label = stringResource(style.labelRes),
                         selected = settings.hapticStyle == style,
                     ) { onAction(SoundHapticAction.HapticStyleChange(style)) }
                 }
             }
             val hapticNote = when (settings.hapticStyle) {
                 HapticStyle.SYSTEM_KEY ->
-                    "System key haptic — like Gboard/SwiftKey. Follows the phone's haptic-intensity setting."
+                    stringResource(R.string.ime_sound_haptic_system_key_info)
                 HapticStyle.SYSTEM_TAP ->
-                    "System keyboard-tap — softer, like Samsung's keyboard. Follows the phone's setting."
+                    stringResource(R.string.ime_sound_haptic_system_tap_info)
                 else -> null
             }
             if (hapticNote != null) {
@@ -1628,7 +1712,8 @@ internal fun SoundHapticsPanel(
             }
             if (settings.hapticStyle == HapticStyle.CUSTOM || settings.hapticStyle == HapticStyle.SHARP) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Intensity", color = kb.toolbarIcon, fontSize = 11.sp,
+                    Text(stringResource(R.string.ime_sound_intensity_label),
+                        color = kb.toolbarIcon, fontSize = 11.sp,
                         modifier = Modifier.width(60.dp))
                     Slider(
                         value = settings.hapticAmplitude.toFloat(),
@@ -1646,7 +1731,8 @@ internal fun SoundHapticsPanel(
             // and primitive effects have a HAL-fixed length.
             if (settings.hapticStyle == HapticStyle.CUSTOM) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Duration", color = kb.toolbarIcon, fontSize = 11.sp,
+                    Text(stringResource(R.string.ime_sound_duration_label),
+                        color = kb.toolbarIcon, fontSize = 11.sp,
                         modifier = Modifier.width(60.dp))
                     Slider(
                         value = settings.hapticStrengthMs.toFloat(),
@@ -1662,7 +1748,8 @@ internal fun SoundHapticsPanel(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Key sound", color = kb.modifierKeyText, fontSize = 14.sp,
+            Text(stringResource(R.string.ime_sound_key_sound_title), color = kb.modifierKeyText,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Switch(
                 checked = settings.keySound,
@@ -1681,19 +1768,25 @@ internal fun SoundHapticsPanel(
                 for (style in styles) {
                     StyleChip(
                         label = when (style) {
-                            KeySoundStyle.CLICK -> "Click"
-                            KeySoundStyle.STANDARD -> "Std"
-                            KeySoundStyle.POP -> "Pop"
-                            KeySoundStyle.THOCK -> "Thock"
-                            KeySoundStyle.CHIME -> "Chime"
-                            KeySoundStyle.CUSTOM -> "Custom"
+                            KeySoundStyle.CLICK ->
+                                stringResource(R.string.ime_sound_style_click_label)
+                            KeySoundStyle.STANDARD ->
+                                stringResource(R.string.ime_sound_style_standard_label)
+                            KeySoundStyle.POP ->
+                                stringResource(R.string.ime_sound_style_pop_label)
+                            KeySoundStyle.THOCK ->
+                                stringResource(R.string.ime_sound_style_thock_label)
+                            KeySoundStyle.CHIME ->
+                                stringResource(R.string.ime_sound_style_chime_label)
+                            KeySoundStyle.CUSTOM -> stringResource(CommonR.string.common_custom)
                         },
                         selected = settings.keySoundStyle == style,
                     ) { onAction(SoundHapticAction.SoundStyleChange(style)) }
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Volume", color = kb.toolbarIcon, fontSize = 11.sp,
+                Text(stringResource(R.string.ime_sound_volume_label),
+                    color = kb.toolbarIcon, fontSize = 11.sp,
                     modifier = Modifier.width(60.dp))
                 Slider(
                     value = settings.keySoundVolume,
@@ -1760,7 +1853,7 @@ private fun androidx.compose.foundation.layout.RowScope.NumpadRow(
     for (label in keys) {
         when (label) {
             "⌫" -> ToolPanelKey(
-                description = "Delete",
+                description = stringResource(CommonR.string.common_delete),
                 icon = Icons.AutoMirrored.Outlined.Backspace,
                 repeatable = true,
                 modifier = Modifier.weight(1f).fillMaxHeight().padding(2.dp),
@@ -1769,7 +1862,7 @@ private fun androidx.compose.foundation.layout.RowScope.NumpadRow(
                 onKey(Key("⌫", action = KeyAction.Delete))
             }
             "⏎" -> ToolPanelKey(
-                description = "Enter",
+                description = stringResource(R.string.ime_numpad_enter_desc),
                 icon = Icons.AutoMirrored.Outlined.KeyboardReturn,
                 modifier = Modifier.weight(1f).fillMaxHeight().padding(2.dp),
             ) {

@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.snippets
 
+import com.wasimaster.wmkeyboard.content.R
+import com.wasimaster.wmkeyboard.core.content.ContentText
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -12,10 +14,15 @@ private data class SnippetEnvelope(
     val snippets: List<Snippet> = emptyList(),
 )
 
-/** Snippets read out of a file, with whatever had to be fixed to use them. */
+/**
+ * Snippets read out of a file, with whatever had to be fixed to use them.
+ *
+ * [repairs] arrive unresolved: this reader has no Context, so the screen that
+ * lists the notes calls [ContentText.resolve] on each one.
+ */
 data class ImportedSnippets(
     val snippets: List<Snippet>,
-    val repairs: List<String>,
+    val repairs: List<ContentText>,
     /** Version code of the build that wrote the file; 0 when unstated. */
     val fromAppVersion: Int,
 )
@@ -94,27 +101,38 @@ object SnippetFile {
             ?: return null
         if (envelope.format != FORMAT) return null
 
-        val repairs = ArrayList<String>()
+        val repairs = ArrayList<ContentText>()
         val kept = ArrayList<Snippet>()
 
         for (snippet in envelope.snippets) {
             if (kept.size >= MAX_SNIPPETS) {
-                repairs += "Only the first $MAX_SNIPPETS snippets were imported"
+                repairs += ContentText(
+                    pluralsRes = R.plurals.core_content_snippet_repair_kept_first,
+                    quantity = MAX_SNIPPETS,
+                    args = listOf(MAX_SNIPPETS),
+                )
                 break
             }
             val body = snippet.text
             if (body.isBlank()) {
-                repairs += "Dropped “${snippet.label.take(30)}” — it had no text"
+                repairs += ContentText(
+                    R.string.core_content_snippet_repair_no_text,
+                    args = listOf(snippet.label.take(30)),
+                )
                 continue
             }
             val trimmedBody = if (body.length > MAX_TEXT_LENGTH) {
-                repairs += "Shortened “${snippet.label.take(30)}” — it was over $MAX_TEXT_LENGTH characters"
+                repairs += ContentText(
+                    pluralsRes = R.plurals.core_content_snippet_repair_shortened,
+                    quantity = MAX_TEXT_LENGTH,
+                    args = listOf(snippet.label.take(30), MAX_TEXT_LENGTH),
+                )
                 body.take(MAX_TEXT_LENGTH)
             } else {
                 body
             }
             val label = snippet.label.ifBlank {
-                repairs += "Named a snippet after its text — it had no label"
+                repairs += ContentText(R.string.core_content_snippet_repair_named_after_text)
                 trimmedBody.lineSequence().first().take(40)
             }
             kept += snippet.copy(

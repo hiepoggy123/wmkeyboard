@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -63,6 +64,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -71,6 +73,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import kotlin.math.roundToInt
 
 /*
@@ -375,6 +378,13 @@ internal fun Modifier.wmSharedBounds(key: Any): Modifier {
  * [flightTo] names the screen the row opens. It tags the row's name — and its
  * tile, when it has one — as the take-off end of the flight into that screen's
  * heading, and tells the screen where it was opened from.
+ *
+ * [highlightKey] is the string resource behind [title]. Pass it on a row that
+ * search or an addon's Use button can land on, and the row wraps itself in a
+ * [HighlightableRow] that matches on the resource rather than on the words. The
+ * rows built by `NavRow`, `ToggleSetting` and their siblings are wrapped by
+ * those helpers instead, so they leave this at 0 and take the argument
+ * themselves.
  */
 @Composable
 internal fun WmRow(
@@ -391,8 +401,30 @@ internal fun WmRow(
     flightTo: String? = null,
     subtitleFlies: Boolean = false,
     enabled: Boolean = true,
+    @StringRes highlightKey: Int = 0,
     onClick: (() -> Unit)? = null,
 ) {
+    if (highlightKey != 0) {
+        HighlightableRow(title, highlightKey) {
+            WmRow(
+                title = title,
+                modifier = modifier,
+                subtitle = subtitle,
+                icon = icon,
+                accent = accent,
+                titleStyle = titleStyle,
+                titleContent = titleContent,
+                leading = leading,
+                trailing = trailing,
+                supporting = supporting,
+                flightTo = flightTo,
+                subtitleFlies = subtitleFlies,
+                enabled = enabled,
+                onClick = onClick,
+            )
+        }
+        return
+    }
     val tileAccent = accent ?: MaterialTheme.colorScheme.primary
     val titleKey = flightTo?.let { takeOffKey("title", it) }
     val iconKey = flightTo?.let { takeOffKey("icon", it) }
@@ -882,7 +914,10 @@ internal fun WmCollapsingTopBar(
         ) {
             if (onBack != null) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                    Icon(
+                        Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = stringResource(CommonR.string.common_back),
+                    )
                 }
             }
             Spacer(Modifier.weight(1f))

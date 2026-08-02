@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.dictionaries
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.prediction.R
+
 /**
  * One downloadable frequency wordlist from the wmkeyboard-data repo
  * (https://github.com/wasi-master/wmkeyboard-data). Each is a gzipped
@@ -19,8 +22,8 @@ data class DictionaryEntry(
     val totalWordCount: Int,
     /** Compressed size of the full file — progress denominator upper bound. */
     val approxGzBytes: Long,
-    /** Distinguishes two entries for one language ("Europe"/"Brazil"). */
-    val variant: String? = null,
+    /** Label distinguishing two entries for one language ("Europe"/"Brazil"). */
+    @StringRes val variantRes: Int? = null,
     /**
      * Which file under `data/$repoCode/` this entry downloads: `"full"` (the
      * ordinary native-script list) or `"rom"` (a romanized/Latin-script
@@ -51,10 +54,10 @@ data class DictionaryEntry(
 object DictionaryCatalog {
 
     /** User-selectable download size: how many of the most frequent words to keep. */
-    enum class DictionarySize(val label: String, val wordCap: Int) {
-        SMALL("Small", 50_000),
-        MEDIUM("Medium", 150_000),
-        LARGE("Large", 300_000),
+    enum class DictionarySize(@StringRes val labelRes: Int, val wordCap: Int) {
+        SMALL(R.string.core_pred_wordlist_size_small_label, 50_000),
+        MEDIUM(R.string.core_pred_wordlist_size_medium_label, 150_000),
+        LARGE(R.string.core_pred_wordlist_size_large_label, 300_000),
     }
 
     private fun entry(
@@ -63,10 +66,10 @@ object DictionaryCatalog {
         repoCode: String,
         totalWordCount: Int,
         approxGzBytes: Long,
-        variant: String? = null,
+        @StringRes variantRes: Int? = null,
         suffix: String = "full",
         fileStem: String? = null,
-    ) = DictionaryEntry(id, languageId, repoCode, totalWordCount, approxGzBytes, variant, suffix, fileStem)
+    ) = DictionaryEntry(id, languageId, repoCode, totalWordCount, approxGzBytes, variantRes, suffix, fileStem)
 
     val entries: List<DictionaryEntry> = listOf(
         entry("ab", "ab", "ab", 81_433, 380_406L),
@@ -193,8 +196,14 @@ object DictionaryCatalog {
         entry("pl", "pl", "pl", 1_481_466, 6_171_710L),
         entry("pms", "pms", "pms", 47_916, 200_183L),
         entry("ps", "ps", "ps", 146_694, 626_376L),
-        entry("pt", "pt", "pt", 763_183, 3_138_081L, variant = "Europe"),
-        entry("pt_br", "pt", "pt_br", 847_162, 3_384_245L, variant = "Brazil"),
+        entry(
+            "pt", "pt", "pt", 763_183, 3_138_081L,
+            variantRes = R.string.core_pred_wordlist_variant_europe_label,
+        ),
+        entry(
+            "pt_br", "pt", "pt_br", 847_162, 3_384_245L,
+            variantRes = R.string.core_pred_wordlist_variant_brazil_label,
+        ),
         entry("qu", "qu", "qu", 20_435, 83_225L),
         entry("rm", "rm", "rm", 49_238, 204_904L),
         entry("ro", "ro", "ro", 1_218_883, 5_040_931L),

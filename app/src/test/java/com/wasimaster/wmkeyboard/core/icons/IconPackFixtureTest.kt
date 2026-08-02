@@ -25,7 +25,10 @@ class IconPackFixtureTest {
         val stream = checkNotNull(javaClass.classLoader?.getResourceAsStream("addons/lucide.wmicons")) {
             "missing test fixture addons/lucide.wmicons"
         }
-        val result = stream.use { IconPackFile.import(it, store) }
+        // The import has no context, so the caller resolves
+        // `core_icons_pack_imported_label` and hands the name in. This pack
+        // names itself, so the default never gets used.
+        val result = stream.use { IconPackFile.import(it, store, defaultName = "Imported icons") }
         assertTrue("import said: $result", result is IconImportResult.Imported)
         val pack = (result as IconImportResult.Imported).pack
         assertTrue("no slots survived import", pack.slots.isNotEmpty())

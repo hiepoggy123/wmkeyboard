@@ -51,8 +51,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -63,7 +67,7 @@ import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperLanguages
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperModel
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperSize
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperStore
-import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperTier
+import com.wasimaster.wmkeyboard.voice.R as VoiceR
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -175,11 +179,11 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
     )
 
     WhisperSectionHeader(
-        "Your voice models",
+        stringResource(R.string.models_whisper_yours_title),
         if (onDisk.isEmpty()) "" else formatBytes(onDisk.sumOf { it.sizeBytes }),
     )
     if (onDisk.isEmpty()) {
-        CaptionText("Nothing downloaded yet — pick one below to dictate fully offline.")
+        CaptionText(stringResource(R.string.models_whisper_empty))
     } else {
         SettingsGroup {
             for (model in onDisk) item { modelRow(model) }
@@ -187,7 +191,7 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
     }
 
     if (suggestions.isNotEmpty()) {
-        WhisperSectionHeader("Suggested for your languages", "")
+        WhisperSectionHeader(stringResource(R.string.models_whisper_suggested_title), "")
         SettingsGroup {
             for (model in suggestions) item { modelRow(model) }
         }
@@ -204,13 +208,14 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
 
     if (storageUsed > 0) {
         CaptionText(
-            "Voice models use ${formatBytes(storageUsed)} of storage, kept privately " +
-                "in app storage. A download you cancel or lose connection on " +
-                "resumes from where it stopped.",
+            stringResource(R.string.models_whisper_storage_info, formatBytes(storageUsed)),
         )
     }
     if (orphanBytes > 0) {
-        CaptionText("${formatBytes(orphanBytes)} belongs to models no longer in the catalog.")
+        CaptionText(
+            stringResource(R.string.models_whisper_orphan_info, formatBytes(orphanBytes)),
+        )
+        val freeUpLabel = stringResource(R.string.models_free_up_action, formatBytes(orphanBytes))
         Row(modifier = Modifier.padding(horizontal = 16.dp)) {
             TextButton(onClick = {
                 scope.launch {
@@ -218,7 +223,7 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
                     orphanBytes = 0
                     storageUsed = withContext(Dispatchers.IO) { WhisperStore.totalBytesUsed(filesDir) }
                 }
-            }) { Text("Free up ${formatBytes(orphanBytes)}") }
+            }) { Text(freeUpLabel) }
         }
     }
 
@@ -239,21 +244,26 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
     meteredPending?.let { model ->
         AlertDialog(
             onDismissRequest = { meteredPending = null },
-            title = { Text("Use mobile data?") },
+            title = { Text(stringResource(R.string.models_metered_title)) },
             text = {
                 Text(
-                    "${model.displayName} is a ${formatBytes(model.sizeBytes)} download " +
-                        "and you're on a metered connection.",
+                    stringResource(
+                        R.string.models_metered_body,
+                        model.displayName,
+                        formatBytes(model.sizeBytes),
+                    ),
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     startDownload(model)
                     meteredPending = null
-                }) { Text("Download anyway") }
+                }) { Text(stringResource(R.string.models_metered_confirm_action)) }
             },
             dismissButton = {
-                TextButton(onClick = { meteredPending = null }) { Text("Wait for Wi-Fi") }
+                TextButton(onClick = { meteredPending = null }) {
+                    Text(stringResource(R.string.models_metered_dismiss_action))
+                }
             },
         )
     }
@@ -278,22 +288,27 @@ private fun WhisperRoutingCard(
     onEdit: (LanguageDef) -> Unit,
 ) {
     if (languages.isEmpty()) return
-    SettingsGroup("Model per language") {
+    SettingsGroup(stringResource(R.string.models_whisper_per_language_title)) {
         for (language in languages) {
             item {
                 val code = WhisperLanguages.codeForLanguage(language.id)
                 val model = routing[language.id]
                 val covered = code != null && model != null && model.covers(code)
                 val detail = when {
-                    code == null ->
-                        "Whisper has no model for this language — dictation falls back to " +
-                            "the system recognizer."
-                    model == null -> "No model downloaded yet."
-                    !covered ->
-                        "${model.displayName} cannot transcribe this language — it will " +
-                            "produce wrong words. Download one that covers it."
-                    pinned[language.id] == model.id -> "${model.displayName} · your choice"
-                    else -> "${model.displayName} · chosen automatically"
+                    code == null -> stringResource(R.string.models_whisper_language_none)
+                    model == null -> stringResource(R.string.models_whisper_no_model_yet)
+                    !covered -> stringResource(
+                        R.string.models_whisper_language_not_covered,
+                        model.displayName,
+                    )
+                    pinned[language.id] == model.id -> stringResource(
+                        R.string.models_whisper_language_pinned,
+                        model.displayName,
+                    )
+                    else -> stringResource(
+                        R.string.models_whisper_language_auto,
+                        model.displayName,
+                    )
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -324,7 +339,7 @@ private fun WhisperRoutingCard(
                     }
                     if (code != null && anyDownloaded) {
                         Text(
-                            "Change",
+                            stringResource(R.string.models_whisper_change_action),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(start = 12.dp),
@@ -334,12 +349,7 @@ private fun WhisperRoutingCard(
             }
         }
     }
-    CaptionText(
-        "Dictation uses the language of the layout you are typing on. Models built " +
-            "for one language, and the multi-language ones that accept a language " +
-            "input, are told which language to expect instead of guessing it from a " +
-            "short clip.",
-    )
+    CaptionText(stringResource(R.string.models_whisper_routing_info))
 }
 
 /** Picks the model for one language: automatic, or a specific downloaded one. */
@@ -360,17 +370,28 @@ private fun WhisperRoutingDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Model for ${language.englishName}") },
+        title = {
+            Text(
+                stringResource(
+                    R.string.models_whisper_routing_dialog_title,
+                    language.englishName,
+                ),
+            )
+        },
         text = {
+            val currentDetail = if (resolved == null) {
+                stringResource(R.string.models_whisper_no_model_yet)
+            } else {
+                stringResource(R.string.models_whisper_routing_current, resolved.displayName)
+            }
             Column(
                 modifier = Modifier
                     .heightIn(max = 420.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
                 WhisperRoutingOption(
-                    title = "Automatic",
-                    detail = resolved?.let { "Currently ${it.displayName}" }
-                        ?: "No model downloaded yet",
+                    title = stringResource(CommonR.string.common_auto),
+                    detail = currentDetail,
                     selected = pinnedId == null,
                     onClick = { onPick("") },
                 )
@@ -378,10 +399,19 @@ private fun WhisperRoutingDialog(
                     WhisperRoutingOption(
                         title = model.displayName,
                         detail = when {
-                            !model.covers(code) -> "Does not cover ${language.englishName}"
-                            model.fixedLang == code -> "Built for ${language.englishName} only"
-                            model.selectableLang -> "Told to expect ${language.englishName}"
-                            else -> "Detects the language itself"
+                            !model.covers(code) -> stringResource(
+                                R.string.models_whisper_option_not_covered,
+                                language.englishName,
+                            )
+                            model.fixedLang == code -> stringResource(
+                                R.string.models_whisper_option_single,
+                                language.englishName,
+                            )
+                            model.selectableLang -> stringResource(
+                                R.string.models_whisper_option_forced,
+                                language.englishName,
+                            )
+                            else -> stringResource(R.string.models_whisper_option_auto_detect)
                         },
                         selected = pinnedId == model.id,
                         warn = !model.covers(code),
@@ -390,7 +420,9 @@ private fun WhisperRoutingDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_done)) }
+        },
     )
 }
 
@@ -454,14 +486,23 @@ private fun WhisperBrowseSection(
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Text(
-            if (open) "All ${visible.size} models" else "Browse all ${visible.size} models",
+            pluralStringResource(
+                if (open) R.plurals.models_whisper_catalog_open
+                else R.plurals.models_whisper_catalog_closed,
+                visible.size,
+                visible.size,
+            ),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.weight(1f),
         )
         Icon(
             Icons.Outlined.KeyboardArrowDown,
-            contentDescription = if (open) "Collapse the catalogue" else "Expand the catalogue",
+            contentDescription = if (open) {
+                stringResource(R.string.models_catalog_hide_desc)
+            } else {
+                stringResource(R.string.models_catalog_show_desc)
+            },
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp).rotate(turn),
         )
@@ -476,7 +517,7 @@ private fun WhisperBrowseSection(
             FilterChip(
                 selected = sizeFilter == size,
                 onClick = { onSizeFilter(if (sizeFilter == size) null else size) },
-                label = { Text(size.label) },
+                label = { Text(stringResource(size.labelRes)) },
             )
         }
     }
@@ -485,27 +526,27 @@ private fun WhisperBrowseSection(
     val anyLanguage = shown.filter { it.fixedLang == null }
     val oneLanguage = shown.filter { it.fixedLang != null }
     if (shown.isEmpty()) {
-        CaptionText("No model matches that size.")
+        CaptionText(stringResource(R.string.models_whisper_no_size_match))
     }
     if (anyLanguage.isNotEmpty()) {
-        WhisperSectionHeader("Any language", "")
+        WhisperSectionHeader(
+            stringResource(R.string.models_whisper_group_any_language_title),
+            "",
+        )
         SettingsGroup {
             for (model in anyLanguage) item { row(model) }
         }
     }
     if (oneLanguage.isNotEmpty()) {
-        WhisperSectionHeader("Built for one language", "")
+        WhisperSectionHeader(
+            stringResource(R.string.models_whisper_group_one_language_title),
+            "",
+        )
         SettingsGroup {
             for (model in oneLanguage) item { row(model) }
         }
     }
-    CaptionText(
-        "Sizes go Tiny → Large: bigger is more accurate but slower to download and " +
-            "to transcribe, and Medium and Large need close to a gigabyte of memory " +
-            "while they run. A model built for one language beats a multi-language " +
-            "model of the same size at that language. Single-language models appear " +
-            "here once you enable the language on the Languages screen.",
-    )
+    CaptionText(stringResource(R.string.models_whisper_sizes_info))
 }
 
 @Composable
@@ -584,30 +625,67 @@ private fun WhisperModelRow(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     if (inUse) {
-                        WhisperChip("Used for ${usedFor.joinToString(", ")}", WhisperChipTone.PRIMARY)
+                        WhisperChip(
+                            stringResource(
+                                R.string.models_whisper_chip_used_for,
+                                usedFor.joinToString(", "),
+                            ),
+                            WhisperChipTone.PRIMARY,
+                        )
                     }
-                    if (model.tier == WhisperTier.RECOMMENDED && !inUse) {
-                        WhisperChip("Recommended", WhisperChipTone.PRIMARY)
+                    val badgeRes = model.tier.badgeRes
+                    if (badgeRes != null && !inUse) {
+                        WhisperChip(stringResource(badgeRes), WhisperChipTone.PRIMARY)
                     }
-                    WhisperChip(model.sizeLabel, WhisperChipTone.NEUTRAL)
-                    WhisperChip(model.languageLabel, WhisperChipTone.NEUTRAL)
-                    if (model.selectableLang) WhisperChip("Language forced", WhisperChipTone.NEUTRAL)
+                    WhisperChip(stringResource(model.sizeLabelRes), WhisperChipTone.NEUTRAL)
+                    // A model built for one language names it; the rest count.
+                    // Language names are proper nouns and are not translated.
+                    val singleName = model.singleLanguageName
+                    WhisperChip(
+                        singleName ?: pluralStringResource(
+                            VoiceR.plurals.core_voice_model_language_count,
+                            model.languageCount,
+                            model.languageCount,
+                        ),
+                        WhisperChipTone.NEUTRAL,
+                    )
+                    if (model.selectableLang) {
+                        WhisperChip(
+                            stringResource(R.string.models_whisper_chip_language_forced),
+                            WhisperChipTone.NEUTRAL,
+                        )
+                    }
                     WhisperChip(formatBytes(model.sizeBytes), WhisperChipTone.NEUTRAL)
                 }
             }
             when (status) {
                 is DownloadStatus.Downloaded -> IconButton(onClick = onDelete) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Delete ${model.displayName}")
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = stringResource(
+                            R.string.models_delete_model_desc,
+                            model.displayName,
+                        ),
+                    )
                 }
                 is DownloadStatus.Downloading -> IconButton(onClick = onCancel) {
-                    Icon(Icons.Outlined.Close, contentDescription = "Cancel download")
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = stringResource(R.string.models_cancel_download_desc),
+                    )
                 }
                 is DownloadStatus.Paused -> TextButton(onClick = onDownload, enabled = !downloadBusy) {
-                    Text("Resume")
+                    Text(stringResource(R.string.models_resume_action))
                 }
                 is DownloadStatus.NotDownloaded, is DownloadStatus.Failed ->
                     TextButton(onClick = onDownload, enabled = !downloadBusy) {
-                        Text(if (status is DownloadStatus.Failed) "Retry" else "Download")
+                        Text(
+                            if (status is DownloadStatus.Failed) {
+                                stringResource(CommonR.string.common_retry)
+                            } else {
+                                stringResource(CommonR.string.common_download)
+                            },
+                        )
                     }
             }
         }
@@ -615,7 +693,8 @@ private fun WhisperModelRow(
         if (expanded) {
             Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp)) {
                 Text(
-                    model.description,
+                    if (model.descriptionArg.isEmpty()) stringResource(model.descriptionRes)
+                    else stringResource(model.descriptionRes, model.descriptionArg),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -626,8 +705,14 @@ private fun WhisperModelRow(
         when (status) {
             is DownloadStatus.NotDownloaded, is DownloadStatus.Downloaded -> Unit
             is DownloadStatus.Downloading -> WhisperDownloadProgress(status.bytes, status.total)
-            is DownloadStatus.Paused -> CaptionText("Paused at ${formatBytes(status.bytes)}")
-            is DownloadStatus.Failed -> CaptionText(status.message, error = true)
+            is DownloadStatus.Paused -> CaptionText(
+                stringResource(R.string.models_paused_progress, formatBytes(status.bytes)),
+            )
+            is DownloadStatus.Failed -> CaptionText(
+                if (status.messageArg.isEmpty()) stringResource(status.messageRes)
+                else stringResource(status.messageRes, status.messageArg),
+                error = true,
+            )
         }
     }
 }
@@ -639,20 +724,26 @@ private fun WhisperLanguageDetail(
     enabledCodes: Set<String>,
     isFallback: Boolean,
 ) {
+    val missed = enabledCodes.filterNot { model.covers(it) }
+    // Resolved before the list is built: buildList's lambda is not composable.
+    val coversLine = stringResource(
+        R.string.models_whisper_detail_covers,
+        WhisperLanguages.labels(model.langCodes).joinToString(", "),
+    )
+    val allYoursLine = stringResource(R.string.models_whisper_detail_all_yours)
+    val missingLine = stringResource(
+        R.string.models_whisper_detail_missing,
+        WhisperLanguages.labels(missed).joinToString(", "),
+    )
+    val translateLine = stringResource(R.string.models_whisper_detail_translate)
+    val fallbackLine = stringResource(R.string.models_whisper_detail_fallback)
     val lines = buildList {
-        if (model.langCodes.size > 1) {
-            add("Covers ${WhisperLanguages.labels(model.langCodes).joinToString(", ")}.")
-        }
+        if (model.langCodes.size > 1) add(coversLine)
         if (enabledCodes.isNotEmpty()) {
-            val missed = enabledCodes.filterNot { model.covers(it) }
-            if (missed.isEmpty()) {
-                add("Handles all of your languages.")
-            } else {
-                add("Not for your ${WhisperLanguages.labels(missed).joinToString(", ")}.")
-            }
+            if (missed.isEmpty()) add(allYoursLine) else add(missingLine)
         }
-        if (model.supportsTranslate) add("Can translate speech to English.")
-        if (isFallback) add("Used for any language you have not chosen a model for.")
+        if (model.supportsTranslate) add(translateLine)
+        if (isFallback) add(fallbackLine)
     }
     if (lines.isEmpty()) return
     Text(
@@ -696,7 +787,12 @@ private fun WhisperDownloadProgress(bytes: Long, total: Long) {
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                "${formatBytes(bytes)} of ${formatBytes(total)} · ${(bytes * 100 / total)}%",
+                stringResource(
+                    R.string.models_download_progress,
+                    formatBytes(bytes),
+                    formatBytes(total),
+                    bytes * 100 / total,
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),

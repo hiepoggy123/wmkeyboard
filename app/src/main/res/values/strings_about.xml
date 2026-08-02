@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- About screen: the Share group. -->
+    <string name="about_share_play_link">Share the Play Store link</string>
+    <string name="about_share_fdroid_link">Share the F-Droid link</string>
+    <string name="about_share_github_link">Share the GitHub link</string>
+    <!-- Text the user sends when they share a link to the app. -->
+    <string name="about_share_blurb">Try WM Keyboard, a very good keyboard app!</string>
+    <!-- Title of the system share sheet. -->
+    <string name="about_share_chooser_title">Share WM Keyboard</string>
+
+    <!-- About screen: the App group. -->
+    <string name="about_app_title">App</string>
+    <string name="about_version_title">Version</string>
+    <!--
+      Subtitle of the version row.
+      %1$s = build flavour name, %2$s = build type name,
+      %3$s = store name with its separator, or empty,
+      %4$d = the numeric version code.
+    -->
+    <string name="about_version_subtitle"><xliff:g id="flavour" example="Full">%1$s</xliff:g> build (<xliff:g id="build_type" example="release">%2$s</xliff:g><xliff:g id="channel" example=" · Play Store">%3$s</xliff:g>) · code <xliff:g id="version_code" example="3">%4$d</xliff:g></string>
+    <string name="about_licence_title">Licence</string>
+    <string name="about_source_title">Source code</string>
+    <string name="about_diagnostics_title">Diagnostics</string>
+    <string name="about_diagnostics_subtitle">A record of what the keyboard did. Read it, or send it with a bug report</string>
+    <string name="about_free_software_body">WM Keyboard is free software. You can use it, change it and give it to other people. You must keep the copyright notice and the licence text with it.</string>
+
+    <!-- About screen: the Feedback group. -->
+    <string name="about_feedback_title">Feedback</string>
+    <string name="about_report_bug_title">Report a bug</string>
+    <string name="about_report_bug_subtitle">Open an issue on GitHub. Issues are public, easy to search and easy to track</string>
+    <string name="about_email_developer_title">Email the developer</string>
+    <string name="about_feedback_body">An issue is the better first choice. Another person can have the same problem. Email is also good if your report is private. In both cases, send the Diagnostics text above with your report. It says which build and which device this is, and it never contains the text you typed.</string>
+    <!-- Subject line of the bug-report email draft. -->
+    <string name="about_bug_report_email_subject">WM Keyboard bug report</string>
+    <!-- Shown when no email app can open the draft. %1$s = the email address of the maintainer. -->
+    <string name="about_no_email_app_error">Your device has no email app. Write to <xliff:g id="email" example="name@example.com">%1$s</xliff:g> instead.</string>
+
+    <!-- About screen: the Documentation group. -->
+    <string name="about_documentation_title">Documentation</string>
+    <string name="about_user_guide_title">User guide</string>
+    <string name="about_privacy_policy_title">Privacy policy</string>
+    <string name="about_privacy_policy_subtitle">What leaves your device, and what never leaves it</string>
+
+    <!-- About screen: the Third party group. -->
+    <string name="about_third_party_title">Third party</string>
+    <string name="about_licences_title">Open-source licences</string>
+    <string name="about_licences_subtitle">The libraries and the data inside this build</string>
+
+    <!-- About screen: the Word lists group. -->
+    <string name="about_word_lists_title">Word lists</string>
+    <string name="about_dictionaries_title">Dictionaries</string>
+    <string name="about_dictionaries_subtitle">The seed bigrams, the loanword map and the offensive word list are made by hand for this project, and they use its licence. The word lists you download keep the licences of their sources. The Open-source licences screen gives the full list.</string>
+
+    <!-- Licences screen: introduction and section headings. -->
+    <string name="about_licences_intro_body">This screen lists the components inside this build and the data the app can download. Press a row to read its full licence text. A row with no licence text in the app opens the terms of the provider.</string>
+    <string name="about_section_bundled_title">Inside the app</string>
+    <string name="about_section_data_packs_title">Data packs you can download</string>
+    <string name="about_data_packs_body">The app downloads the data packs from the WM Keyboard data repository when you need them. Each pack keeps the licence of its source, whether you install it or not.</string>
+    <string name="about_section_services_title">Online services</string>
+    <string name="about_services_body">Only the tool that uses an online service contacts it, and only when you open that tool. The app contains no code from those services.</string>
+    <!--
+      Subtitle of one row in the bundled and data-pack lists.
+      %1$s = what the app uses the component for,
+      %2$s = the copyright line of the component (never translated),
+      %3$s = the licence name (never translated).
+    -->
+    <string name="about_licence_row_subtitle"><xliff:g id="used_for">%1$s</xliff:g>\n<xliff:g id="copyright" example="Copyright Google LLC">%2$s</xliff:g> · <xliff:g id="licence" example="Apache-2.0">%3$s</xliff:g></string>
+    <!--
+      Subtitle of one row in the online services list.
+      %1$s = what the app uses the service for,
+      %2$s = the terms that apply (never translated).
+    -->
+    <string name="about_service_row_subtitle"><xliff:g id="used_for">%1$s</xliff:g> · <xliff:g id="terms" example="Provider terms">%2$s</xliff:g></string>
+    <string name="about_licence_text_error">The app cannot read this licence text.</string>
+
+    <!--
+      What the app uses each bundled component for. The component name, the
+      copyright line and the licence name stay in English next to these, so
+      each value here only says what the app does with the component.
+    -->
+    <string name="about_bundled_androidx_used">The user interface toolkit, navigation, DataStore, CameraX and autofill</string>
+    <string name="about_bundled_kotlin_used">The language runtime, concurrency and settings serialisation</string>
+    <string name="about_bundled_coil_used">Loads the images in the GIF, sticker and search panels</string>
+    <string name="about_bundled_okhttp_used">The HTTP client for Coil and the network tools</string>
+    <string name="about_bundled_zxing_used">Makes the QR codes</string>
+    <string name="about_bundled_luaj_used">The Lua interpreter that runs the plugins in their sandbox</string>
+    <string name="about_bundled_harper_used">Checks the grammar and the style offline (native library)</string>
+    <string name="about_bundled_rust_crates_used">The libraries that the grammar library depends on</string>
+    <string name="about_bundled_mlkit_used">Reads handwriting, scans text and barcodes, and scans documents</string>
+    <string name="about_bundled_litert_lm_used">Runs the language models on your device</string>
+    <string name="about_bundled_litert_used">Runs offline Whisper speech to text on your device</string>
+    <!-- TFLite is the file format of the model, not an abbreviation to translate. -->
+    <string name="about_bundled_whisper_used">The speech recognition model, in TFLite versions that run on your device</string>
+    <string name="about_bundled_whisper_android_used">The reference for the mel spectrogram and the tokenizer port</string>
+    <string name="about_bundled_unicode_used">The emoji catalogue, names, keywords and skin tone sequences</string>
+    <!-- :tada: is one of the shortcodes and stays exactly as it is. -->
+    <string name="about_bundled_gemoji_used">The emoji shortcodes, the :tada: names that GitHub, Discord and Slack use</string>
+    <string name="about_bundled_opencc_used">The map between simplified and traditional characters, and the vocabulary of Taiwan and Hong Kong</string>
+    <string name="about_bundled_lshk_used">The Cantonese Jyutping syllable inventory</string>
+    <string name="about_bundled_palettes_used">The themes in the app: Dracula, Nord, Solarized, Catppuccin and Tokyo Night</string>
+    <string name="about_bundled_fonts_used">The keyboard typefaces, which the system downloads when you need them</string>
+
+    <!-- What the app uses each downloadable data pack for. -->
+    <string name="about_pack_wordlists_used">The prediction word lists for more than 300 languages, from FrequencyWords (OpenSubtitles), Leipzig Corpora, Wikimedia, wordfreq and others</string>
+    <string name="about_pack_offensive_used">The optional filter lists for the suggestions in the languages you download</string>
+    <string name="about_pack_emoji_keywords_used">The emoji search keywords in 141 languages, from KDE\'s kemoji</string>
+    <string name="about_pack_cedict_used">The Chinese Pinyin conversion dictionary</string>
+    <!-- dictionary_oss is the name of the file inside mozc. -->
+    <string name="about_pack_mozc_used">The Japanese kana to kanji conversion dictionary (dictionary_oss)</string>
+    <string name="about_pack_cantonese_used">The Cantonese Jyutping conversion dictionary</string>
+    <string name="about_pack_stroke_used">The stroke sequence input for Chinese</string>
+    <!-- kCangjie is the name of the field inside the Unihan database. -->
+    <string name="about_pack_unihan_used">The Cangjie input code table (the kCangjie field)</string>
+
+    <!-- What the app uses each online service for. -->
+    <string name="about_service_brave_used">The web and image search results</string>
+    <string name="about_service_gif_used">The GIFs and the stickers</string>
+    <string name="about_service_wikipedia_used">The article search and the summaries</string>
+    <string name="about_service_translate_used">The translation tool</string>
+    <string name="about_service_weather_used">The weather and the geocoding</string>
+    <string name="about_service_currency_used">The currency conversion rates</string>
+    <string name="about_service_dictionary_used">The word definitions</string>
+    <string name="about_service_models_used">The downloads for the models that run on your device</string>
+    <!-- Used by every bring-your-own-key AI provider row. -->
+    <string name="about_service_byok_used">The optional AI tool, with your own key</string>
+
+</resources>

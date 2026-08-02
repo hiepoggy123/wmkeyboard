@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.stickers
 
+import com.wasimaster.wmkeyboard.content.R
+import com.wasimaster.wmkeyboard.core.content.ContentText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,6 +13,14 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+
+/**
+ * Stands in for what the screen resolves out of
+ * `R.string.core_content_sticker_pack_imported_label` before it starts the
+ * import. The reader takes the finished words because it runs with no context
+ * of its own — including here, where there is no Android to resolve anything.
+ */
+private const val FALLBACK_NAME = "Imported stickers"
 
 class StickerPackFileTest {
 
@@ -57,7 +67,12 @@ class StickerPackFileTest {
         val bytes = export(source, pack)
 
         val target = store("target")
-        val result = StickerPackFile.import(ByteArrayInputStream(bytes), target, normalize = passthrough)
+        val result = StickerPackFile.import(
+            ByteArrayInputStream(bytes),
+            target,
+            FALLBACK_NAME,
+            normalize = passthrough,
+        )
 
         assertTrue(result is StickerImportResult.Imported)
         val imported = (result as StickerImportResult.Imported).pack
@@ -77,8 +92,18 @@ class StickerPackFileTest {
         val bytes = export(source, pack)
 
         val target = store("target")
-        val first = StickerPackFile.import(ByteArrayInputStream(bytes), target, normalize = passthrough)
-        val second = StickerPackFile.import(ByteArrayInputStream(bytes), target, normalize = passthrough)
+        val first = StickerPackFile.import(
+            ByteArrayInputStream(bytes),
+            target,
+            FALLBACK_NAME,
+            normalize = passthrough,
+        )
+        val second = StickerPackFile.import(
+            ByteArrayInputStream(bytes),
+            target,
+            FALLBACK_NAME,
+            normalize = passthrough,
+        )
 
         val a = (first as StickerImportResult.Imported).pack
         val b = (second as StickerImportResult.Imported).pack
@@ -101,7 +126,12 @@ class StickerPackFileTest {
         val target = store()
         assertEquals(
             StickerImportResult.NotAStickerPack,
-            StickerPackFile.import(ByteArrayInputStream(out.toByteArray()), target, normalize = passthrough),
+            StickerPackFile.import(
+                ByteArrayInputStream(out.toByteArray()),
+                target,
+                FALLBACK_NAME,
+                normalize = passthrough,
+            ),
         )
         assertTrue(target.isEmpty())
     }
@@ -117,7 +147,12 @@ class StickerPackFileTest {
 
         assertEquals(
             StickerImportResult.NotAStickerPack,
-            StickerPackFile.import(ByteArrayInputStream(out.toByteArray()), store(), normalize = passthrough),
+            StickerPackFile.import(
+                ByteArrayInputStream(out.toByteArray()),
+                store(),
+                FALLBACK_NAME,
+                normalize = passthrough,
+            ),
         )
     }
 
@@ -128,6 +163,7 @@ class StickerPackFileTest {
             StickerPackFile.import(
                 ByteArrayInputStream("just some text".toByteArray()),
                 store(),
+                FALLBACK_NAME,
                 normalize = passthrough,
             ),
         )
@@ -159,6 +195,7 @@ class StickerPackFileTest {
         val result = StickerPackFile.import(
             ByteArrayInputStream(out.toByteArray()),
             target,
+            FALLBACK_NAME,
             normalize = passthrough,
         )
 
@@ -196,11 +233,19 @@ class StickerPackFileTest {
         val result = StickerPackFile.import(
             ByteArrayInputStream(out.toByteArray()),
             store("target"),
+            FALLBACK_NAME,
             normalize = passthrough,
         ) as StickerImportResult.Imported
 
         assertEquals(listOf("here"), result.pack.stickers.map { it.name })
-        assertTrue(result.repairs.single().contains("gone"))
+        // Checked by the resource the line names plus the sticker it names in
+        // its argument — the value that fills %1$s. The sticker name is data,
+        // so this still says "the message names the sticker" the way the old
+        // `contains("gone")` did, and it no longer breaks on a rewording.
+        assertEquals(
+            ContentText(R.string.core_content_sticker_repair_image_missing, args = listOf("gone")),
+            result.repairs.single(),
+        )
     }
 
     @Test
@@ -212,11 +257,20 @@ class StickerPackFileTest {
         val result = StickerPackFile.import(
             ByteArrayInputStream(bytes),
             store("target"),
+            FALLBACK_NAME,
             normalize = { raw -> if (raw[0].toInt() == 0) null else passthrough(raw) },
         ) as StickerImportResult.Imported
 
         assertEquals(listOf("sticker 1"), result.pack.stickers.map { it.name })
-        assertEquals(1, result.repairs.size)
+        assertEquals(
+            listOf(
+                ContentText(
+                    R.string.core_content_sticker_repair_image_unreadable,
+                    args = listOf("sticker 0"),
+                ),
+            ),
+            result.repairs,
+        )
     }
 
     @Test
@@ -228,6 +282,7 @@ class StickerPackFileTest {
         val result = StickerPackFile.import(
             ByteArrayInputStream(export(source, pack)),
             store("target"),
+            FALLBACK_NAME,
             normalize = passthrough,
         ) as StickerImportResult.Imported
 
@@ -241,7 +296,12 @@ class StickerPackFileTest {
         val pack = seed(source, "Cats", 2)
         val target = store("target")
 
-        StickerPackFile.import(ByteArrayInputStream(export(source, pack)), target, normalize = passthrough)
+        StickerPackFile.import(
+            ByteArrayInputStream(export(source, pack)),
+            target,
+            FALLBACK_NAME,
+            normalize = passthrough,
+        )
 
         val leftovers = File(temp.root, "target").list()!!.filter { it.startsWith(".") }
         assertTrue(leftovers.toString(), leftovers.isEmpty())
@@ -257,6 +317,7 @@ class StickerPackFileTest {
             StickerPackFile.import(
                 ByteArrayInputStream(export(source, pack)),
                 target,
+                FALLBACK_NAME,
                 normalize = { error("boom") },
             )
         }
@@ -297,12 +358,43 @@ class StickerPackFileTest {
         val result = StickerPackFile.import(
             ByteArrayInputStream(out.toByteArray()),
             store("target"),
+            FALLBACK_NAME,
             normalize = passthrough,
         ) as StickerImportResult.Imported
 
         assertEquals("unDraw", result.pack.name)
         assertEquals(listOf("Airplane", "Barbecue"), result.pack.stickers.map { it.name })
         assertTrue(result.repairs.isEmpty())
+    }
+
+    /**
+     * The reader cannot name a nameless pack itself: it holds no `Context`, so
+     * the caller hands it the already-resolved words.
+     */
+    @Test
+    fun `a pack whose manifest names it nothing takes the caller's name`() {
+        val manifest = """
+            {"format":"wmkeyboard-stickers","version":1,"pack":{"id":"p"},
+             "stickers":[{"id":"a","file":"a.png","name":"cat"}]}
+        """.trimIndent()
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            zip.putNextEntry(ZipEntry("pack.json"))
+            zip.write(manifest.toByteArray())
+            zip.closeEntry()
+            zip.putNextEntry(ZipEntry("stickers/a.png"))
+            zip.write(byteArrayOf(9))
+            zip.closeEntry()
+        }
+
+        val result = StickerPackFile.import(
+            ByteArrayInputStream(out.toByteArray()),
+            store("target"),
+            FALLBACK_NAME,
+            normalize = passthrough,
+        ) as StickerImportResult.Imported
+
+        assertEquals(FALLBACK_NAME, result.pack.name)
     }
 
     @Test
@@ -324,6 +416,7 @@ class StickerPackFileTest {
         val result = StickerPackFile.import(
             ByteArrayInputStream(out.toByteArray()),
             store("target"),
+            FALLBACK_NAME,
             normalize = passthrough,
         ) as StickerImportResult.Imported
 
@@ -348,11 +441,17 @@ class StickerPackFileTest {
         val result = StickerPackFile.import(
             ByteArrayInputStream(out.toByteArray()),
             target,
+            FALLBACK_NAME,
             normalize = passthrough,
         )
 
         assertTrue(result.toString(), result is StickerImportResult.NoStickers)
-        assertTrue((result as StickerImportResult.NoStickers).repairs.single().contains("gone"))
+        // Same trade as above: the resource id plus the sticker name that fills
+        // its placeholder, rather than the English the line happens to be in.
+        assertEquals(
+            ContentText(R.string.core_content_sticker_repair_image_missing, args = listOf("gone")),
+            (result as StickerImportResult.NoStickers).repairs.single(),
+        )
         // Nothing registered, and no orphan directory left behind.
         assertTrue(target.isEmpty())
         assertEquals(emptyList<String>(), File(temp.root, "target").list()!!.sorted())
@@ -371,6 +470,7 @@ class StickerPackFileTest {
         val result = StickerPackFile.import(
             ByteArrayInputStream(out.toByteArray()),
             target,
+            FALLBACK_NAME,
             normalize = passthrough,
         )
 

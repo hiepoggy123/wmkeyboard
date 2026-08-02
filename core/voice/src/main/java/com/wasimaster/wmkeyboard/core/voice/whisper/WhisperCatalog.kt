@@ -1,22 +1,51 @@
 package com.wasimaster.wmkeyboard.core.voice.whisper
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.voice.R
+import java.io.IOException
+
+/**
+ * A Whisper failure carrying text the UI can show. [messageRes] is a string
+ * resource id, so the message follows the app language instead of being frozen
+ * in English inside the exception. [messageArg] is the one format argument the
+ * message takes, or "" when it takes none.
+ *
+ * The exception's own `message` stays null on purpose: a caller that still
+ * reads `message` falls back to its own generic text rather than printing a
+ * resource id at the user.
+ *
+ * Declared here, in the flavour-independent source set, so the lite build sees
+ * it too — the Whisper engine itself only exists in the full flavour.
+ */
+class WhisperException(
+    @StringRes val messageRes: Int,
+    val messageArg: String = "",
+    cause: Throwable? = null,
+) : IOException(null, cause)
+
 /**
  * Whether a model is the one we point users at. [STANDARD] is everything else
- * and gets no badge — the catalog is all the same published conversions, so
+ * and gets no badge. The catalog is all the same published conversions, so
  * there is nothing useful to say about the rest beyond their size and languages.
  */
-enum class WhisperTier(val badge: String?) {
-    RECOMMENDED("Recommended"),
+enum class WhisperTier(@StringRes val badgeRes: Int?) {
+    RECOMMENDED(R.string.core_voice_tier_recommended_label),
     STANDARD(null),
 }
 
-/** Size class of a Whisper graph, ordered smallest to largest. Drives grouping and filters. */
-enum class WhisperSize(val label: String) {
-    TINY("Tiny"),
-    BASE("Base"),
-    SMALL("Small"),
-    MEDIUM("Medium"),
-    LARGE("Large"),
+/**
+ * Size class of a Whisper graph, ordered smallest to largest. Drives grouping and filters.
+ *
+ * [catalogName] is the size the way the model publishers spell it. It builds
+ * [WhisperModel.displayName] and is never translated. [labelRes] is the same
+ * word for the UI, which is translated.
+ */
+enum class WhisperSize(@StringRes val labelRes: Int, val catalogName: String) {
+    TINY(R.string.core_voice_size_tiny_label, "Tiny"),
+    BASE(R.string.core_voice_size_base_label, "Base"),
+    SMALL(R.string.core_voice_size_small_label, "Small"),
+    MEDIUM(R.string.core_voice_size_medium_label, "Medium"),
+    LARGE(R.string.core_voice_size_large_label, "Large"),
 }
 
 /**
@@ -49,12 +78,21 @@ data class WhisperModel(
     /** True where a `serving_translate` signature exists (speech → English). */
     val supportsTranslate: Boolean = false,
     val tier: WhisperTier,
-    val description: String,
+    /** What this model is good for, as a string resource the UI resolves. */
+    @StringRes val descriptionRes: Int,
+    /**
+     * The one format argument [descriptionRes] takes, or "" when it takes none.
+     * The UI resolves the pair together:
+     * `if (descriptionArg.isEmpty()) stringResource(descriptionRes)`
+     * `else stringResource(descriptionRes, descriptionArg)`.
+     */
+    val descriptionArg: String = "",
 ) {
     /** Total download/footprint — used for the space preflight and progress fallback. */
     val sizeBytes: Long get() = modelBytes + vocabBytes
 
-    val sizeLabel: String get() = size.label
+    @get:StringRes
+    val sizeLabelRes: Int get() = size.labelRes
 
     /** False only for the graphs locked to one language (distilled and `.en`). */
     val multilingual: Boolean get() = langCodes.size != 1
@@ -79,13 +117,25 @@ data class WhisperModel(
         return WhisperLanguages.tokenFor(code)
     }
 
-    /** Short "what languages" line for the UI, e.g. "99 languages", "40 languages", "German". */
-    val languageLabel: String
-        get() = when {
-            langCodes.isEmpty() -> "99 languages"
-            langCodes.size == 1 -> WhisperLanguages.label(langCodes.first())
-            else -> "${langCodes.size} languages"
-        }
+    /**
+     * The language name when this model handles exactly one language, else null.
+     * The UI shows this in place of the [languageCount] plural. Language names
+     * are proper nouns, so this one is not translated.
+     */
+    val singleLanguageName: String?
+        get() = langCodes.singleOrNull()?.let { WhisperLanguages.label(it) }
+
+    /**
+     * How many languages this model transcribes. Feeds the
+     * `core_voice_model_language_count` plural, which the UI shows whenever
+     * [singleLanguageName] is null.
+     */
+    val languageCount: Int get() = if (langCodes.isEmpty()) ALL_LANGUAGES else langCodes.size
+
+    companion object {
+        /** Every language Whisper knows. An auto-detecting graph covers them all. */
+        const val ALL_LANGUAGES = 99
+    }
 }
 
 /**
@@ -157,9 +207,7 @@ object WhisperCatalog {
                 selectableLang = true,
                 supportsTranslate = true,
                 tier = WhisperTier.STANDARD,
-                description = "Forces the language you are typing in instead of guessing " +
-                    "it, which is noticeably more reliable on short phrases. Best pick " +
-                    "when your languages are in its list.",
+                descriptionRes = R.string.core_voice_model_base_world_body,
             ),
         )
         add(
@@ -176,8 +224,7 @@ object WhisperCatalog {
                 selectableLang = true,
                 supportsTranslate = true,
                 tier = WhisperTier.STANDARD,
-                description = "Same language-forcing as the 40-language model, trimmed to " +
-                    "European languages and a smaller download.",
+                descriptionRes = R.string.core_voice_model_base_eu_body,
             ),
         )
         add(
@@ -194,8 +241,7 @@ object WhisperCatalog {
                 selectableLang = true,
                 supportsTranslate = true,
                 tier = WhisperTier.STANDARD,
-                description = "Language-forcing plus Small-model accuracy. The most accurate " +
-                    "option that still fits comfortably on a phone.",
+                descriptionRes = R.string.core_voice_model_small_world_body,
             ),
         )
 
@@ -212,8 +258,7 @@ object WhisperCatalog {
                 vocabBytes = VOCAB_MULTI_BYTES,
                 supportsTranslate = true,
                 tier = WhisperTier.STANDARD,
-                description = "Balanced accuracy and speed, and covers every language " +
-                    "Whisper knows. Step down to this if Small is too slow.",
+                descriptionRes = R.string.core_voice_model_base_multi_body,
             ),
         )
         add(
@@ -228,7 +273,7 @@ object WhisperCatalog {
                 vocabBytes = VOCAB_MULTI_BYTES,
                 supportsTranslate = true,
                 tier = WhisperTier.STANDARD,
-                description = "Fastest multilingual model. Fine for clear speech; struggles with noise.",
+                descriptionRes = R.string.core_voice_model_tiny_multi_body,
             ),
         )
         add(
@@ -243,9 +288,7 @@ object WhisperCatalog {
                 vocabBytes = VOCAB_MULTI_BYTES,
                 supportsTranslate = true,
                 tier = WhisperTier.RECOMMENDED,
-                description = "The best accuracy that still runs comfortably on a phone — " +
-                    "noticeably better on accents and background noise than Base, and " +
-                    "covers every language Whisper knows.",
+                descriptionRes = R.string.core_voice_model_small_multi_body,
             ),
         )
         add(
@@ -260,8 +303,7 @@ object WhisperCatalog {
                 vocabBytes = VOCAB_MULTI_BYTES,
                 supportsTranslate = true,
                 tier = WhisperTier.STANDARD,
-                description = "Near-desktop accuracy. Expect several seconds per phrase and " +
-                    "close to a gigabyte of RAM while it runs.",
+                descriptionRes = R.string.core_voice_model_medium_multi_body,
             ),
         )
         add(
@@ -276,8 +318,7 @@ object WhisperCatalog {
                 vocabBytes = VOCAB_MULTI_BYTES,
                 supportsTranslate = true,
                 tier = WhisperTier.STANDARD,
-                description = "The most accurate Whisper graph there is, and far too big for " +
-                    "most phones — a 1.5 GB download that only high-memory devices can load.",
+                descriptionRes = R.string.core_voice_model_large_multi_body,
             ),
         )
 
@@ -330,7 +371,7 @@ object WhisperCatalog {
             val name = WhisperLanguages.label(entry.code)
             WhisperModel(
                 id = entry.id,
-                displayName = "Whisper ${entry.size.label} ($name)",
+                displayName = "Whisper ${entry.size.catalogName} ($name)",
                 size = entry.size,
                 repo = entry.repo,
                 modelFile = entry.file,
@@ -339,8 +380,8 @@ object WhisperCatalog {
                 vocabBytes = if (english) VOCAB_EN_BYTES else VOCAB_MULTI_BYTES,
                 langCodes = setOf(entry.code),
                 tier = WhisperTier.STANDARD,
-                description = "$name only — no language detection step, so it is faster and " +
-                    "a little more accurate than a multilingual graph of the same size.",
+                descriptionRes = R.string.core_voice_model_single_language_body,
+                descriptionArg = name,
             )
         }
 

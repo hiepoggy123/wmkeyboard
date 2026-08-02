@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings owned by :core:plugins.
+
+  This module parses, installs and runs Lua plugins. None of it has a Context:
+  the manifest reader and the runtime are plain classes that unit tests drive
+  directly, so every line the user reads leaves the module as a string resource
+  id (see PluginText) and the screen that shows it resolves the words.
+
+  Referenced from another module as
+  com.wasimaster.wmkeyboard.plugins.R.string.core_plugins_… - the R classes are
+  non-transitive, so the import has to name this module.
+
+  Not here on purpose: the `wm.*` Lua API names, the error text a script gets
+  back from wm.storage and wm.json, and the messages the Lua virtual machine
+  itself writes. A script reads those, not a person, and translating them would
+  break every plugin that checks them.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ================================================================== -->
+    <!-- What a plugin may do. One line per permission, shown in the list   -->
+    <!-- the user reads before install and again in the plugin's settings.  -->
+    <!-- ================================================================== -->
+
+    <string name="core_plugins_permission_storage_label">Save data on your device</string>
+
+    <!-- ================================================================== -->
+    <!-- Install refused: the manifest. Each of these replaces the install,  -->
+    <!-- so it has to say what is wrong with the plugin file.               -->
+    <!-- ================================================================== -->
+
+    <string name="core_plugins_reject_newer_version">This plugin needs a newer version of WM Keyboard.</string>
+    <string name="core_plugins_reject_bad_id">This plugin has an id that is not valid. An id is 3 to 64 characters long. An id can contain lowercase letters, numbers, dots, dashes and underscores.</string>
+    <string name="core_plugins_reject_no_name">This plugin does not have a name.</string>
+    <!-- %1$s is the name of the plugin. -->
+    <string name="core_plugins_reject_no_version">“%1$s” does not say which version it is.</string>
+    <!-- %1$s is the permission the manifest asked for. %2$s is the name of the plugin. -->
+    <string name="core_plugins_reject_unknown_permission">This version of WM Keyboard does not know the permission “%1$s”. The app cannot tell you what “%2$s” is allowed to do.</string>
+
+    <!-- ================================================================== -->
+    <!-- Install refused: the script inside the plugin file.                -->
+    <!-- ================================================================== -->
+
+    <!-- %1$s is the name of the plugin. %2$s is the file name the plugin asked for. -->
+    <string name="core_plugins_reject_missing_script">“%1$s” does not have its script file (%2$s).</string>
+    <!-- %1$s is the name of the plugin. -->
+    <string name="core_plugins_reject_empty_script">“%1$s” has an empty script.</string>
+    <!-- %1$s is the name of the plugin. %2$d is the size limit in kilobytes.
+         Not a plural: "KB" is a unit symbol, not a countable noun, and it does
+         not inflect. -->
+    <string name="core_plugins_reject_script_too_large" tools:ignore="PluralsCandidate">“%1$s” has a script larger than %2$d KB.</string>
+    <!-- %1$s is the name of the plugin. Lua is the language plugins are written in. -->
+    <string name="core_plugins_reject_compiled_lua">“%1$s” contains compiled Lua code. A plugin must use plain source code, so you can read it before it runs.</string>
+    <!-- %1$s is the name of the plugin. UTF-8 is the text format the file must use. -->
+    <string name="core_plugins_reject_bad_encoding">“%1$s” has a script that is not valid UTF-8 text.</string>
+
+    <!-- ================================================================== -->
+    <!-- The plugin panel: a plugin that cannot start, or a script that      -->
+    <!-- failed. The panel stays open and the user can try again.           -->
+    <!-- ================================================================== -->
+
+    <string name="core_plugins_error_not_installed">That plugin is not installed.</string>
+    <string name="core_plugins_error_turned_off">That plugin is turned off.</string>
+    <string name="core_plugins_error_script_missing">The script for that plugin is missing.</string>
+    <!-- render() is the name of the function a plugin script must write. It stays in English. -->
+    <string name="core_plugins_error_no_render">This plugin has no render() function.</string>
+    <string name="core_plugins_error_script_failed">The script failed.</string>
+
+    <!-- ================================================================== -->
+    <!-- The plugin panel: the session is over. The panel goes back to the  -->
+    <!-- plugin list and shows one of these as the reason.                  -->
+    <!-- ================================================================== -->
+
+    <string name="core_plugins_stopped_instructions">This plugin did too much work at one time. The app stopped it.</string>
+    <string name="core_plugins_stopped_deadline">This plugin took too long. The app stopped it.</string>
+    <string name="core_plugins_stopped_cancelled">The app stopped this plugin.</string>
+    <string name="core_plugins_stopped_recursion">This plugin called itself too many times. The app stopped it.</string>
+    <string name="core_plugins_stopped_unexpected">This plugin stopped unexpectedly.</string>
+    <string name="core_plugins_stopped_not_responding">This plugin stopped responding. The app closed it.</string>
+    <string name="core_plugins_stopped_not_responding_disabled">This plugin stopped responding again. The app turned it off.</string>
+
+</resources>

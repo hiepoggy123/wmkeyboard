@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.feedback
 
+import com.wasimaster.wmkeyboard.feedback.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -76,21 +77,32 @@ class SoundFileTest {
 
     @Test
     fun `an m4a is refused with a message naming the fix`() {
+        // The refusal is pinned by resource id, not by the English in it: this
+        // is the message that names MP3 as the way out, and it stays the right
+        // one when the sentence is reworded or translated.
         val bytes = ByteArray(4) + "ftypM4A ".toByteArray(Charsets.ISO_8859_1) + ByteArray(64)
         val result = import(store(), bytes)
         assertTrue("$result", result is SoundImportResult.NotASound)
-        assertTrue((result as SoundImportResult.NotASound).message.contains("MP3"))
+        assertEquals(
+            R.string.core_feedback_sound_import_mp4_error,
+            (result as SoundImportResult.NotASound).messageRes,
+        )
     }
 
     @Test
     fun `a zip and an HTML page are refused as what they are`() {
-        assertTrue(
+        // Each mistake gets its own resource rather than the generic "not a
+        // sound", which is what the ids below check — the wording is free to
+        // change, the diagnosis is not.
+        assertEquals(
+            R.string.core_feedback_sound_import_zip_error,
             (import(store(), "PK".toByteArray(Charsets.ISO_8859_1) + ByteArray(64))
-                as SoundImportResult.NotASound).message.contains("zip"),
+                as SoundImportResult.NotASound).messageRes,
         )
-        assertTrue(
+        assertEquals(
+            R.string.core_feedback_sound_import_html_error,
             (import(store(File(temp.root, "s2")), "<html>".toByteArray())
-                as SoundImportResult.NotASound).message.contains("HTML"),
+                as SoundImportResult.NotASound).messageRes,
         )
     }
 

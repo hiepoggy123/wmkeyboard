@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.input.composer
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.input.R
 import java.io.File
 
 /**
@@ -14,8 +16,10 @@ data class CjkDictPack(
     val id: String,
     /** Owning language id (`zh` / `ja`) — gates which detail screen shows it. */
     val langId: String,
-    val displayName: String,
-    val description: String,
+    /** Row title for the pack; the UI layer resolves it. */
+    @StringRes val displayNameRes: Int,
+    /** One-line description for the pack row; the UI layer resolves it. */
+    @StringRes val descriptionRes: Int,
     /** Where the pack is hosted. Blank until the maintainer fills it in. */
     val url: String,
     /** Approximate size — preflight space check and progress fallback. */
@@ -42,8 +46,8 @@ object CjkDictCatalog {
         CjkDictPack(
             id = "pinyin",
             langId = "zh",
-            displayName = "Chinese Pinyin dictionary",
-            description = "CC-CEDICT-derived Hanzi & phrases (120k entries). Required for Chinese conversion.",
+            displayNameRes = R.string.core_input_cjk_pack_pinyin_title,
+            descriptionRes = R.string.core_input_cjk_pack_pinyin_subtitle,
             url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/cjk/pinyin.tsv",
             sizeBytes = 2_489_699L,
             sha256 = "8baab4c758499272e36dba4bda4253317a4f93bb88bcf386ea86196c50d73715",
@@ -52,8 +56,8 @@ object CjkDictCatalog {
         CjkDictPack(
             id = "ja_kana",
             langId = "ja",
-            displayName = "Japanese kana→kanji dictionary",
-            description = "mozc-derived readings (1.08M entries, ~42 MB). Required for Japanese conversion.",
+            displayNameRes = R.string.core_input_cjk_pack_ja_kana_title,
+            descriptionRes = R.string.core_input_cjk_pack_ja_kana_subtitle,
             url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/cjk/ja_kana.tsv",
             sizeBytes = 41_531_397L,
             sha256 = "189214b81968c857d7cb020c52fc087ee44918ab28534194f79ea66f45c17a70",
@@ -62,8 +66,8 @@ object CjkDictCatalog {
         CjkDictPack(
             id = "stroke",
             langId = "zh",
-            displayName = "Chinese stroke (笔画) dictionary",
-            description = "Stroke-order → Hanzi table. Required for the stroke keyboard.",
+            displayNameRes = R.string.core_input_cjk_pack_stroke_title,
+            descriptionRes = R.string.core_input_cjk_pack_stroke_subtitle,
             url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/cjk/stroke.tsv",
             sizeBytes = 445_686L,
             sha256 = "b3bb4669cf8e411fd63b3a15e07e32db84ed1f2cfe09fb67066866ebe9b2278c",
@@ -72,8 +76,8 @@ object CjkDictCatalog {
         CjkDictPack(
             id = "cangjie",
             langId = "zh",
-            displayName = "Cangjie (倉頡) dictionary",
-            description = "Radical-code → Hanzi table (29k characters). Required for the Cangjie and Quick keyboards.",
+            displayNameRes = R.string.core_input_cjk_pack_cangjie_title,
+            descriptionRes = R.string.core_input_cjk_pack_cangjie_subtitle,
             url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/cjk/cangjie.tsv",
             sizeBytes = 351_337L,
             sha256 = "77a5a4c054019e3a3ea875e86a37cb08b71ce29392b6680208bb0c5749feb25d",
@@ -82,8 +86,8 @@ object CjkDictCatalog {
         CjkDictPack(
             id = "jyutping",
             langId = "yue",
-            displayName = "Cantonese Jyutping dictionary",
-            description = "Jyutping reading → Hanzi table (163k entries). Required for Cantonese conversion.",
+            displayNameRes = R.string.core_input_cjk_pack_jyutping_title,
+            descriptionRes = R.string.core_input_cjk_pack_jyutping_subtitle,
             url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/cjk/jyutping.tsv",
             sizeBytes = 3_416_241L,
             sha256 = "cc0666179df615846328ed1e86b621919553d8ff30905f30d0b6ff45315bcfba",

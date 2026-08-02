@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import android.content.Context
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -45,7 +46,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -67,6 +71,7 @@ import com.wasimaster.wmkeyboard.core.tools.compareWord
 import com.wasimaster.wmkeyboard.core.tools.typingConfigKey
 import com.wasimaster.wmkeyboard.core.tools.typingConfigLabel
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.TypingTestAction
 import com.wasimaster.wmkeyboard.ime.TypingTestUi
 import kotlin.math.roundToInt
@@ -303,13 +308,13 @@ private fun TypingRunStats(state: KeyboardUiState) {
         TypingTestMode.TIME -> {
             val left = (settings.typingTestDuration - elapsedSeconds).coerceAtLeast(0.0)
             headline = left.roundToInt().toString()
-            headlineLabel = "left"
+            headlineLabel = stringResource(R.string.ime_typing_time_left_label)
             progress = (elapsedSeconds / settings.typingTestDuration).coerceIn(0.0, 1.0).toFloat()
         }
         else -> {
             val total = test.words.size.coerceAtLeast(1)
             headline = "${test.wordIndex}/$total"
-            headlineLabel = "words"
+            headlineLabel = stringResource(R.string.ime_typing_words_left_label)
             progress = (test.wordIndex.toFloat() / total).coerceIn(0f, 1f)
         }
     }
@@ -329,9 +334,15 @@ private fun TypingRunStats(state: KeyboardUiState) {
                 modifier = Modifier.padding(bottom = 2.dp),
             )
             Spacer(Modifier.weight(1f))
-            InlineStat("wpm", liveWpm.roundToInt().toString())
+            InlineStat(
+                stringResource(R.string.ime_typing_wpm_label),
+                liveWpm.roundToInt().toString(),
+            )
             Spacer(Modifier.width(14.dp))
-            InlineStat("acc", "${accuracy.roundToInt()}%")
+            InlineStat(
+                stringResource(R.string.ime_typing_accuracy_short_label),
+                "${accuracy.roundToInt()}%",
+            )
         }
         Spacer(Modifier.height(4.dp))
         ProgressBar(progress)
@@ -389,6 +400,7 @@ private fun TypingResultView(
     onAction: (TypingTestAction) -> Unit,
 ) {
     val kb = LocalKbTheme.current
+    val context = LocalContext.current
     val settings = state.settings
     val best = remember(settings.typingTestBests, result.configKey) {
         TypingBests.decode(settings.typingTestBests)[result.configKey]
@@ -411,7 +423,7 @@ private fun TypingResultView(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                " wpm",
+                " " + stringResource(R.string.ime_typing_wpm_label),
                 color = kb.secondaryText,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(bottom = 8.dp),
@@ -425,7 +437,7 @@ private fun TypingResultView(
                         .padding(horizontal = 9.dp, vertical = 4.dp),
                 ) {
                     Text(
-                        "New best",
+                        stringResource(R.string.ime_typing_new_best_label),
                         color = kb.accent,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -433,7 +445,7 @@ private fun TypingResultView(
                 }
             } else if (best != null) {
                 Text(
-                    "best ${best.roundToInt()}",
+                    stringResource(R.string.ime_typing_best_info, best.roundToInt()),
                     color = kb.secondaryText,
                     fontSize = 11.sp,
                     modifier = Modifier.padding(bottom = 8.dp),
@@ -442,16 +454,37 @@ private fun TypingResultView(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StatTile("accuracy", "${result.accuracy.roundToInt()}%", Modifier.weight(1f))
-            StatTile("raw", result.raw.roundToInt().toString(), Modifier.weight(1f))
-            StatTile("consistency", "${result.consistency.roundToInt()}%", Modifier.weight(1f))
-            StatTile("time", "${result.seconds.roundToInt()}s", Modifier.weight(1f))
+            StatTile(
+                stringResource(R.string.ime_typing_accuracy_label),
+                "${result.accuracy.roundToInt()}%",
+                Modifier.weight(1f),
+            )
+            StatTile(
+                stringResource(R.string.ime_typing_raw_label),
+                result.raw.roundToInt().toString(),
+                Modifier.weight(1f),
+            )
+            StatTile(
+                stringResource(R.string.ime_typing_consistency_label),
+                "${result.consistency.roundToInt()}%",
+                Modifier.weight(1f),
+            )
+            StatTile(
+                stringResource(R.string.ime_typing_time_label),
+                "${result.seconds.roundToInt()}s",
+                Modifier.weight(1f),
+            )
         }
 
         Spacer(Modifier.height(6.dp))
         Text(
-            "${result.correctChars} correct · ${result.incorrectChars} wrong · " +
-                "${result.extraChars} extra · ${result.missedChars} missed",
+            stringResource(
+                R.string.ime_typing_char_counts_info,
+                result.correctChars,
+                result.incorrectChars,
+                result.extraChars,
+                result.missedChars,
+            ),
             color = kb.secondaryText,
             fontSize = 11.sp,
         )
@@ -461,13 +494,16 @@ private fun TypingResultView(
             Spacer(Modifier.height(8.dp))
             WpmGraph(result, modifier = Modifier.fillMaxWidth().height(74.dp))
             Row {
-                LegendDot("wpm", kb.accent)
+                LegendDot(stringResource(R.string.ime_typing_wpm_label), kb.accent)
                 Spacer(Modifier.width(10.dp))
-                LegendDot("raw", kb.secondaryText)
+                LegendDot(stringResource(R.string.ime_typing_raw_label), kb.secondaryText)
                 Spacer(Modifier.weight(1f))
                 Text(
                     typingConfigLabel(
-                        result.mode, settings.typingTestDuration, settings.typingTestWordCount,
+                        context,
+                        result.mode,
+                        settings.typingTestDuration,
+                        settings.typingTestWordCount,
                     ),
                     color = kb.secondaryText,
                     fontSize = 10.sp,
@@ -477,15 +513,27 @@ private fun TypingResultView(
 
         if (history.size >= 2) {
             Spacer(Modifier.height(8.dp))
-            Text("Last ${history.size} runs", color = kb.secondaryText, fontSize = 10.sp)
+            Text(
+                pluralStringResource(
+                    R.plurals.ime_typing_history_count,
+                    history.size,
+                    history.size,
+                ),
+                color = kb.secondaryText,
+                fontSize = 10.sp,
+            )
             Spacer(Modifier.height(3.dp))
             HistoryBars(history, modifier = Modifier.fillMaxWidth().height(26.dp))
         }
 
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            ToolPanelChip("Again", selected = true) { onAction(TypingTestAction.Restart) }
-            ToolPanelChip("Insert score") { onAction(TypingTestAction.InsertResult) }
+            ToolPanelChip(stringResource(R.string.ime_typing_again_action), selected = true) {
+                onAction(TypingTestAction.Restart)
+            }
+            ToolPanelChip(stringResource(R.string.ime_typing_insert_score_action)) {
+                onAction(TypingTestAction.InsertResult)
+            }
         }
         Spacer(Modifier.height(6.dp))
         TypingConfigRow(settings, onAction, compact = false)
@@ -627,9 +675,9 @@ private fun TypingConfigRow(
         for (mode in TypingTestMode.entries) {
             ToolPanelChip(
                 label = when (mode) {
-                    TypingTestMode.TIME -> "time"
-                    TypingTestMode.WORDS -> "words"
-                    TypingTestMode.QUOTE -> "quote"
+                    TypingTestMode.TIME -> stringResource(R.string.ime_typing_mode_time_label)
+                    TypingTestMode.WORDS -> stringResource(R.string.ime_typing_mode_words_label)
+                    TypingTestMode.QUOTE -> stringResource(R.string.ime_typing_mode_quote_label)
                 },
                 selected = settings.typingTestMode == mode,
             ) { onAction(TypingTestAction.Mode(mode)) }
@@ -654,10 +702,16 @@ private fun TypingConfigRow(
         }
         if (settings.typingTestMode != TypingTestMode.QUOTE) {
             Spacer(Modifier.width(3.dp))
-            ToolPanelChip(label = "punct", selected = settings.typingTestPunctuation) {
+            ToolPanelChip(
+                label = stringResource(R.string.ime_typing_punctuation_label),
+                selected = settings.typingTestPunctuation,
+            ) {
                 onAction(TypingTestAction.Punctuation(!settings.typingTestPunctuation))
             }
-            ToolPanelChip(label = "123", selected = settings.typingTestNumbers) {
+            ToolPanelChip(
+                label = stringResource(R.string.ime_typing_numbers_label),
+                selected = settings.typingTestNumbers,
+            ) {
                 onAction(TypingTestAction.Numbers(!settings.typingTestNumbers))
             }
         }
@@ -666,12 +720,13 @@ private fun TypingConfigRow(
 
 /**
  * The best score for the settings currently selected — shown in the panel
- * header so there is a target in view before the run starts.
+ * header so there is a target in view before the run starts. Takes a
+ * [context] because the label it returns is a string resource.
  */
-internal fun typingHeaderBest(settings: KeyboardSettings): String? {
+internal fun typingHeaderBest(context: Context, settings: KeyboardSettings): String? {
     val key = typingConfigKey(
         settings.typingTestMode, settings.typingTestDuration, settings.typingTestWordCount,
     )
     val best = TypingBests.decode(settings.typingTestBests)[key] ?: return null
-    return "best ${best.roundToInt()}"
+    return context.getString(R.string.ime_typing_best_info, best.roundToInt())
 }

@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Three screens of the settings app:
+
+  * Dictionary, the list of words the keyboard learned from your typing.
+  * Never suggest, the list of words the keyboard keeps out of suggestions.
+  * Backup, which writes one file with your keyboard in it and reads it back.
+
+  The backup screen names the parts of that file (settings, themes, clipboard
+  and so on) in three places: the toggles that select what goes in, the dialog
+  that lists what a file holds, and the message after a restore. The message
+  puts the name in the middle of a sentence, so each name has a second value in
+  lower case. A translation cannot make a lower-case form on its own.
+-->
+<resources>
+
+    <!-- ================================================================== -->
+    <!-- Dictionary: the words the keyboard learned.                        -->
+    <!-- ================================================================== -->
+
+    <string name="backup_dictionary_info">The keyboard learns words from the text you type. You can also add words yourself. The keyboard suggests these words and never corrects them away. They all stay on your device.</string>
+    <!-- "Learn from typing" is a setting on the Privacy screen. -->
+    <string name="backup_dictionary_empty">Nothing here yet. Words appear as you type, if \"Learn from typing\" is on in Privacy. You can also add a word above.</string>
+    <!-- Row subtitle for a word the user typed into the Add word dialog. -->
+    <string name="backup_dictionary_added_subtitle">You added this word</string>
+    <!-- Row subtitle. %1$d is how many times the keyboard saw the word. -->
+    <plurals name="backup_dictionary_seen_count">
+        <item quantity="one">Seen %1$d time</item>
+        <item quantity="other">Seen %1$d times</item>
+    </plurals>
+
+    <!-- ================================================================== -->
+    <!-- Never suggest: the words the keyboard keeps out of suggestions.    -->
+    <!-- ================================================================== -->
+
+    <string name="backup_blacklist_info">The keyboard never suggests these words and never corrects to them. You can still type them and send them. They only stay out of the suggestion strip. The match ignores capital letters.</string>
+    <string name="backup_blacklist_empty">No words in this list yet. Add a word above.</string>
+
+    <!-- ================================================================== -->
+    <!-- The Add word dialog and the word rows. Both lists use these.       -->
+    <!-- ================================================================== -->
+
+    <string name="backup_add_word_action">Add word</string>
+    <string name="backup_add_word_title">Add word</string>
+    <!-- Label of the text field in the Add word dialog. -->
+    <string name="backup_word_field_label">Word</string>
+    <!-- Screen reader name of the delete button on a word row. %1$s is the word. -->
+    <string name="backup_delete_word_desc">Delete %1$s</string>
+
+    <!-- ================================================================== -->
+    <!-- Names of the parts of a backup file. Used as a toggle title on the -->
+    <!-- Backup screen and as a line title in the import dialog.            -->
+    <!-- ================================================================== -->
+
+    <string name="backup_section_settings_label">Settings</string>
+    <string name="backup_section_themes_label">Themes</string>
+    <string name="backup_section_dictionary_label">Dictionary</string>
+    <string name="backup_section_clipboard_label">Clipboard</string>
+    <string name="backup_section_snippets_label">Snippets</string>
+    <string name="backup_section_stickers_label">Sticker packs</string>
+    <string name="backup_section_icons_label">Icon packs</string>
+    <string name="backup_section_wordlists_label">Custom word lists</string>
+    <string name="backup_section_addons_label">Add-on repositories</string>
+
+    <!-- The same names in the middle of a sentence, for the list in     -->
+    <!-- backup_restore_done ("The app restored themes, snippets.").      -->
+
+    <string name="backup_section_settings_label_lowercase">settings</string>
+    <string name="backup_section_themes_label_lowercase">themes</string>
+    <string name="backup_section_dictionary_label_lowercase">dictionary</string>
+    <string name="backup_section_clipboard_label_lowercase">clipboard</string>
+    <string name="backup_section_snippets_label_lowercase">snippets</string>
+    <string name="backup_section_stickers_label_lowercase">sticker packs</string>
+    <string name="backup_section_icons_label_lowercase">icon packs</string>
+    <string name="backup_section_wordlists_label_lowercase">custom word lists</string>
+    <string name="backup_section_addons_label_lowercase">add-on repositories</string>
+
+    <!-- How much of each part a backup file holds. %1$d is the count. These -->
+    <!-- go after the name of the part: "Themes: 3 custom themes".           -->
+
+    <plurals name="backup_section_settings_count">
+        <item quantity="one">%1$d setting</item>
+        <item quantity="other">%1$d settings</item>
+    </plurals>
+    <plurals name="backup_section_themes_count">
+        <item quantity="one">%1$d custom theme</item>
+        <item quantity="other">%1$d custom themes</item>
+    </plurals>
+    <plurals name="backup_section_dictionary_count">
+        <item quantity="one">%1$d learned word</item>
+        <item quantity="other">%1$d learned words</item>
+    </plurals>
+    <plurals name="backup_section_clipboard_count">
+        <item quantity="one">%1$d clip</item>
+        <item quantity="other">%1$d clips</item>
+    </plurals>
+    <plurals name="backup_section_snippets_count">
+        <item quantity="one">%1$d snippet</item>
+        <item quantity="other">%1$d snippets</item>
+    </plurals>
+    <plurals name="backup_section_stickers_count">
+        <item quantity="one">%1$d sticker</item>
+        <item quantity="other">%1$d stickers</item>
+    </plurals>
+    <plurals name="backup_section_icons_count">
+        <item quantity="one">%1$d icon</item>
+        <item quantity="other">%1$d icons</item>
+    </plurals>
+    <plurals name="backup_section_wordlists_count">
+        <item quantity="one">%1$d word list</item>
+        <item quantity="other">%1$d word lists</item>
+    </plurals>
+    <plurals name="backup_section_addons_count">
+        <item quantity="one">%1$d repository</item>
+        <item quantity="other">%1$d repositories</item>
+    </plurals>
+
+    <!-- ================================================================== -->
+    <!-- Backup: what the export file holds.                                -->
+    <!-- ================================================================== -->
+
+    <string name="backup_info">Save your keyboard to a file. You can keep the file, move it to another device, or restore from it after you install the app again. Select what goes into the file below. You can include or leave out the settings, the themes, your learned dictionary, the clipboard history and the snippets.</string>
+    <string name="backup_include_group_title">Include in export</string>
+
+    <string name="backup_include_settings_subtitle">Every keyboard setting</string>
+    <string name="backup_include_secrets_title">Include API keys</string>
+    <string name="backup_include_secrets_subtitle">The keys for translate, GIF, search and AI</string>
+    <string name="backup_include_secrets_info">This setting is off at the start. A backup file is easy to send to yourself or to put in a shared folder. These keys spend real money on your accounts.\n\nTurn it on only for a backup that you keep to yourself. Anyone who opens that file can use your keys.</string>
+    <string name="backup_include_themes_subtitle">Your custom themes</string>
+    <string name="backup_include_themes_info">The colours, the gradients and the layout of your saved themes. The file does not hold the background image of a theme. It holds only the theme itself.</string>
+    <string name="backup_include_dictionary_subtitle">The words the keyboard learned from you</string>
+    <string name="backup_include_dictionary_info">Your personal words and your next-word patterns. This setting is off at the start, because this is personal typing data. Turn it on for a backup that you keep to yourself.</string>
+    <string name="backup_include_clipboard_subtitle">The saved clipboard history</string>
+    <string name="backup_include_clipboard_info">Your pinned clips and your recent text clips. The file leaves out images and files, because they stay on your device and do not open on another device.</string>
+    <string name="backup_include_snippets_subtitle">Your saved text snippets</string>
+    <string name="backup_include_stickers_subtitle">Your own sticker packs, with the images</string>
+    <!-- .wmstickers is a file name extension. Keep it as it is. -->
+    <string name="backup_include_stickers_info">The backup holds the images, so a restore on another device gets packs that work. This can add megabytes to the file. For one pack, a .wmstickers file is smaller.</string>
+    <string name="backup_include_icons_subtitle">Your own icon packs, with the images</string>
+    <!-- SVG is the image format of an icon pack. Keep the name as it is. -->
+    <string name="backup_include_icons_info">The backup holds the SVG files, so a restore on another device gets packs that work. This makes the file larger.</string>
+    <string name="backup_include_wordlists_subtitle">The word lists you imported for any language</string>
+    <string name="backup_include_addons_subtitle">The add-on sources you added, so you can install from them again</string>
+    <string name="backup_include_addons_info">This is only the list of addresses. The add-ons themselves go into the sections above. An installed theme is a custom theme, and an installed pack is an icon pack.</string>
+
+    <!-- ================================================================== -->
+    <!-- Backup: export and import.                                         -->
+    <!-- ================================================================== -->
+
+    <string name="backup_export_action">Export backup</string>
+    <string name="backup_import_group_title">Import</string>
+    <string name="backup_import_action">Import backup</string>
+    <string name="backup_import_note">An import of settings changes only the settings that the file names. The other settings stay as they are. The dictionary, the clipboard and the snippets in the file replace the ones on your device.</string>
+
+    <string name="backup_export_done">The app exported the backup.</string>
+    <!-- Shown after an export that holds the keys for the network tools. -->
+    <string name="backup_export_done_with_keys">The app exported the backup with your API keys in it. Keep that file as safe as a password.</string>
+    <string name="backup_export_write_error">The app could not write that file.</string>
+    <string name="backup_import_read_error">The app could not read that file.</string>
+    <string name="backup_not_a_backup">That file is not a WM Keyboard backup.</string>
+    <string name="backup_not_a_settings_backup">That file is not a WM Keyboard settings backup.</string>
+
+    <!-- ================================================================== -->
+    <!-- The import dialog for a full backup file.                          -->
+    <!-- ================================================================== -->
+
+    <string name="backup_import_confirm_title">Import backup?</string>
+    <string name="backup_import_contains">The file has these items:</string>
+    <!-- One line per part of the backup. %1$s is the name of the part, for
+         example "Themes". %2$s is how much of it the file holds, for example
+         "3 custom themes". -->
+    <string name="backup_import_section_line">• %1$s: %2$s</string>
+    <string name="backup_import_merge_note">The app merges the settings into your current settings. The dictionary, the clipboard and the snippets replace the ones on your device.</string>
+    <!-- Shown for a backup file that holds the keys for the network tools. -->
+    <string name="backup_import_api_keys_note">The file has API keys. They replace the keys that you set here.</string>
+    <!-- %1$s is a list of the parts that the app restored, for example
+         "themes, snippets". -->
+    <string name="backup_restore_done">The app restored %1$s.</string>
+    <string name="backup_restore_nothing">The file has nothing to restore.</string>
+    <string name="backup_restore_settings_failed">The app could not apply the settings. Your settings did not change.</string>
+
+    <!-- ================================================================== -->
+    <!-- The import dialog for the older settings-only file.                -->
+    <!-- ================================================================== -->
+
+    <string name="backup_import_settings_confirm_title">Import settings?</string>
+    <!-- %1$d is how many settings the file holds. -->
+    <plurals name="backup_import_settings_overwrite">
+        <item quantity="one">The app replaces %1$d setting with the value from that file.</item>
+        <item quantity="other">The app replaces %1$d settings with the values from that file.</item>
+    </plurals>
+    <!-- %1$d is how many entries in the file the app cannot read. -->
+    <plurals name="backup_import_settings_skipped">
+        <item quantity="one">The app cannot read %1$d entry. The app skips it.</item>
+        <item quantity="other">The app cannot read %1$d entries. The app skips them.</item>
+    </plurals>
+    <!-- %1$d is how many settings the app restored. -->
+    <plurals name="backup_restore_settings_count">
+        <item quantity="one">The app restored %1$d setting.</item>
+        <item quantity="other">The app restored %1$d settings.</item>
+    </plurals>
+    <string name="backup_restore_rolled_back">The app could not apply that backup. Your settings did not change.</string>
+
+</resources>

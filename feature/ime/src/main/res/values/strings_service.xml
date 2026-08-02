@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Grammar panel: the offline grammar strip above the key rows. -->
+    <string name="ime_grammar_title">Grammar</string>
+    <!-- Content description of the chip that opens the list of English dialects. -->
+    <string name="ime_grammar_dialect_desc">Select the dialect</string>
+    <!-- How many issues the grammar check found in the text. %1$d is the count. -->
+    <plurals name="ime_grammar_issue_count">
+        <item quantity="one">%1$d issue</item>
+        <item quantity="other">%1$d issues</item>
+    </plurals>
+    <!-- Category header of one issue card. %1$s is the category, %2$s the kind of issue. -->
+    <string name="ime_grammar_category_kind_label">%1$s • %2$s</string>
+    <string name="ime_grammar_category_correctness_label">Correctness</string>
+    <string name="ime_grammar_category_clarity_label">Clarity</string>
+    <string name="ime_grammar_category_engagement_label">Engagement</string>
+    <string name="ime_grammar_category_delivery_label">Delivery</string>
+    <string name="ime_grammar_empty_hint">Type text, or open a field that has text. The issues show here. The checks run offline.</string>
+    <string name="ime_grammar_no_issues_empty">No issues found</string>
+    <!-- Button that applies the first suggestion of every issue. %1$d is how many issues have one. -->
+    <string name="ime_grammar_fix_all_action">Fix all (%1$d)</string>
+    <!-- Label of a chip that applies a fix which has no text of its own. -->
+    <string name="ime_grammar_fix_action">Fix</string>
+    <!-- Content description of the button that hides one issue card. -->
+    <string name="ime_grammar_dismiss_desc">Hide this issue</string>
+    <!-- Shown when the native grammar library is not part of this build. The file name must stay as it is. -->
+    <string name="ime_grammar_unavailable_info">This build of the app does not include the grammar engine. The file <xliff:g id="library_file" example="libharper_jni.so">libharper_jni.so</xliff:g> is missing.</string>
+
+    <!-- AI panel: one tap actions that run on the text in the field. -->
+    <string name="ime_ai_model_label">Model:</string>
+    <string name="ime_ai_setup_body">Set up an AI provider in the settings of the tool to use AI.</string>
+    <string name="ime_ai_setup_local_body">Set up an AI provider, or download a model to your device. Both are in the settings of the tool.</string>
+    <string name="ime_ai_need_model_body">To use AI on your device, download a model in the settings of the tool first.</string>
+    <!-- Shown under the action chips. %1$s is the name of the AI provider. -->
+    <string name="ime_ai_idle_body">The actions run on the selected text, or on the whole field. They use %1$s.</string>
+    <!-- Shown when the field is empty and the actions are off. %1$s is the name of the Custom action. -->
+    <string name="ime_ai_idle_empty_body">Type or select some text to use these actions. Press %1$s to write new text.</string>
+    <string name="ime_ai_custom_hint_text">Type an instruction. For example: “make this a haiku”</string>
+    <string name="ime_ai_custom_hint_empty">Type an instruction. For example: “write a haiku about rain”</string>
+    <!-- Shown beside the Run button. %1$s is the name of the AI provider. -->
+    <string name="ime_ai_custom_body">This runs on the selected text, or on the whole field. It uses %1$s.</string>
+    <!-- Shown beside the Run button when the field is empty. %1$s is the name of the AI provider. -->
+    <string name="ime_ai_custom_empty_body">The field is empty. This writes new text with %1$s.</string>
+    <string name="ime_ai_open_settings_action">Open settings</string>
+    <string name="ime_ai_download_model_action">Download a model</string>
+    <string name="ime_ai_run_action">Run</string>
+    <string name="ime_ai_report_action">Report</string>
+    <!-- Checkbox that takes the markdown marks out of the result. -->
+    <string name="ime_ai_strip_markdown_label">Delete markdown</string>
+
+    <!-- AI panel: what the request is doing while the user waits. -->
+    <string name="ime_ai_progress_thinking">Reasoning… The answer appears when the model is finished.</string>
+    <!-- %1$s is the name of the action, for example Rewrite. -->
+    <string name="ime_ai_progress_on_device">%1$s on your device… The first run also loads the model.</string>
+    <!-- %1$s is the name of the action, for example Rewrite. -->
+    <string name="ime_ai_progress_waiting">%1$s… The keyboard waits for the first words.</string>
+    <!-- %1$s is the name of the action, for example Rewrite. -->
+    <string name="ime_ai_progress_running">%1$s…</string>
+    <!-- %1$d is the number of seconds since the request started. -->
+    <string name="ime_ai_progress_elapsed">%1$ds elapsed</string>
+    <!-- How much reasoning text arrived so far. %1$d is the number of characters. -->
+    <plurals name="ime_ai_progress_reasoning_chars">
+        <item quantity="one">%1$d character of reasoning</item>
+        <item quantity="other">%1$d characters of reasoning</item>
+    </plurals>
+    <!-- Joins the reasoning size (%1$s) and the elapsed time (%2$s) on one line. -->
+    <string name="ime_ai_progress_detail">%1$s · %2$s</string>
+
+    <!-- AI panel: what the keyboard says when a request cannot run. -->
+    <string name="ime_ai_error_no_text">There is nothing to work on. Type some text first.</string>
+    <string name="ime_ai_error_empty_result">The model returned nothing.</string>
+    <string name="ime_ai_error_only_reasoning">The model used the whole response to reason. Try again, or turn on “Show reasoning” in the settings.</string>
+    <string name="ime_ai_error_request_failed">The request did not work</string>
+    <string name="ime_ai_error_model_missing">The selected model is gone. Download it again in the settings.</string>
+
+    <!-- Voice typing, from the keyboard service. -->
+    <string name="ime_service_voice_secure_field_toast">You cannot use voice typing in a password field</string>
+    <string name="ime_service_voice_error_busy">The microphone is busy. Close the other apps that use it and try again.</string>
+    <string name="ime_service_voice_error_language">Speech recognition does not support this language on your device.</string>
+    <string name="ime_service_voice_error_other">Speech recognition did not work. Try again.</string>
+    <string name="ime_service_voice_mic_error">The keyboard cannot start the microphone. Close the other apps that use it and try again.</string>
+    <string name="ime_service_voice_transcribe_error">The transcription did not work. Try again.</string>
+    <string name="ime_service_voice_model_download_error">The download of the offline model did not work. Try again later.</string>
+
+    <!-- Handwriting on the keys, from the keyboard service. -->
+    <string name="ime_service_handwriting_need_model_toast">Download a handwriting model to write on the keyboard. The download is in Settings, under Handwriting.</string>
+    <string name="ime_service_handwriting_download_error">The download did not work. Check your connection and try again.</string>
+
+    <!-- Toolbar switches: what the keyboard says after a tap. -->
+    <string name="ime_service_incognito_field_toast">This field is always incognito</string>
+    <string name="ime_service_incognito_on_toast">Incognito is on. The keyboard does not learn what you type.</string>
+    <string name="ime_service_incognito_off_toast">Incognito is off</string>
+    <string name="ime_service_power_saving_on_toast">Power saving is on</string>
+    <string name="ime_service_power_saving_on_empty_toast">Power saving is on. No feature is set to stop yet.</string>
+    <string name="ime_service_power_saving_still_on_toast">Power saving stays on. The battery trigger is on.</string>
+    <string name="ime_service_power_saving_off_toast">Power saving is off</string>
+    <string name="ime_service_autocorrect_on_toast">Autocorrect is on</string>
+    <string name="ime_service_autocorrect_off_toast">Autocorrect is off</string>
+    <string name="ime_service_flashlight_missing_toast">Your device has no flashlight</string>
+    <string name="ime_service_already_in_settings_toast">You are already in the settings</string>
+    <!-- Shown the first time a tool order is saved for one keyboard mode. %1$s is the name of the mode. -->
+    <string name="ime_service_mode_tool_order_toast">The keyboard saved the tool order for the %1$s mode. Other apps keep their own order.</string>
+
+    <!-- Tools: search, articles, exchange rates, QR codes. -->
+    <string name="ime_service_search_error">The search did not work</string>
+    <string name="ime_service_wiki_article_error">The keyboard cannot load the article</string>
+    <string name="ime_service_currency_error">The keyboard cannot get the exchange rates. Check your connection.</string>
+    <string name="ime_service_translate_error">The translation did not work</string>
+    <string name="ime_service_qr_error">The keyboard cannot make the QR code</string>
+    <string name="ime_service_gallery_save_error">The keyboard cannot save to the gallery</string>
+    <!-- Shown when the device has no mail app for a report. %1$s is the support email address. -->
+    <string name="ime_service_no_email_app_toast">This device has no email app. Send reports to <xliff:g id="email" example="support@example.com">%1$s</xliff:g>.</string>
+    <!-- The line the typing test writes into the field. %1$d is words per minute, %2$d the accuracy in percent, %3$s the test settings. -->
+    <!-- "WPM" is a unit symbol and the second number is followed by the percent sign: neither
+         number is followed by a countable noun, so no plural. -->
+    <string name="ime_service_typing_result_text" tools:ignore="PluralsCandidate">%1$d WPM · %2$d%% accuracy (%3$s)</string>
+
+    <!-- Plugins panel, from the keyboard service. -->
+    <string name="ime_service_plugins_off_notice">Plugins are turned off. Turn them on in Settings to install and run them.</string>
+    <string name="ime_service_plugins_all_off_notice">Every plugin you installed is turned off. Turn one on under Manage plugins.</string>
+
+    <!-- GIFs, stickers and images the keyboard sends or saves. -->
+    <string name="ime_service_sticker_pack_default_name">My stickers</string>
+    <string name="ime_service_sticker_saved_toast">Saved to your stickers</string>
+    <string name="ime_service_sticker_pack_full_toast">That pack is full</string>
+    <string name="ime_service_sticker_pack_missing_toast">That pack is gone</string>
+    <string name="ime_service_sticker_save_error_toast">The keyboard cannot save that sticker</string>
+    <string name="ime_service_sticker_missing_toast">The file of that sticker is gone</string>
+    <string name="ime_service_media_fetch_error">The keyboard cannot get results</string>
+    <string name="ime_service_media_download_error_toast">The download did not work. Check your connection.</string>
+
+    <!-- Clipboard: what the keyboard says when it copies or pastes for you. -->
+    <string name="ime_service_copied_toast">Copied</string>
+    <string name="ime_service_copied_paste_toast">Copied. You can paste it anywhere.</string>
+    <string name="ime_service_file_copy_error_toast">The keyboard cannot copy that file</string>
+    <string name="ime_service_file_not_accepted_toast">This app does not accept files here. The keyboard copied the file. Paste it instead.</string>
+    <string name="ime_service_image_not_accepted_toast">This app does not accept images here. The keyboard copied the image. Paste it instead.</string>
+    <string name="ime_service_folder_insert_toast">The keyboard cannot insert a folder. It typed the name and copied the folder for you to paste.</string>
+    <!-- Stands in for the name of a copied file when the file has no name. -->
+    <string name="ime_service_clip_file_unnamed_label">Unnamed</string>
+
+</resources>

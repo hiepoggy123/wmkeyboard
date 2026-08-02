@@ -12,6 +12,7 @@ import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.wasimaster.wmkeyboard.core.settings.LocalLlmBackend
+import com.wasimaster.wmkeyboard.intelligence.R
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
@@ -65,8 +66,7 @@ object LocalLlmEngine {
             } catch (e: Throwable) {
                 releaseLocked()
                 throw IOException(
-                    "The model failed to load — its file may be corrupted; " +
-                        "delete and re-download it in settings",
+                    context.getString(R.string.core_intel_llm_engine_error_load),
                     e,
                 )
             }
@@ -125,15 +125,13 @@ object LocalLlmEngine {
                     // user having to work out that the backend was the problem.
                     gpuFallback += modelFile.path
                     throw IOException(
-                        "The model crashed on the GPU — GPU memory is much tighter " +
-                            "than system RAM. Retrying will run it on the CPU " +
-                            "instead; switch Compute to CPU in settings to make " +
-                            "that permanent, or pick a smaller model.",
+                        context.getString(R.string.core_intel_llm_engine_error_gpu),
                         e,
                     )
                 }
                 throw IOException(
-                    "The model ran out of memory or crashed — try a smaller model", e,
+                    context.getString(R.string.core_intel_llm_engine_error_memory),
+                    e,
                 )
             }
         } finally {

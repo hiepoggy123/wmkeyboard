@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.addons
 
+import com.wasimaster.wmkeyboard.addons.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -105,7 +106,13 @@ class AddonRepoCodecTest {
         """.trimIndent()
         val entry = AddonRepoCodec.decode(text)!!.addons.single()
         assertEquals(AddonType.EmojiFont, entry.type)
-        assertEquals("Emoji font", entry.type.singularLabel)
+        // Named as its own thing, not as a font: checked by the resource the
+        // type points at rather than by the English in it, so rewording the
+        // label cannot break this and swapping it for the font one still does.
+        assertEquals(
+            R.string.core_addons_type_emoji_font_singular_label,
+            entry.type.singularLabelRes,
+        )
     }
 
     @Test

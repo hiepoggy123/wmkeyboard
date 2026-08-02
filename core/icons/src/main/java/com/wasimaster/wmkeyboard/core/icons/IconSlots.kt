@@ -1,13 +1,16 @@
 package com.wasimaster.wmkeyboard.core.icons
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.icons.R
 
 /** Which surface a slot belongs to, and the order the settings screen groups them in. */
-enum class IconSlotGroup(val title: String) {
-    TOOL("Tools"),
-    KEY("Keys"),
-    CHROME("Toolbar"),
-    EMOJI_TAB("Emoji tabs"),
+enum class IconSlotGroup(@StringRes val titleRes: Int) {
+    TOOL(R.string.core_icons_group_tools_title),
+    KEY(R.string.core_icons_group_keys_title),
+    CHROME(R.string.core_icons_group_toolbar_title),
+    EMOJI_TAB(R.string.core_icons_group_emoji_tabs_title),
 }
 
 /**
@@ -19,14 +22,17 @@ enum class IconSlotGroup(val title: String) {
  * deliberately contain no `,` or `=`: the overrides are persisted as a CSV of
  * `slot=source` pairs, the same shape as the per-tool colour overrides.
  *
- * [tool] is set for the [IconSlotGroup.TOOL] slots. The settings UI prefers
- * `toolTitle(tool)` over [label] for those, so a tool's icon row and its own
- * settings screen agree on what it is called.
+ * [labelRes] is the wording of the row, resolved by the screen that draws it
+ * rather than here, so the app follows a language change.
+ *
+ * [tool] is set for the [IconSlotGroup.TOOL] slots, and those carry no
+ * [labelRes] of their own. The settings UI shows `toolTitle(tool)` for them, so
+ * a tool's icon row and its own settings screen agree on what it is called.
  */
 data class IconSlot(
     val id: String,
     val group: IconSlotGroup,
-    val label: String,
+    @StringRes val labelRes: Int?,
     val tool: ToolbarTool? = null,
 )
 
@@ -97,66 +103,68 @@ object IconSlots {
      */
     fun forEmojiCategory(category: String): String = "emoji_tab.$category"
 
-    /** The catalog's Unicode categories, in the order the tab strip shows them. */
-    val EMOJI_CATEGORIES: List<String> = listOf(
-        "smileys", "people", "animals", "nature", "food",
-        "travel", "activities", "objects", "symbols", "flags",
+    /**
+     * Category name → the wording of its tab, in the order the tab strip shows
+     * them. The names are the catalog's own and never change; only the wording
+     * is translated.
+     */
+    private val emojiCategoryLabels: Map<String, Int> = linkedMapOf(
+        "smileys" to R.string.core_icons_slot_emoji_smileys_label,
+        "people" to R.string.core_icons_slot_emoji_people_label,
+        "animals" to R.string.core_icons_slot_emoji_animals_label,
+        "nature" to R.string.core_icons_slot_emoji_nature_label,
+        "food" to R.string.core_icons_slot_emoji_food_label,
+        "travel" to R.string.core_icons_slot_emoji_travel_label,
+        "activities" to R.string.core_icons_slot_emoji_activities_label,
+        "objects" to R.string.core_icons_slot_emoji_objects_label,
+        "symbols" to R.string.core_icons_slot_emoji_symbols_label,
+        "flags" to R.string.core_icons_slot_emoji_flags_label,
     )
 
+    /** The catalog's Unicode categories, in the order the tab strip shows them. */
+    val EMOJI_CATEGORIES: List<String> = emojiCategoryLabels.keys.toList()
+
     private val keySlots: List<IconSlot> = listOf(
-        IconSlot(KEY_SHIFT, IconSlotGroup.KEY, "Shift"),
-        IconSlot(KEY_SHIFT_ON, IconSlotGroup.KEY, "Shift (on)"),
-        IconSlot(KEY_SHIFT_LOCK, IconSlotGroup.KEY, "Caps lock"),
-        IconSlot(KEY_BACKSPACE, IconSlotGroup.KEY, "Backspace"),
-        IconSlot(KEY_FORWARD_DELETE, IconSlotGroup.KEY, "Forward delete"),
-        IconSlot(KEY_ENTER, IconSlotGroup.KEY, "Enter"),
-        IconSlot(KEY_ENTER_SEARCH, IconSlotGroup.KEY, "Enter — search"),
-        IconSlot(KEY_ENTER_SEND, IconSlotGroup.KEY, "Enter — send"),
-        IconSlot(KEY_ENTER_GO, IconSlotGroup.KEY, "Enter — go"),
-        IconSlot(KEY_ENTER_NEXT, IconSlotGroup.KEY, "Enter — next"),
-        IconSlot(KEY_ENTER_PREVIOUS, IconSlotGroup.KEY, "Enter — previous"),
-        IconSlot(KEY_ENTER_DONE, IconSlotGroup.KEY, "Enter — done"),
-        IconSlot(KEY_GLOBE, IconSlotGroup.KEY, "Switch language"),
-        IconSlot(KEY_EMOJI, IconSlotGroup.KEY, "Emoji key"),
+        IconSlot(KEY_SHIFT, IconSlotGroup.KEY, R.string.core_icons_slot_shift_label),
+        IconSlot(KEY_SHIFT_ON, IconSlotGroup.KEY, R.string.core_icons_slot_shift_on_label),
+        IconSlot(KEY_SHIFT_LOCK, IconSlotGroup.KEY, R.string.core_icons_slot_caps_lock_label),
+        IconSlot(KEY_BACKSPACE, IconSlotGroup.KEY, R.string.core_icons_slot_backspace_label),
+        IconSlot(KEY_FORWARD_DELETE, IconSlotGroup.KEY, R.string.core_icons_slot_forward_delete_label),
+        IconSlot(KEY_ENTER, IconSlotGroup.KEY, R.string.core_icons_slot_enter_label),
+        IconSlot(KEY_ENTER_SEARCH, IconSlotGroup.KEY, R.string.core_icons_slot_enter_search_label),
+        IconSlot(KEY_ENTER_SEND, IconSlotGroup.KEY, R.string.core_icons_slot_enter_send_label),
+        IconSlot(KEY_ENTER_GO, IconSlotGroup.KEY, R.string.core_icons_slot_enter_go_label),
+        IconSlot(KEY_ENTER_NEXT, IconSlotGroup.KEY, R.string.core_icons_slot_enter_next_label),
+        IconSlot(KEY_ENTER_PREVIOUS, IconSlotGroup.KEY, R.string.core_icons_slot_enter_previous_label),
+        IconSlot(KEY_ENTER_DONE, IconSlotGroup.KEY, R.string.core_icons_slot_enter_done_label),
+        IconSlot(KEY_GLOBE, IconSlotGroup.KEY, R.string.core_icons_slot_globe_label),
+        IconSlot(KEY_EMOJI, IconSlotGroup.KEY, R.string.core_icons_slot_emoji_key_label),
     )
 
     private val chromeSlots: List<IconSlot> = listOf(
-        IconSlot(CHROME_TOOLBOX, IconSlotGroup.CHROME, "Toolbox"),
-        IconSlot(CHROME_PANEL_BACK, IconSlotGroup.CHROME, "Back to keys"),
-        IconSlot(CHROME_SUGGESTIONS_EXPAND, IconSlotGroup.CHROME, "Show tools"),
-        IconSlot(CHROME_EMOJI_SHORTCUT, IconSlotGroup.CHROME, "Emoji shortcut"),
-        IconSlot(CHROME_SEARCH_CLOSE, IconSlotGroup.CHROME, "Close search"),
-        IconSlot(CHROME_INCOGNITO, IconSlotGroup.CHROME, "Incognito badge"),
+        IconSlot(CHROME_TOOLBOX, IconSlotGroup.CHROME, R.string.core_icons_slot_toolbox_label),
+        IconSlot(CHROME_PANEL_BACK, IconSlotGroup.CHROME, R.string.core_icons_slot_panel_back_label),
+        IconSlot(CHROME_SUGGESTIONS_EXPAND, IconSlotGroup.CHROME, R.string.core_icons_slot_suggestions_expand_label),
+        IconSlot(CHROME_EMOJI_SHORTCUT, IconSlotGroup.CHROME, R.string.core_icons_slot_emoji_shortcut_label),
+        IconSlot(CHROME_SEARCH_CLOSE, IconSlotGroup.CHROME, R.string.core_icons_slot_search_close_label),
+        IconSlot(CHROME_INCOGNITO, IconSlotGroup.CHROME, R.string.core_icons_slot_incognito_label),
     )
 
     private val emojiTabSlots: List<IconSlot> = buildList {
-        add(IconSlot(EMOJI_TAB_SEARCH, IconSlotGroup.EMOJI_TAB, "Search"))
-        add(IconSlot(EMOJI_TAB_RECENT, IconSlotGroup.EMOJI_TAB, "Recent"))
-        add(IconSlot(EMOJI_TAB_MOST_USED, IconSlotGroup.EMOJI_TAB, "Most used"))
-        for (category in EMOJI_CATEGORIES) {
-            add(
-                IconSlot(
-                    forEmojiCategory(category),
-                    IconSlotGroup.EMOJI_TAB,
-                    category.replaceFirstChar { it.uppercase() },
-                )
-            )
+        add(IconSlot(EMOJI_TAB_SEARCH, IconSlotGroup.EMOJI_TAB, CommonR.string.common_search))
+        add(IconSlot(EMOJI_TAB_RECENT, IconSlotGroup.EMOJI_TAB, R.string.core_icons_slot_emoji_recent_label))
+        add(IconSlot(EMOJI_TAB_MOST_USED, IconSlotGroup.EMOJI_TAB, R.string.core_icons_slot_emoji_most_used_label))
+        for ((category, labelRes) in emojiCategoryLabels) {
+            add(IconSlot(forEmojiCategory(category), IconSlotGroup.EMOJI_TAB, labelRes))
         }
     }
 
     /** Every slot, grouped in [IconSlotGroup] order. */
     val all: List<IconSlot> = buildList {
         for (tool in ToolbarTool.entries) {
-            // The label is a readable fallback; the settings UI substitutes
+            // A tool slot carries no label of its own: the settings UI shows
             // toolTitle(tool), which is the wording the rest of the app uses.
-            add(
-                IconSlot(
-                    forTool(tool),
-                    IconSlotGroup.TOOL,
-                    tool.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() },
-                    tool,
-                )
-            )
+            add(IconSlot(forTool(tool), IconSlotGroup.TOOL, labelRes = null, tool = tool))
         }
         addAll(keySlots)
         addAll(chromeSlots)

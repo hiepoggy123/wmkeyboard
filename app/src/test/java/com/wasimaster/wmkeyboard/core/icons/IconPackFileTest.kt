@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.icons
 
+import com.wasimaster.wmkeyboard.icons.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -59,8 +60,13 @@ class IconPackFileTest {
                  "slots":[${slots.joinToString(",") { "\"$it\"" }}]}}
     """.trimIndent()
 
+    /**
+     * [IconPackFile.import] has no context, so the screen resolves
+     * `core_icons_pack_imported_label` and hands it in. Every archive here
+     * names itself, so the default only has to be a name, not the real one.
+     */
     private fun importPack(bytes: ByteArray): IconImportResult =
-        IconPackFile.import(ByteArrayInputStream(bytes), store, now = 1_000L)
+        IconPackFile.import(ByteArrayInputStream(bytes), store, defaultName = "Imported icons", now = 1_000L)
 
     // ---- round trip ----
 
@@ -161,7 +167,17 @@ class IconPackFileTest {
         )
         val result = importPack(bytes) as IconImportResult.Imported
         assertEquals(listOf(IconSlots.KEY_SHIFT), result.pack.slots)
-        assertTrue(result.repairs.any { "tool.timetravel.svg" in it })
+        // The note is matched by the resource it names and the file name it
+        // carries. The file name is data, not wording, so it survives a
+        // rewrite of the sentence around it.
+        assertTrue(
+            "repairs were ${result.repairs}",
+            IconText(
+                pluralsRes = R.plurals.core_icons_repair_files_ignored,
+                quantity = 1,
+                args = listOf(1, "tool.timetravel.svg"),
+            ) in result.repairs,
+        )
     }
 
     @Test
@@ -175,7 +191,13 @@ class IconPackFileTest {
         )
         val result = importPack(bytes) as IconImportResult.Imported
         assertEquals(listOf(IconSlots.KEY_GLOBE), result.pack.slots)
-        assertTrue(result.repairs.any { IconSlots.KEY_SHIFT in it })
+        assertTrue(
+            "repairs were ${result.repairs}",
+            IconText(
+                R.string.core_icons_repair_svg_unreadable,
+                args = listOf(IconSlots.KEY_SHIFT),
+            ) in result.repairs,
+        )
     }
 
     // ---- security ----

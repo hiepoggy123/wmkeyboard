@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -46,10 +47,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.content.R as ContentR
 import com.wasimaster.wmkeyboard.core.stickers.CustomSticker
 import com.wasimaster.wmkeyboard.core.stickers.StickerAddResult
 import com.wasimaster.wmkeyboard.core.stickers.StickerImage
@@ -107,7 +113,11 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
                     } ?: error("no stream")
                 }.isSuccess
             }
-            message = if (ok) "Saved ${pack.name}." else "Could not write that file."
+            message = if (ok) {
+                context.getString(R.string.import_sticker_pack_saved, pack.name)
+            } else {
+                context.getString(R.string.import_sticker_pack_write_error)
+            }
         }
     }
 
@@ -115,48 +125,71 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
+        // Names a pack whose own file gives no name.
+        val fallbackName = context.getString(ContentR.string.core_content_sticker_pack_imported_label)
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     context.contentResolver.requireInputStream(uri)
-                        .use { StickerPackFile.import(it, store) }
+                        .use { StickerPackFile.import(it, store, fallbackName) }
                 }.getOrDefault(StickerImportResult.Failed)
             }
             revision++
             message = when (result) {
                 is StickerImportResult.Imported -> buildString {
-                    append("Imported ${result.pack.name} — ${result.pack.stickers.size} stickers.")
+                    append(
+                        context.resources.getQuantityString(
+                            R.plurals.import_stickers_done,
+                            result.pack.stickers.size,
+                            result.pack.name,
+                            result.pack.stickers.size,
+                        ),
+                    )
                     if (result.repairs.isNotEmpty()) {
-                        append("\n\nChanged on the way in:")
-                        for (line in result.repairs) append("\n• $line")
+                        append("\n\n").append(context.getString(R.string.import_repairs_title))
+                        // The reader hands back a resource and its arguments,
+                        // so the note is worded here.
+                        for (line in result.repairs) append("\n• ${line.resolve(context)}")
                     }
                 }
-                StickerImportResult.NotAStickerPack -> "That file is not a WMKeyboard sticker pack."
+                StickerImportResult.NotAStickerPack ->
+                    context.getString(R.string.import_not_a_sticker_pack)
                 is StickerImportResult.NoStickers -> buildString {
-                    append("No stickers could be read out of that pack.")
-                    for (line in result.repairs.take(MAX_SHOWN_REPAIRS)) append("\n• $line")
+                    append(context.getString(R.string.import_stickers_none_read))
+                    for (line in result.repairs.take(MAX_SHOWN_REPAIRS)) {
+                        append("\n• ${line.resolve(context)}")
+                    }
                     val extra = result.repairs.size - MAX_SHOWN_REPAIRS
-                    if (extra > 0) append("\n• …and $extra more")
+                    if (extra > 0) {
+                        append("\n• ")
+                        append(
+                            context.resources.getQuantityString(
+                                R.plurals.import_repairs_more,
+                                extra,
+                                extra,
+                            ),
+                        )
+                    }
                 }
                 StickerImportResult.TooManyPacks ->
-                    "You already have ${StickerPackStore.MAX_PACKS} packs. Delete one first."
-                StickerImportResult.Failed -> "That file could not be read."
+                    context.resources.getQuantityString(
+                        R.plurals.import_stickers_too_many,
+                        StickerPackStore.MAX_PACKS,
+                        StickerPackStore.MAX_PACKS,
+                    )
+                StickerImportResult.Failed -> context.getString(R.string.import_file_unreadable)
             }
         }
     }
 
-    CaptionText(
-        "Your own stickers, sent from the sticker tool's “My stickers” tab. " +
-            "Stills are resized to 512×512 WebP so they arrive as real stickers in " +
-            "WhatsApp; animated GIFs are kept as they are and send as images.",
-    )
+    CaptionText(stringResource(R.string.import_stickers_caption))
 
-    SettingsGroup("Your packs") {
+    SettingsGroup(stringResource(R.string.import_sticker_packs_section_title)) {
         if (packs.isEmpty()) {
             item {
                 WmRow(
-                    title = "No sticker packs yet",
-                    subtitle = "Make one below, or import a pack someone shared.",
+                    title = stringResource(R.string.import_sticker_packs_empty_title),
+                    subtitle = stringResource(R.string.import_sticker_packs_empty_subtitle),
                 )
             }
         }
@@ -179,8 +212,8 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
     SettingsGroup {
         item {
             WmRow(
-                title = "New pack",
-                subtitle = "Then add stickers from your photos",
+                title = stringResource(R.string.import_sticker_pack_new_title),
+                subtitle = stringResource(R.string.import_sticker_pack_new_subtitle),
                 icon = Icons.Outlined.Add,
                 accent = routeAccent("sticker_packs"),
                 onClick = { newPackName = "" },
@@ -188,8 +221,8 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
         }
         item {
             WmRow(
-                title = "Import a pack",
-                subtitle = "Opens a .wmstickers file someone shared",
+                title = stringResource(R.string.import_sticker_pack_import_title),
+                subtitle = stringResource(R.string.import_sticker_pack_import_subtitle),
                 icon = Icons.Outlined.FileOpen,
                 accent = routeAccent("sticker_packs"),
                 onClick = { importLauncher.launch(StickerPackFile.IMPORT_MIME_TYPES) },
@@ -199,7 +232,7 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
 
     newPackName?.let { draft ->
         NameDialog(
-            title = "New pack",
+            title = stringResource(R.string.import_sticker_pack_new_title),
             value = draft,
             onValueChange = { newPackName = it },
             onDismiss = { newPackName = null },
@@ -208,7 +241,11 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
                 revision++
                 newPackName = null
                 if (created == null) {
-                    message = "You already have ${StickerPackStore.MAX_PACKS} packs."
+                    message = context.resources.getQuantityString(
+                        R.plurals.import_sticker_packs_full,
+                        StickerPackStore.MAX_PACKS,
+                        StickerPackStore.MAX_PACKS,
+                    )
                 } else {
                     onNavigate("sticker_pack/${created.id}")
                 }
@@ -219,13 +256,14 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
     confirmDelete?.let { pack ->
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
-            title = { Text("Delete ${pack.name}?") },
+            title = { Text(stringResource(R.string.import_sticker_pack_delete_title, pack.name)) },
             text = {
                 Text(
-                    "Its ${pack.stickers.size} sticker" +
-                        (if (pack.stickers.size == 1) "" else "s") +
-                        " are deleted from this device. Export the pack first if you " +
-                        "want to keep a copy.",
+                    pluralStringResource(
+                        R.plurals.import_sticker_pack_delete_body,
+                        pack.stickers.size,
+                        pack.stickers.size,
+                    ),
                 )
             },
             confirmButton = {
@@ -233,10 +271,12 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
                     store.deletePack(pack.id)
                     revision++
                     confirmDelete = null
-                }) { Text("Delete") }
+                }) { Text(stringResource(CommonR.string.common_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = null }) { Text("Cancel") }
+                TextButton(onClick = { confirmDelete = null }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
             },
         )
     }
@@ -245,7 +285,11 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
         AlertDialog(
             onDismissRequest = { message = null },
             text = { Text(text) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
         )
     }
 }
@@ -265,8 +309,15 @@ private fun StickerPackRow(
         supporting = {
             Column {
                 Text(
-                    if (pack.stickers.isEmpty()) "Empty"
-                    else "${pack.stickers.size} sticker" + if (pack.stickers.size == 1) "" else "s",
+                    if (pack.stickers.isEmpty()) {
+                        stringResource(R.string.import_sticker_pack_empty_label)
+                    } else {
+                        pluralStringResource(
+                            R.plurals.import_sticker_count,
+                            pack.stickers.size,
+                            pack.stickers.size,
+                        )
+                    },
                 )
                 if (pack.stickers.isNotEmpty()) {
                     Row(
@@ -292,10 +343,22 @@ private fun StickerPackRow(
         trailing = {
             Row {
                 IconButton(onClick = onExport) {
-                    Icon(Icons.Outlined.Share, contentDescription = "Export ${pack.name}")
+                    Icon(
+                        Icons.Outlined.Share,
+                        contentDescription = stringResource(
+                            R.string.import_sticker_pack_export_desc,
+                            pack.name,
+                        ),
+                    )
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Delete ${pack.name}")
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = stringResource(
+                            R.string.import_sticker_pack_delete_desc,
+                            pack.name,
+                        ),
+                    )
                 }
             }
         },
@@ -353,26 +416,22 @@ internal fun StickerPackScreen(packId: String) {
             }
             busy = false
             revision++
-            message = outcome.describe()
+            message = outcome.describe(context)
         }
     }
 
     if (pack == null) {
-        CaptionText("This pack is gone.")
+        CaptionText(stringResource(R.string.import_sticker_pack_missing))
         return
     }
 
-    CaptionText(
-        "Stills become 512×512 WebP under 100 KB — WhatsApp's sticker spec. " +
-            "Animated GIFs are stored untouched, because Android can't encode " +
-            "animated WebP; those always send as images.",
-    )
+    CaptionText(stringResource(R.string.import_sticker_pack_caption))
 
-    SettingsGroup("Pack") {
+    SettingsGroup(stringResource(R.string.import_sticker_pack_section_title)) {
         item {
             WmRow(
                 title = pack.name,
-                subtitle = "Tap to rename",
+                subtitle = stringResource(R.string.import_sticker_pack_rename_subtitle),
                 onClick = { renaming = pack.name },
             )
         }
@@ -381,9 +440,18 @@ internal fun StickerPackScreen(packId: String) {
     SettingsGroup {
         item {
             WmRow(
-                title = if (busy) "Adding…" else "Add stickers",
-                subtitle = "${pack.stickers.size} of " +
-                    "${StickerPackStore.MAX_STICKERS_PER_PACK} used",
+                title = stringResource(
+                    if (busy) {
+                        R.string.import_stickers_adding_title
+                    } else {
+                        R.string.import_stickers_add_title
+                    },
+                ),
+                subtitle = stringResource(
+                    R.string.import_stickers_used_subtitle,
+                    pack.stickers.size,
+                    StickerPackStore.MAX_STICKERS_PER_PACK,
+                ),
                 icon = Icons.Outlined.Add,
                 accent = routeAccent("sticker_packs"),
                 enabled = !busy,
@@ -400,13 +468,15 @@ internal fun StickerPackScreen(packId: String) {
         SettingsGroup {
             item {
                 WmRow(
-                    title = "No stickers in this pack",
-                    subtitle = "Add some from your photos, or long-press a Klipy or " +
-                        "GIPHY sticker in the keyboard.",
+                    title = stringResource(R.string.import_stickers_empty_title),
+                    subtitle = stringResource(R.string.import_stickers_empty_subtitle),
                 )
             }
         }
     } else {
+        // Read out for a sticker with no name of its own. Resolved once here
+        // rather than in every cell of the grid.
+        val unnamedSticker = stringResource(R.string.import_sticker_desc_fallback)
         LazyVerticalGrid(
             columns = GridCells.Adaptive(96.dp),
             modifier = Modifier
@@ -426,7 +496,7 @@ internal fun StickerPackScreen(packId: String) {
                 ) {
                     AsyncImage(
                         model = store.fileFor(packId, sticker),
-                        contentDescription = sticker.name.ifBlank { "Sticker" },
+                        contentDescription = sticker.name.ifBlank { unnamedSticker },
                         imageLoader = loader,
                         contentScale = ContentScale.Fit,
                         modifier = Modifier.fillMaxWidth(),
@@ -447,7 +517,7 @@ internal fun StickerPackScreen(packId: String) {
 
     renaming?.let { draft ->
         NameDialog(
-            title = "Rename pack",
+            title = stringResource(R.string.import_sticker_pack_rename_title),
             value = draft,
             onValueChange = { renaming = it },
             onDismiss = { renaming = null },
@@ -471,7 +541,7 @@ internal fun StickerPackScreen(packId: String) {
             },
             onMove = { targetId ->
                 if (!store.moveSticker(packId, sticker.id, targetId)) {
-                    message = "That pack is full."
+                    message = context.getString(R.string.import_sticker_pack_full)
                 }
                 revision++
                 editing = null
@@ -493,7 +563,11 @@ internal fun StickerPackScreen(packId: String) {
         AlertDialog(
             onDismissRequest = { message = null },
             text = { Text(text) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
         )
     }
 }
@@ -510,11 +584,36 @@ private data class AddOutcome(
     val unreadable: Int,
     val packFull: Boolean,
 ) {
-    fun describe(): String = buildString {
-        append(if (added == 0) "Nothing added." else "Added $added sticker${if (added == 1) "" else "s"}.")
-        if (tooLarge > 0) append(" $tooLarge were too large (animated files are capped at 2 MB).")
-        if (unreadable > 0) append(" $unreadable could not be read as an image.")
-        if (packFull) append(" The pack is now full.")
+    /** One message, in the language [context] is configured for. */
+    fun describe(context: Context): String = buildString {
+        append(
+            if (added == 0) {
+                context.getString(R.string.import_stickers_none_added)
+            } else {
+                context.resources.getQuantityString(R.plurals.import_stickers_added, added, added)
+            },
+        )
+        if (tooLarge > 0) {
+            append(" ")
+            append(
+                context.resources.getQuantityString(
+                    R.plurals.import_stickers_too_large,
+                    tooLarge,
+                    tooLarge,
+                ),
+            )
+        }
+        if (unreadable > 0) {
+            append(" ")
+            append(
+                context.resources.getQuantityString(
+                    R.plurals.import_stickers_unreadable,
+                    unreadable,
+                    unreadable,
+                ),
+            )
+        }
+        if (packFull) append(" ").append(context.getString(R.string.import_sticker_pack_now_full))
     }
 }
 
@@ -534,21 +633,23 @@ private fun StickerEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit sticker") },
+        title = { Text(stringResource(R.string.import_sticker_edit_title)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Name") },
+                    label = { Text(stringResource(R.string.import_name_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = tags,
                     onValueChange = { tags = it },
-                    label = { Text("Emoji tags") },
-                    supportingText = { Text("Searched alongside the name, e.g. 😂 🐱") },
+                    label = { Text(stringResource(R.string.import_sticker_emoji_tags_label)) },
+                    supportingText = {
+                        Text(stringResource(R.string.import_sticker_emoji_tags_hint))
+                    },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -558,12 +659,18 @@ private fun StickerEditDialog(
                     modifier = Modifier.padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    TextButton(onClick = { onReorder(-1) }) { Text("Move up") }
-                    TextButton(onClick = { onReorder(1) }) { Text("Move down") }
+                    TextButton(onClick = { onReorder(-1) }) {
+                        Text(stringResource(R.string.import_sticker_move_up))
+                    }
+                    TextButton(onClick = { onReorder(1) }) {
+                        Text(stringResource(R.string.import_sticker_move_down))
+                    }
                 }
                 if (otherPacks.isNotEmpty()) {
                     Box {
-                        TextButton(onClick = { moveOpen = true }) { Text("Move to another pack") }
+                        TextButton(onClick = { moveOpen = true }) {
+                            Text(stringResource(R.string.import_sticker_move_pack))
+                        }
                         DropdownMenu(expanded = moveOpen, onDismissRequest = { moveOpen = false }) {
                             for (pack in otherPacks) {
                                 DropdownMenuItem(
@@ -579,15 +686,19 @@ private fun StickerEditDialog(
                         }
                     }
                 }
-                TextButton(onClick = onDelete) { Text("Delete this sticker") }
+                TextButton(onClick = onDelete) {
+                    Text(stringResource(R.string.import_sticker_delete_action))
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = {
                 onSave(name, tags.split(" ").map { it.trim() }.filter { it.isNotEmpty() })
-            }) { Text("Save") }
+            }) { Text(stringResource(CommonR.string.common_save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
     )
 }
 
@@ -606,13 +717,17 @@ private fun NameDialog(
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
-                label = { Text("Name") },
+                label = { Text(stringResource(R.string.import_name_label)) },
                 singleLine = true,
             )
         },
         confirmButton = {
-            Button(onClick = onConfirm, enabled = value.isNotBlank()) { Text("Save") }
+            Button(onClick = onConfirm, enabled = value.isNotBlank()) {
+                Text(stringResource(CommonR.string.common_save))
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
     )
 }

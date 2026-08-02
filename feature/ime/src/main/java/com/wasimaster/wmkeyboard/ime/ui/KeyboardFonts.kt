@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -125,7 +126,7 @@ object KeyboardFonts {
      */
     data class ScriptFontChoices(
         val script: ScriptId,
-        val label: String,
+        @StringRes val labelRes: Int,
         val sample: String,
         val fonts: List<String>,
     )
@@ -134,83 +135,83 @@ object KeyboardFonts {
         // Bengali leads the list because it is the one script here that also
         // takes an imported file, so its picker is the longest.
         ScriptFontChoices(
-            ScriptId.BENGALI, "Bengali", "আমি ভালো আছি · কখগঘঙ চছজঝঞ",
+            ScriptId.BENGALI, R.string.ime_font_script_bengali_label, "আমি ভালো আছি · কখগঘঙ চছজঝঞ",
             bengaliGoogleFonts,
         ),
         ScriptFontChoices(
-            ScriptId.ARABIC, "Arabic", "السلام عليكم · ابجد",
+            ScriptId.ARABIC, R.string.ime_font_script_arabic_label, "السلام عليكم · ابجد",
             listOf("Noto Sans Arabic", "Noto Kufi Arabic", "Amiri", "Cairo", "Tajawal", "Markazi Text", "Reem Kufi"),
         ),
         ScriptFontChoices(
-            ScriptId.HEBREW, "Hebrew", "שלום · אבגד הוז",
+            ScriptId.HEBREW, R.string.ime_font_script_hebrew_label, "שלום · אבגד הוז",
             listOf("Noto Serif Hebrew", "Rubik", "Heebo", "Assistant", "Frank Ruhl Libre", "David Libre", "Secular One"),
         ),
         ScriptFontChoices(
-            ScriptId.ARMENIAN, "Armenian", "Բարեւ · Աբգդ",
+            ScriptId.ARMENIAN, R.string.ime_font_script_armenian_label, "Բարեւ · Աբգդ",
             listOf("Noto Serif Armenian"),
         ),
         ScriptFontChoices(
-            ScriptId.GEORGIAN, "Georgian", "გამარჯობა · აბგდ",
+            ScriptId.GEORGIAN, R.string.ime_font_script_georgian_label, "გამარჯობა · აბგდ",
             listOf("Noto Serif Georgian"),
         ),
         ScriptFontChoices(
-            ScriptId.DEVANAGARI, "Devanagari", "नमस्ते · कखगघ",
+            ScriptId.DEVANAGARI, R.string.ime_font_script_devanagari_label, "नमस्ते · कखगघ",
             listOf("Noto Serif Devanagari", "Hind", "Mukta", "Baloo 2", "Tiro Devanagari Hindi", "Rozha One", "Kalam"),
         ),
         ScriptFontChoices(
-            ScriptId.GURMUKHI, "Gurmukhi", "ਸਤ ਸ੍ਰੀ ਅਕਾਲ · ਕਖਗ",
+            ScriptId.GURMUKHI, R.string.ime_font_script_gurmukhi_label, "ਸਤ ਸ੍ਰੀ ਅਕਾਲ · ਕਖਗ",
             listOf("Noto Serif Gurmukhi", "Mukta Mahee", "Baloo Paaji 2"),
         ),
         ScriptFontChoices(
-            ScriptId.GUJARATI, "Gujarati", "નમસ્તે · કખગઘ",
+            ScriptId.GUJARATI, R.string.ime_font_script_gujarati_label, "નમસ્તે · કખગઘ",
             listOf("Noto Serif Gujarati", "Mukta Vaani", "Hind Vadodara", "Baloo Bhai 2", "Shrikhand"),
         ),
         ScriptFontChoices(
-            ScriptId.ORIYA, "Odia", "ନମସ୍କାର · କଖଗ",
+            ScriptId.ORIYA, R.string.ime_font_script_odia_label, "ନମସ୍କାର · କଖଗ",
             listOf("Noto Serif Oriya", "Baloo Bhaina 2"),
         ),
         ScriptFontChoices(
-            ScriptId.TAMIL, "Tamil", "வணக்கம் · கஙச",
+            ScriptId.TAMIL, R.string.ime_font_script_tamil_label, "வணக்கம் · கஙச",
             listOf("Noto Serif Tamil", "Hind Madurai", "Mukta Malar", "Baloo Thambi 2", "Catamaran", "Pavanam"),
         ),
         ScriptFontChoices(
-            ScriptId.TELUGU, "Telugu", "నమస్కారం · కఖగ",
+            ScriptId.TELUGU, R.string.ime_font_script_telugu_label, "నమస్కారం · కఖగ",
             listOf("Noto Serif Telugu", "Hind Guntur", "Mallanna", "Mandali", "Ramabhadra", "Baloo Tammudu 2", "Suranna"),
         ),
         ScriptFontChoices(
-            ScriptId.KANNADA, "Kannada", "ನಮಸ್ಕಾರ · ಕಖಗ",
+            ScriptId.KANNADA, R.string.ime_font_script_kannada_label, "ನಮಸ್ಕಾರ · ಕಖಗ",
             listOf("Noto Serif Kannada", "Baloo Tamma 2", "Benne", "Akaya Kanadaka"),
         ),
         ScriptFontChoices(
-            ScriptId.MALAYALAM, "Malayalam", "നമസ്കാരം · കഖഗ",
+            ScriptId.MALAYALAM, R.string.ime_font_script_malayalam_label, "നമസ്കാരം · കഖഗ",
             listOf("Noto Serif Malayalam", "Manjari", "Baloo Chettan 2", "Gayathri", "Anek Malayalam", "Chilanka"),
         ),
         ScriptFontChoices(
-            ScriptId.SINHALA, "Sinhala", "ආයුබෝවන් · කඛග",
+            ScriptId.SINHALA, R.string.ime_font_script_sinhala_label, "ආයුබෝවන් · කඛග",
             listOf("Noto Serif Sinhala", "Abhaya Libre", "Yaldevi", "Gemunu Libre"),
         ),
         ScriptFontChoices(
-            ScriptId.THAI, "Thai", "สวัสดี · กขคง",
+            ScriptId.THAI, R.string.ime_font_script_thai_label, "สวัสดี · กขคง",
             listOf("Noto Serif Thai", "Sarabun", "Kanit", "Prompt", "Mitr", "Pridi", "Bai Jamjuree", "K2D", "Mali"),
         ),
         ScriptFontChoices(
-            ScriptId.LAO, "Lao", "ສະບາຍດີ · ກຂຄ",
+            ScriptId.LAO, R.string.ime_font_script_lao_label, "ສະບາຍດີ · ກຂຄ",
             listOf("Noto Serif Lao", "Noto Sans Lao Looped"),
         ),
         ScriptFontChoices(
-            ScriptId.KHMER, "Khmer", "សួស្តី · កខគ",
+            ScriptId.KHMER, R.string.ime_font_script_khmer_label, "សួស្តី · កខគ",
             listOf("Noto Serif Khmer", "Battambang", "Hanuman", "Suwannaphum", "Koulen", "Moul", "Content", "Kantumruy Pro"),
         ),
         ScriptFontChoices(
-            ScriptId.MYANMAR, "Myanmar", "မင်္ဂလာပါ · ကခဂ",
+            ScriptId.MYANMAR, R.string.ime_font_script_myanmar_label, "မင်္ဂလာပါ · ကခဂ",
             listOf("Noto Serif Myanmar", "Padauk"),
         ),
         ScriptFontChoices(
-            ScriptId.ETHIOPIC, "Ethiopic", "ሰላም · ሀለሐመ",
+            ScriptId.ETHIOPIC, R.string.ime_font_script_ethiopic_label, "ሰላም · ሀለሐመ",
             listOf("Noto Serif Ethiopic", "Abyssinica SIL"),
         ),
         ScriptFontChoices(
-            ScriptId.HANGUL, "Korean", "안녕하세요 · 가나다라",
+            ScriptId.HANGUL, R.string.ime_font_script_korean_label, "안녕하세요 · 가나다라",
             listOf(
                 "Noto Serif KR",
                 "Nanum Gothic",
@@ -224,7 +225,7 @@ object KeyboardFonts {
             ),
         ),
         ScriptFontChoices(
-            ScriptId.JAPANESE, "Japanese", "こんにちは · 日本語 あいう",
+            ScriptId.JAPANESE, R.string.ime_font_script_japanese_label, "こんにちは · 日本語 あいう",
             listOf(
                 "Noto Serif JP",
                 "M PLUS 1p",
@@ -238,7 +239,7 @@ object KeyboardFonts {
             ),
         ),
         ScriptFontChoices(
-            ScriptId.HAN, "Chinese", "你好 · 汉字 中文",
+            ScriptId.HAN, R.string.ime_font_script_chinese_label, "你好 · 汉字 中文",
             listOf(
                 "Noto Serif SC",
                 "Noto Sans TC",
@@ -276,22 +277,28 @@ object KeyboardFonts {
 
     fun googleId(name: String): String = GOOGLE_PREFIX + name
 
-    fun displayName(id: String, customName: String = ""): String = when {
-        id == CUSTOM_ID || id == CUSTOM_BENGALI_ID -> customName.ifBlank { "Custom font" }
+    /**
+     * The generic name for a font id, without asking the installed-font library
+     * for the real name of a font it holds. [displayName] does ask, and is what
+     * a screen that shows the user's own fonts wants.
+     */
+    fun genericDisplayName(context: Context, id: String, customName: String = ""): String = when {
+        id == CUSTOM_ID || id == CUSTOM_BENGALI_ID ->
+            customName.ifBlank { context.getString(R.string.ime_font_custom_label) }
         id.startsWith(GOOGLE_PREFIX) -> id.removePrefix(GOOGLE_PREFIX)
-        // Without a Context the store can't be asked for the real name; the
-        // context-aware overload below is what the settings screens use.
-        FontStore.storeIdOf(id) != null -> "Installed font"
-        else -> "System default"
+        FontStore.storeIdOf(id) != null -> context.getString(R.string.ime_font_installed_label)
+        else -> context.getString(R.string.ime_font_system_default_label)
     }
 
     /**
-     * [displayName] with the installed-font library available, so a font from
-     * the library reads as its own name rather than a generic label.
+     * [genericDisplayName] with the installed-font library available, so a font
+     * from the library reads as its own name rather than a generic label.
      */
     fun displayName(context: Context, id: String, customName: String = ""): String {
-        val storeId = FontStore.storeIdOf(id) ?: return displayName(id, customName)
-        return FontStore.get(context).font(storeId)?.name ?: "Installed font"
+        val storeId = FontStore.storeIdOf(id)
+            ?: return genericDisplayName(context, id, customName)
+        return FontStore.get(context).font(storeId)?.name
+            ?: context.getString(R.string.ime_font_installed_label)
     }
 
     fun customFontFile(context: Context): File =

@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -36,6 +37,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,19 +49,32 @@ import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
 import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.R
 
 /**
  * Grammarly-style category for a lint: Harper's fine-grained kinds collapse
  * into four color-coded buckets so the card header reads at a glance.
  */
-private data class LintCategory(val label: String, val light: Color, val dark: Color) {
+private data class LintCategory(
+    @StringRes val labelRes: Int,
+    val light: Color,
+    val dark: Color,
+) {
     fun color(isDark: Boolean): Color = if (isDark) dark else light
 }
 
-private val CORRECTNESS = LintCategory("Correctness", Color(0xFFD64545), Color(0xFFEF7070))
-private val CLARITY = LintCategory("Clarity", Color(0xFF2D7FD6), Color(0xFF6AAFF5))
-private val ENGAGEMENT = LintCategory("Engagement", Color(0xFF15845D), Color(0xFF43C593))
-private val DELIVERY = LintCategory("Delivery", Color(0xFF8A56C9), Color(0xFFB68AF0))
+private val CORRECTNESS = LintCategory(
+    R.string.ime_grammar_category_correctness_label, Color(0xFFD64545), Color(0xFFEF7070),
+)
+private val CLARITY = LintCategory(
+    R.string.ime_grammar_category_clarity_label, Color(0xFF2D7FD6), Color(0xFF6AAFF5),
+)
+private val ENGAGEMENT = LintCategory(
+    R.string.ime_grammar_category_engagement_label, Color(0xFF15845D), Color(0xFF43C593),
+)
+private val DELIVERY = LintCategory(
+    R.string.ime_grammar_category_delivery_label, Color(0xFF8A56C9), Color(0xFFB68AF0),
+)
 
 private fun categoryFor(kind: String): LintCategory = when (kind.lowercase()) {
     "spelling", "typo", "grammar", "agreement", "capitalization", "punctuation",
@@ -109,7 +125,12 @@ internal fun GrammarPanel(
             .padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Grammar", color = kb.secondaryText, fontSize = 12.sp, maxLines = 1)
+            Text(
+                stringResource(R.string.ime_grammar_title),
+                color = kb.secondaryText,
+                fontSize = 12.sp,
+                maxLines = 1,
+            )
             Spacer(Modifier.width(6.dp))
             Box {
                 Row(
@@ -120,7 +141,7 @@ internal fun GrammarPanel(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        state.settings.grammarDialect.label,
+                        stringResource(state.settings.grammarDialect.labelRes),
                         color = kb.suggestionText,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -128,7 +149,7 @@ internal fun GrammarPanel(
                     )
                     Icon(
                         Icons.Outlined.ArrowDropDown,
-                        contentDescription = "Choose dialect",
+                        contentDescription = stringResource(R.string.ime_grammar_dialect_desc),
                         modifier = Modifier.size(18.dp),
                         tint = kb.toolbarIcon,
                     )
@@ -147,7 +168,11 @@ internal fun GrammarPanel(
             if (grammar.lints.isNotEmpty()) {
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    if (grammar.lints.size == 1) "1 issue" else "${grammar.lints.size} issues",
+                    pluralStringResource(
+                        R.plurals.ime_grammar_issue_count,
+                        grammar.lints.size,
+                        grammar.lints.size,
+                    ),
                     color = kb.secondaryText,
                     fontSize = 11.sp,
                     maxLines = 1,
@@ -178,7 +203,7 @@ internal fun GrammarPanel(
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        "Fix all ($fixable)",
+                        stringResource(R.string.ime_grammar_fix_all_action, fixable),
                         color = kb.toolCircleActiveIcon,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -190,10 +215,10 @@ internal fun GrammarPanel(
         Spacer(Modifier.height(4.dp))
         when {
             !grammar.available -> GrammarHint(
-                "Grammar engine isn't in this build (libharper_jni.so missing).",
+                stringResource(R.string.ime_grammar_unavailable_info),
             )
             grammar.sourceText.isEmpty() && !grammar.checking -> GrammarHint(
-                "Type, or open a field with text — issues show here. Checks run fully offline.",
+                stringResource(R.string.ime_grammar_empty_hint),
             )
             grammar.lints.isEmpty() && grammar.checkedOnce && !grammar.checking -> Row(
                 modifier = Modifier
@@ -209,7 +234,11 @@ internal fun GrammarPanel(
                     tint = kb.accent,
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("No issues found", color = kb.secondaryText, fontSize = 13.sp)
+                Text(
+                    stringResource(R.string.ime_grammar_no_issues_empty),
+                    color = kb.secondaryText,
+                    fontSize = 13.sp,
+                )
             }
             else -> LazyColumn(
                 modifier = Modifier
@@ -270,11 +299,12 @@ private fun GrammarLintCard(
             )
             Spacer(Modifier.width(6.dp))
             val kind = kindLabel(lint.kind)
+            val categoryLabel = stringResource(category.labelRes)
             Text(
-                if (kind.isEmpty() || kind == category.label) {
-                    category.label
+                if (kind.isEmpty() || kind == categoryLabel) {
+                    categoryLabel
                 } else {
-                    "${category.label} • $kind"
+                    stringResource(R.string.ime_grammar_category_kind_label, categoryLabel, kind)
                 },
                 color = kb.secondaryText,
                 fontSize = 11.sp,
@@ -285,7 +315,7 @@ private fun GrammarLintCard(
             )
             Icon(
                 Icons.Outlined.Close,
-                contentDescription = "Dismiss issue",
+                contentDescription = stringResource(R.string.ime_grammar_dismiss_desc),
                 modifier = Modifier
                     .size(16.dp)
                     .clickable { onDismiss(lint) },
@@ -325,19 +355,31 @@ private fun GrammarLintCard(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    lint.suggestions.distinctBy { it.label.trim() }.take(5).forEach { fix ->
-                        Text(
-                            fix.label.ifBlank { "Fix" },
-                            color = kb.toolCircleActiveIcon,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            modifier = Modifier
-                                .background(kb.toolCircleActive, RoundedCornerShape(12.dp))
-                                .clickable { onFix(lint, fix) }
-                                .padding(horizontal = 10.dp, vertical = 4.dp),
-                        )
-                    }
+                    lint.suggestions
+                        .distinctBy { it.labelText?.trim() ?: it.labelRes }
+                        .take(5)
+                        .forEach { fix ->
+                            // A fix with no text of its own (the delete fix)
+                            // names itself with a resource instead.
+                            val labelText = fix.labelText
+                            val labelRes = fix.labelRes
+                            val fixLabel = when {
+                                !labelText.isNullOrBlank() -> labelText
+                                labelRes != null -> stringResource(labelRes)
+                                else -> stringResource(R.string.ime_grammar_fix_action)
+                            }
+                            Text(
+                                fixLabel,
+                                color = kb.toolCircleActiveIcon,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .background(kb.toolCircleActive, RoundedCornerShape(12.dp))
+                                    .clickable { onFix(lint, fix) }
+                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                            )
+                        }
                 }
             }
         }
@@ -377,7 +419,7 @@ private fun GrammarDialectPicker(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        dialect.label,
+                        stringResource(dialect.labelRes),
                         color = kb.suggestionText,
                         fontSize = 13.sp,
                         fontWeight = if (dialect == current) FontWeight.Bold else FontWeight.Normal,

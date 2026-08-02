@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Accessibility settings screen, "Vision" group. -->
+    <string name="accessibility_vision_title">Vision</string>
+
+    <string name="accessibility_color_vision_title">Colour vision</string>
+    <string name="accessibility_color_vision_subtitle">Change the keyboard colours for colour blindness</string>
+    <string name="accessibility_color_vision_info">This setting changes the keyboard colours. Colours that look the same to you become different.\n\nSelect the type that agrees with your vision. Deuteranopia and protanopia are the two red-green types. Deuteranopia is the most common one. Tritanopia is the blue-yellow type. Grey removes all colour.\n\nThis setting corrects the colours. It does not simulate them. It does not show you what a person with colour blindness sees. It makes the keyboard easier for you to read.</string>
+    <!-- Short name for deuteranopia, a red-green type of colour blindness. Button label, keep it short. -->
+    <string name="accessibility_color_vision_deutan">Deutan</string>
+    <!-- Short name for protanopia, a red-green type of colour blindness. Button label, keep it short. -->
+    <string name="accessibility_color_vision_protan">Protan</string>
+    <!-- Short name for tritanopia, a blue-yellow type of colour blindness. Button label, keep it short. -->
+    <string name="accessibility_color_vision_tritan">Tritan</string>
+    <!-- Removes all colour from the keyboard. Button label, keep it short. -->
+    <string name="accessibility_color_vision_grey">Grey</string>
+
+    <string name="accessibility_high_contrast_title">High contrast keys</string>
+    <string name="accessibility_high_contrast_subtitle">Labels with the highest contrast on a plain black or white board</string>
+    <string name="accessibility_high_contrast_info">The keyboard replaces the key colours and the board colours of the theme with flat high contrast colours. Every label becomes pure black or pure white.\n\nThe keyboard keeps the accent colour of your theme. Shift and the active tools stay easy to see.\n\nThis setting replaces the colours of the selected theme while it is on.</string>
+
+    <string name="accessibility_key_outlines_title">Key outlines</string>
+    <string name="accessibility_key_outlines_subtitle">Draw a border around every key</string>
+    <string name="accessibility_key_outlines_info">Outlines keep the key edges easy to see when the key colour and the board colour have almost the same brightness. This helps with themes that are partly transparent, or with a background image.\n\nA theme that has its own key border keeps that border.</string>
+
+    <string name="accessibility_bold_labels_title">Bold key labels</string>
+    <string name="accessibility_bold_labels_subtitle">Heavier letters on the keys</string>
+    <string name="accessibility_bold_labels_info">The keyboard makes the lines of the key labels thicker. Use this with high contrast keys on a small screen, or on a screen with low brightness.</string>
+
+    <string name="accessibility_readable_font_title">Readable font</string>
+    <!-- %1$s is the name of the font, for example Atkinson Hyperlegible. -->
+    <string name="accessibility_readable_font_subtitle">Use <xliff:g id="font_name" example="Atkinson Hyperlegible">%1$s</xliff:g> on the keyboard</string>
+    <!-- %1$s is the name of the font, for example Atkinson Hyperlegible.
+         Appearance and Keyboard font are the names of two other screens. -->
+    <string name="accessibility_readable_font_info">The Braille Institute made <xliff:g id="font_name" example="Atkinson Hyperlegible">%1$s</xliff:g> for people with low vision or with reading difficulty. Characters that usually look the same are drawn differently. Examples are the capital I, the lowercase l and the digit 1, or the capital O and the zero.\n\nThis setting is a shortcut for the keyboard font. When you turn it off, the keyboard uses the system font again. To select another font, go to Appearance › Keyboard font.</string>
+
+    <string name="accessibility_text_size_title">Text size</string>
+    <string name="accessibility_text_size_subtitle">Size of the labels on the keys</string>
+    <!-- Layout &amp; size is the name of another settings screen. -->
+    <string name="accessibility_text_size_info">This setting changes the size of the key labels only. To make the keys larger, go to Layout &amp; size.</string>
+
+    <string name="accessibility_keyboard_font_title">Keyboard font</string>
+    <string name="accessibility_keyboard_font_subtitle">See all the fonts, or import your own font</string>
+
+    <!-- Accessibility settings screen, "Motion" group. -->
+    <string name="accessibility_motion_title">Motion</string>
+
+    <string name="accessibility_reduce_motion_title">Reduce motion</string>
+    <string name="accessibility_reduce_motion_subtitle">Turn off the animation that is not necessary</string>
+    <string name="accessibility_reduce_motion_info">This setting is for motion sensitivity. It turns off the slide and scale transitions in the keyboard toolbar and in this settings app. It also turns off the animated theme backgrounds, the blinking cursors and the pulse ring of the microphone.\n\nThe keyboard keeps the feedback that gives you information: the key preview bubble, the colour of a pressed key and the gesture trail. Without this feedback the keyboard is more difficult to use.\n\nThe cursors and the microphone ring stay visible. They hold still.</string>
+
+    <!-- Accessibility settings screen, "Screen reader" group. TalkBack is the
+         name of the Android screen reader and is not translated. -->
+    <string name="accessibility_screen_reader_title">Screen reader</string>
+
+    <string name="accessibility_talkback_title">TalkBack support</string>
+    <string name="accessibility_talkback_subtitle">How the keyboard announces the keys</string>
+    <!-- Explains the four options below: Off, Labels, Explore and Gestures.
+         Keep the option names the same as their button labels. -->
+    <string name="accessibility_talkback_info">Off: the keys have no spoken name. A screen reader cannot find the keyboard.\n\nLabels: every key has a spoken name. Punctuation keys also have a name, for example \"full stop\" and \"at sign\". You type by direct touch as usual. Use this if you start a screen reader only sometimes, or if you use switch access.\n\nExplore by touch: this is the standard keyboard behaviour with a screen reader. Move your finger to hear each key, then activate the key to type it. This changes the keys only while TalkBack runs. When TalkBack is off, the keyboard types as usual.\n\nGestures: the keyboard keeps its own touch handling while TalkBack runs. The spacebar cursor slide, the backspace word swipe, glide typing and handwriting continue to work. Each key speaks when you touch it, and types when you lift your finger. This mode needs the keyboard gestures service below. Without that service this mode acts like Explore by touch.</string>
+    <!-- Every key gets a spoken name. Button label, keep it short. -->
+    <string name="accessibility_talkback_mode_labels">Labels</string>
+    <!-- Explore by touch, the standard screen reader behaviour. Button label, keep it short. -->
+    <string name="accessibility_talkback_mode_explore">Explore</string>
+    <!-- The keyboard keeps its own gestures. Button label, keep it short. -->
+    <string name="accessibility_talkback_mode_gestures">Gestures</string>
+
+    <string name="accessibility_passthrough_service_title">Keyboard gestures service</string>
+    <string name="accessibility_passthrough_service_title_required">Keyboard gestures service required</string>
+    <string name="accessibility_passthrough_service_on">On. The keys get your touches. TalkBack keeps the rest of the screen</string>
+    <!-- %1$s is the name of the service on the system screen, "WM Keyboard gestures".
+         Settings › Accessibility is the path to that system screen. -->
+    <string name="accessibility_passthrough_service_off">Turn on \"<xliff:g id="service_name" example="WM Keyboard gestures">%1$s</xliff:g>\" in Settings › Accessibility</string>
+
+    <!-- Shown below the group when the TalkBack support mode is Explore. -->
+    <string name="accessibility_explore_caption">While TalkBack runs, its own gestures replace the spacebar swipes and the press and hold alternates of the keyboard.</string>
+    <!-- Shown below the group when the TalkBack support mode is Gestures. -->
+    <string name="accessibility_passthrough_caption">The pass-through service marks the key grid to bypass the touch handling of TalkBack. This is the only way that an app can get its own gestures there.\n\nThe service reads nothing. It receives no accessibility events. It cannot see the screen content. It covers the keys only. TalkBack explores the suggestion strip, the toolbar and every panel as usual, and also the rest of Android.\n\nInside the key grid TalkBack does not speak. The keyboard announces each key when you press it. When you move your finger from one key to another, the keyboard does not announce the new key. The keyboard speaks a key when you touch it, and types the key when you lift your finger.</string>
+
+    <!-- Accessibility settings screen, "Touch" group. -->
+    <string name="accessibility_touch_title">Touch</string>
+
+    <string name="accessibility_debounce_title">Ignore repeated presses</string>
+    <!-- Subtitle when the delay is zero, so the keyboard ignores nothing. -->
+    <string name="accessibility_debounce_subtitle_off">Off. The keyboard accepts every press</string>
+    <!-- Subtitle when a delay is set. The delay itself is on the slider. -->
+    <string name="accessibility_debounce_subtitle_on">The keyboard ignores a second press of the same key for this time</string>
+    <string name="accessibility_debounce_info">This setting is for hand tremor or spasticity. After a key registers, the keyboard discards a second press of that key inside this time. One press that you want does not become two characters.\n\nThe keyboard filters repeats of the same key only. You can always type two different keys quickly.\n\nIncrease the time until the double letters stop. If the time is too long, the keyboard also discards double letters that you want, for example \"ll\" and \"ee\".</string>
+
+    <string name="accessibility_long_press_title">Press and hold delay</string>
+    <string name="accessibility_long_press_subtitle">How long you hold a key before its alternate keys open</string>
+    <string name="accessibility_long_press_info">Increase this time if the alternate keys open by accident. Decrease it if you must hold a key too long.</string>
+
+    <string name="accessibility_key_size_title">Key size and spacing</string>
+    <string name="accessibility_key_size_subtitle">Taller keys and wider gaps are easier to press accurately</string>
+
+    <string name="accessibility_haptics_title">Haptics and sound</string>
+    <string name="accessibility_haptics_subtitle">Confirm each key press with vibration or with sound</string>
+
+</resources>

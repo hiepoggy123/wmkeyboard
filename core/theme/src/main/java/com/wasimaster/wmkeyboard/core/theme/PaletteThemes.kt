@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.theme
 
+import com.wasimaster.wmkeyboard.theme.R
+
 /**
  * Built-in themes ported from well-known editor colour schemes, plus one
  * original neon theme.
@@ -275,4 +277,25 @@ val PaletteThemes: List<ThemeSpec> = listOf(
         animation = ThemeAnimation.FLOW,
         animationSpeed = 0.7f,
     ),
+)
+
+/**
+ * The name resource of every theme in [PaletteThemes], keyed by the id of the
+ * theme. [builtInThemeNameRes] reads this table.
+ *
+ * The seven ported schemes keep the name of the upstream project, so those
+ * resources are marked as not translatable. The `name` in each [ThemeSpec]
+ * above stays in English on purpose: that value goes into an exported
+ * `.wmtheme.json` file and into the name of a copy the user makes, while the
+ * text on the theme card comes from here.
+ */
+internal val PaletteThemeNameRes: Map<String, Int> = mapOf(
+    "builtin_dracula" to R.string.core_theme_builtin_dracula_label,
+    "builtin_nord" to R.string.core_theme_builtin_nord_label,
+    "builtin_solarized_dark" to R.string.core_theme_builtin_solarized_dark_label,
+    "builtin_solarized_light" to R.string.core_theme_builtin_solarized_light_label,
+    "builtin_catppuccin_mocha" to R.string.core_theme_builtin_catppuccin_mocha_label,
+    "builtin_catppuccin_latte" to R.string.core_theme_builtin_catppuccin_latte_label,
+    "builtin_tokyo_night" to R.string.core_theme_builtin_tokyo_night_label,
+    "builtin_cyberpunk" to R.string.core_theme_builtin_cyberpunk_label,
 )

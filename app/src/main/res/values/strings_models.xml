@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  On-device model management in :app: the offline voice typing (Whisper) model
+  screen and the on-device AI (local LLM) model screen.
+
+  Model names ("Whisper Small", "Gemma 4 E2B"), Hugging Face repository names,
+  file names and file extensions are identifiers. They are never translated and
+  they are not in this file. What each model is good for lives in :core:voice
+  and :core:intelligence, and the screens here resolve it from there.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ===== Shared by both model screens ===== -->
+
+    <!-- Dialog asking before a large download starts on a metered connection. -->
+    <string name="models_metered_title">Use mobile data?</string>
+    <!-- %1$s is the name of the model. %2$s is the size of the download. -->
+    <string name="models_metered_body"><xliff:g id="model" example="Whisper Small">%1$s</xliff:g> is a download of <xliff:g id="size" example="248 MB">%2$s</xliff:g>. Your connection is metered.</string>
+    <string name="models_metered_confirm_action">Download anyway</string>
+    <string name="models_metered_dismiss_action">Wait for Wi-Fi</string>
+
+    <!-- Button that deletes files of models that left the catalogue.
+         %1$s is how much space that frees, for example "1.2 GB". -->
+    <string name="models_free_up_action">Free up <xliff:g id="size" example="1.2 GB">%1$s</xliff:g></string>
+
+    <!-- Progress under a row while a model downloads. %1$s is how much has
+         arrived, %2$s is the full size, %3$d is the percent complete. -->
+    <string name="models_download_progress"><xliff:g id="done" example="12 MB">%1$s</xliff:g> of <xliff:g id="total" example="248 MB">%2$s</xliff:g>, %3$d%%</string>
+    <!-- A download that stopped and can continue. %1$s is what is on disk. -->
+    <string name="models_paused_progress">Paused at <xliff:g id="size" example="12 MB">%1$s</xliff:g></string>
+    <!-- Button that continues a stopped download. -->
+    <string name="models_resume_action">Resume</string>
+
+    <!-- Screen reader text for the delete button. %1$s is the model name. -->
+    <string name="models_delete_model_desc">Delete <xliff:g id="model" example="Whisper Small">%1$s</xliff:g></string>
+    <!-- Screen reader text for the button that stops a download. -->
+    <string name="models_cancel_download_desc">Cancel the download</string>
+
+    <!-- Screen reader text for the chevron on the model catalogue. -->
+    <string name="models_catalog_show_desc">Show the list of models</string>
+    <string name="models_catalog_hide_desc">Hide the list of models</string>
+
+    <!-- ===== Offline voice typing: the Whisper model screen ===== -->
+
+    <string name="models_whisper_yours_title">Your voice models</string>
+    <string name="models_whisper_empty">No model is downloaded yet. Select one below to use voice typing fully offline.</string>
+    <string name="models_whisper_suggested_title">Suggested for your languages</string>
+
+    <!-- Model storage. %1$s is how much space the voice models use. -->
+    <string name="models_whisper_storage_info">Voice models use <xliff:g id="size" example="1.2 GB">%1$s</xliff:g> of storage on your device. The app keeps them in private app storage. A download continues from where it stopped if you cancel it or lose the connection.</string>
+    <!-- %1$s is how much space files of old models still use. -->
+    <string name="models_whisper_orphan_info"><xliff:g id="size" example="248 MB">%1$s</xliff:g> belongs to models that are no longer in the catalogue.</string>
+
+    <!-- The card that shows which model transcribes each language. -->
+    <string name="models_whisper_per_language_title">Model per language</string>
+    <string name="models_whisper_language_none">Whisper has no model for this language. Voice typing uses the system recognizer.</string>
+    <string name="models_whisper_no_model_yet">No model is downloaded yet</string>
+    <!-- Warning under a language. %1$s is the name of the model. -->
+    <string name="models_whisper_language_not_covered"><xliff:g id="model" example="Whisper Small">%1$s</xliff:g> cannot transcribe this language. It produces wrong words. Download a model that covers this language.</string>
+    <!-- Under a language whose model the user selected. %1$s is the model name. -->
+    <string name="models_whisper_language_pinned"><xliff:g id="model" example="Whisper Small">%1$s</xliff:g>, your selection</string>
+    <!-- Under a language whose model the app selected. %1$s is the model name. -->
+    <string name="models_whisper_language_auto"><xliff:g id="model" example="Whisper Small">%1$s</xliff:g>, automatic selection</string>
+    <!-- Opens the dialog that selects the model for one language. -->
+    <string name="models_whisper_change_action">Change</string>
+    <string name="models_whisper_routing_info">Voice typing uses the language of the layout that you type on. The app tells the model which language to expect. This applies to a model that is built for one language, and to a multilingual model that accepts a language input. The model does not guess the language from a short clip.</string>
+
+    <!-- Dialog that selects the model for one language. %1$s is the name of
+         that language, for example "German". Language names are not translated. -->
+    <string name="models_whisper_routing_dialog_title">Model for <xliff:g id="language" example="German">%1$s</xliff:g></string>
+    <!-- Under the "Automatic" option. %1$s is the model the app uses now. -->
+    <string name="models_whisper_routing_current">Currently <xliff:g id="model" example="Whisper Small">%1$s</xliff:g></string>
+    <!-- The four states of one model in that dialog. %1$s is the language name. -->
+    <string name="models_whisper_option_not_covered">This model does not cover <xliff:g id="language" example="German">%1$s</xliff:g></string>
+    <string name="models_whisper_option_single">This model handles <xliff:g id="language" example="German">%1$s</xliff:g> only</string>
+    <string name="models_whisper_option_forced">The app tells this model to expect <xliff:g id="language" example="German">%1$s</xliff:g></string>
+    <string name="models_whisper_option_auto_detect">This model detects the language itself</string>
+
+    <!-- Header of the full catalogue while it is open. %1$d is how many models
+         the catalogue shows. -->
+    <plurals name="models_whisper_catalog_open">
+        <item quantity="one">All %1$d model</item>
+        <item quantity="other">All %1$d models</item>
+    </plurals>
+    <!-- The same header while the catalogue is closed. %1$d is the same number. -->
+    <plurals name="models_whisper_catalog_closed">
+        <item quantity="one">Show all %1$d model</item>
+        <item quantity="other">Show all %1$d models</item>
+    </plurals>
+
+    <string name="models_whisper_no_size_match">No model has that size.</string>
+    <string name="models_whisper_group_any_language_title">Any language</string>
+    <string name="models_whisper_group_one_language_title">Built for one language</string>
+    <!-- "Tiny", "Medium" and "Large" name the model size classes. They come
+         from :core:voice. Translate them the same way here. -->
+    <string name="models_whisper_sizes_info">The sizes go from Tiny to Large. A larger model is more accurate, but it downloads slower and transcribes slower. The Medium and Large models use almost one gigabyte of memory while they run. A model that is built for one language is better at that language than a multilingual model of the same size. A single language model appears here after you turn on its language on the Languages screen.</string>
+
+    <!-- Chips beside a model name. %1$s is a list of language names, already
+         joined with commas. Language names are not translated. -->
+    <string name="models_whisper_chip_used_for">Used for <xliff:g id="languages" example="English, German">%1$s</xliff:g></string>
+    <!-- Chip on a model that the app can tell which language to expect. -->
+    <string name="models_whisper_chip_language_forced">Language set by the app</string>
+
+    <!-- The lines under an open model row. They join into one paragraph.
+         %1$s in each one is a list of language names, joined with commas. -->
+    <string name="models_whisper_detail_covers">This model covers <xliff:g id="languages" example="English, German">%1$s</xliff:g>.</string>
+    <string name="models_whisper_detail_all_yours">This model handles all of your languages.</string>
+    <string name="models_whisper_detail_missing">This model does not cover your <xliff:g id="languages" example="German">%1$s</xliff:g>.</string>
+    <string name="models_whisper_detail_translate">This model can translate speech to English.</string>
+    <string name="models_whisper_detail_fallback">The app uses this model for the languages that you did not select a model for.</string>
+
+    <!-- ===== On-device AI: the local model screen ===== -->
+
+    <string name="models_llm_account_title">Hugging Face account</string>
+    <string name="models_llm_token_label">Access token</string>
+    <!-- Hint in the empty token field. Gemma is the name of a model family. -->
+    <string name="models_llm_token_hint">Only the gated models need this token, for example Gemma</string>
+    <string name="models_llm_get_token_action">Get a token</string>
+
+    <string name="models_llm_yours_title">Your models</string>
+    <string name="models_llm_empty">No model is on your device yet. Download one below to use AI offline.</string>
+
+    <string name="models_llm_available_title">Available to download</string>
+    <string name="models_llm_catalog_info">The best models are at the top, not the smallest ones. A model at the top writes better, but the download is bigger, the answer is slower, and it needs more memory. A gated model needs a Hugging Face account. Add your token above, then accept the licence on the model page one time.</string>
+
+    <string name="models_llm_import_title">Import your own</string>
+    <string name="models_llm_import_info">You can import any LiteRT-LM model in a .litertlm file or a .task file. For example, a model that you converted yourself or downloaded in a browser.</string>
+    <string name="models_llm_import_action">Import model file</string>
+    <string name="models_llm_importing_label">Importing…</string>
+
+    <string name="models_llm_compute_title">Compute</string>
+    <!-- CPU and GPU name the two compute backends. They stay in English. -->
+    <string name="models_llm_compute_info">The GPU option is experimental. The app changes to the CPU automatically if the GPU does not start, or if a model stops during an answer. The GPU memory is much smaller than the system memory, so a large model frequently needs the CPU. Select CPU here if the GPU continues to fail.</string>
+
+    <!-- Model storage. %1$s is how much space the models use. -->
+    <string name="models_llm_storage_info">Models use <xliff:g id="size" example="2.6 GB">%1$s</xliff:g> of storage on your device. The app keeps them in private app storage. A download continues from where it stopped if you cancel it or lose the connection.</string>
+    <!-- %1$s is how much space files of old models still use. -->
+    <string name="models_llm_orphan_info"><xliff:g id="size" example="584 MB">%1$s</xliff:g> belongs to models that are no longer in the catalogue. You cannot select them.</string>
+
+    <!-- Subtitle of one model row. %1$s is the parameter count, for example
+         "2B". %2$s is the download size. %3$s is what the model is good for,
+         and it comes from :core:intelligence. -->
+    <string name="models_llm_row_subtitle"><xliff:g id="parameters" example="2B">%1$s</xliff:g>, <xliff:g id="size" example="2.6 GB">%2$s</xliff:g>. <xliff:g id="about">%3$s</xliff:g></string>
+    <!-- Added to that subtitle when the device has less memory than the model asks for. -->
+    <string name="models_llm_row_too_big">This model can be too large for your device.</string>
+
+    <!-- Screen reader text for the lock beside a gated model. -->
+    <string name="models_llm_gated_desc">This model needs a Hugging Face token</string>
+    <!-- The model the app answers with now. -->
+    <string name="models_in_use_label">In use</string>
+    <!-- Screen reader text for the tick beside that model. -->
+    <string name="models_selected_desc">Selected</string>
+    <!-- Button that makes a downloaded model the one the app answers with. -->
+    <string name="models_use_action">Use this model</string>
+    <string name="models_llm_needs_token">Add your Hugging Face token above to download this model.</string>
+    <!-- Opens the Hugging Face page of the model, where the licence is. -->
+    <string name="models_llm_open_model_page_action">Open the model page</string>
+
+    <!-- Errors while the app imports a model file that the user selected. -->
+    <string name="models_llm_import_error_no_name">The app cannot read the name of the file.</string>
+    <string name="models_llm_import_error_not_a_model">This is not a model file. The app needs a .litertlm file or a .task file.</string>
+    <!-- %1$s is the size of the file the user selected. -->
+    <string name="models_llm_import_error_no_space">There is not enough storage for this file of <xliff:g id="size" example="2.6 GB">%1$s</xliff:g>.</string>
+    <string name="models_llm_import_error_open">The app cannot open the selected file.</string>
+    <string name="models_llm_import_error_move">The app cannot move the imported file into place.</string>
+
+</resources>

@@ -1,10 +1,12 @@
 package com.wasimaster.wmkeyboard.core.grammar
 
+import androidx.annotation.StringRes
 import java.util.concurrent.Executors
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import com.wasimaster.wmkeyboard.common.R as CommonR
 
 /** One way to resolve a [GrammarLint]; mirrors Harper's Suggestion enum. */
 @Serializable
@@ -13,13 +15,24 @@ data class GrammarFix(
     val kind: String,
     val text: String? = null,
 ) {
-    /** Short label for the fix chip. */
-    val label: String
+    /**
+     * The text of the fix chip. It is null for a fix that carries no text of
+     * its own, and [labelRes] gives the label then.
+     */
+    val labelText: String?
         get() = when (kind) {
-            "remove" -> "Remove"
+            "remove" -> null
             "insertAfter" -> "+ ${text.orEmpty()}"
             else -> text.orEmpty()
         }
+
+    /**
+     * The label of the fix chip when [labelText] is null. The UI layer
+     * resolves it, so the chip reads in the language of the user.
+     */
+    @get:StringRes
+    val labelRes: Int?
+        get() = if (kind == "remove") CommonR.string.common_delete else null
 }
 
 /** One grammar/style issue. [start]/[end] are UTF-16 indices into the checked text. */

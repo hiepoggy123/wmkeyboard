@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.plugins
 
+import com.wasimaster.wmkeyboard.plugins.R
 import org.luaj.vm2.Globals
 import org.luaj.vm2.LuaError
 import org.luaj.vm2.LuaTable
@@ -52,7 +53,13 @@ class PluginRuntime(
     private val post: (() -> Unit) -> Unit = { it() },
 ) {
 
-    /** Everything the host needs to hear about. Delivered through [post]. */
+    /**
+     * Everything the host needs to hear about. Delivered through [post].
+     *
+     * The messages arrive as [PluginText] rather than as words, because this
+     * runtime has no Context. The host turns one into a line of text with
+     * `message.resolve(context)` where it draws it.
+     */
     interface Listener {
         fun onUi(pluginId: String, ui: RenderedUi)
 
@@ -60,13 +67,13 @@ class PluginRuntime(
         fun onBusy(pluginId: String, busy: Boolean)
 
         /** The script failed. The plugin is still loaded and can be retried. */
-        fun onError(pluginId: String, message: String)
+        fun onError(pluginId: String, message: PluginText)
 
         /** `wm.ui.set_input` wrote to one of the plugin's own text boxes. */
         fun onInputWrite(pluginId: String, inputId: String, text: String)
 
         /** The session is over and will not recover. [disabled] means it used its last strike. */
-        fun onStopped(pluginId: String, message: String, disabled: Boolean)
+        fun onStopped(pluginId: String, message: PluginText, disabled: Boolean)
     }
 
     data class Limits(
@@ -98,16 +105,16 @@ class PluginRuntime(
         close()
         val plugin = store.plugin(pluginId)
         if (plugin == null) {
-            post { listener.onError(pluginId, "That plugin isn't installed any more.") }
+            post { listener.onError(pluginId, PluginText.of(R.string.core_plugins_error_not_installed)) }
             return
         }
         if (!plugin.enabled) {
-            post { listener.onError(pluginId, "That plugin is turned off.") }
+            post { listener.onError(pluginId, PluginText.of(R.string.core_plugins_error_turned_off)) }
             return
         }
         val script = store.script(pluginId)
         if (script == null) {
-            post { listener.onError(pluginId, "That plugin's script is missing.") }
+            post { listener.onError(pluginId, PluginText.of(R.string.core_plugins_error_script_missing)) }
             return
         }
 
@@ -187,7 +194,8 @@ class PluginRuntime(
         current.budget.begin(limits.render)
         val renderFn = globals.get("render")
         if (!renderFn.isfunction()) {
-            deliver(current) { listener.onError(current.plugin.id, "This plugin has no render() function.") }
+            val message = PluginText.of(R.string.core_plugins_error_no_render)
+            deliver(current) { listener.onError(current.plugin.id, message) }
             return
         }
         val ui = PluginUiCodec.fromLua(renderFn.call())
@@ -270,30 +278,34 @@ class PluginRuntime(
                 // Cancellation is the host closing the panel, which the user did
                 // on purpose and does not need to be told about.
                 if (failure.reason != PluginAbortReason.CANCELLED) {
-                    stop(current, failure.reason.message, strike = true)
+                    stop(current, PluginText.of(failure.reason.messageRes), strike = true)
                 }
             }
 
             is LuaError -> {
-                val message = failure.message?.take(MAX_ERROR) ?: "the script failed"
-                current.log.add("error: $message")
+                val raw = failure.message?.take(MAX_ERROR)
+                current.log.add("error: ${raw ?: "the script failed"}")
+                // The Lua virtual machine wrote this, so it goes to the panel as
+                // it arrived. Only the stand-in for a missing message is ours.
+                val message = raw?.let { PluginText.Script(it) }
+                    ?: PluginText.of(R.string.core_plugins_error_script_failed)
                 deliver(current) { listener.onError(current.plugin.id, message) }
             }
 
             is StackOverflowError -> {
                 current.log.add("error: stack overflow")
-                stop(current, "This plugin called itself too many times and was stopped.", strike = false)
+                stop(current, PluginText.of(R.string.core_plugins_stopped_recursion), strike = false)
             }
 
             else -> {
                 current.log.add("error: ${failure.javaClass.simpleName}")
-                stop(current, "This plugin stopped unexpectedly.", strike = false)
+                stop(current, PluginText.of(R.string.core_plugins_stopped_unexpected), strike = false)
             }
         }
     }
 
     /** Ends the session for a reason the user should see. */
-    private fun stop(current: Session, message: String, strike: Boolean) {
+    private fun stop(current: Session, message: PluginText, strike: Boolean) {
         val disabled = if (strike) store.recordAbandon(current.plugin.id)?.enabled == false else false
         deliverFinal { listener.onStopped(current.plugin.id, message, disabled) }
         synchronized(this) {
@@ -326,17 +338,14 @@ class PluginRuntime(
 
         val record = store.recordAbandon(current.plugin.id)
         val disabled = record?.enabled == false
-        deliverFinal {
-            listener.onStopped(
-                current.plugin.id,
-                if (disabled) {
-                    "This plugin stopped responding again, so it has been turned off."
-                } else {
-                    "This plugin stopped responding and was closed."
-                },
-                disabled,
-            )
-        }
+        val message = PluginText.of(
+            if (disabled) {
+                R.string.core_plugins_stopped_not_responding_disabled
+            } else {
+                R.string.core_plugins_stopped_not_responding
+            },
+        )
+        deliverFinal { listener.onStopped(current.plugin.id, message, disabled) }
         synchronized(this) { if (session === current) session = null }
     }
 

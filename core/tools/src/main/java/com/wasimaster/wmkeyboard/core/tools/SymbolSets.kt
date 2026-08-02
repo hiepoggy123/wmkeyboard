@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.tools.R
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -8,6 +10,10 @@ import kotlinx.serialization.json.Json
  * characters ("§", "→") or whole snippets ("@gmail.com", "https://"). The
  * row shows one set at a time; its picker chip switches between the sets
  * the user has enabled (or the active keyboard mode prescribes).
+ *
+ * [name] stays a plain string because the user names their own sets and can
+ * rename a shipped one. A screen draws [BuiltInSymbolSets.nameRes] where there
+ * is one and falls back to [name].
  */
 @Serializable
 data class SymbolSet(
@@ -83,6 +89,26 @@ object BuiltInSymbolSets {
     )
 
     fun byId(id: String): SymbolSet? = sets.firstOrNull { it.id == id }
+
+    /**
+     * The translated name of a shipped set, or null when the screen has to fall
+     * back to [SymbolSet.name].
+     *
+     * Only a set that still carries its shipped name gets one: a set the user
+     * made, and a shipped set the user renamed, both keep the name the user
+     * typed. The English name stays in [sets] so a stored copy round-trips and
+     * so the editor has something to show before it resolves resources.
+     */
+    @StringRes
+    fun nameRes(set: SymbolSet): Int? = when {
+        byId(set.id)?.name != set.name -> null
+        set.id == EMAIL_ID -> R.string.core_tools_symbol_set_email_label
+        set.id == WEB_ID -> R.string.core_tools_symbol_set_web_label
+        set.id == CODING_ID -> R.string.core_tools_symbol_set_coding_label
+        set.id == MATH_ID -> R.string.core_tools_symbol_set_math_label
+        set.id == PUNCTUATION_ID -> R.string.core_tools_symbol_set_punctuation_label
+        else -> null
+    }
 
     val defaultEnabledIds: List<String> = sets.map { it.id }
 }

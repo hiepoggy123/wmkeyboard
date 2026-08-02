@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings owned by :feature:addons.
+
+  This module downloads an add-on, installs it, and offers to switch to it. It
+  runs off the main thread and outlives the screen that started it, so nothing
+  here is resolved where it is produced: a failure travels as an AddonText (a
+  string resource plus its arguments) and the add-on screen turns it into words.
+
+  Referenced from another module as
+  com.wasimaster.wmkeyboard.addons.feature.R.string.faddons_… because the R
+  classes are non-transitive, so the import has to name this module.
+
+  Not here on purpose: add-on type ids, repository JSON field names, file
+  extensions such as .wmtheme.json and .wmstickers, and the names of add-ons,
+  authors and languages that a repository writes. A repository writes those,
+  and translating them would break the manifests that carry them.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ================================================================== -->
+    <!-- The question asked after an add-on lands on the device. Installing  -->
+    <!-- and switching to it are two decisions, so the install asks before   -->
+    <!-- it fills the one slot the add-on has. "Turn on" is common_enable.   -->
+    <!-- ================================================================== -->
+
+    <string name="faddons_apply_theme_question">Use it as your keyboard theme now?</string>
+    <string name="faddons_apply_icon_pack_question">Use its icons on the keyboard now?</string>
+    <string name="faddons_apply_emoji_font_question">Draw emoji with it now?</string>
+    <string name="faddons_apply_sound_question">Use it as your key sound now?</string>
+    <string name="faddons_apply_layout_question">Turn it on so you can type with it?</string>
+    <string name="faddons_apply_plugin_question">Turn it on so it shows in the plugins panel?</string>
+
+    <!-- The button that says yes to the question above, for a theme, an icon
+         pack, an emoji font or a key sound. A layout and a plugin say
+         common_enable ("Turn on") instead. -->
+    <string name="faddons_apply_switch_action">Switch to it</string>
+
+    <!-- ================================================================== -->
+    <!-- Failures the importer and the preview reader share.                -->
+    <!-- ================================================================== -->
+
+    <string name="faddons_error_not_a_plugin">That file is not a WM Keyboard plugin.</string>
+    <string name="faddons_error_no_words">The app could not read any words out of that file.</string>
+
+    <!-- ================================================================== -->
+    <!-- Install refused. Each of these replaces the install, so it has to   -->
+    <!-- say what is wrong with the file that arrived.                      -->
+    <!-- ================================================================== -->
+
+    <string name="faddons_install_error_unknown_type">This version of the app does not support that add-on type.</string>
+
+    <!-- Names the switch and where it lives. "Turn on plugins" on its own
+         reads as already done to anyone who turned on the Plugins tool on the
+         toolbar, which is a different setting. -->
+    <string name="faddons_install_error_plugins_turned_off">Plugins are turned off. Turn on “Allow plugins” under Tools › Plugins. Then install this again.</string>
+    <!-- %1$d is the largest number of plugins this build keeps. -->
+    <plurals name="faddons_install_error_too_many_plugins">
+        <item quantity="one">You already have the maximum of %1$d plugin.</item>
+        <item quantity="other">You already have the maximum of %1$d plugins.</item>
+    </plurals>
+    <string name="faddons_install_error_plugin_failed">The app could not install that plugin.</string>
+
+    <string name="faddons_install_error_not_a_theme">That file is not a WM Keyboard theme.</string>
+    <string name="faddons_install_error_not_a_layout">That file is not a WM Keyboard layout.</string>
+
+    <string name="faddons_install_error_dictionary_no_language">This dictionary does not say which language it is for.</string>
+    <!-- %1$s is the language id the repository wrote, such as bn or fr. It is
+         not translated. -->
+    <string name="faddons_install_error_unknown_language">This version of the app does not support the language “<xliff:g id="language_id" example="bn">%1$s</xliff:g>”.</string>
+    <string name="faddons_install_error_dictionary_not_saved">The app could not save the dictionary.</string>
+
+    <string name="faddons_install_error_keywords_no_language">This pack does not say which language it is for.</string>
+    <string name="faddons_install_error_keywords_too_large">That keyword pack is too large to import.</string>
+    <string name="faddons_install_error_no_keywords">The app could not read any emoji keywords out of that file.</string>
+    <string name="faddons_install_error_keywords_not_saved">The app could not save the keyword pack.</string>
+
+    <string name="faddons_install_error_not_a_snippet_pack">That file is not a WM Keyboard snippet pack.</string>
+    <string name="faddons_install_error_snippet_pack_empty">That snippet pack is empty.</string>
+
+    <string name="faddons_install_error_not_a_sticker_pack">That file is not a sticker pack.</string>
+    <!-- %1$s is the first line the sticker importer wrote about what went
+         wrong with the images. -->
+    <string name="faddons_install_error_no_stickers">The app could not read any stickers out of that pack. %1$s</string>
+    <string name="faddons_install_error_too_many_sticker_packs">You have reached the maximum number of sticker packs.</string>
+    <string name="faddons_install_error_sticker_pack_unreadable">The app could not read the sticker pack.</string>
+
+    <string name="faddons_install_error_not_an_icon_pack">That file is not an icon pack.</string>
+    <string name="faddons_install_error_too_many_icon_packs">You have reached the maximum number of icon packs.</string>
+    <string name="faddons_install_error_icon_pack_unreadable">The app could not read the icon pack.</string>
+
+    <string name="faddons_install_error_too_many_fonts">You have reached the maximum number of installed fonts.</string>
+    <string name="faddons_install_error_too_many_sounds">You have reached the maximum number of installed key sounds.</string>
+
+    <!-- ================================================================== -->
+    <!-- The preview panel on an add-on page, when the downloaded payload    -->
+    <!-- cannot be read as the type it says it is.                          -->
+    <!-- ================================================================== -->
+
+    <string name="faddons_preview_error_no_preview">The app cannot preview this add-on.</string>
+    <string name="faddons_preview_error_not_keyword_pack">That file is not an emoji keyword pack.</string>
+    <string name="faddons_preview_error_not_snippet_pack">That file is not a snippet pack.</string>
+    <string name="faddons_preview_error_stickers_unreadable">The app could not read the sticker images.</string>
+
+    <!-- ================================================================== -->
+    <!-- The download stopped before the importer saw the file.             -->
+    <!-- ================================================================== -->
+
+    <string name="faddons_download_error_app_too_old">This add-on needs a newer version of the app.</string>
+    <string name="faddons_download_error_plugin_no_checksum">This plugin has no checksum. The app cannot verify it.</string>
+    <string name="faddons_download_error_bad_url">The download link is not a valid https URL.</string>
+    <!-- %1$d is the HTTP status the server answered with, such as 404. -->
+    <string name="faddons_download_error_http_status">The server returned HTTP %1$d.</string>
+    <!-- %1$d is the size limit in megabytes for this add-on type.
+         Not a plural: "MB" is a unit symbol, not a countable noun, and it does
+         not inflect. -->
+    <string name="faddons_download_error_too_large" tools:ignore="PluralsCandidate">This add-on is larger than the limit of %1$d MB for its type.</string>
+    <string name="faddons_download_error_checksum">The downloaded file does not match the checksum in the manifest.</string>
+    <string name="faddons_download_error_no_space">There is not enough free space to install this.</string>
+
+</resources>

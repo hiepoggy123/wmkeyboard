@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.core.settings
 
 import android.content.Context
 import android.os.Build
+import androidx.annotation.StringRes
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -79,6 +80,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import java.io.File
+import com.wasimaster.wmkeyboard.settings.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 
 /** Visual theme for the keyboard and settings app. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
@@ -99,11 +102,13 @@ enum class AutoThemeTrigger {
     SUN,
     ;
 
-    val label: String
+    /** Caption for this choice; resolve it where it is drawn. */
+    @get:StringRes
+    val labelRes: Int
         get() = when (this) {
-            SYSTEM -> "System light/dark"
-            SCHEDULE -> "Time of day"
-            SUN -> "Sunrise & sunset"
+            SYSTEM -> R.string.core_settings_auto_theme_trigger_system_label
+            SCHEDULE -> R.string.core_settings_auto_theme_trigger_schedule_label
+            SUN -> R.string.core_settings_auto_theme_trigger_sun_label
         }
 }
 
@@ -259,26 +264,38 @@ fun isWhisperEnabled(): Boolean =
  * Backend for the AI tool — cloud APIs (bring your own key), a self-hosted
  * server, or a model running entirely on this device (full builds only).
  */
-enum class AiProvider(val label: String) {
-    ANTHROPIC("Claude"), OPENAI("OpenAI"), GEMINI("Gemini"),
-    OLLAMA("Ollama"), LM_STUDIO("LM Studio"), ON_DEVICE("On-device"),
+enum class AiProvider(@StringRes val labelRes: Int) {
+    ANTHROPIC(R.string.core_settings_ai_provider_anthropic_label),
+    OPENAI(R.string.core_settings_ai_provider_openai_label),
+    GEMINI(R.string.core_settings_ai_provider_gemini_label),
+    OLLAMA(R.string.core_settings_ai_provider_ollama_label),
+    LM_STUDIO(R.string.core_settings_ai_provider_lm_studio_label),
+    ON_DEVICE(R.string.core_settings_ai_provider_on_device_label),
 }
 
 /**
  * Compute backend for on-device AI models. GPU is best-effort: the engine
  * falls back to CPU when GPU initialization fails on this device.
  */
-enum class LocalLlmBackend(val label: String) { CPU("CPU"), GPU("GPU") }
+enum class LocalLlmBackend(@StringRes val labelRes: Int) {
+    CPU(R.string.core_settings_ai_backend_cpu_label),
+    GPU(R.string.core_settings_ai_backend_gpu_label),
+}
 
 /**
  * One-tap writing actions on the AI tool's panel. [CUSTOM] is the odd one
  * out: its prompt is the instruction the user types on the keyboard each
  * run, so it has no stored per-action override and no built-in prompt body.
  */
-enum class AiAction(val label: String) {
-    REWRITE("Rewrite"), SUMMARIZE("Summarize"), TRANSLATE("Translate"),
-    IMPROVE("Improve"), FIX_GRAMMAR("Fix grammar"), EXPLAIN("Explain"),
-    CONTINUE("Continue"), CUSTOM("Custom"),
+enum class AiAction(@StringRes val labelRes: Int) {
+    REWRITE(R.string.core_settings_ai_action_rewrite_label),
+    SUMMARIZE(R.string.core_settings_ai_action_summarize_label),
+    TRANSLATE(R.string.core_settings_ai_action_translate_label),
+    IMPROVE(R.string.core_settings_ai_action_improve_label),
+    FIX_GRAMMAR(R.string.core_settings_ai_action_fix_grammar_label),
+    EXPLAIN(R.string.core_settings_ai_action_explain_label),
+    CONTINUE(R.string.core_settings_ai_action_continue_label),
+    CUSTOM(CommonR.string.common_custom),
     ;
 
     /**
@@ -297,8 +314,11 @@ enum class QrEccLevel { L, M, Q, H }
  * English dialect the offline grammar tool lints against. Ordinals are the
  * contract with the native Harper library — append only, never reorder.
  */
-enum class GrammarDialect(val label: String) {
-    AMERICAN("American"), BRITISH("British"), CANADIAN("Canadian"), AUSTRALIAN("Australian"),
+enum class GrammarDialect(@StringRes val labelRes: Int) {
+    AMERICAN(R.string.core_settings_grammar_dialect_american_label),
+    BRITISH(R.string.core_settings_grammar_dialect_british_label),
+    CANADIAN(R.string.core_settings_grammar_dialect_canadian_label),
+    AUSTRALIAN(R.string.core_settings_grammar_dialect_australian_label),
 }
 
 /** Content filter for the GIF and sticker tools (provider rating levels). */
@@ -351,15 +371,15 @@ data class KeySoundSettings(
 // Declared best-to-worst: the two recommended platform styles first, then the
 // hardware-tuned effects, then the manual Custom fallback last. UIs iterate
 // `entries`, so this order drives their display. Persistence keys off `.name`,
-// so reordering is storage-safe. [label] is the short chip caption shared by
-// every picker.
-enum class HapticStyle(val label: String) {
-    SYSTEM_KEY("Key"),
-    SYSTEM_TAP("Tap"),
-    CLICK("Click"),
-    HEAVY_CLICK("Heavy"),
-    SHARP("Sharp"),
-    CUSTOM("Custom"),
+// so reordering is storage-safe. [labelRes] is the short chip caption shared by
+// every picker; resolve it where it is drawn.
+enum class HapticStyle(@StringRes val labelRes: Int) {
+    SYSTEM_KEY(R.string.core_settings_haptic_style_system_key_label),
+    SYSTEM_TAP(R.string.core_settings_haptic_style_system_tap_label),
+    CLICK(R.string.core_settings_haptic_style_click_label),
+    HEAVY_CLICK(R.string.core_settings_haptic_style_heavy_label),
+    SHARP(R.string.core_settings_haptic_style_sharp_label),
+    CUSTOM(CommonR.string.common_custom),
 }
 
 /**
@@ -558,17 +578,17 @@ val ToolboxPageSizeRange = 4..40
  * How the suggestion strip is reachable from a physical keyboard, where nothing
  * is tappable.
  */
-enum class SuggestionHotkeyMode(val label: String) {
-    OFF("Off"),
+enum class SuggestionHotkeyMode(@StringRes val labelRes: Int) {
+    OFF(CommonR.string.common_off),
 
     /** The leader, then a digit. Collides with nothing, at the cost of one extra key. */
-    LEADER_DIGIT("After the shortcut key"),
+    LEADER_DIGIT(R.string.core_settings_suggestion_hotkey_leader_digit_label),
 
     /**
      * Alt+1 … Alt+9 directly. One keystroke, but browsers, editors and chat apps
      * all claim modifier+digit for tab and workspace switching, so it is opt-in.
      */
-    ALT_DIGIT("Alt + number"),
+    ALT_DIGIT(R.string.core_settings_suggestion_hotkey_alt_digit_label),
 }
 
 /**
@@ -1473,18 +1493,22 @@ enum class SensitiveClipHandling {
     NEVER_SAVE,
     ;
 
-    val label: String
+    /** Caption for this choice; resolve it where it is drawn. */
+    @get:StringRes
+    val labelRes: Int
         get() = when (this) {
-            KEEP -> "Keep like any clip"
-            SHORT_LIVED -> "Hide and forget quickly"
-            NEVER_SAVE -> "Never save"
+            KEEP -> R.string.core_settings_sensitive_clip_keep_label
+            SHORT_LIVED -> R.string.core_settings_sensitive_clip_short_lived_label
+            NEVER_SAVE -> R.string.core_settings_sensitive_clip_never_save_label
         }
 
-    val detail: String
+    /** The line under [labelRes]; resolve it where it is drawn. */
+    @get:StringRes
+    val detailRes: Int
         get() = when (this) {
-            KEEP -> "No special treatment"
-            SHORT_LIVED -> "Masked in the panel, deleted on a short timer"
-            NEVER_SAVE -> "Passwords and codes never reach history"
+            KEEP -> R.string.core_settings_sensitive_clip_keep_subtitle
+            SHORT_LIVED -> R.string.core_settings_sensitive_clip_short_lived_subtitle
+            NEVER_SAVE -> R.string.core_settings_sensitive_clip_never_save_subtitle
         }
 }
 

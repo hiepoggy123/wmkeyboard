@@ -31,6 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -58,7 +60,9 @@ import com.wasimaster.wmkeyboard.core.tools.AiMarkdown
 import com.wasimaster.wmkeyboard.core.tools.AiPhase
 import com.wasimaster.wmkeyboard.ime.AiUi
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.R
 import kotlinx.coroutines.delay
+import com.wasimaster.wmkeyboard.common.R as CommonR
 
 /**
  * AI writing tool: one-tap actions (rewrite, summarize, translate …) that
@@ -101,9 +105,9 @@ internal fun AiPanel(
                 verticalArrangement = Arrangement.Center,
             ) {
                 val setupText = if (BuildConfig.ENABLE_LOCAL_LLM) {
-                    "Set up an AI provider or download a local model in the tool's settings to use AI."
+                    stringResource(R.string.ime_ai_setup_local_body)
                 } else {
-                    "Set up an AI provider in the tool's settings to use AI."
+                    stringResource(R.string.ime_ai_setup_body)
                 }
                 Text(
                     setupText,
@@ -113,7 +117,9 @@ internal fun AiPanel(
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
                 Spacer(Modifier.height(8.dp))
-                ToolPanelChip("Open settings") { onOpenToolSettings(ToolbarTool.AI) }
+                ToolPanelChip(stringResource(R.string.ime_ai_open_settings_action)) {
+                    onOpenToolSettings(ToolbarTool.AI)
+                }
             }
             AiUi.NeedModel -> Column(
                 Modifier.fillMaxSize(),
@@ -121,31 +127,31 @@ internal fun AiPanel(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    "To use on-device AI, download a model in the " +
-                        "tool's settings first.",
+                    stringResource(R.string.ime_ai_need_model_body),
                     color = kb.secondaryText,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
                 Spacer(Modifier.height(8.dp))
-                ToolPanelChip("Download a model") { onOpenToolSettings(ToolbarTool.AI) }
+                ToolPanelChip(stringResource(R.string.ime_ai_download_model_action)) {
+                    onOpenToolSettings(ToolbarTool.AI)
+                }
             }
             AiUi.Idle -> Column(Modifier.fillMaxSize()) {
                 ActionChips(onAction, enabled = state.aiHasText)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    val provider = stringResource(state.settings.aiProvider.labelRes)
+                    // An empty field has nothing to act on, so the chips are
+                    // greyed out — say why rather than leaving the user tapping
+                    // a dead row, and point at Custom, which still works
+                    // because it can write from nothing.
+                    val customLabel = stringResource(AiAction.CUSTOM.labelRes)
                     Text(
                         if (state.aiHasText) {
-                            "Actions run on the selected text, or the whole field — " +
-                                "via ${state.settings.aiProvider.label}."
+                            stringResource(R.string.ime_ai_idle_body, provider)
                         } else {
-                            // An empty field has nothing to act on, so the chips
-                            // are greyed out — say why rather than leaving the
-                            // user tapping a dead row, and point at Custom,
-                            // which still works because it can write from
-                            // nothing.
-                            "Type or select some text for these — or tap Custom " +
-                                "to write something from scratch."
+                            stringResource(R.string.ime_ai_idle_empty_body, customLabel)
                         },
                         color = kb.secondaryText,
                         fontSize = 12.sp,
@@ -177,8 +183,8 @@ internal fun AiPanel(
                             // The example has to match what the instruction
                             // will actually do: with an empty field there is
                             // no "this" to make a haiku out of.
-                            state.aiHasText -> "Type an instruction — e.g. “make this a haiku”"
-                            else -> "Type an instruction — e.g. “write a haiku about rain”"
+                            state.aiHasText -> stringResource(R.string.ime_ai_custom_hint_text)
+                            else -> stringResource(R.string.ime_ai_custom_hint_empty)
                         },
                         color = if (blank) kb.secondaryText else kb.modifierKeyText,
                         fontSize = 13.sp,
@@ -193,15 +199,18 @@ internal fun AiPanel(
                 ) {
                     // Only the instruction is required: with an empty field
                     // Custom writes from scratch rather than transforming.
-                    ToolPanelChip("Run", selected = !blank, enabled = !blank) { onRunCustom() }
+                    ToolPanelChip(
+                        stringResource(R.string.ime_ai_run_action),
+                        selected = !blank,
+                        enabled = !blank,
+                    ) { onRunCustom() }
                     Spacer(Modifier.width(8.dp))
+                    val provider = stringResource(state.settings.aiProvider.labelRes)
                     Text(
                         if (state.aiHasText) {
-                            "Runs on the selected text, or the whole field — " +
-                                "via ${state.settings.aiProvider.label}."
+                            stringResource(R.string.ime_ai_custom_body, provider)
                         } else {
-                            "Field is empty — this writes new text, " +
-                                "via ${state.settings.aiProvider.label}."
+                            stringResource(R.string.ime_ai_custom_empty_body, provider)
                         },
                         color = kb.secondaryText,
                         fontSize = 11.sp,
@@ -229,7 +238,7 @@ internal fun AiPanel(
                         modifier = Modifier.padding(horizontal = 24.dp),
                     )
                     Spacer(Modifier.height(8.dp))
-                    ToolPanelChip("Retry") { onRetry() }
+                    ToolPanelChip(stringResource(CommonR.string.common_retry)) { onRetry() }
                 }
             }
             // Replace/Insert/retry live in the full-bleed header row (the
@@ -271,7 +280,7 @@ internal fun AiPanel(
                 ) {
                     if (hasMarkdown) {
                         PanelCheckbox(
-                            label = "Strip markdown",
+                            label = stringResource(R.string.ime_ai_strip_markdown_label),
                             checked = ai.stripMarkdown,
                             onToggle = onToggleStripMarkdown,
                         )
@@ -284,7 +293,7 @@ internal fun AiPanel(
                     // is no silent upload. Hidden while still streaming: half
                     // a result is not the thing being complained about.
                     if (!ai.generating) {
-                        ToolPanelChip("Report") { onReport() }
+                        ToolPanelChip(stringResource(R.string.ime_ai_report_action)) { onReport() }
                     }
                 }
                 Row(
@@ -296,7 +305,7 @@ internal fun AiPanel(
                 ) {
                     for (action in AiAction.entries) {
                         ToolPanelChip(
-                            action.label,
+                            stringResource(action.labelRes),
                             selected = action == ai.action,
                             // These re-run on the field, so they need field
                             // text — unlike Replace/Insert, which only need
@@ -436,7 +445,7 @@ private fun ModelPickerRow(
     } + remote.map { provider ->
         ModelPick(
             key = "remote:${provider.name}",
-            label = provider.label,
+            label = stringResource(provider.labelRes),
             selected = settings.aiProvider == provider,
             onClick = { onPickModel(provider, null) },
         )
@@ -456,7 +465,7 @@ private fun ModelPickerRow(
     ) {
         item(key = "label") {
             Text(
-                "Model:",
+                stringResource(R.string.ime_ai_model_label),
                 color = kb.secondaryText,
                 fontSize = 11.sp,
                 modifier = Modifier.animateItem(),
@@ -487,7 +496,7 @@ private fun ActionChips(
     ) {
         for (action in AiAction.entries) {
             ToolPanelChip(
-                action.label,
+                stringResource(action.labelRes),
                 selected = action == running,
                 // The running chip stays lit rather than dimming — it is the
                 // label of what is in flight, not an offer to tap.
@@ -566,7 +575,7 @@ private fun AiProgress(ai: AiUi.Loading, settings: KeyboardSettings) {
                     Text("›", color = kb.secondaryText.copy(alpha = 0.5f), fontSize = 11.sp)
                 }
                 StepLabel(
-                    label = step.label,
+                    label = stringResource(step.labelRes),
                     done = step.fraction < ai.phase.fraction,
                     current = step == ai.phase,
                 )
@@ -611,12 +620,15 @@ private fun StepLabel(label: String, done: Boolean, current: Boolean) {
 }
 
 /** The one-line "what's happening" above [AiProgress]'s bar. */
-private fun headline(ai: AiUi.Loading, onDevice: Boolean): String = when {
-    ai.phase == AiPhase.THINKING ->
-        "Reasoning… the answer streams in once it's done thinking."
-    onDevice -> "${ai.action.label} on-device… the first run also loads the model."
-    ai.phase == AiPhase.WAITING -> "${ai.action.label}… waiting for the first words."
-    else -> "${ai.action.label}…"
+@Composable
+private fun headline(ai: AiUi.Loading, onDevice: Boolean): String {
+    val action = stringResource(ai.action.labelRes)
+    return when {
+        ai.phase == AiPhase.THINKING -> stringResource(R.string.ime_ai_progress_thinking)
+        onDevice -> stringResource(R.string.ime_ai_progress_on_device, action)
+        ai.phase == AiPhase.WAITING -> stringResource(R.string.ime_ai_progress_waiting, action)
+        else -> stringResource(R.string.ime_ai_progress_running, action)
+    }
 }
 
 /**
@@ -624,9 +636,22 @@ private fun headline(ai: AiUi.Loading, onDevice: Boolean): String = when {
  * thinking. Suppressed for the first second, where a timer reading "0s" is
  * noise on a request that is about to come straight back.
  */
+@Composable
 private fun detail(ai: AiUi.Loading, elapsedSeconds: Int): String? {
-    val time = if (elapsedSeconds >= 1) "${elapsedSeconds}s elapsed" else null
+    val time = if (elapsedSeconds >= 1) {
+        stringResource(R.string.ime_ai_progress_elapsed, elapsedSeconds)
+    } else {
+        null
+    }
     if (ai.phase != AiPhase.THINKING || ai.thinkingChars <= 0) return time
-    val reasoning = "${ai.thinkingChars} characters of reasoning"
-    return if (time == null) reasoning else "$reasoning · $time"
+    val reasoning = pluralStringResource(
+        R.plurals.ime_ai_progress_reasoning_chars,
+        ai.thinkingChars,
+        ai.thinkingChars,
+    )
+    return if (time == null) {
+        reasoning
+    } else {
+        stringResource(R.string.ime_ai_progress_detail, reasoning, time)
+    }
 }

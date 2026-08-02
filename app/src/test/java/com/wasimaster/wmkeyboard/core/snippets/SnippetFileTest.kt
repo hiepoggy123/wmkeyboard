@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.snippets
 
+import com.wasimaster.wmkeyboard.content.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -56,7 +57,14 @@ class SnippetFileTest {
         """.trimIndent()
         val imported = SnippetFile.decode(text)!!
         assertEquals(listOf("Real"), imported.snippets.map { it.label })
-        assertTrue(imported.repairs.any { it.contains("Empty") })
+        // The note names the snippet it dropped: the name is the argument
+        // that fills %1$s, so that is what the assertion checks.
+        assertTrue(
+            imported.repairs.any {
+                it.stringRes == R.string.core_content_snippet_repair_no_text &&
+                    it.args == listOf<Any>("Empty")
+            },
+        )
     }
 
     @Test
@@ -91,7 +99,12 @@ class SnippetFileTest {
         """.trimIndent()
         val imported = SnippetFile.decode(text)!!
         assertTrue(imported.snippets.single().text.length < huge.length)
-        assertTrue(imported.repairs.any { it.contains("Huge") })
+        assertTrue(
+            imported.repairs.any {
+                it.pluralsRes == R.plurals.core_content_snippet_repair_shortened &&
+                    it.args.first() == "Huge"
+            },
+        )
     }
 
     @Test
@@ -103,7 +116,12 @@ class SnippetFileTest {
             """{"format":"wmkeyboard-snippets","version":1,"snippets":[$many]}""",
         )!!
         assertEquals(500, imported.snippets.size)
-        assertTrue(imported.repairs.any { it.contains("500") })
+        assertTrue(
+            imported.repairs.any {
+                it.pluralsRes == R.plurals.core_content_snippet_repair_kept_first &&
+                    it.args == listOf<Any>(500)
+            },
+        )
     }
 
     @Test

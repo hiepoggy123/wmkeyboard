@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Tune
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
+import com.wasimaster.wmkeyboard.ime.R
 
 /**
  * The chip the suggestion strip shows when the text before the cursor is
@@ -108,7 +110,7 @@ internal fun SmartSuggestionChip(
             }
             if (keyword) {
                 Text(
-                    text = "Open ${toolLabel(hit.tool)}",
+                    text = stringResource(R.string.ime_smart_open_tool, toolLabel(hit.tool)),
                     color = tint,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
@@ -176,7 +178,9 @@ internal fun SmartSuggestionChip(
             ) {
                 Icon(
                     Icons.Outlined.Tune,
-                    contentDescription = "Open ${toolLabel(hit.tool)}",
+                    contentDescription = stringResource(
+                        R.string.ime_smart_open_tool, toolLabel(hit.tool),
+                    ),
                     tint = tint.copy(alpha = 0.85f),
                     modifier = Modifier.size(17.dp),
                 )

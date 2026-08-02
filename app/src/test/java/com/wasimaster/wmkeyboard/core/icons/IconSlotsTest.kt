@@ -47,10 +47,26 @@ class IconSlotsTest {
         }
     }
 
+    /**
+     * A slot the settings list cannot name is a row the user cannot recognise.
+     * A slot names a string resource rather than carrying English, so this
+     * checks the id is there rather than checking any particular wording —
+     * which is what keeps it from breaking on every rewrite of a label.
+     *
+     * The tool slots are the deliberate exception: they carry no label of
+     * their own and the screen titles them from their [ToolbarTool], so for
+     * those the thing that must be present is the tool.
+     */
     @Test
-    fun `every slot has a label`() {
+    fun `every slot can be named`() {
         for (slot in IconSlots.all) {
-            assertTrue("${slot.id} has no label", slot.label.isNotBlank())
+            if (slot.group == IconSlotGroup.TOOL) {
+                assertNotNull("${slot.id} has no tool to be named after", slot.tool)
+                assertNull("${slot.id} should be titled from its tool", slot.labelRes)
+            } else {
+                assertNotNull("${slot.id} has no label", slot.labelRes)
+                assertTrue("${slot.id} label resource is unset", slot.labelRes != 0)
+            }
         }
     }
 

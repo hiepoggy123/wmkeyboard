@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.ime
 
+import androidx.annotation.StringRes
 import android.app.AppOpsManager
 import android.app.KeyguardManager
 import android.app.NotificationManager
@@ -123,8 +124,10 @@ import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
 import com.wasimaster.wmkeyboard.core.plugins.PluginEvent
 import com.wasimaster.wmkeyboard.core.plugins.PluginRuntime
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
+import com.wasimaster.wmkeyboard.core.plugins.PluginText
 import com.wasimaster.wmkeyboard.core.plugins.RenderedUi
 import com.wasimaster.wmkeyboard.core.plugins.inputIds
+import com.wasimaster.wmkeyboard.core.plugins.resolve
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.restrictedToDirectBoot
@@ -185,6 +188,7 @@ import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.QrCodeGen
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
+import com.wasimaster.wmkeyboard.core.tools.ToolHttpException
 import com.wasimaster.wmkeyboard.core.tools.CharState
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
 import com.wasimaster.wmkeyboard.core.tools.TypedWord
@@ -209,6 +213,7 @@ import com.wasimaster.wmkeyboard.core.voice.VoicePunctuation
 import com.wasimaster.wmkeyboard.core.voice.VoiceSpacing
 import com.wasimaster.wmkeyboard.core.voice.WhisperRecorder
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperEngine
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperException
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperModel
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperStore
 import com.wasimaster.wmkeyboard.core.settings.isWhisperEnabled
@@ -273,6 +278,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import java.util.EnumMap
+import com.wasimaster.wmkeyboard.common.R as CommonR
 
 /**
  * The WM Keyboard input method service.
@@ -977,7 +983,7 @@ open class WMKeyboardService : InputMethodService() {
         return ClipFileInfo(
             name = name?.takeIf { it.isNotBlank() }
                 ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
-                ?: "Unnamed",
+                ?: getString(R.string.ime_service_clip_file_unnamed_label),
             mimeType = resolvedMime,
             size = if (isDirectory) -1 else size,
             isDirectory = isDirectory,
@@ -5870,13 +5876,13 @@ open class WMKeyboardService : InputMethodService() {
                         VoiceInputEngine.ErrorKind.NO_SPEECH -> VoiceStatus.IDLE to null
                         VoiceInputEngine.ErrorKind.PERMISSION -> VoiceStatus.NEED_PERMISSION to null
                         VoiceInputEngine.ErrorKind.NETWORK ->
-                            VoiceStatus.ERROR to "Network problem — check your connection and try again."
+                            VoiceStatus.ERROR to getString(CommonR.string.common_error_network)
                         VoiceInputEngine.ErrorKind.BUSY ->
-                            VoiceStatus.ERROR to "The microphone is busy — close other apps using it and try again."
+                            VoiceStatus.ERROR to getString(R.string.ime_service_voice_error_busy)
                         VoiceInputEngine.ErrorKind.LANGUAGE ->
-                            VoiceStatus.ERROR to "Speech recognition doesn't support this language on this device."
+                            VoiceStatus.ERROR to getString(R.string.ime_service_voice_error_language)
                         VoiceInputEngine.ErrorKind.OTHER ->
-                            VoiceStatus.ERROR to "Speech recognition failed — try again."
+                            VoiceStatus.ERROR to getString(R.string.ime_service_voice_error_other)
                     }
                     _uiState.update {
                         it.copy(
@@ -5938,7 +5944,7 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(
                     voice = it.voice.copy(
                         status = VoiceStatus.ERROR, partial = "", level = 0f,
-                        errorMessage = "Couldn't start the microphone — close other apps using it and try again.",
+                        errorMessage = getString(R.string.ime_service_voice_mic_error),
                     ),
                 )
             }
@@ -5987,11 +5993,18 @@ open class WMKeyboardService : InputMethodService() {
                 result
                     .onSuccess { commitWhisperResult(it.trim(), tag, userStopped) }
                     .onFailure { e ->
+                        // A WhisperException carries a resource id instead of a
+                        // message, so its own message is null on purpose.
+                        val text = if (e is WhisperException) {
+                            getString(e.messageRes, e.messageArg)
+                        } else {
+                            e.message ?: getString(R.string.ime_service_voice_transcribe_error)
+                        }
                         _uiState.update {
                             it.copy(
                                 voice = it.voice.copy(
                                     status = VoiceStatus.ERROR, partial = "", level = 0f,
-                                    errorMessage = e.message ?: "Transcription failed — try again.",
+                                    errorMessage = text,
                                 ),
                             )
                         }
@@ -6089,7 +6102,11 @@ open class WMKeyboardService : InputMethodService() {
         }
         vibrate()
         if (_uiState.value.secureField) {
-            Toast.makeText(this, "Voice typing is unavailable in password fields", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                getString(R.string.ime_service_voice_secure_field_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
             return
         }
         _uiState.update { it.copy(voice = it.voice.copy(strip = true)) }
@@ -6157,7 +6174,7 @@ open class WMKeyboardService : InputMethodService() {
                 override fun onError() {
                     Toast.makeText(
                         this@WMKeyboardService,
-                        "Offline model download failed — try again later",
+                        getString(R.string.ime_service_voice_model_download_error),
                         Toast.LENGTH_SHORT,
                     ).show()
                     _uiState.update {
@@ -6239,7 +6256,7 @@ open class WMKeyboardService : InputMethodService() {
                     hwModelHintShown = true
                     Toast.makeText(
                         this,
-                        "Download a handwriting model in Settings → Handwriting to write on the keyboard.",
+                        getString(R.string.ime_service_handwriting_need_model_toast),
                         Toast.LENGTH_LONG,
                     ).show()
                 }
@@ -6305,7 +6322,7 @@ open class WMKeyboardService : InputMethodService() {
                     } else {
                         it.handwriting.copy(
                             status = HandwritingStatus.ERROR,
-                            errorMessage = "Download failed — check your connection and try again.",
+                            errorMessage = getString(R.string.ime_service_handwriting_download_error),
                         )
                     },
                 )
@@ -6480,7 +6497,11 @@ open class WMKeyboardService : InputMethodService() {
     fun onFlashlightToggle() {
         vibrate()
         if (torchCameraId == null) {
-            Toast.makeText(this, "This device has no flashlight", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                getString(R.string.ime_service_flashlight_missing_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
             return
         }
         setTorch(!_uiState.value.torchOn)
@@ -6525,7 +6546,7 @@ open class WMKeyboardService : InputMethodService() {
         if (state.fieldIncognito) {
             Toast.makeText(
                 this,
-                "This field is always incognito",
+                getString(R.string.ime_service_incognito_field_toast),
                 Toast.LENGTH_SHORT,
             ).show()
             return
@@ -6533,7 +6554,11 @@ open class WMKeyboardService : InputMethodService() {
         val next = !state.settings.incognito
         Toast.makeText(
             this,
-            if (next) "Incognito on — typing is not learned" else "Incognito off",
+            if (next) {
+                getString(R.string.ime_service_incognito_on_toast)
+            } else {
+                getString(R.string.ime_service_incognito_off_toast)
+            },
             Toast.LENGTH_SHORT,
         ).show()
         serviceScope.launch { settingsRepository.setIncognito(next) }
@@ -6558,10 +6583,10 @@ open class WMKeyboardService : InputMethodService() {
             this,
             when {
                 next && !config.dropsAnything ->
-                    "Power saving on — nothing is set to be dropped yet"
-                next -> "Power saving on"
-                stillOn -> "Still saving: the battery trigger is on"
-                else -> "Power saving off"
+                    getString(R.string.ime_service_power_saving_on_empty_toast)
+                next -> getString(R.string.ime_service_power_saving_on_toast)
+                stillOn -> getString(R.string.ime_service_power_saving_still_on_toast)
+                else -> getString(R.string.ime_service_power_saving_off_toast)
             },
             Toast.LENGTH_SHORT,
         ).show()
@@ -6573,7 +6598,11 @@ open class WMKeyboardService : InputMethodService() {
         val next = !_uiState.value.settings.autocorrect
         Toast.makeText(
             this,
-            if (next) "Autocorrect on" else "Autocorrect off",
+            if (next) {
+                getString(R.string.ime_service_autocorrect_on_toast)
+            } else {
+                getString(R.string.ime_service_autocorrect_off_toast)
+            },
             Toast.LENGTH_SHORT,
         ).show()
         serviceScope.launch { settingsRepository.setAutocorrect(next) }
@@ -6663,6 +6692,19 @@ open class WMKeyboardService : InputMethodService() {
     /** The results an open article came from, for the back arrow. */
     private var wikiLastResults: WikiUi.SearchResults? = null
 
+    /**
+     * The line a panel shows when a tool request fails. A [ToolHttpException]
+     * holds a resource id and, when the provider sent one, its own words, so it
+     * goes through [ToolHttp.friendlyMessage]; anything else keeps its own
+     * message, or [fallbackRes] when it has none.
+     */
+    private fun requestErrorText(t: Throwable, @StringRes fallbackRes: Int): String =
+        if (t is ToolHttpException) {
+            ToolHttp.friendlyMessage(this, t)
+        } else {
+            t.message?.takeIf { it.isNotBlank() } ?: getString(fallbackRes)
+        }
+
     private fun runWikiSearch(query: String) {
         if (query.isBlank()) return
         wikiJob?.cancel()
@@ -6676,7 +6718,9 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(
                     wiki = result.fold(
                         onSuccess = { r -> WikiUi.SearchResults(r, query) },
-                        onFailure = { e -> WikiUi.Error(e.message ?: "Search failed") },
+                        onFailure = { e ->
+                            WikiUi.Error(requestErrorText(e, R.string.ime_service_search_error))
+                        },
                     ),
                 )
             }
@@ -6700,7 +6744,11 @@ open class WMKeyboardService : InputMethodService() {
                         onSuccess = { s ->
                             WikiUi.Article(s, canGoBack = wikiLastResults != null)
                         },
-                        onFailure = { e -> WikiUi.Error(e.message ?: "Couldn't load the article") },
+                        onFailure = { e ->
+                            WikiUi.Error(
+                                requestErrorText(e, R.string.ime_service_wiki_article_error),
+                            )
+                        },
                     ),
                 )
             }
@@ -6782,7 +6830,7 @@ open class WMKeyboardService : InputMethodService() {
                     currency = result.fold(
                         onSuccess = { r -> CurrencyUi.Ready(r, System.currentTimeMillis()) },
                         onFailure = {
-                            CurrencyUi.Error("Couldn't fetch exchange rates — check your connection.")
+                            CurrencyUi.Error(getString(R.string.ime_service_currency_error))
                         },
                     ),
                 )
@@ -6823,7 +6871,7 @@ open class WMKeyboardService : InputMethodService() {
             if (file == null) {
                 Toast.makeText(
                     this@WMKeyboardService,
-                    "Couldn't generate the QR code",
+                    getString(R.string.ime_service_qr_error),
                     Toast.LENGTH_SHORT,
                 ).show()
                 return@launch
@@ -6870,7 +6918,7 @@ open class WMKeyboardService : InputMethodService() {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         this@WMKeyboardService,
-                        "Couldn't save to the gallery",
+                        getString(R.string.ime_service_gallery_save_error),
                         Toast.LENGTH_SHORT,
                     ).show()
                 }
@@ -7008,10 +7056,13 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
 
-        override fun onError(pluginId: String, message: String) {
+        override fun onError(pluginId: String, message: PluginText) {
+            // The runtime has no Context, so it hands the reason over as a
+            // resource id. The service is a Context, so it does the wording.
+            val text = message.resolve(this@WMKeyboardService)
             _uiState.update { state ->
                 val running = state.plugins as? PluginPanelUi.Running ?: return@update state
-                if (running.plugin.id != pluginId) state else state.copy(plugins = running.copy(error = message))
+                if (running.plugin.id != pluginId) state else state.copy(plugins = running.copy(error = text))
             }
         }
 
@@ -7019,12 +7070,13 @@ open class WMKeyboardService : InputMethodService() {
             _uiState.update { it.copy(pluginInputs = it.pluginInputs + (inputId to text)) }
         }
 
-        override fun onStopped(pluginId: String, message: String, disabled: Boolean) {
+        override fun onStopped(pluginId: String, message: PluginText, disabled: Boolean) {
             // Back to the list, with the reason. Anything the user was typing
             // into the stopped plugin goes with it.
+            val text = message.resolve(this@WMKeyboardService)
             _uiState.update {
                 it.copy(
-                    plugins = PluginPanelUi.List(PluginStore.get(this@WMKeyboardService).plugins(), message),
+                    plugins = PluginPanelUi.List(PluginStore.get(this@WMKeyboardService).plugins(), text),
                     pluginInputs = emptyMap(),
                     pluginFocusedInput = null,
                 )
@@ -7045,11 +7097,11 @@ open class WMKeyboardService : InputMethodService() {
         val runnable = if (store.subsystemEnabled()) store.runnablePlugins() else emptyList()
         val notice = when {
             !store.subsystemEnabled() ->
-                "Plugins are turned off. Turn them on in Settings to install and run them."
+                getString(R.string.ime_service_plugins_off_notice)
             // Otherwise the empty state would read "No plugins yet" at someone
             // who has several and switched them all off.
             runnable.isEmpty() && store.plugins().isNotEmpty() ->
-                "Every plugin you have installed is switched off. Turn one on under Manage plugins."
+                getString(R.string.ime_service_plugins_all_off_notice)
             else -> null
         }
         _uiState.update {
@@ -7441,9 +7493,14 @@ open class WMKeyboardService : InputMethodService() {
     private fun typingResultText(result: TypingResult): String {
         val settings = _uiState.value.settings
         val config = typingConfigLabel(
-            result.mode, settings.typingTestDuration, settings.typingTestWordCount,
+            this, result.mode, settings.typingTestDuration, settings.typingTestWordCount,
         )
-        return "${result.wpm.roundToInt()} WPM · ${result.accuracy.roundToInt()}% accuracy ($config)"
+        return getString(
+            R.string.ime_service_typing_result_text,
+            result.wpm.roundToInt(),
+            result.accuracy.roundToInt(),
+            config,
+        )
     }
 
     // ---- AI tool ----
@@ -7578,7 +7635,7 @@ open class WMKeyboardService : InputMethodService() {
             // rewrite any. Never send the request.
             refreshAiHasText()
             _uiState.update {
-                it.copy(ai = AiUi.Error(action, "Nothing to work on — type some text first."))
+                it.copy(ai = AiUi.Error(action, getString(R.string.ime_ai_error_no_text)))
             }
             return
         }
@@ -7647,15 +7704,22 @@ open class WMKeyboardService : InputMethodService() {
                                     action, text, source,
                                     stripMarkdown = aiStripMarkdownDefault(),
                                 )
-                                raw.isBlank() -> AiUi.Error(action, "The model returned nothing.")
+                                raw.isBlank() -> AiUi.Error(
+                                    action,
+                                    getString(R.string.ime_ai_error_empty_result),
+                                )
                                 else -> AiUi.Error(
                                     action,
-                                    "The model spent its whole response reasoning — " +
-                                        "try again, or turn on “Show reasoning” in settings.",
+                                    getString(R.string.ime_ai_error_only_reasoning),
                                 )
                             }
                         },
-                        onFailure = { e -> AiUi.Error(action, e.message ?: "Request failed") },
+                        onFailure = { e ->
+                            AiUi.Error(
+                                action,
+                                requestErrorText(e, R.string.ime_ai_error_request_failed),
+                            )
+                        },
                     ),
                 )
             }
@@ -7676,7 +7740,7 @@ open class WMKeyboardService : InputMethodService() {
     ): String {
         val modelId = effectiveLocalModelId(settings)
         val modelFile = effectiveLocalModelFile(settings)
-            ?: throw IOException("The selected model is gone — download it again in settings")
+            ?: throw IOException(getString(R.string.ime_ai_error_model_missing))
         val implicitThink = isReasoningModel(modelId)
         val startedAt = SystemClock.uptimeMillis()
         var lastPartialAt = 0L
@@ -7834,8 +7898,8 @@ open class WMKeyboardService : InputMethodService() {
             this,
             "WM Keyboard — AI generation report",
             Support.aiGenerationReport(
-                action = ai.action.label,
-                provider = state.settings.aiProvider.label,
+                action = getString(ai.action.labelRes),
+                provider = getString(state.settings.aiProvider.labelRes),
                 model = AiClient.config(state.settings).model,
                 input = ai.sourceText,
                 output = ai.result,
@@ -7845,7 +7909,7 @@ open class WMKeyboardService : InputMethodService() {
         if (!sent) {
             Toast.makeText(
                 this,
-                "No email app on this device — reports go to ${Support.EMAIL}",
+                getString(R.string.ime_service_no_email_app_toast, Support.EMAIL),
                 Toast.LENGTH_LONG,
             ).show()
         }
@@ -8152,8 +8216,8 @@ open class WMKeyboardService : InputMethodService() {
                 if (successes.isEmpty()) {
                     MediaUi.Error(
                         results.firstNotNullOfOrNull { it.exceptionOrNull() }
-                            ?.let { ToolHttp.friendlyMessage(it) }
-                            ?: "Couldn't fetch results",
+                            ?.let { ToolHttp.friendlyMessage(this@WMKeyboardService, it) }
+                            ?: getString(R.string.ime_service_media_fetch_error),
                     )
                 } else {
                     MediaUi.Ready(GifSources.interleave(successes), query)
@@ -8209,7 +8273,11 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(
                     webSearch = result.fold(
                         onSuccess = { r -> WebSearchUi.Ready(r, query) },
-                        onFailure = { e -> WebSearchUi.Error(e.message ?: "Search failed") },
+                        onFailure = { e ->
+                            WebSearchUi.Error(
+                                requestErrorText(e, R.string.ime_service_search_error),
+                            )
+                        },
                     ),
                 )
             }
@@ -8240,7 +8308,11 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(
                     imageSearch = result.fold(
                         onSuccess = { r -> ImageSearchUi.Ready(r, query) },
-                        onFailure = { e -> ImageSearchUi.Error(e.message ?: "Search failed") },
+                        onFailure = { e ->
+                            ImageSearchUi.Error(
+                                requestErrorText(e, R.string.ime_service_search_error),
+                            )
+                        },
                     ),
                 )
             }
@@ -8287,7 +8359,11 @@ open class WMKeyboardService : InputMethodService() {
         val file = found?.let { (pack, sticker) -> stickerPackStore.fileFor(pack.id, sticker) }
         if (found == null || file == null || !file.exists()) {
             found?.let { (pack, sticker) -> stickerPackStore.removeSticker(pack.id, sticker.id) }
-            Toast.makeText(this, "That sticker's file is gone", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                getString(R.string.ime_service_sticker_missing_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
             _uiState.update { it.copy(stickerPacks = stickerPackStore.packs()) }
             refreshMedia(_uiState.value.mediaQuery.trim())
             return
@@ -8335,7 +8411,11 @@ open class WMKeyboardService : InputMethodService() {
                 // Same self-heal as insertLocalSticker: a file that vanished
                 // behind the store's back leaves the manifest lying.
                 found?.let { (pack, sticker) -> stickerPackStore.removeSticker(pack.id, sticker.id) }
-                Toast.makeText(this, "That sticker's file is gone", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    getString(R.string.ime_service_sticker_missing_toast),
+                    Toast.LENGTH_SHORT,
+                ).show()
                 _uiState.update { it.copy(stickerPacks = stickerPackStore.packs()) }
                 refreshMedia(_uiState.value.mediaQuery.trim())
                 return
@@ -8350,7 +8430,7 @@ open class WMKeyboardService : InputMethodService() {
             if (file == null) {
                 Toast.makeText(
                     this@WMKeyboardService,
-                    "Download failed — check your connection",
+                    getString(R.string.ime_service_media_download_error_toast),
                     Toast.LENGTH_SHORT,
                 ).show()
                 return@launch
@@ -8379,7 +8459,7 @@ open class WMKeyboardService : InputMethodService() {
             "WM Keyboard — $kind report",
             Support.mediaReport(
                 kind = kind,
-                provider = GifSources.displayName(item.source),
+                provider = getString(GifSources.displayNameRes(item.source)),
                 query = state.mediaQuery.trim(),
                 id = item.id,
                 url = item.fullUrl,
@@ -8388,7 +8468,7 @@ open class WMKeyboardService : InputMethodService() {
         if (!sent) {
             Toast.makeText(
                 this,
-                "No email app on this device — reports go to ${Support.EMAIL}",
+                getString(R.string.ime_service_no_email_app_toast, Support.EMAIL),
                 Toast.LENGTH_LONG,
             ).show()
         }
@@ -8400,11 +8480,19 @@ open class WMKeyboardService : InputMethodService() {
             FileProvider.getUriForFile(this, clipboardFileProviderAuthority, file)
         }.getOrNull()
         if (uri == null) {
-            Toast.makeText(this, "Couldn't copy that file", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                getString(R.string.ime_service_file_copy_error_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
             return
         }
         copyUriToSystemClipboard(uri, "image")
-        Toast.makeText(this, "Copied — paste it anywhere", Toast.LENGTH_SHORT).show()
+        Toast.makeText(
+            this,
+            getString(R.string.ime_service_copied_paste_toast),
+            Toast.LENGTH_SHORT,
+        ).show()
     }
 
     /**
@@ -8419,7 +8507,8 @@ open class WMKeyboardService : InputMethodService() {
             val result = withContext(Dispatchers.IO) {
                 val target = packId
                     ?: stickerPackStore.packs().firstOrNull()?.id
-                    ?: stickerPackStore.createPack("My stickers")?.id
+                    ?: stickerPackStore
+                        .createPack(getString(R.string.ime_service_sticker_pack_default_name))?.id
                     ?: return@withContext null
                 val bytes = runCatching {
                     val dir = File(cacheDir, "media").apply { mkdirs() }
@@ -8442,10 +8531,13 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(mediaDownloadingId = null, stickerPacks = stickerPackStore.packs())
             }
             val message = when (result) {
-                is StickerAddResult.Added -> "Saved to your stickers"
-                StickerAddResult.PackFull -> "That pack is full"
-                StickerAddResult.PackMissing -> "That pack is gone"
-                else -> "Couldn't save that sticker"
+                is StickerAddResult.Added ->
+                    getString(R.string.ime_service_sticker_saved_toast)
+                StickerAddResult.PackFull ->
+                    getString(R.string.ime_service_sticker_pack_full_toast)
+                StickerAddResult.PackMissing ->
+                    getString(R.string.ime_service_sticker_pack_missing_toast)
+                else -> getString(R.string.ime_service_sticker_save_error_toast)
             }
             Toast.makeText(this@WMKeyboardService, message, Toast.LENGTH_SHORT).show()
         }
@@ -8504,7 +8596,7 @@ open class WMKeyboardService : InputMethodService() {
             if (file == null) {
                 Toast.makeText(
                     this@WMKeyboardService,
-                    "Download failed — check your connection",
+                    getString(R.string.ime_service_media_download_error_toast),
                     Toast.LENGTH_SHORT,
                 ).show()
                 return@launch
@@ -8588,7 +8680,10 @@ open class WMKeyboardService : InputMethodService() {
                             TranslateUi(sourceText = source, translated = t.text, detectedSource = t.detectedSource)
                         },
                         onFailure = { e ->
-                            it.translate.copy(translating = false, error = e.message ?: "Translation failed")
+                            it.translate.copy(
+                                translating = false,
+                                error = requestErrorText(e, R.string.ime_service_translate_error),
+                            )
                         },
                     ),
                 )
@@ -8884,7 +8979,11 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun maybeToastCopied() {
         if (_uiState.value.settings.feedback.toastOnCopy) {
-            Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                getString(R.string.ime_service_copied_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
         }
     }
 
@@ -9370,7 +9469,7 @@ open class WMKeyboardService : InputMethodService() {
                 item.uriString?.let { copyUriToSystemClipboard(Uri.parse(it), item.fileName.orEmpty()) }
                 Toast.makeText(
                     this,
-                    "Folders can't be inserted — name typed, folder copied for pasting elsewhere",
+                    getString(R.string.ime_service_folder_insert_toast),
                     Toast.LENGTH_SHORT,
                 ).show()
             }
@@ -9529,7 +9628,7 @@ open class WMKeyboardService : InputMethodService() {
         copyUriToSystemClipboard(uri, label)
         Toast.makeText(
             this,
-            "This app doesn't accept files here — file copied, paste it instead",
+            getString(R.string.ime_service_file_not_accepted_toast),
             Toast.LENGTH_SHORT,
         ).show()
     }
@@ -9599,7 +9698,11 @@ open class WMKeyboardService : InputMethodService() {
         }.getOrNull() ?: return
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
             .setPrimaryClip(android.content.ClipData.newUri(contentResolver, "image", contentUri))
-        Toast.makeText(this, "This app doesn't accept images here — image copied, paste it instead", Toast.LENGTH_SHORT).show()
+        Toast.makeText(
+            this,
+            getString(R.string.ime_service_image_not_accepted_toast),
+            Toast.LENGTH_SHORT,
+        ).show()
     }
 
     /** One commitContent attempt with a settled MIME type. */
@@ -9695,7 +9798,7 @@ open class WMKeyboardService : InputMethodService() {
         if (_uiState.value.settings.modeToolOrderHintSeen) return
         Toast.makeText(
             this,
-            "Saved for ${mode.name} mode — other apps keep their own tool order.",
+            getString(R.string.ime_service_mode_tool_order_toast, mode.name),
             Toast.LENGTH_LONG,
         ).show()
         serviceScope.launch { settingsRepository.setModeToolOrderHintSeen(true) }
@@ -10444,7 +10547,11 @@ open class WMKeyboardService : InputMethodService() {
     fun openSettings() {
         vibrate()
         if (currentInputEditorInfo?.packageName == packageName) {
-            Toast.makeText(this, "Already in settings", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                getString(R.string.ime_service_already_in_settings_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
             return
         }
         startActivity(

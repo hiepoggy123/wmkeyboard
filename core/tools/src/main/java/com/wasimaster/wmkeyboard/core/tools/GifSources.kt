@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.tools.R
+
 /**
  * Where a GIF/sticker result came from. [LOCAL] is the user's own sticker
  * packs on device — sticker-only, always available, and never mixed into a
@@ -26,15 +29,17 @@ data class GifItem(
 )
 
 /** One chip in the source row, with the label it shows. */
-data class SourceChip(val label: String, val source: GifSource)
+data class SourceChip(@StringRes val labelRes: Int, val source: GifSource)
 
 /** Helpers shared by the multi-provider GIF/sticker pipeline. */
 object GifSources {
 
-    fun displayName(source: GifSource): String = when (source) {
-        GifSource.KLIPY -> "Klipy"
-        GifSource.GIPHY -> "GIPHY"
-        GifSource.LOCAL -> "My stickers"
+    /** The name a source goes by on screen. The UI resolves the id. */
+    @StringRes
+    fun displayNameRes(source: GifSource): Int = when (source) {
+        GifSource.KLIPY -> R.string.core_tools_gif_source_klipy
+        GifSource.GIPHY -> R.string.core_tools_gif_source_giphy
+        GifSource.LOCAL -> R.string.core_tools_gif_source_local
     }
 
     /**
@@ -59,13 +64,13 @@ object GifSources {
      */
     fun chips(sources: List<GifSource>, tabs: Boolean): List<SourceChip> {
         if (tabs) {
-            return if (sources.size > 1) sources.map { SourceChip(displayName(it), it) } else emptyList()
+            return if (sources.size > 1) sources.map { SourceChip(displayNameRes(it), it) } else emptyList()
         }
         val remote = sources.filter { it != GifSource.LOCAL }
         if (remote.isEmpty() || GifSource.LOCAL !in sources) return emptyList()
         return listOf(
-            SourceChip("Online", remote.first()),
-            SourceChip(displayName(GifSource.LOCAL), GifSource.LOCAL),
+            SourceChip(R.string.core_tools_gif_source_online, remote.first()),
+            SourceChip(displayNameRes(GifSource.LOCAL), GifSource.LOCAL),
         )
     }
 

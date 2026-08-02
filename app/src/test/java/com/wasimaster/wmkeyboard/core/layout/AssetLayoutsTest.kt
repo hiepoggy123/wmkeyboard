@@ -38,9 +38,9 @@ class AssetLayoutsTest {
             val imported = LayoutFile.decode(file.readText())
             assertNotNull("${file.name} is not a valid layout file", imported)
             assertEquals(
-                "${file.name} needed repairs: ${imported!!.repairs}",
-                emptyList<String>(),
-                imported.repairs,
+                "${file.name} needed repairs: ${imported!!.repairNotes}",
+                emptyList<LayoutMessage>(),
+                imported.repairNotes,
             )
         }
     }

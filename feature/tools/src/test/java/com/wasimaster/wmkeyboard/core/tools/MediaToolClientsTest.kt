@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import com.wasimaster.wmkeyboard.tools.R
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -210,14 +212,25 @@ class ToolHttpTest {
     @Test
     fun `google style error body surfaces the api message`() {
         val body = """{"error":{"code":403,"message":"API key not valid."}}"""
-        assertEquals("API key not valid.", ToolHttp.apiErrorMessage(403, body))
+        assertEquals("API key not valid.", ToolHttp.apiErrorText(body))
+        // The provider already wrote in the user's language, so its words ride
+        // on the failure verbatim alongside our own wording for the status.
+        val failure = ToolHttp.httpFailure(403, body)
+        assertEquals("API key not valid.", failure.apiMessage)
+        assertEquals(R.string.core_tools_error_http_key_rejected, failure.messageRes)
     }
 
     @Test
     fun `unparseable error body falls back to status text`() {
-        assertEquals(
-            "Rate limit or daily quota exceeded (HTTP 429)",
-            ToolHttp.apiErrorMessage(429, "<html>nope</html>"),
-        )
+        // Nothing to surface from the body, so the failure carries only our
+        // wording. That wording is a resource id here rather than the English
+        // sentence it renders as — which is also what keeps this test from
+        // rotting the next time the sentence is reworded.
+        assertNull(ToolHttp.apiErrorText("<html>nope</html>"))
+        val failure = ToolHttp.httpFailure(429, "<html>nope</html>")
+        assertNull(failure.apiMessage)
+        assertEquals(R.string.core_tools_error_http_rate_limit, failure.messageRes)
+        // The status is the argument that fills the "(HTTP %1$d)" placeholder.
+        assertEquals(429, failure.status)
     }
 }

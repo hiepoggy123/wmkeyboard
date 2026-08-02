@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Names the calendar tool, the unit converter and the symbol pickers show.
+
+  Referenced from other modules as
+  com.wasimaster.wmkeyboard.tools.R.string.core_tools_unit_metre_label. The R
+  classes are non-transitive, so the import has to name this module.
+
+  Unit *symbols* (km, kg, °C) are never translated and stay in the Kotlin
+  catalog. Only the spelled-out names live here.
+-->
+<resources>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: the category chips along the top of the panel.     -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_category_length_label">Length</string>
+    <string name="core_tools_unit_category_mass_label">Mass</string>
+    <string name="core_tools_unit_category_temperature_label">Temperature</string>
+    <string name="core_tools_unit_category_area_label">Area</string>
+    <string name="core_tools_unit_category_volume_label">Volume</string>
+    <string name="core_tools_unit_category_speed_label">Speed</string>
+    <string name="core_tools_unit_category_time_label">Time</string>
+    <!-- Digital storage: bytes, kilobytes and so on. -->
+    <string name="core_tools_unit_category_data_label">Data</string>
+    <string name="core_tools_unit_category_energy_label">Energy</string>
+    <string name="core_tools_unit_category_power_label">Power</string>
+    <string name="core_tools_unit_category_pressure_label">Pressure</string>
+    <string name="core_tools_unit_category_angle_label">Angle</string>
+    <string name="core_tools_unit_category_frequency_label">Frequency</string>
+    <!-- How much fuel a vehicle uses over a distance. -->
+    <string name="core_tools_unit_category_fuel_economy_label">Fuel economy</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: length.                                            -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_millimetre_label">Millimetre</string>
+    <string name="core_tools_unit_centimetre_label">Centimetre</string>
+    <string name="core_tools_unit_metre_label">Metre</string>
+    <string name="core_tools_unit_kilometre_label">Kilometre</string>
+    <string name="core_tools_unit_inch_label">Inch</string>
+    <string name="core_tools_unit_foot_label">Foot</string>
+    <string name="core_tools_unit_yard_label">Yard</string>
+    <string name="core_tools_unit_mile_label">Mile</string>
+    <string name="core_tools_unit_nautical_mile_label">Nautical mile</string>
+    <string name="core_tools_unit_micrometre_label">Micrometre</string>
+    <string name="core_tools_unit_nanometre_label">Nanometre</string>
+    <!-- The distance light travels in one year. -->
+    <string name="core_tools_unit_light_year_label">Light-year</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: mass.                                              -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_milligram_label">Milligram</string>
+    <string name="core_tools_unit_gram_label">Gram</string>
+    <string name="core_tools_unit_kilogram_label">Kilogram</string>
+    <!-- The metric tonne, 1000 kilograms. -->
+    <string name="core_tools_unit_tonne_label">Tonne</string>
+    <string name="core_tools_unit_ounce_label">Ounce</string>
+    <string name="core_tools_unit_pound_label">Pound</string>
+    <string name="core_tools_unit_stone_label">Stone</string>
+    <!-- The short ton used in the United States, 2000 pounds. -->
+    <string name="core_tools_unit_us_ton_label">US ton</string>
+    <!-- The mass unit for gemstones. -->
+    <string name="core_tools_unit_carat_label">Carat</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: temperature.                                       -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_celsius_label">Celsius</string>
+    <string name="core_tools_unit_fahrenheit_label">Fahrenheit</string>
+    <string name="core_tools_unit_kelvin_label">Kelvin</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: area.                                              -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_square_millimetre_label">Square millimetre</string>
+    <string name="core_tools_unit_square_centimetre_label">Square centimetre</string>
+    <string name="core_tools_unit_square_metre_label">Square metre</string>
+    <string name="core_tools_unit_hectare_label">Hectare</string>
+    <string name="core_tools_unit_square_kilometre_label">Square kilometre</string>
+    <string name="core_tools_unit_square_inch_label">Square inch</string>
+    <string name="core_tools_unit_square_foot_label">Square foot</string>
+    <string name="core_tools_unit_square_yard_label">Square yard</string>
+    <string name="core_tools_unit_acre_label">Acre</string>
+    <string name="core_tools_unit_square_mile_label">Square mile</string>
+    <!-- A land area unit used in Bangladesh. -->
+    <string name="core_tools_unit_katha_label">Katha (Bangladesh)</string>
+    <!-- A land area unit used in Bangladesh, 20 katha. -->
+    <string name="core_tools_unit_bigha_label">Bigha (Bangladesh)</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: volume.                                            -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_millilitre_label">Millilitre</string>
+    <string name="core_tools_unit_litre_label">Litre</string>
+    <string name="core_tools_unit_cubic_metre_label">Cubic metre</string>
+    <string name="core_tools_unit_teaspoon_us_label">Teaspoon (US)</string>
+    <string name="core_tools_unit_tablespoon_us_label">Tablespoon (US)</string>
+    <string name="core_tools_unit_fluid_ounce_us_label">Fluid ounce (US)</string>
+    <string name="core_tools_unit_cup_us_label">Cup (US)</string>
+    <string name="core_tools_unit_pint_us_label">Pint (US)</string>
+    <string name="core_tools_unit_quart_us_label">Quart (US)</string>
+    <string name="core_tools_unit_gallon_us_label">Gallon (US)</string>
+    <string name="core_tools_unit_gallon_uk_label">Gallon (UK)</string>
+    <string name="core_tools_unit_cubic_inch_label">Cubic inch</string>
+    <string name="core_tools_unit_cubic_foot_label">Cubic foot</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: speed.                                             -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_metres_per_second_label">Metres per second</string>
+    <string name="core_tools_unit_kilometres_per_hour_label">Kilometres per hour</string>
+    <string name="core_tools_unit_miles_per_hour_label">Miles per hour</string>
+    <!-- One nautical mile per hour. -->
+    <string name="core_tools_unit_knot_label">Knot</string>
+    <string name="core_tools_unit_feet_per_second_label">Feet per second</string>
+    <!-- The speed of sound at sea level. -->
+    <string name="core_tools_unit_mach_label">Mach (sea level)</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: time.                                              -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_millisecond_label">Millisecond</string>
+    <string name="core_tools_unit_second_label">Second</string>
+    <string name="core_tools_unit_minute_label">Minute</string>
+    <string name="core_tools_unit_hour_label">Hour</string>
+    <string name="core_tools_unit_day_label">Day</string>
+    <string name="core_tools_unit_week_label">Week</string>
+    <!-- A month of average length, because months differ. -->
+    <string name="core_tools_unit_month_label">Month (average)</string>
+    <string name="core_tools_unit_year_label">Year</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: digital storage.                                   -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_bit_label">Bit</string>
+    <string name="core_tools_unit_byte_label">Byte</string>
+    <string name="core_tools_unit_kilobyte_label">Kilobyte</string>
+    <string name="core_tools_unit_megabyte_label">Megabyte</string>
+    <string name="core_tools_unit_gigabyte_label">Gigabyte</string>
+    <string name="core_tools_unit_terabyte_label">Terabyte</string>
+    <!-- 1024 bytes. The binary counterpart of a kilobyte. -->
+    <string name="core_tools_unit_kibibyte_label">Kibibyte</string>
+    <string name="core_tools_unit_mebibyte_label">Mebibyte</string>
+    <string name="core_tools_unit_gibibyte_label">Gibibyte</string>
+    <string name="core_tools_unit_tebibyte_label">Tebibyte</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: energy.                                            -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_joule_label">Joule</string>
+    <string name="core_tools_unit_kilojoule_label">Kilojoule</string>
+    <string name="core_tools_unit_calorie_label">Calorie</string>
+    <string name="core_tools_unit_kilocalorie_label">Kilocalorie</string>
+    <string name="core_tools_unit_watt_hour_label">Watt-hour</string>
+    <string name="core_tools_unit_kilowatt_hour_label">Kilowatt-hour</string>
+    <string name="core_tools_unit_btu_label">British thermal unit</string>
+    <string name="core_tools_unit_electronvolt_label">Electronvolt</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: power.                                             -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_watt_label">Watt</string>
+    <string name="core_tools_unit_kilowatt_label">Kilowatt</string>
+    <string name="core_tools_unit_megawatt_label">Megawatt</string>
+    <!-- Imperial horsepower, about 746 watts. -->
+    <string name="core_tools_unit_horsepower_mechanical_label">Horsepower (mechanical)</string>
+    <!-- Metric horsepower, about 735 watts. -->
+    <string name="core_tools_unit_horsepower_metric_label">Horsepower (metric)</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: pressure.                                          -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_pascal_label">Pascal</string>
+    <string name="core_tools_unit_kilopascal_label">Kilopascal</string>
+    <string name="core_tools_unit_bar_label">Bar</string>
+    <!-- The standard air pressure at sea level. -->
+    <string name="core_tools_unit_atmosphere_label">Atmosphere</string>
+    <string name="core_tools_unit_psi_label">Pounds per square inch</string>
+    <string name="core_tools_unit_mmhg_label">Millimetres of mercury (Torr)</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: angle.                                             -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_degree_label">Degree</string>
+    <string name="core_tools_unit_radian_label">Radian</string>
+    <!-- A right angle is 100 gradians. -->
+    <string name="core_tools_unit_gradian_label">Gradian</string>
+    <!-- One full turn, 360 degrees. -->
+    <string name="core_tools_unit_turn_label">Turn</string>
+    <!-- One sixtieth of a degree. -->
+    <string name="core_tools_unit_arcminute_label">Arcminute</string>
+    <!-- One sixtieth of an arcminute. -->
+    <string name="core_tools_unit_arcsecond_label">Arcsecond</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: frequency.                                         -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_hertz_label">Hertz</string>
+    <string name="core_tools_unit_kilohertz_label">Kilohertz</string>
+    <string name="core_tools_unit_megahertz_label">Megahertz</string>
+    <string name="core_tools_unit_gigahertz_label">Gigahertz</string>
+    <string name="core_tools_unit_rpm_label">Revolutions per minute</string>
+
+    <!-- ================================================================== -->
+    <!-- Unit converter: fuel economy.                                      -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_unit_litres_per_100_km_label">Litres per 100 kilometres</string>
+    <string name="core_tools_unit_kilometres_per_litre_label">Kilometres per litre</string>
+    <string name="core_tools_unit_miles_per_gallon_us_label">Miles per gallon (US)</string>
+    <string name="core_tools_unit_miles_per_gallon_uk_label">Miles per gallon (UK)</string>
+
+    <!-- ================================================================== -->
+    <!-- Symbols tool: the category chips over the character grid.          -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_symbol_category_fractions_label">Fractions</string>
+    <!-- Mathematical operators and signs. -->
+    <string name="core_tools_symbol_category_math_label">Math</string>
+    <!-- The letters of the Greek alphabet. -->
+    <string name="core_tools_symbol_category_greek_label">Greek</string>
+    <string name="core_tools_symbol_category_arrows_label">Arrows</string>
+    <string name="core_tools_symbol_category_currency_label">Currency</string>
+    <!-- Small raised and lowered digits and letters. -->
+    <string name="core_tools_symbol_category_superscript_label">Superscript</string>
+    <string name="core_tools_symbol_category_punctuation_label">Punctuation</string>
+    <string name="core_tools_symbol_category_shapes_label">Shapes and stars</string>
+    <!-- The characters that fit no other category. -->
+    <string name="core_tools_symbol_category_other_label">Other</string>
+
+    <!-- ================================================================== -->
+    <!-- Symbol row: the sets of characters that ship with the keyboard.    -->
+    <!-- A user can edit a set, and an edited set keeps the name the user   -->
+    <!-- gives it. These names are the ones the shipped sets start with.    -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_symbol_set_email_label">Email</string>
+    <string name="core_tools_symbol_set_web_label">Web</string>
+    <!-- Brackets, operators and other characters people need to write code. -->
+    <string name="core_tools_symbol_set_coding_label">Coding</string>
+    <string name="core_tools_symbol_set_math_label">Math</string>
+    <string name="core_tools_symbol_set_punctuation_label">Punctuation</string>
+
+    <!-- ================================================================== -->
+    <!-- Calendar tool: the calendars you can show next to the Gregorian    -->
+    <!-- one. Each name has the English name, then a middle dot, then the   -->
+    <!-- calendar's own name or a short note. Keep the middle dot. Do not   -->
+    <!-- translate a name that is written in its own script.                -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_calendar_bengali_label">Bengali · বঙ্গাব্দ</string>
+    <string name="core_tools_calendar_hijri_label">Hijri · Islamic</string>
+    <string name="core_tools_calendar_chinese_label">Chinese · 农历</string>
+    <string name="core_tools_calendar_hebrew_label">Hebrew · לוח עברי</string>
+    <string name="core_tools_calendar_hindu_label">Hindu · Saka</string>
+    <string name="core_tools_calendar_persian_label">Persian · Solar Hijri</string>
+    <string name="core_tools_calendar_buddhist_label">Buddhist · Thai solar</string>
+    <string name="core_tools_calendar_japanese_label">Japanese · era years</string>
+
+    <!-- ================================================================== -->
+    <!-- Calendar tool: which days the grid tints as the weekend.           -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_weekend_sat_sun_label">Saturday and Sunday</string>
+    <string name="core_tools_weekend_fri_sat_label">Friday and Saturday</string>
+    <string name="core_tools_weekend_thu_fri_label">Thursday and Friday</string>
+    <string name="core_tools_weekend_fri_label">Friday</string>
+    <string name="core_tools_weekend_sat_label">Saturday</string>
+    <string name="core_tools_weekend_sun_label">Sunday</string>
+    <!-- The grid tints no day at all. -->
+    <string name="core_tools_weekend_none_label">No weekend</string>
+
+    <!-- ================================================================== -->
+    <!-- Calendar tool: the eight named phases of the moon.                 -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_moon_new_label">New moon</string>
+    <string name="core_tools_moon_waxing_crescent_label">Waxing crescent</string>
+    <string name="core_tools_moon_first_quarter_label">First quarter</string>
+    <string name="core_tools_moon_waxing_gibbous_label">Waxing gibbous</string>
+    <string name="core_tools_moon_full_label">Full moon</string>
+    <string name="core_tools_moon_waning_gibbous_label">Waning gibbous</string>
+    <string name="core_tools_moon_last_quarter_label">Last quarter</string>
+    <string name="core_tools_moon_waning_crescent_label">Waning crescent</string>
+
+</resources>

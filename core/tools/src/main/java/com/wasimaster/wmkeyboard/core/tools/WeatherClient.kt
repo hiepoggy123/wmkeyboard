@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.tools.R
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -146,24 +148,28 @@ object WeatherClient {
         this[key]?.takeIf { it !is JsonNull }?.jsonArray?.firstOrNull()
             ?.takeIf { it !is JsonNull }
 
-    /** WMO weather-code groups to a short label. */
-    fun describe(code: Int): String = when (code) {
-        0 -> "Clear sky"
-        1 -> "Mainly clear"
-        2 -> "Partly cloudy"
-        3 -> "Overcast"
-        45, 48 -> "Fog"
-        51, 53, 55 -> "Drizzle"
-        56, 57 -> "Freezing drizzle"
-        61, 63, 65 -> "Rain"
-        66, 67 -> "Freezing rain"
-        71, 73, 75 -> "Snow"
-        77 -> "Snow grains"
-        80, 81, 82 -> "Rain showers"
-        85, 86 -> "Snow showers"
-        95 -> "Thunderstorm"
-        96, 99 -> "Thunderstorm with hail"
-        else -> "Unknown"
+    /**
+     * WMO weather-code groups to a short label. The UI resolves the id, so
+     * the line follows the language the user reads the keyboard in.
+     */
+    @StringRes
+    fun describeRes(code: Int): Int = when (code) {
+        0 -> R.string.core_tools_weather_condition_clear_sky
+        1 -> R.string.core_tools_weather_condition_mainly_clear
+        2 -> R.string.core_tools_weather_condition_partly_cloudy
+        3 -> R.string.core_tools_weather_condition_overcast
+        45, 48 -> R.string.core_tools_weather_condition_fog
+        51, 53, 55 -> R.string.core_tools_weather_condition_drizzle
+        56, 57 -> R.string.core_tools_weather_condition_freezing_drizzle
+        61, 63, 65 -> R.string.core_tools_weather_condition_rain
+        66, 67 -> R.string.core_tools_weather_condition_freezing_rain
+        71, 73, 75 -> R.string.core_tools_weather_condition_snow
+        77 -> R.string.core_tools_weather_condition_snow_grains
+        80, 81, 82 -> R.string.core_tools_weather_condition_rain_showers
+        85, 86 -> R.string.core_tools_weather_condition_snow_showers
+        95 -> R.string.core_tools_weather_condition_thunderstorm
+        96, 99 -> R.string.core_tools_weather_condition_thunderstorm_hail
+        else -> R.string.core_tools_weather_condition_unknown
     }
 
     fun emoji(code: Int, isDay: Boolean): String = when (code) {

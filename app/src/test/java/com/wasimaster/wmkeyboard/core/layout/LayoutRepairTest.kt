@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import com.wasimaster.wmkeyboard.language.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -41,7 +42,11 @@ class LayoutRepairTest {
     fun `every built-in survives repair unchanged`() {
         for (spec in BuiltInLayouts.all) {
             val repaired = spec.repair()
-            assertEquals("${spec.id} should need no repairs", emptyList<String>(), repaired.repairs)
+            assertEquals(
+                "${spec.id} should need no repairs",
+                emptyList<LayoutMessage>(),
+                repaired.repairNotes,
+            )
         }
     }
 
@@ -50,11 +55,18 @@ class LayoutRepairTest {
         val spec = letters(listOf(Key("a"), Key(" ", action = KeyAction.Space), Key("⏎", action = KeyAction.Enter)))
 
         assertFalse(spec.canBeEnabled())
-        assertTrue(validateLayout(spec).any { it.message.contains("delete", ignoreCase = true) })
+        // Findings and repair notes are matched by the resource they name, not
+        // by the English they happen to carry today.
+        assertTrue(
+            validateLayout(spec)
+                .any { it.text == LayoutMessage(R.string.core_lang_layout_no_delete_error) },
+        )
 
         val repaired = spec.repair()
         assertTrue(repaired.spec.lettersKeys().any { it.action == KeyAction.Delete })
-        assertTrue(repaired.repairs.any { it.contains("delete") })
+        assertTrue(
+            LayoutMessage(R.string.core_lang_repair_delete_key_added) in repaired.repairNotes,
+        )
         assertTrue(repaired.spec.canBeEnabled())
     }
 
@@ -62,7 +74,9 @@ class LayoutRepairTest {
     fun `a missing shift key warns but does not block`() {
         val spec = letters(listOf(Key("a")) + usableBottomRow.filter { it.action != KeyAction.Shift })
         val findings = validateLayout(spec)
-        assertTrue(findings.any { it.message.contains("shift", ignoreCase = true) })
+        assertTrue(
+            findings.any { it.text == LayoutMessage(R.string.core_lang_layout_no_shift_warning) },
+        )
         assertTrue("a shift-less layout is still usable", spec.canBeEnabled())
     }
 
@@ -74,7 +88,15 @@ class LayoutRepairTest {
 
         val repaired = spec.repair()
         assertTrue(repaired.spec.lettersKeys().none { it.action is KeyAction.Unknown })
-        assertTrue(repaired.repairs.any { it.contains("teleport") })
+        // The dropped tag rides in the note's arguments, which are data rather
+        // than words, so this still names the offending key exactly.
+        assertTrue(
+            "repair notes were ${repaired.repairNotes}",
+            LayoutMessage(
+                R.string.core_lang_repair_unknown_key_deleted,
+                args = listOf(LayoutLayer.LETTERS.key, "teleport"),
+            ) in repaired.repairNotes,
+        )
         assertEquals("only the offending key goes", 1, repaired.spec.lettersKeys().count { it.label == "a" })
     }
 
@@ -99,7 +121,13 @@ class LayoutRepairTest {
         val spec = letters(emptyList())
         val repaired = spec.repair()
         assertNull("dropping the layer restores the shipped grid", repaired.spec.layer(LayoutLayer.LETTERS))
-        assertTrue(repaired.repairs.isNotEmpty())
+        assertTrue(
+            "repair notes were ${repaired.repairNotes}",
+            LayoutMessage(
+                R.string.core_lang_repair_layer_replaced,
+                args = listOf(LayoutLayer.LETTERS.key),
+            ) in repaired.repairNotes,
+        )
     }
 
     @Test

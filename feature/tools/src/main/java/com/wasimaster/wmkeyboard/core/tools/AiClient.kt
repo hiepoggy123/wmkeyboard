@@ -2,7 +2,7 @@ package com.wasimaster.wmkeyboard.core.tools
 
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
-import java.io.IOException
+import com.wasimaster.wmkeyboard.tools.feature.R
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -452,10 +452,7 @@ object AiClient {
             }
             // A failure mid-stream arrives as an event, not an HTTP status, so
             // it has to be raised from here or the answer silently truncates.
-            "error" -> throw IOException(
-                event["error"]?.jsonObject?.text("message")?.takeIf { it.isNotBlank() }
-                    ?: STREAM_ERROR,
-            )
+            "error" -> throw streamFailure(event["error"]?.jsonObject?.text("message"))
         }
     }
 
@@ -500,7 +497,7 @@ object AiClient {
     internal fun applyOpenAiEvent(data: String, buffer: StreamBuffer) {
         val event = data.asJsonObject() ?: return
         event["error"]?.jsonObject?.let { error ->
-            throw IOException(error.text("message").takeIf { it.isNotBlank() } ?: STREAM_ERROR)
+            throw streamFailure(error.text("message"))
         }
         val delta = event["choices"]?.jsonArray?.firstOrNull()
             ?.jsonObject?.get("delta")?.jsonObject ?: return
@@ -550,7 +547,7 @@ object AiClient {
     internal fun applyGeminiEvent(data: String, buffer: StreamBuffer) {
         val event = data.asJsonObject() ?: return
         event["error"]?.jsonObject?.let { error ->
-            throw IOException(error.text("message").takeIf { it.isNotBlank() } ?: STREAM_ERROR)
+            throw streamFailure(error.text("message"))
         }
         val parts = event["candidates"]?.jsonArray?.firstOrNull()?.jsonObject
             ?.get("content")?.jsonObject?.get("parts")?.jsonArray ?: return
@@ -618,14 +615,24 @@ object AiClient {
     internal fun applyOllamaEvent(line: String, buffer: StreamBuffer) {
         val event = line.asJsonObject() ?: return
         event["error"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }?.let {
-            throw IOException(it)
+            throw streamFailure(it)
         }
         val message = event["message"]?.jsonObject ?: return
         buffer.reasoning(message.text("thinking"))
         buffer.answer(message.text("content"))
     }
 
-    private const val STREAM_ERROR = "The provider ended the response with an error"
+    /**
+     * The failure to raise for a provider error that arrives inside the stream.
+     * The provider's own words pass through when it sent any, exactly as an
+     * HTTP error body does; our own wording stands in when it sent none.
+     * [ToolHttp.friendlyMessage] renders either one for the panel.
+     */
+    private fun streamFailure(apiMessage: String?): ToolHttpException =
+        ToolHttpException(
+            R.string.ftools_ai_stream_error,
+            apiMessage = apiMessage?.takeIf { it.isNotBlank() },
+        )
 
     /**
      * Parses one stream line, tolerating anything that isn't a JSON object —

@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.emoji
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.emoji.R
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -48,7 +51,19 @@ object EmojiDictDownloadManager {
         data object Queued : DownloadStatus
         data class Downloading(val bytes: Long, val totalBytes: Long) : DownloadStatus
         data class Downloaded(val emojiCount: Int, val sizeBytes: Long) : DownloadStatus
-        data class Failed(val reason: FailReason, val message: String) : DownloadStatus
+
+        /**
+         * [messageRes] is the text to show the user. [messageArg] is the one
+         * format argument that text takes, or "" when it takes none. The UI
+         * resolves the pair together:
+         * `if (messageArg.isEmpty()) stringResource(messageRes)`
+         * `else stringResource(messageRes, messageArg)`.
+         */
+        data class Failed(
+            val reason: FailReason,
+            @StringRes val messageRes: Int,
+            val messageArg: String = "",
+        ) : DownloadStatus
     }
 
     enum class FailReason { NETWORK, MALFORMED, OTHER }
@@ -206,7 +221,7 @@ object EmojiDictDownloadManager {
         try {
             val pack = fetch(entry)
             if (pack.isEmpty) {
-                throw FailedException(FailReason.MALFORMED, "That dictionary was empty or unreadable")
+                throw FailedException(FailReason.MALFORMED, R.string.core_emoji_dict_error_empty)
             }
             currentCoroutineContext().ensureActive()
             part.parentFile?.mkdirs()
@@ -216,7 +231,7 @@ object EmojiDictDownloadManager {
             // filesystem, and a re-download of an existing pack must land.
             final.delete()
             if (!part.renameTo(final)) {
-                throw FailedException(FailReason.OTHER, "Could not save the dictionary")
+                throw FailedException(FailReason.OTHER, R.string.core_emoji_dict_error_save)
             }
             set(language, DownloadStatus.Downloaded(pack.size, final.length()))
             _completions.tryEmit(language)
@@ -227,16 +242,13 @@ object EmojiDictDownloadManager {
         } catch (e: FailedException) {
             part.delete()
             giveUp(language)
-            set(language, DownloadStatus.Failed(e.reason, e.message.orEmpty()))
-        } catch (e: Exception) {
+            set(language, DownloadStatus.Failed(e.reason, e.messageRes, e.messageArg))
+        } catch (_: Exception) {
             part.delete()
             giveUp(language)
             set(
                 language,
-                DownloadStatus.Failed(
-                    FailReason.NETWORK,
-                    e.message ?: "The download failed — check your connection and retry",
-                ),
+                DownloadStatus.Failed(FailReason.NETWORK, CommonR.string.common_error_network),
             )
         }
     }
@@ -273,7 +285,16 @@ object EmojiDictDownloadManager {
         _states.update { it + (langId to status) }
     }
 
-    private class FailedException(val reason: FailReason, message: String) : IOException(message)
+    /**
+     * A download failure that already knows which message the UI should show.
+     * The exception's own `message` stays null: the text lives in [messageRes]
+     * so it follows the app language.
+     */
+    private class FailedException(
+        val reason: FailReason,
+        @StringRes val messageRes: Int,
+        val messageArg: String = "",
+    ) : IOException()
 
     /** Counts what passes through, for progress against the compressed size. */
     private class CountingInputStream(private val wrapped: InputStream) : InputStream() {
@@ -301,7 +322,11 @@ object EmojiDictDownloadManager {
             connection.setRequestProperty("Accept-Encoding", "identity")
             val status = connection.responseCode
             if (status != HttpURLConnection.HTTP_OK) {
-                throw FailedException(FailReason.OTHER, "The server returned HTTP $status")
+                throw FailedException(
+                    FailReason.OTHER,
+                    R.string.core_emoji_dict_error_http,
+                    status.toString(),
+                )
             }
             val total = connection.contentLengthLong.takeIf { it > 0 } ?: entry.approxGzBytes
             val counting = CountingInputStream(connection.inputStream)
@@ -315,7 +340,10 @@ object EmojiDictDownloadManager {
                     if (read < 0) break
                     text.appendRange(buffer, 0, read)
                     if (text.length > MAX_INFLATED_BYTES) {
-                        throw FailedException(FailReason.MALFORMED, "That dictionary is far too large")
+                        throw FailedException(
+                            FailReason.MALFORMED,
+                            R.string.core_emoji_dict_error_too_large,
+                        )
                     }
                     val now = System.currentTimeMillis()
                     if (now - lastUpdate >= PROGRESS_INTERVAL_MS) {
@@ -325,7 +353,10 @@ object EmojiDictDownloadManager {
                 }
             }
             return EmojiDictCodec.decode(text.toString())
-                ?: throw FailedException(FailReason.MALFORMED, "That file isn't an emoji dictionary")
+                ?: throw FailedException(
+                    FailReason.MALFORMED,
+                    R.string.core_emoji_dict_error_not_a_list,
+                )
         } finally {
             connection.disconnect()
         }

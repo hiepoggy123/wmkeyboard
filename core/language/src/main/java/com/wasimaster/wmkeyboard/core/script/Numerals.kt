@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.script
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.language.R
+
 /**
  * The digit glyphs a language draws and types. Layout data always stores ASCII
  * `0`–`9`; the chosen system is applied late — at key-label draw time and at
@@ -11,15 +14,19 @@ package com.wasimaster.wmkeyboard.core.script
  * made per language: [AUTO] (the default for every language) means "follow this
  * language's own [LanguageDef.numeralSystem]"; every other value forces that
  * system while that language is active.
+ *
+ * [labelRes] is the settings label, resolved where it is drawn so it follows the
+ * device language. Every value but [AUTO] labels itself with its own digits, so
+ * those resources are marked untranslatable.
  */
-enum class NumeralSystem(val digits: String?, val label: String) {
-    // Labels stay short — they render as segmented buttons in settings.
-    AUTO(null, "Auto"),
-    LATIN(null, "0-9"),
-    ARABIC_INDIC("٠١٢٣٤٥٦٧٨٩", "٠-٩"),
-    PERSIAN("۰۱۲۳۴۵۶۷۸۹", "۰-۹"),
-    BENGALI("০১২৩৪৫৬৭৮৯", "০-৯"),
-    DEVANAGARI("०१२३४५६७८९", "०-९"),
+enum class NumeralSystem(val digits: String?, @StringRes val labelRes: Int) {
+    // Labels stay short: they render as segmented buttons in settings.
+    AUTO(null, R.string.core_lang_numeral_system_auto),
+    LATIN(null, R.string.core_lang_numeral_system_latin),
+    ARABIC_INDIC("٠١٢٣٤٥٦٧٨٩", R.string.core_lang_numeral_system_arabic_indic),
+    PERSIAN("۰۱۲۳۴۵۶۷۸۹", R.string.core_lang_numeral_system_persian),
+    BENGALI("০১২৩৪৫৬৭৮৯", R.string.core_lang_numeral_system_bengali),
+    DEVANAGARI("०१२३४५६७८९", R.string.core_lang_numeral_system_devanagari),
 }
 
 /**
@@ -32,10 +39,10 @@ enum class NumeralSystem(val digits: String?, val label: String) {
  * [EVERYWHERE] types native digits in those fields too. [DISPLAY_ONLY] always
  * commits ASCII, so the feature is purely cosmetic.
  */
-enum class NumeralCommitScope(val label: String) {
-    TEXT_ONLY("Text fields"),
-    EVERYWHERE("Everywhere"),
-    DISPLAY_ONLY("Display only"),
+enum class NumeralCommitScope(@StringRes val labelRes: Int) {
+    TEXT_ONLY(R.string.core_lang_numeral_scope_text_fields),
+    EVERYWHERE(R.string.core_lang_numeral_scope_everywhere),
+    DISPLAY_ONLY(R.string.core_lang_numeral_scope_display_only),
 }
 
 /**

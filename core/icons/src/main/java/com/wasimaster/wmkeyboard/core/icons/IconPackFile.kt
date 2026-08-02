@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.icons
 
+import com.wasimaster.wmkeyboard.icons.R
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -138,10 +139,16 @@ object IconPackFile {
     /**
      * Reads a pack out of [input] and registers it with [store] under a fresh
      * id, so importing the same file twice can never collide with itself.
+     *
+     * [defaultName] names a pack whose own file gives no name. The caller
+     * passes it because the import runs off the main thread with no context of
+     * its own: the wording is `R.string.core_icons_pack_imported_label`, and
+     * the screen that starts the import resolves it.
      */
     fun import(
         input: InputStream,
         store: IconPackStore,
+        defaultName: String,
         now: Long = System.currentTimeMillis(),
     ): IconImportResult {
         val staging = store.stagingDir() ?: return IconImportResult.Failed
@@ -203,10 +210,13 @@ object IconPackFile {
                 ?: return IconImportResult.NotAnIconPack
             if (envelope.format != FORMAT) return IconImportResult.NotAnIconPack
 
-            val repairs = ArrayList<String>()
+            val repairs = ArrayList<IconText>()
             if (skipped.isNotEmpty()) {
-                repairs += "Ignored ${skipped.size} file(s) this version has no icon for: " +
-                    skipped.joinToString(", ")
+                repairs += IconText(
+                    pluralsRes = R.plurals.core_icons_repair_files_ignored,
+                    quantity = skipped.size,
+                    args = listOf(skipped.size, skipped.joinToString(", ")),
+                )
             }
 
             val packId = store.freePackId(now)
@@ -221,7 +231,7 @@ object IconPackFile {
                 val source = staged[slot] ?: continue
                 val svg = runCatching { source.readText() }.getOrNull()
                 if (svg == null || SvgParser.parse(svg) == null) {
-                    repairs += "Dropped “$slot” — its SVG couldn't be read"
+                    repairs += IconText(R.string.core_icons_repair_svg_unreadable, args = listOf(slot))
                     continue
                 }
                 val ok = runCatching {
@@ -229,7 +239,7 @@ object IconPackFile {
                     true
                 }.getOrDefault(false)
                 if (!ok) {
-                    repairs += "Dropped “$slot” — it couldn't be saved"
+                    repairs += IconText(R.string.core_icons_repair_not_saved, args = listOf(slot))
                     continue
                 }
                 kept += slot
@@ -238,7 +248,7 @@ object IconPackFile {
 
             val pack = IconPack(
                 id = packId,
-                name = envelope.pack.name.trim().ifBlank { "Imported icons" },
+                name = envelope.pack.name.trim().ifBlank { defaultName },
                 author = envelope.pack.author.trim(),
                 description = envelope.pack.description.trim(),
                 version = envelope.pack.version.trim(),

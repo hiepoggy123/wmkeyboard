@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  :core:language — layouts, scripts and numerals.
+
+  Two things in this module reach the user: the lines the layout checker writes
+  when a .wmlayout.json is opened or edited, and the numeral labels the language
+  settings show. Layout names (QWERTY, AZERTY, Probhat, …), language names and
+  the glyphs drawn on the keys are proper nouns or data, so they stay in Kotlin.
+
+  Referenced from other modules as
+  com.wasimaster.wmkeyboard.language.R.string.core_lang_… — the R classes are
+  non-transitive, so the import has to name this module.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ================================================================== -->
+    <!-- Layout problems. The layout editor lists these under "Problems",   -->
+    <!-- and the import sheet shows them before a layout is turned on.      -->
+    <!-- The layer name is an internal id: letters, symbols, symbols2,      -->
+    <!-- number, phone, date, time, datetime, fn. Leave it as it is.        -->
+    <!-- ================================================================== -->
+
+    <string name="core_lang_layout_letters_empty_error">The letters layer has no keys.</string>
+    <string name="core_lang_layout_no_delete_error">The layout has no delete key. You cannot correct a mistake.</string>
+    <string name="core_lang_layout_no_enter_error">The layout has no enter key.</string>
+    <string name="core_lang_layout_no_space_error">The layout has no space key.</string>
+    <string name="core_lang_layout_no_shift_warning">The layout has no shift key. To type a capital letter, press and hold a key.</string>
+
+    <!-- %1$s is the layer name. %2$d is the number of rows the layer has, and
+         picks the wording. %3$d is the largest number of rows that fits on the
+         screen. -->
+    <plurals name="core_lang_layout_too_many_rows_error">
+        <item quantity="one">The <xliff:g id="layer" example="symbols">%1$s</xliff:g> layer has %2$d row. Only %3$d rows fit.</item>
+        <item quantity="other">The <xliff:g id="layer" example="symbols">%1$s</xliff:g> layer has %2$d rows. Only %3$d rows fit.</item>
+    </plurals>
+
+    <!-- %1$s is the layer name. -->
+    <string name="core_lang_layout_no_way_back_error">The <xliff:g id="layer" example="symbols">%1$s</xliff:g> layer has no key that goes back to the letters. You cannot leave this layer.</string>
+
+    <!-- %1$d is the row number, counted from 1. %2$s is the layer name.
+         Not a plural: %1$d numbers one row, it does not count rows, and the
+         word after it belongs to the rest of the sentence. -->
+    <string name="core_lang_layout_empty_row_warning" tools:ignore="PluralsCandidate">Row %1$d of the <xliff:g id="layer" example="symbols">%2$s</xliff:g> layer is empty.</string>
+
+    <!-- %1$d is the row number, counted from 1. %2$s is the layer name.
+         %3$d is the number of keys in the row and picks the wording. %4$d is
+         the largest number of keys that stays large enough to press. -->
+    <plurals name="core_lang_layout_too_many_keys_error">
+        <item quantity="one">Row %1$d of the <xliff:g id="layer" example="symbols">%2$s</xliff:g> layer has %3$d key. Only %4$d keys stay large enough to press.</item>
+        <item quantity="other">Row %1$d of the <xliff:g id="layer" example="symbols">%2$s</xliff:g> layer has %3$d keys. Only %4$d keys stay large enough to press.</item>
+    </plurals>
+
+    <!-- %1$d is the row number, counted from 1. %2$s is the layer name.
+         Not a plural: %1$d numbers one row, it does not count rows, and the
+         word after it belongs to the rest of the sentence. -->
+    <string name="core_lang_layout_key_no_width_error" tools:ignore="PluralsCandidate">Row %1$d of the <xliff:g id="layer" example="symbols">%2$s</xliff:g> layer has a key with no width.</string>
+
+    <!-- %1$d is the row number, counted from 1. %2$s is the layer name.
+         Not a plural: %1$d numbers one row, it does not count rows, and the
+         word after it belongs to the rest of the sentence. -->
+    <string name="core_lang_layout_wide_row_warning" tools:ignore="PluralsCandidate">Row %1$d of the <xliff:g id="layer" example="symbols">%2$s</xliff:g> layer is wider than the other rows. The keyboard draws the keys of this row narrower.</string>
+
+    <!-- %1$d is the number of braille dot keys with a bad dot number.
+         %2$s is the layer name. A braille cell has six dots, numbered 1 to 6. -->
+    <plurals name="core_lang_layout_bad_braille_dots_error">
+        <item quantity="one">%1$d braille dot key in the <xliff:g id="layer" example="letters">%2$s</xliff:g> layer has a dot number outside 1 to 6.</item>
+        <item quantity="other">%1$d braille dot keys in the <xliff:g id="layer" example="letters">%2$s</xliff:g> layer have a dot number outside 1 to 6.</item>
+    </plurals>
+
+    <!-- %1$d is the number of keys with an action the app cannot read.
+         %2$s is the layer name. -->
+    <plurals name="core_lang_layout_unknown_action_error">
+        <item quantity="one">%1$d key in the <xliff:g id="layer" example="letters">%2$s</xliff:g> layer uses an action that this version of the app does not know.</item>
+        <item quantity="other">%1$d keys in the <xliff:g id="layer" example="letters">%2$s</xliff:g> layer use an action that this version of the app does not know.</item>
+    </plurals>
+
+    <!-- ================================================================== -->
+    <!-- Layout repairs. One line for each change the app makes to a layout -->
+    <!-- file that it opens, so the import sheet can say what it changed.   -->
+    <!-- The layer name is the same internal id as above.                   -->
+    <!-- ================================================================== -->
+
+    <!-- %1$s is the layer name. %2$d is the number of rows the layer had, and
+         picks the wording. %3$d is the number of rows the app kept. -->
+    <plurals name="core_lang_repair_rows_trimmed">
+        <item quantity="one">The <xliff:g id="layer" example="symbols">%1$s</xliff:g> layer had %2$d row. The app keeps the first %3$d.</item>
+        <item quantity="other">The <xliff:g id="layer" example="symbols">%1$s</xliff:g> layer had %2$d rows. The app keeps the first %3$d.</item>
+    </plurals>
+
+    <!-- %1$s is the layer name. -->
+    <string name="core_lang_repair_layer_replaced">The <xliff:g id="layer" example="symbols">%1$s</xliff:g> layer had no keys that work. It now uses the built-in grid.</string>
+
+    <string name="core_lang_repair_delete_key_added">The letters layer had no delete key. The app added one.</string>
+    <string name="core_lang_repair_space_key_added">The letters layer had no space key. The app added one.</string>
+    <string name="core_lang_repair_enter_key_added">The letters layer had no enter key. The app added one.</string>
+
+    <!-- %1$s is the layer name. ABC is the label drawn on the new key. -->
+    <string name="core_lang_repair_letters_key_added">The <xliff:g id="layer" example="symbols">%1$s</xliff:g> layer had no key that goes back to the letters. The app added an ABC key.</string>
+
+    <!-- %1$s is the layer name. %2$s is the name of the action, as the file
+         spells it. -->
+    <string name="core_lang_repair_unknown_key_deleted">The app deleted a key in the <xliff:g id="layer" example="letters">%1$s</xliff:g> layer. Its action \"<xliff:g id="action" example="teleport">%2$s</xliff:g>\" is not known.</string>
+
+    <!-- %1$s is the layer name. An empty key has no label and types nothing. -->
+    <string name="core_lang_repair_blank_key_deleted">The app deleted an empty key in the <xliff:g id="layer" example="letters">%1$s</xliff:g> layer.</string>
+
+    <!-- %1$s is the layer name. Key widths count in grid units: 1 is one
+         ordinary letter key. -->
+    <string name="core_lang_repair_key_width_set">A key in the <xliff:g id="layer" example="letters">%1$s</xliff:g> layer had no width. The app set the width to 1.</string>
+
+    <!-- %1$s is the layer name. %2$s is the width the key had, in grid units.
+         %3$s is the width the app gave it. -->
+    <string name="core_lang_repair_key_width_capped">A key in the <xliff:g id="layer" example="letters">%1$s</xliff:g> layer was %2$s units wide. The app made it %3$s units wide.</string>
+
+    <!-- %1$s is the layer name. %2$d is the number of keys the row had, and
+         picks the wording. %3$d is the number of keys the app kept. -->
+    <plurals name="core_lang_repair_row_keys_trimmed">
+        <item quantity="one">A row in the <xliff:g id="layer" example="letters">%1$s</xliff:g> layer had %2$d key. The app keeps the first %3$d.</item>
+        <item quantity="other">A row in the <xliff:g id="layer" example="letters">%1$s</xliff:g> layer had %2$d keys. The app keeps the first %3$d.</item>
+    </plurals>
+
+    <!-- %1$s is the layer name. %2$s is the width of the whole row, in grid
+         units. -->
+    <string name="core_lang_repair_row_scaled">A row in the <xliff:g id="layer" example="letters">%1$s</xliff:g> layer was %2$s units wide. The app made the keys smaller so that the row fits.</string>
+
+    <!-- ================================================================== -->
+    <!-- Numerals. Settings > Languages > a language > Numerals picks which  -->
+    <!-- digits a language draws; Settings > Layout and size > Numerals      -->
+    <!-- picks where those digits are also typed.                            -->
+    <!-- ================================================================== -->
+
+    <!-- The language keeps its own digits. Sits beside the digit samples
+         below, so keep it short. -->
+    <string name="core_lang_numeral_system_auto">Auto</string>
+
+    <!-- Each of these is a sample of the digits themselves, so they read the
+         same in every language. -->
+    <string name="core_lang_numeral_system_latin" translatable="false">0-9</string>
+    <string name="core_lang_numeral_system_arabic_indic" translatable="false">٠-٩</string>
+    <string name="core_lang_numeral_system_persian" translatable="false">۰-۹</string>
+    <string name="core_lang_numeral_system_bengali" translatable="false">০-৯</string>
+    <string name="core_lang_numeral_system_devanagari" translatable="false">०-९</string>
+
+    <!-- Where the app types the digits of the language. "Text fields" leaves
+         0-9 in number, phone, date and time fields. -->
+    <string name="core_lang_numeral_scope_text_fields">Text fields</string>
+    <string name="core_lang_numeral_scope_everywhere">Everywhere</string>
+    <string name="core_lang_numeral_scope_display_only">Display only</string>
+
+</resources>

@@ -8,6 +8,7 @@ import android.util.Rational
 import android.util.Size
 import android.view.Surface
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -71,6 +72,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -82,6 +85,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.google.android.gms.tasks.Task
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.clipboard.LinkPreview
 import com.wasimaster.wmkeyboard.core.tools.LinkPreviewClient
@@ -92,6 +96,7 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.R
 import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
@@ -149,8 +154,7 @@ internal fun OcrPanel(
             )
         } else {
             CameraPermissionPrompt(
-                "The text scanner needs the camera to read printed text. " +
-                    "Recognition happens entirely on this device.",
+                stringResource(R.string.ime_scanner_ocr_permission_body),
                 onRequestPermission,
             )
         }
@@ -158,7 +162,7 @@ internal fun OcrPanel(
             Box(modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
                 CameraChipButton(
                     icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                    description = "Close text scanner",
+                    description = stringResource(R.string.ime_scanner_ocr_close_desc),
                     active = false,
                     onClick = onClose,
                 )
@@ -295,7 +299,7 @@ private fun OcrContent(
             is OcrStage.Recognizing -> {
                 Image(
                     bitmap = current.bitmap.asImageBitmap(),
-                    contentDescription = "Captured text photo",
+                    contentDescription = stringResource(R.string.ime_scanner_ocr_capture_desc),
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
@@ -305,7 +309,11 @@ private fun OcrContent(
                 ) {
                     CircularProgressIndicator(color = Color.White)
                     Spacer(Modifier.height(8.dp))
-                    Text("Reading text…", color = Color.White, fontSize = 13.sp)
+                    Text(
+                        stringResource(R.string.ime_scanner_ocr_reading_progress),
+                        color = Color.White,
+                        fontSize = 13.sp,
+                    )
                 }
                 return@Box
             }
@@ -314,14 +322,14 @@ private fun OcrContent(
 
         val activeProvider = provider
         if (activeProvider != null && backOrFrontSelector(activeProvider) == null) {
-            PanelCenteredMessage("This device has no camera.")
+            PanelCenteredMessage(stringResource(R.string.ime_scanner_no_camera))
             return@Box
         }
 
         AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
 
         Text(
-            "Frame the text, then tap the shutter",
+            stringResource(R.string.ime_scanner_ocr_hint),
             color = Color.White,
             fontSize = 12.sp,
             textAlign = TextAlign.Center,
@@ -336,7 +344,7 @@ private fun OcrContent(
         Box(modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
             CameraChipButton(
                 icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                description = "Close text scanner",
+                description = stringResource(R.string.ime_scanner_ocr_close_desc),
                 active = false,
             ) {
                 feedback()
@@ -347,7 +355,7 @@ private fun OcrContent(
             Box(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
                 CameraChipButton(
                     icon = if (torchOn) Icons.Outlined.FlashlightOn else Icons.Outlined.FlashlightOff,
-                    description = "Torch",
+                    description = stringResource(R.string.ime_scanner_torch_desc),
                     active = torchOn,
                 ) {
                     feedback()
@@ -412,7 +420,7 @@ private fun OcrResultView(
         ) {
             CameraChipButton(
                 icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                description = "Close text scanner",
+                description = stringResource(R.string.ime_scanner_ocr_close_desc),
                 active = false,
             ) {
                 feedback()
@@ -420,15 +428,23 @@ private fun OcrResultView(
             }
             CameraChipButton(
                 icon = Icons.Outlined.Refresh,
-                description = "Scan again",
+                description = stringResource(R.string.ime_scanner_scan_again_action),
                 active = false,
             ) {
                 feedback()
                 onRescan()
             }
             Text(
-                if (result.wordCount == 0) "No text found"
-                else "${selected.size}/${result.wordCount} words",
+                if (result.wordCount == 0) {
+                    stringResource(R.string.ime_scanner_ocr_no_text_label)
+                } else {
+                    pluralStringResource(
+                        R.plurals.ime_scanner_ocr_word_count,
+                        result.wordCount,
+                        selected.size,
+                        result.wordCount,
+                    )
+                },
                 color = kb.secondaryText,
                 fontSize = 12.sp,
                 modifier = Modifier.weight(1f),
@@ -437,7 +453,11 @@ private fun OcrResultView(
                 val allSelected = selected.size == result.wordCount
                 CameraChipButton(
                     icon = if (allSelected) Icons.Outlined.Deselect else Icons.Outlined.SelectAll,
-                    description = if (allSelected) "Deselect all" else "Select all",
+                    description = if (allSelected) {
+                        stringResource(R.string.ime_scanner_ocr_deselect_all_desc)
+                    } else {
+                        stringResource(CommonR.string.common_select_all)
+                    },
                     active = false,
                 ) {
                     feedback()
@@ -451,7 +471,7 @@ private fun OcrResultView(
         if (result.wordCount == 0) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text(
-                    "No text recognized — try again closer, with more light.",
+                    stringResource(R.string.ime_scanner_ocr_empty),
                     color = kb.secondaryText,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
@@ -502,19 +522,23 @@ private fun OcrResultView(
             ) {
                 CaptureActionButton(
                     icon = Icons.Outlined.ContentCopy,
-                    label = "Copy",
+                    label = stringResource(CommonR.string.common_copy),
                     accent = false,
                 ) {
                     feedback()
                     val text = selectedText()
                     if (text.isNotEmpty()) {
                         copyPlainText(context, text)
-                        Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            R.string.ime_scanner_copied_toast,
+                            Toast.LENGTH_SHORT,
+                        ).show()
                     }
                 }
                 CaptureActionButton(
                     icon = Icons.AutoMirrored.Outlined.Send,
-                    label = "Insert",
+                    label = stringResource(R.string.ime_scanner_insert_action),
                     accent = true,
                 ) {
                     val text = selectedText()
@@ -528,7 +552,7 @@ private fun OcrResultView(
 // ---- barcode / QR scanner tool ----
 
 /** A decoded barcode frozen on screen, awaiting insert/copy/rescan. */
-private class ScannedCode(val value: String, val formatLabel: String)
+private class ScannedCode(val value: String, @StringRes val formatLabelRes: Int)
 
 /**
  * Barcode & QR scanner: a live viewfinder that decodes continuously
@@ -568,8 +592,7 @@ internal fun QrScanPanel(
             )
         } else {
             CameraPermissionPrompt(
-                "The scanner needs the camera to read QR codes and barcodes. " +
-                    "Decoding happens entirely on this device.",
+                stringResource(R.string.ime_scanner_qr_permission_body),
                 onRequestPermission,
             )
         }
@@ -577,7 +600,7 @@ internal fun QrScanPanel(
         Box(modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
             CameraChipButton(
                 icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                description = "Close scanner",
+                description = stringResource(R.string.ime_scanner_qr_close_desc),
                 active = false,
             ) {
                 feedback()
@@ -670,7 +693,7 @@ private fun QrScanContent(
                             // Freeze into the result card either way — with
                             // auto-insert the text is already committed and
                             // the card shows what went in (Rescan re-arms).
-                            result = ScannedCode(raw, barcodeFormatLabel(hit.format))
+                            result = ScannedCode(raw, barcodeFormatLabelRes(hit.format))
                             if (autoInsert) onInsert(raw)
                         }
                     }
@@ -723,14 +746,18 @@ private fun QrScanContent(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(4.dp))
-                Text(code.formatLabel, color = kb.secondaryText, fontSize = 12.sp)
+                Text(
+                    stringResource(code.formatLabelRes),
+                    color = kb.secondaryText,
+                    fontSize = 12.sp,
+                )
                 Spacer(Modifier.height(12.dp))
                 // Open (URLs only) gets its own row above the rest, so the
                 // primary action isn't crowded in with Rescan/Copy/Insert.
                 if (url != null) {
                     CaptureActionButton(
                         icon = Icons.AutoMirrored.Outlined.OpenInNew,
-                        label = "Open",
+                        label = stringResource(R.string.ime_scanner_qr_open_action),
                         accent = false,
                     ) {
                         feedback()
@@ -748,7 +775,7 @@ private fun QrScanContent(
                 ) {
                     CaptureActionButton(
                         icon = Icons.Outlined.Refresh,
-                        label = "Rescan",
+                        label = stringResource(R.string.ime_scanner_scan_again_action),
                         accent = false,
                     ) {
                         feedback()
@@ -756,16 +783,20 @@ private fun QrScanContent(
                     }
                     CaptureActionButton(
                         icon = Icons.Outlined.ContentCopy,
-                        label = "Copy",
+                        label = stringResource(CommonR.string.common_copy),
                         accent = false,
                     ) {
                         feedback()
                         copyPlainText(context, code.value)
-                        Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            R.string.ime_scanner_copied_toast,
+                            Toast.LENGTH_SHORT,
+                        ).show()
                     }
                     CaptureActionButton(
                         icon = Icons.AutoMirrored.Outlined.Send,
-                        label = "Insert",
+                        label = stringResource(R.string.ime_scanner_insert_action),
                         accent = true,
                     ) { onInsert(code.value) }
                 }
@@ -775,7 +806,7 @@ private fun QrScanContent(
 
         val activeProvider = provider
         if (activeProvider != null && backOrFrontSelector(activeProvider) == null) {
-            PanelCenteredMessage("This device has no camera.")
+            PanelCenteredMessage(stringResource(R.string.ime_scanner_no_camera))
             return@Box
         }
 
@@ -808,7 +839,7 @@ private fun QrScanContent(
                     .padding(horizontal = 10.dp, vertical = 4.dp),
             ) {
                 Text(
-                    "%.1fx".format(zoomRatio),
+                    stringResource(R.string.ime_scanner_qr_zoom_label, zoomRatio),
                     color = Color.White,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -817,7 +848,7 @@ private fun QrScanContent(
         }
 
         Text(
-            "Point at a QR code or barcode",
+            stringResource(R.string.ime_scanner_qr_hint),
             color = Color.White,
             fontSize = 12.sp,
             textAlign = TextAlign.Center,
@@ -832,7 +863,7 @@ private fun QrScanContent(
             Box(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
                 CameraChipButton(
                     icon = if (torchOn) Icons.Outlined.FlashlightOn else Icons.Outlined.FlashlightOff,
-                    description = "Torch",
+                    description = stringResource(R.string.ime_scanner_torch_desc),
                     active = torchOn,
                 ) {
                     feedback()
@@ -863,7 +894,11 @@ private fun LinkPreviewCard(enabled: Boolean, preview: LinkPreview?) {
                 strokeWidth = 2.dp,
                 modifier = Modifier.size(14.dp),
             )
-            Text("Loading link…", color = kb.secondaryText, fontSize = 12.sp)
+            Text(
+                stringResource(R.string.ime_scanner_qr_link_progress),
+                color = kb.secondaryText,
+                fontSize = 12.sp,
+            )
         }
         Spacer(Modifier.height(10.dp))
         return
@@ -919,7 +954,7 @@ private fun PermissionRecheck(onResume: () -> Unit) {
     }
 }
 
-/** The camera-permission explainer + "Allow camera" button. */
+/** The camera-permission explainer + "Allow the camera" button. */
 @Composable
 private fun CameraPermissionPrompt(message: String, onRequestPermission: () -> Unit) {
     val kb = LocalKbTheme.current
@@ -944,7 +979,7 @@ private fun CameraPermissionPrompt(message: String, onRequestPermission: () -> U
                 .padding(horizontal = 20.dp, vertical = 10.dp),
         ) {
             Text(
-                "Allow camera",
+                stringResource(R.string.ime_scanner_permission_action),
                 color = kb.toolCircleActiveIcon,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
@@ -965,21 +1000,22 @@ private fun copyPlainText(context: Context, text: String) {
         .setPrimaryClip(ClipData.newPlainText("scanned text", text))
 }
 
-private fun barcodeFormatLabel(format: Int): String = when (format) {
-    Barcode.FORMAT_QR_CODE -> "QR code"
-    Barcode.FORMAT_AZTEC -> "Aztec"
-    Barcode.FORMAT_CODABAR -> "Codabar"
-    Barcode.FORMAT_CODE_39 -> "Code 39"
-    Barcode.FORMAT_CODE_93 -> "Code 93"
-    Barcode.FORMAT_CODE_128 -> "Code 128"
-    Barcode.FORMAT_DATA_MATRIX -> "Data Matrix"
-    Barcode.FORMAT_EAN_8 -> "EAN-8"
-    Barcode.FORMAT_EAN_13 -> "EAN-13"
-    Barcode.FORMAT_ITF -> "ITF"
-    Barcode.FORMAT_PDF417 -> "PDF417"
-    Barcode.FORMAT_UPC_A -> "UPC-A"
-    Barcode.FORMAT_UPC_E -> "UPC-E"
-    else -> "Barcode"
+@StringRes
+private fun barcodeFormatLabelRes(format: Int): Int = when (format) {
+    Barcode.FORMAT_QR_CODE -> R.string.ime_scanner_format_qr_code
+    Barcode.FORMAT_AZTEC -> R.string.ime_scanner_format_aztec
+    Barcode.FORMAT_CODABAR -> R.string.ime_scanner_format_codabar
+    Barcode.FORMAT_CODE_39 -> R.string.ime_scanner_format_code_39
+    Barcode.FORMAT_CODE_93 -> R.string.ime_scanner_format_code_93
+    Barcode.FORMAT_CODE_128 -> R.string.ime_scanner_format_code_128
+    Barcode.FORMAT_DATA_MATRIX -> R.string.ime_scanner_format_data_matrix
+    Barcode.FORMAT_EAN_8 -> R.string.ime_scanner_format_ean_8
+    Barcode.FORMAT_EAN_13 -> R.string.ime_scanner_format_ean_13
+    Barcode.FORMAT_ITF -> R.string.ime_scanner_format_itf
+    Barcode.FORMAT_PDF417 -> R.string.ime_scanner_format_pdf417
+    Barcode.FORMAT_UPC_A -> R.string.ime_scanner_format_upc_a
+    Barcode.FORMAT_UPC_E -> R.string.ime_scanner_format_upc_e
+    else -> R.string.ime_scanner_format_generic
 }
 
 /** Suspends over a Play Services [Task] (same trick as Handwriting.kt). */

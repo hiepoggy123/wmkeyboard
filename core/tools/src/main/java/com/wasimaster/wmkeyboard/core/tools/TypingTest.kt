@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import android.content.Context
+import com.wasimaster.wmkeyboard.tools.R
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -7,9 +9,10 @@ import kotlin.random.Random
 
 /**
  * The typing-speed tool's engine: prompt generation and scoring, with no
- * Android or Compose types so the maths can be reasoned about (and tested)
- * on its own. The IME owns the clock and the typed buffer; everything here
- * is a pure function of those.
+ * Compose types so the maths can be reasoned about (and tested) on its own.
+ * The IME owns the clock and the typed buffer; everything here is a pure
+ * function of those. Only [typingConfigLabel] reaches for a [Context], because
+ * the words it puts on screen have to be translated.
  */
 
 /** What decides the test is over. */
@@ -281,10 +284,19 @@ fun typingConfigKey(mode: TypingTestMode, duration: Int, wordCount: Int): String
 }
 
 /** The same settings, spelled for a human. */
-fun typingConfigLabel(mode: TypingTestMode, duration: Int, wordCount: Int): String = when (mode) {
-    TypingTestMode.TIME -> "${duration}s"
-    TypingTestMode.WORDS -> "$wordCount words"
-    TypingTestMode.QUOTE -> "quote"
+fun typingConfigLabel(
+    context: Context,
+    mode: TypingTestMode,
+    duration: Int,
+    wordCount: Int,
+): String = when (mode) {
+    TypingTestMode.TIME -> context.getString(R.string.core_tools_typing_config_seconds, duration)
+    TypingTestMode.WORDS -> context.resources.getQuantityString(
+        R.plurals.core_tools_typing_config_words,
+        wordCount,
+        wordCount,
+    )
+    TypingTestMode.QUOTE -> context.getString(R.string.core_tools_typing_config_quote)
 }
 
 /**

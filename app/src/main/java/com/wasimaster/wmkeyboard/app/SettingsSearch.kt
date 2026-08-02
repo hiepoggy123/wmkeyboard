@@ -1,6 +1,10 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.res.Resources
+import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 
@@ -12,7 +16,7 @@ import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
  * places in the list. "Themes" names both the themes screen and the toolbar
  * shortcut that opens the theme picker, and someone searching *settings*
  * wants the screen. The backup screen, meanwhile, has a toggle named after
- * nearly every feature — "Sticker packs", "Include API keys" — and none of
+ * nearly every feature ("Sticker packs", "Include API keys") and none of
  * them is the feature itself.
  */
 internal enum class EntryWeight(val percent: Int) {
@@ -34,10 +38,14 @@ internal enum class EntryWeight(val percent: Int) {
  * One searchable setting: what it is called, where it lives, and the route
  * that opens the screen holding it.
  *
- * The index below is hand-maintained. It is generated from the row titles in
- * the settings screens, so a renamed or new setting has to be mirrored here —
- * [SettingsSearchIndexTest] fails when a title in the index no longer exists
- * in any screen, which is the guard against silent drift.
+ * [title], [subtitle] and [screen] are plain text so that the ranking below
+ * stays ordinary Kotlin. They are resolved once, by [settingsSearchIndex],
+ * from the very resources the settings screens draw, so the index reads in
+ * the same language the user sees.
+ *
+ * [titleRes] is the id behind [title]. It travels to [SettingsHighlight], which
+ * matches a row by its resource rather than by its words: an id survives
+ * translation, and the drawn text does not.
  */
 internal data class SettingsSearchEntry(
     val title: String,
@@ -48,537 +56,637 @@ internal data class SettingsSearchEntry(
     val weight: EntryWeight = EntryWeight.NORMAL,
     /** Set on the tool entries, so a result can draw the tool's own icon. */
     val tool: ToolbarTool? = null,
+    @StringRes val titleRes: Int = 0,
+)
+
+/** What separates the parts of a breadcrumb. Punctuation, not words. */
+private const val CRUMB_SEPARATOR = " › "
+
+/** Joins the breadcrumb parts that are set, outermost first. */
+private fun Resources.crumb(vararg parts: Int): String =
+    parts.filter { it != 0 }.joinToString(CRUMB_SEPARATOR) { getString(it) }
+
+/**
+ * Builds one entry from the resources the owning screen draws.
+ *
+ * [screen] names the screen the row sits on, [screenParent] the screen above
+ * it and [screenRoot] the one above that. Leave the two outer ones at 0 for a
+ * row on a top-level screen.
+ */
+private fun Resources.entry(
+    @StringRes title: Int,
+    @StringRes subtitle: Int = 0,
+    @StringRes screen: Int = 0,
+    route: String = "",
+    @StringRes screenParent: Int = 0,
+    @StringRes screenRoot: Int = 0,
+    weight: EntryWeight = EntryWeight.NORMAL,
+): SettingsSearchEntry = SettingsSearchEntry(
+    title = getString(title),
+    subtitle = if (subtitle == 0) "" else getString(subtitle),
+    screen = crumb(screenRoot, screenParent, screen),
+    route = route,
+    weight = weight,
+    titleRes = title,
 )
 
 /**
- * Builds an entry. [tool] is a shorthand for the tool-detail screens, whose
- * breadcrumb and route both derive from the tool itself, so a renamed tool
- * never desynchronises from its entries.
+ * Builds an entry on a tool's own page. The breadcrumb and the route both come
+ * from the tool, so a renamed tool never desynchronises from its entries, and
+ * the tool's name is read from [toolTitle] rather than copied here.
  */
-private fun entry(
-    title: String,
-    subtitle: String,
-    screen: String = "",
-    route: String = "",
-    tool: ToolbarTool? = null,
+private fun Resources.toolEntry(
+    tool: ToolbarTool,
+    @StringRes title: Int,
+    @StringRes subtitle: Int = 0,
     weight: EntryWeight = EntryWeight.NORMAL,
-): SettingsSearchEntry = if (tool != null) {
-    SettingsSearchEntry(title, subtitle, "Tools › ${toolTitle(tool)}", "tool/${tool.name}", weight, tool)
-} else {
-    SettingsSearchEntry(title, subtitle, screen, route, weight)
+): SettingsSearchEntry = SettingsSearchEntry(
+    title = getString(title),
+    subtitle = if (subtitle == 0) "" else getString(subtitle),
+    screen = crumb(R.string.home_tools_title, toolTitle(tool)),
+    route = "tool/${tool.name}",
+    weight = weight,
+    tool = tool,
+    titleRes = title,
+)
+
+/** Rows on the Typing screen, in screen order. */
+private fun Resources.typingRows(): List<SettingsSearchEntry> {
+    fun row(@StringRes title: Int, @StringRes subtitle: Int = 0) =
+        entry(title, subtitle, R.string.home_typing_title, "typing")
+    return listOfNotNull(
+        row(R.string.typing_autocorrect_title, R.string.typing_autocorrect_subtitle),
+        row(R.string.typing_autocorrect_confidence_title, R.string.typing_autocorrect_confidence_subtitle),
+        row(R.string.typing_undo_autocorrect_title, R.string.typing_undo_autocorrect_subtitle),
+        row(R.string.typing_skip_all_caps_title, R.string.typing_skip_all_caps_subtitle),
+        row(R.string.typing_block_offensive_title, R.string.typing_block_offensive_subtitle),
+        row(R.string.typing_auto_apostrophe_title, R.string.typing_auto_apostrophe_subtitle),
+        row(R.string.typing_auto_capitalize_title, R.string.typing_auto_capitalize_subtitle),
+        row(R.string.typing_double_space_period_title, R.string.typing_double_space_period_subtitle),
+        row(R.string.typing_double_space_tab_title, R.string.typing_double_space_tab_subtitle),
+        row(R.string.typing_auto_space_punctuation_title, R.string.typing_auto_space_punctuation_subtitle),
+        row(R.string.typing_space_after_suggestion_title, R.string.typing_space_after_suggestion_subtitle),
+        row(R.string.typing_wrap_selection_title, R.string.typing_wrap_selection_subtitle),
+        row(R.string.typing_shift_recase_title, R.string.typing_shift_recase_subtitle),
+        row(R.string.typing_suggestions_title, R.string.typing_suggestions_subtitle),
+        row(R.string.typing_punctuation_suggestions_title, R.string.typing_punctuation_suggestions_subtitle),
+        row(R.string.typing_suggestions_first_title, R.string.typing_suggestions_first_subtitle),
+        row(R.string.typing_primary_center_title, R.string.typing_primary_center_subtitle),
+        row(R.string.typing_contact_names_title, R.string.typing_contact_names_subtitle),
+        row(R.string.typing_contact_emails_title, R.string.typing_contact_emails_subtitle),
+        row(R.string.typing_contact_emails_in_email_fields_title, R.string.typing_contact_emails_in_email_fields_subtitle),
+        row(R.string.typing_app_names_title, R.string.typing_app_names_subtitle),
+        row(R.string.typing_inline_emoji_search_title, R.string.typing_inline_emoji_search_subtitle),
+        row(R.string.typing_inline_autofill_title, R.string.typing_inline_autofill_subtitle),
+        row(R.string.typing_smart_replies_title, R.string.typing_smart_replies_subtitle),
+        // Personal dictionary, Custom dictionaries and Suggestion blacklist are
+        // rows on this screen too, but each only opens a screen of its own. They
+        // are indexed once, in sectionRows, pointing straight at that screen: a
+        // second entry that lands on Typing and flashes the row would be a
+        // near-identical result one line below the useful one.
+        row(R.string.typing_smart_chips_title, R.string.typing_smart_chips_subtitle),
+        row(R.string.typing_smart_calc_title, R.string.typing_smart_calc_subtitle),
+        row(R.string.typing_smart_currency_title),
+        row(R.string.typing_smart_units_title, R.string.typing_smart_units_subtitle),
+        row(R.string.typing_smart_tool_keywords_title, R.string.typing_smart_tool_keywords_subtitle),
+        row(R.string.typing_glide_typing_title, R.string.typing_glide_typing_subtitle),
+        // Full builds only: the handwriting recognizer is an ML Kit feature.
+        if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) {
+            row(R.string.typing_letter_swipe_action_title, R.string.typing_letter_swipe_action_subtitle)
+        } else {
+            null
+        },
+        row(R.string.typing_space_glide_multiword_title, R.string.typing_space_glide_multiword_subtitle),
+        row(R.string.typing_swipe_start_distance_title, R.string.typing_swipe_start_distance_subtitle),
+        row(R.string.typing_trail_width_title, R.string.typing_trail_width_subtitle),
+        row(R.string.typing_trail_length_title, R.string.typing_trail_length_subtitle),
+        row(R.string.typing_trail_opacity_title),
+        row(R.string.typing_spacebar_language_arrows_title, R.string.typing_spacebar_language_arrows_subtitle),
+        row(R.string.typing_spacebar_display_title, R.string.typing_spacebar_display_subtitle),
+        row(R.string.typing_spacebar_text_label),
+        row(R.string.typing_backspace_swipe_title, R.string.typing_backspace_swipe_subtitle),
+        row(R.string.typing_shift_enter_title, R.string.typing_shift_enter_subtitle),
+        row(R.string.typing_volume_cursor_title, R.string.typing_volume_cursor_subtitle),
+        row(R.string.typing_volume_cursor_media_title, R.string.typing_volume_cursor_media_subtitle),
+        row(R.string.typing_hardware_input_title, R.string.typing_hardware_input_subtitle),
+        row(R.string.typing_hw_shortcuts_title, R.string.typing_hw_shortcuts_subtitle),
+        row(R.string.typing_hw_panel_nav_title, R.string.typing_hw_panel_nav_subtitle),
+        row(R.string.typing_hw_esc_title, R.string.typing_hw_esc_subtitle),
+        row(R.string.typing_hw_suggestion_hotkeys_title, R.string.typing_hw_suggestion_hotkeys_subtitle),
+        row(R.string.typing_hw_auto_show_title, R.string.typing_hw_auto_show_subtitle),
+    )
 }
 
-/** Every individual setting row, in screen order. */
-private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
-    entry("Autocorrect", "Fix typos automatically when you press space", "Typing", "typing"),
-    entry("Autocorrect confidence", "How sure a correction must be before it is applied", "Typing", "typing"),
-    entry("Undo autocorrect with backspace", "Backspace right after a correction restores what you typed", "Typing", "typing"),
-    entry("Skip all-caps words", "Autocorrect leaves words typed in capitals alone", "Typing", "typing"),
-    entry("Block offensive words", "Keep profanity and slurs out of suggestions", "Typing", "typing"),
-    entry("Fix missing apostrophes", "arent → aren't, im → I'm, dont → don't", "Typing", "typing"),
-    entry("Auto-capitalize", "Capitalize the first letter of sentences", "Typing", "typing"),
-    entry("Double-space period", "Double-tapping space inserts “. ”", "Typing", "typing"),
-    entry("Double-space tab", "Double-tapping space inserts a tab", "Typing", "typing"),
-    entry("Auto-space after punctuation", "Typing . , ? ! ; or : adds the space after it", "Typing", "typing"),
-    entry("Space after a suggestion", "Add a space when you pick a word from the strip", "Typing", "typing"),
-    entry("Wrap selection with brackets", "Typing ( [ { < \" ' or ` around selected text wraps it", "Typing", "typing"),
-    entry("Shift re-cases selection", "Shift with text selected cycles lowercase, Title, UPPERCASE", "Typing", "typing"),
-    entry("Suggestions", "Show word predictions above the keyboard", "Typing", "typing"),
-    entry("Punctuation suggestions", "Quick . , ? ! ' chips beside the word candidates", "Typing", "typing"),
-    entry("Suggestions bar always visible", "Keep the suggestion strip up even before you type", "Typing", "typing"),
-    entry("Best suggestion in the middle", "Show the top candidate in the center slot", "Typing", "typing"),
-    entry("Suggest contact names", "Complete names from your contacts as you type", "Typing", "typing"),
-    entry("Suggest contact emails", "Complete a contact's email as you type the start of it", "Typing", "typing"),
-    entry("Contact emails in email fields too", "Show contact emails even where the app hides suggestions", "Typing", "typing"),
-    entry("Suggest app names", "Complete the names of installed apps as you type", "Typing", "typing"),
-    entry("Inline emoji search", "Type \":\" then a word to find emoji — :smi → 😄", "Typing", "typing"),
-    entry("Password manager suggestions", "Show saved logins from your autofill service in the strip", "Typing", "typing"),
-    entry("Smart replies", "Let the system offer replies to the message you're answering", "Typing", "typing"),
-    // Personal dictionary, Custom dictionaries and Suggestion blacklist are
-    // rows on this screen too, but each only opens a screen of its own. They
-    // are indexed once, in SectionRows, pointing straight at that screen —
-    // a second entry that lands on Typing and flashes the row would be a
-    // near-identical result one line below the useful one.
-    entry("Smart chips", "Answer sums, conversions and tool keywords in the strip", "Typing", "typing"),
-    entry("Calculate as you type", "\"12*4\" offers 48", "Typing", "typing"),
-    entry("Convert currencies", "", "Typing", "typing"),
-    entry("Convert units", "\"1 ft\" offers the same length in metres", "Typing", "typing"),
-    entry("Tool keywords", "Typing \"wiki\" offers to open Wikipedia", "Typing", "typing"),
-    entry("Gesture typing", "Swipe across letters to type a word", "Typing", "typing"),
-    // Full builds only — the handwriting recognizer is an ML Kit feature.
-    if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) {
-        entry("Handwrite with swipes", "Draw letters over the keys instead of gliding", "Typing", "typing")
-    } else {
-        null
-    },
-    entry("Glide across spacebar", "Swipe over space to keep gliding the next word", "Typing", "typing"),
-    entry("Swipe start distance", "How far to move before a glide begins", "Typing", "typing"),
-    entry("Trail width", "Thickness of the glide trail", "Typing", "typing"),
-    entry("Trail length", "How long the trail lingers behind your finger", "Typing", "typing"),
-    entry("Trail opacity", "How solid the glide trail looks", "Typing", "typing"),
-    entry("Arrows on spacebar", "Hint that a swipe switches language", "Typing", "typing"),
-    entry("Spacebar shows", "What the resting spacebar label displays: language, layout, or both", "Typing", "typing"),
-    entry("Spacebar text", "Blank = current spacebar label. %s inserts it, e.g. \"— %s —\".", "Typing", "typing"),
-    entry("Swipe to delete words", "Drag sideways on backspace to delete whole words", "Typing", "typing"),
-    entry("Shift + Enter types a newline", "Add a line break in a chat app instead of sending the message", "Typing", "typing"),
-    entry("Volume cursor control", "Volume up and down move the text cursor", "Typing", "typing"),
-    entry("Release while audio plays", "Keep volume control when something is playing", "Typing", "typing"),
-    entry("Process hardware keys", "Transliterate, correct and suggest as you type on a physical keyboard", "Typing", "typing"),
-    entry("Tool shortcuts", "Open tools from a physical keyboard without touching the screen", "Typing", "typing"),
-    entry("Arrow keys move a highlight", "Arrows move a highlight in tool panels, Enter picks it, Esc closes", "Typing", "typing"),
-    entry("Esc closes the tool", "Escape shuts an open tool instead of going to the app", "Typing", "typing"),
-    entry("Number keys pick suggestions", "Commit a suggestion by its number in the strip", "Typing", "typing"),
-    entry("Show the keyboard for shortcuts", "A shortcut that opens a tool also brings the keyboard up", "Typing", "typing"),
-    entry("Key press haptics", "Vibrate on every key press", "Key press", "keypress"),
-    entry("Haptic strength", "Vibration length per key press", "Key press", "keypress"),
-    entry("Haptic intensity", "Vibration amplitude per key press", "Key press", "keypress"),
-    entry("Long-press haptics", "Vibrate when a long press registers", "Key press", "keypress"),
-    entry("Long-press release haptics", "Vibrate on release after a long press", "Key press", "keypress"),
-    entry("Vibrate on space", "Buzz when you press the space bar", "Key press", "keypress"),
-    entry("Vibrate on delete swipe", "Buzz on each word a backspace swipe removes", "Key press", "keypress"),
-    entry("Vibrate on key repeat", "Buzz on every auto-repeat while a key is held", "Key press", "keypress"),
-    entry("Mute haptics in Do Not Disturb", "Stop keyboard vibration while Do Not Disturb is on", "Key press", "keypress"),
-    entry("Key popup", "Show a character bubble above the pressed key", "Key press", "keypress"),
-    entry("Popup on number pads", "Also show the bubble on number, phone, and date fields", "Key press", "keypress"),
-    entry("Minimum popup duration", "How long the bubble stays up even on a fast tap", "Key press", "keypress"),
-    entry("Popup on key", "Grow the bubble upward from the pressed key itself", "Key press", "keypress"),
-    entry("Popup font size", "Scale of the key preview bubble and long-press alternates", "Key press", "keypress"),
-    entry("Popup height", "Height of the key preview bubble", "Key press", "keypress"),
-    entry("Long-press delay", "Hold time before alternate characters appear", "Key press", "keypress"),
-    entry("Key repeat interval", "Speed of repeated delete while held", "Key press", "keypress"),
-    entry("Caps-lock double-tap", "How fast a second shift tap turns on caps lock", "Key press", "keypress"),
-    entry("Long-press hints", "Show each key's long-press character in its corner", "Key press", "keypress"),
-    entry("All accents on long-press", "Fill every letter's popup with its full set of accents", "Key press", "keypress"),
-    entry("Currency keys", "The glyphs on the $ key's long-press popup", "Key press", "keypress"),
-    entry("Ctrl shortcuts as raw key events", "For terminals; off means Ctrl+A/C/V/X use the clipboard", "Key press", "keypress"),
-    entry("Hold A to select all", "Long-pressing A selects all text", "Key press", "keypress"),
-    entry("Hold C to copy", "Copies the selection, or everything if nothing is selected", "Key press", "keypress"),
-    entry("Hold X to cut", "Cuts the selection, or everything if nothing is selected", "Key press", "keypress"),
-    entry("Hold V to paste", "Long-pressing V pastes the clipboard", "Key press", "keypress"),
-    entry("Hold Z to undo", "Long-pressing Z undoes the last edit", "Key press", "keypress"),
-    entry("Hold Y to redo", "Long-pressing Y redoes the last undone edit", "Key press", "keypress"),
-    // Keyboard themes, Keyboard font and Icons are rows here, but each opens
-    // its own screen — indexed once in SectionRows, pointing at that screen.
-    entry("Auto theme", "Use a light theme by day and a dark theme at night", "Appearance › Themes", "themes"),
-    entry("Light theme from", "Clock time the light theme takes over", "Appearance › Themes", "themes"),
-    entry("Dark theme from", "Clock time the dark theme takes over", "Appearance › Themes", "themes"),
-    entry("Landscape background image", "A separate theme background for landscape, editable per theme", "Appearance › Themes", "themes"),
-    entry("Icon pack", "Which installed pack supplies the keyboard's icons", "Appearance › Icons", "icons"),
-    entry("Import an icon pack", "Opens a .wmicons file someone shared", "Appearance › Icons", "icons"),
-    entry("Reset all icons", "Drops every icon change and goes back to the built-in set", "Appearance › Icons", "icons"),
-    entry("Use my own SVG…", "Set one icon from an SVG file of your own", "Appearance › Icons", "icons"),
-    entry("Key corner radius", "Roundness of the key corners", "Appearance", "appearance"),
-    entry("Key label font size", "Scale of the labels printed on the keys", "Appearance", "appearance"),
-    entry("Show the toolbar", "The strip above the keys that carries suggestions and tools", "Appearance", "appearance"),
-    entry("Swipe down to hide", "A downward flick on the toolbar dismisses the keyboard", "Appearance", "appearance"),
-    entry("Only toolbar with hardware keyboard", "When a physical keyboard is attached, show just the toolbar", "Appearance", "appearance"),
-    entry("Reverse order for RTL languages", "Mirror the tool order when typing a right-to-left script", "Appearance", "appearance"),
-    entry("Spread tools across the bar", "Toolbar tools split the available width evenly", "Appearance", "appearance"),
-    entry("Toolbar height", "Height of the top toolbar / suggestion strip", "Appearance", "appearance"),
-    entry("Scroll the toolbar", "Swipe the tools sideways instead of shrinking them to fit", "Appearance", "appearance"),
-    entry("Tool labels", "Show each tool's name under its icon on the toolbar", "Appearance", "appearance"),
-    entry("Label text size", "Font size of the toolbar tool labels", "Appearance", "appearance"),
-    entry("Reset pinned tools", "Restore the default toolbar tools", "Appearance", "appearance"),
-    entry("Tool circle radius", "Roundness of the circle behind each toolbar tool", "Appearance", "appearance"),
-    entry("Toolbox layout", "How the toolbox draws its tools", "Appearance", "appearance"),
-    entry("Toolbox grid size", "Tools per row in the toolbox grid", "Appearance", "appearance"),
-    entry("Pills per row", "How many tool pills sit side by side", "Appearance", "appearance"),
-    entry("Fill pills with the tool color", "Color the whole pill instead of just its icon", "Appearance", "appearance"),
-    entry("Swipe the toolbox in pages", "Fixed pages you swipe sideways instead of one scrolling grid", "Appearance", "appearance"),
-    entry("Tools per page", "How many tools each toolbox page holds", "Appearance", "appearance"),
-    entry("Number row", "Show a dedicated digit row above the letters", "Layout & size", "layout"),
-    entry("Number row height", "Height of the digit row, independent of the letter keys", "Layout & size", "layout"),
-    entry("Number row in symbols", "Also keep the digit row on the ?123 symbols layer", "Layout & size", "layout"),
-    entry("Type native digits in", "Where the native digits are actually inserted", "Layout & size", "layout"),
-    entry("Key height", "Height of each key row — sets the overall input height", "Layout & size", "layout"),
-    entry("Bottom row height", "Height of the space / enter row, on its own", "Layout & size", "layout"),
-    entry("Side padding", "Shave the keyboard's left and right edges toward the centre", "Layout & size", "layout"),
-    entry("Key spacing", "Gap between the keys", "Layout & size", "layout"),
-    entry("Keyboard scale", "Shrink or grow the whole keyboard per screen (folded/unfolded)", "Layout & size", "layout"),
-    entry("Bottom padding", "Extra space below the keys, above the navigation bar", "Layout & size", "layout"),
-    entry("Keyboard width", "Shrink the keyboard horizontally", "Layout & size", "layout"),
-    entry(
-        "Keyboard position",
-        "Where the narrowed keyboard sits: hugging the left edge, centered, or hugging the right edge.",
-        "Layout & size",
-        "layout",
+/** Rows on the Key press screen. */
+private fun Resources.keyPressRows(): List<SettingsSearchEntry> {
+    fun row(@StringRes title: Int, @StringRes subtitle: Int = 0) =
+        entry(title, subtitle, R.string.home_keypress_title, "keypress")
+    return listOf(
+        row(R.string.keypress_haptics_title, R.string.keypress_haptics_subtitle),
+        row(R.string.keypress_haptic_strength_title, R.string.keypress_haptic_strength_subtitle),
+        row(R.string.keypress_haptic_intensity_title, R.string.keypress_haptic_intensity_subtitle),
+        row(R.string.keypress_long_press_haptics_title, R.string.keypress_long_press_haptics_subtitle),
+        row(R.string.keypress_long_press_release_title, R.string.keypress_long_press_release_subtitle),
+        row(R.string.keypress_vibrate_space_title, R.string.keypress_vibrate_space_subtitle),
+        row(R.string.keypress_vibrate_delete_swipe_title, R.string.keypress_vibrate_delete_swipe_subtitle),
+        row(R.string.keypress_vibrate_repeat_title, R.string.keypress_vibrate_repeat_subtitle),
+        row(R.string.keypress_dnd_mute_title, R.string.keypress_dnd_mute_subtitle),
+        row(R.string.keypress_popup_title, R.string.keypress_popup_subtitle),
+        row(R.string.keypress_popup_numeric_title, R.string.keypress_popup_numeric_subtitle),
+        row(R.string.keypress_popup_min_duration_title, R.string.keypress_popup_min_duration_subtitle),
+        row(R.string.keypress_popup_on_key_title, R.string.keypress_popup_on_key_subtitle),
+        row(R.string.keypress_popup_font_size_title, R.string.keypress_popup_font_size_subtitle),
+        row(R.string.keypress_popup_height_title, R.string.keypress_popup_height_subtitle),
+        row(R.string.keypress_long_press_delay_title, R.string.keypress_long_press_delay_subtitle),
+        row(R.string.keypress_key_repeat_title, R.string.keypress_key_repeat_subtitle),
+        row(R.string.keypress_caps_lock_title, R.string.keypress_caps_lock_subtitle),
+        row(R.string.keypress_long_press_hints_title, R.string.keypress_long_press_hints_subtitle),
+        row(R.string.keypress_all_accents_title, R.string.keypress_all_accents_subtitle),
+        row(R.string.keypress_currency_keys_title),
+        row(R.string.keypress_ctrl_raw_title, R.string.keypress_ctrl_raw_subtitle),
+        row(R.string.keypress_hold_a_title, R.string.keypress_hold_a_subtitle),
+        row(R.string.keypress_hold_c_title, R.string.keypress_hold_c_subtitle),
+        row(R.string.keypress_hold_x_title, R.string.keypress_hold_x_subtitle),
+        row(R.string.keypress_hold_v_title, R.string.keypress_hold_v_subtitle),
+        row(R.string.keypress_hold_z_title, R.string.keypress_hold_z_subtitle),
+        row(R.string.keypress_hold_y_title, R.string.keypress_hold_y_subtitle),
+    )
+}
+
+/** Rows on Appearance and the two screens that hang off it. */
+private fun Resources.appearanceRows(): List<SettingsSearchEntry> {
+    fun theme(@StringRes title: Int, @StringRes subtitle: Int = 0) = entry(
+        title, subtitle, R.string.home_screen_themes_title, "themes",
+        screenParent = R.string.home_appearance_title,
+    )
+    fun icon(@StringRes title: Int, @StringRes subtitle: Int = 0) = entry(
+        title, subtitle, R.string.home_screen_icons_title, "icons",
+        screenParent = R.string.home_appearance_title,
+    )
+    fun row(@StringRes title: Int, @StringRes subtitle: Int = 0) =
+        entry(title, subtitle, R.string.home_appearance_title, "appearance")
+    return listOf(
+        // Keyboard themes, Keyboard font and Icons are rows here, but each
+        // opens its own screen. They are indexed once in sectionRows,
+        // pointing at that screen.
+        theme(R.string.theme_auto_title, R.string.theme_auto_subtitle),
+        theme(R.string.theme_auto_light_from_title),
+        theme(R.string.theme_auto_dark_from_title),
+        theme(R.string.theme_background_image_landscape_title),
+        icon(R.string.plugins_icons_pack_title),
+        icon(R.string.plugins_icons_import_title, R.string.plugins_icons_import_subtitle),
+        icon(R.string.plugins_icons_reset_title, R.string.plugins_icons_reset_subtitle),
+        icon(R.string.plugins_icons_picker_use_svg_action),
+        row(R.string.appearance_key_corner_radius_title, R.string.appearance_key_corner_radius_subtitle),
+        row(R.string.appearance_key_label_size_title, R.string.appearance_key_label_size_subtitle),
+        row(R.string.appearance_toolbar_show_title, R.string.appearance_toolbar_show_subtitle),
+        row(R.string.appearance_toolbar_swipe_down_title, R.string.appearance_toolbar_swipe_down_subtitle),
+        row(R.string.appearance_toolbar_hardware_only_title, R.string.appearance_toolbar_hardware_only_subtitle),
+        row(R.string.appearance_toolbar_rtl_title, R.string.appearance_toolbar_rtl_subtitle),
+        row(R.string.appearance_toolbar_spread_title, R.string.appearance_toolbar_spread_subtitle),
+        row(R.string.appearance_toolbar_height_title, R.string.appearance_toolbar_height_subtitle),
+        row(R.string.appearance_toolbar_scroll_title, R.string.appearance_toolbar_scroll_subtitle),
+        row(R.string.appearance_toolbar_labels_title, R.string.appearance_toolbar_labels_subtitle),
+        row(R.string.appearance_toolbar_label_size_title, R.string.appearance_toolbar_label_size_subtitle),
+        row(R.string.home_reset_pinned_tools_title, R.string.home_reset_pinned_tools_subtitle),
+        row(R.string.appearance_tool_circle_title, R.string.appearance_tool_circle_subtitle),
+        row(R.string.appearance_toolbox_layout_title, R.string.appearance_toolbox_layout_subtitle),
+        row(R.string.appearance_toolbox_columns_title, R.string.appearance_toolbox_columns_subtitle),
+        row(R.string.appearance_toolbox_pill_columns_title, R.string.appearance_toolbox_pill_columns_subtitle),
+        row(R.string.appearance_toolbox_pill_filled_title, R.string.appearance_toolbox_pill_filled_subtitle),
+        row(R.string.appearance_toolbox_paginate_title, R.string.appearance_toolbox_paginate_subtitle),
+        row(R.string.appearance_toolbox_page_size_title, R.string.appearance_toolbox_page_size_subtitle),
+    )
+}
+
+/** Rows on Layout & size, plus the two rows that moved off it. */
+private fun Resources.layoutRows(): List<SettingsSearchEntry> {
+    fun row(@StringRes title: Int, @StringRes subtitle: Int = 0) =
+        entry(title, subtitle, R.string.home_layout_title, "layout")
+    return listOf(
+        row(R.string.layout_number_row_title, R.string.layout_number_row_subtitle),
+        row(R.string.layout_number_row_height_title, R.string.layout_number_row_height_subtitle),
+        row(R.string.layout_number_row_in_symbols_title, R.string.layout_number_row_in_symbols_subtitle),
+        row(R.string.layout_numeral_scope_title, R.string.layout_numeral_scope_subtitle),
+        row(R.string.layout_key_height_title, R.string.layout_key_height_subtitle),
+        row(R.string.layout_bottom_row_height_title, R.string.layout_bottom_row_height_subtitle),
+        row(R.string.layout_side_padding_title, R.string.layout_side_padding_subtitle),
+        row(R.string.layout_key_spacing_title, R.string.layout_key_spacing_subtitle),
+        row(R.string.layout_keyboard_scale_title, R.string.layout_keyboard_scale_subtitle),
+        row(R.string.layout_bottom_padding_title, R.string.layout_bottom_padding_subtitle),
+        row(R.string.layout_keyboard_width_title, R.string.layout_keyboard_width_subtitle),
+        row(R.string.layout_keyboard_position_title, R.string.layout_keyboard_position_info),
+        row(R.string.layout_variant_follows_portrait_label),
+        row(R.string.layout_font_size_title),
+        row(R.string.layout_follow_portrait_title),
+        row(R.string.layout_one_handed_title, R.string.layout_one_handed_subtitle),
+        row(R.string.layout_split_title, R.string.layout_split_subtitle),
+        row(R.string.layout_split_gap_title, R.string.layout_split_gap_subtitle),
+        row(R.string.layout_floating_title, R.string.layout_floating_subtitle),
+        row(R.string.layout_floating_width_title, R.string.layout_floating_width_subtitle),
+        row(R.string.layout_comma_emoji_title, R.string.layout_comma_emoji_subtitle),
+        row(R.string.layout_globe_emoji_title, R.string.layout_globe_emoji_subtitle),
+        entry(R.string.layout_editor_import_title, R.string.layout_editor_import_subtitle, R.string.home_keymaps_title, "keymaps"),
+        // Per language now, so search lands on the language list rather than
+        // on a switch that no longer exists at the top level.
+        entry(R.string.languages_conjunct_backspace_title, 0, R.string.home_languages_title, "languages"),
+    )
+}
+
+/** Rows on the Emoji screen. */
+private fun Resources.emojiRows(): List<SettingsSearchEntry> {
+    fun row(@StringRes title: Int, @StringRes subtitle: Int = 0) =
+        entry(title, subtitle, R.string.home_emoji_title, "emoji")
+    return listOf(
+        row(R.string.langemoji_emoji_toolbar_title, R.string.langemoji_emoji_toolbar_subtitle),
+        row(R.string.langemoji_emoji_full_bleed_title, R.string.langemoji_emoji_full_bleed_subtitle),
+        row(R.string.langemoji_emoji_prediction_title, R.string.langemoji_emoji_prediction_subtitle),
+        row(R.string.langemoji_emoji_insert_mode_title, R.string.langemoji_emoji_insert_mode_subtitle),
+        row(R.string.langemoji_emoji_tab_mode_title, R.string.langemoji_emoji_tab_mode_subtitle),
+        row(R.string.langemoji_emoji_clear_recents_title, R.string.langemoji_emoji_clear_recents_subtitle),
+        row(R.string.langemoji_emoji_kaomoji_title, R.string.langemoji_emoji_kaomoji_subtitle),
+        row(R.string.langemoji_emoji_long_press_name_title, R.string.langemoji_emoji_long_press_name_subtitle),
+        row(R.string.langemoji_emoji_row_title, R.string.langemoji_emoji_bar_mode_subtitle),
+        row(R.string.langemoji_emoji_bar_content_title, R.string.langemoji_emoji_bar_content_subtitle),
+        row(R.string.langemoji_emoji_bar_count_title, R.string.langemoji_emoji_bar_count_subtitle),
+        row(R.string.langemoji_emoji_bar_scroll_title, R.string.langemoji_emoji_bar_scroll_subtitle),
+        row(R.string.langemoji_emoji_font_title, R.string.langemoji_emoji_font_subtitle),
+        row(R.string.langemoji_emoji_skin_tone_title, R.string.langemoji_emoji_skin_tone_subtitle),
+        row(R.string.langemoji_emoji_tone_override_title, R.string.langemoji_emoji_tone_override_subtitle),
+        row(R.string.langemoji_emoji_close_after_insert_title, R.string.langemoji_emoji_close_after_insert_subtitle),
+        // One title in every configuration now: an emoji the chosen font lacks
+        // is drawn in the phone's own font rather than hidden, so the toggle is
+        // always about the phone.
+        row(R.string.langemoji_emoji_hide_unrenderable_title, R.string.langemoji_emoji_hide_unrenderable_subtitle),
+    )
+}
+
+/** Rows on the tool pages, from Emoji through One-handed mode. */
+private fun Resources.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
+    toolEntry(ToolbarTool.EMOJI, R.string.tooldetail_emoji_toolbar_title, R.string.tooldetail_emoji_toolbar_subtitle),
+    toolEntry(ToolbarTool.EMOJI, R.string.tooldetail_emoji_all_title, R.string.tooldetail_emoji_all_subtitle, weight = EntryWeight.MIRROR),
+    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_history_title, R.string.tooldetail_clipboard_history_subtitle),
+    toolEntry(
+        ToolbarTool.CLIPBOARD,
+        R.string.tooldetail_clipboard_suggest_recent_title,
+        R.string.tooldetail_clipboard_suggest_recent_subtitle,
     ),
-    entry("Following portrait", "", "Layout & size", "layout"),
-    entry("Font size", "×%.2f", "Layout & size", "layout"),
-    entry("Follow portrait again", "", "Layout & size", "layout"),
-    entry("One-handed mode", "Shrink the keyboard toward one edge", "Layout & size", "layout"),
-    entry("Split keyboard", "Divide the keys into left and right halves", "Layout & size", "layout"),
-    entry("Split gap", "Width of the gap between the halves", "Layout & size", "layout"),
-    entry("Floating keyboard", "Detach the keyboard into a movable panel", "Layout & size", "layout"),
-    entry("Floating keyboard width", "Also adjustable by dragging the panel's corner grip", "Layout & size", "layout"),
-    entry("Comma key opens emoji", "Replace the comma key with an emoji key", "Layout & size", "layout"),
-    entry("Emoji key instead of 🌐", "Replace the language key with an emoji key", "Layout & size", "layout"),
-    entry("Import a layout", "Open a .wmlayout.json file someone shared", "Key layouts", "keymaps"),
-    // Per language now, so search lands on the language list rather than on a
-    // switch that no longer exists at the top level.
-    entry(
-        "Conjunct-aware backspace",
-        "Delete a whole cluster as one unit — set per language, on its own screen",
-        "Languages",
-        "languages",
+    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_toast_title, R.string.tooldetail_clipboard_toast_subtitle),
+    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_expiry_title, R.string.tooldetail_clipboard_expiry_subtitle),
+    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_max_title, R.string.tooldetail_clipboard_max_subtitle),
+    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_sensitive_title, R.string.tooldetail_clipboard_sensitive_subtitle),
+    toolEntry(
+        ToolbarTool.CLIPBOARD,
+        R.string.tooldetail_clipboard_detect_sensitive_title,
+        R.string.tooldetail_clipboard_detect_sensitive_subtitle,
     ),
-    entry("Emoji button in toolbar", "One-tap emoji access from the top bar", "Emoji", "emoji"),
-    entry("Full-screen emoji panel", "Hide the toolbar and move the category tabs up next to a back button", "Emoji", "emoji"),
-    entry("Emoji suggestions", "Offer emojis while typing — birthday suggests 🎂 🎉 🥳", "Emoji", "emoji"),
-    entry("Emoji suggestion tap", "What happens to the word you typed", "Emoji", "emoji"),
-    entry("History tab", "What the first emoji-panel tab shows", "Emoji", "emoji"),
-    entry("Clear recents button", "A button on the Recent tab to wipe the recents list", "Emoji", "emoji"),
-    entry("Kaomoji and Emoticons", "Two extra tabs: ¯\\_(ツ)_/¯ and :-)", "Emoji", "emoji"),
-    entry("Emoji descriptions", "Name the emoji at the top of its long-press popup", "Emoji", "emoji"),
-    entry("Emoji row", "A dedicated row of your emojis, like Gboard", "Emoji", "emoji"),
-    entry("Emoji row content", "Favourites always come first", "Emoji", "emoji"),
-    entry("Emojis in the row", "How many fit across — higher packs them tighter", "Emoji", "emoji"),
-    entry("Scroll the emoji row", "Swipe sideways for the emoji past the visible ones", "Emoji", "emoji"),
-    entry("Emoji font", "How emojis look on the keyboard itself", "Emoji", "emoji"),
-    entry("Default skin tone", "Skin tone for toned emoji in suggestions and search", "Emoji", "emoji"),
-    entry("Override with last used", "Prefer the tone last picked over the default", "Emoji", "emoji"),
-    entry("Return to keyboard after inserting", "Close the panel after one emoji or clipboard paste", "Emoji", "emoji"),
-    // One title in every configuration now: an emoji the chosen font lacks is
-    // drawn in the phone's own font rather than hidden, so the toggle is always
-    // about the phone.
-    entry("Hide emoji this phone can't display", "Skip emoji that show as a blank box", "Emoji", "emoji"),
-    entry(
-        "Include API keys",
-        "Translate, GIF, search and AI keys",
-        "Backup & restore",
-        "backup",
+    toolEntry(
+        ToolbarTool.CLIPBOARD,
+        R.string.tooldetail_clipboard_sensitive_expiry_title,
+        R.string.tooldetail_clipboard_sensitive_expiry_subtitle,
+    ),
+    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_bottom_row_title, R.string.tooldetail_clipboard_bottom_row_subtitle),
+    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_pinned_last_title, R.string.tooldetail_clipboard_pinned_last_subtitle),
+    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_search_title, R.string.tooldetail_clipboard_search_subtitle),
+    toolEntry(
+        ToolbarTool.CLIPBOARD,
+        R.string.tooldetail_clipboard_password_paste_title,
+        R.string.tooldetail_clipboard_password_paste_subtitle,
+    ),
+    toolEntry(
+        ToolbarTool.CLIPBOARD,
+        R.string.tooldetail_clipboard_link_previews_title,
+        R.string.tooldetail_clipboard_link_previews_subtitle,
+    ),
+    toolEntry(ToolbarTool.SPLIT, R.string.tooldetail_split_gap_title, R.string.tooldetail_split_gap_subtitle),
+    toolEntry(
+        ToolbarTool.SPLIT,
+        R.string.tooldetail_layout_nav_title,
+        R.string.tooldetail_layout_nav_split_subtitle,
         weight = EntryWeight.MIRROR,
     ),
-    entry("Emoji button in toolbar", "Keep the emoji button visible next to suggestions", tool = ToolbarTool.EMOJI),
-    entry(
-        "All emoji settings",
-        "Suggestions, history tab, emoji row, skin tones & favourites",
-        tool = ToolbarTool.EMOJI,
+    toolEntry(ToolbarTool.FLOATING, R.string.tooldetail_floating_width_title, R.string.tooldetail_floating_width_subtitle),
+    toolEntry(
+        ToolbarTool.FLOATING,
+        R.string.tooldetail_layout_nav_title,
+        R.string.tooldetail_layout_nav_floating_subtitle,
         weight = EntryWeight.MIRROR,
     ),
-    entry("Clipboard history", "Save copied text for quick paste", tool = ToolbarTool.CLIPBOARD),
-    entry("Suggest recent copy", "Show the last copied text as a chip on the suggestion strip", tool = ToolbarTool.CLIPBOARD),
-    entry("Toast on copy", "Show a brief \"Copied\" pop-up when you copy or cut text", tool = ToolbarTool.CLIPBOARD),
-    entry("Clipboard expiry", "Remove unpinned items after this long", tool = ToolbarTool.CLIPBOARD),
-    entry("Maximum entries", "How many unpinned clips history keeps", tool = ToolbarTool.CLIPBOARD),
-    entry("Sensitive clips", "What to do with a copied password or one-time code", tool = ToolbarTool.CLIPBOARD),
-    entry("Recognise them yourself", "Spot passwords and codes the copying app didn't mark", tool = ToolbarTool.CLIPBOARD),
-    entry("Forget sensitive clips after", "Independent of the history expiry", tool = ToolbarTool.CLIPBOARD),
-    entry("Bottom control row", "abc, space and backspace row at the bottom of the clipboard panel", tool = ToolbarTool.CLIPBOARD),
-    entry("Pinned entries last", "List pinned clips at the end of the panel instead of the top", tool = ToolbarTool.CLIPBOARD),
-    entry("Search bar", "Filter clipboard history as you type", tool = ToolbarTool.CLIPBOARD),
-    entry(
-        "Forget after pasting a password",
-        "Delete a clip from history and the system clipboard once it's pasted into a password field",
-        tool = ToolbarTool.CLIPBOARD,
+    toolEntry(ToolbarTool.FLASHLIGHT, R.string.tooldetail_flashlight_auto_off_title, R.string.tooldetail_flashlight_auto_off_subtitle),
+    toolEntry(ToolbarTool.COMPASS, R.string.tooldetail_compass_degrees_title, R.string.tooldetail_compass_degrees_subtitle),
+    toolEntry(ToolbarTool.COMPASS, R.string.tooldetail_compass_qibla_title, R.string.tooldetail_compass_qibla_subtitle),
+    toolEntry(ToolbarTool.LEVEL, R.string.tooldetail_level_angles_title, R.string.tooldetail_level_angles_subtitle),
+    toolEntry(ToolbarTool.UNDO, R.string.tooldetail_redo_ctrl_y_title, R.string.tooldetail_redo_ctrl_y_subtitle),
+    toolEntry(ToolbarTool.REDO, R.string.tooldetail_redo_ctrl_y_title, R.string.tooldetail_redo_ctrl_y_subtitle),
+    toolEntry(ToolbarTool.MOON_PHASE, R.string.tooldetail_moon_southern_title, R.string.tooldetail_moon_southern_subtitle),
+    toolEntry(ToolbarTool.WEATHER, R.string.tooldetail_weather_fahrenheit_title, R.string.tooldetail_weather_fahrenheit_subtitle),
+    toolEntry(ToolbarTool.CALENDAR, R.string.tooldetail_calendar_first_title, R.string.tooldetail_calendar_first_subtitle),
+    toolEntry(ToolbarTool.CALENDAR, R.string.tooldetail_calendar_second_title, R.string.tooldetail_calendar_second_subtitle),
+    toolEntry(ToolbarTool.CALENDAR, R.string.toolai_weekend_title, R.string.toolai_weekend_subtitle),
+    toolEntry(ToolbarTool.CALENDAR, R.string.tooldetail_calendar_hijri_title, R.string.tooldetail_calendar_hijri_subtitle),
+    toolEntry(ToolbarTool.CAMERA, R.string.tooldetail_camera_front_title, R.string.tooldetail_camera_front_subtitle),
+    toolEntry(ToolbarTool.CAMERA, R.string.tooldetail_camera_mirror_title, R.string.tooldetail_camera_mirror_subtitle),
+    toolEntry(ToolbarTool.CAMERA, R.string.tooldetail_camera_gallery_title, R.string.tooldetail_camera_gallery_subtitle),
+    toolEntry(ToolbarTool.CAMERA, R.string.tooldetail_camera_shutter_title, R.string.tooldetail_camera_shutter_subtitle),
+    toolEntry(ToolbarTool.CAMERA, R.string.tooldetail_camera_haptics_title, R.string.tooldetail_camera_haptics_subtitle),
+    toolEntry(ToolbarTool.DICTIONARY, R.string.tooldetail_dictionary_auto_title, R.string.tooldetail_dictionary_auto_subtitle),
+    toolEntry(ToolbarTool.TEXT_EDIT, R.string.tooldetail_text_edit_repeat_title, R.string.tooldetail_text_edit_repeat_subtitle),
+    toolEntry(ToolbarTool.NUMPAD, R.string.tooldetail_numpad_calc_title, R.string.tooldetail_numpad_calc_subtitle),
+    toolEntry(ToolbarTool.INCOGNITO, R.string.tooldetail_incognito_learning_title, R.string.tooldetail_incognito_learning_subtitle),
+    toolEntry(ToolbarTool.INCOGNITO, R.string.tooldetail_incognito_clipboard_title, R.string.tooldetail_incognito_clipboard_subtitle),
+    toolEntry(ToolbarTool.INCOGNITO, R.string.tooldetail_incognito_auto_title, R.string.tooldetail_incognito_auto_subtitle),
+    toolEntry(ToolbarTool.POWER_SAVING, R.string.tooldetail_power_now_title, R.string.tooldetail_power_now_subtitle),
+    toolEntry(ToolbarTool.POWER_SAVING, R.string.tooldetail_power_trigger_title, R.string.tooldetail_power_trigger_subtitle),
+    toolEntry(ToolbarTool.POWER_SAVING, R.string.tooldetail_power_battery_title, R.string.tooldetail_power_battery_subtitle),
+    toolEntry(ToolbarTool.POWER_SAVING, R.string.tooldetail_power_charging_title, R.string.tooldetail_power_charging_subtitle),
+    toolEntry(ToolbarTool.POWER_SAVING, R.string.tooldetail_power_drop_haptics_title, R.string.tooldetail_power_drop_haptics_subtitle),
+    toolEntry(ToolbarTool.POWER_SAVING, R.string.tooldetail_power_drop_sound_title, R.string.tooldetail_power_drop_sound_subtitle),
+    toolEntry(ToolbarTool.POWER_SAVING, R.string.tooldetail_power_drop_anim_title, R.string.tooldetail_power_drop_anim_subtitle),
+    toolEntry(ToolbarTool.POWER_SAVING, R.string.tooldetail_power_drop_trail_title, R.string.tooldetail_power_drop_trail_subtitle),
+    toolEntry(ToolbarTool.POWER_SAVING, R.string.tooldetail_power_drop_chips_title, R.string.tooldetail_power_drop_chips_subtitle),
+    toolEntry(ToolbarTool.POWER_SAVING, R.string.tooldetail_power_drop_network_title, R.string.tooldetail_power_drop_network_subtitle),
+    toolEntry(
+        ToolbarTool.POWER_SAVING,
+        R.string.tooldetail_power_drop_screenshot_title,
+        R.string.tooldetail_power_drop_screenshot_subtitle,
     ),
-    entry(
-        "Link previews",
-        "Fetch the page title of copied links and show it in the panel. This contacts the linked site.",
-        tool = ToolbarTool.CLIPBOARD,
-    ),
-    entry("Split gap", "Width of the gap between the halves", tool = ToolbarTool.SPLIT),
-    entry(
-        "All layout & size settings",
-        "Keyboard height, width, alignment and split",
-        tool = ToolbarTool.SPLIT,
-        weight = EntryWeight.MIRROR,
-    ),
-    entry("Floating keyboard width", "Also adjustable by dragging the panel's corner grip", tool = ToolbarTool.FLOATING),
-    entry(
-        "All layout & size settings",
-        "Keyboard height, width, alignment and floating mode",
-        tool = ToolbarTool.FLOATING,
-        weight = EntryWeight.MIRROR,
-    ),
-    entry("Auto-off with keyboard", "Turn the torch off when the keyboard is dismissed", tool = ToolbarTool.FLASHLIGHT),
-    entry("Degree readout", "Show the numeric heading under the compass rose", tool = ToolbarTool.COMPASS),
-    entry("Show qibla", "Mark the direction of the Kaaba on the compass", tool = ToolbarTool.COMPASS),
-    entry("Angle readout", "Show pitch and roll in degrees under the bubble", tool = ToolbarTool.LEVEL),
-    entry("Redo sends Ctrl+Y", "Instead of the default Ctrl+Shift+Z", tool = ToolbarTool.UNDO),
-    entry("Redo sends Ctrl+Y", "Instead of the default Ctrl+Shift+Z", tool = ToolbarTool.REDO),
-    entry("Southern hemisphere", "Mirror the moon the way it appears south of the equator", tool = ToolbarTool.MOON_PHASE),
-    entry("Fahrenheit", "Show temperatures in °F instead of °C", tool = ToolbarTool.WEATHER),
-    entry(
-        "First calendar",
-        "Bengali, Hijri, Chinese, Hebrew, Hindu, Persian, Buddhist or Japanese alongside the Gregorian one",
-        tool = ToolbarTool.CALENDAR,
-    ),
-    entry("Second calendar", "A second calendar for the header and the selected day", tool = ToolbarTool.CALENDAR),
-    entry("Weekend", "Which weekday initials the month grid tints", tool = ToolbarTool.CALENDAR),
-    entry("Hijri day adjustment", "Shift the computed Hijri date to match local moon sighting", tool = ToolbarTool.CALENDAR),
-    entry("Start with the selfie camera", "Open the tool on the front camera instead of the back one", tool = ToolbarTool.CAMERA),
-    entry("Mirror selfies", "Save front-camera photos the way the preview shows them", tool = ToolbarTool.CAMERA),
-    entry("Save to gallery", "Also keep captures in Pictures/WM Keyboard", tool = ToolbarTool.CAMERA),
-    entry("Shutter sound", "Play the camera click when a photo is taken", tool = ToolbarTool.CAMERA),
-    entry("Haptics", "Vibrate on the shutter, controls and timer countdown", tool = ToolbarTool.CAMERA),
-    entry("Look up the word at the cursor", "Opening the tool searches the selected or current word", tool = ToolbarTool.DICTIONARY),
-    entry(
-        "Key repeat interval",
-        "Pause between repeats while holding an arrow or backspace — lower is faster",
-        tool = ToolbarTool.TEXT_EDIT,
-    ),
-    entry(
-        "Calculator-style layout",
-        "7 8 9 on the top row, like a desk keypad. Off puts 1 2 3 on top, like a dialer.",
-        tool = ToolbarTool.NUMPAD,
-    ),
-    entry("Pause learning", "No words or emoji habits are learned from typing", tool = ToolbarTool.INCOGNITO),
-    entry("Pause clipboard capture", "Copies don't join the clipboard tool's history", tool = ToolbarTool.INCOGNITO),
-    entry("Follow private browsing", "Switch on by itself in incognito tabs and private fields", tool = ToolbarTool.INCOGNITO),
-    entry("Power saving now", "The same switch the toolbar tool flips", tool = ToolbarTool.POWER_SAVING),
-    entry("Switch on by itself", "Follow Android's battery saver, or your own low-battery level", tool = ToolbarTool.POWER_SAVING),
-    entry("Low battery is", "The level power saving starts at", tool = ToolbarTool.POWER_SAVING),
-    entry("Off while charging", "Ignore the automatic triggers with the charger in", tool = ToolbarTool.POWER_SAVING),
-    entry("Key vibration", "Silence the vibration motor while saving power", tool = ToolbarTool.POWER_SAVING),
-    entry("Key sounds", "Stop playing the key click while saving power", tool = ToolbarTool.POWER_SAVING),
-    entry("Animations", "Cut transitions and motion while saving power", tool = ToolbarTool.POWER_SAVING),
-    entry("Glide trail", "Stop drawing the trail behind a swiped word while saving power", tool = ToolbarTool.POWER_SAVING),
-    entry("Smart chips", "Stop matching sums and conversions while saving power", tool = ToolbarTool.POWER_SAVING),
-    entry("Background network", "No link previews or automatic look-ups while saving power", tool = ToolbarTool.POWER_SAVING),
-    entry("Screenshot watching", "Stop watching for new screenshots while saving power", tool = ToolbarTool.POWER_SAVING),
-    entry("On-device models", "Dictate through the system recognizer while saving power", tool = ToolbarTool.POWER_SAVING),
-    // The tool screen's own "Autocorrect" toggle is not listed: ToolRows
+    toolEntry(ToolbarTool.POWER_SAVING, R.string.tooldetail_power_drop_models_title, R.string.tooldetail_power_drop_models_subtitle),
+    // The tool screen's own "Autocorrect" toggle is not listed: toolRows
     // already indexes the tool under that title and route. A row named after
     // the tool holding it is always a duplicate result, never a second one.
-    entry(
-        "All typing settings",
-        "Suggestions, autocorrect, capitalization and more",
-        tool = ToolbarTool.AUTOCORRECT,
+    toolEntry(
+        ToolbarTool.AUTOCORRECT,
+        R.string.tooldetail_typing_nav_title,
+        R.string.tooldetail_typing_nav_subtitle,
         weight = EntryWeight.MIRROR,
     ),
-    entry(
-        "All key press settings",
-        "Haptic style and strength, key preview, long-press",
-        tool = ToolbarTool.SOUND_HAPTICS,
+    toolEntry(
+        ToolbarTool.SOUND_HAPTICS,
+        R.string.tooldetail_keypress_nav_title,
+        R.string.tooldetail_keypress_nav_subtitle,
         weight = EntryWeight.MIRROR,
     ),
-    entry("Stylus only", "Only an S Pen or other stylus draws; finger touches are ignored", tool = ToolbarTool.HANDWRITING),
-    entry("Auto space", "Insert a space between consecutively written words", tool = ToolbarTool.HANDWRITING),
-    entry("Recognition pause", "How long after the last stroke before the word is recognized", tool = ToolbarTool.HANDWRITING),
-    entry(
-        "All theme settings",
-        "Create, edit, import and export keyboard themes",
-        tool = ToolbarTool.THEMES,
+    toolEntry(ToolbarTool.HANDWRITING, R.string.tooldetail_handwriting_stylus_title, R.string.tooldetail_handwriting_stylus_subtitle),
+    toolEntry(
+        ToolbarTool.HANDWRITING,
+        R.string.tooldetail_handwriting_auto_space_title,
+        R.string.tooldetail_handwriting_auto_space_subtitle,
+    ),
+    toolEntry(ToolbarTool.HANDWRITING, R.string.tooldetail_handwriting_pause_title, R.string.tooldetail_handwriting_pause_subtitle),
+    toolEntry(
+        ToolbarTool.THEMES,
+        R.string.tooldetail_themes_nav_title,
+        R.string.tooldetail_themes_nav_subtitle,
         weight = EntryWeight.MIRROR,
     ),
-    entry(
-        "All layout & size settings",
-        "Keyboard height, width, alignment and one-handed mode",
-        tool = ToolbarTool.ONE_HANDED,
+    toolEntry(
+        ToolbarTool.ONE_HANDED,
+        R.string.tooldetail_layout_nav_title,
+        R.string.tooldetail_layout_nav_one_handed_subtitle,
         weight = EntryWeight.MIRROR,
     ),
-    entry(
-        "Cloud Translation API key (optional)",
-        "Without a key, translation uses Google's free public endpoint",
-        tool = ToolbarTool.TRANSLATE,
+    toolEntry(ToolbarTool.TRANSLATE, R.string.tooldetail_translate_key_label, R.string.tooldetail_translate_key_hint),
+)
+
+/** Rows on the tool pages, from Translate through the AI tool. */
+private fun Resources.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
+    toolEntry(ToolbarTool.STICKER, R.string.tooldetail_sticker_packs_title, R.string.tooldetail_sticker_packs_subtitle),
+    toolEntry(ToolbarTool.GIF, R.string.tooldetail_media_full_bleed_title, R.string.tooldetail_media_full_bleed_subtitle),
+    toolEntry(ToolbarTool.STICKER, R.string.tooldetail_media_full_bleed_title, R.string.tooldetail_media_full_bleed_subtitle),
+    toolEntry(ToolbarTool.GIF, R.string.tooldetail_media_klipy_label, R.string.tooldetail_media_klipy_hint),
+    toolEntry(ToolbarTool.STICKER, R.string.tooldetail_media_klipy_label, R.string.tooldetail_media_klipy_hint),
+    toolEntry(ToolbarTool.GIF, R.string.tooldetail_media_giphy_label, R.string.tooldetail_media_giphy_hint),
+    toolEntry(ToolbarTool.STICKER, R.string.tooldetail_media_giphy_label, R.string.tooldetail_media_giphy_hint),
+    toolEntry(ToolbarTool.GIF, R.string.tooldetail_media_sticker_send_title, R.string.tooldetail_media_sticker_send_subtitle),
+    toolEntry(ToolbarTool.STICKER, R.string.tooldetail_media_sticker_send_title, R.string.tooldetail_media_sticker_send_subtitle),
+    toolEntry(ToolbarTool.GIF, R.string.tooldetail_media_gif_send_title, R.string.tooldetail_media_gif_send_subtitle),
+    toolEntry(ToolbarTool.STICKER, R.string.tooldetail_media_gif_send_title, R.string.tooldetail_media_gif_send_subtitle),
+    toolEntry(ToolbarTool.WEB_SEARCH, R.string.tooldetail_search_key_label, R.string.tooldetail_search_key_hint),
+    toolEntry(ToolbarTool.IMAGE_SEARCH, R.string.tooldetail_search_key_label, R.string.tooldetail_search_key_hint),
+    toolEntry(ToolbarTool.WEB_SEARCH, R.string.tooldetail_search_safe_title, R.string.tooldetail_search_safe_subtitle),
+    toolEntry(ToolbarTool.IMAGE_SEARCH, R.string.tooldetail_search_safe_title, R.string.tooldetail_search_safe_subtitle),
+    toolEntry(ToolbarTool.WEB_SEARCH, R.string.tooldetail_search_count_title, R.string.tooldetail_search_count_subtitle),
+    toolEntry(ToolbarTool.IMAGE_SEARCH, R.string.tooldetail_search_count_title, R.string.tooldetail_search_count_subtitle),
+    toolEntry(ToolbarTool.OCR, R.string.tooldetail_ocr_select_all_title, R.string.tooldetail_ocr_select_all_subtitle),
+    toolEntry(ToolbarTool.QR_SCAN, R.string.tooldetail_qr_scan_auto_title, R.string.tooldetail_qr_scan_auto_subtitle),
+    toolEntry(ToolbarTool.QR_SCAN, R.string.tooldetail_qr_scan_haptics_title, R.string.tooldetail_qr_scan_haptics_subtitle),
+    toolEntry(ToolbarTool.DOC_SCAN, R.string.tooldetail_doc_scan_gallery_title, R.string.tooldetail_doc_scan_gallery_subtitle),
+    toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_strip_title, R.string.tooldetail_voice_strip_subtitle),
+    toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_continuous_title, R.string.tooldetail_voice_continuous_subtitle),
+    toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_punctuation_title, R.string.tooldetail_voice_punctuation_subtitle),
+    toolEntry(ToolbarTool.GRAMMAR, R.string.tooldetail_grammar_dialect_title, R.string.tooldetail_grammar_dialect_subtitle),
+    toolEntry(ToolbarTool.GRAMMAR, R.string.tooldetail_grammar_debounce_title, R.string.tooldetail_grammar_debounce_subtitle),
+    toolEntry(ToolbarTool.GRAMMAR, R.string.tooldetail_grammar_system_title, R.string.tooldetail_grammar_system_subtitle),
+    toolEntry(ToolbarTool.WIKIPEDIA, R.string.tooldetail_wiki_language_label, R.string.tooldetail_wiki_language_hint),
+    toolEntry(ToolbarTool.WIKIPEDIA, R.string.tooldetail_wiki_markdown_title, R.string.tooldetail_wiki_markdown_subtitle),
+    toolEntry(ToolbarTool.CALCULATOR, R.string.tooldetail_calc_smart_title, R.string.tooldetail_calc_smart_subtitle),
+    toolEntry(ToolbarTool.CALCULATOR, R.string.tooldetail_calc_degrees_title, R.string.tooldetail_calc_degrees_subtitle),
+    toolEntry(ToolbarTool.CALCULATOR, R.string.tooldetail_calc_precision_title, R.string.tooldetail_calc_precision_subtitle),
+    toolEntry(ToolbarTool.UNIT_CONVERT, R.string.tooldetail_units_smart_title, R.string.tooldetail_units_smart_subtitle),
+    toolEntry(ToolbarTool.CURRENCY, R.string.tooldetail_currency_smart_title),
+    toolEntry(ToolbarTool.CURRENCY, R.string.tooldetail_currency_decimals_title, R.string.tooldetail_currency_decimals_subtitle),
+    toolEntry(ToolbarTool.CURRENCY, R.string.tooldetail_currency_refresh_title, R.string.tooldetail_currency_refresh_subtitle),
+    toolEntry(ToolbarTool.QR_GEN, R.string.tooldetail_qr_gen_size_title, R.string.tooldetail_qr_gen_size_subtitle),
+    toolEntry(ToolbarTool.QR_GEN, R.string.tooldetail_qr_gen_send_title, R.string.tooldetail_qr_gen_send_subtitle),
+    toolEntry(ToolbarTool.QR_GEN, R.string.tooldetail_qr_gen_gallery_title, R.string.tooldetail_qr_gen_gallery_subtitle),
+    toolEntry(ToolbarTool.PASSWORD_GEN, R.string.tooldetail_password_length_title),
+    toolEntry(ToolbarTool.PASSWORD_GEN, R.string.tooldetail_password_uppercase_title, R.string.tooldetail_password_uppercase_subtitle),
+    toolEntry(ToolbarTool.PASSWORD_GEN, R.string.tooldetail_password_digits_title, R.string.tooldetail_password_digits_subtitle),
+    toolEntry(ToolbarTool.PASSWORD_GEN, R.string.tooldetail_password_symbols_title),
+    toolEntry(ToolbarTool.PASSWORD_GEN, R.string.tooldetail_password_ambiguous_title, R.string.tooldetail_password_ambiguous_subtitle),
+    toolEntry(ToolbarTool.PASSWORD_GEN, R.string.tooldetail_passphrase_words_title),
+    toolEntry(ToolbarTool.PASSWORD_GEN, R.string.tooldetail_passphrase_separator_label, R.string.tooldetail_passphrase_separator_hint),
+    toolEntry(
+        ToolbarTool.PASSWORD_GEN,
+        R.string.tooldetail_passphrase_capitalize_title,
+        R.string.tooldetail_passphrase_capitalize_subtitle,
     ),
-    entry("Sticker packs", "Your own sticker packs, images and all", "Backup", "backup", weight = EntryWeight.MIRROR),
-    entry("Sticker packs", "Make, edit, import and export packs of your own", tool = ToolbarTool.STICKER),
-    entry("New pack", "Then add stickers from your photos", "Tools › Stickers › Sticker packs", "sticker_packs"),
-    entry("Import a pack", "Opens a .wmstickers file someone shared", "Tools › Stickers › Sticker packs", "sticker_packs"),
-    entry("Allow plugins", "Turn the plugin sandbox on or off", "Tools › Plugins", "plugins"),
-    entry("Manage plugins", "See what's installed and what each one can do", "Tools › Plugins", "plugins"),
-    entry("Install from a file", "Opens a .wmplugin file someone shared", "Tools › Plugins", "plugins"),
-    entry("Full-screen picker", "Hide the toolbar and move search up next to a back button", tool = ToolbarTool.GIF),
-    entry("Full-screen picker", "Hide the toolbar and move search up next to a back button", tool = ToolbarTool.STICKER),
-    entry("Klipy API key", "Free from partner.klipy.com (Tenor's API was retired mid-2026)", tool = ToolbarTool.GIF),
-    entry("Klipy API key", "Free from partner.klipy.com (Tenor's API was retired mid-2026)", tool = ToolbarTool.STICKER),
-    entry("GIPHY API key", "Free from developers.giphy.com", tool = ToolbarTool.GIF),
-    entry("GIPHY API key", "Free from developers.giphy.com", tool = ToolbarTool.STICKER),
-    entry("Send stickers as", "What the sticker tool hands the chat app", tool = ToolbarTool.GIF),
-    entry("Send stickers as", "What the sticker tool hands the chat app", tool = ToolbarTool.STICKER),
-    entry("Send GIFs as", "Images by default — most chat apps animate them", tool = ToolbarTool.GIF),
-    entry("Send GIFs as", "Images by default — most chat apps animate them", tool = ToolbarTool.STICKER),
-    entry("Brave API key", "From api-dashboard.search.brave.com — monthly free credit", tool = ToolbarTool.WEB_SEARCH),
-    entry("Brave API key", "From api-dashboard.search.brave.com — monthly free credit", tool = ToolbarTool.IMAGE_SEARCH),
-    entry("SafeSearch", "Filter explicit results", tool = ToolbarTool.WEB_SEARCH),
-    entry("SafeSearch", "Filter explicit results", tool = ToolbarTool.IMAGE_SEARCH),
-    entry("Results per search", "Each search uses one API request either way", tool = ToolbarTool.WEB_SEARCH),
-    entry("Results per search", "Each search uses one API request either way", tool = ToolbarTool.IMAGE_SEARCH),
-    entry(
-        "Start with everything selected",
-        "Deselect words to trim the capture. Off starts empty and words are picked one by one.",
-        tool = ToolbarTool.OCR,
-    ),
-    entry("Insert automatically", "Type the code's text the moment one is spotted, no confirm tap", tool = ToolbarTool.QR_SCAN),
-    entry("Vibrate on detection", "A short buzz when a code is spotted", tool = ToolbarTool.QR_SCAN),
-    entry("Save to gallery", "Also keep scanned pages in Pictures/WM Keyboard", tool = ToolbarTool.DOC_SCAN),
-    entry("Compact bar", "Dictate over the keys instead of a full panel", tool = ToolbarTool.VOICE),
-    entry("Keep listening", "Start the next sentence automatically after each one commits", tool = ToolbarTool.VOICE),
-    entry("Spoken punctuation", "Saying \"comma\", \"question mark\" or \"দাঁড়ি\" types the mark", tool = ToolbarTool.VOICE),
-    entry("English dialect", "Spelling and style conventions to lint against", tool = ToolbarTool.GRAMMAR),
-    entry(
-        "Re-check delay",
-        "Pause after typing stops before issues refresh — lower feels snappier, higher churns less",
-        tool = ToolbarTool.GRAMMAR,
-    ),
-    entry("Use Harper everywhere", "Set WM Keyboard as Android's spell checker", tool = ToolbarTool.GRAMMAR),
-    entry("Wikipedia language", "Subdomain code: en, bn, de, fr, es …", tool = ToolbarTool.WIKIPEDIA),
-    entry("Markdown links", "Insert links as [Title](url) instead of the bare URL", tool = ToolbarTool.WIKIPEDIA),
-    entry("Calculate as you type", "Offer the result on the strip when you type a sum", tool = ToolbarTool.CALCULATOR),
-    entry("Degrees", "Trig functions use degrees; off = radians", tool = ToolbarTool.CALCULATOR),
-    entry("Result precision", "Maximum decimal places (also used by the unit converter)", tool = ToolbarTool.CALCULATOR),
-    entry("Convert as you type", "Offer the conversion on the strip when you type a measurement", tool = ToolbarTool.UNIT_CONVERT),
-    entry("Convert as you type", "", tool = ToolbarTool.CURRENCY),
-    entry("Decimal places", "Rounding of the converted amount", tool = ToolbarTool.CURRENCY),
-    entry("Refresh rates every", "How long fetched exchange rates stay fresh", tool = ToolbarTool.CURRENCY),
-    entry("Image size", "Side length of the inserted PNG", tool = ToolbarTool.QR_GEN),
-    entry("Send as", "QR codes go out as images by default", tool = ToolbarTool.QR_GEN),
-    entry("Save to gallery", "Also keep generated codes in Pictures/WM Keyboard", tool = ToolbarTool.QR_GEN),
-    entry("Length", "", tool = ToolbarTool.PASSWORD_GEN),
-    entry("Uppercase letters", "A–Z", tool = ToolbarTool.PASSWORD_GEN),
-    entry("Digits", "0–9", tool = ToolbarTool.PASSWORD_GEN),
-    entry("Symbols", "", tool = ToolbarTool.PASSWORD_GEN),
-    entry("Exclude look-alikes", "Skip Il1O0o5S8B and similar", tool = ToolbarTool.PASSWORD_GEN),
-    entry("Words", "", tool = ToolbarTool.PASSWORD_GEN),
-    entry("Separator", "Between words, e.g. - or . (blank = none)", tool = ToolbarTool.PASSWORD_GEN),
-    entry("Capitalize words", "correct-Horse → Correct-Horse", tool = ToolbarTool.PASSWORD_GEN),
-    entry("Include a digit", "Appended to a random word", tool = ToolbarTool.PASSWORD_GEN),
-    entry("Edit keyboard modes", "Per-app and per-field setups, and what each one changes", tool = ToolbarTool.MODES),
-    entry("Seconds", "", tool = ToolbarTool.TYPING_TEST),
-    entry("Words", "", tool = ToolbarTool.TYPING_TEST),
-    entry("Punctuation", "Capitals, commas and full stops in the prompt", tool = ToolbarTool.TYPING_TEST),
-    entry("Numbers", "Mixes numerals into the word list", tool = ToolbarTool.TYPING_TEST),
-    entry("Clear records", "Deletes every best score and the run history", tool = ToolbarTool.TYPING_TEST),
-    entry("Anthropic API key", "From console.anthropic.com → API keys", tool = ToolbarTool.AI),
-    entry("Model", "", tool = ToolbarTool.AI),
-    entry("OpenAI API key", "From platform.openai.com → API keys", tool = ToolbarTool.AI),
-    entry("Gemini API key", "Free tier from aistudio.google.com", tool = ToolbarTool.AI),
-    entry("Server address", "e.g. http://192.168.0.10:11434 (your computer's LAN IP)", tool = ToolbarTool.AI),
-    entry(
-        "Max response length",
-        "Upper bound in tokens (≈ ¾ of a word each). Reasoning models " +
-            "automatically get 4× this, since their thinking is spent from the same budget.",
-        tool = ToolbarTool.AI,
-    ),
-    entry("Translate action's target language", "e.g. English, Bengali, Japanese", tool = ToolbarTool.AI),
-    entry("Show model reasoning", "Stream reasoning models' <think> passages instead of a progress bar", tool = ToolbarTool.AI),
-    entry(
-        "Model picker on the panel",
-        "Switch between configured providers and downloaded models right on the keyboard",
-        tool = ToolbarTool.AI,
-    ),
-    entry("Translate into", "Source language is auto-detected; also changeable from the panel", tool = ToolbarTool.TRANSLATE),
-    entry("Learn from typing", "Personalize suggestions on-device. Nothing ever leaves your phone.", "Privacy", "privacy"),
-    entry("Add words to the system dictionary", "Share learned words with Android's personal dictionary", "Privacy", "privacy"),
-    entry("Expand dictionary shortcuts", "Type a shortcut, get its full phrase as a suggestion", "Privacy", "privacy"),
-    entry("Incognito mode", "Pause learning and clipboard capture", "Privacy", "privacy"),
-    entry("Follow private browsing", "Turn incognito on by itself in private tabs and fields", "Privacy", "privacy"),
-    entry("Back up with Android", "Include the keyboard in Android's own backup and phone-to-phone transfer", "Privacy", "privacy"),
-    entry("Symbol row", "A row of special characters and snippets above the keys", "Rows & bars", "rows"),
-    entry("Drags edit the active mode", "Hold-and-drag on the keyboard saves into the mode that is on", "Keyboard modes", "modes"),
-    entry("Name", "Shown in the Modes tool", "Edit mode", "modes"),
-    entry("Emoji row", "While this mode is active", "Edit mode", "modes"),
-    entry("Symbol row", "Inherit", "Edit mode", "modes"),
-    entry("Custom pinned tools", "Change the toolbar's pinned tools while active", "Edit mode", "modes"),
-    entry("Pinned tools behaviour", "Added after the tools you pinned yourself", "Edit mode", "modes"),
-    entry("Custom toolbox order", "Float this mode's tools to the front of the toolbox panel", "Edit mode", "modes"),
-    entry("Custom symbol sets", "The symbol row offers only this mode's sets while active", "Edit mode", "modes"),
-    entry("Colour vision", "Adjust the palette for colour blindness", "Accessibility", "accessibility"),
-    entry("High contrast keys", "Maximum-contrast labels on a plain black or white board", "Accessibility", "accessibility"),
-    entry("Key outlines", "Draw a border around every key", "Accessibility", "accessibility"),
-    entry("Bold key labels", "Heavier letters on the keys", "Accessibility", "accessibility"),
-    entry("Readable font", "", "Accessibility", "accessibility"),
-    entry("Text size", "Size of the labels on the keys", "Accessibility", "accessibility"),
-    entry("Keyboard font", "Browse all fonts, or import your own", "Accessibility", "accessibility"),
-    entry("Reduce motion", "Remove non-essential animation", "Accessibility", "accessibility"),
-    entry("TalkBack support", "How keys are announced", "Accessibility", "accessibility"),
-    entry(
-        "Keyboard gestures service",
-        "Keep the keyboard's own gestures working with a screen reader",
-        "Accessibility",
-        "accessibility",
-    ),
-    entry("Ignore repeated presses", "Off — every press registers", "Accessibility", "accessibility"),
-    entry("Long-press delay", "How long to hold a key before its alternates open", "Accessibility", "accessibility"),
-    entry("Key size & spacing", "Taller keys and wider gaps are easier to hit accurately", "Accessibility", "accessibility"),
-    entry("Haptics & sound", "Confirm each key press by feel or by ear", "Accessibility", "accessibility"),
-    entry("Version", "", "About", "about"),
-    entry("Licence", "MIT — © 2026 Wasi Master", "About", "about"),
-    entry("Source code", "https://", "About", "about"),
-    // Open-source licences has its own screen, indexed once in SectionRows.
-    entry("User guide", "Documentation for every feature", "About", "about"),
-    entry("Privacy policy", "What leaves the device, what never does", "About", "about"),
-    entry(
-        "Diagnostics",
-        "What the keyboard recorded about itself — read it, or send it with a bug report",
-        "About",
-        "debug_log",
-    ),
-    entry(
-        "Dictionaries",
-        "The seed bigrams, loanword map and offensive-word list are hand-curated for this project; " +
-            "downloadable wordlists keep their sources' licences",
-        "About",
-        "about",
-    ),
-    entry("Colorful tool icons", "Tint each tool its own accent colour in Settings and the toolbox", "Tools", "tools"),
+    toolEntry(ToolbarTool.PASSWORD_GEN, R.string.tooldetail_passphrase_digit_title, R.string.tooldetail_passphrase_digit_subtitle),
+    toolEntry(ToolbarTool.MODES, R.string.tooldetail_modes_edit_title, R.string.tooldetail_modes_edit_subtitle),
+    toolEntry(ToolbarTool.TYPING_TEST, R.string.toolai_typing_seconds_label),
+    toolEntry(ToolbarTool.TYPING_TEST, R.string.toolai_typing_words_label),
+    toolEntry(ToolbarTool.TYPING_TEST, R.string.toolai_typing_punctuation_title, R.string.toolai_typing_punctuation_subtitle),
+    toolEntry(ToolbarTool.TYPING_TEST, R.string.toolai_typing_numbers_title, R.string.toolai_typing_numbers_subtitle),
+    toolEntry(ToolbarTool.TYPING_TEST, R.string.toolai_typing_clear_records_title, R.string.toolai_typing_clear_records_subtitle),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_anthropic_key_label, R.string.toolai_ai_anthropic_key_hint),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_model_label),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_openai_key_label, R.string.toolai_ai_openai_key_hint),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_gemini_key_label, R.string.toolai_ai_gemini_key_hint),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_server_address_label, R.string.toolai_ai_ollama_url_hint),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_max_tokens_title, R.string.toolai_ai_max_tokens_subtitle),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_translate_to_label, R.string.toolai_ai_translate_to_hint),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_show_thinking_title, R.string.toolai_ai_show_thinking_subtitle),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_model_picker_title, R.string.toolai_ai_model_picker_subtitle),
+    toolEntry(ToolbarTool.TRANSLATE, R.string.toolai_translate_into_title, R.string.toolai_translate_into_subtitle),
 )
 
 /**
- * The destinations: the settings home's own list, plus the screens that hang
- * off it. They are searchable in their own right so that "themes" finds the
- * themes screen and not only the rows inside it, and they carry
- * [EntryWeight.SECTION] so the screen a word names outranks a row — or a
- * toolbar shortcut — that merely mentions it.
+ * Rows on Backup, on the sticker and plugin screens, and on Privacy, Rows &
+ * bars, Keyboard modes, Accessibility, About and Tools.
  */
-private val SectionRows: List<SettingsSearchEntry> = listOf(
-    entry("Typing", "Autocorrect, suggestions, gestures", "Settings", "typing"),
-    entry("Key press", "Haptics, key popup, long-press shortcuts", "Settings", "keypress"),
-    entry("Languages", "Add, remove and reorder your typing languages", "Settings", "languages"),
-    entry("Appearance", "Themes, fonts, toolbar style", "Settings", "appearance"),
-    entry("Layout & size", "Key size, number row, one-handed, split & floating", "Settings", "layout"),
-    entry("Key layouts", "Design your own key grid, Ctrl/Alt keys, import & export", "Settings", "keymaps"),
-    entry("Rows & bars", "Symbol row, emoji row, row order & symbol sets", "Settings", "rows"),
-    entry("Keyboard modes", "Per-app setups: email, browser, coding, passwords", "Settings", "modes"),
-    entry("Emoji", "Suggestions, emoji row, emoji style, favourites", "Settings", "emoji"),
-    entry("Tools", "Flashlight, compass, snippets, calendar & more", "Settings", "tools"),
-    entry("Addons", "Install themes, layouts, fonts and more from the web", "Settings", "addons"),
-    entry("Accessibility", "Contrast, colour vision, TalkBack, reduced motion", "Settings", "accessibility"),
-    entry("Privacy", "On-device learning, incognito", "Settings", "privacy"),
-    entry("Backup & restore", "Export your settings to a file, or restore them", "Settings", "backup"),
-    entry("About", "Version, licence, open-source notices", "Settings", "about"),
-    entry("Keyboard themes", "Light/dark/AMOLED, colours, background images", "Appearance", "themes"),
-    entry("Keyboard font", "Google Fonts, or import your own font file", "Appearance", "fonts"),
-    entry("Icons", "Swap any tool or key icon, or install an icon pack", "Appearance", "icons"),
-    entry("Personal dictionary", "Words the keyboard has learned", "Typing", "dictionary"),
-    entry("Custom dictionaries", "Import your own word lists, per language", "Typing", "customdictionaries"),
-    entry("Emoji keywords", "Download or import keyword packs so emoji search works in your language", "Emoji", "emojikeywords"),
-    entry("Suggestion blacklist", "Words to never suggest or autocorrect to", "Typing", "blacklist"),
-    entry("Tool shortcuts list", "Which letter opens which tool from a physical keyboard", "Typing", "hwshortcuts"),
-    entry("Open-source licences", "Libraries and data bundled in this build", "About", "licenses"),
-).map { it.copy(weight = EntryWeight.SECTION) }
+private fun Resources.otherRows(): List<SettingsSearchEntry> {
+    fun backup(@StringRes title: Int, @StringRes subtitle: Int) =
+        entry(title, subtitle, R.string.home_backup_title, "backup", weight = EntryWeight.MIRROR)
+    fun stickerPack(@StringRes title: Int, @StringRes subtitle: Int) = entry(
+        title, subtitle, R.string.home_screen_sticker_packs_title, "sticker_packs",
+        screenParent = toolTitle(ToolbarTool.STICKER),
+        screenRoot = R.string.home_tools_title,
+    )
+    fun plugin(@StringRes title: Int, @StringRes subtitle: Int) = entry(
+        title, subtitle, R.string.home_screen_plugins_title, "plugins",
+        screenParent = R.string.home_tools_title,
+    )
+    fun privacy(@StringRes title: Int, @StringRes subtitle: Int) =
+        entry(title, subtitle, R.string.home_privacy_title, "privacy")
+    fun mode(@StringRes title: Int, @StringRes subtitle: Int = 0) =
+        entry(title, subtitle, R.string.home_screen_mode_edit_title, "modes")
+    fun access(@StringRes title: Int, @StringRes subtitle: Int = 0) =
+        entry(title, subtitle, R.string.home_accessibility_title, "accessibility")
+    fun about(@StringRes title: Int, @StringRes subtitle: Int = 0) =
+        entry(title, subtitle, R.string.home_about_title, "about")
+    return listOf(
+        backup(R.string.backup_include_secrets_title, R.string.backup_include_secrets_subtitle),
+        backup(R.string.backup_section_stickers_label, R.string.backup_include_stickers_subtitle),
+        stickerPack(R.string.import_sticker_pack_new_title, R.string.import_sticker_pack_new_subtitle),
+        stickerPack(R.string.import_sticker_pack_import_title, R.string.import_sticker_pack_import_subtitle),
+        plugin(R.string.plugins_allow_title, R.string.plugins_allow_subtitle),
+        plugin(R.string.tooldetail_plugins_manage_title, R.string.tooldetail_plugins_manage_subtitle),
+        plugin(R.string.plugins_install_file_title, R.string.plugins_install_file_subtitle),
+        privacy(R.string.privacy_learn_typing_title, R.string.privacy_learn_typing_subtitle),
+        privacy(R.string.privacy_system_dictionary_title, R.string.privacy_system_dictionary_subtitle),
+        privacy(R.string.privacy_dict_shortcuts_title, R.string.privacy_dict_shortcuts_subtitle),
+        privacy(R.string.privacy_incognito_title, R.string.privacy_incognito_subtitle),
+        privacy(R.string.privacy_auto_incognito_title, R.string.privacy_auto_incognito_subtitle),
+        privacy(R.string.privacy_backup_title, R.string.privacy_backup_subtitle),
+        entry(R.string.rows_symbol_row_title, R.string.rows_symbol_row_subtitle, R.string.home_rows_title, "rows"),
+        entry(R.string.modes_drag_edits_title, R.string.modes_drag_edits_subtitle, R.string.home_modes_title, "modes"),
+        mode(R.string.modes_name_label, R.string.modes_name_hint),
+        mode(R.string.modes_emoji_row_title, R.string.modes_active_subtitle),
+        mode(R.string.modes_symbol_row_title),
+        mode(R.string.modes_pinned_tools_title, R.string.modes_pinned_tools_subtitle),
+        mode(R.string.modes_pinned_behaviour_title, R.string.modes_pinned_behaviour_append_subtitle),
+        mode(R.string.modes_toolbox_order_title, R.string.modes_toolbox_order_subtitle),
+        mode(R.string.modes_symbol_sets_title, R.string.modes_symbol_sets_subtitle),
+        access(R.string.accessibility_color_vision_title, R.string.accessibility_color_vision_subtitle),
+        access(R.string.accessibility_high_contrast_title, R.string.accessibility_high_contrast_subtitle),
+        access(R.string.accessibility_key_outlines_title, R.string.accessibility_key_outlines_subtitle),
+        access(R.string.accessibility_bold_labels_title, R.string.accessibility_bold_labels_subtitle),
+        access(R.string.accessibility_readable_font_title),
+        access(R.string.accessibility_text_size_title, R.string.accessibility_text_size_subtitle),
+        access(R.string.accessibility_keyboard_font_title, R.string.accessibility_keyboard_font_subtitle),
+        access(R.string.accessibility_reduce_motion_title, R.string.accessibility_reduce_motion_subtitle),
+        access(R.string.accessibility_talkback_title, R.string.accessibility_talkback_subtitle),
+        access(R.string.accessibility_passthrough_service_title),
+        access(R.string.accessibility_debounce_title, R.string.accessibility_debounce_subtitle_off),
+        access(R.string.accessibility_long_press_title, R.string.accessibility_long_press_subtitle),
+        access(R.string.accessibility_key_size_title, R.string.accessibility_key_size_subtitle),
+        access(R.string.accessibility_haptics_title, R.string.accessibility_haptics_subtitle),
+        about(R.string.about_version_title),
+        about(R.string.about_licence_title),
+        about(R.string.about_source_title),
+        // Open-source licences has its own screen, indexed once in sectionRows.
+        about(R.string.about_user_guide_title),
+        about(R.string.about_privacy_policy_title, R.string.about_privacy_policy_subtitle),
+        entry(R.string.about_diagnostics_title, R.string.about_diagnostics_subtitle, R.string.home_about_title, "debug_log"),
+        about(R.string.about_dictionaries_title, R.string.about_dictionaries_subtitle),
+        entry(R.string.tools_colored_icons_title, R.string.tools_colored_icons_subtitle, R.string.home_tools_title, "tools"),
+    )
+}
+
+/** The destinations: the settings home's own list, plus the screens that hang off it. */
+private fun Resources.sectionRows(): List<SettingsSearchEntry> {
+    fun home(@StringRes title: Int, @StringRes subtitle: Int = 0, route: String) =
+        entry(title, subtitle, CommonR.string.common_settings, route, weight = EntryWeight.SECTION)
+    fun under(@StringRes title: Int, @StringRes subtitle: Int, @StringRes screen: Int, route: String) =
+        entry(title, subtitle, screen, route, weight = EntryWeight.SECTION)
+    return listOf(
+        home(R.string.home_typing_title, R.string.home_typing_subtitle, route = "typing"),
+        home(R.string.home_keypress_title, R.string.home_keypress_subtitle, route = "keypress"),
+        home(R.string.home_languages_title, R.string.search_languages_subtitle, route = "languages"),
+        home(R.string.home_appearance_title, R.string.home_appearance_subtitle, route = "appearance"),
+        home(R.string.home_layout_title, R.string.home_layout_subtitle, route = "layout"),
+        home(R.string.home_keymaps_title, R.string.home_keymaps_subtitle, route = "keymaps"),
+        home(R.string.home_rows_title, R.string.home_rows_subtitle, route = "rows"),
+        home(R.string.home_modes_title, R.string.home_modes_subtitle, route = "modes"),
+        home(R.string.home_emoji_title, R.string.home_emoji_subtitle, route = "emoji"),
+        home(R.string.home_tools_title, R.string.home_tools_subtitle, route = "tools"),
+        home(R.string.home_addons_title, R.string.home_addons_subtitle, route = "addons"),
+        home(R.string.home_accessibility_title, R.string.home_accessibility_subtitle, route = "accessibility"),
+        home(R.string.home_privacy_title, R.string.home_privacy_subtitle, route = "privacy"),
+        home(R.string.home_backup_title, R.string.home_backup_subtitle, route = "backup"),
+        home(R.string.home_about_title, R.string.home_about_subtitle, route = "about"),
+        under(R.string.appearance_themes_title, R.string.appearance_themes_subtitle, R.string.home_appearance_title, "themes"),
+        under(R.string.appearance_font_title, R.string.appearance_font_subtitle, R.string.home_appearance_title, "fonts"),
+        under(R.string.appearance_icons_title, R.string.appearance_icons_subtitle, R.string.home_appearance_title, "icons"),
+        under(
+            R.string.typing_personal_dictionary_title,
+            R.string.typing_personal_dictionary_subtitle,
+            R.string.home_typing_title,
+            "dictionary",
+        ),
+        under(
+            R.string.typing_custom_dictionaries_title,
+            R.string.typing_custom_dictionaries_subtitle,
+            R.string.home_typing_title,
+            "customdictionaries",
+        ),
+        under(
+            R.string.langemoji_emoji_keywords_title,
+            R.string.langemoji_emoji_keywords_subtitle,
+            R.string.home_emoji_title,
+            "emojikeywords",
+        ),
+        under(R.string.typing_blacklist_title, R.string.typing_blacklist_subtitle, R.string.home_typing_title, "blacklist"),
+        under(
+            R.string.typing_hw_shortcuts_list_title,
+            R.string.typing_hw_shortcuts_list_subtitle,
+            R.string.home_typing_title,
+            "hwshortcuts",
+        ),
+        under(R.string.about_licences_title, R.string.about_licences_subtitle, R.string.home_about_title, "licenses"),
+    )
+}
 
 /** Rows that live on one of those screens rather than naming it. */
-private val SectionChildRows: List<SettingsSearchEntry> = listOf(
-    entry("Installed fonts", "Fonts added from Addons or imported from a file", "Appearance › Fonts", "fonts"),
-    entry("Download automatically", "Fetch emoji keywords for the languages you type", "Emoji › Emoji keywords", "emojikeywords"),
+private fun Resources.sectionChildRows(): List<SettingsSearchEntry> = listOf(
+    entry(R.string.fonts_installed_header, 0, R.string.home_screen_fonts_title, "fonts", screenParent = R.string.home_appearance_title),
+    entry(
+        R.string.customdict_emoji_auto_download_title,
+        R.string.customdict_emoji_auto_download_subtitle,
+        R.string.home_screen_emoji_keywords_title,
+        "emojikeywords",
+        screenParent = R.string.home_emoji_title,
+    ),
 )
 
 /**
  * The tools themselves, derived from the enum rather than listed, so a new
- * tool is searchable the moment it has a title — no index edit needed.
+ * tool is searchable the moment it has a title. No index edit needed.
  */
-private val ToolRows: List<SettingsSearchEntry>
-    get() = ToolbarTool.entries.filter(::isSupportedTool).map { tool ->
-        SettingsSearchEntry(toolTitle(tool), toolDescription(tool), "Tools", "tool/${tool.name}", tool = tool)
+private fun Resources.toolRows(): List<SettingsSearchEntry> =
+    ToolbarTool.entries.filter(::isSupportedTool).map { tool ->
+        toolEntry(tool, toolTitle(tool), toolDescription(tool))
     }
 
 /**
- * The whole searchable surface. Tool-detail rows for tools this build cannot
- * provide (the lite flavor drops the ML Kit ones) are filtered out, because
- * their screens are unreachable.
+ * The whole searchable surface, in the language [res] is configured for.
+ *
+ * Build it once per screen, keyed on the context, and hand the result to
+ * [searchSettings]. Tool-detail rows for tools this build cannot provide (the
+ * lite flavor drops the ML Kit ones) are filtered out, because their screens
+ * are unreachable.
  */
-internal val SettingsSearchIndex: List<SettingsSearchEntry> by lazy {
+internal fun settingsSearchIndex(res: Resources): List<SettingsSearchEntry> = with(res) {
     val unsupported = ToolbarTool.entries.filterNot(::isSupportedTool)
         .map { "tool/${it.name}" }.toSet()
-    (SectionRows + ToolRows + SectionChildRows + SettingRows).filterNot { it.route in unsupported }
+    val all = sectionRows() + toolRows() + sectionChildRows() + typingRows() + keyPressRows() +
+        appearanceRows() + layoutRows() + emojiRows() + toolPageRowsA() + toolPageRowsB() + otherRows()
+    all.filterNot { it.route in unsupported }
 }
 
 /**
  * Scores [entry] against an already-lowercased [token]. Higher is better;
- * zero means the token is absent, which disqualifies the whole entry — every
+ * zero means the token is absent, which disqualifies the whole entry: every
  * token must land somewhere, so "emoji row" does not match every emoji row.
  */
 private fun score(entry: SettingsSearchEntry, token: String): Int {
@@ -596,15 +704,15 @@ private fun score(entry: SettingsSearchEntry, token: String): Int {
 }
 
 /**
- * Ranked matches for [query]. The raw match score is scaled by the entry's
- * [EntryWeight], so a destination screen beats a row that names it just as
- * well and a backup toggle sinks below the feature it backs up. Ties break on
- * title length so the plainest setting with a matching name floats above the
+ * Ranked matches for [query] over [index]. The raw match score is scaled by the
+ * entry's [EntryWeight], so a destination screen beats a row that names it just
+ * as well and a backup toggle sinks below the feature it backs up. Ties break
+ * on title length so the plainest setting with a matching name floats above the
  * wordier ones.
  */
 internal fun searchSettings(
     query: String,
-    index: List<SettingsSearchEntry> = SettingsSearchIndex,
+    index: List<SettingsSearchEntry>,
 ): List<SettingsSearchEntry> {
     val tokens = query.trim().lowercase().split(' ').filter { it.isNotEmpty() }
     if (tokens.isEmpty()) return emptyList()

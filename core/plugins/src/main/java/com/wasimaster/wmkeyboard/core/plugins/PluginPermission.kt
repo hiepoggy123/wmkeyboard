@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.plugins
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.plugins.R
+
 /**
  * What a plugin may do beyond drawing inside its own panel.
  *
@@ -34,8 +37,13 @@ sealed interface PluginPermission {
     /** The exact string a manifest declares. */
     val wire: String
 
-    /** One line for the "This plugin can" list, shown before install and in settings. */
-    val label: String
+    /**
+     * One line for the "This plugin can" list, shown before install and in
+     * settings. A resource id rather than the words themselves: this module has
+     * no Context, so the screen that draws the list resolves it.
+     */
+    @get:StringRes
+    val labelRes: Int
 
     /**
      * Per-plugin key/value storage under the plugin's own directory, exposed to
@@ -48,7 +56,9 @@ sealed interface PluginPermission {
      */
     data object Storage : PluginPermission {
         override val wire: String = "storage"
-        override val label: String = "Save data on this device"
+
+        @StringRes
+        override val labelRes: Int = R.string.core_plugins_permission_storage_label
     }
 
     companion object {

@@ -31,11 +31,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.TextEditAction
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -72,7 +75,7 @@ internal fun TextEditPanel(
             // Left arrow spans the full cluster height, like Gboard.
             EditKey(
                 icon = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
-                description = "Move left",
+                description = stringResource(R.string.ime_textedit_left_desc),
                 modifier = Modifier
                     .weight(0.8f)
                     .fillMaxHeight(),
@@ -87,7 +90,7 @@ internal fun TextEditPanel(
             ) {
                 EditKey(
                     icon = Icons.Outlined.KeyboardArrowUp,
-                    description = "Move up",
+                    description = stringResource(R.string.ime_textedit_up_desc),
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
@@ -95,8 +98,8 @@ internal fun TextEditPanel(
                     repeatIntervalMs = repeatMs,
                 ) { onAction(TextEditAction.UP) }
                 EditKey(
-                    label = "Select",
-                    description = "Toggle selection mode",
+                    label = stringResource(R.string.ime_textedit_select_label),
+                    description = stringResource(R.string.ime_textedit_select_desc),
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
@@ -104,7 +107,7 @@ internal fun TextEditPanel(
                 ) { onAction(TextEditAction.SELECT) }
                 EditKey(
                     icon = Icons.Outlined.KeyboardArrowDown,
-                    description = "Move down",
+                    description = stringResource(R.string.ime_textedit_down_desc),
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
@@ -114,7 +117,7 @@ internal fun TextEditPanel(
             }
             EditKey(
                 icon = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                description = "Move right",
+                description = stringResource(R.string.ime_textedit_right_desc),
                 modifier = Modifier
                     .weight(0.8f)
                     .fillMaxHeight(),
@@ -129,24 +132,24 @@ internal fun TextEditPanel(
             ) {
                 EditKey(
                     icon = Icons.Outlined.SelectAll,
-                    label = "Select all",
-                    description = "Select all",
+                    label = stringResource(CommonR.string.common_select_all),
+                    description = stringResource(CommonR.string.common_select_all),
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
                 ) { onAction(TextEditAction.SELECT_ALL) }
                 EditKey(
                     icon = Icons.Outlined.ContentCopy,
-                    label = "Copy",
-                    description = "Copy",
+                    label = stringResource(CommonR.string.common_copy),
+                    description = stringResource(CommonR.string.common_copy),
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
                 ) { onAction(TextEditAction.COPY) }
                 EditKey(
                     icon = Icons.Outlined.ContentPaste,
-                    label = "Paste",
-                    description = "Paste",
+                    label = stringResource(CommonR.string.common_paste),
+                    description = stringResource(CommonR.string.common_paste),
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
@@ -161,21 +164,21 @@ internal fun TextEditPanel(
         ) {
             EditKey(
                 icon = Icons.Outlined.FirstPage,
-                description = "Move to line start",
+                description = stringResource(R.string.ime_textedit_home_desc),
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
             ) { onAction(TextEditAction.HOME) }
             EditKey(
                 icon = Icons.AutoMirrored.Outlined.LastPage,
-                description = "Move to line end",
+                description = stringResource(R.string.ime_textedit_end_desc),
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
             ) { onAction(TextEditAction.END) }
             EditKey(
                 icon = Icons.AutoMirrored.Outlined.Backspace,
-                description = "Delete",
+                description = stringResource(CommonR.string.common_delete),
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),

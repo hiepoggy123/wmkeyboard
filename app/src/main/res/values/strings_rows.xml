@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ===================================================================
+         Snippets screen: the template-variable reference card and the
+         dialog that creates or edits one snippet.
+         =================================================================== -->
+
+    <!-- Stands in for the name of the app in the preview of a snippet. -->
+    <string name="rows_snippet_preview_app_name">this app</string>
+
+    <!-- Shown under a template variable. %1$s is the value the variable
+         produces, for example a date or a piece of text. -->
+    <string name="rows_snippet_variable_example">For example: %1$s</string>
+    <!-- Example value for the {clip} variable. -->
+    <string name="rows_snippet_sample_clip">the last text you copied</string>
+    <!-- Example value for the {selection} variable. -->
+    <string name="rows_snippet_sample_selection">the text you selected</string>
+    <!-- Example value for the {cursor} variable, which inserts no text. -->
+    <string name="rows_snippet_sample_cursor">nothing. The cursor moves to this point</string>
+
+    <string name="rows_snippet_new_title">New snippet</string>
+    <string name="rows_snippet_edit_title">Edit snippet</string>
+    <string name="rows_snippet_label_label">Label</string>
+    <!-- Text field label. The names in braces are variable tokens the user
+         types. Keep them exactly as they are. -->
+    <string name="rows_snippet_text_label">Text (supports {date} {time} {clip} {app} {cursor} …)</string>
+    <string name="rows_snippet_trigger_label">Trigger word (optional)</string>
+    <string name="rows_snippet_trigger_body">The keyboard expands this word to the text above when you type it alone.</string>
+
+    <!-- ===================================================================
+         Rows screen: which rows sit above the keys, and in what order.
+         =================================================================== -->
+
+    <string name="rows_bar_topbar_title">Suggestions and toolbar</string>
+    <string name="rows_bar_emoji_title">Emoji row</string>
+    <string name="rows_bar_topbar_subtitle">Always shown</string>
+    <string name="rows_bar_emoji_off_subtitle">Off. Turn it on in Emoji settings</string>
+    <string name="rows_bar_emoji_button_subtitle">Behind a toolbar button</string>
+    <string name="rows_bar_emoji_always_subtitle">Own row</string>
+
+    <string name="rows_symbol_row_title">Symbol row</string>
+    <string name="rows_symbol_row_subtitle">A row of special characters and snippets above the keys</string>
+    <string name="rows_symbol_row_info">The row shows one symbol set at a time. It can be @gmail.com and similar for email, https:// for the web, or brackets for coding. The chip at the left edge of the row changes the set. A keyboard mode can select a set for each app automatically.</string>
+
+    <string name="rows_row_order_title">Row order</string>
+    <string name="rows_row_order_caption">The rows stack from top to bottom in this order. A hidden row keeps its slot.</string>
+    <string name="rows_move_up_desc">Move up</string>
+    <string name="rows_move_down_desc">Move down</string>
+
+    <!-- ===================================================================
+         Symbol sets: the list on the Rows screen, and the set editor.
+         =================================================================== -->
+
+    <string name="rows_symbol_sets_title">Symbol sets</string>
+    <string name="rows_symbol_sets_caption">A checked set appears in the picker of the symbol row. When you edit a built-in set, the modes that use it keep its name. Reset a set to get the built-in characters back.</string>
+    <string name="rows_symbol_set_new_title">New symbol set</string>
+    <string name="rows_symbol_set_new_subtitle">Your own characters and snippets</string>
+    <string name="rows_symbol_set_edit_builtin_desc">Edit built-in set</string>
+    <string name="rows_symbol_set_edit_desc">Edit set</string>
+
+    <!-- Shown at the top of the editor for a set that ships with the app.
+         %1$s is the name of that set, for example Email or Coding. -->
+    <string name="rows_symbol_set_builtin_caption">This is a built-in set. Your changes override it. Everything that uses “%1$s” gets your changes. Press reset to get the original set back.</string>
+    <string name="rows_symbol_set_name_label">Name</string>
+    <string name="rows_symbol_set_chars_label">Characters and snippets</string>
+    <string name="rows_symbol_set_chars_hint">Put a space between entries. An entry is one character (© § →) or a whole snippet (@gmail.com https://).</string>
+    <string name="rows_symbol_set_reset_action">Reset set</string>
+    <string name="rows_symbol_set_delete_action">Delete set</string>
+    <!-- Name given to a new set when the user leaves the name box empty. -->
+    <string name="rows_symbol_set_default_name">My set</string>
+
+    <!-- ===================================================================
+         Keyboard modes: the one-line recap of when a mode switches on, and
+         the names of the field types a mode can bind to.
+         =================================================================== -->
+
+    <!-- How many apps a mode is bound to. %1$d is the count. -->
+    <plurals name="rows_mode_bindings_apps">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+    <!-- %1$s is a list of field type names in lower case, separated by commas. -->
+    <string name="rows_mode_bindings_fields">%1$s fields</string>
+    <string name="rows_mode_bindings_manual">Manual only, from the Modes tool</string>
+    <!-- %1$s lists what makes the mode switch on, for example "2 apps + email fields". -->
+    <string name="rows_mode_bindings_auto">Automatic: %1$s</string>
+
+    <string name="rows_mode_field_password_label">Password</string>
+    <string name="rows_mode_field_email_label">Email</string>
+    <string name="rows_mode_field_url_label">URL</string>
+    <string name="rows_mode_field_number_label">Number</string>
+    <string name="rows_mode_field_phone_label">Phone</string>
+    <string name="rows_mode_field_text_label">Text</string>
+
+    <!-- The same field type names, written the way they read inside a
+         sentence such as "Automatic: email, password fields". -->
+    <string name="rows_mode_field_password_lowercase_label">password</string>
+    <string name="rows_mode_field_email_lowercase_label">email</string>
+    <string name="rows_mode_field_url_lowercase_label">URL</string>
+    <string name="rows_mode_field_number_lowercase_label">number</string>
+    <string name="rows_mode_field_phone_lowercase_label">phone</string>
+    <string name="rows_mode_field_text_lowercase_label">text</string>
+
+    <!-- ===================================================================
+         Reorder dialog: drag rows into the order the user wants.
+         =================================================================== -->
+
+    <string name="rows_reorder_caption">Drag the handles to change the order. The item at the top of the list comes first.</string>
+    <!-- Position of a row in the list. %1$d is the number, counted from 1. -->
+    <string name="rows_reorder_position_label">%1$d.</string>
+    <!-- Screen reader label for the drag handle. %1$s is the name of the row. -->
+    <string name="rows_reorder_handle_desc">Reorder %1$s</string>
+    <string name="rows_reorder_empty_subtitle">Select two or more items above to set an order</string>
+
+</resources>

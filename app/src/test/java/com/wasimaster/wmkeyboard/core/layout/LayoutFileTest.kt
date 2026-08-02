@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import com.wasimaster.wmkeyboard.language.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -36,7 +37,7 @@ class LayoutFileTest {
         assertNotNull(imported)
         assertEquals(spec, imported!!.layout)
         assertEquals(12, imported.fromAppVersion)
-        assertEquals(emptyList<String>(), imported.repairs)
+        assertEquals(emptyList<LayoutMessage>(), imported.repairNotes)
     }
 
     /**
@@ -77,7 +78,7 @@ class LayoutFileTest {
         )
         val imported = LayoutFile.decode(encode(broken))
         assertNotNull(imported)
-        assertTrue(imported!!.repairs.isNotEmpty())
+        assertTrue(imported!!.repairNotes.isNotEmpty())
         assertTrue("and the result is safe to type on", imported.layout.canBeEnabled())
     }
 
@@ -115,7 +116,17 @@ class LayoutFileTest {
         """.trimIndent()
         val imported = LayoutFile.decode(text)
         assertNotNull("one strange key must not cost the whole file", imported)
-        assertTrue(imported!!.repairs.any { it.contains("teleport") })
+        // The note is checked by identity, not by its wording: the resource it
+        // names plus the arguments that carry the layer and the unknown tag.
+        // Asserting on the English would break the next time it is reworded.
+        val notes = imported!!.repairNotes
+        assertTrue(
+            "repair notes were $notes",
+            LayoutMessage(
+                R.string.core_lang_repair_unknown_key_deleted,
+                args = listOf(LayoutLayer.LETTERS.key, "teleport"),
+            ) in notes,
+        )
         assertTrue(
             imported.layout.layer(LayoutLayer.LETTERS)!!.rows.flatten()
                 .none { it.action is KeyAction.Unknown },

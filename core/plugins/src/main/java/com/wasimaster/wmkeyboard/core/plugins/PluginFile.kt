@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.plugins
 
+import com.wasimaster.wmkeyboard.plugins.R
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.zip.ZipEntry
@@ -13,8 +14,8 @@ sealed interface PluginImportResult {
     /** No manifest, or a manifest for something else entirely. */
     data object NotAPlugin : PluginImportResult
 
-    /** A plugin this build will not accept. [reason] is user-facing. */
-    data class Rejected(val reason: String) : PluginImportResult
+    /** A plugin this build will not accept. [reasonText] is user-facing. */
+    data class Rejected(val reasonText: PluginText) : PluginImportResult
 
     /** [PluginStore.MAX_PLUGINS] reached. */
     data object TooManyPlugins : PluginImportResult
@@ -156,31 +157,36 @@ object PluginFile {
         val manifestText = unpacked.manifest ?: return PluginImportResult.NotAPlugin
         val manifest = when (val read = PluginManifestCodec.read(manifestText)) {
             is PluginManifestResult.Ok -> read.manifest
-            is PluginManifestResult.Rejected -> return PluginImportResult.Rejected(read.reason)
+            is PluginManifestResult.Rejected -> return PluginImportResult.Rejected(read.reasonText)
             PluginManifestResult.NotAPlugin -> return PluginImportResult.NotAPlugin
         }
 
         val source = unpacked.lookUp(manifest.entry)
             ?: return PluginImportResult.Rejected(
-                "“${manifest.name}” is missing its script (${manifest.entry}).",
+                PluginText.of(R.string.core_plugins_reject_missing_script, manifest.name, manifest.entry),
             )
         if (source.isEmpty()) {
-            return PluginImportResult.Rejected("“${manifest.name}” has an empty script.")
+            return PluginImportResult.Rejected(
+                PluginText.of(R.string.core_plugins_reject_empty_script, manifest.name),
+            )
         }
         if (source.size > MAX_SCRIPT_BYTES) {
             return PluginImportResult.Rejected(
-                "“${manifest.name}” has a script larger than ${MAX_SCRIPT_BYTES / 1024} KB.",
+                PluginText.of(
+                    R.string.core_plugins_reject_script_too_large,
+                    manifest.name,
+                    MAX_SCRIPT_BYTES / 1024,
+                ),
             )
         }
         if (source[0] == LUA_SIGNATURE) {
             return PluginImportResult.Rejected(
-                "“${manifest.name}” ships compiled Lua. Plugins must be plain source " +
-                    "so their code can be read before it runs.",
+                PluginText.of(R.string.core_plugins_reject_compiled_lua, manifest.name),
             )
         }
         val script = runCatching { source.decodeToString(throwOnInvalidSequence = true) }.getOrNull()
             ?: return PluginImportResult.Rejected(
-                "“${manifest.name}” has a script that isn't valid UTF-8 text.",
+                PluginText.of(R.string.core_plugins_reject_bad_encoding, manifest.name),
             )
 
         return when (val adopted = store.adopt(manifest, script, now)) {

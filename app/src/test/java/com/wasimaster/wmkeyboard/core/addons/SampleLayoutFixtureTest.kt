@@ -4,6 +4,7 @@ import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
+import com.wasimaster.wmkeyboard.core.layout.LayoutMessage
 import com.wasimaster.wmkeyboard.core.layout.LayoutSeverity
 import com.wasimaster.wmkeyboard.core.layout.validateLayout
 import org.junit.Assert.assertEquals
@@ -31,13 +32,15 @@ class SampleLayoutFixtureTest {
         val imported = LayoutFile.decode(fixture("braille.wmlayout.json"))
         assertNotNull("the sample braille layout did not decode", imported)
         imported!!
-        assertEquals(emptyList<String>(), imported.repairs)
+        assertEquals(emptyList<LayoutMessage>(), imported.repairNotes)
 
         val findings = validateLayout(imported.layout)
+        // Compared as messages rather than as sentences: the list has to be
+        // empty, and an empty list of resource ids says so just as well.
         val blocking = findings
             .filter { it.severity == LayoutSeverity.BLOCKING }
-            .map { it.message }
-        assertEquals(emptyList<String>(), blocking)
+            .map { it.text }
+        assertEquals(emptyList<LayoutMessage>(), blocking)
     }
 
     @Test

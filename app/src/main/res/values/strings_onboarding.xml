@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- First-run onboarding wizard: the buttons that move between pages. -->
+    <string name="onboarding_finish_action">Finish</string>
+
+    <!-- Onboarding, welcome page. -->
+    <string name="onboarding_welcome_title">Welcome to WM Keyboard</string>
+    <!-- %1$d is the number of languages the app has built in. -->
+    <plurals name="onboarding_welcome_subtitle">
+        <item quantity="one">WM Keyboard works offline and types in many languages. It has %1$d language built in, with phonetic and native layouts, glide typing and themes. First, set it as your keyboard.</item>
+        <item quantity="other">WM Keyboard works offline and types in many languages. It has %1$d languages built in, with phonetic and native layouts, glide typing and themes. First, set it as your keyboard.</item>
+    </plurals>
+    <string name="onboarding_welcome_body">The next steps set up the choices that differ for each person: languages, look, feel and gestures. You can change all of them later in settings.</string>
+
+    <!-- Onboarding, languages page. -->
+    <string name="onboarding_languages_title">Your languages</string>
+    <!-- %1$d is the number of languages the app has built in. -->
+    <plurals name="onboarding_languages_subtitle">
+        <item quantity="one">Add as many languages as you want. Swipe on the spacebar to change language, or press the 🌐 key. All %1$d language is built in, so add the one you need now or later in Settings, then Languages.</item>
+        <item quantity="other">Add as many languages as you want. Swipe on the spacebar to change language, or press the 🌐 key. All %1$d languages are built in, so add the ones you need now or later in Settings, then Languages.</item>
+    </plurals>
+    <string name="onboarding_language_suggested_title">Suggested for you</string>
+    <string name="onboarding_language_suggested_info">These come from the language settings and the region of your device. The app does not read what you type, and no data leaves your device.</string>
+    <string name="onboarding_language_add_title">Add a language</string>
+    <string name="onboarding_language_search_hint">Search languages</string>
+    <!-- Screen reader label for the button that adds a language. %1$s is the English name of the language. -->
+    <string name="onboarding_language_add_desc">Add <xliff:g id="language" example="Bangla">%1$s</xliff:g></string>
+    <string name="onboarding_language_all_added">Every language is already in your list.</string>
+    <!-- Shown when the search finds nothing. %1$s is the text the user typed. -->
+    <string name="onboarding_language_no_match">No language matches “<xliff:g id="query" example="beng">%1$s</xliff:g>”.</string>
+    <!-- Shown when the list is cut off. %1$d is how many more languages match the search. -->
+    <plurals name="onboarding_language_more_count">
+        <item quantity="one">%1$d more language matches. Search to make the list shorter.</item>
+        <item quantity="other">%1$d more languages match. Search to make the list shorter.</item>
+    </plurals>
+
+    <!-- Onboarding, look and feel page. -->
+    <string name="onboarding_look_title">Look and feel</string>
+    <string name="onboarding_look_subtitle">Select how the keyboard and the app look. AMOLED is fully black for OLED screens. Material You takes its colors from your wallpaper.</string>
+    <!-- App theme choices. "Auto" follows the light or dark mode of the device. -->
+    <string name="onboarding_theme_mode_auto">Auto</string>
+    <string name="onboarding_theme_mode_light">Light</string>
+    <string name="onboarding_theme_mode_dark">Dark</string>
+    <string name="onboarding_theme_mode_amoled" translatable="false">AMOLED</string>
+    <string name="onboarding_dynamic_color_title">Material You colors</string>
+    <string name="onboarding_dynamic_color_subtitle">The keyboard takes its colors from your wallpaper. Android 12 and later only</string>
+    <string name="onboarding_keyboard_theme_title">Keyboard theme</string>
+    <!-- Name of the Android colour system. It is a brand name. -->
+    <string name="onboarding_keyboard_theme_material_you_label" translatable="false">Material You</string>
+    <string name="onboarding_keyboard_theme_info">You can find custom colors, background images, import and export in Appearance, then Keyboard themes.</string>
+    <string name="onboarding_rows_title">Rows above the keys</string>
+    <string name="onboarding_rows_body">The toolbar always shows. It holds the suggestions, the tools and the toolbox. You select whether to show the emoji row and the symbol row. You can change their order and their content later in Rows and bars.</string>
+    <string name="onboarding_emoji_row_label">Emoji row</string>
+    <!-- The emoji row appears only after you press a button on the toolbar. -->
+    <string name="onboarding_emoji_row_button">Button</string>
+    <!-- The emoji row is always there, as a row of its own. -->
+    <string name="onboarding_emoji_row_always">Own row</string>
+    <string name="onboarding_symbol_row_title">Symbol row</string>
+    <string name="onboarding_symbol_row_subtitle">One press for special characters and snippets, such as @gmail.com, https:// and brackets</string>
+
+    <!-- Onboarding, emoji page. It appears only when the font of the device cannot draw some emoji. -->
+    <string name="onboarding_emoji_title">Emoji</string>
+    <string name="onboarding_emoji_subtitle">Each device has its own emoji images. Old devices cannot draw the newest emoji, and they show an empty box instead.</string>
+    <!-- %1$d is how many emoji in the catalog the font of the device cannot draw. -->
+    <plurals name="onboarding_emoji_missing_count">
+        <item quantity="one">Your device cannot draw %1$d emoji in the catalog. It shows an empty box instead.</item>
+        <item quantity="other">Your device cannot draw %1$d emoji in the catalog. They show as empty boxes instead.</item>
+    </plurals>
+    <string name="onboarding_emoji_hide_title">Hide the emoji your device cannot draw</string>
+    <string name="onboarding_emoji_hide_subtitle">The emoji panel, the search and the suggestions leave out the empty boxes</string>
+    <string name="onboarding_emoji_font_info">To see all of the emoji, use a complete emoji font. Select \"Google\" (Noto Color Emoji), or import an emoji font file such as Twemoji or OpenMoji. Both are in Emoji, then Emoji font. WM Keyboard uses the emoji font of your device and includes no font of its own. You can change all of this later in Settings, then Emoji.</string>
+
+    <!-- Onboarding, typing feedback page. -->
+    <string name="onboarding_feedback_title">Typing feedback</string>
+    <string name="onboarding_feedback_subtitle">Some people want a signal for each key press. Other people want silence. The strength, the duration and the popups are in Typing settings.</string>
+    <string name="onboarding_haptics_title">Key press haptics</string>
+    <string name="onboarding_haptics_subtitle">The device vibrates on each key press</string>
+    <string name="onboarding_haptic_style_label">Haptic style</string>
+    <string name="onboarding_haptic_style_hint">Press one to feel it.</string>
+    <string name="onboarding_key_sound_title">Key press sound</string>
+    <string name="onboarding_key_sound_subtitle">The device makes a click sound on each key press</string>
+    <string name="onboarding_key_popup_title">Key popup</string>
+    <string name="onboarding_key_popup_subtitle">A bubble shows the character above the key you press</string>
+
+    <!-- Onboarding, spacebar and keys page. Each pair below is one choice for the two spacebar swipes. -->
+    <string name="onboarding_gestures_title">Spacebar and keys</string>
+    <string name="onboarding_gestures_subtitle">A sideways swipe on the spacebar is the fastest way to change language or move the text cursor. Select what it does.</string>
+    <string name="onboarding_spacebar_cursor_language_title">Cursor and language (recommended)</string>
+    <string name="onboarding_spacebar_cursor_language_subtitle">A quick swipe moves the cursor. Press and hold, then swipe to change language</string>
+    <string name="onboarding_spacebar_language_cursor_title">Language and cursor</string>
+    <string name="onboarding_spacebar_language_cursor_subtitle">A quick swipe changes the language. Press and hold, then swipe to move the cursor</string>
+    <string name="onboarding_spacebar_language_only_title">Only change the language</string>
+    <string name="onboarding_spacebar_language_only_subtitle">Each swipe on the spacebar goes to your next language</string>
+    <string name="onboarding_spacebar_cursor_only_title">Only move the cursor</string>
+    <string name="onboarding_spacebar_cursor_only_subtitle">Each swipe on the spacebar moves the text cursor</string>
+    <string name="onboarding_spacebar_off_title">Nothing</string>
+    <string name="onboarding_spacebar_off_subtitle">The keyboard ignores swipes on the spacebar</string>
+    <string name="onboarding_emoji_key_title">Emoji key instead of 🌐</string>
+    <string name="onboarding_emoji_key_subtitle">The 🌐 key becomes an emoji key. This is useful when the spacebar changes the language</string>
+    <string name="onboarding_number_row_title">Number row</string>
+    <string name="onboarding_number_row_subtitle">A row of the numbers 1 to 0 above the letters</string>
+
+    <!-- Onboarding, tools page. -->
+    <string name="onboarding_tools_title">Your tools</string>
+    <string name="onboarding_tools_subtitle">The toolbox holds everything from GIFs to a calculator behind the grid button on the toolbar. Start with only the tools you use. You can turn each one on or off at any time in Tools settings.</string>
+    <!-- Button that selects the tools most people want. -->
+    <string name="onboarding_tools_recommended_action">Recommended</string>
+    <!-- Button that turns on every tool. -->
+    <string name="onboarding_tools_everything_action">Everything</string>
+
+    <!-- Onboarding, tool setup page: the first-run choices of the tools that need one. -->
+    <string name="onboarding_tool_setup_title">Set up your tools</string>
+    <string name="onboarding_tool_setup_subtitle">Some of the tools you turned on have their own choices. You can change all of them later in the settings of each tool.</string>
+    <string name="onboarding_calendar_first_title">First calendar</string>
+    <string name="onboarding_calendar_first_subtitle">The month grid shows it next to the Gregorian month and in each day cell</string>
+    <string name="onboarding_calendar_second_title">Second calendar</string>
+    <string name="onboarding_calendar_second_subtitle">A second calendar for the header and the day you select</string>
+    <string name="onboarding_weather_fahrenheit_title">Fahrenheit</string>
+    <string name="onboarding_weather_fahrenheit_subtitle">Turn this off to see the temperature in Celsius</string>
+    <string name="onboarding_compass_qibla_title">Show qibla</string>
+    <string name="onboarding_compass_qibla_subtitle">The compass rose marks the direction of the Kaaba</string>
+    <string name="onboarding_compass_qibla_info">The qibla direction uses the same saved place as the weather tool.</string>
+
+</resources>

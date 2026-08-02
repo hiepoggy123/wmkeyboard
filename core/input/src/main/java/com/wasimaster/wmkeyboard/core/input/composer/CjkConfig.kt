@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.input.composer
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.input.R
+
 /**
  * Runtime CJK input options the composers read at call time. Mirrors
  * [CjkDictionaries]: the composers stay parameter-less singletons (so
@@ -52,12 +55,15 @@ object CjkConfig {
  * Double Pinyin layouts: every syllable is exactly two keystrokes — an initial
  * key and a final key. [OFF] is ordinary full Pinyin. Ordinals are append-only
  * (the setting persists by [name], but keep them stable regardless).
+ *
+ * [displayNameRes] is a resource id rather than a string: the enum has no
+ * context and no locale of its own, so the settings UI resolves the label.
  */
-enum class DoublePinyinScheme(val displayName: String) {
-    OFF("Off (full Pinyin)"),
-    MICROSOFT("Microsoft"),
-    SOGOU("Sogou"),
-    XIAOHE("Xiaohe (小鹤)"),
-    ZIRANMA("Ziranma (自然码)"),
-    PINYINPP("Pinyin++ (拼音加加)"),
+enum class DoublePinyinScheme(@StringRes val displayNameRes: Int) {
+    OFF(R.string.core_input_double_pinyin_off_label),
+    MICROSOFT(R.string.core_input_double_pinyin_microsoft_label),
+    SOGOU(R.string.core_input_double_pinyin_sogou_label),
+    XIAOHE(R.string.core_input_double_pinyin_xiaohe_label),
+    ZIRANMA(R.string.core_input_double_pinyin_ziranma_label),
+    PINYINPP(R.string.core_input_double_pinyin_pinyinpp_label),
 }

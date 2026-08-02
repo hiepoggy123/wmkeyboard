@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.snippets
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.content.R
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -175,26 +177,26 @@ class SnippetStore(private val storageFile: File?) {
 enum class SnippetVariable(
     val token: String,
     /** What the settings screen shows next to the token. */
-    val description: String,
+    @StringRes val descriptionRes: Int,
 ) {
-    DATE("{date}", "today's date"),
-    TIME("{time}", "current time (24-hour)"),
-    TIME12("{time12}", "current time (12-hour)"),
-    DATETIME("{datetime}", "date and time"),
-    ISODATE("{isodate}", "ISO date, 2026-07-19"),
-    ISOTIME("{isotime}", "ISO timestamp"),
-    WEEKDAY("{weekday}", "day name, Sunday"),
-    DAY("{day}", "day of month"),
-    MONTH("{month}", "month name"),
-    YEAR("{year}", "four-digit year"),
-    TIMEZONE("{timezone}", "time zone, e.g. GMT+06:00"),
-    TIMESTAMP("{timestamp}", "Unix seconds"),
-    CLIP("{clip}", "latest clipboard entry"),
-    SELECTION("{selection}", "text selected in the field"),
-    APP("{app}", "name of the app you're typing in"),
-    PACKAGE("{package}", "package name of that app"),
-    UUID("{uuid}", "a fresh random UUID"),
-    CURSOR("{cursor}", "where the cursor lands afterwards");
+    DATE("{date}", R.string.core_content_snippet_var_date_info),
+    TIME("{time}", R.string.core_content_snippet_var_time_info),
+    TIME12("{time12}", R.string.core_content_snippet_var_time12_info),
+    DATETIME("{datetime}", R.string.core_content_snippet_var_datetime_info),
+    ISODATE("{isodate}", R.string.core_content_snippet_var_isodate_info),
+    ISOTIME("{isotime}", R.string.core_content_snippet_var_isotime_info),
+    WEEKDAY("{weekday}", R.string.core_content_snippet_var_weekday_info),
+    DAY("{day}", R.string.core_content_snippet_var_day_info),
+    MONTH("{month}", R.string.core_content_snippet_var_month_info),
+    YEAR("{year}", R.string.core_content_snippet_var_year_info),
+    TIMEZONE("{timezone}", R.string.core_content_snippet_var_timezone_info),
+    TIMESTAMP("{timestamp}", R.string.core_content_snippet_var_timestamp_info),
+    CLIP("{clip}", R.string.core_content_snippet_var_clip_info),
+    SELECTION("{selection}", R.string.core_content_snippet_var_selection_info),
+    APP("{app}", R.string.core_content_snippet_var_app_info),
+    PACKAGE("{package}", R.string.core_content_snippet_var_package_info),
+    UUID("{uuid}", R.string.core_content_snippet_var_uuid_info),
+    CURSOR("{cursor}", R.string.core_content_snippet_var_cursor_info);
 
     internal fun value(
         fmt: (String) -> String,

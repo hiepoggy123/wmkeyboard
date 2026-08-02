@@ -29,7 +29,8 @@ private data class LayoutEnvelope(
 /** A layout read off disk, with whatever had to be fixed to make it usable. */
 data class ImportedLayout(
     val layout: LayoutSpec,
-    val repairs: List<String>,
+    /** One line per change the repair pass made, for the screen to resolve. */
+    val repairNotes: List<LayoutMessage>,
     /** Version code of the build that wrote the file; 0 when unstated. */
     val fromAppVersion: Int,
 )
@@ -81,7 +82,7 @@ object LayoutFile {
         val repaired = envelope.layout.repair()
         return ImportedLayout(
             layout = repaired.spec,
-            repairs = repaired.repairs,
+            repairNotes = repaired.repairNotes,
             fromAppVersion = envelope.appVersion,
         )
     }

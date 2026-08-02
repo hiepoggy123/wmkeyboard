@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.addons
 
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.addons.R
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -137,42 +139,45 @@ enum class AddonType {
     ;
 
     /** Plural heading for the type filter and section headers. */
-    val label: String
+    @get:StringRes
+    val labelRes: Int
         get() = when (this) {
-            Theme -> "Themes"
-            Layout -> "Layouts"
-            Dictionary -> "Dictionaries"
-            EmojiKeywords -> "Emoji keywords"
-            Snippets -> "Snippets"
-            Stickers -> "Sticker packs"
-            IconPack -> "Icon packs"
-            Font -> "Fonts"
-            EmojiFont -> "Emoji fonts"
-            Sound -> "Sounds"
-            Plugin -> "Plugins"
-            Unknown -> "Other"
+            Theme -> R.string.core_addons_type_theme_label
+            Layout -> R.string.core_addons_type_layout_label
+            Dictionary -> R.string.core_addons_type_dictionary_label
+            EmojiKeywords -> R.string.core_addons_type_emoji_keywords_label
+            Snippets -> R.string.core_addons_type_snippets_label
+            Stickers -> R.string.core_addons_type_stickers_label
+            IconPack -> R.string.core_addons_type_icon_pack_label
+            Font -> R.string.core_addons_type_font_label
+            EmojiFont -> R.string.core_addons_type_emoji_font_label
+            Sound -> R.string.core_addons_type_sound_label
+            Plugin -> R.string.core_addons_type_plugin_label
+            Unknown -> R.string.core_addons_type_unknown_label
         }
 
     /**
      * Singular form, for naming one addon.
      *
-     * Spelled out rather than derived from [label], because dropping a
-     * trailing "s" turns "Dictionaries" into "Dictionarie".
+     * Spelled out rather than derived from [labelRes], because dropping a
+     * trailing "s" turns "Dictionaries" into "Dictionarie", and because the
+     * two forms diverge outright in other languages.
      */
-    val singularLabel: String
+    @get:StringRes
+    val singularLabelRes: Int
         get() = when (this) {
-            Theme -> "Theme"
-            Layout -> "Layout"
-            Dictionary -> "Dictionary"
-            EmojiKeywords -> "Emoji keyword pack"
-            Snippets -> "Snippet pack"
-            Stickers -> "Sticker pack"
-            IconPack -> "Icon pack"
-            Font -> "Font"
-            EmojiFont -> "Emoji font"
-            Sound -> "Key sound"
-            Plugin -> "Plugin"
-            Unknown -> "Addon"
+            Theme -> R.string.core_addons_type_theme_singular_label
+            Layout -> R.string.core_addons_type_layout_singular_label
+            Dictionary -> R.string.core_addons_type_dictionary_singular_label
+            EmojiKeywords -> R.string.core_addons_type_emoji_keywords_singular_label
+            Snippets -> R.string.core_addons_type_snippets_singular_label
+            Stickers -> R.string.core_addons_type_stickers_singular_label
+            IconPack -> R.string.core_addons_type_icon_pack_singular_label
+            Font -> R.string.core_addons_type_font_singular_label
+            EmojiFont -> R.string.core_addons_type_emoji_font_singular_label
+            Sound -> R.string.core_addons_type_sound_singular_label
+            Plugin -> R.string.core_addons_type_plugin_singular_label
+            Unknown -> R.string.core_addons_type_unknown_singular_label
         }
 
     /**

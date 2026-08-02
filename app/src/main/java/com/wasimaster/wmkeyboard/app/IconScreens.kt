@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -41,8 +42,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.icons.IconImportResult
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.icons.IconPack
@@ -60,6 +64,8 @@ import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.icons.R as IconsR
 
 /**
  * Icon customisation: which pack is active, and per-slot replacements.
@@ -86,6 +92,12 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
     var confirmDelete by remember { mutableStateOf<IconPack?>(null) }
     var picking by remember { mutableStateOf<IconSlot?>(null) }
 
+    // The store and the importer name packs they cannot word themselves: both
+    // run off the main thread with no context, so the screen resolves the
+    // wording once and hands it over.
+    val importedPackName = stringResource(IconsR.string.core_icons_pack_imported_label)
+    val minePackName = stringResource(IconsR.string.core_icons_pack_mine_label)
+
     // CreateDocument cannot carry a payload, so the pack waiting to be written
     // is parked here between launching the picker and its result.
     var pendingExport by remember { mutableStateOf<IconPack?>(null) }
@@ -108,7 +120,11 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
                     } ?: error("no stream")
                 }.isSuccess
             }
-            message = if (ok) "Saved ${pack.name}." else "Could not write that file."
+            message = if (ok) {
+                context.getString(R.string.plugins_icons_export_done_message, pack.name)
+            } else {
+                context.getString(R.string.plugins_icons_export_failed_message)
+            }
         }
     }
 
@@ -120,11 +136,11 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     context.contentResolver.requireInputStream(uri)
-                        .use { IconPackFile.import(it, store) }
+                        .use { IconPackFile.import(it, store, importedPackName) }
                 }.getOrDefault(IconImportResult.Failed)
             }
             revision++
-            message = describeImport(result)
+            message = describeImport(context, result)
             // Switching to it is what the user came for; leaving it installed
             // but inactive would read as "nothing happened".
             (result as? IconImportResult.Imported)?.let { repository.setIconPack(it.pack.id) }
@@ -141,7 +157,7 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
         pendingSlot = null
         if (uri == null || slot == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val mine = store.mine() ?: return@launch
+            val mine = store.mine(minePackName) ?: return@launch
             val ok = withContext(Dispatchers.IO) {
                 runCatching {
                     val bytes = context.contentResolver.requireInputStream(uri).use { input ->
@@ -158,39 +174,50 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
                 // Pinning the slot to "My icons" is what makes the choice
                 // survive switching packs — it is an override, not a pack.
                 repository.setIconOverride(slot.id, IconOverrides.packSource(mine.id))
-                "Set a custom icon for ${slotLabel(slot)}."
+                context.getString(
+                    R.string.plugins_icons_slot_custom_message,
+                    slotLabel(context, slot),
+                )
             } else {
-                "That file could not be used as an icon. " +
-                    "It has to be an SVG under ${SvgParser.MAX_SOURCE_BYTES / 1024} KB."
+                context.getString(
+                    R.string.plugins_icons_slot_svg_error,
+                    SvgParser.MAX_SOURCE_BYTES / 1024,
+                )
             }
         }
     }
 
-    CaptionText(
-        "Replace any keyboard icon with another built-in one or your own SVG. " +
-            "The built-in set is Google's Material Symbols, outlined style. " +
-            "An icon that doesn't set its own colours follows the theme (and the " +
-            "tool's accent colour); one that does keeps them.",
-    )
+    CaptionText(stringResource(R.string.plugins_icons_intro_info))
 
-    SettingsGroup("Icon pack") {
+    SettingsGroup(stringResource(R.string.plugins_icons_pack_title)) {
         item {
             PackRow(
-                name = "Built-in icons",
-                supporting = "Material Symbols (outlined) — the set WM Keyboard ships with",
+                name = stringResource(R.string.plugins_icons_pack_builtin_name),
+                supporting = stringResource(R.string.plugins_icons_pack_builtin_supporting),
                 selected = settings.icons.activePackId.isEmpty(),
                 onClick = { scope.launch { repository.setIconPack("") } },
             )
         }
         for (pack in packs) {
             item {
+                val count = pack.slots.size
+                val countText =
+                    pluralStringResource(R.plurals.plugins_icons_pack_icon_count, count, count)
+                val authorText = if (pack.author.isNotBlank()) {
+                    stringResource(R.string.plugins_icons_pack_author_suffix, pack.author)
+                } else {
+                    ""
+                }
+                val versionText = if (pack.version.isNotBlank()) {
+                    stringResource(R.string.plugins_icons_pack_version_suffix, pack.version)
+                } else {
+                    ""
+                }
+                val exportDesc = stringResource(R.string.plugins_icons_pack_export_desc, pack.name)
+                val deleteDesc = stringResource(R.string.plugins_icons_pack_delete_desc, pack.name)
                 PackRow(
                     name = pack.name,
-                    supporting = buildString {
-                        append("${pack.slots.size} icon(s)")
-                        if (pack.author.isNotBlank()) append(" · ${pack.author}")
-                        if (pack.version.isNotBlank()) append(" · v${pack.version}")
-                    },
+                    supporting = countText + authorText + versionText,
                     selected = settings.icons.activePackId == pack.id,
                     onClick = { scope.launch { repository.setIconPack(pack.id) } },
                     trailing = {
@@ -199,10 +226,10 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
                                 pendingExport = pack
                                 exportLauncher.launch(IconPackFile.fileName(pack))
                             }) {
-                                Icon(Icons.Outlined.FileUpload, contentDescription = "Export ${pack.name}")
+                                Icon(Icons.Outlined.FileUpload, contentDescription = exportDesc)
                             }
                             IconButton(onClick = { confirmDelete = pack }) {
-                                Icon(Icons.Outlined.Delete, contentDescription = "Delete ${pack.name}")
+                                Icon(Icons.Outlined.Delete, contentDescription = deleteDesc)
                             }
                         }
                     },
@@ -214,24 +241,24 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
     SettingsGroup {
         item {
             WmRow(
-                title = "Import an icon pack",
-                subtitle = "Opens a .wmicons file someone shared",
+                title = stringResource(R.string.plugins_icons_import_title),
+                subtitle = stringResource(R.string.plugins_icons_import_subtitle),
                 icon = Icons.Outlined.FileOpen,
                 accent = routeAccent("icons"),
                 onClick = { importLauncher.launch(IconPackFile.IMPORT_MIME_TYPES) },
             )
         }
         item {
+            val resetMessage = stringResource(R.string.plugins_icons_reset_message)
             WmRow(
-                title = "Reset all icons",
-                subtitle = "Turns the pack off and drops every single-icon change. " +
-                    "Installed packs are kept.",
+                title = stringResource(R.string.plugins_icons_reset_title),
+                subtitle = stringResource(R.string.plugins_icons_reset_subtitle),
                 icon = Icons.Outlined.Refresh,
                 accent = routeAccent("icons"),
                 onClick = {
                     scope.launch {
                         repository.clearIconOverrides()
-                        message = "Every icon is back to the built-in one."
+                        message = resetMessage
                     }
                 },
             )
@@ -239,11 +266,11 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
     }
 
     for (group in IconSlotGroup.entries) {
-        SettingsGroup(group.title) {
+        SettingsGroup(stringResource(group.titleRes)) {
             for (slot in IconSlots.inGroup(group)) {
                 item {
                     WmRow(
-                        title = slotLabel(slot),
+                        title = slotLabel(context, slot),
                         leading = {
                             WmIconTile(routeAccent("icons")) {
                                 SlotIcon(
@@ -254,7 +281,7 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
                             }
                         },
                         supporting = {
-                            CaptionText(describeSource(settings, slot, store))
+                            CaptionText(describeSource(context, settings, slot, store))
                         },
                         onClick = { picking = slot },
                     )
@@ -297,17 +324,31 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
     confirmDelete?.let { pack ->
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
-            title = { Text("Delete ${pack.name}?") },
-            text = { Text("Its ${pack.slots.size} icon(s) are removed from this device.") },
+            title = {
+                Text(stringResource(R.string.plugins_icons_pack_delete_confirm_title, pack.name))
+            },
+            text = {
+                Text(
+                    pluralStringResource(
+                        R.plurals.plugins_icons_pack_delete_confirm_body,
+                        pack.slots.size,
+                        pack.slots.size,
+                    ),
+                )
+            },
             confirmButton = {
                 Button(onClick = {
                     store.deletePack(pack.id)
                     scope.launch { repository.forgetIconPack(pack.id) }
                     confirmDelete = null
                     revision++
-                }) { Text("Delete") }
+                }) { Text(stringResource(CommonR.string.common_delete)) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Cancel") } },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = null }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
         )
     }
 
@@ -315,53 +356,89 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
         AlertDialog(
             onDismissRequest = { message = null },
             text = { Text(text) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
         )
     }
 }
 
-/** A tool slot uses the tool's own settings wording, so the two agree. */
-private fun slotLabel(slot: IconSlot): String =
-    slot.tool?.let { toolTitle(it) } ?: slot.label
+/**
+ * A tool slot uses the tool's own settings wording, so the two agree.
+ *
+ * Takes a [Context] rather than reading a resource itself: the SVG picker names
+ * the slot from a coroutine, where there is no composition to read from.
+ */
+private fun slotLabel(context: Context, slot: IconSlot): String =
+    slot.tool?.let { context.getString(toolTitle(it)) }
+        ?: slot.labelRes?.let { context.getString(it) }.orEmpty()
 
 /** What the row says under the name: where this icon currently comes from. */
 private fun describeSource(
+    context: Context,
     settings: KeyboardSettings,
     slot: IconSlot,
     store: IconPackStore,
 ): String {
+    val default = context.getString(CommonR.string.common_default)
     val override = settings.icons.overrides[slot.id]
     if (override != null) {
         if (override.startsWith(IconOverrides.BUILTIN_PREFIX)) {
             val builtin = override.removePrefix(IconOverrides.BUILTIN_PREFIX)
             // A name that is gone (renamed between versions) means the slot is
             // drawing its default; say so rather than naming a ghost.
-            return if (BuiltinIcons.byName(builtin) != null) BuiltinIcons.label(builtin) else "Default"
+            return if (BuiltinIcons.byName(builtin) != null) BuiltinIcons.label(builtin) else default
         }
         if (override.startsWith(IconOverrides.PACK_PREFIX)) {
             val packId = override.removePrefix(IconOverrides.PACK_PREFIX)
-            val pack = store.pack(packId) ?: return "Default"
-            return if (slot.id in pack.slots) "From ${pack.name}" else "Default"
+            val pack = store.pack(packId) ?: return default
+            return if (slot.id in pack.slots) {
+                context.getString(R.string.plugins_icons_source_from_pack, pack.name)
+            } else {
+                default
+            }
         }
     }
     val active = store.pack(settings.icons.activePackId)
-    if (active != null && slot.id in active.slots) return "From ${active.name}"
-    return "Default"
+    if (active != null && slot.id in active.slots) {
+        return context.getString(R.string.plugins_icons_source_from_pack, active.name)
+    }
+    return default
 }
 
 /** Shared with the open-a-file dialog, which reports the same outcomes. */
-internal fun describeImport(result: IconImportResult): String = when (result) {
+internal fun describeImport(context: Context, result: IconImportResult): String = when (result) {
     is IconImportResult.Imported -> buildString {
-        append("Imported ${result.pack.name} — ${result.pack.slots.size} icon(s).")
+        val count = result.pack.slots.size
+        append(
+            context.resources.getQuantityString(
+                R.plurals.plugins_icons_import_done_message,
+                count,
+                result.pack.name,
+                count,
+            ),
+        )
         if (result.repairs.isNotEmpty()) {
-            append("\n\nChanged on the way in:")
-            for (line in result.repairs) append("\n• $line")
+            append("\n\n")
+            append(context.getString(R.string.plugins_icons_import_repairs_intro))
+            // Each note arrives as a resource and its arguments, so that the
+            // language follows the screen rather than the thread that read
+            // the file.
+            for (line in result.repairs) append("\n• ${line.resolve(context)}")
         }
     }
-    IconImportResult.NotAnIconPack -> "That file is not a WM Keyboard icon pack."
-    IconImportResult.TooManyPacks ->
-        "You already have ${IconPackStore.MAX_PACKS} icon packs. Delete one first."
-    IconImportResult.Failed -> "That file could not be read."
+    IconImportResult.NotAnIconPack ->
+        context.getString(R.string.plugins_icons_import_not_a_pack_error)
+
+    IconImportResult.TooManyPacks -> context.resources.getQuantityString(
+        R.plurals.plugins_icons_import_too_many_error,
+        IconPackStore.MAX_PACKS,
+        IconPackStore.MAX_PACKS,
+    )
+
+    IconImportResult.Failed -> context.getString(R.string.plugins_icons_import_read_error)
 }
 
 @Composable
@@ -377,7 +454,10 @@ private fun PackRow(
         subtitle = supporting,
         leading = {
             if (selected) {
-                Icon(Icons.Outlined.Check, contentDescription = "Active")
+                Icon(
+                    Icons.Outlined.Check,
+                    contentDescription = stringResource(R.string.plugins_icons_pack_active_desc),
+                )
             } else {
                 Spacer(modifier = Modifier.width(24.dp))
             }
@@ -403,6 +483,7 @@ private fun IconPickerDialog(
     onReset: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val context = LocalContext.current
     var query by remember { mutableStateOf("") }
     val selected = settings.icons.overrides[slot.id]?.removePrefix(IconOverrides.BUILTIN_PREFIX)
     val shown = remember(query) {
@@ -412,7 +493,7 @@ private fun IconPickerDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(slotLabel(slot)) },
+        title = { Text(slotLabel(context, slot)) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -420,12 +501,17 @@ private fun IconPickerDialog(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = { Text("Search Material Symbols") },
+                    label = { Text(stringResource(R.string.plugins_icons_picker_search_hint)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (shown.isEmpty()) {
-                    Text("No icon matches “${query.trim()}”.")
+                    Text(
+                        stringResource(
+                            R.string.plugins_icons_picker_no_match,
+                            query.trim(),
+                        ),
+                    )
                 } else {
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(52.dp),
@@ -460,12 +546,18 @@ private fun IconPickerDialog(
                     }
                 }
                 TextButton(onClick = onImportSvg, modifier = Modifier.fillMaxWidth()) {
-                    Text("Use my own SVG…")
+                    Text(stringResource(R.string.plugins_icons_picker_use_svg_action))
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onReset) { Text("Use default") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(onClick = onReset) {
+                Text(stringResource(R.string.plugins_icons_picker_use_default_action))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
     )
 }
 

@@ -14,6 +14,13 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
+ * What the screen would have resolved from `core_icons_pack_mine_label`. The
+ * store takes the wording as an argument because it has no context of its own,
+ * so a plain JVM test can hand it any name.
+ */
+private const val MINE_NAME = "My icons"
+
+/**
  * The whole chain the keyboard actually walks: an SVG on disk → a parsed
  * document → a Compose vector → the resolved set a slot is looked up in.
  *
@@ -80,7 +87,7 @@ class IconPipelineTest {
     fun `a per-slot override beats the active pack`() {
         val pack = store.createPack("Rounded")!!
         store.setIcon(pack.id, IconSlots.KEY_SHIFT, coloured)
-        val mine = store.mine()!!
+        val mine = store.mine(MINE_NAME)!!
         store.setIcon(mine.id, IconSlots.KEY_SHIFT, monochrome)
 
         val set = buildIconSet(
@@ -189,9 +196,12 @@ class IconPipelineTest {
 
     @Test
     fun `mine is stable and created once`() {
-        val first = store.mine()!!
+        val first = store.mine(MINE_NAME)!!
         assertEquals(IconPackStore.MINE_ID, first.id)
-        assertEquals(first.id, store.mine()!!.id)
+        assertEquals(MINE_NAME, first.name)
+        // A second call must reuse the pack rather than make another one, even
+        // when the caller resolved the name in a different language.
+        assertEquals(first.id, store.mine("Meine Symbole")!!.id)
         assertEquals(1, store.packs().count { it.id == IconPackStore.MINE_ID })
         assertTrue(first.isMine)
     }

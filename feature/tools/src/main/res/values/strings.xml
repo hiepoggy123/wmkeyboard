@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AI tool panel: network client errors. -->
+    <!-- Shown when the AI provider sends an error inside the response stream
+         and gives no message of its own. -->
+    <string name="ftools_ai_stream_error">The AI provider ended the response with an error</string>
+</resources>

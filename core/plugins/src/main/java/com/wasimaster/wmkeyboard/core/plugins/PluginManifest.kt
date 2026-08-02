@@ -1,7 +1,61 @@
 package com.wasimaster.wmkeyboard.core.plugins
 
+import android.content.Context
+import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.plugins.R
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+
+/**
+ * A line of text for the user that this module cannot put into words itself.
+ *
+ * Nothing here has a Context: the manifest reader, the importer and the runtime
+ * are plain classes, and unit tests drive them with no Android around them. So a
+ * message travels as a string resource with its arguments, and the screen that
+ * draws it turns it into words with [resolve]. That also keeps the words in the
+ * user's language at the moment they are read.
+ */
+sealed interface PluginText {
+
+    /**
+     * A line this build wrote. [arg1] and [arg2] fill `%1$s` and `%2$s`, in that
+     * order. Two arguments is the whole budget; a message that needs more is a
+     * message that is too long to read.
+     */
+    data class Resource(
+        @get:StringRes val textRes: Int,
+        val arg1: Any? = null,
+        val arg2: Any? = null,
+    ) : PluginText
+
+    /**
+     * Text from the Lua virtual machine, which the plugin author wrote. It is
+     * shown as it arrives: the app has no translation for a stranger's error
+     * message.
+     */
+    data class Script(val text: String) : PluginText
+
+    companion object {
+        /** A message with no arguments. */
+        fun of(@StringRes textRes: Int): PluginText = Resource(textRes)
+
+        /** A message with one argument. */
+        fun of(@StringRes textRes: Int, arg1: Any): PluginText = Resource(textRes, arg1)
+
+        /** A message with two arguments, in the order the string names them. */
+        fun of(@StringRes textRes: Int, arg1: Any, arg2: Any): PluginText = Resource(textRes, arg1, arg2)
+    }
+}
+
+/** Puts a [PluginText] into words. Call this where the text is drawn. */
+fun PluginText.resolve(context: Context): String = when (this) {
+    is PluginText.Script -> text
+    is PluginText.Resource -> when {
+        arg1 == null -> context.getString(textRes)
+        arg2 == null -> context.getString(textRes, arg1)
+        else -> context.getString(textRes, arg1, arg2)
+    }
+}
 
 /**
  * `plugin.json`, the manifest inside a `.wmplugin` archive.
@@ -45,8 +99,8 @@ sealed interface PluginManifestResult {
     /** No manifest, or a manifest for something else entirely. */
     data object NotAPlugin : PluginManifestResult
 
-    /** A plugin manifest this build will not accept. [reason] is user-facing. */
-    data class Rejected(val reason: String) : PluginManifestResult
+    /** A plugin manifest this build will not accept. [reasonText] is user-facing. */
+    data class Rejected(val reasonText: PluginText) : PluginManifestResult
 }
 
 /**
@@ -103,24 +157,25 @@ object PluginManifestCodec {
         val api = if (raw.apiVersion <= 0) 1 else raw.apiVersion
         if (api > API_VERSION) {
             return PluginManifestResult.Rejected(
-                "This plugin needs a newer version of WM Keyboard.",
+                PluginText.of(R.string.core_plugins_reject_newer_version),
             )
         }
 
         val id = raw.id.trim().lowercase()
         if (!ID_PATTERN.matches(id)) {
-            return PluginManifestResult.Rejected(
-                "This plugin's id isn't valid. Ids are lowercase, 3–64 characters, " +
-                    "and may only contain letters, numbers, dots, dashes and underscores.",
-            )
+            return PluginManifestResult.Rejected(PluginText.of(R.string.core_plugins_reject_bad_id))
         }
 
         val name = displayText(raw.name, MAX_NAME)
-        if (name.isEmpty()) return PluginManifestResult.Rejected("This plugin doesn't have a name.")
+        if (name.isEmpty()) {
+            return PluginManifestResult.Rejected(PluginText.of(R.string.core_plugins_reject_no_name))
+        }
 
         val version = displayText(raw.pluginVersion, MAX_VERSION)
         if (version.isEmpty()) {
-            return PluginManifestResult.Rejected("“$name” doesn't say which version it is.")
+            return PluginManifestResult.Rejected(
+                PluginText.of(R.string.core_plugins_reject_no_version, name),
+            )
         }
 
         val entry = displayText(raw.entry, MAX_ENTRY).ifEmpty { DEFAULT_ENTRY }
@@ -129,9 +184,11 @@ object PluginManifestCodec {
         for (declared in raw.permissions.take(MAX_PERMISSIONS)) {
             val permission = PluginPermission.parse(declared)
                 ?: return PluginManifestResult.Rejected(
-                    "This version of WM Keyboard doesn't understand the permission " +
-                        "“${displayText(declared, MAX_ECHO)}”, so it can't tell you what " +
-                        "“$name” would be allowed to do.",
+                    PluginText.of(
+                        R.string.core_plugins_reject_unknown_permission,
+                        displayText(declared, MAX_ECHO),
+                        name,
+                    ),
                 )
             if (permission !in permissions) permissions.add(permission)
         }

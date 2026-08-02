@@ -33,7 +33,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
 import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
@@ -78,16 +82,27 @@ import java.util.Locale
  * [LanguageDef.layoutIds] resolved for their display names.
  */
 
-/** A human label for a language's script, e.g. LATIN → "Latin". */
+/**
+ * A human label for a language's script, e.g. LATIN → "Latin". Script names are
+ * proper nouns, like the language names beside them, so they are not translated.
+ */
 internal fun scriptLabel(lang: LanguageDef): String =
-    lang.script.name.lowercase().replaceFirstChar { it.uppercase() }
+    lang.script.name.lowercase(Locale.ROOT).replaceFirstChar { it.uppercase(Locale.ROOT) }
 
 /**
  * The one-line subtitle a language gets wherever it is offered for adding — here
  * and on the onboarding languages page, which browses the same registry.
+ *
+ * Composable so the text follows the app's language: it is read while the row is
+ * drawn, not cached in a value that outlives a locale change.
  */
+@Composable
 internal fun languageRowSubtitle(lang: LanguageDef): String =
-    scriptLabel(lang) + if (lang.bundledDictionary) " · dictionary included" else ""
+    if (lang.bundledDictionary) {
+        stringResource(R.string.languages_row_subtitle_bundled, scriptLabel(lang))
+    } else {
+        scriptLabel(lang)
+    }
 
 /**
  * Matches a language against an already-lowercased search term on endonym,
@@ -107,12 +122,16 @@ internal fun LanguageDef.matchesQuery(query: String): Boolean =
  * Endonyms, in switch order, trimmed to the first few — the row is one line and
  * someone typing in eight languages does not need all eight recited at them.
  */
+@Composable
 internal fun enabledLanguagesSummary(settings: KeyboardSettings): String {
     val names = settings.enabledLanguages.map { it.displayName.substringBefore(" · ") }
-    if (names.isEmpty()) return "No languages enabled"
     val shown = names.take(LANGUAGE_SUMMARY_LIMIT).joinToString()
     val rest = names.size - LANGUAGE_SUMMARY_LIMIT
-    return if (rest > 0) "$shown +$rest more" else shown
+    return when {
+        names.isEmpty() -> stringResource(R.string.languages_summary_empty)
+        rest > 0 -> pluralStringResource(R.plurals.languages_summary_more, rest, shown, rest)
+        else -> shown
+    }
 }
 
 private const val LANGUAGE_SUMMARY_LIMIT = 3
@@ -150,13 +169,19 @@ internal fun rememberSuggestedLanguages(
  * Why a suggestion is being offered, in one line under its name. Region names
  * come from the platform, so they arrive in the user's own language.
  */
+@Composable
 internal fun suggestionReasonLabel(suggestion: SuggestedLanguage): String = when (suggestion.reason) {
-    SuggestionReason.SYSTEM_LANGUAGE -> "One of your phone's languages"
+    SuggestionReason.SYSTEM_LANGUAGE ->
+        stringResource(R.string.languages_suggestion_reason_system)
     SuggestionReason.REGION -> {
         val region = suggestion.regionCode
             ?.let { Locale.Builder().setRegion(it).build().displayCountry }
             ?.takeIf { it.isNotBlank() }
-        if (region != null) "Widely typed in $region" else "Widely typed near you"
+        if (region != null) {
+            stringResource(R.string.languages_suggestion_reason_region, region)
+        } else {
+            stringResource(R.string.languages_suggestion_reason_nearby)
+        }
     }
     SuggestionReason.FALLBACK -> languageRowSubtitle(suggestion.language)
 }
@@ -183,7 +208,7 @@ internal fun AddLanguageScreen(
     OutlinedTextField(
         value = query,
         onValueChange = { query = it },
-        placeholder = { Text("Search languages") },
+        placeholder = { Text(stringResource(R.string.languages_search_hint)) },
         leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
         singleLine = true,
         modifier = Modifier
@@ -193,7 +218,7 @@ internal fun AddLanguageScreen(
     // Only while browsing: once someone is searching, they know what they want
     // and a suggestion block above the results is in the way.
     if (q.isEmpty() && suggested.isNotEmpty()) {
-        SettingsGroup("Suggested for you") {
+        SettingsGroup(stringResource(R.string.languages_suggested_title)) {
             for (suggestion in suggested) {
                 item {
                     NavRow(
@@ -205,22 +230,19 @@ internal fun AddLanguageScreen(
                     }
                 }
             }
-            item {
-                CaptionText(
-                    "From your phone's own language settings and region. Nothing " +
-                        "you type is looked at, and nothing leaves the device.",
-                )
-            }
+            item { CaptionText(stringResource(R.string.languages_suggested_info)) }
         }
     }
-    SettingsGroup(if (q.isEmpty() && suggested.isNotEmpty()) "All languages" else null) {
+    val allTitle = stringResource(R.string.languages_all_title)
+    val addedLabel = stringResource(R.string.languages_added_label)
+    SettingsGroup(if (q.isEmpty() && suggested.isNotEmpty()) allTitle else null) {
         for (lang in matches) {
             item {
                 val added = lang.id in enabledLangIds
                 NavRow(
                     lang.displayName,
                     subtitle = languageRowSubtitle(lang),
-                    value = if (added) "Added" else null,
+                    value = if (added) addedLabel else null,
                 ) {
                     if (!added) addLanguage(scope, repository, settings, lang)
                     onOpenLanguage(lang.id)
@@ -228,7 +250,7 @@ internal fun AddLanguageScreen(
             }
         }
         if (matches.isEmpty()) {
-            item { CaptionText("No languages match “$query”.") }
+            item { CaptionText(stringResource(R.string.languages_search_empty, query)) }
         }
     }
 }
@@ -237,9 +259,10 @@ internal fun AddLanguageScreen(
  * A cluster the reader will recognise, for the conjunct-backspace row. A script
  * with no sample here still gets the setting; the row just describes it in words
  * rather than showing one, which beats showing a Bengali cluster to someone
- * setting up Khmer.
+ * setting up Khmer. Null means "no sample": the caller puts
+ * `languages_conjunct_sample_fallback` in its place.
  */
-private fun conjunctSample(script: ScriptId): String = when (script) {
+private fun conjunctSample(script: ScriptId): String? = when (script) {
     ScriptId.BENGALI -> "ক্ষ"
     ScriptId.DEVANAGARI -> "क्ष"
     ScriptId.GURMUKHI -> "ਕ੍ਸ਼"
@@ -253,7 +276,7 @@ private fun conjunctSample(script: ScriptId): String = when (script) {
     ScriptId.KHMER -> "ក្ស"
     ScriptId.MYANMAR -> "က္ခ"
     ScriptId.TIBETAN -> "ཀྵ"
-    else -> "a conjunct"
+    else -> null
 }
 
 /**
@@ -290,7 +313,7 @@ internal fun LanguageDetailScreen(
     val scope = rememberCoroutineScope()
     val lang = LanguageRegistry.byId(langId)
 
-    SettingsGroup("Layouts") {
+    SettingsGroup(stringResource(R.string.languages_layouts_title)) {
         for (layoutId in lang.layoutIds) {
             item {
                 val name = resolveLayout(settings.customLayouts, layoutId).name
@@ -312,17 +335,18 @@ internal fun LanguageDetailScreen(
     // Hindi together may well want whole conjuncts gone in one and code points
     // in the other, and a single global switch made that impossible.
     if (ScriptRegistry[lang.script].composer == ComposerType.INDIC_CLUSTER) {
-        SettingsGroup("Clusters") {
+        SettingsGroup(stringResource(R.string.languages_clusters_title)) {
             item {
                 val sample = conjunctSample(lang.script)
+                    ?: stringResource(R.string.languages_conjunct_sample_fallback)
                 ToggleSetting(
-                    "Conjunct-aware backspace",
-                    "Delete a whole cluster like $sample as one unit",
+                    stringResource(R.string.languages_conjunct_backspace_title),
+                    stringResource(R.string.languages_conjunct_backspace_subtitle, sample),
                     langId in settings.conjunctBackspaceLanguages,
-                    info = "Normally backspace removes one code point at a time, which can " +
-                        "leave half-formed clusters on screen. With this on, one press " +
-                        "deletes the whole cluster while typing ${lang.englishName}. " +
-                        "Other languages keep their own setting.",
+                    info = stringResource(
+                        R.string.languages_conjunct_backspace_info,
+                        lang.englishName,
+                    ),
                 ) { scope.launch { repository.setConjunctBackspace(langId, it) } }
             }
         }
@@ -331,17 +355,21 @@ internal fun LanguageDetailScreen(
     // Numerals are per language: Arabic can type ٠-٩ while English beside it
     // stays 0-9. Auto is the language's own default, so most languages never
     // need touching.
-    SettingsGroup("Numerals") {
+    SettingsGroup(stringResource(R.string.languages_numerals_title)) {
         item {
+            val options = NumeralSystem.entries.map { it to stringResource(it.labelRes) }
             ChoiceSetting(
-                "Numeral system",
-                subtitle = "Digits the number row and keypad show while typing " +
-                    "${lang.englishName}",
-                info = "Auto uses ${lang.englishName}'s own digits — " +
-                    "${lang.numeralSystem.label} — and any other choice forces that system for " +
-                    "this language only. The keys always display these glyphs; where they are " +
-                    "also typed is set in Layout & size → Numerals.",
-                options = NumeralSystem.entries.map { it to it.label },
+                stringResource(R.string.languages_numeral_system_title),
+                subtitle = stringResource(
+                    R.string.languages_numeral_system_subtitle,
+                    lang.englishName,
+                ),
+                info = stringResource(
+                    R.string.languages_numeral_system_info,
+                    lang.englishName,
+                    stringResource(lang.numeralSystem.labelRes),
+                ),
+                options = options,
                 selected = settings.layoutBehavior.numeralSystemFor(langId),
             ) { scope.launch { repository.setNumeralSystemForLanguage(langId, it) } }
         }
@@ -350,11 +378,10 @@ internal fun LanguageDetailScreen(
     val others = settings.enabledLanguages.filter { it.id != langId }
     if (others.isNotEmpty()) {
         val secondaries = settings.secondaryLanguages[langId].orEmpty()
-        SettingsGroup("Also suggest from") {
+        SettingsGroup(stringResource(R.string.languages_secondary_title)) {
             item {
                 CaptionText(
-                    "Words from these languages are offered while you type " +
-                        "${lang.englishName}, and are never autocorrected away.",
+                    stringResource(R.string.languages_secondary_info, lang.englishName),
                 )
             }
             for (other in others) {
@@ -374,22 +401,19 @@ internal fun LanguageDetailScreen(
     }
 
     val wordlistEntries = DictionaryCatalog.forLanguage(langId)
-    SettingsGroup("Dictionary") {
+    SettingsGroup(stringResource(R.string.languages_dictionary_title)) {
         item {
             CaptionText(
-                when {
-                    lang.bundledDictionary && wordlistEntries.isNotEmpty() ->
-                        "A built-in dictionary ships with this language — download a " +
-                            "bigger one for better suggestions."
-                    lang.bundledDictionary ->
-                        "A built-in dictionary ships with this language."
-                    wordlistEntries.isNotEmpty() ->
-                        "No dictionary is bundled — download one for suggestions and " +
-                            "autocorrect, or import your own list."
-                    else ->
-                        "No dictionary is bundled — the keyboard learns your words as you " +
-                            "type, and you can import your own list."
-                },
+                stringResource(
+                    when {
+                        lang.bundledDictionary && wordlistEntries.isNotEmpty() ->
+                            R.string.languages_dictionary_bundled_more
+                        lang.bundledDictionary -> R.string.languages_dictionary_bundled
+                        wordlistEntries.isNotEmpty() ->
+                            R.string.languages_dictionary_none_download
+                        else -> R.string.languages_dictionary_none_learn
+                    },
+                ),
             )
         }
         for (entry in wordlistEntries) {
@@ -397,8 +421,8 @@ internal fun LanguageDetailScreen(
         }
         item {
             NavRow(
-                "Custom dictionaries",
-                "Import your own word lists",
+                stringResource(R.string.languages_custom_dictionaries_title),
+                stringResource(R.string.languages_custom_dictionaries_subtitle),
                 route = "customdictionaries",
             ) {
                 onNavigate("customdictionaries")
@@ -407,21 +431,18 @@ internal fun LanguageDetailScreen(
     }
 
     val emojiDict = EmojiDictCatalog.forLanguage(langId)
-    SettingsGroup("Emoji") {
+    SettingsGroup(stringResource(R.string.languages_emoji_title)) {
         item {
             CaptionText(
-                if (emojiDict != null) {
-                    "Emoji keywords let you search emoji in ${lang.englishName} — " +
-                        "typing its word for \"cake\" finds 🎂." +
-                        if (settings.emoji.autoDownloadKeywords) {
-                            " Downloaded automatically while the language is on."
-                        } else {
-                            " Automatic downloads are off, so this one is yours to start."
-                        }
-                } else {
-                    "No emoji keywords are available for ${lang.englishName} yet, so " +
-                        "emoji search answers in English. You can import your own list."
-                },
+                stringResource(
+                    when {
+                        emojiDict == null -> R.string.languages_emoji_keywords_unavailable
+                        settings.emoji.autoDownloadKeywords ->
+                            R.string.languages_emoji_keywords_auto
+                        else -> R.string.languages_emoji_keywords_manual
+                    },
+                    lang.englishName,
+                ),
             )
         }
         if (emojiDict != null) {
@@ -429,8 +450,8 @@ internal fun LanguageDetailScreen(
         }
         item {
             NavRow(
-                "Emoji keywords",
-                "Downloads for every language, and your own imports",
+                stringResource(R.string.languages_emoji_keywords_title),
+                stringResource(R.string.languages_emoji_keywords_subtitle),
                 route = "emojikeywords",
             ) {
                 onNavigate("emojikeywords")
@@ -464,7 +485,7 @@ internal fun LanguageDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                ) { Text("Remove ${lang.englishName}") }
+                ) { Text(stringResource(R.string.languages_remove_action, lang.englishName)) }
             }
         }
     }
@@ -487,20 +508,29 @@ internal fun EmojiDictRow(entry: EmojiDictEntry) {
         ?: EmojiDictDownloadManager.DownloadStatus.NotDownloaded
 
     WmRow(
-        title = "Emoji keywords",
+        title = stringResource(R.string.languages_emoji_keywords_title),
         supporting = {
             Text(
                 when (status) {
-                    is EmojiDictDownloadManager.DownloadStatus.Downloaded ->
-                        "%,d emoji · %s".format(status.emojiCount, formatBytes(status.sizeBytes))
-                    EmojiDictDownloadManager.DownloadStatus.Queued -> "Waiting…"
-                    is EmojiDictDownloadManager.DownloadStatus.Downloading -> "Downloading…"
-                    is EmojiDictDownloadManager.DownloadStatus.Failed -> status.message
-                    EmojiDictDownloadManager.DownloadStatus.NotDownloaded ->
-                        "%,d emoji · %s download".format(
-                            entry.emojiCount,
-                            formatBytes(entry.approxGzBytes),
-                        )
+                    is EmojiDictDownloadManager.DownloadStatus.Downloaded -> pluralStringResource(
+                        R.plurals.languages_emoji_dict_downloaded,
+                        status.emojiCount,
+                        status.emojiCount,
+                        formatBytes(status.sizeBytes),
+                    )
+                    EmojiDictDownloadManager.DownloadStatus.Queued ->
+                        stringResource(R.string.languages_download_queued)
+                    is EmojiDictDownloadManager.DownloadStatus.Downloading ->
+                        stringResource(CommonR.string.common_downloading)
+                    is EmojiDictDownloadManager.DownloadStatus.Failed ->
+                        if (status.messageArg.isEmpty()) stringResource(status.messageRes)
+                        else stringResource(status.messageRes, status.messageArg)
+                    EmojiDictDownloadManager.DownloadStatus.NotDownloaded -> pluralStringResource(
+                        R.plurals.languages_emoji_dict_download_size,
+                        entry.emojiCount,
+                        entry.emojiCount,
+                        formatBytes(entry.approxGzBytes),
+                    )
                 },
                 color = if (status is EmojiDictDownloadManager.DownloadStatus.Failed) {
                     MaterialTheme.colorScheme.error
@@ -515,7 +545,12 @@ internal fun EmojiDictRow(entry: EmojiDictEntry) {
                     IconButton(
                         onClick = { EmojiDictDownloadManager.delete(filesDir, entry.languageId) },
                     ) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Delete emoji keywords")
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = stringResource(
+                                R.string.languages_emoji_dict_delete_desc,
+                            ),
+                        )
                     }
                 EmojiDictDownloadManager.DownloadStatus.Queued,
                 is EmojiDictDownloadManager.DownloadStatus.Downloading,
@@ -523,14 +558,22 @@ internal fun EmojiDictRow(entry: EmojiDictEntry) {
                     IconButton(
                         onClick = { EmojiDictDownloadManager.cancel(entry.languageId) },
                     ) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Cancel download")
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = stringResource(
+                                R.string.languages_cancel_download_desc,
+                            ),
+                        )
                     }
                 EmojiDictDownloadManager.DownloadStatus.NotDownloaded,
                 is EmojiDictDownloadManager.DownloadStatus.Failed,
                 -> TextButton(onClick = { EmojiDictDownloadManager.start(filesDir, entry) }) {
                     Text(
-                        if (status is EmojiDictDownloadManager.DownloadStatus.Failed) "Retry"
-                        else "Download",
+                        if (status is EmojiDictDownloadManager.DownloadStatus.Failed) {
+                            stringResource(CommonR.string.common_retry)
+                        } else {
+                            stringResource(CommonR.string.common_download)
+                        },
                     )
                 }
             }
@@ -572,18 +615,30 @@ private fun WordlistRow(entry: DictionaryEntry) {
     val effectiveWords = minOf(size.wordCap, entry.totalWordCount)
 
     WmRow(
-        title = entry.variant?.let { "Downloadable dictionary ($it)" }
-            ?: "Downloadable dictionary",
+        title = entry.variantRes?.let {
+            stringResource(R.string.languages_wordlist_title_variant, stringResource(it))
+        } ?: stringResource(R.string.languages_wordlist_title),
         supporting = {
             Text(
                 when (status) {
-                    is WordlistDownloadManager.DownloadStatus.Downloaded ->
-                        "%,d words · %s".format(status.wordCount, formatBytes(status.sizeBytes))
-                    WordlistDownloadManager.DownloadStatus.Processing -> "Preparing dictionary…"
-                    is WordlistDownloadManager.DownloadStatus.Downloading -> "Downloading…"
-                    is WordlistDownloadManager.DownloadStatus.Failed -> status.message
-                    WordlistDownloadManager.DownloadStatus.NotDownloaded ->
-                        "%,d most frequent words".format(effectiveWords)
+                    is WordlistDownloadManager.DownloadStatus.Downloaded -> pluralStringResource(
+                        R.plurals.languages_wordlist_downloaded,
+                        status.wordCount,
+                        status.wordCount,
+                        formatBytes(status.sizeBytes),
+                    )
+                    WordlistDownloadManager.DownloadStatus.Processing ->
+                        stringResource(R.string.languages_wordlist_preparing)
+                    is WordlistDownloadManager.DownloadStatus.Downloading ->
+                        stringResource(CommonR.string.common_downloading)
+                    is WordlistDownloadManager.DownloadStatus.Failed ->
+                        if (status.messageArg.isEmpty()) stringResource(status.messageRes)
+                        else stringResource(status.messageRes, status.messageArg)
+                    WordlistDownloadManager.DownloadStatus.NotDownloaded -> pluralStringResource(
+                        R.plurals.languages_wordlist_word_count,
+                        effectiveWords,
+                        effectiveWords,
+                    )
                 },
                 color = if (status is WordlistDownloadManager.DownloadStatus.Failed) {
                     MaterialTheme.colorScheme.error
@@ -596,13 +651,23 @@ private fun WordlistRow(entry: DictionaryEntry) {
             when (status) {
                 is WordlistDownloadManager.DownloadStatus.Downloaded ->
                     IconButton(onClick = { WordlistDownloadManager.delete(filesDir, entry) }) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Delete dictionary")
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = stringResource(
+                                R.string.languages_wordlist_delete_desc,
+                            ),
+                        )
                     }
                 is WordlistDownloadManager.DownloadStatus.Downloading,
                 WordlistDownloadManager.DownloadStatus.Processing,
                 ->
                     IconButton(onClick = { WordlistDownloadManager.cancel() }) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Cancel download")
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = stringResource(
+                                R.string.languages_cancel_download_desc,
+                            ),
+                        )
                     }
                 WordlistDownloadManager.DownloadStatus.NotDownloaded,
                 is WordlistDownloadManager.DownloadStatus.Failed,
@@ -614,17 +679,25 @@ private fun WordlistRow(entry: DictionaryEntry) {
                             onClick = { sizeMenu = true },
                             enabled = !WordlistDownloadManager.isBusy,
                         ) {
-                            Text(size.label)
-                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dictionary size")
+                            Text(stringResource(size.labelRes))
+                            Icon(
+                                Icons.Outlined.ArrowDropDown,
+                                contentDescription = stringResource(
+                                    R.string.languages_wordlist_size_desc,
+                                ),
+                            )
                         }
                         DropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
                             for (option in DictionaryCatalog.DictionarySize.entries) {
                                 DropdownMenuItem(
                                     text = {
+                                        val words = minOf(option.wordCap, entry.totalWordCount)
                                         Text(
-                                            "%s · %,d words".format(
-                                                option.label,
-                                                minOf(option.wordCap, entry.totalWordCount),
+                                            pluralStringResource(
+                                                R.plurals.languages_wordlist_size_option,
+                                                words,
+                                                stringResource(option.labelRes),
+                                                words,
                                             ),
                                         )
                                     },
@@ -641,8 +714,11 @@ private fun WordlistRow(entry: DictionaryEntry) {
                         enabled = !WordlistDownloadManager.isBusy,
                     ) {
                         Text(
-                            if (status is WordlistDownloadManager.DownloadStatus.Failed) "Retry"
-                            else "Download",
+                            if (status is WordlistDownloadManager.DownloadStatus.Failed) {
+                                stringResource(CommonR.string.common_retry)
+                            } else {
+                                stringResource(CommonR.string.common_download)
+                            },
                         )
                     }
                 }
@@ -658,7 +734,10 @@ private fun WordlistRow(entry: DictionaryEntry) {
             // bytes-of-total would count to a total it never reaches.
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             Text(
-                "${formatBytes(status.bytes)} downloaded",
+                stringResource(
+                    R.string.languages_wordlist_downloaded_bytes,
+                    formatBytes(status.bytes),
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
@@ -694,19 +773,17 @@ private fun CjkDictPackManager(
 
     // Named from the registry rather than an if-chain, so a new CJK language
     // does not silently inherit another language's heading.
-    val groupTitle = "${LanguageRegistry.byId(langId).englishName} options"
+    val groupTitle = stringResource(
+        R.string.languages_cjk_options_title,
+        LanguageRegistry.byId(langId).englishName,
+    )
     SettingsGroup(groupTitle) {
-        item {
-            CaptionText(
-                "Download a larger conversion dictionary — many more characters and " +
-                    "phrases than the built-in set. Works offline once fetched.",
-            )
-        }
+        item { CaptionText(stringResource(R.string.languages_cjk_download_info)) }
         for (pack in CjkDictCatalog.forLang(langId)) {
             item {
                 val status = states[pack.id] ?: CjkDictDownloadManager.DownloadStatus.NotDownloaded
                 WmRow(
-                    title = pack.displayName,
+                    title = stringResource(pack.displayNameRes),
                     subtitle = packStatusLabel(pack, status),
                     trailing = {
                         when (status) {
@@ -721,7 +798,10 @@ private fun CjkDictPackManager(
                                 IconButton(onClick = { CjkDictDownloadManager.delete(filesDir, pack) }) {
                                     Icon(
                                         Icons.Outlined.Delete,
-                                        contentDescription = "Delete ${pack.displayName}",
+                                        contentDescription = stringResource(
+                                            R.string.languages_cjk_delete_desc,
+                                            stringResource(pack.displayNameRes),
+                                        ),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -730,8 +810,11 @@ private fun CjkDictPackManager(
                                 onClick = { CjkDictDownloadManager.start(filesDir, pack) },
                             ) {
                                 Text(
-                                    if (status is CjkDictDownloadManager.DownloadStatus.Paused) "Resume"
-                                    else "Download",
+                                    if (status is CjkDictDownloadManager.DownloadStatus.Paused) {
+                                        stringResource(R.string.languages_resume_action)
+                                    } else {
+                                        stringResource(CommonR.string.common_download)
+                                    },
                                 )
                             }
                         }
@@ -744,9 +827,8 @@ private fun CjkDictPackManager(
         // so unlike the pinyin options below it is not gated to zh.
         item {
             ToggleSetting(
-                "Traditional characters",
-                "Convert candidates to Traditional (繁體). Per-character, so a few " +
-                    "context-dependent forms may be wrong (发 → 發 / 髮).",
+                stringResource(R.string.languages_cjk_traditional_title),
+                stringResource(R.string.languages_cjk_traditional_subtitle),
                 settings.cjk.traditionalOutput,
             ) { on -> scope.launch { repository.setCjkTraditionalOutput(on) } }
         }
@@ -755,18 +837,22 @@ private fun CjkDictPackManager(
         // says 計程車 where the mainland says 出租車, and no character map
         // reaches that. Only worth showing once the toggle above is on.
         if (settings.cjk.traditionalOutput) {
-            item {
-                CaptionText(
-                    "Regional wording — beyond characters, Taiwan and Hong Kong often " +
-                        "use different words for the same thing.",
-                )
-            }
+            item { CaptionText(stringResource(R.string.languages_cjk_region_info)) }
             for (region in HanVariant.HanRegion.entries) {
                 item {
-                    val label = when (region) {
-                        HanVariant.HanRegion.GENERIC -> "Standard" to "Characters only, no wording changes"
-                        HanVariant.HanRegion.TAIWAN -> "Taiwan (臺灣)" to "出租車 → 計程車, 光盤 → 光碟"
-                        HanVariant.HanRegion.HONG_KONG -> "Hong Kong (香港)" to "Hong Kong character preferences"
+                    val titleRes = when (region) {
+                        HanVariant.HanRegion.GENERIC -> R.string.languages_cjk_region_generic_title
+                        HanVariant.HanRegion.TAIWAN -> R.string.languages_cjk_region_taiwan_title
+                        HanVariant.HanRegion.HONG_KONG ->
+                            R.string.languages_cjk_region_hong_kong_title
+                    }
+                    val subtitleRes = when (region) {
+                        HanVariant.HanRegion.GENERIC ->
+                            R.string.languages_cjk_region_generic_subtitle
+                        HanVariant.HanRegion.TAIWAN ->
+                            R.string.languages_cjk_region_taiwan_subtitle
+                        HanVariant.HanRegion.HONG_KONG ->
+                            R.string.languages_cjk_region_hong_kong_subtitle
                     }
                     Row(
                         modifier = Modifier
@@ -779,8 +865,8 @@ private fun CjkDictPackManager(
                             onClick = { scope.launch { repository.setCjkHanRegion(region) } },
                         )
                         Column(modifier = Modifier.padding(start = 8.dp)) {
-                            Text(label.first)
-                            CaptionText(label.second)
+                            Text(stringResource(titleRes))
+                            CaptionText(stringResource(subtitleRes))
                         }
                     }
                 }
@@ -793,8 +879,8 @@ private fun CjkDictPackManager(
         if (langId == "yue") {
             item {
                 ToggleSetting(
-                    "Lazy pronunciation (懶音)",
-                    "Match merged sounds: n↔l, ng↔∅, gw→g before -o, -ng↔-n, -k↔-t…",
+                    stringResource(R.string.languages_cjk_lazy_title),
+                    stringResource(R.string.languages_cjk_lazy_subtitle),
                     settings.cjk.jyutpingLazy,
                 ) { on -> scope.launch { repository.setJyutpingLazy(on) } }
             }
@@ -804,17 +890,12 @@ private fun CjkDictPackManager(
         if (langId == "zh") {
             item {
                 ToggleSetting(
-                    "Fuzzy Pinyin",
-                    "Match confusable sounds: zh↔z, ch↔c, sh↔s, n↔l, an↔ang, in↔ing…",
+                    stringResource(R.string.languages_cjk_fuzzy_title),
+                    stringResource(R.string.languages_cjk_fuzzy_subtitle),
                     settings.cjk.pinyinFuzzy,
                 ) { on -> scope.launch { repository.setPinyinFuzzy(on) } }
             }
-            item {
-                CaptionText(
-                    "Double Pinyin — type each syllable in exactly two keys. Needs the " +
-                        "Pinyin dictionary above.",
-                )
-            }
+            item { CaptionText(stringResource(R.string.languages_cjk_double_pinyin_info)) }
             for (scheme in DoublePinyinScheme.entries) {
                 item {
                     // OFF is always selectable; a scheme is live only once its key
@@ -822,9 +903,13 @@ private fun CjkDictPackManager(
                     // disabled rather than silently doing nothing.
                     val ready = scheme == DoublePinyinScheme.OFF || DoublePinyin.tableFor(scheme) != null
                     val select: () -> Unit = { scope.launch { repository.setPinyinDoublePinyin(scheme) } }
+                    val schemeName = stringResource(scheme.displayNameRes)
                     WmRow(
-                        title = if (ready) scheme.displayName
-                        else "${scheme.displayName} — coming soon",
+                        title = if (ready) {
+                            schemeName
+                        } else {
+                            stringResource(R.string.languages_cjk_scheme_coming_soon, schemeName)
+                        },
                         trailing = {
                             RadioButton(
                                 selected = settings.cjk.pinyinDoublePinyin == scheme,
@@ -840,16 +925,38 @@ private fun CjkDictPackManager(
     }
 }
 
-/** Supporting-line text for a pack's current download state. */
+/**
+ * Supporting-line text for a pack's current download state. Composable so the
+ * text follows the app's language: it is read only while the row is drawn.
+ */
+@Composable
 private fun packStatusLabel(
     pack: CjkDictPack,
     status: CjkDictDownloadManager.DownloadStatus,
 ): String = when (status) {
     CjkDictDownloadManager.DownloadStatus.NotDownloaded ->
-        if (pack.available) pack.description else "Not available yet — coming soon."
+        if (pack.available) {
+            stringResource(pack.descriptionRes)
+        } else {
+            stringResource(R.string.languages_cjk_pack_unavailable)
+        }
     is CjkDictDownloadManager.DownloadStatus.Downloading ->
-        if (status.total > 0) "Downloading… ${status.bytes * 100 / status.total}%" else "Downloading…"
-    is CjkDictDownloadManager.DownloadStatus.Paused -> "Paused — tap Resume to continue."
-    CjkDictDownloadManager.DownloadStatus.Downloaded -> "Downloaded — works offline."
-    is CjkDictDownloadManager.DownloadStatus.Failed -> status.message
+        if (status.total > 0) {
+            stringResource(
+                R.string.languages_cjk_downloading_percent,
+                (status.bytes * PERCENT / status.total).toInt(),
+            )
+        } else {
+            stringResource(CommonR.string.common_downloading)
+        }
+    is CjkDictDownloadManager.DownloadStatus.Paused ->
+        stringResource(R.string.languages_cjk_paused)
+    CjkDictDownloadManager.DownloadStatus.Downloaded ->
+        stringResource(R.string.languages_cjk_downloaded)
+    is CjkDictDownloadManager.DownloadStatus.Failed ->
+        status.messageArg?.let { stringResource(status.messageRes, it) }
+            ?: stringResource(status.messageRes)
 }
+
+/** Turns a fraction into the whole-number percentage the pack row shows. */
+private const val PERCENT = 100L

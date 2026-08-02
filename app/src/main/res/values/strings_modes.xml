@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ==================================================================
+         Keyboard modes: the list of modes, with the switch that decides
+         where a drag on the keyboard is saved.
+         ================================================================== -->
+    <string name="modes_intro_body">A mode is a group of overrides: the emoji row, the pinned tools and the symbol sets. A mode turns on automatically for the apps or the field types you select, for example password boxes and email boxes. You can also turn a mode on by hand from the Modes tool on the keyboard.</string>
+    <string name="modes_group_title">Modes</string>
+    <string name="modes_new_title">New mode</string>
+    <string name="modes_rearrange_group_title">Rearrange tools</string>
+    <string name="modes_drag_edits_title">Drags edit the active mode</string>
+    <string name="modes_drag_edits_subtitle">The keyboard saves a drag into the mode that is on</string>
+    <string name="modes_drag_edits_info">A mode that has its own pinned tools or toolbox order wins over the global lists while the mode is active. With this setting on, the keyboard writes the new tool order back into that mode. The change stays where you made it, and the apps on a different mode keep their own arrangement. With this setting off, a drag always changes the global order, and the list of the mode continues to override it.</string>
+    <string name="modes_tool_order_body">The tool order can be different in each app. The mode that matches an app decides the order you see there.</string>
+    <!-- Content description of the button that deletes a mode, and the label
+         of the delete button at the end of the mode editor. -->
+    <string name="modes_delete_action">Delete mode</string>
+
+    <!-- ==================================================================
+         Mode editor: the name and the icon of one mode.
+         ================================================================== -->
+    <!-- The name a mode gets when the user makes one. The user can change it. -->
+    <string name="modes_new_default_name">New mode</string>
+    <!-- The name a mode falls back to when the user clears the name field. -->
+    <string name="modes_unnamed_name">Mode</string>
+    <string name="modes_name_label">Name</string>
+    <string name="modes_name_hint">The Modes tool shows this name</string>
+    <string name="modes_icon_title">Icon</string>
+    <string name="modes_icon_subtitle">The Modes tool shows this icon beside the name</string>
+
+    <!-- ==================================================================
+         Mode editor: what one mode overrides while it is active.
+         ================================================================== -->
+    <string name="modes_changes_group_title">What this mode changes</string>
+    <!-- The option that keeps the global setting: the mode changes nothing here. -->
+    <string name="modes_inherit_label">Inherit</string>
+    <!-- Subtitle shared by the settings that only apply while the mode runs. -->
+    <string name="modes_active_subtitle">While this mode is active</string>
+    <string name="modes_emoji_row_title">Emoji row</string>
+    <!-- One emoji button in place of the whole emoji row. -->
+    <string name="modes_emoji_row_button_label">Button</string>
+    <!-- The full emoji row. -->
+    <string name="modes_emoji_row_row_label">Row</string>
+    <string name="modes_symbol_row_title">Symbol row</string>
+    <string name="modes_theme_title">Theme</string>
+    <string name="modes_theme_inherit_subtitle">Inherit the theme that is set</string>
+    <string name="modes_theme_override_body">While this mode is active, the keyboard uses this theme. It replaces the theme you set elsewhere, and it also replaces an automatic light and dark pair for the time the mode runs. The mode does not change your own choice. Your theme comes back when the mode ends.</string>
+    <string name="modes_pinned_tools_title">Custom pinned tools</string>
+    <string name="modes_pinned_tools_subtitle">Change the pinned tools of the toolbar while this mode is active</string>
+    <string name="modes_pinned_behaviour_title">Pinned tools behaviour</string>
+    <string name="modes_pinned_behaviour_append_subtitle">The keyboard adds these tools after the tools you pinned yourself</string>
+    <string name="modes_pinned_behaviour_replace_subtitle">Only these tools are pinned while this mode is active</string>
+    <!-- Option: keep the tools the user pinned and add the tools of the mode. -->
+    <string name="modes_pinned_behaviour_append_label">Add to mine</string>
+    <!-- Option: the tools of the mode take the place of the tools the user pinned. -->
+    <string name="modes_pinned_behaviour_replace_label">Replace mine</string>
+    <string name="modes_pinned_order_title">Change the pinned tool order</string>
+    <string name="modes_pinned_order_dialog_title">Pinned tool order</string>
+    <string name="modes_toolbox_order_title">Custom toolbox order</string>
+    <string name="modes_toolbox_order_subtitle">Move the tools of this mode to the front of the toolbox panel</string>
+    <string name="modes_toolbox_order_reorder_title">Change the toolbox order</string>
+    <string name="modes_toolbox_order_dialog_title">Toolbox order</string>
+    <string name="modes_toolbox_order_body">The tools you select come first in the toolbox. The other tools keep their usual place behind them.</string>
+    <string name="modes_symbol_sets_title">Custom symbol sets</string>
+    <string name="modes_symbol_sets_subtitle">The symbol row shows only the sets of this mode while it is active</string>
+    <string name="modes_symbol_set_order_title">Change the symbol set order</string>
+    <string name="modes_symbol_set_order_dialog_title">Symbol set order</string>
+    <string name="modes_symbol_set_order_body">The row opens on the first set in the order.</string>
+
+    <!-- ==================================================================
+         Mode editor: when the mode turns on by itself.
+         ================================================================== -->
+    <string name="modes_auto_group_title">Turn on automatically for</string>
+    <string name="modes_field_types_title">Field types</string>
+    <string name="modes_auto_both_match_body">Both conditions must match. This mode turns on only for these field types in the apps in the list below.</string>
+    <string name="modes_add_app_title">Add app</string>
+    <string name="modes_add_app_subtitle_any">This mode turns on when you select a field in the app</string>
+    <string name="modes_add_app_subtitle_fields">One of the field types above must also match</string>
+    <!-- Content description of the button that takes one app off the list of
+         a mode. It does not uninstall the app. -->
+    <string name="modes_app_remove_desc">Remove this app from the mode</string>
+    <!-- "Text" here is the name of the Text field type in the list above. -->
+    <string name="modes_matching_body">If you set apps and field types together, both must match. For example, bind a mode to your chat apps and to the Text field type. The mode then stays off the search boxes of those apps. If you set only one of the two, the mode matches on that one alone. If you set neither, you can turn the mode on only by hand. When more than one mode matches, a mode that names field types wins over a mode that names only apps. A password box in a code editor still gets the password mode. A mode that you select by hand from the Modes tool wins until you change apps.</string>
+
+    <!-- ==================================================================
+         Mode editor: reset a built-in mode.
+         ================================================================== -->
+    <string name="modes_reset_default_action">Reset to default</string>
+    <!-- %1$s is the name of the mode, for example "Passwords". -->
+    <string name="modes_reset_confirm_title">Reset <xliff:g id="mode_name" example="Passwords">%1$s</xliff:g> to default?</string>
+    <string name="modes_reset_confirm_body">The mode goes back to the pinned tools, the toolbox order, the symbol row, the apps and the field types that it ships with. The app deletes your changes to the mode.</string>
+
+    <!-- ==================================================================
+         The icon picker and the app picker of the mode editor.
+         ================================================================== -->
+    <string name="modes_icon_picker_title">Mode icon</string>
+    <string name="modes_app_picker_title">Select an app</string>
+
+</resources>

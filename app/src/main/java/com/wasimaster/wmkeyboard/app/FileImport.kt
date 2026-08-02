@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.PluralsRes
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -20,9 +22,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.icons.IconImportResult
 import com.wasimaster.wmkeyboard.core.icons.IconPackFile
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
@@ -33,6 +39,7 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginImportResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginManifestResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
+import com.wasimaster.wmkeyboard.core.plugins.resolve
 import com.wasimaster.wmkeyboard.core.settings.ConfigBackup
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
@@ -47,6 +54,8 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
+import com.wasimaster.wmkeyboard.content.R as ContentR
+import com.wasimaster.wmkeyboard.icons.R as IconsR
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -262,15 +271,43 @@ class ImportFileActivity : ComponentActivity() {
     }
 }
 
-/** The pending import, once the file has been read and named. */
+/**
+ * The pending import, once the file has been read and named.
+ *
+ * The title stays a resource id so the dialog resolves it, which keeps the
+ * heading in the language the screen is drawn in. A title that counts something
+ * sets [titlePluralRes] and [titleQuantity] instead of [titleRes]; a title that
+ * names the theme, layout or plugin inside the file sets [titleArg].
+ */
 private data class ImportProposal(
-    val title: String,
+    @StringRes val titleRes: Int = 0,
+    @PluralsRes val titlePluralRes: Int = 0,
+    val titleQuantity: Int = 0,
+    val titleArg: String? = null,
     val body: String,
     /** Lines describing what had to be fixed to make the file usable. */
     val repairs: List<String> = emptyList(),
-    val confirmLabel: String = "Import",
+    @StringRes val confirmLabelRes: Int = CommonR.string.common_import,
     val apply: (suspend () -> String)? = null,
 )
+
+/** The proposal's heading, resolved against the screen's resources. */
+@Composable
+private fun proposalTitle(proposal: ImportProposal): String {
+    if (proposal.titlePluralRes != 0) {
+        return pluralStringResource(
+            proposal.titlePluralRes,
+            proposal.titleQuantity,
+            proposal.titleQuantity,
+        )
+    }
+    val arg = proposal.titleArg
+    return if (arg == null) {
+        stringResource(proposal.titleRes)
+    } else {
+        stringResource(proposal.titleRes, arg)
+    }
+}
 
 @Composable
 private fun ImportFileDialog(
@@ -296,7 +333,9 @@ private fun ImportFileDialog(
         AlertDialog(
             onDismissRequest = onClose,
             text = { Text(messageText) },
-            confirmButton = { TextButton(onClick = onClose) { Text("OK") } },
+            confirmButton = {
+                TextButton(onClick = onClose) { Text(stringResource(CommonR.string.common_ok)) }
+            },
         )
         return
     }
@@ -305,9 +344,14 @@ private fun ImportFileDialog(
     if (state == null || working) {
         // Reading a backup with sticker packs in it is not instant, and neither
         // is writing one back out.
+        val progress = if (working) {
+            R.string.import_progress_importing
+        } else {
+            R.string.import_progress_reading
+        }
         AlertDialog(
             onDismissRequest = {},
-            title = { Text(if (working) "Importing…" else "Reading file…") },
+            title = { Text(stringResource(progress)) },
             text = { CircularProgressIndicator() },
             confirmButton = {},
         )
@@ -317,13 +361,13 @@ private fun ImportFileDialog(
     val proposal = rememberProposal(state, repository, context, uri)
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text(proposal.title) },
+        title = { Text(proposalTitle(proposal)) },
         text = {
             Column {
                 Text(proposal.body)
                 if (proposal.repairs.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
-                    Text("Changed on the way in:", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.import_repairs_title), fontWeight = FontWeight.Medium)
                     for (line in proposal.repairs) Text("• $line")
                 }
             }
@@ -331,16 +375,18 @@ private fun ImportFileDialog(
         confirmButton = {
             val apply = proposal.apply
             if (apply == null) {
-                TextButton(onClick = onClose) { Text("OK") }
+                TextButton(onClick = onClose) { Text(stringResource(CommonR.string.common_ok)) }
             } else {
                 TextButton(onClick = {
                     working = true
                     scope.launch { message = apply(); working = false }
-                }) { Text(proposal.confirmLabel) }
+                }) { Text(stringResource(proposal.confirmLabelRes)) }
             }
         },
         dismissButton = {
-            if (proposal.apply != null) TextButton(onClick = onClose) { Text("Cancel") }
+            if (proposal.apply != null) {
+                TextButton(onClick = onClose) { Text(stringResource(CommonR.string.common_cancel)) }
+            }
         },
     )
 }
@@ -358,32 +404,41 @@ private fun rememberProposal(
     uri: Uri,
 ): ImportProposal = remember(state) {
     when (state) {
-        is WMFileTypes.Opened.Theme -> ImportProposal(
-            title = "Import ${state.theme.name.ifBlank { "theme" }}?",
-            body = "The theme is added to your themes and applied to the keyboard.",
-            apply = {
-                val id = "custom_${System.currentTimeMillis()}"
-                // Fresh id first, so extracted image filenames key off it and
-                // stay unique against the themes already saved.
-                repository.upsertCustomTheme(
-                    state.theme.copy(id = id)
-                        .withExtractedImages(File(context.filesDir, "theme_images").apply { mkdirs() }),
-                )
-                repository.setKeyboardThemeId(id)
-                "Imported ${state.theme.name.ifBlank { "theme" }}."
-            },
-        )
+        is WMFileTypes.Opened.Theme -> {
+            val themeName = state.theme.name
+                .ifBlank { context.getString(R.string.import_theme_fallback_name) }
+            ImportProposal(
+                titleRes = R.string.import_name_title,
+                titleArg = themeName,
+                body = context.getString(R.string.import_theme_body),
+                apply = {
+                    val id = "custom_${System.currentTimeMillis()}"
+                    // Fresh id first, so extracted image filenames key off it and
+                    // stay unique against the themes already saved.
+                    repository.upsertCustomTheme(
+                        state.theme.copy(id = id)
+                            .withExtractedImages(
+                                File(context.filesDir, "theme_images").apply { mkdirs() },
+                            ),
+                    )
+                    repository.setKeyboardThemeId(id)
+                    context.getString(R.string.import_done_name, themeName)
+                },
+            )
+        }
 
         is WMFileTypes.Opened.Layout -> ImportProposal(
-            title = "Import ${state.layout.layout.name}?",
-            body = "It is added to your layouts but not switched on — turn it on " +
-                "under Languages when you are ready to type with it.",
-            repairs = state.layout.repairs,
+            titleRes = R.string.import_name_title,
+            titleArg = state.layout.layout.name,
+            body = context.getString(R.string.import_layout_body),
+            // The repair lines are resource-backed; the file was read off the
+            // main thread, so they are worded here rather than there.
+            repairs = state.layout.repairNotes.map { it.format(context.resources) },
             apply = {
                 repository.upsertCustomLayout(
                     state.layout.layout.copy(id = "custom_${System.currentTimeMillis()}"),
                 )
-                "Imported ${state.layout.layout.name}."
+                context.getString(R.string.import_done_name, state.layout.layout.name)
             },
         )
 
@@ -391,70 +446,100 @@ private fun rememberProposal(
             val counts = repository.describeConfig(state.parsed)
             val hasSecrets = repository.configContainsSecrets(state.parsed)
             ImportProposal(
-                title = "Import backup?",
+                titleRes = R.string.import_backup_title,
                 body = buildString {
-                    append("This file contains:\n")
+                    append(context.getString(R.string.import_backup_contains))
+                    append("\n")
                     for ((section, count) in counts) {
-                        append("\n• ${sectionLabel(section)}: ")
-                        append(sectionSummary(section, count))
+                        append("\n")
+                        append(
+                            context.getString(
+                                R.string.import_backup_section_line,
+                                sectionLabel(context, section),
+                                sectionSummary(context, section, count),
+                            ),
+                        )
                     }
-                    append("\n\nSettings merge into your current ones; dictionary, ")
-                    append("clipboard and snippets replace what's on this device.")
+                    append("\n\n").append(context.getString(R.string.import_backup_merge_note))
                     if (hasSecrets) {
-                        append("\n\nThe file includes API keys, which will replace the ")
-                        append("ones set here.")
+                        append("\n\n").append(context.getString(R.string.import_api_keys_note))
                     }
                 },
                 apply = {
                     when (val result = repository.importConfig(state.text)) {
                         is SettingsRepository.ConfigImportResult.Applied -> buildString {
                             if (result.restored.isEmpty()) {
-                                append("Nothing to restore from that file.")
+                                append(context.getString(R.string.import_backup_nothing))
                             } else {
-                                append("Restored ")
-                                append(result.restored.joinToString { sectionLabel(it).lowercase() })
-                                append(".")
+                                append(
+                                    context.getString(
+                                        R.string.import_backup_restored,
+                                        // Each name carries its own mid-sentence
+                                        // form. A translated name cannot be put
+                                        // into lower case in code.
+                                        result.restored.joinToString {
+                                            sectionLabelLowercase(context, it)
+                                        },
+                                    ),
+                                )
                             }
                             if (result.settingsFailed) {
-                                append("\n\nThe settings couldn't be applied and were left unchanged.")
+                                append("\n\n")
+                                append(context.getString(R.string.import_backup_settings_failed))
                             }
                         }
                         SettingsRepository.ConfigImportResult.NotABackup ->
-                            "That file is not a WMKeyboard backup."
+                            context.getString(R.string.import_not_a_backup)
                     }
                 },
             )
         }
 
         is WMFileTypes.Opened.Settings -> ImportProposal(
-            title = "Import settings?",
+            titleRes = R.string.import_settings_title,
             body = buildString {
-                append("This will overwrite ${state.parsed.entries.size} settings ")
-                append("with the values in that file.")
+                append(
+                    context.resources.getQuantityString(
+                        R.plurals.import_settings_overwrite,
+                        state.parsed.entries.size,
+                        state.parsed.entries.size,
+                    ),
+                )
                 if (state.parsed.containsSecrets) {
-                    append("\n\nThe file includes API keys, which will replace the ones set here.")
+                    append("\n\n").append(context.getString(R.string.import_api_keys_note))
                 }
                 if (state.parsed.skipped > 0) {
-                    append("\n\n${state.parsed.skipped} entries could not be read and will be skipped.")
+                    append("\n\n")
+                    append(
+                        context.resources.getQuantityString(
+                            R.plurals.import_settings_skipped,
+                            state.parsed.skipped,
+                            state.parsed.skipped,
+                        ),
+                    )
                 }
             },
             apply = {
                 when (val result = repository.importSettings(state.text)) {
                     is SettingsRepository.ImportResult.Applied ->
-                        "Restored ${result.settings} settings."
+                        context.resources.getQuantityString(
+                            R.plurals.import_settings_restored,
+                            result.settings,
+                            result.settings,
+                        )
                     SettingsRepository.ImportResult.RolledBack ->
-                        "That backup could not be applied — your settings are unchanged."
+                        context.getString(R.string.import_settings_rolled_back)
                     SettingsRepository.ImportResult.NotABackup ->
-                        "That file is not a WMKeyboard settings backup."
+                        context.getString(R.string.import_not_a_settings_backup)
                 }
             },
         )
 
         is WMFileTypes.Opened.Snippets -> ImportProposal(
-            title = "Import ${state.snippets.snippets.size} snippets?",
-            body = "They are added alongside the snippets you already have — nothing " +
-                "is replaced.",
-            repairs = state.snippets.repairs,
+            titlePluralRes = R.plurals.import_snippets_title,
+            titleQuantity = state.snippets.snippets.size,
+            body = context.getString(R.string.import_snippets_body),
+            repairs = state.snippets.repairs.map { it.resolve(context) },
             apply = {
                 val store = withContext(Dispatchers.IO) {
                     SnippetStore(File(context.filesDir, "snippets/snippets.json"))
@@ -469,73 +554,96 @@ private fun rememberProposal(
                     // add() is in-memory only; save() is what writes the file.
                     store.save()
                 }
-                "Imported ${state.snippets.snippets.size} snippets."
+                context.resources.getQuantityString(
+                    R.plurals.import_snippets_done,
+                    state.snippets.snippets.size,
+                    state.snippets.snippets.size,
+                )
             },
         )
 
         WMFileTypes.Opened.Stickers -> ImportProposal(
-            title = "Import sticker pack?",
-            body = "The pack is added to your own stickers, and its images are copied " +
-                "onto this device.",
+            titleRes = R.string.import_stickers_title,
+            body = context.getString(R.string.import_stickers_body),
             apply = {
                 val store = StickerPackStore.get(context)
+                // Names a pack whose own file gives no name.
+                val fallbackName = context.getString(ContentR.string.core_content_sticker_pack_imported_label)
                 val result = withContext(Dispatchers.IO) {
                     runCatching {
                         context.contentResolver.requireInputStream(uri)
-                            .use { StickerPackFile.import(it, store) }
+                            .use { StickerPackFile.import(it, store, fallbackName) }
                     }.getOrDefault(StickerImportResult.Failed)
                 }
                 when (result) {
                     is StickerImportResult.Imported -> buildString {
-                        append("Imported ${result.pack.name} — ${result.pack.stickers.size} stickers.")
+                        append(
+                            context.resources.getQuantityString(
+                                R.plurals.import_stickers_done,
+                                result.pack.stickers.size,
+                                result.pack.name,
+                                result.pack.stickers.size,
+                            ),
+                        )
                         if (result.repairs.isNotEmpty()) {
-                            append("\n\nChanged on the way in:")
-                            for (line in result.repairs) append("\n• $line")
+                            append("\n\n").append(context.getString(R.string.import_repairs_title))
+                            // The reader hands back a resource and its
+                            // arguments, so the note is worded here.
+                            for (line in result.repairs) {
+                                append("\n• ${line.resolve(context)}")
+                            }
                         }
                     }
                     StickerImportResult.NotAStickerPack ->
-                        "That file is not a WMKeyboard sticker pack."
+                        context.getString(R.string.import_not_a_sticker_pack)
                     is StickerImportResult.NoStickers -> buildString {
-                        append("No stickers could be read out of that pack.")
-                        for (line in result.repairs.take(5)) append("\n• $line")
+                        append(context.getString(R.string.import_stickers_none_read))
+                        for (line in result.repairs.take(5)) {
+                            append("\n• ${line.resolve(context)}")
+                        }
                     }
                     StickerImportResult.TooManyPacks ->
-                        "You already have ${StickerPackStore.MAX_PACKS} packs. Delete one first."
-                    StickerImportResult.Failed -> "That file could not be read."
+                        context.resources.getQuantityString(
+                            R.plurals.import_stickers_too_many,
+                            StickerPackStore.MAX_PACKS,
+                            StickerPackStore.MAX_PACKS,
+                        )
+                    StickerImportResult.Failed ->
+                        context.getString(R.string.import_file_unreadable)
                 }
             },
         )
 
         WMFileTypes.Opened.Icons -> ImportProposal(
-            title = "Import icon pack?",
-            body = "The pack is installed and switched on, so its icons replace the " +
-                "built-in ones. Icons you set yourself are kept.",
+            titleRes = R.string.import_icons_title,
+            body = context.getString(R.string.import_icons_body),
             apply = {
                 val store = IconPackStore.get(context)
+                // The importer names a pack whose own file gives no name, and it
+                // runs off the main thread, so the wording is resolved here.
+                val fallbackName = context.getString(IconsR.string.core_icons_pack_imported_label)
                 val result = withContext(Dispatchers.IO) {
                     runCatching {
                         context.contentResolver.requireInputStream(uri)
-                            .use { IconPackFile.import(it, store) }
+                            .use { IconPackFile.import(it, store, fallbackName) }
                     }.getOrDefault(IconImportResult.Failed)
                 }
                 if (result is IconImportResult.Imported) repository.setIconPack(result.pack.id)
-                describeImport(result)
+                describeImport(context, result)
             },
         )
 
         WMFileTypes.Opened.Plugin -> pluginProposal(context, uri)
 
         WMFileTypes.Opened.Unrecognized -> ImportProposal(
-            title = "Not a WM Keyboard file",
-            body = "That file doesn't hold a theme, layout, snippet pack, sticker pack, " +
-                "icon pack, plugin or backup this keyboard can read.",
+            titleRes = R.string.import_unrecognized_title,
+            body = context.getString(R.string.import_unrecognized_body),
             apply = null,
         )
 
         WMFileTypes.Opened.Unreadable -> ImportProposal(
-            title = "Couldn't open that file",
-            body = "It may have been moved or deleted, or the app that shared it no " +
-                "longer allows reading it.",
+            titleRes = R.string.import_unreadable_title,
+            body = context.getString(R.string.import_unreadable_body),
             apply = null,
         )
     }
@@ -556,38 +664,55 @@ private fun pluginProposal(context: android.content.Context, uri: Uri): ImportPr
 
     if (!PluginStore.get(context).subsystemEnabled()) {
         return ImportProposal(
-            title = "Plugins are turned off",
-            body = "Turn plugins on in Settings > Tools > Plugins first. They are off " +
-                "until you ask for them, so nothing installs or runs by surprise.",
+            titleRes = R.string.import_plugin_off_title,
+            body = context.getString(R.string.import_plugin_off_body),
             apply = null,
         )
     }
 
     val manifest = (read as? PluginManifestResult.Ok)
         ?: return ImportProposal(
-            title = "Can't install that plugin",
-            body = (read as? PluginManifestResult.Rejected)?.reason
-                ?: "That file isn't a WM Keyboard plugin.",
+            titleRes = R.string.import_plugin_rejected_title,
+            body = (read as? PluginManifestResult.Rejected)?.reasonText?.resolve(context)
+                ?: context.getString(R.string.import_not_a_plugin),
             apply = null,
         )
 
     val capabilities = if (manifest.permissions.isEmpty()) {
-        "It doesn't ask for anything beyond its own panel."
+        context.getString(R.string.import_plugin_no_permissions)
     } else {
-        manifest.permissions.joinToString(prefix = "It can:\n", separator = "\n") { "• ${it.label}" }
+        manifest.permissions.joinToString(
+            prefix = context.getString(R.string.import_plugin_permissions_intro) + "\n",
+            separator = "\n",
+        ) { "• " + context.getString(it.labelRes) }
     }
 
     return ImportProposal(
-        title = "Install “${manifest.manifest.name}”?",
+        titleRes = R.string.import_plugin_install_title,
+        titleArg = manifest.manifest.name,
         body = buildString {
-            append(manifest.manifest.description.ifBlank { "A WM Keyboard plugin." })
-            append("\n\nVersion ${manifest.manifest.pluginVersion}")
-            if (manifest.manifest.author.isNotBlank()) append(" by ${manifest.manifest.author}")
-            append("\n\n").append(capabilities)
             append(
-                "\n\nPlugins run in a sandbox: this one cannot see what you type, read " +
-                    "your clipboard, or use the internet.",
+                manifest.manifest.description.ifBlank {
+                    context.getString(R.string.import_plugin_default_description)
+                },
             )
+            append("\n\n")
+            append(
+                if (manifest.manifest.author.isNotBlank()) {
+                    context.getString(
+                        R.string.import_plugin_version_by_author,
+                        manifest.manifest.pluginVersion,
+                        manifest.manifest.author,
+                    )
+                } else {
+                    context.getString(
+                        R.string.import_plugin_version,
+                        manifest.manifest.pluginVersion,
+                    )
+                },
+            )
+            append("\n\n").append(capabilities)
+            append("\n\n").append(context.getString(R.string.import_plugin_sandbox_note))
         },
         apply = {
             val store = PluginStore.get(context)
@@ -600,17 +725,21 @@ private fun pluginProposal(context: android.content.Context, uri: Uri): ImportPr
             when (result) {
                 is PluginImportResult.Imported ->
                     if (result.replaced) {
-                        "Updated ${result.plugin.name}. Open it from the Plugins tool."
+                        context.getString(R.string.import_plugin_updated, result.plugin.name)
                     } else {
-                        "Installed ${result.plugin.name}. Open it from the Plugins tool."
+                        context.getString(R.string.import_plugin_installed, result.plugin.name)
                     }
 
-                is PluginImportResult.Rejected -> result.reason
-                PluginImportResult.NotAPlugin -> "That file isn't a WM Keyboard plugin."
+                is PluginImportResult.Rejected -> result.reasonText.resolve(context)
+                PluginImportResult.NotAPlugin -> context.getString(R.string.import_not_a_plugin)
                 PluginImportResult.TooManyPlugins ->
-                    "You already have ${PluginStore.MAX_PLUGINS} plugins. Delete one first."
+                    context.resources.getQuantityString(
+                        R.plurals.import_plugin_too_many,
+                        PluginStore.MAX_PLUGINS,
+                        PluginStore.MAX_PLUGINS,
+                    )
 
-                PluginImportResult.Failed -> "That plugin could not be installed."
+                PluginImportResult.Failed -> context.getString(R.string.import_plugin_failed)
             }
         },
     )

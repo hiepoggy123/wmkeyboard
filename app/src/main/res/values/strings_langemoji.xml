@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ===== Languages settings screen ===== -->
+
+    <string name="langemoji_lang_intro_body">Every layout that you turn on is its own input mode. Use the 🌐 key or a spacebar swipe to change between them.</string>
+
+    <string name="langemoji_lang_your_languages_title">Your languages</string>
+    <string name="langemoji_lang_add_title">Add language</string>
+    <!-- Subtitle of the "Add language" row. %1$d is the number of languages that
+         the keyboard knows, for example 352. -->
+    <plurals name="langemoji_lang_add_subtitle">
+        <item quantity="one">Type in %1$d language</item>
+        <item quantity="other">Type in any of %1$d languages</item>
+    </plurals>
+
+    <string name="langemoji_lang_suggested_title">Suggested for you</string>
+    <string name="langemoji_lang_suggested_source_body">The suggestions come from the language settings and the region of your device. The keyboard does not read what you type. No data leaves your device.</string>
+
+    <string name="langemoji_lang_switch_order_title">Switch order</string>
+    <string name="langemoji_lang_switch_order_dialog_title">Reorder input languages</string>
+
+    <string name="langemoji_lang_your_layouts_title">Your layouts</string>
+    <!-- Subtitle of one custom layout. %1$s is the name of the language and the
+         layout that it is built on, for example "English · QWERTY". -->
+    <string name="langemoji_lang_custom_layout_subtitle">Types with the <xliff:g id="base" example="English · QWERTY">%1$s</xliff:g> dictionary</string>
+    <string name="langemoji_lang_keymaps_title">Key layouts</string>
+    <!-- Shown when the user has no layouts of their own yet. -->
+    <string name="langemoji_lang_keymaps_empty_subtitle">Make your own key grid, or start from a built-in one</string>
+    <string name="langemoji_lang_keymaps_subtitle">Edit, add and delete layouts</string>
+
+    <string name="langemoji_lang_per_app_title">Per-app language</string>
+    <string name="langemoji_lang_per_app_toggle_title">Remember language per app</string>
+    <string name="langemoji_lang_per_app_toggle_subtitle">Open each app with the layout that you used there last</string>
+    <string name="langemoji_lang_per_app_toggle_info">When you change language while you type in an app, the keyboard remembers your choice for that app. The keyboard uses that language again the next time that you type there. You can change language with the 🌐 key, a spacebar swipe or the picker. Apps where you selected no language use your last language. A field that requires Latin letters, such as a password box, still overrides this. A field that gives its own language also overrides this.</string>
+
+    <string name="langemoji_lang_system_switcher_title">System language switcher</string>
+    <string name="langemoji_lang_os_switcher_title">List languages in the Android switcher</string>
+    <string name="langemoji_lang_os_switcher_subtitle">Add each language to the input method switcher of the system</string>
+    <string name="langemoji_lang_os_switcher_info">The keyboard registers every layout that you turn on as an Android input method subtype. The \"Choose input method\" sheet of the system then lists them, and you can change between them there. Turn this off to keep language switching inside the keyboard only, with the 🌐 key, a spacebar swipe or the picker. The keyboard then gives no subtypes to the system.\n\nTo register a language and to make it switchable are two different things. Android lists only the languages that something turns on. Until then, Android selects them itself from the languages of your device, and it usually selects one. On Android 14 and newer, the keyboard turns them all on for you. On older versions, select them by hand in the system settings with the row below.</string>
+    <string name="langemoji_lang_app_name_first_title">Show app name first</string>
+    <!-- "WM Keyboard" is the name of this app and stays as it is. -->
+    <string name="langemoji_lang_app_name_first_subtitle">The label reads \"WM Keyboard · &lt;language&gt;\"</string>
+    <string name="langemoji_lang_app_name_first_info">This puts the app name in front of the language in the label of the switcher. Android decides how it styles the label and the app name, such as which one is bold or grey. This setting changes only the label text, not that styling.</string>
+    <string name="langemoji_lang_subtype_enabler_title">Select languages in the system settings</string>
+    <!-- Shown on Android 14 and newer, where the keyboard turns the languages on itself. -->
+    <string name="langemoji_lang_subtype_enabler_subtitle">The list of Android. Use it only if the switcher looks wrong</string>
+    <!-- Shown on Android 13 and older, where the user must do this by hand. -->
+    <string name="langemoji_lang_subtype_enabler_legacy_subtitle">Android 13 and older: select each language here, or the switcher shows only one</string>
+
+    <!-- ===== Emoji settings screen ===== -->
+
+    <string name="langemoji_emoji_access_title">Access</string>
+    <string name="langemoji_emoji_toolbar_title">Emoji button in toolbar</string>
+    <string name="langemoji_emoji_toolbar_subtitle">Open emoji with one press from the top bar</string>
+    <string name="langemoji_emoji_toolbar_info">The emoji button stays visible in the top bar, also while the suggestions show. The emoji panel has a tab for each category. You can search in English and Bengali, and in any language that you add a keyword pack for. Press and hold an emoji for the skin tone variants.</string>
+    <string name="langemoji_emoji_full_bleed_title">Full-screen emoji panel</string>
+    <string name="langemoji_emoji_full_bleed_subtitle">Hide the toolbar and move the category tabs up, next to a back button</string>
+    <string name="langemoji_emoji_full_bleed_info">The emoji panel fills the whole keyboard. The toolbar, the emoji row and the symbol row go away. The category tabs move into the row that they leave, next to a back button. Turn this off to keep the toolbar in reach while you select emoji.</string>
+
+    <string name="langemoji_emoji_suggestions_title">Suggestions</string>
+    <string name="langemoji_emoji_prediction_title">Emoji suggestions</string>
+    <string name="langemoji_emoji_prediction_subtitle">Show emoji while you type. The word birthday suggests 🎂 🎉 🥳</string>
+    <!-- %1$s is the word for "birthday" in a language that the user types, for
+         example "জন্মদিন". -->
+    <string name="langemoji_emoji_prediction_info">Emoji that match appear at the end of the suggestion strip while you type. This works in English and in any language whose keywords you have. <xliff:g id="word" example="জন্মদিন">%1$s</xliff:g> also suggests 🎂.</string>
+    <string name="langemoji_emoji_insert_mode_title">Press an emoji suggestion</string>
+    <string name="langemoji_emoji_insert_mode_subtitle">What happens to the word that you typed</string>
+    <string name="langemoji_emoji_insert_mode_info">\"Replace word\" changes the word that you typed to the emoji. If you type birthday and press 🎂, only 🎂 stays, as in Gboard. \"Keep word\" adds the emoji after the word: birthday 🎂.</string>
+    <string name="langemoji_emoji_insert_replace_label">Replace word</string>
+    <string name="langemoji_emoji_insert_append_label">Keep word</string>
+
+    <string name="langemoji_emoji_skin_tone_group_title">Skin tone</string>
+    <string name="langemoji_emoji_skin_tone_title">Default skin tone</string>
+    <string name="langemoji_emoji_skin_tone_subtitle">For toned emoji in the panel, the suggestions and the search</string>
+    <string name="langemoji_emoji_skin_tone_info">The keyboard shows toned emoji (👍, 🙏, 🧑…) with this Fitzpatrick tone in the grid of the emoji panel, the suggestion strip and the emoji search results. It also inserts them with that tone. An emoji that you selected a tone for keeps your tone while \"Override with last used\" is on. The first option (✋) keeps the neutral yellow base.</string>
+    <string name="langemoji_emoji_tone_override_title">Override with last used</string>
+    <string name="langemoji_emoji_tone_override_subtitle">Use the tone that you selected last for an emoji, not the default</string>
+    <string name="langemoji_emoji_tone_override_info">When this is on, and it is on by default, an emoji that you already selected a tone for keeps that tone everywhere: in the panel, the suggestions and the search. You select that tone from the press and hold popup of the emoji in the panel. The emoji does not use the default above. When this is off, the default skin tone always wins.</string>
+
+    <string name="langemoji_emoji_panel_title">Emoji panel</string>
+    <string name="langemoji_emoji_close_after_insert_title">Return to the keyboard after you insert</string>
+    <string name="langemoji_emoji_close_after_insert_subtitle">Close the panel when you insert one emoji or paste one clip</string>
+    <string name="langemoji_emoji_close_after_insert_info">By default, the emoji panel and the clipboard panel stay open, so that you can select several items. Turn this on to go back to the keys directly after one emoji or one clipboard paste.</string>
+    <string name="langemoji_emoji_tab_mode_title">History tab</string>
+    <string name="langemoji_emoji_tab_mode_subtitle">What the first tab of the emoji panel shows</string>
+    <string name="langemoji_emoji_tab_mode_info">\"Recent\" lists emoji in the order that you used them last. \"Most used\" puts the emoji that you use most often first. The keyboard always keeps your favourite emoji at the start of both lists.</string>
+    <string name="langemoji_emoji_recent_label">Recent</string>
+    <string name="langemoji_emoji_most_used_label">Most used</string>
+    <string name="langemoji_emoji_clear_recents_title">Clear recents button</string>
+    <string name="langemoji_emoji_clear_recents_subtitle">A button on the Recent tab that deletes the recents list</string>
+    <string name="langemoji_emoji_clear_recents_info">This adds a \"Clear recents\" button to the Recent tab of the emoji panel. It is off by default, to keep the tab clean.</string>
+    <string name="langemoji_emoji_kaomoji_title">Kaomoji and Emoticons</string>
+    <!-- The two faces are text art and stay as they are. -->
+    <string name="langemoji_emoji_kaomoji_subtitle">Two extra tabs: ¯\\_(ツ)_/¯ and :-)</string>
+    <string name="langemoji_emoji_kaomoji_info">This adds a Kaomoji tab and an Emoticons tab at the end of the tabs of the emoji panel. Kaomoji are Japanese style faces, such as (╯°□°）╯︵ ┻━┻. Emoticons are the Western ASCII ones, such as :-D and &lt;3. Both tabs group them by mood. If you press one, the keyboard types it as plain text. It does not go into your emoji history.</string>
+    <string name="langemoji_emoji_long_press_name_title">Emoji descriptions</string>
+    <string name="langemoji_emoji_long_press_name_subtitle">Show the name of the emoji at the top of its press and hold popup</string>
+    <string name="langemoji_emoji_long_press_name_info">Press and hold an emoji to show its Unicode name, such as \"skull and crossbones\". The name appears above the favourite control and the variant controls. This helps you to see the difference between emoji that look almost the same.</string>
+    <string name="langemoji_emoji_keywords_title">Emoji keywords</string>
+    <string name="langemoji_emoji_keywords_subtitle">Download or import keywords to search emoji in another language</string>
+
+    <string name="langemoji_emoji_row_title">Emoji row</string>
+    <string name="langemoji_emoji_bar_mode_subtitle">A row of your own emoji, like Gboard</string>
+    <string name="langemoji_emoji_bar_mode_info">\"Own row\" keeps an emoji row between the toolbar and the keys at all times. \"Button\" adds a button at the right end of the toolbar. The button changes the suggestion strip to the emoji row. \"Off\" hides both.</string>
+    <string name="langemoji_emoji_bar_button_label">Button</string>
+    <string name="langemoji_emoji_bar_always_label">Own row</string>
+    <string name="langemoji_emoji_bar_content_title">Emoji row content</string>
+    <string name="langemoji_emoji_bar_content_subtitle">Favourites always come first</string>
+    <string name="langemoji_emoji_favourites_label">Favourites</string>
+    <string name="langemoji_emoji_bar_count_title">Emoji in the row</string>
+    <string name="langemoji_emoji_bar_count_subtitle">How many fit across. A higher number packs them tighter</string>
+    <string name="langemoji_emoji_bar_count_info">The row divides its width into this many slots and makes the emoji small enough to fit them. A higher number gives smaller emoji that are closer together. When scrolling is off, the row hides the emoji after the last slot. When scrolling is on, a swipe shows them.</string>
+    <string name="langemoji_emoji_bar_scroll_title">Scroll the emoji row</string>
+    <string name="langemoji_emoji_bar_scroll_subtitle">Swipe sideways for the emoji after the visible ones</string>
+    <string name="langemoji_emoji_bar_scroll_info">When this is off, and it is off by default, the row does not move. It shows only the emoji that fit, so a sideways swipe cannot move it under your finger. When this is on, you can scroll to the other emoji.</string>
+    <!-- "Rows &amp; bars" is the name of another settings screen. -->
+    <string name="langemoji_emoji_row_position_body">You set the position of the emoji row against the toolbar and the symbol row in Rows &amp; bars, on the home screen of the settings.</string>
+
+    <string name="langemoji_emoji_style_title">Emoji style</string>
+    <string name="langemoji_emoji_font_title">Emoji font</string>
+    <string name="langemoji_emoji_font_subtitle">How emoji look on the keyboard itself</string>
+    <string name="langemoji_emoji_font_info">\"System\" uses the emoji pack of your device. On Samsung devices that is the Samsung set. \"Google\" downloads Noto Color Emoji, the standard Android look, one time through the system font provider, and keeps it on your device. \"Installed\" uses an emoji font from Addons, such as Twemoji or OpenMoji. \"Custom\" uses one emoji font file that you import below. The text that you send is always plain Unicode. Other apps and other devices draw it with their own emoji font.</string>
+    <!-- The emoji font of the device. -->
+    <string name="langemoji_emoji_font_system_label">System</string>
+    <!-- Noto Color Emoji, downloaded from the system font provider. -->
+    <string name="langemoji_emoji_font_noto_label">Google</string>
+    <!-- An emoji font that the user installed from Addons. -->
+    <string name="langemoji_emoji_font_installed_label">Installed</string>
+    <string name="langemoji_emoji_font_missing_error">You did not import an emoji font. The keyboard uses the system font until you import one.</string>
+    <string name="langemoji_emoji_font_replace_action">Replace emoji font file</string>
+    <string name="langemoji_emoji_font_import_action">Import emoji font file</string>
+    <string name="langemoji_emoji_hide_unrenderable_title">Hide emoji that your device cannot show</string>
+    <string name="langemoji_emoji_hide_unrenderable_subtitle">Skip emoji that show as a blank box in the panel, the search and the suggestions</string>
+    <string name="langemoji_emoji_hide_unrenderable_info">Older devices, and some brands, have an emoji font that is older than the newest emoji. Those emoji then show as an empty \"tofu\" box. This setting hides every emoji that the emoji font of your device cannot draw. To see them all, set the emoji font above to \"Google\" (Noto Color Emoji). You can also install a complete emoji font from Addons, such as Twemoji or OpenMoji. WM Keyboard has no emoji font of its own. It uses the font that you select here.</string>
+    <!-- Second paragraph, added only when the user selected an emoji font of their own. -->
+    <string name="langemoji_emoji_hide_unrenderable_own_font_info">The font that you selected above covers only the emoji that it was built with. Usually only the newest release has the newest emoji. The keyboard does not hide those emoji. It draws each one in the emoji font of your device, so you still see it, but in another style.</string>
+
+    <string name="langemoji_emoji_tip_body">Tip: press and hold any emoji in the panel to make it a favourite or to select skin tones. For an emoji with two persons, such as 🤝, you can set the tone of each person.</string>
+
+    <!-- ===== Installed emoji fonts ===== -->
+
+    <string name="langemoji_emoji_fonts_empty">No emoji fonts are installed. Install one from Addons, such as Twemoji or OpenMoji. You can also import one file with the \"Custom\" setting.</string>
+    <string name="langemoji_emoji_font_selected_desc">Selected</string>
+    <!-- %1$s is the name of the emoji font. -->
+    <string name="langemoji_emoji_font_delete_desc">Delete <xliff:g id="font" example="Twemoji">%1$s</xliff:g></string>
+
+</resources>

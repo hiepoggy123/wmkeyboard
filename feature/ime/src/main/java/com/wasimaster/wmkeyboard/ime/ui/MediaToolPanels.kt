@@ -59,6 +59,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,6 +72,7 @@ import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import coil3.gif.AnimatedImageDecoder
 import coil3.gif.GifDecoder
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.tools.GifItem
@@ -85,6 +87,7 @@ import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.MediaUi
+import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.WebSearchUi
 
 // ---- shared bits ----
@@ -187,11 +190,13 @@ internal fun RowScope.MediaHeaderSearchBar(
     placeholder: String,
     onQueryTap: () -> Unit,
     attribution: String? = null,
-    // Prompt shown once the field is being typed into. Defaults to the search
+    // Prompt shown once the field is typed into. Null falls back to the search
     // wording; tools that aren't searching (e.g. translate) pass their own.
-    activePlaceholder: String = "Type to search…",
+    // A default argument cannot hold a resource, hence the null.
+    activePlaceholder: String? = null,
 ) {
     val kb = LocalKbTheme.current
+    val activeHint = activePlaceholder ?: stringResource(R.string.ime_media_search_active_hint)
     Row(
         modifier = Modifier
             .weight(1f)
@@ -210,7 +215,7 @@ internal fun RowScope.MediaHeaderSearchBar(
         Spacer(Modifier.width(8.dp))
         SearchQueryText(
             query = state.mediaQuery,
-            placeholder = if (state.mediaSearchActive) activePlaceholder else placeholder,
+            placeholder = if (state.mediaSearchActive) activeHint else placeholder,
             active = state.mediaSearchActive,
             textColor = kb.suggestionText,
             placeholderColor = kb.secondaryText,
@@ -266,7 +271,11 @@ private fun MediaSearchBar(
             Spacer(Modifier.width(8.dp))
             SearchQueryText(
                 query = state.mediaQuery,
-                placeholder = if (state.mediaSearchActive) "Type to search…" else placeholder,
+                placeholder = if (state.mediaSearchActive) {
+                    stringResource(R.string.ime_media_search_active_hint)
+                } else {
+                    placeholder
+                },
                 active = state.mediaSearchActive,
                 textColor = kb.suggestionText,
                 placeholderColor = kb.secondaryText,
@@ -328,7 +337,7 @@ private fun PanelNotice(
  * for as long as that field is focused.
  */
 @Composable
-private fun MediaUnsupportedNotice(noun: String) {
+private fun MediaUnsupportedNotice(stickers: Boolean) {
     val kb = LocalKbTheme.current
     Row(
         modifier = Modifier
@@ -346,7 +355,11 @@ private fun MediaUnsupportedNotice(noun: String) {
         )
         Spacer(Modifier.width(6.dp))
         Text(
-            "This field doesn't accept $noun — try a chat or notes app",
+            if (stickers) {
+                stringResource(R.string.ime_sticker_unsupported_field_notice)
+            } else {
+                stringResource(R.string.ime_gif_unsupported_field_notice)
+            },
             color = kb.toolbarIcon,
             fontSize = 11.sp,
             maxLines = 2,
@@ -367,22 +380,31 @@ private fun PanelSpinner() {
 
 // ---- GIF & sticker panels ----
 
-/**
- * GIF/sticker picker: trending on open, live search from the search bar,
- * animated previews, tap to download & commit into the editor. With
- * several providers configured, either a chip per source or one
- * evenly-mixed grid, per the tool's settings.
- */
-private fun gifNoun(stickers: Boolean): String = if (stickers) "stickers" else "GIFs"
+// GIF/sticker picker: trending on open, live search from the search bar,
+// animated previews, tap to download & commit into the editor. With
+// several providers configured, either a chip per source or one
+// evenly-mixed grid, per the tool's settings.
 
-/** "via Klipy · GIPHY" — whichever providers this grid is actually pulling from. */
+/** The hint in the search box: GIFs and stickers each have their own wording. */
+@Composable
+private fun gifSearchHint(stickers: Boolean): String = stringResource(
+    if (stickers) R.string.ime_sticker_search_hint else R.string.ime_gif_search_hint,
+)
+
+/** "from Klipy · GIPHY" — whichever providers this grid is actually pulling from. */
+@Composable
 private fun gifAttribution(state: KeyboardUiState, stickers: Boolean = false): String? {
     val sources = gifSourcesFor(state, stickers)
     val tabs = state.settings.gifSourceMode == GifSourceMode.TABS
     val targets = GifSources.targets(sources, state.mediaSource, tabs)
     // Nothing to credit for the user's own packs.
     if (targets.isEmpty() || targets == listOf(GifSource.LOCAL)) return null
-    return "via " + targets.joinToString(" · ") { GifSources.displayName(it) }
+    val names = StringBuilder()
+    for (target in targets) {
+        if (names.isNotEmpty()) names.append(" · ")
+        names.append(stringResource(GifSources.displayNameRes(target)))
+    }
+    return stringResource(R.string.ime_media_attribution, names.toString())
 }
 
 private fun gifSourcesFor(state: KeyboardUiState, stickers: Boolean): List<GifSource> =
@@ -397,7 +419,7 @@ internal fun RowScope.GifHeaderSearchBar(
 ) {
     MediaHeaderSearchBar(
         state = state,
-        placeholder = "Search ${gifNoun(stickers)}",
+        placeholder = gifSearchHint(stickers),
         onQueryTap = onQueryTap,
         attribution = gifAttribution(state, stickers),
     )
@@ -428,7 +450,6 @@ internal fun GifPanel(
 ) {
     val ui = if (stickers) state.sticker else state.gif
     val tool = if (stickers) ToolbarTool.STICKER else ToolbarTool.GIF
-    val noun = gifNoun(stickers)
     val sources = gifSourcesFor(state, stickers)
     val tabsMode = state.settings.gifSourceMode == GifSourceMode.TABS
     val chips = GifSources.chips(sources, tabsMode)
@@ -453,7 +474,7 @@ internal fun GifPanel(
             if (!fullBleed) {
                 MediaSearchBar(
                     state = state,
-                    placeholder = "Search $noun",
+                    placeholder = gifSearchHint(stickers),
                     onQueryTap = onQueryTap,
                     attribution = gifAttribution(state, stickers),
                     focused = state.focusedIndex(FocusRegion.SEARCH) == 0,
@@ -490,23 +511,30 @@ internal fun GifPanel(
             val unsupported = !state.acceptsRichMedia
             // Not while the search box is up — the panel is squeezed to a couple
             // of rows there, and the notice is waiting when the results land.
-            if (unsupported && !state.mediaSearchActive) MediaUnsupportedNotice(noun)
+            if (unsupported && !state.mediaSearchActive) MediaUnsupportedNotice(stickers)
             when (ui) {
                 MediaUi.NeedKey -> PanelNotice(
-                    "The $noun tool needs an API key — Klipy or GIPHY (both free). " +
-                        "Add one in the tool's settings.",
-                    actionLabel = "Open settings",
+                    if (stickers) {
+                        stringResource(R.string.ime_sticker_need_key_body)
+                    } else {
+                        stringResource(R.string.ime_gif_need_key_body)
+                    },
+                    actionLabel = stringResource(R.string.ime_open_settings_action),
                     onAction = { onOpenToolSettings(tool) },
                 )
                 MediaUi.Loading -> PanelSpinner()
-                is MediaUi.Error -> PanelNotice(ui.message, actionLabel = "Retry", onAction = onRetry)
+                is MediaUi.Error -> PanelNotice(
+                    ui.message,
+                    actionLabel = stringResource(CommonR.string.common_retry),
+                    onAction = onRetry,
+                )
                 is MediaUi.Ready -> {
                     if (ui.items.isEmpty()) {
                         LocalStickerEmptyNotice(
                             localGrid = localGrid,
                             state = state,
                             query = ui.query,
-                            noun = noun,
+                            stickers = stickers,
                             onOpenRoute = onOpenRoute,
                         )
                     } else {
@@ -550,23 +578,27 @@ private fun LocalStickerEmptyNotice(
     localGrid: Boolean,
     state: KeyboardUiState,
     query: String,
-    noun: String,
+    stickers: Boolean,
     onOpenRoute: (String) -> Unit,
 ) {
     when {
         !localGrid -> PanelNotice(
-            if (query.isBlank()) "Nothing trending right now" else "No $noun for “$query”",
+            when {
+                query.isBlank() -> stringResource(R.string.ime_media_trending_empty)
+                stickers -> stringResource(R.string.ime_sticker_search_empty, query)
+                else -> stringResource(R.string.ime_gif_search_empty, query)
+            },
         )
-        query.isNotBlank() -> PanelNotice("No stickers of yours match “$query”")
+        query.isNotBlank() ->
+            PanelNotice(stringResource(R.string.ime_sticker_local_search_empty, query))
         state.stickerPacks.isEmpty() -> PanelNotice(
-            "No sticker packs yet. Make one in settings, or long-press a sticker " +
-                "from Klipy or GIPHY to save it here.",
-            actionLabel = "Manage packs",
+            stringResource(R.string.ime_sticker_no_packs_empty),
+            actionLabel = stringResource(R.string.ime_sticker_manage_packs_action),
             onAction = { onOpenRoute(STICKER_PACKS_ROUTE) },
         )
         else -> PanelNotice(
-            "This pack is empty.",
-            actionLabel = "Manage packs",
+            stringResource(R.string.ime_sticker_pack_empty),
+            actionLabel = stringResource(R.string.ime_sticker_manage_packs_action),
             onAction = { onOpenRoute(STICKER_PACKS_ROUTE) },
         )
     }
@@ -593,7 +625,7 @@ private fun GifSourceChips(
         chips.forEachIndexed { index, chip ->
             val active = index == selectedIndex
             Text(
-                chip.label,
+                stringResource(chip.labelRes),
                 color = if (active) kb.toolCircleActiveIcon else kb.suggestionText,
                 fontSize = 12.sp,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
@@ -626,7 +658,8 @@ private fun StickerPackChips(
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        val entries = listOf<Pair<String?, String>>(null to "All") + packs.map { it.id to it.name }
+        val allLabel = stringResource(R.string.ime_sticker_pack_all_label)
+        val entries = listOf<Pair<String?, String>>(null to allLabel) + packs.map { it.id to it.name }
         for ((id, label) in entries) {
             val active = id == selected
             Text(
@@ -688,17 +721,25 @@ private fun MediaActionSheet(
             val local = item.source == GifSource.LOCAL
             if (stickers) {
                 if (local) {
-                    MediaActionRow("Manage packs") { onOpenRoute(STICKER_PACKS_ROUTE) }
+                    MediaActionRow(stringResource(R.string.ime_sticker_manage_packs_action)) {
+                        onOpenRoute(STICKER_PACKS_ROUTE)
+                    }
                 } else if (packs.isEmpty()) {
-                    MediaActionRow("Save to a new pack") { onSaveToPack(item, null) }
+                    MediaActionRow(stringResource(R.string.ime_sticker_save_new_pack_action)) {
+                        onSaveToPack(item, null)
+                    }
                 } else {
                     for (pack in packs) {
-                        MediaActionRow("Save to ${pack.name}") { onSaveToPack(item, pack.id) }
+                        val label =
+                            stringResource(R.string.ime_sticker_save_to_pack_action, pack.name)
+                        MediaActionRow(label) { onSaveToPack(item, pack.id) }
                     }
                 }
             }
-            MediaActionRow("Copy") { onCopy(item) }
-            if (!local) MediaActionRow("Report") { onReport(item) }
+            MediaActionRow(stringResource(CommonR.string.common_copy)) { onCopy(item) }
+            if (!local) {
+                MediaActionRow(stringResource(R.string.ime_media_report_action)) { onReport(item) }
+            }
         }
     }
 }
@@ -759,7 +800,7 @@ private fun GifGrid(
             ) {
                 AsyncImage(
                     model = item.previewUrl,
-                    contentDescription = "GIF",
+                    contentDescription = stringResource(R.string.ime_gif_item_desc),
                     imageLoader = loader,
                     modifier = Modifier.matchParentSize(),
                     contentScale = ContentScale.Crop,
@@ -801,16 +842,20 @@ internal fun WebSearchPanel(
     Column(modifier = Modifier.fillMaxSize()) {
         when (val ui = state.webSearch) {
             WebSearchUi.NeedKey -> PanelNotice(
-                "Web search needs an API key — Brave Search. Add one in the tool's settings.",
-                actionLabel = "Open settings",
+                stringResource(R.string.ime_web_search_need_key_body),
+                actionLabel = stringResource(R.string.ime_open_settings_action),
                 onAction = { onOpenToolSettings(ToolbarTool.WEB_SEARCH) },
             )
-            WebSearchUi.Idle -> PanelNotice("Type a search and press enter.\nTapping a result inserts its link.")
+            WebSearchUi.Idle -> PanelNotice(stringResource(R.string.ime_web_search_idle))
             WebSearchUi.Loading -> PanelSpinner()
-            is WebSearchUi.Error -> PanelNotice(ui.message, actionLabel = "Retry", onAction = onRetry)
+            is WebSearchUi.Error -> PanelNotice(
+                ui.message,
+                actionLabel = stringResource(CommonR.string.common_retry),
+                onAction = onRetry,
+            )
             is WebSearchUi.Ready -> {
                 if (ui.results.isEmpty()) {
-                    PanelNotice("No results for “${ui.query}”")
+                    PanelNotice(stringResource(R.string.ime_web_search_empty, ui.query))
                 } else {
                     val focused = state.focusedIndex()
                     val listState = rememberLazyListState()
@@ -862,7 +907,8 @@ internal fun WebSearchPanel(
                                 IconButton(onClick = { onOpen(result) }) {
                                     Icon(
                                         Icons.AutoMirrored.Outlined.OpenInNew,
-                                        contentDescription = "Open in browser",
+                                        contentDescription =
+                                            stringResource(R.string.ime_web_search_open_desc),
                                         modifier = Modifier.size(18.dp),
                                         tint = kb.toolbarIcon,
                                     )
@@ -893,16 +939,20 @@ internal fun ImageSearchPanel(
     Column(modifier = Modifier.fillMaxSize()) {
         when (val ui = state.imageSearch) {
             ImageSearchUi.NeedKey -> PanelNotice(
-                "Image search needs an API key — Brave Search. Add one in the tool's settings.",
-                actionLabel = "Open settings",
+                stringResource(R.string.ime_image_search_need_key_body),
+                actionLabel = stringResource(R.string.ime_open_settings_action),
                 onAction = { onOpenToolSettings(ToolbarTool.IMAGE_SEARCH) },
             )
-            ImageSearchUi.Idle -> PanelNotice("Type a search and press enter.\nTap inserts the image, long-press its link.")
+            ImageSearchUi.Idle -> PanelNotice(stringResource(R.string.ime_image_search_idle))
             ImageSearchUi.Loading -> PanelSpinner()
-            is ImageSearchUi.Error -> PanelNotice(ui.message, actionLabel = "Retry", onAction = onRetry)
+            is ImageSearchUi.Error -> PanelNotice(
+                ui.message,
+                actionLabel = stringResource(CommonR.string.common_retry),
+                onAction = onRetry,
+            )
             is ImageSearchUi.Ready -> {
                 if (ui.results.isEmpty()) {
-                    PanelNotice("No images for “${ui.query}”")
+                    PanelNotice(stringResource(R.string.ime_image_search_empty, ui.query))
                 } else {
                     ImageGrid(
                         results = ui.results,
@@ -1022,8 +1072,10 @@ internal fun TranslatePanel(
         Row(verticalAlignment = Alignment.CenterVertically) {
             val detected = translate.detectedSource
                 .takeIf { it.isNotBlank() && translate.translated.isNotEmpty() }
+            val sourceName = detected?.let { TranslateClient.languageName(it) }
+                ?: stringResource(R.string.ime_translate_auto_detect_label)
             Text(
-                (detected?.let { TranslateClient.languageName(it) } ?: "Auto-detect") + "  →",
+                "$sourceName  →",
                 color = kb.secondaryText,
                 fontSize = 12.sp,
                 maxLines = 1,
@@ -1046,7 +1098,8 @@ internal fun TranslatePanel(
                     )
                     Icon(
                         Icons.Outlined.ArrowDropDown,
-                        contentDescription = "Choose language",
+                        contentDescription =
+                            stringResource(R.string.ime_translate_select_language_desc),
                         modifier = Modifier.size(18.dp),
                         tint = kb.toolbarIcon,
                     )
@@ -1075,8 +1128,8 @@ internal fun TranslatePanel(
             text = when {
                 translate.error != null -> translate.error
                 translate.translated.isNotEmpty() -> translate.translated
-                translate.translating -> "Translating…"
-                else -> "The translation shows here as you type."
+                translate.translating -> stringResource(R.string.ime_translate_progress)
+                else -> stringResource(R.string.ime_translate_idle)
             },
             color = when {
                 translate.error != null -> kb.accent
@@ -1097,13 +1150,13 @@ internal fun TranslatePanel(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             TranslateAction(
-                label = "Replace text",
+                label = stringResource(R.string.ime_translate_replace_action),
                 icon = Icons.Outlined.SwapVert,
                 enabled = translate.translated.isNotEmpty(),
                 modifier = Modifier.weight(1f),
             ) { onReplace() }
             TranslateAction(
-                label = "Insert",
+                label = stringResource(R.string.ime_insert_action),
                 icon = null,
                 enabled = translate.translated.isNotEmpty(),
                 modifier = Modifier.weight(1f),

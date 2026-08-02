@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.tools
 import android.view.KeyEvent
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
+import com.wasimaster.wmkeyboard.tools.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -91,7 +92,13 @@ class HardwareShortcutsTest {
     @Test
     fun `the default leader is a double tap of ctrl`() {
         assertEquals("doubletap:ctrl", formatLeader(DefaultLeader))
-        assertEquals("Double-tap Ctrl", describeLeader(DefaultLeader))
+        // The sentence around the modifier lives in strings.xml now, so this
+        // pins the template plus the argument that fills it rather than the
+        // assembled English — the wording can be reworded without breaking it.
+        assertEquals(
+            LeaderLabel(R.string.core_tools_shortcut_leader_double_tap, "Ctrl"),
+            leaderLabel(DefaultLeader),
+        )
     }
 
     @Test

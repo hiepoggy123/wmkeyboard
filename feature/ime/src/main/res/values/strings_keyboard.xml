@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Key names spoken by a screen reader. Each one names a key on the
+         keyboard, so keep them short: a screen reader says them on every
+         press. -->
+    <string name="ime_key_space">Space</string>
+    <string name="ime_key_delete">Delete</string>
+    <string name="ime_key_forward_delete">Forward delete</string>
+    <string name="ime_key_shift">Shift</string>
+    <string name="ime_key_shift_on">Shift on</string>
+    <string name="ime_key_caps_lock_on">Caps lock on</string>
+    <string name="ime_key_language_switch">Switch language</string>
+    <string name="ime_key_emoji">Emoji</string>
+    <!-- Fallback name for a key that has no label of its own. -->
+    <string name="ime_key_generic">Key</string>
+    <string name="ime_key_modifier_control">Control</string>
+    <string name="ime_key_modifier_alt">Alt</string>
+    <string name="ime_key_modifier_meta">Meta</string>
+    <!-- %1$s is a modifier key name: Control, Alt or Meta. The key stays on
+         until the user presses it again. -->
+    <string name="ime_key_modifier_locked">%1$s locked</string>
+    <!-- %1$s is a modifier key name: Control, Alt or Meta. The key is on for
+         the next key press only. -->
+    <string name="ime_key_modifier_on">%1$s on</string>
+    <!-- Screen reader action on a key. %1$s is the name of the key. -->
+    <string name="ime_key_type_action">Type %1$s</string>
+
+    <!-- Names for the enter key. The field that has the cursor decides which
+         one the keyboard shows. -->
+    <string name="ime_enter_search">Search</string>
+    <string name="ime_enter_send">Send</string>
+    <string name="ime_enter_go">Go</string>
+    <string name="ime_enter_next">Next</string>
+    <string name="ime_enter_previous">Previous</string>
+    <string name="ime_enter_done">Done</string>
+    <string name="ime_enter_default">Enter</string>
+
+    <!-- Spoken names for punctuation keys. A screen reader reads most of these
+         characters as silence, so the keyboard gives it a word to say. -->
+    <string name="ime_punct_period">Full stop</string>
+    <string name="ime_punct_comma">Comma</string>
+    <string name="ime_punct_question_mark">Question mark</string>
+    <string name="ime_punct_exclamation_mark">Exclamation mark</string>
+    <string name="ime_punct_apostrophe">Apostrophe</string>
+    <string name="ime_punct_quote">Quote</string>
+    <string name="ime_punct_semicolon">Semicolon</string>
+    <string name="ime_punct_colon">Colon</string>
+    <string name="ime_punct_hyphen">Hyphen</string>
+    <string name="ime_punct_underscore">Underscore</string>
+    <string name="ime_punct_slash">Slash</string>
+    <string name="ime_punct_backslash">Backslash</string>
+    <string name="ime_punct_left_parenthesis">Left parenthesis</string>
+    <string name="ime_punct_right_parenthesis">Right parenthesis</string>
+    <string name="ime_punct_left_bracket">Left bracket</string>
+    <string name="ime_punct_right_bracket">Right bracket</string>
+    <string name="ime_punct_left_brace">Left brace</string>
+    <string name="ime_punct_right_brace">Right brace</string>
+    <string name="ime_punct_at_sign">At sign</string>
+    <string name="ime_punct_hash">Hash</string>
+    <string name="ime_punct_dollar_sign">Dollar sign</string>
+    <string name="ime_punct_percent">Percent</string>
+    <string name="ime_punct_ampersand">Ampersand</string>
+    <string name="ime_punct_asterisk">Asterisk</string>
+    <string name="ime_punct_plus">Plus</string>
+    <string name="ime_punct_equals">Equals</string>
+    <string name="ime_punct_less_than">Less than</string>
+    <string name="ime_punct_greater_than">Greater than</string>
+    <string name="ime_punct_vertical_bar">Vertical bar</string>
+    <string name="ime_punct_tilde">Tilde</string>
+    <string name="ime_punct_caret">Caret</string>
+    <string name="ime_punct_backtick">Backtick</string>
+
+    <!-- Keyboard chrome: the floating window, one-handed mode, the top strip
+         and the toolbar. All of these are content descriptions. -->
+    <string name="ime_floating_dock_desc">Dock the keyboard</string>
+    <string name="ime_floating_resize_desc">Resize the keyboard</string>
+    <string name="ime_one_handed_flip_desc">Move the keyboard to the other side</string>
+    <string name="ime_one_handed_exit_desc">Leave one-handed mode</string>
+    <string name="ime_emoji_row_show_desc">Show the emoji row</string>
+    <string name="ime_emoji_row_close_desc">Close the emoji row</string>
+    <string name="ime_suggestions_show_desc">Show the suggestion strip</string>
+    <string name="ime_toolbar_show_desc">Show the toolbar</string>
+    <string name="ime_autofill_dismiss_desc">Hide the autofill suggestions</string>
+    <string name="ime_smart_replies_dismiss_desc">Hide the smart replies</string>
+    <string name="ime_candidates_more_desc">More candidates</string>
+    <string name="ime_emoji_panel_open_desc">Open the emoji panel</string>
+    <string name="ime_symbol_set_switch_desc">Switch the symbol set</string>
+    <string name="ime_incognito_on_desc">Incognito is on</string>
+    <string name="ime_panel_back_desc">Back to the keyboard</string>
+    <string name="ime_toolbox_desc">Toolbox</string>
+
+    <!-- The chip that offers the last copied text. -->
+    <!-- Marks a chip that holds a one-time code the keyboard found in a
+         copied message. Keep it short: it sits beside the code itself. -->
+    <string name="ime_clip_chip_code_badge">Code</string>
+    <string name="ime_clip_chip_screenshot">Screenshot</string>
+    <string name="ime_clip_chip_image">Copied image</string>
+    <string name="ime_clip_chip_item">Copied item</string>
+    <string name="ime_clip_chip_dismiss_desc">Hide the copied text</string>
+
+    <!-- The Modes panel: which keyboard mode is active. -->
+    <string name="ime_modes_empty">No modes yet. Create one in Settings → Modes.</string>
+    <string name="ime_modes_auto_subtitle">Follow the app and field bindings of each mode</string>
+    <string name="ime_modes_manual_note">A manual pick lasts until you switch apps.</string>
+    <string name="ime_modes_settings_desc">Mode settings</string>
+    <string name="ime_modes_active_desc">Active</string>
+
+    <!-- One-line recap of what a mode changes. The keyboard joins these parts
+         with a middle dot, so each one is a fragment and not a sentence. -->
+    <string name="ime_mode_summary_emoji_row_off">Emoji row off</string>
+    <string name="ime_mode_summary_emoji_button">Emoji button</string>
+    <string name="ime_mode_summary_emoji_row">Emoji row</string>
+    <string name="ime_mode_summary_symbol_row">Symbol row</string>
+    <string name="ime_mode_summary_symbol_row_off">Symbol row off</string>
+    <!-- %1$s is a list of field types, such as "text, email". -->
+    <string name="ime_mode_summary_fields">%1$s fields</string>
+    <string name="ime_mode_summary_none">No overrides</string>
+    <!-- %1$d is how many tools the mode pins to the toolbar. -->
+    <plurals name="ime_mode_summary_pinned_tools">
+        <item quantity="one">%1$d pinned tool</item>
+        <item quantity="other">%1$d pinned tools</item>
+    </plurals>
+    <!-- %1$d is how many tools the mode adds to the toolbar it inherits. -->
+    <plurals name="ime_mode_summary_pinned_tools_added">
+        <item quantity="one">+%1$d pinned tool</item>
+        <item quantity="other">+%1$d pinned tools</item>
+    </plurals>
+    <!-- %1$d is how many apps the mode is bound to. -->
+    <plurals name="ime_mode_summary_apps">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+
+    <!-- Tool names. Every surface that names a tool reads these: the toolbar,
+         the toolbox, the settings screens and the hardware shortcut legend. -->
+    <string name="ime_tool_emoji">Emoji</string>
+    <string name="ime_tool_clipboard">Clipboard</string>
+    <string name="ime_tool_snippets">Snippets</string>
+    <string name="ime_tool_text_edit">Text editing</string>
+    <string name="ime_tool_one_handed">One-handed</string>
+    <string name="ime_tool_split">Split</string>
+    <string name="ime_tool_floating">Floating</string>
+    <string name="ime_tool_settings">Settings</string>
+    <string name="ime_tool_flashlight">Flashlight</string>
+    <string name="ime_tool_compass">Compass</string>
+    <string name="ime_tool_level">Level</string>
+    <string name="ime_tool_undo">Undo</string>
+    <string name="ime_tool_redo">Redo</string>
+    <string name="ime_tool_moon_phase">Moon</string>
+    <string name="ime_tool_weather">Weather</string>
+    <string name="ime_tool_calendar">Calendar</string>
+    <string name="ime_tool_incognito">Incognito</string>
+    <string name="ime_tool_power_saving">Power saving</string>
+    <string name="ime_tool_themes">Themes</string>
+    <string name="ime_tool_autocorrect">Autocorrect</string>
+    <string name="ime_tool_sound_haptics">Sound &amp; haptics</string>
+    <string name="ime_tool_numpad">Numpad</string>
+    <string name="ime_tool_handwriting">Handwriting</string>
+    <string name="ime_tool_camera">Camera</string>
+    <string name="ime_tool_dictionary">Dictionary</string>
+    <string name="ime_tool_translate">Translate</string>
+    <string name="ime_tool_gif">GIFs</string>
+    <string name="ime_tool_sticker">Stickers</string>
+    <string name="ime_tool_web_search">Search</string>
+    <string name="ime_tool_image_search">Images</string>
+    <string name="ime_tool_ocr">Scan text</string>
+    <string name="ime_tool_qr_scan">QR scan</string>
+    <string name="ime_tool_doc_scan">Doc scan</string>
+    <string name="ime_tool_voice">Voice</string>
+    <string name="ime_tool_grammar">Grammar</string>
+    <string name="ime_tool_wikipedia">Wikipedia</string>
+    <string name="ime_tool_symbols">Symbols</string>
+    <string name="ime_tool_calculator">Calculator</string>
+    <string name="ime_tool_unit_convert">Units</string>
+    <string name="ime_tool_currency">Currency</string>
+    <string name="ime_tool_qr_gen">QR code</string>
+    <string name="ime_tool_password_gen">Password</string>
+    <string name="ime_tool_typing_test">Typing speed</string>
+    <string name="ime_tool_media_control">Media</string>
+    <string name="ime_tool_plugins">Plugins</string>
+    <!-- Artificial intelligence. Keep the short form the toolbar can fit. -->
+    <string name="ime_tool_ai">AI</string>
+    <string name="ime_tool_modes">Modes</string>
+    <string name="ime_tool_cursor_left">Left</string>
+    <string name="ime_tool_cursor_right">Right</string>
+    <string name="ime_tool_cursor_word_left">Word left</string>
+    <string name="ime_tool_cursor_word_right">Word right</string>
+    <string name="ime_tool_cursor_up">Up</string>
+    <string name="ime_tool_cursor_down">Down</string>
+    <string name="ime_tool_cursor_home">Line start</string>
+    <string name="ime_tool_cursor_end">Line end</string>
+    <string name="ime_tool_hide_keyboard">Hide</string>
+    <string name="ime_tool_page_up">Page up</string>
+    <string name="ime_tool_page_down">Page down</string>
+    <string name="ime_tool_select_word">Select word</string>
+    <string name="ime_tool_select_line">Select line</string>
+
+    <!-- The toolbox: the grid of every tool that is not on the toolbar. -->
+    <string name="ime_toolbox_hint_drag">Press and hold a tool, then drag it. Drop it on the toolbar to pin it. Drop it in this grid to change the order. Drop it below the grid to remove it.</string>
+    <!-- Shown before the drag hint when a mode owns the tool arrangement.
+         %1$s is the name the user gave the mode. -->
+    <string name="ime_toolbox_hint_mode">The %1$s mode is on, so the keyboard saves this arrangement for that mode. Other apps keep their own.</string>
+    <string name="ime_toolbox_hint_dismiss_desc">Hide the hint</string>
+    <string name="ime_toolbox_empty">Every tool is on the toolbar.</string>
+
+    <!-- Tool panels that open over the keys. -->
+    <string name="ime_translate_hint">Type the text to translate…</string>
+    <string name="ime_web_search_hint">Search the web</string>
+    <string name="ime_image_search_hint">Search images</string>
+    <!-- Names the search service. Brave is a brand name: keep it as it is. -->
+    <string name="ime_search_attribution_brave">via Brave</string>
+    <string name="ime_unit_convert_title">Unit converter</string>
+    <string name="ime_password_tab_passphrase">Passphrase</string>
+    <string name="ime_typing_test_restart">Restart</string>
+    <string name="ime_ai_replace">Replace</string>
+    <string name="ime_ai_insert">Insert</string>
+    <string name="ime_ai_settings_desc">AI settings</string>
+
+    <!-- The Snippets panel. Keep the words inside the braces as they are: the
+         keyboard looks for them and puts a value in their place. -->
+    <string name="ime_snippets_empty">No snippets yet.\nVariables: {date} {time} {datetime} {clip}</string>
+    <string name="ime_snippets_variables">Variables: {date} {time} {datetime} {clip}</string>
+    <string name="ime_snippets_settings_desc">Snippet settings</string>
+
+    <!-- The emoji panel. -->
+    <string name="ime_emoji_search_hint">Type to search…</string>
+    <string name="ime_emoji_search_delete_desc">Delete from the text field</string>
+    <string name="ime_emoji_tab_search_desc">Search emoji</string>
+    <string name="ime_emoji_tab_kaomoji">Kaomoji</string>
+    <string name="ime_emoji_tab_emoticons">Emoticons</string>
+    <string name="ime_emoji_tab_most_used">Most used</string>
+    <string name="ime_emoji_tab_recent">Recent</string>
+    <string name="ime_emoji_clear_recents">Clear recents</string>
+    <string name="ime_emoji_favourite">Favourite</string>
+    <string name="ime_emoji_favourited">Favourited</string>
+    <string name="ime_emoji_reorder_favourites">Reorder favourites</string>
+    <string name="ime_emoji_remove_from_recents">Remove from recents</string>
+    <string name="ime_emoji_reorder_hint">Drag the handles. The top of the list comes first.</string>
+    <!-- Position of one emoji in the reorder list. %1$d is the position. -->
+    <string name="ime_emoji_reorder_index">%1$d.</string>
+    <!-- Drag handle beside one emoji. %1$s is the emoji itself. -->
+    <string name="ime_emoji_reorder_handle_desc">Move %1$s</string>
+
+    <!-- The clipboard panel. -->
+    <string name="ime_clipboard_search_hint">Search the clipboard…</string>
+    <string name="ime_clipboard_search_clear_desc">Clear the search</string>
+    <string name="ime_clipboard_empty">The clipboard history is empty.\nCopied text shows here.</string>
+    <!-- %1$s is what the user typed in the clipboard search box. -->
+    <string name="ime_clipboard_no_match">No clips match “%1$s”.</string>
+    <string name="ime_clip_pin">Pin</string>
+    <string name="ime_clip_unpin">Unpin</string>
+    <string name="ime_clip_entity_hint">Found in your clips. Press to paste only this part</string>
+    <!-- Title of the popup for one part of a clip. %1$s names the kind of
+         part, such as a phone number or a one-time code. -->
+    <string name="ime_clip_entity_popup_title">%1$s · part of this clip</string>
+    <string name="ime_clip_type_text">Text</string>
+    <string name="ime_clip_type_rich_text">Rich text</string>
+    <string name="ime_clip_type_link">Link</string>
+    <string name="ime_clip_type_image">Image</string>
+    <string name="ime_clip_type_file">File</string>
+    <string name="ime_clip_type_folder">Folder</string>
+    <string name="ime_clip_type_video">Video</string>
+    <string name="ime_clip_video_desc">Copied video</string>
+    <string name="ime_clip_hidden_desc">Hidden</string>
+    <!-- How long a copied text is. %1$d is the number of characters. -->
+    <plurals name="ime_clip_character_count">
+        <item quantity="one">%1$d character</item>
+        <item quantity="other">%1$d characters</item>
+    </plurals>
+    <!-- Stands in for a clip the keyboard keeps hidden, such as a password.
+         %1$d is how many characters the clip holds. -->
+    <plurals name="ime_clip_hidden_summary">
+        <item quantity="one">Hidden · %1$d character</item>
+        <item quantity="other">Hidden · %1$d characters</item>
+    </plurals>
+    <!-- Labels in the press-and-hold details popup for one clip. -->
+    <string name="ime_clip_info_copied">Copied</string>
+    <string name="ime_clip_info_from">From</string>
+    <string name="ime_clip_info_type">Type</string>
+    <string name="ime_clip_info_size">Size</string>
+    <string name="ime_clip_info_private">Private</string>
+    <string name="ime_clip_info_private_detail">The keyboard hides this clip in the panel and deletes it sooner than other clips.</string>
+
+    <!-- The legend the physical keyboard shows after the leader key. -->
+    <!-- %1$s is the letter that opens the toolbox. -->
+    <string name="ime_tool_picker_empty">No tool letters. Press %1$s for all tools.</string>
+    <!-- One line of letters. %1$s is the letters the user bound to a tool,
+         %2$s is the letter for all tools, %3$s is the letter for this legend.
+         The spaces around the middle dots are part of the layout. -->
+    <string name="ime_tool_picker_hint">"%1$s  ·  %2$s all  ·  %3$s help"</string>
+    <!-- %1$s names the leader key, such as "Double tap Ctrl". -->
+    <string name="ime_tool_picker_leader">%1$s, then:</string>
+
+    <!-- The chip the suggestion strip shows for a tool. %1$s is a tool name. -->
+    <string name="ime_smart_open_tool">Open %1$s</string>
+
+</resources>
