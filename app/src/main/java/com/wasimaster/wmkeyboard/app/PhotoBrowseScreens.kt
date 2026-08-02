@@ -49,6 +49,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
@@ -335,6 +339,7 @@ private fun FilterChips(
         // any phone as labelled buttons.
         PhotoColor.entries.forEach { entry ->
             val swatch = if (entry == PhotoColor.ANY) null else Color(entry.swatch.toInt())
+            val name = stringResource(photoColorLabelRes(entry))
             Surface(
                 shape = CircleShape,
                 color = swatch ?: MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -352,11 +357,21 @@ private fun FilterChips(
                         .padding(2.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    IconButton(onClick = { onColour(entry) }, modifier = Modifier.fillMaxSize()) {
+                    IconButton(
+                        onClick = { onColour(entry) },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            // A bare coloured circle says nothing to a screen
+                            // reader, so each one carries its own name.
+                            .semantics {
+                                contentDescription = if (entry == PhotoColor.ANY) name else name
+                                if (colour == entry) selected = true
+                            },
+                    ) {
                         if (entry == PhotoColor.ANY) {
                             Icon(
                                 Icons.Outlined.Close,
-                                contentDescription = stringResource(R.string.photo_color_any_label),
+                                contentDescription = null,
                                 modifier = Modifier.size(14.dp),
                             )
                         }
@@ -476,3 +491,22 @@ private const val TILE_MIN_WIDTH_DP = 150
 
 /** Sentinel the caller turns into a back navigation. */
 internal const val BACK_ROUTE = ".."
+
+/** The name of a colour filter, for the swatch a screen reader has to announce. */
+@StringRes
+private fun photoColorLabelRes(color: PhotoColor): Int = when (color) {
+    PhotoColor.ANY -> R.string.photo_color_any_label
+    PhotoColor.MONOCHROME -> R.string.photo_color_monochrome_label
+    PhotoColor.BLACK -> R.string.photo_color_black_label
+    PhotoColor.WHITE -> R.string.photo_color_white_label
+    PhotoColor.GRAY -> R.string.photo_color_gray_label
+    PhotoColor.BROWN -> R.string.photo_color_brown_label
+    PhotoColor.RED -> R.string.photo_color_red_label
+    PhotoColor.ORANGE -> R.string.photo_color_orange_label
+    PhotoColor.YELLOW -> R.string.photo_color_yellow_label
+    PhotoColor.GREEN -> R.string.photo_color_green_label
+    PhotoColor.TEAL -> R.string.photo_color_teal_label
+    PhotoColor.BLUE -> R.string.photo_color_blue_label
+    PhotoColor.PURPLE -> R.string.photo_color_purple_label
+    PhotoColor.MAGENTA -> R.string.photo_color_magenta_label
+}

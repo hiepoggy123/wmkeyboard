@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -29,6 +30,12 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,6 +62,8 @@ import com.wasimaster.wmkeyboard.core.settings.RotationInterval
 import com.wasimaster.wmkeyboard.core.settings.RotationScope
 import com.wasimaster.wmkeyboard.core.settings.RotationSourceKind
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
+import com.wasimaster.wmkeyboard.core.theme.themeName
 import com.wasimaster.wmkeyboard.core.tools.PhotoBackgroundManager
 import com.wasimaster.wmkeyboard.core.tools.PhotoTopic
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
@@ -120,17 +129,7 @@ fun PhotoRotationScreen(
     var intervalOpen by remember { mutableStateOf(false) }
     var topicsOpen by remember { mutableStateOf(false) }
     var scopeOpen by remember { mutableStateOf(false) }
-
-    val devicePicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickMultipleVisualMedia(),
-    ) { uris ->
-        if (uris.isNotEmpty()) {
-            scope.launch {
-                uris.forEach { PhotoBackgroundManager.addDevicePhoto(context, it) }
-                poolRevision++
-            }
-        }
-    }
+    var scopeThemesOpen by remember { mutableStateOf(false) }
 
     WmScreen(
         title = stringResource(R.string.photo_rotation_title),
@@ -221,36 +220,33 @@ fun PhotoRotationScreen(
                     onClick = { scopeOpen = true },
                 )
             }
+            // Without this the "Themes I select" choice would select nothing.
+            if (photos.scope == RotationScope.SELECTED_THEMES) {
+                item {
+                    NavRow(
+                        title = stringResource(R.string.photo_rotation_scope_pick_title),
+                        value = pluralStringResource(
+                            R.plurals.photo_rotation_topics_value,
+                            photos.scopeThemeIds.size,
+                            photos.scopeThemeIds.size,
+                        ),
+                        onClick = { scopeThemesOpen = true },
+                    )
+                }
+            }
         }
 
         SettingsGroup(stringResource(R.string.photo_rotation_sources_section_title)) {
             item {
+                // One source for everything the user chose: a photo kept from a
+                // service and a photo picked off the device are the same thing
+                // to a rotation, and both live in the collection.
                 SourceToggle(
                     title = stringResource(R.string.photo_rotation_source_saved_title),
                     subtitle = stringResource(R.string.photo_rotation_source_saved_subtitle),
                     kind = RotationSourceKind.SAVED,
                     photos = photos,
                 ) { scope.launch { repository.setPhotoRotateSources(it) } }
-            }
-            item {
-                SourceToggle(
-                    title = stringResource(R.string.photo_rotation_source_device_title),
-                    subtitle = stringResource(R.string.photo_rotation_source_device_subtitle),
-                    kind = RotationSourceKind.DEVICE,
-                    photos = photos,
-                ) { scope.launch { repository.setPhotoRotateSources(it) } }
-            }
-            item {
-                WmRow(
-                    title = stringResource(R.string.photo_rotation_device_pick_title),
-                    subtitle = stringResource(R.string.photo_rotation_device_pick_subtitle),
-                    icon = Icons.Outlined.PhotoLibrary,
-                    onClick = {
-                        devicePicker.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                        )
-                    },
-                )
             }
             item {
                 SourceToggle(
@@ -389,6 +385,22 @@ fun PhotoRotationScreen(
             topicsOpen = false
         }
     }
+    if (scopeThemesOpen) {
+        CheckboxPickerDialog(
+            title = stringResource(R.string.photo_rotation_scope_pick_title),
+            // Built-in themes are offered as well as the user's own: the
+            // rotating photo is laid over a theme as it is drawn, so a
+            // built-in can carry one even though it cannot store an image.
+            options = (settings.customThemes.map { it.id to it.name } +
+                BuiltInThemes.map { it.id to themeName(it) })
+                .sortedBy { it.second.lowercase() },
+            selected = photos.scopeThemeIds,
+            onDismiss = { scopeThemesOpen = false },
+        ) { chosen ->
+            scope.launch { repository.setPhotoRotateScopeThemes(chosen) }
+            scopeThemesOpen = false
+        }
+    }
 }
 
 /** Photos the user kept, reusable on any theme. Works with no network. */
@@ -441,22 +453,43 @@ fun PhotoLibraryScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                WmRow(
-                    title = stringResource(R.string.photo_add_device_title),
-                    subtitle = stringResource(R.string.photo_add_device_subtitle),
-                    icon = Icons.Outlined.PhotoLibrary,
-                    onClick = {
-                        devicePicker.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                // Two ways in, side by side. A settings row for "add a photo"
+                // sat oddly above a grid of photos; buttons read as actions.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = {
+                            onNavigate(photoBrowseRoute(themeId.takeIf { it.isNotBlank() }))
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Outlined.Search, contentDescription = null, Modifier.size(18.dp))
+                        Spacer(Modifier.size(8.dp))
+                        Text(stringResource(R.string.photo_library_empty_action))
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            devicePicker.launch(
+                                PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                ),
+                            )
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(
+                            Icons.Outlined.PhotoLibrary,
+                            contentDescription = null,
+                            Modifier.size(18.dp),
                         )
-                    },
-                )
-            }
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                WmRow(
-                    title = stringResource(R.string.photo_storage_title),
-                    subtitle = formatPhotoSize(bytes),
-                )
+                        Spacer(Modifier.size(8.dp))
+                        Text(stringResource(R.string.photo_add_device_title))
+                    }
+                }
             }
             if (entries.isEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
@@ -464,11 +497,14 @@ fun PhotoLibraryScreen(
                         icon = Icons.Outlined.Collections,
                         title = stringResource(R.string.photo_library_empty_title),
                         body = stringResource(R.string.photo_library_empty_body),
-                        actionLabel = stringResource(R.string.photo_library_empty_action),
-                        onAction = { onNavigate(photoBrowseRoute(themeId.takeIf { it.isNotBlank() })) },
                     )
                 }
             } else {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    CaptionText(
+                        stringResource(R.string.photo_storage_title) + ": " + formatPhotoSize(bytes),
+                    )
+                }
                 items(entries, key = { it.fileName }) { entry ->
                     SavedPhotoTile(
                         file = File(PhotoBackgroundManager.poolDir(context), entry.fileName),
@@ -561,27 +597,41 @@ private fun TopicPickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (Set<String>) -> Unit,
 ) {
-    var chosen by remember { mutableStateOf(selected) }
+    CheckboxPickerDialog(
+        title = stringResource(R.string.photo_rotation_topics_title),
+        options = PhotoTopic.entries.map { it.slug to stringResource(it.labelRes) },
+        selected = selected,
+        onDismiss = onDismiss,
+        onConfirm = onConfirm,
+    )
+}
+
+/** A multiple-choice list. [options] is a list of value to label. */
+@Composable
+private fun CheckboxPickerDialog(
+    title: String,
+    options: List<Pair<String, String>>,
+    selected: Set<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (Set<String>) -> Unit,
+) {
+    var chosen by remember(options) { mutableStateOf(selected) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.photo_rotation_topics_title)) },
+        title = { Text(title) },
         text = {
             LazyColumn {
-                items(PhotoTopic.entries) { topic ->
+                items(options) { (value, label) ->
+                    fun toggle() {
+                        chosen = if (value in chosen) chosen - value else chosen + value
+                    }
                     ListItem(
-                        headlineContent = { Text(stringResource(topic.labelRes)) },
+                        headlineContent = { Text(label) },
                         leadingContent = {
-                            Checkbox(
-                                checked = topic.slug in chosen,
-                                onCheckedChange = { on ->
-                                    chosen = if (on) chosen + topic.slug else chosen - topic.slug
-                                },
-                            )
+                            Checkbox(checked = value in chosen, onCheckedChange = { toggle() })
                         },
                         colors = transparentListColors(),
-                        modifier = Modifier.clickable {
-                            chosen = if (topic.slug in chosen) chosen - topic.slug else chosen + topic.slug
-                        },
+                        modifier = Modifier.clickable { toggle() },
                     )
                 }
             }

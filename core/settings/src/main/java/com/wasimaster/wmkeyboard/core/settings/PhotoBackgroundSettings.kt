@@ -62,16 +62,20 @@ enum class RotationScope {
         }
 }
 
-/** Where the photos in the rotation pool come from. */
+/**
+ * Where the photos in the rotation pool come from.
+ *
+ * A photo the user added from the device and a photo they kept from a service
+ * are both [SAVED]: the user chose each of them deliberately, both live in the
+ * collection, and neither is ever thrown away to make room. Only [ONLINE] --
+ * photos the app fetched on its own -- is a cache.
+ */
 enum class RotationSourceKind {
-    /** Photos the user kept from the picker. */
+    /** Photos in the collection, whether kept from a service or from the device. */
     SAVED,
 
-    /** Fresh photos from the providers, by topic and search term. */
+    /** Fresh photos the app fetched by topic and search word. */
     ONLINE,
-
-    /** Photos the user picked from the device. */
-    DEVICE,
 }
 
 /**

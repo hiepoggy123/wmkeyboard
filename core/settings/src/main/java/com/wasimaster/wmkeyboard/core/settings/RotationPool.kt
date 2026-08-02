@@ -34,9 +34,8 @@ data class PoolEntry(
     /** Wide enough to suit a keyboard, which is a wide, short strip. */
     val wide: Boolean get() = heightPx > 0 && widthPx.toFloat() / heightPx >= WIDE_RATIO
 
-    /** Photos the user chose keep their place; downloaded ones are a cache. */
-    val pinned: Boolean
-        get() = source == RotationSourceKind.SAVED || source == RotationSourceKind.DEVICE
+    /** Photos the user chose keep their place; fetched ones are a cache. */
+    val pinned: Boolean get() = source == RotationSourceKind.SAVED
 
     private companion object {
         const val WIDE_RATIO = 1.2f

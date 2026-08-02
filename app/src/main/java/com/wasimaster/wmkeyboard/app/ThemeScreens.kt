@@ -94,6 +94,8 @@ import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
+import com.wasimaster.wmkeyboard.core.settings.PoolEntry
+import com.wasimaster.wmkeyboard.core.tools.PhotoBackgroundManager
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.builtInThemeNameRes
@@ -367,145 +369,161 @@ fun ThemesScreen(
         }
     }
 
-    SectionHeaderPublic(stringResource(R.string.theme_mode_section_title))
-    Text(
-        stringResource(R.string.theme_mode_section_body),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
-    SingleChoiceSegmentedButtonRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    ) {
-        ThemeMode.entries.forEachIndexed { index, mode ->
-            SegmentedButton(
-                selected = settings.themeMode == mode,
-                onClick = { scope.launch { repository.setThemeMode(mode) } },
-                shape = SegmentedButtonDefaults.itemShape(index, ThemeMode.entries.size),
+    SettingsGroup(stringResource(R.string.theme_mode_section_title)) {
+        item { CaptionText(stringResource(R.string.theme_mode_section_body)) }
+        item {
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
-                Text(stringResource(themeModeLabelRes(mode)))
-            }
-        }
-    }
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.theme_material_you_title)) },
-        supportingContent = { Text(stringResource(R.string.theme_material_you_subtitle)) },
-        trailingContent = {
-            Switch(
-                checked = settings.dynamicColor,
-                onCheckedChange = { scope.launch { repository.setDynamicColor(it) } },
-            )
-        },
-    )
-
-    // null = closed; true = choosing the light theme; false = the dark theme.
-    var pickerForLight by remember { mutableStateOf<Boolean?>(null) }
-    val auto = settings.autoTheme
-    SectionHeaderPublic(stringResource(R.string.theme_auto_section_title))
-    Text(
-        stringResource(R.string.theme_auto_section_body),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.theme_auto_title)) },
-        supportingContent = { Text(stringResource(R.string.theme_auto_subtitle)) },
-        trailingContent = {
-            Switch(
-                checked = auto.enabled,
-                onCheckedChange = { scope.launch { repository.setAutoThemeEnabled(it) } },
-            )
-        },
-    )
-    if (auto.enabled) {
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.theme_auto_light_title)) },
-            supportingContent = { Text(themeDisplayName(settings, auto.lightThemeId)) },
-            modifier = Modifier.clickable { pickerForLight = true },
-        )
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.theme_auto_dark_title)) },
-            supportingContent = { Text(themeDisplayName(settings, auto.darkThemeId)) },
-            modifier = Modifier.clickable { pickerForLight = false },
-        )
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        ) {
-            AutoThemeTrigger.entries.forEachIndexed { index, trigger ->
-                SegmentedButton(
-                    selected = auto.trigger == trigger,
-                    onClick = { scope.launch { repository.setAutoThemeTrigger(trigger) } },
-                    shape = SegmentedButtonDefaults.itemShape(index, AutoThemeTrigger.entries.size),
-                ) {
-                    Text(stringResource(trigger.labelRes))
+                ThemeMode.entries.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = settings.themeMode == mode,
+                        onClick = { scope.launch { repository.setThemeMode(mode) } },
+                        shape = SegmentedButtonDefaults.itemShape(index, ThemeMode.entries.size),
+                    ) {
+                        Text(stringResource(themeModeLabelRes(mode)))
+                    }
                 }
             }
         }
-        // null = closed; true = editing when day starts, false = when night does.
-        var timePickerForDay by remember { mutableStateOf<Boolean?>(null) }
-        when (auto.trigger) {
-            AutoThemeTrigger.SYSTEM -> Text(
-                stringResource(R.string.theme_auto_trigger_system_body),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            AutoThemeTrigger.SCHEDULE -> {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.theme_auto_light_from_title)) },
-                    supportingContent = { Text(formatMinutesOfDay(auto.dayStartMinutes)) },
-                    modifier = Modifier.clickable { timePickerForDay = true },
-                )
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.theme_auto_dark_from_title)) },
-                    supportingContent = { Text(formatMinutesOfDay(auto.nightStartMinutes)) },
-                    modifier = Modifier.clickable { timePickerForDay = false },
-                )
-            }
-            AutoThemeTrigger.SUN -> {
-                val hasLocation =
-                    settings.weatherLatitude != null && settings.weatherLongitude != null
-                val place = settings.weatherPlaceName.takeIf { it.isNotBlank() }
-                    ?: stringResource(R.string.theme_auto_trigger_sun_place_fallback)
-                Text(
-                    if (hasLocation) {
-                        stringResource(R.string.theme_auto_trigger_sun_body, place)
-                    } else {
-                        stringResource(R.string.theme_auto_trigger_sun_no_location_body)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
-        }
-        timePickerForDay?.let { forDay ->
-            TimeOfDayPickerDialog(
-                title = stringResource(
-                    if (forDay) R.string.theme_auto_light_from_title
-                    else R.string.theme_auto_dark_from_title
-                ),
-                minutes = if (forDay) auto.dayStartMinutes else auto.nightStartMinutes,
-                onPick = { picked ->
-                    scope.launch {
-                        if (forDay) repository.setAutoThemeDayStart(picked)
-                        else repository.setAutoThemeNightStart(picked)
-                    }
-                    timePickerForDay = null
+        item {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_material_you_title)) },
+                supportingContent = { Text(stringResource(R.string.theme_material_you_subtitle)) },
+                trailingContent = {
+                    Switch(
+                        checked = settings.dynamicColor,
+                        onCheckedChange = { scope.launch { repository.setDynamicColor(it) } },
+                    )
                 },
-                onDismiss = { timePickerForDay = null },
+                colors = transparentListColors(),
             )
         }
+    }
+
+    // null = closed; true = choosing the light theme; false = the dark theme.
+    var pickerForLight by remember { mutableStateOf<Boolean?>(null) }
+    // null = closed; true = editing when day starts, false = when night does.
+    var timePickerForDay by remember { mutableStateOf<Boolean?>(null) }
+    val auto = settings.autoTheme
+    SettingsGroup(stringResource(R.string.theme_auto_section_title)) {
+        item { CaptionText(stringResource(R.string.theme_auto_section_body)) }
+        item {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_auto_title)) },
+                supportingContent = { Text(stringResource(R.string.theme_auto_subtitle)) },
+                trailingContent = {
+                    Switch(
+                        checked = auto.enabled,
+                        onCheckedChange = { scope.launch { repository.setAutoThemeEnabled(it) } },
+                    )
+                },
+                colors = transparentListColors(),
+            )
+        }
+        if (auto.enabled) {
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.theme_auto_light_title)) },
+                    supportingContent = { Text(themeDisplayName(settings, auto.lightThemeId)) },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable { pickerForLight = true },
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.theme_auto_dark_title)) },
+                    supportingContent = { Text(themeDisplayName(settings, auto.darkThemeId)) },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable { pickerForLight = false },
+                )
+            }
+            item {
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    AutoThemeTrigger.entries.forEachIndexed { index, trigger ->
+                        SegmentedButton(
+                            selected = auto.trigger == trigger,
+                            onClick = { scope.launch { repository.setAutoThemeTrigger(trigger) } },
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index,
+                                AutoThemeTrigger.entries.size,
+                            ),
+                        ) {
+                            Text(stringResource(trigger.labelRes))
+                        }
+                    }
+                }
+            }
+            when (auto.trigger) {
+                AutoThemeTrigger.SYSTEM ->
+                    item { CaptionText(stringResource(R.string.theme_auto_trigger_system_body)) }
+                AutoThemeTrigger.SCHEDULE -> {
+                    item {
+                        ListItem(
+                            headlineContent = {
+                                Text(stringResource(R.string.theme_auto_light_from_title))
+                            },
+                            supportingContent = { Text(formatMinutesOfDay(auto.dayStartMinutes)) },
+                            colors = transparentListColors(),
+                            modifier = Modifier.clickable { timePickerForDay = true },
+                        )
+                    }
+                    item {
+                        ListItem(
+                            headlineContent = {
+                                Text(stringResource(R.string.theme_auto_dark_from_title))
+                            },
+                            supportingContent = { Text(formatMinutesOfDay(auto.nightStartMinutes)) },
+                            colors = transparentListColors(),
+                            modifier = Modifier.clickable { timePickerForDay = false },
+                        )
+                    }
+                }
+                AutoThemeTrigger.SUN -> item {
+                    // Resolved inside the item: the group builder is a plain
+                    // lambda, not a composable one.
+                    val hasLocation =
+                        settings.weatherLatitude != null && settings.weatherLongitude != null
+                    val place = settings.weatherPlaceName.takeIf { it.isNotBlank() }
+                        ?: stringResource(R.string.theme_auto_trigger_sun_place_fallback)
+                    CaptionText(
+                        if (hasLocation) {
+                            stringResource(R.string.theme_auto_trigger_sun_body, place)
+                        } else {
+                            stringResource(R.string.theme_auto_trigger_sun_no_location_body)
+                        },
+                    )
+                }
+            }
+        }
+    }
+    timePickerForDay?.let { forDay ->
+        TimeOfDayPickerDialog(
+            title = stringResource(
+                if (forDay) R.string.theme_auto_light_from_title
+                else R.string.theme_auto_dark_from_title,
+            ),
+            minutes = if (forDay) auto.dayStartMinutes else auto.nightStartMinutes,
+            onPick = { picked ->
+                scope.launch {
+                    if (forDay) repository.setAutoThemeDayStart(picked)
+                    else repository.setAutoThemeNightStart(picked)
+                }
+                timePickerForDay = null
+            },
+            onDismiss = { timePickerForDay = null },
+        )
     }
     pickerForLight?.let { forLight ->
         ThemePickerDialog(
             title = stringResource(
-                if (forLight) R.string.theme_auto_light_title else R.string.theme_auto_dark_title
+                if (forLight) R.string.theme_auto_light_title else R.string.theme_auto_dark_title,
             ),
             settings = settings,
             selectedId = if (forLight) auto.lightThemeId else auto.darkThemeId,
@@ -520,14 +538,11 @@ fun ThemesScreen(
         )
     }
 
+    // The gallery is a grid of theme cards, which are their own surfaces, so
+    // it keeps a plain header rather than being wrapped in a settings card.
     SectionHeaderPublic(stringResource(R.string.theme_gallery_section_title))
     if (auto.enabled) {
-        Text(
-            stringResource(R.string.theme_gallery_auto_on_body),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-        )
+        CaptionText(stringResource(R.string.theme_gallery_auto_on_body))
     }
     val newThemeName = stringResource(R.string.theme_new_default_name)
     Row(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -585,12 +600,7 @@ fun ThemesScreen(
         }
     }
     SectionHeaderPublic(stringResource(R.string.theme_builtin_section_title))
-    Text(
-        stringResource(R.string.theme_builtin_section_body),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-    )
+    CaptionText(stringResource(R.string.theme_builtin_section_body))
     for (rowThemes in BuiltInThemes.chunked(2)) {
         Row(modifier = Modifier.padding(horizontal = 12.dp)) {
             for (theme in rowThemes) {
@@ -828,6 +838,18 @@ fun ThemeEditorScreen(
     var cropLandscapeOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var sourceDialogSlot by remember(theme.id) { mutableStateOf<BackgroundSlot?>(null) }
 
+    // The photo rows appear only once the user has started using photos.
+    // Somebody who sets one picture from their gallery -- which is most people
+    // -- never sees either, and the screen they do use stays shorter for it.
+    val collection by produceState(initialValue = emptyList<PoolEntry>(), themeId) {
+        value = PhotoBackgroundManager.readPool(context).entries
+    }
+    val photos = settings.photoBackground
+    val showRotation = collection.isNotEmpty() || photos.rotateEnabled
+    val showServices = photos.unsplashApiKey.isNotBlank() ||
+        photos.pexelsApiKey.isNotBlank() ||
+        collection.any { it.credit != null }
+
     sourceDialogSlot?.let { slot ->
         val landscape = slot == BackgroundSlot.LANDSCAPE
         BackgroundSourceDialog(
@@ -883,130 +905,219 @@ fun ThemeEditorScreen(
             .padding(horizontal = 16.dp),
     )
 
-    SectionHeaderPublic(stringResource(R.string.theme_seed_section_title))
-    Text(
-        stringResource(R.string.theme_seed_section_body),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.theme_editor_dark_title)) },
-        supportingContent = { Text(stringResource(R.string.theme_editor_dark_subtitle)) },
-        trailingContent = {
-            Switch(
-                checked = theme.dark,
-                onCheckedChange = { dark ->
-                    update { t -> t.reseeded(t.enterKeyBackground, dark) }
+    SettingsGroup(stringResource(R.string.theme_seed_section_title)) {
+        item { CaptionText(stringResource(R.string.theme_seed_section_body)) }
+        item {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_editor_dark_title)) },
+                supportingContent = { Text(stringResource(R.string.theme_editor_dark_subtitle)) },
+                trailingContent = {
+                    Switch(
+                        checked = theme.dark,
+                        onCheckedChange = { dark ->
+                            update { t -> t.reseeded(t.enterKeyBackground, dark) }
+                        },
+                    )
                 },
+                colors = transparentListColors(),
             )
-        },
-    )
-    LazyRow(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(SeedSwatches) { seed ->
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(colorOf(seed))
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                    .clickable {
-                        update { t -> t.reseeded(seed, t.dark) }
-                    },
-            )
+        }
+        item {
+            LazyRow(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(SeedSwatches) { seed ->
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(colorOf(seed))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                            .clickable { update { t -> t.reseeded(seed, t.dark) } },
+                    )
+                }
+            }
         }
     }
 
-    SectionHeaderPublic(stringResource(R.string.theme_board_section_title))
-    ColorRow(
-        stringResource(R.string.theme_board_background_title),
-        theme.boardBackground,
-        supportsAlpha = true,
-    ) {
-        update { t -> t.copy(boardBackground = it) }
-    }
-    GradientEditor(
-        title = stringResource(R.string.theme_board_gradient_title),
-        subtitle = stringResource(R.string.theme_board_gradient_subtitle),
-        gradient = theme.boardGradient,
-        defaultGradient = GradientSpec(
-            colors = listOf(theme.boardBackground or 0xFF000000L, theme.accent),
-            type = GradientType.LINEAR,
-            angleDeg = 135f,
-        ),
-        onChange = { update { t -> t.copy(boardGradient = it) } },
-    )
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.theme_background_image_title)) },
-        supportingContent = {
-            Text(
-                stringResource(
-                    if (theme.backgroundImage == null) R.string.theme_background_image_none
-                    else R.string.theme_background_image_replace
-                )
-            )
-        },
-        leadingContent = {
-            Icon(Icons.Outlined.Image, contentDescription = null)
-        },
-        trailingContent = {
-            val existingImage = theme.backgroundImage
-            if (existingImage != null) {
-                TextButton(onClick = {
-                    File(existingImage).delete()
-                    update { t ->
-                        // Give the board its alpha back if picking the image
-                        // zeroed it, so removal doesn't leave a see-through board.
-                        val board = if ((t.boardBackground ushr 24) == 0L) {
-                            t.boardBackground or 0xFF000000L
-                        } else {
-                            t.boardBackground
-                        }
-                        t.copy(backgroundImage = null, boardBackground = board)
-                    }
-                }) { Text(stringResource(CommonR.string.common_delete)) }
+    SettingsGroup(stringResource(R.string.theme_board_section_title)) {
+        item {
+            ColorRow(
+                stringResource(R.string.theme_board_background_title),
+                theme.boardBackground,
+                supportsAlpha = true,
+            ) {
+                update { t -> t.copy(boardBackground = it) }
             }
-        },
-        modifier = Modifier.clickable { sourceDialogSlot = BackgroundSlot.PORTRAIT },
-    )
-    theme.backgroundPhoto?.let { credit ->
-        // Both services require the photographer to be named wherever their
-        // photo is shown, so the credit lives on the row itself.
-        PhotoCreditRow(credit) { url ->
-            runCatching {
-                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri()))
+        }
+        item {
+            GradientEditor(
+                title = stringResource(R.string.theme_board_gradient_title),
+                subtitle = stringResource(R.string.theme_board_gradient_subtitle),
+                gradient = theme.boardGradient,
+                defaultGradient = GradientSpec(
+                    colors = listOf(theme.boardBackground or 0xFF000000L, theme.accent),
+                    type = GradientType.LINEAR,
+                    angleDeg = 135f,
+                ),
+                onChange = { update { t -> t.copy(boardGradient = it) } },
+            )
+        }
+        item {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_background_image_title)) },
+                supportingContent = {
+                    Text(
+                        stringResource(
+                            if (theme.backgroundImage == null) R.string.theme_background_image_none
+                            else R.string.theme_background_image_replace,
+                        ),
+                    )
+                },
+                leadingContent = { Icon(Icons.Outlined.Image, contentDescription = null) },
+                trailingContent = {
+                    val existingImage = theme.backgroundImage
+                    if (existingImage != null) {
+                        TextButton(onClick = {
+                            File(existingImage).delete()
+                            update { t ->
+                                // Give the board its alpha back if picking the
+                                // image zeroed it, so removal does not leave a
+                                // see-through board.
+                                val board = if ((t.boardBackground ushr 24) == 0L) {
+                                    t.boardBackground or 0xFF000000L
+                                } else {
+                                    t.boardBackground
+                                }
+                                t.copy(backgroundImage = null, boardBackground = board)
+                            }
+                        }) { Text(stringResource(CommonR.string.common_delete)) }
+                    }
+                },
+                colors = transparentListColors(),
+                modifier = Modifier.clickable { sourceDialogSlot = BackgroundSlot.PORTRAIT },
+            )
+        }
+        theme.backgroundPhoto?.let { credit ->
+            // Both services make it necessary to name the photographer where
+            // their photo is shown, so the credit sits on the row itself.
+            item { PhotoCreditRow(credit) { url -> openLink(context, url) } }
+        }
+        if (theme.backgroundImage != null) {
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.theme_crop_image_title)) },
+                    supportingContent = { Text(stringResource(R.string.theme_crop_image_subtitle)) },
+                    leadingContent = { Icon(Icons.Outlined.Crop, contentDescription = null) },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable { cropOpen = true },
+                )
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_image_opacity_title),
+                    value = theme.backgroundImageOpacity,
+                    range = 0f..1f,
+                    display = { "${(it * 100).toInt()}%" },
+                ) { update { t -> t.copy(backgroundImageOpacity = it) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_image_blur_title),
+                    value = theme.backgroundImageBlur,
+                    range = 0f..25f,
+                    display = { if (it < 0.5f) offLabel else it.toInt().toString() },
+                ) { update { t -> t.copy(backgroundImageBlur = it) } }
+            }
+            item { CaptionText(stringResource(R.string.theme_background_image_alpha_body)) }
+        }
+        item {
+            ListItem(
+                headlineContent = {
+                    Text(stringResource(R.string.theme_background_image_landscape_title))
+                },
+                supportingContent = {
+                    Text(
+                        stringResource(
+                            if (theme.backgroundImageLandscape == null) {
+                                R.string.theme_background_image_landscape_none
+                            } else {
+                                R.string.theme_background_image_replace
+                            },
+                        ),
+                    )
+                },
+                leadingContent = { Icon(Icons.Outlined.Image, contentDescription = null) },
+                trailingContent = {
+                    val existingLandscapeImage = theme.backgroundImageLandscape
+                    if (existingLandscapeImage != null) {
+                        TextButton(onClick = {
+                            File(existingLandscapeImage).delete()
+                            update { t -> t.copy(backgroundImageLandscape = null) }
+                        }) { Text(stringResource(CommonR.string.common_delete)) }
+                    }
+                },
+                colors = transparentListColors(),
+                modifier = Modifier.clickable { sourceDialogSlot = BackgroundSlot.LANDSCAPE },
+            )
+        }
+        theme.backgroundPhotoLandscape?.let { credit ->
+            item { PhotoCreditRow(credit) { url -> openLink(context, url) } }
+        }
+        if (theme.backgroundImageLandscape != null) {
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.theme_crop_landscape_title)) },
+                    supportingContent = { Text(stringResource(R.string.theme_crop_image_subtitle)) },
+                    leadingContent = { Icon(Icons.Outlined.Crop, contentDescription = null) },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable { cropLandscapeOpen = true },
+                )
+            }
+        }
+        // Only offered once there is something to rotate. Most people set one
+        // photo and stop, and a row for a feature they have not started is
+        // clutter in the one screen they do use.
+        if (showRotation) {
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.photo_rotation_title)) },
+                    supportingContent = { Text(stringResource(R.string.photo_rotation_subtitle)) },
+                    leadingContent = { Icon(Icons.Outlined.Autorenew, contentDescription = null) },
+                    trailingContent = {
+                        Text(
+                            stringResource(
+                                if (settings.photoBackground.rotateEnabled) {
+                                    CommonR.string.common_on
+                                } else {
+                                    CommonR.string.common_off
+                                },
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable { onNavigate(PHOTO_ROTATION_ROUTE) },
+                )
+            }
+        }
+        // Likewise: somebody who never opens the online picker has no key to
+        // manage. The picker's own "add a key" action reaches this screen.
+        if (showServices) {
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.photo_services_title)) },
+                    supportingContent = { Text(stringResource(R.string.photo_services_subtitle)) },
+                    leadingContent = { Icon(Icons.Outlined.Wallpaper, contentDescription = null) },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable { onNavigate(PHOTO_HUB_ROUTE) },
+                )
             }
         }
     }
-    if (theme.backgroundImage != null) {
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.theme_crop_image_title)) },
-            supportingContent = { Text(stringResource(R.string.theme_crop_image_subtitle)) },
-            leadingContent = { Icon(Icons.Outlined.Crop, contentDescription = null) },
-            modifier = Modifier.clickable { cropOpen = true },
-        )
-        SliderRow(
-            stringResource(R.string.theme_image_opacity_title),
-            value = theme.backgroundImageOpacity,
-            range = 0f..1f,
-            display = { "${(it * 100).toInt()}%" },
-        ) { update { t -> t.copy(backgroundImageOpacity = it) } }
-        SliderRow(
-            stringResource(R.string.theme_image_blur_title),
-            value = theme.backgroundImageBlur,
-            range = 0f..25f,
-            display = { if (it < 0.5f) offLabel else it.toInt().toString() },
-        ) { update { t -> t.copy(backgroundImageBlur = it) } }
-        Text(
-            stringResource(R.string.theme_background_image_alpha_body),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-    }
+
     val cropSource = theme.backgroundImage
     if (cropOpen && cropSource != null) {
         CropImageDialog(
@@ -1019,47 +1130,6 @@ fun ThemeEditorScreen(
                 cropOpen = false
             },
             onDismiss = { cropOpen = false },
-        )
-    }
-
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.theme_background_image_landscape_title)) },
-        supportingContent = {
-            Text(
-                stringResource(
-                    if (theme.backgroundImageLandscape == null) {
-                        R.string.theme_background_image_landscape_none
-                    } else {
-                        R.string.theme_background_image_replace
-                    },
-                )
-            )
-        },
-        leadingContent = { Icon(Icons.Outlined.Image, contentDescription = null) },
-        trailingContent = {
-            val existingLandscapeImage = theme.backgroundImageLandscape
-            if (existingLandscapeImage != null) {
-                TextButton(onClick = {
-                    File(existingLandscapeImage).delete()
-                    update { t -> t.copy(backgroundImageLandscape = null) }
-                }) { Text(stringResource(CommonR.string.common_delete)) }
-            }
-        },
-        modifier = Modifier.clickable { sourceDialogSlot = BackgroundSlot.LANDSCAPE },
-    )
-    theme.backgroundPhotoLandscape?.let { credit ->
-        PhotoCreditRow(credit) { url ->
-            runCatching {
-                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri()))
-            }
-        }
-    }
-    if (theme.backgroundImageLandscape != null) {
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.theme_crop_landscape_title)) },
-            supportingContent = { Text(stringResource(R.string.theme_crop_image_subtitle)) },
-            leadingContent = { Icon(Icons.Outlined.Crop, contentDescription = null) },
-            modifier = Modifier.clickable { cropLandscapeOpen = true },
         )
     }
     val cropLandscapeSource = theme.backgroundImageLandscape
@@ -1077,266 +1147,291 @@ fun ThemeEditorScreen(
         )
     }
 
-    // Photo backgrounds belong to a theme, so they live here rather than as
-    // their own branch of Appearance: a rotating background is a property of
-    // the theme it is drawn over.
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.photo_rotation_title)) },
-        supportingContent = { Text(stringResource(R.string.photo_rotation_subtitle)) },
-        leadingContent = { Icon(Icons.Outlined.Autorenew, contentDescription = null) },
-        trailingContent = {
-            Text(
-                stringResource(
-                    if (settings.photoBackground.rotateEnabled) {
-                        CommonR.string.common_on
-                    } else {
-                        CommonR.string.common_off
-                    },
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        modifier = Modifier.clickable { onNavigate(PHOTO_ROTATION_ROUTE) },
-    )
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.photo_services_title)) },
-        supportingContent = { Text(stringResource(R.string.photo_services_subtitle)) },
-        leadingContent = { Icon(Icons.Outlined.Wallpaper, contentDescription = null) },
-        modifier = Modifier.clickable { onNavigate(PHOTO_HUB_ROUTE) },
-    )
-
-    SectionHeaderPublic(stringResource(R.string.theme_keys_section_title))
-    Text(
-        stringResource(R.string.theme_key_shape_title),
-        style = MaterialTheme.typography.bodyLarge,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-    )
-    SingleChoiceSegmentedButtonRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-    ) {
-        val labels = mapOf(
-            KeyShapeKind.ROUNDED to stringResource(R.string.theme_key_shape_rounded_label),
-            KeyShapeKind.PILL to stringResource(R.string.theme_key_shape_pill_label),
-            KeyShapeKind.CUT to stringResource(R.string.theme_key_shape_cut_label),
-            KeyShapeKind.SQUIRCLE to stringResource(R.string.theme_key_shape_squircle_label),
-        )
-        KeyShapeKind.entries.forEachIndexed { index, kind ->
-            SegmentedButton(
-                selected = theme.keyShape == kind,
-                onClick = { update { t -> t.copy(keyShape = kind) } },
-                shape = SegmentedButtonDefaults.itemShape(index, KeyShapeKind.entries.size),
-            ) {
-                Text(labels.getValue(kind), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
-    ColorRow(
-        stringResource(R.string.theme_letter_keys_title),
-        theme.keyBackground,
-        supportsAlpha = true,
-    ) {
-        update { t -> t.copy(keyBackground = it) }
-    }
-    GradientEditor(
-        title = stringResource(R.string.theme_key_gradient_title),
-        subtitle = stringResource(R.string.theme_key_gradient_subtitle),
-        gradient = theme.keyGradient,
-        defaultGradient = GradientSpec(
-            colors = listOf(0x26FFFFFF, 0x00FFFFFF),
-            type = GradientType.LINEAR,
-            angleDeg = 90f,
-        ),
-        onChange = { update { t -> t.copy(keyGradient = it) } },
-    )
-    ColorRow(stringResource(R.string.theme_key_text_title), theme.keyText) {
-        update { t -> t.copy(keyText = it) }
-    }
-    ColorRow(
-        stringResource(R.string.theme_modifier_keys_title),
-        theme.modifierKeyBackground,
-        supportsAlpha = true,
-    ) {
-        update { t -> t.copy(modifierKeyBackground = it) }
-    }
-    NullableColorRow(
-        stringResource(R.string.theme_modifier_key_text_title),
-        theme.modifierKeyText, fallback = theme.keyText,
-        onChange = { update { t -> t.copy(modifierKeyText = it) } },
-    )
-    ColorRow(stringResource(R.string.theme_enter_key_title), theme.enterKeyBackground) {
-        update { t -> t.copy(enterKeyBackground = it) }
-    }
-    ColorRow(stringResource(R.string.theme_enter_key_icon_title), theme.enterKeyText) {
-        update { t -> t.copy(enterKeyText = it) }
-    }
-    NullableColorRow(
-        stringResource(R.string.theme_pressed_key_title),
-        theme.pressedKeyBackground, fallback = theme.effectivePressed(),
-        onChange = { update { t -> t.copy(pressedKeyBackground = it) } },
-    )
-    NullableColorRow(
-        stringResource(R.string.theme_key_border_title),
-        theme.keyBorderColor, fallback = theme.keyText,
-        onChange = { update { t -> t.copy(keyBorderColor = it) } },
-    )
-    if (theme.keyBorderColor != null) {
-        SliderRow(
-            stringResource(R.string.theme_border_width_title),
-            value = theme.keyBorderWidthDp,
-            range = 0f..3f,
-            display = { "%.1f dp".format(it) },
-        ) { update { t -> t.copy(keyBorderWidthDp = (it * 10).toInt() / 10f) } }
-    }
-
-    SectionHeaderPublic(stringResource(R.string.theme_accent_section_title))
-    ColorRow(stringResource(R.string.theme_accent_title), theme.accent) {
-        update { t -> t.copy(accent = it) }
-    }
-    Text(
-        stringResource(R.string.theme_accent_body),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
-    NullableColorRow(
-        stringResource(R.string.theme_gesture_trail_title),
-        theme.gestureTrailColor, fallback = theme.accent,
-        supportsAlpha = true,
-        onChange = { update { t -> t.copy(gestureTrailColor = it) } },
-    )
-    NullableColorRow(
-        stringResource(R.string.theme_popup_background_title),
-        theme.popupBackground, fallback = theme.effectivePopup(),
-        supportsAlpha = true,
-        onChange = { update { t -> t.copy(popupBackground = it) } },
-    )
-    NullableColorRow(
-        stringResource(R.string.theme_popup_text_title),
-        theme.popupText, fallback = theme.keyText,
-        onChange = { update { t -> t.copy(popupText = it) } },
-    )
-
-    SectionHeaderPublic(stringResource(R.string.theme_toolbar_section_title))
-    NullableColorRow(
-        stringResource(R.string.theme_tool_icons_title), theme.toolbarIcon,
-        fallback = colorOf(theme.keyText).copy(alpha = 0.65f)
-            .compositeOver(colorOf(theme.boardBackground)).argb(),
-        onChange = { update { t -> t.copy(toolbarIcon = it) } },
-    )
-    NullableColorRow(
-        stringResource(R.string.theme_tool_circles_title),
-        theme.toolCircleBackground, fallback = theme.effectiveToolCircle(),
-        supportsAlpha = true,
-        onChange = { update { t -> t.copy(toolCircleBackground = it) } },
-    )
-    NullableColorRow(
-        stringResource(R.string.theme_tool_circle_active_title),
-        theme.toolCircleActiveBackground, fallback = theme.effectivePressed(),
-        supportsAlpha = true,
-        onChange = { update { t -> t.copy(toolCircleActiveBackground = it) } },
-    )
-
-    SectionHeaderPublic(stringResource(R.string.theme_panels_section_title))
-    NullableColorRow(
-        stringResource(R.string.theme_cards_title),
-        theme.chipBackground, fallback = theme.modifierKeyBackground,
-        supportsAlpha = true,
-        onChange = { update { t -> t.copy(chipBackground = it) } },
-    )
-    NullableColorRow(
-        stringResource(R.string.theme_suggestion_text_title),
-        theme.suggestionText, fallback = theme.keyText,
-        onChange = { update { t -> t.copy(suggestionText = it) } },
-    )
-
-    SectionHeaderPublic(stringResource(R.string.theme_corners_section_title))
-    val hasCustomRadii = theme.keyCornerRadiusDp != null
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.theme_custom_radii_title)) },
-        supportingContent = { Text(stringResource(R.string.theme_custom_radii_subtitle)) },
-        trailingContent = {
-            Switch(
-                checked = hasCustomRadii,
-                onCheckedChange = { enable ->
-                    update { t ->
-                        if (enable) {
-                            t.copy(
-                                keyCornerRadiusDp = settings.keyCornerRadiusDp,
-                                popupCornerRadiusDp = 12,
-                                toolCircleRadiusDp = settings.toolCircleRadiusDp,
-                            )
-                        } else {
-                            t.copy(
-                                keyCornerRadiusDp = null,
-                                popupCornerRadiusDp = null,
-                                toolCircleRadiusDp = null,
-                            )
+    SettingsGroup(stringResource(R.string.theme_keys_section_title)) {
+        item {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text(
+                    stringResource(R.string.theme_key_shape_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    val labels = mapOf(
+                        KeyShapeKind.ROUNDED to stringResource(R.string.theme_key_shape_rounded_label),
+                        KeyShapeKind.PILL to stringResource(R.string.theme_key_shape_pill_label),
+                        KeyShapeKind.CUT to stringResource(R.string.theme_key_shape_cut_label),
+                        KeyShapeKind.SQUIRCLE to stringResource(R.string.theme_key_shape_squircle_label),
+                    )
+                    KeyShapeKind.entries.forEachIndexed { index, kind ->
+                        SegmentedButton(
+                            selected = theme.keyShape == kind,
+                            onClick = { update { t -> t.copy(keyShape = kind) } },
+                            shape = SegmentedButtonDefaults.itemShape(index, KeyShapeKind.entries.size),
+                        ) {
+                            Text(labels.getValue(kind), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
-                },
-            )
-        },
-    )
-    if (hasCustomRadii) {
-        SliderRow(
-            stringResource(R.string.theme_key_radius_title),
-            value = (theme.keyCornerRadiusDp ?: 8).toFloat(),
-            range = 0f..28f,
-            display = { "${it.toInt()} dp" },
-        ) { update { t -> t.copy(keyCornerRadiusDp = it.toInt()) } }
-        SliderRow(
-            stringResource(R.string.theme_popup_radius_title),
-            value = (theme.popupCornerRadiusDp ?: 12).toFloat(),
-            range = 0f..24f,
-            display = { "${it.toInt()} dp" },
-        ) { update { t -> t.copy(popupCornerRadiusDp = it.toInt()) } }
-        SliderRow(
-            stringResource(R.string.theme_tool_circle_radius_title),
-            value = (theme.toolCircleRadiusDp ?: 20).toFloat(),
-            range = 0f..20f,
-            display = { if (it.toInt() == 0) offLabel else "${it.toInt()} dp" },
-        ) { update { t -> t.copy(toolCircleRadiusDp = it.toInt()) } }
-    }
-
-    SectionHeaderPublic(stringResource(R.string.theme_animation_section_title))
-    Text(
-        stringResource(R.string.theme_animation_section_body),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
-    SingleChoiceSegmentedButtonRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    ) {
-        val labels = mapOf(
-            ThemeAnimation.NONE to stringResource(CommonR.string.common_none),
-            ThemeAnimation.FLOW to stringResource(R.string.theme_animation_flow_label),
-            ThemeAnimation.HUE_CYCLE to stringResource(R.string.theme_animation_hue_cycle_label),
-        )
-        ThemeAnimation.entries.forEachIndexed { index, anim ->
-            SegmentedButton(
-                selected = theme.animation == anim,
-                onClick = { update { t -> t.copy(animation = anim) } },
-                shape = SegmentedButtonDefaults.itemShape(index, ThemeAnimation.entries.size),
+                }
+            }
+        }
+        item {
+            ColorRow(
+                stringResource(R.string.theme_letter_keys_title),
+                theme.keyBackground,
+                supportsAlpha = true,
             ) {
-                Text(labels.getValue(anim), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                update { t -> t.copy(keyBackground = it) }
+            }
+        }
+        item {
+            GradientEditor(
+                title = stringResource(R.string.theme_key_gradient_title),
+                subtitle = stringResource(R.string.theme_key_gradient_subtitle),
+                gradient = theme.keyGradient,
+                defaultGradient = GradientSpec(
+                    colors = listOf(0x26FFFFFF, 0x00FFFFFF),
+                    type = GradientType.LINEAR,
+                    angleDeg = 90f,
+                ),
+                onChange = { update { t -> t.copy(keyGradient = it) } },
+            )
+        }
+        item {
+            ColorRow(stringResource(R.string.theme_key_text_title), theme.keyText) {
+                update { t -> t.copy(keyText = it) }
+            }
+        }
+        item {
+            ColorRow(
+                stringResource(R.string.theme_modifier_keys_title),
+                theme.modifierKeyBackground,
+                supportsAlpha = true,
+            ) {
+                update { t -> t.copy(modifierKeyBackground = it) }
+            }
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_modifier_key_text_title),
+                theme.modifierKeyText, fallback = theme.keyText,
+                onChange = { update { t -> t.copy(modifierKeyText = it) } },
+            )
+        }
+        item {
+            ColorRow(stringResource(R.string.theme_enter_key_title), theme.enterKeyBackground) {
+                update { t -> t.copy(enterKeyBackground = it) }
+            }
+        }
+        item {
+            ColorRow(stringResource(R.string.theme_enter_key_icon_title), theme.enterKeyText) {
+                update { t -> t.copy(enterKeyText = it) }
+            }
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_pressed_key_title),
+                theme.pressedKeyBackground, fallback = theme.effectivePressed(),
+                onChange = { update { t -> t.copy(pressedKeyBackground = it) } },
+            )
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_key_border_title),
+                theme.keyBorderColor, fallback = theme.keyText,
+                onChange = { update { t -> t.copy(keyBorderColor = it) } },
+            )
+        }
+        if (theme.keyBorderColor != null) {
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_border_width_title),
+                    value = theme.keyBorderWidthDp,
+                    range = 0f..3f,
+                    display = { "%.1f dp".format(it) },
+                ) { update { t -> t.copy(keyBorderWidthDp = (it * 10).toInt() / 10f) } }
             }
         }
     }
-    if (theme.animation != ThemeAnimation.NONE) {
-        SliderRow(
-            stringResource(R.string.theme_animation_speed_title),
-            value = theme.animationSpeed,
-            range = 0.25f..3f,
-            display = { "%.2f×".format(it) },
-        ) { update { t -> t.copy(animationSpeed = (it * 20).toInt() / 20f) } }
+
+    SettingsGroup(stringResource(R.string.theme_accent_section_title)) {
+        item {
+            ColorRow(stringResource(R.string.theme_accent_title), theme.accent) {
+                update { t -> t.copy(accent = it) }
+            }
+        }
+        item { CaptionText(stringResource(R.string.theme_accent_body)) }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_gesture_trail_title),
+                theme.gestureTrailColor, fallback = theme.accent,
+                supportsAlpha = true,
+                onChange = { update { t -> t.copy(gestureTrailColor = it) } },
+            )
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_popup_background_title),
+                theme.popupBackground, fallback = theme.effectivePopup(),
+                supportsAlpha = true,
+                onChange = { update { t -> t.copy(popupBackground = it) } },
+            )
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_popup_text_title),
+                theme.popupText, fallback = theme.keyText,
+                onChange = { update { t -> t.copy(popupText = it) } },
+            )
+        }
+    }
+
+    SettingsGroup(stringResource(R.string.theme_toolbar_section_title)) {
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_tool_icons_title), theme.toolbarIcon,
+                fallback = colorOf(theme.keyText).copy(alpha = 0.65f)
+                    .compositeOver(colorOf(theme.boardBackground)).argb(),
+                onChange = { update { t -> t.copy(toolbarIcon = it) } },
+            )
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_tool_circles_title),
+                theme.toolCircleBackground, fallback = theme.effectiveToolCircle(),
+                supportsAlpha = true,
+                onChange = { update { t -> t.copy(toolCircleBackground = it) } },
+            )
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_tool_circle_active_title),
+                theme.toolCircleActiveBackground, fallback = theme.effectivePressed(),
+                supportsAlpha = true,
+                onChange = { update { t -> t.copy(toolCircleActiveBackground = it) } },
+            )
+        }
+    }
+
+    SettingsGroup(stringResource(R.string.theme_panels_section_title)) {
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_cards_title),
+                theme.chipBackground, fallback = theme.modifierKeyBackground,
+                supportsAlpha = true,
+                onChange = { update { t -> t.copy(chipBackground = it) } },
+            )
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_suggestion_text_title),
+                theme.suggestionText, fallback = theme.keyText,
+                onChange = { update { t -> t.copy(suggestionText = it) } },
+            )
+        }
+    }
+
+    val hasCustomRadii = theme.keyCornerRadiusDp != null
+    SettingsGroup(stringResource(R.string.theme_corners_section_title)) {
+        item {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_custom_radii_title)) },
+                supportingContent = { Text(stringResource(R.string.theme_custom_radii_subtitle)) },
+                trailingContent = {
+                    Switch(
+                        checked = hasCustomRadii,
+                        onCheckedChange = { enable ->
+                            update { t ->
+                                if (enable) {
+                                    t.copy(
+                                        keyCornerRadiusDp = settings.keyCornerRadiusDp,
+                                        popupCornerRadiusDp = 12,
+                                        toolCircleRadiusDp = settings.toolCircleRadiusDp,
+                                    )
+                                } else {
+                                    t.copy(
+                                        keyCornerRadiusDp = null,
+                                        popupCornerRadiusDp = null,
+                                        toolCircleRadiusDp = null,
+                                    )
+                                }
+                            }
+                        },
+                    )
+                },
+                colors = transparentListColors(),
+            )
+        }
+        if (hasCustomRadii) {
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_key_radius_title),
+                    value = (theme.keyCornerRadiusDp ?: 8).toFloat(),
+                    range = 0f..28f,
+                    display = { "${it.toInt()} dp" },
+                ) { update { t -> t.copy(keyCornerRadiusDp = it.toInt()) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_popup_radius_title),
+                    value = (theme.popupCornerRadiusDp ?: 12).toFloat(),
+                    range = 0f..24f,
+                    display = { "${it.toInt()} dp" },
+                ) { update { t -> t.copy(popupCornerRadiusDp = it.toInt()) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_tool_circle_radius_title),
+                    value = (theme.toolCircleRadiusDp ?: 20).toFloat(),
+                    range = 0f..20f,
+                    display = { if (it.toInt() == 0) offLabel else "${it.toInt()} dp" },
+                ) { update { t -> t.copy(toolCircleRadiusDp = it.toInt()) } }
+            }
+        }
+    }
+
+    SettingsGroup(stringResource(R.string.theme_animation_section_title)) {
+        item { CaptionText(stringResource(R.string.theme_animation_section_body)) }
+        item {
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                val labels = mapOf(
+                    ThemeAnimation.NONE to stringResource(CommonR.string.common_none),
+                    ThemeAnimation.FLOW to stringResource(R.string.theme_animation_flow_label),
+                    ThemeAnimation.HUE_CYCLE to stringResource(R.string.theme_animation_hue_cycle_label),
+                )
+                ThemeAnimation.entries.forEachIndexed { index, anim ->
+                    SegmentedButton(
+                        selected = theme.animation == anim,
+                        onClick = { update { t -> t.copy(animation = anim) } },
+                        shape = SegmentedButtonDefaults.itemShape(index, ThemeAnimation.entries.size),
+                    ) {
+                        Text(labels.getValue(anim), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+        if (theme.animation != ThemeAnimation.NONE) {
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_animation_speed_title),
+                    value = theme.animationSpeed,
+                    range = 0.25f..3f,
+                    display = { "%.2f×".format(it) },
+                ) { update { t -> t.copy(animationSpeed = (it * 20).toInt() / 20f) } }
+            }
+        }
     }
     Spacer(Modifier.height(24.dp))
+}
+
+/** Opens a credit link in the browser. Failure is not worth a message. */
+private fun openLink(context: android.content.Context, url: String) {
+    runCatching {
+        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri()))
+    }
 }
 
 // ---- gradient editor ----
@@ -1362,6 +1457,7 @@ private fun GradientEditor(
                 onCheckedChange = { on -> onChange(if (on) defaultGradient else null) },
             )
         },
+        colors = transparentListColors(),
     )
     if (gradient == null) return
     Box(
@@ -1624,6 +1720,7 @@ private fun ColorRow(
     ListItem(
         headlineContent = { Text(title) },
         trailingContent = { Swatch(color) },
+        colors = transparentListColors(),
         modifier = Modifier.clickable { open = true },
     )
     if (open) {
@@ -1666,6 +1763,7 @@ private fun NullableColorRow(
             null
         },
         trailingContent = { Swatch(color ?: fallback) },
+        colors = transparentListColors(),
         modifier = Modifier.clickable { open = true },
     )
     if (open) {

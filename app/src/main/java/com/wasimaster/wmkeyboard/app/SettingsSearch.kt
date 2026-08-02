@@ -238,8 +238,6 @@ private fun Resources.photoRows(): List<SettingsSearchEntry> {
         rotation(R.string.photo_rotation_shuffle_title, R.string.photo_rotation_shuffle_subtitle),
         rotation(R.string.photo_rotation_source_saved_title, R.string.photo_rotation_source_saved_subtitle),
         rotation(R.string.photo_rotation_source_online_title, R.string.photo_rotation_source_online_subtitle),
-        rotation(R.string.photo_rotation_source_device_title, R.string.photo_rotation_source_device_subtitle),
-        rotation(R.string.photo_rotation_device_pick_title, R.string.photo_rotation_device_pick_subtitle),
         rotation(R.string.photo_rotation_topics_title, R.string.photo_rotation_topics_subtitle),
         rotation(R.string.photo_rotation_terms_label),
         rotation(R.string.photo_rotation_safe_title, R.string.photo_rotation_safe_subtitle),

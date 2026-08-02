@@ -115,13 +115,13 @@ class RotationPoolTest {
     @Test
     fun `turning a source off hides its photos, it does not only stop new ones`() {
         val entries = listOf(
-            entry("online", source = RotationSourceKind.ONLINE),
-            entry("mine", source = RotationSourceKind.DEVICE),
+            entry("fetched", source = RotationSourceKind.ONLINE),
+            entry("mine", source = RotationSourceKind.SAVED),
         )
         // This is the filter the rotation applies before picking. Without it,
         // switching "online photos" off would still show the ones already on
         // disk, which reads as the toggle doing nothing.
-        val onlyMine = entries.filter { it.source in setOf(RotationSourceKind.DEVICE) }
+        val onlyMine = entries.filter { it.source in setOf(RotationSourceKind.SAVED) }
         assertEquals("mine", pickNextPhoto(onlyMine, currentFileName = null)?.fileName)
     }
 
@@ -139,12 +139,14 @@ class RotationPoolTest {
     }
 
     @Test
-    fun `a saved or device photo is never thrown away`() {
+    fun `a photo in the collection is never thrown away`() {
+        // The collection holds what the user chose, whether it came from a
+        // service or off the device. Only fetched photos are a cache.
         val entries = listOf(
-            entry("saved", lastShownAt = 1, source = RotationSourceKind.SAVED),
-            entry("device", lastShownAt = 2, source = RotationSourceKind.DEVICE),
+            entry("kept", lastShownAt = 1, source = RotationSourceKind.SAVED),
+            entry("mine", lastShownAt = 2, source = RotationSourceKind.SAVED),
         )
-        val plan = poolEvictionPlan(entries, filesOf("saved", "device"), maxEntries = 0, maxBytes = 0)
+        val plan = poolEvictionPlan(entries, filesOf("kept", "mine"), maxEntries = 0, maxBytes = 0)
         assertEquals(2, plan.keep.size)
     }
 

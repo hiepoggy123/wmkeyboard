@@ -243,7 +243,7 @@ object PhotoBackgroundManager {
         }
         // Outside the try: a cancellation here has to propagate rather than
         // be reported as "the photo could not be added".
-        addLocalToPool(context, file, RotationSourceKind.DEVICE, measured, nowMs)
+        addLocalToPool(context, file, RotationSourceKind.SAVED, measured, nowMs)
         true
     }
 
