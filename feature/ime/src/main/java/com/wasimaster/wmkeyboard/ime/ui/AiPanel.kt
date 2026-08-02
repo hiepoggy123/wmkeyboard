@@ -43,12 +43,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
+import com.wasimaster.wmkeyboard.core.localllm.LocalLlmDownloadManager
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
 import com.wasimaster.wmkeyboard.config.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.AiAction
@@ -126,19 +128,30 @@ internal fun AiPanel(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text(
-                    stringResource(R.string.ime_ai_need_model_body),
-                    color = kb.secondaryText,
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                )
-                Spacer(Modifier.height(8.dp))
-                ToolPanelChip(stringResource(R.string.ime_ai_download_model_action)) {
-                    onOpenToolSettings(ToolbarTool.AI)
+                val download = rememberModelDownload()
+                if (download != null) {
+                    // The download is almost always the reason there is no model
+                    // yet, so showing it is more use than telling the user to go
+                    // and start the download they already started.
+                    ModelDownloadProgress(download, wide = true)
+                } else {
+                    Text(
+                        stringResource(R.string.ime_ai_need_model_body),
+                        color = kb.secondaryText,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    ToolPanelChip(stringResource(R.string.ime_ai_download_model_action)) {
+                        onOpenToolSettings(ToolbarTool.AI)
+                    }
                 }
             }
             AiUi.Idle -> Column(Modifier.fillMaxSize()) {
+                // A download started in the settings app keeps running while the
+                // user types, and until now the keyboard gave no sign of it.
+                rememberModelDownload()?.let { ModelDownloadProgress(it, wide = false) }
                 ActionChips(onAction, enabled = state.aiHasText)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     val provider = stringResource(state.settings.ai.provider.labelRes)
@@ -328,6 +341,78 @@ internal fun AiPanel(
                     }
                 }
             }
+        }
+    }
+}
+
+/** A model download in flight: its display name and how far it has got. */
+private class ModelDownload(val name: String, val bytes: Long, val total: Long)
+
+/**
+ * The model download running right now, or null when none is.
+ *
+ * [LocalLlmDownloadManager] is a process singleton and the settings app shares
+ * this process, so the keyboard sees a download the user started over there. It
+ * dies with the process, which is the behaviour it always had.
+ */
+@Composable
+private fun rememberModelDownload(): ModelDownload? {
+    if (!BuildConfig.ENABLE_LOCAL_LLM) return null
+    val states by LocalLlmDownloadManager.states.collectAsState()
+    val active = LocalLlmDownloadManager.activeDownload(states) ?: return null
+    val (id, status) = active
+    val downloading = status as? LocalLlmDownloadManager.DownloadStatus.Downloading ?: return null
+    val name = LocalLlmCatalog.byId(id)?.displayName
+        ?: id.removePrefix(LocalLlmStore.CUSTOM_PREFIX)
+    return ModelDownload(name, downloading.bytes, downloading.total)
+}
+
+/**
+ * The download readout on the panel. [wide] is the empty-state version, which
+ * owns the whole panel; the narrow one is a single line above the action chips,
+ * where every dp of height belongs to the chips.
+ */
+@Composable
+private fun ModelDownloadProgress(download: ModelDownload, wide: Boolean) {
+    val kb = LocalKbTheme.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = if (wide) 24.dp else 0.dp, vertical = 4.dp),
+        horizontalAlignment = if (wide) Alignment.CenterHorizontally else Alignment.Start,
+    ) {
+        Text(
+            stringResource(R.string.ime_ai_downloading_model, download.name),
+            color = kb.secondaryText,
+            fontSize = if (wide) 13.sp else 11.sp,
+            textAlign = if (wide) TextAlign.Center else TextAlign.Start,
+        )
+        Spacer(Modifier.height(6.dp))
+        if (download.total > 0) {
+            LinearProgressIndicator(
+                progress = { (download.bytes.toFloat() / download.total).coerceIn(0f, 1f) },
+                color = kb.accent,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(
+                    R.string.ime_ai_download_bytes,
+                    LocalLlmDownloadManager.formatBytes(download.bytes),
+                    LocalLlmDownloadManager.formatBytes(download.total),
+                ),
+                color = kb.secondaryText,
+                fontSize = 11.sp,
+            )
+        } else {
+            // No Content-Length yet, so there is no fraction to draw.
+            LinearProgressIndicator(color = kb.accent, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(4.dp))
+            Text(
+                LocalLlmDownloadManager.formatBytes(download.bytes),
+                color = kb.secondaryText,
+                fontSize = 11.sp,
+            )
         }
     }
 }

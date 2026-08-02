@@ -707,9 +707,5 @@ private fun importModel(context: Context, uri: android.net.Uri) {
     }
 }
 
-internal fun formatBytes(bytes: Long): String = when {
-    bytes >= 1_000_000_000L -> "%.2f GB".format(bytes / 1e9)
-    bytes >= 1_000_000L -> "%.0f MB".format(bytes / 1e6)
-    bytes >= 1_000L -> "%.0f KB".format(bytes / 1e3)
-    else -> "$bytes B"
-}
+/** Shared with the AI panel, which draws the same readout on the keyboard. */
+internal fun formatBytes(bytes: Long): String = LocalLlmDownloadManager.formatBytes(bytes)

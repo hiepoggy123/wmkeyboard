@@ -62,6 +62,31 @@ object LocalLlmDownloadManager {
 
     enum class FailReason { GATED_NO_TOKEN, LICENSE_NOT_ACCEPTED, NETWORK, NO_SPACE, OTHER }
 
+    /**
+     * A byte count for a download readout. Decimal units, because that is what
+     * the model pages the sizes come from quote.
+     *
+     * Lives here rather than in either screen: the settings app and the AI panel
+     * both draw the same progress line, and two copies would drift.
+     */
+    fun formatBytes(bytes: Long): String = when {
+        bytes >= 1_000_000_000L -> "%.2f GB".format(bytes / 1e9)
+        bytes >= 1_000_000L -> "%.0f MB".format(bytes / 1e6)
+        bytes >= 1_000L -> "%.0f KB".format(bytes / 1e3)
+        else -> "$bytes B"
+    }
+
+    /**
+     * The download in flight right now, as `model id to status`, or null when
+     * nothing is downloading. The AI panel shows this so a download started in
+     * the settings app is visible from the keyboard.
+     */
+    fun activeDownload(states: Map<String, DownloadStatus>): Pair<String, DownloadStatus>? {
+        val id = activeId ?: return null
+        val status = states[id] ?: return null
+        return if (status is DownloadStatus.Downloading) id to status else null
+    }
+
     /** Free space to leave untouched after a download completes. */
     private const val SPACE_MARGIN_BYTES = 64L * 1024 * 1024
     private const val PROGRESS_INTERVAL_MS = 250L

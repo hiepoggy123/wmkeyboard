@@ -32,6 +32,14 @@
     <string name="ime_ai_setup_body">Set up an AI provider in the settings of the tool to use AI.</string>
     <string name="ime_ai_setup_local_body">Set up an AI provider, or download a model to your device. Both are in the settings of the tool.</string>
     <string name="ime_ai_need_model_body">To use AI on your device, download a model in the settings of the tool first.</string>
+    <!-- Shown on the AI panel while a model downloads. %1$s is the name of the
+         model, for example "Gemma 4 E2B". -->
+    <string name="ime_ai_downloading_model">%1$s is downloading…</string>
+    <!-- Progress under the bar. %1$s is the part that is downloaded and %2$s is
+         the whole size, both already with their units, for example "1.2 GB". -->
+    <string name="ime_ai_download_bytes">%1$s of %2$s</string>
+    <!-- Shown when a download stopped and the user can start it again in the app. -->
+    <string name="ime_ai_download_paused">The download stopped. Start it again in the settings of the tool.</string>
     <!-- Shown under the action chips. %1$s is the name of the AI provider. -->
     <string name="ime_ai_idle_body">The actions run on the selected text, or on the whole field. They use %1$s.</string>
     <!-- Shown when the field is empty and the actions are off. %1$s is the name of the Custom action. -->
