@@ -43,9 +43,32 @@ object ToolApiKeys {
     fun translate(settings: KeyboardSettings): String =
         settings.translateApiKey.ifBlank { BuildConfig.TRANSLATE_API_KEY }
 
+    fun unsplash(settings: KeyboardSettings): String =
+        settings.photoBackground.unsplashApiKey.ifBlank { BuildConfig.UNSPLASH_API_KEY }
+
+    fun pexels(settings: KeyboardSettings): String =
+        settings.photoBackground.pexelsApiKey.ifBlank { BuildConfig.PEXELS_API_KEY }
+
+    /** Which background-photo providers can actually serve requests. */
+    fun photoSources(settings: KeyboardSettings): List<PhotoSource> = buildList {
+        if (unsplash(settings).isNotBlank()) add(PhotoSource.UNSPLASH)
+        if (pexels(settings).isNotBlank()) add(PhotoSource.PEXELS)
+    }
+
+    /** Resolves each provider's key for the photo client's dispatch. */
+    fun photoKeys(settings: KeyboardSettings): PhotoSearchClient.Keys =
+        PhotoSearchClient.Keys { source ->
+            when (source) {
+                PhotoSource.UNSPLASH -> unsplash(settings)
+                PhotoSource.PEXELS -> pexels(settings)
+            }
+        }
+
     /** For the settings screens: whether the build ships its own key. */
     val builtInKlipy: Boolean get() = BuildConfig.KLIPY_API_KEY.isNotBlank()
     val builtInGiphy: Boolean get() = BuildConfig.GIPHY_API_KEY.isNotBlank()
     val builtInBrave: Boolean get() = BuildConfig.BRAVE_API_KEY.isNotBlank()
     val builtInTranslate: Boolean get() = BuildConfig.TRANSLATE_API_KEY.isNotBlank()
+    val builtInUnsplash: Boolean get() = BuildConfig.UNSPLASH_API_KEY.isNotBlank()
+    val builtInPexels: Boolean get() = BuildConfig.PEXELS_API_KEY.isNotBlank()
 }

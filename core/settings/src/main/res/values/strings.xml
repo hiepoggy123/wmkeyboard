@@ -119,4 +119,18 @@
     <string name="core_settings_power_saving_trigger_low_battery_label">The battery is low</string>
     <string name="core_settings_power_saving_trigger_either_label">Battery saver or a low battery</string>
 
+    <!-- ================================================================== -->
+    <!-- Rotating photo backgrounds: how often, and which themes.           -->
+    <!-- ================================================================== -->
+
+    <string name="core_settings_photo_interval_every_open_label">Every time the keyboard opens</string>
+    <string name="core_settings_photo_interval_hourly_label">Every hour</string>
+    <string name="core_settings_photo_interval_six_hourly_label">Every 6 hours</string>
+    <string name="core_settings_photo_interval_daily_label">Every day</string>
+    <string name="core_settings_photo_interval_weekly_label">Every week</string>
+    <string name="core_settings_photo_interval_manual_label">Only when I press Shuffle</string>
+    <string name="core_settings_photo_scope_current_label">The theme in use</string>
+    <string name="core_settings_photo_scope_all_label">Every theme</string>
+    <string name="core_settings_photo_scope_selected_label">Themes I select</string>
+
 </resources>

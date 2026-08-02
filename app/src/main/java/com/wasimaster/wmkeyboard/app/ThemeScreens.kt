@@ -99,6 +99,7 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.brush
+import com.wasimaster.wmkeyboard.core.theme.reseeded
 import com.wasimaster.wmkeyboard.core.theme.themeFromSeed
 import com.wasimaster.wmkeyboard.core.theme.themeName
 import com.wasimaster.wmkeyboard.core.theme.withEmbeddedImages
@@ -131,32 +132,6 @@ private fun ThemeSpec.effectivePopup(): Long =
 private fun ThemeSpec.effectiveToolCircle(): Long =
     toolCircleBackground ?: colorOf(keyText).copy(alpha = 0.14f)
         .compositeOver(colorOf(boardBackground)).argb()
-
-/**
- * Regenerate the palette from [seed]/[dark] while keeping every non-palette
- * field the user configured — gradients, background image + blur, key shape and
- * border, gesture-trail color, radii, and animation. themeFromSeed only sets
- * core colors, so a plain `.copy` of it would silently wipe those decorations;
- * a reseed / dark-toggle must change only the generated colors.
- */
-private fun ThemeSpec.reseeded(seed: Long, dark: Boolean): ThemeSpec =
-    themeFromSeed(id, name, seed, dark).copy(
-        backgroundImage = backgroundImage,
-        backgroundImageLandscape = backgroundImageLandscape,
-        backgroundImageOpacity = backgroundImageOpacity,
-        backgroundImageBlur = backgroundImageBlur,
-        boardGradient = boardGradient,
-        keyGradient = keyGradient,
-        keyShape = keyShape,
-        keyBorderColor = keyBorderColor,
-        keyBorderWidthDp = keyBorderWidthDp,
-        gestureTrailColor = gestureTrailColor,
-        keyCornerRadiusDp = keyCornerRadiusDp,
-        popupCornerRadiusDp = popupCornerRadiusDp,
-        toolCircleRadiusDp = toolCircleRadiusDp,
-        animation = animation,
-        animationSpeed = animationSpeed,
-    )
 
 /** The label for one of the app-wide light/dark modes. */
 @StringRes

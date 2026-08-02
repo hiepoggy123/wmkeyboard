@@ -58,6 +58,31 @@
     <string name="core_tools_gif_source_online">Online</string>
 
     <!-- ================================================================== -->
+    <!-- Background photos: the providers and the subjects to browse.       -->
+    <!-- The topic labels name a subject to browse. The slug that goes to   -->
+    <!-- the provider is a separate value in the code and never translated. -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_photo_source_unsplash" translatable="false">Unsplash</string>
+    <string name="core_tools_photo_source_pexels" translatable="false">Pexels</string>
+    <string name="core_tools_photo_topic_wallpapers">Wallpapers</string>
+    <string name="core_tools_photo_topic_nature">Nature</string>
+    <!-- Close-up surfaces, such as stone, cloth or paper. -->
+    <string name="core_tools_photo_topic_textures">Textures</string>
+    <!-- Plain photos with few objects in them. -->
+    <string name="core_tools_photo_topic_minimal">Minimal</string>
+    <string name="core_tools_photo_topic_architecture">Architecture</string>
+    <string name="core_tools_photo_topic_space">Space</string>
+    <string name="core_tools_photo_topic_animals">Animals</string>
+    <string name="core_tools_photo_topic_travel">Travel</string>
+    <string name="core_tools_photo_topic_food">Food</string>
+    <string name="core_tools_photo_topic_street">Street</string>
+    <!-- Photos selected for one strong colour. -->
+    <string name="core_tools_photo_topic_color">Color</string>
+    <!-- Photos that are mostly dark, which suit a dark theme. -->
+    <string name="core_tools_photo_topic_dark">Dark</string>
+
+    <!-- ================================================================== -->
     <!-- Physical keyboard: the tool picker and its cheat sheet.            -->
     <!-- ================================================================== -->
 

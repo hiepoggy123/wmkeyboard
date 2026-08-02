@@ -23,12 +23,23 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
  * those are already in the provider's language and pass straight through.
  * Otherwise [messageRes] names our wording and [status] is the one argument it
  * takes. [ToolHttp.friendlyMessage] turns the pair into a line for a panel.
+ *
+ * [headers] carries the response headers the caller asked [ToolHttp.getWithHeaders]
+ * to keep, and is empty for every other caller. It exists because some providers
+ * answer "you are out of requests" with the same status they use for "your key is
+ * wrong" — Unsplash sends 403 for both — and only a header tells the two apart.
+ * Telling a rate-limited user their key was rejected sends them off to replace a
+ * key that was fine.
  */
 class ToolHttpException(
     @StringRes val messageRes: Int,
     val status: Int = 0,
     val apiMessage: String? = null,
+    val headers: Map<String, String> = emptyMap(),
 ) : IOException(apiMessage ?: "HTTP $status")
+
+/** A response body together with the headers the caller asked to keep. */
+class HttpResponse(val body: String, val headers: Map<String, String>)
 
 /**
  * Tiny blocking HTTP helper shared by the network tool clients (translate,
@@ -52,7 +63,24 @@ object ToolHttp {
         "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) " +
             "Chrome/124.0 Mobile Safari/537.36"
 
-    fun get(url: String, timeoutMs: Int = 10_000, headers: Map<String, String> = emptyMap()): String {
+    fun get(url: String, timeoutMs: Int = 10_000, headers: Map<String, String> = emptyMap()): String =
+        getWithHeaders(url, timeoutMs, headers).body
+
+    /**
+     * [get] that also hands back the response headers named in [wantHeaders],
+     * on the failure path as well as the success one — a rate-limit header is
+     * most worth reading on exactly the response that failed, so the failure
+     * carries them on [ToolHttpException.headers].
+     *
+     * Header lookup is case-insensitive (HttpURLConnection follows the spec
+     * here), so [wantHeaders] may name them in any case.
+     */
+    fun getWithHeaders(
+        url: String,
+        timeoutMs: Int = 10_000,
+        headers: Map<String, String> = emptyMap(),
+        wantHeaders: Set<String> = emptySet(),
+    ): HttpResponse {
         val connection = URL(url).openConnection() as HttpURLConnection
         try {
             connection.connectTimeout = timeoutMs
@@ -60,11 +88,14 @@ object ToolHttp {
             connection.setRequestProperty("User-Agent", USER_AGENT)
             for ((name, value) in headers) connection.setRequestProperty(name, value)
             val status = connection.responseCode
+            val kept = wantHeaders.mapNotNull { name ->
+                connection.getHeaderField(name)?.let { name to it }
+            }.toMap()
             if (status !in 200..299) {
                 val body = connection.errorStream?.bufferedReader()?.use { it.readText() }
-                throw httpFailure(status, body)
+                throw httpFailure(status, body, kept)
             }
-            return connection.inputStream.bufferedReader().use { it.readText() }
+            return HttpResponse(connection.inputStream.bufferedReader().use { it.readText() }, kept)
         } finally {
             connection.disconnect()
         }
@@ -235,8 +266,12 @@ object ToolHttp {
     }
 
     /** The failure to throw for an HTTP status outside 200..299. */
-    fun httpFailure(status: Int, body: String?): ToolHttpException =
-        ToolHttpException(statusMessageRes(status), status, apiErrorText(body))
+    fun httpFailure(
+        status: Int,
+        body: String?,
+        headers: Map<String, String> = emptyMap(),
+    ): ToolHttpException =
+        ToolHttpException(statusMessageRes(status), status, apiErrorText(body), headers)
 
     /**
      * The provider's own error text, when the response body carried any.

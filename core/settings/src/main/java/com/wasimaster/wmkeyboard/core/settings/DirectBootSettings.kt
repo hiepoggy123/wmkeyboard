@@ -25,10 +25,20 @@ fun KeyboardSettings.restrictedToDirectBoot(): KeyboardSettings {
         toolboxOrder = toolboxOrder.filter(::isDirectBootSafeTool),
         // A custom theme's background image is an absolute path under filesDir.
         // Drop the path and the theme still renders — as its own colors, with
-        // no image behind them — instead of the loader failing per frame.
+        // no image behind them — instead of the loader failing per frame. The
+        // photographer's credit goes with it: naming whose photo this is while
+        // the photo is not on screen would simply be untrue.
         customThemes = customThemes.map {
-            it.copy(backgroundImage = null, backgroundImageLandscape = null)
+            it.copy(
+                backgroundImage = null,
+                backgroundImageLandscape = null,
+                backgroundPhoto = null,
+                backgroundPhotoLandscape = null,
+            )
         },
+        // The rotation pool is under filesDir as well, so there is nothing to
+        // rotate to. Turning it off here means nothing downstream has to ask.
+        photoBackground = photoBackground.copy(rotateEnabled = false),
         // Imported font files are in filesDir; the Google Fonts families come
         // from a GMS content provider that is itself locked. Both fall back to
         // the system face rather than to no glyphs at all.

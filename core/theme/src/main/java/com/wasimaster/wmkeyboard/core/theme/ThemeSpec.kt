@@ -13,6 +13,7 @@ import com.wasimaster.wmkeyboard.theme.R
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
+import kotlin.math.roundToInt
 
 /**
  * A complete keyboard theme. Colors are ARGB longs (0xAARRGGBB) so alpha is
@@ -39,6 +40,32 @@ data class GradientSpec(
 
 /** Outline used for every key. ROUNDED follows the corner-radius sliders. */
 enum class KeyShapeKind { ROUNDED, PILL, CUT, SQUIRCLE }
+
+/**
+ * Who took a background photo and where it came from, kept beside the image so
+ * the credit survives an export, an import and going offline.
+ *
+ * Both photo services require the photographer to be named wherever their photo
+ * is shown, with a link back, so this is not decoration: an image with no
+ * attribution beside it is a licence problem rather than a cosmetic one.
+ *
+ * [provider] is a plain string, not an enum. kotlinx.serialization throws on an
+ * enum constant it does not know, and [ThemeCodec.decode] swallows that in a
+ * `runCatching` — so a theme made by a later build that added a third service
+ * would silently fail to decode **in full**, losing the user's colours and not
+ * merely the credit. A name this build does not recognise is shown as it stands.
+ */
+@Serializable
+data class PhotoAttribution(
+    val provider: String,
+    val photoId: String,
+    val photographer: String,
+    /** Stored untagged; referral parameters are added where the link is used. */
+    val photographerUrl: String = "",
+    val photoUrl: String = "",
+    val altText: String = "",
+    val avgColor: String = "",
+)
 
 /**
  * Live theme animation. FLOW drifts the board gradient along its axis;
@@ -80,6 +107,10 @@ data class ThemeSpec(
     val backgroundImageBase64: String? = null,
     /** Landscape image bytes for export/import payloads only; stripped after import. */
     val backgroundImageLandscapeBase64: String? = null,
+    /** Who took [backgroundImage], when it came from a photo service. */
+    val backgroundPhoto: PhotoAttribution? = null,
+    /** Who took [backgroundImageLandscape], when it came from a photo service. */
+    val backgroundPhotoLandscape: PhotoAttribution? = null,
     // Keys
     val keyShape: KeyShapeKind = KeyShapeKind.ROUNDED,
     /** Painted over letter keys when set (subtle sheen); stops may be translucent. */
@@ -167,11 +198,19 @@ fun ThemeSpec.withEmbeddedImages(): ThemeSpec {
     fun encode(path: String?) = path?.let {
         runCatching { Base64.encodeToString(File(it).readBytes(), Base64.NO_WRAP) }.getOrNull()
     }
+    val portrait = encode(backgroundImage)
+    val landscape = encode(backgroundImageLandscape)
     return copy(
         backgroundImage = null,
-        backgroundImageBase64 = encode(backgroundImage),
+        backgroundImageBase64 = portrait,
         backgroundImageLandscape = null,
-        backgroundImageLandscapeBase64 = encode(backgroundImageLandscape),
+        backgroundImageLandscapeBase64 = landscape,
+        // A credit only travels with the image it belongs to. A path that no
+        // longer resolves already becomes null above, and leaving the
+        // attribution behind would name a photographer whose photo is not in
+        // the file — which is worse than no credit at all.
+        backgroundPhoto = backgroundPhoto?.takeIf { portrait != null },
+        backgroundPhotoLandscape = backgroundPhotoLandscape?.takeIf { landscape != null },
     )
 }
 
@@ -203,6 +242,56 @@ private fun Color.argb(): Long = toArgb().toLong() and 0xFFFFFFFFL
 /** Readable text color (near-black or near-white) for a solid background. */
 fun onColorFor(background: Long): Long =
     if (Color(background).luminance() > 0.5f) 0xFF15161A else 0xFFF4F4F8
+
+/**
+ * The same ARGB colour at [fraction] opacity, 0..1. Used for the board scrim,
+ * where the alpha of the board colour is what dims a background photo.
+ */
+fun Long.withAlphaFraction(fraction: Float): Long {
+    val alpha = (fraction.coerceIn(0f, 1f) * 255f).roundToInt().toLong()
+    return (this and 0x00FFFFFFL) or (alpha shl 24)
+}
+
+/** How opaque an ARGB colour is, 0..1. */
+fun Long.alphaFraction(): Float = ((this ushr 24) and 0xFFL) / 255f
+
+/**
+ * Rebuilds the palette from [seed] and [dark] while keeping everything about
+ * the theme that is not a generated colour: gradients, the background image and
+ * its credit, key shape and border, the gesture-trail colour, radii, animation.
+ *
+ * Written as "start from this theme and overwrite what the seed decides",
+ * rather than "start from a generated theme and copy back a list of fields to
+ * keep". The two produce the same result today, but the list version drops
+ * anything added to [ThemeSpec] later — silently, and with no compiler
+ * complaint — which is how attribution would have gone missing on every reseed.
+ *
+ * The five nullable overrides below are deliberately cleared rather than kept:
+ * they are per-theme exceptions to a palette that no longer exists, so a reseed
+ * returns them to following the new colours.
+ */
+fun ThemeSpec.reseeded(seed: Long, dark: Boolean): ThemeSpec {
+    val generated = themeFromSeed(id, name, seed, dark)
+    return copy(
+        dark = generated.dark,
+        boardBackground = generated.boardBackground,
+        keyBackground = generated.keyBackground,
+        keyText = generated.keyText,
+        modifierKeyBackground = generated.modifierKeyBackground,
+        enterKeyBackground = generated.enterKeyBackground,
+        enterKeyText = generated.enterKeyText,
+        pressedKeyBackground = generated.pressedKeyBackground,
+        accent = generated.accent,
+        popupBackground = generated.popupBackground,
+        toolCircleBackground = generated.toolCircleBackground,
+        chipBackground = generated.chipBackground,
+        modifierKeyText = null,
+        popupText = null,
+        toolbarIcon = null,
+        toolCircleActiveBackground = null,
+        suggestionText = null,
+    )
+}
 
 /**
  * Builds a full theme from one seed color — the "pick a color, get a

@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.core.settings
 
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.wasimaster.wmkeyboard.core.theme.PhotoAttribution
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -69,6 +70,36 @@ class DirectBootSettingsTest {
         assertEquals("mine", settings.customThemes.single().id)
         assertNull(settings.customThemes.single().backgroundImage)
         assertNull(settings.customThemes.single().backgroundImageLandscape)
+    }
+
+    @Test
+    fun `a photo credit goes with the photo it belongs to`() {
+        val credit = PhotoAttribution(
+            provider = "unsplash",
+            photoId = "abc",
+            photographer = "Ana Silva",
+        )
+        val settings = KeyboardSettings(
+            customThemes = listOf(
+                ThemeSpec(
+                    id = "mine",
+                    name = "Mine",
+                    backgroundImage = "/data/user/0/pkg/files/theme_images/mine.img",
+                    backgroundPhoto = credit,
+                    backgroundImageLandscape = "/data/user/0/pkg/files/theme_images/mine_land.img",
+                    backgroundPhotoLandscape = credit,
+                ),
+            ),
+            photoBackground = PhotoBackgroundSettings(rotateEnabled = true),
+        ).restrictedToDirectBoot()
+
+        // Naming a photographer under a photo that is not being drawn would
+        // just be false.
+        assertNull(settings.customThemes.single().backgroundPhoto)
+        assertNull(settings.customThemes.single().backgroundPhotoLandscape)
+        // The rotation pool is under filesDir too, so there is nothing to
+        // rotate to and nothing downstream needs to work that out.
+        assertFalse(settings.photoBackground.rotateEnabled)
     }
 
     @Test

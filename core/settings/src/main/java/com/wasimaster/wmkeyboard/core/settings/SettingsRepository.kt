@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -64,8 +65,10 @@ import com.wasimaster.wmkeyboard.core.util.runCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -737,6 +740,18 @@ data class KeyboardSettings(
     val customThemes: List<ThemeSpec> = emptyList(),
     /** Light+dark theme pair that follows the system setting; see [AutoThemeSettings]. */
     val autoTheme: AutoThemeSettings = AutoThemeSettings(),
+    /**
+     * Online photo backgrounds and the rotating background; see
+     * [PhotoBackgroundSettings].
+     *
+     * Grouped rather than flat, and the margin is now exact: this class has 244
+     * fields, none of them `Long` or `Double`, which is
+     * `1 + 244 + ceil(244/32) + 1 = 254` of the JVM's 255 argument slots for the
+     * generated `copy$default`. **Exactly one more top-level field fits.** The
+     * sixteen settings this feature needed would have gone eleven past it, so
+     * they live in their own class while their DataStore keys stay flat.
+     */
+    val photoBackground: PhotoBackgroundSettings = PhotoBackgroundSettings(),
     val keyHeightDp: Int = 48,
     val numberRowHeightDp: Int = 42,
     // Edge-to-edge IME windows (enforced on Android 15+) draw behind the
@@ -2084,6 +2099,29 @@ class SettingsRepository(private val context: Context) {
         private val AUTO_THEME_TRIGGER = stringPreferencesKey("auto_theme_trigger")
         private val AUTO_THEME_DAY_START = intPreferencesKey("auto_theme_day_start")
         private val AUTO_THEME_NIGHT_START = intPreferencesKey("auto_theme_night_start")
+        private val PHOTO_UNSPLASH_KEY = stringPreferencesKey("photo_unsplash_key")
+        private val PHOTO_PEXELS_KEY = stringPreferencesKey("photo_pexels_key")
+        private val PHOTO_ROTATE_ENABLED = booleanPreferencesKey("photo_rotate_enabled")
+        private val PHOTO_ROTATE_INTERVAL = stringPreferencesKey("photo_rotate_interval")
+        private val PHOTO_ROTATE_SCOPE = stringPreferencesKey("photo_rotate_scope")
+        private val PHOTO_ROTATE_SCOPE_THEMES = stringSetPreferencesKey("photo_rotate_scope_themes")
+        private val PHOTO_ROTATE_SOURCES = stringSetPreferencesKey("photo_rotate_sources")
+        private val PHOTO_ROTATE_TOPICS = stringPreferencesKey("photo_rotate_topics")
+        private val PHOTO_ROTATE_QUERIES = stringPreferencesKey("photo_rotate_queries")
+        private val PHOTO_LANDSCAPE_ONLY = booleanPreferencesKey("photo_landscape_only")
+        private val PHOTO_SAFE_SEARCH = booleanPreferencesKey("photo_safe_search")
+        private val PHOTO_FETCH_ON_METERED = booleanPreferencesKey("photo_fetch_on_metered")
+        private val PHOTO_POOL_TARGET = intPreferencesKey("photo_pool_target")
+        private val PHOTO_SEED_PALETTE = booleanPreferencesKey("photo_seed_palette")
+        private val PHOTO_READABILITY_GUARD = booleanPreferencesKey("photo_readability_guard")
+
+        /**
+         * Which photo each rotating theme is showing, as JSON keyed by theme id.
+         * Deliberately not part of [KeyboardSettings]: a rotation would then
+         * re-emit the whole settings object, and losing this one key costs the
+         * current photo rather than anything the user made.
+         */
+        private val PHOTO_ROTATION_STATE = stringPreferencesKey("photo_rotation_state")
         private val KEY_HEIGHT = intPreferencesKey("key_height")
         private val NUMBER_ROW_HEIGHT = intPreferencesKey("number_row_height")
         private val BOTTOM_PADDING = intPreferencesKey("bottom_padding")
@@ -2615,6 +2653,41 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.autoTheme.trigger,
                 dayStartMinutes = p[AUTO_THEME_DAY_START] ?: defaults.autoTheme.dayStartMinutes,
                 nightStartMinutes = p[AUTO_THEME_NIGHT_START] ?: defaults.autoTheme.nightStartMinutes,
+            ),
+            photoBackground = PhotoBackgroundSettings(
+                unsplashApiKey = p[PHOTO_UNSPLASH_KEY] ?: defaults.photoBackground.unsplashApiKey,
+                pexelsApiKey = p[PHOTO_PEXELS_KEY] ?: defaults.photoBackground.pexelsApiKey,
+                rotateEnabled = p[PHOTO_ROTATE_ENABLED] ?: defaults.photoBackground.rotateEnabled,
+                interval = p[PHOTO_ROTATE_INTERVAL]
+                    ?.let { runCatching { RotationInterval.valueOf(it) }.getOrNull() }
+                    ?: defaults.photoBackground.interval,
+                scope = p[PHOTO_ROTATE_SCOPE]
+                    ?.let { runCatching { RotationScope.valueOf(it) }.getOrNull() }
+                    ?: defaults.photoBackground.scope,
+                scopeThemeIds = p[PHOTO_ROTATE_SCOPE_THEMES] ?: defaults.photoBackground.scopeThemeIds,
+                // An unknown name is dropped rather than failing the whole set,
+                // so a build that adds a source stays readable by an older one.
+                sources = p[PHOTO_ROTATE_SOURCES]
+                    ?.mapNotNull { name -> runCatching { RotationSourceKind.valueOf(name) }.getOrNull() }
+                    ?.toSet()
+                    ?: defaults.photoBackground.sources,
+                // Tab-joined, the same shape `symbol_recents` uses; a tab is
+                // stripped from a search term on the way in.
+                topics = p[PHOTO_ROTATE_TOPICS]?.split('\t')?.filter { it.isNotEmpty() }
+                    ?: defaults.photoBackground.topics,
+                queries = p[PHOTO_ROTATE_QUERIES]?.split('\t')?.filter { it.isNotEmpty() }
+                    ?: defaults.photoBackground.queries,
+                landscapeOnly = p[PHOTO_LANDSCAPE_ONLY] ?: defaults.photoBackground.landscapeOnly,
+                safeSearch = p[PHOTO_SAFE_SEARCH] ?: defaults.photoBackground.safeSearch,
+                fetchOnMetered = p[PHOTO_FETCH_ON_METERED] ?: defaults.photoBackground.fetchOnMetered,
+                poolTarget = (p[PHOTO_POOL_TARGET] ?: defaults.photoBackground.poolTarget)
+                    .coerceIn(
+                        PhotoBackgroundSettings.MIN_POOL_TARGET,
+                        PhotoBackgroundSettings.MAX_POOL_TARGET,
+                    ),
+                seedPalette = p[PHOTO_SEED_PALETTE] ?: defaults.photoBackground.seedPalette,
+                readabilityGuard = p[PHOTO_READABILITY_GUARD]
+                    ?: defaults.photoBackground.readabilityGuard,
             ),
             keyHeightDp = p[KEY_HEIGHT] ?: defaults.keyHeightDp,
             numberRowHeightDp = p[NUMBER_ROW_HEIGHT] ?: p[KEY_HEIGHT] ?: defaults.numberRowHeightDp,
@@ -3705,6 +3778,109 @@ class SettingsRepository(private val context: Context) {
             val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }.orEmpty()
             prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(current.filter { it.id != id })
             if (prefs[KEYBOARD_THEME_ID] == id) prefs[KEYBOARD_THEME_ID] = DEFAULT_THEME_ID
+            // Drop the theme's rotation entry in the same write, so a later
+            // theme reusing the id cannot inherit a stranger's photo. The file
+            // itself is left for the sweep, which knows what else refers to it.
+            prefs[PHOTO_ROTATION_STATE]?.let { stored ->
+                val states = RotationStateCodec.decode(stored)
+                if (id in states) {
+                    prefs[PHOTO_ROTATION_STATE] = RotationStateCodec.encode(states - id)
+                }
+            }
+            prefs[PHOTO_ROTATE_SCOPE_THEMES]?.let { selected ->
+                if (id in selected) prefs[PHOTO_ROTATE_SCOPE_THEMES] = selected - id
+            }
+        }
+
+    // ---- Online photo backgrounds -------------------------------------
+
+    suspend fun setUnsplashApiKey(value: String) =
+        editPrefs { it[PHOTO_UNSPLASH_KEY] = value.trim() }
+
+    suspend fun setPexelsApiKey(value: String) =
+        editPrefs { it[PHOTO_PEXELS_KEY] = value.trim() }
+
+    suspend fun setPhotoRotateEnabled(value: Boolean) =
+        editPrefs { it[PHOTO_ROTATE_ENABLED] = value }
+
+    suspend fun setPhotoRotateInterval(value: RotationInterval) =
+        editPrefs { it[PHOTO_ROTATE_INTERVAL] = value.name }
+
+    suspend fun setPhotoRotateScope(value: RotationScope) =
+        editPrefs { it[PHOTO_ROTATE_SCOPE] = value.name }
+
+    suspend fun setPhotoRotateScopeThemes(ids: Set<String>) =
+        editPrefs { it[PHOTO_ROTATE_SCOPE_THEMES] = ids }
+
+    suspend fun setPhotoRotateSources(sources: Set<RotationSourceKind>) =
+        editPrefs { it[PHOTO_ROTATE_SOURCES] = sources.mapTo(mutableSetOf()) { kind -> kind.name } }
+
+    suspend fun setPhotoRotateTopics(slugs: List<String>) =
+        editPrefs { it[PHOTO_ROTATE_TOPICS] = slugs.joinToString("\t") }
+
+    suspend fun setPhotoRotateQueries(queries: List<String>) =
+        editPrefs { prefs ->
+            prefs[PHOTO_ROTATE_QUERIES] = queries
+                .map { it.replace('\t', ' ').trim() }
+                .filter { it.isNotEmpty() }
+                .joinToString("\t")
+        }
+
+    suspend fun setPhotoLandscapeOnly(value: Boolean) =
+        editPrefs { it[PHOTO_LANDSCAPE_ONLY] = value }
+
+    suspend fun setPhotoSafeSearch(value: Boolean) =
+        editPrefs { it[PHOTO_SAFE_SEARCH] = value }
+
+    suspend fun setPhotoFetchOnMetered(value: Boolean) =
+        editPrefs { it[PHOTO_FETCH_ON_METERED] = value }
+
+    suspend fun setPhotoPoolTarget(value: Int) =
+        editPrefs {
+            it[PHOTO_POOL_TARGET] = value.coerceIn(
+                PhotoBackgroundSettings.MIN_POOL_TARGET,
+                PhotoBackgroundSettings.MAX_POOL_TARGET,
+            )
+        }
+
+    suspend fun setPhotoSeedPalette(value: Boolean) =
+        editPrefs { it[PHOTO_SEED_PALETTE] = value }
+
+    suspend fun setPhotoReadabilityGuard(value: Boolean) =
+        editPrefs { it[PHOTO_READABILITY_GUARD] = value }
+
+    /**
+     * Which photo each rotating theme is showing.
+     *
+     * Its own flow rather than a field on [KeyboardSettings]: a rotation would
+     * otherwise re-emit every setting in the app, and this is the one piece of
+     * theme state the user did not author, so losing it costs nothing they made.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val photoRotationStates: Flow<Map<String, RotationState>> = unlocked
+        .flatMapLatest { isUnlocked ->
+            // Locked, the photos live in credential-encrypted storage and
+            // cannot be read at all, so there is nothing to publish.
+            if (isUnlocked) context.dataStore.data else flowOf(emptyPreferences())
+        }
+        .map { p -> p[PHOTO_ROTATION_STATE]?.let { RotationStateCodec.decode(it) }.orEmpty() }
+        .distinctUntilChanged()
+
+    /** Records the photo a theme has moved on to. */
+    suspend fun setRotationState(themeId: String, state: RotationState) =
+        editPrefs { prefs ->
+            val current = prefs[PHOTO_ROTATION_STATE]?.let { RotationStateCodec.decode(it) }.orEmpty()
+            prefs[PHOTO_ROTATION_STATE] = RotationStateCodec.encode(current + (themeId to state))
+        }
+
+    /** Drops entries for themes that no longer exist. */
+    suspend fun pruneRotationStates(liveThemeIds: Set<String>) =
+        editPrefs { prefs ->
+            val current = prefs[PHOTO_ROTATION_STATE]?.let { RotationStateCodec.decode(it) }.orEmpty()
+            val kept = current.filterKeys { it in liveThemeIds }
+            if (kept.size != current.size) {
+                prefs[PHOTO_ROTATION_STATE] = RotationStateCodec.encode(kept)
+            }
         }
 
     suspend fun setKeyHeightDp(value: Int) =

@@ -67,6 +67,8 @@ object SettingsBackup {
         "ai_openai_key",
         "ai_gemini_key",
         "hf_token",
+        "photo_unsplash_key",
+        "photo_pexels_key",
     )
 
     /**
