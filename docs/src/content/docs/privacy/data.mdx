@@ -27,6 +27,7 @@ Everything below lives under the app's private storage: the same folder no other
 | Emoji you've used | `learning/emoji_usage.json` | Learned automatically |
 | Clipboard history, including copied images | `clipboard/history.json` and `clipboard/images/` | Captured automatically while clipboard history is on |
 | Snippets you've saved | `snippets/snippets.json` | You write these yourself |
+| What you sent the AI tool and what it answered | `ai/history.json` | Only if you turn [AI history](/tools/ai/#history) on; it's off by default |
 | Every keyboard setting | A DataStore file, `keyboard_settings.preferences_pb` | You choose these yourself |
 | Downloaded wordlists, CJK dictionaries and emoji-keyword packs | `dict/`, `cjk_dicts/`, `emoji_dict/` | You download these yourself, per language |
 | Downloaded offline AI and speech models <Flavor edition="full" /> | `models/`, `whisper/` | You download these yourself |
@@ -35,6 +36,7 @@ Everything below lives under the app's private storage: the same folder no other
 A couple of things worth knowing about that table:
 
 - **Clipboard entries aren't always full copies.** A copied file, folder, or video is stored as a reference to the app that owns it, not as duplicated bytes. Only copied images actually land in `clipboard/images/`. Copying a multi-gigabyte video doesn't multiply it.
+- **AI history is the only row there that's off by default.** Nothing is written until you turn it on, nothing is written from a password field or in [incognito](/privacy/incognito/) even then, and turning the setting back off deletes the file rather than just hiding it. There's also a **Delete all history** button on the screen itself.
 - **Downloaded dictionaries are a different folder from imported ones.** A wordlist you download from the [dictionaries catalog](/languages/dictionaries/) goes in `dict/`; a plain-text list you import yourself lives in a separate `dictionaries/` folder and is treated as configuration rather than a download. Both are covered on that page.
 - Word-by-word control over what's been learned (reviewing, deleting, or manually adding entries) is its own screen; see [Personal dictionary](/smart/personal-dictionary/).
 

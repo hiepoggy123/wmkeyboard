@@ -49,7 +49,7 @@ for the switch to turn off, so you get a toast instead:
 
 ## What incognito pauses
 
-Turning incognito on does exactly four things (nothing more):
+Turning incognito on does exactly five things (nothing more):
 
 1. **Pauses clipboard capture.** Nothing you copy joins clipboard history
    while it's on.
@@ -61,15 +61,19 @@ Turning incognito on does exactly four things (nothing more):
    manager can draw above the keyboard don't appear, and neither do the
    system's [smart replies](/smart/autofill/): a proposed reply means the
    system read the conversation, which is what incognito is there to stop.
-4. **Shows a badge.** A small icon appears next to the toolbar, and the
+4. **Pauses AI history.** If you've turned [AI history](/tools/ai/#history)
+   on, nothing is recorded while incognito is: not the text you send, not
+   the answer. This one has no switch of its own, because a record of what
+   you wrote in incognito is the exact thing incognito exists to prevent.
+5. **Shows a badge.** A small icon appears next to the toolbar, and the
    Incognito tool itself lights up as active, so you can tell at a glance
    that it's on.
 
-Two of those four have their own switches, tucked away from the Privacy
+Two of those five have their own switches, tucked away from the Privacy
 screen under <SettingsPath path="Tools / Incognito" />: **Pause learning**
 and **Pause clipboard capture**, both on by default. Turn both off there and
-flipping "Incognito mode" on Privacy still blocks inline chips and still
-shows the badge; it just stops pausing anything. The chip block is the
+flipping "Incognito mode" on Privacy still blocks inline chips, still pauses
+AI history, and still shows the badge; it just stops pausing those two. The chip block is the
 one effect that isn't gated by either of those two switches: it follows
 incognito unconditionally.
 

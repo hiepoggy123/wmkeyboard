@@ -93,7 +93,14 @@ apply even if the settings portion rolls back.
 
 API keys for Translate, GIF search, web search and the AI tools are excluded
 from every export unless you turn on **Include API keys**, which only appears
-while the Settings section itself is included. Leaving it off means the file
+while the Settings section itself is included. That covers the Grok, DeepSeek
+and other-service keys as well as the older ones.
+
+[AI history](/tools/ai/#history) never travels, with or without that switch.
+The two settings that control it do, because they're configuration, but the
+records are your own writing, and an off-by-default log of it is the last
+thing that should ride along in a file you mail to yourself. The learned
+dictionary is left out for the same reason. Leaving it off means the file
 is safe to store in a synced folder or hand to someone else; turning it on
 means the opposite: the keys sit in the file as plain text, and the app
 warns you about it after export: "Backup exported, API keys included. Treat
