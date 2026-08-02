@@ -179,4 +179,8 @@
     <string name="theme_color_opacity_label">Opacity</string>
     <string name="theme_color_apply_action">Apply</string>
 
+    <string name="theme_background_source_title">Select a background</string>
+    <string name="theme_background_source_device">Photos on this device</string>
+    <string name="theme_background_source_online">Find a photo online</string>
+    <string name="theme_background_source_saved">Saved photos</string>
 </resources>

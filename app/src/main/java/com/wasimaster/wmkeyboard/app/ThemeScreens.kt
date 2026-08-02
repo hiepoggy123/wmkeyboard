@@ -28,6 +28,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.core.net.toUri
+import androidx.compose.material.icons.outlined.Collections
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Crop
@@ -755,6 +759,7 @@ fun ThemeEditorScreen(
     repository: SettingsRepository,
     settings: KeyboardSettings,
     themeId: String,
+    onNavigate: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -819,6 +824,41 @@ fun ThemeEditorScreen(
     }
     var cropOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var cropLandscapeOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    var sourceDialogSlot by remember(theme.id) { mutableStateOf<BackgroundSlot?>(null) }
+
+    sourceDialogSlot?.let { slot ->
+        val landscape = slot == BackgroundSlot.LANDSCAPE
+        BackgroundSourceDialog(
+            hasImage = if (landscape) {
+                theme.backgroundImageLandscape != null
+            } else {
+                theme.backgroundImage != null
+            },
+            onDevice = {
+                sourceDialogSlot = null
+                val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                if (landscape) imagePickerLandscape.launch(request) else imagePicker.launch(request)
+            },
+            onOnline = {
+                sourceDialogSlot = null
+                onNavigate(photoBrowseRoute(theme.id, slot))
+            },
+            onSaved = {
+                sourceDialogSlot = null
+                onNavigate(photoLibraryRoute(theme.id, slot))
+            },
+            onRemove = {
+                sourceDialogSlot = null
+                scope.launch {
+                    // The repository restores the board's opacity if applying a
+                    // photo had zeroed it, so removal never leaves a
+                    // see-through board.
+                    repository.clearThemePhoto(theme.id, landscape)?.let { File(it).delete() }
+                }
+            },
+            onDismiss = { sourceDialogSlot = null },
+        )
+    }
 
     // Live preview pinned on top.
     Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -928,10 +968,17 @@ fun ThemeEditorScreen(
                 }) { Text(stringResource(CommonR.string.common_delete)) }
             }
         },
-        modifier = Modifier.clickable {
-            imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-        },
+        modifier = Modifier.clickable { sourceDialogSlot = BackgroundSlot.PORTRAIT },
     )
+    theme.backgroundPhoto?.let { credit ->
+        // Both services require the photographer to be named wherever their
+        // photo is shown, so the credit lives on the row itself.
+        PhotoCreditRow(credit) { url ->
+            runCatching {
+                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri()))
+            }
+        }
+    }
     if (theme.backgroundImage != null) {
         ListItem(
             headlineContent = { Text(stringResource(R.string.theme_crop_image_title)) },
@@ -996,12 +1043,15 @@ fun ThemeEditorScreen(
                 }) { Text(stringResource(CommonR.string.common_delete)) }
             }
         },
-        modifier = Modifier.clickable {
-            imagePickerLandscape.launch(
-                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-            )
-        },
+        modifier = Modifier.clickable { sourceDialogSlot = BackgroundSlot.LANDSCAPE },
     )
+    theme.backgroundPhotoLandscape?.let { credit ->
+        PhotoCreditRow(credit) { url ->
+            runCatching {
+                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri()))
+            }
+        }
+    }
     if (theme.backgroundImageLandscape != null) {
         ListItem(
             headlineContent = { Text(stringResource(R.string.theme_crop_landscape_title)) },
@@ -1766,5 +1816,59 @@ fun SectionHeaderPublic(text: String) {
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
+    )
+}
+
+/**
+ * Where a background image comes from.
+ *
+ * The row used to open the device photo picker outright. Now that a photo can
+ * also come from a service or from the saved library, the row asks first.
+ */
+@Composable
+private fun BackgroundSourceDialog(
+    hasImage: Boolean,
+    onDevice: () -> Unit,
+    onOnline: () -> Unit,
+    onSaved: () -> Unit,
+    onRemove: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.theme_background_source_title)) },
+        text = {
+            Column {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.theme_background_source_device)) },
+                    leadingContent = { Icon(Icons.Outlined.PhotoLibrary, contentDescription = null) },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable(onClick = onDevice),
+                )
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.theme_background_source_online)) },
+                    leadingContent = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable(onClick = onOnline),
+                )
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.theme_background_source_saved)) },
+                    leadingContent = { Icon(Icons.Outlined.Collections, contentDescription = null) },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable(onClick = onSaved),
+                )
+                if (hasImage) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(CommonR.string.common_remove)) },
+                        leadingContent = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+                        colors = transparentListColors(),
+                        modifier = Modifier.clickable(onClick = onRemove),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
     )
 }

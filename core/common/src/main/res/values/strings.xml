@@ -25,6 +25,7 @@
     <string name="common_delete">Delete</string>
     <string name="common_remove">Remove</string>
     <string name="common_edit">Edit</string>
+    <string name="common_undo">Undo</string>
     <string name="common_add">Add</string>
     <string name="common_copy">Copy</string>
     <string name="common_paste">Paste</string>

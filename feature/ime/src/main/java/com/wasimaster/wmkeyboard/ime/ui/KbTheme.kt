@@ -43,6 +43,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
+import com.wasimaster.wmkeyboard.core.settings.withRotation
+import com.wasimaster.wmkeyboard.core.settings.rotates
+import com.wasimaster.wmkeyboard.core.settings.RotationState
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -514,7 +517,11 @@ private fun currentMinutesOfDay(): Int {
  * are fixed palettes.
  */
 @Composable
-fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () -> Unit) {
+fun KeyboardThemeProvider(
+    settings: KeyboardSettings,
+    rotationStates: Map<String, RotationState> = emptyMap(),
+    content: @Composable () -> Unit,
+) {
     val context = LocalContext.current
     val systemDark = isSystemInDarkTheme()
     // Auto-theme, when on, picks the id from whichever half of its pair is
@@ -553,7 +560,17 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
         }
         defaultKbTheme(scheme, dark, amoled = amoled, settings)
     } else {
-        specKbTheme(spec, settings)
+        // The rotating photo is laid over the theme here, on the way to the
+        // screen, rather than written into the stored theme. That is what
+        // keeps a rotation from rewriting something the user made -- and it
+        // is also what lets a built-in theme rotate, since a built-in has
+        // nowhere of its own to keep an image.
+        val shown = if (settings.photoBackground.rotates(effectiveId, settings.keyboardThemeId)) {
+            spec.withRotation(rotationStates[effectiveId], settings.photoBackground)
+        } else {
+            spec
+        }
+        specKbTheme(shown, settings)
     }
     val kb = animatedKbTheme(resolved.accessibilityAdjusted(settings))
     // The chosen font rides in through the Material typography, so every

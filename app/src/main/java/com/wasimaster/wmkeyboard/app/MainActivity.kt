@@ -621,6 +621,7 @@ private fun SettingsNavGraph(
                     onOpenThemes = { navController.navigate("themes") },
                     onOpenFonts = { navController.navigate("fonts") },
                     onOpenIcons = { navController.navigate("icons") },
+                    onOpenPhotos = { navController.navigate(PHOTO_HUB_ROUTE) },
                 )
             }
         }
@@ -663,8 +664,78 @@ private fun SettingsNavGraph(
         composable("theme_edit/{themeId}") { backStackEntry ->
             val themeId = backStackEntry.arguments?.getString("themeId").orEmpty()
             SettingsScreen(stringResource(R.string.home_screen_theme_edit_title), { navController.popBackStack() }) {
-                ThemeEditorScreen(repository, settings, themeId)
+                ThemeEditorScreen(repository, settings, themeId) { route ->
+                    navController.navigate(route)
+                }
             }
+        }
+        composable(PHOTO_HUB_ROUTE) {
+            PhotoBackgroundsScreen(
+                repository = repository,
+                settings = settings,
+                onNavigate = { route -> navController.navigate(route) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = "$PHOTO_BROWSE_ROUTE?theme={theme}&slot={slot}",
+            arguments = listOf(
+                navArgument("theme") { type = NavType.StringType; defaultValue = "" },
+                navArgument("slot") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { entry ->
+            PhotoBrowseScreen(
+                settings = settings,
+                themeId = entry.arguments?.getString("theme").orEmpty(),
+                onOpenPhoto = { photo ->
+                    PhotoSelection.current = photo
+                    navController.navigate(PHOTO_DETAIL_ROUTE)
+                },
+                onNavigate = { route ->
+                    if (route == BACK_ROUTE) navController.popBackStack() else navController.navigate(route)
+                },
+            )
+        }
+        composable(PHOTO_DETAIL_ROUTE) {
+            val photo = PhotoSelection.current
+            // The browse screen sets this immediately before navigating; it is
+            // only ever null after the process was killed on the back stack.
+            if (photo == null) {
+                navController.popBackStack()
+            } else {
+                val browse = navController.previousBackStackEntry?.arguments
+                PhotoDetailScreen(
+                    repository = repository,
+                    settings = settings,
+                    photo = photo,
+                    themeId = browse?.getString("theme").orEmpty(),
+                    slot = BackgroundSlot.of(browse?.getString("slot")),
+                    onBack = { navController.popBackStack() },
+                    onDone = { navController.popBackStack() },
+                )
+            }
+        }
+        composable(
+            route = "$PHOTO_LIBRARY_ROUTE?theme={theme}&slot={slot}",
+            arguments = listOf(
+                navArgument("theme") { type = NavType.StringType; defaultValue = "" },
+                navArgument("slot") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { entry ->
+            PhotoLibraryScreen(
+                repository = repository,
+                settings = settings,
+                themeId = entry.arguments?.getString("theme").orEmpty(),
+                onNavigate = { route -> navController.navigate(route) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(PHOTO_ROTATION_ROUTE) {
+            PhotoRotationScreen(
+                repository = repository,
+                settings = settings,
+                onBack = { navController.popBackStack() },
+            )
         }
         composable("keymaps") {
             SettingsScreen(
@@ -3408,6 +3479,7 @@ private fun AppearanceSettings(
     onOpenThemes: () -> Unit,
     onOpenFonts: () -> Unit,
     onOpenIcons: () -> Unit,
+    onOpenPhotos: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     // Slider readouts are plain lambdas, so their format strings are resolved
@@ -3467,6 +3539,21 @@ private fun AppearanceSettings(
                 },
                 route = "icons",
                 onClick = onOpenIcons,
+            )
+        }
+        item {
+            NavRow(
+                stringResource(R.string.photo_hub_title),
+                stringResource(R.string.photo_hub_subtitle),
+                value = stringResource(
+                    if (settings.photoBackground.rotateEnabled) {
+                        CommonR.string.common_on
+                    } else {
+                        CommonR.string.common_off
+                    },
+                ),
+                route = PHOTO_HUB_ROUTE,
+                onClick = onOpenPhotos,
             )
         }
     }
@@ -8207,7 +8294,7 @@ private fun ToolKeywordSetting(
 
 /** A plain saved-as-you-type text setting (same mechanics as ApiKeyField). */
 @Composable
-private fun TextFieldSetting(
+internal fun TextFieldSetting(
     label: String,
     value: String,
     hint: String,

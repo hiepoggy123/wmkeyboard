@@ -17,6 +17,9 @@ import com.wasimaster.wmkeyboard.core.settings.mayFetch
 import com.wasimaster.wmkeyboard.core.settings.needsTopUp
 import com.wasimaster.wmkeyboard.core.settings.pickNextPhoto
 import com.wasimaster.wmkeyboard.core.settings.poolEvictionPlan
+import com.wasimaster.wmkeyboard.core.settings.SweptFile
+import com.wasimaster.wmkeyboard.core.settings.themePhotoSweepPlan
+import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.PhotoAttribution
 import com.wasimaster.wmkeyboard.core.theme.PhotoSampling
 import com.wasimaster.wmkeyboard.core.theme.Readability
@@ -63,6 +66,21 @@ object PhotoBackgroundManager {
 
     /** Per-photo progress, keyed by [PhotoItem.key]. Collected by the picker. */
     val status: StateFlow<Map<String, PhotoApplyStatus>> = _status.asStateFlow()
+
+    private val _rotationStates = MutableStateFlow<Map<String, RotationState>>(emptyMap())
+
+    /**
+     * Which photo each rotating theme is showing.
+     *
+     * Mirrored here from the repository by the keyboard service so the theme
+     * resolver can read it without the composable needing a repository handle.
+     * The repository stays the source of truth; this is only the way in.
+     */
+    val rotationStates: StateFlow<Map<String, RotationState>> = _rotationStates.asStateFlow()
+
+    fun publishRotationStates(states: Map<String, RotationState>) {
+        _rotationStates.value = states
+    }
 
     /** One writer at a time for the pool index and its directory. */
     private val poolLock = Mutex()
@@ -147,12 +165,16 @@ object PhotoBackgroundManager {
             withContext(Dispatchers.IO) { download(context, photo, target, file) }
             _status.update { it + (key to PhotoApplyStatus.Applying) }
             val measured = withContext(Dispatchers.IO) { measure(file) }
-            repository.applyThemePhoto(
+            val replaced = repository.applyThemePhoto(
                 themeId = themeId,
                 path = file.absolutePath,
                 credit = photo.toAttribution(),
                 landscape = landscape,
             )
+            // The photo this one replaced is now referenced by nothing. Deleted
+            // after the write rather than before it, so a failure part-way
+            // leaves the old background in place instead of none at all.
+            replaced?.let { old -> withContext(Dispatchers.IO) { runCatching { File(old).delete() } } }
             trackDownload(photo, apiKey, nowMs)
             _status.update { it + (key to PhotoApplyStatus.Done) }
             measured
@@ -320,6 +342,42 @@ object PhotoBackgroundManager {
                     .take(PoolIndexCodec.EVICTION_MEMORY),
             ),
         )
+    }
+
+    /**
+     * Deletes background images nothing refers to any more, and forgets
+     * rotation entries for themes that are gone.
+     *
+     * Best-effort and quiet: this is housekeeping, and a failure means the
+     * files are swept next time rather than that anything is wrong.
+     */
+    suspend fun sweep(
+        context: Context,
+        repository: SettingsRepository,
+        themes: List<ThemeSpec>,
+        nowMs: Long = System.currentTimeMillis(),
+    ) {
+        if (!DirectBoot.isUserUnlocked(context)) return
+        val states = rotationStates.value
+        val plan = withContext(Dispatchers.IO) {
+            val images = themeImagesDir(context).listFiles().orEmpty()
+                .map { SweptFile(it.name, it.lastModified()) }
+            themePhotoSweepPlan(
+                themes = themes,
+                rotationStates = states,
+                imagesOnDisk = images,
+                poolFileNames = readPoolLocked(context).entries.mapTo(HashSet()) { it.fileName },
+                nowMs = nowMs,
+            )
+        }
+        withContext(Dispatchers.IO) {
+            plan.deleteImages.forEach { name ->
+                runCatching { File(themeImagesDir(context), name).delete() }
+            }
+        }
+        if (plan.dropRotationStates.isNotEmpty()) {
+            repository.pruneRotationStates(themes.mapTo(HashSet()) { it.id })
+        }
     }
 
     /** Removes one photo from the pool and deletes its file. */

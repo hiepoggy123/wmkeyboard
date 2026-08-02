@@ -117,6 +117,12 @@ import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.HardwareKeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
+import android.net.ConnectivityManager
+import com.wasimaster.wmkeyboard.core.settings.PhotoNetworkConditions
+import com.wasimaster.wmkeyboard.core.settings.RotationState
+import com.wasimaster.wmkeyboard.core.settings.isRotationDue
+import com.wasimaster.wmkeyboard.core.settings.rotates
+import com.wasimaster.wmkeyboard.core.tools.PhotoBackgroundManager
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.theme.BackgroundBitmapCache
 import com.wasimaster.wmkeyboard.core.settings.ModeField
@@ -1112,7 +1118,14 @@ open class WMKeyboardService : InputMethodService() {
             combine(
                 settingsRepository.settings,
                 powerSaver.state,
-            ) { stored, power -> stored to power }.collect { (stored, power) ->
+                settingsRepository.photoRotationStates,
+            ) { stored, power, rotation ->
+                // Published rather than folded into the settings object: the
+                // rotating photo is laid over a theme where it is drawn, not
+                // written into the theme the user saved.
+                PhotoBackgroundManager.publishRotationStates(rotation)
+                stored to power
+            }.collect { (stored, power) ->
                 // Direct boot: everything backed by credential-encrypted
                 // storage is switched off once, here, so that nothing below —
                 // nor anything reading the ui state afterwards — has to know
@@ -1905,6 +1918,12 @@ open class WMKeyboardService : InputMethodService() {
         // moment it can start mattering, and a keyboard that wakes on every
         // percentage point to decide whether to save power is self-defeating.
         powerSaver.refresh()
+        // A rotating background moves on at the start of a session and never
+        // during one: a photo changing under the keys while somebody is typing
+        // reads as a glitch rather than a feature, and an in-session timer
+        // would be a leak waiting to happen. The swap itself is a local file
+        // read and one preference write, so it costs nothing here.
+        maybeRotateBackground()
         // Covers the OEMs where `zen_mode` is unreadable and the observer never
         // fires — see refreshDndState.
         refreshDndState()
@@ -2314,6 +2333,9 @@ open class WMKeyboardService : InputMethodService() {
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
         lifecycleOwner.onPause()
+        // Refilling the pool waits until the keyboard is going away, so a
+        // download can never race the first frame of a session.
+        topUpBackgroundPool()
         // The key grid publishes its own pass-through rectangle while it is on
         // screen (see KeyRows); the window going away is the one case Compose
         // can miss, and a stale carve-out would keep a slab of the screen from
@@ -2400,6 +2422,71 @@ open class WMKeyboardService : InputMethodService() {
         // teardown, and onFinishInputView pauses the owner on the way out.
         super.onDestroy()
         lifecycleOwner.onDestroy()
+    }
+
+    /**
+     * Moves a rotating theme on to its next photo, if one is due.
+     *
+     * Everything here is local: the decision is a pure function over stored
+     * timestamps, and applying it is a file that is already on disk plus one
+     * preference write. Nothing touches the network, so this is safe at the
+     * moment the keyboard is coming up.
+     */
+    private fun maybeRotateBackground() {
+        val current = _uiState.value.settings
+        val photos = current.photoBackground
+        if (!photos.rotateEnabled || !userUnlocked) return
+        val themeId = current.keyboardThemeId
+        if (!photos.rotates(themeId, themeId)) return
+        val state = PhotoBackgroundManager.rotationStates.value[themeId]
+        val due = isRotationDue(
+            interval = photos.interval,
+            state = state ?: RotationState(),
+            nowEpochMs = System.currentTimeMillis(),
+            nowElapsedMs = SystemClock.elapsedRealtime(),
+            sessionStarted = true,
+        )
+        if (!due) return
+        serviceScope.launch {
+            PhotoBackgroundManager.rotate(
+                context = this@WMKeyboardService,
+                repository = settingsRepository,
+                themeId = themeId,
+                current = state,
+                wantWide = photos.landscapeOnly,
+            )
+        }
+    }
+
+    /** Refills the rotation pool, if the settings and the network allow it. */
+    private fun topUpBackgroundPool() {
+        val current = _uiState.value.settings
+        val photos = current.photoBackground
+        if (!photos.rotateEnabled || !userUnlocked) return
+        serviceScope.launch {
+            val connectivity = getSystemService(ConnectivityManager::class.java)
+            PhotoBackgroundManager.topUpPool(
+                context = this@WMKeyboardService,
+                settings = photos,
+                keys = ToolApiKeys.photoKeys(current),
+                sources = ToolApiKeys.photoSources(current),
+                conditions = PhotoNetworkConditions(
+                    unlocked = userUnlocked,
+                    online = true,
+                    metered = connectivity?.isActiveNetworkMetered ?: true,
+                    powerSaving = current.powerSaving.dropBackgroundNetwork,
+                    highContrastKeys = current.highContrastKeys,
+                ),
+            )
+            PhotoBackgroundManager.prunePool(this@WMKeyboardService, photos)
+            // Housekeeping rides along with the top-up, which already only
+            // happens as the keyboard is going away.
+            PhotoBackgroundManager.sweep(
+                context = this@WMKeyboardService,
+                repository = settingsRepository,
+                themes = current.customThemes,
+            )
+        }
     }
 
     override fun onTrimMemory(level: Int) {

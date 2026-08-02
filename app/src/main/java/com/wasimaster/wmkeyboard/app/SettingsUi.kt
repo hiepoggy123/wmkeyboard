@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -159,6 +160,10 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "languages" to Color(0xFF66BB6A),
     "appearance" to Color(0xFFEC407A),
     "themes" to Color(0xFFEC407A),
+    "photos" to Color(0xFF00ACC1),
+    "photo_browse" to Color(0xFF00ACC1),
+    "photo_library" to Color(0xFF00ACC1),
+    "photo_rotation" to Color(0xFF00ACC1),
     "fonts" to Color(0xFFAB47BC),
     "icons" to Color(0xFFFF7043),
     "layout" to Color(0xFF5C6BC0),
@@ -1047,8 +1052,98 @@ internal fun WmScreen(
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable () -> Unit,
 ) {
+    WmScreenFrame(
+        title = title,
+        onBack = onBack,
+        route = route,
+        icon = icon,
+        accent = accent,
+        iconTile = iconTile,
+        iconInBar = iconInBar,
+        barTint = barTint,
+        centerTitle = centerTitle,
+        subtitle = subtitle,
+        subtitleIcon = subtitleIcon,
+        subtitleIconTint = subtitleIconTint,
+        subtitleInBar = subtitleInBar,
+        badge = badge,
+        badgeInBar = badgeInBar,
+        anim = anim,
+        actions = actions,
+    ) { padding ->
+        val scrollLock = rememberFlightScrollLock()
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .nestedScroll(scrollLock)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.Top,
+        ) {
+            content()
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+/**
+ * [WmScreen] for a destination whose body is a lazy grid.
+ *
+ * [WmScreen] puts its content in a `verticalScroll`, and a lazy grid cannot
+ * nest inside one — it has no bounded height to work with. A photo browser
+ * needs a real lazy container to page through thousands of results, so it gets
+ * the same frame with the scrolling column swapped for the grid itself.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun WmLazyScreen(
+    title: String,
+    onBack: (() -> Unit)? = null,
+    route: String? = null,
+    accent: Color? = null,
+    subtitle: String? = null,
+    subtitleInBar: Boolean = false,
+    anim: AnimatedVisibilityScope? = null,
+    actions: @Composable RowScope.() -> Unit = {},
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    WmScreenFrame(
+        title = title,
+        onBack = onBack,
+        route = route,
+        accent = accent,
+        subtitle = subtitle,
+        subtitleInBar = subtitleInBar,
+        anim = anim,
+        actions = actions,
+        content = content,
+    )
+}
+
+/** The frame both screen shapes share: the moving-title bar over a body. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WmScreenFrame(
+    title: String,
+    onBack: (() -> Unit)? = null,
+    route: String? = null,
+    icon: (@Composable () -> Unit)? = null,
+    accent: Color? = null,
+    iconTile: Boolean = true,
+    iconInBar: Boolean = false,
+    barTint: Color? = null,
+    centerTitle: Boolean = false,
+    subtitle: String? = null,
+    subtitleIcon: ImageVector? = null,
+    subtitleIconTint: Color? = null,
+    subtitleInBar: Boolean = false,
+    badge: (@Composable () -> Unit)? = null,
+    badgeInBar: Boolean = false,
+    anim: AnimatedVisibilityScope? = null,
+    actions: @Composable RowScope.() -> Unit = {},
+    content: @Composable (PaddingValues) -> Unit,
+) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val scrollLock = rememberFlightScrollLock()
     // Which screen this is, and which screen opened it. Read once: the origin
     // is whatever the row that navigated here left behind, and it has to stay
     // put for as long as this destination lives, including the way back.
@@ -1083,18 +1178,7 @@ internal fun WmScreen(
                     actions = actions,
                 )
             },
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize()
-                    .nestedScroll(scrollLock)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.Top,
-            ) {
-                content()
-                Spacer(Modifier.height(24.dp))
-            }
-        }
+            content = content,
+        )
     }
 }

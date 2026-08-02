@@ -123,6 +123,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.VerticalDivider
+import com.wasimaster.wmkeyboard.core.tools.PhotoBackgroundManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -923,7 +924,8 @@ fun KeyboardScreen(
         }
     }
 
-    KeyboardThemeProvider(settings = state.settings) {
+    val rotationStates by PhotoBackgroundManager.rotationStates.collectAsState()
+    KeyboardThemeProvider(settings = state.settings, rotationStates = rotationStates) {
         if (state.settings.floatingKeyboard) {
             // Floating mode: the compose root spans the whole IME window with
             // no background; the service restricts the touchable region to
