@@ -36,6 +36,16 @@ object AiClient {
     )
 
     /**
+     * One finished response.
+     *
+     * [truncated] means the provider stopped writing because it hit the token
+     * ceiling, not because the answer was finished. Without it a cut-off answer
+     * is indistinguishable from a complete one, which is how a long "Improve"
+     * used to come back missing its last paragraphs with nothing to say so.
+     */
+    data class Completion(val text: String, val truncated: Boolean = false)
+
+    /**
      * Model each provider falls back to when its settings field is blank.
      * Kept in one place because the settings screen shows the same strings as
      * "Blank = …" hints — they must not drift apart.
@@ -132,7 +142,36 @@ object AiClient {
 
     /** Reasoning models get this much more room than the user's setting. */
     private const val REASONING_HEADROOM = 4
-    private const val MAX_TOKENS_CEILING = 32_768
+    private const val MAX_TOKENS_CEILING = 131_072
+
+    /**
+     * [AiSettings.maxTokens] value that means "do not send a ceiling at all, and
+     * let the service apply its own". Zero rather than null because the setting
+     * is one flat integer preference.
+     */
+    const val PROVIDER_MAXIMUM = 0
+
+    /**
+     * What to send Anthropic for [PROVIDER_MAXIMUM]. Alone among the providers
+     * it makes `max_tokens` required, so "no ceiling" has to become a number.
+     * The real ceiling is per model, and asking for more than a model allows is
+     * a hard 400 rather than a clamp — so this is deliberately optimistic and
+     * [anthropicModelCeiling] reads the real limit back out of that error.
+     */
+    private const val ANTHROPIC_PROVIDER_MAXIMUM = 64_000
+
+    /**
+     * The output ceiling named in an Anthropic "max_tokens too large" error,
+     * e.g. `max_tokens: 64000 > 8192, which is the maximum…`. Anthropic is the
+     * only provider that rejects an over-large ceiling instead of clamping it,
+     * and the model that decides the number is the user's to choose, so the
+     * limit cannot be known ahead of the request. Reading it back turns a failed
+     * request into one retry that works.
+     */
+    private val ANTHROPIC_CEILING = Regex("""max_tokens:\s*\d+\s*>\s*(\d+)""")
+
+    private fun anthropicModelCeiling(error: ToolHttpException): Int? =
+        error.apiMessage?.let { ANTHROPIC_CEILING.find(it)?.groupValues?.get(1)?.toIntOrNull() }
 
     /**
      * Whether the selected model is expected to reason before answering. A
@@ -151,7 +190,8 @@ object AiClient {
      * the *answer* — buys them nothing but truncated reasoning. Multiply it for
      * those models instead of making the user discover the problem.
      */
-    fun effectiveMaxTokens(settings: AiSettings): Int {
+    fun effectiveMaxTokens(settings: AiSettings): Int? {
+        if (settings.maxTokens == PROVIDER_MAXIMUM) return null
         if (!expectsReasoning(settings)) return settings.maxTokens
         return (settings.maxTokens.toLong() * REASONING_HEADROOM)
             .coerceAtMost(MAX_TOKENS_CEILING.toLong())
@@ -204,21 +244,25 @@ object AiClient {
      * returned text wrapped in `<think>…</think>` — the same shape on-device
      * models emit inline — so [AiThinking], the panel's gray-out and the "show
      * reasoning" setting all keep working with no second code path.
+     *
+     * A null [maxTokens] means "send no ceiling", so the service applies its own
+     * default. Anthropic is the exception: it requires the field.
      */
     fun completeStreaming(
         config: Config,
         system: String,
         user: String,
-        maxTokens: Int,
+        maxTokens: Int?,
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
         isActive: () -> Boolean = { true },
-    ): String = when (config.provider) {
+    ): Completion = when (config.provider) {
         AiProvider.ANTHROPIC ->
             anthropicStream(config, system, user, maxTokens, onPhase, onPartial, isActive)
         AiProvider.GEMINI ->
             geminiStream(config, system, user, maxTokens, onPhase, onPartial, isActive)
-        AiProvider.OLLAMA -> ollamaStream(config, system, user, onPhase, onPartial, isActive)
+        AiProvider.OLLAMA ->
+            ollamaStream(config, system, user, maxTokens, onPhase, onPartial, isActive)
         AiProvider.OPENAI, AiProvider.LM_STUDIO, AiProvider.XAI,
         AiProvider.DEEPSEEK, AiProvider.OPENAI_COMPATIBLE,
         -> openAiCompatibleStream(
@@ -229,44 +273,6 @@ object AiClient {
             error("On-device models run locally, not over HTTP")
     }
 
-    /** Runs one system+user exchange, returning the assistant's text. */
-    fun complete(config: Config, system: String, user: String, maxTokens: Int): String =
-        when (config.provider) {
-            AiProvider.ANTHROPIC -> anthropic(config, system, user, maxTokens)
-            AiProvider.GEMINI -> gemini(config, system, user, maxTokens)
-            AiProvider.OLLAMA -> ollama(config, system, user)
-            AiProvider.OPENAI, AiProvider.LM_STUDIO, AiProvider.XAI,
-            AiProvider.DEEPSEEK, AiProvider.OPENAI_COMPATIBLE,
-            -> openAiCompatible(openAiCompatibleUrl(config), config, system, user, maxTokens)
-            // On-device inference needs a Context and model file; the IME
-            // service routes to LocalLlmEngine before ever calling here.
-            AiProvider.ON_DEVICE ->
-                error("On-device models run locally, not over HTTP")
-        }
-
-    private fun anthropic(config: Config, system: String, user: String, maxTokens: Int): String {
-        val body = buildJsonObject {
-            put("model", config.model)
-            put("max_tokens", maxTokens)
-            put("system", system)
-            put("messages", buildJsonArray {
-                add(buildJsonObject {
-                    put("role", "user")
-                    put("content", user)
-                })
-            })
-        }.toString()
-        val response = ToolHttp.postJson(
-            "https://api.anthropic.com/v1/messages",
-            body,
-            headers = mapOf(
-                "x-api-key" to config.apiKey,
-                "anthropic-version" to "2023-06-01",
-            ),
-        )
-        return parseAnthropic(response)
-    }
-
     internal fun parseAnthropic(body: String): String =
         json.parseToJsonElement(body).jsonObject["content"]?.jsonArray
             ?.firstNotNullOfOrNull { block ->
@@ -274,54 +280,10 @@ object AiClient {
                     ?.get("text")?.jsonPrimitive?.content
             }.orEmpty().trim()
 
-    private fun openAiCompatible(
-        url: String,
-        config: Config,
-        system: String,
-        user: String,
-        maxTokens: Int,
-    ): String {
-        val body = buildJsonObject {
-            if (config.model.isNotBlank()) put("model", config.model)
-            put("max_tokens", maxTokens)
-            put("messages", buildJsonArray {
-                add(buildJsonObject { put("role", "system"); put("content", system) })
-                add(buildJsonObject { put("role", "user"); put("content", user) })
-            })
-        }.toString()
-        val headers = if (config.apiKey.isNotBlank()) {
-            mapOf("Authorization" to "Bearer ${config.apiKey}")
-        } else {
-            emptyMap()
-        }
-        return parseOpenAi(ToolHttp.postJson(url, body, headers = headers))
-    }
-
     internal fun parseOpenAi(body: String): String =
         json.parseToJsonElement(body).jsonObject["choices"]?.jsonArray
             ?.firstOrNull()?.jsonObject?.get("message")?.jsonObject
             ?.get("content")?.jsonPrimitive?.content.orEmpty().trim()
-
-    private fun gemini(config: Config, system: String, user: String, maxTokens: Int): String {
-        val body = buildJsonObject {
-            putJsonObject("system_instruction") {
-                put("parts", buildJsonArray { add(buildJsonObject { put("text", system) }) })
-            }
-            put("contents", buildJsonArray {
-                add(buildJsonObject {
-                    put("role", "user")
-                    put("parts", buildJsonArray { add(buildJsonObject { put("text", user) }) })
-                })
-            })
-            putJsonObject("generationConfig") { put("maxOutputTokens", maxTokens) }
-        }.toString()
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/" +
-            "${config.model}:generateContent"
-        val response = ToolHttp.postJson(
-            url, body, headers = mapOf("x-goog-api-key" to config.apiKey),
-        )
-        return parseGemini(response)
-    }
 
     internal fun parseGemini(body: String): String =
         json.parseToJsonElement(body).jsonObject["candidates"]?.jsonArray
@@ -330,23 +292,45 @@ object AiClient {
             ?.mapNotNull { it.jsonObject["text"]?.jsonPrimitive?.content }
             ?.joinToString("").orEmpty().trim()
 
-    private fun ollama(config: Config, system: String, user: String): String {
-        val body = buildJsonObject {
-            put("model", config.model)
-            put("stream", false)
-            put("messages", buildJsonArray {
-                add(buildJsonObject { put("role", "system"); put("content", system) })
-                add(buildJsonObject { put("role", "user"); put("content", user) })
-            })
-        }.toString()
-        return parseOllama(
-            ToolHttp.postJson("${config.baseUrl.trimEnd('/')}/api/chat", body, timeoutMs = 120_000),
-        )
-    }
-
     internal fun parseOllama(body: String): String =
         json.parseToJsonElement(body).jsonObject["message"]?.jsonObject
             ?.get("content")?.jsonPrimitive?.content.orEmpty().trim()
+
+    // ---- "the answer was cut off" ----
+
+    /**
+     * Whether a whole (non-streamed) response body says the model stopped
+     * because it ran out of room. Used only on the fallback path, where a proxy
+     * ignored `stream: true` and answered with one ordinary body; the streaming
+     * path reads the same signal event by event in the `apply*Event` functions.
+     *
+     * Each provider spells it differently and none of them is an error, so a
+     * missing or unknown value always reads as "not truncated".
+     */
+    internal fun anthropicTruncated(body: String): Boolean =
+        body.stopReason("stop_reason") == "max_tokens"
+
+    internal fun openAiTruncated(body: String): Boolean =
+        runCatching {
+            json.parseToJsonElement(body).jsonObject["choices"]?.jsonArray
+                ?.firstOrNull()?.jsonObject?.text("finish_reason")
+        }.getOrNull() == "length"
+
+    internal fun geminiTruncated(body: String): Boolean =
+        runCatching {
+            val root = json.parseToJsonElement(body)
+            val chunks = (root as? JsonArray) ?: JsonArray(listOf(root))
+            chunks.any { chunk ->
+                chunk.jsonObject["candidates"]?.jsonArray?.firstOrNull()
+                    ?.jsonObject?.text("finishReason") == "MAX_TOKENS"
+            }
+        }.getOrDefault(false)
+
+    internal fun ollamaTruncated(body: String): Boolean =
+        body.lineSequence().any { it.stopReason("done_reason") == "length" }
+
+    private fun String.stopReason(field: String): String? =
+        runCatching { json.parseToJsonElement(this).jsonObject.text(field) }.getOrNull()
 
     // ---- streaming ----
 
@@ -357,6 +341,19 @@ object AiClient {
     internal class StreamBuffer {
         private val text = StringBuilder()
         private var inThink = false
+
+        /**
+         * The provider said it stopped because it ran out of room. Set from a
+         * stop-reason event rather than guessed from the text, because a
+         * sentence that ends mid-word and one that ends on a full stop are
+         * equally likely to have been cut.
+         */
+        var truncated = false
+            private set
+
+        fun markTruncated() {
+            truncated = true
+        }
 
         fun reasoning(chunk: String) {
             if (chunk.isEmpty()) return
@@ -386,12 +383,12 @@ object AiClient {
          * response that was *all* reasoning therefore strips to nothing, which
          * is what the caller reports as "spent its whole response reasoning".
          */
-        fun finish(): String {
+        fun finish(): Completion {
             if (inThink) {
                 text.append(THINK_CLOSE)
                 inThink = false
             }
-            return text.toString()
+            return Completion(text.toString(), truncated)
         }
 
         private companion object {
@@ -427,8 +424,8 @@ object AiClient {
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
         apply: (String, StreamBuffer) -> Unit,
-        fallback: (String) -> String,
-    ): String {
+        fallback: (String) -> Completion,
+    ): Completion {
         val buffer = StreamBuffer()
         val collected = StringBuilder()
         onPhase(AiPhase.CONNECTING)
@@ -446,10 +443,34 @@ object AiClient {
             isActive()
         }
         if (!buffer.isEmpty) return buffer.finish()
-        return runCatching { fallback(collected.toString()) }.getOrDefault("")
+        return runCatching { fallback(collected.toString()) }.getOrDefault(Completion(""))
     }
 
     private fun anthropicStream(
+        config: Config,
+        system: String,
+        user: String,
+        maxTokens: Int?,
+        onPhase: (AiPhase) -> Unit,
+        onPartial: (String) -> Unit,
+        isActive: () -> Boolean,
+    ): Completion {
+        // Anthropic is the one provider that makes the ceiling mandatory, so
+        // "let the service decide" has to become a number here.
+        val asked = maxTokens ?: ANTHROPIC_PROVIDER_MAXIMUM
+        return try {
+            anthropicStreamOnce(config, system, user, asked, onPhase, onPartial, isActive)
+        } catch (e: ToolHttpException) {
+            // Asking for more output than the chosen model allows is a hard 400
+            // rather than a clamp, and the error names the real ceiling. Retry
+            // at that number: nothing has streamed yet, because the status is
+            // read before the first byte of the body.
+            val ceiling = anthropicModelCeiling(e)?.takeIf { it < asked } ?: throw e
+            anthropicStreamOnce(config, system, user, ceiling, onPhase, onPartial, isActive)
+        }
+    }
+
+    private fun anthropicStreamOnce(
         config: Config,
         system: String,
         user: String,
@@ -457,7 +478,7 @@ object AiClient {
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
-    ): String {
+    ): Completion {
         val body = buildJsonObject {
             put("model", config.model)
             put("max_tokens", maxTokens)
@@ -482,7 +503,7 @@ object AiClient {
             onPartial = onPartial,
             isActive = isActive,
             apply = { line, buffer -> sseData(line)?.let { applyAnthropicEvent(it, buffer) } },
-            fallback = ::parseAnthropic,
+            fallback = { Completion(parseAnthropic(it), anthropicTruncated(it)) },
         )
     }
 
@@ -497,6 +518,12 @@ object AiClient {
                     "thinking_delta" -> buffer.reasoning(delta.text("thinking"))
                 }
             }
+            // The stop reason rides on the final message_delta, not on any
+            // content block.
+            "message_delta" -> {
+                val delta = event["delta"]?.jsonObject ?: return
+                if (delta.text("stop_reason") == "max_tokens") buffer.markTruncated()
+            }
             // A failure mid-stream arrives as an event, not an HTTP status, so
             // it has to be raised from here or the answer silently truncates.
             "error" -> throw streamFailure(event["error"]?.jsonObject?.text("message"))
@@ -508,14 +535,17 @@ object AiClient {
         config: Config,
         system: String,
         user: String,
-        maxTokens: Int,
+        maxTokens: Int?,
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
-    ): String {
+    ): Completion {
         val body = buildJsonObject {
             if (config.model.isNotBlank()) put("model", config.model)
-            put("max_tokens", maxTokens)
+            // Left out entirely for "provider maximum": every OpenAI-shaped
+            // service then applies its own default, which is what the user asked
+            // for. Sending a huge number instead would be rejected by some.
+            if (maxTokens != null) put("max_tokens", maxTokens)
             put("stream", true)
             put("messages", buildJsonArray {
                 add(buildJsonObject { put("role", "system"); put("content", system) })
@@ -536,7 +566,7 @@ object AiClient {
             onPartial = onPartial,
             isActive = isActive,
             apply = { line, buffer -> sseData(line)?.let { applyOpenAiEvent(it, buffer) } },
-            fallback = ::parseOpenAi,
+            fallback = { Completion(parseOpenAi(it), openAiTruncated(it)) },
         )
     }
 
@@ -553,17 +583,20 @@ object AiClient {
         // others just reasoning.
         buffer.reasoning(delta.text("reasoning_content").ifEmpty { delta.text("reasoning") })
         buffer.answer(delta.text("content"))
+        // The last chunk of a cut-off answer carries this instead of "stop".
+        val choice = event["choices"]?.jsonArray?.firstOrNull()?.jsonObject
+        if (choice?.text("finish_reason") == "length") buffer.markTruncated()
     }
 
     private fun geminiStream(
         config: Config,
         system: String,
         user: String,
-        maxTokens: Int,
+        maxTokens: Int?,
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
-    ): String {
+    ): Completion {
         val body = buildJsonObject {
             putJsonObject("system_instruction") {
                 put("parts", buildJsonArray { add(buildJsonObject { put("text", system) }) })
@@ -574,7 +607,12 @@ object AiClient {
                     put("parts", buildJsonArray { add(buildJsonObject { put("text", user) }) })
                 })
             })
-            putJsonObject("generationConfig") { put("maxOutputTokens", maxTokens) }
+            // Left out entirely for "provider maximum", so Gemini writes up to
+            // the model's own output limit. This is the setting that used to cut
+            // a long answer off in the middle with nothing to say so.
+            if (maxTokens != null) {
+                putJsonObject("generationConfig") { put("maxOutputTokens", maxTokens) }
+            }
         }.toString()
         return runStream(
             url = "https://generativelanguage.googleapis.com/v1beta/models/" +
@@ -586,7 +624,7 @@ object AiClient {
             onPartial = onPartial,
             isActive = isActive,
             apply = { line, buffer -> sseData(line)?.let { applyGeminiEvent(it, buffer) } },
-            fallback = ::parseGeminiChunks,
+            fallback = { Completion(parseGeminiChunks(it), geminiTruncated(it)) },
         )
     }
 
@@ -596,8 +634,9 @@ object AiClient {
         event["error"]?.jsonObject?.let { error ->
             throw streamFailure(error.text("message"))
         }
-        val parts = event["candidates"]?.jsonArray?.firstOrNull()?.jsonObject
-            ?.get("content")?.jsonObject?.get("parts")?.jsonArray ?: return
+        val candidate = event["candidates"]?.jsonArray?.firstOrNull()?.jsonObject
+        if (candidate?.text("finishReason") == "MAX_TOKENS") buffer.markTruncated()
+        val parts = candidate?.get("content")?.jsonObject?.get("parts")?.jsonArray ?: return
         for (element in parts) {
             val part = element.jsonObject
             val text = part.text("text")
@@ -631,13 +670,21 @@ object AiClient {
         config: Config,
         system: String,
         user: String,
+        maxTokens: Int?,
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
-    ): String {
+    ): Completion {
         val body = buildJsonObject {
             put("model", config.model)
             put("stream", true)
+            // Ollama spells the ceiling num_predict, and it sits under options
+            // rather than at the top level. Left out for "provider maximum",
+            // which is what this request always did before the setting reached
+            // it at all.
+            if (maxTokens != null) {
+                putJsonObject("options") { put("num_predict", maxTokens) }
+            }
             put("messages", buildJsonArray {
                 add(buildJsonObject { put("role", "system"); put("content", system) })
                 add(buildJsonObject { put("role", "user"); put("content", user) })
@@ -654,7 +701,7 @@ object AiClient {
             // Ollama streams newline-delimited JSON, not SSE — every line is a
             // whole object, with no `data:` prefix to strip.
             apply = ::applyOllamaEvent,
-            fallback = ::parseOllama,
+            fallback = { Completion(parseOllama(it), ollamaTruncated(it)) },
         )
     }
 
@@ -664,6 +711,8 @@ object AiClient {
         event["error"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }?.let {
             throw streamFailure(it)
         }
+        // Rides on the final object, alongside "done": true.
+        if (event.text("done_reason") == "length") buffer.markTruncated()
         val message = event["message"]?.jsonObject ?: return
         buffer.reasoning(message.text("thinking"))
         buffer.answer(message.text("content"))

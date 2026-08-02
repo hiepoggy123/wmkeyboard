@@ -19,6 +19,7 @@ object LocalLlmEngine {
         context: Context,
         modelFile: File,
         backend: LocalLlmBackend,
+        contextTokens: Int,
         system: String,
         user: String,
         onPartial: ((String) -> Unit)? = null,

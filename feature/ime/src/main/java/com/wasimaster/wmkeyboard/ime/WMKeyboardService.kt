@@ -7797,7 +7797,8 @@ open class WMKeyboardService : InputMethodService() {
             _uiState.update {
                 it.copy(
                     ai = result.fold(
-                        onSuccess = { raw ->
+                        onSuccess = { completion ->
+                            val raw = completion.text
                             val text =
                                 if (settings.ai.showThinking) raw.trim()
                                 else AiThinking.stripped(raw)
@@ -7805,6 +7806,7 @@ open class WMKeyboardService : InputMethodService() {
                                 text.isNotBlank() -> AiUi.Ready(
                                     action, text, source,
                                     stripMarkdown = aiStripMarkdownDefault(),
+                                    truncated = completion.truncated,
                                 )
                                 raw.isBlank() -> AiUi.Error(
                                     action,
@@ -7839,17 +7841,18 @@ open class WMKeyboardService : InputMethodService() {
         source: String,
         system: String,
         settings: KeyboardSettings,
-    ): String {
+    ): AiClient.Completion {
         val modelId = effectiveLocalModelId(settings)
         val modelFile = effectiveLocalModelFile(settings)
             ?: throw IOException(getString(R.string.ime_ai_error_model_missing))
         val implicitThink = isReasoningModel(modelId)
         val startedAt = SystemClock.uptimeMillis()
         var lastPartialAt = 0L
-        return LocalLlmEngine.generate(
+        val text = LocalLlmEngine.generate(
             context = applicationContext,
             modelFile = modelFile,
             backend = settings.ai.localBackend,
+            contextTokens = settings.ai.localContextTokens,
             system = system,
             user = source,
         ) { raw ->
@@ -7858,6 +7861,10 @@ open class WMKeyboardService : InputMethodService() {
             lastPartialAt = now
             applyAiPartial(seq, action, source, raw, settings, implicitThink, startedAt)
         }
+        // The on-device engine reports no stop reason, so an answer that ran out
+        // of context window looks the same as one that finished. Never claim it
+        // was cut off, rather than claiming it wrongly either way.
+        return AiClient.Completion(text)
     }
 
     /**
@@ -7873,7 +7880,7 @@ open class WMKeyboardService : InputMethodService() {
         settings: KeyboardSettings,
         config: AiClient.Config,
         startedAt: Long,
-    ): String {
+    ): AiClient.Completion {
         var lastPartialAt = 0L
         return AiClient.completeStreaming(
             config = config,

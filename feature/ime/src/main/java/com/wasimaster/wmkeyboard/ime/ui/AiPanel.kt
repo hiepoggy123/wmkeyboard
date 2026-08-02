@@ -274,6 +274,18 @@ internal fun AiPanel(
                         lineHeight = 18.sp,
                     )
                 }
+                // A cut-off answer looks exactly like a finished one, so the
+                // only way the user learns is if the panel says so. Hidden while
+                // streaming: a stream in flight is not yet cut off.
+                if (ai.truncated && !ai.generating) {
+                    Text(
+                        stringResource(R.string.ime_ai_truncated_notice),
+                        color = kb.accent,
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,

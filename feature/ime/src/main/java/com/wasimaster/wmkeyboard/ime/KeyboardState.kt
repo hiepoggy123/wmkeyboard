@@ -551,6 +551,13 @@ sealed interface AiUi {
          * surfaced as a checkbox when the result actually contains markdown.
          */
         val stripMarkdown: Boolean = true,
+        /**
+         * The provider stopped writing because it ran out of tokens, so this
+         * answer is cut off. Reported by the provider itself, not guessed from
+         * the text: without it a truncated answer looks exactly like a finished
+         * one, and the user finds out by reading their own half-rewritten text.
+         */
+        val truncated: Boolean = false,
     ) : AiUi
     data class Error(
         val action: com.wasimaster.wmkeyboard.core.settings.AiAction,

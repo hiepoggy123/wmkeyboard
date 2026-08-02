@@ -8225,13 +8225,25 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
     SettingsGroup(stringResource(R.string.toolai_ai_output_title)) {
         if (settings.ai.provider != AiProvider.ON_DEVICE) {
             item {
-                SliderSetting(
-                    stringResource(R.string.toolai_ai_max_tokens_title),
+                TokenPresetSetting(
+                    title = stringResource(R.string.toolai_ai_max_tokens_title),
                     subtitle = stringResource(R.string.toolai_ai_max_tokens_subtitle),
-                    value = settings.ai.maxTokens.toFloat(),
-                    range = 256f..8192f,
-                    display = { numberFormat.format(it.roundToInt()) },
-                ) { scope.launch { repository.setAiMaxTokens(it.roundToInt()) } }
+                    value = settings.ai.maxTokens,
+                    presets = MaxTokenPresets,
+                    unlimitedLabel = stringResource(R.string.toolai_ai_max_tokens_provider_label),
+                    numberFormat = numberFormat,
+                ) { scope.launch { repository.setAiMaxTokens(it) } }
+            }
+        } else {
+            item {
+                TokenPresetSetting(
+                    title = stringResource(R.string.toolai_ai_local_context_title),
+                    subtitle = stringResource(R.string.toolai_ai_local_context_subtitle),
+                    value = settings.ai.localContextTokens,
+                    presets = LocalContextPresets,
+                    unlimitedLabel = stringResource(R.string.toolai_ai_local_context_model_label),
+                    numberFormat = numberFormat,
+                ) { scope.launch { repository.setAiLocalContextTokens(it) } }
             }
         }
         item {
@@ -8349,6 +8361,68 @@ private fun ToolKeywordSetting(
     }
     if (!settings.smartSuggestions || !settings.smartToolKeywords) {
         CaptionText(stringResource(R.string.toolai_keyword_off_info))
+    }
+}
+
+/**
+ * Response-length steps for a cloud or self-hosted service. They rise by
+ * doubling rather than in even steps, because what the user is choosing between
+ * is "a paragraph" and "a whole document", not 4,000 versus 5,000 tokens.
+ */
+private val MaxTokenPresets =
+    listOf(1024, 2048, 4096, 8192, 16_384, 32_768, 65_536, 131_072)
+
+/**
+ * Context-window steps for an on-device model. Far smaller: this is the window
+ * the model is loaded with, and a phone pays for every token of it in memory.
+ */
+private val LocalContextPresets = listOf(1024, 2048, 4096, 8192, 16_384)
+
+/**
+ * A token count picked from steps rather than dragged on a slider. `0` selects
+ * [unlimitedLabel], which sends no number at all.
+ *
+ * A slider cannot do this job any more: the range now spans 1,024 to 131,072,
+ * and no thumb lands on a useful value across that span. The steps also make
+ * "no limit" selectable, which a numeric slider has nowhere to put.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TokenPresetSetting(
+    title: String,
+    subtitle: String,
+    value: Int,
+    presets: List<Int>,
+    unlimitedLabel: String,
+    numberFormat: String,
+    onPick: (Int) -> Unit,
+) {
+    HighlightableRow(title) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                for (preset in presets) {
+                    FilterChip(
+                        selected = value == preset,
+                        onClick = { onPick(preset) },
+                        label = { Text(numberFormat.format(preset), maxLines = 1) },
+                    )
+                }
+                FilterChip(
+                    selected = value <= 0,
+                    onClick = { onPick(0) },
+                    label = { Text(unlimitedLabel, maxLines = 1) },
+                )
+            }
+        }
     }
 }
 

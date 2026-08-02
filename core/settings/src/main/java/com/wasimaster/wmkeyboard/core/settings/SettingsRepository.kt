@@ -1384,9 +1384,23 @@ data class AiSettings(
     val compatibleUrl: String = "",
     val compatibleKey: String = "",
     val compatibleModel: String = "",
-    // Reasoning models get a multiple of this at request time (AiClient) —
-    // their think block spends the same budget as the answer.
-    val maxTokens: Int = 2048,
+    /**
+     * Ceiling on the length of one response, in tokens. Reasoning models get a
+     * multiple of it at request time (AiClient), because their think block
+     * spends the same budget as the answer.
+     *
+     * `0` means "send no ceiling at all", so the service applies its own. That
+     * is `AiClient.PROVIDER_MAXIMUM`, which cannot be named here: :core:settings
+     * sits below the module that holds the client.
+     */
+    val maxTokens: Int = 8192,
+    /**
+     * Context window for an on-device model, in tokens, or `0` for the model's
+     * own default. This is the whole window, prompt included, not a ceiling on
+     * the response: the on-device engine has no per-response limit to set.
+     * Changing it reloads the model.
+     */
+    val localContextTokens: Int = 0,
     /** Target language of the AI translate action. */
     val translateTo: String = "English",
     // Per-action prompt overrides (blank = built-in prompt).
@@ -2615,6 +2629,7 @@ class SettingsRepository(private val context: Context) {
         private val AI_COMPATIBLE_KEY = stringPreferencesKey("ai_compatible_key")
         private val AI_COMPATIBLE_MODEL = stringPreferencesKey("ai_compatible_model")
         private val AI_MAX_TOKENS = intPreferencesKey("ai_max_tokens")
+        private val AI_LOCAL_CONTEXT_TOKENS = intPreferencesKey("ai_local_context_tokens")
         private val AI_TRANSLATE_TO = stringPreferencesKey("ai_translate_to")
         private val AI_PROMPT_REWRITE = stringPreferencesKey("ai_prompt_rewrite")
         private val AI_PROMPT_SUMMARIZE = stringPreferencesKey("ai_prompt_summarize")
@@ -3302,6 +3317,7 @@ class SettingsRepository(private val context: Context) {
                 compatibleKey = p[AI_COMPATIBLE_KEY] ?: defaults.ai.compatibleKey,
                 compatibleModel = p[AI_COMPATIBLE_MODEL] ?: defaults.ai.compatibleModel,
                 maxTokens = p[AI_MAX_TOKENS] ?: defaults.ai.maxTokens,
+                localContextTokens = p[AI_LOCAL_CONTEXT_TOKENS] ?: defaults.ai.localContextTokens,
                 translateTo = p[AI_TRANSLATE_TO] ?: defaults.ai.translateTo,
                 promptRewrite = p[AI_PROMPT_REWRITE] ?: defaults.ai.promptRewrite,
                 promptSummarize = p[AI_PROMPT_SUMMARIZE] ?: defaults.ai.promptSummarize,
@@ -5827,8 +5843,15 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAiCompatibleModel(value: String) =
         editPrefs { it[AI_COMPATIBLE_MODEL] = value.trim() }
 
+    /** `0` keeps the ceiling out of the request; see [AiSettings.maxTokens]. */
     suspend fun setAiMaxTokens(value: Int) =
-        editPrefs { it[AI_MAX_TOKENS] = value.coerceIn(64, 8192) }
+        editPrefs { it[AI_MAX_TOKENS] = if (value <= 0) 0 else value.coerceIn(64, 262_144) }
+
+    /** `0` leaves the window to the model; see [AiSettings.localContextTokens]. */
+    suspend fun setAiLocalContextTokens(value: Int) =
+        editPrefs {
+            it[AI_LOCAL_CONTEXT_TOKENS] = if (value <= 0) 0 else value.coerceIn(512, 32_768)
+        }
 
     suspend fun setAiTranslateTo(value: String) =
         editPrefs { it[AI_TRANSLATE_TO] = value.trim() }

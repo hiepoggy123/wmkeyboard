@@ -108,7 +108,13 @@
 
     <string name="toolai_ai_output_title">Output</string>
     <string name="toolai_ai_max_tokens_title">Maximum response length</string>
-    <string name="toolai_ai_max_tokens_subtitle">The limit in tokens. One token is about three quarters of a word. Reasoning models get four times this limit, because their thinking uses the same budget.</string>
+    <string name="toolai_ai_max_tokens_subtitle">The limit in tokens. One token is about three quarters of a word. A reasoning model gets four times this limit, because its reasoning uses the same budget. Select the provider maximum for long text.</string>
+    <!-- Chip that sends no limit, so the service applies its own. -->
+    <string name="toolai_ai_max_tokens_provider_label">Provider maximum</string>
+    <string name="toolai_ai_local_context_title">Context size</string>
+    <string name="toolai_ai_local_context_subtitle">How much text the on-device model holds at one time, in tokens. This covers your text and the answer together. A larger size uses more memory and loads the model again.</string>
+    <!-- Chip that leaves the context size to the model. -->
+    <string name="toolai_ai_local_context_model_label">Model default</string>
     <string name="toolai_ai_translate_to_label">Target language for the Translate action</string>
     <!-- The three language names are examples. Keep them in English: the field takes an English language name. -->
     <string name="toolai_ai_translate_to_hint">For example English, Bengali, Japanese</string>

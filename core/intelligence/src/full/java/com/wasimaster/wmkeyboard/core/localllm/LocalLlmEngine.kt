@@ -30,7 +30,7 @@ object LocalLlmEngine {
 
     private val lock = ReentrantLock()
     private var engine: Engine? = null
-    private var loadedKey: Pair<String, String>? = null
+    private var loadedKey: EngineKey? = null
 
     /**
      * The previous request's conversation, closed lazily right before the
@@ -55,6 +55,7 @@ object LocalLlmEngine {
         context: Context,
         modelFile: File,
         backend: LocalLlmBackend,
+        contextTokens: Int,
         system: String,
         user: String,
         onPartial: ((String) -> Unit)? = null,
@@ -62,7 +63,7 @@ object LocalLlmEngine {
         lock.lock()
         try {
             val activeEngine = try {
-                obtainEngine(context, modelFile, backend)
+                obtainEngine(context, modelFile, backend, contextTokens)
             } catch (e: Throwable) {
                 releaseLocked()
                 throw IOException(
@@ -116,7 +117,7 @@ object LocalLlmEngine {
                 return out.toString()
             } catch (e: Throwable) {
                 // Native failures (OOM included) can leave the engine wedged.
-                val wasGpu = loadedKey?.second == "gpu"
+                val wasGpu = loadedKey?.backend == "gpu"
                 releaseLocked()
                 if (wasGpu) {
                     // GPU init succeeded but generation blew up — usually GPU
@@ -153,15 +154,23 @@ object LocalLlmEngine {
         }
     }
 
-    private fun obtainEngine(context: Context, modelFile: File, backend: LocalLlmBackend): Engine {
+    private fun obtainEngine(
+        context: Context,
+        modelFile: File,
+        backend: LocalLlmBackend,
+        contextTokens: Int,
+    ): Engine {
         val wantGpu = backend == LocalLlmBackend.GPU && modelFile.path !in gpuFallback
-        val key = modelFile.path to (if (wantGpu) "gpu" else "cpu")
+        // The context size is part of the key, not just the config: it is baked
+        // into the loaded engine, so a cached one built at the old size would
+        // quietly ignore a change until the process restarted.
+        val key = EngineKey(modelFile.path, if (wantGpu) "gpu" else "cpu", contextTokens)
         engine?.let { if (loadedKey == key) return it }
         releaseLocked()
 
         if (wantGpu) {
             try {
-                return buildEngine(context, modelFile, Backend.GPU()).also {
+                return buildEngine(context, modelFile, Backend.GPU(), contextTokens).also {
                     engine = it
                     loadedKey = key
                 }
@@ -169,24 +178,40 @@ object LocalLlmEngine {
                 gpuFallback += modelFile.path
             }
         }
-        return buildEngine(context, modelFile, Backend.CPU()).also {
+        return buildEngine(context, modelFile, Backend.CPU(), contextTokens).also {
             engine = it
-            loadedKey = modelFile.path to "cpu"
+            loadedKey = key.copy(backend = "cpu")
         }
     }
 
-    private fun buildEngine(context: Context, modelFile: File, backend: Backend): Engine {
+    private fun buildEngine(
+        context: Context,
+        modelFile: File,
+        backend: Backend,
+        contextTokens: Int,
+    ): Engine {
         val cache = File(context.cacheDir, "litertlm").apply { mkdirs() }
         val engine = Engine(
             EngineConfig(
                 modelPath = modelFile.absolutePath,
                 backend = backend,
                 cacheDir = cache.path,
+                // Null leaves the window to the model. This is the whole window,
+                // prompt and answer together — litertlm has no per-response
+                // ceiling to set, so this is the only lever there is.
+                maxNumTokens = contextTokens.takeIf { it > 0 },
             ),
         )
         engine.initialize()
         return engine
     }
+
+    /** Identifies a loaded engine: the same three inputs that built it. */
+    private data class EngineKey(
+        val modelPath: String,
+        val backend: String,
+        val contextTokens: Int,
+    )
 
     private fun releaseLocked() {
         runCatching { staleConversation?.close() }

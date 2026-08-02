@@ -48,6 +48,9 @@
     <string name="ime_ai_report_action">Report</string>
     <!-- Checkbox that takes the markdown marks out of the result. -->
     <string name="ime_ai_strip_markdown_label">Delete markdown</string>
+    <!-- Shown with a result that the model stopped in the middle, because it
+         used all of the tokens that it was given. -->
+    <string name="ime_ai_truncated_notice">The model stopped early. Increase “Maximum response length” in the settings of the tool.</string>
 
     <!-- AI panel: what the request is doing while the user waits. -->
     <string name="ime_ai_progress_thinking">Reasoning… The answer appears when the model is finished.</string>

@@ -52,7 +52,7 @@ class AiClientStreamTest {
         for (line in stream) {
             AiClient.sseData(line)?.let { AiClient.applyAnthropicEvent(it, buffer) }
         }
-        assertEquals("Hello, world", buffer.finish())
+        assertEquals("Hello, world", buffer.finish().text)
     }
 
     @Test
@@ -74,8 +74,8 @@ class AiClientStreamTest {
                 """"delta":{"type":"text_delta","text":"Four."}}""",
             buffer,
         )
-        assertEquals("<think>Let me count.</think>Four.", buffer.finish())
-        assertEquals("Four.", AiThinking.stripped(buffer.finish()))
+        assertEquals("<think>Let me count.</think>Four.", buffer.finish().text)
+        assertEquals("Four.", AiThinking.stripped(buffer.finish().text))
     }
 
     @Test
@@ -87,8 +87,8 @@ class AiClientStreamTest {
         )
         // Unterminated on the wire; closed on finish so the caller can tell
         // "spent the whole budget reasoning" from "returned nothing at all".
-        assertEquals("<think>…</think>", buffer.finish())
-        assertEquals("", AiThinking.stripped(buffer.finish()))
+        assertEquals("<think>…</think>", buffer.finish().text)
+        assertEquals("", AiThinking.stripped(buffer.finish().text))
     }
 
     @Test
@@ -115,7 +115,7 @@ class AiClientStreamTest {
             """{"choices":[{"delta":{"content":null},"finish_reason":"stop"}]}""",
             buffer,
         )
-        assertEquals("Hi there", buffer.finish())
+        assertEquals("Hi there", buffer.finish().text)
     }
 
     @Test
@@ -126,12 +126,12 @@ class AiClientStreamTest {
             viaContent,
         )
         AiClient.applyOpenAiEvent("""{"choices":[{"delta":{"content":"42"}}]}""", viaContent)
-        assertEquals("<think>hmm</think>42", viaContent.finish())
+        assertEquals("<think>hmm</think>42", viaContent.finish().text)
 
         val viaReasoning = buffer()
         AiClient.applyOpenAiEvent("""{"choices":[{"delta":{"reasoning":"hmm"}}]}""", viaReasoning)
         AiClient.applyOpenAiEvent("""{"choices":[{"delta":{"content":"42"}}]}""", viaReasoning)
-        assertEquals("<think>hmm</think>42", viaReasoning.finish())
+        assertEquals("<think>hmm</think>42", viaReasoning.finish().text)
     }
 
     @Test
@@ -162,7 +162,7 @@ class AiClientStreamTest {
             """{"candidates":[{"content":{"parts":[{"text":", really"}]}}]}""",
             buffer,
         )
-        assertEquals("<think>weighing it</think>Yes, really", buffer.finish())
+        assertEquals("<think>weighing it</think>Yes, really", buffer.finish().text)
     }
 
     @Test
@@ -204,7 +204,7 @@ class AiClientStreamTest {
             """{"message":{"role":"assistant","content":""},"done":true}""",
         )
         for (line in lines) AiClient.applyOllamaEvent(line, buffer)
-        assertEquals("<think>pondering</think>Yes.", buffer.finish())
+        assertEquals("<think>pondering</think>Yes.", buffer.finish().text)
     }
 
     @Test
@@ -239,6 +239,6 @@ class AiClientStreamTest {
         buffer.answer("because")
         assertEquals("<think>why</think>because", buffer.partial)
         // finish() on already-closed text changes nothing.
-        assertEquals(buffer.partial, buffer.finish())
+        assertEquals(buffer.partial, buffer.finish().text)
     }
 }

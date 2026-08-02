@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.tools
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.AiSettings
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AiClientMaxTokensTest {
@@ -31,7 +32,18 @@ class AiClientMaxTokensTest {
 
     @Test
     fun `headroom stops at the ceiling`() {
-        assertEquals(32_768, AiClient.effectiveMaxTokens(openAi("o3-mini", max = 16_000)))
+        assertEquals(131_072, AiClient.effectiveMaxTokens(openAi("o3-mini", max = 65_536)))
+    }
+
+    @Test
+    fun `the provider maximum sends no ceiling at all`() {
+        // This is the setting that stops a long "Improve" coming back cut in
+        // half: no number in the request, so the service applies its own.
+        assertNull(
+            AiClient.effectiveMaxTokens(openAi("gpt-4o-mini", max = AiClient.PROVIDER_MAXIMUM)),
+        )
+        // Even for a reasoning model, where there is no number to multiply.
+        assertNull(AiClient.effectiveMaxTokens(openAi("o3-mini", max = AiClient.PROVIDER_MAXIMUM)))
     }
 
     @Test
