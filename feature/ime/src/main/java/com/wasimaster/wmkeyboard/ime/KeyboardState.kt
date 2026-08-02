@@ -515,13 +515,16 @@ sealed interface AiUi {
     data object NeedModel : AiUi
     data object Idle : AiUi
     /**
-     * The Custom action is picked and the user is typing its instruction on
-     * the key rows. [instruction] is that live buffer — keystrokes edit it
-     * instead of the field until they run it.
+     * An action whose prompt is typed each run is picked, and the user is
+     * typing that instruction on the key rows. [instruction] is the live buffer
+     * — keystrokes edit it instead of the field until they run it.
      */
-    data class CustomInput(val instruction: String = "") : AiUi
+    data class CustomInput(
+        val action: com.wasimaster.wmkeyboard.core.tools.AiActionSpec,
+        val instruction: String = "",
+    ) : AiUi
     data class Loading(
-        val action: com.wasimaster.wmkeyboard.core.settings.AiAction,
+        val action: com.wasimaster.wmkeyboard.core.tools.AiActionSpec,
         /**
          * Which step the request is on. [AiPhase.THINKING] is the old
          * "a reasoning model is inside a `<think>` block" case.
@@ -540,10 +543,22 @@ sealed interface AiUi {
         val startedAtMs: Long = 0L,
     ) : AiUi
     data class Ready(
-        val action: com.wasimaster.wmkeyboard.core.settings.AiAction,
+        val action: com.wasimaster.wmkeyboard.core.tools.AiActionSpec,
         val result: String,
         /** Text the action ran on, for the retry button. */
         val sourceText: String,
+        /**
+         * The instruction this run used, for an action whose prompt is typed
+         * each time. Carried here so a retry rebuilds the same prompt.
+         */
+        val instruction: String = "",
+        /**
+         * This run wrote from nothing: the field was empty, so the instruction
+         * was the whole request rather than something to do to text. Also
+         * carried for the retry, which would otherwise turn "write a haiku"
+         * into an instruction to rewrite the haiku it just wrote.
+         */
+        val generated: Boolean = false,
         /** True while an on-device response is still streaming in. */
         val generating: Boolean = false,
         /**
@@ -560,7 +575,7 @@ sealed interface AiUi {
         val truncated: Boolean = false,
     ) : AiUi
     data class Error(
-        val action: com.wasimaster.wmkeyboard.core.settings.AiAction,
+        val action: com.wasimaster.wmkeyboard.core.tools.AiActionSpec,
         val message: String,
     ) : AiUi
 }

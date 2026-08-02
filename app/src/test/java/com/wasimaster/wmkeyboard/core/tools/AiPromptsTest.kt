@@ -1,6 +1,6 @@
 package com.wasimaster.wmkeyboard.core.tools
 
-import com.wasimaster.wmkeyboard.core.settings.AiAction
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -49,13 +49,13 @@ class AiPromptsTest {
     }
 
     @Test
-    fun `only Custom survives an empty field`() {
-        assertTrue(AiAction.CUSTOM.worksWithoutText)
-        for (action in AiAction.entries - AiAction.CUSTOM) {
-            // The label is a string resource now and cannot be resolved off a
-            // device, so the failure message names the constant instead —
-            // which is what identifies the offending action anyway.
-            assertFalse(action.name, action.worksWithoutText)
+    fun `only Custom ships able to survive an empty field`() {
+        for (action in BuiltInAiActions.actions) {
+            val expected = action.id == BuiltInAiActions.CUSTOM_ID
+            // The label is a string resource and cannot be resolved off a
+            // device, so the failure message names the id instead, which is
+            // what identifies the offending action anyway.
+            assertEquals(action.id, expected, action.worksWithoutText)
         }
     }
 }

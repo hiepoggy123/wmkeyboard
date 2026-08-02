@@ -180,8 +180,12 @@ import com.wasimaster.wmkeyboard.core.tools.GifSources
 import com.wasimaster.wmkeyboard.core.tools.GiphyClient
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.KlipyClient
-import com.wasimaster.wmkeyboard.core.settings.AiAction
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
+import com.wasimaster.wmkeyboard.core.tools.AiActionSpec
+import com.wasimaster.wmkeyboard.core.tools.AiInputMode
+import com.wasimaster.wmkeyboard.core.tools.AiInsertMode
+import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
+import com.wasimaster.wmkeyboard.core.tools.visibleAiActions
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmEngine
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
@@ -7613,20 +7617,19 @@ open class WMKeyboardService : InputMethodService() {
     private var aiRunSeq = 0
 
     /**
-     * The last instruction the user ran the Custom action with. Held here
-     * rather than on [AiUi] states so retry ([onAiRetry]) can rebuild the
-     * same prompt without threading it through Loading/Ready/Error.
+     * The last instruction each ask-each-run action was given, so reopening its
+     * input box starts from what the user typed last time.
+     *
+     * Only a prefill. What a run *used* rides on the [AiUi] state itself, which
+     * is what makes a retry rebuild the right prompt: holding it here as well
+     * used to mean that running any action after a Custom generate left the
+     * generate flag set, and retrying then rebuilt the wrong prompt entirely.
      */
-    private var aiCustomInstruction = ""
+    private val aiLastInstruction = mutableMapOf<String, String>()
 
-    /**
-     * The last Custom run started from an empty field, so its instruction was
-     * the whole task rather than something to do *to* text. Held beside
-     * [aiCustomInstruction] for exactly the same reason — [onAiRetry] has to
-     * rebuild the same prompt, and picking the wrong one would turn "write a
-     * haiku" into an instruction to rewrite the haiku it just wrote.
-     */
-    private var aiCustomGenerate = false
+    /** The actions the panel shows, in the user's order, minus the hidden ones. */
+    private fun aiActions(settings: KeyboardSettings): List<AiActionSpec> =
+        visibleAiActions(settings.ai.customActions, settings.ai.actionOrder, settings.ai.hiddenActions)
 
     /**
      * The on-device model to run: the explicit selection, or — when nothing
@@ -7705,69 +7708,106 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
-    /** Selection first; whole field otherwise (text before cursor for Continue). */
-    private fun aiInputText(action: AiAction): String {
+    /**
+     * The text an action runs on.
+     *
+     * A selection always wins, whatever the action's input mode says: the user
+     * has pointed at exactly what they mean. Only with no selection does the
+     * mode decide, and "carry this on" then reads what is *before* the cursor,
+     * because the words after it are not part of what came before.
+     */
+    private fun aiInputText(spec: AiActionSpec): String {
         val ic = currentInputConnection ?: return ""
         ic.getSelectedText(0)?.toString()?.takeIf { it.isNotBlank() }?.let { return it }
-        return if (action == AiAction.CONTINUE) {
+        return if (spec.inputMode == AiInputMode.BEFORE_CURSOR) {
             ic.getTextBeforeCursor(4000, 0)?.toString().orEmpty()
         } else {
             extractFieldText()
         }
     }
 
-    fun onAiAction(action: AiAction) {
+    fun onAiAction(spec: AiActionSpec) {
         vibrate()
         val initial = aiInitialState(_uiState.value.settings)
         if (initial is AiUi.NeedModel || initial is AiUi.NeedSetup) {
             _uiState.update { it.copy(ai = initial) }
             return
         }
-        // Custom has no fixed prompt: open its input box and let the key rows
-        // compose the instruction; the run happens on Enter / the Run chip.
-        if (action == AiAction.CUSTOM) {
-            _uiState.update { it.copy(ai = AiUi.CustomInput(aiCustomInstruction)) }
+        // No stored prompt: open the input box and let the key rows compose the
+        // instruction; the run happens on Enter or the Run chip.
+        if (spec.askEachRun) {
+            _uiState.update {
+                it.copy(ai = AiUi.CustomInput(spec, aiLastInstruction[spec.id].orEmpty()))
+            }
             return
         }
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }
-        val source = aiInputText(action).trim()
-        if (source.isEmpty()) {
+        val source = aiInputText(spec).trim()
+        if (source.isNotEmpty()) {
+            runAi(spec, source)
+            return
+        }
+        if (!spec.worksWithoutText) {
             // Backstop for the chips being disabled: an empty field gives the
             // model nothing to work from, so it would invent text rather than
             // rewrite any. Never send the request.
             refreshAiHasText()
             _uiState.update {
-                it.copy(ai = AiUi.Error(action, getString(R.string.ime_ai_error_no_text)))
+                it.copy(ai = AiUi.Error(spec, getString(R.string.ime_ai_error_no_text)))
             }
             return
         }
-        runAi(action, source)
+        // An action that works on nothing writes from its own task instead. The
+        // task becomes the user message, because several providers reject an
+        // empty user turn outright.
+        val task = AiPrompts.resolvedTask(spec, _uiState.value.settings.ai.translateTo).trim()
+        if (task.isEmpty()) {
+            _uiState.update {
+                it.copy(ai = AiUi.Error(spec, getString(R.string.ime_ai_error_no_text)))
+            }
+            return
+        }
+        runAi(spec, task, generated = true)
     }
 
-    /** Backspace/character edits to the Custom-action instruction buffer. */
+    /** Backspace/character edits to the typed-instruction buffer. */
     private fun aiCustomInputEdit(transform: (String) -> String) {
         val ai = _uiState.value.ai as? AiUi.CustomInput ?: return
-        _uiState.update { it.copy(ai = AiUi.CustomInput(transform(ai.instruction))) }
+        _uiState.update { it.copy(ai = AiUi.CustomInput(ai.action, transform(ai.instruction))) }
     }
 
-    /** Run the Custom action with the typed instruction over the field text. */
+    /** Runs an ask-each-run action with the instruction the user just typed. */
     fun onAiRunCustom() {
-        val instruction = (_uiState.value.ai as? AiUi.CustomInput)?.instruction?.trim().orEmpty()
+        val ai = _uiState.value.ai as? AiUi.CustomInput ?: return
+        val instruction = ai.instruction.trim()
         if (instruction.isEmpty()) return
         vibrate()
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }
-        val source = aiInputText(AiAction.CUSTOM).trim()
-        aiCustomInstruction = instruction
-        // Unlike the preset actions, Custom is useful with an empty field: the
-        // instruction can ask for text to be written rather than something to
-        // be done to text. The instruction then becomes the user message —
-        // sending a blank one is not an option, as several providers reject an
-        // empty user turn outright.
-        aiCustomGenerate = source.isEmpty()
-        runAi(AiAction.CUSTOM, source.ifEmpty { instruction })
+        val source = aiInputText(ai.action).trim()
+        aiLastInstruction[ai.action.id] = instruction
+        if (source.isNotEmpty()) {
+            runAi(ai.action, source, instruction)
+            return
+        }
+        if (!ai.action.worksWithoutText) {
+            _uiState.update {
+                it.copy(ai = AiUi.Error(ai.action, getString(R.string.ime_ai_error_no_text)))
+            }
+            return
+        }
+        // Nothing to transform, so the instruction is the whole request and the
+        // model writes from nothing. Gated on the field being genuinely empty,
+        // not on the flag alone: the prompt this takes carries no injection
+        // guard, so field text must never reach it.
+        runAi(ai.action, instruction, instruction, generated = true)
     }
 
-    private fun runAi(action: AiAction, source: String) {
+    private fun runAi(
+        action: AiActionSpec,
+        source: String,
+        instruction: String = "",
+        generated: Boolean = false,
+    ) {
         aiJob?.cancel()
         val seq = ++aiRunSeq
         val startedAt = SystemClock.uptimeMillis()
@@ -7777,11 +7817,13 @@ open class WMKeyboardService : InputMethodService() {
         aiJob = serviceScope.launch {
             val settings = _uiState.value.settings
             val system = when {
-                action != AiAction.CUSTOM -> AiPrompts.systemPrompt(action, settings.ai)
-                // Generating from an empty field: the instruction rides in the
-                // user message, so the system prompt only has to frame it.
-                aiCustomGenerate -> AiPrompts.generatePrompt()
-                else -> AiPrompts.customPrompt(aiCustomInstruction)
+                // Writing from nothing: the request rides in the user message,
+                // so the system prompt only has to frame it. No injection guard
+                // here by design, which is why the callers only reach this with
+                // an empty field.
+                generated -> AiPrompts.generatePrompt()
+                action.askEachRun -> AiPrompts.customPrompt(instruction)
+                else -> AiPrompts.systemPrompt(action, settings.ai.translateTo)
             }
             val config = AiClient.config(settings.ai)
             val result = withContext(Dispatchers.IO) {
@@ -7805,6 +7847,8 @@ open class WMKeyboardService : InputMethodService() {
                             when {
                                 text.isNotBlank() -> AiUi.Ready(
                                     action, text, source,
+                                    instruction = instruction,
+                                    generated = generated,
                                     stripMarkdown = aiStripMarkdownDefault(),
                                     truncated = completion.truncated,
                                 )
@@ -7835,9 +7879,13 @@ open class WMKeyboardService : InputMethodService() {
      * [AiUi.Ready] with [AiUi.Ready.generating] set so the panel can render
      * the response as it forms. Call under [Dispatchers.IO].
      */
+    /** A shipped action's translated name, or the name the user gave it. */
+    private fun aiActionLabel(spec: AiActionSpec): String =
+        BuiltInAiActions.labelRes(spec)?.let { getString(it) } ?: spec.name
+
     private fun runAiOnDevice(
         seq: Int,
-        action: AiAction,
+        action: AiActionSpec,
         source: String,
         system: String,
         settings: KeyboardSettings,
@@ -7874,7 +7922,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun runAiRemote(
         seq: Int,
-        action: AiAction,
+        action: AiActionSpec,
         source: String,
         system: String,
         settings: KeyboardSettings,
@@ -7923,7 +7971,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun applyAiPartial(
         seq: Int,
-        action: AiAction,
+        action: AiActionSpec,
         source: String,
         raw: String,
         settings: KeyboardSettings,
@@ -7961,22 +8009,29 @@ open class WMKeyboardService : InputMethodService() {
     /** Re-runs the last action on the text it originally saw. */
     fun onAiRetry() {
         when (val ai = _uiState.value.ai) {
-            is AiUi.Ready -> { vibrate(); runAi(ai.action, ai.sourceText) }
-            // A failed Custom run reopens its input prefilled so the user can
-            // tweak the instruction; onAiAction(CUSTOM) does exactly that.
+            // Everything the prompt was built from rides on the state, so a
+            // retry rebuilds exactly the same request.
+            is AiUi.Ready -> {
+                vibrate()
+                runAi(ai.action, ai.sourceText, ai.instruction, ai.generated)
+            }
+            // A failed ask-each-run action reopens its input prefilled so the
+            // user can adjust the instruction; onAiAction does exactly that.
             is AiUi.Error -> onAiAction(ai.action)
             else -> {}
         }
     }
 
     /**
-     * Replaces the field with the result — except for Continue, where
-     * "replace" would delete the text being continued; that appends.
+     * Puts the result into the field: in place of the text the action ran on,
+     * or after it for an action that adds to the text rather than replacing it.
+     * "Carry this on" is the case that needs the second one, where replacing
+     * would delete the very text the user asked to have continued.
      */
     fun onAiReplace() {
         val ai = _uiState.value.ai as? AiUi.Ready ?: return
         vibrate()
-        if (ai.action == AiAction.CONTINUE) {
+        if (ai.action.insertMode == AiInsertMode.APPEND) {
             commitToField(aiInsertableText(ai))
             return
         }
@@ -8007,12 +8062,12 @@ open class WMKeyboardService : InputMethodService() {
             this,
             "WM Keyboard — AI generation report",
             Support.aiGenerationReport(
-                action = getString(ai.action.labelRes),
+                action = aiActionLabel(ai.action),
                 provider = getString(state.settings.ai.provider.labelRes),
                 model = AiClient.config(state.settings.ai).model,
                 input = ai.sourceText,
                 output = ai.result,
-                instruction = if (ai.action == AiAction.CUSTOM) aiCustomInstruction else "",
+                instruction = ai.instruction,
             ),
         )
         if (!sent) {

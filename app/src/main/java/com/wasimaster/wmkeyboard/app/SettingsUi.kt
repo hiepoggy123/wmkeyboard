@@ -169,6 +169,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "layout" to Color(0xFF5C6BC0),
     "keymaps" to Color(0xFF26C6DA),
     "rows" to Color(0xFF26A69A),
+    "ai_actions" to Color(0xFF7E57C2),
     "modes" to Color(0xFFFFA726),
     "emoji" to Color(0xFFFFB300),
     "tools" to Color(0xFFFF7043),

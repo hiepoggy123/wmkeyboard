@@ -47,19 +47,9 @@
     <string name="core_settings_ai_backend_cpu_label" translatable="false">CPU</string>
     <string name="core_settings_ai_backend_gpu_label" translatable="false">GPU</string>
 
-    <!-- ================================================================== -->
-    <!-- AI tool: the one-press writing actions on its panel. Each one is a -->
-    <!-- command given to the model about the text in the field.            -->
-    <!-- ================================================================== -->
-
-    <string name="core_settings_ai_action_rewrite_label">Rewrite</string>
-    <string name="core_settings_ai_action_summarize_label">Summarize</string>
-    <string name="core_settings_ai_action_translate_label">Translate</string>
-    <string name="core_settings_ai_action_improve_label">Improve</string>
-    <string name="core_settings_ai_action_fix_grammar_label">Fix grammar</string>
-    <string name="core_settings_ai_action_explain_label">Explain</string>
-    <!-- Write more text that carries on from what is already in the field. -->
-    <string name="core_settings_ai_action_continue_label">Continue</string>
+    <!-- The AI actions moved to :core:tools as core_tools_ai_action_*, with  -->
+    <!-- the rest of the action model. They are a list the user owns now, so  -->
+    <!-- they live beside the code that resolves it.                          -->
 
     <!-- ================================================================== -->
     <!-- Grammar tool: which English the offline checker reads against.     -->

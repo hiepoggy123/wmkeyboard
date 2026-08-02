@@ -52,7 +52,11 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.withEmbeddedImages
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
+import com.wasimaster.wmkeyboard.core.tools.AiActionCodec
+import com.wasimaster.wmkeyboard.core.tools.AiActionSpec
+import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
+import com.wasimaster.wmkeyboard.core.tools.mergeLegacyAiPrompts
 import com.wasimaster.wmkeyboard.core.tools.DefaultToolLetters
 import com.wasimaster.wmkeyboard.core.tools.decodeToolLetters
 import com.wasimaster.wmkeyboard.core.tools.encodeToolLetters
@@ -315,30 +319,9 @@ enum class LocalLlmBackend(@StringRes val labelRes: Int) {
     GPU(R.string.core_settings_ai_backend_gpu_label),
 }
 
-/**
- * One-tap writing actions on the AI tool's panel. [CUSTOM] is the odd one
- * out: its prompt is the instruction the user types on the keyboard each
- * run, so it has no stored per-action override and no built-in prompt body.
- */
-enum class AiAction(@StringRes val labelRes: Int) {
-    REWRITE(R.string.core_settings_ai_action_rewrite_label),
-    SUMMARIZE(R.string.core_settings_ai_action_summarize_label),
-    TRANSLATE(R.string.core_settings_ai_action_translate_label),
-    IMPROVE(R.string.core_settings_ai_action_improve_label),
-    FIX_GRAMMAR(R.string.core_settings_ai_action_fix_grammar_label),
-    EXPLAIN(R.string.core_settings_ai_action_explain_label),
-    CONTINUE(R.string.core_settings_ai_action_continue_label),
-    CUSTOM(CommonR.string.common_custom),
-    ;
-
-    /**
-     * Whether the action still means something with an empty field. Only
-     * [CUSTOM] does: its instruction can ask for text to be *written*, whereas
-     * every preset describes something to do to text that has to already
-     * exist. The AI panel keeps this one chip live when the others grey out.
-     */
-    val worksWithoutText: Boolean get() = this == CUSTOM
-}
+// The AI tool's actions used to be an enum here. They are a list the user owns
+// now: see AiActionSpec and BuiltInAiActions in :core:tools, stored as JSON in
+// AiSettings.customActions.
 
 /** Error-correction level for generated QR codes (higher = more redundant). */
 enum class QrEccLevel { L, M, Q, H }
@@ -1403,14 +1386,15 @@ data class AiSettings(
     val localContextTokens: Int = 0,
     /** Target language of the AI translate action. */
     val translateTo: String = "English",
-    // Per-action prompt overrides (blank = built-in prompt).
-    val promptRewrite: String = "",
-    val promptSummarize: String = "",
-    val promptTranslate: String = "",
-    val promptImprove: String = "",
-    val promptFixGrammar: String = "",
-    val promptExplain: String = "",
-    val promptContinue: String = "",
+    /**
+     * The user's own actions, plus their edits of the shipped ones. An entry
+     * whose id matches a shipped action shadows it; see `resolveAiActions`.
+     */
+    val customActions: List<AiActionSpec> = emptyList(),
+    /** Ids in the order the panel draws them. Empty = the shipped order. */
+    val actionOrder: List<String> = emptyList(),
+    /** Ids the user turned off. A shipped action is hidden, never deleted. */
+    val hiddenActions: List<String> = emptyList(),
     /**
      * Selected on-device model: a LocalLlmCatalog id, or "custom:<fileName>"
      * for an imported file. Blank = none selected.
@@ -2630,7 +2614,14 @@ class SettingsRepository(private val context: Context) {
         private val AI_COMPATIBLE_MODEL = stringPreferencesKey("ai_compatible_model")
         private val AI_MAX_TOKENS = intPreferencesKey("ai_max_tokens")
         private val AI_LOCAL_CONTEXT_TOKENS = intPreferencesKey("ai_local_context_tokens")
+        private val AI_CUSTOM_ACTIONS = stringPreferencesKey("ai_custom_actions")
+        private val AI_ACTION_ORDER = stringPreferencesKey("ai_action_order")
+        private val AI_ACTIONS_OFF = stringPreferencesKey("ai_actions_off")
         private val AI_TRANSLATE_TO = stringPreferencesKey("ai_translate_to")
+        // Where a per-action prompt override used to live, one key each. Read
+        // only now, and folded into the action list on every read; see
+        // [legacyAiPrompts]. Not deleted, because a settings backup taken
+        // before the change still carries them.
         private val AI_PROMPT_REWRITE = stringPreferencesKey("ai_prompt_rewrite")
         private val AI_PROMPT_SUMMARIZE = stringPreferencesKey("ai_prompt_summarize")
         private val AI_PROMPT_TRANSLATE = stringPreferencesKey("ai_prompt_translate")
@@ -2638,6 +2629,20 @@ class SettingsRepository(private val context: Context) {
         private val AI_PROMPT_FIX_GRAMMAR = stringPreferencesKey("ai_prompt_fix_grammar")
         private val AI_PROMPT_EXPLAIN = stringPreferencesKey("ai_prompt_explain")
         private val AI_PROMPT_CONTINUE = stringPreferencesKey("ai_prompt_continue")
+
+        /** The old per-action prompt keys, by the action id each belongs to. */
+        private fun legacyAiPrompts(p: Preferences): Map<String, String> = buildMap {
+            fun take(id: String, key: Preferences.Key<String>) {
+                p[key]?.takeIf { it.isNotBlank() }?.let { put(id, it) }
+            }
+            take(BuiltInAiActions.REWRITE_ID, AI_PROMPT_REWRITE)
+            take(BuiltInAiActions.SUMMARIZE_ID, AI_PROMPT_SUMMARIZE)
+            take(BuiltInAiActions.TRANSLATE_ID, AI_PROMPT_TRANSLATE)
+            take(BuiltInAiActions.IMPROVE_ID, AI_PROMPT_IMPROVE)
+            take(BuiltInAiActions.FIX_GRAMMAR_ID, AI_PROMPT_FIX_GRAMMAR)
+            take(BuiltInAiActions.EXPLAIN_ID, AI_PROMPT_EXPLAIN)
+            take(BuiltInAiActions.CONTINUE_ID, AI_PROMPT_CONTINUE)
+        }
         private val AI_LOCAL_MODEL_ID = stringPreferencesKey("ai_local_model_id")
         private val AI_LOCAL_BACKEND = stringPreferencesKey("ai_local_backend")
         private val HF_TOKEN = stringPreferencesKey("hf_token")
@@ -3319,13 +3324,15 @@ class SettingsRepository(private val context: Context) {
                 maxTokens = p[AI_MAX_TOKENS] ?: defaults.ai.maxTokens,
                 localContextTokens = p[AI_LOCAL_CONTEXT_TOKENS] ?: defaults.ai.localContextTokens,
                 translateTo = p[AI_TRANSLATE_TO] ?: defaults.ai.translateTo,
-                promptRewrite = p[AI_PROMPT_REWRITE] ?: defaults.ai.promptRewrite,
-                promptSummarize = p[AI_PROMPT_SUMMARIZE] ?: defaults.ai.promptSummarize,
-                promptTranslate = p[AI_PROMPT_TRANSLATE] ?: defaults.ai.promptTranslate,
-                promptImprove = p[AI_PROMPT_IMPROVE] ?: defaults.ai.promptImprove,
-                promptFixGrammar = p[AI_PROMPT_FIX_GRAMMAR] ?: defaults.ai.promptFixGrammar,
-                promptExplain = p[AI_PROMPT_EXPLAIN] ?: defaults.ai.promptExplain,
-                promptContinue = p[AI_PROMPT_CONTINUE] ?: defaults.ai.promptContinue,
+                // Folded in on every read rather than behind a "migrated" flag:
+                // a restored backup puts the old keys back, and a flag would
+                // make that restored prompt invisible for good.
+                customActions = mergeLegacyAiPrompts(
+                    custom = AiActionCodec.decodeList(p[AI_CUSTOM_ACTIONS].orEmpty()),
+                    legacy = legacyAiPrompts(p),
+                ),
+                actionOrder = AiActionCodec.decodeIds(p[AI_ACTION_ORDER].orEmpty()),
+                hiddenActions = AiActionCodec.decodeIds(p[AI_ACTIONS_OFF].orEmpty()),
                 localModelId = p[AI_LOCAL_MODEL_ID] ?: defaults.ai.localModelId,
                 localBackend = p[AI_LOCAL_BACKEND]
                     ?.let { runCatching { LocalLlmBackend.valueOf(it) }.getOrNull() }
@@ -5869,21 +5876,70 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAiTranslateTo(value: String) =
         editPrefs { it[AI_TRANSLATE_TO] = value.trim() }
 
-    suspend fun setAiPrompt(action: AiAction, value: String) =
-        editPrefs {
-            val key = when (action) {
-                AiAction.REWRITE -> AI_PROMPT_REWRITE
-                AiAction.SUMMARIZE -> AI_PROMPT_SUMMARIZE
-                AiAction.TRANSLATE -> AI_PROMPT_TRANSLATE
-                AiAction.IMPROVE -> AI_PROMPT_IMPROVE
-                AiAction.FIX_GRAMMAR -> AI_PROMPT_FIX_GRAMMAR
-                AiAction.EXPLAIN -> AI_PROMPT_EXPLAIN
-                AiAction.CONTINUE -> AI_PROMPT_CONTINUE
-                // Custom's prompt is typed at run time — nothing to persist.
-                AiAction.CUSTOM -> return@editPrefs
-            }
-            it[key] = value
+    /**
+     * Saves an action: the user's own, or their edit of a shipped one. An edit
+     * is stored under the shipped id and shadows it, so the shipped version is
+     * still there to go back to.
+     */
+    suspend fun upsertAiAction(action: AiActionSpec) =
+        editPrefs { prefs ->
+            val current = AiActionCodec.decodeList(prefs[AI_CUSTOM_ACTIONS].orEmpty())
+            val next = current.filter { it.id != action.id } + action
+            prefs[AI_CUSTOM_ACTIONS] = AiActionCodec.encodeList(next)
+            // The old key for this action, if any, would otherwise be folded
+            // back in on the next read and undo the edit.
+            clearLegacyAiPrompt(prefs, action.id)
         }
+
+    /**
+     * Drops the stored spec for [id].
+     *
+     * For a shipped action that *is* the reset, and its id stays valid, so the
+     * order and the turned-off list are left alone. For the user's own action
+     * it is a delete, and the id has to go from both lists or it would sit
+     * there for good.
+     */
+    suspend fun deleteAiAction(id: String) =
+        editPrefs { prefs ->
+            val current = AiActionCodec.decodeList(prefs[AI_CUSTOM_ACTIONS].orEmpty())
+            prefs[AI_CUSTOM_ACTIONS] = AiActionCodec.encodeList(current.filter { it.id != id })
+            clearLegacyAiPrompt(prefs, id)
+            if (BuiltInAiActions.isBuiltIn(id)) return@editPrefs
+            val order = AiActionCodec.decodeIds(prefs[AI_ACTION_ORDER].orEmpty())
+            if (id in order) prefs[AI_ACTION_ORDER] = AiActionCodec.encodeIds(order - id)
+            val off = AiActionCodec.decodeIds(prefs[AI_ACTIONS_OFF].orEmpty())
+            if (id in off) prefs[AI_ACTIONS_OFF] = AiActionCodec.encodeIds(off - id)
+        }
+
+    suspend fun setAiActionOrder(ids: List<String>) =
+        editPrefs { it[AI_ACTION_ORDER] = AiActionCodec.encodeIds(ids) }
+
+    /** Turns one action off, or back on. A shipped action is never deleted. */
+    suspend fun setAiActionHidden(id: String, hidden: Boolean) =
+        editPrefs { prefs ->
+            val off = AiActionCodec.decodeIds(prefs[AI_ACTIONS_OFF].orEmpty())
+            val next = if (hidden) (off + id).distinct() else off - id
+            prefs[AI_ACTIONS_OFF] = AiActionCodec.encodeIds(next)
+        }
+
+    /**
+     * Removes the pre-list prompt override for [id]. Called whenever a spec is
+     * written for that action, because the two describe the same thing and the
+     * merge on read deliberately prefers the stored spec.
+     */
+    private fun clearLegacyAiPrompt(prefs: MutablePreferences, id: String) {
+        val key = when (id) {
+            BuiltInAiActions.REWRITE_ID -> AI_PROMPT_REWRITE
+            BuiltInAiActions.SUMMARIZE_ID -> AI_PROMPT_SUMMARIZE
+            BuiltInAiActions.TRANSLATE_ID -> AI_PROMPT_TRANSLATE
+            BuiltInAiActions.IMPROVE_ID -> AI_PROMPT_IMPROVE
+            BuiltInAiActions.FIX_GRAMMAR_ID -> AI_PROMPT_FIX_GRAMMAR
+            BuiltInAiActions.EXPLAIN_ID -> AI_PROMPT_EXPLAIN
+            BuiltInAiActions.CONTINUE_ID -> AI_PROMPT_CONTINUE
+            else -> return
+        }
+        prefs.remove(key)
+    }
 
     suspend fun setAiLocalModelId(value: String) =
         editPrefs { it[AI_LOCAL_MODEL_ID] = value }

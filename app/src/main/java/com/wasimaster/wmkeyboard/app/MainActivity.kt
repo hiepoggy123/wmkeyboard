@@ -206,7 +206,12 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
-import com.wasimaster.wmkeyboard.core.settings.AiAction
+import com.wasimaster.wmkeyboard.core.tools.AiActionSpec
+import com.wasimaster.wmkeyboard.core.tools.AiInputMode
+import com.wasimaster.wmkeyboard.core.tools.AiInsertMode
+import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
+import com.wasimaster.wmkeyboard.core.tools.orderedAiActions
+import com.wasimaster.wmkeyboard.core.tools.visibleAiActions
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
@@ -959,6 +964,24 @@ private fun SettingsNavGraph(
                 route = "rows",
             ) {
                 RowsSettings(repository, settings) { navController.navigate(it) }
+            }
+        }
+        composable("ai_actions") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_ai_actions_title),
+                { navController.popBackStack() },
+                route = "ai_actions",
+            ) {
+                AiActionsSettings(repository, settings) { navController.navigate(it) }
+            }
+        }
+        composable("ai_action_edit/{actionId}") { backStackEntry ->
+            val actionId = backStackEntry.arguments?.getString("actionId").orEmpty()
+            SettingsScreen(
+                stringResource(R.string.home_screen_ai_action_edit_title),
+                { navController.popBackStack() },
+            ) {
+                AiActionEditor(repository, settings, actionId) { navController.popBackStack() }
             }
         }
         composable("symbol_set_edit/{setId}") { backStackEntry ->
@@ -7841,7 +7864,7 @@ private fun ToolDetailSettings(
             CaptionText(stringResource(R.string.tooldetail_password_info))
         }
         ToolbarTool.TYPING_TEST -> TypingTestToolSettings(repository, settings)
-        ToolbarTool.AI -> AiToolSettings(repository, settings)
+        ToolbarTool.AI -> AiToolSettings(repository, settings, onNavigate)
         ToolbarTool.MODES -> SettingsGroup(stringResource(R.string.tooldetail_modes_group)) {
             item {
                 NavRow(
@@ -8009,7 +8032,11 @@ private fun typingBestLabel(key: String): String = when {
 
 /** The AI tool's settings: provider, credentials, output and prompts. */
 @Composable
-private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun AiToolSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     // The slider readout is a plain lambda, so its format string is resolved
     // here and captured. The format also puts the number through the locale,
@@ -8268,30 +8295,20 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             ) { scope.launch { repository.setAiPanelModelPicker(it) } }
         }
     }
-    SectionHeader(stringResource(R.string.toolai_ai_prompts_title))
-    CaptionText(stringResource(R.string.toolai_ai_prompts_info))
-    for (action in AiAction.entries) {
-        // Custom has no stored prompt — its instruction is typed per run.
-        if (action == AiAction.CUSTOM) continue
-        val current = when (action) {
-            AiAction.REWRITE -> settings.ai.promptRewrite
-            AiAction.SUMMARIZE -> settings.ai.promptSummarize
-            AiAction.TRANSLATE -> settings.ai.promptTranslate
-            AiAction.IMPROVE -> settings.ai.promptImprove
-            AiAction.FIX_GRAMMAR -> settings.ai.promptFixGrammar
-            AiAction.EXPLAIN -> settings.ai.promptExplain
-            AiAction.CONTINUE -> settings.ai.promptContinue
-            AiAction.CUSTOM -> ""
+    SettingsGroup(stringResource(R.string.toolai_ai_actions_group_title)) {
+        item {
+            val visible = visibleAiActions(
+                settings.ai.customActions,
+                settings.ai.actionOrder,
+                settings.ai.hiddenActions,
+            )
+            NavRow(
+                title = stringResource(R.string.toolai_ai_actions_title),
+                subtitle = stringResource(R.string.toolai_ai_actions_subtitle),
+                value = numberFormat.format(visible.size),
+                onClick = { onNavigate("ai_actions") },
+            )
         }
-        val builtIn = AiPrompts.defaultPrompt(action, settings.ai.translateTo)
-        PromptFieldSetting(
-            label = stringResource(action.labelRes),
-            // Pre-filled with the built-in prompt so editing starts from the
-            // real text instead of a blank field; saving identical text is a
-            // no-op override.
-            value = current.ifBlank { builtIn },
-            defaultPrompt = builtIn,
-        ) { repository.setAiPrompt(action, it) }
     }
     CaptionText(
         stringResource(
@@ -9686,6 +9703,296 @@ private fun SymbolSetEditor(
                         repository.setSymbolRowSetIds(settings.symbolRowSetIds + setId)
                     }
                 }
+                onDone()
+            },
+        ) { Text(stringResource(CommonR.string.common_save)) }
+    }
+}
+
+// ---- AI actions ----
+
+/**
+ * The buttons on the AI panel: reorder them, turn them off, edit one, or write
+ * a new one.
+ *
+ * A shipped action is never deleted. Editing one stores a spec under the same
+ * id that shadows it, so "Reset" drops that spec and the shipped version comes
+ * back; turning one off only takes it off the panel.
+ */
+@Composable
+private fun AiActionsSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val ordered = orderedAiActions(settings.ai.customActions, settings.ai.actionOrder)
+    val hidden = settings.ai.hiddenActions.toSet()
+    val visibleCount = ordered.count { it.id !in hidden }
+
+    // ReorderSetting takes a plain (T) -> String, which cannot resolve a string
+    // resource, so the shipped names are looked up here first.
+    val names = ordered.associate { it.id to aiActionName(it) }
+
+    CaptionText(stringResource(R.string.toolai_ai_actions_caption))
+    ReorderSetting(
+        title = stringResource(R.string.toolai_ai_actions_reorder_title),
+        dialogTitle = stringResource(R.string.toolai_ai_actions_reorder_title),
+        items = ordered,
+        label = { names[it.id].orEmpty() },
+        onReordered = { next -> scope.launch { repository.setAiActionOrder(next.map { it.id }) } },
+    )
+    SettingsGroup {
+        for (action in ordered) {
+            item {
+                val on = action.id !in hidden
+                WmRow(
+                    title = names[action.id].orEmpty(),
+                    supporting = {
+                        Text(
+                            aiActionSummary(action),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    leading = {
+                        Checkbox(
+                            checked = on,
+                            onCheckedChange = { checked ->
+                                // The panel needs at least one button, or it is
+                                // an empty box with no way back to a full one.
+                                if (checked || visibleCount > 1) {
+                                    scope.launch {
+                                        repository.setAiActionHidden(action.id, !checked)
+                                    }
+                                }
+                            },
+                        )
+                    },
+                    trailing = {
+                        IconButton(onClick = { onNavigate("ai_action_edit/${action.id}") }) {
+                            Icon(
+                                Icons.Outlined.Edit,
+                                contentDescription = stringResource(
+                                    R.string.toolai_ai_action_edit_desc,
+                                ),
+                            )
+                        }
+                    },
+                )
+            }
+        }
+        item {
+            WmRow(
+                title = stringResource(R.string.toolai_ai_action_new_title),
+                subtitle = stringResource(R.string.toolai_ai_action_new_subtitle),
+                leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                onClick = {
+                    val id = BuiltInAiActions.CUSTOM_PREFIX + System.currentTimeMillis()
+                    onNavigate("ai_action_edit/$id")
+                },
+            )
+        }
+    }
+}
+
+/** A shipped action's translated name, or the name the user gave it. */
+@Composable
+private fun aiActionName(spec: AiActionSpec): String =
+    BuiltInAiActions.labelRes(spec)?.let { stringResource(it) } ?: spec.name
+
+/** The one-line recap under an action's name on the list screen. */
+@Composable
+private fun aiActionSummary(spec: AiActionSpec): String = when {
+    spec.askEachRun -> stringResource(R.string.toolai_ai_action_ask_summary)
+    spec.task.isBlank() -> stringResource(R.string.toolai_ai_action_no_prompt_summary)
+    else -> spec.task
+}
+
+/**
+ * Write a new action, or edit one. This is also where a prompt is written: the
+ * field fills the screen rather than the four lines it used to get, because a
+ * prompt is a paragraph and scrolling one through four lines is unusable.
+ */
+@Composable
+private fun AiActionEditor(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    actionId: String,
+    onDone: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val override = settings.ai.customActions.firstOrNull { it.id == actionId }
+    val builtIn = BuiltInAiActions.byId(actionId)
+    val existing = override ?: builtIn
+    val defaultName = stringResource(R.string.toolai_ai_action_default_name)
+
+    var name by remember(actionId) { mutableStateOf(existing?.name.orEmpty()) }
+    var task by remember(actionId) { mutableStateOf(existing?.task.orEmpty()) }
+    var rawPrompt by remember(actionId) { mutableStateOf(existing?.rawPrompt ?: false) }
+    var outputOnly by remember(actionId) { mutableStateOf(existing?.outputOnly ?: true) }
+    var askEachRun by remember(actionId) { mutableStateOf(existing?.askEachRun ?: false) }
+    var worksWithoutText by remember(actionId) {
+        mutableStateOf(existing?.worksWithoutText ?: false)
+    }
+    var beforeCursor by remember(actionId) {
+        mutableStateOf(existing?.inputMode == AiInputMode.BEFORE_CURSOR)
+    }
+    var append by remember(actionId) {
+        mutableStateOf(existing?.insertMode == AiInsertMode.APPEND)
+    }
+
+    fun draft() = AiActionSpec(
+        id = actionId,
+        name = name.trim().ifEmpty { builtIn?.name ?: defaultName },
+        task = task,
+        rawPrompt = rawPrompt,
+        outputOnly = outputOnly,
+        inputMode = if (beforeCursor) AiInputMode.BEFORE_CURSOR else AiInputMode.FIELD,
+        insertMode = if (append) AiInsertMode.APPEND else AiInsertMode.REPLACE,
+        askEachRun = askEachRun,
+        worksWithoutText = worksWithoutText,
+    )
+
+    if (builtIn != null) {
+        // The stored English name is what a shipped action is keyed on, so only
+        // the drawn name is resolved here. Nothing writes it back.
+        CaptionText(
+            stringResource(R.string.toolai_ai_action_builtin_caption, aiActionName(builtIn)),
+        )
+    }
+    SettingsGroup {
+        item {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.toolai_ai_action_name_label)) },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        if (!askEachRun) {
+            item {
+                OutlinedTextField(
+                    value = task,
+                    onValueChange = { task = it },
+                    label = { Text(stringResource(R.string.toolai_ai_action_task_label)) },
+                    supportingText = {
+                        Text(
+                            stringResource(
+                                if (rawPrompt) {
+                                    R.string.toolai_ai_action_task_raw_hint
+                                } else {
+                                    R.string.toolai_ai_action_task_hint
+                                },
+                                AiPrompts.TRANSLATE_TOKEN,
+                            ),
+                        )
+                    },
+                    // No maxLines on purpose: the field grows with the prompt
+                    // instead of scrolling a paragraph through four lines.
+                    minLines = 8,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+        }
+    }
+    SettingsGroup(stringResource(R.string.toolai_ai_action_behaviour_title)) {
+        item {
+            ToggleSetting(
+                stringResource(R.string.toolai_ai_action_ask_title),
+                stringResource(R.string.toolai_ai_action_ask_subtitle),
+                askEachRun,
+            ) { askEachRun = it }
+        }
+        item {
+            ToggleSetting(
+                stringResource(R.string.toolai_ai_action_empty_field_title),
+                stringResource(R.string.toolai_ai_action_empty_field_subtitle),
+                worksWithoutText,
+            ) { worksWithoutText = it }
+        }
+        item {
+            ToggleSetting(
+                stringResource(R.string.toolai_ai_action_before_cursor_title),
+                stringResource(R.string.toolai_ai_action_before_cursor_subtitle),
+                beforeCursor,
+            ) { beforeCursor = it }
+        }
+        item {
+            ToggleSetting(
+                stringResource(R.string.toolai_ai_action_append_title),
+                stringResource(R.string.toolai_ai_action_append_subtitle),
+                append,
+            ) { append = it }
+        }
+        if (!askEachRun) {
+            item {
+                ToggleSetting(
+                    stringResource(R.string.toolai_ai_action_output_only_title),
+                    stringResource(R.string.toolai_ai_action_output_only_subtitle),
+                    outputOnly,
+                ) { outputOnly = it }
+            }
+            item {
+                ToggleSetting(
+                    stringResource(R.string.toolai_ai_action_raw_title),
+                    stringResource(R.string.toolai_ai_action_raw_subtitle),
+                    rawPrompt,
+                ) { rawPrompt = it }
+            }
+        }
+    }
+    if (!askEachRun) {
+        // The safety wording is part of every prompt and is not editable, so
+        // the only way to make it visible is to show the assembled result.
+        SettingsGroup(stringResource(R.string.toolai_ai_action_preview_title)) {
+            item {
+                Text(
+                    AiPrompts.systemPrompt(draft(), settings.ai.translateTo),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+    }
+    Row(modifier = Modifier.padding(horizontal = 16.dp)) {
+        // For a shipped action this is a reset, not a delete: dropping the
+        // stored spec brings the shipped one back.
+        if (override != null) {
+            TextButton(onClick = {
+                scope.launch { repository.deleteAiAction(actionId) }
+                onDone()
+            }) {
+                Icon(
+                    if (builtIn != null) Icons.Outlined.Refresh else Icons.Outlined.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    stringResource(
+                        if (builtIn != null) {
+                            R.string.toolai_ai_action_reset_action
+                        } else {
+                            R.string.toolai_ai_action_delete_action
+                        },
+                    ),
+                )
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        Button(
+            // An action with no prompt and no way to ask for one would do
+            // nothing at all.
+            enabled = askEachRun || task.isNotBlank(),
+            onClick = {
+                scope.launch { repository.upsertAiAction(draft()) }
                 onDone()
             },
         ) { Text(stringResource(CommonR.string.common_save)) }

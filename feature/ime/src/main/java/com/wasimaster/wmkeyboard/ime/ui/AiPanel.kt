@@ -53,13 +53,15 @@ import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmDownloadManager
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
 import com.wasimaster.wmkeyboard.config.BuildConfig
-import com.wasimaster.wmkeyboard.core.settings.AiAction
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.tools.AiActionSpec
 import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiMarkdown
 import com.wasimaster.wmkeyboard.core.tools.AiPhase
+import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
+import com.wasimaster.wmkeyboard.core.tools.visibleAiActions
 import com.wasimaster.wmkeyboard.ime.AiUi
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.R
@@ -77,7 +79,7 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 @Composable
 internal fun AiPanel(
     state: KeyboardUiState,
-    onAction: (AiAction) -> Unit,
+    onAction: (AiActionSpec) -> Unit,
     onRetry: () -> Unit,
     onRunCustom: () -> Unit,
     onPickModel: (AiProvider, String?) -> Unit,
@@ -86,6 +88,19 @@ internal fun AiPanel(
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
     val kb = LocalKbTheme.current
+    val ai0 = state.ai
+    val settings = state.settings
+    val actions = remember(
+        settings.ai.customActions,
+        settings.ai.actionOrder,
+        settings.ai.hiddenActions,
+    ) {
+        visibleAiActions(
+            settings.ai.customActions,
+            settings.ai.actionOrder,
+            settings.ai.hiddenActions,
+        )
+    }
 
     // Height comes from the FullBleedTool wrapper — the panel replaces the
     // toolbar too, so it gets the key rows plus every hidden bar's height.
@@ -94,7 +109,6 @@ internal fun AiPanel(
             .fillMaxSize()
             .padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
-        val ai0 = state.ai
         if (state.settings.ai.panelModelPicker &&
             (ai0 is AiUi.Idle || ai0 is AiUi.NeedSetup || ai0 is AiUi.NeedModel)
         ) {
@@ -152,19 +166,23 @@ internal fun AiPanel(
                 // A download started in the settings app keeps running while the
                 // user types, and until now the keyboard gave no sign of it.
                 rememberModelDownload()?.let { ModelDownloadProgress(it, wide = false) }
-                ActionChips(onAction, enabled = state.aiHasText)
+                ActionChips(actions, onAction, enabled = state.aiHasText)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     val provider = stringResource(state.settings.ai.provider.labelRes)
                     // An empty field has nothing to act on, so the chips are
-                    // greyed out — say why rather than leaving the user tapping
-                    // a dead row, and point at Custom, which still works
-                    // because it can write from nothing.
-                    val customLabel = stringResource(AiAction.CUSTOM.labelRes)
+                    // greyed out. Say why rather than leaving the user pressing
+                    // a dead row, and name an action that still works because
+                    // it writes from nothing. The user owns this list, so there
+                    // may not be one to name.
+                    val writer = actions.firstOrNull { it.worksWithoutText }
                     Text(
-                        if (state.aiHasText) {
-                            stringResource(R.string.ime_ai_idle_body, provider)
-                        } else {
-                            stringResource(R.string.ime_ai_idle_empty_body, customLabel)
+                        when {
+                            state.aiHasText -> stringResource(R.string.ime_ai_idle_body, provider)
+                            writer != null -> stringResource(
+                                R.string.ime_ai_idle_empty_body,
+                                aiActionLabel(writer),
+                            )
+                            else -> stringResource(R.string.ime_ai_idle_empty_no_writer_body)
                         },
                         color = kb.secondaryText,
                         fontSize = 12.sp,
@@ -231,13 +249,13 @@ internal fun AiPanel(
                 }
             }
             is AiUi.Loading -> Column(Modifier.fillMaxSize()) {
-                ActionChips(onAction, running = ai.action)
+                ActionChips(actions, onAction, running = ai.action)
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     AiProgress(ai, state.settings)
                 }
             }
             is AiUi.Error -> Column(Modifier.fillMaxSize()) {
-                ActionChips(onAction, enabled = state.aiHasText)
+                ActionChips(actions, onAction, enabled = state.aiHasText)
                 Column(
                     Modifier.weight(1f).fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -328,14 +346,17 @@ internal fun AiPanel(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    for (action in AiAction.entries) {
+                    for (action in actions) {
                         ToolPanelChip(
-                            stringResource(action.labelRes),
-                            selected = action == ai.action,
+                            aiActionLabel(action),
+                            // By id, never by equality: the running spec is a
+                            // snapshot from when the request started, and an
+                            // edit made since would un-light the chip.
+                            selected = action.id == ai.action.id,
                             // These re-run on the field, so they need field
                             // text — unlike Replace/Insert, which only need
-                            // the result already on screen. Custom is the
-                            // exception: it can write without any input.
+                            // the result already on screen. An action that
+                            // writes from nothing is the exception.
                             enabled = state.aiHasText || action.worksWithoutText,
                         ) { onAction(action) }
                     }
@@ -579,11 +600,17 @@ private fun ModelPickerRow(
     }
 }
 
+/** A shipped action's translated name, or the name the user gave it. */
+@Composable
+internal fun aiActionLabel(spec: AiActionSpec): String =
+    BuiltInAiActions.labelRes(spec)?.let { stringResource(it) } ?: spec.name
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ActionChips(
-    onAction: (AiAction) -> Unit,
-    running: AiAction? = null,
+    actions: List<AiActionSpec>,
+    onAction: (AiActionSpec) -> Unit,
+    running: AiActionSpec? = null,
     enabled: Boolean = true,
 ) {
     FlowRow(
@@ -591,14 +618,14 @@ private fun ActionChips(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        for (action in AiAction.entries) {
+        for (action in actions) {
+            val isRunning = running != null && action.id == running.id
             ToolPanelChip(
-                stringResource(action.labelRes),
-                selected = action == running,
+                aiActionLabel(action),
+                selected = isRunning,
                 // The running chip stays lit rather than dimming — it is the
-                // label of what is in flight, not an offer to tap.
-                enabled = (enabled || action.worksWithoutText) &&
-                    (running == null || action == running),
+                // label of what is in flight, not an offer to press.
+                enabled = (enabled || action.worksWithoutText) && (running == null || isRunning),
             ) {
                 if (running == null) onAction(action)
             }
@@ -719,7 +746,7 @@ private fun StepLabel(label: String, done: Boolean, current: Boolean) {
 /** The one-line "what's happening" above [AiProgress]'s bar. */
 @Composable
 private fun headline(ai: AiUi.Loading, onDevice: Boolean): String {
-    val action = stringResource(ai.action.labelRes)
+    val action = aiActionLabel(ai.action)
     return when {
         ai.phase == AiPhase.THINKING -> stringResource(R.string.ime_ai_progress_thinking)
         onDevice -> stringResource(R.string.ime_ai_progress_on_device, action)

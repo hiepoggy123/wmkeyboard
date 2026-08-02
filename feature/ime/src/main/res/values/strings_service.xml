@@ -42,8 +42,11 @@
     <string name="ime_ai_download_paused">The download stopped. Start it again in the settings of the tool.</string>
     <!-- Shown under the action chips. %1$s is the name of the AI provider. -->
     <string name="ime_ai_idle_body">The actions run on the selected text, or on the whole field. They use %1$s.</string>
-    <!-- Shown when the field is empty and the actions are off. %1$s is the name of the Custom action. -->
+    <!-- Shown when the field is empty and the actions are off. %1$s is the name
+         of an action that writes new text, usually Custom. -->
     <string name="ime_ai_idle_empty_body">Type or select some text to use these actions. Press %1$s to write new text.</string>
+    <!-- The same, but no action can write new text: the user turned them off. -->
+    <string name="ime_ai_idle_empty_no_writer_body">Type or select some text to use these actions.</string>
     <string name="ime_ai_custom_hint_text">Type an instruction. For example: “make this a haiku”</string>
     <string name="ime_ai_custom_hint_empty">Type an instruction. For example: “write a haiku about rain”</string>
     <!-- Shown beside the Run button. %1$s is the name of the AI provider. -->

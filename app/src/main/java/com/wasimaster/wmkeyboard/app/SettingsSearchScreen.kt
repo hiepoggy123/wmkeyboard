@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.StickyNote2
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.PhotoLibrary
@@ -218,6 +219,7 @@ internal val SettingsRouteIcons: Map<String, ImageVector> = mapOf(
     "layout" to Icons.Outlined.AspectRatio,
     "keymaps" to Icons.Outlined.GridOn,
     "rows" to Icons.Outlined.ViewAgenda,
+    "ai_actions" to Icons.Outlined.AutoAwesome,
     "modes" to Icons.Outlined.Tune,
     "emoji" to Icons.Outlined.EmojiEmotions,
     "emojikeywords" to Icons.Outlined.EmojiEmotions,

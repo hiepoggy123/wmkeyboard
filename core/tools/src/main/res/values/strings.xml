@@ -47,6 +47,22 @@
     <string name="core_tools_ai_phase_thinking">Reasoning</string>
 
     <!-- ================================================================== -->
+    <!-- AI tool: the writing actions that ship with the keyboard. Each one  -->
+    <!-- is a command given to the model about the text in the field. The    -->
+    <!-- user can rename these, so a name they changed is their own text and -->
+    <!-- is no longer translated.                                            -->
+    <!-- ================================================================== -->
+
+    <string name="core_tools_ai_action_rewrite_label">Rewrite</string>
+    <string name="core_tools_ai_action_summarize_label">Summarize</string>
+    <string name="core_tools_ai_action_translate_label">Translate</string>
+    <string name="core_tools_ai_action_improve_label">Improve</string>
+    <string name="core_tools_ai_action_fix_grammar_label">Fix grammar</string>
+    <string name="core_tools_ai_action_explain_label">Explain</string>
+    <!-- Write more text that carries on from what is already in the field. -->
+    <string name="core_tools_ai_action_continue_label">Continue</string>
+
+    <!-- ================================================================== -->
     <!-- GIF and sticker panel: the chips that select a source.             -->
     <!-- ================================================================== -->
 

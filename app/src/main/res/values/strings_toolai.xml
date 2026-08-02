@@ -124,8 +124,46 @@
     <string name="toolai_ai_model_picker_title">Model picker on the panel</string>
     <string name="toolai_ai_model_picker_subtitle">Change between the providers that you set up and the models that you download, on the keyboard</string>
 
-    <string name="toolai_ai_prompts_title">Prompts</string>
-    <string name="toolai_ai_prompts_info">You can edit the system prompt of each action. Clear a field to restore the built-in prompt.</string>
+    <string name="toolai_ai_actions_group_title">Actions</string>
+    <string name="toolai_ai_actions_title">Actions on the panel</string>
+    <string name="toolai_ai_actions_subtitle">Add your own actions, change the prompts, and turn off the ones that you do not use</string>
+    <string name="toolai_ai_actions_caption">These are the buttons on the AI panel. You can rename an action that comes with the keyboard, change its prompt, or turn it off. Turning an action off keeps it here, so you can turn it on again. Press Reset in an action to bring back the one that comes with the keyboard.</string>
+    <string name="toolai_ai_actions_reorder_title">Order of the actions</string>
+    <string name="toolai_ai_action_edit_desc">Edit this action</string>
+    <string name="toolai_ai_action_new_title">New action</string>
+    <string name="toolai_ai_action_new_subtitle">Write your own prompt and give it a name</string>
+    <!-- Summary of an action that asks the user for its prompt at every run. -->
+    <string name="toolai_ai_action_ask_summary">You type the prompt at every run</string>
+    <string name="toolai_ai_action_no_prompt_summary">No prompt yet</string>
+    <!-- Name given to an action that the user saved without one. -->
+    <string name="toolai_ai_action_default_name">New action</string>
+    <!-- Caption at the top of an action that comes with the keyboard. %1$s is
+         its name, for example Rewrite. -->
+    <string name="toolai_ai_action_builtin_caption">This action comes with the keyboard. Your changes are kept separately, so Reset brings back %1$s.</string>
+    <string name="toolai_ai_action_name_label">Name</string>
+    <string name="toolai_ai_action_task_label">Prompt</string>
+    <!-- Helper text under the prompt field. %1$s is the text {target}, which
+         the app replaces with the target language. Do not translate it. -->
+    <string name="toolai_ai_action_task_hint">Give the model the task only. The app adds the safety text and the output rules. Write %1$s where you want the target language.</string>
+    <!-- Helper text under the prompt field when the user writes the whole prompt. -->
+    <string name="toolai_ai_action_task_raw_hint">The app sends this text as it is. You write the safety text yourself.</string>
+
+    <string name="toolai_ai_action_behaviour_title">Behaviour</string>
+    <string name="toolai_ai_action_ask_title">Type the prompt at every run</string>
+    <string name="toolai_ai_action_ask_subtitle">The keyboard asks you for the prompt instead of using a saved one</string>
+    <string name="toolai_ai_action_empty_field_title">Works with an empty field</string>
+    <string name="toolai_ai_action_empty_field_subtitle">With no text in the field, the action writes new text instead of changing text</string>
+    <string name="toolai_ai_action_before_cursor_title">Read the text before the cursor</string>
+    <string name="toolai_ai_action_before_cursor_subtitle">The action reads only the text in front of the cursor, not the whole field. Selected text always wins.</string>
+    <string name="toolai_ai_action_append_title">Add the result to the end</string>
+    <string name="toolai_ai_action_append_subtitle">Replace adds the result after your text instead of in place of it</string>
+    <string name="toolai_ai_action_output_only_title">Answer with the text only</string>
+    <string name="toolai_ai_action_output_only_subtitle">The model gives the result and nothing else. Turn this off for an action that explains something.</string>
+    <string name="toolai_ai_action_raw_title">Write the whole prompt</string>
+    <string name="toolai_ai_action_raw_subtitle">The app sends your text as it is. The safety text stops the model from reading the text of the field as commands, so turn this on only if you write that part yourself.</string>
+    <string name="toolai_ai_action_preview_title">The prompt that the app sends</string>
+    <string name="toolai_ai_action_reset_action">Reset</string>
+    <string name="toolai_ai_action_delete_action">Delete</string>
     <!-- Caption at the foot of the AI screen when the model runs on the device. -->
     <string name="toolai_ai_on_device_info">On-device models run on your device. The text that you run an action on stays on your device. The context window of the model limits the response length.</string>
     <!-- Caption at the foot of the AI screen when the model runs on a server. -->
