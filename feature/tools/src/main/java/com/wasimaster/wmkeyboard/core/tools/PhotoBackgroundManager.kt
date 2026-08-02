@@ -1,8 +1,10 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 import android.content.Context
+import android.net.Uri
 import android.os.SystemClock
 import android.os.StatFs
+import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.settings.MAX_FETCH_PER_RUN
 import com.wasimaster.wmkeyboard.core.settings.PhotoBackgroundSettings
@@ -209,6 +211,42 @@ object PhotoBackgroundManager {
         }
     }
 
+    /**
+     * Copies a photo the user picked on the device into the pool.
+     *
+     * Copied rather than referenced: a picker grant is good for one shot, so a
+     * `content://` URI kept in the pool would be dead by the next rotation.
+     */
+    suspend fun addDevicePhoto(
+        context: Context,
+        uri: Uri,
+        nowMs: Long = System.currentTimeMillis(),
+    ): Boolean = withContext(Dispatchers.IO) {
+        val file = File(poolDir(context), "d_${nowMs}_${uri.hashCode().toUInt()}.img")
+        val measured = try {
+            requireSpace(context, DEVICE_PHOTO_MAX_BYTES)
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                file.outputStream().use { input.copyTo(it) }
+            } ?: return@withContext false
+            measure(file)
+        } catch (failed: IOException) {
+            // A file the provider cannot open, or a full disk. The half-written
+            // copy is no use to anybody.
+            DebugLog.e(LOG_TAG, "cannot copy the picked photo", failed)
+            file.delete()
+            return@withContext false
+        } catch (failed: SecurityException) {
+            // The picker grant expired before the copy finished.
+            DebugLog.e(LOG_TAG, "no permission to read the picked photo", failed)
+            file.delete()
+            return@withContext false
+        }
+        // Outside the try: a cancellation here has to propagate rather than
+        // be reported as "the photo could not be added".
+        addLocalToPool(context, file, RotationSourceKind.DEVICE, measured, nowMs)
+        true
+    }
+
     // ---- the rotation pool ---------------------------------------------
 
     suspend fun readPool(context: Context): PoolIndex = poolLock.withLock {
@@ -281,6 +319,7 @@ object PhotoBackgroundManager {
         themeId: String,
         current: RotationState?,
         wantWide: Boolean,
+        sources: Set<RotationSourceKind> = RotationSourceKind.entries.toSet(),
         random: Random = Random.Default,
         nowMs: Long = System.currentTimeMillis(),
         elapsedMs: Long = SystemClock.elapsedRealtime(),
@@ -288,7 +327,11 @@ object PhotoBackgroundManager {
         if (!DirectBoot.isUserUnlocked(context)) return false
         val index = readPool(context)
         val currentName = current?.imagePath?.let { File(it).name }
-        val next = pickNextPhoto(index.entries, currentName, wantWide, random) ?: return false
+        // Turning a source off has to stop its photos being shown, not merely
+        // stop new ones arriving. Photos already downloaded stay on disk, so
+        // turning the source back on brings them back rather than re-fetching.
+        val eligible = index.entries.filter { it.source in sources }
+        val next = pickNextPhoto(eligible, currentName, wantWide, random) ?: return false
         val file = File(poolDir(context), next.fileName)
         if (!file.isFile) return false
 
@@ -385,6 +428,34 @@ object PhotoBackgroundManager {
         val index = readPoolLocked(context)
         runCatching { File(poolDir(context), fileName).delete() }
         writePoolLocked(context, index.copy(entries = index.entries.filterNot { it.fileName == fileName }))
+    }
+
+    /** Pool entry for a file with no service behind it, so no credit either. */
+    private suspend fun addLocalToPool(
+        context: Context,
+        file: File,
+        source: RotationSourceKind,
+        measured: PhotoMeasurements?,
+        nowMs: Long,
+    ) = poolLock.withLock {
+        val index = readPoolLocked(context)
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeFile(file.absolutePath, bounds)
+        val entry = PoolEntry(
+            fileName = file.name,
+            source = source,
+            credit = null,
+            widthPx = bounds.outWidth.coerceAtLeast(0),
+            heightPx = bounds.outHeight.coerceAtLeast(0),
+            bytes = file.length(),
+            seedColor = measured?.seedColor ?: 0L,
+            scrimAlpha = measured?.scrimAlpha ?: -1f,
+            addedAt = nowMs,
+        )
+        writePoolLocked(
+            context,
+            index.copy(entries = index.entries.filterNot { it.fileName == entry.fileName } + entry),
+        )
     }
 
     private suspend fun addToPool(
@@ -487,6 +558,10 @@ object PhotoBackgroundManager {
     private const val POOL_BUDGET_BYTES = 24L * 1024 * 1024
     private const val SPACE_MARGIN_BYTES = 32L * 1024 * 1024
     private const val POOL_DIR_NAME = "theme_photos"
+    private const val LOG_TAG = "PhotoBackground"
+
+    /** A device photo is the user's own file, so the cap is generous. */
+    private const val DEVICE_PHOTO_MAX_BYTES = 16L * 1024 * 1024
 
     // The default dark theme, which is what an unmeasured photo is judged
     // against. Close enough: the editor re-measures against the real theme.

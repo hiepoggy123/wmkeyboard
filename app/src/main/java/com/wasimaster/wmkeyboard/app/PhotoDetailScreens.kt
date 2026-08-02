@@ -96,7 +96,7 @@ fun PhotoDetailScreen(
     }
 
     WmScreen(
-        title = stringResource(R.string.photo_hub_title),
+        title = stringResource(R.string.photo_detail_title),
         onBack = onBack,
         subtitle = theme?.name,
         subtitleInBar = true,

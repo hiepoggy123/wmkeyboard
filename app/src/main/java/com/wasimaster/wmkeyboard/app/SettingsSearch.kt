@@ -215,32 +215,35 @@ private fun Resources.keyPressRows(): List<SettingsSearchEntry> {
 
 /** Rows on Appearance and the two screens that hang off it. */
 private fun Resources.photoRows(): List<SettingsSearchEntry> {
-    fun hub(@StringRes title: Int, @StringRes subtitle: Int = 0) = entry(
-        title, subtitle, R.string.photo_hub_title, "photos",
-        screenParent = R.string.home_appearance_title,
+    fun services(@StringRes title: Int, @StringRes subtitle: Int = 0) = entry(
+        title, subtitle, R.string.photo_services_title, "photos",
+        screenParent = R.string.home_screen_theme_edit_title,
+        screenRoot = R.string.home_appearance_title,
     )
     fun rotation(@StringRes title: Int, @StringRes subtitle: Int = 0) = entry(
         title, subtitle, R.string.photo_rotation_title, "photo_rotation",
-        screenParent = R.string.photo_hub_title,
+        screenParent = R.string.home_screen_theme_edit_title,
         screenRoot = R.string.home_appearance_title,
     )
     fun library(@StringRes title: Int, @StringRes subtitle: Int = 0) = entry(
         title, subtitle, R.string.photo_library_title, "photo_library",
-        screenParent = R.string.photo_hub_title,
+        screenParent = R.string.photo_rotation_title,
         screenRoot = R.string.home_appearance_title,
     )
     return listOf(
-        hub(R.string.photo_unsplash_key_label),
-        hub(R.string.photo_pexels_key_label),
+        services(R.string.photo_unsplash_key_label),
+        services(R.string.photo_pexels_key_label),
         rotation(R.string.photo_rotation_on_title, R.string.photo_rotation_on_subtitle),
         rotation(R.string.photo_rotation_interval_title),
         rotation(R.string.photo_rotation_shuffle_title, R.string.photo_rotation_shuffle_subtitle),
-        rotation(R.string.photo_rotation_source_saved_title),
-        rotation(R.string.photo_rotation_source_online_title),
-        rotation(R.string.photo_rotation_topics_title),
+        rotation(R.string.photo_rotation_source_saved_title, R.string.photo_rotation_source_saved_subtitle),
+        rotation(R.string.photo_rotation_source_online_title, R.string.photo_rotation_source_online_subtitle),
+        rotation(R.string.photo_rotation_source_device_title, R.string.photo_rotation_source_device_subtitle),
+        rotation(R.string.photo_rotation_device_pick_title, R.string.photo_rotation_device_pick_subtitle),
+        rotation(R.string.photo_rotation_topics_title, R.string.photo_rotation_topics_subtitle),
         rotation(R.string.photo_rotation_terms_label),
         rotation(R.string.photo_rotation_safe_title, R.string.photo_rotation_safe_subtitle),
-        rotation(R.string.photo_orientation_title),
+        rotation(R.string.photo_rotation_wide_title, R.string.photo_rotation_wide_subtitle),
         rotation(R.string.photo_rotation_metered_title, R.string.photo_rotation_metered_subtitle),
         rotation(R.string.photo_rotation_pool_title),
         rotation(R.string.photo_rotation_scope_title),
@@ -248,6 +251,7 @@ private fun Resources.photoRows(): List<SettingsSearchEntry> {
             R.string.photo_rotation_delete_downloads_title,
             R.string.photo_rotation_delete_downloads_subtitle,
         ),
+        library(R.string.photo_add_device_title, R.string.photo_add_device_subtitle),
         library(R.string.photo_storage_title),
     )
 }
@@ -271,7 +275,6 @@ private fun Resources.appearanceRows(): List<SettingsSearchEntry> {
         theme(R.string.theme_auto_light_from_title),
         theme(R.string.theme_auto_dark_from_title),
         theme(R.string.theme_background_image_landscape_title),
-        theme(R.string.theme_background_source_online),
         icon(R.string.plugins_icons_pack_title),
         icon(R.string.plugins_icons_import_title, R.string.plugins_icons_import_subtitle),
         icon(R.string.plugins_icons_reset_title, R.string.plugins_icons_reset_subtitle),
@@ -645,20 +648,20 @@ private fun Resources.sectionRows(): List<SettingsSearchEntry> {
         home(R.string.home_appearance_title, R.string.home_appearance_subtitle, route = "appearance"),
         home(R.string.home_layout_title, R.string.home_layout_subtitle, route = "layout"),
         under(
-            R.string.photo_hub_title, R.string.photo_hub_subtitle,
-            R.string.home_appearance_title, "photos",
+            R.string.photo_rotation_title, R.string.photo_rotation_subtitle,
+            R.string.home_screen_theme_edit_title, "photo_rotation",
         ),
         under(
             R.string.photo_find_title, R.string.photo_find_subtitle,
-            R.string.photo_hub_title, "photo_browse",
+            R.string.home_screen_theme_edit_title, "photo_browse",
         ),
         under(
             R.string.photo_library_title, R.string.photo_library_subtitle,
-            R.string.photo_hub_title, "photo_library",
+            R.string.photo_rotation_title, "photo_library",
         ),
         under(
-            R.string.photo_rotation_title, R.string.photo_rotation_subtitle,
-            R.string.photo_hub_title, "photo_rotation",
+            R.string.photo_services_title, R.string.photo_services_subtitle,
+            R.string.home_screen_theme_edit_title, "photos",
         ),
         home(R.string.home_keymaps_title, R.string.home_keymaps_subtitle, route = "keymaps"),
         home(R.string.home_rows_title, R.string.home_rows_subtitle, route = "rows"),

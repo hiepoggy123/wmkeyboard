@@ -2454,6 +2454,7 @@ open class WMKeyboardService : InputMethodService() {
                 themeId = themeId,
                 current = state,
                 wantWide = photos.landscapeOnly,
+                sources = photos.sources,
             )
         }
     }

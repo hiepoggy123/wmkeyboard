@@ -29,6 +29,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.core.net.toUri
+import androidx.compose.material.icons.outlined.Wallpaper
+import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.PhotoLibrary
@@ -1075,6 +1077,35 @@ fun ThemeEditorScreen(
         )
     }
 
+    // Photo backgrounds belong to a theme, so they live here rather than as
+    // their own branch of Appearance: a rotating background is a property of
+    // the theme it is drawn over.
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.photo_rotation_title)) },
+        supportingContent = { Text(stringResource(R.string.photo_rotation_subtitle)) },
+        leadingContent = { Icon(Icons.Outlined.Autorenew, contentDescription = null) },
+        trailingContent = {
+            Text(
+                stringResource(
+                    if (settings.photoBackground.rotateEnabled) {
+                        CommonR.string.common_on
+                    } else {
+                        CommonR.string.common_off
+                    },
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        modifier = Modifier.clickable { onNavigate(PHOTO_ROTATION_ROUTE) },
+    )
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.photo_services_title)) },
+        supportingContent = { Text(stringResource(R.string.photo_services_subtitle)) },
+        leadingContent = { Icon(Icons.Outlined.Wallpaper, contentDescription = null) },
+        modifier = Modifier.clickable { onNavigate(PHOTO_HUB_ROUTE) },
+    )
+
     SectionHeaderPublic(stringResource(R.string.theme_keys_section_title))
     Text(
         stringResource(R.string.theme_key_shape_title),
@@ -1840,19 +1871,22 @@ private fun BackgroundSourceDialog(
         text = {
             Column {
                 ListItem(
-                    headlineContent = { Text(stringResource(R.string.theme_background_source_device)) },
+                    headlineContent = { Text(stringResource(R.string.photo_add_device_title)) },
+                    supportingContent = { Text(stringResource(R.string.photo_add_device_subtitle)) },
                     leadingContent = { Icon(Icons.Outlined.PhotoLibrary, contentDescription = null) },
                     colors = transparentListColors(),
                     modifier = Modifier.clickable(onClick = onDevice),
                 )
                 ListItem(
-                    headlineContent = { Text(stringResource(R.string.theme_background_source_online)) },
+                    headlineContent = { Text(stringResource(R.string.photo_find_title)) },
+                    supportingContent = { Text(stringResource(R.string.photo_find_subtitle)) },
                     leadingContent = { Icon(Icons.Outlined.Search, contentDescription = null) },
                     colors = transparentListColors(),
                     modifier = Modifier.clickable(onClick = onOnline),
                 )
                 ListItem(
-                    headlineContent = { Text(stringResource(R.string.theme_background_source_saved)) },
+                    headlineContent = { Text(stringResource(R.string.photo_library_title)) },
+                    supportingContent = { Text(stringResource(R.string.photo_library_subtitle)) },
                     leadingContent = { Icon(Icons.Outlined.Collections, contentDescription = null) },
                     colors = transparentListColors(),
                     modifier = Modifier.clickable(onClick = onSaved),

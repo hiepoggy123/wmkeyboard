@@ -112,6 +112,19 @@ class RotationPoolTest {
         assertEquals("tall", pickNextPhoto(entries, null, wantWide = true)?.fileName)
     }
 
+    @Test
+    fun `turning a source off hides its photos, it does not only stop new ones`() {
+        val entries = listOf(
+            entry("online", source = RotationSourceKind.ONLINE),
+            entry("mine", source = RotationSourceKind.DEVICE),
+        )
+        // This is the filter the rotation applies before picking. Without it,
+        // switching "online photos" off would still show the ones already on
+        // disk, which reads as the toggle doing nothing.
+        val onlyMine = entries.filter { it.source in setOf(RotationSourceKind.DEVICE) }
+        assertEquals("mine", pickNextPhoto(onlyMine, currentFileName = null)?.fileName)
+    }
+
     // ---- eviction -----------------------------------------------------
 
     private fun filesOf(vararg names: String) = names.toSet()

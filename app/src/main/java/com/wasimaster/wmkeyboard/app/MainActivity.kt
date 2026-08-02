@@ -621,7 +621,6 @@ private fun SettingsNavGraph(
                     onOpenThemes = { navController.navigate("themes") },
                     onOpenFonts = { navController.navigate("fonts") },
                     onOpenIcons = { navController.navigate("icons") },
-                    onOpenPhotos = { navController.navigate(PHOTO_HUB_ROUTE) },
                 )
             }
         }
@@ -670,10 +669,9 @@ private fun SettingsNavGraph(
             }
         }
         composable(PHOTO_HUB_ROUTE) {
-            PhotoBackgroundsScreen(
+            PhotoServicesScreen(
                 repository = repository,
                 settings = settings,
-                onNavigate = { route -> navController.navigate(route) },
                 onBack = { navController.popBackStack() },
             )
         }
@@ -734,6 +732,7 @@ private fun SettingsNavGraph(
             PhotoRotationScreen(
                 repository = repository,
                 settings = settings,
+                onNavigate = { route -> navController.navigate(route) },
                 onBack = { navController.popBackStack() },
             )
         }
@@ -3479,7 +3478,6 @@ private fun AppearanceSettings(
     onOpenThemes: () -> Unit,
     onOpenFonts: () -> Unit,
     onOpenIcons: () -> Unit,
-    onOpenPhotos: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     // Slider readouts are plain lambdas, so their format strings are resolved
@@ -3539,21 +3537,6 @@ private fun AppearanceSettings(
                 },
                 route = "icons",
                 onClick = onOpenIcons,
-            )
-        }
-        item {
-            NavRow(
-                stringResource(R.string.photo_hub_title),
-                stringResource(R.string.photo_hub_subtitle),
-                value = stringResource(
-                    if (settings.photoBackground.rotateEnabled) {
-                        CommonR.string.common_on
-                    } else {
-                        CommonR.string.common_off
-                    },
-                ),
-                route = PHOTO_HUB_ROUTE,
-                onClick = onOpenPhotos,
             )
         }
     }
