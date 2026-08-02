@@ -8016,14 +8016,16 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
     // which is what gives Bengali or Arabic digits.
     val numberFormat = stringResource(R.string.values_number)
     SectionHeader(stringResource(R.string.toolai_ai_provider_title))
-    // Six providers no longer fit a segmented row; chips wrap instead.
+    // Nine providers no longer fit a segmented row; chips wrap instead. The
+    // order is displayOrder, not the enum's own: new entries can only be
+    // appended there, which would put them after "On your device".
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
-        val providers = AiProvider.entries.filter {
+        val providers = AiProvider.displayOrder.filter {
             it != AiProvider.ON_DEVICE || BuildConfig.ENABLE_LOCAL_LLM
         }
         for (provider in providers) {
@@ -8140,10 +8142,85 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
                 ) { repository.setAiLmStudioModel(it) }
             }
         }
+        AiProvider.XAI -> SettingsGroup(
+            stringResource(R.string.toolai_ai_xai_group_title),
+        ) {
+            item {
+                ApiKeyField(
+                    label = stringResource(R.string.toolai_ai_xai_key_label),
+                    value = settings.ai.xaiKey,
+                    builtInAvailable = false,
+                    emptyHint = stringResource(R.string.toolai_ai_xai_key_hint),
+                ) { repository.setAiXaiKey(it) }
+            }
+            item {
+                TextFieldSetting(
+                    label = stringResource(R.string.toolai_ai_model_label),
+                    value = settings.ai.xaiModel,
+                    hint = stringResource(
+                        R.string.toolai_ai_model_hint,
+                        AiClient.DefaultModels.XAI,
+                    ),
+                ) { repository.setAiXaiModel(it) }
+            }
+        }
+        AiProvider.DEEPSEEK -> SettingsGroup(
+            stringResource(R.string.toolai_ai_deepseek_group_title),
+        ) {
+            item {
+                ApiKeyField(
+                    label = stringResource(R.string.toolai_ai_deepseek_key_label),
+                    value = settings.ai.deepSeekKey,
+                    builtInAvailable = false,
+                    emptyHint = stringResource(R.string.toolai_ai_deepseek_key_hint),
+                ) { repository.setAiDeepSeekKey(it) }
+            }
+            item {
+                TextFieldSetting(
+                    label = stringResource(R.string.toolai_ai_model_label),
+                    value = settings.ai.deepSeekModel,
+                    hint = stringResource(
+                        R.string.toolai_ai_model_hint,
+                        AiClient.DefaultModels.DEEPSEEK,
+                    ),
+                ) { repository.setAiDeepSeekModel(it) }
+            }
+        }
+        AiProvider.OPENAI_COMPATIBLE -> SettingsGroup(
+            stringResource(R.string.toolai_ai_compatible_group_title),
+        ) {
+            item {
+                TextFieldSetting(
+                    label = stringResource(R.string.toolai_ai_compatible_url_label),
+                    value = settings.ai.compatibleUrl,
+                    hint = stringResource(R.string.toolai_ai_compatible_url_hint),
+                ) { repository.setAiCompatibleUrl(it) }
+            }
+            item {
+                // No default model: there is nothing sensible to guess for a
+                // service the app knows nothing about.
+                TextFieldSetting(
+                    label = stringResource(R.string.toolai_ai_model_label),
+                    value = settings.ai.compatibleModel,
+                    hint = stringResource(R.string.toolai_ai_compatible_model_hint),
+                ) { repository.setAiCompatibleModel(it) }
+            }
+            item {
+                ApiKeyField(
+                    label = stringResource(R.string.toolai_ai_compatible_key_label),
+                    value = settings.ai.compatibleKey,
+                    builtInAvailable = false,
+                    emptyHint = stringResource(R.string.toolai_ai_compatible_key_hint),
+                ) { repository.setAiCompatibleKey(it) }
+            }
+        }
         AiProvider.ON_DEVICE -> LocalLlmModelManager(repository, settings)
     }
     if (settings.ai.provider == AiProvider.OLLAMA || settings.ai.provider == AiProvider.LM_STUDIO) {
         CaptionText(stringResource(R.string.toolai_ai_local_server_info))
+    }
+    if (settings.ai.provider == AiProvider.OPENAI_COMPATIBLE) {
+        CaptionText(stringResource(R.string.toolai_ai_compatible_info))
     }
     SettingsGroup(stringResource(R.string.toolai_ai_output_title)) {
         if (settings.ai.provider != AiProvider.ON_DEVICE) {

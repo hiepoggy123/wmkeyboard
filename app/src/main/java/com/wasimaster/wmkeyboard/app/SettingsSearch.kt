@@ -552,6 +552,17 @@ private fun Resources.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_model_label),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_openai_key_label, R.string.toolai_ai_openai_key_hint),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_gemini_key_label, R.string.toolai_ai_gemini_key_hint),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_xai_key_label, R.string.toolai_ai_xai_key_hint),
+    toolEntry(
+        ToolbarTool.AI,
+        R.string.toolai_ai_deepseek_key_label,
+        R.string.toolai_ai_deepseek_key_hint,
+    ),
+    toolEntry(
+        ToolbarTool.AI,
+        R.string.toolai_ai_compatible_url_label,
+        R.string.toolai_ai_compatible_url_hint,
+    ),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_server_address_label, R.string.toolai_ai_ollama_url_hint),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_max_tokens_title, R.string.toolai_ai_max_tokens_subtitle),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_translate_to_label, R.string.toolai_ai_translate_to_hint),

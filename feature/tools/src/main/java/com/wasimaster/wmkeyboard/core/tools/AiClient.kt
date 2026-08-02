@@ -45,6 +45,35 @@ object AiClient {
         const val OPENAI = "gpt-5.6-luna"
         const val GEMINI = "gemini-3.5-flash"
         const val OLLAMA = "qwen3"
+        const val XAI = "grok-4.5"
+        const val DEEPSEEK = "deepseek-v4-flash"
+    }
+
+    /**
+     * Fixed addresses of the services that speak the OpenAI chat-completions
+     * shape. [AiProvider.OPENAI_COMPATIBLE] is absent on purpose: its address is
+     * the one the user supplies.
+     */
+    private object Endpoints {
+        const val OPENAI = "https://api.openai.com/v1/chat/completions"
+        const val XAI = "https://api.x.ai/v1/chat/completions"
+        const val DEEPSEEK = "https://api.deepseek.com/v1/chat/completions"
+    }
+
+    /**
+     * The chat-completions address for a provider whose request shape is
+     * OpenAI's. The three self-hosted or user-supplied entries build it from the
+     * address in settings; the rest are fixed.
+     */
+    internal fun openAiCompatibleUrl(config: Config): String = when (config.provider) {
+        AiProvider.OPENAI -> Endpoints.OPENAI
+        AiProvider.XAI -> Endpoints.XAI
+        AiProvider.DEEPSEEK -> Endpoints.DEEPSEEK
+        AiProvider.LM_STUDIO -> "${config.baseUrl.trimEnd('/')}/v1/chat/completions"
+        // The user gives the address up to and including any version segment,
+        // because those differ between services (/v1, /openai/v1, /api/v1).
+        AiProvider.OPENAI_COMPATIBLE -> "${config.baseUrl.trimEnd('/')}/chat/completions"
+        else -> error("${config.provider} does not use the OpenAI request shape")
     }
 
     fun config(settings: AiSettings): Config = when (settings.provider) {
@@ -70,6 +99,19 @@ object AiClient {
             settings.lmStudioModel,
             settings.lmStudioUrl,
         )
+        AiProvider.XAI -> Config(
+            AiProvider.XAI, settings.xaiKey,
+            settings.xaiModel.ifBlank { DefaultModels.XAI }, "",
+        )
+        AiProvider.DEEPSEEK -> Config(
+            AiProvider.DEEPSEEK, settings.deepSeekKey,
+            settings.deepSeekModel.ifBlank { DefaultModels.DEEPSEEK }, "",
+        )
+        AiProvider.OPENAI_COMPATIBLE -> Config(
+            AiProvider.OPENAI_COMPATIBLE, settings.compatibleKey,
+            settings.compatibleModel,
+            settings.compatibleUrl,
+        )
         AiProvider.ON_DEVICE -> Config(
             AiProvider.ON_DEVICE, "",
             settings.localModelId, "",
@@ -85,6 +127,7 @@ object AiClient {
     private val REASONING_MODEL_HINTS = listOf(
         "thinking", "reason", "-r1", "qwq", "magistral",
         "gpt-5", "o1-", "o3", "o4-", "qwen3", "qwen-3",
+        "grok-4", "deepseek-v4",
     )
 
     /** Reasoning models get this much more room than the user's setting. */
@@ -120,6 +163,11 @@ object AiClient {
         val config = config(settings)
         return when (config.provider) {
             AiProvider.OLLAMA, AiProvider.LM_STUDIO -> config.baseUrl.isNotBlank()
+            // A key is optional here: a gateway on the user's own network often
+            // wants none. The model is not, because there is no sensible default
+            // for a service we know nothing about.
+            AiProvider.OPENAI_COMPATIBLE ->
+                config.baseUrl.isNotBlank() && config.model.isNotBlank()
             AiProvider.ON_DEVICE -> config.model.isNotBlank()
             else -> config.apiKey.isNotBlank()
         }
@@ -131,13 +179,17 @@ object AiClient {
      * choices are per-model and need file checks the caller owns.
      */
     fun configuredRemoteProviders(settings: AiSettings): List<AiProvider> =
-        AiProvider.entries.filter { provider ->
+        AiProvider.displayOrder.filter { provider ->
             when (provider) {
                 AiProvider.ANTHROPIC -> settings.anthropicKey.isNotBlank()
                 AiProvider.OPENAI -> settings.openAiKey.isNotBlank()
                 AiProvider.GEMINI -> settings.geminiKey.isNotBlank()
                 AiProvider.OLLAMA -> settings.ollamaUrl.isNotBlank()
                 AiProvider.LM_STUDIO -> settings.lmStudioUrl.isNotBlank()
+                AiProvider.XAI -> settings.xaiKey.isNotBlank()
+                AiProvider.DEEPSEEK -> settings.deepSeekKey.isNotBlank()
+                AiProvider.OPENAI_COMPATIBLE ->
+                    settings.compatibleUrl.isNotBlank() && settings.compatibleModel.isNotBlank()
                 AiProvider.ON_DEVICE -> false
             }
         }
@@ -164,15 +216,13 @@ object AiClient {
     ): String = when (config.provider) {
         AiProvider.ANTHROPIC ->
             anthropicStream(config, system, user, maxTokens, onPhase, onPartial, isActive)
-        AiProvider.OPENAI -> openAiCompatibleStream(
-            "https://api.openai.com/v1/chat/completions",
-            config, system, user, maxTokens, onPhase, onPartial, isActive,
-        )
         AiProvider.GEMINI ->
             geminiStream(config, system, user, maxTokens, onPhase, onPartial, isActive)
         AiProvider.OLLAMA -> ollamaStream(config, system, user, onPhase, onPartial, isActive)
-        AiProvider.LM_STUDIO -> openAiCompatibleStream(
-            "${config.baseUrl.trimEnd('/')}/v1/chat/completions",
+        AiProvider.OPENAI, AiProvider.LM_STUDIO, AiProvider.XAI,
+        AiProvider.DEEPSEEK, AiProvider.OPENAI_COMPATIBLE,
+        -> openAiCompatibleStream(
+            openAiCompatibleUrl(config),
             config, system, user, maxTokens, onPhase, onPartial, isActive,
         )
         AiProvider.ON_DEVICE ->
@@ -183,14 +233,11 @@ object AiClient {
     fun complete(config: Config, system: String, user: String, maxTokens: Int): String =
         when (config.provider) {
             AiProvider.ANTHROPIC -> anthropic(config, system, user, maxTokens)
-            AiProvider.OPENAI -> openAiCompatible(
-                "https://api.openai.com/v1/chat/completions", config, system, user, maxTokens,
-            )
             AiProvider.GEMINI -> gemini(config, system, user, maxTokens)
             AiProvider.OLLAMA -> ollama(config, system, user)
-            AiProvider.LM_STUDIO -> openAiCompatible(
-                "${config.baseUrl.trimEnd('/')}/v1/chat/completions", config, system, user, maxTokens,
-            )
+            AiProvider.OPENAI, AiProvider.LM_STUDIO, AiProvider.XAI,
+            AiProvider.DEEPSEEK, AiProvider.OPENAI_COMPATIBLE,
+            -> openAiCompatible(openAiCompatibleUrl(config), config, system, user, maxTokens)
             // On-device inference needs a Context and model file; the IME
             // service routes to LocalLlmEngine before ever calling here.
             AiProvider.ON_DEVICE ->

@@ -275,6 +275,35 @@ enum class AiProvider(@StringRes val labelRes: Int) {
     OLLAMA(R.string.core_settings_ai_provider_ollama_label),
     LM_STUDIO(R.string.core_settings_ai_provider_lm_studio_label),
     ON_DEVICE(R.string.core_settings_ai_provider_on_device_label),
+
+    // Appended, not inserted: the value is stored by name, and an entry that
+    // changes position would still read back correctly, but the panel's model
+    // picker walks `entries` and would silently reorder itself. Screens that
+    // care about the order use [AiProvider.displayOrder] instead.
+    XAI(R.string.core_settings_ai_provider_xai_label),
+    DEEPSEEK(R.string.core_settings_ai_provider_deepseek_label),
+
+    /**
+     * Any other server that speaks the OpenAI chat-completions shape: the user
+     * gives the address, the model and (if the service wants one) a key. This
+     * is what covers OpenRouter, Groq, Together, Mistral and the rest without a
+     * chip for each.
+     */
+    OPENAI_COMPATIBLE(R.string.core_settings_ai_provider_compatible_label),
+    ;
+
+    companion object {
+        /**
+         * The order the provider chips are drawn in: cloud services, then the
+         * servers the user hosts, then the catch-all, then on-device. The
+         * declaration order cannot do this job, because new entries can only be
+         * appended and would land after ON_DEVICE.
+         */
+        val displayOrder: List<AiProvider> = listOf(
+            ANTHROPIC, OPENAI, GEMINI, XAI, DEEPSEEK,
+            OLLAMA, LM_STUDIO, OPENAI_COMPATIBLE, ON_DEVICE,
+        )
+    }
 }
 
 /**
@@ -1343,6 +1372,18 @@ data class AiSettings(
     val ollamaModel: String = "",
     val lmStudioUrl: String = "",
     val lmStudioModel: String = "",
+    val xaiKey: String = "",
+    val xaiModel: String = "",
+    val deepSeekKey: String = "",
+    val deepSeekModel: String = "",
+    /**
+     * Address of any other OpenAI-compatible service, up to and including the
+     * version segment: the client adds `/chat/completions`. The key is optional,
+     * because a gateway on the user's own network often wants none.
+     */
+    val compatibleUrl: String = "",
+    val compatibleKey: String = "",
+    val compatibleModel: String = "",
     // Reasoning models get a multiple of this at request time (AiClient) —
     // their think block spends the same budget as the answer.
     val maxTokens: Int = 2048,
@@ -2566,6 +2607,13 @@ class SettingsRepository(private val context: Context) {
         private val AI_OLLAMA_MODEL = stringPreferencesKey("ai_ollama_model")
         private val AI_LM_STUDIO_URL = stringPreferencesKey("ai_lm_studio_url")
         private val AI_LM_STUDIO_MODEL = stringPreferencesKey("ai_lm_studio_model")
+        private val AI_XAI_KEY = stringPreferencesKey("ai_xai_key")
+        private val AI_XAI_MODEL = stringPreferencesKey("ai_xai_model")
+        private val AI_DEEPSEEK_KEY = stringPreferencesKey("ai_deepseek_key")
+        private val AI_DEEPSEEK_MODEL = stringPreferencesKey("ai_deepseek_model")
+        private val AI_COMPATIBLE_URL = stringPreferencesKey("ai_compatible_url")
+        private val AI_COMPATIBLE_KEY = stringPreferencesKey("ai_compatible_key")
+        private val AI_COMPATIBLE_MODEL = stringPreferencesKey("ai_compatible_model")
         private val AI_MAX_TOKENS = intPreferencesKey("ai_max_tokens")
         private val AI_TRANSLATE_TO = stringPreferencesKey("ai_translate_to")
         private val AI_PROMPT_REWRITE = stringPreferencesKey("ai_prompt_rewrite")
@@ -3246,6 +3294,13 @@ class SettingsRepository(private val context: Context) {
                 ollamaModel = p[AI_OLLAMA_MODEL] ?: defaults.ai.ollamaModel,
                 lmStudioUrl = p[AI_LM_STUDIO_URL] ?: defaults.ai.lmStudioUrl,
                 lmStudioModel = p[AI_LM_STUDIO_MODEL] ?: defaults.ai.lmStudioModel,
+                xaiKey = p[AI_XAI_KEY] ?: defaults.ai.xaiKey,
+                xaiModel = p[AI_XAI_MODEL] ?: defaults.ai.xaiModel,
+                deepSeekKey = p[AI_DEEPSEEK_KEY] ?: defaults.ai.deepSeekKey,
+                deepSeekModel = p[AI_DEEPSEEK_MODEL] ?: defaults.ai.deepSeekModel,
+                compatibleUrl = p[AI_COMPATIBLE_URL] ?: defaults.ai.compatibleUrl,
+                compatibleKey = p[AI_COMPATIBLE_KEY] ?: defaults.ai.compatibleKey,
+                compatibleModel = p[AI_COMPATIBLE_MODEL] ?: defaults.ai.compatibleModel,
                 maxTokens = p[AI_MAX_TOKENS] ?: defaults.ai.maxTokens,
                 translateTo = p[AI_TRANSLATE_TO] ?: defaults.ai.translateTo,
                 promptRewrite = p[AI_PROMPT_REWRITE] ?: defaults.ai.promptRewrite,
@@ -5750,6 +5805,27 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAiLmStudioModel(value: String) =
         editPrefs { it[AI_LM_STUDIO_MODEL] = value.trim() }
+
+    suspend fun setAiXaiKey(value: String) =
+        editPrefs { it[AI_XAI_KEY] = value.trim() }
+
+    suspend fun setAiXaiModel(value: String) =
+        editPrefs { it[AI_XAI_MODEL] = value.trim() }
+
+    suspend fun setAiDeepSeekKey(value: String) =
+        editPrefs { it[AI_DEEPSEEK_KEY] = value.trim() }
+
+    suspend fun setAiDeepSeekModel(value: String) =
+        editPrefs { it[AI_DEEPSEEK_MODEL] = value.trim() }
+
+    suspend fun setAiCompatibleUrl(value: String) =
+        editPrefs { it[AI_COMPATIBLE_URL] = value.trim().trimEnd('/') }
+
+    suspend fun setAiCompatibleKey(value: String) =
+        editPrefs { it[AI_COMPATIBLE_KEY] = value.trim() }
+
+    suspend fun setAiCompatibleModel(value: String) =
+        editPrefs { it[AI_COMPATIBLE_MODEL] = value.trim() }
 
     suspend fun setAiMaxTokens(value: Int) =
         editPrefs { it[AI_MAX_TOKENS] = value.coerceIn(64, 8192) }

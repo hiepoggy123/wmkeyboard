@@ -57,6 +57,11 @@
     <string name="toolai_ai_ollama_group_title">Ollama server</string>
     <!-- Group heading. LM Studio is a product name. Keep it in English. -->
     <string name="toolai_ai_lm_studio_group_title">LM Studio server</string>
+    <!-- Group heading. Product names. -->
+    <string name="toolai_ai_xai_group_title" translatable="false">Grok (xAI)</string>
+    <string name="toolai_ai_deepseek_group_title" translatable="false">DeepSeek</string>
+    <!-- Group heading for any other service with the same request shape as OpenAI. -->
+    <string name="toolai_ai_compatible_group_title">Other service</string>
 
     <!-- Field labels. Anthropic, OpenAI and Gemini are product names. -->
     <string name="toolai_ai_anthropic_key_label">Anthropic API key</string>
@@ -68,6 +73,23 @@
     <string name="toolai_ai_openai_key_hint">Get the key from platform.openai.com on the API keys page</string>
     <!-- Helper text under an empty key field. Do not translate the web address. -->
     <string name="toolai_ai_gemini_key_hint">Get a free key from aistudio.google.com</string>
+    <!-- Field label. xAI is a product name. -->
+    <string name="toolai_ai_xai_key_label">xAI API key</string>
+    <!-- Helper text under an empty key field. Do not translate the web address. -->
+    <string name="toolai_ai_xai_key_hint">Get the key from console.x.ai on the API keys page</string>
+    <!-- Field label. DeepSeek is a product name. -->
+    <string name="toolai_ai_deepseek_key_label">DeepSeek API key</string>
+    <!-- Helper text under an empty key field. Do not translate the web address. -->
+    <string name="toolai_ai_deepseek_key_hint">Get the key from platform.deepseek.com on the API keys page</string>
+
+    <string name="toolai_ai_compatible_key_label">API key</string>
+    <string name="toolai_ai_compatible_key_hint">Leave this blank if the service does not need a key</string>
+    <string name="toolai_ai_compatible_url_label">Service address</string>
+    <!-- Helper text under the address field. Do not translate the web addresses. -->
+    <string name="toolai_ai_compatible_url_hint">For example https://openrouter.ai/api/v1. The app adds /chat/completions to the end.</string>
+    <string name="toolai_ai_compatible_model_hint">Give the model name that the service uses</string>
+    <!-- Caption below the fields of the other service. -->
+    <string name="toolai_ai_compatible_info">Use this for a service that has the same request shape as OpenAI, for example OpenRouter, Groq, Together or Mistral. A plain HTTP address stays on your network, so keep the server on a network that you trust.</string>
 
     <string name="toolai_ai_model_label">Model</string>
     <!-- %1$s is the name of the model the app uses when the field is empty. Do not translate it. -->
