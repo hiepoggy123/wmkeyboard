@@ -1,10 +1,13 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationException
 
 /**
  * The one place the two photo providers are told apart.
@@ -98,7 +101,24 @@ object PhotoSearchClient {
         }
         val results = usable.map { source ->
             source to async {
-                runCatching { page(source, query, keys.keyFor(source), nowMs) }
+                try {
+                    Result.success(page(source, query, keys.keyFor(source), nowMs))
+                } catch (cancelled: CancellationException) {
+                    // Never folded into a Result: the caller navigating away
+                    // has to actually cancel, not come back as a failed
+                    // provider the picker would then draw a retry button for.
+                    throw cancelled
+                } catch (failed: IOException) {
+                    Result.failure(failed)
+                } catch (malformed: SerializationException) {
+                    Result.failure(malformed)
+                } catch (malformed: IllegalArgumentException) {
+                    // `jsonObject` and `jsonArray` throw this when a provider
+                    // answers 200 with something that is not the shape it
+                    // documents. One provider's bad day must not empty a grid
+                    // the other one could fill.
+                    Result.failure(malformed)
+                }
             }
         }.map { (source, job) -> source to job.await() }
 

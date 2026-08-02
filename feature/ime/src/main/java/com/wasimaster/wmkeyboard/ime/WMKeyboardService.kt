@@ -118,6 +118,7 @@ import com.wasimaster.wmkeyboard.core.settings.HardwareKeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.theme.BackgroundBitmapCache
 import com.wasimaster.wmkeyboard.core.settings.ModeField
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
@@ -2403,6 +2404,10 @@ open class WMKeyboardService : InputMethodService() {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
+        // Decoded background photos: a few MB that the next draw can rebuild
+        // from the file. Trimmed at every level, since holding them through an
+        // idle hour is part of what gets a keyboard killed.
+        BackgroundBitmapCache.trim(level)
         // A cached local model pins hundreds of MB to a few GB — free it the
         // moment the system signals pressure; the next AI action reloads it.
         @Suppress("DEPRECATION")
@@ -2410,6 +2415,11 @@ open class WMKeyboardService : InputMethodService() {
             LocalLlmEngine.release()
             WhisperEngine.release()
         }
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        BackgroundBitmapCache.evictAll()
     }
 
     // ---- key handling ----

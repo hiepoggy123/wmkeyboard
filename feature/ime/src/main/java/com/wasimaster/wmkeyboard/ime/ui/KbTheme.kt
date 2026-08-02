@@ -1,6 +1,5 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
-import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -10,7 +9,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -32,19 +30,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import kotlin.math.max
 import kotlin.math.min
-import androidx.compose.ui.layout.ContentScale
 import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
@@ -53,20 +48,19 @@ import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.tools.SolarCalculator
+import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.ColorVision
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
+import com.wasimaster.wmkeyboard.core.theme.ThemeBackgroundImage
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
-import com.wasimaster.wmkeyboard.core.theme.blurredBy
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.hueShift
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 
 /**
  * Fully resolved keyboard theme: every color the keyboard UI draws with,
@@ -724,7 +718,15 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         backgroundImage = if (past) b.backgroundImage else a.backgroundImage,
         backgroundImageLandscape = if (past) b.backgroundImageLandscape else a.backgroundImageLandscape,
         backgroundImageOpacity = lerpF(a.backgroundImageOpacity, b.backgroundImageOpacity, t),
-        backgroundImageBlur = lerpF(a.backgroundImageBlur, b.backgroundImageBlur, t),
+        // Discrete, like the image path it belongs to. Interpolating it meant
+        // every frame of the crossfade asked for a blur radius no cached decode
+        // had, so switching between two themes whose blurs differed re-decoded
+        // the photo about twenty times in a third of a second. Blending image
+        // A's pixels with image B's blur radius was never meaningful anyway —
+        // the image itself snaps at the midpoint. Opacity still interpolates:
+        // it is a draw-time alpha, it costs nothing, and it is what makes the
+        // swap look smooth.
+        backgroundImageBlur = if (past) b.backgroundImageBlur else a.backgroundImageBlur,
         keyShapeKind = if (past) b.keyShapeKind else a.keyShapeKind,
         keyGradient = lerpGradient(a.keyGradient, b.keyGradient, t, a.key, b.key),
         key = lerp(a.key, b.key, t),
@@ -809,42 +811,41 @@ fun themeAnimationPhase(animation: ThemeAnimation, speed: Float, reduceMotion: B
 }
 
 /**
- * Board background: optional image (center-cropped, blurred at decode time,
- * with its own opacity) under the board layer. The board layer is the
- * gradient when one is set, else the solid board color; either can be
- * translucent to act as a scrim over the image (or, with no image, to let
- * the app behind shine through). FLOW/HUE_CYCLE animate the board layer.
+ * The most of the screen the board is ever assumed to take, used to size the
+ * background decode. A full-bleed tool panel is the tallest the board gets.
+ */
+private const val BOARD_HEIGHT_SHARE = 0.6f
+
+/**
+ * Board background: optional image (center-cropped, with its own opacity and
+ * blur) under the board layer. The board layer is the gradient when one is
+ * set, else the solid board color; either can be translucent to act as a
+ * scrim over the image (or, with no image, to let the app behind shine
+ * through). FLOW/HUE_CYCLE animate the board layer.
  */
 @Composable
 fun BoxScope.BoardBackground(kb: KbTheme) {
     // In landscape prefer the theme's landscape image, falling back to the
     // portrait one when it has none — so a theme with a single image still
     // shows it in both orientations, exactly as before this split existed.
-    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val configuration = LocalConfiguration.current
+    val landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val imagePath = if (landscape) kb.backgroundImageLandscape ?: kb.backgroundImage else kb.backgroundImage
-    val bitmap by produceState<ImageBitmap?>(
-        initialValue = null, imagePath, kb.backgroundImageBlur,
-    ) {
-        value = withContext(Dispatchers.IO) {
-            imagePath?.let { path ->
-                runCatching {
-                    BitmapFactory.decodeFile(path)
-                        ?.blurredBy(kb.backgroundImageBlur)
-                        ?.asImageBitmap()
-                }.getOrNull()
-            }
-        }
-    }
-    bitmap?.let {
-        Image(
-            bitmap = it,
-            contentDescription = null,
-            modifier = Modifier
-                .matchParentSize()
-                .alpha(kb.backgroundImageOpacity),
-            contentScale = ContentScale.Crop,
-        )
-    }
+    val density = LocalDensity.current
+    // Estimated rather than measured: a measured size would stall on a layout
+    // pass, and BackgroundBitmapCache buckets what it is given anyway, so a
+    // font-scale nudge or a floating-resize drag does not throw the decode
+    // away. Over-estimating costs a little memory; under-estimating costs
+    // sharpness, so the board is assumed to be a generous share of the screen.
+    val targetW = with(density) { configuration.screenWidthDp.dp.roundToPx() }
+    val targetH = with(density) { (configuration.screenHeightDp * BOARD_HEIGHT_SHARE).dp.roundToPx() }
+    ThemeBackgroundImage(
+        path = imagePath,
+        blur = kb.backgroundImageBlur,
+        opacity = kb.backgroundImageOpacity,
+        targetW = targetW,
+        targetH = targetH,
+    )
     val phase = themeAnimationPhase(kb.animation, kb.animationSpeed, kb.reduceMotion)
     val gradient = kb.boardGradient
     if (gradient != null) {
