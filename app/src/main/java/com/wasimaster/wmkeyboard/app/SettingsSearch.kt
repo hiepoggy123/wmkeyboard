@@ -570,6 +570,7 @@ private fun Resources.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_model_picker_title, R.string.toolai_ai_model_picker_subtitle),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_actions_title, R.string.toolai_ai_actions_subtitle),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_diff_title, R.string.toolai_ai_diff_subtitle),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_history_title, R.string.toolai_ai_history_subtitle),
     toolEntry(ToolbarTool.TRANSLATE, R.string.toolai_translate_into_title, R.string.toolai_translate_into_subtitle),
 )
 

@@ -180,12 +180,14 @@ import com.wasimaster.wmkeyboard.core.tools.GifSources
 import com.wasimaster.wmkeyboard.core.tools.GiphyClient
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.KlipyClient
+import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryEntry
+import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryGuard
+import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryStore
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.tools.AiActionSpec
 import com.wasimaster.wmkeyboard.core.tools.AiInputMode
 import com.wasimaster.wmkeyboard.core.tools.AiInsertMode
 import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
-import com.wasimaster.wmkeyboard.core.tools.visibleAiActions
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmEngine
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
@@ -350,6 +352,7 @@ open class WMKeyboardService : InputMethodService() {
     /** Auto-hide timer for the recently-copied strip chip (see [showClipboardSuggestion]). */
     private var clipboardSuggestionJob: Job? = null
     private lateinit var snippetStore: SnippetStore
+    private lateinit var aiHistoryStore: AiHistoryStore
     private lateinit var stickerPackStore: com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
 
     /**
@@ -1372,6 +1375,9 @@ open class WMKeyboardService : InputMethodService() {
             imagesDir = store("clipboard/images"),
         )
         snippetStore = SnippetStore(store("snippets/snippets.json"))
+        // A null file here means "in memory, never written", so a locked
+        // session records nothing without a check anywhere else.
+        aiHistoryStore = AiHistoryStore(store(AiHistoryStore.FILE_PATH))
         // These are process singletons that the settings app shares, so they
         // know about direct boot themselves: [attach] re-points them at
         // filesDir once it exists, and the icon store's revision flow is what
@@ -7628,10 +7634,6 @@ open class WMKeyboardService : InputMethodService() {
      */
     private val aiLastInstruction = mutableMapOf<String, String>()
 
-    /** The actions the panel shows, in the user's order, minus the hidden ones. */
-    private fun aiActions(settings: KeyboardSettings): List<AiActionSpec> =
-        visibleAiActions(settings.ai.customActions, settings.ai.actionOrder, settings.ai.hiddenActions)
-
     /**
      * The on-device model to run: the explicit selection, or — when nothing
      * (valid) is selected — the only model on disk. So the first download
@@ -7836,46 +7838,128 @@ open class WMKeyboardService : InputMethodService() {
                     }
                 }
             }
+            // A superseded or cancelled run never gets past here, so it is
+            // never recorded either.
             if (seq != aiRunSeq) return@launch
-            _uiState.update {
-                it.copy(
-                    ai = result.fold(
-                        onSuccess = { completion ->
-                            val raw = completion.text
-                            val text =
-                                if (settings.ai.showThinking) raw.trim()
-                                else AiThinking.stripped(raw)
-                            when {
-                                text.isNotBlank() -> AiUi.Ready(
-                                    action, text, source,
-                                    instruction = instruction,
-                                    generated = generated,
-                                    stripMarkdown = aiStripMarkdownDefault(),
-                                    truncated = completion.truncated,
-                                    showDiff = settings.ai.diffView &&
-                                        settings.ai.diffOpensFirst &&
-                                        aiDiffable(action, generated),
-                                    diffable = aiDiffable(action, generated),
-                                )
-                                raw.isBlank() -> AiUi.Error(
-                                    action,
-                                    getString(R.string.ime_ai_error_empty_result),
-                                )
-                                else -> AiUi.Error(
-                                    action,
-                                    getString(R.string.ime_ai_error_only_reasoning),
-                                )
-                            }
-                        },
-                        onFailure = { e ->
-                            AiUi.Error(
-                                action,
-                                requestErrorText(e, R.string.ime_ai_error_request_failed),
-                            )
-                        },
-                    ),
-                )
-            }
+            val next = result.fold(
+                onSuccess = { completion ->
+                    val raw = completion.text
+                    val text =
+                        if (settings.ai.showThinking) raw.trim()
+                        else AiThinking.stripped(raw)
+                    when {
+                        text.isNotBlank() -> AiUi.Ready(
+                            action, text, source,
+                            instruction = instruction,
+                            generated = generated,
+                            stripMarkdown = aiStripMarkdownDefault(),
+                            truncated = completion.truncated,
+                            showDiff = settings.ai.diffView &&
+                                settings.ai.diffOpensFirst &&
+                                aiDiffable(action, generated),
+                            diffable = aiDiffable(action, generated),
+                        )
+                        raw.isBlank() -> AiUi.Error(
+                            action,
+                            getString(R.string.ime_ai_error_empty_result),
+                        )
+                        else -> AiUi.Error(
+                            action,
+                            getString(R.string.ime_ai_error_only_reasoning),
+                        )
+                    }
+                },
+                onFailure = { e ->
+                    AiUi.Error(action, requestErrorText(e, R.string.ime_ai_error_request_failed))
+                },
+            )
+            _uiState.update { it.copy(ai = next) }
+            recordAiHistory(
+                action = action,
+                source = source,
+                instruction = instruction,
+                settings = settings,
+                config = config,
+                state = next,
+                reasoningChars = result.getOrNull()?.let { completion ->
+                    (completion.text.length - AiThinking.stripped(completion.text).length)
+                        .coerceAtLeast(0)
+                } ?: 0,
+                durationMs = SystemClock.uptimeMillis() - startedAt,
+            )
+        }
+    }
+
+    /**
+     * Id of the record for the run on screen, so committing its answer can be
+     * noted against it. Zero when the run was not recorded.
+     */
+    private var lastAiHistoryId = 0L
+
+    /**
+     * Writes one finished run to the history, if the user turned it on and this
+     * field allows it.
+     *
+     * A failed run is recorded too, with the message the panel showed: "the AI
+     * tool keeps failing" is the most likely reason anyone opens the screen, and
+     * the message carries nothing the record does not already hold.
+     */
+    private fun recordAiHistory(
+        action: AiActionSpec,
+        source: String,
+        instruction: String,
+        settings: KeyboardSettings,
+        config: AiClient.Config,
+        state: AiUi,
+        reasoningChars: Int,
+        durationMs: Long,
+    ) {
+        lastAiHistoryId = 0L
+        val allowed = AiHistoryGuard.shouldRecord(
+            enabled = settings.ai.historyEnabled,
+            unlocked = userUnlocked,
+            secureField = _uiState.value.secureField,
+            incognito = _uiState.value.incognitoOn,
+        )
+        if (!allowed) return
+        val ready = state as? AiUi.Ready
+        val error = (state as? AiUi.Error)?.message.orEmpty()
+        val entry = AiHistoryEntry(
+            id = 0,
+            timestamp = System.currentTimeMillis(),
+            actionId = action.id,
+            actionName = aiActionLabel(action),
+            provider = settings.ai.provider.name,
+            // The model name only. The connection details that carry the key
+            // are never part of a record.
+            model = config.model,
+            input = source,
+            output = ready?.result.orEmpty(),
+            durationMs = durationMs,
+            instruction = instruction,
+            reasoningChars = reasoningChars,
+            streamed = config.provider != AiProvider.ON_DEVICE,
+            error = error,
+            truncated = ready?.truncated == true,
+        )
+        serviceScope.launch(Dispatchers.IO) {
+            // The settings app holds its own instance of this store, so a
+            // "Delete all history" over there has to be seen before writing or
+            // it would come straight back.
+            aiHistoryStore.reload()
+            aiHistoryStore.trimTo(settings.ai.historyMax)
+            lastAiHistoryId = aiHistoryStore.add(entry).id
+            aiHistoryStore.save()
+        }
+    }
+
+    /** Notes that the user put this answer into the field. */
+    private fun noteAiCommitted(how: String) {
+        val id = lastAiHistoryId
+        if (id == 0L) return
+        serviceScope.launch(Dispatchers.IO) {
+            aiHistoryStore.markCommitted(id, how)
+            aiHistoryStore.save()
         }
     }
 
@@ -8043,6 +8127,7 @@ open class WMKeyboardService : InputMethodService() {
     fun onAiReplace() {
         val ai = _uiState.value.ai as? AiUi.Ready ?: return
         vibrate()
+        noteAiCommitted(AiHistoryEntry.COMMITTED_REPLACE)
         if (ai.action.insertMode == AiInsertMode.APPEND) {
             commitToField(aiInsertableText(ai))
             return
@@ -8053,6 +8138,7 @@ open class WMKeyboardService : InputMethodService() {
     fun onAiInsert() {
         val ai = _uiState.value.ai as? AiUi.Ready ?: return
         vibrate()
+        noteAiCommitted(AiHistoryEntry.COMMITTED_INSERT)
         commitToField(aiInsertableText(ai))
     }
 

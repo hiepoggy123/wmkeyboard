@@ -975,6 +975,15 @@ private fun SettingsNavGraph(
                 AiActionsSettings(repository, settings) { navController.navigate(it) }
             }
         }
+        composable("ai_history") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_ai_history_title),
+                { navController.popBackStack() },
+                route = "ai_history",
+            ) {
+                AiHistoryScreen(repository, settings)
+            }
+        }
         composable("ai_action_edit/{actionId}") { backStackEntry ->
             val actionId = backStackEntry.arguments?.getString("actionId").orEmpty()
             SettingsScreen(
@@ -8326,6 +8335,17 @@ private fun AiToolSettings(
             )
         }
     }
+    SettingsGroup(stringResource(R.string.toolai_ai_history_group_title)) {
+        item {
+            // Always reachable, turned on or not, so "Delete all history" does
+            // not disappear along with the switch that filled it.
+            NavRow(
+                title = stringResource(R.string.toolai_ai_history_nav_title),
+                subtitle = stringResource(R.string.toolai_ai_history_nav_subtitle),
+                onClick = { onNavigate("ai_history") },
+            )
+        }
+    }
     CaptionText(
         stringResource(
             if (settings.ai.provider == AiProvider.ON_DEVICE) {
@@ -8484,47 +8504,6 @@ internal fun TextFieldSetting(
                 .padding(horizontal = 16.dp, vertical = 4.dp),
         )
     }
-}
-
-/** Multi-line prompt override; the built-in prompt shows as the hint. */
-@Composable
-private fun PromptFieldSetting(
-    label: String,
-    value: String,
-    defaultPrompt: String,
-    onSave: suspend (String) -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    // Re-init when the built-in prompt changes (e.g. the Translate target
-    // language changed under us), so the field doesn't keep showing — and
-    // mislabel as "Custom" — the previous language's prompt. Keyed on
-    // defaultPrompt, not value: value echoes the user's own keystrokes back
-    // asynchronously, and keying on it would drop fast typing.
-    var text by remember(label, defaultPrompt) { mutableStateOf(value) }
-    OutlinedTextField(
-        value = text,
-        onValueChange = {
-            text = it
-            scope.launch { onSave(it) }
-        },
-        label = { Text(label) },
-        minLines = 1,
-        maxLines = 4,
-        supportingText = {
-            Text(
-                when {
-                    text.isBlank() -> defaultPrompt
-                    text == defaultPrompt -> stringResource(R.string.toolai_prompt_builtin_hint)
-                    else -> stringResource(R.string.toolai_prompt_custom_hint)
-                },
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-    )
 }
 
 /**

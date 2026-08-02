@@ -52,6 +52,7 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.withEmbeddedImages
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
+import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryStore
 import com.wasimaster.wmkeyboard.core.tools.AiActionCodec
 import com.wasimaster.wmkeyboard.core.tools.AiActionSpec
 import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
@@ -1422,6 +1423,16 @@ data class AiSettings(
      * the panel behaves the way it always did until the user asks otherwise.
      */
     val diffOpensFirst: Boolean = false,
+    /**
+     * Keep a record of what the AI tool was asked and what it answered.
+     *
+     * Off, and it stays off unless the user turns it on: the records are their
+     * own writing. Nothing is kept from a password field or in incognito even
+     * when this is on, and turning it off deletes what was stored.
+     */
+    val historyEnabled: Boolean = false,
+    /** How many runs the history keeps before the oldest fall off. */
+    val historyMax: Int = 100,
 )
 
 /**
@@ -2625,6 +2636,8 @@ class SettingsRepository(private val context: Context) {
         private val AI_COMPATIBLE_MODEL = stringPreferencesKey("ai_compatible_model")
         private val AI_MAX_TOKENS = intPreferencesKey("ai_max_tokens")
         private val AI_LOCAL_CONTEXT_TOKENS = intPreferencesKey("ai_local_context_tokens")
+        private val AI_HISTORY_ENABLED = booleanPreferencesKey("ai_history_enabled")
+        private val AI_HISTORY_MAX = intPreferencesKey("ai_history_max")
         private val AI_DIFF_VIEW = booleanPreferencesKey("ai_diff_view")
         private val AI_DIFF_OPENS_FIRST = booleanPreferencesKey("ai_diff_opens_first")
         private val AI_CUSTOM_ACTIONS = stringPreferencesKey("ai_custom_actions")
@@ -3355,6 +3368,8 @@ class SettingsRepository(private val context: Context) {
                 panelModelPicker = p[AI_PANEL_MODEL_PICKER] ?: defaults.ai.panelModelPicker,
                 diffView = p[AI_DIFF_VIEW] ?: defaults.ai.diffView,
                 diffOpensFirst = p[AI_DIFF_OPENS_FIRST] ?: defaults.ai.diffOpensFirst,
+                historyEnabled = p[AI_HISTORY_ENABLED] ?: defaults.ai.historyEnabled,
+                historyMax = p[AI_HISTORY_MAX] ?: defaults.ai.historyMax,
             ),
         )
     }
@@ -5976,4 +5991,13 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAiDiffOpensFirst(value: Boolean) =
         editPrefs { it[AI_DIFF_OPENS_FIRST] = value }
+
+    suspend fun setAiHistoryEnabled(value: Boolean) =
+        editPrefs { it[AI_HISTORY_ENABLED] = value }
+
+    suspend fun setAiHistoryMax(value: Int) =
+        editPrefs {
+            it[AI_HISTORY_MAX] =
+                value.coerceIn(AiHistoryStore.MIN_MAX_ITEMS, AiHistoryStore.MAX_ITEMS_CEILING)
+        }
 }

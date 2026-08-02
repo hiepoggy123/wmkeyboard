@@ -129,6 +129,24 @@
     <string name="toolai_ai_diff_first_title">Open a result on the changes</string>
     <string name="toolai_ai_diff_first_subtitle">The panel starts on the changes instead of the plain result</string>
 
+    <string name="toolai_ai_history_group_title">History</string>
+    <string name="toolai_ai_history_title">Keep a history of the results</string>
+    <string name="toolai_ai_history_subtitle">The keyboard keeps what you send and what the model answers. The records stay on your device. Nothing is kept from a password field or in incognito.</string>
+    <string name="toolai_ai_history_nav_title">History</string>
+    <string name="toolai_ai_history_nav_subtitle">Read, copy and delete what the AI tool did</string>
+    <string name="toolai_ai_history_max_title">Number of records to keep</string>
+    <string name="toolai_ai_history_max_subtitle">The oldest record goes when the history is full</string>
+    <string name="toolai_ai_history_search_label">Search the history</string>
+    <string name="toolai_ai_history_all_actions">All</string>
+    <string name="toolai_ai_history_empty">The history is empty. Run an AI action and it appears here.</string>
+    <string name="toolai_ai_history_filter_empty">No record matches your search.</string>
+    <string name="toolai_ai_history_off_body">The history is off. Turn it on to keep a record of what you send to the AI tool and what it answers. The records stay on your device, and you can delete them at any time.</string>
+    <string name="toolai_ai_history_copy_input">Copy the input</string>
+    <string name="toolai_ai_history_copy_output">Copy the answer</string>
+    <string name="toolai_ai_history_clear_action">Delete all history</string>
+    <!-- Dialog body. %1$d is the number of records that the app deletes. -->
+    <string name="toolai_ai_history_clear_body">This deletes %1$d records. You cannot undo this.</string>
+
     <string name="toolai_ai_actions_group_title">Actions</string>
     <string name="toolai_ai_actions_title">Actions on the panel</string>
     <string name="toolai_ai_actions_subtitle">Add your own actions, change the prompts, and turn off the ones that you do not use</string>
@@ -191,8 +209,6 @@
     <!-- Shared text field rows: prompts and API keys.                      -->
     <!-- ================================================================== -->
 
-    <string name="toolai_prompt_builtin_hint">Built-in prompt</string>
-    <string name="toolai_prompt_custom_hint">Custom prompt. Clear the field to restore the default.</string>
     <string name="toolai_api_key_yours_hint">The app uses your key</string>
     <string name="toolai_api_key_builtin_hint">This field is blank. The app uses the key that is built into the app.</string>
 
