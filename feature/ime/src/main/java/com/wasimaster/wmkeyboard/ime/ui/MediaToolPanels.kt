@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -70,8 +71,11 @@ import androidx.compose.ui.window.Popup
 import kotlinx.coroutines.delay
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
+import coil3.disk.DiskCache
+import coil3.disk.directory
 import coil3.gif.AnimatedImageDecoder
 import coil3.gif.GifDecoder
+import coil3.memory.MemoryCache
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
@@ -161,12 +165,26 @@ private fun SearchCaret(color: Color, fontSize: TextUnit, restartKey: Any?) {
     )
 }
 
-/** One ImageLoader per composition with animated GIF/WebP support. */
-@Composable
-fun rememberMediaImageLoader(): ImageLoader {
-    val context = LocalContext.current
-    return remember {
-        ImageLoader.Builder(context)
+@Volatile
+private var sharedMediaLoader: ImageLoader? = null
+private val mediaLoaderLock = Any()
+
+/**
+ * The one image loader for the whole process, with animated GIF/WebP support.
+ *
+ * A singleton for two reasons. A disk cache directory can have exactly one
+ * owner — Coil refuses two live loaders pointing at the same one — so building
+ * a loader per call site is what had been keeping the disk cache from existing
+ * at all, and every thumbnail was re-fetched on every scroll back. And a dozen
+ * loaders each holding their own memory cache is a lot of heap for an input
+ * method, which the system already kills early.
+ *
+ * The keyboard service declares no `android:process`, so the settings app and
+ * the keyboard really do share one process and one loader.
+ */
+fun mediaImageLoader(context: Context): ImageLoader =
+    sharedMediaLoader ?: synchronized(mediaLoaderLock) {
+        sharedMediaLoader ?: ImageLoader.Builder(context.applicationContext)
             .components {
                 if (Build.VERSION.SDK_INT >= 28) {
                     add(AnimatedImageDecoder.Factory())
@@ -174,9 +192,30 @@ fun rememberMediaImageLoader(): ImageLoader {
                     add(GifDecoder.Factory())
                 }
             }
+            // Below Coil's 20% default: a bloated keyboard is a visible jank
+            // source, and three screens of thumbnails is all the scrollback
+            // anyone flicks through.
+            .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.12).build() }
+            // Under cacheDir, so the system can reclaim it under storage
+            // pressure — correct for content that is trivially fetched again.
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(context.applicationContext.cacheDir.resolve("image_cache"))
+                    .maxSizeBytes(MEDIA_DISK_CACHE_BYTES)
+                    .build()
+            }
             .build()
+            .also { sharedMediaLoader = it }
     }
+
+/** The process-wide media loader; see [mediaImageLoader]. */
+@Composable
+fun rememberMediaImageLoader(): ImageLoader {
+    val context = LocalContext.current.applicationContext
+    return remember(context) { mediaImageLoader(context) }
 }
+
+private const val MEDIA_DISK_CACHE_BYTES = 64L * 1024 * 1024
 
 /**
  * Header-row variant of the media search field, for full-bleed panels: it
