@@ -46,8 +46,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextDecoration
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.platform.LocalContext
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmDownloadManager
@@ -60,7 +64,9 @@ import com.wasimaster.wmkeyboard.core.tools.AiActionSpec
 import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiMarkdown
 import com.wasimaster.wmkeyboard.core.tools.AiPhase
+import com.wasimaster.wmkeyboard.core.tools.AiThinking
 import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
+import com.wasimaster.wmkeyboard.core.tools.TextDiff
 import com.wasimaster.wmkeyboard.core.tools.visibleAiActions
 import com.wasimaster.wmkeyboard.ime.AiUi
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
@@ -84,6 +90,7 @@ internal fun AiPanel(
     onRunCustom: () -> Unit,
     onPickModel: (AiProvider, String?) -> Unit,
     onToggleStripMarkdown: () -> Unit,
+    onSetShowDiff: (Boolean) -> Unit,
     onReport: () -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
@@ -287,6 +294,30 @@ internal fun AiPanel(
                     // Follow the streaming text like a terminal tail.
                     if (ai.generating) resultScroll.scrollTo(resultScroll.maxValue)
                 }
+                // The two views are different lengths, so keeping the offset
+                // across a switch lands the reader in the middle of nowhere.
+                LaunchedEffect(ai.showDiff) {
+                    if (!ai.generating) resultScroll.scrollTo(0)
+                }
+                val showDiff = ai.showDiff && ai.diffable && !ai.generating
+                // Never on the frame: the keyboard draws under a finger, and a
+                // comparison of two long texts is long enough to be a visible
+                // stall. The plain result shows until this arrives.
+                val diff by produceState<TextDiff.Result?>(null, ai.sourceText, shown, showDiff) {
+                    value = if (!showDiff) {
+                        null
+                    } else {
+                        // Compare what the panel actually shows. With reasoning
+                        // on screen the think block is not part of the answer,
+                        // and the markdown checkbox changes the text as well,
+                        // which is why `shown` is a key rather than ai.result.
+                        val answer = AiThinking.stripped(shown).ifBlank { shown }
+                        withContext(Dispatchers.Default) {
+                            TextDiff.diff(ai.sourceText, answer)
+                        }
+                    }
+                }
+                val diffColors = remember(kb) { kb.diffColors() }
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -296,14 +327,22 @@ internal fun AiPanel(
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                         .verticalScroll(resultScroll),
                 ) {
+                    val comparison = diff
                     Text(
-                        // Dim via alpha, not the theme's secondary color —
-                        // some themes draw secondary text in the same white.
-                        grayThinking(shown, kb.modifierKeyText.copy(alpha = 0.45f)),
+                        if (showDiff && comparison != null && !comparison.tooLong) {
+                            diffAnnotated(comparison, diffColors)
+                        } else {
+                            // Dim via alpha, not the theme's secondary color —
+                            // some themes draw secondary text in the same white.
+                            grayThinking(shown, kb.modifierKeyText.copy(alpha = 0.45f))
+                        },
                         color = kb.modifierKeyText,
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
                     )
+                }
+                if (showDiff) {
+                    DiffSummary(diff)
                 }
                 // A cut-off answer looks exactly like a finished one, so the
                 // only way the user learns is if the panel says so. Hidden while
@@ -321,6 +360,21 @@ internal fun AiPanel(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // A mode, not an attribute of the output, so a pair of
+                    // chips rather than a checkbox. Hidden while streaming,
+                    // where there is nothing finished to compare.
+                    if (state.settings.ai.diffView && ai.diffable && !ai.generating) {
+                        ToolPanelChip(
+                            stringResource(R.string.ime_ai_view_result),
+                            selected = !ai.showDiff,
+                        ) { onSetShowDiff(false) }
+                        Spacer(Modifier.width(4.dp))
+                        ToolPanelChip(
+                            stringResource(R.string.ime_ai_view_changes),
+                            selected = ai.showDiff,
+                        ) { onSetShowDiff(true) }
+                        Spacer(Modifier.width(6.dp))
+                    }
                     if (hasMarkdown) {
                         PanelCheckbox(
                             label = stringResource(R.string.ime_ai_strip_markdown_label),
@@ -508,6 +562,74 @@ private fun grayThinking(text: String, gray: Color): AnnotatedString {
     }
 }
 
+/**
+ * Renders a comparison as one styled string.
+ *
+ * Deliberately not a composable, so it can be tested on the JVM.
+ *
+ * Every changed run carries a decoration as well as a colour — a strikethrough
+ * for what went, an underline and heavier weight for what arrived. Colour alone
+ * would be unreadable on a photo background, in a high-contrast theme, and for
+ * a colour-blind reader. Whitespace-only runs get a visible stand-in for the
+ * same reason: a deleted paragraph break is a real change and an invisible span
+ * says nothing.
+ *
+ * Each changed run is wrapped in the Unicode isolate characters, so a deleted
+ * Arabic word cannot reorder the untouched text around it. Those go only into
+ * what is drawn, never into [TextDiff.Span.text], which is what Replace
+ * commits.
+ */
+internal fun diffAnnotated(
+    result: TextDiff.Result,
+    colors: DiffColors,
+): AnnotatedString = buildAnnotatedString {
+    for (span in result.spans) {
+        when (span.op) {
+            TextDiff.Op.KEEP -> append(span.text)
+            TextDiff.Op.DELETE -> withStyle(
+                SpanStyle(
+                    color = colors.deleted,
+                    textDecoration = TextDecoration.LineThrough,
+                ),
+            ) {
+                append(FIRST_STRONG_ISOLATE)
+                append(visibleWhitespace(span.text))
+                append(POP_DIRECTIONAL_ISOLATE)
+            }
+            TextDiff.Op.ADD -> withStyle(
+                SpanStyle(
+                    color = colors.added,
+                    textDecoration = TextDecoration.Underline,
+                    fontWeight = FontWeight.Medium,
+                ),
+            ) {
+                append(FIRST_STRONG_ISOLATE)
+                append(visibleWhitespace(span.text))
+                append(POP_DIRECTIONAL_ISOLATE)
+            }
+        }
+    }
+}
+
+/** U+2068: the run inside decides its own direction. */
+private const val FIRST_STRONG_ISOLATE = "⁨"
+
+/** U+2069: back to the direction outside. */
+private const val POP_DIRECTIONAL_ISOLATE = "⁩"
+
+/**
+ * Draws a run that is nothing but whitespace with stand-in marks, so a changed
+ * space or paragraph break is visible. A run with any other character in it is
+ * left exactly as it is: the marks are for the case that would otherwise show
+ * nothing at all.
+ */
+private fun visibleWhitespace(text: String): String {
+    if (text.isEmpty() || !text.all(Char::isWhitespace)) return text
+    return buildString {
+        for (ch in text) append(if (ch == '\n') '¶' else '·')
+    }
+}
+
 /** One entry in the panel's model picker. */
 private class ModelPick(
     // Stable identity across reorders so the LazyRow can animate the selected
@@ -598,6 +720,28 @@ private fun ModelPickerRow(
             )
         }
     }
+}
+
+/**
+ * The one-line count under a comparison. Says "parts", not "words": the pieces
+ * are words for prose and single characters for a script written without
+ * spaces, and calling either one a word would be wrong half the time.
+ */
+@Composable
+private fun DiffSummary(diff: TextDiff.Result?) {
+    val kb = LocalKbTheme.current
+    val text = when {
+        diff == null -> return
+        diff.tooLong -> stringResource(R.string.ime_ai_diff_too_long)
+        diff.identical -> stringResource(R.string.ime_ai_diff_identical)
+        else -> stringResource(R.string.ime_ai_diff_summary, diff.added, diff.deleted)
+    }
+    Text(
+        text,
+        color = kb.secondaryText,
+        fontSize = 11.sp,
+        modifier = Modifier.padding(top = 4.dp),
+    )
 }
 
 /** A shipped action's translated name, or the name the user gave it. */

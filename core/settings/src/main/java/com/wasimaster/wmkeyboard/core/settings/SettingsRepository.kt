@@ -1411,6 +1411,17 @@ data class AiSettings(
     val showThinking: Boolean = false,
     /** Show a model/provider switcher row on the AI panel itself. */
     val panelModelPicker: Boolean = true,
+    /**
+     * Offer a "Changes" view of a result, marking what the model added and
+     * deleted against the text it ran on. On by default: it costs one chip and
+     * no work at all until the user presses it.
+     */
+    val diffView: Boolean = true,
+    /**
+     * Open a finished result on the changes rather than the plain text. Off, so
+     * the panel behaves the way it always did until the user asks otherwise.
+     */
+    val diffOpensFirst: Boolean = false,
 )
 
 /**
@@ -2614,6 +2625,8 @@ class SettingsRepository(private val context: Context) {
         private val AI_COMPATIBLE_MODEL = stringPreferencesKey("ai_compatible_model")
         private val AI_MAX_TOKENS = intPreferencesKey("ai_max_tokens")
         private val AI_LOCAL_CONTEXT_TOKENS = intPreferencesKey("ai_local_context_tokens")
+        private val AI_DIFF_VIEW = booleanPreferencesKey("ai_diff_view")
+        private val AI_DIFF_OPENS_FIRST = booleanPreferencesKey("ai_diff_opens_first")
         private val AI_CUSTOM_ACTIONS = stringPreferencesKey("ai_custom_actions")
         private val AI_ACTION_ORDER = stringPreferencesKey("ai_action_order")
         private val AI_ACTIONS_OFF = stringPreferencesKey("ai_actions_off")
@@ -3340,6 +3353,8 @@ class SettingsRepository(private val context: Context) {
                 hfToken = p[HF_TOKEN] ?: defaults.ai.hfToken,
                 showThinking = p[AI_SHOW_THINKING] ?: defaults.ai.showThinking,
                 panelModelPicker = p[AI_PANEL_MODEL_PICKER] ?: defaults.ai.panelModelPicker,
+                diffView = p[AI_DIFF_VIEW] ?: defaults.ai.diffView,
+                diffOpensFirst = p[AI_DIFF_OPENS_FIRST] ?: defaults.ai.diffOpensFirst,
             ),
         )
     }
@@ -5955,4 +5970,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAiPanelModelPicker(value: Boolean) =
         editPrefs { it[AI_PANEL_MODEL_PICKER] = value }
+
+    suspend fun setAiDiffView(value: Boolean) =
+        editPrefs { it[AI_DIFF_VIEW] = value }
+
+    suspend fun setAiDiffOpensFirst(value: Boolean) =
+        editPrefs { it[AI_DIFF_OPENS_FIRST] = value }
 }

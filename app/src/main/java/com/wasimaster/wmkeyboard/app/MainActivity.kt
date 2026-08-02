@@ -8294,6 +8294,22 @@ private fun AiToolSettings(
                 settings.ai.panelModelPicker,
             ) { scope.launch { repository.setAiPanelModelPicker(it) } }
         }
+        item {
+            ToggleSetting(
+                stringResource(R.string.toolai_ai_diff_title),
+                stringResource(R.string.toolai_ai_diff_subtitle),
+                settings.ai.diffView,
+            ) { scope.launch { repository.setAiDiffView(it) } }
+        }
+        if (settings.ai.diffView) {
+            item {
+                ToggleSetting(
+                    stringResource(R.string.toolai_ai_diff_first_title),
+                    stringResource(R.string.toolai_ai_diff_first_subtitle),
+                    settings.ai.diffOpensFirst,
+                ) { scope.launch { repository.setAiDiffOpensFirst(it) } }
+            }
+        }
     }
     SettingsGroup(stringResource(R.string.toolai_ai_actions_group_title)) {
         item {

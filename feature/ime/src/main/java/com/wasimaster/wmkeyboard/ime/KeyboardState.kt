@@ -573,6 +573,18 @@ sealed interface AiUi {
          * one, and the user finds out by reading their own half-rewritten text.
          */
         val truncated: Boolean = false,
+        /** The panel is showing the comparison, not the plain result. */
+        val showDiff: Boolean = false,
+        /**
+         * A comparison against [sourceText] means something for this run.
+         *
+         * False for an action that adds to the text rather than replacing it
+         * (its source is only what came before), and for a run that wrote from
+         * nothing (its "source" is the instruction, not text to compare with).
+         * The panel cannot tell the second case apart on its own, so the
+         * service sets this.
+         */
+        val diffable: Boolean = true,
     ) : AiUi
     data class Error(
         val action: com.wasimaster.wmkeyboard.core.tools.AiActionSpec,

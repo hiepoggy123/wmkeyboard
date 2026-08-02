@@ -123,6 +123,58 @@ data class KbTheme(
 /** The resolved outline every key draws with. */
 fun KbTheme.keyShape() = keyShapeFor(keyShapeKind, keyRadiusDp)
 
+/** Added text and deleted text, for the AI tool's comparison view. */
+internal data class DiffColors(val added: Color, val deleted: Color)
+
+/**
+ * Colours for the AI comparison, legible on this theme.
+ *
+ * [KbTheme] carries no add/remove pair, so these start from fixed light and
+ * dark values — the same approach the grammar panel already takes for its lint
+ * categories — and are then pushed until they stand out from the box they are
+ * drawn on. That box can be translucent over a photo, so the background is the
+ * chip composited onto the board rather than the chip alone.
+ *
+ * Over an arbitrary photo no colour can be guaranteed, which is exactly why the
+ * spans also carry a strikethrough and an underline: the decoration is what
+ * says which is which, and the colour is a help rather than the whole signal.
+ */
+internal fun KbTheme.diffColors(): DiffColors {
+    val background = chip.compositeOver(board)
+    val added = if (dark) Color(0xFF43C593) else Color(0xFF15845D)
+    val deleted = if (dark) Color(0xFFF08A8A) else Color(0xFFC62828)
+    return DiffColors(
+        added = added.readableOn(background),
+        deleted = deleted.readableOn(background),
+    )
+}
+
+/** Minimum contrast ratio to aim for, the WCAG bar for ordinary text. */
+private const val DIFF_MIN_CONTRAST = 4.5f
+
+/**
+ * Moves a colour towards white or black, whichever the background is further
+ * from, until it is readable on it. Gives up after a bounded number of steps
+ * rather than looping: on a mid-grey background nothing reaches the bar, and a
+ * colour that is as far as it gets is better than a hang.
+ */
+private fun Color.readableOn(background: Color): Color {
+    val target = if (background.luminance() > 0.5f) Color.Black else Color.White
+    var candidate = this
+    var step = 0
+    while (contrastWith(candidate, background) < DIFF_MIN_CONTRAST && step < 10) {
+        candidate = lerp(candidate, target, 0.1f)
+        step++
+    }
+    return candidate
+}
+
+private fun contrastWith(a: Color, b: Color): Float {
+    val first = a.luminance() + 0.05f
+    val second = b.luminance() + 0.05f
+    return if (first > second) first / second else second / first
+}
+
 val LocalKbTheme = staticCompositionLocalOf<KbTheme> {
     error("LocalKbTheme not provided")
 }

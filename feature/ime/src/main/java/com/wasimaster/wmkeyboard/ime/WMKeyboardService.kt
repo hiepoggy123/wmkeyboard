@@ -1768,6 +1768,7 @@ open class WMKeyboardService : InputMethodService() {
                 onAiRunCustom = ::onAiRunCustom,
                 onAiPickModel = ::onAiPickModel,
                 onAiToggleStripMarkdown = ::onAiToggleStripMarkdown,
+                onAiSetShowDiff = ::onAiSetShowDiff,
                 onAiReport = ::onAiReport,
                 onOpenToolSettings = ::openToolSettings,
                 onOpenRoute = ::openRoute,
@@ -7829,9 +7830,9 @@ open class WMKeyboardService : InputMethodService() {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     if (config.provider == AiProvider.ON_DEVICE) {
-                        runAiOnDevice(seq, action, source, system, settings)
+                        runAiOnDevice(seq, action, source, system, settings, generated)
                     } else {
-                        runAiRemote(seq, action, source, system, settings, config, startedAt)
+                        runAiRemote(seq, action, source, system, settings, config, startedAt, generated)
                     }
                 }
             }
@@ -7851,6 +7852,10 @@ open class WMKeyboardService : InputMethodService() {
                                     generated = generated,
                                     stripMarkdown = aiStripMarkdownDefault(),
                                     truncated = completion.truncated,
+                                    showDiff = settings.ai.diffView &&
+                                        settings.ai.diffOpensFirst &&
+                                        aiDiffable(action, generated),
+                                    diffable = aiDiffable(action, generated),
                                 )
                                 raw.isBlank() -> AiUi.Error(
                                     action,
@@ -7889,6 +7894,7 @@ open class WMKeyboardService : InputMethodService() {
         source: String,
         system: String,
         settings: KeyboardSettings,
+        generated: Boolean,
     ): AiClient.Completion {
         val modelId = effectiveLocalModelId(settings)
         val modelFile = effectiveLocalModelFile(settings)
@@ -7907,7 +7913,7 @@ open class WMKeyboardService : InputMethodService() {
             val now = SystemClock.uptimeMillis()
             if (seq != aiRunSeq || now - lastPartialAt < AI_PARTIAL_INTERVAL_MS) return@generate
             lastPartialAt = now
-            applyAiPartial(seq, action, source, raw, settings, implicitThink, startedAt)
+            applyAiPartial(seq, action, source, raw, settings, implicitThink, startedAt, generated)
         }
         // The on-device engine reports no stop reason, so an answer that ran out
         // of context window looks the same as one that finished. Never claim it
@@ -7928,6 +7934,7 @@ open class WMKeyboardService : InputMethodService() {
         settings: KeyboardSettings,
         config: AiClient.Config,
         startedAt: Long,
+        generated: Boolean,
     ): AiClient.Completion {
         var lastPartialAt = 0L
         return AiClient.completeStreaming(
@@ -7954,7 +7961,7 @@ open class WMKeyboardService : InputMethodService() {
                     // AiClient, so it never needs the implicit-think fallback.
                     applyAiPartial(
                         seq, action, source, raw, settings,
-                        implicitThink = false, startedAt,
+                        implicitThink = false, startedAt, generated,
                     )
                 }
             },
@@ -7977,6 +7984,7 @@ open class WMKeyboardService : InputMethodService() {
         settings: KeyboardSettings,
         implicitThink: Boolean,
         startedAt: Long,
+        generated: Boolean,
     ) {
         // Reasoning models: keep the progress view (marked "thinking") until
         // real output starts, unless the user wants the raw stream.
@@ -7996,10 +8004,14 @@ open class WMKeyboardService : InputMethodService() {
                         startedAtMs = startedAt,
                     )
                     shown.output.isBlank() -> it.ai // nothing visible yet
+                    // showDiff stays false while this streams: a half-finished
+                    // result compares as "the whole tail was deleted", which
+                    // would flash a block of red that then vanishes.
                     else -> AiUi.Ready(
                         action, shown.output, source,
                         generating = true,
                         stripMarkdown = (it.ai as? AiUi.Ready)?.stripMarkdown ?: true,
+                        diffable = aiDiffable(action, generated),
                     )
                 },
             )
@@ -8080,11 +8092,31 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * Whether comparing this run's result with what it read means anything.
+     *
+     * An action that adds to the text read only what came before it, and a run
+     * that wrote from nothing had no source text at all — its "source" is the
+     * instruction. Comparing either would draw a wall of insertions.
+     */
+    private fun aiDiffable(action: AiActionSpec, generated: Boolean): Boolean =
+        !generated &&
+            action.insertMode == AiInsertMode.REPLACE &&
+            action.inputMode == AiInputMode.FIELD
+
+    /**
      * Carries the panel's "plain text" checkbox across runs: on by default,
      * but a user who turned it off means it for the next result too.
      */
     private fun aiStripMarkdownDefault(): Boolean =
         (_uiState.value.ai as? AiUi.Ready)?.stripMarkdown ?: true
+
+    /** Panel's Result / Changes switch. */
+    fun onAiSetShowDiff(show: Boolean) {
+        val ai = _uiState.value.ai as? AiUi.Ready ?: return
+        if (ai.showDiff == show) return
+        vibrate()
+        _uiState.update { it.copy(ai = ai.copy(showDiff = show)) }
+    }
 
     /** Panel's "plain text" checkbox. */
     fun onAiToggleStripMarkdown() {

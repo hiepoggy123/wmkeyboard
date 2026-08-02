@@ -124,6 +124,11 @@
     <string name="toolai_ai_model_picker_title">Model picker on the panel</string>
     <string name="toolai_ai_model_picker_subtitle">Change between the providers that you set up and the models that you download, on the keyboard</string>
 
+    <string name="toolai_ai_diff_title">Show a changes view</string>
+    <string name="toolai_ai_diff_subtitle">The panel gets a Changes button that marks what the model added and what it deleted</string>
+    <string name="toolai_ai_diff_first_title">Open a result on the changes</string>
+    <string name="toolai_ai_diff_first_subtitle">The panel starts on the changes instead of the plain result</string>
+
     <string name="toolai_ai_actions_group_title">Actions</string>
     <string name="toolai_ai_actions_title">Actions on the panel</string>
     <string name="toolai_ai_actions_subtitle">Add your own actions, change the prompts, and turn off the ones that you do not use</string>
