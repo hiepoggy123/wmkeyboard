@@ -122,15 +122,17 @@ The button is deliberately absent in three cases:
 
 Sending one counts as using that emoji, so it lands in your recents like an ordinary tap would.
 
-## Sending an emoji as a sticker
+## Sending an emoji as a picture
 
-<SettingsPath path="Emoji / Emoji panel / Send emoji as sticker" />
+<SettingsPath path="Emoji / Emoji panel / Send emoji as image" />
 
-Under the animation (and on every emoji, animated or not) is **Send as sticker**: the emoji itself, drawn at 512×512 in whichever [emoji font](/emoji/customization/#choosing-an-emoji-font) you've picked, sent as a transparent WebP.
+Under the animation (and on every emoji, animated or not) is **Send image as sticker**: the emoji itself, drawn at 512×512 in whichever [emoji font](/emoji/customization/#choosing-an-emoji-font) you've picked, sent as a transparent WebP.
 
 It's the answer to the oldest emoji problem there is — the other person's phone drawing your emoji as something else, or as an empty box. Send it as a picture and they see the one you saw.
 
-Nothing is downloaded for this: the glyph is already on your device, so it works offline and sends nothing anywhere. The picture is drawn in the font the keyboard itself uses, with one caveat — **System** and **Google** both come down to the phone's own emoji font here, since neither hands over a file to draw from. An imported or installed font is used exactly as the panel uses it.
+The picture is drawn in the font the keyboard itself draws with, whichever that is: an imported font, one installed from an addon repository, Google's Noto Color Emoji, or the phone's own set. Noto is fetched once from the same system font provider Compose draws it with and then kept; everything else is already on the device, so this normally works offline and sends nothing anywhere.
+
+It goes as an ordinary image rather than a true sticker, which is deliberate: WhatsApp sends a real sticker the instant it arrives and closes the keyboard with it, which is not what a button in a long-press popup should do. As an image it lands in the message box like a GIF does and the keyboard stays put. For real stickers, the [sticker tool](/emoji/stickers/) has its own send-mode setting.
 
 Like the animated button, this one only shows on a field that accepts images, and it can be switched off on its own.
 

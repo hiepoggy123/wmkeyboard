@@ -9736,7 +9736,14 @@ open class WMKeyboardService : InputMethodService() {
         emojiHistoryStale = true
         _uiState.update { it.copy(mediaDownloadingId = emojiStickerJobId(emoji)) }
         mediaInsertJob = serviceScope.launch {
-            val file = withContext(Dispatchers.Default) { renderEmojiSticker(emoji) }
+            // Off the main thread as far as the provider call, which can be a
+            // download the very first time Noto is asked for on a device.
+            val typeface = KeyboardFonts.emojiTypeface(
+                this@WMKeyboardService,
+                state.settings.emojiFont,
+                state.settings.emojiFontInstalled.installedId,
+            )
+            val file = withContext(Dispatchers.Default) { renderEmojiSticker(emoji, typeface) }
             _uiState.update { it.copy(mediaDownloadingId = null) }
             if (file == null) {
                 Toast.makeText(
@@ -9746,7 +9753,12 @@ open class WMKeyboardService : InputMethodService() {
                 ).show()
                 return@launch
             }
-            commitImageFile(file, MediaMime.WEBP, MediaSendMode.STICKER)
+            // IMAGE, not STICKER: a real sticker MIME makes apps like WhatsApp
+            // send it the instant it arrives and close the keyboard with it,
+            // which is not what a button in a long-press popup should do. As an
+            // image it lands in the compose box like a GIF does. Real stickers
+            // are the sticker tool's job, and have their own setting there.
+            commitImageFile(file, MediaMime.WEBP, MediaSendMode.IMAGE)
         }
     }
 
@@ -9759,7 +9771,7 @@ open class WMKeyboardService : InputMethodService() {
      * Blocking; call it off the main thread. Cached per emoji *and* font, so
      * changing the font doesn't keep sending the old face.
      */
-    private fun renderEmojiSticker(emoji: String): File? = runCatching {
+    private fun renderEmojiSticker(emoji: String, chosen: Typeface?): File? = runCatching {
         val settings = _uiState.value.settings
         val fontFile = KeyboardFonts.emojiFontFile(
             this,
@@ -9768,11 +9780,11 @@ open class WMKeyboardService : InputMethodService() {
         )
         // The same spelling the panel draws: a font with no variation-selector
         // table cannot resolve ❤️, and the shaper's answer is to strip the
-        // selector or hand the glyph back to the system font.
+        // selector or hand the glyph back to the system font. Only a font with
+        // a file has tables to read; Noto and the system font are trusted with
+        // the emoji as written.
         val spelling = EmojiFontShaping.forFontFile(fontFile).spelling(emoji)
-        val typeface = fontFile
-            ?.takeIf { !spelling.systemFont }
-            ?.let { runCatching { Typeface.createFromFile(it) }.getOrNull() }
+        val typeface = chosen?.takeIf { !spelling.systemFont }
 
         val dir = File(cacheDir, "media").apply { mkdirs() }
         pruneMediaCache(dir)

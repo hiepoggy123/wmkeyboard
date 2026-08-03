@@ -1,7 +1,12 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
 import android.content.Context
+import android.graphics.Typeface
+import android.os.Handler
+import android.os.Looper
 import androidx.annotation.StringRes
+import androidx.core.provider.FontRequest
+import androidx.core.provider.FontsContractCompat
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -12,6 +17,8 @@ import com.wasimaster.wmkeyboard.core.fonts.FontStore
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import java.io.File
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
  * Resolves the user's font choices into Compose [FontFamily]s.
@@ -354,7 +361,7 @@ object KeyboardFonts {
         installedId: String = "",
     ): FontFamily? = when (choice) {
         EmojiFontChoice.SYSTEM -> null
-        EmojiFontChoice.NOTO -> googleFamily("Noto Color Emoji")
+        EmojiFontChoice.NOTO -> googleFamily(NOTO_COLOR_EMOJI)
         EmojiFontChoice.CUSTOM -> fileFamily(customEmojiFontFile(context))
         EmojiFontChoice.INSTALLED -> installedEmojiFile(context, installedId)?.let { fileFamily(it) }
     }
@@ -383,6 +390,68 @@ object KeyboardFonts {
         EmojiFontChoice.CUSTOM -> customEmojiFontFile(context)
         EmojiFontChoice.INSTALLED -> installedEmojiFile(context, installedId)
     }?.takeIf { it.exists() }
+
+    /**
+     * The chosen emoji font as a [Typeface] — what a `Canvas` draws with, as
+     * opposed to the [FontFamily] Compose lays out with.
+     *
+     * Null means "the phone's own emoji font", which is both what
+     * [EmojiFontChoice.SYSTEM] asks for and what everything else falls back to.
+     * [EmojiFontChoice.NOTO] has no file of its own, so it is fetched from the
+     * same downloadable-font provider Compose draws it with and then kept for
+     * the process — the provider caches the file itself, so this is a lookup
+     * rather than a download after the first time.
+     *
+     * Suspends: the provider call is a binder round trip and, once in the life
+     * of a device, an actual download.
+     */
+    suspend fun emojiTypeface(
+        context: Context,
+        choice: EmojiFontChoice,
+        installedId: String = "",
+    ): Typeface? = when (choice) {
+        EmojiFontChoice.SYSTEM -> null
+        EmojiFontChoice.NOTO -> notoEmojiTypeface(context)
+        EmojiFontChoice.CUSTOM, EmojiFontChoice.INSTALLED ->
+            emojiFontFile(context, choice, installedId)
+                ?.let { runCatching { Typeface.createFromFile(it) }.getOrNull() }
+    }
+
+    private suspend fun notoEmojiTypeface(context: Context): Typeface? {
+        notoEmoji?.let { return it }
+        val request = FontRequest(
+            "com.google.android.gms.fonts",
+            "com.google.android.gms",
+            NOTO_COLOR_EMOJI,
+            R.array.com_google_android_gms_fonts_certs,
+        )
+        val fetched = suspendCancellableCoroutine { continuation ->
+            FontsContractCompat.requestFont(
+                context,
+                request,
+                object : FontsContractCompat.FontRequestCallback() {
+                    override fun onTypefaceRetrieved(typeface: Typeface) {
+                        if (continuation.isActive) continuation.resume(typeface)
+                    }
+
+                    // Every failure is the same failure here: no Play Services,
+                    // no network on a device that has never fetched it, or a
+                    // provider that does not know the name. All of them mean
+                    // "draw it in the phone's own font instead".
+                    override fun onTypefaceRequestFailed(reason: Int) {
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+                },
+                Handler(Looper.getMainLooper()),
+            )
+        }
+        return fetched?.also { notoEmoji = it }
+    }
+
+    @Volatile
+    private var notoEmoji: Typeface? = null
+
+    private const val NOTO_COLOR_EMOJI = "Noto Color Emoji"
 
     /** Family for any Google Fonts name (also used directly by tool panels). */
     fun googleFamily(name: String): FontFamily = cache.getOrPut("google:$name") {

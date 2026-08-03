@@ -9965,6 +9965,7 @@ private fun PopupAction(
 ) {
     Row(
         modifier = Modifier
+            .fillMaxWidth()
             .clickable(enabled = !busy, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -9992,6 +9993,13 @@ private fun PopupAction(
         }
     }
 }
+
+/**
+ * How wide the long-press popup gets. Wide enough for "Send animated emoji"
+ * and for six tone swatches in a row, and fixed so every action row is the
+ * same tappable width rather than the width of its own words.
+ */
+private val PopupActionWidth = 300.dp
 
 /** Fitzpatrick swatches for the two-person tone selector: neutral + 🏻..🏿. */
 private val TONE_SWATCHES = listOf(
@@ -10024,6 +10032,11 @@ private fun EmojiVariantPopup(
         onDismissRequest = onDismiss,
     ) {
         Surface(
+            // Capped rather than wrapped: every row below fills this width, so
+            // a tap anywhere along a row counts. Wrapping instead made each row
+            // exactly as wide as its own label, and the empty space beside a
+            // short one — most of the popup — did nothing.
+            modifier = Modifier.widthIn(max = PopupActionWidth),
             shape = RoundedCornerShape(kb.popupRadiusDp.dp),
             color = kb.popup,
             shadowElevation = 8.dp,
@@ -10077,6 +10090,7 @@ private fun EmojiVariantPopup(
                 var starred by remember(display, favourite) { mutableStateOf(favourite) }
                 Row(
                     modifier = Modifier
+                        .fillMaxWidth()
                         .clickable {
                             starred = !starred
                             onFavourite(display)
@@ -10104,6 +10118,7 @@ private fun EmojiVariantPopup(
                 if (favourite && onReorderFavourites != null) {
                     Row(
                         modifier = Modifier
+                            .fillMaxWidth()
                             .clickable { onReorderFavourites() }
                             .padding(horizontal = 12.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -10126,6 +10141,7 @@ private fun EmojiVariantPopup(
                 if (onRemove != null) {
                     Row(
                         modifier = Modifier
+                            .fillMaxWidth()
                             .clickable { onRemove() }
                             .padding(horizontal = 12.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
