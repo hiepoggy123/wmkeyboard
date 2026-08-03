@@ -97,6 +97,17 @@ internal enum class Danger {
     RESET,
 }
 
+/**
+ * The detail screen's route for one category.
+ *
+ * A route of its own, rather than every category sharing the Storage screen's:
+ * a flight is keyed on where it is going, so twenty categories pointing at one
+ * route would hang the same key on twenty rows, and each detail screen would
+ * land wearing the Storage screen's own pie chart instead of the category's
+ * icon.
+ */
+internal fun storageRoute(id: String): String = "storage/$id"
+
 /** What the category lambdas are handed. */
 internal class StorageEnv(
     val context: Context,
@@ -215,7 +226,6 @@ internal object StorageCategories {
         accent = Color(0xFF78909C),
         group = StorageGroup.APP,
         synthetic = true,
-        note = R.string.storage_note_readonly,
         itemsOf = { env ->
             val info = env.context.applicationInfo
             buildList {
@@ -756,7 +766,6 @@ internal object StorageCategories {
             accent = Color(0xFFB0BEC5),
             group = StorageGroup.CACHE,
             synthetic = true,
-            note = R.string.storage_note_readonly,
             itemsOf = { env -> unclaimedItems(env, cacheSide = true) },
         ),
     )
@@ -785,7 +794,6 @@ internal object StorageCategories {
             accent = Color(0xFF90A4AE),
             group = StorageGroup.SYSTEM,
             synthetic = true,
-            note = R.string.storage_note_readonly,
             itemsOf = { env -> unclaimedItems(env, cacheSide = false) },
         ),
     )

@@ -8,8 +8,9 @@
     <!-- the summary at the top -->
 
     <string name="storage_total_label">Used in total</string>
-    <!-- %1$s is a size the user reads, for example "412 MB". -->
-    <string name="storage_free_caption">%1$s free of %2$s on your device</string>
+    <!-- The outer ring. All three are sizes the user reads, for example "123 GB".
+         %1$s is the space in use on the whole device, %2$s its capacity, %3$s what is left. -->
+    <string name="storage_device_caption">Your device: %1$s of %2$s used, %3$s free</string>
     <string name="storage_measuring_label">Measuring…</string>
     <!-- Shown only on Android 7, where the system cannot give an exact figure. -->
     <string name="storage_estimate_caption">Your device cannot report exact sizes, so these are close estimates.</string>
@@ -103,7 +104,6 @@
     <!-- Shown under categories the running keyboard holds open. -->
     <string name="storage_note_mapped">Your device frees this space when you next close the keyboard.</string>
     <string name="storage_note_rebuilds">The app makes these again when it needs them.</string>
-    <string name="storage_note_readonly">You cannot delete this from here.</string>
 
     <!-- rows and detail screens -->
 

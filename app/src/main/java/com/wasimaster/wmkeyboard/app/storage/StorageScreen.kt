@@ -221,9 +221,10 @@ private fun StorageSummary(report: StorageReport, busy: Boolean, onRefresh: () -
         if (report.deviceBytes > 0L) {
             CaptionText(
                 stringResource(
-                    R.string.storage_free_caption,
-                    formatBytes(report.freeBytes),
+                    R.string.storage_device_caption,
+                    formatBytes(report.deviceUsedBytes),
                     formatBytes(report.deviceBytes),
+                    formatBytes(report.freeBytes),
                 ),
             )
         }
@@ -265,17 +266,24 @@ private fun StorageCategoryRow(
     val deleteDesc = stringResource(R.string.storage_delete_all_desc, stringResource(category.title))
     WmRow(
         title = stringResource(category.title),
-        subtitle = summary,
         icon = category.icon,
         accent = category.accent,
         highlightKey = category.title,
-        supporting = if (category.note == 0) null else {
-            {
-                Text(
-                    stringResource(category.note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        flightTo = storageRoute(category.id),
+        // One block rather than a subtitle *and* a supporting line: WmRow draws
+        // whichever of the two it is given and prefers supporting, so a row with
+        // a note used to show the note in place of its size. On a storage screen
+        // the size is the row, so it goes first and the note sits under it.
+        supporting = {
+            Column {
+                Text(summary)
+                if (category.note != 0) {
+                    Text(
+                        stringResource(category.note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = NOTE_ALPHA),
+                    )
+                }
             }
         },
         trailing = {
@@ -348,4 +356,5 @@ private fun bodyFor(danger: Danger): Int = when (danger) {
 /** Below this the button is noise: the press costs more than the space it wins. */
 private const val FREE_UP_FLOOR = 512L * 1024
 private const val DISABLED_ALPHA = 0.38f
+private const val NOTE_ALPHA = 0.75f
 private const val SETTINGS_CATEGORY = "settings_data"

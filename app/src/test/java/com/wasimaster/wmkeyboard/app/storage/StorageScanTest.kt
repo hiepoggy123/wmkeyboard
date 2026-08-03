@@ -157,6 +157,54 @@ class StorageScanTest {
         assertEquals(0L, report.bytesOf(StorageCategories.OTHER_DATA))
     }
 
+    // ---- device capacity ----
+
+    /**
+     * The S25 case: `getTotalBytes` hands back exactly 256 GiB for a phone sold
+     * as 256 GB, and printing that in decimal units gave "274.88 GB" — a number
+     * that appears nowhere else on the device.
+     */
+    @Test
+    fun `a binary capacity reads as the size on the box`() {
+        assertEquals(256_000_000_000L, marketingCapacity(256L shl 30))
+        assertEquals(128_000_000_000L, marketingCapacity(128L shl 30))
+        assertEquals(1_024_000_000_000L, marketingCapacity(1024L shl 30))
+    }
+
+    @Test
+    fun `a decimal capacity is left where it is`() {
+        assertEquals(256_000_000_000L, marketingCapacity(256_000_000_000L))
+        assertEquals(64_000_000_000L, marketingCapacity(64_000_000_000L))
+    }
+
+    /** A partition size rounds up to the capacity that contains it. */
+    @Test
+    fun `an odd size rounds up to the next capacity`() {
+        assertEquals(256_000_000_000L, marketingCapacity(234_073_620_480L))
+        assertEquals(64_000_000_000L, marketingCapacity(60_000_000_000L))
+    }
+
+    @Test
+    fun `an unknown capacity is passed through rather than invented`() {
+        assertEquals(0L, marketingCapacity(0L))
+        assertEquals(0L, marketingCapacity(-1L))
+        val absurd = 9_000_000_000_000_000L
+        assertEquals(absurd, marketingCapacity(absurd))
+    }
+
+    /** Used and free have to add up to the capacity the caption states. */
+    @Test
+    fun `device used is the capacity less what is free`() {
+        val report = StorageReport(deviceBytes = 256_000_000_000L, freeBytes = 132_921_085_952L)
+        assertEquals(123_078_914_048L, report.deviceUsedBytes)
+        assertEquals(report.deviceBytes, report.deviceUsedBytes + report.freeBytes)
+    }
+
+    @Test
+    fun `device used never goes negative`() {
+        assertEquals(0L, StorageReport(deviceBytes = 100, freeBytes = 999).deviceUsedBytes)
+    }
+
     @Test
     fun `the totals follow the system's own arithmetic`() {
         val report = StorageReport(appBytes = 30, dataBytes = 100, cacheBytes = 40)

@@ -63,6 +63,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import com.wasimaster.wmkeyboard.app.storage.StorageCategories
 import com.wasimaster.wmkeyboard.app.storage.StorageCategoryScreen
 import com.wasimaster.wmkeyboard.app.storage.StorageScreen
+import com.wasimaster.wmkeyboard.app.storage.storageRoute
 import com.wasimaster.wmkeyboard.app.updates.LocalAppUpdater
 import com.wasimaster.wmkeyboard.app.updates.UpdateCard
 import com.wasimaster.wmkeyboard.app.updates.rememberAppUpdater
@@ -1077,19 +1078,28 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = "storage",
             ) {
-                StorageScreen(repository) { navController.navigate("storage/$it") }
+                StorageScreen(repository) { navController.navigate(storageRoute(it)) }
             }
         }
         composable("storage/{category}") { backStackEntry ->
-            val category = backStackEntry.arguments?.getString("category").orEmpty()
+            val id = backStackEntry.arguments?.getString("category").orEmpty()
+            val category = StorageCategories.byId(id)
+            // The category's own icon and hue, and its own route: the row on the
+            // Storage screen flies its tile up into this heading, and a shared
+            // "storage" route would land every one of them as the pie chart.
+            val glyph: (@Composable () -> Unit)? = category?.let {
+                // Sized like the glyphs the bar derives from a route, so a
+                // category heading matches every other heading in the app.
+                { Icon(it.icon, contentDescription = null, modifier = Modifier.size(WmIconTileGlyph)) }
+            }
             SettingsScreen(
-                stringResource(
-                    StorageCategories.byId(category)?.title ?: R.string.about_storage_title,
-                ),
+                stringResource(category?.title ?: R.string.about_storage_title),
                 { navController.popBackStack() },
-                route = "storage",
+                route = storageRoute(id),
+                icon = glyph,
+                accent = category?.accent,
             ) {
-                StorageCategoryScreen(category, repository) { route ->
+                StorageCategoryScreen(id, repository) { route ->
                     // Straight across to the screen that owns the data, rather
                     // than deeper: the storage tree is a way in, not a place.
                     navController.popBackStack()

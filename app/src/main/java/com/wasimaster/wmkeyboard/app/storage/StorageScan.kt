@@ -103,6 +103,14 @@ internal data class StorageReport(
     /** What it calls "User data": everything but the cache. */
     val userDataBytes: Long get() = (dataBytes - cacheBytes).coerceAtLeast(0L)
 
+    /**
+     * How much of the device is in use. Derived from the capacity rather than
+     * measured, so this and [freeBytes] add up to [deviceBytes] exactly — which
+     * is what the device's own storage screen shows, and being a gigabyte out
+     * from it would undo the point of the whole screen.
+     */
+    val deviceUsedBytes: Long get() = (deviceBytes - freeBytes).coerceAtLeast(0L)
+
     fun bytesOf(id: String): Long = sizes[id]?.bytes ?: 0L
 
     fun itemsOf(id: String): Int = sizes[id]?.items ?: 0
@@ -212,19 +220,45 @@ private fun estimatedTotals(context: Context, roots: StorageRoots): StorageRepor
 
 /** Free and total bytes on the volume the app lives on: `free to total`. */
 private fun deviceTotals(context: Context, roots: StorageRoots): Pair<Long, Long> {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        val fromSystem = runCatching {
+    val raw = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        runCatching {
             val manager = context.getSystemService(Context.STORAGE_STATS_SERVICE) as StorageStatsManager
             manager.getFreeBytes(StorageManager.UUID_DEFAULT) to
                 manager.getTotalBytes(StorageManager.UUID_DEFAULT)
         }.getOrNull()
-        if (fromSystem != null) return fromSystem
-    }
-    return runCatching {
+    } else {
+        null
+    } ?: runCatching {
         val fs = StatFs(roots.dataDir.path)
         fs.availableBlocksLong * fs.blockSizeLong to fs.blockCountLong * fs.blockSizeLong
     }.getOrDefault(0L to 0L)
+    return raw.first to marketingCapacity(raw.second)
 }
+
+/**
+ * The capacity a phone is sold as, from whatever its storage actually reports.
+ *
+ * `getTotalBytes` is documented as a display-ready figure, but what it hands
+ * back is the medium's own size, and vendors disagree about the units: this
+ * S25 returns exactly 256 GiB for a phone sold as 256 GB, which printed as
+ * "274.88 GB" — a number that appears nowhere else on the device and reads as
+ * a bug. Snapping to the nearest power-of-two capacity, in whichever unit the
+ * vendor used, and then reporting it in the decimal units everything else on
+ * this screen uses, gets back to the number on the box.
+ */
+internal fun marketingCapacity(bytes: Long): Long {
+    if (bytes <= 0L) return 0L
+    var size = 1L
+    while (size <= MAX_CAPACITY_GB) {
+        val decimal = size * 1_000_000_000L
+        val binary = size shl 30
+        if (bytes <= decimal || bytes <= binary) return decimal
+        size *= 2
+    }
+    return bytes
+}
+
+private const val MAX_CAPACITY_GB = 4096L
 
 // ---- walking ----
 

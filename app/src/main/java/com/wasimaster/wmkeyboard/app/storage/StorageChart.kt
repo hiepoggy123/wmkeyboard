@@ -57,12 +57,14 @@ internal fun ringBucketColor(index: Int): Color = RingBuckets[index]
 
 /**
  * The app's total, split into the same three buckets the system's App info page
- * shows, with a hairline outer ring for how much of the device that total is.
+ * shows, inside a hairline outer ring showing how full the device itself is.
  *
- * The device's free space is deliberately *not* one of the arcs. On a phone
- * with 100 GB spare it is ninety-something percent of the circle, and the three
- * numbers the screen is actually about become slivers. It gets the outer ring
- * and a line of text instead.
+ * The device is deliberately *not* one of the inner arcs. The app is a fraction
+ * of a percent of a phone, so putting the two on one scale leaves the three
+ * numbers this screen is actually about as slivers. Two rings, two scales: the
+ * thick one is the app against itself, the hairline is the device against
+ * itself, and it wears a neutral colour so it does not read as a fourth
+ * category.
  */
 @Composable
 internal fun StorageRing(
@@ -77,8 +79,9 @@ internal fun StorageRing(
     )
     val total = slices.sumOf { it.bytes }
     val track = MaterialTheme.colorScheme.surfaceVariant
+    val deviceInk = MaterialTheme.colorScheme.onSurfaceVariant
     val deviceShare = if (report.deviceBytes > 0) {
-        (report.totalBytes.toFloat() / report.deviceBytes).coerceIn(0f, 1f)
+        (report.deviceUsedBytes.toFloat() / report.deviceBytes).coerceIn(0f, 1f)
     } else {
         0f
     }
@@ -116,10 +119,10 @@ internal fun StorageRing(
             )
             if (deviceShare > 0f) {
                 drawArc(
-                    color = RingBuckets[1],
+                    color = deviceInk,
                     startAngle = START_ANGLE,
-                    // A keyboard is a rounding error next to a phone's storage;
-                    // without a floor the ring reads as empty rather than small.
+                    // Floored, so a nearly empty phone still reads as a ring
+                    // with a little in it rather than as no ring at all.
                     sweepAngle = (deviceShare * FULL_TURN * grown).coerceAtLeast(MIN_SWEEP),
                     useCenter = false,
                     topLeft = Offset(outerInset, outerInset),
