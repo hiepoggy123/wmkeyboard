@@ -464,7 +464,6 @@ internal fun LanguageDetailScreen(
                 onRemoved()
             }
         }
-        Unit
     }
 
     if (pendingDelete) {

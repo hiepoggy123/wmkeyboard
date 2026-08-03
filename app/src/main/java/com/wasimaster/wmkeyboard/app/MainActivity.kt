@@ -135,7 +135,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -285,7 +284,6 @@ import kotlinx.coroutines.CoroutineScope
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictStore
-import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import com.wasimaster.wmkeyboard.core.emoji.EmojiKeywordPack
 import com.wasimaster.wmkeyboard.core.emoji.EmojiKeywordPacks
 import com.wasimaster.wmkeyboard.core.emoji.EmojiSearchExamples
