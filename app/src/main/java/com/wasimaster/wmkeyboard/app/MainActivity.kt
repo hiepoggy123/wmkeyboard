@@ -157,6 +157,7 @@ import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColorArgb
 import com.wasimaster.wmkeyboard.core.ui.toolAccentEndColorArgb
 import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -433,14 +434,26 @@ internal fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Uni
         ThemeMode.DARK, ThemeMode.AMOLED -> true
     }
     val supportsDynamic = settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    var scheme = when {
-        supportsDynamic && dark -> dynamicDarkColorScheme(context)
-        supportsDynamic -> dynamicLightColorScheme(context)
-        dark -> darkColorScheme()
-        else -> lightColorScheme()
-    }
-    if (settings.themeMode == ThemeMode.AMOLED) {
-        scheme = scheme.copy(background = Color.Black, surface = Color.Black)
+    // Remembered, and not only to save the forty resource reads a dynamic
+    // scheme costs. MaterialTheme hands the scheme down through a *static*
+    // composition local, and ColorScheme compares by instance — so a freshly
+    // built one, identical to the last, still counted as a change and
+    // recomposed every screen under this theme. Flipping any switch in
+    // Settings re-emits the settings object and lands here, so that was the
+    // whole app re-composing behind each toggle.
+    val configuration = LocalConfiguration.current
+    val scheme = remember(dark, supportsDynamic, settings.themeMode, context, configuration) {
+        val base = when {
+            supportsDynamic && dark -> dynamicDarkColorScheme(context)
+            supportsDynamic -> dynamicLightColorScheme(context)
+            dark -> darkColorScheme()
+            else -> lightColorScheme()
+        }
+        if (settings.themeMode == ThemeMode.AMOLED) {
+            base.copy(background = Color.Black, surface = Color.Black)
+        } else {
+            base
+        }
     }
     // Every settings surface draws tool icons, so the user's icon set is
     // provided here rather than per screen — the Tools list and the keyboard

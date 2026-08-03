@@ -613,7 +613,41 @@ class SuggestionEngine(
      * the likelihood weight of the edit that produced it. A candidate
      * reachable by several edits keeps the most likely one.
      */
+    /**
+     * The last answer [edits1Weighted] gave, and what it was asked.
+     *
+     * One keystroke asks the same question twice: [suggest] builds the strip
+     * from the edit set and then [shouldAutocorrect] — called moments later,
+     * for the same word, to precompute what a space would commit — builds it
+     * again. That set is the most expensive thing the engine does (for a
+     * five-letter word it is some 300 candidates, each a string and a map
+     * merge, over ~425 key-adjacency lookups), so answering the second ask
+     * from the first is close to halving the per-keystroke prediction cost.
+     *
+     * Guarded by the keyboard layout it was computed against, since that is
+     * the only other input: switching layouts changes which keys are adjacent
+     * and so what a plausible typo is.
+     */
+    private class Edits1Memo(
+        val word: String,
+        val proximity: KeyProximity,
+        val edits: Map<String, Double>,
+    )
+
+    @Volatile
+    private var edits1Memo: Edits1Memo? = null
+
     private fun edits1Weighted(word: String): Map<String, Double> {
+        val proximityNow = proximity
+        edits1Memo?.let { memo ->
+            if (memo.word == word && memo.proximity === proximityNow) return memo.edits
+        }
+        val edits = computeEdits1Weighted(word, proximityNow)
+        edits1Memo = Edits1Memo(word, proximityNow, edits)
+        return edits
+    }
+
+    private fun computeEdits1Weighted(word: String, proximity: KeyProximity): Map<String, Double> {
         val result = HashMap<String, Double>()
         val n = word.length
         // One reusable builder for every candidate: the substring+concat form

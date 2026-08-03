@@ -30,9 +30,13 @@ private val symbolSetJson = Json {
 object SymbolSetCodec {
     fun encodeList(sets: List<SymbolSet>): String = symbolSetJson.encodeToString(sets)
 
-    fun decodeList(json: String): List<SymbolSet> =
-        runCatching { symbolSetJson.decodeFromString<List<SymbolSet>>(json) }
+    fun decodeList(json: String): List<SymbolSet> {
+        // See [AiActionCodec.decodeList]: a blank value is the normal state,
+        // not a parse failure worth an exception.
+        if (json.isBlank()) return emptyList()
+        return runCatching { symbolSetJson.decodeFromString<List<SymbolSet>>(json) }
             .getOrDefault(emptyList())
+    }
 }
 
 /**

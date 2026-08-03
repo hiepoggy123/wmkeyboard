@@ -42,8 +42,13 @@ object RotationStateCodec {
     fun encode(states: Map<String, RotationState>): String = json.encodeToString(states)
 
     /** A blob that will not parse reads as "no theme is rotating yet". */
-    fun decode(raw: String): Map<String, RotationState> =
-        runCatching { json.decodeFromString<Map<String, RotationState>>(raw) }.getOrDefault(emptyMap())
+    fun decode(raw: String): Map<String, RotationState> {
+        // Blank until a rotating background has actually moved on once, which
+        // for most installs is never. Parsing it threw on every read.
+        if (raw.isBlank()) return emptyMap()
+        return runCatching { json.decodeFromString<Map<String, RotationState>>(raw) }
+            .getOrDefault(emptyMap())
+    }
 }
 
 /** A jump this large means the clock was set, not that time passed. */

@@ -97,9 +97,16 @@ private val aiActionJson = Json {
 object AiActionCodec {
     fun encodeList(actions: List<AiActionSpec>): String = aiActionJson.encodeToString(actions)
 
-    fun decodeList(json: String): List<AiActionSpec> =
-        runCatching { aiActionJson.decodeFromString<List<AiActionSpec>>(json) }
+    fun decodeList(json: String): List<AiActionSpec> {
+        // The blank check is not a nicety. Nothing is stored here until the
+        // user writes an action of their own, so the settings decode hands
+        // this an empty string on most devices — and letting the parser reject
+        // it meant throwing and filling a stack trace on every settings
+        // emission to arrive at the same empty list.
+        if (json.isBlank()) return emptyList()
+        return runCatching { aiActionJson.decodeFromString<List<AiActionSpec>>(json) }
             .getOrDefault(emptyList())
+    }
 
     /** Ids as one string, for the order and the turned-off list. */
     fun encodeIds(ids: List<String>): String = ids.joinToString("\t")

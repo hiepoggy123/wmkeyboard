@@ -1396,6 +1396,34 @@ private const val ToolbarToolsStaggerMs = 55
  */
 private const val FullBleedReturnFadeMs = 260
 
+/**
+ * The last candidates the strip actually drew, so a field that empties fades
+ * them out instead of blanking.
+ *
+ * Deliberately not snapshot state: writing snapshot state from a composable
+ * that reads it in the same pass is what forced the suggestion bar to compose
+ * twice per keystroke. Nothing else observes these, and [TopBar] re-runs on
+ * every publish of the ui state, so a plain object read in the pass that wrote
+ * it is both correct and one composition cheaper.
+ */
+private class HeldCandidates(state: KeyboardUiState) {
+    var suggestions: List<String> = state.suggestions
+        private set
+    var emojiSuggestions: List<String> = state.emojiSuggestions
+        private set
+    var punctuation: List<String> = state.punctuationSuggestions
+        private set
+    var inlineEmoji: Boolean = state.inlineEmoji
+        private set
+
+    fun advance(state: KeyboardUiState) {
+        suggestions = state.suggestions
+        emojiSuggestions = state.emojiSuggestions
+        punctuation = state.punctuationSuggestions
+        inlineEmoji = state.inlineEmoji
+    }
+}
+
 @Composable
 private fun TopBar(
     state: KeyboardUiState,
@@ -1526,24 +1554,32 @@ private fun TopBar(
     // toggled back) they never "arrive" — a presence-keyed fade wouldn't fire
     // and they'd snap on at full strength over the still-sliding emoji.
     val stripContentVisible = !showToolbar && suggestionsShowing
-    var shownSuggestions by remember { mutableStateOf(state.suggestions) }
-    var shownEmojiSuggestions by remember { mutableStateOf(state.emojiSuggestions) }
+    // Held in a plain object and advanced *here*, in the composition that sees
+    // the new candidates, rather than in four snapshot states written from an
+    // effect afterwards. That is the same hazard the emoji row above documents
+    // (see [emojiRowSuppressed]) and it was costing more here: those writes
+    // invalidated this composable, which had only just finished running, so
+    // every keystroke composed the whole bar twice — the chevron's
+    // AnimatedVisibility, the chip loops, and [LatinSuggestionChips], which is
+    // a subcompose layout and the most expensive thing on the strip. This
+    // composable takes the ui state and so re-runs on every publish, which is
+    // what lets the values live outside the snapshot system without going
+    // stale. The non-empty gate is unchanged: it is what holds the last
+    // candidates on screen for the fade-out instead of blanking them.
+    val held = remember { HeldCandidates(state) }
+    if (state.suggestions.isNotEmpty() || state.emojiSuggestions.isNotEmpty()) {
+        held.advance(state)
+    }
+    val shownSuggestions = held.suggestions
+    val shownEmojiSuggestions = held.emojiSuggestions
     // Held alongside the candidates: the fade-out must keep drawing the row it
     // faded in, or a cleared ":tada" buffer would flip the emoji back to text
     // chips for the length of the fade.
-    var shownInlineEmoji by remember { mutableStateOf(state.inlineEmoji) }
+    val shownInlineEmoji = held.inlineEmoji
     // Punctuation chips are held alongside the words so they fade out with them
     // rather than blanking. The service only fills them when word candidates
     // are present, so they follow the same non-empty gate.
-    var shownPunctuation by remember { mutableStateOf(state.punctuationSuggestions) }
-    LaunchedEffect(state.suggestions, state.emojiSuggestions) {
-        if (state.suggestions.isNotEmpty() || state.emojiSuggestions.isNotEmpty()) {
-            shownSuggestions = state.suggestions
-            shownEmojiSuggestions = state.emojiSuggestions
-            shownPunctuation = state.punctuationSuggestions
-            shownInlineEmoji = state.inlineEmoji
-        }
-    }
+    val shownPunctuation = held.punctuation
     // Fade in when the strip shows its candidates, out when it stops. Keyed on
     // strip visibility (see [stripContentVisible]), so it fires both when
     // candidates land while the strip is up and when the strip retakes the row
@@ -6212,7 +6248,7 @@ private fun KeyRows(
     onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
 ) {
-    val layout = currentLayout(state)
+    val layout = rememberCurrentLayout(state)
     // Letter-area swipes are drawing handwriting rather than gliding a word
     // (full builds only). Capture arms whenever the mode is selected; the
     // service decides whether the drawn ink recognizes or prompts a download.
@@ -7063,6 +7099,36 @@ private fun smartHitTarget(
     return best
 }
 
+/**
+ * [currentLayout], memoized on everything it reads.
+ *
+ * Worth a memo because the rewrite pass below is not free — with any of the
+ * key-rewriting preferences on (an emoji comma, the clipboard long-presses,
+ * the full accent popups, a number row stripping duplicate digits) it copies
+ * every key of every row — and it ran on each recomposition of the key grid,
+ * which is to say on every keystroke. Handing back the *same* layout instance
+ * also turns the `remember(layout)` keys downstream from a deep structural
+ * comparison of the whole grid into a reference check.
+ *
+ * The keys are the whole read set of [currentLayout] and [numericPadActive]:
+ * the layer objects, the layer being shown, the settings (every preference it
+ * consults lives in there), the composer, the field's kind, and the flag for
+ * the search boxes that suppress the numeric pad. **A read added to either
+ * function has to be covered here**, or the grid will keep drawing the layout
+ * from before it changed.
+ */
+@Composable
+internal fun rememberCurrentLayout(state: KeyboardUiState): KeyboardLayout = remember(
+    state.layouts,
+    state.layoutMode,
+    state.settings,
+    state.composer,
+    state.fieldKind,
+    numericPadActive(state),
+) {
+    currentLayout(state)
+}
+
 internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     if (numericPadActive(state)) {
         state.layouts.numeric?.let { return it }
@@ -7568,8 +7634,13 @@ private fun KeyButton(
         else -> false
     }
     val label = visual.spoken.resolved()
-    // Hoisted: the semantics block below is not a composable scope.
-    val typeAction = stringResource(R.string.ime_key_type_action, label)
+    // Hoisted: the semantics block below is not a composable scope. Gated
+    // because only the semantics-driven branch reads it, and formatting it
+    // otherwise meant a Resources.getString with an argument — per key, per
+    // grid build — for a string nobody was going to speak. Calling a
+    // @ReadOnlyComposable conditionally is safe; it opens no group.
+    val typeAction =
+        if (semanticsDriven) stringResource(R.string.ime_key_type_action, label) else ""
     // Nothing announces the keys once the window is passed through — TalkBack
     // no longer sees the touches that would make it speak. The keyboard says
     // the key itself on press; the press only commits on release, so a key can

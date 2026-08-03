@@ -430,7 +430,19 @@ object AssetLayouts {
     const val MNI_ID = "asset_mni"
 
     @Volatile private var cached: List<LayoutSpec> = emptyList()
+    @Volatile private var index: Map<String, LayoutSpec> = emptyMap()
     @Volatile private var loaded = false
+
+    /**
+     * Bumped once, when [load] publishes the parsed layouts. Callers that cache
+     * anything derived from the shipped set key on it, so a cache built during
+     * the window before the assets have finished parsing — the first frames
+     * after a cold start — is discarded rather than serving a list that is
+     * missing 375 layouts for the rest of the process's life.
+     */
+    @Volatile
+    var generation: Int = 0
+        private set
 
     /** The parsed asset layouts, or empty before [load] has run. */
     val all: List<LayoutSpec> get() = cached
@@ -439,8 +451,11 @@ object AssetLayouts {
      * The shipped asset layout with this id, or null. The [BuiltInLayouts.byId]
      * counterpart, for the callers that need "is this id one we ship?" and have
      * to answer it for both halves of the shipped set.
+     *
+     * Indexed rather than scanned: this is on the field-focus path, where it is
+     * asked once per enabled layout, and there are ~375 of these.
      */
-    fun byId(id: String): LayoutSpec? = cached.firstOrNull { it.id == id }
+    fun byId(id: String): LayoutSpec? = index[id]
 
     /**
      * Reads and parses every `.wmlayout.json` under `assets/layouts`, caching the
@@ -452,7 +467,7 @@ object AssetLayouts {
     fun load(assets: AssetManager) {
         if (loaded) return
         val names = runCatching { assets.list(DIR)?.asList() }.getOrNull().orEmpty()
-        cached = names
+        val parsed = names
             .filter { it.endsWith(SUFFIX) }
             .mapNotNull { name ->
                 runCatching {
@@ -460,6 +475,11 @@ object AssetLayouts {
                     LayoutFile.decode(text)?.layout
                 }.getOrNull()
             }
+        // Index before list: [byId] reads the index and [all] reads the list,
+        // and a reader that saw the new list must not then find an empty index.
+        index = parsed.associateBy { it.id }
+        cached = parsed
+        generation++
         loaded = true
     }
 

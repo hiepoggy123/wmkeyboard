@@ -34,6 +34,16 @@ class EmojiUsage(private val storageFile: File?) {
         private const val MAX_FAVOURITES = 64
     }
 
+    /**
+     * Whether anything has been used, pinned or reordered since the file last
+     * matched memory. [save] runs on the main thread on every keyboard
+     * dismissal; without this it re-encoded and rewrote the whole history even
+     * when no emoji had been touched, which is nearly every dismissal. See
+     * [com.wasimaster.wmkeyboard.core.prediction.UserLexicon] for the same flag
+     * and the reason the write itself stays synchronous.
+     */
+    private var dirty = false
+
     init {
         load()
     }
@@ -50,6 +60,9 @@ class EmojiUsage(private val storageFile: File?) {
         favourites.clear()
         variantPrefs.clear()
         load()
+        // Memory matches the file again, and saving would undo the rewrite
+        // this reload exists to pick up.
+        dirty = false
     }
 
     private fun load() {
@@ -70,6 +83,7 @@ class EmojiUsage(private val storageFile: File?) {
         recents.addFirst(emoji)
         while (recents.size > MAX_RECENTS) recents.removeLast()
         counts.merge(emoji, 1, Int::plus)
+        dirty = true
     }
 
     /** Favourites first, then the most recently used non-favourites. */
@@ -102,6 +116,7 @@ class EmojiUsage(private val storageFile: File?) {
     /** Toggles favourite status; returns true when [emoji] is now a favourite. */
     @Synchronized
     fun toggleFavourite(emoji: String): Boolean {
+        dirty = true
         return if (favourites.remove(emoji)) {
             false
         } else {
@@ -124,6 +139,7 @@ class EmojiUsage(private val storageFile: File?) {
         for (fav in favourites) if (fav !in next) next.add(fav)
         favourites.clear()
         favourites.addAll(next)
+        dirty = true
     }
 
     @Synchronized
@@ -133,6 +149,7 @@ class EmojiUsage(private val storageFile: File?) {
     @Synchronized
     fun setPreferredVariant(base: String, variant: String) {
         if (variant == base) variantPrefs.remove(base) else variantPrefs[base] = variant
+        dirty = true
     }
 
     @Synchronized
@@ -141,6 +158,7 @@ class EmojiUsage(private val storageFile: File?) {
     @Synchronized
     fun save() {
         val file = storageFile ?: return
+        if (!dirty) return
         runCatching {
             file.parentFile?.mkdirs()
             file.writeText(
@@ -148,13 +166,15 @@ class EmojiUsage(private val storageFile: File?) {
                     Snapshot(recents.toList(), counts, favourites.toList(), variantPrefs)
                 )
             )
-        }
+        // Only on success, so a failed write is retried at the next dismissal.
+        }.onSuccess { dirty = false }
     }
 
     /** Clears only the recents list, keeping counts, favourites and prefs. */
     @Synchronized
     fun clearRecents() {
         recents.clear()
+        dirty = true
     }
 
     /**
@@ -167,6 +187,7 @@ class EmojiUsage(private val storageFile: File?) {
         recents.remove(emoji)
         counts.remove(emoji)
         favourites.remove(emoji)
+        dirty = true
     }
 
     @Synchronized
@@ -175,6 +196,9 @@ class EmojiUsage(private val storageFile: File?) {
         counts.clear()
         favourites.clear()
         variantPrefs.clear()
-        storageFile?.delete()
+        // The delete is the write; a later save must not recreate the file.
+        // A delete that FAILED leaves the wiped history on disk, so stay dirty
+        // and let the next save overwrite it with the empty snapshot.
+        dirty = storageFile?.delete() == false
     }
 }

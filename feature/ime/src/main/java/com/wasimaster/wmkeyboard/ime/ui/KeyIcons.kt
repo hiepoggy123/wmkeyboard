@@ -66,7 +66,8 @@ object KeyIcons {
      * Canonical name → vector. The iteration order is the order an icon picker
      * would present them in, so the most generally useful glyphs lead.
      */
-    val catalog: Map<String, ImageVector> = linkedMapOf(
+    val catalog: Map<String, ImageVector> by lazy {
+        linkedMapOf(
         // Editing / navigation.
         "backspace" to Icons.AutoMirrored.Outlined.Backspace,
         "forward_delete" to KeyboardIcons.ForwardDelete,
@@ -118,10 +119,12 @@ object KeyIcons {
         "light_mode" to Icons.Outlined.LightMode,
         "dark_mode" to Icons.Outlined.DarkMode,
         "highlight" to Icons.Outlined.Highlight,
-    )
+        )
+    }
 
     /** Common synonyms mapped onto their canonical [catalog] entry. */
-    private val aliases: Map<String, String> = mapOf(
+    private val aliases: Map<String, String> by lazy {
+        mapOf(
         "delete" to "backspace",
         "return" to "enter",
         "caps" to "shift_lock",
@@ -146,16 +149,24 @@ object KeyIcons {
         "hide" to "keyboard_hide",
         "gear" to "settings",
         "bulb" to "highlight",
-    )
+        )
+    }
 
     /** Every icon name a layout can use, canonical names plus aliases. */
-    val names: List<String> = catalog.keys.toList() + aliases.keys
+    val names: List<String> by lazy { catalog.keys.toList() + aliases.keys }
 
     /**
      * The vector for [name], or null if the name is blank or unrecognised (the
      * caller then draws the text label). Case- and whitespace-insensitive.
      */
     fun byName(name: String?): ImageVector? {
+        // Before [catalog] is touched, which is the point of the check being
+        // here rather than at the call site: every key on the board asks this
+        // on every grid build, almost always with no icon name at all, and
+        // building the catalogue means constructing seventy ImageVectors —
+        // path data parsed and node trees built — on whichever thread got
+        // here first. That was the keyboard's first frame. Lazy plus this
+        // early return means a board of ordinary keys never builds it.
         if (name.isNullOrBlank()) return null
         val key = name.trim().lowercase()
         catalog[key]?.let { return it }

@@ -113,10 +113,14 @@ private val modeJson = Json {
 object KeyboardModeCodec {
     fun encodeList(modes: List<KeyboardMode>): String = modeJson.encodeToString(modes)
 
-    fun decodeList(json: String): List<KeyboardMode> =
-        runCatching { modeJson.decodeFromString<List<KeyboardMode>>(json) }
+    fun decodeList(json: String): List<KeyboardMode> {
+        // See [LayoutCodec.decodeList] — blank is normal, not an error worth
+        // an exception on every settings emission.
+        if (json.isBlank()) return emptyList()
+        return runCatching { modeJson.decodeFromString<List<KeyboardMode>>(json) }
             .getOrDefault(emptyList())
             .map(::migrateMode)
+    }
 
     /** App list the browser mode used to ship with (now field-bound only). */
     private val legacyBrowserApps = listOf(

@@ -28,6 +28,15 @@ class LanguageMixConfidence(private val storageFile: File? = null) {
     private val usage = HashMap<String, Double>()
     private val json = Json { ignoreUnknownKeys = true }
 
+    /**
+     * Whether anything has been recorded since the file last matched memory.
+     * The same flag [com.wasimaster.wmkeyboard.core.input.composer.CjkUserHistory]
+     * keeps, and for the same reason: [save] runs on the main thread every time
+     * the keyboard is dismissed, and a dismissal with nothing typed has nothing
+     * to write.
+     */
+    private var dirty = false
+
     init {
         load()
     }
@@ -49,6 +58,7 @@ class LanguageMixConfidence(private val storageFile: File? = null) {
             if (decayed < FLOOR) iterator.remove() else entry.setValue(decayed)
         }
         usage.merge(langId, 1.0, Double::plus)
+        dirty = true
     }
 
     /**
@@ -70,17 +80,22 @@ class LanguageMixConfidence(private val storageFile: File? = null) {
     @Synchronized
     fun save() {
         val file = storageFile ?: return
+        if (!dirty) return
         runCatching {
             file.parentFile?.mkdirs()
             file.writeText(json.encodeToString(Snapshot(usage)))
-        }
+        // Only on success, so a failed write is retried at the next dismissal.
+        }.onSuccess { dirty = false }
     }
 
     /** Wipe all learned mixing habit (mirrors the personal-data reset). */
     @Synchronized
     fun clear() {
         usage.clear()
-        storageFile?.delete()
+        // The delete is the write; a later save must not recreate the file.
+        // A delete that FAILED leaves the wiped tally on disk, so stay dirty
+        // and let the next save overwrite it with the empty snapshot.
+        dirty = storageFile?.delete() == false
     }
 
     /**
@@ -92,6 +107,9 @@ class LanguageMixConfidence(private val storageFile: File? = null) {
     fun reload() {
         usage.clear()
         load()
+        // Memory matches the file again — saving would put back what the
+        // Storage screen just deleted, which is what this reload exists to stop.
+        dirty = false
     }
 
     private fun load() {

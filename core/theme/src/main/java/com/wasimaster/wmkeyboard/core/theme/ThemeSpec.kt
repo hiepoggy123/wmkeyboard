@@ -179,13 +179,21 @@ object ThemeCodec {
 
     fun encodeList(themes: List<ThemeSpec>): String = themeJson.encodeToString(themes)
 
-    fun decodeList(json: String): List<ThemeSpec> =
-        runCatching { themeJson.decodeFromString<List<ThemeSpec>>(json) }.getOrDefault(emptyList())
+    fun decodeList(json: String): List<ThemeSpec> {
+        // A blank value is what a user with no themes of their own has stored,
+        // which is most of them; parsing it only to catch the exception cost a
+        // filled stack trace per settings emission.
+        if (json.isBlank()) return emptyList()
+        return runCatching { themeJson.decodeFromString<List<ThemeSpec>>(json) }
+            .getOrDefault(emptyList())
+    }
 
     fun encode(theme: ThemeSpec): String = themeJson.encodeToString(theme)
 
-    fun decode(json: String): ThemeSpec? =
-        runCatching { themeJson.decodeFromString<ThemeSpec>(json) }.getOrNull()
+    fun decode(json: String): ThemeSpec? {
+        if (json.isBlank()) return null
+        return runCatching { themeJson.decodeFromString<ThemeSpec>(json) }.getOrNull()
+    }
 }
 
 /**

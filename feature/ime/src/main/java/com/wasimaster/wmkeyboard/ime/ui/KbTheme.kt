@@ -586,45 +586,60 @@ fun KeyboardThemeProvider(
     } else {
         settings.keyboardThemeId
     }
-    val spec = if (effectiveId == DEFAULT_THEME_ID) {
-        null
-    } else {
-        settings.customThemes.find { it.id == effectiveId }
-            ?: BuiltInThemes.find { it.id == effectiveId }
-    }
-    val resolved = if (spec == null) {
-        // Under auto-theme the chosen slot decides light vs dark directly;
-        // otherwise the theme mode does.
-        val dark = if (auto.enabled) darkSlot else when (settings.themeMode) {
-            ThemeMode.SYSTEM -> systemDark
-            ThemeMode.LIGHT -> false
-            ThemeMode.DARK, ThemeMode.AMOLED -> true
-        }
-        // AMOLED is a dark-only variant; gating on `dark` keeps a light slot
-        // (or Light mode) from turning the board black.
-        val amoled = dark && settings.themeMode == ThemeMode.AMOLED
-        val supportsDynamic = settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-        val scheme = when {
-            supportsDynamic && dark -> dynamicDarkColorScheme(context)
-            supportsDynamic -> dynamicLightColorScheme(context)
-            dark -> darkColorScheme()
-            else -> lightColorScheme()
-        }
-        defaultKbTheme(scheme, dark, amoled = amoled, settings)
-    } else {
-        // The rotating photo is laid over the theme here, on the way to the
-        // screen, rather than written into the stored theme. That is what
-        // keeps a rotation from rewriting something the user made -- and it
-        // is also what lets a built-in theme rotate, since a built-in has
-        // nowhere of its own to keep an image.
-        val shown = if (settings.photoBackground.rotates(effectiveId, settings.keyboardThemeId)) {
-            spec.withRotation(rotationStates[effectiveId], settings.photoBackground)
+    // Everything below is a pure function of the keys listed here, and all of
+    // it is expensive enough to matter: dynamicDark/LightColorScheme reads
+    // forty system colours out of resources, and the two builders derive a
+    // full palette (contrast blends included) from them. This composable
+    // recomposes on every keystroke — the content lambda closes over the ui
+    // state — so without the memo the whole palette was rebuilt per letter
+    // typed. `configuration` is a key so a wallpaper or ui-mode change, which
+    // is what moves the dynamic palette underneath us, still re-resolves it.
+    val configuration = LocalConfiguration.current
+    val resolved = remember(
+        settings, systemDark, darkSlot, rotationStates, context, configuration,
+    ) {
+        val spec = if (effectiveId == DEFAULT_THEME_ID) {
+            null
         } else {
-            spec
+            settings.customThemes.find { it.id == effectiveId }
+                ?: BuiltInThemes.find { it.id == effectiveId }
         }
-        specKbTheme(shown, settings)
+        if (spec == null) {
+            // Under auto-theme the chosen slot decides light vs dark directly;
+            // otherwise the theme mode does.
+            val dark = if (auto.enabled) darkSlot else when (settings.themeMode) {
+                ThemeMode.SYSTEM -> systemDark
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK, ThemeMode.AMOLED -> true
+            }
+            // AMOLED is a dark-only variant; gating on `dark` keeps a light slot
+            // (or Light mode) from turning the board black.
+            val amoled = dark && settings.themeMode == ThemeMode.AMOLED
+            val supportsDynamic =
+                settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            val scheme = when {
+                supportsDynamic && dark -> dynamicDarkColorScheme(context)
+                supportsDynamic -> dynamicLightColorScheme(context)
+                dark -> darkColorScheme()
+                else -> lightColorScheme()
+            }
+            defaultKbTheme(scheme, dark, amoled = amoled, settings)
+        } else {
+            // The rotating photo is laid over the theme here, on the way to the
+            // screen, rather than written into the stored theme. That is what
+            // keeps a rotation from rewriting something the user made -- and it
+            // is also what lets a built-in theme rotate, since a built-in has
+            // nowhere of its own to keep an image.
+            val shown =
+                if (settings.photoBackground.rotates(effectiveId, settings.keyboardThemeId)) {
+                    spec.withRotation(rotationStates[effectiveId], settings.photoBackground)
+                } else {
+                    spec
+                }
+            specKbTheme(shown, settings)
+        }.accessibilityAdjusted(settings)
     }
-    val kb = animatedKbTheme(resolved.accessibilityAdjusted(settings))
+    val kb = animatedKbTheme(resolved)
     // The chosen font rides in through the Material typography, so every
     // Text on the keyboard — key labels, suggestions, panels — follows it
     // without per-call plumbing. Emojis get their own family via
@@ -670,7 +685,10 @@ fun KeyboardThemeProvider(
         )
     }
     MaterialTheme(
-        colorScheme = schemeFor(kb),
+        // Two whole ColorSchemes per call (the Material base, then the copy
+        // with this theme's colours over it) — remembered for the same reason
+        // the palette above is, since `kb` only moves on a theme change.
+        colorScheme = remember(kb) { schemeFor(kb) },
         typography = remember(keyFontFamily) { typographyWith(keyFontFamily) },
     ) {
         CompositionLocalProvider(

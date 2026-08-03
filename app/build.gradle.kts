@@ -442,6 +442,16 @@ tasks.named("check") {
 dependencies {
     dictc(project(":tools:dictc"))
 
+    // Installs app/src/main/baseline-prof.txt into the app's ART profile so the
+    // listed methods are compiled ahead of time. Declared explicitly, not left
+    // to arrive transitively behind Compose and Coil: it already does arrive
+    // that way, but a dependency bump that dropped it would leave the profile
+    // packaged in the APK and never applied — the keyboard would quietly go
+    // back to warming up from cold on every process start, with nothing
+    // failing to say so. Play installs are covered by the store either way;
+    // this is what covers F-Droid and sideloads.
+    implementation(libs.androidx.profileinstaller)
+
     // Static-analysis rule packs. These are analyser plugins, not app code —
     // nothing here reaches the APK.
     detektPlugins(libs.detekt.formatting)

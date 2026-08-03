@@ -123,6 +123,39 @@ internal fun LanguageDef.matchesQuery(query: String): Boolean =
         localeTag.lowercase().contains(query)
 
 /**
+ * The four fields [matchesQuery] searches, lowercased once.
+ *
+ * There are 352 languages in the registry and [matchesQuery] lowercases all
+ * four of a language's names on every call, so filtering the list built and
+ * threw away fourteen hundred strings — per keystroke, in the search box that
+ * runs the filter. The comparisons are kept field by field rather than
+ * concatenated so a query cannot match across a boundary between two names,
+ * which is a match [matchesQuery] would not make.
+ */
+internal class LanguageSearchKey(language: LanguageDef) {
+    private val displayName = language.displayName.lowercase()
+    private val englishName = language.englishName.lowercase()
+    private val id = language.id.lowercase()
+    private val localeTag = language.localeTag.lowercase()
+
+    /** [query] must already be trimmed and lowercased, as [matchesQuery] wants. */
+    fun matches(query: String): Boolean =
+        query.isEmpty() ||
+            displayName.contains(query) ||
+            englishName.contains(query) ||
+            id.contains(query) ||
+            localeTag.contains(query)
+}
+
+/**
+ * Every registry language paired with its search key. Built once for the
+ * process: the registry is a constant, so nothing here can go stale.
+ */
+private val languageSearchIndex: List<Pair<LanguageDef, LanguageSearchKey>> by lazy {
+    LanguageRegistry.all.map { it to LanguageSearchKey(it) }
+}
+
+/**
  * The enabled languages, for the one-line summary under the Languages row.
  *
  * Endonyms, in switch order, trimmed to the first few — the row is one line and
@@ -207,9 +240,23 @@ internal fun AddLanguageScreen(
     val scope = rememberCoroutineScope()
     val filesDir = LocalContext.current.filesDir
     var query by remember { mutableStateOf("") }
-    val enabledLangIds = settings.enabledLanguages.mapTo(HashSet()) { it.id }
+    val enabledLangIds = remember(settings.enabledLanguages) {
+        settings.enabledLanguages.mapTo(HashSet()) { it.id }
+    }
     val q = query.trim().lowercase()
-    val matches = LanguageRegistry.all.filter { it.matchesQuery(q) }
+    // Both remembered on the query: this whole screen recomposes on every
+    // letter typed into the search box, and re-running the filter over 352
+    // languages — and rebuilding the enabled-id set — for a query that has not
+    // changed is work with no result to show for it.
+    val matches = remember(q) {
+        if (q.isEmpty()) {
+            LanguageRegistry.all
+        } else {
+            languageSearchIndex.mapNotNull { (language, key) ->
+                language.takeIf { key.matches(q) }
+            }
+        }
+    }
     val suggested = rememberSuggestedLanguages(settings)
     // The language is enabled straight away either way; the prompt only decides
     // whether its data comes down now, so answering it is never load-bearing.

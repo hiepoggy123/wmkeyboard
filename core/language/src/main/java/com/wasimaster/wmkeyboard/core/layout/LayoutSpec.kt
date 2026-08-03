@@ -165,17 +165,24 @@ private val layoutJson = Json {
 object LayoutCodec {
     fun encodeList(layouts: List<LayoutSpec>): String = layoutJson.encodeToString(layouts)
 
-    fun decodeList(json: String): List<LayoutSpec> =
-        runCatching { layoutJson.decodeFromString<List<LayoutSpec>>(json) }
+    fun decodeList(json: String): List<LayoutSpec> {
+        // Blank is the ordinary state — nothing is written here until the user
+        // edits or imports a layout — so answer it without handing the parser
+        // something it can only reject by throwing.
+        if (json.isBlank()) return emptyList()
+        return runCatching { layoutJson.decodeFromString<List<LayoutSpec>>(json) }
             .getOrDefault(emptyList())
             .map(::migrateLayout)
+    }
 
     fun encode(layout: LayoutSpec): String = layoutJson.encodeToString(layout)
 
-    fun decode(json: String): LayoutSpec? =
-        runCatching { layoutJson.decodeFromString<LayoutSpec>(json) }
+    fun decode(json: String): LayoutSpec? {
+        if (json.isBlank()) return null
+        return runCatching { layoutJson.decodeFromString<LayoutSpec>(json) }
             .getOrNull()
             ?.let(::migrateLayout)
+    }
 
     /**
      * Brings a stored layout up to [CurrentLayoutSpecVersion]. The v1→v2 step
@@ -219,17 +226,66 @@ object LayoutCodec {
  * `resolveSymbolSets`.
  */
 fun resolveLayouts(custom: List<LayoutSpec>): List<LayoutSpec> {
+    val generation = AssetLayouts.generation
+    ResolvedLayouts.cache?.let {
+        if (it.generation == generation && it.custom === custom) return it.resolved
+    }
     val shipped = BuiltInLayouts.all + AssetLayouts.all
     val overrides = custom.associateBy { it.id }
     val resolvedShipped = shipped.map { overrides[it.id] ?: it }
     val shippedIds = shipped.mapTo(HashSet()) { it.id }
-    return resolvedShipped + custom.filter { it.id !in shippedIds }
+    val resolved = resolvedShipped + custom.filter { it.id !in shippedIds }
+    ResolvedLayouts.cache = ResolvedLayouts.Entry(custom, generation, resolved)
+    return resolved
+}
+
+/**
+ * One-entry memo for [resolveLayouts].
+ *
+ * The list it builds is ~393 layouts long and building it costs four
+ * collections of that size, and the whole thing is a pure function of the
+ * user's custom layouts and the shipped set. Callers ask for it far more often
+ * than either changes: the settings decode resolves layouts several times per
+ * emission, and entering a field resolves one per enabled layout.
+ *
+ * Keyed on the *identity* of the custom list — the settings object holds one
+ * instance for its lifetime, so the hot callers all hit — and on
+ * [AssetLayouts.generation], so the empty pre-load shipped set can never be
+ * cached past the moment the assets finish parsing. A miss just recomputes;
+ * two threads racing both compute the same list and the later write wins.
+ */
+private object ResolvedLayouts {
+    class Entry(
+        val custom: List<LayoutSpec>,
+        val generation: Int,
+        val resolved: List<LayoutSpec>,
+    )
+
+    @Volatile
+    var cache: Entry? = null
 }
 
 /**
  * The layout [id] names, falling back to the default when it has been deleted
  * out from under a stored reference. Never returns null: a keyboard with no
  * grid has nothing to draw and no way for the user to recover.
+ *
+ * Answered by lookup rather than by resolving the whole catalogue and scanning
+ * it: this is called once per enabled layout when a field is focused, and
+ * building 393 layouts to pick one out is the sort of thing that shows up as a
+ * keyboard that is slow to appear. The branches mirror [resolveLayouts]
+ * exactly — a custom layout sharing a shipped id is an edit of it and wins that
+ * slot, a custom-only id resolves to itself, anything else is the default.
  */
-fun resolveLayout(custom: List<LayoutSpec>, id: String): LayoutSpec =
-    resolveLayouts(custom).firstOrNull { it.id == id } ?: BuiltInLayouts.default
+fun resolveLayout(custom: List<LayoutSpec>, id: String): LayoutSpec {
+    val shipped = BuiltInLayouts.byId(id) ?: AssetLayouts.byId(id)
+    return if (shipped != null) {
+        // `associateBy` keeps the last entry for a repeated key, so an override
+        // list with duplicate ids resolves the way it did through the map.
+        custom.lastOrNull { it.id == id } ?: shipped
+    } else {
+        // Not shipped: this is the `custom.filter { it.id !in shippedIds }`
+        // tail, which is scanned front to back.
+        custom.firstOrNull { it.id == id } ?: BuiltInLayouts.default
+    }
+}

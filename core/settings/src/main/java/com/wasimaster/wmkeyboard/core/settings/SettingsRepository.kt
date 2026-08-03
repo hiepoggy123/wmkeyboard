@@ -2753,9 +2753,38 @@ class SettingsRepository(private val context: Context) {
      * keyboard is on screen tears down the mirror flow and re-collects the real
      * one, and existing collectors just see one more emission.
      */
+    /**
+     * The default of every setting, as one object [mapPreferences] reads each
+     * field's fallback out of.
+     *
+     * Built once. It used to be constructed per emission, which meant building
+     * the whole 250-field object — and the forty nested settings objects, and
+     * the registry lookups behind the language defaults — to answer questions
+     * about the handful of keys the store happened to be missing. It is an
+     * immutable data class whose defaults are constants and registry entries,
+     * so one instance answers for every emission.
+     */
+    private val storedDefaults by lazy { KeyboardSettings() }
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val settings: Flow<KeyboardSettings> = unlocked
         .flatMapLatest { isUnlocked ->
+            // The duplicate filter sits INSIDE each branch, deliberately.
+            // DataStore re-emits after every successful write whether or not
+            // the write changed anything, and several of the things this app
+            // stores get rewritten with the value they already held; each of
+            // those cost a full [mapPreferences] — 250 fields, two JSON
+            // decodes — and, because the renderer compares the settings object
+            // by instance, a theme and key-grid rebuild downstream.
+            //
+            // Filtering *outside* the flatMapLatest would have been a bug: an
+            // unlock switches branches, and if the real store happened to hold
+            // preferences equal to the mirror's last snapshot the switch would
+            // emit nothing. The keyboard applies [restrictedToDirectBoot] to
+            // whatever this publishes, so a swallowed emission there leaves it
+            // in its locked-session shape — no custom fonts, no contacts, half
+            // the tools missing — until some unrelated setting is next written.
+            // Per branch, a switch always delivers the new flow's first value.
             if (isUnlocked) {
                 context.dataStore.data
                     .onEach { locked.write(it) }
@@ -2763,11 +2792,23 @@ class SettingsRepository(private val context: Context) {
                     // dispatcher the collector (the IME's main-thread scope)
                     // happens to be on.
                     .flowOn(Dispatchers.IO)
+                    .distinctUntilChanged()
             } else {
-                locked.snapshots()
+                locked.snapshots().distinctUntilChanged()
             }
         }
+        // Run the mapping off the main thread. The IME collects on
+        // Dispatchers.Main.immediate, so without this the layout and theme
+        // JSON was decoded on the thread drawing the keyboard, on the very
+        // frame it was trying to appear. [mapPreferences] touches no Context
+        // and no disk, so it is free to move; its one piece of outside state
+        // is the shipped-layout catalogue, which is immutable except for the
+        // once-per-process [AssetLayouts.load] — and the keyboard re-resolves
+        // the layout for itself on every field focus rather than relying on
+        // this object's copy, so a mapping that ran before the assets finished
+        // parsing is not what decides which grid gets drawn.
         .map { mapPreferences(it) }
+        .flowOn(Dispatchers.Default)
 
     /**
      * Called when the platform broadcasts that credential-encrypted storage has
@@ -2807,7 +2848,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     private fun mapPreferences(p: Preferences): KeyboardSettings {
-        val defaults = KeyboardSettings()
+        val defaults = storedDefaults
         // Layouts resolve first: the input mode is read off the active layout,
         // so it has to be known before the settings object is built. The
         // pre-registry migration lives in resolveLayoutSelection.

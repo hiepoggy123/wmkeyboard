@@ -58,6 +58,17 @@ object KeySoundPlayer {
 
     /** Builds the pool and starts decoding so the first key press isn't late. */
     fun warmUp(context: Context) {
+        // Outside the lock, and first. This runs on a worker at IME start while
+        // [play] runs on the main thread from the pointer-down handler, and the
+        // two share this object's monitor — so anything slow done while holding
+        // it is time a keypress can be made to wait for. Synthesising three
+        // waveforms and writing them to disk (which only happens on the first
+        // run after an install or a cleared cache) is by far the slowest thing
+        // here, and it needs no shared state, so it happens before the lock is
+        // ever taken. [ensurePool] still checks the same files itself, so a
+        // press that gets there first is correct either way — it just finds
+        // them already written.
+        prepareCacheFiles(context)
         ensurePool(context)
         // Same reason: the Click and Standard styles never touch the pool, so
         // without this their first press is the one paying for the lookup.
@@ -166,13 +177,38 @@ object KeySoundPlayer {
             if (status == 0) synchronized(this) { loadedIds.add(sampleId) }
         }
         val dir = File(context.cacheDir, "keysounds").apply { mkdirs() }
-        for (style in listOf(KeySoundStyle.POP, KeySoundStyle.THOCK, KeySoundStyle.CHIME)) {
-            val file = File(dir, "${style.name.lowercase()}_v$CACHE_VERSION.wav")
+        for (style in SYNTHESIZED_STYLES) {
+            val file = cacheFileFor(dir, style)
             if (!file.exists()) writeWav(file, synthesize(style))
             soundIds[style] = p.load(file.path, 1)
         }
         pool = p
         return p
+    }
+
+    /** The three styles this object renders itself, rather than borrowing from the system. */
+    private val SYNTHESIZED_STYLES =
+        listOf(KeySoundStyle.POP, KeySoundStyle.THOCK, KeySoundStyle.CHIME)
+
+    private fun cacheDir(context: Context): File =
+        File(context.cacheDir, "keysounds").apply { mkdirs() }
+
+    private fun cacheFileFor(dir: File, style: KeySoundStyle): File =
+        File(dir, "${style.name.lowercase()}_v$CACHE_VERSION.wav")
+
+    /**
+     * Renders any missing waveform to the cache, taking no lock.
+     *
+     * Idempotent and safe to race with [ensurePool]: both skip a file that is
+     * already there, and both write the same bytes for one that is not. See
+     * [warmUp] for why it is worth keeping out of the monitor.
+     */
+    private fun prepareCacheFiles(context: Context) {
+        val dir = runCatching { cacheDir(context) }.getOrNull() ?: return
+        for (style in SYNTHESIZED_STYLES) {
+            val file = cacheFileFor(dir, style)
+            if (!file.exists()) runCatching { writeWav(file, synthesize(style)) }
+        }
     }
 
     // ---- synthesis ----
@@ -249,9 +285,29 @@ object KeySoundPlayer {
         header.putInt(dataSize)
         val pcm = java.nio.ByteBuffer.allocate(dataSize).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         samples.forEach { pcm.putShort(it) }
-        file.outputStream().use {
-            it.write(header.array())
-            it.write(pcm.array())
+        // Written to a sibling and renamed into place, never straight to the
+        // destination. [prepareCacheFiles] runs this off the object's monitor
+        // while [ensurePool] may be testing the same path with exists() and
+        // handing it to SoundPool.load from the main thread — and an
+        // outputStream() on the real path truncates it first, so that reader
+        // could see a header with no samples behind it. SoundPool fails such a
+        // load silently: the style would keep falling back to the system click
+        // for the life of the process, with nothing to say why. A rename is
+        // atomic within the directory, so a reader sees the old file or the
+        // whole new one.
+        val dir = file.parentFile ?: return
+        val tmp = File.createTempFile(file.nameWithoutExtension, ".tmp", dir)
+        try {
+            tmp.outputStream().use {
+                it.write(header.array())
+                it.write(pcm.array())
+            }
+            if (!tmp.renameTo(file)) tmp.delete()
+        } catch (e: java.io.IOException) {
+            // Leave no partial sibling behind; the destination is untouched, so
+            // the next ensurePool writes it under the lock the way it always did.
+            tmp.delete()
+            throw e
         }
     }
 }

@@ -277,6 +277,7 @@ import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.layout.compile
+import com.wasimaster.wmkeyboard.ime.ui.IconDefaults
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.ime.ui.emojiStickerJobId
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardScreen
@@ -1090,8 +1091,56 @@ open class WMKeyboardService : InputMethodService() {
         // Decode the synthesized key sounds up front so the first press plays,
         // and resolve the audio/vibrator services here rather than from the
         // pointer-down handler of whichever key the user hits first.
-        KeySoundPlayer.warmUp(this)
-        HapticPlayer.warmUp(this)
+        //
+        // Off the main thread, because "up front" does not have to mean
+        // "before the keyboard can be drawn". The first run after an install
+        // or a cleared cache synthesises three waveforms and writes them to
+        // disk, and every run after that opens a SoundPool and loads them —
+        // all of it in the window where the user is waiting for a keyboard to
+        // appear, and most of it for a sound that is off by default. There is
+        // a whole view inflation, a layout pass and a finger travelling to a
+        // key between here and the first press.
+        // Three separate launches rather than one: they are independent, and
+        // the icon table is the one racing the first frame — it must not queue
+        // behind a first-run waveform synthesis.
+        serviceScope.launch(Dispatchers.Default) {
+            // Guarded: this used to run inside onCreate, where a full disk
+            // taking the sound cache down with it would have crashed the
+            // keyboard anyway. On a coroutine it would still crash it — via
+            // the scope's uncaught handler — and a keyboard that will not open
+            // because it could not cache a click is a bad trade. The sounds
+            // fall back to the system effects on their own.
+            runCatching {
+                KeySoundPlayer.warmUp(this@WMKeyboardService)
+                HapticPlayer.warmUp(this@WMKeyboardService)
+            }
+        }
+        // The default icon table, for the same reason. [IconDefaults.warm] was
+        // written to be called off the main thread before the first frame, but
+        // its only caller was the background icon-pack build, which is a
+        // composition effect — it cannot run until the composition that
+        // scheduled it has already been applied, and that composition draws
+        // the shift, backspace, enter, globe and emoji keys, each of which
+        // forces the table. So the keyboard's own first frame always got there
+        // first and built eighty-odd Material vectors on the main thread.
+        // Service create strictly precedes the first onStartInputView, so from
+        // here it wins the race. The lazy behind it is synchronized, so a frame
+        // that does arrive early simply waits for the same map.
+        serviceScope.launch(Dispatchers.Default) { IconDefaults.warm() }
+        // Whether the Harper grammar library is present, resolved here so no
+        // keyboard show has to: reading it maps an 11 MB native library. See
+        // [grammarAvailable].
+        grammarProbe = serviceScope.launch {
+            // IO, not Default: this is a `System.loadLibrary` — a file mapped
+            // and relocated — and on the Default pool it queued behind the two
+            // CPU-bound warm-ups above, which on a two-core phone is exactly
+            // when it would still be unresolved as the keyboard appeared.
+            val available = withContext(Dispatchers.IO) { GrammarChecker.available }
+            if (available) {
+                grammarAvailable = true
+                _uiState.update { it.copy(grammar = it.grammar.copy(available = true)) }
+            }
+        }
         startDndWatch()
         attachPersonalStores()
         // Direct boot: nothing below can read credential-encrypted storage yet,
@@ -1374,15 +1423,28 @@ open class WMKeyboardService : InputMethodService() {
 
         // Mirror the torch state so the flashlight tool lights up even when
         // the torch is toggled from outside the keyboard.
+        //
+        // Finding the camera with a flash means a call into the camera service
+        // for every camera on the device, which on a cheap phone is tens of
+        // milliseconds of blocked main thread — spent, at keyboard start, to
+        // decide how one tool's icon should look. It moves to a worker; the
+        // callback still registers on the main thread, which is the looper
+        // `null` here asks for. Everything that reads [torchCameraId] already
+        // handles it being absent, since a device with no flash never sets it.
         val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        torchCameraId = runCatching {
-            cameraManager.cameraIdList.firstOrNull { id ->
-                cameraManager.getCameraCharacteristics(id)
-                    .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+        torchProbe = serviceScope.launch {
+            val flashCamera = withContext(Dispatchers.IO) {
+                runCatching {
+                    cameraManager.cameraIdList.firstOrNull { id ->
+                        cameraManager.getCameraCharacteristics(id)
+                            .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+                    }
+                }.getOrNull()
             }
-        }.getOrNull()
-        if (torchCameraId != null) {
-            cameraManager.registerTorchCallback(torchCallback, null)
+            torchCameraId = flashCamera
+            if (flashCamera != null) {
+                runCatching { cameraManager.registerTorchCallback(torchCallback, null) }
+            }
         }
     }
 
@@ -2120,7 +2182,7 @@ open class WMKeyboardService : InputMethodService() {
                 // another one abandons it rather than resuming half-typed.
                 typingTest = TypingTestUi(),
                 translate = TranslateUi(),
-                grammar = GrammarUi(available = GrammarChecker.available),
+                grammar = GrammarUi(available = grammarAvailable || grammarProbePending()),
                 composingPreview = "",
                 suggestions = emptyList(),
                 emojiSuggestions = emptyList(),
@@ -3551,7 +3613,20 @@ open class WMKeyboardService : InputMethodService() {
             // chevron are shown exactly while the strip has content, neither
             // would go away. Re-derive the context, then refresh: with no word
             // behind the cursor the engine returns nothing and the bar folds.
-            syncPreviousWordFromField(ic)
+            //
+            // Derived from the text already in hand rather than asking the
+            // editor for the same 64 characters a second time: that read is a
+            // blocking round-trip into the focused app, and holding backspace
+            // repeats this whole path many times a second, which is exactly
+            // when the app on the other side is least able to answer promptly.
+            // Every branch of the `when` above bounds deleteLength by what
+            // `before` holds, so the guard only falls through if that ever
+            // stops being true.
+            if (before != null && deleteLength <= before.length) {
+                previousWord = completedWordBefore(before.subSequence(0, before.length - deleteLength))
+            } else {
+                syncPreviousWordFromField(ic)
+            }
             refreshSuggestions()
         }
     }
@@ -3702,8 +3777,14 @@ open class WMKeyboardService : InputMethodService() {
             state.voice.status != VoiceStatus.FINISHING &&
             state.voice.status != VoiceStatus.TRANSCRIBING
 
+        // Held outside the block so the fall-through below can reuse it rather
+        // than asking the editor for the same 64 characters again — that read
+        // is a blocking round-trip into the focused app, and this runs from
+        // onUpdateSelection.
+        var beforeText: CharSequence? = null
         if (canResume && newSelStart >= 0) {
             val before = ic.getTextBeforeCursor(64, 0)
+            beforeText = before
             val after = ic.getTextAfterCursor(1, 0)
             // A caret at a word's end: a word char behind it, nothing word-like
             // ahead (end of text, or a separator — not the middle of a token).
@@ -3735,7 +3816,9 @@ open class WMKeyboardService : InputMethodService() {
         // No word to resume: predict from the completed word behind the caret,
         // or clear when there is none. refreshSuggestions self-gates on the
         // field flags, so this stays correct in secure / no-suggestion fields.
-        syncPreviousWordFromField(ic)
+        // `beforeText` is null exactly when the branch above never read it.
+        val cached = beforeText
+        if (cached != null) previousWord = completedWordBefore(cached) else syncPreviousWordFromField(ic)
         refreshSuggestions()
     }
 
@@ -4901,6 +4984,32 @@ open class WMKeyboardService : InputMethodService() {
         // that can afford to land a frame later.
         smartJob?.cancel()
         smartJob = serviceScope.launch {
+            // Debounced before the read, not after. One keystroke reaches here
+            // twice — once from refreshSuggestions and once from the
+            // onUpdateSelection the commit provokes — and cancelling the first
+            // job did not help, because by the time the selection update
+            // arrives that job has already issued its round-trip into the
+            // target app and been answered. Sleeping first means the second
+            // scheduling cancels the first while it is still asleep, so a
+            // keystroke costs one cross-process read instead of two. The chip
+            // is advisory and lands about a frame later than it did.
+            delay(SMART_SUGGEST_DEBOUNCE_MS)
+            // The gate above was read before the sleep. A panel opening, or the
+            // field turning out to be secure, does not cancel this job — so
+            // re-read it, or the chip publishes into a state that refuses to
+            // show one. The window is only as long as the debounce, but it is
+            // the debounce that created it.
+            val still = _uiState.value
+            if (still.panel != PanelMode.NONE || still.secureField ||
+                still.fieldNoSuggestions || !still.settings.smartSuggestions ||
+                // Same list as the gate above, conversion composer included: a
+                // layout switch inside the debounce window would otherwise let
+                // a chip take the row the candidate list needs.
+                still.composer.isConversion
+            ) {
+                if (still.smart != null) _uiState.update { it.copy(smart = null) }
+                return@launch
+            }
             val before = withContext(Dispatchers.Default) {
                 ic.getTextBeforeCursor(SmartSuggest.LOOKBEHIND, 0)?.toString().orEmpty()
             }
@@ -5731,7 +5840,7 @@ open class WMKeyboardService : InputMethodService() {
                 mediaCategories = emptyList(),
                 mediaCategory = null,
                 translate = TranslateUi(),
-                grammar = GrammarUi(available = GrammarChecker.available),
+                grammar = GrammarUi(available = grammarAvailable || grammarProbePending()),
                 // Leaving the Plugins panel must hand the keys straight back to
                 // the field. This is the reset that guarantees it: whatever the
                 // panel was routing, the next state has nowhere to route to.
@@ -6689,6 +6798,52 @@ open class WMKeyboardService : InputMethodService() {
     /** Camera with a flash unit, or null when the device has none. */
     private var torchCameraId: String? = null
 
+    /**
+     * The camera enumeration that resolves [torchCameraId], so the flashlight
+     * tool can wait for it instead of racing it.
+     *
+     * Finding the camera with a flash is a call into the camera service per
+     * camera, so it runs off the main thread at service create — which leaves
+     * a window where [torchCameraId] is null because the answer is not in yet,
+     * not because the device has no flash. The tool's own "no flash on this
+     * device" message would be a lie during that window, so it joins this
+     * first.
+     */
+    private var torchProbe: Job? = null
+
+    /** Whether a flashlight tap is already parked on [torchProbe]. */
+    private var flashlightWaitingOnProbe = false
+
+    /**
+     * Whether the Harper grammar library loaded, cached off the hot path.
+     *
+     * Asking [GrammarChecker] directly is not a field read: the answer comes
+     * from a `System.loadLibrary`, and libharper_jni.so is 11 MB. It was being
+     * asked on every keyboard show — from the state [onStartInputView] builds
+     * and again from the panel-change path — so the first show in each process
+     * mapped and relocated the whole library between the field being focused
+     * and the keyboard appearing, whether or not the Grammar tool was ever
+     * opened. Resolved once at service create instead, on a worker.
+     *
+     * Only ever set to true, and only the tool's greyed-out state reads it. The
+     * tool's own handlers still ask [GrammarChecker] directly — by then the
+     * library has to load anyway — so this flag decides chrome, never whether
+     * a check can run. See [grammarProbePending] for the window before it
+     * settles.
+     */
+    @Volatile
+    private var grammarAvailable = false
+
+    /**
+     * The probe that resolves [grammarAvailable].
+     *
+     * Unlike [torchProbe] nothing joins this one: the flashlight has to know
+     * the answer before it can act, whereas the grammar flag only decides
+     * whether the tool draws itself as unavailable, and [grammarProbePending]
+     * answers that without blocking. Kept so that question can be asked.
+     */
+    private var grammarProbe: Job? = null
+
     private val torchCallback = object : CameraManager.TorchCallback() {
         override fun onTorchModeChanged(cameraId: String, enabled: Boolean) {
             if (cameraId == torchCameraId) {
@@ -6699,6 +6854,46 @@ open class WMKeyboardService : InputMethodService() {
 
     fun onFlashlightToggle() {
         vibrate()
+        val probe = torchProbe
+        if (probe != null && !probe.isCompleted) {
+            // Still working out which camera has the flash — see [torchProbe].
+            // Answering now would report "no flash on this device" for a device
+            // that has one.
+            //
+            // At most one tap waits. Two would both resume in the same main-
+            // thread drain, before the torch callback had reported the first,
+            // so both would read the same `torchOn` and ask for the same state
+            // — a double tap would turn the torch on and leave it on.
+            if (flashlightWaitingOnProbe) return
+            flashlightWaitingOnProbe = true
+            serviceScope.launch {
+                try {
+                    probe.join()
+                    toggleFlashlightResolved()
+                } finally {
+                    flashlightWaitingOnProbe = false
+                }
+            }
+            return
+        }
+        toggleFlashlightResolved()
+    }
+
+    /**
+     * Whether the grammar library's availability is still being worked out.
+     *
+     * The tool's chrome treats "still working it out" as available, rather than
+     * waiting: the alternative is telling the user the feature is not in this
+     * build when it is, and the wait would be the 11 MB map this all exists to
+     * keep off the show path. Safe to be optimistic because the tool's own
+     * handlers read [GrammarChecker] directly, so an over-eager answer here
+     * cannot make it try to lint without a library — and the probe's own update
+     * settles [grammarAvailable] either way.
+     */
+    private fun grammarProbePending(): Boolean = grammarProbe?.isCompleted == false
+
+    /** [onFlashlightToggle] once [torchCameraId] is known to be settled. */
+    private fun toggleFlashlightResolved() {
         if (torchCameraId == null) {
             Toast.makeText(
                 this,
@@ -11262,6 +11457,17 @@ open class WMKeyboardService : InputMethodService() {
      * one. Caps lock is never touched.
      */
     private fun refreshShiftForContext() {
+        // Both of these end in "leave the shift alone", so the target is worked
+        // out and thrown away — and working it out costs
+        // [InputConnection.getCursorCapsMode], a blocking round-trip into the
+        // focused app's own thread. This runs from onUpdateSelection, which is
+        // to say on every keystroke, so in an app whose main thread is busy
+        // that call *is* the keypress lag. With auto-capitalise off
+        // [autoCapitalizeShift] answers OFF without asking, which no branch
+        // below acts on; caps lock outranks whatever the field wants.
+        val state = _uiState.value
+        if (!state.settings.autoCapitalize) return
+        if (state.shiftState == ShiftState.CAPS_LOCK) return
         val target = autoCapitalizeShift()
         _uiState.update {
             when {
@@ -11512,6 +11718,9 @@ open class WMKeyboardService : InputMethodService() {
 
         /** Inline emoji search is a local index lookup — no network wait. */
         private const val EMOJI_SEARCH_DEBOUNCE_MS = 24L
+
+        /** See the delay in [refreshSmartSuggestion]; one frame, near enough. */
+        private const val SMART_SUGGEST_DEBOUNCE_MS = 24L
         private const val INLINE_EMOJI_LIMIT = 12
 
         /** How many contact-email completions the email-field strip may show. */

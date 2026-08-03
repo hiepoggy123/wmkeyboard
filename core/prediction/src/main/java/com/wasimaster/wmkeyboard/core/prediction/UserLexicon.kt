@@ -24,6 +24,20 @@ class UserLexicon(private val storageFile: File?) {
     private val bigrams = HashMap<String, HashMap<String, Int>>()
     private val json = Json { ignoreUnknownKeys = true }
 
+    /**
+     * Whether anything has been learned since the file last matched memory.
+     *
+     * [save] runs on the main thread every time the keyboard is dismissed, and
+     * it serialises every word and bigram the user has ever typed. Most
+     * dismissals have nothing new to write — the keyboard came up, the user
+     * tapped a suggestion or typed nothing at all, and it went away again — so
+     * the flag turns those into a return rather than a re-encode and a rewrite
+     * of the whole file. It is deliberately not a "save later" scheme: when
+     * there *is* something new it is still written synchronously, before the
+     * process can be killed with the user's new words only in memory.
+     */
+    private var dirty = false
+
     init {
         load()
     }
@@ -39,6 +53,7 @@ class UserLexicon(private val storageFile: File?) {
         if (key.length < 2 || count <= 0) return
         words.merge(key, count, Int::plus)
         trie.reinforce(key, count)
+        dirty = true
     }
 
     /**
@@ -52,6 +67,7 @@ class UserLexicon(private val storageFile: File?) {
         if (key.isEmpty()) return
         words.merge(key, boost, Int::plus)
         trie.reinforce(key, boost)
+        dirty = true
     }
 
     /**
@@ -65,6 +81,10 @@ class UserLexicon(private val storageFile: File?) {
         bigrams.clear()
         rebuildTrie()
         load()
+        // Memory is the file again, so there is nothing outstanding to write —
+        // and writing would clobber the settings-app edit this reload exists
+        // to pick up.
+        dirty = false
     }
 
     @Synchronized
@@ -73,6 +93,7 @@ class UserLexicon(private val storageFile: File?) {
         val nxt = next.lowercase()
         if (prev.isEmpty() || nxt.isEmpty()) return
         bigrams.getOrPut(prev) { HashMap() }.merge(nxt, 1, Int::plus)
+        dirty = true
     }
 
     @Synchronized
@@ -104,6 +125,7 @@ class UserLexicon(private val storageFile: File?) {
         bigrams.remove(key)
         bigrams.values.forEach { it.remove(key) }
         rebuildTrie()
+        dirty = true
     }
 
     @Synchronized
@@ -111,12 +133,17 @@ class UserLexicon(private val storageFile: File?) {
         words.clear()
         bigrams.clear()
         rebuildTrie()
-        storageFile?.delete()
+        // The delete is the write, so there is normally nothing left to save.
+        // If it failed, the file still holds the data this call was meant to
+        // wipe — stay dirty so the next save overwrites it with the empty
+        // snapshot, which is what the old unconditional save did.
+        dirty = storageFile?.delete() == false
     }
 
     @Synchronized
     fun save() {
         val file = storageFile ?: return
+        if (!dirty) return
         val snapshot = Snapshot(
             words = words,
             bigrams = bigrams.mapValues { it.value.toMap() },
@@ -124,7 +151,9 @@ class UserLexicon(private val storageFile: File?) {
         runCatching {
             file.parentFile?.mkdirs()
             file.writeText(json.encodeToString(snapshot))
-        }
+        // Only on success: a write that failed leaves the file behind memory,
+        // and the next dismissal should try again rather than assume it landed.
+        }.onSuccess { dirty = false }
     }
 
     private fun load() {

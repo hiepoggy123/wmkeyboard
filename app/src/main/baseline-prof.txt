@@ -1,0 +1,87 @@
+# Baseline profile — the classes and methods ART compiles ahead of time at
+# install, instead of interpreting them until the JIT gets around to it.
+#
+# This matters more for a keyboard than for most apps. The IME process is
+# started, killed and started again all day: the system reclaims it whenever
+# the keyboard is hidden and memory is short, so a phone that is under pressure
+# — which is exactly the low-end phone this is for — pays the warm-up cost over
+# and over rather than once. Without a profile of its own the app shipped 4459
+# profile entries, every one of them from Compose and Coil and none from this
+# codebase, so the keyboard's own service, renderer and decoder ran interpreted
+# on each of those starts.
+#
+# Rules are `flags` + a class/method pattern. `H` marks a method hot, `S` marks
+# it as running during startup, `P` post-startup; `**` is expanded against the
+# real dex at build time by AGP, and R8 rewrites the names to match the
+# minified build, so the original names below are the right ones to write.
+#
+# Scope is deliberate rather than "everything". Compiling the whole app would
+# grow the installed .odex and the install itself, which is a poor trade on a
+# device short of storage — the same devices the `lite` flavor exists for. What
+# is listed is the keyboard runtime and the modules it loads to draw a key and
+# answer a keystroke. The settings app's screens, and the tool subsystems that
+# only wake when their tool is opened (ML Kit, Whisper, the local LLM, the
+# grammar checker, plugins, addons), are left out on purpose: they are not on
+# the path between tapping a text field and seeing a letter.
+
+# --- The keyboard itself: service, input handling, and the Compose renderer ---
+HSPLcom/wasimaster/wmkeyboard/ime/**->**(**)**
+Lcom/wasimaster/wmkeyboard/ime/**
+
+# --- Layouts, languages and scripts: read before the first key is drawn -------
+HSPLcom/wasimaster/wmkeyboard/core/layout/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/layout/**
+HSPLcom/wasimaster/wmkeyboard/core/script/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/script/**
+
+# --- Settings: decoded once per process, on the way to the first frame -------
+HSPLcom/wasimaster/wmkeyboard/core/settings/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/settings/**
+HSPLcom/wasimaster/wmkeyboard/core/directboot/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/directboot/**
+HSPLcom/wasimaster/wmkeyboard/core/power/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/power/**
+
+# --- The per-keystroke path: composing, prediction, dictionaries -------------
+HSPLcom/wasimaster/wmkeyboard/core/input/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/input/**
+HSPLcom/wasimaster/wmkeyboard/core/prediction/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/prediction/**
+HSPLcom/wasimaster/wmkeyboard/core/dictionaries/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/dictionaries/**
+HSPLcom/wasimaster/wmkeyboard/core/transliteration/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/transliteration/**
+HSPLcom/wasimaster/wmkeyboard/core/text/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/text/**
+HSPLcom/wasimaster/wmkeyboard/core/gesture/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/gesture/**
+
+# --- Painting the board: theme, icons, fonts, key feedback -------------------
+HSPLcom/wasimaster/wmkeyboard/core/theme/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/theme/**
+HSPLcom/wasimaster/wmkeyboard/core/icons/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/icons/**
+HSPLcom/wasimaster/wmkeyboard/core/fonts/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/fonts/**
+HSPLcom/wasimaster/wmkeyboard/core/feedback/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/feedback/**
+
+# --- Strip and toolbar content loaded with the keyboard, not with a tool -----
+HSPLcom/wasimaster/wmkeyboard/core/emoji/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/emoji/**
+HSPLcom/wasimaster/wmkeyboard/core/tools/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/tools/**
+HSPLcom/wasimaster/wmkeyboard/core/clipboard/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/clipboard/**
+HSPLcom/wasimaster/wmkeyboard/core/snippets/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/snippets/**
+
+# --- Shared plumbing every one of the above calls into -----------------------
+HSPLcom/wasimaster/wmkeyboard/core/util/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/util/**
+HSPLcom/wasimaster/wmkeyboard/core/ui/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/ui/**
+HSPLcom/wasimaster/wmkeyboard/core/accessibility/**->**(**)**
+Lcom/wasimaster/wmkeyboard/core/accessibility/**
+HSPLcom/wasimaster/wmkeyboard/config/**->**(**)**
+Lcom/wasimaster/wmkeyboard/config/**
