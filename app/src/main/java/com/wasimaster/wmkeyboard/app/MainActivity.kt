@@ -60,6 +60,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.wasimaster.wmkeyboard.app.updates.LocalAppUpdater
+import com.wasimaster.wmkeyboard.app.updates.UpdateCard
+import com.wasimaster.wmkeyboard.app.updates.rememberAppUpdater
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
 import com.wasimaster.wmkeyboard.core.tools.CheatSheetLetter
@@ -365,14 +368,23 @@ class MainActivity : ComponentActivity() {
             val settings by repository.settings
                 .collectAsStateWithLifecycle(null as KeyboardSettings?)
             val pending by pendingNav.collectAsStateWithLifecycle()
+            // Play In-App Updates, bound to this activity's lifecycle and its
+            // result launcher. In a non-Play build this is a stub that reports
+            // "unsupported" forever and the update UI draws nothing. Published
+            // rather than passed down: the card on the home screen and the rows
+            // on About are far apart in the tree and must not disagree about
+            // the same download.
+            val updater = rememberAppUpdater()
             settings?.let { loaded ->
                 AppTheme(loaded) {
-                    SettingsNavHost(
-                        repository = repository,
-                        settings = loaded,
-                        pending = pending,
-                        onPendingHandled = { pendingNav.value = null },
-                    )
+                    CompositionLocalProvider(LocalAppUpdater provides updater) {
+                        SettingsNavHost(
+                            repository = repository,
+                            settings = loaded,
+                            pending = pending,
+                            onPendingHandled = { pendingNav.value = null },
+                        )
+                    }
                 }
             }
         }
@@ -1119,6 +1131,12 @@ private fun AnimatedVisibilityScope.HomeScreen(
                 SetupCard(context, setup = setup)
             }
             Spacer(Modifier.height(8.dp))
+        }
+        // Below the setup card on purpose: a keyboard that is not switched on
+        // yet has a more pressing problem than being one version behind. Draws
+        // nothing at all unless Play is offering something.
+        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            UpdateCard()
         }
         SettingsGroup(stringResource(R.string.home_group_typing_title)) {
             item {

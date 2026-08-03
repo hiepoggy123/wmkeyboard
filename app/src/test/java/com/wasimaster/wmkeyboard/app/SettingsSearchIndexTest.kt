@@ -57,10 +57,16 @@ class SettingsSearchIndexTest {
         }
     }
 
-    /** Every string some settings screen draws. The index itself is excluded. */
+    /**
+     * Every string some settings screen draws. The index itself is excluded.
+     *
+     * Walks the tree rather than listing one directory: the screens are mostly
+     * flat under `app/`, but a feature with several files of its own gets a
+     * package (`app/updates/`), and a row drawn from there is still a row.
+     */
     private val keysDrawnByScreens: Set<String> by lazy {
-        appDir.listFiles { f -> f.extension == "kt" }
-            .orEmpty()
+        appDir.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
             .filterNot { it.name == "SettingsSearch.kt" }
             .flatMapTo(mutableSetOf()) { file ->
                 Regex("""R\.string\.([a-z0-9_]+)""")

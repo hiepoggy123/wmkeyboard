@@ -601,7 +601,7 @@ private fun Resources.otherRows(): List<SettingsSearchEntry> {
         entry(title, subtitle, R.string.home_accessibility_title, "accessibility")
     fun about(@StringRes title: Int, @StringRes subtitle: Int = 0) =
         entry(title, subtitle, R.string.home_about_title, "about")
-    return listOf(
+    return listOfNotNull(
         backup(R.string.backup_include_secrets_title, R.string.backup_include_secrets_subtitle),
         backup(R.string.backup_section_stickers_label, R.string.backup_include_stickers_subtitle),
         stickerPack(R.string.import_sticker_pack_new_title, R.string.import_sticker_pack_new_subtitle),
@@ -646,6 +646,20 @@ private fun Resources.otherRows(): List<SettingsSearchEntry> {
         about(R.string.about_privacy_policy_title, R.string.about_privacy_policy_subtitle),
         entry(R.string.about_diagnostics_title, R.string.about_diagnostics_subtitle, R.string.home_about_title, "debug_log"),
         about(R.string.about_dictionaries_title, R.string.about_dictionaries_subtitle),
+        // Play builds only: nowhere else has an Updates group to land on. The
+        // check row is indexed under its resting name — the resource is what a
+        // search result matches on, and the row wears three other names while
+        // a download is running.
+        if (BuildConfig.ENABLE_PLAY_STORE) {
+            about(R.string.update_row_check_title, R.string.update_row_check_subtitle)
+        } else {
+            null
+        },
+        if (BuildConfig.ENABLE_PLAY_STORE) {
+            about(R.string.update_row_prompts_title, R.string.update_row_prompts_subtitle)
+        } else {
+            null
+        },
         entry(R.string.tools_colored_icons_title, R.string.tools_colored_icons_subtitle, R.string.home_tools_title, "tools"),
         entry(R.string.tools_gradient_icons_title, R.string.tools_gradient_icons_subtitle, R.string.home_tools_title, "tools"),
     )

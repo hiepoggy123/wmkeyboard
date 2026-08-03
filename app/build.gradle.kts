@@ -30,6 +30,17 @@ fun flag(propertyName: String, envName: String): Boolean =
         ?: System.getenv(envName)
         ?: "false").toBoolean()
 
+// Whether this build is going to the Play Store. It decides more than a label:
+// Play In-App Updates only works for an install that came from Play, and the
+// library is a Google binary that F-Droid will not accept, so it must be
+// absent from every other channel rather than merely unused. The flag
+// therefore selects a source directory as well as a dependency —
+// `src/play/java` drives the real AppUpdateManager, `src/noplay/java` declares
+// the same entry point and does nothing. Everything else lives in
+// `src/main/java` and compiles either way.
+val playStoreChannel = flag("wmkb.enablePlayStore", "WMKB_ENABLE_PLAY_STORE")
+val updateChannelSourceDir = if (playStoreChannel) "src/play/java" else "src/noplay/java"
+
 android {
     namespace = "com.wasimaster.wmkeyboard"
     compileSdk {
@@ -235,10 +246,27 @@ androidComponents {
             compileBundledDictionaries,
             CompileDictionariesTask::outputDir,
         )
+        // The update-channel driver picked at the top of this file, added to
+        // every production variant. This is the Variant API rather than the
+        // `android.sourceSets` or `kotlin.sourceSets` DSL because neither of
+        // those reaches the Kotlin compilation under AGP 9: there is no
+        // `main` Kotlin source set any more, and an extra *Java* directory is
+        // not mirrored into the Kotlin task, so a directory added that way
+        // compiles nothing and every reference into it fails to resolve.
+        //
+        // The store channel is not a flavour of its own on purpose: it is
+        // orthogonal to full/lite, and a second dimension would double every
+        // variant and every Gradle task name in the project for one file.
+        variant.sources.kotlin?.addStaticSourceDirectory(updateChannelSourceDir)
     }
 }
 
 kotlin {
+    // The update-channel driver picked at the top of this file. It has to be
+    // declared here and not only in `android.sourceSets`: under AGP 9 the
+    // Kotlin plugin no longer mirrors extra Java source directories into its
+    // own compilation, so a directory added there alone compiles nothing and
+    // every reference into it fails to resolve.
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
 
@@ -301,6 +329,9 @@ detekt {
             "src/main/java",
             "src/full/java",
             "src/lite/java",
+            // Only the channel this build compiles: the other directory names
+            // Play Core types that are not on any classpath here.
+            updateChannelSourceDir,
             "src/test/java",
             "src/testFull/java",
             "src/androidTest/java",
@@ -376,14 +407,14 @@ fun registerTypeResolvedDetekt(
 registerTypeResolvedDetekt(
     taskName = "detektFullDebug",
     description = "Runs detekt with type resolution over the fullDebug variant's sources.",
-    sourceDirs = listOf("src/main/java", "src/full/java"),
+    sourceDirs = listOf("src/main/java", "src/full/java", updateChannelSourceDir),
     compileTaskName = "compileFullDebugKotlin",
 )
 
 registerTypeResolvedDetekt(
     taskName = "detektLiteDebug",
     description = "Runs detekt with type resolution over the liteDebug variant's sources.",
-    sourceDirs = listOf("src/main/java", "src/lite/java"),
+    sourceDirs = listOf("src/main/java", "src/lite/java", updateChannelSourceDir),
     compileTaskName = "compileLiteDebugKotlin",
 )
 
@@ -461,6 +492,13 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
+
+    // Play In-App Updates, for Play-channel builds only. Compiled against by
+    // src/play/java; src/noplay/java is what every other channel gets, so no
+    // Google binary is linked into an F-Droid or direct-download APK.
+    if (playStoreChannel) {
+        implementation(libs.play.app.update)
+    }
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

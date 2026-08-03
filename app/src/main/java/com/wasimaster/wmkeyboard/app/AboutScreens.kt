@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.app.updates.UpdateSettings
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.support.Support
 import kotlinx.coroutines.Dispatchers
@@ -167,6 +168,21 @@ private val bundledAttributions: List<Attribution> = buildList {
                 "Copyright Google LLC",
                 "Google APIs Terms of Service", null,
                 "https://developers.google.com/ml-kit/terms",
+            ),
+        )
+    }
+    if (BuildConfig.ENABLE_PLAY_STORE) {
+        // Linked only into the Play build, which is the only one where in-app
+        // updates can work. Its licence is Google's own SDK terms rather than
+        // an open-source licence, so the row opens those terms instead of a
+        // bundled text file.
+        add(
+            Attribution(
+                "Play In-App Updates",
+                R.string.about_bundled_play_update_used,
+                "Copyright Google LLC",
+                "Play Core Software Development Kit Terms of Service", null,
+                "https://developer.android.com/guide/playcore/license",
             ),
         )
     }
@@ -500,6 +516,10 @@ internal fun AboutSettings(
         }
     }
     CaptionText(stringResource(R.string.about_free_software_body))
+
+    // Directly under the version it is about. Present only in a Play build:
+    // everywhere else the updater reports "unsupported" and this draws nothing.
+    UpdateSettings()
 
     SettingsGroup(stringResource(R.string.about_feedback_title)) {
         item {

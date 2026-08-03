@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Play In-App Updates. Only a build made for the Play Store shows any of
+   these: an update that the Play Store installs is the only kind this screen
+   can offer, so an F-Droid or direct-download build draws none of it.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- The card on the home screen, when a new version is out. -->
+    <string name="update_card_available_title">Update available</string>
+    <string name="update_card_available_body">A newer version of WM Keyboard is on the Play Store. It downloads in the background, and you choose when to install it.</string>
+    <!-- Shown instead of the body above when the release was published as high priority. -->
+    <string name="update_card_urgent_body">This update has an important fix. The Play Store installs it and restarts the app.</string>
+    <string name="update_card_ready_title">Update ready to install</string>
+    <string name="update_card_ready_body">The app closes and opens again to install the update. Your keyboard also restarts, so finish what you are typing first.</string>
+    <string name="update_card_downloading_title">Downloading the update</string>
+    <string name="update_card_installing_title">Installing the update</string>
+    <string name="update_card_installing_body">The app restarts in a moment.</string>
+
+    <!-- Buttons on the card. -->
+    <string name="update_action_download">Download</string>
+    <string name="update_action_update">Update now</string>
+    <string name="update_action_install">Install and restart</string>
+    <string name="update_action_later">Not now</string>
+
+    <!-- Download progress. %1$s = bytes so far, %2$s = total size, both with units. -->
+    <string name="update_progress_body"><xliff:g id="downloaded" example="12 MB">%1$s</xliff:g> of <xliff:g id="total" example="30 MB">%2$s</xliff:g></string>
+
+    <!-- About screen: the Updates group. -->
+    <string name="update_section_title">Updates</string>
+    <string name="update_row_check_title">Check for updates</string>
+    <string name="update_row_check_subtitle">Ask the Play Store if a newer version is out</string>
+    <string name="update_row_checking_subtitle">Asking the Play Store…</string>
+    <string name="update_row_current_subtitle">This is the newest version</string>
+    <string name="update_row_failed_subtitle">The Play Store did not answer. Press to try again</string>
+    <string name="update_row_available_title">Download the update</string>
+    <!-- %1$d = the version code of the new release, %2$s = its download size. -->
+    <string name="update_row_available_subtitle">Version <xliff:g id="version_code" example="4">%1$d</xliff:g>, <xliff:g id="size" example="30 MB">%2$s</xliff:g></string>
+    <!-- The same row, when the Play Store does not report a size. %1$d = version code. -->
+    <string name="update_row_available_subtitle_plain">Version <xliff:g id="version_code" example="4">%1$d</xliff:g></string>
+    <string name="update_row_downloading_title">Downloading the update</string>
+    <string name="update_row_install_title">Install the update</string>
+    <string name="update_row_install_subtitle">The app and the keyboard restart</string>
+    <string name="update_row_installing_title">Installing the update</string>
+
+    <string name="update_row_prompts_title">Ask me about updates</string>
+    <string name="update_row_prompts_subtitle">Let the Play Store offer a new version when you open this app. High priority updates always ask</string>
+
+</resources>

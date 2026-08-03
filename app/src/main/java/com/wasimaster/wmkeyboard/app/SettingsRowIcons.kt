@@ -153,6 +153,7 @@ import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Swipe
 import androidx.compose.material.icons.outlined.SwipeDown
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.TextFields
@@ -209,6 +210,16 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.about_share_play_link, Icons.Outlined.Share)
     put(R.string.about_share_github_link, Icons.Outlined.Share)
     put(R.string.about_share_fdroid_link, Icons.Outlined.Share)
+
+    // ---- Updates (Play builds only; the rows are absent everywhere else) ----
+    // The same glyph on every state of the one row, so it does not appear to
+    // jump between rows as the download runs.
+    put(R.string.update_row_check_title, Icons.Outlined.SystemUpdate)
+    put(R.string.update_row_available_title, Icons.Outlined.SystemUpdate)
+    put(R.string.update_row_downloading_title, Icons.Outlined.SystemUpdate)
+    put(R.string.update_row_install_title, Icons.Outlined.SystemUpdate)
+    put(R.string.update_row_installing_title, Icons.Outlined.SystemUpdate)
+    put(R.string.update_row_prompts_title, Icons.Outlined.Notifications)
 
     // ---- Accessibility ----
     put(R.string.accessibility_color_vision_title, Icons.Outlined.Palette)
