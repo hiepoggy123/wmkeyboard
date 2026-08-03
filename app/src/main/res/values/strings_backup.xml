@@ -61,6 +61,7 @@
     <string name="backup_section_icons_label">Icon packs</string>
     <string name="backup_section_wordlists_label">Custom word lists</string>
     <string name="backup_section_addons_label">Add-on repositories</string>
+    <string name="backup_section_emoji_label">Emoji history</string>
 
     <!-- The same names in the middle of a sentence, for the list in     -->
     <!-- backup_restore_done ("The app restored themes, snippets.").      -->
@@ -74,6 +75,7 @@
     <string name="backup_section_icons_label_lowercase">icon packs</string>
     <string name="backup_section_wordlists_label_lowercase">custom word lists</string>
     <string name="backup_section_addons_label_lowercase">add-on repositories</string>
+    <string name="backup_section_emoji_label_lowercase">emoji history</string>
 
     <!-- How much of each part a backup file holds. %1$d is the count. These -->
     <!-- go after the name of the part: "Themes: 3 custom themes".           -->
@@ -114,6 +116,10 @@
         <item quantity="one">%1$d repository</item>
         <item quantity="other">%1$d repositories</item>
     </plurals>
+    <plurals name="backup_section_emoji_count">
+        <item quantity="one">%1$d recent emoji</item>
+        <item quantity="other">%1$d recent emoji</item>
+    </plurals>
 
     <!-- ================================================================== -->
     <!-- Backup: what the export file holds.                                -->
@@ -141,6 +147,7 @@
     <string name="backup_include_icons_info">The backup holds the SVG files, so a restore on another device gets packs that work. This makes the file larger.</string>
     <string name="backup_include_wordlists_subtitle">The word lists you imported for any language</string>
     <string name="backup_include_addons_subtitle">The add-on sources you added, so you can install from them again</string>
+    <string name="backup_include_emoji_subtitle">Your recent emoji, your favourites and the skin tone of each one</string>
     <string name="backup_include_addons_info">This is only the list of addresses. The add-ons themselves go into the sections above. An installed theme is a custom theme, and an installed pack is an icon pack.</string>
 
     <!-- ================================================================== -->

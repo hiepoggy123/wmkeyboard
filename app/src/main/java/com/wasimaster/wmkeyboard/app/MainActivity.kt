@@ -5219,6 +5219,7 @@ internal fun sectionLabelRes(section: ConfigBackup.Section): Int = when (section
     ConfigBackup.Section.ICONS -> R.string.backup_section_icons_label
     ConfigBackup.Section.WORDLISTS -> R.string.backup_section_wordlists_label
     ConfigBackup.Section.ADDONS -> R.string.backup_section_addons_label
+    ConfigBackup.Section.EMOJI -> R.string.backup_section_emoji_label
 }
 
 internal fun sectionLabel(context: Context, section: ConfigBackup.Section): String =
@@ -5241,6 +5242,7 @@ internal fun sectionLabelLowercase(context: Context, section: ConfigBackup.Secti
             ConfigBackup.Section.ICONS -> R.string.backup_section_icons_label_lowercase
             ConfigBackup.Section.WORDLISTS -> R.string.backup_section_wordlists_label_lowercase
             ConfigBackup.Section.ADDONS -> R.string.backup_section_addons_label_lowercase
+            ConfigBackup.Section.EMOJI -> R.string.backup_section_emoji_label_lowercase
         },
     )
 
@@ -5255,6 +5257,7 @@ private fun sectionCountPlural(section: ConfigBackup.Section): Int = when (secti
     ConfigBackup.Section.ICONS -> R.plurals.backup_section_icons_count
     ConfigBackup.Section.WORDLISTS -> R.plurals.backup_section_wordlists_count
     ConfigBackup.Section.ADDONS -> R.plurals.backup_section_addons_count
+    ConfigBackup.Section.EMOJI -> R.plurals.backup_section_emoji_count
 }
 
 /** "3 themes", "1 snippet": the count line shown per section on import. */
@@ -5288,6 +5291,9 @@ private fun BackupSettings(repository: SettingsRepository) {
     // Just the list of repository addresses — small, and the one part of the
     // addon setup a restore would otherwise lose.
     var includeAddons by remember { mutableStateOf(true) }
+    // On by default: it is small, it is the user's own, and unlike a word
+    // list or a model there is nowhere to download it back from.
+    var includeEmoji by remember { mutableStateOf(true) }
     var includeDictionary by remember { mutableStateOf(false) }
     var includeClipboard by remember { mutableStateOf(false) }
     var includeSecrets by remember { mutableStateOf(false) }
@@ -5305,6 +5311,7 @@ private fun BackupSettings(repository: SettingsRepository) {
         if (includeIcons) add(ConfigBackup.Section.ICONS)
         if (includeWordlists) add(ConfigBackup.Section.WORDLISTS)
         if (includeAddons) add(ConfigBackup.Section.ADDONS)
+        if (includeEmoji) add(ConfigBackup.Section.EMOJI)
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -5447,6 +5454,13 @@ private fun BackupSettings(repository: SettingsRepository) {
                 includeAddons,
                 info = stringResource(R.string.backup_include_addons_info),
             ) { includeAddons = it }
+        }
+        item {
+            ToggleSetting(
+                R.string.backup_section_emoji_label,
+                stringResource(R.string.backup_include_emoji_subtitle),
+                includeEmoji,
+            ) { includeEmoji = it }
         }
     }
 

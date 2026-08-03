@@ -12,8 +12,8 @@ import kotlinx.serialization.json.jsonObject
 /**
  * Full-config backup: one file that can bundle several independent parts of
  * the app — settings, custom themes, the learned dictionary, clipboard
- * history, snippets, sticker packs, icon packs and imported word lists —
- * each an opt-in [Section].
+ * history, snippets, sticker packs, icon packs, imported word lists and the
+ * emoji history — each an opt-in [Section].
  *
  * This is the umbrella container. The pieces keep their own on-disk shapes:
  * a section's value is just the JSON that store already writes (the settings
@@ -42,6 +42,13 @@ object ConfigBackup {
         STICKERS("stickers"),
         ICONS("icons"),
         WORDLISTS("wordlists"),
+
+        /**
+         * Emoji history: recents, use counts, favourites and the skin tone
+         * picked per emoji. Small, personal, and the one part of the keyboard's
+         * memory that cannot be rebuilt by re-downloading anything.
+         */
+        EMOJI("emoji"),
 
         /**
          * The list of addon repositories the user added — not the addons

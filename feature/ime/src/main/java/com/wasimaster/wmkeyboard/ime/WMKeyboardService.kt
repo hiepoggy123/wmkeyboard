@@ -1108,6 +1108,7 @@ open class WMKeyboardService : InputMethodService() {
             var lexiconVersion = -1
             var customDictVersion = -1
             var emojiPackVersion = -1
+            var emojiUsageVersion = -1
             var contactsEnabled: Boolean? = null
             var contactEmailsEnabled: Boolean? = null
             var appNamesEnabled: Boolean? = null
@@ -1304,6 +1305,13 @@ open class WMKeyboardService : InputMethodService() {
                     reloadEmojiCatalog()
                 }
                 emojiPackVersion = settings.emoji.keywordPackVersion
+                // And again for the emoji history, which a restored backup
+                // rewrites under the running keyboard.
+                if (emojiUsageVersion != -1 && settings.emoji.usageVersion != emojiUsageVersion) {
+                    withContext(Dispatchers.Default) { emojiUsage.reload() }
+                    publishEmojiHistory(force = true)
+                }
+                emojiUsageVersion = settings.emoji.usageVersion
                 refreshEmojiDictDownloads(settings)
                 suggestionEngine?.primaryLanguageId = activeLang.id
                 suggestionEngine?.customDictionary =

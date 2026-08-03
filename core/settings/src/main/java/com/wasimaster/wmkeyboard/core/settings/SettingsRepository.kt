@@ -1778,6 +1778,12 @@ data class EmojiSettings(
      * Settings › Emoji › Emoji keywords.
      */
     val autoDownloadKeywords: Boolean = true,
+    /**
+     * Bumped when a settings import rewrites the emoji history file, so the
+     * running keyboard drops its in-memory copy and re-reads it. Not a
+     * preference — the same trick [keywordPackVersion] plays for the packs.
+     */
+    val usageVersion: Int = 0,
 )
 
 /** Bounds for [EmojiSettings.barCount]; the settings slider shares them. */
@@ -2514,6 +2520,7 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_BAR_COUNT = intPreferencesKey("emoji_bar_count")
         private val EMOJI_KAOMOJI_TABS = booleanPreferencesKey("emoji_kaomoji_tabs")
         private val EMOJI_KEYWORD_PACK_VERSION = intPreferencesKey("emoji_keyword_pack_version")
+        private val EMOJI_USAGE_VERSION = intPreferencesKey("emoji_usage_version")
         private val EMOJI_AUTO_DOWNLOAD_KEYWORDS =
             booleanPreferencesKey("emoji_auto_download_keywords")
         // Stored as the DISABLED set so tools added in future versions
@@ -3165,6 +3172,7 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.emoji.keywordPackVersion,
                 autoDownloadKeywords = p[EMOJI_AUTO_DOWNLOAD_KEYWORDS]
                     ?: defaults.emoji.autoDownloadKeywords,
+                usageVersion = p[EMOJI_USAGE_VERSION] ?: defaults.emoji.usageVersion,
             ),
             enabledTools = ToolbarTool.entries - decodeDisabledTools(p[DISABLED_TOOLS]),
             toolboxOrder = decodeToolOrder(p[TOOLBOX_ORDER]),
@@ -4697,6 +4705,9 @@ class SettingsRepository(private val context: Context) {
         if (ConfigBackup.Section.WORDLISTS in sections) {
             wordlistsSection()?.let { out[ConfigBackup.Section.WORDLISTS] = it }
         }
+        if (ConfigBackup.Section.EMOJI in sections) {
+            readStore("learning/emoji_usage.json")?.let { out[ConfigBackup.Section.EMOJI] = it }
+        }
         if (ConfigBackup.Section.ADDONS in sections) {
             // The repository list only. Cached manifests are re-fetched, and
             // the installed-addon records point at local ids that mean nothing
@@ -4721,6 +4732,9 @@ class SettingsRepository(private val context: Context) {
                     ConfigBackup.Section.ICONS -> element.jsonObject["files"]?.jsonObject?.size ?: 0
                     ConfigBackup.Section.WORDLISTS -> element.jsonObject.size
                     ConfigBackup.Section.ADDONS -> element.jsonObject["repos"]?.jsonArray?.size ?: 0
+                    // Recents rather than every key in the file: it is the part
+                    // of the emoji history a user would recognise as "mine".
+                    ConfigBackup.Section.EMOJI -> element.jsonObject["recents"]?.jsonArray?.size ?: 0
                 }
             }.getOrDefault(0)
             counts[section] = count
@@ -4814,6 +4828,12 @@ class SettingsRepository(private val context: Context) {
         (parsed.sections[ConfigBackup.Section.ADDONS] as? JsonObject)?.let { obj ->
             if (restoreAddonRepos(obj)) restored.add(ConfigBackup.Section.ADDONS)
         }
+        (parsed.sections[ConfigBackup.Section.EMOJI] as? JsonObject)?.let { obj ->
+            if (writeStore("learning/emoji_usage.json", obj)) {
+                restored.add(ConfigBackup.Section.EMOJI)
+                bumpEmojiUsageVersion()
+            }
+        }
 
         return ConfigImportResult.Applied(restored, settingsFailed)
     }
@@ -4831,6 +4851,14 @@ class SettingsRepository(private val context: Context) {
         editPrefs {
             it[EMOJI_KEYWORD_PACK_VERSION] = (it[EMOJI_KEYWORD_PACK_VERSION] ?: 0) + 1
         }
+
+    /**
+     * Says the emoji history file was rewritten from outside the keyboard, so
+     * the running IME re-reads it. Without this an import lands under a live
+     * in-memory copy that overwrites it again at the end of the next field.
+     */
+    suspend fun bumpEmojiUsageVersion() =
+        editPrefs { it[EMOJI_USAGE_VERSION] = (it[EMOJI_USAGE_VERSION] ?: 0) + 1 }
 
     suspend fun setEmojiFont(value: EmojiFontChoice) =
         editPrefs { it[EMOJI_FONT] = value.name }

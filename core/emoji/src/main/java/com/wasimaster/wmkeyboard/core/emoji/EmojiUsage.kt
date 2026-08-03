@@ -35,6 +35,24 @@ class EmojiUsage(private val storageFile: File?) {
     }
 
     init {
+        load()
+    }
+
+    /**
+     * Re-reads the file, dropping whatever is held in memory. For when the
+     * settings app has rewritten it — a restored backup, say — and this copy
+     * would otherwise save over it at the end of the next field.
+     */
+    @Synchronized
+    fun reload() {
+        recents.clear()
+        counts.clear()
+        favourites.clear()
+        variantPrefs.clear()
+        load()
+    }
+
+    private fun load() {
         storageFile?.takeIf { it.exists() }?.let { file ->
             runCatching {
                 val snapshot = json.decodeFromString<Snapshot>(file.readText())
