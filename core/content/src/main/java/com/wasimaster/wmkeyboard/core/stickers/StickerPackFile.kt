@@ -169,6 +169,11 @@ object StickerPackFile {
     /**
      * Writes [pack] and its images to [out]. Stickers whose file has gone
      * missing are skipped — exporting is not the moment to fail over one.
+     *
+     * The archive holds the manifest and the file each sticker names, and so
+     * carries the finished sticker only: the photo it was cut out of stays on
+     * the phone (see [StickerPackStore]), because a pack is something the user
+     * hands to somebody else.
      */
     fun write(
         out: OutputStream,

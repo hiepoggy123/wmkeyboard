@@ -14,9 +14,18 @@ import java.util.UUID
  *
  * ```
  * stickers/
- * ├── packs.json          manifest
+ * ├── packs.json                    manifest
+ * ├── .originals/<stickerId>.webp   what an edit started from
  * └── <packId>/<stickerId>.webp|.gif
  * ```
+ *
+ * `.originals` holds the picture each sticker was made from, so the editor can
+ * re-open a photo instead of the flattened cut-out it produced. It is private
+ * to this device: exporting a pack writes the manifest and the files the
+ * manifest names ([StickerPackFile.write]), and the config backup's sticker
+ * section walks the same list, so neither carries an original out. It is keyed
+ * by sticker id rather than by pack so moving a sticker between packs does not
+ * have to move it too.
  *
  * Unlike [com.wasimaster.wmkeyboard.core.snippets.SnippetStore] every mutator
  * writes the manifest immediately: the settings app and the IME each hold their
@@ -85,6 +94,9 @@ class StickerPackStore(private var baseDir: File?) {
         /** Staging directories an import is still filling; skipped by reconcile. */
         private const val STAGING_PREFIX = ".staging_"
 
+        /** Where the picture behind each sticker is kept, for a later edit. */
+        const val ORIGINALS_DIR = ".originals"
+
         fun newStickerId(): String = "s" + UUID.randomUUID().toString().replace("-", "").take(8)
 
         /** File name for a sticker; derived, never taken from untrusted input. */
@@ -129,6 +141,43 @@ class StickerPackStore(private var baseDir: File?) {
     /** Absolute file backing [sticker] in [packId]. */
     fun fileFor(packId: String, sticker: CustomSticker): File? =
         baseDir?.let { File(File(it, packId), sticker.fileName) }
+
+    // ---- originals -----------------------------------------------------
+
+    /** Where kept originals live, whether or not anything is in there yet. */
+    fun originalsDir(): File? = baseDir?.let { File(it, ORIGINALS_DIR) }
+
+    /**
+     * The picture [stickerId] was made from, or null when none was kept — a
+     * sticker imported from a pack file, saved from a provider, or added
+     * before this app version.
+     */
+    fun originalFor(stickerId: String): File? =
+        originalsDir()?.let { File(it, "$stickerId.webp") }?.takeIf { it.isFile }
+
+    /**
+     * Keeps [bytes] as the original behind [stickerId]. Failing to write one
+     * costs a later edit its clean starting point and nothing else, so every
+     * caller ignores the result.
+     */
+    private fun writeOriginal(stickerId: String, bytes: ByteArray) {
+        val dir = originalsDir() ?: return
+        runCatching {
+            dir.mkdirs()
+            val part = File(dir, "$stickerId.webp.part")
+            part.writeBytes(bytes)
+            val target = File(dir, "$stickerId.webp")
+            if (!part.renameTo(target)) {
+                target.delete()
+                if (!part.renameTo(target)) part.delete()
+            }
+        }
+    }
+
+    /** Drops every kept original. The stickers themselves are untouched. */
+    fun clearOriginals() {
+        originalsDir()?.listFiles()?.forEach { it.delete() }
+    }
 
     /** Resolves a `local_…` [GifItem.id] back to its pack and sticker. */
     @Synchronized
@@ -234,8 +283,10 @@ class StickerPackStore(private var baseDir: File?) {
 
     @Synchronized
     fun deletePack(packId: String) {
+        val gone = packs.filter { it.id == packId }
         if (!packs.removeAll { it.id == packId }) return
         baseDir?.let { File(it, packId).deleteRecursively() }
+        gone.forEach { pack -> pack.stickers.forEach { originalFor(it.id)?.delete() } }
         save()
     }
 
@@ -251,6 +302,11 @@ class StickerPackStore(private var baseDir: File?) {
 
     // ---- stickers ------------------------------------------------------
 
+    /**
+     * Adds a sticker to [packId]. [original] is the picture it was made from,
+     * kept for a later edit; pass null when the sticker is its own original
+     * (a provider sticker, an imported pack) or when there is nothing to keep.
+     */
     @Synchronized
     fun addSticker(
         packId: String,
@@ -258,6 +314,7 @@ class StickerPackStore(private var baseDir: File?) {
         name: String = "",
         emojis: List<String> = emptyList(),
         now: Long = System.currentTimeMillis(),
+        original: ByteArray? = null,
     ): StickerAddResult {
         val index = packs.indexOfFirst { it.id == packId }
         if (index < 0) return StickerAddResult.PackMissing
@@ -279,6 +336,7 @@ class StickerPackStore(private var baseDir: File?) {
             true
         }.getOrDefault(false)
         if (!written) return StickerAddResult.WriteFailed
+        original?.let { writeOriginal(id, it) }
 
         val sticker = CustomSticker(
             id = id,
@@ -304,6 +362,11 @@ class StickerPackStore(private var baseDir: File?) {
      * The file is written under a new name and the old one deleted; see
      * [nextFileName] for why. A delete that fails leaves a file the manifest
      * does not name, which [reconcile] sweeps on the next load.
+     *
+     * The first edit of a sticker with no kept original promotes the picture
+     * it is about to replace: an edit is destructive, and the state before it
+     * is the best starting point still available. Later edits leave that first
+     * original alone, so erasing a background twice cannot eat the photo.
      */
     @Synchronized
     fun replaceStickerImage(
@@ -318,6 +381,11 @@ class StickerPackStore(private var baseDir: File?) {
         if (at < 0) return StickerAddResult.PackMissing
         val dir = packDir(packId) ?: return StickerAddResult.WriteFailed
         val previous = stickers[at]
+        if (!previous.animated && originalFor(stickerId) == null) {
+            runCatching { File(dir, previous.fileName).readBytes() }
+                .getOrNull()
+                ?.let { writeOriginal(stickerId, it) }
+        }
         val fileName = nextFileName(previous.fileName, previous.id, processed.mime)
         val written = runCatching {
             val part = File(dir, "$fileName.part")
@@ -354,6 +422,7 @@ class StickerPackStore(private var baseDir: File?) {
         val sticker = packs[index].stickers.firstOrNull { it.id == stickerId } ?: return
         packs[index] = packs[index].copy(stickers = packs[index].stickers - sticker)
         fileFor(packId, sticker)?.delete()
+        originalFor(stickerId)?.delete()
         save()
     }
 
@@ -479,7 +548,9 @@ class StickerPackStore(private var baseDir: File?) {
     /**
      * Makes the manifest and the files on disk agree: entries without a file
      * are dropped, files and directories nothing references are deleted.
-     * Staging directories belong to an import in flight and are left alone.
+     * Staging directories belong to an import in flight and are left alone,
+     * and so is the originals directory — its files answer to sticker ids
+     * rather than to file names, and are swept by id below.
      */
     private fun reconcile(dir: File, sweepUnknown: Boolean) {
         var changed = false
@@ -499,7 +570,15 @@ class StickerPackStore(private var baseDir: File?) {
         if (sweepUnknown) dir.listFiles()?.forEach { child ->
             if (!child.isDirectory) return@forEach
             if (child.name in known || child.name.startsWith(STAGING_PREFIX)) return@forEach
+            if (child.name == ORIGINALS_DIR) return@forEach
             child.deleteRecursively()
+        }
+        if (sweepUnknown) {
+            val live = HashSet<String>()
+            packs.forEach { pack -> pack.stickers.forEach { live += it.id } }
+            File(dir, ORIGINALS_DIR).listFiles()?.forEach { file ->
+                if (file.name.substringBeforeLast('.') !in live) file.delete()
+            }
         }
         if (changed) save()
     }

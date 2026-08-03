@@ -246,6 +246,105 @@ class StickerPackStoreTest {
     }
 
     @Test
+    fun `originals are keyed by sticker id, so a move carries them`() {
+        val store = store()
+        val from = store.createPack("Cats")!!
+        val to = store.createPack("Dogs")!!
+        val sticker = (
+            store.addSticker(from.id, webp(1), original = byteArrayOf(4))
+                as StickerAddResult.Added
+            ).sticker
+
+        assertTrue(store.moveSticker(from.id, sticker.id, to.id))
+        assertEquals(4.toByte(), store.originalFor(sticker.id)!!.readBytes()[0])
+        // And the reload after it does not read the moved sticker as an orphan.
+        assertNotNull(store().originalFor(sticker.id))
+    }
+
+    @Test
+    fun `keeps the picture a sticker was made from, outside the pack`() {
+        val store = store()
+        val pack = store.createPack("Cats")!!
+        val sticker = (
+            store.addSticker(pack.id, webp(1), original = byteArrayOf(7, 7))
+                as StickerAddResult.Added
+            ).sticker
+
+        val original = store.originalFor(sticker.id)
+        assertNotNull(original)
+        assertEquals(7.toByte(), original!!.readBytes()[0])
+        // Not in the pack directory: that is what an export walks.
+        assertEquals(listOf(sticker.fileName), store.packDir(pack.id)!!.list()!!.toList())
+    }
+
+    @Test
+    fun `the first edit keeps the picture it replaced, later ones do not`() {
+        val store = store()
+        val pack = store.createPack("Cats")!!
+        val sticker = (store.addSticker(pack.id, webp(1)) as StickerAddResult.Added).sticker
+
+        store.replaceStickerImage(pack.id, sticker.id, webp(2))
+        assertEquals(1.toByte(), store.originalFor(sticker.id)!!.readBytes()[0])
+        // A second edit must not promote the first edit over the picture the
+        // sticker actually came from.
+        store.replaceStickerImage(pack.id, sticker.id, webp(3))
+        assertEquals(1.toByte(), store.originalFor(sticker.id)!!.readBytes()[0])
+    }
+
+    @Test
+    fun `deleting a sticker or a pack deletes the originals with it`() {
+        val store = store()
+        val pack = store.createPack("Cats")!!
+        val one = (
+            store.addSticker(pack.id, webp(1), original = byteArrayOf(1))
+                as StickerAddResult.Added
+            ).sticker
+        val two = (
+            store.addSticker(pack.id, webp(2), original = byteArrayOf(2))
+                as StickerAddResult.Added
+            ).sticker
+
+        store.removeSticker(pack.id, one.id)
+        assertNull(store.originalFor(one.id))
+        assertNotNull(store.originalFor(two.id))
+
+        store.deletePack(pack.id)
+        assertNull(store.originalFor(two.id))
+    }
+
+    @Test
+    fun `reconcile sweeps orphan originals and keeps live ones`() {
+        val first = store()
+        val pack = first.createPack("Cats")!!
+        val sticker = (
+            first.addSticker(pack.id, webp(1), original = byteArrayOf(1))
+                as StickerAddResult.Added
+            ).sticker
+        val orphan = File(first.originalsDir(), "s_nobody.webp").apply { writeBytes(byteArrayOf(9)) }
+
+        val second = store()
+        assertFalse(orphan.exists())
+        // The directory itself is not an unknown pack.
+        assertTrue(second.originalsDir()!!.isDirectory)
+        assertNotNull(second.originalFor(sticker.id))
+    }
+
+    @Test
+    fun `clearing the originals leaves the stickers alone`() {
+        val store = store()
+        val pack = store.createPack("Cats")!!
+        val sticker = (
+            store.addSticker(pack.id, webp(1), original = byteArrayOf(1))
+                as StickerAddResult.Added
+            ).sticker
+
+        store.clearOriginals()
+        assertNull(store.originalFor(sticker.id))
+        assertTrue(store.fileFor(pack.id, sticker)!!.isFile)
+        assertEquals(1, store.totalStickers())
+    }
+
+    @Test
     fun `a corrupt manifest loses no images`() {
         val store = store()
         val pack = store.createPack("Cats")!!

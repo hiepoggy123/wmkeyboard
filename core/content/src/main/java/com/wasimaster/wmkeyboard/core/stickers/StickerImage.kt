@@ -45,6 +45,17 @@ object StickerImage {
      */
     const val EDIT_SIZE = 1024
 
+    /**
+     * Long edge a kept original is stored at — the size the editor decodes to,
+     * with room to spare for a later crop into a corner. A photo straight off
+     * a camera is tens of megapixels and the editor can never use them, so an
+     * original is stored re-encoded rather than byte for byte.
+     */
+    const val ORIGINAL_SIZE = 1536
+
+    /** Quality a kept original is stored at; it is a source, not an output. */
+    private const val ORIGINAL_QUALITY = 82
+
     private val QUALITY_LADDER = intArrayOf(90, 80, 70, 60, 50)
 
     sealed interface Result {
@@ -106,6 +117,26 @@ object StickerImage {
      */
     fun decodeForEditing(bytes: ByteArray, maxSide: Int = EDIT_SIZE): Bitmap? =
         decodeStill(bytes, maxSide)
+
+    /**
+     * [bytes] re-encoded as the copy the editor re-opens later, or null when
+     * there is nothing worth keeping: an animation (which the editor cannot
+     * touch), an unreadable file, or one over [MAX_SOURCE_BYTES].
+     *
+     * This is a source and never an output, so it is stored at
+     * [ORIGINAL_SIZE] rather than at the sticker canvas: a cut-out redone
+     * from a 512-pixel copy would be a cut-out of a thumbnail. It never
+     * leaves the device — see [StickerPackStore] for where it lives and what
+     * export writes instead.
+     */
+    fun encodeOriginal(bytes: ByteArray): ByteArray? {
+        if (bytes.isEmpty() || bytes.size > MAX_SOURCE_BYTES) return null
+        if (isAnimatedSource(bytes)) return null
+        val source = decodeStill(bytes, ORIGINAL_SIZE) ?: return null
+        val encoded = encodeWebpAt(source, ORIGINAL_QUALITY)
+        source.recycle()
+        return encoded
+    }
 
     /**
      * Encodes an edited 512×512 bitmap as sticker bytes. Anything smaller (or
@@ -236,19 +267,23 @@ object StickerImage {
     }
 
     private fun encodeWebp(bitmap: Bitmap): ByteArray? {
+        var last: ByteArray? = null
+        for (quality in QUALITY_LADDER) {
+            last = encodeWebpAt(bitmap, quality) ?: return last
+            if (last.size <= TARGET_BYTES) return last
+        }
+        return last
+    }
+
+    private fun encodeWebpAt(bitmap: Bitmap, quality: Int): ByteArray? {
         @Suppress("DEPRECATION")
         val format = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Bitmap.CompressFormat.WEBP_LOSSY
         } else {
             Bitmap.CompressFormat.WEBP
         }
-        var last: ByteArray? = null
-        for (quality in QUALITY_LADDER) {
-            val out = ByteArrayOutputStream()
-            if (!bitmap.compress(format, quality, out)) return last
-            last = out.toByteArray()
-            if (last.size <= TARGET_BYTES) return last
-        }
-        return last
+        val out = ByteArrayOutputStream()
+        if (!bitmap.compress(format, quality, out)) return null
+        return out.toByteArray()
     }
 }

@@ -4481,6 +4481,10 @@ class SettingsRepository(private val context: Context) {
      * Sticker packs as `{manifest, files}`, with every image base64'd beside
      * the manifest the way theme backgrounds travel. A manifest alone would
      * restore a list of pack names with no pictures in them.
+     *
+     * Only the stickers the manifest names, which is what keeps the photos
+     * they were cut out of — `stickers/.originals`, see
+     * [StickerPackStore] — out of a file the user shares.
      */
     private fun stickerSection(): JsonElement? {
         val manifest = readStore(stickerManifestPath) ?: return null

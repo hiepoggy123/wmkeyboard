@@ -36,6 +36,13 @@
         <exclude domain="file" path="docscan" />
         <!-- Copied images backing clipboard entries; the text history stays. -->
         <exclude domain="file" path="clipboard/images" />
+        <!--
+           The photos stickers were cut out of. The stickers themselves are
+           backed up; these are the uncropped originals behind them, they are
+           the largest thing in files/stickers, and they only buy a future
+           edit. A sticker pack the user exports never carries them either.
+        -->
+        <exclude domain="file" path="stickers/.originals" />
     </cloud-backup>
 
     <device-transfer>
@@ -48,5 +55,6 @@
         <exclude domain="file" path="camera" />
         <exclude domain="file" path="docscan" />
         <exclude domain="file" path="clipboard/images" />
+        <exclude domain="file" path="stickers/.originals" />
     </device-transfer>
 </data-extraction-rules>

@@ -204,6 +204,13 @@ internal object StorageCategories {
     const val OTHER_CACHE = "other_cache"
     const val OTHER_DATA = "other_data"
 
+    /**
+     * The kept sticker sources, listed beside the packs in the sticker
+     * category. Not a pack id — [StickerPackStore] mints those as
+     * `pack_<millis>` — so deleting this row cannot delete a pack.
+     */
+    private const val STICKER_ORIGINALS_ITEM = "sticker_originals"
+
     fun byId(id: String): StorageCategory? = all.firstOrNull { it.id == id }
 
     /** In display order: the app, then downloads, looks, personal data, caches, the rest. */
@@ -429,7 +436,7 @@ internal object StorageCategories {
             pathsOf = { listOf(File(it.files, "stickers")) },
             itemsOf = { env ->
                 val store = StickerPackStore.get(env.context)
-                store.packs().map { pack ->
+                val packs = store.packs().map { pack ->
                     StorageItem(
                         id = pack.id,
                         label = pack.name,
@@ -437,8 +444,24 @@ internal object StorageCategories {
                         files = listOfNotNull(store.packDir(pack.id)),
                     )
                 }
+                // The pictures the stickers were made from. They sit beside
+                // the packs rather than inside them, so a row of their own is
+                // also the only way the sum of the rows matches the category.
+                val originals = store.originalsDir()?.takeIf { it.isDirectory }
+                val keptBytes = originals?.let { diskUsage(it, env.roots.blockSize) } ?: 0L
+                if (keptBytes <= 0L) packs else packs + StorageItem(
+                    id = STICKER_ORIGINALS_ITEM,
+                    label = env.context.getString(R.string.storage_stickers_originals_label),
+                    detail = env.context.getString(R.string.storage_stickers_originals_detail),
+                    bytes = keptBytes,
+                    files = listOfNotNull(originals),
+                )
             },
-            deleteOne = { env, item -> StickerPackStore.get(env.context).deletePack(item.id) },
+            deleteOne = { env, item ->
+                val store = StickerPackStore.get(env.context)
+                if (item.id == STICKER_ORIGINALS_ITEM) store.clearOriginals()
+                else store.deletePack(item.id)
+            },
             clearOf = { env ->
                 val store = StickerPackStore.get(env.context)
                 store.packs().forEach { store.deletePack(it.id) }

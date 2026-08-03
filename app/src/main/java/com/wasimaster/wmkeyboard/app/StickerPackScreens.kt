@@ -423,7 +423,16 @@ internal fun StickerPackScreen(packId: String, onNavigate: (String) -> Unit) {
                     }
                     when (val processed = StickerImage.process(bytes)) {
                         is StickerImage.Result.Ok ->
-                            when (store.addSticker(packId, processed.sticker)) {
+                            when (
+                                store.addSticker(
+                                    packId,
+                                    processed.sticker,
+                                    // Kept so "Edit image" starts from the
+                                    // photo and not from the 512-pixel copy
+                                    // of it this batch just made.
+                                    original = StickerImage.encodeOriginal(bytes),
+                                )
+                            ) {
                                 is StickerAddResult.Added -> added++
                                 StickerAddResult.PackFull -> full = true
                                 else -> unreadable++
@@ -563,8 +572,16 @@ internal fun StickerPackScreen(packId: String, onNavigate: (String) -> Unit) {
             onEditImage = {
                 editing = null
                 scope.launch {
+                    // The kept original when there is one: an edit flattens
+                    // the picture, so re-opening the sticker itself would
+                    // crop a crop and erase an erasure. Stickers from a
+                    // provider, from an imported pack or from before
+                    // originals were kept re-open themselves.
                     val bytes = withContext(Dispatchers.IO) {
-                        runCatching { store.fileFor(packId, sticker)?.readBytes() }.getOrNull()
+                        runCatching {
+                            (store.originalFor(sticker.id) ?: store.fileFor(packId, sticker))
+                                ?.readBytes()
+                        }.getOrNull()
                     }
                     if (bytes == null) {
                         message = context.getString(R.string.import_sticker_editor_save_error)

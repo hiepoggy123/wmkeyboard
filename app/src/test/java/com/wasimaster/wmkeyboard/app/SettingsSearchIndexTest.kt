@@ -81,7 +81,13 @@ class SettingsSearchIndexTest {
      * at. Keep this list short: each entry is a second copy of some wording
      * that a translator has to keep in step by hand.
      */
-    private val indexOwnedKeys = setOf("search_languages_subtitle")
+    private val indexOwnedKeys = setOf(
+        "search_languages_subtitle",
+        // The sticker editor has no row of its own: it opens from a photo the
+        // user picked or from a sticker they tapped, so the index describes it
+        // and lands on the pack list instead.
+        "import_sticker_editor_subtitle",
+    )
 
     @Test
     fun `the index names only strings this module defines`() {

@@ -123,8 +123,11 @@ private enum class EditorMode { CROP, ERASE, RESTORE, BORDER }
  * the brush and the segmenter — and they have to compose. Undo covers raster
  * work only: the border is a parameter, so putting it back is its own undo.
  *
- * Edits are destructive. No copy of the source is kept, which is why a second
- * crop asks first, and why an empty segmentation mask is never applied.
+ * Within a session an edit is destructive: the crop is baked into [base] and a
+ * second one throws the mask away, which is why it asks first and why an empty
+ * segmentation mask is never applied. Across sessions it is not — the store
+ * keeps the picture the sticker was made from, so re-opening a sticker starts
+ * from the photo rather than from what the last edit left behind.
  */
 @Composable
 internal fun StickerEditorScreen(request: StickerEditRequest, onDone: () -> Unit) {
@@ -216,8 +219,18 @@ internal fun StickerEditorScreen(request: StickerEditRequest, onDone: () -> Unit
                 flat.recycle()
                 processed?.let {
                     if (request.stickerId == null) {
-                        store.addSticker(request.packId, it)
+                        // What the editor was handed is the picture this
+                        // sticker came from: keep it, so a later edit starts
+                        // from the photo rather than from the cut-out.
+                        store.addSticker(
+                            request.packId,
+                            it,
+                            original = StickerImage.encodeOriginal(request.bytes),
+                        )
                     } else {
+                        // A re-edit already has an original on file — see
+                        // StickerPackStore.replaceStickerImage for the one
+                        // that gets promoted when it does not.
                         store.replaceStickerImage(request.packId, request.stickerId, it)
                     }
                 }
@@ -232,7 +245,20 @@ internal fun StickerEditorScreen(request: StickerEditRequest, onDone: () -> Unit
         }
     }
 
-    CaptionText(stringResource(R.string.import_sticker_editor_caption))
+    // Say which picture is on the canvas: a re-edit that quietly reverted the
+    // last cut-out would read as the editor having lost the work.
+    val fromOriginal = remember(request) {
+        request.stickerId != null && store.originalFor(request.stickerId) != null
+    }
+    CaptionText(
+        stringResource(
+            if (fromOriginal) {
+                R.string.import_sticker_editor_original_caption
+            } else {
+                R.string.import_sticker_editor_caption
+            },
+        ),
+    )
 
     Box(
         modifier = Modifier

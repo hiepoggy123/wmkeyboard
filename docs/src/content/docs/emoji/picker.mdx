@@ -117,7 +117,7 @@ Both come from `fonts.gstatic.com`, and nothing is downloaded until you long-pre
 The button is deliberately absent in three cases:
 
 - **The emoji has no animation.** Flags, most ZWJ sequences, and plenty of symbols aren't in the set. The app ships the list of which ones are (`assets/emoji/animated.txt`, about 8 KB) rather than asking the server, so a long-press never stalls on a request that was going to 404.
-- **The app can't take images.** A GIF goes through the same rich-content path as a sticker, so a field that accepts no images (a plain search box, most password fields) doesn't get the offer. See [GIFs](/emoji/gifs/#apps-that-refuse-gifs) for what does and doesn't accept them.
+- **The app can't take images.** A GIF goes through the same rich-content path as a sticker, so a field that accepts no images (a plain search box, most password fields) doesn't get the offer. See [GIFs](/emoji/gifs/#sending-a-gif) for what does and doesn't accept them.
 - **The setting is off.** Turn **Animated emoji** off and long-press goes back to skin tones and favourites only.
 
 Sending one counts as using that emoji, so it lands in your recents like an ordinary tap would.

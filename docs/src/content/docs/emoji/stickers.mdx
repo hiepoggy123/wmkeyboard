@@ -50,7 +50,7 @@ Building and managing packs happens in the app, not the keyboard: <SettingsPath 
 
 - **New pack** starts one empty; **Import a pack** reads a `.wmstickers` file.
 - Inside a pack, **Add stickers** opens the photo picker for up to 30 images in one trip. Each one is processed automatically: a still image is resized to 512×512 and re-encoded as WebP, trying progressively lower quality (90 down to 50) until it lands under 100 KB, matching WhatsApp's static sticker spec. An animated source (GIF or animated WebP) is stored byte-for-byte instead, since Android has no animated-WebP encoder to re-compress it with; those are capped at 2 MB rather than the 100 KB still budget. Any single source file over 12 MB is refused before processing even starts.
-- Pick exactly **one** still image and it opens in the [sticker editor](#the-sticker-editor) first, instead of being added as-is. Pick several and they're all added the old way; an editor thirty times over isn't a flow anyone wants.
+- Pick exactly **one** still image and it opens in the [sticker editor](#the-sticker-editor) first, instead of being added as-is. Pick several and they're all added the old way; an editor thirty times over isn't a flow anyone wants. Either way the photo behind each sticker is kept for later editing, as described below.
 - Per sticker, you can set its **search words**, reorder it within the pack, move it to a different pack, or delete it. Search words are one space-separated list of anything you'd want to type to find that sticker later, emoji included ("cat 😂 happy"). The first word doubles as the sticker's name, which is what a screen reader reads out for it.
 - Per pack, you can rename it, **export** it as a `.wmstickers` file to share or back up, or delete it; deleting warns you to export first if you want to keep a copy.
 - A pack tops out at 200 stickers; you can have up to 50 packs total.
@@ -71,7 +71,11 @@ Everything happens on the 512×512 sticker canvas, and there are four tabs:
 
 **Remove the background** does the cutout in one tap. It's in the full build only, and even there the model isn't in the APK: it comes from Google Play services on demand, so the first tap offers a download with a progress bar and then runs. If it can't be fetched, the brushes still work and the screen says so. If it finds nothing recognizable as a subject (or would keep the entire image), it says that too and leaves your picture alone rather than erasing everything. In the lite build the button simply isn't there.
 
-Edits replace the image. There's no stored original, so re-editing a sticker starts from the edited version, and cropping again after you've erased something warns you first, because a new crop throws the erasing away. Nothing is written until you press Save.
+Within one editing session an edit is destructive: cropping again after you've erased something warns you first, because a new crop throws the erasing away. Nothing is written until you press Save.
+
+Between sessions it isn't. When you add a sticker from a photo, the keyboard keeps that photo (resized to 1536px on its long edge, as WebP) alongside your packs, so **Edit the image** reopens the picture you started from rather than the flattened cut-out. That's what makes a second pass practical: you can re-crop, redo the background, or change your mind about the border right after saving, without the erased parts being gone for good. Stickers that arrived some other way (saved from Klipy or GIPHY, imported in a pack) have no separate original, so they reopen as themselves; the first time you edit one, the version you're replacing is kept as its original.
+
+Those kept photos never leave the phone. Exporting a `.wmstickers` pack writes the manifest and the finished stickers only, the settings backup's sticker section walks the same list, and Android's own cloud backup and device transfer skip the folder entirely. They do take up space, so <SettingsPath path="About / Storage / Sticker packs" /> lists them as their own row ("Images you made stickers from") and you can delete just that row to get the space back, keeping every sticker.
 
 ### Importing a `.wmstickers` file
 
