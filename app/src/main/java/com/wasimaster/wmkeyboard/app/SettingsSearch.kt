@@ -149,6 +149,10 @@ private fun Resources.typingRows(): List<SettingsSearchEntry> {
         row(R.string.typing_smart_currency_title),
         row(R.string.typing_smart_units_title, R.string.typing_smart_units_subtitle),
         row(R.string.typing_smart_tool_keywords_title, R.string.typing_smart_tool_keywords_subtitle),
+        row(R.string.typing_otp_chip_title, R.string.typing_otp_chip_subtitle),
+        row(R.string.typing_otp_number_fields_title, R.string.typing_otp_number_fields_subtitle),
+        row(R.string.typing_otp_expiry_title, R.string.typing_otp_expiry_subtitle),
+        row(R.string.typing_otp_dismiss_title, R.string.typing_otp_dismiss_subtitle),
         row(R.string.typing_glide_typing_title, R.string.typing_glide_typing_subtitle),
         // Full builds only: the handwriting recognizer is an ML Kit feature.
         if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) {
@@ -393,6 +397,11 @@ private fun Resources.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_search_title, R.string.tooldetail_clipboard_search_subtitle),
     toolEntry(
         ToolbarTool.CLIPBOARD,
+        R.string.tooldetail_clipboard_entities_title,
+        R.string.tooldetail_clipboard_entities_subtitle,
+    ),
+    toolEntry(
+        ToolbarTool.CLIPBOARD,
         R.string.tooldetail_clipboard_password_paste_title,
         R.string.tooldetail_clipboard_password_paste_subtitle,
     ),
@@ -400,6 +409,16 @@ private fun Resources.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
         ToolbarTool.CLIPBOARD,
         R.string.tooldetail_clipboard_link_previews_title,
         R.string.tooldetail_clipboard_link_previews_subtitle,
+    ),
+    toolEntry(
+        ToolbarTool.CLIPBOARD,
+        R.string.tooldetail_clipboard_screenshots_title,
+        R.string.tooldetail_clipboard_screenshots_subtitle,
+    ),
+    toolEntry(
+        ToolbarTool.CLIPBOARD,
+        R.string.tooldetail_clipboard_track_source_title,
+        R.string.tooldetail_clipboard_track_source_subtitle,
     ),
     toolEntry(ToolbarTool.SPLIT, R.string.tooldetail_split_gap_title, R.string.tooldetail_split_gap_subtitle),
     toolEntry(
