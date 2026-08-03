@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.os.Build
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -60,6 +61,7 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiRenderCheck
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
+import com.wasimaster.wmkeyboard.core.fonts.FontStore
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
@@ -70,6 +72,7 @@ import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.LanguageSuggestions
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolOrder
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
+import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.RecommendedTools
@@ -242,12 +245,25 @@ private fun visiblePages(
 ): List<OnboardingPage> = remember(missingEmoji, settings.enabledTools) {
     OnboardingPage.entries.filter { page ->
         when (page) {
-            OnboardingPage.EMOJI -> (missingEmoji ?: 0) > 0
+            OnboardingPage.EMOJI -> (missingEmoji ?: 0) > 0 || shipsOwnEmojiSet()
             OnboardingPage.TOOL_SETUP -> settings.enabledTools.any { it in ToolSetupTools }
             else -> true
         }
     }
 }
+
+/**
+ * Whether this phone draws emoji in the maker's own set rather than the Android
+ * one. Nothing is missing on those phones — the count above is zero — but the
+ * glyphs are not what most people have seen everywhere else, and swapping the
+ * font is not a setting anybody goes looking for.
+ *
+ * Samsung by name because Samsung is the one that ships a complete set of its
+ * own; the check is deliberately not "any OEM", which would put the step in
+ * front of people whose emoji are already the standard ones.
+ */
+private fun shipsOwnEmojiSet(): Boolean =
+    Build.MANUFACTURER.equals("samsung", ignoreCase = true)
 
 /**
  * Counts the catalog emoji this phone's own emoji font can't draw. Runs off the
@@ -648,32 +664,67 @@ private fun EmojiPage(
     missingCount: Int,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     PageHeader(
         stringResource(R.string.onboarding_emoji_title),
         stringResource(R.string.onboarding_emoji_subtitle),
     )
     Text(
-        pluralStringResource(
-            R.plurals.onboarding_emoji_missing_count,
-            missingCount,
-            missingCount,
-        ),
+        if (missingCount > 0) {
+            pluralStringResource(
+                R.plurals.onboarding_emoji_missing_count,
+                missingCount,
+                missingCount,
+            )
+        } else {
+            // The other way onto this page: everything draws, it just draws in
+            // the phone maker's own set.
+            stringResource(R.string.onboarding_emoji_own_set_body)
+        },
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     )
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.onboarding_emoji_hide_title)) },
-        supportingContent = {
-            Text(stringResource(R.string.onboarding_emoji_hide_subtitle))
-        },
-        trailingContent = {
-            Switch(
-                checked = settings.emoji.hideUnrenderable,
-                onCheckedChange = { scope.launch { repository.setHideUnrenderableEmoji(it) } },
+    // Installed faces are only worth offering when there is one to pick.
+    val installedFonts = remember { FontStore.get(context).emojiFonts() }
+    val fontOptions = buildList {
+        add(EmojiFontChoice.SYSTEM to stringResource(R.string.langemoji_emoji_font_system_label))
+        add(EmojiFontChoice.NOTO to stringResource(R.string.langemoji_emoji_font_noto_label))
+        if (installedFonts.isNotEmpty()) {
+            add(
+                EmojiFontChoice.INSTALLED to
+                    stringResource(R.string.langemoji_emoji_font_installed_label),
             )
-        },
+        }
+    }
+    ChoiceControl(
+        options = fontOptions,
+        // A font imported and then deleted leaves the setting pointing at
+        // nothing; show that as the system set, which is what is drawn anyway.
+        selected = settings.emojiFont.takeIf { choice ->
+            fontOptions.any { it.first == choice }
+        } ?: EmojiFontChoice.SYSTEM,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    ) { choice -> scope.launch { repository.setEmojiFont(choice) } }
+    EmojiFontPreviewRow(
+        choice = settings.emojiFont,
+        installedId = settings.emojiFontInstalled.installedId,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     )
+    if (missingCount > 0) {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.onboarding_emoji_hide_title)) },
+            supportingContent = {
+                Text(stringResource(R.string.onboarding_emoji_hide_subtitle))
+            },
+            trailingContent = {
+                Switch(
+                    checked = settings.emoji.hideUnrenderable,
+                    onCheckedChange = { scope.launch { repository.setHideUnrenderableEmoji(it) } },
+                )
+            },
+        )
+    }
     Text(
         stringResource(R.string.onboarding_emoji_font_info),
         style = MaterialTheme.typography.bodySmall,

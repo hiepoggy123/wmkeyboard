@@ -59,7 +59,9 @@
     <string name="onboarding_symbol_row_title">Symbol row</string>
     <string name="onboarding_symbol_row_subtitle">One press for special characters and snippets, such as @gmail.com, https:// and brackets</string>
 
-    <!-- Onboarding, emoji page. It appears only when the font of the device cannot draw some emoji. -->
+    <!-- Onboarding, emoji page. It appears when the font of the device cannot
+         draw some emoji, and on the devices that draw emoji in the set of the
+         manufacturer. -->
     <string name="onboarding_emoji_title">Emoji</string>
     <string name="onboarding_emoji_subtitle">Each device has its own emoji images. Old devices cannot draw the newest emoji, and they show an empty box instead.</string>
     <!-- %1$d is how many emoji in the catalog the font of the device cannot draw. -->
@@ -67,6 +69,9 @@
         <item quantity="one">Your device cannot draw %1$d emoji in the catalog. It shows an empty box instead.</item>
         <item quantity="other">Your device cannot draw %1$d emoji in the catalog. They show as empty boxes instead.</item>
     </plurals>
+    <!-- Shown in place of the count above, on a device that draws every emoji
+         but draws them in the set of the manufacturer. -->
+    <string name="onboarding_emoji_own_set_body">Your device draws every emoji, but it uses the set of the manufacturer. These are not the images that most other devices show. Select the emoji you want to see.</string>
     <string name="onboarding_emoji_hide_title">Hide the emoji your device cannot draw</string>
     <string name="onboarding_emoji_hide_subtitle">The emoji panel, the search and the suggestions leave out the empty boxes</string>
     <string name="onboarding_emoji_font_info">To see all of the emoji, use a complete emoji font. Select \"Google\" (Noto Color Emoji), or import an emoji font file such as Twemoji or OpenMoji. Both are in Emoji, then Emoji font. WM Keyboard uses the emoji font of your device and includes no font of its own. You can change all of this later in Settings, then Emoji.</string>

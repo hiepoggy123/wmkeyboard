@@ -4863,51 +4863,12 @@ private fun EmojiSettings(
                 ),
                 selected = settings.emojiFont,
             ) { scope.launch { repository.setEmojiFont(it) } }
-            val previewFamily = remember(
-                settings.emojiFont,
-                settings.emojiFontInstalled.installedId,
-                fontRefresh,
-            ) {
-                KeyboardFonts.emojiFamily(
-                    context,
-                    settings.emojiFont,
-                    settings.emojiFontInstalled.installedId,
-                )
-            }
-            // Shaped exactly as the keyboard shapes them, so the preview shows
-            // what the panel will show — ❤️ in particular is the one that
-            // silently comes from the system font in a font without a
-            // variation-selector table (see EmojiFontShaping).
-            // Read off the main thread, so the row draws unshaped for a frame
-            // rather than stalling the screen on a megabyte of font tables.
-            val previewShaper by produceState(
-                EmojiFontShaping.Identity,
-                settings.emojiFont,
-                settings.emojiFontInstalled.installedId,
-                fontRefresh,
-            ) {
-                val file = KeyboardFonts.emojiFontFile(
-                    context,
-                    settings.emojiFont,
-                    settings.emojiFontInstalled.installedId,
-                )
-                withContext(Dispatchers.Default) { EmojiFontShaping.warm(file) }
-                value = EmojiFontShaping.forFontFile(file)
-            }
-            // One Text per emoji: emoji fonts often have no space glyph, so drawing
-            // them as a single spaced string makes the glyphs overlap.
-            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                for (emoji in listOf("😀", "😂", "🥰", "😎", "🤔", "👍", "❤️", "🎉")) {
-                    val spelling = previewShaper.spelling(emoji)
-                    Text(
-                        spelling.text,
-                        fontSize = 24.sp,
-                        fontFamily = if (spelling.systemFont) null else previewFamily,
-                        maxLines = 1,
-                        modifier = Modifier.padding(end = 6.dp),
-                    )
-                }
-            }
+            EmojiFontPreviewRow(
+                choice = settings.emojiFont,
+                installedId = settings.emojiFontInstalled.installedId,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                refresh = fontRefresh,
+            )
             if (settings.emojiFont == EmojiFontChoice.INSTALLED) {
                 InstalledEmojiFontList(repository, settings)
             }
