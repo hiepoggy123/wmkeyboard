@@ -210,6 +210,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "about" to Color(0xFF90A4AE),
     "licenses" to Color(0xFF90A4AE),
     "debug_log" to Color(0xFF607D8B),
+    "storage" to Color(0xFF546E7A),
     "dictionary" to Color(0xFF26A69A),
     "customdictionaries" to Color(0xFF26A69A),
     "blacklist" to Color(0xFFEF5350),

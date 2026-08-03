@@ -434,6 +434,7 @@ internal fun AboutSettings(
     onOpenLicenses: () -> Unit,
     onOpenLicenseText: (String) -> Unit,
     onOpenDebugLog: () -> Unit = {},
+    onOpenStorage: () -> Unit = {},
 ) {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
@@ -505,6 +506,14 @@ internal fun AboutSettings(
             ) {
                 uriHandler.openUri(SOURCE_URL)
             }
+        }
+        item {
+            NavRow(
+                R.string.about_storage_title,
+                stringResource(R.string.about_storage_subtitle),
+                route = "storage",
+                onClick = onOpenStorage,
+            )
         }
         item {
             NavRow(

@@ -100,6 +100,15 @@ class LockedSettings(context: Context) {
     }
 
     /**
+     * Drops the mirror, so a locked boot falls back to defaults. Only for a
+     * deliberate wipe of every setting: the ordinary path back to an empty
+     * mirror is a [write] of empty settings after unlock.
+     */
+    fun clear() {
+        prefs.edit().remove(KEY_SNAPSHOT).apply()
+    }
+
+    /**
      * The mirror, re-emitted whenever it changes. Stands in for the DataStore
      * flow while locked so the keyboard's own toggles still move the UI.
      */

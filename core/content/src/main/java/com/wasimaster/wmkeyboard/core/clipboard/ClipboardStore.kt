@@ -188,6 +188,25 @@ class ClipboardStore(
     }
 
     init {
+        restore()
+    }
+
+    /**
+     * Re-reads the stored clips, dropping whatever is held in memory.
+     *
+     * The settings app can delete the history from the Storage screen while the
+     * keyboard is alive and holding the same list, and the next clip copied
+     * would save that stale list straight back over the deletion. The clipboard
+     * panel calls this on open, the same way the snippet panel does.
+     */
+    @Synchronized
+    fun reload() {
+        items.clear()
+        nextId = 1L
+        restore()
+    }
+
+    private fun restore() {
         storageFile?.takeIf { it.exists() }?.let { file ->
             runCatching {
                 val snapshot = json.decodeFromString<Snapshot>(file.readText())

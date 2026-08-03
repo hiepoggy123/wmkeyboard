@@ -83,6 +83,17 @@ class LanguageMixConfidence(private val storageFile: File? = null) {
         storageFile?.delete()
     }
 
+    /**
+     * Re-reads the file, dropping the in-memory tally. The settings app can
+     * delete this from the Storage screen while the keyboard is alive, and the
+     * next [save] would put it straight back.
+     */
+    @Synchronized
+    fun reload() {
+        usage.clear()
+        load()
+    }
+
     private fun load() {
         val file = storageFile ?: return
         if (!file.exists()) return

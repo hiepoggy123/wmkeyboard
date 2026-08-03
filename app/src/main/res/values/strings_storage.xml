@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- The Storage screen, opened from About. -->
+    <string name="about_storage_title">Storage</string>
+    <string name="about_storage_subtitle">See what the app keeps on your device, and delete it</string>
+
+    <!-- the summary at the top -->
+
+    <string name="storage_total_label">Used in total</string>
+    <!-- %1$s is a size the user reads, for example "412 MB". -->
+    <string name="storage_free_caption">%1$s free of %2$s on your device</string>
+    <string name="storage_measuring_label">Measuring…</string>
+    <!-- Shown only on Android 7, where the system cannot give an exact figure. -->
+    <string name="storage_estimate_caption">Your device cannot report exact sizes, so these are close estimates.</string>
+    <string name="storage_refresh_action">Measure again</string>
+    <!-- Spoken by a screen reader in place of the ring diagram. -->
+    <string name="storage_ring_desc">%1$s in total: %2$s for the app, %3$s of data and %4$s of cache</string>
+
+    <string name="storage_bucket_app">App</string>
+    <string name="storage_bucket_data">Data</string>
+    <string name="storage_bucket_cache">Cache</string>
+
+    <!-- Button that deletes every cache in one press. %1$s is a size. -->
+    <string name="storage_free_up_action">Free up %1$s</string>
+    <string name="storage_free_up_caption">Deletes the caches only. The app downloads what it needs again.</string>
+    <string name="storage_show_all_action">Show what uses nothing</string>
+    <string name="storage_show_less_action">Hide what uses nothing</string>
+
+    <!-- groups -->
+
+    <string name="storage_group_app_title">The app itself</string>
+    <string name="storage_group_downloads_title">Downloads</string>
+    <string name="storage_group_looks_title">Looks and add-ons</string>
+    <string name="storage_group_personal_title">Your data</string>
+    <string name="storage_group_cache_title">Caches</string>
+    <string name="storage_group_system_title">The rest</string>
+
+    <!-- categories -->
+
+    <string name="storage_app_package_title">App package</string>
+    <string name="storage_app_package_subtitle">The app itself, and the code your device compiled from it</string>
+
+    <string name="storage_wordlists_title">Word lists</string>
+    <string name="storage_wordlists_subtitle">Dictionaries you downloaded for prediction</string>
+    <string name="storage_bundled_dicts_title">Built-in dictionaries</string>
+    <string name="storage_bundled_dicts_subtitle">Unpacked from the app. They come back when you next type.</string>
+    <string name="storage_emoji_dicts_title">Emoji words</string>
+    <string name="storage_emoji_dicts_subtitle">Emoji search words in your languages</string>
+    <string name="storage_voice_models_title">Voice models</string>
+    <string name="storage_voice_models_subtitle">Speech recognition that runs on your device</string>
+    <string name="storage_ai_models_title">AI models</string>
+    <string name="storage_ai_models_subtitle">Language models that run on your device</string>
+    <string name="storage_addon_index_title">Add-on sources</string>
+    <string name="storage_addon_index_subtitle">The list of add-on sources, and what you installed from them</string>
+
+    <string name="storage_themes_title">Themes and photos</string>
+    <string name="storage_themes_subtitle">Background images for your themes</string>
+    <string name="storage_stickers_title">Sticker packs</string>
+    <string name="storage_stickers_subtitle">Stickers you made or imported</string>
+    <string name="storage_icon_packs_title">Icon packs</string>
+    <string name="storage_icon_packs_subtitle">Key icons you made or imported</string>
+    <string name="storage_fonts_title">Fonts</string>
+    <string name="storage_fonts_subtitle">Fonts you installed for the keyboard</string>
+    <string name="storage_key_sounds_title">Key sounds</string>
+    <string name="storage_key_sounds_subtitle">Sounds you imported</string>
+    <string name="storage_plugins_title">Plugins</string>
+    <string name="storage_plugins_subtitle">Plugin code, the data each one saves, and its log</string>
+
+    <string name="storage_learned_title">Learned words</string>
+    <string name="storage_learned_subtitle">What the keyboard learned from your typing</string>
+    <string name="storage_clipboard_title">Clipboard</string>
+    <string name="storage_clipboard_subtitle">Your clip history, and the images in it</string>
+    <string name="storage_snippets_title">Snippets</string>
+    <string name="storage_snippets_subtitle">The phrases you saved</string>
+    <string name="storage_ai_history_title">AI history</string>
+    <string name="storage_ai_history_subtitle">What you sent to an AI action, and what came back</string>
+    <string name="storage_custom_wordlists_title">Your word lists</string>
+    <string name="storage_custom_wordlists_subtitle">Word lists you imported yourself</string>
+    <string name="storage_captures_title">Camera and scans</string>
+    <string name="storage_captures_subtitle">Photos and scans the keyboard took</string>
+    <string name="storage_settings_data_title">Settings</string>
+    <string name="storage_settings_data_subtitle">Every setting, and the themes, layouts and modes you made</string>
+
+    <string name="storage_cache_images_title">Image cache</string>
+    <string name="storage_cache_images_subtitle">Thumbnails from the GIF, sticker and photo tools</string>
+    <string name="storage_cache_media_title">Sent media</string>
+    <string name="storage_cache_media_subtitle">Copies of the GIFs and stickers you sent</string>
+    <string name="storage_cache_addons_title">Add-on downloads</string>
+    <string name="storage_cache_addons_subtitle">Part-finished downloads, and add-on previews</string>
+    <string name="storage_cache_temp_title">Temporary files</string>
+    <string name="storage_cache_temp_subtitle">Key sounds the app built, and files it shared</string>
+    <string name="storage_other_cache_title">Other cached files</string>
+    <string name="storage_other_cache_subtitle">Cache your device counts that the app does not name</string>
+
+    <string name="storage_logs_title">Diagnostics</string>
+    <string name="storage_logs_subtitle">The crash log, kept on your device only</string>
+    <string name="storage_other_data_title">Other data</string>
+    <string name="storage_other_data_subtitle">Files your device counts that the app does not name</string>
+
+    <!-- notes under a row -->
+
+    <!-- Shown under categories the running keyboard holds open. -->
+    <string name="storage_note_mapped">Your device frees this space when you next close the keyboard.</string>
+    <string name="storage_note_rebuilds">The app makes these again when it needs them.</string>
+    <string name="storage_note_readonly">You cannot delete this from here.</string>
+
+    <!-- rows and detail screens -->
+
+    <!-- %1$s is a size, %2$s is a count of items, for example "3 items". -->
+    <string name="storage_row_summary">%1$s · %2$s</string>
+    <plurals name="storage_item_count">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
+    <string name="storage_empty_label">Nothing saved</string>
+    <string name="storage_detail_empty">There is nothing here to delete</string>
+    <string name="storage_detail_manage_action">Open the settings for this</string>
+    <string name="storage_delete_item_desc">Delete %1$s</string>
+    <string name="storage_delete_all_desc">Delete everything in %1$s</string>
+    <!-- A part-finished download left behind. -->
+    <string name="storage_item_partial_label">Unfinished download</string>
+    <string name="storage_item_unknown_label">Unnamed</string>
+
+    <!-- confirmation dialogs -->
+
+    <!-- %1$s is a category name, for example "Voice models". -->
+    <string name="storage_confirm_title">Delete %1$s?</string>
+    <!-- %1$s is a size. -->
+    <string name="storage_confirm_free_body">This frees %1$s.</string>
+    <string name="storage_confirm_redownload_body">This frees %1$s. You can download it again when you want it.</string>
+    <string name="storage_confirm_personal_body">This frees %1$s. You cannot get this data back.</string>
+    <string name="storage_confirm_item_title">Delete %1$s?</string>
+
+    <string name="storage_confirm_reset_title">Delete every setting?</string>
+    <string name="storage_confirm_reset_body">This deletes every setting, and the themes, layouts, keyboard modes, symbol sets and AI actions you made. The keyboard goes back to how it was when you installed it. You cannot get this back.</string>
+    <string name="storage_confirm_reset_again_title">Are you sure?</string>
+    <!-- %1$s is a size. -->
+    <string name="storage_confirm_reset_again_body">Press delete again to erase every setting and free %1$s.</string>
+
+    <string name="storage_confirm_free_up_title">Delete the caches?</string>
+    <!-- %1$s is a size. -->
+    <string name="storage_confirm_free_up_body">This frees %1$s. The app downloads what it needs again, so this is safe.</string>
+
+    <string name="storage_deleting_label">Deleting…</string>
+</resources>

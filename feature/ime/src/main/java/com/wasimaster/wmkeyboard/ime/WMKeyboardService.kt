@@ -1228,7 +1228,14 @@ open class WMKeyboardService : InputMethodService() {
                 // dictionary): drop the in-memory copy for the disk state,
                 // otherwise the next save here would clobber those edits.
                 if (lexiconVersion != -1 && settings.lexiconVersion != lexiconVersion) {
-                    withContext(Dispatchers.Default) { userLexicon.reload() }
+                    withContext(Dispatchers.Default) {
+                        userLexicon.reload()
+                        // The Storage screen deletes all four learning files at
+                        // once, so the same signal has to drop all four copies:
+                        // any one of them saves the old data back otherwise.
+                        emojiUsage.reload()
+                        languageMixConfidence.reload()
+                    }
                     invalidateGestureLexicon()
                 }
                 lexiconVersion = settings.lexiconVersion
@@ -5671,7 +5678,12 @@ open class WMKeyboardService : InputMethodService() {
         if (panel == PanelMode.SNIPPETS) snippetStore.reload()
         // Same for sticker packs, which the settings app owns outright.
         if (panel == PanelMode.STICKER) stickerPackStore.reloadIfChanged()
-        if (panel == PanelMode.CLIPBOARD) fetchLinkPreviews()
+        // Same again: the Storage screen can delete the history out from under
+        // this list, and saving a stale one would undo that.
+        if (panel == PanelMode.CLIPBOARD) {
+            clipboardStore.reload()
+            fetchLinkPreviews()
+        }
         _uiState.update {
             val closing = it.panel == panel
             val next = if (closing) PanelMode.NONE else panel

@@ -732,6 +732,30 @@ private fun Resources.sectionRows(): List<SettingsSearchEntry> {
             "hwshortcuts",
         ),
         under(R.string.about_licences_title, R.string.about_licences_subtitle, R.string.home_about_title, "licenses"),
+        under(R.string.about_storage_title, R.string.about_storage_subtitle, R.string.home_about_title, "storage"),
+    )
+}
+
+/**
+ * The Storage screen's categories.
+ *
+ * All of them point at the screen itself rather than at each category's own
+ * page: someone searching for stickers wants the sticker packs, and a second
+ * result that lands on a size readout for them would only be in the way. What
+ * this buys is the other direction — a search for cached files, or for models,
+ * finds the one screen that can delete them.
+ */
+private fun Resources.storageRows(): List<SettingsSearchEntry> {
+    fun row(@StringRes title: Int, @StringRes subtitle: Int) =
+        entry(title, subtitle, R.string.about_storage_title, "storage", screenParent = R.string.home_about_title)
+    return listOf(
+        row(R.string.storage_wordlists_title, R.string.storage_wordlists_subtitle),
+        row(R.string.storage_voice_models_title, R.string.storage_voice_models_subtitle),
+        row(R.string.storage_ai_models_title, R.string.storage_ai_models_subtitle),
+        row(R.string.storage_themes_title, R.string.storage_themes_subtitle),
+        row(R.string.storage_learned_title, R.string.storage_learned_subtitle),
+        row(R.string.storage_cache_images_title, R.string.storage_cache_images_subtitle),
+        row(R.string.storage_settings_data_title, R.string.storage_settings_data_subtitle),
     )
 }
 
@@ -768,7 +792,8 @@ internal fun settingsSearchIndex(res: Resources): List<SettingsSearchEntry> = wi
     val unsupported = ToolbarTool.entries.filterNot(::isSupportedTool)
         .map { "tool/${it.name}" }.toSet()
     val all = sectionRows() + toolRows() + sectionChildRows() + typingRows() + keyPressRows() +
-        appearanceRows() + photoRows() + layoutRows() + emojiRows() + toolPageRowsA() + toolPageRowsB() + otherRows()
+        appearanceRows() + photoRows() + layoutRows() + emojiRows() + toolPageRowsA() + toolPageRowsB() +
+        storageRows() + otherRows()
     all.filterNot { it.route in unsupported }
 }
 

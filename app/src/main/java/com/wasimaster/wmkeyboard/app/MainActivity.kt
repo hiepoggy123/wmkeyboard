@@ -60,6 +60,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.wasimaster.wmkeyboard.app.storage.StorageCategories
+import com.wasimaster.wmkeyboard.app.storage.StorageCategoryScreen
+import com.wasimaster.wmkeyboard.app.storage.StorageScreen
 import com.wasimaster.wmkeyboard.app.updates.LocalAppUpdater
 import com.wasimaster.wmkeyboard.app.updates.UpdateCard
 import com.wasimaster.wmkeyboard.app.updates.rememberAppUpdater
@@ -1064,7 +1067,34 @@ private fun SettingsNavGraph(
                     onOpenLicenses = { navController.navigate("licenses") },
                     onOpenLicenseText = { navController.navigate("license_text/$it") },
                     onOpenDebugLog = { navController.navigate("debug_log") },
+                    onOpenStorage = { navController.navigate("storage") },
                 )
+            }
+        }
+        composable("storage") {
+            SettingsScreen(
+                stringResource(R.string.about_storage_title),
+                { navController.popBackStack() },
+                route = "storage",
+            ) {
+                StorageScreen(repository) { navController.navigate("storage/$it") }
+            }
+        }
+        composable("storage/{category}") { backStackEntry ->
+            val category = backStackEntry.arguments?.getString("category").orEmpty()
+            SettingsScreen(
+                stringResource(
+                    StorageCategories.byId(category)?.title ?: R.string.about_storage_title,
+                ),
+                { navController.popBackStack() },
+                route = "storage",
+            ) {
+                StorageCategoryScreen(category, repository) { route ->
+                    // Straight across to the screen that owns the data, rather
+                    // than deeper: the storage tree is a way in, not a place.
+                    navController.popBackStack()
+                    navController.navigate(route)
+                }
             }
         }
         composable("debug_log") {

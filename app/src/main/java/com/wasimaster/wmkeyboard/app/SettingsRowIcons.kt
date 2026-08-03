@@ -125,6 +125,7 @@ import androidx.compose.material.icons.outlined.PhotoSizeSelectLarge
 import androidx.compose.material.icons.outlined.PhotoSizeSelectSmall
 import androidx.compose.material.icons.outlined.PictureInPicture
 import androidx.compose.material.icons.outlined.PowerSettingsNew
+import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Public
@@ -203,6 +204,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.about_source_title, Icons.Outlined.Code)
     put(R.string.about_user_guide_title, Icons.AutoMirrored.Outlined.MenuBook)
     put(R.string.about_privacy_policy_title, Icons.Outlined.PrivacyTip)
+    put(R.string.about_storage_title, Icons.Outlined.PieChart)
     put(R.string.about_diagnostics_title, Icons.AutoMirrored.Outlined.Article)
     put(R.string.about_dictionaries_title, Icons.AutoMirrored.Outlined.LibraryBooks)
     put(R.string.about_report_bug_title, Icons.Outlined.BugReport)

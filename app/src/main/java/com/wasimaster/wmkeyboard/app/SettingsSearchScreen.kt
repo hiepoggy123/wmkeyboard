@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.material.icons.outlined.Accessibility
 import androidx.compose.material.icons.outlined.AspectRatio
@@ -233,6 +234,7 @@ internal val SettingsRouteIcons: Map<String, ImageVector> = mapOf(
     "privacy" to Icons.Outlined.Security,
     "backup" to Icons.Outlined.Save,
     "about" to Icons.Outlined.Info,
+    "storage" to Icons.Outlined.PieChart,
     "licenses" to Icons.Outlined.Gavel,
     "debug_log" to Icons.AutoMirrored.Outlined.Article,
     "dictionary" to Icons.AutoMirrored.Outlined.MenuBook,

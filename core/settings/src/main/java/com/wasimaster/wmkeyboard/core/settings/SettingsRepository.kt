@@ -2783,6 +2783,22 @@ class SettingsRepository(private val context: Context) {
         else locked.edit { transform(it) }
     }
 
+    /**
+     * Deletes every stored setting, both the real store and the direct-boot
+     * mirror, so the app comes back on its defaults.
+     *
+     * Goes through the store rather than deleting the file it is kept in: the
+     * keyboard service holds the same DataStore open in the same process, and a
+     * file that vanishes under it leaves the running keyboard on stale values
+     * that the next write puts straight back. Clearing the keys instead emits
+     * an empty preference set, which every collector already handles — it is
+     * what a first run looks like.
+     */
+    suspend fun clearAllPreferences() {
+        editPrefs { it.clear() }
+        locked.clear()
+    }
+
     private fun mapPreferences(p: Preferences): KeyboardSettings {
         val defaults = KeyboardSettings()
         // Layouts resolve first: the input mode is read off the active layout,
