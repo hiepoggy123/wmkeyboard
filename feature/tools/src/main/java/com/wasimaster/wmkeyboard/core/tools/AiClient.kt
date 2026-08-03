@@ -434,7 +434,7 @@ object AiClient {
             body = body,
             timeoutMs = timeoutMs,
             headers = headers,
-            onConnected = { onPhase(AiPhase.WAITING) },
+            onRequestSent = { onPhase(AiPhase.WAITING) },
         ) { line ->
             collected.append(line).append('\n')
             val before = buffer.partial

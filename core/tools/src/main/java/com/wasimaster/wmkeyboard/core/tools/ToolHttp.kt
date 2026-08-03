@@ -155,9 +155,9 @@ object ToolHttp {
     /**
      * POSTs [body], then hands each response line to [onLine] as it arrives —
      * for the streaming shapes the AI providers use (SSE, or the newline-
-     * delimited JSON Ollama returns). [onConnected] fires once the response
-     * headers are in, which is the moment the request stopped being "in
-     * flight" and started being "the model is working on it".
+     * delimited JSON Ollama returns). [onRequestSent] fires once the request
+     * body is on its way, which is the moment the request stops being "in
+     * flight" and starts being "the model is working on it".
      *
      * [onLine] returns whether to keep reading: `false` closes the connection
      * where it stands, so an abandoned request stops holding a socket (and, for
@@ -170,7 +170,7 @@ object ToolHttp {
         body: String,
         timeoutMs: Int = 120_000,
         headers: Map<String, String> = emptyMap(),
-        onConnected: () -> Unit = {},
+        onRequestSent: () -> Unit = {},
         onLine: (String) -> Boolean,
     ) {
         val connection = URL(url).openConnection() as HttpURLConnection
@@ -182,13 +182,20 @@ object ToolHttp {
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
             for ((name, value) in headers) connection.setRequestProperty(name, value)
+            // Opens the socket as well as the stream.
             connection.outputStream.use { it.write(body.toByteArray()) }
+            // The client has nothing left to do, so from here on the clock is
+            // the server's. This has to be reported *before* asking for the
+            // status: reading it blocks until the response headers arrive, and
+            // a streaming AI endpoint holds those until its model produces the
+            // first chunk. Reporting after it would mean the caller shows
+            // "connecting" for the whole wait and "waiting" for no time at all.
+            onRequestSent()
             val status = connection.responseCode
             if (status !in 200..299) {
                 val error = connection.errorStream?.bufferedReader()?.use { it.readText() }
                 throw httpFailure(status, error)
             }
-            onConnected()
             connection.inputStream.bufferedReader().use { reader ->
                 while (true) {
                     val line = reader.readLine() ?: break
