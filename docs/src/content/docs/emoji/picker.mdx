@@ -132,7 +132,11 @@ It's the answer to the oldest emoji problem there is — the other person's phon
 
 The picture is drawn in the font the keyboard itself draws with, whichever that is: an imported font, one installed from an addon repository, Google's Noto Color Emoji, or the phone's own set. Noto is fetched once from the same system font provider Compose draws it with and then kept; everything else is already on the device, so this normally works offline and sends nothing anywhere.
 
-It goes as an ordinary image rather than a true sticker, which is deliberate: WhatsApp sends a real sticker the instant it arrives and closes the keyboard with it, which is not what a button in a long-press popup should do. As an image it lands in the message box like a GIF does and the keyboard stays put. For real stickers, the [sticker tool](/emoji/stickers/) has its own send-mode setting.
+How it goes out follows the sticker tool's own setting, so one preference governs every sticker the keyboard sends:
+
+<SettingsPath path="Tools / Stickers / Send stickers as" />
+
+Left at **Sticker** (the default) WhatsApp receives it as a real sticker. Set it to **Image** and it arrives as an ordinary picture in the message box instead, which is the thing to try if an app does something unhelpful with a sticker — sending it instantly, say, or closing the keyboard afterward.
 
 Like the animated button, this one only shows on a field that accepts images, and it can be switched off on its own.
 

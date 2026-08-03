@@ -9753,12 +9753,10 @@ open class WMKeyboardService : InputMethodService() {
                 ).show()
                 return@launch
             }
-            // IMAGE, not STICKER: a real sticker MIME makes apps like WhatsApp
-            // send it the instant it arrives and close the keyboard with it,
-            // which is not what a button in a long-press popup should do. As an
-            // image it lands in the compose box like a GIF does. Real stickers
-            // are the sticker tool's job, and have their own setting there.
-            commitImageFile(file, MediaMime.WEBP, MediaSendMode.IMAGE)
+            // The sticker tool's own send mode, so one preference governs
+            // every sticker the keyboard sends and WhatsApp keeps getting real
+            // ones. Anybody an app treats badly for it has a lever already.
+            commitImageFile(file, MediaMime.WEBP, state.settings.stickerSendMode)
         }
     }
 
@@ -10206,6 +10204,14 @@ open class WMKeyboardService : InputMethodService() {
         val chosen = MediaMime.candidates(mimeType, sendMode).firstOrNull { candidate ->
             accepted.any { ClipDescription.compareMimeTypes(candidate, it) }
         }
+        // What the field said it takes, and what we picked out of it. The one
+        // thing a bug report about "the app did something odd with my image"
+        // needs, and impossible to work out afterwards from the outside.
+        DebugLog.d(
+            "ime",
+            "commit ${file.name} as ${chosen ?: "(no match)"} " +
+                "mode=$sendMode field=${accepted.joinToString()}",
+        )
         if (chosen != null && tryCommit(file, chosen)) return
 
         // Nothing matched. A WebP the field won't take can usually go
