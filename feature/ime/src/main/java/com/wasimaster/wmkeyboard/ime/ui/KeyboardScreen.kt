@@ -7069,6 +7069,11 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     val commaAsEmoji = state.settings.commaAsEmoji && state.layoutMode == LayoutMode.LETTERS
     // 🌐 → emoji key: language switching lives on spacebar swipes instead.
     val globeAsEmoji = state.settings.globeAsEmoji
+    // The two keys either side of the spacebar trade places, so whichever one
+    // is the emoji key sits in the outer slot and the comma next to the space.
+    // Not scoped to the letter layers: the row would otherwise reshuffle on the
+    // way into ?123, which is worse than either order.
+    val swapCommaGlobe = state.settings.swapCommaAndGlobe
     // With the dedicated number row on, the digits duplicated on the top-row
     // letters' long press are redundant — drop them so those keys go straight
     // to their accents (or lose their popup entirely).
@@ -7093,67 +7098,100 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
         } else {
             emptyMap()
         }
-    if (!commaAsEmoji && !globeAsEmoji && !stripDigits && clipboardKeys.isEmpty() &&
-        fieldKey == null && domainAlternates.isEmpty() && currencyKeys.isEmpty() && !allAccents
+    if (!commaAsEmoji && !globeAsEmoji && !swapCommaGlobe && !stripDigits &&
+        clipboardKeys.isEmpty() && fieldKey == null && domainAlternates.isEmpty() &&
+        currencyKeys.isEmpty() && !allAccents
     ) {
         return base
     }
     val bottom = base.rows.lastIndex
     // copy rather than KeyboardLayout(name, rows): a positional rebuild
     // silently drops any field later added to the class.
+    val rewritten = base.rows.mapIndexed { rowIndex, row ->
+        row.map { key ->
+            val role = key.roleIn(rowIndex, bottom)
+            var mapped = when {
+                // Field adaptation outranks the emoji-key preference: an
+                // email box needs its @ more than a shortcut to emoji.
+                fieldKey != null && role == KeyRole.Comma -> fieldKey
+                domainAlternates.isNotEmpty() && role == KeyRole.Period ->
+                    key.copy(longPress = domainAlternates + key.longPress)
+                commaAsEmoji && role == KeyRole.Comma ->
+                    // copy, not a fresh Key: building one from scratch here
+                    // discarded a custom width, so the bottom row jumped
+                    // whenever the preference was on.
+                    key.copy(
+                        action = KeyAction.Emoji,
+                        longPress = listOf(key.output ?: key.label) + key.longPress,
+                    )
+                globeAsEmoji && key.action == KeyAction.LanguageSwitch ->
+                    key.copy(action = KeyAction.Emoji)
+                else -> key
+            }
+            if (stripDigits && mapped.longPress.any { it.isSingleDigit() }) {
+                mapped = mapped.copy(longPress = mapped.longPress.filterNot { it.isSingleDigit() })
+            }
+            // A44: the $ key takes the user's currency glyphs as its popup.
+            if (currencyKeys.isNotEmpty() && (mapped.output ?: mapped.label) == "$") {
+                mapped = mapped.copy(longPress = currencyKeys)
+            }
+            // A43: merge the full accent variant set for this Latin letter,
+            // on top of whatever the layout already lists. Lowercase glyphs,
+            // matching the built-in accent popups; non-letters have no entry.
+            if (allAccents && mapped.action == KeyAction.Text) {
+                val letter = mapped.output ?: mapped.label
+                if (letter.length == 1) {
+                    LatinAccents[letter.lowercase().first()]?.let { extra ->
+                        mapped = mapped.copy(longPress = (mapped.longPress + extra).distinct())
+                    }
+                }
+            }
+            // Keyed on what the key types, not what it is labelled: a layout
+            // that shows "A" and outputs "a" was silently skipped. A value
+            // already set on the key wins, so a layout can put a clipboard
+            // shortcut somewhere other than a/c/v/x.
+            if (mapped.action == KeyAction.Text && mapped.clipboardAction == null) {
+                clipboardKeys[mapped.output ?: mapped.label]?.let {
+                    mapped = mapped.copy(clipboardAction = it)
+                }
+            }
+            mapped
+        }
+    }
     return base.copy(
-        rows = base.rows.mapIndexed { rowIndex, row ->
-            row.map { key ->
-                val role = key.roleIn(rowIndex, bottom)
-                var mapped = when {
-                    // Field adaptation outranks the emoji-key preference: an
-                    // email box needs its @ more than a shortcut to emoji.
-                    fieldKey != null && role == KeyRole.Comma -> fieldKey
-                    domainAlternates.isNotEmpty() && role == KeyRole.Period ->
-                        key.copy(longPress = domainAlternates + key.longPress)
-                    commaAsEmoji && role == KeyRole.Comma ->
-                        // copy, not a fresh Key: building one from scratch here
-                        // discarded a custom width, so the bottom row jumped
-                        // whenever the preference was on.
-                        key.copy(
-                            action = KeyAction.Emoji,
-                            longPress = listOf(key.output ?: key.label) + key.longPress,
-                        )
-                    globeAsEmoji && key.action == KeyAction.LanguageSwitch ->
-                        key.copy(action = KeyAction.Emoji)
-                    else -> key
-                }
-                if (stripDigits && mapped.longPress.any { it.isSingleDigit() }) {
-                    mapped = mapped.copy(longPress = mapped.longPress.filterNot { it.isSingleDigit() })
-                }
-                // A44: the $ key takes the user's currency glyphs as its popup.
-                if (currencyKeys.isNotEmpty() && (mapped.output ?: mapped.label) == "$") {
-                    mapped = mapped.copy(longPress = currencyKeys)
-                }
-                // A43: merge the full accent variant set for this Latin letter,
-                // on top of whatever the layout already lists. Lowercase glyphs,
-                // matching the built-in accent popups; non-letters have no entry.
-                if (allAccents && mapped.action == KeyAction.Text) {
-                    val letter = mapped.output ?: mapped.label
-                    if (letter.length == 1) {
-                        LatinAccents[letter.lowercase().first()]?.let { extra ->
-                            mapped = mapped.copy(longPress = (mapped.longPress + extra).distinct())
-                        }
-                    }
-                }
-                // Keyed on what the key types, not what it is labelled: a layout
-                // that shows "A" and outputs "a" was silently skipped. A value
-                // already set on the key wins, so a layout can put a clipboard
-                // shortcut somewhere other than a/c/v/x.
-                if (mapped.action == KeyAction.Text && mapped.clipboardAction == null) {
-                    clipboardKeys[mapped.output ?: mapped.label]?.let {
-                        mapped = mapped.copy(clipboardAction = it)
-                    }
-                }
-                mapped
+        rows = if (!swapCommaGlobe) {
+            rewritten
+        } else {
+            rewritten.mapIndexed { rowIndex, row ->
+                swapCommaAndGlobe(base.rows[rowIndex], row, rowIndex, bottom)
             }
         },
     )
+}
+
+/**
+ * Trades the comma key and the 🌐 key's places in one row, leaving every other
+ * key where it was. No-op for a row that hasn't got both.
+ *
+ * The positions are read off [source] rather than [rewritten] because the pass
+ * above may already have turned either one into the emoji key (or the comma
+ * into an @ for an email field) — by then there is nothing left to identify
+ * them by.
+ */
+private fun swapCommaAndGlobe(
+    source: List<Key>,
+    rewritten: List<Key>,
+    rowIndex: Int,
+    lastRow: Int,
+): List<Key> {
+    val comma = source.indexOfFirst { it.roleIn(rowIndex, lastRow) == KeyRole.Comma }
+    val globe = source.indexOfFirst { it.action == KeyAction.LanguageSwitch }
+    if (comma < 0 || globe < 0) return rewritten
+    return rewritten.toMutableList().also {
+        val held = it[comma]
+        it[comma] = it[globe]
+        it[globe] = held
+    }
 }
 
 /**
@@ -9235,20 +9273,6 @@ private fun EmojiPanel(
         }
         // The grids fill whatever the bottom control bar leaves over.
         Column(modifier = Modifier.weight(1f)) {
-        // The search field only shows while a search is underway; idle, the
-        // entry point is the first icon of the tab strip below, so the panel
-        // doesn't spend a whole bar of vertical space on it.
-        if (!fullBleed && searching) {
-            EmojiSearchField(
-                state = state,
-                onEmojiQueryTap = onEmojiQueryTap,
-                onSearchFieldDelete = onSearchFieldDelete,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-            )
-        }
-
         if (state.emojiQuery.isNotEmpty()) {
             // Memoized, and distinct so it is safe to key by: mapping inline
             // in the items() call rebuilt the list on every recomposition,
@@ -9450,6 +9474,22 @@ private fun EmojiPanel(
                 }
             }
         }
+        }
+        // The search field sits under the grid, in the slot the control bar
+        // would use — emoji stay at the top of the panel, nearest the thumb
+        // that opened it, and the field is beside the keys typing into it.
+        // It only shows while a search is underway; idle, the entry point is
+        // the first icon of the tab strip, so the panel doesn't spend a whole
+        // bar of vertical space on it.
+        if (!fullBleed && searching) {
+            EmojiSearchField(
+                state = state,
+                onEmojiQueryTap = onEmojiQueryTap,
+                onSearchFieldDelete = onSearchFieldDelete,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
         }
         // In search mode the key rows sit right below the panel, so the
         // control bar would be redundant chrome.

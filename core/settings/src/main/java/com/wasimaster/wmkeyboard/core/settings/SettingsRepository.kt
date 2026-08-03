@@ -1101,6 +1101,16 @@ data class KeyboardSettings(
     val toolbarLabelSize: Int = 9,
     val toolCircleRadiusDp: Int = 20,
     val commaAsEmoji: Boolean = false,
+    /**
+     * Swap the comma and 🌐 keys either side of the spacebar, so the bottom row
+     * reads `?123 🌐 , ␣ . ⏎`.
+     *
+     * On by default, which puts the emoji key in the outer slot: whichever of
+     * the two [globeAsEmoji]/[commaAsEmoji] turned into the emoji key moves
+     * with it, so the emoji key ends up beside `?123` and the comma sits next
+     * to the spacebar where a punctuation key belongs.
+     */
+    val swapCommaAndGlobe: Boolean = true,
     /** History tab of the emoji panel: recently used vs most used. */
     val emojiTabMode: EmojiTabMode = EmojiTabMode.RECENTS,
     /** "Clear recents" button on the emoji panel's history tab. Off by default. */
@@ -2487,6 +2497,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBAR_LABEL_SIZE = intPreferencesKey("toolbar_label_size")
         private val TOOL_CIRCLE_RADIUS = intPreferencesKey("tool_circle_radius")
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
+        private val SWAP_COMMA_GLOBE = booleanPreferencesKey("swap_comma_globe")
         private val EMOJI_TAB_MODE = stringPreferencesKey("emoji_tab_mode")
         private val EMOJI_CLEAR_RECENTS_BUTTON = booleanPreferencesKey("emoji_clear_recents_button")
         private val EMOJI_LONG_PRESS_NAME = booleanPreferencesKey("emoji_long_press_name")
@@ -3122,6 +3133,7 @@ class SettingsRepository(private val context: Context) {
             toolbarLabelSize = p[TOOLBAR_LABEL_SIZE] ?: defaults.toolbarLabelSize,
             toolCircleRadiusDp = p[TOOL_CIRCLE_RADIUS] ?: defaults.toolCircleRadiusDp,
             commaAsEmoji = p[COMMA_AS_EMOJI] ?: defaults.commaAsEmoji,
+            swapCommaAndGlobe = p[SWAP_COMMA_GLOBE] ?: defaults.swapCommaAndGlobe,
             emojiTabMode = p[EMOJI_TAB_MODE]
                 ?.let { runCatching { EmojiTabMode.valueOf(it) }.getOrNull() }
                 ?: defaults.emojiTabMode,
@@ -3779,6 +3791,9 @@ class SettingsRepository(private val context: Context) {
                     .joinToString(",") { it.name }
             }
         }
+
+    suspend fun setSwapCommaAndGlobe(value: Boolean) =
+        editPrefs { it[SWAP_COMMA_GLOBE] = value }
 
     /**
      * Switches the active layout.

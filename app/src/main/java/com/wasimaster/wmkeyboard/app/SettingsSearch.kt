@@ -326,6 +326,7 @@ private fun Resources.layoutRows(): List<SettingsSearchEntry> {
         row(R.string.layout_floating_width_title, R.string.layout_floating_width_subtitle),
         row(R.string.layout_comma_emoji_title, R.string.layout_comma_emoji_subtitle),
         row(R.string.layout_globe_emoji_title, R.string.layout_globe_emoji_subtitle),
+        row(R.string.layout_swap_comma_globe_title, R.string.layout_swap_comma_globe_subtitle),
         entry(R.string.layout_editor_import_title, R.string.layout_editor_import_subtitle, R.string.home_keymaps_title, "keymaps"),
         // Per language now, so search lands on the language list rather than
         // on a switch that no longer exists at the top level.

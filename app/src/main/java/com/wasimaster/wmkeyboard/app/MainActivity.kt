@@ -4446,6 +4446,14 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 info = stringResource(R.string.layout_globe_emoji_info),
             ) { scope.launch { repository.setGlobeAsEmoji(it) } }
         }
+        item {
+            ToggleSetting(
+                R.string.layout_swap_comma_globe_title,
+                stringResource(R.string.layout_swap_comma_globe_subtitle),
+                settings.swapCommaAndGlobe,
+                info = stringResource(R.string.layout_swap_comma_globe_info),
+            ) { scope.launch { repository.setSwapCommaAndGlobe(it) } }
+        }
     }
 }
 

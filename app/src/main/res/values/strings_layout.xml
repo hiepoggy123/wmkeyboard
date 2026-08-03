@@ -124,4 +124,8 @@
     <!-- "Language" is the name of a spacebar swipe action. Translate it the
          same way as that action. -->
     <string name="layout_globe_emoji_info">The 🌐 key on the bottom row opens the emoji panel and does not change the language. You can still change the language from the spacebar. Set a swipe to \"Language\" under Typing → Gestures. A short swipe does this by default. Turn this off to get the 🌐 key back.</string>
+    <!-- 🌐 is the globe key that changes the language. Keep the emoji. -->
+    <string name="layout_swap_comma_globe_title">Swap the comma and 🌐 keys</string>
+    <string name="layout_swap_comma_globe_subtitle">Put the comma next to the spacebar</string>
+    <string name="layout_swap_comma_globe_info">The two keys on each side of the spacebar change places. If one of them is an emoji key, it moves to the outer position and the comma stays next to the spacebar. Turn this off to get the usual order.</string>
 </resources>
