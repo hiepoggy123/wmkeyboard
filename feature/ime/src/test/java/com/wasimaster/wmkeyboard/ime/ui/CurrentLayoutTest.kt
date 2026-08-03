@@ -46,17 +46,51 @@ class CurrentLayoutTest {
 
     /**
      * With every adaptation off the grid is handed back as-is rather than
-     * rebuilt. The clipboard shortcuts ship off by default; globe-as-emoji
-     * ships *on*, so it has to be switched off explicitly to get here.
+     * rebuilt. The clipboard shortcuts ship off by default; globe-as-emoji and
+     * the comma/globe swap ship *on*, so both are switched off to get here.
      */
     @Test
     fun `a plain text field with no adaptations returns the layout untouched`() {
-        val s = state(
-            settings = KeyboardSettings(
-                globeAsEmoji = false,
-            ),
-        )
+        val s = state(settings = plain())
         assertEquals(s.layouts.letters, currentLayout(s))
+    }
+
+    /** Settings with every default-on bottom-row rewrite turned off. */
+    private fun plain(): KeyboardSettings =
+        KeyboardSettings(globeAsEmoji = false, swapCommaAndGlobe = false)
+
+    /**
+     * The swap trades the two keys either side of the spacebar, which is what
+     * puts the emoji key (whichever of the two it is) in the outer slot.
+     */
+    @Test
+    fun `the comma and globe keys trade places`() {
+        val plain = currentLayout(state(settings = plain())).rows.last()
+        val swapped = currentLayout(
+            state(settings = KeyboardSettings(globeAsEmoji = false, swapCommaAndGlobe = true)),
+        ).rows.last()
+        val comma = plain.indexOfFirst { it.role == KeyRole.Comma }
+        val globe = plain.indexOfFirst { it.action == KeyAction.LanguageSwitch }
+        assertTrue(comma >= 0 && globe >= 0)
+        assertEquals(plain[globe], swapped[comma])
+        assertEquals(plain[comma], swapped[globe])
+        // Everything else stays where it was.
+        assertEquals(plain.size, swapped.size)
+        for (i in plain.indices) {
+            if (i != comma && i != globe) assertEquals(plain[i], swapped[i])
+        }
+    }
+
+    /** The emoji key follows its slot: swapped, it sits where the globe was. */
+    @Test
+    fun `the swap carries the emoji key with it`() {
+        val row = currentLayout(
+            state(settings = KeyboardSettings(globeAsEmoji = true, swapCommaAndGlobe = true)),
+        ).rows.last()
+        val emoji = row.indexOfFirst { it.action == KeyAction.Emoji }
+        val comma = row.indexOfFirst { it.role == KeyRole.Comma }
+        assertTrue("no emoji key in $row", emoji >= 0)
+        assertTrue("emoji key should lead the comma", emoji < comma)
     }
 
     /** The clipboard/undo/redo shortcuts ship off, so a plain field doesn't get them. */

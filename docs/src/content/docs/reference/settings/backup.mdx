@@ -22,7 +22,7 @@ Reach it from the **Data** group on the settings home screen, or by searching "B
 
 ### Export
 
-The **Include in export** group is ten independent toggles, top to bottom:
+The **Include in export** group is eleven independent toggles, top to bottom:
 
 | Setting | Subtitle | Default |
 |---|---|---|
@@ -36,12 +36,13 @@ The **Include in export** group is ten independent toggles, top to bottom:
 | Icon packs | Your own icon packs, images and all | Off |
 | Custom word lists | Word lists you imported for any language | On |
 | Addon repositories | The addon sources you added, so you can reinstall from them | On |
+| Emoji history | Your recent emoji, your favourites and the skin tone of each one | On |
 
 :::note[Nothing here is a saved preference]
-Unlike almost every other screen in this reference, none of these ten switches are stored settings: they're local to the screen. Reopen **Backup & restore** later and every switch is back to the defaults above, regardless of what you chose last time.
+Unlike almost every other screen in this reference, none of these eleven switches are stored settings: they're local to the screen. Reopen **Backup & restore** later and every switch is back to the defaults above, regardless of what you chose last time.
 :::
 
-Sticker packs and icon packs default off because their images make the file larger, not because of any privacy concern; Dictionary and Clipboard default off because they're your personal typing history rather than configuration. Addon repositories carries only the repository addresses you've added, not the addons installed from them: an installed theme already travels inside Themes, an installed icon pack inside Icon packs.
+Sticker packs and icon packs default off because their images make the file larger, not because of any privacy concern; Dictionary and Clipboard default off because they're your personal typing history rather than configuration. Emoji history defaults on despite being personal too: it's a few hundred bytes, and unlike a word list or a model there's nowhere to download it back from. Addon repositories carries only the repository addresses you've added, not the addons installed from them: an installed theme already travels inside Themes, an installed icon pack inside Icon packs.
 
 **Export backup** is disabled until at least one toggle above is on. Tapping it opens Android's save dialog with a name of the form `wmkeyboard-backup-<date>-<time>.wmconfig.json`, timestamped down to the second so repeated exports don't overwrite each other. The file goes wherever you choose; nothing is uploaded anywhere. Afterward you see one of:
 
@@ -79,6 +80,7 @@ Confirming a current-format import applies each section independently and merges
 | Icon packs | **Replaces** — same clear-and-rebuild |
 | Custom word lists | **Replaces** — same clear-and-rebuild |
 | Addon repositories | **Merges** — incoming repository addresses are added to your existing list; a duplicate address is skipped, not overwritten |
+| Emoji history | **Replaces** — recents, use counts, favourites and per-emoji skin tones all come from the file |
 
 Settings import is rollback-safe: after writing, the keyboard re-reads its own settings to confirm they still parse, and undoes the write if they don't. The other sections in the same file still apply even when settings roll back. After a confirmed import you see either "Restored `<sections>`." (a lowercase, comma-separated list of what changed) or "Nothing to restore from that file.", with "\n\nThe settings couldn't be applied and were left unchanged." appended if the settings portion rolled back. A confirmed legacy import instead reports "Restored `<N>` settings.", or "That backup could not be applied — your settings are unchanged." if it rolled back.
 
@@ -86,6 +88,7 @@ Opening a `.wmconfig.json` or `.wmsettings.json` file from a file manager routes
 
 ## Details & edge cases
 
+- **An emoji-history import lands live.** The keyboard holds its emoji history in memory while it runs and writes it out when a field closes, so a restore could have been overwritten seconds later. Importing bumps a counter the running keyboard watches, which makes it drop its copy and re-read the file; the panel's Recent and Favourites tabs refresh on the spot, with no need to restart anything.
 - **Two file formats, one import path.** `.wmconfig.json` is the current, full-bundle format that **Export backup** writes today. `.wmsettings.json` is an older, settings-only format that the app still accepts on import for files made by earlier versions: nothing in the current app writes one anymore.
 - **The Themes toggle's own in-app description undersells it.** Its info text says a theme's background image "doesn't travel to another phone — only the theme itself does." In the current app it does travel: a background image is embedded in the export and written back to local storage on import, so a restored theme keeps its image. See [Backup & restore](/privacy/backup/#exporting-a-config-file) for the accurate version.
 - **The API-keys warning applies to a manual export only.** It has no effect on Android's own backup system, which is a separate opt-in covered on the [Privacy](/reference/settings/privacy/) screen and copies saved API keys regardless of anything on this page.

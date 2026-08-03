@@ -34,12 +34,15 @@ Before you download, pick how many of the most frequent words to keep:
 | Tier | Words kept |
 |---|---|
 | Small | 50,000 |
-| Medium (default) | 150,000 |
-| Large | 300,000 |
+| Medium | 150,000 |
+| Large (default) | 300,000 |
+| Everything | the whole list, however long it is |
 
-The source lists are sorted by frequency and downloaded over a streaming connection, so picking a smaller tier doesn't just trim the result: it stops the transfer early. Thai's full list is 4 million words and 41 MB compressed, but downloading Large only pulls the first 300,000 of them, a fraction of the total transfer. The size picker itself disappears for languages whose entire list is already smaller than the Small tier, since there's nothing to trim.
+The source lists are sorted by frequency and downloaded over a streaming connection, so picking a smaller tier doesn't just trim the result: it stops the transfer early. Thai's full list is 4 million words and 41 MB compressed, but downloading Large only pulls the first 300,000 of them, a fraction of the total transfer. **Everything** is the one tier with no cap: it reads to the end of the list, which for a language like Thai means the whole 41 MB.
 
-The size you pick isn't a saved setting; it resets to Medium every time you open the screen, and only the finished download remembers what you chose (shown afterward as an exact word count and file size). If you want a different tier later, delete the dictionary and download it again. There's no separate "update" action or size switch.
+Each tier shows the word count it would actually keep for that language, so a language whose list is shorter than the tier says the true number. Tiers that would all keep the same words collapse into one, and the picker disappears entirely for a language whose whole list is already smaller than Small, since there is nothing to trim.
+
+The size you pick isn't a saved setting; it resets to Large every time you open the screen, and only the finished download remembers what you chose (shown afterward as an exact word count and file size). If you want a different tier later, delete the dictionary and download it again. There's no separate "update" action or size switch.
 
 :::note[Portuguese has two lists, not two dictionaries]
 Portuguese is the one language with two downloadable entries (European and Brazilian), but they share a single download slot. Fetching the Brazilian list after the European one replaces it; only one variant can be active for Portuguese at a time, and the row for the other one goes back to showing "Download."
@@ -88,7 +91,8 @@ import FilterTable from '@components/FilterTable.astro';
 import wordlists from '@data/wordlists.json';
 
 All {wordlists.length} downloadable wordlists. Word counts are the full list;
-the Small/Medium/Large tiers keep the most frequent 50k/150k/300k words.
+the Small/Medium/Large tiers keep the most frequent 50k/150k/300k words, and
+Everything keeps them all.
 
 <FilterTable
 	columns={[

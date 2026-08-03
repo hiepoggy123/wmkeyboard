@@ -69,6 +69,13 @@ You can also import a pack by hand: either a plain tab-separated file (`emoji`, 
 
 Turn this on (it's on by default) and matching emoji append to the end of the suggestion strip as you finish typing a whole word: "birthday" offers 🎂🎉🥳🎁, and it works the same way for Bengali words. It also fires on an empty buffer from words you've just typed, learned over time, so a word like "you" can suggest ❤️ without you typing anything new.
 
+The chip doesn't vanish at the space, which is exactly when you'd reach for it: type "happy birthday" and 🎂 is still there after the space, until the next word replaces it. Four sources feed the match, stacked so a hit from any one of them counts:
+
+- a small curated table, which is where the ordering judgements ("birthday" leads with 🎂, not 🥳) and the Bengali triggers live;
+- GitHub's own word-to-emoji data, which covers far more English than a hand-written table can: "hooray", "espresso", "workout";
+- the `:shortcode:` names, which mostly earn their place on two-word matches nothing else can reach — "alarm clock" offers ⏰, "crossed fingers" offers 🤞. Two-letter codes are left out on purpose: `:it:` and `:us:` are flags, and firing them at anyone typing "it" or "us" is the wrong-emoji case this whole feature avoids;
+- exact keyword hits from the emoji catalog, in whatever languages you have keyword packs for.
+
 <PhoneFrame caption="Emoji suggestions appended to the strip after typing a whole word.">
   {/* shot: emoji/word-suggestions */}
 </PhoneFrame>
@@ -77,6 +84,8 @@ Turn this on (it's on by default) and matching emoji append to the end of the su
 
 - **Replace word** (default, Gboard-style) — swaps the word you typed for the emoji. Typing "birthday" and tapping 🎂 leaves just 🎂.
 - **Keep word** — adds the emoji after the word instead: "birthday 🎂".
+
+Both of those describe tapping while the word is still being typed. Tap the chip after the space and there's no word left to replace, so the emoji simply lands at the cursor under either setting: "happy birthday " becomes "happy birthday 🎂".
 
 ## Inline emoji search and shortcodes
 

@@ -35,6 +35,10 @@ Suggestions are only ever suggestions: nothing is enabled until you tap it. The 
 
 Below the suggestions, tap **Add language** to search the whole registry: the search box matches on endonym, English name, id, and locale tag, so "german", "Deutsch", "de", and "de-DE" all find the same entry. Tap an unadded language and it's enabled immediately, using its first layout, then opens straight to that language's own screen so you can pick a different layout or turn on suggestions from another enabled language.
 
+If the language has data to download — a word list, emoji keywords, or both — you're asked once, right there, whether to fetch it, with the rough size on the dialog. Say yes and both start straight away in the background; say **Not now** and the language is still added, just without them. You can start either download by hand later from the language's own screen. (Emoji keywords have their own automatic download too, covered in [Emoji search in your language](/emoji/customization/#emoji-search-in-your-language); the prompt is the one chance to get the word list at the same time.)
+
+Removing a language asks the mirror question when it has files on disk: delete its downloaded word list and keywords and get the storage back, or keep them for next time. The language goes either way — the dialog is only about the files. Deleting the keywords also tells the automatic download to leave that language alone, so they don't quietly come back.
+
 Every language's name in the list is shown as `endonym · English`, for example "বাংলা · Bangla" or "Русский · Russian". The native name comes first and the English name after it, so you can find a language whether or not you can already read its script.
 
 <PhoneFrame caption="Add language: search matches endonym, English name, id, and locale.">
