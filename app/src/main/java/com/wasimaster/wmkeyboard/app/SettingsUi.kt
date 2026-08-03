@@ -47,9 +47,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -258,6 +264,38 @@ internal val LocalSharedTransition = compositionLocalOf<SharedTransitionScope?> 
 
 /** The current destination's own animation scope; null outside the graph. */
 internal val LocalNavAnimatedScope = compositionLocalOf<AnimatedVisibilityScope?> { null }
+
+/**
+ * False while this screen is still animating in, true from the frame it lands.
+ *
+ * [WmScreen] scrolls a `Column` rather than a lazy list, so a screen composes
+ * every row it has before it can draw one — and a screen with sixty of them
+ * does that inside its own opening animation, which is exactly when the frame
+ * budget is already spent. A long screen draws enough rows to fill the window
+ * and asks this before composing the rest, so the wait moves off the opening
+ * and behind it.
+ *
+ * Outside the navigation graph, and with animations off, this is true from the
+ * start: there is no transition to stay out of the way of.
+ */
+@Composable
+internal fun rememberScreenSettled(): Boolean {
+    val anim = LocalNavAnimatedScope.current ?: return true
+    var settled by remember(anim) { mutableStateOf(false) }
+    LaunchedEffect(anim) {
+        // Both halves matter. `isRunning` is still false on the frame the
+        // destination first composes — the transition has not started yet —
+        // so waiting on it alone would settle immediately and defer nothing.
+        // The states differing is what says an entrance is under way, and
+        // with animations turned off they converge on the next frame.
+        snapshotFlow {
+            val transition = anim.transition
+            transition.currentState == transition.targetState && !transition.isRunning
+        }.first { it }
+        settled = true
+    }
+    return settled
+}
 
 /**
  * Where a flight took off from.

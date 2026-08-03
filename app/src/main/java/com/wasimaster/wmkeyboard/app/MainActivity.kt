@@ -6624,8 +6624,11 @@ private fun importFontFile(context: Context, uri: android.net.Uri, dest: java.io
  * with [ToolDetailSettings]'s `when`: a tool whose page is just the toggle
  * (or a caption) doesn't earn the icon.
  */
-private fun toolHasOptions(tool: ToolbarTool): Boolean =
-    tool !in setOf(
+private fun toolHasOptions(tool: ToolbarTool): Boolean = tool !in ToolsWithoutOptions
+
+/** Asked once per row on a screen of sixty, so it is not built per call. */
+private val ToolsWithoutOptions: Set<ToolbarTool> =
+    setOf(
         ToolbarTool.UNIT_CONVERT, ToolbarTool.SETTINGS,
         // Quick toggles/panels, not tools with settings of their own —
         // their options all live elsewhere (Appearance, Typing).
@@ -6819,53 +6822,28 @@ private fun ToolsSettings(
             }
         }
     }
-    val groups = listOf(
-        stringResource(R.string.tools_group_panels_title) to listOf(
-            ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
-            ToolbarTool.TEXT_EDIT, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
-            ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.DICTIONARY,
-            ToolbarTool.GRAMMAR,
-        ),
-        stringResource(R.string.tools_group_scanners_title) to listOf(
-            ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN,
-        ),
-        stringResource(R.string.tools_group_online_title) to listOf(
-            ToolbarTool.TRANSLATE, ToolbarTool.GIF, ToolbarTool.STICKER,
-            ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH,
-            ToolbarTool.WIKIPEDIA, ToolbarTool.CURRENCY, ToolbarTool.AI,
-        ),
-        stringResource(R.string.tools_group_create_title) to listOf(
-            ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT,
-            ToolbarTool.QR_GEN, ToolbarTool.PASSWORD_GEN, ToolbarTool.TYPING_TEST,
-        ),
-        stringResource(R.string.tools_group_modes_title) to listOf(
-            ToolbarTool.MODES, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
-        ),
-        stringResource(R.string.tools_group_cursor_title) to (CursorTools + ToolbarTool.HIDE_KEYBOARD),
-        stringResource(R.string.tools_group_quick_actions_title) to listOf(
-            ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.AUTOCORRECT,
-            ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS, ToolbarTool.THEMES,
-            ToolbarTool.POWER_SAVING, ToolbarTool.SETTINGS,
-        ),
-        stringResource(R.string.tools_group_utilities_title) to listOf(
-            ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL,
-            ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.MOON_PHASE,
-        ),
-    )
-    val otherTitle = stringResource(R.string.tools_group_other_title)
-    // Safety net: a tool added to the enum but forgotten here still gets a
-    // settings entry (this menu is the only path to a tool's options).
-    val grouped = groups.flatMap { it.second }.toSet()
-    val ungrouped = ToolbarTool.entries.filterNot { it in grouped }
-    val allGroups = (if (ungrouped.isEmpty()) groups else groups + (otherTitle to ungrouped))
-        // Tools this build can't provide (lite flavor) get no settings entry.
-        .map { (title, tools) -> title to tools.filter(::isSupportedTool) }
-        .filter { it.second.isNotEmpty() }
-    for ((groupTitle, tools) in allGroups) {
+    // Resolved once per screen, not once per row: this list is ~60 rows long,
+    // and every one of them recomposes whenever any tool is switched on or off.
+    val paints = remember(
+        settings.coloredToolIcons,
+        settings.toolIconGradients,
+        settings.toolColorOverrides,
+        settings.toolColorEndOverrides,
+    ) {
+        ToolbarTool.entries.associateWith { toolAccentPaint(it, settings) }
+    }
+    val optionsDesc = stringResource(R.string.tools_has_options_desc)
+    // Only the group titles need a composition; the grouping itself is fixed.
+    val allGroups = ToolGroups.map { (title, tools) -> stringResource(title) to tools }
+    // Everything below the first group waits for the opening animation. The
+    // screen is a scrolling Column, so without this it has to compose and
+    // measure every row before it can show the first one.
+    val settled = rememberScreenSettled()
+    for ((groupTitle, tools) in allGroups.take(if (settled) allGroups.size else 1)) {
         SettingsGroup(groupTitle) {
             for (tool in tools) {
                 item {
-                    val paint = toolAccentPaint(tool, settings)
+                    val paint = paints[tool]
                     WmRow(
                         title = stringResource(toolTitle(tool)),
                         subtitle = stringResource(toolDescription(tool)),
@@ -6887,9 +6865,7 @@ private fun ToolsSettings(
                                 if (toolHasOptions(tool)) {
                                     Icon(
                                         Icons.Outlined.Tune,
-                                        contentDescription = stringResource(
-                                            R.string.tools_has_options_desc,
-                                        ),
+                                        contentDescription = optionsDesc,
                                         modifier = Modifier
                                             .padding(end = 8.dp)
                                             .size(16.dp),
@@ -6913,6 +6889,70 @@ private fun ToolsSettings(
         }
     }
 }
+
+/**
+ * The Tools screen's sections, as string resource and tools.
+ *
+ * A top-level value rather than a list built in composition: the grouping
+ * never changes, and rebuilding it (and the sets behind the safety net below)
+ * on every recomposition of a screen this size is work for nothing.
+ *
+ * The last group is the safety net: a tool added to the enum but forgotten
+ * here still gets a settings entry, because this menu is the only path to a
+ * tool's own options. Tools this build cannot provide (the lite flavor) are
+ * filtered out, and a group left empty by that is dropped.
+ */
+private val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
+    add(
+        R.string.tools_group_panels_title to listOf(
+            ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
+            ToolbarTool.TEXT_EDIT, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
+            ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.DICTIONARY,
+            ToolbarTool.GRAMMAR,
+        ),
+    )
+    add(
+        R.string.tools_group_scanners_title to listOf(
+            ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN,
+        ),
+    )
+    add(
+        R.string.tools_group_online_title to listOf(
+            ToolbarTool.TRANSLATE, ToolbarTool.GIF, ToolbarTool.STICKER,
+            ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH,
+            ToolbarTool.WIKIPEDIA, ToolbarTool.CURRENCY, ToolbarTool.AI,
+        ),
+    )
+    add(
+        R.string.tools_group_create_title to listOf(
+            ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT,
+            ToolbarTool.QR_GEN, ToolbarTool.PASSWORD_GEN, ToolbarTool.TYPING_TEST,
+        ),
+    )
+    add(
+        R.string.tools_group_modes_title to listOf(
+            ToolbarTool.MODES, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
+        ),
+    )
+    add(R.string.tools_group_cursor_title to (CursorTools + ToolbarTool.HIDE_KEYBOARD))
+    add(
+        R.string.tools_group_quick_actions_title to listOf(
+            ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.AUTOCORRECT,
+            ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS, ToolbarTool.THEMES,
+            ToolbarTool.POWER_SAVING, ToolbarTool.SETTINGS,
+        ),
+    )
+    add(
+        R.string.tools_group_utilities_title to listOf(
+            ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL,
+            ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.MOON_PHASE,
+        ),
+    )
+    val grouped = flatMapTo(HashSet()) { it.second }
+    val ungrouped = ToolbarTool.entries.filterNot { it in grouped }
+    if (ungrouped.isNotEmpty()) add(R.string.tools_group_other_title to ungrouped)
+}.map { (title, tools) -> title to tools.filter(::isSupportedTool) }
+    .filter { it.second.isNotEmpty() }
 
 /**
  * A tool's own settings page, as flights name it. Not the navigation route
