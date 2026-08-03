@@ -3,6 +3,9 @@
     <!-- Tools screen: the list of every keyboard tool, with the on/off switch for each one. -->
     <string name="tools_colored_icons_title">Colorful tool icons</string>
     <string name="tools_colored_icons_subtitle">Each tool gets its own accent color here and in the toolbox. Open a tool to change the color of that one icon.</string>
+    <string name="tools_gradient_icons_title">Gradient tool colors</string>
+    <string name="tools_gradient_icons_subtitle">Paint each tool with two colors, from the top left to the bottom right</string>
+    <string name="tools_gradient_icons_info">Off, a tool is one flat color. On, every tool becomes a gradient that runs from its color at the top left to a second color at the bottom right. The second color is worked out from the first, so you need not pick one. To choose both, open the tool and set the start color and the end color.</string>
     <!-- Caption at the top of the Tools screen. The gear character marks a tool that has more settings. -->
     <string name="tools_intro_info">Tools are on the keyboard toolbar and in the toolbox. The grid button on the toolbar opens the toolbox. The switch turns a tool on. Press a row to open the settings of that tool. The ⚙ marks the tools that have options of their own.</string>
     <string name="tools_reset_colors_action">Reset custom colors</string>

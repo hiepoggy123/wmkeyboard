@@ -212,7 +212,7 @@ fun PhotoRotationScreen(
         SettingsGroup(stringResource(R.string.photo_rotation_schedule_section_title)) {
             item {
                 ToggleSetting(
-                    title = stringResource(R.string.photo_rotation_on_title),
+                    title = R.string.photo_rotation_on_title,
                     subtitle = stringResource(R.string.photo_rotation_on_subtitle),
                     checked = photos.rotateEnabled,
                 ) { scope.launch { repository.setPhotoRotateEnabled(it) } }
@@ -221,14 +221,14 @@ fun PhotoRotationScreen(
                 // A dialog, not a row of chips: six choices with names this
                 // long do not fit across a phone.
                 NavRow(
-                    title = stringResource(R.string.photo_rotation_interval_title),
+                    title = R.string.photo_rotation_interval_title,
                     value = stringResource(photos.interval.labelRes),
                     onClick = { intervalOpen = true },
                 )
             }
             item {
                 NavRow(
-                    title = stringResource(R.string.photo_rotation_scope_title),
+                    title = R.string.photo_rotation_scope_title,
                     value = stringResource(photos.scope.labelRes),
                     onClick = { scopeOpen = true },
                 )
@@ -237,7 +237,7 @@ fun PhotoRotationScreen(
             if (photos.scope == RotationScope.SELECTED_THEMES) {
                 item {
                     NavRow(
-                        title = stringResource(R.string.photo_rotation_scope_pick_title),
+                        title = R.string.photo_rotation_scope_pick_title,
                         value = pluralStringResource(
                             R.plurals.photo_rotation_topics_value,
                             photos.scopeThemeIds.size,
@@ -276,7 +276,7 @@ fun PhotoRotationScreen(
                 item { CaptionText(stringResource(R.string.photo_rotation_subject_body)) }
                 item {
                     NavRow(
-                        title = stringResource(R.string.photo_rotation_topics_title),
+                        title = R.string.photo_rotation_topics_title,
                         subtitle = stringResource(R.string.photo_rotation_topics_subtitle),
                         value = pluralStringResource(
                             R.plurals.photo_rotation_topics_value,
@@ -299,28 +299,28 @@ fun PhotoRotationScreen(
                 }
                 item {
                     ToggleSetting(
-                        title = stringResource(R.string.photo_rotation_wide_title),
+                        title = R.string.photo_rotation_wide_title,
                         subtitle = stringResource(R.string.photo_rotation_wide_subtitle),
                         checked = photos.landscapeOnly,
                     ) { scope.launch { repository.setPhotoLandscapeOnly(it) } }
                 }
                 item {
                     ToggleSetting(
-                        title = stringResource(R.string.photo_rotation_safe_title),
+                        title = R.string.photo_rotation_safe_title,
                         subtitle = stringResource(R.string.photo_rotation_safe_subtitle),
                         checked = photos.safeSearch,
                     ) { scope.launch { repository.setPhotoSafeSearch(it) } }
                 }
                 item {
                     ToggleSetting(
-                        title = stringResource(R.string.photo_rotation_metered_title),
+                        title = R.string.photo_rotation_metered_title,
                         subtitle = stringResource(R.string.photo_rotation_metered_subtitle),
                         checked = photos.fetchOnMetered,
                     ) { scope.launch { repository.setPhotoFetchOnMetered(it) } }
                 }
                 item {
                     NavRow(
-                        title = stringResource(R.string.photo_services_title),
+                        title = R.string.photo_services_title,
                         subtitle = stringResource(R.string.photo_services_subtitle),
                         route = PHOTO_HUB_ROUTE,
                         onClick = { onNavigate(PHOTO_HUB_ROUTE) },
@@ -332,7 +332,7 @@ fun PhotoRotationScreen(
         SettingsGroup(stringResource(R.string.photo_rotation_storage_section_title)) {
             item {
                 SliderSetting(
-                    title = stringResource(R.string.photo_rotation_pool_title),
+                    title = R.string.photo_rotation_pool_title,
                     value = photos.poolTarget.toFloat(),
                     range = PhotoBackgroundSettings.MIN_POOL_TARGET.toFloat()..
                         PhotoBackgroundSettings.MAX_POOL_TARGET.toFloat(),
@@ -342,7 +342,7 @@ fun PhotoRotationScreen(
             }
             item {
                 NavRow(
-                    title = stringResource(R.string.photo_library_title),
+                    title = R.string.photo_library_title,
                     subtitle = stringResource(R.string.photo_library_subtitle),
                     route = PHOTO_LIBRARY_ROUTE,
                     onClick = { onNavigate(photoLibraryRoute(null)) },

@@ -21,9 +21,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -133,26 +130,14 @@ fun PhotoDetailScreen(
 
         if (theme != null && previewTheme != null) {
             SectionHeaderPublic(stringResource(R.string.photo_use_section_title))
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-            ) {
-                listOf(false, true).forEachIndexed { index, landscape ->
-                    SegmentedButton(
-                        selected = previewLandscape == landscape,
-                        onClick = { previewLandscape = landscape },
-                        shape = SegmentedButtonDefaults.itemShape(index, 2),
-                    ) {
-                        Text(
-                            stringResource(
-                                if (landscape) R.string.photo_preview_sideways_label
-                                else R.string.photo_preview_upright_label,
-                            ),
-                        )
-                    }
-                }
-            }
+            ChoiceControl(
+                options = listOf(
+                    false to stringResource(R.string.photo_preview_upright_label),
+                    true to stringResource(R.string.photo_preview_sideways_label),
+                ),
+                selected = previewLandscape,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) { landscape -> previewLandscape = landscape }
             Spacer(Modifier.height(8.dp))
             // The live mock-up: this theme's keys over *this* photo. Before
             // the photo is applied it is not on disk yet, so the preview is
@@ -321,29 +306,20 @@ private fun SlotChoice(slot: BackgroundSlot, onSlot: (BackgroundSlot) -> Unit) {
         style = MaterialTheme.typography.bodyLarge,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     )
-    SingleChoiceSegmentedButtonRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-    ) {
-        BackgroundSlot.entries.forEachIndexed { index, entry ->
-            SegmentedButton(
-                selected = slot == entry,
-                onClick = { onSlot(entry) },
-                shape = SegmentedButtonDefaults.itemShape(index, BackgroundSlot.entries.size),
-            ) {
-                Text(
-                    stringResource(
-                        when (entry) {
-                            BackgroundSlot.PORTRAIT -> R.string.photo_use_slot_portrait_label
-                            BackgroundSlot.LANDSCAPE -> R.string.photo_use_slot_landscape_label
-                            BackgroundSlot.BOTH -> R.string.photo_use_slot_both_label
-                        },
-                    ),
-                )
-            }
-        }
-    }
+    ChoiceControl(
+        options = BackgroundSlot.entries.map { entry ->
+            entry to stringResource(
+                when (entry) {
+                    BackgroundSlot.PORTRAIT -> R.string.photo_use_slot_portrait_label
+                    BackgroundSlot.LANDSCAPE -> R.string.photo_use_slot_landscape_label
+                    BackgroundSlot.BOTH -> R.string.photo_use_slot_both_label
+                },
+            )
+        },
+        selected = slot,
+        modifier = Modifier.padding(horizontal = 16.dp),
+        onChange = onSlot,
+    )
 }
 
 /**

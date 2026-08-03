@@ -611,11 +611,18 @@ internal fun diffAnnotated(
     }
 }
 
+/*
+ * Escapes rather than the characters themselves: both are invisible, so written
+ * literally they are a pair of empty-looking string constants that no reader —
+ * and no reviewer — can tell apart or verify. Lint says the same thing under
+ * BidiSpoofing.
+ */
+
 /** U+2068: the run inside decides its own direction. */
-private const val FIRST_STRONG_ISOLATE = "⁨"
+private const val FIRST_STRONG_ISOLATE = "\u2068"
 
 /** U+2069: back to the direction outside. */
-private const val POP_DIRECTIONAL_ISOLATE = "⁩"
+private const val POP_DIRECTIONAL_ISOLATE = "\u2069"
 
 /**
  * Draws a run that is nothing but whitespace with stand-in marks, so a changed
@@ -734,7 +741,13 @@ private fun DiffSummary(diff: TextDiff.Result?) {
         diff == null -> return
         diff.tooLong -> stringResource(R.string.ime_ai_diff_too_long)
         diff.identical -> stringResource(R.string.ime_ai_diff_identical)
-        else -> stringResource(R.string.ime_ai_diff_summary, diff.added, diff.deleted)
+        // Each count inflects on its own, so each is its own plural and the
+        // summary resource only joins the two halves.
+        else -> stringResource(
+            R.string.ime_ai_diff_summary,
+            pluralStringResource(R.plurals.ime_ai_diff_added, diff.added, diff.added),
+            pluralStringResource(R.plurals.ime_ai_diff_deleted, diff.deleted, diff.deleted),
+        )
     }
     Text(
         text,

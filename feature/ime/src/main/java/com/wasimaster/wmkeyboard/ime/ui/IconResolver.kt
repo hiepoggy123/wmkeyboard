@@ -11,7 +11,12 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
@@ -71,6 +76,12 @@ val LocalIconSet = staticCompositionLocalOf { IconSet.Builtin }
  * colour is handled by passing `Color.Unspecified` as the tint, which is
  * Material's own "no colour filter" signal — so one code path covers both
  * kinds of icon and the caller's sizing modifier keeps working unchanged.
+ *
+ * [brush] paints the glyph with a gradient instead of a flat [tint]. Material's
+ * `Icon` only knows how to tint, so the glyph is drawn into its own layer and
+ * the brush is stamped through it — see [Modifier.paintedWith]. A full-colour
+ * icon from a pack keeps its own colours either way: recolouring it is what the
+ * monochrome flag exists to prevent.
  */
 @Composable
 fun SlotIcon(
@@ -78,16 +89,34 @@ fun SlotIcon(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     tint: Color = LocalContentColor.current,
+    brush: Brush? = null,
 ) {
     val resolved = LocalIconSet.current.resolve(slot)
     val vector = resolved?.vector ?: IconDefaults.forSlot(slot) ?: return
+    val recolourable = resolved == null || resolved.monochrome
     Icon(
         imageVector = vector,
         contentDescription = contentDescription,
-        modifier = modifier,
-        tint = if (resolved == null || resolved.monochrome) tint else Color.Unspecified,
+        modifier = if (brush != null && recolourable) modifier.paintedWith(brush) else modifier,
+        tint = if (recolourable) tint else Color.Unspecified,
     )
 }
+
+/**
+ * Replaces whatever this element drew with [brush], keeping its shape.
+ *
+ * The element is rendered into an offscreen layer and the brush is then drawn
+ * over it in `SrcIn`, which keeps the brush only where the glyph put pixels.
+ * That is the standard way to give a vector `Icon` a gradient: `tint` is a
+ * single colour by construction, and a `ColorFilter` cannot vary across the
+ * icon either.
+ */
+fun Modifier.paintedWith(brush: Brush): Modifier = this
+    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+    .drawWithContent {
+        drawContent()
+        drawRect(brush, blendMode = BlendMode.SrcIn)
+    }
 
 /**
  * Resolves [settings] against the installed packs, off the main thread.

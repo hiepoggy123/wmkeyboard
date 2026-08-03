@@ -56,6 +56,7 @@ import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.content.R as ContentR
+import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.stickers.CustomSticker
 import com.wasimaster.wmkeyboard.core.stickers.StickerAddResult
 import com.wasimaster.wmkeyboard.core.stickers.StickerImage
@@ -210,6 +211,7 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
     }
 
     SettingsGroup {
+        item { AddonStoreRow(AddonType.Stickers, onNavigate) }
         item {
             WmRow(
                 title = stringResource(R.string.import_sticker_pack_new_title),

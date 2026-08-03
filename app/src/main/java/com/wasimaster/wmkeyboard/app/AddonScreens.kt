@@ -117,6 +117,7 @@ import com.wasimaster.wmkeyboard.core.addons.AddonRepoRef
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.addons.InstalledAddon
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import com.wasimaster.wmkeyboard.core.addons.resolve
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
@@ -138,13 +139,28 @@ import kotlinx.coroutines.withContext
 
 // ---- routes ----------------------------------------------------------
 
-/** `addon_repo/{repoUrl}` with the URL percent-encoded into the path. */
-internal fun addonRepoRoute(manifestUrl: String): String =
-    "addon_repo/${java.net.URLEncoder.encode(manifestUrl, "UTF-8")}"
+/**
+ * `addon_repo/{repoUrl}` with the URL percent-encoded into the path. [type]
+ * pre-selects one of the catalogue's filter chips, which is how a "Download
+ * more themes" row on a settings screen arrives showing only themes.
+ */
+internal fun addonRepoRoute(manifestUrl: String, type: AddonType? = null): String =
+    "addon_repo/${java.net.URLEncoder.encode(manifestUrl, "UTF-8")}" +
+        (type?.let { "?type=${it.name}" }.orEmpty())
 
 /** The Addons screen with the add-repository dialog pre-filled from a link. */
 internal fun addonsAddRoute(manifestUrl: String): String =
     "addons?add=${java.net.URLEncoder.encode(manifestUrl, "UTF-8")}"
+
+/**
+ * The Addons screen looking for one kind of addon: the repository list, with
+ * the type carried through to whichever catalogue the user opens.
+ */
+internal fun addonsTypeRoute(type: AddonType): String = "addons?type=${type.name}"
+
+/** An [AddonType] back from a route argument; null for a missing or stale name. */
+internal fun addonTypeArg(name: String?): AddonType? =
+    name?.takeIf { it.isNotEmpty() }?.let { value -> AddonType.entries.firstOrNull { it.name == value } }
 
 /** `addon/{repoUrl}/{addonId}`, both segments percent-encoded. */
 internal fun addonDetailRoute(manifestUrl: String, addonId: String): String =
@@ -303,21 +319,72 @@ private fun tintFor(type: AddonType): Color {
 private fun Color.luminanceIsDark(): Boolean =
     (0.299f * red + 0.587f * green + 0.114f * blue) < 0.5f
 
+// ---- the way in from a settings screen -------------------------------
+
+/**
+ * The "Download more …" row a settings screen carries.
+ *
+ * The addon store already knows which settings screen owns each type (see
+ * [AddonType.settingsRoute]); this is the same link the other way round, so
+ * that someone looking at their themes, icon packs or emoji fonts can get to
+ * more of them without first having to know the store exists. It opens the
+ * store already filtered to the one type, because a catalogue of everything is
+ * not an answer to "more themes".
+ *
+ * Drawn in the type's own glyph and colour, the same pair the catalogue's cards
+ * and filter chips use, so the row reads as a door into the store rather than
+ * as one more setting.
+ */
+@Composable
+internal fun AddonStoreRow(type: AddonType, onNavigate: (String) -> Unit) {
+    val label = stringResource(type.labelRes)
+    WmRow(
+        title = stringResource(R.string.addon_get_more_title),
+        subtitle = stringResource(R.string.addon_get_more_subtitle, label),
+        icon = type.icon,
+        accent = tintFor(type),
+        trailing = {
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        onClick = takeOffClick { onNavigate(addonsTypeRoute(type)) },
+    )
+}
+
+/** [AddonStoreRow] as a group of its own, for a screen that has nowhere to put it. */
+@Composable
+internal fun AddonStoreGroup(type: AddonType, onNavigate: (String) -> Unit) {
+    SettingsGroup { item { AddonStoreRow(type, onNavigate) } }
+}
+
 // ---- repository list -------------------------------------------------
 
 /**
  * [prefillUrl] comes from a `wmkeyboard://repo?url=…` link: it opens the add
  * dialog with the address filled in, so the user still sees what they are
  * trusting and still has to confirm.
+ *
+ * [typeFilter] comes from an [AddonStoreRow]: the user asked for one kind of
+ * addon, so the installed list narrows to it and it travels on into whichever
+ * repository they open.
  */
 @Composable
-internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit) {
+internal fun AddonsScreen(
+    prefillUrl: String = "",
+    typeFilter: AddonType? = null,
+    onNavigate: (String) -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { AddonStore.get(context) }
     val revision by store.revision.collectAsStateWithLifecycle()
     val repos = remember(revision) { store.repos() }
-    val installed = remember(revision) { store.installed() }
+    val installed = remember(revision, typeFilter) {
+        store.installed().filter { (_, record) -> typeFilter == null || record.type == typeFilter }
+    }
 
     var showAdd by remember { mutableStateOf(prefillUrl.isNotBlank()) }
     var refreshing by remember { mutableStateOf(false) }
@@ -400,7 +467,19 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
 
     AddonApplyPrompt()
 
-    CaptionText(stringResource(R.string.addon_repos_intro_body))
+    if (typeFilter == null) {
+        CaptionText(stringResource(R.string.addon_repos_intro_body))
+    } else {
+        // Arrived from a settings screen asking for one kind of addon. Say so,
+        // because everything below is narrowed by it and a repository list that
+        // silently hides half of what it has is worse than no filter at all.
+        CaptionText(
+            stringResource(
+                R.string.addon_repos_type_intro_body,
+                stringResource(typeFilter.labelRes),
+            ),
+        )
+    }
 
     Row(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -426,7 +505,7 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
 
     SettingsGroup(if (repos.isEmpty()) null else stringResource(R.string.addon_repos_section_title)) {
         for (ref in repos) {
-            item { RepositoryRow(ref, store, onNavigate) }
+            item { RepositoryRow(ref, store, typeFilter, onNavigate) }
         }
     }
 
@@ -550,6 +629,8 @@ private fun AddonApplyPrompt() {
 private fun RepositoryRow(
     ref: AddonRepoRef,
     store: AddonStore,
+    /** Carried into the catalogue this row opens; see [addonRepoRoute]. */
+    typeFilter: AddonType?,
     onNavigate: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -649,7 +730,7 @@ private fun RepositoryRow(
             }
         },
         enabled = manifest != null,
-        onClick = { onNavigate(addonRepoRoute(ref.manifestUrl)) },
+        onClick = { onNavigate(addonRepoRoute(ref.manifestUrl, typeFilter)) },
     )
 }
 
@@ -711,8 +792,17 @@ private fun AddRepositoryDialog(
 
 // ---- one repository --------------------------------------------------
 
+/**
+ * [initialType] pre-selects a filter chip. It arrives from a settings screen's
+ * "Download more …" row, which asked for one kind of addon; the chips are still
+ * live, so the user can widen it back out on the spot.
+ */
 @Composable
-internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) {
+internal fun AddonRepoScreen(
+    manifestUrl: String,
+    initialType: AddonType? = null,
+    onNavigate: (String) -> Unit,
+) {
     val context = LocalContext.current
     val store = remember { AddonStore.get(context) }
     val revision by store.revision.collectAsStateWithLifecycle()
@@ -725,7 +815,9 @@ internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) 
     // where a plain remember is thrown away with the composition.
     var query by rememberSaveable(manifestUrl) { mutableStateOf("") }
     // Stored by name rather than as the enum — Bundle can hold a String.
-    var typeFilterName by rememberSaveable(manifestUrl) { mutableStateOf("") }
+    var typeFilterName by rememberSaveable(manifestUrl) {
+        mutableStateOf(initialType?.name.orEmpty())
+    }
     val typeFilter = remember(typeFilterName) {
         typeFilterName.takeIf { it.isNotEmpty() }
             ?.let { name -> AddonType.entries.firstOrNull { it.name == name } }

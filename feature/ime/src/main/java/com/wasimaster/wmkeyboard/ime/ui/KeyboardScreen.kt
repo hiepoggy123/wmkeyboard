@@ -161,6 +161,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -252,7 +253,8 @@ import com.wasimaster.wmkeyboard.core.emoji.TextArt
 import com.wasimaster.wmkeyboard.core.text.EmojiGraphemes
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.theme.brush
-import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
+import com.wasimaster.wmkeyboard.core.ui.ToolPaint
+import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
 import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
 import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -3728,6 +3730,9 @@ private fun ToolCircle(
     // Inactive-icon tint override (the tool's accent colour). Null keeps the
     // theme's toolbar-icon colour; the active state always wins over this.
     tint: Color? = null,
+    // The gradient to paint the inactive icon with instead of [tint], when the
+    // gradient tool colours are on. Same precedence: active still wins.
+    tintBrush: Brush? = null,
     // When set, the tool's name is drawn under the icon (toolbar labels). The
     // long-press tooltip is then redundant and suppressed.
     label: String? = null,
@@ -3759,6 +3764,7 @@ private fun ToolCircle(
         }
     }
     val iconTint = if (active) kb.toolCircleActiveIcon else (tint ?: kb.toolbarIcon)
+    val iconBrush = if (active) null else tintBrush
     if (label != null) {
         // Labelled variant (toolbar labels): icon in its circle, name beneath.
         Column(
@@ -3778,6 +3784,7 @@ private fun ToolCircle(
                     contentDescription = description,
                     modifier = Modifier.size(20.dp),
                     tint = iconTint,
+                    brush = iconBrush,
                 )
             }
             Text(
@@ -3805,6 +3812,7 @@ private fun ToolCircle(
             contentDescription = description,
             modifier = Modifier.size(20.dp),
             tint = iconTint,
+            brush = iconBrush,
         )
         if (showLabel && longPressLabel != null) {
             LaunchedEffect(Unit) {
@@ -4508,9 +4516,7 @@ private fun ToolboxGrid(
                     // whenever the ring is drawn at all — focusedSlot is null
                     // for the whole of a drag, and only a drag inserts a ghost.
                     val focused = focusedSlot == pageStart + slot
-                    val accent = if (state.settings.coloredToolIcons) {
-                        toolAccentColor(shown, state.settings.toolColorOverrides)
-                    } else null
+                    val paint = toolAccentPaint(shown, state.settings)
                     // Anchored at the scrolling content (see gridCoords), NOT
                     // the keyboard body: body-relative, every scroll frame
                     // moved every icon and restarted its spring — a per-frame
@@ -4522,12 +4528,12 @@ private fun ToolboxGrid(
                         ToolPill(
                             tool = shown,
                             active = toolActive(shown, state),
-                            accent = accent,
+                            paint = paint,
                             filled = state.settings.toolbox.pillFilled,
                             ghost = ghost,
                             modifier = placement
                                 .padding(horizontal = 3.dp, vertical = 3.dp)
-                                .focusRing(focused, RoundedCornerShape(PillRadius)),
+                                .focusRing(focused, RoundedCornerShape(pillRadius())),
                         )
                         return@Box
                     }
@@ -4545,7 +4551,8 @@ private fun ToolboxGrid(
                                 description = toolLabel(shown),
                                 active = toolActive(shown, state),
                                 interactive = false,
-                                tint = accent,
+                                tint = paint?.color,
+                                tintBrush = paint?.brush,
                             ) {}
                         }
                         Text(
@@ -4565,8 +4572,26 @@ private fun ToolboxGrid(
     }
 }
 
-/** Corner radius of a toolbox pill — half its height, so the ends are round. */
-private val PillRadius = 22.dp
+/** How tall a toolbox pill is. Half of it is the radius that makes the ends round. */
+private val PillHeight = 44.dp
+
+/**
+ * A pill's corner radius, from the same "Tool circle radius" setting the round
+ * tool buttons use. That slider is scaled for the 38 dp circle, so it is
+ * stretched onto the taller pill: at the slider's top the ends are fully round,
+ * at 0 the pill is a rectangle, and everything between tracks the circles.
+ */
+@Composable
+private fun pillRadius(): Dp {
+    val toolRadius = LocalKbTheme.current.toolRadiusDp
+    return (PillHeight / 2) * (toolRadius / ToolCircleRadiusMax.toFloat()).coerceIn(0f, 1f)
+}
+
+/**
+ * The top of the "Tool circle radius" slider (`appearance_tool_circle_title`).
+ * The circles are 38 dp, so 20 already rounds them completely.
+ */
+private const val ToolCircleRadiusMax = 20
 
 /**
  * One tool as a wide row: icon, name, and — for the tools that open a panel or
@@ -4574,33 +4599,36 @@ private val PillRadius = 22.dp
  * The chevron is the whole point of the layout: at a glance, "Themes" reads as
  * somewhere to go and "Flashlight" as something that just happens.
  *
- * With [filled] on, the tool's [accent] becomes the pill's background and the
+ * With [filled] on, the tool's colour becomes the pill's background and the
  * icon and label flip to whatever reads on it. That is usually white, but not
  * always — a pale accent (the flashlight's amber) takes near-black instead,
- * because a white-on-amber label is a label nobody can read.
+ * because a white-on-amber label is a label nobody can read. With the gradient
+ * tool colours on, the fill is the gradient and the contrast is worked out
+ * against its near end.
  */
 @Composable
 private fun ToolPill(
     tool: ToolbarTool,
     active: Boolean,
     /** The tool's colour, or null when colourful tool icons are off. */
-    accent: Color?,
+    paint: ToolPaint?,
     filled: Boolean,
     ghost: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val kb = LocalKbTheme.current
-    val shape = RoundedCornerShape(PillRadius)
+    val shape = RoundedCornerShape(pillRadius())
     // Nothing to fill a pill with when the colours are switched off.
-    val fill = accent?.takeIf { filled }
+    val fill = paint?.takeIf { filled }
     val background = when {
         ghost -> kb.toolCircleActive.copy(alpha = 0.22f)
-        fill != null -> fill
+        fill != null -> fill.color
         active -> kb.toolCircleActive
         else -> kb.toolCircle
     }
+    val backgroundBrush = if (ghost) null else fill?.brush
     val content = when {
-        fill != null -> maxContrastOn(fill)
+        fill != null -> maxContrastOn(fill.color)
         active -> kb.toolCircleActiveIcon
         else -> kb.toolbarIcon
     }
@@ -4609,15 +4637,21 @@ private fun ToolPill(
     val iconTint = when {
         fill != null -> content
         active -> kb.toolCircleActiveIcon
-        else -> accent ?: kb.toolbarIcon
+        else -> paint?.color ?: kb.toolbarIcon
     }
+    // A filled pill already wears the gradient, so its icon is flat contrast
+    // colour; an unfilled one is where the gradient has somewhere to go.
+    val iconBrush = if (fill != null || active || ghost) null else paint?.brush
     val fade = if (ghost) 0.45f else 1f
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(PillHeight)
             .clip(shape)
-            .background(background, shape)
+            .then(
+                if (backgroundBrush != null) Modifier.background(backgroundBrush, shape)
+                else Modifier.background(background, shape),
+            )
             .then(
                 if (ghost) {
                     Modifier.border(1.dp, kb.toolbarIcon.copy(alpha = 0.35f), shape)
@@ -4633,6 +4667,7 @@ private fun ToolPill(
             contentDescription = null,
             modifier = Modifier.size(20.dp),
             tint = iconTint.copy(alpha = fade),
+            brush = iconBrush,
         )
         Text(
             toolLabel(tool),

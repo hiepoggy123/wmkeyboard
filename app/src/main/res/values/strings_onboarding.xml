@@ -70,6 +70,9 @@
     <string name="onboarding_emoji_hide_title">Hide the emoji your device cannot draw</string>
     <string name="onboarding_emoji_hide_subtitle">The emoji panel, the search and the suggestions leave out the empty boxes</string>
     <string name="onboarding_emoji_font_info">To see all of the emoji, use a complete emoji font. Select \"Google\" (Noto Color Emoji), or import an emoji font file such as Twemoji or OpenMoji. Both are in Emoji, then Emoji font. WM Keyboard uses the emoji font of your device and includes no font of its own. You can change all of this later in Settings, then Emoji.</string>
+    <!-- Says that emoji fonts can also be downloaded from an add-on repository,
+         which is the answer for someone with no font file to import. -->
+    <string name="onboarding_emoji_font_download_info">You can also download more emoji fonts later. Go to Settings, then Emoji, and press \"Download more\" under Emoji font. Add-ons come from repositories that you add yourself, and nothing installs until you press Install.</string>
 
     <!-- Onboarding, typing feedback page. -->
     <string name="onboarding_feedback_title">Typing feedback</string>

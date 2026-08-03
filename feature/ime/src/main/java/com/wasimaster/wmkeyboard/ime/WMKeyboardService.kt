@@ -4868,6 +4868,7 @@ open class WMKeyboardService : InputMethodService() {
             unitLast = state.settings.unitConvertLast,
             enabledTools = state.settings.enabledTools,
             keywordOverrides = state.settings.toolKeywords,
+            caseSensitiveKeywords = state.settings.toolKeywordCase,
         )
 
     /**

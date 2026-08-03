@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.core.tools
 
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -237,6 +238,40 @@ class SmartSuggestTest {
         val defaults = SmartSuggest.defaultKeywords.getValue(ToolbarTool.WIKIPEDIA)
         val encoded = SmartSuggest.withKeywords("", ToolbarTool.WIKIPEDIA, defaults)
         assertEquals("", encoded)
+    }
+
+    // ---- keyword case sensitivity ----
+
+    @Test
+    fun keywordsIgnoreCapitalsUntilAToolAsksForThem() {
+        assertEquals(ToolbarTool.WIKIPEDIA, hit("Wiki")?.tool)
+        assertEquals(ToolbarTool.WIKIPEDIA, hit("WIKI")?.tool)
+    }
+
+    @Test
+    fun aCaseSensitiveToolOnlyAnswersToItsOwnSpelling() {
+        val words = SmartSuggest.withKeywords("", ToolbarTool.WIKIPEDIA, listOf("Wiki"))
+        val exact = SmartSuggest.encodeCaseSensitive(setOf(ToolbarTool.WIKIPEDIA))
+        val context = ctx.copy(keywordOverrides = words, caseSensitiveKeywords = exact)
+        assertEquals(ToolbarTool.WIKIPEDIA, hit("Wiki", context)?.tool)
+        assertNull("lower case must not match a case-sensitive keyword", hit("wiki", context))
+        assertNull("upper case must not match either", hit("WIKI", context))
+    }
+
+    @Test
+    fun keywordsKeepTheCapitalsTheyWereSavedWith() {
+        val encoded = SmartSuggest.withKeywords("", ToolbarTool.WIKIPEDIA, listOf("Wiki", "ENC"))
+        assertEquals(listOf("Wiki", "ENC"), SmartSuggest.keywordsFor(ToolbarTool.WIKIPEDIA, encoded))
+    }
+
+    @Test
+    fun caseSensitivityIsPerToolAndReversible() {
+        val on = SmartSuggest.withCaseSensitive("", ToolbarTool.AI, sensitive = true)
+        assertTrue(SmartSuggest.caseSensitiveKeyword(ToolbarTool.AI, on))
+        assertFalse(SmartSuggest.caseSensitiveKeyword(ToolbarTool.WIKIPEDIA, on))
+
+        val off = SmartSuggest.withCaseSensitive(on, ToolbarTool.AI, sensitive = false)
+        assertEquals("", off)
     }
 
     // ---- gating and ordinary prose ----

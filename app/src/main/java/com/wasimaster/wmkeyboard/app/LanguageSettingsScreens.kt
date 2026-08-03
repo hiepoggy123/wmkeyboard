@@ -340,7 +340,7 @@ internal fun LanguageDetailScreen(
                 val sample = conjunctSample(lang.script)
                     ?: stringResource(R.string.languages_conjunct_sample_fallback)
                 ToggleSetting(
-                    stringResource(R.string.languages_conjunct_backspace_title),
+                    R.string.languages_conjunct_backspace_title,
                     stringResource(R.string.languages_conjunct_backspace_subtitle, sample),
                     langId in settings.conjunctBackspaceLanguages,
                     info = stringResource(
@@ -359,7 +359,7 @@ internal fun LanguageDetailScreen(
         item {
             val options = NumeralSystem.entries.map { it to stringResource(it.labelRes) }
             ChoiceSetting(
-                stringResource(R.string.languages_numeral_system_title),
+                R.string.languages_numeral_system_title,
                 subtitle = stringResource(
                     R.string.languages_numeral_system_subtitle,
                     lang.englishName,
@@ -421,7 +421,7 @@ internal fun LanguageDetailScreen(
         }
         item {
             NavRow(
-                stringResource(R.string.languages_custom_dictionaries_title),
+                R.string.languages_custom_dictionaries_title,
                 stringResource(R.string.languages_custom_dictionaries_subtitle),
                 route = "customdictionaries",
             ) {
@@ -450,7 +450,7 @@ internal fun LanguageDetailScreen(
         }
         item {
             NavRow(
-                stringResource(R.string.languages_emoji_keywords_title),
+                R.string.languages_emoji_keywords_title,
                 stringResource(R.string.languages_emoji_keywords_subtitle),
                 route = "emojikeywords",
             ) {
@@ -827,7 +827,7 @@ private fun CjkDictPackManager(
         // so unlike the pinyin options below it is not gated to zh.
         item {
             ToggleSetting(
-                stringResource(R.string.languages_cjk_traditional_title),
+                R.string.languages_cjk_traditional_title,
                 stringResource(R.string.languages_cjk_traditional_subtitle),
                 settings.cjk.traditionalOutput,
             ) { on -> scope.launch { repository.setCjkTraditionalOutput(on) } }
@@ -879,7 +879,7 @@ private fun CjkDictPackManager(
         if (langId == "yue") {
             item {
                 ToggleSetting(
-                    stringResource(R.string.languages_cjk_lazy_title),
+                    R.string.languages_cjk_lazy_title,
                     stringResource(R.string.languages_cjk_lazy_subtitle),
                     settings.cjk.jyutpingLazy,
                 ) { on -> scope.launch { repository.setJyutpingLazy(on) } }
@@ -890,7 +890,7 @@ private fun CjkDictPackManager(
         if (langId == "zh") {
             item {
                 ToggleSetting(
-                    stringResource(R.string.languages_cjk_fuzzy_title),
+                    R.string.languages_cjk_fuzzy_title,
                     stringResource(R.string.languages_cjk_fuzzy_subtitle),
                     settings.cjk.pinyinFuzzy,
                 ) { on -> scope.launch { repository.setPinyinFuzzy(on) } }

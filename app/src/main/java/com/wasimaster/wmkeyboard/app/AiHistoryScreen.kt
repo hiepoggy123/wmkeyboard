@@ -32,6 +32,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -101,7 +102,7 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
     SettingsGroup {
         item {
             ToggleSetting(
-                stringResource(R.string.toolai_ai_history_title),
+                R.string.toolai_ai_history_title,
                 stringResource(R.string.toolai_ai_history_subtitle),
                 settings.ai.historyEnabled,
             ) { on ->
@@ -119,7 +120,7 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
         if (settings.ai.historyEnabled) {
             item {
                 SliderSetting(
-                    stringResource(R.string.toolai_ai_history_max_title),
+                    R.string.toolai_ai_history_max_title,
                     subtitle = stringResource(R.string.toolai_ai_history_max_subtitle),
                     value = settings.ai.historyMax.toFloat(),
                     range = AiHistoryStore.MIN_MAX_ITEMS.toFloat()..
@@ -221,7 +222,13 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
             onDismissRequest = { confirmClear = false },
             title = { Text(stringResource(R.string.toolai_ai_history_clear_action)) },
             text = {
-                Text(stringResource(R.string.toolai_ai_history_clear_body, entries.size))
+                Text(
+                    pluralStringResource(
+                        R.plurals.toolai_ai_history_clear_body,
+                        entries.size,
+                        entries.size,
+                    ),
+                )
             },
             confirmButton = {
                 TextButton(onClick = {

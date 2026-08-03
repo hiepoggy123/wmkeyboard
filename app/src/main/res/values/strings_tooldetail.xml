@@ -9,6 +9,10 @@
     <!-- Shared by every tool: the on/off switch and the icon colour row. -->
     <string name="tooldetail_enabled_subtitle">Show this tool on the toolbar and in the toolbox</string>
     <string name="tooldetail_icon_colour_title">Icon colour</string>
+    <!-- The two ends of the icon gradient, shown instead of the row above
+         while "Gradient tool colors" is on. -->
+    <string name="tooldetail_icon_colour_start_title">Icon colour, top left</string>
+    <string name="tooldetail_icon_colour_end_title">Icon colour, bottom right</string>
     <string name="tooldetail_icon_colour_custom_subtitle">Custom. Press to change</string>
     <string name="tooldetail_icon_colour_default_subtitle">Default. Press to change</string>
     <!-- Title of the colour picker dialog. %1$s is the name of the tool, for example "Clipboard". -->

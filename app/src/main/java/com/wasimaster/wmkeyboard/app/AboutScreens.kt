@@ -416,7 +416,7 @@ internal fun AboutSettings(
         if (!BuildConfig.ENABLE_FDROID) {
             item {
                 NavRow(
-                    stringResource(R.string.about_share_play_link),
+                    R.string.about_share_play_link,
                     PLAY_STORE_URL.removePrefix("https://"),
                 ) {
                     shareLink(context, PLAY_STORE_URL)
@@ -426,7 +426,7 @@ internal fun AboutSettings(
         if (!BuildConfig.ENABLE_PLAY_STORE) {
             item {
                 NavRow(
-                    stringResource(R.string.about_share_fdroid_link),
+                    R.string.about_share_fdroid_link,
                     FDROID_URL.removePrefix("https://"),
                 ) {
                     shareLink(context, FDROID_URL)
@@ -434,7 +434,7 @@ internal fun AboutSettings(
             }
             item {
                 NavRow(
-                    stringResource(R.string.about_share_github_link),
+                    R.string.about_share_github_link,
                     SOURCE_URL.removePrefix("https://"),
                 ) {
                     shareLink(context, SOURCE_URL)
@@ -446,7 +446,7 @@ internal fun AboutSettings(
     SettingsGroup(stringResource(R.string.about_app_title)) {
         item {
             NavRow(
-                stringResource(R.string.about_version_title),
+                R.string.about_version_title,
                 stringResource(
                     R.string.about_version_subtitle,
                     flavor,
@@ -459,13 +459,13 @@ internal fun AboutSettings(
         }
         item {
             // The licence identifier and the copyright line travel verbatim.
-            NavRow(stringResource(R.string.about_licence_title), "MIT, © 2026 Wasi Master") {
+            NavRow(R.string.about_licence_title, "MIT, © 2026 Wasi Master") {
                 onOpenLicenseText("mit-wmkeyboard.txt")
             }
         }
         item {
             NavRow(
-                stringResource(R.string.about_source_title),
+                R.string.about_source_title,
                 SOURCE_URL.removePrefix("https://"),
             ) {
                 uriHandler.openUri(SOURCE_URL)
@@ -473,7 +473,7 @@ internal fun AboutSettings(
         }
         item {
             NavRow(
-                stringResource(R.string.about_diagnostics_title),
+                R.string.about_diagnostics_title,
                 stringResource(R.string.about_diagnostics_subtitle),
                 route = "debug_log",
                 onClick = onOpenDebugLog,
@@ -485,14 +485,14 @@ internal fun AboutSettings(
     SettingsGroup(stringResource(R.string.about_feedback_title)) {
         item {
             NavRow(
-                stringResource(R.string.about_report_bug_title),
+                R.string.about_report_bug_title,
                 stringResource(R.string.about_report_bug_subtitle),
             ) {
                 uriHandler.openUri(Support.ISSUES_URL)
             }
         }
         item {
-            NavRow(stringResource(R.string.about_email_developer_title), Support.EMAIL) {
+            NavRow(R.string.about_email_developer_title, Support.EMAIL) {
                 if (!Support.email(context, bugReportSubject, Support.bugReport())) {
                     Toast.makeText(
                         context,
@@ -508,7 +508,7 @@ internal fun AboutSettings(
     SettingsGroup(stringResource(R.string.about_documentation_title)) {
         item {
             NavRow(
-                stringResource(R.string.about_user_guide_title),
+                R.string.about_user_guide_title,
                 DOCS_URL.removePrefix("https://"),
             ) {
                 uriHandler.openUri(DOCS_URL)
@@ -516,7 +516,7 @@ internal fun AboutSettings(
         }
         item {
             NavRow(
-                stringResource(R.string.about_privacy_policy_title),
+                R.string.about_privacy_policy_title,
                 stringResource(R.string.about_privacy_policy_subtitle),
             ) {
                 uriHandler.openUri(PRIVACY_POLICY_URL)
@@ -527,7 +527,7 @@ internal fun AboutSettings(
     SettingsGroup(stringResource(R.string.about_third_party_title)) {
         item {
             NavRow(
-                stringResource(R.string.about_licences_title),
+                R.string.about_licences_title,
                 stringResource(R.string.about_licences_subtitle),
                 route = "licenses",
             ) { onOpenLicenses() }
@@ -537,7 +537,7 @@ internal fun AboutSettings(
     SettingsGroup(stringResource(R.string.about_word_lists_title)) {
         item {
             NavRow(
-                stringResource(R.string.about_dictionaries_title),
+                R.string.about_dictionaries_title,
                 stringResource(R.string.about_dictionaries_subtitle),
             ) {}
         }

@@ -295,4 +295,8 @@
     <!-- The chip the suggestion strip shows for a tool. %1$s is a tool name. -->
     <string name="ime_smart_open_tool">Open %1$s</string>
 
+    <!-- Badge on the preview of a theme that moves while you type. -->
+    <string name="ime_theme_animated_badge">Animated</string>
+    <string name="ime_theme_animated_desc">This theme is animated</string>
+
 </resources>

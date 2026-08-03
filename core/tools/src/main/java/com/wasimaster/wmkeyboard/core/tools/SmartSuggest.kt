@@ -72,6 +72,8 @@ object SmartSuggest {
         val unitLast: String = "",
         val enabledTools: Collection<ToolbarTool> = emptyList(),
         val keywordOverrides: String = "",
+        /** Tools whose keywords must match the typed capitals exactly. */
+        val caseSensitiveKeywords: String = "",
     )
 
     /** Characters of context the scanners look back over. */
@@ -526,11 +528,11 @@ object SmartSuggest {
 
     private fun detectKeyword(tail: String, ctx: Context): SmartHit? {
         val word = KEYWORD_TAIL.find(tail)?.groupValues?.get(1) ?: return null
-        val lower = word.lowercase(Locale.ROOT)
         val overrides = decodeKeywords(ctx.keywordOverrides)
+        val exact = decodeCaseSensitive(ctx.caseSensitiveKeywords)
         val tool = ToolbarTool.entries.firstOrNull { candidate ->
             candidate in ctx.enabledTools &&
-                lower in (overrides[candidate] ?: defaultKeywords[candidate].orEmpty())
+                matchesKeyword(word, overrides[candidate] ?: defaultKeywords[candidate].orEmpty(), candidate in exact)
         } ?: return null
         return SmartHit(
             kind = Kind.TOOL,
@@ -542,6 +544,23 @@ object SmartSuggest {
             prefill = null,
         )
     }
+
+    /**
+     * Whether [typed] is one of [keywords].
+     *
+     * Case-insensitively by default, which is what a keyboard wants: nobody
+     * types "wiki" the same way twice. A tool the user marked case-sensitive
+     * compares literally instead, so "AI" can open the AI tool while "ai" in
+     * the middle of a word — or "Ai" at the start of a sentence the keyboard
+     * auto-capitalised — is left alone.
+     */
+    private fun matchesKeyword(typed: String, keywords: List<String>, caseSensitive: Boolean): Boolean =
+        if (caseSensitive) {
+            typed in keywords
+        } else {
+            val lower = typed.lowercase(Locale.ROOT)
+            keywords.any { it.lowercase(Locale.ROOT) == lower }
+        }
 
     /** The keywords each tool answers to until the user edits them. */
     val defaultKeywords: Map<ToolbarTool, List<String>> = mapOf(
@@ -588,6 +607,12 @@ object SmartSuggest {
      * Overrides encode as "TOOL=a,b;TOOL=c". A tool with an empty list is
      * kept in the map (that is how "no keywords for this one" is stored, as
      * distinct from "never edited, use the defaults").
+     *
+     * Capitals are kept as the user typed them, because a tool can be marked
+     * case-sensitive (see [caseSensitiveKeyword]) and a keyword folded to
+     * lower case on the way in could then never match anything. Everything
+     * stored before that existed is already lower case, which is exactly what
+     * a case-insensitive tool wants.
      */
     fun decodeKeywords(encoded: String): Map<ToolbarTool, List<String>> =
         encoded.split(';').mapNotNull { entry ->
@@ -595,7 +620,7 @@ object SmartSuggest {
             val tool = ToolbarTool.entries.firstOrNull { it.name == name } ?: return@mapNotNull null
             val words = entry.substringAfter('=', "")
                 .split(',')
-                .map { it.trim().lowercase(Locale.ROOT) }
+                .map { it.trim() }
                 .filter { it.length >= 2 && it.all(Char::isLetter) }
             tool to words
         }.toMap()
@@ -606,10 +631,38 @@ object SmartSuggest {
     /** Replaces one tool's keywords inside an encoded override string. */
     fun withKeywords(encoded: String, tool: ToolbarTool, words: List<String>): String {
         val map = decodeKeywords(encoded).toMutableMap()
-        val cleaned = words.map { it.trim().lowercase(Locale.ROOT) }
+        val cleaned = words.map { it.trim() }
             .filter { it.length >= 2 && it.all(Char::isLetter) }
             .distinct()
         if (cleaned == defaultKeywords[tool].orEmpty()) map.remove(tool) else map[tool] = cleaned
         return encodeKeywords(map)
+    }
+
+    // ---- case sensitivity ----
+
+    /**
+     * The tools whose keywords are matched literally, encoded as a plain
+     * comma-separated list of enum names. Absent means case-insensitive, which
+     * is the default and by far the common case.
+     */
+    fun decodeCaseSensitive(encoded: String): Set<ToolbarTool> {
+        if (encoded.isEmpty()) return emptySet()
+        return encoded.split(',')
+            .mapNotNullTo(mutableSetOf()) { name ->
+                ToolbarTool.entries.firstOrNull { it.name == name }
+            }
+    }
+
+    fun encodeCaseSensitive(tools: Set<ToolbarTool>): String =
+        ToolbarTool.entries.filter { it in tools }.joinToString(",") { it.name }
+
+    fun caseSensitiveKeyword(tool: ToolbarTool, encoded: String): Boolean =
+        tool in decodeCaseSensitive(encoded)
+
+    /** Adds or removes one tool from an encoded case-sensitivity list. */
+    fun withCaseSensitive(encoded: String, tool: ToolbarTool, sensitive: Boolean): String {
+        val tools = decodeCaseSensitive(encoded).toMutableSet()
+        if (sensitive) tools += tool else tools -= tool
+        return encodeCaseSensitive(tools)
     }
 }

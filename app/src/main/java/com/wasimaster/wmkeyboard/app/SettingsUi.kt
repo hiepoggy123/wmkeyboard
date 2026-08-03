@@ -54,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -74,6 +75,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
+import com.wasimaster.wmkeyboard.core.ui.ToolPaint
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import kotlin.math.roundToInt
 
@@ -87,7 +89,8 @@ import kotlin.math.roundToInt
 // ---- icon tiles ----
 
 /** The tile a settings icon sits on. Bigger than the glyph so colour reads. */
-private val IconTileSize = 40.dp
+internal val WmIconTileSize = 40.dp
+private val IconTileSize = WmIconTileSize
 private val IconTileRadius = 13.dp
 
 /** The glyph size inside a tile, for callers drawing their own icon into one. */
@@ -100,6 +103,20 @@ internal val WmIconTileGlyph = 22.dp
  */
 private fun tileGlyphColor(accent: Color, dark: Boolean): Color =
     if (dark) accent else androidx.compose.ui.graphics.lerp(accent, Color.Black, 0.28f)
+
+/**
+ * A tool's paint with the same treatment [tileGlyphColor] gives a flat accent,
+ * applied to both ends of the gradient.
+ *
+ * Without it, switching the gradients on would wash out every tool icon on a
+ * light theme — the stored accents are dark-toolbar mid-tones, which is exactly
+ * what the darkening exists to fix.
+ */
+@Composable
+internal fun tileToolPaint(paint: ToolPaint?): ToolPaint? {
+    val dark = isSystemInDarkTheme()
+    return paint?.map { tileGlyphColor(it, dark) }
+}
 
 /**
  * A rounded, tinted tile behind a settings icon. The single most recognisable
@@ -126,19 +143,29 @@ internal fun WmIconTile(
  * The tile with an arbitrary glyph inside — for icon-pack slots and anything
  * else that draws its own icon. [LocalContentColor] is set to the tile's glyph
  * colour, so a plain `Icon` inside picks it up without being told.
+ *
+ * [brush] washes the tile with a gradient instead of one flat tint, for the
+ * tools when "Gradient tool colours" is on. The glyph colour still comes from
+ * [accent] — the near end of that same gradient — because a glyph this small
+ * has nowhere to show a second colour.
  */
 @Composable
 internal fun WmIconTile(
     accent: Color,
     modifier: Modifier = Modifier,
+    brush: Brush? = null,
     content: @Composable () -> Unit,
 ) {
     val dark = isSystemInDarkTheme()
+    val wash = if (dark) 0.24f else 0.15f
     Box(
         modifier = modifier
             .size(IconTileSize)
             .clip(RoundedCornerShape(IconTileRadius))
-            .background(accent.copy(alpha = if (dark) 0.24f else 0.15f)),
+            .then(
+                if (brush != null) Modifier.background(brush, alpha = wash)
+                else Modifier.background(accent.copy(alpha = wash)),
+            ),
         contentAlignment = Alignment.Center,
     ) {
         CompositionLocalProvider(
@@ -198,6 +225,18 @@ internal fun defaultRouteAccent(): Color = MaterialTheme.colorScheme.primary
 @Composable
 internal fun routeAccent(route: String): Color =
     SettingsRouteColors[route] ?: defaultRouteAccent()
+
+/**
+ * The accent for the screen being drawn.
+ *
+ * A row's tile wears its screen's colour rather than one colour for the whole
+ * app: the home list already teaches which hue means Typing and which means
+ * Appearance, and a screen full of tiles in that hue reads as one place. Rows
+ * on a screen with no colour of its own (a tool's page, an addon) fall back to
+ * the theme's primary.
+ */
+@Composable
+internal fun currentRouteAccent(): Color = routeAccent(LocalScreenRoute.current.orEmpty())
 
 // ---- shared elements ----
 
@@ -432,7 +471,7 @@ internal fun WmRow(
         }
         return
     }
-    val tileAccent = accent ?: MaterialTheme.colorScheme.primary
+    val tileAccent = accent ?: currentRouteAccent()
     val titleKey = flightTo?.let { takeOffKey("title", it) }
     val iconKey = flightTo?.let { takeOffKey("icon", it) }
     val screen = LocalScreenRoute.current
@@ -739,7 +778,7 @@ private fun BoxScope.HeadingIcon(
         contentAlignment = Alignment.CenterStart,
     ) {
         if (tile) {
-            WmIconTile(accent, moving, content)
+            WmIconTile(accent, moving, content = content)
         } else {
             // No tile, no wash: the glyph itself, in its own colour. It is then
             // the same object the row it flew from was drawing, only bigger.

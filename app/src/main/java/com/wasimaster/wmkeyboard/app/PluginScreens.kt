@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginImportResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginLog
@@ -138,6 +139,7 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
         }
 
         SettingsGroup(stringResource(R.string.plugins_add_title)) {
+            item { AddonStoreRow(AddonType.Plugin, onNavigate) }
             item {
                 WmRow(
                     title = stringResource(R.string.plugins_install_file_title),

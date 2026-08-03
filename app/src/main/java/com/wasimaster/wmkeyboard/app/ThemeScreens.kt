@@ -52,9 +52,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -90,6 +87,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -313,6 +311,7 @@ private fun TimeOfDayPickerDialog(
 fun ThemesScreen(
     repository: SettingsRepository,
     settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
     onEditTheme: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -373,21 +372,11 @@ fun ThemesScreen(
     SettingsGroup(stringResource(R.string.theme_mode_section_title)) {
         item { CaptionText(stringResource(R.string.theme_mode_section_body)) }
         item {
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                ThemeMode.entries.forEachIndexed { index, mode ->
-                    SegmentedButton(
-                        selected = settings.themeMode == mode,
-                        onClick = { scope.launch { repository.setThemeMode(mode) } },
-                        shape = SegmentedButtonDefaults.itemShape(index, ThemeMode.entries.size),
-                    ) {
-                        Text(stringResource(themeModeLabelRes(mode)))
-                    }
-                }
-            }
+            ChoiceControl(
+                options = ThemeMode.entries.map { it to stringResource(themeModeLabelRes(it)) },
+                selected = settings.themeMode,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) { mode -> scope.launch { repository.setThemeMode(mode) } }
         }
         item {
             ListItem(
@@ -442,24 +431,11 @@ fun ThemesScreen(
                 )
             }
             item {
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    AutoThemeTrigger.entries.forEachIndexed { index, trigger ->
-                        SegmentedButton(
-                            selected = auto.trigger == trigger,
-                            onClick = { scope.launch { repository.setAutoThemeTrigger(trigger) } },
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index,
-                                AutoThemeTrigger.entries.size,
-                            ),
-                        ) {
-                            Text(stringResource(trigger.labelRes))
-                        }
-                    }
-                }
+                ChoiceControl(
+                    options = AutoThemeTrigger.entries.map { it to stringResource(it.labelRes) },
+                    selected = auto.trigger,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                ) { trigger -> scope.launch { repository.setAutoThemeTrigger(trigger) } }
             }
             when (auto.trigger) {
                 AutoThemeTrigger.SYSTEM ->
@@ -619,6 +595,9 @@ fun ThemesScreen(
             if (rowThemes.size == 1) Spacer(Modifier.weight(1f))
         }
     }
+    // After the built-ins, where someone who has looked through everything the
+    // app ships with is standing.
+    AddonStoreGroup(AddonType.Theme, onNavigate)
     Spacer(Modifier.height(24.dp))
 }
 
@@ -1174,23 +1153,19 @@ fun ThemeEditorScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    val labels = mapOf(
-                        KeyShapeKind.ROUNDED to stringResource(R.string.theme_key_shape_rounded_label),
-                        KeyShapeKind.PILL to stringResource(R.string.theme_key_shape_pill_label),
-                        KeyShapeKind.CUT to stringResource(R.string.theme_key_shape_cut_label),
-                        KeyShapeKind.SQUIRCLE to stringResource(R.string.theme_key_shape_squircle_label),
-                    )
-                    KeyShapeKind.entries.forEachIndexed { index, kind ->
-                        SegmentedButton(
-                            selected = theme.keyShape == kind,
-                            onClick = { update { t -> t.copy(keyShape = kind) } },
-                            shape = SegmentedButtonDefaults.itemShape(index, KeyShapeKind.entries.size),
-                        ) {
-                            Text(labels.getValue(kind), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                ChoiceControl(
+                    options = KeyShapeKind.entries.map { kind ->
+                        kind to when (kind) {
+                            KeyShapeKind.ROUNDED ->
+                                stringResource(R.string.theme_key_shape_rounded_label)
+                            KeyShapeKind.PILL -> stringResource(R.string.theme_key_shape_pill_label)
+                            KeyShapeKind.CUT -> stringResource(R.string.theme_key_shape_cut_label)
+                            KeyShapeKind.SQUIRCLE ->
+                                stringResource(R.string.theme_key_shape_squircle_label)
                         }
-                    }
-                }
+                    },
+                    selected = theme.keyShape,
+                ) { kind -> update { t -> t.copy(keyShape = kind) } }
             }
         }
         item {
@@ -1411,26 +1386,18 @@ fun ThemeEditorScreen(
     SettingsGroup(stringResource(R.string.theme_animation_section_title)) {
         item { CaptionText(stringResource(R.string.theme_animation_section_body)) }
         item {
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                val labels = mapOf(
-                    ThemeAnimation.NONE to stringResource(CommonR.string.common_none),
-                    ThemeAnimation.FLOW to stringResource(R.string.theme_animation_flow_label),
-                    ThemeAnimation.HUE_CYCLE to stringResource(R.string.theme_animation_hue_cycle_label),
-                )
-                ThemeAnimation.entries.forEachIndexed { index, anim ->
-                    SegmentedButton(
-                        selected = theme.animation == anim,
-                        onClick = { update { t -> t.copy(animation = anim) } },
-                        shape = SegmentedButtonDefaults.itemShape(index, ThemeAnimation.entries.size),
-                    ) {
-                        Text(labels.getValue(anim), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            ChoiceControl(
+                options = ThemeAnimation.entries.map { anim ->
+                    anim to when (anim) {
+                        ThemeAnimation.NONE -> stringResource(CommonR.string.common_none)
+                        ThemeAnimation.FLOW -> stringResource(R.string.theme_animation_flow_label)
+                        ThemeAnimation.HUE_CYCLE ->
+                            stringResource(R.string.theme_animation_hue_cycle_label)
                     }
-                }
-            }
+                },
+                selected = theme.animation,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) { anim -> update { t -> t.copy(animation = anim) } }
         }
         if (theme.animation != ThemeAnimation.NONE) {
             item {
@@ -1488,26 +1455,17 @@ private fun GradientEditor(
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
             .background(gradient.brush()),
     )
-    SingleChoiceSegmentedButtonRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    ) {
-        val labels = mapOf(
-            GradientType.LINEAR to stringResource(R.string.theme_gradient_linear_label),
-            GradientType.RADIAL to stringResource(R.string.theme_gradient_radial_label),
-            GradientType.SWEEP to stringResource(R.string.theme_gradient_sweep_label),
-        )
-        GradientType.entries.forEachIndexed { index, type ->
-            SegmentedButton(
-                selected = gradient.type == type,
-                onClick = { onChange(gradient.copy(type = type)) },
-                shape = SegmentedButtonDefaults.itemShape(index, GradientType.entries.size),
-            ) {
-                Text(labels.getValue(type), maxLines = 1, overflow = TextOverflow.Ellipsis)
+    ChoiceControl(
+        options = GradientType.entries.map { type ->
+            type to when (type) {
+                GradientType.LINEAR -> stringResource(R.string.theme_gradient_linear_label)
+                GradientType.RADIAL -> stringResource(R.string.theme_gradient_radial_label)
+                GradientType.SWEEP -> stringResource(R.string.theme_gradient_sweep_label)
             }
-        }
-    }
+        },
+        selected = gradient.type,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    ) { type -> onChange(gradient.copy(type = type)) }
     if (gradient.type != GradientType.RADIAL) {
         SliderRow(
             stringResource(R.string.theme_gradient_angle_title),
@@ -1633,25 +1591,17 @@ private fun CropImageDialog(
                         }
                     }
                     Spacer(Modifier.height(8.dp))
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        val ratios = listOf(
-                            stringResource(R.string.theme_crop_ratio_keyboard_label) to 2.4f,
-                            stringResource(R.string.theme_crop_ratio_wide_label) to 1.7f,
-                            stringResource(R.string.theme_crop_ratio_square_label) to 1f,
-                        )
-                        ratios.forEachIndexed { index, (label, value) ->
-                            SegmentedButton(
-                                selected = aspect == value,
-                                onClick = {
-                                    aspect = value
-                                    zoom = 1f
-                                    offset = Offset.Zero
-                                },
-                                shape = SegmentedButtonDefaults.itemShape(index, ratios.size),
-                            ) {
-                                Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
+                    ChoiceControl(
+                        options = listOf(
+                            2.4f to stringResource(R.string.theme_crop_ratio_keyboard_label),
+                            1.7f to stringResource(R.string.theme_crop_ratio_wide_label),
+                            1f to stringResource(R.string.theme_crop_ratio_square_label),
+                        ),
+                        selected = aspect,
+                    ) { value ->
+                        aspect = value
+                        zoom = 1f
+                        offset = Offset.Zero
                     }
                 }
             }

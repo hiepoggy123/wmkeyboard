@@ -38,7 +38,7 @@ internal fun AccessibilitySettings(
     SettingsGroup(stringResource(R.string.accessibility_vision_title)) {
         item {
             ChoiceSetting(
-                title = stringResource(R.string.accessibility_color_vision_title),
+                title = R.string.accessibility_color_vision_title,
                 subtitle = stringResource(R.string.accessibility_color_vision_subtitle),
                 info = stringResource(R.string.accessibility_color_vision_info),
                 options = listOf(
@@ -57,7 +57,7 @@ internal fun AccessibilitySettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.accessibility_high_contrast_title),
+                R.string.accessibility_high_contrast_title,
                 stringResource(R.string.accessibility_high_contrast_subtitle),
                 settings.highContrastKeys,
                 info = stringResource(R.string.accessibility_high_contrast_info),
@@ -65,7 +65,7 @@ internal fun AccessibilitySettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.accessibility_key_outlines_title),
+                R.string.accessibility_key_outlines_title,
                 stringResource(R.string.accessibility_key_outlines_subtitle),
                 settings.keyOutlines,
                 info = stringResource(R.string.accessibility_key_outlines_info),
@@ -73,7 +73,7 @@ internal fun AccessibilitySettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.accessibility_bold_labels_title),
+                R.string.accessibility_bold_labels_title,
                 stringResource(R.string.accessibility_bold_labels_subtitle),
                 settings.boldKeyLabels,
                 info = stringResource(R.string.accessibility_bold_labels_info),
@@ -81,7 +81,7 @@ internal fun AccessibilitySettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.accessibility_readable_font_title),
+                R.string.accessibility_readable_font_title,
                 stringResource(R.string.accessibility_readable_font_subtitle, READABLE_FONT),
                 settings.keyFontId == readableFontId,
                 info = stringResource(R.string.accessibility_readable_font_info, READABLE_FONT),
@@ -93,7 +93,7 @@ internal fun AccessibilitySettings(
         }
         item {
             SliderSetting(
-                title = stringResource(R.string.accessibility_text_size_title),
+                title = R.string.accessibility_text_size_title,
                 subtitle = stringResource(R.string.accessibility_text_size_subtitle),
                 value = settings.fontScale,
                 range = 0.7f..1.5f,
@@ -103,7 +103,7 @@ internal fun AccessibilitySettings(
         }
         item {
             NavRow(
-                stringResource(R.string.accessibility_keyboard_font_title),
+                R.string.accessibility_keyboard_font_title,
                 stringResource(R.string.accessibility_keyboard_font_subtitle),
                 KeyboardFonts.displayName(context, settings.keyFontId, settings.customFontName),
                 onClick = onOpenFonts,
@@ -114,7 +114,7 @@ internal fun AccessibilitySettings(
     SettingsGroup(stringResource(R.string.accessibility_motion_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.accessibility_reduce_motion_title),
+                R.string.accessibility_reduce_motion_title,
                 stringResource(R.string.accessibility_reduce_motion_subtitle),
                 settings.reduceMotion,
                 info = stringResource(R.string.accessibility_reduce_motion_info),
@@ -125,7 +125,7 @@ internal fun AccessibilitySettings(
     SettingsGroup(stringResource(R.string.accessibility_screen_reader_title)) {
         item {
             ChoiceSetting(
-                title = stringResource(R.string.accessibility_talkback_title),
+                title = R.string.accessibility_talkback_title,
                 subtitle = stringResource(R.string.accessibility_talkback_subtitle),
                 info = stringResource(R.string.accessibility_talkback_info),
                 options = listOf(
@@ -178,7 +178,7 @@ internal fun AccessibilitySettings(
         item {
             val offLabel = stringResource(CommonR.string.common_off)
             SliderSetting(
-                title = stringResource(R.string.accessibility_debounce_title),
+                title = R.string.accessibility_debounce_title,
                 subtitle = if (settings.keyDebounceMs == 0) {
                     stringResource(R.string.accessibility_debounce_subtitle_off)
                 } else {
@@ -192,7 +192,7 @@ internal fun AccessibilitySettings(
         }
         item {
             SliderSetting(
-                title = stringResource(R.string.accessibility_long_press_title),
+                title = R.string.accessibility_long_press_title,
                 subtitle = stringResource(R.string.accessibility_long_press_subtitle),
                 value = settings.longPressDelayMs.toFloat(),
                 range = 150f..800f,
@@ -202,7 +202,7 @@ internal fun AccessibilitySettings(
         }
         item {
             NavRow(
-                stringResource(R.string.accessibility_key_size_title),
+                R.string.accessibility_key_size_title,
                 stringResource(R.string.accessibility_key_size_subtitle),
                 null,
                 onClick = onOpenLayout,
@@ -210,7 +210,7 @@ internal fun AccessibilitySettings(
         }
         item {
             NavRow(
-                stringResource(R.string.accessibility_haptics_title),
+                R.string.accessibility_haptics_title,
                 stringResource(R.string.accessibility_haptics_subtitle),
                 null,
                 onClick = onOpenKeyPress,

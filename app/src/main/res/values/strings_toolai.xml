@@ -145,7 +145,10 @@
     <string name="toolai_ai_history_copy_output">Copy the answer</string>
     <string name="toolai_ai_history_clear_action">Delete all history</string>
     <!-- Dialog body. %1$d is the number of records that the app deletes. -->
-    <string name="toolai_ai_history_clear_body">This deletes %1$d records. You cannot undo this.</string>
+    <plurals name="toolai_ai_history_clear_body">
+        <item quantity="one">This deletes %1$d record. You cannot undo this.</item>
+        <item quantity="other">This deletes %1$d records. You cannot undo this.</item>
+    </plurals>
 
     <string name="toolai_ai_actions_group_title">Actions</string>
     <string name="toolai_ai_actions_title">Actions on the panel</string>
@@ -211,6 +214,10 @@
     <string name="toolai_keyword_hint">Type one of these words alone. The suggestion strip then offers to open %1$s and deletes the word. Use commas to separate more than one word.</string>
     <!-- Typing and Smart chips are the names of two settings screens. -->
     <string name="toolai_keyword_off_info">The tool keywords are off. To turn them on, go to Typing, then Smart chips.</string>
+    <string name="toolai_keyword_case_title">Match capitals</string>
+    <string name="toolai_keyword_case_on_subtitle">The word must be typed with the same capitals</string>
+    <string name="toolai_keyword_case_off_subtitle">Capitals are ignored</string>
+    <string name="toolai_keyword_case_info">Off, a trigger word matches however you type it, so "wiki", "Wiki" and "WIKI" all offer the tool. On, only the spelling above matches. Use this for a short word that is also ordinary text, such as "AI", so the chip appears for the capitals and not for the letters inside a sentence.</string>
 
     <!-- ================================================================== -->
     <!-- Shared text field rows: prompts and API keys.                      -->

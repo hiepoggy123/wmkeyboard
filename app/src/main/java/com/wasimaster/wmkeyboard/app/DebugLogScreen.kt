@@ -104,19 +104,19 @@ internal fun DebugLogScreen() {
     SettingsGroup(stringResource(R.string.shell_debug_log_report_title)) {
         item {
             NavRow(
-                stringResource(R.string.shell_debug_log_share_title),
+                R.string.shell_debug_log_share_title,
                 stringResource(R.string.shell_debug_log_share_subtitle),
             ) { shareReport(context, showSystemLog, systemLog) }
         }
         item {
             NavRow(
-                stringResource(R.string.shell_debug_log_copy_title),
+                R.string.shell_debug_log_copy_title,
                 stringResource(R.string.shell_debug_log_copy_subtitle),
             ) { copyReport(context, showSystemLog, systemLog) }
         }
         item {
             ToggleSetting(
-                stringResource(R.string.shell_debug_log_system_title),
+                R.string.shell_debug_log_system_title,
                 stringResource(R.string.shell_debug_log_system_subtitle),
                 showSystemLog,
                 info = stringResource(R.string.shell_debug_log_system_info),
@@ -136,7 +136,7 @@ internal fun DebugLogScreen() {
             }
             item {
                 NavRow(
-                    stringResource(R.string.shell_debug_log_crash_test_title),
+                    R.string.shell_debug_log_crash_test_title,
                     stringResource(R.string.shell_debug_log_crash_test_subtitle),
                 ) { error("Crash screen test, triggered from settings") }
             }

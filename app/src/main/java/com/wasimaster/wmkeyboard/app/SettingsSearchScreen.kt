@@ -81,7 +81,7 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
-import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
+import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import kotlinx.coroutines.delay
 
@@ -364,16 +364,19 @@ private fun ResultRow(entry: SettingsSearchEntry, settings: KeyboardSettings, on
 private fun ResultIcon(entry: SettingsSearchEntry, settings: KeyboardSettings) {
     val tool = entry.tool
     if (tool != null) {
-        val accent = if (settings.coloredToolIcons) {
-            toolAccentColor(tool, settings.toolColorOverrides)
-        } else {
-            MaterialTheme.colorScheme.primary
-        }
-        WmIconTile(accent) {
+        // The tile's own wash keeps the raw accent; only the glyph inside is
+        // darkened, which is what WmIconTile does for a flat accent too.
+        val paint = toolAccentPaint(tool, settings)
+        val glyph = tileToolPaint(paint)
+        WmIconTile(
+            accent = paint?.color ?: MaterialTheme.colorScheme.primary,
+            brush = paint?.brush,
+        ) {
             SlotIcon(
                 IconSlots.forTool(tool),
                 contentDescription = null,
                 modifier = Modifier.size(WmIconTileGlyph),
+                brush = glyph?.brush,
             )
         }
         return

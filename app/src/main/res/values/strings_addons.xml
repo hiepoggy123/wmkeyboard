@@ -19,6 +19,15 @@
     <!-- Section heading over the add-ons the user has installed. -->
     <string name="addon_installed_section_title">Installed</string>
     <string name="addon_repos_intro_body">Add-on repositories are ordinary web pages. They list themes, layouts, dictionaries, snippets, sticker packs, icon packs, fonts, emoji fonts and key sounds. An add-on holds plain data. The app does not run code when you install one.</string>
+    <!-- Shown instead of the line above when the user arrived from a settings
+         screen asking for one kind of add-on. %1$s is that kind, for example
+         "Themes" or "Icon packs". -->
+    <string name="addon_repos_type_intro_body">Looking for: %1$s. Open a repository to see what it offers. The filter is set for you and you can widen it there.</string>
+
+    <!-- The row a settings screen carries to open the add-on store. %1$s is the
+         kind of add-on that screen is about, for example "Themes". -->
+    <string name="addon_get_more_title">Download more</string>
+    <string name="addon_get_more_subtitle">%1$s from the add-on repositories</string>
     <string name="addon_repos_empty">No repositories yet. Add one with its address to see what it offers.</string>
     <!-- Button that opens the add-repository dialog, and the title of that dialog. -->
     <string name="addon_repo_add_action">Add repository</string>

@@ -29,6 +29,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -59,6 +60,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
 import com.wasimaster.wmkeyboard.core.tools.CheatSheetLetter
 import com.wasimaster.wmkeyboard.core.tools.DefaultLeader
@@ -142,9 +144,13 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColorArgb
+import com.wasimaster.wmkeyboard.core.ui.toolAccentEndColorArgb
+import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -301,6 +307,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.ui.text.rememberTextMeasurer
 
 /**
  * Settings app: setup wizard plus every keyboard option, Material 3 +
@@ -558,7 +568,7 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = "keypress",
             ) {
-                KeyPressSettings(repository, settings)
+                KeyPressSettings(repository, settings) { route -> navController.navigate(route) }
             }
         }
         composable("dictionary") {
@@ -585,7 +595,7 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = "customdictionaries",
             ) {
-                CustomDictionarySettings(repository, settings)
+                CustomDictionarySettings(repository, settings) { route -> navController.navigate(route) }
             }
         }
         composable("emojikeywords") {
@@ -594,7 +604,7 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = "emojikeywords",
             ) {
-                EmojiKeywordSettings(repository, settings)
+                EmojiKeywordSettings(repository, settings) { route -> navController.navigate(route) }
             }
         }
         composable("blacklist") {
@@ -644,7 +654,7 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = "fonts",
             ) {
-                FontSettings(repository, settings)
+                FontSettings(repository, settings) { route -> navController.navigate(route) }
             }
         }
         composable("icons") {
@@ -653,7 +663,7 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = "icons",
             ) {
-                IconsScreen(repository, settings)
+                IconsScreen(repository, settings) { route -> navController.navigate(route) }
             }
         }
         composable("themes") {
@@ -662,7 +672,11 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = "themes",
             ) {
-                ThemesScreen(repository, settings) { id -> navController.navigate("theme_edit/$id") }
+                ThemesScreen(
+                    repository,
+                    settings,
+                    onNavigate = { route -> navController.navigate(route) },
+                ) { id -> navController.navigate("theme_edit/$id") }
             }
         }
         composable("theme_edit/{themeId}") { backStackEntry ->
@@ -776,26 +790,35 @@ private fun SettingsNavGraph(
         }
         // The optional `add` argument carries a repository URL from a
         // wmkeyboard://repo link; it pre-fills the add dialog, which is still
-        // where the user confirms.
+        // where the user confirms. `type` comes from a settings screen's
+        // "Download more …" row and narrows the store to one kind of addon.
         composable(
-            "addons?add={add}",
+            "addons?add={add}&type={type}",
             arguments = listOf(
                 navArgument("add") { defaultValue = ""; type = NavType.StringType },
+                navArgument("type") { defaultValue = ""; type = NavType.StringType },
             ),
         ) { backStackEntry ->
             val prefill = decodeRouteArg(backStackEntry.arguments?.getString("add"))
+            val addonType = addonTypeArg(backStackEntry.arguments?.getString("type"))
             SettingsScreen(
                 stringResource(R.string.home_addons_title),
                 { navController.popBackStack() },
                 route = "addons",
             ) {
-                AddonsScreen(prefill) { route -> navController.navigate(route) }
+                AddonsScreen(prefill, addonType) { route -> navController.navigate(route) }
             }
         }
         // The repository URL travels in the path, percent-encoded — a deep link
         // names a repository by address, not by its position in the user's list.
-        composable("addon_repo/{repoUrl}") { backStackEntry ->
+        composable(
+            "addon_repo/{repoUrl}?type={type}",
+            arguments = listOf(
+                navArgument("type") { defaultValue = ""; type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
             val url = decodeRouteArg(backStackEntry.arguments?.getString("repoUrl"))
+            val addonType = addonTypeArg(backStackEntry.arguments?.getString("type"))
             // Headed with the repository, not with the act of browsing it: its
             // name over its author, both centred, both carried into the strip.
             val repo = rememberRepoHeading(url)
@@ -807,7 +830,7 @@ private fun SettingsNavGraph(
                 subtitle = repo.author.ifBlank { null },
                 subtitleInBar = true,
             ) {
-                AddonRepoScreen(url) { route -> navController.navigate(route) }
+                AddonRepoScreen(url, addonType) { route -> navController.navigate(route) }
             }
         }
         composable("addon/{repoUrl}/{addonId}") { backStackEntry ->
@@ -919,11 +942,15 @@ private fun SettingsNavGraph(
                 // bare is the same object the Tools row drew, so it can fly
                 // from it. It stays through the collapse — it is the only
                 // thing naming which tool this is.
+                val paint = toolAccentPaint(tool, settings)
                 SettingsScreen(
                     stringResource(toolTitle(tool)),
                     { navController.popBackStack() },
                     route = toolRoute(tool),
-                    icon = { ToolGlyph(tool) },
+                    icon = { ToolGlyph(tool, paint?.brush) },
+                    // The heading wears the tool's colour whether or not the
+                    // colourful icons are on: it is the only thing naming which
+                    // tool this page is.
                     accent = toolAccentColor(tool, settings.toolColorOverrides),
                     iconTile = false,
                     iconInBar = true,
@@ -1369,7 +1396,7 @@ internal fun SetupCard(
 @Composable
 private fun HomeItem(
     route: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     title: String,
     subtitle: String,
     onNavigate: (String) -> Unit,
@@ -1598,13 +1625,40 @@ internal fun CaptionText(text: String, modifier: Modifier = Modifier, error: Boo
     )
 }
 
+/*
+ * The row helpers come in pairs. The `@StringRes` form is the one to use: it
+ * knows the row's own resource, so it can look the row's glyph up in
+ * [SettingsRowIcons] and match a search highlight on the resource rather than
+ * on the drawn words. The `String` form is for the handful of rows whose name
+ * is not a fixed resource at all — a language, a layout, an installed pack —
+ * and those get no icon, because there is no row to hang one on.
+ */
+
+/** [NavRow] for a row named by a string resource; see the note above. */
+@Composable
+internal fun NavRow(
+    @StringRes title: Int,
+    subtitle: String? = null,
+    value: String? = null,
+    route: String? = null,
+    icon: ImageVector? = SettingsRowIcons[title],
+    onClick: () -> Unit,
+) = NavRow(
+    title = stringResource(title),
+    subtitle = subtitle,
+    value = value,
+    route = route,
+    icon = icon,
+    highlightKey = title,
+    onClick = onClick,
+)
+
 /**
  * A navigation row: title, optional subtitle, optional current value, chevron.
  *
  * [route] names the destination the row opens, which flies the row's name up
- * into that screen's heading. These rows carry no icon — the tile treatment is
- * the home list's alone, and half a group wearing tiles reads as a mistake —
- * so only the name travels; the heading's icon fades in with its screen.
+ * into that screen's heading. Only the name travels; the heading's icon fades
+ * in with its screen rather than flying from the row's own tile.
  */
 @Composable
 internal fun NavRow(
@@ -1612,6 +1666,7 @@ internal fun NavRow(
     subtitle: String? = null,
     value: String? = null,
     route: String? = null,
+    icon: ImageVector? = null,
     @StringRes highlightKey: Int = 0,
     onClick: () -> Unit,
 ) {
@@ -1619,6 +1674,7 @@ internal fun NavRow(
         WmRow(
             title = title,
             subtitle = subtitle,
+            icon = icon,
             flightTo = route,
             trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1642,6 +1698,27 @@ internal fun NavRow(
     }
 }
 
+/** [ToggleSetting] for a row named by a string resource. */
+@Composable
+internal fun ToggleSetting(
+    @StringRes title: Int,
+    subtitle: String?,
+    checked: Boolean,
+    info: String? = null,
+    switchKey: String? = null,
+    icon: ImageVector? = SettingsRowIcons[title],
+    onChange: (Boolean) -> Unit,
+) = ToggleSetting(
+    title = stringResource(title),
+    subtitle = subtitle,
+    checked = checked,
+    info = info,
+    switchKey = switchKey,
+    icon = icon,
+    highlightKey = title,
+    onChange = onChange,
+)
+
 @Composable
 internal fun ToggleSetting(
     title: String,
@@ -1649,6 +1726,7 @@ internal fun ToggleSetting(
     checked: Boolean,
     info: String? = null,
     switchKey: String? = null,
+    icon: ImageVector? = null,
     @StringRes highlightKey: Int = 0,
     onChange: (Boolean) -> Unit,
 ) {
@@ -1656,6 +1734,7 @@ internal fun ToggleSetting(
         WmRow(
             title = title,
             subtitle = subtitle,
+            icon = icon,
             trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (info != null) InfoButton(title, info)
@@ -1738,6 +1817,75 @@ internal fun rememberLiveSlider(value: Float, onChange: (Float) -> Unit): LiveSl
     return state
 }
 
+/** The gap between a row's icon tile and the words beside it. */
+private val RowIconGap = 16.dp
+
+/** How far the tile pushes a row's text in, so a subtitle lines up with the title. */
+private val RowIconLane = WmIconTileSize + RowIconGap
+
+/**
+ * The frame a row that is not a [WmRow] sits in — a slider, a segmented choice.
+ *
+ * Those draw their own control under their own name, so they cannot use
+ * `ListItem`. The tile goes where `ListItem` would put it and the [header] and
+ * [subtitle] indent past it, so a group holding both kinds of row lines its
+ * words up down one edge.
+ *
+ * [content] — the slider, the segmented row — deliberately does *not* indent.
+ * It is a control, not a line of text, and 56 dp is a sixth of a phone's width:
+ * taking that off a row of segmented buttons is the difference between "After
+ * the shortcut key" and "After the".
+ */
+@Composable
+private fun IconedRow(
+    icon: ImageVector?,
+    subtitle: String? = null,
+    header: @Composable RowScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) {
+                WmIconTile(icon, currentRouteAccent())
+                Spacer(Modifier.width(RowIconGap))
+            }
+            header()
+        }
+        if (subtitle != null) {
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = if (icon == null) 0.dp else RowIconLane),
+            )
+        }
+        content()
+    }
+}
+
+/** [SliderSetting] for a row named by a string resource. */
+@Composable
+internal fun SliderSetting(
+    @StringRes title: Int,
+    subtitle: String? = null,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    display: (Float) -> String,
+    info: String? = null,
+    icon: ImageVector? = SettingsRowIcons[title],
+    onChange: (Float) -> Unit,
+) = SliderSetting(
+    title = stringResource(title),
+    subtitle = subtitle,
+    value = value,
+    range = range,
+    display = display,
+    info = info,
+    icon = icon,
+    highlightKey = title,
+    onChange = onChange,
+)
+
 /**
  * A labelled slider row. [display] formats the *live* value rather than taking a
  * pre-rendered string, so the readout tracks the thumb instead of the stored
@@ -1751,25 +1899,35 @@ internal fun SliderSetting(
     range: ClosedFloatingPointRange<Float>,
     display: (Float) -> String,
     info: String? = null,
+    icon: ImageVector? = null,
     @StringRes highlightKey: Int = 0,
     onChange: (Float) -> Unit,
 ) {
     val slider = rememberLiveSlider(value, onChange)
     HighlightableRow(title, highlightKey) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(title, style = MaterialTheme.typography.bodyLarge)
-                if (info != null) InfoButton(title, info)
-                Spacer(Modifier.weight(1f))
-                Text(display(slider.value), style = MaterialTheme.typography.labelLarge)
-            }
-            if (subtitle != null) {
+        IconedRow(
+            icon = icon,
+            subtitle = subtitle,
+            header = {
+                // The name is the weighted half and the readout is not, so a
+                // Row measures the readout first and the name wraps around
+                // whatever is left. The other way round a long name eats the
+                // width and the number it is describing is the part that
+                // disappears.
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(title, style = MaterialTheme.typography.bodyLarge)
+                    if (info != null) InfoButton(title, info)
+                }
                 Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    display(slider.value),
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
                 )
-            }
+            },
+        ) {
             Slider(
                 value = slider.value,
                 onValueChange = slider::onDrag,
@@ -1821,6 +1979,27 @@ private fun ResetPinnedToolsSetting(repository: SettingsRepository, scope: Corou
     }
 }
 
+/** [ChoiceSetting] for a row named by a string resource. */
+@Composable
+internal fun <T> ChoiceSetting(
+    @StringRes title: Int,
+    subtitle: String? = null,
+    info: String? = null,
+    options: List<Pair<T, String>>,
+    selected: T,
+    icon: ImageVector? = SettingsRowIcons[title],
+    onChange: (T) -> Unit,
+) = ChoiceSetting(
+    title = stringResource(title),
+    subtitle = subtitle,
+    info = info,
+    options = options,
+    selected = selected,
+    icon = icon,
+    highlightKey = title,
+    onChange = onChange,
+)
+
 /** A titled single-choice row of segmented buttons over [options]. */
 @Composable
 internal fun <T> ChoiceSetting(
@@ -1829,25 +2008,82 @@ internal fun <T> ChoiceSetting(
     info: String? = null,
     options: List<Pair<T, String>>,
     selected: T,
+    icon: ImageVector? = null,
     @StringRes highlightKey: Int = 0,
     onChange: (T) -> Unit,
 ) {
     HighlightableRow(title, highlightKey) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        IconedRow(
+            icon = icon,
+            subtitle = subtitle,
+            header = {
                 Text(title, style = MaterialTheme.typography.bodyLarge)
                 if (info != null) InfoButton(title, info)
+            },
+        ) {
+            ChoiceControl(options, selected, Modifier.padding(top = 8.dp), onChange)
+        }
+    }
+}
+
+/**
+ * Everything a segmented button spends on width that is not its label:
+ * `TextButtonContentPadding` (12 dp each side) plus the check-mark lane
+ * (`SegmentedButtonDefaults.IconSize` 18 dp + an 8 dp gap). Material reserves
+ * that lane whether or not the item is selected — `SegmentedButtonContent`
+ * measures `maxOf(IconSize, iconWidth) + IconSpacing` — so it is a fixed 50 dp,
+ * and the 2 dp on top is slack for rounding.
+ *
+ * None of those three is public, hence the copy here. It matters because a
+ * segmented row divides its width evenly and then ellipsises whatever does not
+ * fit, silently: "After the shortcut key" becomes "After the" and the setting
+ * stops saying what it does. [ChoiceControl] measures against this.
+ */
+private val SegmentFurniture = 52.dp
+
+/**
+ * A one-of-N control: segmented buttons when every option's name fits one, a
+ * chip row when one of them does not.
+ *
+ * Segmented buttons are the better control — they read as "one of these" and
+ * they are all reachable without scrolling — but only while the words survive.
+ * Two or three short options ("On"/"Off", "Tabs"/"Mixed") fit anywhere; "After
+ * the shortcut key" does not fit a third of a phone, and no amount of layout
+ * tuning makes it. Chips size themselves to their own text, so the fallback
+ * shows every name in full.
+ *
+ * The chips wrap onto a second line rather than scrolling sideways: a settings
+ * list has vertical room to spare, and an option parked off the right edge with
+ * nothing to say it is there is its own kind of hidden.
+ *
+ * Every one-of-N row in settings goes through here rather than building its own
+ * segmented row, because whether the words fit is not something the author can
+ * know: it depends on the screen and on the language, and the failure is silent
+ * (Material ellipsises and says nothing).
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun <T> ChoiceControl(
+    options: List<Pair<T, String>>,
+    selected: T,
+    modifier: Modifier = Modifier,
+    onChange: (T) -> Unit,
+) {
+    val measurer = rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelLarge
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val density = LocalDensity.current
+        val width = maxWidth
+        val fits = remember(options, width, labelStyle, density) {
+            val perSegment = with(density) { (width / options.size).toPx() }
+            val furniture = with(density) { SegmentFurniture.toPx() }
+            options.all { (_, label) ->
+                measurer.measure(label, labelStyle, maxLines = 1).size.width + furniture <=
+                    perSegment
             }
-            if (subtitle != null) {
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            SingleChoiceSegmentedButtonRow(modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)) {
+        }
+        if (fits) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 options.forEachIndexed { index, (option, label) ->
                     SegmentedButton(
                         selected = selected == option,
@@ -1857,6 +2093,29 @@ internal fun <T> ChoiceSetting(
                         Text(label, maxLines = 1)
                     }
                 }
+            }
+            return@BoxWithConstraints
+        }
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            for ((option, label) in options) {
+                FilterChip(
+                    selected = selected == option,
+                    onClick = { onChange(option) },
+                    label = { Text(label, maxLines = 1) },
+                    leadingIcon = if (selected != option) null else {
+                        {
+                            Icon(
+                                Icons.Outlined.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(FilterChipDefaults.IconSize),
+                            )
+                        }
+                    },
+                )
             }
         }
     }
@@ -1907,7 +2166,7 @@ private fun TypingSettings(
     SettingsGroup(stringResource(R.string.typing_group_corrections_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.typing_autocorrect_title),
+                R.string.typing_autocorrect_title,
                 stringResource(R.string.typing_autocorrect_subtitle),
                 settings.autocorrect,
                 info = stringResource(R.string.typing_autocorrect_info),
@@ -1917,7 +2176,7 @@ private fun TypingSettings(
             item {
                 val valueFormat = stringResource(R.string.typing_value_multiplier_prefix)
                 SliderSetting(
-                    stringResource(R.string.typing_autocorrect_confidence_title),
+                    R.string.typing_autocorrect_confidence_title,
                     subtitle = stringResource(R.string.typing_autocorrect_confidence_subtitle),
                     value = settings.autocorrectConfidence,
                     range = 1.5f..10f,
@@ -1927,7 +2186,7 @@ private fun TypingSettings(
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_undo_autocorrect_title),
+                    R.string.typing_undo_autocorrect_title,
                     stringResource(R.string.typing_undo_autocorrect_subtitle),
                     settings.revertAutocorrectOnBackspace,
                     info = stringResource(R.string.typing_undo_autocorrect_info),
@@ -1935,7 +2194,7 @@ private fun TypingSettings(
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_skip_all_caps_title),
+                    R.string.typing_skip_all_caps_title,
                     stringResource(R.string.typing_skip_all_caps_subtitle),
                     settings.autocorrectSkipAllCaps,
                     info = stringResource(R.string.typing_skip_all_caps_info),
@@ -1943,7 +2202,7 @@ private fun TypingSettings(
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_block_offensive_title),
+                    R.string.typing_block_offensive_title,
                     stringResource(R.string.typing_block_offensive_subtitle),
                     settings.suggestionStrip.blockOffensiveWords,
                     info = stringResource(R.string.typing_block_offensive_info),
@@ -1952,7 +2211,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_auto_apostrophe_title),
+                R.string.typing_auto_apostrophe_title,
                 stringResource(R.string.typing_auto_apostrophe_subtitle),
                 settings.autoApostrophe,
                 info = stringResource(R.string.typing_auto_apostrophe_info),
@@ -1960,7 +2219,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_auto_capitalize_title),
+                R.string.typing_auto_capitalize_title,
                 stringResource(R.string.typing_auto_capitalize_subtitle),
                 settings.autoCapitalize,
                 info = stringResource(R.string.typing_auto_capitalize_info),
@@ -1968,7 +2227,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_double_space_period_title),
+                R.string.typing_double_space_period_title,
                 stringResource(R.string.typing_double_space_period_subtitle),
                 settings.doubleSpacePeriod,
                 info = stringResource(R.string.typing_double_space_period_info),
@@ -1976,7 +2235,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_double_space_tab_title),
+                R.string.typing_double_space_tab_title,
                 stringResource(R.string.typing_double_space_tab_subtitle),
                 settings.doubleSpaceTab,
                 info = stringResource(R.string.typing_double_space_tab_info),
@@ -1984,7 +2243,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_auto_space_punctuation_title),
+                R.string.typing_auto_space_punctuation_title,
                 stringResource(R.string.typing_auto_space_punctuation_subtitle),
                 settings.autoSpaceAfterPunctuation,
                 info = stringResource(R.string.typing_auto_space_punctuation_info),
@@ -1992,7 +2251,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_space_after_suggestion_title),
+                R.string.typing_space_after_suggestion_title,
                 stringResource(R.string.typing_space_after_suggestion_subtitle),
                 settings.suggestionStrip.autoSpaceAfterSuggestion,
                 info = stringResource(R.string.typing_space_after_suggestion_info),
@@ -2000,7 +2259,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_wrap_selection_title),
+                R.string.typing_wrap_selection_title,
                 stringResource(R.string.typing_wrap_selection_subtitle),
                 settings.textEditing.wrapSelectionWithPair,
                 info = stringResource(R.string.typing_wrap_selection_info),
@@ -2008,7 +2267,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_shift_recase_title),
+                R.string.typing_shift_recase_title,
                 stringResource(R.string.typing_shift_recase_subtitle),
                 settings.textEditing.recapitalizeSelectionWithShift,
                 info = stringResource(R.string.typing_shift_recase_info),
@@ -2019,7 +2278,7 @@ private fun TypingSettings(
     SettingsGroup(stringResource(R.string.typing_group_suggestions_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.typing_suggestions_title),
+                R.string.typing_suggestions_title,
                 stringResource(R.string.typing_suggestions_subtitle),
                 settings.suggestions,
                 info = stringResource(R.string.typing_suggestions_info),
@@ -2027,7 +2286,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_punctuation_suggestions_title),
+                R.string.typing_punctuation_suggestions_title,
                 stringResource(R.string.typing_punctuation_suggestions_subtitle),
                 settings.suggestionStrip.punctuation,
                 info = stringResource(R.string.typing_punctuation_suggestions_info),
@@ -2035,7 +2294,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_suggestions_all_fields_title),
+                R.string.typing_suggestions_all_fields_title,
                 stringResource(R.string.typing_suggestions_all_fields_subtitle),
                 settings.showSuggestionsInAllFields,
                 info = stringResource(R.string.typing_suggestions_all_fields_info),
@@ -2043,7 +2302,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_suggestions_first_title),
+                R.string.typing_suggestions_first_title,
                 stringResource(R.string.typing_suggestions_first_subtitle),
                 settings.suggestionStrip.suggestionsFirst,
                 info = stringResource(R.string.typing_suggestions_first_info),
@@ -2051,7 +2310,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_primary_center_title),
+                R.string.typing_primary_center_title,
                 stringResource(R.string.typing_primary_center_subtitle),
                 settings.suggestionStrip.suggestionPrimaryCenter,
                 info = stringResource(R.string.typing_primary_center_info),
@@ -2066,7 +2325,7 @@ private fun TypingSettings(
                     scope.launch { repository.setContactSuggestions(true) }
                 }
             ToggleSetting(
-                stringResource(R.string.typing_contact_names_title),
+                R.string.typing_contact_names_title,
                 stringResource(R.string.typing_contact_names_subtitle),
                 settings.contactSuggestions,
                 info = stringResource(R.string.typing_contact_names_info),
@@ -2087,7 +2346,7 @@ private fun TypingSettings(
                     scope.launch { repository.setContactEmailSuggestions(true) }
                 }
             ToggleSetting(
-                stringResource(R.string.typing_contact_emails_title),
+                R.string.typing_contact_emails_title,
                 stringResource(R.string.typing_contact_emails_subtitle),
                 settings.contactEmailSuggestions,
                 info = stringResource(R.string.typing_contact_emails_info),
@@ -2104,7 +2363,7 @@ private fun TypingSettings(
         if (settings.contactEmailSuggestions) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_contact_emails_in_email_fields_title),
+                    R.string.typing_contact_emails_in_email_fields_title,
                     stringResource(R.string.typing_contact_emails_in_email_fields_subtitle),
                     settings.contactEmailSuggestionsInEmailFields,
                     info = stringResource(R.string.typing_contact_emails_in_email_fields_info),
@@ -2113,7 +2372,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_app_names_title),
+                R.string.typing_app_names_title,
                 stringResource(R.string.typing_app_names_subtitle),
                 settings.appNameSuggestions,
                 info = stringResource(R.string.typing_app_names_info),
@@ -2121,7 +2380,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_inline_emoji_search_title),
+                R.string.typing_inline_emoji_search_title,
                 stringResource(R.string.typing_inline_emoji_search_subtitle),
                 settings.inlineEmojiSearch,
                 info = stringResource(R.string.typing_inline_emoji_search_info),
@@ -2130,7 +2389,7 @@ private fun TypingSettings(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_inline_autofill_title),
+                    R.string.typing_inline_autofill_title,
                     stringResource(R.string.typing_inline_autofill_subtitle),
                     settings.inlineAutofill,
                     info = stringResource(R.string.typing_inline_autofill_info),
@@ -2138,7 +2397,7 @@ private fun TypingSettings(
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_smart_replies_title),
+                    R.string.typing_smart_replies_title,
                     stringResource(R.string.typing_smart_replies_subtitle),
                     settings.suggestionStrip.systemSmartReplies,
                     info = stringResource(R.string.typing_smart_replies_info),
@@ -2147,7 +2406,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_smart_hit_detection_title),
+                R.string.typing_smart_hit_detection_title,
                 stringResource(R.string.typing_smart_hit_detection_subtitle),
                 settings.layoutBehavior.smartHitDetection,
                 info = stringResource(R.string.typing_smart_hit_detection_info),
@@ -2155,7 +2414,7 @@ private fun TypingSettings(
         }
         item {
             NavRow(
-                stringResource(R.string.typing_personal_dictionary_title),
+                R.string.typing_personal_dictionary_title,
                 stringResource(R.string.typing_personal_dictionary_subtitle),
                 route = "dictionary",
                 onClick = onOpenDictionary,
@@ -2163,7 +2422,7 @@ private fun TypingSettings(
         }
         item {
             NavRow(
-                stringResource(R.string.typing_custom_dictionaries_title),
+                R.string.typing_custom_dictionaries_title,
                 stringResource(R.string.typing_custom_dictionaries_subtitle),
                 route = "customdictionaries",
                 onClick = onOpenCustomDictionaries,
@@ -2172,7 +2431,7 @@ private fun TypingSettings(
         item {
             val count = settings.suggestionBlacklist.size
             NavRow(
-                stringResource(R.string.typing_blacklist_title),
+                R.string.typing_blacklist_title,
                 if (count == 0) {
                     stringResource(R.string.typing_blacklist_subtitle)
                 } else {
@@ -2187,7 +2446,7 @@ private fun TypingSettings(
     SettingsGroup(stringResource(R.string.typing_group_smart_chips_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.typing_smart_chips_title),
+                R.string.typing_smart_chips_title,
                 stringResource(R.string.typing_smart_chips_subtitle),
                 settings.smartSuggestions,
                 info = stringResource(R.string.typing_smart_chips_info),
@@ -2196,28 +2455,28 @@ private fun TypingSettings(
         if (settings.smartSuggestions) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_smart_calc_title),
+                    R.string.typing_smart_calc_title,
                     stringResource(R.string.typing_smart_calc_subtitle),
                     settings.smartCalc,
                 ) { scope.launch { repository.setSmartCalc(it) } }
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_smart_currency_title),
+                    R.string.typing_smart_currency_title,
                     stringResource(R.string.typing_smart_currency_subtitle, settings.currencyTo),
                     settings.smartCurrency,
                 ) { scope.launch { repository.setSmartCurrency(it) } }
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_smart_units_title),
+                    R.string.typing_smart_units_title,
                     stringResource(R.string.typing_smart_units_subtitle),
                     settings.smartUnits,
                 ) { scope.launch { repository.setSmartUnits(it) } }
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_smart_tool_keywords_title),
+                    R.string.typing_smart_tool_keywords_title,
                     stringResource(R.string.typing_smart_tool_keywords_subtitle),
                     settings.smartToolKeywords,
                     info = stringResource(R.string.typing_smart_tool_keywords_info),
@@ -2229,7 +2488,7 @@ private fun TypingSettings(
     SettingsGroup(stringResource(R.string.typing_group_gestures_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.typing_glide_typing_title),
+                R.string.typing_glide_typing_title,
                 stringResource(R.string.typing_glide_typing_subtitle),
                 settings.gestureTyping,
                 info = stringResource(R.string.typing_glide_typing_info),
@@ -2241,7 +2500,7 @@ private fun TypingSettings(
         if (BuildConfig.ENABLE_ML_KIT_HANDWRITING && settings.gestureTyping) {
             item {
                 ChoiceSetting(
-                    title = stringResource(R.string.typing_letter_swipe_action_title),
+                    title = R.string.typing_letter_swipe_action_title,
                     subtitle = stringResource(R.string.typing_letter_swipe_action_subtitle),
                     info = stringResource(R.string.typing_letter_swipe_action_info),
                     options = listOf(
@@ -2261,7 +2520,7 @@ private fun TypingSettings(
             if (settings.letterSwipeAction == LetterSwipeAction.TYPE_WORDS) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.typing_space_glide_multiword_title),
+                        R.string.typing_space_glide_multiword_title,
                         stringResource(R.string.typing_space_glide_multiword_subtitle),
                         settings.gesture.spaceGlideMultiWord,
                         info = stringResource(R.string.typing_space_glide_multiword_info),
@@ -2271,7 +2530,7 @@ private fun TypingSettings(
             item {
                 val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)
                 SliderSetting(
-                    stringResource(R.string.typing_swipe_start_distance_title),
+                    R.string.typing_swipe_start_distance_title,
                     subtitle = stringResource(R.string.typing_swipe_start_distance_subtitle),
                     value = settings.gesture.startThresholdSlop,
                     range = 0.5f..4f,
@@ -2286,7 +2545,7 @@ private fun TypingSettings(
                     val offLabel = stringResource(CommonR.string.common_off)
                     val msFormat = stringResource(R.string.typing_value_milliseconds)
                     SliderSetting(
-                        stringResource(R.string.typing_gesture_cooldown_title),
+                        R.string.typing_gesture_cooldown_title,
                         subtitle = stringResource(R.string.typing_gesture_cooldown_subtitle),
                         value = settings.gesture.postTypeCooldownMs.toFloat(),
                         range = 0f..500f,
@@ -2304,7 +2563,7 @@ private fun TypingSettings(
                     val offLabel = stringResource(CommonR.string.common_off)
                     val msFormat = stringResource(R.string.typing_value_milliseconds)
                     SliderSetting(
-                        stringResource(R.string.typing_handwrite_dot_title),
+                        R.string.typing_handwrite_dot_title,
                         subtitle = stringResource(R.string.typing_handwrite_dot_subtitle),
                         value = settings.gesture.handwriteDotCooldownMs.toFloat(),
                         range = 0f..1500f,
@@ -2316,7 +2575,7 @@ private fun TypingSettings(
             item {
                 val dpFormat = stringResource(R.string.typing_value_dp)
                 SliderSetting(
-                    stringResource(R.string.typing_trail_width_title),
+                    R.string.typing_trail_width_title,
                     subtitle = stringResource(R.string.typing_trail_width_subtitle),
                     value = settings.gesture.trailWidthDp,
                     range = 2f..24f,
@@ -2326,7 +2585,7 @@ private fun TypingSettings(
             item {
                 val msFormat = stringResource(R.string.typing_value_milliseconds)
                 SliderSetting(
-                    stringResource(R.string.typing_trail_length_title),
+                    R.string.typing_trail_length_title,
                     subtitle = stringResource(R.string.typing_trail_length_subtitle),
                     value = settings.gesture.trailDurationMs.toFloat(),
                     range = 100f..1200f,
@@ -2336,7 +2595,7 @@ private fun TypingSettings(
             item {
                 val percentFormat = stringResource(R.string.typing_value_percent)
                 SliderSetting(
-                    stringResource(R.string.typing_trail_opacity_title),
+                    R.string.typing_trail_opacity_title,
                     value = settings.gesture.trailOpacity,
                     range = 0.1f..1f,
                     display = { percentFormat.format((it * 100).roundToInt()) },
@@ -2365,7 +2624,7 @@ private fun TypingSettings(
         ) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_space_cursor_2d_title),
+                    R.string.typing_space_cursor_2d_title,
                     stringResource(R.string.typing_space_cursor_2d_subtitle),
                     settings.layoutBehavior.spaceCursor2d,
                     info = stringResource(R.string.typing_space_cursor_2d_info),
@@ -2374,7 +2633,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_space_swipe_down_hide_title),
+                R.string.typing_space_swipe_down_hide_title,
                 stringResource(R.string.typing_space_swipe_down_hide_subtitle),
                 settings.layoutBehavior.spaceSwipeDownHide,
                 info = stringResource(R.string.typing_space_swipe_down_hide_info),
@@ -2385,7 +2644,7 @@ private fun TypingSettings(
         ) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_spacebar_language_arrows_title),
+                    R.string.typing_spacebar_language_arrows_title,
                     stringResource(R.string.typing_spacebar_language_arrows_subtitle),
                     settings.spacebarLanguageArrows,
                     info = stringResource(R.string.typing_spacebar_language_arrows_info),
@@ -2394,7 +2653,7 @@ private fun TypingSettings(
         }
         item {
             ChoiceSetting(
-                stringResource(R.string.typing_spacebar_display_title),
+                R.string.typing_spacebar_display_title,
                 subtitle = stringResource(R.string.typing_spacebar_display_subtitle),
                 info = stringResource(R.string.typing_spacebar_display_info),
                 options = listOf(
@@ -2421,7 +2680,7 @@ private fun TypingSettings(
     SettingsGroup(stringResource(R.string.typing_group_backspace_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.typing_backspace_swipe_title),
+                R.string.typing_backspace_swipe_title,
                 stringResource(R.string.typing_backspace_swipe_subtitle),
                 settings.backspaceSwipeDelete,
                 info = stringResource(R.string.typing_backspace_swipe_info),
@@ -2432,7 +2691,7 @@ private fun TypingSettings(
     SettingsGroup(stringResource(R.string.typing_group_enter_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.typing_shift_enter_title),
+                R.string.typing_shift_enter_title,
                 stringResource(R.string.typing_shift_enter_subtitle),
                 settings.layoutBehavior.shiftEnterNewline,
                 info = stringResource(R.string.typing_shift_enter_info),
@@ -2443,7 +2702,7 @@ private fun TypingSettings(
     SettingsGroup(stringResource(R.string.typing_group_volume_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.typing_volume_cursor_title),
+                R.string.typing_volume_cursor_title,
                 stringResource(R.string.typing_volume_cursor_subtitle),
                 settings.volumeCursor,
                 info = stringResource(R.string.typing_volume_cursor_info),
@@ -2452,7 +2711,7 @@ private fun TypingSettings(
         if (settings.volumeCursor) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.typing_volume_cursor_media_title),
+                    R.string.typing_volume_cursor_media_title,
                     stringResource(R.string.typing_volume_cursor_media_subtitle),
                     settings.volumeCursorMediaAware,
                     info = stringResource(R.string.typing_volume_cursor_media_info),
@@ -2464,7 +2723,7 @@ private fun TypingSettings(
     SettingsGroup(stringResource(R.string.typing_group_hardware_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.typing_hardware_input_title),
+                R.string.typing_hardware_input_title,
                 stringResource(R.string.typing_hardware_input_subtitle),
                 settings.hardwareKeyboardInput,
                 info = stringResource(R.string.typing_hardware_input_info),
@@ -2473,7 +2732,7 @@ private fun TypingSettings(
         val hw = settings.hardwareKeyboard
         item {
             ToggleSetting(
-                stringResource(R.string.typing_hw_shortcuts_title),
+                R.string.typing_hw_shortcuts_title,
                 stringResource(R.string.typing_hw_shortcuts_subtitle),
                 hw.shortcutsEnabled,
                 info = stringResource(R.string.typing_hw_shortcuts_info),
@@ -2489,7 +2748,7 @@ private fun TypingSettings(
                     stringResource(leaderParts.templateRes, leaderParts.text)
                 }
                 NavRow(
-                    stringResource(R.string.typing_hw_shortcuts_list_title),
+                    R.string.typing_hw_shortcuts_list_title,
                     stringResource(R.string.typing_hw_shortcuts_list_subtitle),
                     value = leaderText,
                     route = "hwshortcuts",
@@ -2499,7 +2758,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_hw_panel_nav_title),
+                R.string.typing_hw_panel_nav_title,
                 stringResource(R.string.typing_hw_panel_nav_subtitle),
                 hw.panelNavigation,
                 info = stringResource(R.string.typing_hw_panel_nav_info),
@@ -2507,7 +2766,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_hw_esc_title),
+                R.string.typing_hw_esc_title,
                 stringResource(R.string.typing_hw_esc_subtitle),
                 hw.escClosesPanel,
                 info = stringResource(R.string.typing_hw_esc_info),
@@ -2515,7 +2774,7 @@ private fun TypingSettings(
         }
         item {
             ChoiceSetting(
-                stringResource(R.string.typing_hw_suggestion_hotkeys_title),
+                R.string.typing_hw_suggestion_hotkeys_title,
                 subtitle = stringResource(R.string.typing_hw_suggestion_hotkeys_subtitle),
                 info = stringResource(R.string.typing_hw_suggestion_hotkeys_info),
                 options = SuggestionHotkeyMode.entries.map { it to stringResource(it.labelRes) },
@@ -2524,7 +2783,7 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.typing_hw_auto_show_title),
+                R.string.typing_hw_auto_show_title,
                 stringResource(R.string.typing_hw_auto_show_subtitle),
                 hw.autoShowUi,
                 info = stringResource(R.string.typing_hw_auto_show_info),
@@ -2863,6 +3122,7 @@ private fun LetterCaptureDialog(
 private fun KeySoundGroup(
     repository: SettingsRepository,
     settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
     trailing: (SettingsGroupScope.() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
@@ -2874,7 +3134,7 @@ private fun KeySoundGroup(
     SettingsGroup(stringResource(R.string.hardware_sound_group_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.hardware_sound_key_title),
+                R.string.hardware_sound_key_title,
                 stringResource(R.string.hardware_sound_key_subtitle),
                 settings.keySound,
             ) {
@@ -2990,11 +3250,11 @@ private fun KeySoundGroup(
         // Custom *means*; showing them under Click is offering a choice that
         // has no effect until the style changes too.
         if (settings.keySoundStyle == KeySoundStyle.CUSTOM) {
-            item { InstalledSoundSection(repository, settings) }
+            item { InstalledSoundSection(repository, settings, onNavigate) }
         }
         item {
             SliderSetting(
-                stringResource(R.string.hardware_sound_volume_title),
+                R.string.hardware_sound_volume_title,
                 subtitle = stringResource(R.string.hardware_sound_volume_subtitle),
                 value = settings.keySoundVolume,
                 range = 0.05f..1f,
@@ -3017,7 +3277,11 @@ private fun KeySoundGroup(
  * sound and then finding the keyboard still clicking would be baffling.
  */
 @Composable
-private fun InstalledSoundSection(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun InstalledSoundSection(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val store = remember { SoundStore.get(context) }
@@ -3123,6 +3387,9 @@ private fun InstalledSoundSection(repository: SettingsRepository, settings: Keyb
                 },
             )
         }
+        // Beside the file importer: the store is the other way to get a sound,
+        // and it is the one that works when the user has no file to import.
+        AddonStoreRow(AddonType.Sound, onNavigate)
         OutlinedButton(
             onClick = { importLauncher.launch(SoundFile.IMPORT_MIME_TYPES) },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -3131,7 +3398,11 @@ private fun InstalledSoundSection(repository: SettingsRepository, settings: Keyb
 }
 
 @Composable
-private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun KeyPressSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     // Lets the SYSTEM_* preview fire through the real platform key haptic.
@@ -3139,7 +3410,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
     SettingsGroup(stringResource(R.string.keypress_haptics_group_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_haptics_title),
+                R.string.keypress_haptics_title,
                 stringResource(R.string.keypress_haptics_subtitle),
                 settings.hapticFeedback,
                 info = stringResource(R.string.keypress_haptics_info),
@@ -3195,7 +3466,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         if (settings.hapticStyle == HapticStyle.CUSTOM) {
             item {
                 SliderSetting(
-                    stringResource(R.string.keypress_haptic_strength_title),
+                    R.string.keypress_haptic_strength_title,
                     subtitle = stringResource(R.string.keypress_haptic_strength_subtitle),
                     value = settings.hapticStrengthMs.toFloat(),
                     range = 5f..60f,
@@ -3211,7 +3482,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         if (settings.hapticStyle == HapticStyle.CUSTOM || settings.hapticStyle == HapticStyle.SHARP) {
             item {
                 SliderSetting(
-                    stringResource(R.string.keypress_haptic_intensity_title),
+                    R.string.keypress_haptic_intensity_title,
                     subtitle = stringResource(R.string.keypress_haptic_intensity_subtitle),
                     value = settings.hapticAmplitude.toFloat(),
                     range = 1f..255f,
@@ -3227,7 +3498,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_long_press_haptics_title),
+                R.string.keypress_long_press_haptics_title,
                 stringResource(R.string.keypress_long_press_haptics_subtitle),
                 settings.hapticOnLongPress,
                 info = stringResource(R.string.keypress_long_press_haptics_info),
@@ -3235,7 +3506,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_long_press_release_title),
+                R.string.keypress_long_press_release_title,
                 stringResource(R.string.keypress_long_press_release_subtitle),
                 settings.hapticOnLongPressRelease,
                 info = stringResource(R.string.keypress_long_press_release_info),
@@ -3246,7 +3517,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         if (settings.hapticFeedback) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.keypress_vibrate_space_title),
+                    R.string.keypress_vibrate_space_title,
                     stringResource(R.string.keypress_vibrate_space_subtitle),
                     settings.feedback.vibrateOnSpace,
                     info = stringResource(R.string.keypress_vibrate_space_info),
@@ -3254,7 +3525,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.keypress_vibrate_delete_swipe_title),
+                    R.string.keypress_vibrate_delete_swipe_title,
                     stringResource(R.string.keypress_vibrate_delete_swipe_subtitle),
                     settings.feedback.vibrateOnDeleteSwipe,
                     info = stringResource(R.string.keypress_vibrate_delete_swipe_info),
@@ -3262,7 +3533,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.keypress_vibrate_repeat_title),
+                    R.string.keypress_vibrate_repeat_title,
                     stringResource(R.string.keypress_vibrate_repeat_subtitle),
                     settings.feedback.vibrateOnRepeat,
                     info = stringResource(R.string.keypress_vibrate_repeat_info),
@@ -3270,7 +3541,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.keypress_dnd_mute_title),
+                    R.string.keypress_dnd_mute_title,
                     stringResource(R.string.keypress_dnd_mute_subtitle),
                     settings.feedback.hapticsRespectDnd,
                     info = stringResource(R.string.keypress_dnd_mute_info),
@@ -3279,12 +3550,12 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
     }
 
-    KeySoundGroup(repository, settings)
+    KeySoundGroup(repository, settings, onNavigate)
 
     SettingsGroup(stringResource(R.string.keypress_popup_group_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_popup_title),
+                R.string.keypress_popup_title,
                 stringResource(R.string.keypress_popup_subtitle),
                 settings.popup.enabled,
                 info = stringResource(R.string.keypress_popup_info),
@@ -3293,7 +3564,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         if (settings.popup.enabled) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.keypress_popup_numeric_title),
+                    R.string.keypress_popup_numeric_title,
                     stringResource(R.string.keypress_popup_numeric_subtitle),
                     settings.popup.inNumericFields,
                     info = stringResource(R.string.keypress_popup_numeric_info),
@@ -3301,7 +3572,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
             }
             item {
                 SliderSetting(
-                    stringResource(R.string.keypress_popup_min_duration_title),
+                    R.string.keypress_popup_min_duration_title,
                     subtitle = stringResource(R.string.keypress_popup_min_duration_subtitle),
                     value = settings.popup.minDurationMs.toFloat(),
                     range = 0f..300f,
@@ -3311,7 +3582,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
             }
             item {
                 SliderSetting(
-                    stringResource(R.string.keypress_popup_max_duration_title),
+                    R.string.keypress_popup_max_duration_title,
                     subtitle = stringResource(R.string.keypress_popup_max_duration_subtitle),
                     value = settings.popup.maxDurationMs.toFloat(),
                     range = 400f..2000f,
@@ -3322,7 +3593,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_popup_on_key_title),
+                R.string.keypress_popup_on_key_title,
                 stringResource(R.string.keypress_popup_on_key_subtitle),
                 settings.popup.onKey,
                 info = stringResource(R.string.keypress_popup_on_key_info),
@@ -3330,7 +3601,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             SliderSetting(
-                stringResource(R.string.keypress_popup_font_size_title),
+                R.string.keypress_popup_font_size_title,
                 subtitle = stringResource(R.string.keypress_popup_font_size_subtitle),
                 value = settings.popup.fontScale,
                 range = 0.7f..1.6f,
@@ -3340,7 +3611,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             SliderSetting(
-                stringResource(R.string.keypress_popup_height_title),
+                R.string.keypress_popup_height_title,
                 subtitle = stringResource(R.string.keypress_popup_height_subtitle),
                 value = settings.popup.heightDp.toFloat(),
                 range = 32f..160f,
@@ -3353,7 +3624,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
     SettingsGroup(stringResource(R.string.keypress_timing_group_title)) {
         item {
             SliderSetting(
-                stringResource(R.string.keypress_long_press_delay_title),
+                R.string.keypress_long_press_delay_title,
                 subtitle = stringResource(R.string.keypress_long_press_delay_subtitle),
                 value = settings.longPressDelayMs.toFloat(),
                 range = 150f..700f,
@@ -3363,7 +3634,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             SliderSetting(
-                stringResource(R.string.keypress_key_repeat_title),
+                R.string.keypress_key_repeat_title,
                 subtitle = stringResource(R.string.keypress_key_repeat_subtitle),
                 value = settings.keyRepeatIntervalMs.toFloat(),
                 range = 20f..200f,
@@ -3373,7 +3644,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             SliderSetting(
-                stringResource(R.string.keypress_caps_lock_title),
+                R.string.keypress_caps_lock_title,
                 subtitle = stringResource(R.string.keypress_caps_lock_subtitle),
                 value = settings.layoutBehavior.shiftCapsLockMs.toFloat(),
                 range = ShiftCapsLockMsRange.first.toFloat()..ShiftCapsLockMsRange.last.toFloat(),
@@ -3386,7 +3657,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
     SettingsGroup(stringResource(R.string.keypress_shortcuts_group_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_long_press_hints_title),
+                R.string.keypress_long_press_hints_title,
                 stringResource(R.string.keypress_long_press_hints_subtitle),
                 settings.longPressHints,
                 info = stringResource(R.string.keypress_long_press_hints_info),
@@ -3394,7 +3665,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_all_accents_title),
+                R.string.keypress_all_accents_title,
                 stringResource(R.string.keypress_all_accents_subtitle),
                 settings.layoutBehavior.showAllPopupKeys,
                 info = stringResource(R.string.keypress_all_accents_info),
@@ -3402,7 +3673,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_symbols_numpad_title),
+                R.string.keypress_symbols_numpad_title,
                 stringResource(R.string.keypress_symbols_numpad_subtitle),
                 settings.layoutBehavior.symbolsLongPressNumpad,
                 info = stringResource(R.string.keypress_symbols_numpad_info),
@@ -3444,7 +3715,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_ctrl_raw_title),
+                R.string.keypress_ctrl_raw_title,
                 stringResource(R.string.keypress_ctrl_raw_subtitle),
                 settings.rawClipboardShortcuts,
                 info = stringResource(R.string.keypress_ctrl_raw_info),
@@ -3452,7 +3723,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_hold_a_title),
+                R.string.keypress_hold_a_title,
                 stringResource(R.string.keypress_hold_a_subtitle),
                 settings.longPressLetterActions.selectAll,
                 info = stringResource(R.string.keypress_hold_a_info),
@@ -3460,7 +3731,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_hold_c_title),
+                R.string.keypress_hold_c_title,
                 stringResource(R.string.keypress_hold_c_subtitle),
                 settings.longPressLetterActions.copy,
                 info = stringResource(R.string.keypress_hold_c_info),
@@ -3468,7 +3739,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_hold_x_title),
+                R.string.keypress_hold_x_title,
                 stringResource(R.string.keypress_hold_x_subtitle),
                 settings.longPressLetterActions.cut,
                 info = stringResource(R.string.keypress_hold_x_info),
@@ -3476,7 +3747,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_hold_v_title),
+                R.string.keypress_hold_v_title,
                 stringResource(R.string.keypress_hold_v_subtitle),
                 settings.longPressLetterActions.paste,
                 info = stringResource(R.string.keypress_hold_v_info),
@@ -3484,7 +3755,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_hold_z_title),
+                R.string.keypress_hold_z_title,
                 stringResource(R.string.keypress_hold_z_subtitle),
                 settings.longPressLetterActions.undo,
                 info = stringResource(R.string.keypress_hold_z_info),
@@ -3492,7 +3763,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
-                stringResource(R.string.keypress_hold_y_title),
+                R.string.keypress_hold_y_title,
                 stringResource(R.string.keypress_hold_y_subtitle),
                 settings.longPressLetterActions.redo,
                 info = stringResource(R.string.keypress_hold_y_info),
@@ -3526,7 +3797,7 @@ private fun AppearanceSettings(
                 ?: com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
                     .find { it.id == settings.keyboardThemeId }
             NavRow(
-                stringResource(R.string.appearance_themes_title),
+                R.string.appearance_themes_title,
                 stringResource(R.string.appearance_themes_subtitle),
                 value = if (selected == null) {
                     stringResource(CommonR.string.common_default)
@@ -3539,7 +3810,7 @@ private fun AppearanceSettings(
         }
         item {
             NavRow(
-                stringResource(R.string.appearance_font_title),
+                R.string.appearance_font_title,
                 stringResource(R.string.appearance_font_subtitle),
                 value = KeyboardFonts.genericDisplayName(
                     LocalContext.current,
@@ -3555,7 +3826,7 @@ private fun AppearanceSettings(
             val changed = settings.icons.overrides.size
             val defaultLabel = stringResource(CommonR.string.common_default)
             NavRow(
-                stringResource(R.string.appearance_icons_title),
+                R.string.appearance_icons_title,
                 stringResource(R.string.appearance_icons_subtitle),
                 value = when {
                     active.isNotEmpty() ->
@@ -3576,7 +3847,7 @@ private fun AppearanceSettings(
     SettingsGroup(stringResource(R.string.appearance_keys_section_title)) {
         item {
             SliderSetting(
-                stringResource(R.string.appearance_key_corner_radius_title),
+                R.string.appearance_key_corner_radius_title,
                 subtitle = stringResource(R.string.appearance_key_corner_radius_subtitle),
                 value = settings.keyCornerRadiusDp.toFloat(),
                 range = 0f..28f,
@@ -3586,7 +3857,7 @@ private fun AppearanceSettings(
         }
         item {
             SliderSetting(
-                stringResource(R.string.appearance_key_label_size_title),
+                R.string.appearance_key_label_size_title,
                 subtitle = stringResource(R.string.appearance_key_label_size_subtitle),
                 value = settings.fontScale,
                 range = 0.7f..1.5f,
@@ -3596,7 +3867,7 @@ private fun AppearanceSettings(
         }
         item {
             SliderSetting(
-                stringResource(R.string.appearance_key_hint_size_title),
+                R.string.appearance_key_hint_size_title,
                 subtitle = stringResource(R.string.appearance_key_hint_size_subtitle),
                 value = settings.layoutBehavior.hintFontScale,
                 range = 0.5f..2.0f,
@@ -3609,7 +3880,7 @@ private fun AppearanceSettings(
     SettingsGroup(stringResource(R.string.appearance_toolbar_section_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.appearance_toolbar_show_title),
+                R.string.appearance_toolbar_show_title,
                 stringResource(R.string.appearance_toolbar_show_subtitle),
                 settings.toolbarBehavior.enabled,
                 info = stringResource(R.string.appearance_toolbar_show_info),
@@ -3621,7 +3892,7 @@ private fun AppearanceSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.appearance_toolbar_swipe_down_title),
+                R.string.appearance_toolbar_swipe_down_title,
                 stringResource(R.string.appearance_toolbar_swipe_down_subtitle),
                 settings.toolbarBehavior.swipeDownHide,
                 info = stringResource(R.string.appearance_toolbar_swipe_down_info),
@@ -3629,7 +3900,7 @@ private fun AppearanceSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.appearance_toolbar_hardware_only_title),
+                R.string.appearance_toolbar_hardware_only_title,
                 stringResource(R.string.appearance_toolbar_hardware_only_subtitle),
                 settings.toolbarBehavior.onlyWithHardwareKeyboard,
                 info = stringResource(R.string.appearance_toolbar_hardware_only_info),
@@ -3637,7 +3908,7 @@ private fun AppearanceSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.appearance_toolbar_rtl_title),
+                R.string.appearance_toolbar_rtl_title,
                 stringResource(R.string.appearance_toolbar_rtl_subtitle),
                 settings.toolbarBehavior.reverseForRtl,
                 info = stringResource(R.string.appearance_toolbar_rtl_info),
@@ -3645,7 +3916,7 @@ private fun AppearanceSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.appearance_toolbar_spread_title),
+                R.string.appearance_toolbar_spread_title,
                 stringResource(R.string.appearance_toolbar_spread_subtitle),
                 settings.toolbarBehavior.greedy,
                 info = stringResource(R.string.appearance_toolbar_spread_info),
@@ -3653,7 +3924,7 @@ private fun AppearanceSettings(
         }
         item {
             SliderSetting(
-                stringResource(R.string.appearance_toolbar_height_title),
+                R.string.appearance_toolbar_height_title,
                 subtitle = stringResource(R.string.appearance_toolbar_height_subtitle),
                 value = settings.toolbarHeightDp.toFloat(),
                 range = 32f..80f,
@@ -3663,7 +3934,7 @@ private fun AppearanceSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.appearance_toolbar_scroll_title),
+                R.string.appearance_toolbar_scroll_title,
                 stringResource(R.string.appearance_toolbar_scroll_subtitle),
                 settings.toolbarBehavior.scrollable,
                 info = stringResource(R.string.appearance_toolbar_scroll_info),
@@ -3671,7 +3942,7 @@ private fun AppearanceSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.appearance_toolbar_lock_title),
+                R.string.appearance_toolbar_lock_title,
                 stringResource(R.string.appearance_toolbar_lock_subtitle),
                 settings.toolbarBehavior.hideWhenLocked,
                 info = stringResource(R.string.appearance_toolbar_lock_info),
@@ -3679,7 +3950,7 @@ private fun AppearanceSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.appearance_toolbar_labels_title),
+                R.string.appearance_toolbar_labels_title,
                 stringResource(R.string.appearance_toolbar_labels_subtitle),
                 settings.toolbarLabels,
                 info = stringResource(R.string.appearance_toolbar_labels_info),
@@ -3688,7 +3959,7 @@ private fun AppearanceSettings(
         if (settings.toolbarLabels) {
             item {
                 SliderSetting(
-                    stringResource(R.string.appearance_toolbar_label_size_title),
+                    R.string.appearance_toolbar_label_size_title,
                     subtitle = stringResource(R.string.appearance_toolbar_label_size_subtitle),
                     value = settings.toolbarLabelSize.toFloat(),
                     range = 7f..14f,
@@ -3702,7 +3973,7 @@ private fun AppearanceSettings(
         item {
             val offLabel = stringResource(CommonR.string.common_off)
             SliderSetting(
-                stringResource(R.string.appearance_tool_circle_title),
+                R.string.appearance_tool_circle_title,
                 subtitle = stringResource(R.string.appearance_tool_circle_subtitle),
                 value = settings.toolCircleRadiusDp.toFloat(),
                 range = 0f..20f,
@@ -3712,7 +3983,7 @@ private fun AppearanceSettings(
         }
         item {
             ChoiceSetting(
-                stringResource(R.string.appearance_toolbox_layout_title),
+                R.string.appearance_toolbox_layout_title,
                 subtitle = stringResource(R.string.appearance_toolbox_layout_subtitle),
                 options = listOf(
                     ToolboxLayout.ICONS to
@@ -3728,7 +3999,7 @@ private fun AppearanceSettings(
             item {
                 val perRow = stringResource(R.string.appearance_slider_per_row_value)
                 SliderSetting(
-                    stringResource(R.string.appearance_toolbox_columns_title),
+                    R.string.appearance_toolbox_columns_title,
                     subtitle = stringResource(R.string.appearance_toolbox_columns_subtitle),
                     value = settings.toolboxColumns.toFloat(),
                     range = 3f..6f,
@@ -3740,7 +4011,7 @@ private fun AppearanceSettings(
             item {
                 val perRow = stringResource(R.string.appearance_slider_per_row_value)
                 SliderSetting(
-                    stringResource(R.string.appearance_toolbox_pill_columns_title),
+                    R.string.appearance_toolbox_pill_columns_title,
                     subtitle = stringResource(R.string.appearance_toolbox_pill_columns_subtitle),
                     value = settings.toolbox.pillColumns.toFloat(),
                     range = 1f..3f,
@@ -3750,7 +4021,7 @@ private fun AppearanceSettings(
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.appearance_toolbox_pill_filled_title),
+                    R.string.appearance_toolbox_pill_filled_title,
                     stringResource(R.string.appearance_toolbox_pill_filled_subtitle),
                     settings.toolbox.pillFilled,
                     info = stringResource(R.string.appearance_toolbox_pill_filled_info),
@@ -3759,7 +4030,7 @@ private fun AppearanceSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.appearance_toolbox_paginate_title),
+                R.string.appearance_toolbox_paginate_title,
                 stringResource(R.string.appearance_toolbox_paginate_subtitle),
                 settings.toolbox.paginate,
                 info = stringResource(R.string.appearance_toolbox_paginate_info),
@@ -3769,7 +4040,7 @@ private fun AppearanceSettings(
             item {
                 val perPage = stringResource(R.string.appearance_slider_per_page_value)
                 SliderSetting(
-                    stringResource(R.string.appearance_toolbox_page_size_title),
+                    R.string.appearance_toolbox_page_size_title,
                     subtitle = stringResource(R.string.appearance_toolbox_page_size_subtitle),
                     value = settings.toolbox.pageSize.toFloat(),
                     range = ToolboxPageSizeRange.first.toFloat()..ToolboxPageSizeRange.last.toFloat(),
@@ -3814,7 +4085,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
     SettingsGroup(stringResource(R.string.layout_number_row_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.layout_number_row_title),
+                R.string.layout_number_row_title,
                 stringResource(R.string.layout_number_row_subtitle),
                 settings.numberRow,
                 info = stringResource(R.string.layout_number_row_info),
@@ -3823,7 +4094,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         if (settings.numberRow) {
             item {
                 SliderSetting(
-                    stringResource(R.string.layout_number_row_height_title),
+                    R.string.layout_number_row_height_title,
                     subtitle = stringResource(R.string.layout_number_row_height_subtitle),
                     value = settings.numberRowHeightDp.toFloat(),
                     range = 32f..100f,
@@ -3833,7 +4104,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.layout_number_row_shift_symbols_title),
+                    R.string.layout_number_row_shift_symbols_title,
                     stringResource(R.string.layout_number_row_shift_symbols_subtitle),
                     settings.layoutBehavior.numberRowShiftSymbols,
                     info = stringResource(R.string.layout_number_row_shift_symbols_info),
@@ -3841,7 +4112,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.layout_number_row_in_symbols_title),
+                    R.string.layout_number_row_in_symbols_title,
                     stringResource(R.string.layout_number_row_in_symbols_subtitle),
                     settings.layoutBehavior.numberRowInSymbols,
                     info = stringResource(R.string.layout_number_row_in_symbols_info),
@@ -3853,7 +4124,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
     SettingsGroup(stringResource(R.string.layout_numerals_title)) {
         item {
             ChoiceSetting(
-                stringResource(R.string.layout_numeral_scope_title),
+                R.string.layout_numeral_scope_title,
                 subtitle = stringResource(R.string.layout_numeral_scope_subtitle),
                 info = stringResource(R.string.layout_numeral_scope_info),
                 options = NumeralCommitScope.entries.map { it to stringResource(it.labelRes) },
@@ -3868,7 +4139,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
     SettingsGroup(stringResource(R.string.layout_size_position_title)) {
         item {
             SliderSetting(
-                stringResource(R.string.layout_key_height_title),
+                R.string.layout_key_height_title,
                 subtitle = stringResource(R.string.layout_key_height_subtitle),
                 value = settings.keyHeightDp.toFloat(),
                 range = 32f..100f,
@@ -3879,7 +4150,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         item {
             val followKeys = stringResource(R.string.layout_bottom_row_follow_keys_label)
             SliderSetting(
-                stringResource(R.string.layout_bottom_row_height_title),
+                R.string.layout_bottom_row_height_title,
                 subtitle = stringResource(R.string.layout_bottom_row_height_subtitle),
                 value = settings.layoutBehavior.bottomRowHeightDp.toFloat(),
                 range = 0f..BottomRowHeightRange.last.toFloat(),
@@ -3889,7 +4160,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         }
         item {
             SliderSetting(
-                stringResource(R.string.layout_side_padding_title),
+                R.string.layout_side_padding_title,
                 subtitle = stringResource(R.string.layout_side_padding_subtitle),
                 value = settings.layoutBehavior.sidePadScale,
                 range = SidePadScaleRange.start..SidePadScaleRange.endInclusive,
@@ -3899,7 +4170,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         }
         item {
             SliderSetting(
-                stringResource(R.string.layout_key_spacing_title),
+                R.string.layout_key_spacing_title,
                 subtitle = stringResource(R.string.layout_key_spacing_subtitle),
                 value = settings.keyGapScale,
                 range = 0f..2f,
@@ -3909,7 +4180,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         }
         item {
             SliderSetting(
-                stringResource(R.string.layout_bottom_padding_title),
+                R.string.layout_bottom_padding_title,
                 subtitle = stringResource(R.string.layout_bottom_padding_subtitle),
                 value = settings.bottomPaddingDp.toFloat(),
                 range = 0f..40f,
@@ -3919,7 +4190,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         }
         item {
             SliderSetting(
-                stringResource(R.string.layout_keyboard_width_title),
+                R.string.layout_keyboard_width_title,
                 subtitle = stringResource(R.string.layout_keyboard_width_subtitle),
                 value = settings.keyboardWidthPercent.toFloat(),
                 range = 50f..100f,
@@ -3930,7 +4201,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         if (settings.keyboardWidthPercent < 100) {
             item {
                 ChoiceSetting(
-                    title = stringResource(R.string.layout_keyboard_position_title),
+                    title = R.string.layout_keyboard_position_title,
                     info = stringResource(R.string.layout_keyboard_position_info),
                     options = KeyboardAlignment.entries.map { alignment ->
                         alignment to stringResource(layoutAlignmentLabelRes(alignment))
@@ -3969,7 +4240,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
             if (expandedVariant == variant) {
                 item {
                     SliderSetting(
-                        stringResource(R.string.layout_keyboard_scale_title),
+                        R.string.layout_keyboard_scale_title,
                         subtitle = stringResource(R.string.layout_keyboard_scale_subtitle),
                         value = values.keyboardScale ?: 1f,
                         range = 0.5f..1.5f,
@@ -3978,7 +4249,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 }
                 item {
                     SliderSetting(
-                        stringResource(R.string.layout_key_height_title),
+                        R.string.layout_key_height_title,
                         value = (values.keyHeightDp ?: settings.keyHeightDp).toFloat(),
                         range = 32f..100f,
                         display = { dpFormat.format(it.toInt()) },
@@ -3987,7 +4258,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 if (settings.numberRow) {
                     item {
                         SliderSetting(
-                            stringResource(R.string.layout_number_row_height_title),
+                            R.string.layout_number_row_height_title,
                             value = (values.numberRowHeightDp ?: settings.numberRowHeightDp).toFloat(),
                             range = 32f..100f,
                             display = { dpFormat.format(it.toInt()) },
@@ -4000,7 +4271,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 }
                 item {
                     SliderSetting(
-                        stringResource(R.string.layout_bottom_padding_title),
+                        R.string.layout_bottom_padding_title,
                         value = (values.bottomPaddingDp ?: settings.bottomPaddingDp).toFloat(),
                         range = 0f..40f,
                         display = { dpFormat.format(it.toInt()) },
@@ -4008,7 +4279,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 }
                 item {
                     SliderSetting(
-                        stringResource(R.string.layout_keyboard_width_title),
+                        R.string.layout_keyboard_width_title,
                         value = (values.keyboardWidthPercent ?: settings.keyboardWidthPercent).toFloat(),
                         range = 50f..100f,
                         display = { percentFormat.format(it.toInt()) },
@@ -4016,7 +4287,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 }
                 item {
                     SliderSetting(
-                        stringResource(R.string.layout_font_size_title),
+                        R.string.layout_font_size_title,
                         value = values.fontScale ?: settings.fontScale,
                         range = 0.7f..1.5f,
                         display = { multiplierFormat.format(it) },
@@ -4025,7 +4296,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 if ((values.keyboardWidthPercent ?: settings.keyboardWidthPercent) < 100) {
                     item {
                         ChoiceSetting(
-                            title = stringResource(R.string.layout_keyboard_position_title),
+                            title = R.string.layout_keyboard_position_title,
                             options = KeyboardAlignment.entries.map { alignment ->
                                 alignment to stringResource(layoutAlignmentLabelRes(alignment))
                             },
@@ -4036,7 +4307,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 if (override != null && !override.isEmpty) {
                     item {
                         NavRow(
-                            stringResource(R.string.layout_follow_portrait_title),
+                            R.string.layout_follow_portrait_title,
                             stringResource(
                                 R.string.layout_follow_portrait_subtitle,
                                 stringResource(variant.labelRes),
@@ -4052,7 +4323,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
     SettingsGroup(stringResource(R.string.layout_one_handed_group_title)) {
         item {
             ChoiceSetting(
-                title = stringResource(R.string.layout_one_handed_title),
+                title = R.string.layout_one_handed_title,
                 subtitle = stringResource(R.string.layout_one_handed_subtitle),
                 options = OneHandedMode.entries.map { mode ->
                     mode to stringResource(layoutOneHandedModeLabelRes(mode))
@@ -4118,7 +4389,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         }
         item {
             ToggleSetting(
-                stringResource(R.string.layout_split_title),
+                R.string.layout_split_title,
                 stringResource(R.string.layout_split_subtitle),
                 settings.splitKeyboard,
                 info = stringResource(R.string.layout_split_info),
@@ -4127,7 +4398,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         if (settings.splitKeyboard) {
             item {
                 SliderSetting(
-                    stringResource(R.string.layout_split_gap_title),
+                    R.string.layout_split_gap_title,
                     subtitle = stringResource(R.string.layout_split_gap_subtitle),
                     value = settings.splitGapPercent.toFloat(),
                     range = 5f..40f,
@@ -4138,7 +4409,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         }
         item {
             ToggleSetting(
-                stringResource(R.string.layout_floating_title),
+                R.string.layout_floating_title,
                 stringResource(R.string.layout_floating_subtitle),
                 settings.floatingKeyboard,
                 info = stringResource(R.string.layout_floating_info),
@@ -4147,7 +4418,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         if (settings.floatingKeyboard) {
             item {
                 SliderSetting(
-                    stringResource(R.string.layout_floating_width_title),
+                    R.string.layout_floating_width_title,
                     subtitle = stringResource(R.string.layout_floating_width_subtitle),
                     value = settings.floatingWidthDp.toFloat(),
                     range = 240f..500f,
@@ -4161,7 +4432,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
     SettingsGroup(stringResource(R.string.layout_bottom_row_keys_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.layout_comma_emoji_title),
+                R.string.layout_comma_emoji_title,
                 stringResource(R.string.layout_comma_emoji_subtitle),
                 settings.commaAsEmoji,
                 info = stringResource(R.string.layout_comma_emoji_info),
@@ -4169,7 +4440,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         }
         item {
             ToggleSetting(
-                stringResource(R.string.layout_globe_emoji_title),
+                R.string.layout_globe_emoji_title,
                 stringResource(R.string.layout_globe_emoji_subtitle),
                 settings.globeAsEmoji,
                 info = stringResource(R.string.layout_globe_emoji_info),
@@ -4229,7 +4500,7 @@ private fun LanguageSettings(
         }
         item {
             NavRow(
-                stringResource(R.string.langemoji_lang_add_title),
+                R.string.langemoji_lang_add_title,
                 subtitle = pluralStringResource(
                     R.plurals.langemoji_lang_add_subtitle,
                     LanguageRegistry.all.size,
@@ -4309,7 +4580,7 @@ private fun LanguageSettings(
         }
         item {
             NavRow(
-                stringResource(R.string.langemoji_lang_keymaps_title),
+                R.string.langemoji_lang_keymaps_title,
                 subtitle = if (customs.isEmpty()) {
                     stringResource(R.string.langemoji_lang_keymaps_empty_subtitle)
                 } else {
@@ -4318,11 +4589,12 @@ private fun LanguageSettings(
                 route = "keymaps",
             ) { onNavigate("keymaps") }
         }
+        item { AddonStoreRow(AddonType.Layout, onNavigate) }
     }
     SettingsGroup(stringResource(R.string.langemoji_lang_per_app_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.langemoji_lang_per_app_toggle_title),
+                R.string.langemoji_lang_per_app_toggle_title,
                 stringResource(R.string.langemoji_lang_per_app_toggle_subtitle),
                 settings.perAppLanguage.enabled,
                 info = stringResource(R.string.langemoji_lang_per_app_toggle_info),
@@ -4332,7 +4604,7 @@ private fun LanguageSettings(
     SettingsGroup(stringResource(R.string.langemoji_lang_system_switcher_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.langemoji_lang_os_switcher_title),
+                R.string.langemoji_lang_os_switcher_title,
                 stringResource(R.string.langemoji_lang_os_switcher_subtitle),
                 settings.osLanguageSwitcher,
                 info = stringResource(R.string.langemoji_lang_os_switcher_info),
@@ -4341,7 +4613,7 @@ private fun LanguageSettings(
         if (settings.osLanguageSwitcher) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.langemoji_lang_app_name_first_title),
+                    R.string.langemoji_lang_app_name_first_title,
                     stringResource(R.string.langemoji_lang_app_name_first_subtitle),
                     settings.subtypeAppNameFirst,
                     info = stringResource(R.string.langemoji_lang_app_name_first_info),
@@ -4349,7 +4621,7 @@ private fun LanguageSettings(
             }
             item {
                 NavRow(
-                    stringResource(R.string.langemoji_lang_subtype_enabler_title),
+                    R.string.langemoji_lang_subtype_enabler_title,
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                         stringResource(R.string.langemoji_lang_subtype_enabler_subtitle)
                     } else {
@@ -4385,7 +4657,7 @@ private fun EmojiSettings(
     SettingsGroup(stringResource(R.string.langemoji_emoji_access_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.langemoji_emoji_toolbar_title),
+                R.string.langemoji_emoji_toolbar_title,
                 stringResource(R.string.langemoji_emoji_toolbar_subtitle),
                 settings.emojiToolbar,
                 info = stringResource(R.string.langemoji_emoji_toolbar_info),
@@ -4393,7 +4665,7 @@ private fun EmojiSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.langemoji_emoji_full_bleed_title),
+                R.string.langemoji_emoji_full_bleed_title,
                 stringResource(R.string.langemoji_emoji_full_bleed_subtitle),
                 settings.emojiFullBleed,
                 info = stringResource(R.string.langemoji_emoji_full_bleed_info),
@@ -4403,7 +4675,7 @@ private fun EmojiSettings(
     SettingsGroup(stringResource(R.string.langemoji_emoji_suggestions_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.langemoji_emoji_prediction_title),
+                R.string.langemoji_emoji_prediction_title,
                 stringResource(R.string.langemoji_emoji_prediction_subtitle),
                 settings.emojiPrediction,
                 info = stringResource(R.string.langemoji_emoji_prediction_info, birthdayWord),
@@ -4412,7 +4684,7 @@ private fun EmojiSettings(
         if (settings.emojiPrediction) {
             item {
                 ChoiceSetting(
-                    title = stringResource(R.string.langemoji_emoji_insert_mode_title),
+                    title = R.string.langemoji_emoji_insert_mode_title,
                     subtitle = stringResource(R.string.langemoji_emoji_insert_mode_subtitle),
                     info = stringResource(R.string.langemoji_emoji_insert_mode_info),
                     options = listOf(
@@ -4429,7 +4701,7 @@ private fun EmojiSettings(
     SettingsGroup(stringResource(R.string.langemoji_emoji_skin_tone_group_title)) {
         item {
             ChoiceSetting(
-                title = stringResource(R.string.langemoji_emoji_skin_tone_title),
+                title = R.string.langemoji_emoji_skin_tone_title,
                 subtitle = stringResource(R.string.langemoji_emoji_skin_tone_subtitle),
                 info = stringResource(R.string.langemoji_emoji_skin_tone_info),
                 options = listOf(
@@ -4445,7 +4717,7 @@ private fun EmojiSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.langemoji_emoji_tone_override_title),
+                R.string.langemoji_emoji_tone_override_title,
                 stringResource(R.string.langemoji_emoji_tone_override_subtitle),
                 settings.emoji.toneOverrideByLastUsed,
                 info = stringResource(R.string.langemoji_emoji_tone_override_info),
@@ -4455,7 +4727,7 @@ private fun EmojiSettings(
     SettingsGroup(stringResource(R.string.langemoji_emoji_panel_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.langemoji_emoji_close_after_insert_title),
+                R.string.langemoji_emoji_close_after_insert_title,
                 stringResource(R.string.langemoji_emoji_close_after_insert_subtitle),
                 settings.emoji.closeAfterInsert,
                 info = stringResource(R.string.langemoji_emoji_close_after_insert_info),
@@ -4463,7 +4735,7 @@ private fun EmojiSettings(
         }
         item {
             ChoiceSetting(
-                title = stringResource(R.string.langemoji_emoji_tab_mode_title),
+                title = R.string.langemoji_emoji_tab_mode_title,
                 subtitle = stringResource(R.string.langemoji_emoji_tab_mode_subtitle),
                 info = stringResource(R.string.langemoji_emoji_tab_mode_info),
                 options = listOf(
@@ -4476,7 +4748,7 @@ private fun EmojiSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.langemoji_emoji_clear_recents_title),
+                R.string.langemoji_emoji_clear_recents_title,
                 stringResource(R.string.langemoji_emoji_clear_recents_subtitle),
                 settings.emojiClearRecentsButton,
                 info = stringResource(R.string.langemoji_emoji_clear_recents_info),
@@ -4484,7 +4756,7 @@ private fun EmojiSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.langemoji_emoji_kaomoji_title),
+                R.string.langemoji_emoji_kaomoji_title,
                 stringResource(R.string.langemoji_emoji_kaomoji_subtitle),
                 settings.emoji.kaomojiTabs,
                 info = stringResource(R.string.langemoji_emoji_kaomoji_info),
@@ -4492,7 +4764,7 @@ private fun EmojiSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.langemoji_emoji_long_press_name_title),
+                R.string.langemoji_emoji_long_press_name_title,
                 stringResource(R.string.langemoji_emoji_long_press_name_subtitle),
                 settings.emojiLongPressName,
                 info = stringResource(R.string.langemoji_emoji_long_press_name_info),
@@ -4500,7 +4772,7 @@ private fun EmojiSettings(
         }
         item {
             NavRow(
-                stringResource(R.string.langemoji_emoji_keywords_title),
+                R.string.langemoji_emoji_keywords_title,
                 stringResource(R.string.langemoji_emoji_keywords_subtitle),
                 route = "emojikeywords",
             ) { onNavigate("emojikeywords") }
@@ -4509,7 +4781,7 @@ private fun EmojiSettings(
     SettingsGroup(stringResource(R.string.langemoji_emoji_row_title)) {
         item {
             ChoiceSetting(
-                title = stringResource(R.string.langemoji_emoji_row_title),
+                title = R.string.langemoji_emoji_row_title,
                 subtitle = stringResource(R.string.langemoji_emoji_bar_mode_subtitle),
                 info = stringResource(R.string.langemoji_emoji_bar_mode_info),
                 options = listOf(
@@ -4525,7 +4797,7 @@ private fun EmojiSettings(
         if (settings.emojiBarMode != EmojiBarMode.OFF) {
             item {
                 ChoiceSetting(
-                    title = stringResource(R.string.langemoji_emoji_bar_content_title),
+                    title = R.string.langemoji_emoji_bar_content_title,
                     subtitle = stringResource(R.string.langemoji_emoji_bar_content_subtitle),
                     options = listOf(
                         EmojiBarContent.MOST_USED to
@@ -4540,7 +4812,7 @@ private fun EmojiSettings(
             }
             item {
                 SliderSetting(
-                    title = stringResource(R.string.langemoji_emoji_bar_count_title),
+                    title = R.string.langemoji_emoji_bar_count_title,
                     subtitle = stringResource(R.string.langemoji_emoji_bar_count_subtitle),
                     value = settings.emoji.barCount.toFloat(),
                     range = EmojiBarCountRange.first.toFloat()..EmojiBarCountRange.last.toFloat(),
@@ -4550,7 +4822,7 @@ private fun EmojiSettings(
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.langemoji_emoji_bar_scroll_title),
+                    R.string.langemoji_emoji_bar_scroll_title,
                     stringResource(R.string.langemoji_emoji_bar_scroll_subtitle),
                     settings.emoji.barScrollable,
                     info = stringResource(R.string.langemoji_emoji_bar_scroll_info),
@@ -4566,12 +4838,12 @@ private fun EmojiSettings(
             val context = LocalContext.current
             // Bumped after an import so the preview re-resolves the (same-named) file.
             var fontRefresh by remember { mutableIntStateOf(0) }
+            // Where the Emoji font addon's Use button lands: the title resource
+            // is the highlight key every resource-titled row now carries.
             ChoiceSetting(
-                title = stringResource(R.string.langemoji_emoji_font_title),
+                title = R.string.langemoji_emoji_font_title,
                 subtitle = stringResource(R.string.langemoji_emoji_font_subtitle),
                 info = stringResource(R.string.langemoji_emoji_font_info),
-                // Where the Emoji font addon's Use button lands.
-                highlightKey = R.string.langemoji_emoji_font_title,
                 options = listOf(
                     EmojiFontChoice.SYSTEM to
                         stringResource(R.string.langemoji_emoji_font_system_label),
@@ -4665,6 +4937,9 @@ private fun EmojiSettings(
                 Spacer(Modifier.height(8.dp))
             }
         }
+        // Straight after the picker, because "Installed" is the option that
+        // needs a font to have arrived from somewhere first.
+        item { AddonStoreRow(AddonType.EmojiFont, onNavigate) }
         item {
             // The phone is always the one to blame here: an emoji the chosen
             // font is missing is drawn in the phone's own emoji font instead,
@@ -4674,7 +4949,7 @@ private fun EmojiSettings(
             val ownFontInfo =
                 stringResource(R.string.langemoji_emoji_hide_unrenderable_own_font_info)
             ToggleSetting(
-                stringResource(R.string.langemoji_emoji_hide_unrenderable_title),
+                R.string.langemoji_emoji_hide_unrenderable_title,
                 stringResource(R.string.langemoji_emoji_hide_unrenderable_subtitle),
                 settings.emoji.hideUnrenderable,
                 info = if (ownFont) "$hideInfo\n\n$ownFontInfo" else hideInfo,
@@ -5088,7 +5363,7 @@ private fun BackupSettings(repository: SettingsRepository) {
     SettingsGroup(stringResource(R.string.backup_include_group_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.backup_section_settings_label),
+                R.string.backup_section_settings_label,
                 stringResource(R.string.backup_include_settings_subtitle),
                 includeSettings,
             ) { includeSettings = it }
@@ -5096,7 +5371,7 @@ private fun BackupSettings(repository: SettingsRepository) {
         if (includeSettings) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.backup_include_secrets_title),
+                    R.string.backup_include_secrets_title,
                     stringResource(R.string.backup_include_secrets_subtitle),
                     includeSecrets,
                     info = stringResource(R.string.backup_include_secrets_info),
@@ -5105,7 +5380,7 @@ private fun BackupSettings(repository: SettingsRepository) {
         }
         item {
             ToggleSetting(
-                stringResource(R.string.backup_section_themes_label),
+                R.string.backup_section_themes_label,
                 stringResource(R.string.backup_include_themes_subtitle),
                 includeThemes,
                 info = stringResource(R.string.backup_include_themes_info),
@@ -5113,7 +5388,7 @@ private fun BackupSettings(repository: SettingsRepository) {
         }
         item {
             ToggleSetting(
-                stringResource(R.string.backup_section_dictionary_label),
+                R.string.backup_section_dictionary_label,
                 stringResource(R.string.backup_include_dictionary_subtitle),
                 includeDictionary,
                 info = stringResource(R.string.backup_include_dictionary_info),
@@ -5121,7 +5396,7 @@ private fun BackupSettings(repository: SettingsRepository) {
         }
         item {
             ToggleSetting(
-                stringResource(R.string.backup_section_clipboard_label),
+                R.string.backup_section_clipboard_label,
                 stringResource(R.string.backup_include_clipboard_subtitle),
                 includeClipboard,
                 info = stringResource(R.string.backup_include_clipboard_info),
@@ -5129,14 +5404,14 @@ private fun BackupSettings(repository: SettingsRepository) {
         }
         item {
             ToggleSetting(
-                stringResource(R.string.backup_section_snippets_label),
+                R.string.backup_section_snippets_label,
                 stringResource(R.string.backup_include_snippets_subtitle),
                 includeSnippets,
             ) { includeSnippets = it }
         }
         item {
             ToggleSetting(
-                stringResource(R.string.backup_section_stickers_label),
+                R.string.backup_section_stickers_label,
                 stringResource(R.string.backup_include_stickers_subtitle),
                 includeStickers,
                 info = stringResource(R.string.backup_include_stickers_info),
@@ -5144,7 +5419,7 @@ private fun BackupSettings(repository: SettingsRepository) {
         }
         item {
             ToggleSetting(
-                stringResource(R.string.backup_section_icons_label),
+                R.string.backup_section_icons_label,
                 stringResource(R.string.backup_include_icons_subtitle),
                 includeIcons,
                 info = stringResource(R.string.backup_include_icons_info),
@@ -5152,14 +5427,14 @@ private fun BackupSettings(repository: SettingsRepository) {
         }
         item {
             ToggleSetting(
-                stringResource(R.string.backup_section_wordlists_label),
+                R.string.backup_section_wordlists_label,
                 stringResource(R.string.backup_include_wordlists_subtitle),
                 includeWordlists,
             ) { includeWordlists = it }
         }
         item {
             ToggleSetting(
-                stringResource(R.string.backup_section_addons_label),
+                R.string.backup_section_addons_label,
                 stringResource(R.string.backup_include_addons_subtitle),
                 includeAddons,
                 info = stringResource(R.string.backup_include_addons_info),
@@ -5355,7 +5630,11 @@ private fun languageLabel(langId: String): String =
 private data class WordListEntry(val file: java.io.File, val words: Int)
 
 @Composable
-private fun CustomDictionarySettings(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun CustomDictionarySettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var lists by remember {
@@ -5471,6 +5750,7 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
+    AddonStoreGroup(AddonType.Dictionary, onNavigate)
 
     for (language in settings.enabledLanguages) {
         val entries = lists[language.id].orEmpty()
@@ -5597,7 +5877,11 @@ private data class EmojiPackEntry(val file: java.io.File, val emoji: Int)
  * everything past that has to arrive from somewhere else.
  */
 @Composable
-private fun EmojiKeywordSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun EmojiKeywordSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var packs by remember { mutableStateOf<Map<String, List<EmojiPackEntry>>>(emptyMap()) }
@@ -5732,12 +6016,13 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
     SettingsGroup(stringResource(R.string.customdict_emoji_downloads_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.customdict_emoji_auto_download_title),
+                R.string.customdict_emoji_auto_download_title,
                 stringResource(R.string.customdict_emoji_auto_download_subtitle),
                 settings.emoji.autoDownloadKeywords,
                 info = stringResource(R.string.customdict_emoji_auto_download_info),
             ) { scope.launch { repository.setEmojiAutoDownloadKeywords(it) } }
         }
+        item { AddonStoreRow(AddonType.EmojiKeywords, onNavigate) }
     }
 
     for (languageId in languageIds) {
@@ -5898,7 +6183,11 @@ private data class FontMessage(
  * before the library existed; nothing migrates and nothing is lost.
  */
 @Composable
-private fun FontSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun FontSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val fontStore = remember { FontStore.get(context) }
@@ -5971,6 +6260,7 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
+    AddonStoreGroup(AddonType.Font, onNavigate)
     FontPickerSection(
         header = stringResource(R.string.fonts_english_header),
         sample = "The quick brown fox jumps over the lazy dog",
@@ -6404,12 +6694,26 @@ private fun ToolsSettings(
     val scope = rememberCoroutineScope()
     CaptionText(stringResource(R.string.tools_intro_info))
     ToggleSetting(
-        title = stringResource(R.string.tools_colored_icons_title),
+        title = R.string.tools_colored_icons_title,
         subtitle = stringResource(R.string.tools_colored_icons_subtitle),
         checked = settings.coloredToolIcons,
         onChange = { scope.launch { repository.setColoredToolIcons(it) } },
     )
-    if (settings.coloredToolIcons && settings.toolColorOverrides.isNotEmpty()) {
+    // Nested under the switch above rather than shown greyed out: with the
+    // colours off there is nothing for a gradient to be made of, so the row
+    // would be asking about something that cannot happen.
+    if (settings.coloredToolIcons) {
+        ToggleSetting(
+            title = R.string.tools_gradient_icons_title,
+            subtitle = stringResource(R.string.tools_gradient_icons_subtitle),
+            checked = settings.toolIconGradients,
+            info = stringResource(R.string.tools_gradient_icons_info),
+            onChange = { scope.launch { repository.setToolIconGradients(it) } },
+        )
+    }
+    val hasColourOverrides = settings.toolColorOverrides.isNotEmpty() ||
+        settings.toolColorEndOverrides.isNotEmpty()
+    if (settings.coloredToolIcons && hasColourOverrides) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.End,
@@ -6465,6 +6769,7 @@ private fun ToolsSettings(
         SettingsGroup(groupTitle) {
             for (tool in tools) {
                 item {
+                    val paint = toolAccentPaint(tool, settings)
                     WmRow(
                         title = stringResource(toolTitle(tool)),
                         subtitle = stringResource(toolDescription(tool)),
@@ -6474,9 +6779,9 @@ private fun ToolsSettings(
                                 contentDescription = null,
                                 modifier = Modifier
                                     .wmSharedElement(takeOffKey("icon", toolRoute(tool))),
-                                tint = if (settings.coloredToolIcons)
-                                    toolAccentColor(tool, settings.toolColorOverrides)
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = paint?.color
+                                    ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                                brush = paint?.brush,
                             )
                         },
                         flightTo = toolRoute(tool),
@@ -6522,11 +6827,12 @@ internal fun toolRoute(tool: ToolbarTool): String = "tool/${tool.name}"
 
 /** A tool's glyph at heading size — the icon pack's, if the user installed one. */
 @Composable
-private fun ToolGlyph(tool: ToolbarTool) {
+private fun ToolGlyph(tool: ToolbarTool, brush: Brush? = null) {
     SlotIcon(
         IconSlots.forTool(tool),
         contentDescription = null,
         modifier = Modifier.size(HeaderGlyphSize),
+        brush = brush,
     )
 }
 
@@ -6558,7 +6864,7 @@ private fun ToolDetailSettings(
     SettingsGroup {
         item {
             ToggleSetting(
-                stringResource(CommonR.string.common_enable),
+                CommonR.string.common_enable,
                 stringResource(R.string.tooldetail_enabled_subtitle),
                 tool in settings.enabledTools,
                 switchKey = landingKey("switch"),
@@ -6567,38 +6873,32 @@ private fun ToolDetailSettings(
         // Recolour just this tool's icon. Only meaningful while the global
         // "Colorful tool icons" switch is on, since it's what paints them.
         if (settings.coloredToolIcons) {
+            val gradient = settings.toolIconGradients
             item {
-                var showPicker by remember { mutableStateOf(false) }
-                val override = settings.toolColorOverrides[tool]
-                val resolved = override ?: toolAccentColorArgb(tool)
-                WmRow(
-                    title = stringResource(R.string.tooldetail_icon_colour_title),
-                    subtitle = if (override != null) {
-                        stringResource(R.string.tooldetail_icon_colour_custom_subtitle)
-                    } else {
-                        stringResource(R.string.tooldetail_icon_colour_default_subtitle)
-                    },
-                    leading = { Swatch(resolved) },
-                    onClick = { showPicker = true },
+                ToolColourRow(
+                    // With the gradients off there is one colour and it needs
+                    // no qualifier; with them on the two rows have to say which
+                    // end of the gradient each one is.
+                    title = stringResource(
+                        if (gradient) R.string.tooldetail_icon_colour_start_title
+                        else R.string.tooldetail_icon_colour_title,
+                    ),
+                    toolName = stringResource(toolTitle(tool)),
+                    override = settings.toolColorOverrides[tool],
+                    default = toolAccentColorArgb(tool),
+                    onPick = { scope.launch { repository.setToolColor(tool, it) } },
                 )
-                if (showPicker) {
-                    ColorPickerDialog(
-                        title = stringResource(
-                            R.string.tooldetail_icon_colour_dialog_title,
-                            stringResource(toolTitle(tool)),
-                        ),
-                        initial = resolved,
-                        supportsAlpha = false,
-                        showReset = override != null,
-                        onPick = {
-                            scope.launch { repository.setToolColor(tool, it) }
-                            showPicker = false
-                        },
-                        onReset = {
-                            scope.launch { repository.setToolColor(tool, null) }
-                            showPicker = false
-                        },
-                        onDismiss = { showPicker = false },
+            }
+            if (gradient) {
+                item {
+                    ToolColourRow(
+                        title = stringResource(R.string.tooldetail_icon_colour_end_title),
+                        toolName = stringResource(toolTitle(tool)),
+                        override = settings.toolColorEndOverrides[tool],
+                        // Derived from whichever colour the near end currently
+                        // is, so the pair moves together until it is pinned.
+                        default = toolAccentEndColorArgb(tool, settings.toolColorOverrides),
+                        onPick = { scope.launch { repository.setToolColorEnd(tool, it) } },
                     )
                 }
             }
@@ -6618,20 +6918,20 @@ private fun ToolDetailSettings(
         ToolbarTool.EMOJI -> SettingsGroup(stringResource(R.string.tooldetail_emoji_group)) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.tooldetail_emoji_toolbar_title),
+                    R.string.tooldetail_emoji_toolbar_title,
                     stringResource(R.string.tooldetail_emoji_toolbar_subtitle),
                     settings.emojiToolbar,
                 ) { scope.launch { repository.setEmojiToolbar(it) } }
             }
             item {
                 NavRow(
-                    stringResource(R.string.tooldetail_emoji_all_title),
+                    R.string.tooldetail_emoji_all_title,
                     stringResource(R.string.tooldetail_emoji_all_subtitle),
                     onClick = { onNavigate("emoji") },
                 )
             }
         }
-        ToolbarTool.SNIPPETS -> SnippetSettings()
+        ToolbarTool.SNIPPETS -> SnippetSettings(onNavigate)
         ToolbarTool.CLIPBOARD -> {
             // Both grants happen on a system screen, so they are read through
             // rememberGrantState: the rows below disappear as soon as we come back
@@ -6641,21 +6941,21 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_clipboard_history_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_clipboard_history_title),
+                        R.string.tooldetail_clipboard_history_title,
                         stringResource(R.string.tooldetail_clipboard_history_subtitle),
                         settings.clipboard.history,
                     ) { scope.launch { repository.setClipboardHistory(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_clipboard_suggest_recent_title),
+                        R.string.tooldetail_clipboard_suggest_recent_title,
                         stringResource(R.string.tooldetail_clipboard_suggest_recent_subtitle),
                         settings.clipboard.suggestRecent,
                     ) { scope.launch { repository.setClipboardSuggestRecent(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_clipboard_toast_title),
+                        R.string.tooldetail_clipboard_toast_title,
                         stringResource(R.string.tooldetail_clipboard_toast_subtitle),
                         settings.feedback.toastOnCopy,
                         info = stringResource(R.string.tooldetail_clipboard_toast_info),
@@ -6666,7 +6966,7 @@ private fun ToolDetailSettings(
                     // is resolved here and captured, like the hours format.
                     val never = stringResource(R.string.tooldetail_clipboard_expiry_never)
                     SliderSetting(
-                        stringResource(R.string.tooldetail_clipboard_expiry_title),
+                        R.string.tooldetail_clipboard_expiry_title,
                         subtitle = stringResource(R.string.tooldetail_clipboard_expiry_subtitle),
                         value = settings.clipboard.expiryHours.toFloat(),
                         range = 0f..168f,
@@ -6675,7 +6975,7 @@ private fun ToolDetailSettings(
                 }
                 item {
                     SliderSetting(
-                        stringResource(R.string.tooldetail_clipboard_max_title),
+                        R.string.tooldetail_clipboard_max_title,
                         subtitle = stringResource(R.string.tooldetail_clipboard_max_subtitle),
                         value = settings.clipboard.maxItems.toFloat(),
                         range = 5f..500f,
@@ -6685,28 +6985,28 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_clipboard_bottom_row_title),
+                        R.string.tooldetail_clipboard_bottom_row_title,
                         stringResource(R.string.tooldetail_clipboard_bottom_row_subtitle),
                         settings.clipboard.bottomRow,
                     ) { scope.launch { repository.setClipboardBottomRow(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_clipboard_pinned_last_title),
+                        R.string.tooldetail_clipboard_pinned_last_title,
                         stringResource(R.string.tooldetail_clipboard_pinned_last_subtitle),
                         settings.clipboard.pinnedLast,
                     ) { scope.launch { repository.setClipboardPinnedLast(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_clipboard_search_title),
+                        R.string.tooldetail_clipboard_search_title,
                         stringResource(R.string.tooldetail_clipboard_search_subtitle),
                         settings.clipboard.search,
                     ) { scope.launch { repository.setClipboardSearch(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_clipboard_entities_title),
+                        R.string.tooldetail_clipboard_entities_title,
                         stringResource(R.string.tooldetail_clipboard_entities_subtitle),
                         settings.clipboard.detectEntities,
                         info = stringResource(R.string.tooldetail_clipboard_entities_info),
@@ -6714,7 +7014,7 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_clipboard_password_paste_title),
+                        R.string.tooldetail_clipboard_password_paste_title,
                         stringResource(R.string.tooldetail_clipboard_password_paste_subtitle),
                         settings.clipboard.clearAfterPasswordPaste,
                         info = stringResource(R.string.tooldetail_clipboard_password_paste_info),
@@ -6722,7 +7022,7 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_clipboard_link_previews_title),
+                        R.string.tooldetail_clipboard_link_previews_title,
                         stringResource(R.string.tooldetail_clipboard_link_previews_subtitle),
                         settings.clipboard.linkPreviews,
                     ) { scope.launch { repository.setClipboardLinkPreviews(it) } }
@@ -6730,7 +7030,7 @@ private fun ToolDetailSettings(
                 item {
                     val context = LocalContext.current
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_clipboard_screenshots_title),
+                        R.string.tooldetail_clipboard_screenshots_title,
                         stringResource(R.string.tooldetail_clipboard_screenshots_subtitle),
                         settings.clipboard.userScreenshots,
                     ) { on ->
@@ -6749,7 +7049,7 @@ private fun ToolDetailSettings(
                     item {
                         val context = LocalContext.current
                         NavRow(
-                            stringResource(R.string.tooldetail_clipboard_storage_permission_title),
+                            R.string.tooldetail_clipboard_storage_permission_title,
                             stringResource(R.string.tooldetail_clipboard_storage_permission_subtitle),
                         ) {
                             runCatching {
@@ -6766,7 +7066,7 @@ private fun ToolDetailSettings(
                     val context = LocalContext.current
                     val usageAccess = rememberDisclosedSpecialAccess(SpecialAccess.USAGE)
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_clipboard_track_source_title),
+                        R.string.tooldetail_clipboard_track_source_title,
                         stringResource(R.string.tooldetail_clipboard_track_source_subtitle),
                         settings.clipboard.trackSource,
                         info = stringResource(R.string.tooldetail_clipboard_track_source_info),
@@ -6782,7 +7082,7 @@ private fun ToolDetailSettings(
                     item {
                         val usageAccessRow = rememberDisclosedSpecialAccess(SpecialAccess.USAGE)
                         NavRow(
-                            stringResource(R.string.tooldetail_clipboard_usage_permission_title),
+                            R.string.tooldetail_clipboard_usage_permission_title,
                             stringResource(R.string.tooldetail_clipboard_usage_permission_subtitle),
                         ) { usageAccessRow() }
                     }
@@ -6791,7 +7091,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_clipboard_sensitive_group)) {
                 item {
                     ChoiceSetting(
-                        title = stringResource(R.string.tooldetail_clipboard_sensitive_title),
+                        title = R.string.tooldetail_clipboard_sensitive_title,
                         subtitle = stringResource(R.string.tooldetail_clipboard_sensitive_subtitle),
                         info = stringResource(R.string.tooldetail_clipboard_sensitive_info),
                         options = SensitiveClipHandling.entries.map { it to stringResource(it.labelRes) },
@@ -6801,7 +7101,7 @@ private fun ToolDetailSettings(
                 if (settings.clipboard.sensitiveHandling != SensitiveClipHandling.KEEP) {
                     item {
                         ToggleSetting(
-                            stringResource(R.string.tooldetail_clipboard_detect_sensitive_title),
+                            R.string.tooldetail_clipboard_detect_sensitive_title,
                             stringResource(R.string.tooldetail_clipboard_detect_sensitive_subtitle),
                             settings.clipboard.detectSensitive,
                             info = stringResource(R.string.tooldetail_clipboard_detect_sensitive_info),
@@ -6811,7 +7111,7 @@ private fun ToolDetailSettings(
                 if (settings.clipboard.sensitiveHandling == SensitiveClipHandling.SHORT_LIVED) {
                     item {
                         SliderSetting(
-                            stringResource(R.string.tooldetail_clipboard_sensitive_expiry_title),
+                            R.string.tooldetail_clipboard_sensitive_expiry_title,
                             subtitle = stringResource(
                                 R.string.tooldetail_clipboard_sensitive_expiry_subtitle,
                             ),
@@ -6828,7 +7128,7 @@ private fun ToolDetailSettings(
         ToolbarTool.SPLIT -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 SliderSetting(
-                    stringResource(R.string.tooldetail_split_gap_title),
+                    R.string.tooldetail_split_gap_title,
                     subtitle = stringResource(R.string.tooldetail_split_gap_subtitle),
                     value = settings.splitGapPercent.toFloat(),
                     range = 5f..40f,
@@ -6837,7 +7137,7 @@ private fun ToolDetailSettings(
             }
             item {
                 NavRow(
-                    stringResource(R.string.tooldetail_layout_nav_title),
+                    R.string.tooldetail_layout_nav_title,
                     stringResource(R.string.tooldetail_layout_nav_split_subtitle),
                     onClick = { onNavigate("layout") },
                 )
@@ -6846,7 +7146,7 @@ private fun ToolDetailSettings(
         ToolbarTool.FLOATING -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 SliderSetting(
-                    stringResource(R.string.tooldetail_floating_width_title),
+                    R.string.tooldetail_floating_width_title,
                     subtitle = stringResource(R.string.tooldetail_floating_width_subtitle),
                     value = settings.floatingWidthDp.toFloat(),
                     range = 240f..500f,
@@ -6855,7 +7155,7 @@ private fun ToolDetailSettings(
             }
             item {
                 NavRow(
-                    stringResource(R.string.tooldetail_layout_nav_title),
+                    R.string.tooldetail_layout_nav_title,
                     stringResource(R.string.tooldetail_layout_nav_floating_subtitle),
                     onClick = { onNavigate("layout") },
                 )
@@ -6864,7 +7164,7 @@ private fun ToolDetailSettings(
         ToolbarTool.FLASHLIGHT -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.tooldetail_flashlight_auto_off_title),
+                    R.string.tooldetail_flashlight_auto_off_title,
                     stringResource(R.string.tooldetail_flashlight_auto_off_subtitle),
                     settings.flashlightAutoOff,
                     info = stringResource(R.string.tooldetail_flashlight_auto_off_info),
@@ -6875,14 +7175,14 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_compass_degrees_title),
+                        R.string.tooldetail_compass_degrees_title,
                         stringResource(R.string.tooldetail_compass_degrees_subtitle),
                         settings.compassShowDegrees,
                     ) { scope.launch { repository.setCompassShowDegrees(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_compass_qibla_title),
+                        R.string.tooldetail_compass_qibla_title,
                         stringResource(R.string.tooldetail_compass_qibla_subtitle),
                         settings.compassShowQibla,
                         info = stringResource(R.string.tooldetail_compass_qibla_info),
@@ -6899,7 +7199,7 @@ private fun ToolDetailSettings(
         ToolbarTool.LEVEL -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.tooldetail_level_angles_title),
+                    R.string.tooldetail_level_angles_title,
                     stringResource(R.string.tooldetail_level_angles_subtitle),
                     settings.levelShowAngles,
                 ) { scope.launch { repository.setLevelShowAngles(it) } }
@@ -6909,7 +7209,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_redo_ctrl_y_title),
+                        R.string.tooldetail_redo_ctrl_y_title,
                         stringResource(R.string.tooldetail_redo_ctrl_y_subtitle),
                         settings.redoUsesCtrlY,
                         info = stringResource(R.string.tooldetail_redo_ctrl_y_info),
@@ -6919,7 +7219,7 @@ private fun ToolDetailSettings(
         ToolbarTool.MOON_PHASE -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.tooldetail_moon_southern_title),
+                    R.string.tooldetail_moon_southern_title,
                     stringResource(R.string.tooldetail_moon_southern_subtitle),
                     settings.moonSouthernHemisphere,
                 ) { scope.launch { repository.setMoonSouthernHemisphere(it) } }
@@ -6930,7 +7230,7 @@ private fun ToolDetailSettings(
                 item { WeatherLocationSetting(repository, settings) }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_weather_fahrenheit_title),
+                        R.string.tooldetail_weather_fahrenheit_title,
                         stringResource(R.string.tooldetail_weather_fahrenheit_subtitle),
                         settings.weatherFahrenheit,
                     ) { scope.launch { repository.setWeatherFahrenheit(it) } }
@@ -6966,7 +7266,7 @@ private fun ToolDetailSettings(
                 if (showsHijri) {
                     item {
                         SliderSetting(
-                            stringResource(R.string.tooldetail_calendar_hijri_title),
+                            R.string.tooldetail_calendar_hijri_title,
                             subtitle = stringResource(R.string.tooldetail_calendar_hijri_subtitle),
                             value = settings.hijriAdjustDays.toFloat(),
                             range = -2f..2f,
@@ -6986,14 +7286,14 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_camera_front_title),
+                        R.string.tooldetail_camera_front_title,
                         stringResource(R.string.tooldetail_camera_front_subtitle),
                         settings.camera.preferFront,
                     ) { scope.launch { repository.setCameraPreferFront(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_camera_mirror_title),
+                        R.string.tooldetail_camera_mirror_title,
                         stringResource(R.string.tooldetail_camera_mirror_subtitle),
                         settings.camera.mirrorFront,
                         info = stringResource(R.string.tooldetail_camera_mirror_info),
@@ -7001,7 +7301,7 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_camera_gallery_title),
+                        R.string.tooldetail_camera_gallery_title,
                         stringResource(R.string.tooldetail_camera_gallery_subtitle),
                         settings.camera.saveToGallery,
                         info = stringResource(R.string.tooldetail_camera_gallery_info),
@@ -7011,14 +7311,14 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_camera_feedback_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_camera_shutter_title),
+                        R.string.tooldetail_camera_shutter_title,
                         stringResource(R.string.tooldetail_camera_shutter_subtitle),
                         settings.camera.shutterSound,
                     ) { scope.launch { repository.setCameraShutterSound(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_camera_haptics_title),
+                        R.string.tooldetail_camera_haptics_title,
                         stringResource(R.string.tooldetail_camera_haptics_subtitle),
                         settings.camera.haptics,
                         info = stringResource(R.string.tooldetail_camera_haptics_info),
@@ -7031,7 +7331,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_dictionary_auto_title),
+                        R.string.tooldetail_dictionary_auto_title,
                         stringResource(R.string.tooldetail_dictionary_auto_subtitle),
                         settings.dictionaryAutoLookup,
                     ) { scope.launch { repository.setDictionaryAutoLookup(it) } }
@@ -7042,7 +7342,7 @@ private fun ToolDetailSettings(
         ToolbarTool.TEXT_EDIT -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 SliderSetting(
-                    stringResource(R.string.tooldetail_text_edit_repeat_title),
+                    R.string.tooldetail_text_edit_repeat_title,
                     subtitle = stringResource(R.string.tooldetail_text_edit_repeat_subtitle),
                     value = settings.textEditing.repeatMs.toFloat(),
                     range = 30f..200f,
@@ -7053,7 +7353,7 @@ private fun ToolDetailSettings(
         ToolbarTool.NUMPAD -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.tooldetail_numpad_calc_title),
+                    R.string.tooldetail_numpad_calc_title,
                     stringResource(R.string.tooldetail_numpad_calc_subtitle),
                     settings.numpadCalculatorLayout,
                 ) { scope.launch { repository.setNumpadCalculatorLayout(it) } }
@@ -7063,14 +7363,14 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_incognito_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_incognito_learning_title),
+                        R.string.tooldetail_incognito_learning_title,
                         stringResource(R.string.tooldetail_incognito_learning_subtitle),
                         settings.incognitoPausesLearning,
                     ) { scope.launch { repository.setIncognitoPausesLearning(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_incognito_clipboard_title),
+                        R.string.tooldetail_incognito_clipboard_title,
                         stringResource(R.string.tooldetail_incognito_clipboard_subtitle),
                         settings.incognitoPausesClipboard,
                     ) { scope.launch { repository.setIncognitoPausesClipboard(it) } }
@@ -7079,7 +7379,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_incognito_auto_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_incognito_auto_title),
+                        R.string.tooldetail_incognito_auto_title,
                         stringResource(R.string.tooldetail_incognito_auto_subtitle),
                         settings.autoIncognito,
                         info = stringResource(AUTO_INCOGNITO_INFO),
@@ -7093,7 +7393,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_power_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_power_now_title),
+                        R.string.tooldetail_power_now_title,
                         stringResource(R.string.tooldetail_power_now_subtitle),
                         ps.manual,
                         info = stringResource(R.string.tooldetail_power_now_info),
@@ -7101,7 +7401,7 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ChoiceSetting(
-                        stringResource(R.string.tooldetail_power_trigger_title),
+                        R.string.tooldetail_power_trigger_title,
                         subtitle = stringResource(R.string.tooldetail_power_trigger_subtitle),
                         info = stringResource(R.string.tooldetail_power_trigger_info),
                         options = PowerSavingTrigger.entries.map { it to stringResource(it.labelRes) },
@@ -7113,7 +7413,7 @@ private fun ToolDetailSettings(
                 ) {
                     item {
                         SliderSetting(
-                            stringResource(R.string.tooldetail_power_battery_title),
+                            R.string.tooldetail_power_battery_title,
                             subtitle = stringResource(R.string.tooldetail_power_battery_subtitle),
                             value = ps.batteryPercent.toFloat(),
                             range = 5f..50f,
@@ -7124,7 +7424,7 @@ private fun ToolDetailSettings(
                 if (ps.trigger != PowerSavingTrigger.OFF) {
                     item {
                         ToggleSetting(
-                            stringResource(R.string.tooldetail_power_charging_title),
+                            R.string.tooldetail_power_charging_title,
                             stringResource(R.string.tooldetail_power_charging_subtitle),
                             ps.offWhileCharging,
                             info = stringResource(R.string.tooldetail_power_charging_info),
@@ -7135,28 +7435,28 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_power_drop_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_power_drop_haptics_title),
+                        R.string.tooldetail_power_drop_haptics_title,
                         stringResource(R.string.tooldetail_power_drop_haptics_subtitle),
                         ps.dropHaptics,
                     ) { scope.launch { repository.setPowerSavingDropHaptics(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_power_drop_sound_title),
+                        R.string.tooldetail_power_drop_sound_title,
                         stringResource(R.string.tooldetail_power_drop_sound_subtitle),
                         ps.dropKeySound,
                     ) { scope.launch { repository.setPowerSavingDropKeySound(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_power_drop_anim_title),
+                        R.string.tooldetail_power_drop_anim_title,
                         stringResource(R.string.tooldetail_power_drop_anim_subtitle),
                         ps.dropAnimations,
                     ) { scope.launch { repository.setPowerSavingDropAnimations(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_power_drop_trail_title),
+                        R.string.tooldetail_power_drop_trail_title,
                         stringResource(R.string.tooldetail_power_drop_trail_subtitle),
                         ps.dropGlideTrail,
                         info = stringResource(R.string.tooldetail_power_drop_trail_info),
@@ -7164,14 +7464,14 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_power_drop_popup_title),
+                        R.string.tooldetail_power_drop_popup_title,
                         stringResource(R.string.tooldetail_power_drop_popup_subtitle),
                         ps.dropKeyPopup,
                     ) { scope.launch { repository.setPowerSavingDropKeyPopup(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_power_drop_glide_title),
+                        R.string.tooldetail_power_drop_glide_title,
                         stringResource(R.string.tooldetail_power_drop_glide_subtitle),
                         ps.dropGestureTyping,
                         info = stringResource(R.string.tooldetail_power_drop_glide_info),
@@ -7179,21 +7479,21 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_power_drop_emoji_title),
+                        R.string.tooldetail_power_drop_emoji_title,
                         stringResource(R.string.tooldetail_power_drop_emoji_subtitle),
                         ps.dropEmojiPrediction,
                     ) { scope.launch { repository.setPowerSavingDropEmojiPrediction(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_power_drop_chips_title),
+                        R.string.tooldetail_power_drop_chips_title,
                         stringResource(R.string.tooldetail_power_drop_chips_subtitle),
                         ps.dropSmartChips,
                     ) { scope.launch { repository.setPowerSavingDropSmartChips(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_power_drop_network_title),
+                        R.string.tooldetail_power_drop_network_title,
                         stringResource(R.string.tooldetail_power_drop_network_subtitle),
                         ps.dropBackgroundNetwork,
                         info = stringResource(R.string.tooldetail_power_drop_network_info),
@@ -7201,14 +7501,14 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_power_drop_screenshot_title),
+                        R.string.tooldetail_power_drop_screenshot_title,
                         stringResource(R.string.tooldetail_power_drop_screenshot_subtitle),
                         ps.dropScreenshotWatch,
                     ) { scope.launch { repository.setPowerSavingDropScreenshotWatch(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_power_drop_models_title),
+                        R.string.tooldetail_power_drop_models_title,
                         stringResource(R.string.tooldetail_power_drop_models_subtitle),
                         ps.dropOnDeviceModels,
                         info = stringResource(R.string.tooldetail_power_drop_models_info),
@@ -7220,24 +7520,24 @@ private fun ToolDetailSettings(
         ToolbarTool.AUTOCORRECT -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.tooldetail_autocorrect_title),
+                    R.string.tooldetail_autocorrect_title,
                     stringResource(R.string.tooldetail_autocorrect_subtitle),
                     settings.autocorrect,
                 ) { scope.launch { repository.setAutocorrect(it) } }
             }
             item {
                 NavRow(
-                    stringResource(R.string.tooldetail_typing_nav_title),
+                    R.string.tooldetail_typing_nav_title,
                     stringResource(R.string.tooldetail_typing_nav_subtitle),
                     onClick = { onNavigate("typing") },
                 )
             }
         }
         ToolbarTool.SOUND_HAPTICS -> {
-            KeySoundGroup(repository, settings) {
+            KeySoundGroup(repository, settings, onNavigate) {
                 item {
                     NavRow(
-                        stringResource(R.string.tooldetail_keypress_nav_title),
+                        R.string.tooldetail_keypress_nav_title,
                         stringResource(R.string.tooldetail_keypress_nav_subtitle),
                         onClick = { onNavigate("keypress") },
                     )
@@ -7249,7 +7549,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_handwriting_input_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_handwriting_stylus_title),
+                        R.string.tooldetail_handwriting_stylus_title,
                         stringResource(R.string.tooldetail_handwriting_stylus_subtitle),
                         settings.handwritingStylusOnly,
                         info = stringResource(R.string.tooldetail_handwriting_stylus_info),
@@ -7257,14 +7557,14 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_handwriting_auto_space_title),
+                        R.string.tooldetail_handwriting_auto_space_title,
                         stringResource(R.string.tooldetail_handwriting_auto_space_subtitle),
                         settings.handwritingAutoSpace,
                     ) { scope.launch { repository.setHandwritingAutoSpace(it) } }
                 }
                 item {
                     SliderSetting(
-                        stringResource(R.string.tooldetail_handwriting_pause_title),
+                        R.string.tooldetail_handwriting_pause_title,
                         subtitle = stringResource(R.string.tooldetail_handwriting_pause_subtitle),
                         value = settings.handwritingCommitDelayMs.toFloat(),
                         range = 300f..2000f,
@@ -7279,7 +7579,7 @@ private fun ToolDetailSettings(
             SettingsGroup {
                 item {
                     NavRow(
-                        stringResource(R.string.tooldetail_handwriting_languages_title),
+                        R.string.tooldetail_handwriting_languages_title,
                         stringResource(R.string.tooldetail_handwriting_languages_subtitle),
                         onClick = { onNavigate("languages") },
                     )
@@ -7289,7 +7589,7 @@ private fun ToolDetailSettings(
         ToolbarTool.THEMES -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 NavRow(
-                    stringResource(R.string.tooldetail_themes_nav_title),
+                    R.string.tooldetail_themes_nav_title,
                     stringResource(R.string.tooldetail_themes_nav_subtitle),
                     onClick = { onNavigate("themes") },
                 )
@@ -7298,7 +7598,7 @@ private fun ToolDetailSettings(
         ToolbarTool.ONE_HANDED -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 NavRow(
-                    stringResource(R.string.tooldetail_layout_nav_title),
+                    R.string.tooldetail_layout_nav_title,
                     stringResource(R.string.tooldetail_layout_nav_one_handed_subtitle),
                     onClick = { onNavigate("layout") },
                 )
@@ -7325,7 +7625,7 @@ private fun ToolDetailSettings(
                 SettingsGroup(stringResource(R.string.tooldetail_sticker_packs_group)) {
                     item {
                         NavRow(
-                            stringResource(R.string.tooldetail_sticker_packs_title),
+                            R.string.tooldetail_sticker_packs_title,
                             stringResource(R.string.tooldetail_sticker_packs_subtitle),
                             route = "sticker_packs",
                             onClick = { onNavigate("sticker_packs") },
@@ -7336,7 +7636,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_media_layout_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_media_full_bleed_title),
+                        R.string.tooldetail_media_full_bleed_title,
                         stringResource(R.string.tooldetail_media_full_bleed_subtitle),
                         settings.mediaFullBleed,
                         info = stringResource(R.string.tooldetail_media_full_bleed_info),
@@ -7365,85 +7665,64 @@ private fun ToolDetailSettings(
             // Resolved out here: the group builder lambda is not composable.
             val stickerOption = stringResource(R.string.tooldetail_media_send_sticker_option)
             val imageOption = stringResource(R.string.tooldetail_media_send_image_option)
+            // One send mode per tool: a sticker tapped in the sticker panel is
+            // sent with the sticker setting and a GIF tapped in the GIF panel
+            // with the GIF one (see WMKeyboardService.onGifSelect), so showing
+            // both on both pages only invited the user to change the one that
+            // could not affect the panel they came from.
             SettingsGroup(stringResource(R.string.tooldetail_media_sending_group)) {
                 item {
-                    ChoiceSetting(
-                        title = stringResource(R.string.tooldetail_media_sticker_send_title),
-                        subtitle = stringResource(R.string.tooldetail_media_sticker_send_subtitle),
-                        info = stringResource(R.string.tooldetail_media_sticker_send_info),
-                        options = listOf(
-                            MediaSendMode.STICKER to stickerOption,
-                            MediaSendMode.IMAGE to imageOption,
-                        ),
-                        selected = settings.stickerSendMode,
-                    ) { scope.launch { repository.setStickerSendMode(it) } }
-                }
-                item {
-                    ChoiceSetting(
-                        title = stringResource(R.string.tooldetail_media_gif_send_title),
-                        subtitle = stringResource(R.string.tooldetail_media_gif_send_subtitle),
-                        info = stringResource(R.string.tooldetail_media_gif_send_info),
-                        options = listOf(
-                            MediaSendMode.IMAGE to imageOption,
-                            MediaSendMode.STICKER to stickerOption,
-                        ),
-                        selected = settings.gifSendMode,
-                    ) { scope.launch { repository.setGifSendMode(it) } }
+                    if (tool == ToolbarTool.STICKER) {
+                        ChoiceSetting(
+                            title = R.string.tooldetail_media_sticker_send_title,
+                            subtitle = stringResource(R.string.tooldetail_media_sticker_send_subtitle),
+                            info = stringResource(R.string.tooldetail_media_sticker_send_info),
+                            options = listOf(
+                                MediaSendMode.STICKER to stickerOption,
+                                MediaSendMode.IMAGE to imageOption,
+                            ),
+                            selected = settings.stickerSendMode,
+                        ) { scope.launch { repository.setStickerSendMode(it) } }
+                    } else {
+                        ChoiceSetting(
+                            title = R.string.tooldetail_media_gif_send_title,
+                            subtitle = stringResource(R.string.tooldetail_media_gif_send_subtitle),
+                            info = stringResource(R.string.tooldetail_media_gif_send_info),
+                            options = listOf(
+                                MediaSendMode.IMAGE to imageOption,
+                                MediaSendMode.STICKER to stickerOption,
+                            ),
+                            selected = settings.gifSendMode,
+                        ) { scope.launch { repository.setGifSendMode(it) } }
+                    }
                 }
             }
             SectionHeader(stringResource(R.string.tooldetail_media_sources_header))
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                GifSourceMode.entries.forEachIndexed { index, mode ->
-                    SegmentedButton(
-                        selected = settings.gifSourceMode == mode,
-                        onClick = { scope.launch { repository.setGifSourceMode(mode) } },
-                        shape = SegmentedButtonDefaults.itemShape(index, GifSourceMode.entries.size),
-                    ) {
-                        Text(
-                            when (mode) {
-                                GifSourceMode.TABS ->
-                                    stringResource(R.string.tooldetail_media_source_tabs)
-                                GifSourceMode.MIX ->
-                                    stringResource(R.string.tooldetail_media_source_mixed)
-                            },
-                            maxLines = 1,
-                        )
+            ChoiceControl(
+                options = GifSourceMode.entries.map { mode ->
+                    mode to when (mode) {
+                        GifSourceMode.TABS -> stringResource(R.string.tooldetail_media_source_tabs)
+                        GifSourceMode.MIX -> stringResource(R.string.tooldetail_media_source_mixed)
                     }
-                }
-            }
+                },
+                selected = settings.gifSourceMode,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) { mode -> scope.launch { repository.setGifSourceMode(mode) } }
             CaptionText(stringResource(R.string.tooldetail_media_sources_info))
             SectionHeader(stringResource(R.string.tooldetail_media_filter_header))
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                GifContentFilter.entries.forEachIndexed { index, filter ->
-                    SegmentedButton(
-                        selected = settings.gifContentFilter == filter,
-                        onClick = { scope.launch { repository.setGifContentFilter(filter) } },
-                        shape = SegmentedButtonDefaults.itemShape(index, GifContentFilter.entries.size),
-                    ) {
-                        Text(
-                            when (filter) {
-                                GifContentFilter.OFF ->
-                                    stringResource(CommonR.string.common_off)
-                                GifContentFilter.LOW ->
-                                    stringResource(R.string.tooldetail_media_filter_low)
-                                GifContentFilter.MEDIUM ->
-                                    stringResource(R.string.tooldetail_media_filter_medium)
-                                GifContentFilter.HIGH ->
-                                    stringResource(R.string.tooldetail_media_filter_high)
-                            },
-                            maxLines = 1,
-                        )
+            ChoiceControl(
+                options = GifContentFilter.entries.map { filter ->
+                    filter to when (filter) {
+                        GifContentFilter.OFF -> stringResource(CommonR.string.common_off)
+                        GifContentFilter.LOW -> stringResource(R.string.tooldetail_media_filter_low)
+                        GifContentFilter.MEDIUM ->
+                            stringResource(R.string.tooldetail_media_filter_medium)
+                        GifContentFilter.HIGH -> stringResource(R.string.tooldetail_media_filter_high)
                     }
-                }
-            }
+                },
+                selected = settings.gifContentFilter,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) { filter -> scope.launch { repository.setGifContentFilter(filter) } }
             CaptionText(stringResource(R.string.tooldetail_media_filter_info))
         }
         ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH -> {
@@ -7461,14 +7740,14 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_search_results_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_search_safe_title),
+                        R.string.tooldetail_search_safe_title,
                         stringResource(R.string.tooldetail_search_safe_subtitle),
                         settings.searchSafe,
                     ) { scope.launch { repository.setSearchSafe(it) } }
                 }
                 item {
                     SliderSetting(
-                        stringResource(R.string.tooldetail_search_count_title),
+                        R.string.tooldetail_search_count_title,
                         subtitle = stringResource(R.string.tooldetail_search_count_subtitle),
                         value = settings.searchResultCount.toFloat(),
                         range = 1f..10f,
@@ -7481,7 +7760,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_ocr_select_all_title),
+                        R.string.tooldetail_ocr_select_all_title,
                         stringResource(R.string.tooldetail_ocr_select_all_subtitle),
                         settings.ocrAutoSelectWords,
                     ) { scope.launch { repository.setOcrAutoSelectWords(it) } }
@@ -7493,21 +7772,21 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_qr_scan_auto_title),
+                        R.string.tooldetail_qr_scan_auto_title,
                         stringResource(R.string.tooldetail_qr_scan_auto_subtitle),
                         settings.qrScanAutoInsert,
                     ) { scope.launch { repository.setQrScanAutoInsert(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_qr_scan_haptics_title),
+                        R.string.tooldetail_qr_scan_haptics_title,
                         stringResource(R.string.tooldetail_qr_scan_haptics_subtitle),
                         settings.qrScanHaptics,
                     ) { scope.launch { repository.setQrScanHaptics(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_qr_scan_preview_title),
+                        R.string.tooldetail_qr_scan_preview_title,
                         stringResource(R.string.tooldetail_qr_scan_preview_subtitle),
                         settings.qrScanLinkPreviews,
                     ) { scope.launch { repository.setQrScanLinkPreviews(it) } }
@@ -7519,7 +7798,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_doc_scan_gallery_title),
+                        R.string.tooldetail_doc_scan_gallery_title,
                         stringResource(R.string.tooldetail_doc_scan_gallery_subtitle),
                         settings.docScanSaveToGallery,
                     ) { scope.launch { repository.setDocScanSaveToGallery(it) } }
@@ -7536,7 +7815,7 @@ private fun ToolDetailSettings(
                 SettingsGroup(stringResource(R.string.tooldetail_voice_engine_group)) {
                     item {
                         ChoiceSetting(
-                            stringResource(R.string.tooldetail_voice_engine_title),
+                            R.string.tooldetail_voice_engine_title,
                             subtitle = stringResource(R.string.tooldetail_voice_engine_subtitle),
                             info = stringResource(R.string.tooldetail_voice_engine_info),
                             options = listOf(
@@ -7551,21 +7830,21 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_voice_dictation_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_voice_strip_title),
+                        R.string.tooldetail_voice_strip_title,
                         stringResource(R.string.tooldetail_voice_strip_subtitle),
                         settings.voiceStripMode,
                     ) { scope.launch { repository.setVoiceStripMode(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_voice_continuous_title),
+                        R.string.tooldetail_voice_continuous_title,
                         stringResource(R.string.tooldetail_voice_continuous_subtitle),
                         settings.voiceContinuous,
                     ) { scope.launch { repository.setVoiceContinuous(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_voice_punctuation_title),
+                        R.string.tooldetail_voice_punctuation_title,
                         stringResource(R.string.tooldetail_voice_punctuation_subtitle),
                         settings.voiceSpokenPunctuation,
                     ) { scope.launch { repository.setVoiceSpokenPunctuation(it) } }
@@ -7575,7 +7854,7 @@ private fun ToolDetailSettings(
                 SettingsGroup(stringResource(R.string.tooldetail_voice_offline_group)) {
                     item {
                         ToggleSetting(
-                            stringResource(R.string.tooldetail_voice_translate_title),
+                            R.string.tooldetail_voice_translate_title,
                             stringResource(R.string.tooldetail_voice_translate_subtitle),
                             settings.whisper.translate,
                         ) { scope.launch { repository.setWhisperTranslate(it) } }
@@ -7590,7 +7869,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ChoiceSetting(
-                        stringResource(R.string.tooldetail_grammar_dialect_title),
+                        R.string.tooldetail_grammar_dialect_title,
                         subtitle = stringResource(R.string.tooldetail_grammar_dialect_subtitle),
                         options = GrammarDialect.entries.map { it to stringResource(it.labelRes) },
                         selected = settings.grammarDialect,
@@ -7598,7 +7877,7 @@ private fun ToolDetailSettings(
                 }
                 item {
                     SliderSetting(
-                        stringResource(R.string.tooldetail_grammar_debounce_title),
+                        R.string.tooldetail_grammar_debounce_title,
                         subtitle = stringResource(R.string.tooldetail_grammar_debounce_subtitle),
                         value = settings.grammarDebounceMs.toFloat(),
                         range = 100f..1500f,
@@ -7611,7 +7890,7 @@ private fun ToolDetailSettings(
                 SettingsGroup(stringResource(R.string.tooldetail_grammar_system_group)) {
                     item {
                         NavRow(
-                            stringResource(R.string.tooldetail_grammar_system_title),
+                            R.string.tooldetail_grammar_system_title,
                             stringResource(R.string.tooldetail_grammar_system_subtitle),
                             onClick = { openSpellCheckerSettings(context) },
                         )
@@ -7648,7 +7927,7 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_wiki_markdown_title),
+                        R.string.tooldetail_wiki_markdown_title,
                         stringResource(R.string.tooldetail_wiki_markdown_subtitle),
                         settings.wikiLinksMarkdown,
                     ) { scope.launch { repository.setWikiLinksMarkdown(it) } }
@@ -7680,7 +7959,7 @@ private fun ToolDetailSettings(
         ToolbarTool.CALCULATOR -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.tooldetail_calc_smart_title),
+                    R.string.tooldetail_calc_smart_title,
                     stringResource(R.string.tooldetail_calc_smart_subtitle),
                     settings.smartCalc,
                     info = stringResource(R.string.tooldetail_calc_smart_info),
@@ -7688,14 +7967,14 @@ private fun ToolDetailSettings(
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.tooldetail_calc_degrees_title),
+                    R.string.tooldetail_calc_degrees_title,
                     stringResource(R.string.tooldetail_calc_degrees_subtitle),
                     settings.calcDegrees,
                 ) { scope.launch { repository.setCalcDegrees(it) } }
             }
             item {
                 SliderSetting(
-                    stringResource(R.string.tooldetail_calc_precision_title),
+                    R.string.tooldetail_calc_precision_title,
                     subtitle = stringResource(R.string.tooldetail_calc_precision_subtitle),
                     value = settings.calcPrecision.toFloat(),
                     range = 0f..12f,
@@ -7707,7 +7986,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_units_smart_title),
+                        R.string.tooldetail_units_smart_title,
                         stringResource(R.string.tooldetail_units_smart_subtitle),
                         settings.smartUnits,
                         info = stringResource(R.string.tooldetail_units_smart_info),
@@ -7720,7 +7999,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_currency_smart_title),
+                        R.string.tooldetail_currency_smart_title,
                         stringResource(
                             R.string.tooldetail_currency_smart_subtitle,
                             settings.currencyTo,
@@ -7731,7 +8010,7 @@ private fun ToolDetailSettings(
                 }
                 item {
                     SliderSetting(
-                        stringResource(R.string.tooldetail_currency_decimals_title),
+                        R.string.tooldetail_currency_decimals_title,
                         subtitle = stringResource(R.string.tooldetail_currency_decimals_subtitle),
                         value = settings.currencyDecimals.toFloat(),
                         range = 0f..6f,
@@ -7740,7 +8019,7 @@ private fun ToolDetailSettings(
                 }
                 item {
                     SliderSetting(
-                        stringResource(R.string.tooldetail_currency_refresh_title),
+                        R.string.tooldetail_currency_refresh_title,
                         subtitle = stringResource(R.string.tooldetail_currency_refresh_subtitle),
                         value = settings.currencyCacheHours.toFloat(),
                         range = 1f..48f,
@@ -7757,7 +8036,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     SliderSetting(
-                        stringResource(R.string.tooldetail_qr_gen_size_title),
+                        R.string.tooldetail_qr_gen_size_title,
                         subtitle = stringResource(R.string.tooldetail_qr_gen_size_subtitle),
                         value = settings.qrSizePx.toFloat(),
                         range = 256f..2048f,
@@ -7766,7 +8045,7 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ChoiceSetting(
-                        title = stringResource(R.string.tooldetail_qr_gen_send_title),
+                        title = R.string.tooldetail_qr_gen_send_title,
                         subtitle = stringResource(R.string.tooldetail_qr_gen_send_subtitle),
                         info = stringResource(R.string.tooldetail_qr_gen_send_info),
                         options = listOf(
@@ -7778,33 +8057,27 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_qr_gen_gallery_title),
+                        R.string.tooldetail_qr_gen_gallery_title,
                         stringResource(R.string.tooldetail_qr_gen_gallery_subtitle),
                         settings.qrSaveToGallery,
                     ) { scope.launch { repository.setQrSaveToGallery(it) } }
                 }
             }
             SectionHeader(stringResource(R.string.tooldetail_qr_gen_ecc_header))
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                QrEccLevel.entries.forEachIndexed { index, level ->
-                    SegmentedButton(
-                        selected = settings.qrEcc == level,
-                        onClick = { scope.launch { repository.setQrEcc(level) } },
-                        shape = SegmentedButtonDefaults.itemShape(index, QrEccLevel.entries.size),
-                    ) { Text(level.name, maxLines = 1) }
-                }
-            }
+            ChoiceControl(
+                // The names are the standard's own single letters (L/M/Q/H),
+                // not words, so they are not translated.
+                options = QrEccLevel.entries.map { it to it.name },
+                selected = settings.qrEcc,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) { level -> scope.launch { repository.setQrEcc(level) } }
             CaptionText(stringResource(R.string.tooldetail_qr_gen_ecc_info))
         }
         ToolbarTool.PASSWORD_GEN -> {
             SettingsGroup(stringResource(R.string.tooldetail_password_group)) {
                 item {
                     SliderSetting(
-                        stringResource(R.string.tooldetail_password_length_title),
+                        R.string.tooldetail_password_length_title,
                         value = settings.passwordGenerator.pwLength.toFloat(),
                         range = 4f..64f,
                         display = { numberFormat.format(it.roundToInt()) },
@@ -7812,28 +8085,28 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_password_uppercase_title),
+                        R.string.tooldetail_password_uppercase_title,
                         stringResource(R.string.tooldetail_password_uppercase_subtitle),
                         settings.passwordGenerator.pwUppercase,
                     ) { scope.launch { repository.setPwUppercase(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_password_digits_title),
+                        R.string.tooldetail_password_digits_title,
                         stringResource(R.string.tooldetail_password_digits_subtitle),
                         settings.passwordGenerator.pwDigits,
                     ) { scope.launch { repository.setPwDigits(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_password_symbols_title),
+                        R.string.tooldetail_password_symbols_title,
                         stringResource(R.string.tooldetail_password_symbols_subtitle),
                         settings.passwordGenerator.pwSymbols,
                     ) { scope.launch { repository.setPwSymbols(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_password_ambiguous_title),
+                        R.string.tooldetail_password_ambiguous_title,
                         stringResource(R.string.tooldetail_password_ambiguous_subtitle),
                         settings.passwordGenerator.pwExcludeAmbiguous,
                     ) { scope.launch { repository.setPwExcludeAmbiguous(it) } }
@@ -7842,7 +8115,7 @@ private fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_passphrase_group)) {
                 item {
                     SliderSetting(
-                        stringResource(R.string.tooldetail_passphrase_words_title),
+                        R.string.tooldetail_passphrase_words_title,
                         value = settings.passwordGenerator.ppWordCount.toFloat(),
                         range = 2f..10f,
                         display = { numberFormat.format(it.roundToInt()) },
@@ -7857,14 +8130,14 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_passphrase_capitalize_title),
+                        R.string.tooldetail_passphrase_capitalize_title,
                         stringResource(R.string.tooldetail_passphrase_capitalize_subtitle),
                         settings.passwordGenerator.ppCapitalize,
                     ) { scope.launch { repository.setPpCapitalize(it) } }
                 }
                 item {
                     ToggleSetting(
-                        stringResource(R.string.tooldetail_passphrase_digit_title),
+                        R.string.tooldetail_passphrase_digit_title,
                         stringResource(R.string.tooldetail_passphrase_digit_subtitle),
                         settings.passwordGenerator.ppIncludeDigit,
                     ) { scope.launch { repository.setPpIncludeDigit(it) } }
@@ -7877,7 +8150,7 @@ private fun ToolDetailSettings(
         ToolbarTool.MODES -> SettingsGroup(stringResource(R.string.tooldetail_modes_group)) {
             item {
                 NavRow(
-                    stringResource(R.string.tooldetail_modes_edit_title),
+                    R.string.tooldetail_modes_edit_title,
                     stringResource(R.string.tooldetail_modes_edit_subtitle),
                     value = "${settings.keyboardModes.size}",
                 ) { onNavigate("modes") }
@@ -7935,7 +8208,7 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
         when (settings.typingTestMode) {
             TypingTestMode.TIME -> item {
                 SliderSetting(
-                    stringResource(R.string.toolai_typing_seconds_label),
+                    R.string.toolai_typing_seconds_label,
                     value = settings.typingTestDuration.toFloat(),
                     range = 15f..120f,
                     display = { secondsFormat.format(it.roundToInt()) },
@@ -7943,7 +8216,7 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
             }
             TypingTestMode.WORDS -> item {
                 SliderSetting(
-                    stringResource(R.string.toolai_typing_words_label),
+                    R.string.toolai_typing_words_label,
                     value = settings.typingTestWordCount.toFloat(),
                     range = 10f..100f,
                     display = { numberFormat.format(it.roundToInt()) },
@@ -7960,14 +8233,14 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
         SettingsGroup(stringResource(R.string.toolai_typing_difficulty_title)) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.toolai_typing_punctuation_title),
+                    R.string.toolai_typing_punctuation_title,
                     stringResource(R.string.toolai_typing_punctuation_subtitle),
                     settings.typingTestPunctuation,
                 ) { scope.launch { repository.setTypingTestPunctuation(it) } }
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.toolai_typing_numbers_title),
+                    R.string.toolai_typing_numbers_title,
                     stringResource(R.string.toolai_typing_numbers_subtitle),
                     settings.typingTestNumbers,
                 ) { scope.launch { repository.setTypingTestNumbers(it) } }
@@ -8016,7 +8289,7 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
         if (bests.isNotEmpty() || settings.typingTestsCompleted > 0) {
             item {
                 NavRow(
-                    stringResource(R.string.toolai_typing_clear_records_title),
+                    R.string.toolai_typing_clear_records_title,
                     stringResource(R.string.toolai_typing_clear_records_subtitle),
                 ) {
                     scope.launch { repository.clearTypingStats() }
@@ -8291,21 +8564,21 @@ private fun AiToolSettings(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.toolai_ai_show_thinking_title),
+                R.string.toolai_ai_show_thinking_title,
                 stringResource(R.string.toolai_ai_show_thinking_subtitle),
                 settings.ai.showThinking,
             ) { scope.launch { repository.setAiShowThinking(it) } }
         }
         item {
             ToggleSetting(
-                stringResource(R.string.toolai_ai_model_picker_title),
+                R.string.toolai_ai_model_picker_title,
                 stringResource(R.string.toolai_ai_model_picker_subtitle),
                 settings.ai.panelModelPicker,
             ) { scope.launch { repository.setAiPanelModelPicker(it) } }
         }
         item {
             ToggleSetting(
-                stringResource(R.string.toolai_ai_diff_title),
+                R.string.toolai_ai_diff_title,
                 stringResource(R.string.toolai_ai_diff_subtitle),
                 settings.ai.diffView,
             ) { scope.launch { repository.setAiDiffView(it) } }
@@ -8313,7 +8586,7 @@ private fun AiToolSettings(
         if (settings.ai.diffView) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.toolai_ai_diff_first_title),
+                    R.string.toolai_ai_diff_first_title,
                     stringResource(R.string.toolai_ai_diff_first_subtitle),
                     settings.ai.diffOpensFirst,
                 ) { scope.launch { repository.setAiDiffOpensFirst(it) } }
@@ -8328,7 +8601,7 @@ private fun AiToolSettings(
                 settings.ai.hiddenActions,
             )
             NavRow(
-                title = stringResource(R.string.toolai_ai_actions_title),
+                title = R.string.toolai_ai_actions_title,
                 subtitle = stringResource(R.string.toolai_ai_actions_subtitle),
                 value = numberFormat.format(visible.size),
                 onClick = { onNavigate("ai_actions") },
@@ -8340,7 +8613,7 @@ private fun AiToolSettings(
             // Always reachable, turned on or not, so "Delete all history" does
             // not disappear along with the switch that filled it.
             NavRow(
-                title = stringResource(R.string.toolai_ai_history_nav_title),
+                title = R.string.toolai_ai_history_nav_title,
                 subtitle = stringResource(R.string.toolai_ai_history_nav_subtitle),
                 onClick = { onNavigate("ai_history") },
             )
@@ -8358,6 +8631,50 @@ private fun AiToolSettings(
 }
 
 /**
+ * One end of a tool's icon colour: a swatch, what it currently is, and the
+ * picker behind it. [onPick] takes null when the user resets, which puts the
+ * colour back to [default].
+ */
+@Composable
+private fun ToolColourRow(
+    title: String,
+    toolName: String,
+    override: Long?,
+    default: Long,
+    onPick: (Long?) -> Unit,
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    val resolved = override ?: default
+    WmRow(
+        title = title,
+        subtitle = if (override != null) {
+            stringResource(R.string.tooldetail_icon_colour_custom_subtitle)
+        } else {
+            stringResource(R.string.tooldetail_icon_colour_default_subtitle)
+        },
+        leading = { Swatch(resolved) },
+        onClick = { showPicker = true },
+    )
+    if (showPicker) {
+        ColorPickerDialog(
+            title = stringResource(R.string.tooldetail_icon_colour_dialog_title, toolName),
+            initial = resolved,
+            supportsAlpha = false,
+            showReset = override != null,
+            onPick = {
+                onPick(it)
+                showPicker = false
+            },
+            onReset = {
+                onPick(null)
+                showPicker = false
+            },
+            onDismiss = { showPicker = false },
+        )
+    }
+}
+
+/**
  * The words that make this tool offer itself on the suggestion strip.
  * Only tools that ship a default get the row — a keyword for "Undo" would
  * fire on prose and there is nothing to open anyway.
@@ -8371,6 +8688,7 @@ private fun ToolKeywordSetting(
     val defaults = SmartSuggest.defaultKeywords[tool] ?: return
     val scope = rememberCoroutineScope()
     val saved = SmartSuggest.keywordsFor(tool, settings.toolKeywords)
+    val caseSensitive = SmartSuggest.caseSensitiveKeyword(tool, settings.toolKeywordCase)
     var text by remember(tool) { mutableStateOf(saved.joinToString(", ")) }
     SettingsGroup(stringResource(R.string.toolai_keyword_group_title)) {
         item {
@@ -8398,6 +8716,17 @@ private fun ToolKeywordSetting(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
             )
+        }
+        item {
+            ToggleSetting(
+                R.string.toolai_keyword_case_title,
+                stringResource(
+                    if (caseSensitive) R.string.toolai_keyword_case_on_subtitle
+                    else R.string.toolai_keyword_case_off_subtitle,
+                ),
+                caseSensitive,
+                info = stringResource(R.string.toolai_keyword_case_info),
+            ) { scope.launch { repository.setToolKeywordCaseSensitive(tool, it) } }
         }
         if (saved != defaults) {
             item {
@@ -8606,7 +8935,7 @@ internal fun AltCalendarSetting(
 internal fun WeekendSetting(selected: Weekend, onChange: (Weekend) -> Unit) {
     var dialogOpen by remember { mutableStateOf(false) }
     NavRow(
-        stringResource(R.string.toolai_weekend_title),
+        R.string.toolai_weekend_title,
         subtitle = stringResource(R.string.toolai_weekend_subtitle),
         value = stringResource(selected.labelRes),
         onClick = { dialogOpen = true },
@@ -8647,7 +8976,7 @@ private fun TranslateLanguageSetting(repository: SettingsRepository, settings: K
     val scope = rememberCoroutineScope()
     var dialogOpen by remember { mutableStateOf(false) }
     NavRow(
-        stringResource(R.string.toolai_translate_into_title),
+        R.string.toolai_translate_into_title,
         subtitle = stringResource(R.string.toolai_translate_into_subtitle),
         value = TranslateClient.languageName(settings.translateTargetLang),
         onClick = { dialogOpen = true },
@@ -9008,7 +9337,7 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
     SettingsGroup(stringResource(R.string.privacy_learning_group_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.privacy_learn_typing_title),
+                R.string.privacy_learn_typing_title,
                 stringResource(R.string.privacy_learn_typing_subtitle),
                 settings.learnFromTyping,
                 info = stringResource(R.string.privacy_learn_typing_info),
@@ -9016,7 +9345,7 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
         }
         item {
             ToggleSetting(
-                stringResource(R.string.privacy_system_dictionary_title),
+                R.string.privacy_system_dictionary_title,
                 stringResource(R.string.privacy_system_dictionary_subtitle),
                 settings.addWordsToSystemDictionary,
                 info = stringResource(R.string.privacy_system_dictionary_info),
@@ -9024,7 +9353,7 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
         }
         item {
             ToggleSetting(
-                stringResource(R.string.privacy_dict_shortcuts_title),
+                R.string.privacy_dict_shortcuts_title,
                 stringResource(R.string.privacy_dict_shortcuts_subtitle),
                 settings.suggestionStrip.expandUserDictShortcuts,
                 info = stringResource(R.string.privacy_dict_shortcuts_info),
@@ -9032,7 +9361,7 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
         }
         item {
             ToggleSetting(
-                stringResource(R.string.privacy_incognito_title),
+                R.string.privacy_incognito_title,
                 stringResource(R.string.privacy_incognito_subtitle),
                 settings.incognito,
                 info = stringResource(R.string.privacy_incognito_info),
@@ -9040,7 +9369,7 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
         }
         item {
             ToggleSetting(
-                stringResource(R.string.privacy_auto_incognito_title),
+                R.string.privacy_auto_incognito_title,
                 stringResource(R.string.privacy_auto_incognito_subtitle),
                 settings.autoIncognito,
                 info = stringResource(AUTO_INCOGNITO_INFO),
@@ -9050,7 +9379,7 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
     SettingsGroup(stringResource(R.string.privacy_backup_group_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.privacy_backup_title),
+                R.string.privacy_backup_title,
                 stringResource(R.string.privacy_backup_subtitle),
                 settings.cloudBackup,
                 info = stringResource(R.string.privacy_backup_info),
@@ -9077,7 +9406,7 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
 // ---- snippets ----
 
 @Composable
-private fun SnippetSettings() {
+private fun SnippetSettings(onNavigate: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val file = remember { java.io.File(context.filesDir, "snippets/snippets.json") }
@@ -9197,6 +9526,7 @@ private fun SnippetSettings() {
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
+    AddonStoreGroup(AddonType.Snippets, onNavigate)
     Card(modifier = Modifier
         .fillMaxWidth()
         .padding(horizontal = 16.dp)) {
@@ -9469,7 +9799,7 @@ private fun RowsSettings(
     SettingsGroup(stringResource(R.string.rows_symbol_row_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.rows_symbol_row_title),
+                R.string.rows_symbol_row_title,
                 stringResource(R.string.rows_symbol_row_subtitle),
                 settings.symbolRowEnabled,
                 info = stringResource(R.string.rows_symbol_row_info),
@@ -9919,7 +10249,7 @@ private fun AiActionEditor(
     SettingsGroup(stringResource(R.string.toolai_ai_action_behaviour_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.toolai_ai_action_ask_title),
+                R.string.toolai_ai_action_ask_title,
                 stringResource(R.string.toolai_ai_action_ask_subtitle),
                 askEachRun,
             ) { askEachRun = it }
@@ -9927,7 +10257,7 @@ private fun AiActionEditor(
         if (askEachRun) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.toolai_ai_action_prefill_title),
+                    R.string.toolai_ai_action_prefill_title,
                     stringResource(R.string.toolai_ai_action_prefill_subtitle),
                     prefillPrompt,
                 ) { prefillPrompt = it }
@@ -9935,21 +10265,21 @@ private fun AiActionEditor(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.toolai_ai_action_empty_field_title),
+                R.string.toolai_ai_action_empty_field_title,
                 stringResource(R.string.toolai_ai_action_empty_field_subtitle),
                 worksWithoutText,
             ) { worksWithoutText = it }
         }
         item {
             ToggleSetting(
-                stringResource(R.string.toolai_ai_action_before_cursor_title),
+                R.string.toolai_ai_action_before_cursor_title,
                 stringResource(R.string.toolai_ai_action_before_cursor_subtitle),
                 beforeCursor,
             ) { beforeCursor = it }
         }
         item {
             ToggleSetting(
-                stringResource(R.string.toolai_ai_action_append_title),
+                R.string.toolai_ai_action_append_title,
                 stringResource(R.string.toolai_ai_action_append_subtitle),
                 append,
             ) { append = it }
@@ -9957,14 +10287,14 @@ private fun AiActionEditor(
         if (!askEachRun) {
             item {
                 ToggleSetting(
-                    stringResource(R.string.toolai_ai_action_output_only_title),
+                    R.string.toolai_ai_action_output_only_title,
                     stringResource(R.string.toolai_ai_action_output_only_subtitle),
                     outputOnly,
                 ) { outputOnly = it }
             }
             item {
                 ToggleSetting(
-                    stringResource(R.string.toolai_ai_action_raw_title),
+                    R.string.toolai_ai_action_raw_title,
                     stringResource(R.string.toolai_ai_action_raw_subtitle),
                     rawPrompt,
                 ) { rawPrompt = it }
@@ -10306,7 +10636,7 @@ private fun ModesSettings(
     SettingsGroup(stringResource(R.string.modes_rearrange_group_title)) {
         item {
             ToggleSetting(
-                stringResource(R.string.modes_drag_edits_title),
+                R.string.modes_drag_edits_title,
                 stringResource(R.string.modes_drag_edits_subtitle),
                 settings.modeToolOrderEdits,
                 info = stringResource(R.string.modes_drag_edits_info),
@@ -10377,7 +10707,7 @@ private fun ModeEditor(
     SettingsGroup(stringResource(R.string.modes_changes_group_title)) {
         item {
             ChoiceSetting(
-                title = stringResource(R.string.modes_emoji_row_title),
+                title = R.string.modes_emoji_row_title,
                 subtitle = stringResource(R.string.modes_active_subtitle),
                 options = listOf(
                     null to stringResource(R.string.modes_inherit_label),
@@ -10390,7 +10720,7 @@ private fun ModeEditor(
         }
         item {
             ChoiceSetting(
-                title = stringResource(R.string.modes_symbol_row_title),
+                title = R.string.modes_symbol_row_title,
                 options = listOf(
                     null to stringResource(R.string.modes_inherit_label),
                     true to stringResource(CommonR.string.common_on),
@@ -10433,7 +10763,7 @@ private fun ModeEditor(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.modes_pinned_tools_title),
+                R.string.modes_pinned_tools_title,
                 stringResource(R.string.modes_pinned_tools_subtitle),
                 mode.toolbarTools != null,
             ) { on ->
@@ -10455,7 +10785,7 @@ private fun ModeEditor(
         if (pinned != null) {
             item {
                 ChoiceSetting(
-                    title = stringResource(R.string.modes_pinned_behaviour_title),
+                    title = R.string.modes_pinned_behaviour_title,
                     subtitle = if (mode.toolbarToolsAppend) {
                         stringResource(R.string.modes_pinned_behaviour_append_subtitle)
                     } else {
@@ -10507,7 +10837,7 @@ private fun ModeEditor(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.modes_toolbox_order_title),
+                R.string.modes_toolbox_order_title,
                 stringResource(R.string.modes_toolbox_order_subtitle),
                 mode.toolboxOrder != null,
             ) { on ->
@@ -10548,7 +10878,7 @@ private fun ModeEditor(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.modes_symbol_sets_title),
+                R.string.modes_symbol_sets_title,
                 stringResource(R.string.modes_symbol_sets_subtitle),
                 mode.symbolSetIds != null,
             ) { on ->

@@ -17,19 +17,28 @@ import com.wasimaster.wmkeyboard.ime.ui.rememberMediaImageLoader
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Animation
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import com.wasimaster.wmkeyboard.ime.R
+import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeBackgroundImage
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.brush
@@ -42,6 +51,11 @@ import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
  * makes the picker's "how would this look" preview honest — the same
  * composable, the same key shapes and colours, a different image.
  * [landscape] previews the theme's separate landscape image where it has one.
+ *
+ * A theme that moves gets a badge in the corner. The preview itself is drawn at
+ * phase 0 and never animates — a gallery of twenty live gradients is a gallery
+ * that never stops recomposing — so without the badge there is nothing at all
+ * to tell an animated theme from a still one until it is applied.
  */
 @Composable
 fun ThemePreview(
@@ -49,6 +63,7 @@ fun ThemePreview(
     modifier: Modifier = Modifier,
     imageOverride: Any? = null,
     landscape: Boolean = false,
+    animatedBadge: Boolean = true,
 ) {
     val keyShape = keyShapeFor(theme.keyShape, ((theme.keyCornerRadiusDp ?: 8) / 3f + 1).toInt())
     Box(
@@ -168,6 +183,46 @@ fun ThemePreview(
                 )
             }
         }
+        if (animatedBadge && theme.animation != ThemeAnimation.NONE) {
+            AnimatedThemeBadge(
+                theme = theme,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The corner badge on an animated theme's preview.
+ *
+ * Drawn in the theme's own key colours rather than the app's, because it sits
+ * on top of the mock-up: an accent from the settings palette would read as part
+ * of the surrounding card and disappear over a light theme's board.
+ */
+@Composable
+private fun AnimatedThemeBadge(theme: ThemeSpec, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(colorOf(theme.keyBackground).copy(alpha = 0.92f))
+            .padding(horizontal = 5.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.Animation,
+            contentDescription = stringResource(R.string.ime_theme_animated_desc),
+            modifier = Modifier.size(11.dp),
+            tint = colorOf(theme.keyText),
+        )
+        Spacer(Modifier.width(3.dp))
+        Text(
+            stringResource(R.string.ime_theme_animated_badge),
+            fontSize = 8.sp,
+            lineHeight = 10.sp,
+            color = colorOf(theme.keyText),
+        )
     }
 }
 

@@ -818,14 +818,14 @@ internal fun KeyLayoutEditorScreen(
         }
         item {
             ToggleSetting(
-                stringResource(R.string.layout_editor_show_shift_title),
+                R.string.layout_editor_show_shift_title,
                 stringResource(R.string.layout_editor_show_shift_subtitle),
                 showShift,
             ) { showShift = it }
         }
         item {
             NavRow(
-                stringResource(R.string.layout_editor_json_title),
+                R.string.layout_editor_json_title,
                 subtitle = stringResource(R.string.layout_editor_json_subtitle),
             ) { onNavigate("keymap_json/$layoutId") }
         }
@@ -1502,7 +1502,7 @@ private fun KeyEditSheet(
             val option = KeyActionCatalog.firstOrNull { it.matches(key.action) }
             val actionDetail = option?.let { stringResource(it.detailRes) }
             NavRow(
-                title = stringResource(R.string.layout_editor_action_row_title),
+                title = R.string.layout_editor_action_row_title,
                 subtitle = actionDetail,
                 value = stringResource(
                     option?.titleRes ?: R.string.layout_editor_action_unknown,
@@ -1681,7 +1681,7 @@ private fun SheetField(
 @Composable
 private fun RoleRow(role: KeyRole?, onChange: (KeyRole?) -> Unit) {
     ChoiceSetting(
-        title = stringResource(R.string.layout_editor_role_title),
+        title = R.string.layout_editor_role_title,
         subtitle = stringResource(R.string.layout_editor_role_subtitle),
         options = listOf(
             null to stringResource(CommonR.string.common_none),

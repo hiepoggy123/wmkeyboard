@@ -497,10 +497,10 @@ private fun Resources.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.STICKER, R.string.tooldetail_media_klipy_label, R.string.tooldetail_media_klipy_hint),
     toolEntry(ToolbarTool.GIF, R.string.tooldetail_media_giphy_label, R.string.tooldetail_media_giphy_hint),
     toolEntry(ToolbarTool.STICKER, R.string.tooldetail_media_giphy_label, R.string.tooldetail_media_giphy_hint),
-    toolEntry(ToolbarTool.GIF, R.string.tooldetail_media_sticker_send_title, R.string.tooldetail_media_sticker_send_subtitle),
+    // Each send mode is indexed under the one tool whose panel it governs; the
+    // other page no longer draws it.
     toolEntry(ToolbarTool.STICKER, R.string.tooldetail_media_sticker_send_title, R.string.tooldetail_media_sticker_send_subtitle),
     toolEntry(ToolbarTool.GIF, R.string.tooldetail_media_gif_send_title, R.string.tooldetail_media_gif_send_subtitle),
-    toolEntry(ToolbarTool.STICKER, R.string.tooldetail_media_gif_send_title, R.string.tooldetail_media_gif_send_subtitle),
     toolEntry(ToolbarTool.WEB_SEARCH, R.string.tooldetail_search_key_label, R.string.tooldetail_search_key_hint),
     toolEntry(ToolbarTool.IMAGE_SEARCH, R.string.tooldetail_search_key_label, R.string.tooldetail_search_key_hint),
     toolEntry(ToolbarTool.WEB_SEARCH, R.string.tooldetail_search_safe_title, R.string.tooldetail_search_safe_subtitle),
@@ -644,6 +644,7 @@ private fun Resources.otherRows(): List<SettingsSearchEntry> {
         entry(R.string.about_diagnostics_title, R.string.about_diagnostics_subtitle, R.string.home_about_title, "debug_log"),
         about(R.string.about_dictionaries_title, R.string.about_dictionaries_subtitle),
         entry(R.string.tools_colored_icons_title, R.string.tools_colored_icons_subtitle, R.string.home_tools_title, "tools"),
+        entry(R.string.tools_gradient_icons_title, R.string.tools_gradient_icons_subtitle, R.string.home_tools_title, "tools"),
     )
 }
 

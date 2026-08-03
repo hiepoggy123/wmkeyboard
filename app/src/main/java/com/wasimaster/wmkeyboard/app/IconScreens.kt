@@ -47,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.icons.IconImportResult
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.icons.IconPack
@@ -79,7 +80,11 @@ import com.wasimaster.wmkeyboard.icons.R as IconsR
  * the reserved "My icons" pack that Export then writes out.
  */
 @Composable
-internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSettings) {
+internal fun IconsScreen(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { IconPackStore.get(context) }
@@ -239,6 +244,9 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
     }
 
     SettingsGroup {
+        // Beside the file importer, because both answer "where do I get more of
+        // these" — one from a file the user already has, one from the store.
+        item { AddonStoreRow(AddonType.IconPack, onNavigate) }
         item {
             WmRow(
                 title = stringResource(R.string.plugins_icons_import_title),

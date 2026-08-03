@@ -1074,6 +1074,19 @@ data class KeyboardSettings(
      * default (see [com.wasimaster.wmkeyboard.core.ui.toolAccentColor]).
      */
     val toolColorOverrides: Map<ToolbarTool, Long> = emptyMap(),
+    /**
+     * Paint the tool icons with a two-colour gradient, top left to bottom
+     * right, instead of one flat colour. Only meaningful while
+     * [coloredToolIcons] is on, which is what paints them at all.
+     */
+    val toolIconGradients: Boolean = false,
+    /**
+     * The far end of each tool's gradient (ARGB longs), applied when
+     * [toolIconGradients] is on. A tool absent from the map takes an end colour
+     * derived from its near one (see
+     * [com.wasimaster.wmkeyboard.core.ui.toolAccentEndColor]).
+     */
+    val toolColorEndOverrides: Map<ToolbarTool, Long> = emptyMap(),
     /** Which glyph each customisable icon draws (see [IconSettings]). */
     val icons: IconSettings = IconSettings(),
     val incognito: Boolean = false,
@@ -1303,6 +1316,12 @@ data class KeyboardSettings(
      * string use [com.wasimaster.wmkeyboard.core.tools.SmartSuggest.defaultKeywords].
      */
     val toolKeywords: String = "",
+    /**
+     * The tools whose keywords have to match the typed capitals exactly, as a
+     * comma-separated list of [ToolbarTool] names. Everything not listed is
+     * matched case-insensitively, which is the default.
+     */
+    val toolKeywordCase: String = "",
     /** Trig in degrees (off = radians) for the calculator tool. */
     val calcDegrees: Boolean = true,
     /** Decimal places in calculator/converter results. */
@@ -2450,6 +2469,8 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_TOOLBAR = booleanPreferencesKey("emoji_toolbar")
         private val COLORED_TOOL_ICONS = booleanPreferencesKey("colored_tool_icons")
         private val TOOL_COLOR_OVERRIDES = stringPreferencesKey("tool_color_overrides")
+        private val TOOL_ICON_GRADIENTS = booleanPreferencesKey("tool_icon_gradients")
+        private val TOOL_COLOR_END_OVERRIDES = stringPreferencesKey("tool_color_end_overrides")
         private val ICON_PACK_ID = stringPreferencesKey("icon_pack_id")
         private val ICON_OVERRIDES = stringPreferencesKey("icon_overrides")
         private val INCOGNITO = booleanPreferencesKey("incognito")
@@ -2592,6 +2613,7 @@ class SettingsRepository(private val context: Context) {
         private val SMART_UNITS = booleanPreferencesKey("smart_units")
         private val SMART_TOOL_KEYWORDS = booleanPreferencesKey("smart_tool_keywords")
         private val TOOL_KEYWORDS = stringPreferencesKey("tool_keywords")
+        private val TOOL_KEYWORD_CASE = stringPreferencesKey("tool_keyword_case")
         private val CALC_DEGREES = booleanPreferencesKey("calc_degrees")
         private val CALC_PRECISION = intPreferencesKey("calc_precision")
         private val CURRENCY_FROM = stringPreferencesKey("currency_from")
@@ -3072,6 +3094,8 @@ class SettingsRepository(private val context: Context) {
             emojiToolbar = p[EMOJI_TOOLBAR] ?: defaults.emojiToolbar,
             coloredToolIcons = p[COLORED_TOOL_ICONS] ?: defaults.coloredToolIcons,
             toolColorOverrides = decodeToolColors(p[TOOL_COLOR_OVERRIDES]),
+            toolIconGradients = p[TOOL_ICON_GRADIENTS] ?: defaults.toolIconGradients,
+            toolColorEndOverrides = decodeToolColors(p[TOOL_COLOR_END_OVERRIDES]),
             icons = IconSettings(
                 activePackId = p[ICON_PACK_ID] ?: defaults.icons.activePackId,
                 overrides = IconOverrides.decode(p[ICON_OVERRIDES]),
@@ -3294,6 +3318,7 @@ class SettingsRepository(private val context: Context) {
             smartUnits = p[SMART_UNITS] ?: defaults.smartUnits,
             smartToolKeywords = p[SMART_TOOL_KEYWORDS] ?: defaults.smartToolKeywords,
             toolKeywords = p[TOOL_KEYWORDS] ?: defaults.toolKeywords,
+            toolKeywordCase = p[TOOL_KEYWORD_CASE] ?: defaults.toolKeywordCase,
             calcDegrees = p[CALC_DEGREES] ?: defaults.calcDegrees,
             calcPrecision = p[CALC_PRECISION] ?: defaults.calcPrecision,
             currencyFrom = p[CURRENCY_FROM] ?: defaults.currencyFrom,
@@ -5437,6 +5462,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setColoredToolIcons(value: Boolean) =
         editPrefs { it[COLORED_TOOL_ICONS] = value }
 
+    suspend fun setToolIconGradients(value: Boolean) =
+        editPrefs { it[TOOL_ICON_GRADIENTS] = value }
+
     /** Override one tool's accent colour; a null [color] restores its default. */
     suspend fun setToolColor(tool: ToolbarTool, color: Long?) =
         editPrefs { prefs ->
@@ -5445,9 +5473,23 @@ class SettingsRepository(private val context: Context) {
             prefs[TOOL_COLOR_OVERRIDES] = encodeToolColors(current)
         }
 
+    /**
+     * Override the far end of one tool's gradient; a null [color] goes back to
+     * the end colour derived from the tool's near one.
+     */
+    suspend fun setToolColorEnd(tool: ToolbarTool, color: Long?) =
+        editPrefs { prefs ->
+            val current = decodeToolColors(prefs[TOOL_COLOR_END_OVERRIDES]).toMutableMap()
+            if (color == null) current.remove(tool) else current[tool] = color
+            prefs[TOOL_COLOR_END_OVERRIDES] = encodeToolColors(current)
+        }
+
     /** Drop every per-tool colour override, restoring all built-in defaults. */
     suspend fun clearToolColors() =
-        editPrefs { it.remove(TOOL_COLOR_OVERRIDES) }
+        editPrefs {
+            it.remove(TOOL_COLOR_OVERRIDES)
+            it.remove(TOOL_COLOR_END_OVERRIDES)
+        }
 
     /** Switch icon packs; a blank [packId] goes back to the built-in icons. */
     suspend fun setIconPack(packId: String) =
@@ -5754,6 +5796,13 @@ class SettingsRepository(private val context: Context) {
     suspend fun setToolKeywords(tool: ToolbarTool, words: List<String>) =
         editPrefs {
             it[TOOL_KEYWORDS] = SmartSuggest.withKeywords(it[TOOL_KEYWORDS].orEmpty(), tool, words)
+        }
+
+    /** Whether one tool's trigger words have to match the typed capitals. */
+    suspend fun setToolKeywordCaseSensitive(tool: ToolbarTool, sensitive: Boolean) =
+        editPrefs {
+            it[TOOL_KEYWORD_CASE] =
+                SmartSuggest.withCaseSensitive(it[TOOL_KEYWORD_CASE].orEmpty(), tool, sensitive)
         }
 
     suspend fun setCalcDegrees(value: Boolean) =

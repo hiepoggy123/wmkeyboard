@@ -35,9 +35,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -498,29 +495,20 @@ private fun LookPage(repository: SettingsRepository, settings: KeyboardSettings)
         stringResource(R.string.onboarding_look_title),
         stringResource(R.string.onboarding_look_subtitle),
     )
-    SingleChoiceSegmentedButtonRow(modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 16.dp, vertical = 8.dp)) {
-        ThemeMode.entries.forEachIndexed { index, mode ->
-            SegmentedButton(
-                selected = settings.themeMode == mode,
-                onClick = { scope.launch { repository.setThemeMode(mode) } },
-                shape = SegmentedButtonDefaults.itemShape(index, ThemeMode.entries.size),
-            ) {
-                Text(
-                    stringResource(
-                        when (mode) {
-                            ThemeMode.SYSTEM -> R.string.onboarding_theme_mode_auto
-                            ThemeMode.LIGHT -> R.string.onboarding_theme_mode_light
-                            ThemeMode.DARK -> R.string.onboarding_theme_mode_dark
-                            ThemeMode.AMOLED -> R.string.onboarding_theme_mode_amoled
-                        },
-                    ),
-                    maxLines = 1,
-                )
-            }
-        }
-    }
+    ChoiceControl(
+        options = ThemeMode.entries.map { mode ->
+            mode to stringResource(
+                when (mode) {
+                    ThemeMode.SYSTEM -> R.string.onboarding_theme_mode_auto
+                    ThemeMode.LIGHT -> R.string.onboarding_theme_mode_light
+                    ThemeMode.DARK -> R.string.onboarding_theme_mode_dark
+                    ThemeMode.AMOLED -> R.string.onboarding_theme_mode_amoled
+                },
+            )
+        },
+        selected = settings.themeMode,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    ) { mode -> scope.launch { repository.setThemeMode(mode) } }
     ListItem(
         headlineContent = { Text(stringResource(R.string.onboarding_dynamic_color_title)) },
         supportingContent = {
@@ -605,24 +593,15 @@ private fun LookPage(repository: SettingsRepository, settings: KeyboardSettings)
         style = MaterialTheme.typography.bodyLarge,
         modifier = Modifier.padding(start = 16.dp, top = 12.dp),
     )
-    SingleChoiceSegmentedButtonRow(modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 16.dp, vertical = 8.dp)) {
-        val options = listOf(
+    ChoiceControl(
+        options = listOf(
             EmojiBarMode.OFF to CommonR.string.common_off,
             EmojiBarMode.BUTTON to R.string.onboarding_emoji_row_button,
             EmojiBarMode.ALWAYS to R.string.onboarding_emoji_row_always,
-        )
-        options.forEachIndexed { index, (mode, labelRes) ->
-            SegmentedButton(
-                selected = settings.emojiBarMode == mode,
-                onClick = { scope.launch { repository.setEmojiBarMode(mode) } },
-                shape = SegmentedButtonDefaults.itemShape(index, options.size),
-            ) {
-                Text(stringResource(labelRes), maxLines = 1)
-            }
-        }
-    }
+        ).map { (mode, labelRes) -> mode to stringResource(labelRes) },
+        selected = settings.emojiBarMode,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    ) { mode -> scope.launch { repository.setEmojiBarMode(mode) } }
     ListItem(
         headlineContent = { Text(stringResource(R.string.onboarding_symbol_row_title)) },
         supportingContent = {
@@ -700,6 +679,15 @@ private fun EmojiPage(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(16.dp),
+    )
+    // The wizard cannot open the add-on store — there is nowhere to come back
+    // to mid-setup — so this page says where the fonts are rather than
+    // offering to fetch one now.
+    Text(
+        stringResource(R.string.onboarding_emoji_font_download_info),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
     )
 }
 
