@@ -32,13 +32,13 @@ Everything below lives under the app's private storage: the same folder no other
 | Downloaded wordlists, CJK dictionaries and emoji-keyword packs | `dict/`, `cjk_dicts/`, `emoji_dict/` | You download these yourself, per language |
 | Downloaded offline AI and speech models <Flavor edition="full" /> | `models/`, `whisper/` | You download these yourself |
 | Installed addons (themes, icon packs, fonts, sounds, layouts, plugins) | `addons/` | You install these yourself |
-| Your sticker packs, and the photos you cut them out of | `stickers/<pack>/` and `stickers/.originals/` | You add these yourself, from your gallery or from search results |
+| Your sticker packs, plus the photos you cut them out of and how you edited each one | `stickers/<pack>/` and `stickers/.originals/` | You add these yourself, from your gallery or from search results |
 
 A couple of things worth knowing about that table:
 
 - **Clipboard entries aren't always full copies.** A copied file, folder, or video is stored as a reference to the app that owns it, not as duplicated bytes. Only copied images actually land in `clipboard/images/`. Copying a multi-gigabyte video doesn't multiply it.
 - **AI history is the only row there that's off by default.** Nothing is written until you turn it on, nothing is written from a password field or in [incognito](/privacy/incognito/) even then, and turning the setting back off deletes the file rather than just hiding it. There's also a **Delete all history** button on the screen itself.
-- **The photos behind your stickers stay on the phone.** `stickers/.originals/` holds the picture each sticker was made from so the [sticker editor](/emoji/stickers/#the-sticker-editor) can reopen it later. Exporting a pack, backing settings up, and Android's own backup all skip that folder and carry the finished stickers only. <SettingsPath path="About / Storage / Sticker packs" /> shows how much space it's using and lets you delete it on its own.
+- **The photos behind your stickers stay on the phone.** `stickers/.originals/` holds the picture each sticker was made from, plus the crop, the erased parts and the border, so the [sticker editor](/emoji/stickers/#the-sticker-editor) can reopen the edit later. Exporting a pack, backing settings up, and Android's own backup all skip that folder and carry the finished stickers only. <SettingsPath path="About / Storage / Sticker packs" /> shows how much space it's using and lets you delete it on its own.
 - **Downloaded dictionaries are a different folder from imported ones.** A wordlist you download from the [dictionaries catalog](/languages/dictionaries/) goes in `dict/`; a plain-text list you import yourself lives in a separate `dictionaries/` folder and is treated as configuration rather than a download. Both are covered on that page.
 - Word-by-word control over what's been learned (reviewing, deleting, or manually adding entries) is its own screen; see [Personal dictionary](/smart/personal-dictionary/).
 

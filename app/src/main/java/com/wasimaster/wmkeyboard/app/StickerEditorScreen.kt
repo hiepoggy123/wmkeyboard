@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas as AndroidCanvas
 import android.graphics.Color as AndroidColor
 import android.graphics.Paint
@@ -60,13 +61,16 @@ import com.wasimaster.wmkeyboard.core.mlkit.MlKitInit
 import com.wasimaster.wmkeyboard.core.stickers.OutlineSpec
 import com.wasimaster.wmkeyboard.core.stickers.ProcessedSticker
 import com.wasimaster.wmkeyboard.core.stickers.StickerAddResult
+import com.wasimaster.wmkeyboard.core.stickers.StickerEditState
 import com.wasimaster.wmkeyboard.core.stickers.StickerImage
 import com.wasimaster.wmkeyboard.core.stickers.StickerOutline
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
 import com.wasimaster.wmkeyboard.core.stickers.SubjectCutout
+import java.io.ByteArrayOutputStream
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.common.R as CommonR
@@ -99,14 +103,56 @@ internal object StickerEditHandoff {
     var current: StickerEditRequest? = null
 }
 
+/**
+ * What one open of the editor starts from: the picture, and the edit that was
+ * last saved over it, if there was one.
+ *
+ * Read off the disk in one place so the screen never has to think about which
+ * of the three files exist. A mask without a state, or a state whose mask has
+ * gone, simply restores what is there.
+ */
+private class OpenedEdit(
+    val bitmap: Bitmap,
+    val edit: StickerEditState?,
+    val mask: Bitmap?,
+    /** True when the picture came from the kept original, not the sticker. */
+    val fromOriginal: Boolean,
+)
+
+private fun openFor(store: StickerPackStore, request: StickerEditRequest): OpenedEdit? {
+    val bitmap = runCatching { StickerImage.decodeForEditing(request.bytes) }.getOrNull()
+        ?: return null
+    val stickerId = request.stickerId ?: return OpenedEdit(bitmap, null, null, false)
+    val fromOriginal = store.originalFor(stickerId) != null
+    // Only a picture that is the edit's own source can carry the edit: after
+    // an original is lost the sticker re-opens as itself, already cropped and
+    // already erased, and replaying the crop on top would crop it twice.
+    if (!fromOriginal) return OpenedEdit(bitmap, null, null, false)
+    val edit = store.editStateFor(stickerId)
+    val mask = if (edit?.hasMask == true) {
+        store.maskFor(stickerId)?.let {
+            runCatching { BitmapFactory.decodeFile(it.absolutePath) }.getOrNull()
+        }
+    } else {
+        null
+    }
+    return OpenedEdit(bitmap, edit?.copy(hasMask = mask != null), mask, true)
+}
+
 /** The sticker canvas, and so the size everything in the editor works at. */
 private const val CANVAS = StickerImage.TARGET_SIZE
+
+/** As far as the crop step zooms in. */
+private const val MAX_CROP_ZOOM = 6f
 
 /** How deep undo goes. Each step is one alpha snapshot, 256 KB. */
 private const val UNDO_DEPTH = 12
 
 private const val MIN_BRUSH_PX = 8f
 private const val MAX_BRUSH_PX = 96f
+
+/** How long the brush ring stays up after the slider stops moving. */
+private const val BRUSH_PREVIEW_MS = 1100L
 
 /** What the editor is doing to the picture right now. */
 private enum class EditorMode { CROP, ERASE, RESTORE, BORDER }
@@ -135,22 +181,27 @@ internal fun StickerEditorScreen(request: StickerEditRequest, onDone: () -> Unit
     val scope = rememberCoroutineScope()
     val store = remember { StickerPackStore.get(context) }
 
-    val source by produceState<Bitmap?>(initialValue = null, request) {
-        value = withContext(Dispatchers.IO) {
-            runCatching { StickerImage.decodeForEditing(request.bytes) }.getOrNull()
-        }
+    val opened by produceState<OpenedEdit?>(initialValue = null, request) {
+        value = withContext(Dispatchers.IO) { openFor(store, request) }
     }
-    val bitmap = source
-    if (bitmap == null) {
+    val loaded = opened
+    if (loaded == null) {
         CaptionText(stringResource(CommonR.string.common_loading))
         return
     }
 
-    val state = remember(bitmap) { EditorState(bitmap) }
+    val state = remember(loaded) { EditorState(loaded.bitmap, loaded.edit, loaded.mask) }
     DisposableEffect(state) { onDispose { state.recycle() } }
 
-    var mode by remember { mutableStateOf(EditorMode.CROP) }
-    var brushPx by remember { mutableFloatStateOf(32f) }
+    // A resumed edit opens on the brush rather than on Crop: the crop is
+    // already made, and the one gesture that would silently undo the erasing
+    // is a pan in the crop step.
+    var mode by remember(state) {
+        mutableStateOf(if (loaded.edit?.hasMask == true) EditorMode.ERASE else EditorMode.CROP)
+    }
+    var brushPx by remember(state) {
+        mutableFloatStateOf(loaded.edit?.brushPx ?: StickerEditState.DEFAULT_BRUSH_PX)
+    }
     var recropAsk by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf<String?>(null) }
     var downloadProgress by remember { mutableFloatStateOf(-1f) }
@@ -167,6 +218,17 @@ internal fun StickerEditorScreen(request: StickerEditRequest, onDone: () -> Unit
             MlKitInit.ensure(context.applicationContext)
             modelReady = SubjectCutout.modelReady(context)
         }
+    }
+
+    // The brush ring: shown on the way into a brush tab and while the slider
+    // moves, then out of the way. A size you can only find out by painting is
+    // a size you have to undo.
+    var showBrush by remember { mutableStateOf(false) }
+    LaunchedEffect(mode, brushPx) {
+        if (mode != EditorMode.ERASE && mode != EditorMode.RESTORE) return@LaunchedEffect
+        showBrush = true
+        delay(BRUSH_PREVIEW_MS)
+        showBrush = false
     }
 
     fun enterMode(next: EditorMode) {
@@ -212,12 +274,16 @@ internal fun StickerEditorScreen(request: StickerEditRequest, onDone: () -> Unit
 
     fun save() {
         saving = true
+        // A pan or a pinch that was never followed by a tab change has not
+        // been baked into the canvas yet, and Save must not drop it.
+        if (mode == EditorMode.CROP) state.applyCrop()
+        val edit = state.exportState(brushPx)
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 val flat = state.render()
                 val processed: ProcessedSticker? = StickerImage.encodeStill(flat)
                 flat.recycle()
-                processed?.let {
+                val saved = processed?.let {
                     if (request.stickerId == null) {
                         // What the editor was handed is the picture this
                         // sticker came from: keep it, so a later edit starts
@@ -234,6 +300,12 @@ internal fun StickerEditorScreen(request: StickerEditRequest, onDone: () -> Unit
                         store.replaceStickerImage(request.packId, request.stickerId, it)
                     }
                 }
+                // Beside the picture, so opening this sticker again resumes
+                // the edit instead of starting it over.
+                if (saved is StickerAddResult.Added) {
+                    store.writeEditState(saved.sticker.id, edit, state.maskPng())
+                }
+                saved
             }
             saving = false
             when (result) {
@@ -247,15 +319,13 @@ internal fun StickerEditorScreen(request: StickerEditRequest, onDone: () -> Unit
 
     // Say which picture is on the canvas: a re-edit that quietly reverted the
     // last cut-out would read as the editor having lost the work.
-    val fromOriginal = remember(request) {
-        request.stickerId != null && store.originalFor(request.stickerId) != null
-    }
     CaptionText(
         stringResource(
-            if (fromOriginal) {
-                R.string.import_sticker_editor_original_caption
-            } else {
-                R.string.import_sticker_editor_caption
+            when {
+                loaded.edit?.meaningful == true ->
+                    R.string.import_sticker_editor_resumed_caption
+                loaded.fromOriginal -> R.string.import_sticker_editor_original_caption
+                else -> R.string.import_sticker_editor_caption
             },
         ),
     )
@@ -271,7 +341,7 @@ internal fun StickerEditorScreen(request: StickerEditRequest, onDone: () -> Unit
         if (mode == EditorMode.CROP) {
             CropCanvas(state)
         } else {
-            EditorCanvas(state, mode, brushPx)
+            EditorCanvas(state, mode, brushPx, showBrush)
         }
         if (busy != null) {
             Column(
@@ -414,13 +484,13 @@ private fun CropCanvas(state: EditorState) {
             .onGloballyPositioned {
                 if (frame != it.size) {
                     frame = it.size
-                    state.cropFrame = it.size
+                    state.onFrame(it.size)
                     state.cropOffset = clamp(state.cropOffset, state.cropZoom)
                 }
             }
             .pointerInput(source) {
                 detectTransformGestures { _, pan, gestureZoom, _ ->
-                    state.cropZoom = (state.cropZoom * gestureZoom).coerceIn(1f, 6f)
+                    state.cropZoom = (state.cropZoom * gestureZoom).coerceIn(1f, MAX_CROP_ZOOM)
                     state.cropOffset = clamp(state.cropOffset + pan, state.cropZoom)
                 }
             },
@@ -449,7 +519,12 @@ private fun CropCanvas(state: EditorState) {
  * scroll the page instead of erasing anything.
  */
 @Composable
-private fun EditorCanvas(state: EditorState, mode: EditorMode, brushPx: Float) {
+private fun EditorCanvas(
+    state: EditorState,
+    mode: EditorMode,
+    brushPx: Float,
+    showBrush: Boolean,
+) {
     val erasing = mode == EditorMode.ERASE
     val painting = mode == EditorMode.ERASE || mode == EditorMode.RESTORE
     var side by remember { mutableIntStateOf(0) }
@@ -519,6 +594,22 @@ private fun EditorCanvas(state: EditorState, mode: EditorMode, brushPx: Float) {
                 dstOffset = IntOffset.Zero,
                 dstSize = target,
             )
+            if (!showBrush) return@Canvas
+            // Two rings, dark under light: the brush has to read on a white
+            // subject, on a black one and on the checkerboard behind both.
+            val radius = brushPx / 2f * (size.width / CANVAS)
+            drawCircle(
+                color = Color.Black.copy(alpha = 0.5f),
+                radius = radius,
+                center = center,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f),
+            )
+            drawCircle(
+                color = Color.White,
+                radius = radius,
+                center = center,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f),
+            )
         }
     }
 }
@@ -530,7 +621,11 @@ private fun EditorCanvas(state: EditorState, mode: EditorMode, brushPx: Float) {
  * The bitmaps are mutated in place, so Compose cannot diff them; [version] is
  * the signal instead, read inside every draw and bumped by every change.
  */
-private class EditorState(val source: Bitmap) {
+private class EditorState(
+    val source: Bitmap,
+    restored: StickerEditState? = null,
+    restoredMask: Bitmap? = null,
+) {
 
     /** The cropped picture, letterboxed into the sticker canvas. */
     val base: Bitmap = Bitmap.createBitmap(CANVAS, CANVAS, Bitmap.Config.ARGB_8888)
@@ -562,6 +657,17 @@ private class EditorState(val source: Bitmap) {
     var cropOffset by mutableStateOf(Offset.Zero)
     var cropFrame: IntSize = IntSize.Zero
 
+    /**
+     * The crop a resumed edit arrived with, in source pixels, until a measured
+     * frame can turn it back into a pan and a zoom the crop step can show.
+     * [applyCrop] honours it in the meantime, so the picture is right from the
+     * first frame rather than after one.
+     */
+    private var restoreRect: Rect? = null
+
+    /** The rectangle [applyCrop] last kept, in source pixels. */
+    private var croppedFrom: Rect = Rect(0, 0, source.width, source.height)
+
     private val undo = ArrayDeque<Bitmap>()
 
     private val erasePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -584,15 +690,36 @@ private class EditorState(val source: Bitmap) {
 
     init {
         resetMask()
+        restored?.let { edit ->
+            border = edit.border
+            restoreRect = Rect(
+                (edit.cropLeft * source.width).roundToInt().coerceIn(0, source.width - 1),
+                (edit.cropTop * source.height).roundToInt().coerceIn(0, source.height - 1),
+                ((edit.cropLeft + edit.cropWidth) * source.width).roundToInt()
+                    .coerceIn(1, source.width),
+                ((edit.cropTop + edit.cropHeight) * source.height).roundToInt()
+                    .coerceIn(1, source.height),
+            )
+        }
+        restoredMask?.let {
+            AndroidCanvas(mask).drawBitmap(it, null, Rect(0, 0, CANVAS, CANVAS), null)
+            masked = true
+        }
         applyCrop()
     }
 
-    /** Bakes the current pan and zoom into [base]. */
+    /**
+     * Bakes the current pan and zoom into [base], or the crop a resumed edit
+     * arrived with while the crop step has not been measured yet.
+     */
     fun applyCrop() {
         val frame = cropFrame
         val canvas = AndroidCanvas(base)
         canvas.drawColor(AndroidColor.TRANSPARENT, PorterDuff.Mode.CLEAR)
-        val src = if (frame == IntSize.Zero) {
+        val pending = restoreRect
+        val src = if (pending != null) {
+            pending
+        } else if (frame == IntSize.Zero) {
             Rect(0, 0, source.width, source.height)
         } else {
             val scale = max(
@@ -607,6 +734,7 @@ private class EditorState(val source: Bitmap) {
                 .roundToInt().coerceIn(0, source.height - height)
             Rect(left, top, left + width, top + height)
         }
+        croppedFrom = src
         // Letterboxed, not stretched: a crop frame is square but a source
         // that was never cropped is whatever shape it arrived in.
         val scale = CANVAS.toFloat() / maxOf(src.width(), src.height())
@@ -621,6 +749,52 @@ private class EditorState(val source: Bitmap) {
             Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG),
         )
         recompose()
+    }
+
+    /**
+     * Takes the crop step's measured frame, and turns a resumed edit's crop
+     * rectangle back into the pan and zoom that frame would express it with.
+     * Until this runs the crop step has no pixel size to work in, which is why
+     * the rectangle is carried rather than converted up front.
+     */
+    fun onFrame(size: IntSize) {
+        cropFrame = size
+        val rect = restoreRect ?: return
+        restoreRect = null
+        if (size.width <= 0 || rect.width() <= 0) return
+        val cover = max(
+            size.width / source.width.toFloat(),
+            size.height / source.height.toFloat(),
+        )
+        cropZoom = (size.width / rect.width().toFloat() / cover).coerceIn(1f, MAX_CROP_ZOOM)
+        val applied = cover * cropZoom
+        cropOffset = Offset(
+            ((source.width - size.width / applied) / 2f - rect.left) * applied,
+            ((source.height - size.height / applied) / 2f - rect.top) * applied,
+        )
+    }
+
+    /** The edit as it would be resumed later: crop, border and brush. */
+    fun exportState(brushPx: Float) = StickerEditState(
+        cropLeft = croppedFrom.left.toFloat() / source.width,
+        cropTop = croppedFrom.top.toFloat() / source.height,
+        cropWidth = croppedFrom.width().toFloat() / source.width,
+        cropHeight = croppedFrom.height().toFloat() / source.height,
+        borderWidthPx = border.widthPx,
+        borderColor = border.color,
+        brushPx = brushPx,
+        hasMask = masked,
+    )
+
+    /**
+     * The mask as a lossless PNG, or null when nothing was erased. Lossless
+     * because a JPEG-ish edge on a mask is a halo of half-erased pixels the
+     * next session would inherit and could not see to fix.
+     */
+    fun maskPng(): ByteArray? {
+        if (!masked) return null
+        val out = ByteArrayOutputStream()
+        return if (mask.compress(Bitmap.CompressFormat.PNG, 100, out)) out.toByteArray() else null
     }
 
     /** Clears every erased pixel and the undo history with it. */

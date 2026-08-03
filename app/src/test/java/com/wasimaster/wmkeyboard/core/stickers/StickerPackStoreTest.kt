@@ -330,6 +330,85 @@ class StickerPackStoreTest {
     }
 
     @Test
+    fun `keeps the edit beside the picture and reads it back`() {
+        val store = store()
+        val pack = store.createPack("Cats")!!
+        val sticker = (
+            store.addSticker(pack.id, webp(1), original = byteArrayOf(1))
+                as StickerAddResult.Added
+            ).sticker
+        val edit = StickerEditState(
+            cropLeft = 0.25f,
+            cropTop = 0.1f,
+            cropWidth = 0.5f,
+            cropHeight = 0.5f,
+            borderWidthPx = 6f,
+            borderColor = -1,
+            brushPx = 44f,
+            hasMask = true,
+        )
+
+        store.writeEditState(sticker.id, edit, byteArrayOf(8, 9))
+        assertEquals(edit, store().editStateFor(sticker.id))
+        assertEquals(8.toByte(), store.maskFor(sticker.id)!!.readBytes()[0])
+
+        // Erasing everything back to nothing takes the mask with it.
+        store.writeEditState(sticker.id, edit.copy(hasMask = false), null)
+        assertNull(store.maskFor(sticker.id))
+        assertNotNull(store.editStateFor(sticker.id))
+    }
+
+    @Test
+    fun `an unreadable edit reads as none, and loses no picture`() {
+        val store = store()
+        val pack = store.createPack("Cats")!!
+        val sticker = (
+            store.addSticker(pack.id, webp(1), original = byteArrayOf(1))
+                as StickerAddResult.Added
+            ).sticker
+        store.writeEditState(sticker.id, StickerEditState(brushPx = 20f), null)
+        File(store.originalsDir(), "${sticker.id}.json").writeText("{ not json")
+
+        assertNull(store.editStateFor(sticker.id))
+        assertNotNull(store.originalFor(sticker.id))
+    }
+
+    @Test
+    fun `the mask and the edit follow the picture when a sticker goes`() {
+        val store = store()
+        val pack = store.createPack("Cats")!!
+        val sticker = (
+            store.addSticker(pack.id, webp(1), original = byteArrayOf(1))
+                as StickerAddResult.Added
+            ).sticker
+        store.writeEditState(sticker.id, StickerEditState(hasMask = true), byteArrayOf(2))
+
+        store.removeSticker(pack.id, sticker.id)
+        assertNull(store.originalFor(sticker.id))
+        assertNull(store.maskFor(sticker.id))
+        assertNull(store.editStateFor(sticker.id))
+        assertEquals(0, store.originalsDir()!!.listFiles()!!.size)
+    }
+
+    @Test
+    fun `reconcile keeps a live sticker's mask and edit`() {
+        val first = store()
+        val pack = first.createPack("Cats")!!
+        val sticker = (
+            first.addSticker(pack.id, webp(1), original = byteArrayOf(1))
+                as StickerAddResult.Added
+            ).sticker
+        first.writeEditState(sticker.id, StickerEditState(hasMask = true), byteArrayOf(2))
+        val orphanMask = File(first.originalsDir(), "s_nobody.mask.png")
+            .apply { writeBytes(byteArrayOf(9)) }
+
+        val second = store()
+        assertFalse(orphanMask.exists())
+        assertNotNull(second.maskFor(sticker.id))
+        assertNotNull(second.editStateFor(sticker.id))
+    }
+
+    @Test
     fun `clearing the originals leaves the stickers alone`() {
         val store = store()
         val pack = store.createPack("Cats")!!

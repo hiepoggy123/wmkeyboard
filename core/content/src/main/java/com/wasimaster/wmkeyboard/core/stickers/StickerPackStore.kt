@@ -14,18 +14,21 @@ import java.util.UUID
  *
  * ```
  * stickers/
- * ├── packs.json                    manifest
- * ├── .originals/<stickerId>.webp   what an edit started from
+ * ├── packs.json                        manifest
+ * ├── .originals/<stickerId>.webp       what the edit started from
+ * ├── .originals/<stickerId>.mask.png   what it erased
+ * ├── .originals/<stickerId>.json       the crop, the border, the brush
  * └── <packId>/<stickerId>.webp|.gif
  * ```
  *
- * `.originals` holds the picture each sticker was made from, so the editor can
- * re-open a photo instead of the flattened cut-out it produced. It is private
- * to this device: exporting a pack writes the manifest and the files the
- * manifest names ([StickerPackFile.write]), and the config backup's sticker
- * section walks the same list, so neither carries an original out. It is keyed
- * by sticker id rather than by pack so moving a sticker between packs does not
- * have to move it too.
+ * `.originals` holds the picture each sticker was made from and the edit that
+ * turned it into the sticker, so the editor can re-open the photo with the
+ * crop, the erasing and the border still on it instead of the flattened result
+ * it produced. It is private to this device: exporting a pack writes the
+ * manifest and the files the manifest names ([StickerPackFile.write]), and the
+ * config backup's sticker section walks the same list, so neither carries any
+ * of it out. It is keyed by sticker id rather than by pack so moving a sticker
+ * between packs does not have to move it too.
  *
  * Unlike [com.wasimaster.wmkeyboard.core.snippets.SnippetStore] every mutator
  * writes the manifest immediately: the settings app and the IME each hold their
@@ -156,6 +159,38 @@ class StickerPackStore(private var baseDir: File?) {
         originalsDir()?.let { File(it, "$stickerId.webp") }?.takeIf { it.isFile }
 
     /**
+     * The mask a kept edit erased with, or null when that edit erased nothing.
+     */
+    fun maskFor(stickerId: String): File? =
+        originalsDir()?.let { File(it, "$stickerId.mask.png") }?.takeIf { it.isFile }
+
+    /**
+     * The edit [stickerId] was last saved with, or null when none was kept.
+     * A file that no longer parses is treated as none: a stale edit is worth
+     * less than the picture, and the picture is a separate file.
+     */
+    fun editStateFor(stickerId: String): StickerEditState? {
+        val file = originalsDir()?.let { File(it, "$stickerId.json") } ?: return null
+        if (!file.isFile) return null
+        return runCatching { json.decodeFromString<StickerEditState>(file.readText()) }.getOrNull()
+    }
+
+    /**
+     * Records how [stickerId] was edited, so opening it again resumes that
+     * edit. [maskPng] is the erased-parts mask, or null when nothing was
+     * erased; passing null deletes any mask kept before.
+     */
+    fun writeEditState(stickerId: String, state: StickerEditState, maskPng: ByteArray?) {
+        val dir = originalsDir() ?: return
+        runCatching {
+            dir.mkdirs()
+            writeAtomically(File(dir, "$stickerId.json"), json.encodeToString(state).toByteArray())
+            val mask = File(dir, "$stickerId.mask.png")
+            if (maskPng == null) mask.delete() else writeAtomically(mask, maskPng)
+        }
+    }
+
+    /**
      * Keeps [bytes] as the original behind [stickerId]. Failing to write one
      * costs a later edit its clean starting point and nothing else, so every
      * caller ignores the result.
@@ -164,17 +199,30 @@ class StickerPackStore(private var baseDir: File?) {
         val dir = originalsDir() ?: return
         runCatching {
             dir.mkdirs()
-            val part = File(dir, "$stickerId.webp.part")
-            part.writeBytes(bytes)
-            val target = File(dir, "$stickerId.webp")
-            if (!part.renameTo(target)) {
-                target.delete()
-                if (!part.renameTo(target)) part.delete()
-            }
+            writeAtomically(File(dir, "$stickerId.webp"), bytes)
         }
     }
 
-    /** Drops every kept original. The stickers themselves are untouched. */
+    private fun writeAtomically(target: File, bytes: ByteArray) {
+        val part = File(target.parentFile, target.name + ".part")
+        part.writeBytes(bytes)
+        if (!part.renameTo(target)) {
+            target.delete()
+            if (!part.renameTo(target)) part.delete()
+        }
+    }
+
+    /** Everything kept for a later edit of [stickerId]: picture, mask, state. */
+    private fun deleteKept(stickerId: String) {
+        val dir = originalsDir() ?: return
+        listOf("$stickerId.webp", "$stickerId.mask.png", "$stickerId.json")
+            .forEach { File(dir, it).delete() }
+    }
+
+    /**
+     * Drops every kept original, mask and edit. The stickers themselves are
+     * untouched; they simply re-open as themselves from then on.
+     */
     fun clearOriginals() {
         originalsDir()?.listFiles()?.forEach { it.delete() }
     }
@@ -286,7 +334,7 @@ class StickerPackStore(private var baseDir: File?) {
         val gone = packs.filter { it.id == packId }
         if (!packs.removeAll { it.id == packId }) return
         baseDir?.let { File(it, packId).deleteRecursively() }
-        gone.forEach { pack -> pack.stickers.forEach { originalFor(it.id)?.delete() } }
+        gone.forEach { pack -> pack.stickers.forEach { deleteKept(it.id) } }
         save()
     }
 
@@ -422,7 +470,7 @@ class StickerPackStore(private var baseDir: File?) {
         val sticker = packs[index].stickers.firstOrNull { it.id == stickerId } ?: return
         packs[index] = packs[index].copy(stickers = packs[index].stickers - sticker)
         fileFor(packId, sticker)?.delete()
-        originalFor(stickerId)?.delete()
+        deleteKept(stickerId)
         save()
     }
 
@@ -577,7 +625,10 @@ class StickerPackStore(private var baseDir: File?) {
             val live = HashSet<String>()
             packs.forEach { pack -> pack.stickers.forEach { live += it.id } }
             File(dir, ORIGINALS_DIR).listFiles()?.forEach { file ->
-                if (file.name.substringBeforeLast('.') !in live) file.delete()
+                // Before the first dot, not the last: one sticker keeps up to
+                // three files and two of them have a compound extension
+                // (`.mask.png`, `.json.part`). Ids never contain a dot.
+                if (file.name.substringBefore('.') !in live) file.delete()
             }
         }
         if (changed) save()
