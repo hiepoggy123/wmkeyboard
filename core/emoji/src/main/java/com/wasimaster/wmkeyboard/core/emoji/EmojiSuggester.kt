@@ -4,13 +4,16 @@ package com.wasimaster.wmkeyboard.core.emoji
  * Word → emoji prediction for the suggestion strip: typing "birthday"
  * offers 🎂🎉🥳🎁, "coffee" offers ☕, "bangladesh" offers 🇧🇩.
  *
- * Three layers, high precision on purpose (this rides along with word
+ * Four layers, high precision on purpose (this rides along with word
  * suggestions, so a wrong emoji is worse than no emoji):
  *  1. a small curated trigger map, which is where the ordering judgements and
  *     the Bengali triggers live — gemoji has neither;
  *  2. [EmojiTriggers], GitHub's own word→emoji data, which covers far more
  *     English than a hand-written table can ("hooray", "espresso", "workout");
- *  3. exact keyword hits from the catalog (with a trailing plural 's'
+ *  3. an exact [EmojiShortcodes] hit, so the name someone would type between
+ *     colons works as plain text too — mostly the two-word codes ("alarm
+ *     clock", "crossed fingers"), which nothing else here can reach;
+ *  4. exact keyword hits from the catalog (with a trailing plural 's'
  *     stripped) — no prefix or fuzzy matching.
  *
  * The layers stack rather than replace: gemoji has nothing for "sorry",
@@ -20,6 +23,7 @@ package com.wasimaster.wmkeyboard.core.emoji
 class EmojiSuggester(
     entries: List<EmojiEntry>,
     private val triggers: EmojiTriggers = EmojiTriggers.EMPTY,
+    private val shortcodes: EmojiShortcodes = EmojiShortcodes.EMPTY,
 ) {
 
     private val byKeyword = HashMap<String, MutableList<String>>()
@@ -35,10 +39,18 @@ class EmojiSuggester(
         }
     }
 
-    fun suggest(word: String, limit: Int = 4): List<String> {
+    /**
+     * Emoji for [word]. [previous] is the word committed before it, which lets
+     * the two together match a two-word shortcode ("alarm clock" → ⏰); pass
+     * "" when there is none, or when the two are not adjacent.
+     */
+    fun suggest(word: String, previous: String = "", limit: Int = 4): List<String> {
         val cleaned = word.trim().lowercase()
         if (cleaned.length < 2) return emptyList()
         val results = LinkedHashSet<String>()
+        // A two-word hit is the more specific reading of what was typed, so it
+        // leads: "alarm clock" is a clock, not an alarm.
+        phraseHit(previous.trim().lowercase(), cleaned)?.let { results.add(it) }
         addLayers(cleaned, results)
         if (results.size < limit && cleaned.length >= 4 && cleaned.endsWith("s")) {
             addLayers(cleaned.dropLast(1), results)
@@ -46,14 +58,34 @@ class EmojiSuggester(
         return results.take(limit).toList()
     }
 
-    /** The three layers for one word, in the order they should be offered. */
+    /**
+     * Most of what only the shortcode table names is two words joined by an
+     * underscore — `alarm_clock`, `crossed_fingers`, `jack_o_lantern` — which
+     * a one-word lookup can never reach.
+     */
+    private fun phraseHit(previous: String, word: String): String? {
+        if (previous.length < 2 || word.length < 2) return null
+        return shortcodes.exact("${previous}_$word")
+    }
+
+    /** The four layers for one word, in the order they should be offered. */
     private fun addLayers(word: String, into: MutableSet<String>) {
         TRIGGERS[word]?.let { into.addAll(it) }
         into.addAll(triggers.of(word))
+        // Exact only. A shortcode prefix is the inline `:query` search's job,
+        // where the colon says the user is naming an emoji; here the word is
+        // ordinary text and a prefix match would fire on half of what is typed.
+        // Two-letter codes are flags and enclosed letters (`:it:`, `:us:`,
+        // `:ok:`), which is the wrong-emoji case this whole class avoids.
+        if (word.length >= MIN_SHORTCODE_LENGTH) shortcodes.exact(word)?.let { into.add(it) }
         byKeyword[word]?.let { into.addAll(it) }
     }
 
     companion object {
+
+        /** Shortest word that may match a shortcode. See [addLayers]. */
+        private const val MIN_SHORTCODE_LENGTH = 3
+
         /**
          * Curated word → emoji triggers; listed emojis always come first.
          *

@@ -19,7 +19,14 @@ class EmojiSuggesterTest {
             val triggers = EmojiTriggers.load(
                 FileInputStream(File("src/main/assets/emoji/triggers.tsv")),
             )
-            suggester = EmojiSuggester(EmojiCatalog.load(FileInputStream(asset)), triggers)
+            val shortcodes = EmojiShortcodes.load(
+                FileInputStream(File("src/main/assets/emoji/shortcodes.tsv")),
+            )
+            suggester = EmojiSuggester(
+                EmojiCatalog.load(FileInputStream(asset)),
+                triggers,
+                shortcodes,
+            )
         }
     }
 

@@ -1558,7 +1558,7 @@ open class WMKeyboardService : InputMethodService() {
             }
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog, emojiShortcodes)
-            emojiSuggester = EmojiSuggester(catalog, emojiTriggers)
+            emojiSuggester = EmojiSuggester(catalog, emojiTriggers, emojiShortcodes)
             _uiState.update {
                 it.copy(
                     emojiRecents = emojiUsage.recents(),
@@ -1627,7 +1627,7 @@ open class WMKeyboardService : InputMethodService() {
         } ?: return
         emojiEntries = catalog
         emojiSearch = EmojiSearch(catalog, emojiShortcodes)
-        emojiSuggester = EmojiSuggester(catalog, emojiTriggers)
+        emojiSuggester = EmojiSuggester(catalog, emojiTriggers, emojiShortcodes)
         _uiState.update { it.copy(emojiCatalog = catalog, emojiNamesByLang = emojiPackNames) }
         recomputeHiddenEmoji(_uiState.value.settings)
     }
@@ -2586,9 +2586,9 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(layoutMode = LayoutMode.LETTERS, fnLocked = false, fnReturn = null)
             }
             KeyAction.LanguageSwitch -> switchLanguage()
-            KeyAction.Emoji -> onPanelChange(PanelMode.EMOJI)
+            KeyAction.Emoji -> onPanelChange(PanelMode.EMOJI, haptic = false)
             // Produced only by a long-press on ?123 when the opt-in is set.
-            KeyAction.Numpad -> onPanelChange(PanelMode.NUMPAD)
+            KeyAction.Numpad -> onPanelChange(PanelMode.NUMPAD, haptic = false)
             is KeyAction.Mod -> onModifier((key.action as KeyAction.Mod).key)
             KeyAction.KanaVariant -> cycleKanaVariant()
             KeyAction.Fn -> onFn()
@@ -4593,7 +4593,29 @@ open class WMKeyboardService : InputMethodService() {
         val (emojis, words) = engine
             .suggest(composing = "", previousWord = previousWord)
             .partition { isEmojiCandidate(it) }
-        return words to if (state.settings.emojiPrediction) emojis else emptyList()
+        return words to if (state.settings.emojiPrediction) {
+            (emojis + triggerEmojiForPreviousWord()).distinct()
+        } else {
+            emptyList()
+        }
+    }
+
+    /**
+     * Word→emoji chips for an idle strip. The word just committed keeps
+     * offering its emoji after the space, so "happy birthday " still shows 🎂
+     * — before this the chip died the moment the word was no longer being
+     * composed, which is exactly when someone reaches for it.
+     *
+     * Learned bigrams come first where both fire: an emoji this user actually
+     * types after this word beats a generic trigger.
+     */
+    private fun triggerEmojiForPreviousWord(): List<String> {
+        if (!_uiState.value.settings.emojiPrediction) return emptyList()
+        // After an emoji commit the "previous word" is that emoji; suggesting
+        // from it would be a lookup on a glyph, and the chip that was just
+        // tapped would come straight back.
+        val word = previousWord?.takeUnless { isEmojiCandidate(it) } ?: return emptyList()
+        return emojiSuggester?.suggest(word).orEmpty()
     }
 
     /**
@@ -5103,7 +5125,9 @@ open class WMKeyboardService : InputMethodService() {
                 }
                 if (typed.isNotEmpty()) {
                     val emojis = if (state.settings.emojiPrediction) {
-                        emojiSuggester?.suggest(typed).orEmpty()
+                        // The word before is passed for the two-word shortcodes
+                        // ("alarm clock" → ⏰); one word can never reach them.
+                        emojiSuggester?.suggest(typed, previousWord.orEmpty()).orEmpty()
                     } else {
                         emptyList()
                     }
@@ -5111,11 +5135,16 @@ open class WMKeyboardService : InputMethodService() {
                 } else {
                     // Next-word prediction: learned bigrams can end in an
                     // emoji ("you" → ❤️). Those belong in the emoji slot of
-                    // the strip, not among the word chips.
+                    // the strip, not among the word chips — and so does the
+                    // trigger emoji of the word that just committed.
                     val (emojiNext, wordNext) = words.partition { isEmojiCandidate(it) }
                     Triple(
                         wordNext,
-                        if (state.settings.emojiPrediction) emojiNext else emptyList(),
+                        if (state.settings.emojiPrediction) {
+                            (emojiNext + triggerEmojiForPreviousWord()).distinct()
+                        } else {
+                            emptyList()
+                        },
                         bias,
                     )
                 }
@@ -5583,7 +5612,14 @@ open class WMKeyboardService : InputMethodService() {
         _uiState.update { block(it).copy(panelFocus = null) }
     }
 
-    fun onPanelChange(panel: PanelMode) {
+    /**
+     * Opens (or closes) a panel. [haptic] is false when a key on the grid did
+     * it: the UI's pointer-down callback already buzzed for that press, and a
+     * second buzz on release read as one long double tick on the emoji key.
+     * The toolbar, the chrome shortcut and the hardware shortcuts have no
+     * press-time feedback of their own, so they keep it.
+     */
+    fun onPanelChange(panel: PanelMode, haptic: Boolean = true) {
         // Strip mode reroutes the voice tool: no panel, just the compact
         // bar over the keys. A voice panel already open (setting flipped
         // mid-session) still closes normally below.
@@ -5601,7 +5637,7 @@ open class WMKeyboardService : InputMethodService() {
         // Same for a half-typed braille chord or morse sequence: the panel
         // takes the keys out from under it.
         resetChordInputs()
-        vibrate()
+        if (haptic) vibrate()
         // The settings app edits snippets in the same file; re-read on open.
         if (panel == PanelMode.SNIPPETS) snippetStore.reload()
         // Same for sticker packs, which the settings app owns outright.
