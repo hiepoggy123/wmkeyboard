@@ -115,7 +115,9 @@ object WordlistDownloadManager {
         activeJob = scope.launch {
             val part = DictionaryStore.partFile(filesDir, entry.languageId)
             try {
-                val entries = fetchEntries(entry, size.wordCap, part)
+                // Clamped here, not inside: ALL's cap is Int.MAX_VALUE, which
+                // would ask the free-space check for 137 GB.
+                val entries = fetchEntries(entry, DictionaryCatalog.wordCap(entry, size), part)
                 set(entry.id, DownloadStatus.Processing)
                 val trie = PackedTrie.of(entries)
                 part.outputStream().use { PackedTrieCodec.write(trie, it) }

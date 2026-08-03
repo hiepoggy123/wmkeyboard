@@ -22,6 +22,8 @@
     <string name="core_pred_wordlist_size_medium_label">Medium</string>
     <!-- Download size. Keeps the 300000 most frequent words. -->
     <string name="core_pred_wordlist_size_large_label">Large</string>
+    <!-- Download size. Keeps all the words in the list, however many there are. -->
+    <string name="core_pred_wordlist_size_all_label">Everything</string>
 
     <!-- Names the word list of one region when a language has more than one.
          Portuguese has a European list and a Brazilian list. -->

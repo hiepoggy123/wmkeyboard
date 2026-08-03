@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
@@ -40,10 +41,12 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
+import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryStore
 import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictEntry
+import com.wasimaster.wmkeyboard.core.emoji.EmojiDictStore
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictPack
@@ -66,6 +69,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.Locale
 
 /**
@@ -199,11 +203,39 @@ internal fun AddLanguageScreen(
     onOpenLanguage: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val filesDir = LocalContext.current.filesDir
     var query by remember { mutableStateOf("") }
     val enabledLangIds = settings.enabledLanguages.mapTo(HashSet()) { it.id }
     val q = query.trim().lowercase()
     val matches = LanguageRegistry.all.filter { it.matchesQuery(q) }
     val suggested = rememberSuggestedLanguages(settings)
+    // The language is enabled straight away either way; the prompt only decides
+    // whether its data comes down now, so answering it is never load-bearing.
+    var pendingDownload by remember { mutableStateOf<LanguageDef?>(null) }
+    val add: (LanguageDef) -> Unit = { lang ->
+        addLanguage(scope, repository, settings, lang)
+        if (languageData(lang.id).isEmpty) onOpenLanguage(lang.id) else pendingDownload = lang
+    }
+
+    pendingDownload?.let { lang ->
+        val data = languageData(lang.id)
+        LanguageDataDownloadDialog(
+            language = lang,
+            data = data,
+            onDismiss = {
+                pendingDownload = null
+                onOpenLanguage(lang.id)
+            },
+            onConfirm = {
+                data.wordlist?.let {
+                    WordlistDownloadManager.start(filesDir, it, AUTO_DOWNLOAD_SIZE)
+                }
+                data.emojiDict?.let { EmojiDictDownloadManager.start(filesDir, it) }
+                pendingDownload = null
+                onOpenLanguage(lang.id)
+            },
+        )
+    }
 
     OutlinedTextField(
         value = query,
@@ -224,10 +256,7 @@ internal fun AddLanguageScreen(
                     NavRow(
                         suggestion.language.displayName,
                         subtitle = suggestionReasonLabel(suggestion),
-                    ) {
-                        addLanguage(scope, repository, settings, suggestion.language)
-                        onOpenLanguage(suggestion.language.id)
-                    }
+                    ) { add(suggestion.language) }
                 }
             }
             item { CaptionText(stringResource(R.string.languages_suggested_info)) }
@@ -244,8 +273,7 @@ internal fun AddLanguageScreen(
                     subtitle = languageRowSubtitle(lang),
                     value = if (added) addedLabel else null,
                 ) {
-                    if (!added) addLanguage(scope, repository, settings, lang)
-                    onOpenLanguage(lang.id)
+                    if (added) onOpenLanguage(lang.id) else add(lang)
                 }
             }
         }
@@ -280,6 +308,117 @@ private fun conjunctSample(script: ScriptId): String? = when (script) {
 }
 
 /**
+ * What a language can download: its word list and its emoji keywords, with a
+ * rough size for the two together. Either half may be missing — most languages
+ * have a word list, only 125 have keywords.
+ */
+internal data class LanguageData(
+    val wordlist: DictionaryEntry?,
+    val emojiDict: EmojiDictEntry?,
+    val bytes: Long,
+) {
+    val isEmpty: Boolean get() = wordlist == null && emojiDict == null
+}
+
+/** Word list and emoji keywords on offer for [langId], sized for a prompt. */
+internal fun languageData(langId: String): LanguageData {
+    val lists = DictionaryCatalog.forLanguage(langId)
+    // Where a language has several lists (Portuguese), the one whose id is the
+    // language itself is its default; the other is the regional variant.
+    val wordlist = lists.firstOrNull { it.id == langId } ?: lists.firstOrNull()
+    val emojiDict = EmojiDictCatalog.forLanguage(langId)
+    // The catalogue sizes the whole file, and a capped download stops partway
+    // through it, so scale by the share of the list actually read.
+    val wordlistBytes = wordlist?.let {
+        val cap = DictionaryCatalog.wordCap(it, AUTO_DOWNLOAD_SIZE)
+        it.approxGzBytes * cap / it.totalWordCount.coerceAtLeast(1)
+    } ?: 0L
+    return LanguageData(wordlist, emojiDict, wordlistBytes + (emojiDict?.approxGzBytes ?: 0L))
+}
+
+/**
+ * How much of a word list the add-a-language prompt fetches. The largest fixed
+ * tier rather than [DictionaryCatalog.DictionarySize.ALL]: this download is one
+ * tap on a dialog, so it should not be the one that pulls four million words.
+ */
+private val AUTO_DOWNLOAD_SIZE = DictionaryCatalog.DictionarySize.LARGE
+
+/** Bytes a language's downloaded files are taking up right now. */
+private fun downloadedLanguageBytes(filesDir: File, langId: String): Long =
+    DictionaryStore.downloadedFile(filesDir, langId).length() +
+        EmojiDictStore.packFile(filesDir, langId).length()
+
+/**
+ * Asks once, right after a language is added, whether to fetch the data that
+ * makes it work properly. The alternative to asking is either a silent download
+ * on a metered connection or a language that quietly predicts nothing.
+ */
+@Composable
+private fun LanguageDataDownloadDialog(
+    language: LanguageDef,
+    data: LanguageData,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.languages_data_download_title)) },
+        text = {
+            Text(
+                stringResource(
+                    R.string.languages_data_download_body,
+                    language.displayName,
+                    formatBytes(data.bytes),
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(CommonR.string.common_download))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.languages_data_download_dismiss_action))
+            }
+        },
+    )
+}
+
+/** The mirror of [LanguageDataDownloadDialog], for a language on its way out. */
+@Composable
+private fun LanguageDataDeleteDialog(
+    language: LanguageDef,
+    bytes: Long,
+    onKeep: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onKeep,
+        title = { Text(stringResource(R.string.languages_data_delete_title)) },
+        text = {
+            Text(
+                stringResource(
+                    R.string.languages_data_delete_body,
+                    language.displayName,
+                    formatBytes(bytes),
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDelete) {
+                Text(stringResource(CommonR.string.common_delete))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onKeep) {
+                Text(stringResource(R.string.languages_data_delete_dismiss_action))
+            }
+        },
+    )
+}
+
+/**
  * Adds a language by enabling its first layout. The rest of its layouts, and any
  * secondary suggestion sources, are then a tap away on its detail screen — which
  * is where every caller sends the user next.
@@ -311,7 +450,44 @@ internal fun LanguageDetailScreen(
     onRemoved: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val filesDir = LocalContext.current.filesDir
     val lang = LanguageRegistry.byId(langId)
+    var pendingDelete by remember { mutableStateOf(false) }
+
+    val removeLanguage: () -> Unit = {
+        scope.launch {
+            val next = settings.enabledLayoutIds.filterNot {
+                resolveLayout(settings.customLayouts, it).language().id == langId
+            }
+            if (next.isNotEmpty()) {
+                repository.setEnabledLayoutIds(next.distinct())
+                onRemoved()
+            }
+        }
+        Unit
+    }
+
+    if (pendingDelete) {
+        LanguageDataDeleteDialog(
+            language = lang,
+            bytes = downloadedLanguageBytes(filesDir, langId),
+            // Either answer removes the language: the dialog is about the
+            // files on disk, not about the removal the user already asked for.
+            onKeep = {
+                pendingDelete = false
+                removeLanguage()
+            },
+            onDelete = {
+                pendingDelete = false
+                DictionaryStore.delete(filesDir, langId)
+                WordlistDownloadManager.refresh(filesDir)
+                // Leaves a "declined" mark behind, which is what stops the
+                // automatic pass fetching the keywords straight back.
+                EmojiDictDownloadManager.delete(filesDir, langId)
+                removeLanguage()
+            },
+        )
+    }
 
     SettingsGroup(stringResource(R.string.languages_layouts_title)) {
         for (layoutId in lang.layoutIds) {
@@ -472,15 +648,9 @@ internal fun LanguageDetailScreen(
             item {
                 OutlinedButton(
                     onClick = {
-                        scope.launch {
-                            val next = settings.enabledLayoutIds.filterNot {
-                                resolveLayout(settings.customLayouts, it).language().id == langId
-                            }
-                            if (next.isNotEmpty()) {
-                                repository.setEnabledLayoutIds(next.distinct())
-                                onRemoved()
-                            }
-                        }
+                        val downloaded = DictionaryStore.isDownloaded(filesDir, langId) ||
+                            EmojiDictStore.isDownloaded(filesDir, langId)
+                        if (downloaded) pendingDelete = true else removeLanguage()
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -610,9 +780,14 @@ private fun WordlistRow(entry: DictionaryEntry) {
     val states by WordlistDownloadManager.states.collectAsState()
     LaunchedEffect(entry.id) { WordlistDownloadManager.refresh(filesDir) }
     val status = states[entry.id] ?: WordlistDownloadManager.DownloadStatus.NotDownloaded
-    var size by remember { mutableStateOf(DictionaryCatalog.DictionarySize.MEDIUM) }
+    var size by remember { mutableStateOf(DictionaryCatalog.DictionarySize.LARGE) }
     var sizeMenu by remember { mutableStateOf(false) }
-    val effectiveWords = minOf(size.wordCap, entry.totalWordCount)
+    val effectiveWords = DictionaryCatalog.wordCap(entry, size)
+    // Tiers past the end of a short list all keep the same words, so only the
+    // first one that reaches the whole list is worth offering.
+    val sizeOptions = remember(entry.totalWordCount) {
+        DictionaryCatalog.DictionarySize.entries.distinctBy { DictionaryCatalog.wordCap(entry, it) }
+    }
 
     WmRow(
         title = entry.variantRes?.let {
@@ -688,10 +863,10 @@ private fun WordlistRow(entry: DictionaryEntry) {
                             )
                         }
                         DropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
-                            for (option in DictionaryCatalog.DictionarySize.entries) {
+                            for (option in sizeOptions) {
                                 DropdownMenuItem(
                                     text = {
-                                        val words = minOf(option.wordCap, entry.totalWordCount)
+                                        val words = DictionaryCatalog.wordCap(entry, option)
                                         Text(
                                             pluralStringResource(
                                                 R.plurals.languages_wordlist_size_option,

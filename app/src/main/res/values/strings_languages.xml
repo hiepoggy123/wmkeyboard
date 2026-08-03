@@ -173,4 +173,17 @@
     <!-- Button that takes a language off the list. %1$s is its English name. -->
     <string name="languages_remove_action">Remove <xliff:g id="language" example="Bengali">%1$s</xliff:g></string>
 
+    <!-- Dialog after the user adds a language. It offers the downloads that
+         make the language work better: the word list and the emoji keywords. -->
+    <string name="languages_data_download_title">Download language data?</string>
+    <!-- %1$s is the language name, %2$s a data size like "4.2 MB". -->
+    <string name="languages_data_download_body">The keyboard can download a word list and emoji keywords for <xliff:g id="language" example="German">%1$s</xliff:g>. This uses about <xliff:g id="size" example="4.2 MB">%2$s</xliff:g> of data. You can also do this later from the language screen.</string>
+    <string name="languages_data_download_dismiss_action">Not now</string>
+
+    <!-- Dialog after the user removes a language that has downloaded files. -->
+    <string name="languages_data_delete_title">Delete the downloaded files?</string>
+    <!-- %1$s is the language name, %2$s a data size like "4.2 MB". -->
+    <string name="languages_data_delete_body"><xliff:g id="language" example="German">%1$s</xliff:g> has a downloaded word list or emoji keywords. Delete them and get about <xliff:g id="size" example="4.2 MB">%2$s</xliff:g> of storage back?</string>
+    <string name="languages_data_delete_dismiss_action">Keep them</string>
+
 </resources>

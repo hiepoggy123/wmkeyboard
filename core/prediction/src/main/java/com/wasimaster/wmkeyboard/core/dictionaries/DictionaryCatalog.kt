@@ -53,12 +53,21 @@ data class DictionaryEntry(
  */
 object DictionaryCatalog {
 
-    /** User-selectable download size: how many of the most frequent words to keep. */
+    /**
+     * User-selectable download size: how many of the most frequent words to
+     * keep. [ALL] takes the list whole, however long it is — its cap is the
+     * entry's own [DictionaryEntry.totalWordCount], not a number chosen here.
+     */
     enum class DictionarySize(@StringRes val labelRes: Int, val wordCap: Int) {
         SMALL(R.string.core_pred_wordlist_size_small_label, 50_000),
         MEDIUM(R.string.core_pred_wordlist_size_medium_label, 150_000),
         LARGE(R.string.core_pred_wordlist_size_large_label, 300_000),
+        ALL(R.string.core_pred_wordlist_size_all_label, Int.MAX_VALUE),
     }
+
+    /** Words [size] actually keeps of [entry] — never more than the list holds. */
+    fun wordCap(entry: DictionaryEntry, size: DictionarySize): Int =
+        minOf(size.wordCap, entry.totalWordCount)
 
     private fun entry(
         id: String,
