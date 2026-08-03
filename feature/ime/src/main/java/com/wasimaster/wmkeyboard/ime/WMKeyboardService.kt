@@ -9787,8 +9787,12 @@ open class WMKeyboardService : InputMethodService() {
 
         val dir = File(cacheDir, "media").apply { mkdirs() }
         pruneMediaCache(dir)
-        val stamp = "${spelling.text}|${settings.emojiFont}|${settings.emojiFontInstalled.installedId}"
-        val target = File(dir, "emoji_${stamp.hashCode().toUInt()}.webp")
+        val stamp = "$STICKER_RENDER_VERSION|${spelling.text}|" +
+            "${settings.emojiFont}|${settings.emojiFontInstalled.installedId}"
+        // Digested, not hashCode()'d. A 32-bit hash over a couple of thousand
+        // emoji collides in practice, not in theory: 😘 and 🧹 land on the same
+        // number, so whoever sent the broom second got a kiss out of the cache.
+        val target = File(dir, "emoji_${digest(stamp)}.webp")
         if (target.exists() && target.length() > 0L) return@runCatching target
 
         val bitmap = createBitmap(StickerImage.TARGET_SIZE, StickerImage.TARGET_SIZE)
@@ -9827,6 +9831,14 @@ open class WMKeyboardService : InputMethodService() {
         target.writeBytes(processed.bytes)
         target
     }.getOrNull()
+
+    /** A short, collision-free name for a cache key of any shape. */
+    private fun digest(key: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(key.toByteArray())
+            .take(8)
+            .joinToString("") { "%02x".format(it) }
+
 
 
 
@@ -11352,6 +11364,17 @@ open class WMKeyboardService : InputMethodService() {
          * [StickerImage.TARGET_SIZE], shared with the sticker tool.
          */
         private const val STICKER_GLYPH_PX = 448f
+
+        /**
+         * Part of a rendered sticker's cache key. Bump it whenever the drawing
+         * changes, or an emoji sent before the change keeps coming back in the
+         * old form: the key is otherwise (emoji, font choice), and neither of
+         * those moves when the *renderer* does. That is exactly what happened
+         * when Noto learned to draw these — anything sent beforehand stayed on
+         * the phone's own font, from cache, while everything new came out in
+         * Noto.
+         */
+        private const val STICKER_RENDER_VERSION = 2
 
         /**
          * A caret still being dragged along by a spacebar/volume scrub does not

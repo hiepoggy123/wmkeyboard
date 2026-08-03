@@ -7,6 +7,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -36,7 +37,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -217,7 +220,7 @@ internal fun DebugLogScreen() {
             .height(360.dp)
             .padding(horizontal = 16.dp),
     ) {
-        items(shown) { entry -> LogRow(entry) }
+        items(shown) { entry -> LogRow(entry, onCopy = { copyLine(context, it) }) }
     }
 
     if (showSystemLog) {
@@ -260,15 +263,32 @@ private fun levelLabelRes(level: LogLevel): Int = when (level) {
     LogLevel.ERROR -> R.string.shell_debug_log_level_error_label
 }
 
+/**
+ * One log line. Holding it copies that line alone — the whole report is two
+ * taps away above, but a bug report usually turns on one line, and picking it
+ * out of a shared file by hand is worse than holding it here.
+ */
 @Composable
-private fun LogRow(entry: LogEntry) {
+private fun LogRow(entry: LogEntry, onCopy: (String) -> Unit) {
     val color = when (entry.level) {
         LogLevel.ERROR -> MaterialTheme.colorScheme.error
         LogLevel.WARN -> MaterialTheme.colorScheme.tertiary
         LogLevel.INFO -> MaterialTheme.colorScheme.onSurface
         LogLevel.DEBUG -> MaterialTheme.colorScheme.onSurfaceVariant
     }
-    Column(modifier = Modifier.padding(vertical = 3.dp)) {
+    val haptics = LocalHapticFeedback.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = {},
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onCopy("${timeOf(entry.timeMillis)} ${entry.level} ${entry.tag}: ${entry.message}")
+                },
+            )
+            .padding(vertical = 3.dp),
+    ) {
         Text(
             "${timeOf(entry.timeMillis)}  ${entry.tag}",
             fontSize = 10.sp,
@@ -318,6 +338,20 @@ private fun report(includeSystemLog: Boolean, systemLog: String): String = build
         appendLine("== system log ==")
         appendLine(systemLog)
     }
+}
+
+/** Puts one log line on the clipboard, for quoting into a bug report. */
+private fun copyLine(context: Context, line: String) {
+    val label = context.getString(R.string.shell_debug_log_report_subject)
+    runCatching {
+        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+            .setPrimaryClip(ClipData.newPlainText(label, line))
+    }
+    Toast.makeText(
+        context,
+        context.getString(R.string.shell_debug_log_line_copied_info),
+        Toast.LENGTH_SHORT,
+    ).show()
 }
 
 private fun copyReport(context: Context, includeSystemLog: Boolean, systemLog: String) {

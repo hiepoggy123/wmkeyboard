@@ -59,6 +59,8 @@
     <!-- Subject of the shared report, and the name the clipboard gives it. -->
     <string name="shell_debug_log_report_subject">WM Keyboard diagnostics</string>
     <string name="shell_debug_log_copied_info">The app copied the report.</string>
+    <!-- Shown after the user presses and holds one line of the log. -->
+    <string name="shell_debug_log_line_copied_info">The app copied that line.</string>
     <string name="shell_debug_log_write_error">The app cannot write the report.</string>
 
     <!-- ================================================================== -->
