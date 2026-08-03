@@ -166,6 +166,22 @@
     <string name="typing_smart_tool_keywords_subtitle">Type \"wiki\" and the strip offers to open Wikipedia</string>
     <string name="typing_smart_tool_keywords_info">Each tool has a few keywords. Type one keyword alone and the suggestion strip offers to open that tool and delete the word you typed. The settings of each tool list its keywords, where you can change them or clear them.</string>
 
+    <!-- ==== Typing settings: one-time codes ==== -->
+    <string name="typing_group_otp_title">One-time codes</string>
+    <string name="typing_otp_chip_title">Codes from notifications</string>
+    <string name="typing_otp_chip_subtitle">When a verification code arrives in a notification, offer it above the keys — one press types it</string>
+    <string name="typing_otp_chip_info">The keyboard watches incoming notifications for a one-time code. When it finds one, a chip with the code and the name of the app that sent it appears above the keys. Press the chip to type the code. This needs notification access. The keyboard reads notifications on your device only, keeps the code in memory only, and sends nothing anywhere. Turn this off and the keyboard stops reading notifications at once.</string>
+    <string name="typing_otp_access_title">Allow notification access</string>
+    <string name="typing_otp_access_subtitle">The chip cannot see codes arrive yet. Press to open the system switch</string>
+    <string name="typing_otp_number_fields_title">Only in number fields</string>
+    <string name="typing_otp_number_fields_subtitle">Show the chip only where the app asks for digits, which is the shape of most code boxes</string>
+    <string name="typing_otp_number_fields_info">Code boxes usually ask for a number keypad, so the chip shows there and nowhere else. Some apps use a plain text box for their code. If your code chip does not appear in an app, turn this off to offer codes in text fields too.</string>
+    <string name="typing_otp_expiry_title">Offer a code for</string>
+    <string name="typing_otp_expiry_subtitle">A code older than this stops being offered</string>
+    <string name="typing_otp_dismiss_title">Clear the notification</string>
+    <string name="typing_otp_dismiss_subtitle">Dismiss the code\'s notification after the chip types it</string>
+    <string name="typing_otp_dismiss_info">A used code has no reason to stay in the shade. After the chip types the code, the keyboard dismisses the notification it came from. This uses the same notification access. Some apps post their code again after a dismissal; turn this off if that bothers you.</string>
+
     <!-- ==== Typing settings: gestures ==== -->
     <string name="typing_glide_typing_title">Glide typing</string>
     <string name="typing_glide_typing_subtitle">Swipe across the letters to type a word</string>

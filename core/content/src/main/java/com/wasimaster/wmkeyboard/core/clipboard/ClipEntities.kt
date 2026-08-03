@@ -216,8 +216,12 @@ object ClipEntities {
             .toList()
     }
 
-    /** True when the word before the keyword at [start] disqualifies it. */
-    private fun isDeniedKeyword(text: String, start: Int): Boolean {
+    /**
+     * True when the word before the keyword at [start] disqualifies it.
+     * Internal because the notification-code extractor applies the same rule
+     * to its own keyword matches.
+     */
+    internal fun isDeniedKeyword(text: String, start: Int): Boolean {
         val before = text.take(start).trimEnd()
         val word = before.takeLastWhile { it.isLetter() }
         return word.isNotEmpty() && word.lowercase() in OTP_KEYWORD_DENY

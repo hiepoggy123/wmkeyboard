@@ -83,5 +83,9 @@ fun KeyboardSettings.restrictedToDirectBoot(): KeyboardSettings {
         // Offline dictation loads its weights from filesDir; the OS recognizer
         // does not, so dictation started from a key still works.
         whisper = whisper.copy(engine = "system"),
+        // Before the first unlock the lock screen still hides notification
+        // *content* — a chip printing a code out of one would put on the
+        // keyboard exactly what the shade is redacting.
+        otp = otp.copy(enabled = false),
     )
 }

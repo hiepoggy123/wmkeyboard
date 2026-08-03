@@ -98,6 +98,8 @@
     <string name="ime_clip_chip_image">Copied image</string>
     <string name="ime_clip_chip_item">Copied item</string>
     <string name="ime_clip_chip_dismiss_desc">Hide the copied text</string>
+    <!-- The ✕ on the chip that offers a code found in a notification. -->
+    <string name="ime_otp_chip_dismiss_desc">Hide the code</string>
 
     <!-- The Modes panel: which keyboard mode is active. -->
     <string name="ime_modes_empty">No modes yet. Create one in Settings → Modes.</string>

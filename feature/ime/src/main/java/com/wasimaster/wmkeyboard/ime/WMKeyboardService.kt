@@ -232,6 +232,9 @@ import com.wasimaster.wmkeyboard.core.tools.WebResult
 import com.wasimaster.wmkeyboard.core.mlkit.MlKitInit
 import com.wasimaster.wmkeyboard.core.media.MediaControlManager
 import com.wasimaster.wmkeyboard.core.media.MediaNotificationListener
+import com.wasimaster.wmkeyboard.core.otp.NotificationOtp
+import com.wasimaster.wmkeyboard.core.otp.NotificationOtpBus
+import com.wasimaster.wmkeyboard.core.otp.NotificationOtpCapture
 import com.wasimaster.wmkeyboard.core.voice.VoiceInputEngine
 import com.wasimaster.wmkeyboard.core.voice.VoicePunctuation
 import com.wasimaster.wmkeyboard.core.voice.VoiceSpacing
@@ -366,6 +369,8 @@ open class WMKeyboardService : InputMethodService() {
     private var linkPreviewJob: Job? = null
     /** Auto-hide timer for the recently-copied strip chip (see [showClipboardSuggestion]). */
     private var clipboardSuggestionJob: Job? = null
+    /** Expiry timer for the one-time-code chip (see [maybeShowOtpSuggestion]). */
+    private var otpSuggestionJob: Job? = null
     private lateinit var snippetStore: SnippetStore
     private lateinit var aiHistoryStore: AiHistoryStore
     private lateinit var stickerPackStore: com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
@@ -1182,6 +1187,7 @@ open class WMKeyboardService : InputMethodService() {
             var linkPreviewsEnabled: Boolean? = null
             var pinnedLastEnabled: Boolean? = null
             var userScreenshotsEnabled: Boolean? = null
+            var otpCaptureEnabled: Boolean? = null
             // Recompute the hidden-emoji set only when the toggle or the font
             // behind it actually changes, not on every unrelated settings save.
             var hiddenEmojiKey: Triple<Boolean, EmojiFontChoice, String>? = null
@@ -1237,6 +1243,17 @@ open class WMKeyboardService : InputMethodService() {
                 }
                 // Turning the strip chip off hides any chip already showing.
                 if (!settings.clipboard.suggestRecent) clearClipboardSuggestion()
+                // Mirror the code-chip switch to the notification listener's
+                // device-protected flag — the listener cannot read settings,
+                // and the flag is what stops it reading notifications at all.
+                if (otpCaptureEnabled != settings.otp.enabled) {
+                    otpCaptureEnabled = settings.otp.enabled
+                    NotificationOtpCapture.setEnabled(
+                        this@WMKeyboardService,
+                        settings.otp.enabled,
+                    )
+                    if (!settings.otp.enabled) clearOtpSuggestion()
+                }
                 // Turning previews off throws away what was already fetched, so
                 // the panel stops showing metadata the user opted out of.
                 if (linkPreviewsEnabled == true && !settings.clipboard.linkPreviews) {
@@ -1407,6 +1424,14 @@ open class WMKeyboardService : InputMethodService() {
 
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
             .addPrimaryClipChangedListener(clipboardListener)
+
+        // A code arriving while the keyboard is up raises its chip live — the
+        // field the user is staring at is usually the one the code is for.
+        serviceScope.launch {
+            NotificationOtpBus.latest.collect { otp ->
+                if (otp != null) maybeShowOtpSuggestion() else clearOtpSuggestion()
+            }
+        }
 
         serviceScope.launch {
             uiState
@@ -1791,6 +1816,8 @@ open class WMKeyboardService : InputMethodService() {
                 onClipboardSearchToggle = ::onClipboardSearchToggle,
                 onClipboardSuggestionDismiss = ::onClipboardSuggestionDismiss,
                 onClipboardEntity = ::onClipboardEntityTapped,
+                onOtpAccept = ::onOtpSuggestionTapped,
+                onOtpDismiss = ::onOtpSuggestionDismiss,
                 onSnippet = ::onSnippetTapped,
                 onOneHanded = ::onOneHandedChange,
                 onOneHandedSide = ::onOneHandedSideChange,
@@ -2215,6 +2242,9 @@ open class WMKeyboardService : InputMethodService() {
         // Chord and morse state belongs to the field it was typed over.
         resetChordInputs()
         refreshKarContext()
+        // A code captured before this field opened: offer it — or hide it —
+        // for the field the keyboard just landed in.
+        maybeShowOtpSuggestion()
         // Read the text already sitting around the caret now, on entry. A field
         // that comes back with its text and caret unchanged (returning to a
         // search bar after a search, re-opening a draft) never fires
@@ -10433,6 +10463,76 @@ open class WMKeyboardService : InputMethodService() {
     /** The user swiped away the recently-copied strip chip. */
     fun onClipboardSuggestionDismiss() {
         clearClipboardSuggestion()
+    }
+
+    // ---- one-time code chip ----
+
+    /**
+     * Raises or hides the one-time-code chip for the current field: called
+     * when a code lands on the bus, on every field start, and stays cheap
+     * because both callers are hot paths.
+     *
+     * A code that fails a *field* gate (number-fields-only, incognito) is
+     * hidden but stays on the bus — the user is often one focus change away
+     * from the box it belongs in. Only expiry and consumption take it off.
+     */
+    private fun maybeShowOtpSuggestion() {
+        val otp = NotificationOtpBus.latest.value
+        val state = _uiState.value
+        val settings = state.settings
+        if (otp == null || !settings.otp.enabled) {
+            clearOtpSuggestion()
+            return
+        }
+        val remainingMs = settings.otp.expiryMinutes * 60_000L -
+            (System.currentTimeMillis() - otp.postedAt)
+        if (remainingMs <= 0) {
+            NotificationOtpBus.clear()
+            clearOtpSuggestion()
+            return
+        }
+        val hidden =
+            (settings.otp.numberFieldsOnly && state.fieldKind != FieldKind.NUMBER) ||
+                settings.incognito || state.fieldIncognito
+        if (hidden) {
+            clearOtpSuggestion()
+            return
+        }
+        otpSuggestionJob?.cancel()
+        otpSuggestionJob = serviceScope.launch {
+            delay(remainingMs)
+            NotificationOtpBus.clear()
+            clearOtpSuggestion()
+        }
+        if (state.otpSuggestion != otp) {
+            _uiState.update { it.copy(otpSuggestion = otp) }
+        }
+    }
+
+    /** Drops the chip but not the bus — the code may fit the next field. */
+    private fun clearOtpSuggestion() {
+        otpSuggestionJob?.cancel()
+        otpSuggestionJob = null
+        if (_uiState.value.otpSuggestion != null) {
+            _uiState.update { it.copy(otpSuggestion = null) }
+        }
+    }
+
+    /** The code chip was tapped: type the code where the cursor is. */
+    fun onOtpSuggestionTapped(otp: NotificationOtp) {
+        vibrate()
+        commitToField(otp.code)
+        if (_uiState.value.settings.otp.dismissNotification) {
+            otp.notificationKey?.let(MediaNotificationListener::dismissNotification)
+        }
+        NotificationOtpBus.clear()
+        clearOtpSuggestion()
+    }
+
+    /** The ✕ on the code chip: this code is done being offered anywhere. */
+    fun onOtpSuggestionDismiss() {
+        NotificationOtpBus.clear()
+        clearOtpSuggestion()
     }
 
     /**

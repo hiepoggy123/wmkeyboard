@@ -250,6 +250,7 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipEntityKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
+import com.wasimaster.wmkeyboard.core.otp.NotificationOtp
 import com.wasimaster.wmkeyboard.core.clipboard.matchesQuery
 import com.wasimaster.wmkeyboard.core.emoji.EmojiNames
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
@@ -664,6 +665,8 @@ fun KeyboardScreen(
     onClipboardSearchToggle: () -> Unit = {},
     onClipboardSuggestionDismiss: () -> Unit = {},
     onClipboardEntity: (ClipEntity) -> Unit = {},
+    onOtpAccept: (NotificationOtp) -> Unit = {},
+    onOtpDismiss: () -> Unit = {},
     onSnippet: (Snippet) -> Unit = {},
     onOneHanded: (OneHandedMode) -> Unit = {},
     /** Persists the dock side for one orientation (landscape flag, side). */
@@ -855,6 +858,8 @@ fun KeyboardScreen(
                 onClipboardSearchToggle = onClipboardSearchToggle,
                 onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
                 onClipboardEntity = onClipboardEntity,
+                onOtpAccept = onOtpAccept,
+                onOtpDismiss = onOtpDismiss,
                 onSnippet = onSnippet,
                 onToolTap = onToolTap,
                 onToolbarToolsChange = onToolbarToolsChange,
@@ -1447,6 +1452,8 @@ private fun TopBar(
     onClipboardSuggestion: (ClipItem) -> Unit = {},
     onClipboardSuggestionDismiss: () -> Unit = {},
     onClipboardEntity: (ClipEntity) -> Unit = {},
+    onOtpAccept: (NotificationOtp) -> Unit = {},
+    onOtpDismiss: () -> Unit = {},
     onEmojiRowShown: () -> Unit = {},
     /** Downward flick on the strip: dismiss the keyboard (opt-in). */
     onSwipeDownHide: () -> Unit = {},
@@ -1463,6 +1470,9 @@ private fun TopBar(
     val recentClipChip = state.settings.clipboard.suggestRecent && state.clipboardSuggestion != null
     val hasSuggestions = state.suggestions.isNotEmpty() ||
         state.emojiSuggestions.isNotEmpty() || state.smart != null || recentClipChip ||
+        // The one-time-code chip counts as strip content for the same reason
+        // the paste chip does: it lands exactly when nothing is being typed.
+        state.otpSuggestion != null ||
         // A morse sequence being tapped out counts as strip content: the
         // toolbar taking the row would hide the one live view of the chord.
         state.morsePending.isNotEmpty() ||
@@ -1913,6 +1923,27 @@ private fun TopBar(
                     )
                 }
                 return@Row
+            }
+            // A one-time code lifted from a just-arrived notification. It
+            // outranks every chip below: the code is the reason the user is on
+            // this field, and it expires while everything else can wait. Only
+            // the autofill lane above beats it — the platform may be offering
+            // the same code with more context than the keyboard has.
+            val otpSuggestion = state.otpSuggestion
+            if (otpSuggestion != null) {
+                val otpShares = suggestionsShowing || state.smartReplyChips.isNotEmpty()
+                OtpSuggestionChip(
+                    otp = otpSuggestion,
+                    onAccept = { onOtpAccept(otpSuggestion) },
+                    onDismiss = onOtpDismiss,
+                    stretch = !otpShares,
+                    modifier = if (otpShares) {
+                        Modifier.widthIn(max = 180.dp).padding(horizontal = 4.dp)
+                    } else {
+                        Modifier.weight(1f).padding(horizontal = 4.dp)
+                    },
+                )
+                if (!otpShares) return@Row
             }
             // A recognised sum/conversion answers the text directly, so it
             // takes the whole strip the way autofill chips do. A keyword
@@ -2666,6 +2697,103 @@ private fun ClipboardSuggestionChip(
             Icon(
                 Icons.Outlined.Close,
                 contentDescription = stringResource(R.string.ime_clip_chip_dismiss_desc),
+                tint = tint.copy(alpha = 0.7f),
+                modifier = Modifier.size(15.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The one-time-code chip: a code found in a just-arrived notification, one tap
+ * from typed. Dashed outline in the same language as the clipboard fragment
+ * chips — this is a piece lifted out of something, not typed text — plus the
+ * posting app's name, so the user can tell whose code they are about to trust
+ * before they trust it.
+ */
+@Composable
+private fun OtpSuggestionChip(
+    otp: NotificationOtp,
+    onAccept: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    stretch: Boolean = false,
+) {
+    val kb = LocalKbTheme.current
+    val feedback = LocalKeyPressFeedback.current
+    val tint = kb.accent
+    Row(
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(vertical = 5.dp)
+            .clip(RoundedCornerShape(50))
+            .dashedOutline(tint.copy(alpha = 0.6f), 50.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier
+                .weight(1f, fill = stretch)
+                .fillMaxHeight()
+                .clickable {
+                    feedback()
+                    onAccept()
+                }
+                .padding(horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(tint.copy(alpha = 0.22f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.Password,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(13.dp),
+                )
+            }
+            Text(
+                text = stringResource(R.string.ime_clip_chip_code_badge),
+                color = tint.copy(alpha = 0.85f),
+                fontSize = 9.sp,
+                letterSpacing = 0.8.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+            )
+            Text(
+                text = otp.code,
+                color = kb.keyText,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+            )
+            Text(
+                text = otp.sourceApp,
+                color = kb.keyText.copy(alpha = 0.6f),
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .clip(CircleShape)
+                .clickable {
+                    feedback()
+                    onDismiss()
+                }
+                .padding(horizontal = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Outlined.Close,
+                contentDescription = stringResource(R.string.ime_otp_chip_dismiss_desc),
                 tint = tint.copy(alpha = 0.7f),
                 modifier = Modifier.size(15.dp),
             )
@@ -4939,6 +5067,8 @@ private fun KeyboardBody(
     onClipboardSearchToggle: () -> Unit,
     onClipboardSuggestionDismiss: () -> Unit,
     onClipboardEntity: (ClipEntity) -> Unit,
+    onOtpAccept: (NotificationOtp) -> Unit,
+    onOtpDismiss: () -> Unit,
     onEmojiRowShown: () -> Unit,
     onSnippet: (Snippet) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
@@ -5110,6 +5240,8 @@ private fun KeyboardBody(
                             onClipboardSuggestion = onClipboardItem,
                             onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
                             onClipboardEntity = onClipboardEntity,
+                            onOtpAccept = onOtpAccept,
+                            onOtpDismiss = onOtpDismiss,
                             onEmojiRowShown = onEmojiRowShown,
                             onSwipeDownHide = onHideKeyboard,
                         )

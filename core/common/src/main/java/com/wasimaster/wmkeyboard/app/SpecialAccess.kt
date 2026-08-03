@@ -40,6 +40,15 @@ enum class SpecialAccess {
     /** Notification listener, for the media-control tool's transport buttons. */
     NOTIFICATIONS,
 
+    /**
+     * The same notification-listener grant, asked for by the one-time-code
+     * chip. A separate constant because the two features read very different
+     * things — media reads nothing, the code chip reads notification text —
+     * and each disclosure must state what *its* feature does, while also
+     * naming the other so neither reads as the whole story.
+     */
+    NOTIFICATION_CODES,
+
     /** Usage access, for "show source app" on clipboard entries. */
     USAGE,
 
@@ -52,6 +61,7 @@ enum class SpecialAccess {
     val titleRes: Int
         get() = when (this) {
             NOTIFICATIONS -> R.string.common_special_access_notifications_title
+            NOTIFICATION_CODES -> R.string.common_special_access_notification_codes_title
             USAGE -> R.string.common_special_access_usage_title
             ACCESSIBILITY -> R.string.common_special_access_accessibility_title
         }
@@ -61,6 +71,7 @@ enum class SpecialAccess {
     val bodyRes: Int
         get() = when (this) {
             NOTIFICATIONS -> R.string.common_special_access_notifications_body
+            NOTIFICATION_CODES -> R.string.common_special_access_notification_codes_body
             USAGE -> R.string.common_special_access_usage_body
             ACCESSIBILITY -> R.string.common_special_access_accessibility_body
         }
@@ -74,7 +85,7 @@ enum class SpecialAccess {
         // The version check is spelled out rather than folded into a takeIf so
         // that Lint can see it: both constants are Strings, so they inline into
         // the APK and would be used unguarded on API 24 otherwise.
-        NOTIFICATIONS -> listOfNotNull(
+        NOTIFICATIONS, NOTIFICATION_CODES -> listOfNotNull(
             if (component != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
                     .putExtra(

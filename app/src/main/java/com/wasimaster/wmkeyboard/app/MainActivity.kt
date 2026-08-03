@@ -68,6 +68,7 @@ import com.wasimaster.wmkeyboard.app.updates.LocalAppUpdater
 import com.wasimaster.wmkeyboard.app.updates.UpdateCard
 import com.wasimaster.wmkeyboard.app.updates.rememberAppUpdater
 import com.wasimaster.wmkeyboard.core.addons.AddonType
+import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
 import com.wasimaster.wmkeyboard.core.tools.CheatSheetLetter
 import com.wasimaster.wmkeyboard.core.tools.DefaultLeader
@@ -2591,6 +2592,64 @@ private fun TypingSettings(
                     settings.smartToolKeywords,
                     info = stringResource(R.string.typing_smart_tool_keywords_info),
                 ) { scope.launch { repository.setSmartToolKeywords(it) } }
+            }
+        }
+    }
+
+    val notificationCodesGranted = rememberGrantState(::hasNotificationAccess)
+    val minutesFormat = stringResource(R.string.values_minutes)
+    SettingsGroup(stringResource(R.string.typing_group_otp_title)) {
+        item {
+            val context = LocalContext.current
+            val codesAccess = rememberDisclosedSpecialAccess(SpecialAccess.NOTIFICATION_CODES)
+            ToggleSetting(
+                R.string.typing_otp_chip_title,
+                stringResource(R.string.typing_otp_chip_subtitle),
+                settings.otp.enabled,
+                info = stringResource(R.string.typing_otp_chip_info),
+            ) { on ->
+                scope.launch { repository.setOtpChipEnabled(on) }
+                // Disclosure then the grant screen, the first time it goes on —
+                // but not when access is already there, which is the common
+                // case for a toggle flipped off and on again.
+                if (on && !hasNotificationAccess(context)) codesAccess()
+            }
+        }
+        if (settings.otp.enabled) {
+            if (!notificationCodesGranted) {
+                item {
+                    val codesAccessRow =
+                        rememberDisclosedSpecialAccess(SpecialAccess.NOTIFICATION_CODES)
+                    NavRow(
+                        R.string.typing_otp_access_title,
+                        stringResource(R.string.typing_otp_access_subtitle),
+                    ) { codesAccessRow() }
+                }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_otp_number_fields_title,
+                    stringResource(R.string.typing_otp_number_fields_subtitle),
+                    settings.otp.numberFieldsOnly,
+                    info = stringResource(R.string.typing_otp_number_fields_info),
+                ) { scope.launch { repository.setOtpNumberFieldsOnly(it) } }
+            }
+            item {
+                SliderSetting(
+                    R.string.typing_otp_expiry_title,
+                    subtitle = stringResource(R.string.typing_otp_expiry_subtitle),
+                    value = settings.otp.expiryMinutes.toFloat(),
+                    range = 1f..10f,
+                    display = { minutesFormat.format(it.toInt()) },
+                ) { scope.launch { repository.setOtpExpiryMinutes(it.toInt()) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_otp_dismiss_title,
+                    stringResource(R.string.typing_otp_dismiss_subtitle),
+                    settings.otp.dismissNotification,
+                    info = stringResource(R.string.typing_otp_dismiss_info),
+                ) { scope.launch { repository.setOtpDismissNotification(it) } }
             }
         }
     }

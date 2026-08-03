@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.ime
 
 import android.view.KeyEvent
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
+import com.wasimaster.wmkeyboard.core.otp.NotificationOtp
 import com.wasimaster.wmkeyboard.core.emoji.AnimatedEmoji
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
@@ -884,6 +885,14 @@ data class KeyboardUiState(
      * or the feature is off. Cleared on paste/dismiss/timeout.
      */
     val clipboardSuggestion: ClipItem? = null,
+    /**
+     * One-time code lifted from a just-arrived notification, offered as a chip
+     * on the suggestion strip. Null when there is none, it expired, it was
+     * used or dismissed, or the current field fails the feature's gates
+     * (number-fields-only, incognito). The code exists only here and on the
+     * in-process bus — it is never written anywhere.
+     */
+    val otpSuggestion: NotificationOtp? = null,
     val snippets: List<Snippet> = emptyList(),
     /**
      * MIME types the focused editor advertises for commitContent

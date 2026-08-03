@@ -1358,6 +1358,40 @@ data class KeyboardSettings(
     val qrEcc: QrEccLevel = QrEccLevel.M,
     /** Everything the AI tool owns — see [AiSettings]. */
     val ai: AiSettings = AiSettings(),
+    /** The one-time-code chip fed by the notification listener — see [OtpSettings]. */
+    val otp: OtpSettings = OtpSettings(),
+)
+
+/**
+ * The one-time-code suggestion chip: a verification code arriving in any app's
+ * notification is offered on the suggestion strip, one tap from typed. Grouped
+ * (see [CameraSettings] for why); DataStore keys stay flat.
+ *
+ * Off by default twice over: [enabled] starts false, and the feature also
+ * needs the notification-access grant, which the keyboard can only send the
+ * user to Settings for. The codes themselves are never persisted — they live
+ * in memory until used, dismissed or expired.
+ */
+data class OtpSettings(
+    /** Master switch. Mirrored to the notification listener's own flag. */
+    val enabled: Boolean = false,
+    /**
+     * Only raise the chip when the focused field asks for digits — the shape
+     * every code box has. Off shows the chip in any ordinary field, for the
+     * apps that put their code box behind a plain text input.
+     */
+    val numberFieldsOnly: Boolean = true,
+    /**
+     * How long a captured code stays on offer. Codes outlive their welcome
+     * fast: a chip still showing last hour's code is worse than no chip.
+     */
+    val expiryMinutes: Int = 3,
+    /**
+     * Cancel the code's notification once the chip is used, so the shade does
+     * not keep advertising a code that has already been spent. Uses the same
+     * notification-access grant the capture does.
+     */
+    val dismissNotification: Boolean = false,
 )
 
 /**
@@ -2495,6 +2529,10 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE =
             booleanPreferencesKey("clipboard_clear_after_password_paste")
         private val CLIPBOARD_DETECT_ENTITIES = booleanPreferencesKey("clipboard_detect_entities")
+        private val OTP_CHIP_ENABLED = booleanPreferencesKey("otp_chip_enabled")
+        private val OTP_NUMBER_FIELDS_ONLY = booleanPreferencesKey("otp_number_fields_only")
+        private val OTP_EXPIRY_MINUTES = intPreferencesKey("otp_expiry_minutes")
+        private val OTP_DISMISS_NOTIFICATION = booleanPreferencesKey("otp_dismiss_notification")
         private val LONG_PRESS_DELAY = intPreferencesKey("long_press_delay")
         private val KEY_REPEAT_INTERVAL = intPreferencesKey("key_repeat_interval")
         private val LONG_PRESS_HINTS = booleanPreferencesKey("long_press_hints")
@@ -3131,6 +3169,13 @@ class SettingsRepository(private val context: Context) {
                 clearAfterPasswordPaste = p[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE]
                     ?: defaults.clipboard.clearAfterPasswordPaste,
                 detectEntities = p[CLIPBOARD_DETECT_ENTITIES] ?: defaults.clipboard.detectEntities,
+            ),
+            otp = OtpSettings(
+                enabled = p[OTP_CHIP_ENABLED] ?: defaults.otp.enabled,
+                numberFieldsOnly = p[OTP_NUMBER_FIELDS_ONLY] ?: defaults.otp.numberFieldsOnly,
+                expiryMinutes = p[OTP_EXPIRY_MINUTES] ?: defaults.otp.expiryMinutes,
+                dismissNotification = p[OTP_DISMISS_NOTIFICATION]
+                    ?: defaults.otp.dismissNotification,
             ),
             suggestionStrip = SuggestionStripSettings(
                 punctuation = p[PUNCTUATION_SUGGESTIONS] ?: defaults.suggestionStrip.punctuation,
@@ -5569,6 +5614,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardDetectEntities(value: Boolean) =
         editPrefs { it[CLIPBOARD_DETECT_ENTITIES] = value }
+
+    suspend fun setOtpChipEnabled(value: Boolean) =
+        editPrefs { it[OTP_CHIP_ENABLED] = value }
+
+    suspend fun setOtpNumberFieldsOnly(value: Boolean) =
+        editPrefs { it[OTP_NUMBER_FIELDS_ONLY] = value }
+
+    suspend fun setOtpExpiryMinutes(value: Int) =
+        editPrefs { it[OTP_EXPIRY_MINUTES] = value.coerceIn(1, 10) }
+
+    suspend fun setOtpDismissNotification(value: Boolean) =
+        editPrefs { it[OTP_DISMISS_NOTIFICATION] = value }
 
     suspend fun setLongPressDelayMs(value: Int) =
         editPrefs { it[LONG_PRESS_DELAY] = value.coerceIn(150, 700) }
