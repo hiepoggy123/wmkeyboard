@@ -242,6 +242,9 @@
     <!-- Credit under that button. "Noto Animated Emoji" is the name of the
          image set and CC BY 4.0 is the name of its licence. Keep both. -->
     <string name="ime_emoji_animated_credit">Noto Animated Emoji, Google, CC BY 4.0</string>
+    <!-- Button in the press and hold window of an emoji. It sends the emoji as
+         an image, in the emoji font of the keyboard. -->
+    <string name="ime_emoji_send_sticker">Send as sticker</string>
     <string name="ime_emoji_reorder_hint">Drag the handles. The top of the list comes first.</string>
     <!-- Position of one emoji in the reorder list. %1$d is the position. -->
     <string name="ime_emoji_reorder_index">%1$d.</string>

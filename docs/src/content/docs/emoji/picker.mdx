@@ -104,6 +104,8 @@ Off by default. Turn it on to add a "Clear recents" button to the Recent tab. It
 
 Around 880 emoji have an animated version published by Google as part of [Noto Animated Emoji](https://googlefonts.github.io/noto-emoji-animation/). Long-press any of them in the panel and the popup loops the animation, with a **Send animated emoji** button under it that sends the 512×512 GIF into the field you're typing in.
 
+The button only appears once the animation has loaded — there's no control offering to send something you haven't seen — and the popup stays open afterward, preview and all, so you can fire off two in a row or pick a skin tone next.
+
 <PhoneFrame caption="Long-pressing 😀 shows its animation looping, over the send button.">
   {/* shot: emoji/animated-popup */}
 </PhoneFrame>
@@ -119,6 +121,18 @@ The button is deliberately absent in three cases:
 - **The setting is off.** Turn **Animated emoji** off and long-press goes back to skin tones and favourites only.
 
 Sending one counts as using that emoji, so it lands in your recents like an ordinary tap would.
+
+## Sending an emoji as a sticker
+
+<SettingsPath path="Emoji / Emoji panel / Send emoji as sticker" />
+
+Under the animation (and on every emoji, animated or not) is **Send as sticker**: the emoji itself, drawn at 512×512 in whichever [emoji font](/emoji/customization/#choosing-an-emoji-font) you've picked, sent as a transparent WebP.
+
+It's the answer to the oldest emoji problem there is — the other person's phone drawing your emoji as something else, or as an empty box. Send it as a picture and they see the one you saw.
+
+Nothing is downloaded for this: the glyph is already on your device, so it works offline and sends nothing anywhere. The picture is drawn in the font the keyboard itself uses, with one caveat — **System** and **Google** both come down to the phone's own emoji font here, since neither hands over a file to draw from. An imported or installed font is used exactly as the panel uses it.
+
+Like the animated button, this one only shows on a field that accepts images, and it can be switched off on its own.
 
 :::note[Attribution]
 The animations are **Noto Animated Emoji** by Google, licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The credit is repeated under the send button in the app, and the full notice is in Settings → About → Licences, under the downloaded data packs.

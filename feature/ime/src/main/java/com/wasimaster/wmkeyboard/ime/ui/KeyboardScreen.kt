@@ -91,6 +91,7 @@ import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.PictureAsPdf
+import androidx.compose.material.icons.outlined.PhotoSizeSelectActual
 import androidx.compose.material.icons.outlined.PlayCircleOutline
 import androidx.compose.material.icons.outlined.VideoFile
 import androidx.compose.material.icons.outlined.Check
@@ -638,6 +639,8 @@ fun KeyboardScreen(
     onEmojiLongPressEnd: () -> Unit = {},
     /** Send the animated version of the held emoji as a GIF. */
     onAnimatedEmojiSend: (String) -> Unit = {},
+    /** Send the held emoji itself, drawn in the emoji font, as a sticker. */
+    onEmojiStickerSend: (String) -> Unit = {},
     onEmojiSearchFieldDelete: () -> Unit = {},
     /**
      * The button-mode emoji row was unfolded. The service holds the usage
@@ -840,6 +843,7 @@ fun KeyboardScreen(
                 onEmojiLongPress = onEmojiLongPress,
                 onEmojiLongPressEnd = onEmojiLongPressEnd,
                 onAnimatedEmojiSend = onAnimatedEmojiSend,
+                onEmojiStickerSend = onEmojiStickerSend,
                 onEmojiSearchFieldDelete = onEmojiSearchFieldDelete,
                 onTextArt = onTextArt,
                 onTextEdit = onTextEdit,
@@ -4886,6 +4890,7 @@ private fun KeyboardBody(
     onEmojiLongPress: (String) -> Unit,
     onEmojiLongPressEnd: () -> Unit,
     onAnimatedEmojiSend: (String) -> Unit,
+    onEmojiStickerSend: (String) -> Unit,
     onEmojiSearchFieldDelete: () -> Unit,
     onTextArt: (String) -> Unit,
     onTextEdit: (TextEditAction) -> Unit,
@@ -5109,6 +5114,7 @@ private fun KeyboardBody(
                     onLongPress = onEmojiLongPress,
                     onLongPressEnd = onEmojiLongPressEnd,
                     onAnimatedSend = onAnimatedEmojiSend,
+                    onStickerSend = onEmojiStickerSend,
                     onSearchFieldDelete = onEmojiSearchFieldDelete,
                     onTextArt = onTextArt,
                     onKey = onKey,
@@ -9128,6 +9134,7 @@ private fun EmojiPanel(
     onLongPress: (String) -> Unit,
     onLongPressEnd: () -> Unit,
     onAnimatedSend: (String) -> Unit,
+    onStickerSend: (String) -> Unit,
     onSearchFieldDelete: () -> Unit,
     onTextArt: (String) -> Unit,
     onKey: (Key) -> Unit,
@@ -9335,6 +9342,7 @@ private fun EmojiPanel(
                         onLongPress = onLongPress,
                         onLongPressEnd = onLongPressEnd,
                         onAnimatedSend = onAnimatedSend,
+                        onStickerSend = onStickerSend,
                         focused = index == focusedResult,
                     )
                 }
@@ -9441,6 +9449,7 @@ private fun EmojiPanel(
                                     onLongPress = onLongPress,
                                     onLongPressEnd = onLongPressEnd,
                                     onAnimatedSend = onAnimatedSend,
+                                    onStickerSend = onStickerSend,
                                     onRemove = onRecentRemove,
                                     focused = index == focusedHistory,
                                 )
@@ -9498,6 +9507,7 @@ private fun EmojiPanel(
                                 onLongPress = onLongPress,
                                 onLongPressEnd = onLongPressEnd,
                                 onAnimatedSend = onAnimatedSend,
+                                onStickerSend = onStickerSend,
                                 focused = index == focusedEmoji,
                             )
                         }
@@ -9774,6 +9784,7 @@ private fun EmojiCell(
     onLongPress: (String) -> Unit = {},
     onLongPressEnd: () -> Unit = {},
     onAnimatedSend: (String) -> Unit = {},
+    onStickerSend: (String) -> Unit = {},
     onRemove: ((String) -> Unit)? = null,
     focused: Boolean = false,
 ) {
@@ -9823,6 +9834,9 @@ private fun EmojiCell(
                 favourite = display in state.emojiFavourites,
                 animated = state.animatedEmojiOffer(display),
                 onAnimatedSend = { onAnimatedSend(display) },
+                sticker = state.canSendEmojiSticker(),
+                stickerSending = state.mediaDownloadingId == emojiStickerJobId(display),
+                onStickerSend = { onStickerSend(display) },
                 onDismiss = {
                     showVariants = false
                     onLongPressEnd()
@@ -9853,10 +9867,15 @@ private fun EmojiCell(
 }
 
 /**
- * What the long-press popup knows about an emoji's animated version: the file
- * once it lands, and whether it is still on its way.
+ * What the long-press popup knows about an emoji's animated version: the
+ * preview file once it lands, whether it is still on its way, and whether the
+ * GIF behind the send button is being fetched right now.
  */
-internal data class AnimatedEmojiOffer(val file: File?, val loading: Boolean)
+internal data class AnimatedEmojiOffer(
+    val file: File?,
+    val loading: Boolean,
+    val sending: Boolean,
+)
 
 /**
  * The animated version on offer for [emoji], or null when there is none to
@@ -9865,18 +9884,37 @@ internal data class AnimatedEmojiOffer(val file: File?, val loading: Boolean)
  */
 internal fun KeyboardUiState.animatedEmojiOffer(emoji: String): AnimatedEmojiOffer? {
     if (!settings.emoji.animated || !acceptsRichMedia) return null
-    if (animatedEmoji.keyFor(emoji) == null) return null
-    return AnimatedEmojiOffer(animatedEmojiFile, animatedEmojiLoading)
+    val key = animatedEmoji.keyFor(emoji) ?: return null
+    return AnimatedEmojiOffer(
+        file = animatedEmojiFile,
+        loading = animatedEmojiLoading,
+        sending = mediaDownloadingId == key,
+    )
 }
 
 /**
+ * Whether the popup may offer to send [emoji] itself as a sticker. Unlike the
+ * animation this needs nothing downloaded — the glyph is on the device — so it
+ * turns only on the setting and on the field taking images at all.
+ */
+internal fun KeyboardUiState.canSendEmojiSticker(): Boolean =
+    settings.emoji.sendAsSticker && acceptsRichMedia
+
+/**
+ * The id the service publishes while it draws [emoji] into a sticker, so the
+ * row that started it can spin. Spelled in one place because both sides have
+ * to agree on it.
+ */
+internal fun emojiStickerJobId(emoji: String): String = "emoji_sticker:$emoji"
+
+/**
  * The animated-emoji block of the long-press popup: the animation itself,
- * looping, over a button that sends it as a GIF sticker.
+ * looping, over a button that sends it as a GIF.
  *
- * The preview is the very file the button sends — fetched when the popup
- * opened — so what is previewed is what arrives, and sending costs no second
- * download. The credit line is not decoration: the assets are Noto Animated
- * Emoji, and CC BY 4.0 asks for attribution wherever they are used.
+ * The button only appears once the preview has, so there is never a control
+ * that says it will send an animation nobody has seen yet. The credit line is
+ * not decoration: the assets are Noto Animated Emoji, and CC BY 4.0 asks for
+ * attribution wherever they are used.
  */
 @Composable
 private fun ColumnScope.AnimatedEmojiOffer(offer: AnimatedEmojiOffer, onSend: () -> Unit) {
@@ -9900,30 +9938,57 @@ private fun ColumnScope.AnimatedEmojiOffer(offer: AnimatedEmojiOffer, onSend: ()
             CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
         }
     }
+    if (offer.file == null) return
+    PopupAction(
+        icon = Icons.Outlined.PlayCircleOutline,
+        label = stringResource(R.string.ime_emoji_send_animated),
+        caption = stringResource(R.string.ime_emoji_animated_credit),
+        busy = offer.sending,
+        onClick = onSend,
+    )
+}
+
+/**
+ * One tappable row of the long-press popup, with the same shape as the
+ * favourite and remove rows above it. [busy] swaps the icon for a spinner,
+ * which is what the send rows do while their file is being fetched or drawn —
+ * the popup stays open through a send, so it has to show that something is
+ * happening.
+ */
+@Composable
+private fun PopupAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    caption: String? = null,
+    busy: Boolean = false,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
-            .clickable(enabled = offer.file != null, onClick = onSend)
+            .clickable(enabled = !busy, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            Icons.Outlined.PlayCircleOutline,
-            contentDescription = null,
-            modifier = Modifier.size(22.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
+        if (busy) {
+            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+        } else {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
         Box(modifier = Modifier.width(10.dp))
         Column {
-            Text(
-                stringResource(R.string.ime_emoji_send_animated),
-                fontSize = 15.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                stringResource(R.string.ime_emoji_animated_credit),
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            )
+            Text(label, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+            if (caption != null) {
+                Text(
+                    caption,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            }
         }
     }
 }
@@ -9944,6 +10009,9 @@ private fun EmojiVariantPopup(
     favourite: Boolean,
     animated: AnimatedEmojiOffer?,
     onAnimatedSend: () -> Unit,
+    sticker: Boolean,
+    stickerSending: Boolean,
+    onStickerSend: () -> Unit,
     onDismiss: () -> Unit,
     onPick: (String) -> Unit,
     onFavourite: (String) -> Unit,
@@ -9989,6 +10057,16 @@ private fun EmojiVariantPopup(
                 }
                 if (animated != null) {
                     AnimatedEmojiOffer(offer = animated, onSend = onAnimatedSend)
+                }
+                // Offered for every emoji, not only the animated ones: this is
+                // the phone's own glyph, so there is always one to draw.
+                if (sticker) {
+                    PopupAction(
+                        icon = Icons.Outlined.PhotoSizeSelectActual,
+                        label = stringResource(R.string.ime_emoji_send_sticker),
+                        busy = stickerSending,
+                        onClick = onStickerSend,
+                    )
                 }
                 // Favourite pins this emoji to the top of the history tab
                 // and the favourites row.

@@ -142,6 +142,17 @@ class LanguageSuggestionsTest {
     }
 
     @Test
+    fun `the twin is still offered when the language itself is already on`() {
+        // The common case, and the one that used to fail: somebody typing
+        // Bengali is exactly the person who wants Banglish offered.
+        val out = LanguageSuggestions.suggest(
+            signals(locales = listOf("en-GB"), regions = listOf("BD")),
+            exclude = setOf("en", "bn"),
+        )
+        assertTrue(out.any { it.language.id == "bn_rom" })
+    }
+
+    @Test
     fun `an already-enabled romanized variant is not offered again`() {
         val out = LanguageSuggestions.suggest(
             signals(locales = listOf("bn-BD")),

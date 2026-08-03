@@ -16,6 +16,11 @@ import android.content.res.Configuration
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -45,6 +50,7 @@ import androidx.core.content.FileProvider
 import androidx.core.view.inputmethod.EditorInfoCompat
 import androidx.core.view.inputmethod.InputConnectionCompat
 import androidx.core.view.inputmethod.InputContentInfoCompat
+import androidx.core.graphics.createBitmap
 import com.wasimaster.wmkeyboard.config.BuildConfig
 import com.wasimaster.wmkeyboard.app.CalendarPermissionActivity
 import com.wasimaster.wmkeyboard.app.CameraPermissionActivity
@@ -269,6 +275,7 @@ import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
+import com.wasimaster.wmkeyboard.ime.ui.emojiStickerJobId
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardScreen
 import android.inputmethodservice.InputMethodService
 import java.io.File
@@ -1696,6 +1703,7 @@ open class WMKeyboardService : InputMethodService() {
                 onEmojiLongPress = ::onEmojiLongPressed,
                 onEmojiLongPressEnd = ::onEmojiLongPressDismissed,
                 onAnimatedEmojiSend = ::onAnimatedEmojiSend,
+                onEmojiStickerSend = ::onEmojiStickerSend,
                 onEmojiSearchFieldDelete = ::onEmojiSearchFieldDelete,
                 onEmojiRowShown = { publishEmojiHistory() },
                 onTextArt = ::onTextArtTapped,
@@ -9697,9 +9705,11 @@ open class WMKeyboardService : InputMethodService() {
         val key = animatedEmojiKey(emoji) ?: return
         emojiUsage.record(emoji)
         emojiHistoryStale = true
-        onEmojiLongPressDismissed()
-        // The ordinary media path: it vibrates, shows the panel's spinner while
-        // the file comes down, and toasts if it doesn't.
+        // The popup deliberately stays open, preview and all: sending one
+        // animation is usually not the last thing someone wants to do with it,
+        // and a popup that empties itself on the way out reads as a glitch.
+        // The ordinary media path from here: it vibrates, publishes the id the
+        // popup spins on while the file comes down, and toasts if it doesn't.
         insertDownloadedImage(
             key,
             animatedEmoji.gifUrl(key),
@@ -9707,6 +9717,105 @@ open class WMKeyboardService : InputMethodService() {
             _uiState.value.settings.gifSendMode,
         )
     }
+
+    /**
+     * "Send as sticker" in the long-press popup: draws [emoji] itself at
+     * 512×512 in the keyboard's own emoji font and commits it as a WebP
+     * sticker, so a face the receiving app has no font for still arrives as
+     * the picture the sender saw.
+     *
+     * Rendered rather than downloaded — the glyph is already on the device —
+     * so this works offline and sends nothing anywhere.
+     */
+    fun onEmojiStickerSend(emoji: String) {
+        val state = _uiState.value
+        if (!state.settings.emoji.sendAsSticker || !state.acceptsRichMedia) return
+        if (state.mediaDownloadingId != null) return
+        vibrate()
+        emojiUsage.record(emoji)
+        emojiHistoryStale = true
+        _uiState.update { it.copy(mediaDownloadingId = emojiStickerJobId(emoji)) }
+        mediaInsertJob = serviceScope.launch {
+            val file = withContext(Dispatchers.Default) { renderEmojiSticker(emoji) }
+            _uiState.update { it.copy(mediaDownloadingId = null) }
+            if (file == null) {
+                Toast.makeText(
+                    this@WMKeyboardService,
+                    getString(R.string.ime_service_media_download_error_toast),
+                    Toast.LENGTH_SHORT,
+                ).show()
+                return@launch
+            }
+            commitImageFile(file, MediaMime.WEBP, MediaSendMode.STICKER)
+        }
+    }
+
+    /**
+     * Draws one emoji into a square transparent WebP, in whichever font the
+     * keyboard draws it with — an imported or installed face by its own file,
+     * anything else by the phone's own emoji font, which is what "System" and
+     * "Google" both come down to once there is no file to load.
+     *
+     * Blocking; call it off the main thread. Cached per emoji *and* font, so
+     * changing the font doesn't keep sending the old face.
+     */
+    private fun renderEmojiSticker(emoji: String): File? = runCatching {
+        val settings = _uiState.value.settings
+        val fontFile = KeyboardFonts.emojiFontFile(
+            this,
+            settings.emojiFont,
+            settings.emojiFontInstalled.installedId,
+        )
+        // The same spelling the panel draws: a font with no variation-selector
+        // table cannot resolve ❤️, and the shaper's answer is to strip the
+        // selector or hand the glyph back to the system font.
+        val spelling = EmojiFontShaping.forFontFile(fontFile).spelling(emoji)
+        val typeface = fontFile
+            ?.takeIf { !spelling.systemFont }
+            ?.let { runCatching { Typeface.createFromFile(it) }.getOrNull() }
+
+        val dir = File(cacheDir, "media").apply { mkdirs() }
+        pruneMediaCache(dir)
+        val stamp = "${spelling.text}|${settings.emojiFont}|${settings.emojiFontInstalled.installedId}"
+        val target = File(dir, "emoji_${stamp.hashCode().toUInt()}.webp")
+        if (target.exists() && target.length() > 0L) return@runCatching target
+
+        val bitmap = createBitmap(STICKER_SIZE_PX, STICKER_SIZE_PX)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.typeface = typeface
+            textAlign = Paint.Align.CENTER
+            textSize = STICKER_GLYPH_PX
+        }
+        // Emoji fonts vary in how much of the em square they fill, so the size
+        // is measured rather than assumed: draw once at a nominal size, then
+        // scale by what came back so every sticker fills its frame the same.
+        val bounds = Rect()
+        paint.getTextBounds(spelling.text, 0, spelling.text.length, bounds)
+        if (bounds.width() > 0 && bounds.height() > 0) {
+            val scale = STICKER_GLYPH_PX / maxOf(bounds.width(), bounds.height()).toFloat()
+            paint.textSize *= scale
+            paint.getTextBounds(spelling.text, 0, spelling.text.length, bounds)
+        }
+        Canvas(bitmap).drawText(
+            spelling.text,
+            STICKER_SIZE_PX / 2f,
+            STICKER_SIZE_PX / 2f - bounds.exactCenterY(),
+            paint,
+        )
+        target.outputStream().use { out ->
+            @Suppress("DEPRECATION")
+            val format = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Bitmap.CompressFormat.WEBP_LOSSLESS
+            } else {
+                Bitmap.CompressFormat.WEBP
+            }
+            bitmap.compress(format, 100, out)
+        }
+        bitmap.recycle()
+        target
+    }.getOrNull()
+
+
 
     fun onEmojiFavouriteToggled(emoji: String) {
         vibrate()
@@ -11216,6 +11325,10 @@ open class WMKeyboardService : InputMethodService() {
     companion object {
         /** Minimum spacing between haptic clicks so rapid presses stay distinct. */
         private const val MIN_HAPTIC_GAP_MS = 45L
+
+        /** Sticker canvas, and how much of it one emoji fills. */
+        private const val STICKER_SIZE_PX = 512
+        private const val STICKER_GLYPH_PX = 448f
 
         /**
          * A caret still being dragged along by a spacebar/volume scrub does not

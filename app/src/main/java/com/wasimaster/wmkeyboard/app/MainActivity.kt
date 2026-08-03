@@ -4785,6 +4785,14 @@ private fun EmojiSettings(
             ) { scope.launch { repository.setAnimatedEmoji(it) } }
         }
         item {
+            ToggleSetting(
+                R.string.langemoji_emoji_sticker_title,
+                stringResource(R.string.langemoji_emoji_sticker_subtitle),
+                settings.emoji.sendAsSticker,
+                info = stringResource(R.string.langemoji_emoji_sticker_info),
+            ) { scope.launch { repository.setSendEmojiAsSticker(it) } }
+        }
+        item {
             NavRow(
                 R.string.langemoji_emoji_keywords_title,
                 stringResource(R.string.langemoji_emoji_keywords_subtitle),

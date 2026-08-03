@@ -93,15 +93,17 @@ object LanguageSuggestions {
         // rather than offering an "Unknown" row.
         fun add(language: LanguageDef?, reason: SuggestionReason, region: String? = null) {
             if (language == null || language.layoutIds.isEmpty()) return
-            if (out.size >= limit || !seen.add(language.id)) return
-            out += SuggestedLanguage(language, reason, region)
+            if (out.size < limit && seen.add(language.id)) {
+                out += SuggestedLanguage(language, reason, region)
+            }
             // Someone who wants Bengali on a phone very often wants Banglish
             // too, and would otherwise have to know the word to search for it.
-            // Straight after its own language, so the pair reads as a pair.
-            romanizedOf(language.id)?.let { romanized ->
-                if (out.size < limit && seen.add(romanized.id)) {
-                    out += SuggestedLanguage(romanized, reason, region)
-                }
+            // Straight after its own language, so the pair reads as a pair —
+            // and offered even when the language itself was skipped, since
+            // somebody already typing Bengali is exactly who wants Banglish.
+            val romanized = romanizedOf(language.id) ?: return
+            if (out.size < limit && seen.add(romanized.id)) {
+                out += SuggestedLanguage(romanized, reason, region)
             }
         }
 

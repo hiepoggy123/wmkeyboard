@@ -1792,6 +1792,14 @@ data class EmojiSettings(
      * On by default, and only ever visible on a field that accepts images.
      */
     val animated: Boolean = true,
+    /**
+     * Offer "Send as sticker" on an emoji's long press: the emoji itself, drawn
+     * at 512×512 in the keyboard's own emoji font and sent as a WebP sticker.
+     *
+     * On by default. Nothing is downloaded for it — the glyph is already on the
+     * device — but it only appears on a field that accepts images.
+     */
+    val sendAsSticker: Boolean = true,
 )
 
 /** Bounds for [EmojiSettings.barCount]; the settings slider shares them. */
@@ -2530,6 +2538,7 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_KEYWORD_PACK_VERSION = intPreferencesKey("emoji_keyword_pack_version")
         private val EMOJI_USAGE_VERSION = intPreferencesKey("emoji_usage_version")
         private val EMOJI_ANIMATED = booleanPreferencesKey("emoji_animated")
+        private val EMOJI_SEND_AS_STICKER = booleanPreferencesKey("emoji_send_as_sticker")
         private val EMOJI_AUTO_DOWNLOAD_KEYWORDS =
             booleanPreferencesKey("emoji_auto_download_keywords")
         // Stored as the DISABLED set so tools added in future versions
@@ -3183,6 +3192,7 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.emoji.autoDownloadKeywords,
                 usageVersion = p[EMOJI_USAGE_VERSION] ?: defaults.emoji.usageVersion,
                 animated = p[EMOJI_ANIMATED] ?: defaults.emoji.animated,
+                sendAsSticker = p[EMOJI_SEND_AS_STICKER] ?: defaults.emoji.sendAsSticker,
             ),
             enabledTools = ToolbarTool.entries - decodeDisabledTools(p[DISABLED_TOOLS]),
             toolboxOrder = decodeToolOrder(p[TOOLBOX_ORDER]),
@@ -4859,6 +4869,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAnimatedEmoji(value: Boolean) =
         editPrefs { it[EMOJI_ANIMATED] = value }
+
+    suspend fun setSendEmojiAsSticker(value: Boolean) =
+        editPrefs { it[EMOJI_SEND_AS_STICKER] = value }
 
     suspend fun bumpEmojiKeywordPackVersion() =
         editPrefs {

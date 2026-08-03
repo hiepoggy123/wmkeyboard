@@ -117,6 +117,7 @@ import androidx.compose.material.icons.outlined.Opacity
 import androidx.compose.material.icons.outlined.OpenWith
 import androidx.compose.material.icons.outlined.Padding
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.PhotoSizeSelectActual
 import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material.icons.outlined.PhotoLibrary
@@ -306,6 +307,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.langemoji_emoji_kaomoji_title, Icons.Outlined.SentimentSatisfied)
     put(R.string.langemoji_emoji_long_press_name_title, Icons.Outlined.Abc)
     put(R.string.langemoji_emoji_animated_title, Icons.Outlined.Animation)
+    put(R.string.langemoji_emoji_sticker_title, Icons.Outlined.PhotoSizeSelectActual)
     put(R.string.langemoji_emoji_row_title, Icons.Outlined.ViewWeek)
     put(R.string.langemoji_emoji_bar_content_title, Icons.Outlined.ViewWeek)
     put(R.string.langemoji_emoji_bar_count_title, Icons.Outlined.Numbers)
