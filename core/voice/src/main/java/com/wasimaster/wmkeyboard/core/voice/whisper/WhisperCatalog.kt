@@ -39,12 +39,17 @@ enum class WhisperTier(@StringRes val badgeRes: Int?) {
  * [catalogName] is the size the way the model publishers spell it. It builds
  * [WhisperModel.displayName] and is never translated. [labelRes] is the same
  * word for the UI, which is translated.
+ *
+ * Turbo is a size class of its own rather than a flavour of Medium or Large:
+ * it downloads at roughly Medium's size but transcribes at Large accuracy, so
+ * filtering by size would put it in the wrong place either way.
  */
 enum class WhisperSize(@StringRes val labelRes: Int, val catalogName: String) {
     TINY(R.string.core_voice_size_tiny_label, "Tiny"),
     BASE(R.string.core_voice_size_base_label, "Base"),
     SMALL(R.string.core_voice_size_small_label, "Small"),
     MEDIUM(R.string.core_voice_size_medium_label, "Medium"),
+    TURBO(R.string.core_voice_size_turbo_label, "Turbo"),
     LARGE(R.string.core_voice_size_large_label, "Large"),
 }
 
@@ -62,6 +67,12 @@ data class WhisperModel(
     val repo: String,
     val modelFile: String,
     val vocabFile: String,
+    /**
+     * Where [vocabFile] comes from, when that is not the repo holding the model.
+     * Only the 128-band filterbank needs this: no repo publishes both it and a
+     * large-v3 graph.
+     */
+    val vocabRepo: String = repo,
     val modelBytes: Long,
     val vocabBytes: Long,
     /**
@@ -145,6 +156,8 @@ data class WhisperModel(
  *  - `DocWolle/whisper_tflite_models` — the F-Droid Whisper app's set.
  *  - `nyadla-sys/whisper-tiny.en.tflite` — the original conversion repo, which
  *    carries the extra per-language and medium/large graphs.
+ *  - `cik009/whisper` — for one file only, the 128-band `filters_vocab` the
+ *    large-v3 generation needs. Neither repo above ships one.
  *
  * Three shapes exist, and the settings UI leans on the distinction:
  *  - **auto** (`-transcribe-translate`): all 99 languages, detected per clip,
@@ -155,10 +168,14 @@ data class WhisperModel(
  *    less disk than one single-language model per language.
  *  - **single-language** (`base.de`, `small.en`, …): one language, no choice.
  *
- * Not included on purpose: `whisper-large-v3` and `whisper-turbo` need a
- * 128-bin mel spectrogram, and both [WhisperMel] and the shipped
- * `filters_vocab_*.bin` filterbanks are 80-bin, so they would decode garbage;
- * `whisper-small.tflite` forces no task and duplicates [small-multi].
+ * The large-v3 generation (`large-v3` and `turbo`) needs a 128-band mel
+ * spectrogram where every earlier model needs 80. Those two pair with the
+ * 128-band `filters_vocab_multilingual-v3.bin`, and [WhisperMel] takes the band
+ * count from whichever filterbank came down with the model.
+ *
+ * Not included on purpose: `whisper-small.tflite` forces no task and duplicates
+ * `small-multi`; `whisper-tiny-en.tflite` duplicates `tiny-en`; and the
+ * `-with-timestamp-` graphs emit timestamp tokens this decoder has no use for.
  *
  * Order is a suggested-pick ranking, not a size ranking — the settings list
  * renders in catalog order, so the balanced default sits first.
@@ -170,10 +187,15 @@ object WhisperCatalog {
 
     private const val REPO = "DocWolle/whisper_tflite_models"
     private const val REPO_NYADLA = "nyadla-sys/whisper-tiny.en.tflite"
+    private const val REPO_CIK = "cik009/whisper"
     private const val VOCAB_MULTI = "filters_vocab_multilingual.bin"
     private const val VOCAB_EN = "filters_vocab_en.bin"
+
+    /** The 128-band filterbank, for large-v3 and turbo only. */
+    private const val VOCAB_V3 = "filters_vocab_multilingual-v3.bin"
     private const val VOCAB_MULTI_BYTES = 572_421L
     private const val VOCAB_EN_BYTES = 586_174L
+    private const val VOCAB_V3_BYTES = 611_013L
 
     /**
      * The 40 languages baked into the `TOP_WORLD` graphs, decoded from the
@@ -322,6 +344,42 @@ object WhisperCatalog {
             ),
         )
 
+        // ---- The large-v3 generation: 128 mel bands, so a different filterbank.
+        add(
+            WhisperModel(
+                id = "turbo-multi",
+                displayName = "Whisper Turbo",
+                size = WhisperSize.TURBO,
+                repo = REPO_NYADLA,
+                modelFile = "whisper-turbo-transcribe-translate.tflite",
+                vocabFile = VOCAB_V3,
+                vocabRepo = REPO_CIK,
+                modelBytes = 818_545_328L,
+                vocabBytes = VOCAB_V3_BYTES,
+                // large-v3-turbo dropped the translate task in training, so the
+                // signature is not offered even where the graph still carries it.
+                supportsTranslate = false,
+                tier = WhisperTier.STANDARD,
+                descriptionRes = R.string.core_voice_model_turbo_multi_body,
+            ),
+        )
+        add(
+            WhisperModel(
+                id = "large-v3-multi",
+                displayName = "Whisper Large v3",
+                size = WhisperSize.LARGE,
+                repo = REPO_NYADLA,
+                modelFile = "whisper-large-v3-transcribe-translate.tflite",
+                vocabFile = VOCAB_V3,
+                vocabRepo = REPO_CIK,
+                modelBytes = 1_559_408_000L,
+                vocabBytes = VOCAB_V3_BYTES,
+                supportsTranslate = true,
+                tier = WhisperTier.STANDARD,
+                descriptionRes = R.string.core_voice_model_large_v3_multi_body,
+            ),
+        )
+
         // ---- Single-language graphs: one language each, no detection step.
         addAll(
             singleLanguage(
@@ -406,6 +464,24 @@ object WhisperCatalog {
         models.filter { it.fixedLang == code }.sortedBy { it.sizeBytes }
 
     /**
+     * True when no model in the catalog can be *told* to transcribe [code]: there
+     * is no graph built for it alone, and no grouped graph lists it. Every option
+     * left has to work out the language from the clip itself.
+     *
+     * This matters because auto-detection is the one Whisper step that fails
+     * silently and completely. A language it confuses with a better-represented
+     * neighbour — Bangla read as Hindi is the standard example — comes back as
+     * fluent text in the wrong language, with no error anywhere. The graphs are
+     * published conversions and the language list is compiled into each one (a
+     * branch per language token), so this is not something the keyboard can fix
+     * by asking differently; all it can do is say so, point at the models whose
+     * detection is best, and repair the script afterwards where the two
+     * languages happen to be script-convertible ([WhisperScript]).
+     */
+    fun autoDetectOnly(code: String): Boolean =
+        models.none { it.fixedLang == code || (it.selectableLang && code in it.langCodes) }
+
+    /**
      * Ranks [candidates] by how well each transcribes [code], best first. Used
      * both to suggest downloads and to pick which downloaded model handles a
      * language when the user has not said explicitly.
@@ -458,6 +534,15 @@ object WhisperCatalog {
         // Always leave an all-languages escape hatch — the only thing that
         // covers a language with no dedicated graph.
         default?.let { picks += it }
+
+        // A language nothing can be told about rides entirely on how well the
+        // model detects it, so the best detector in the catalog belongs on the
+        // shortlist even at its size. Nothing else on this screen would lead
+        // someone there, and for those languages it is the difference between
+        // usable dictation and fluent text in the wrong language.
+        if (codes.any { autoDetectOnly(it) }) {
+            byId("turbo-multi")?.let { picks += it }
+        }
 
         // Partial grouped coverage is still useful when nothing above fit well.
         models.filter { it.selectableLang && it.coverageOf(codes) > 0 }

@@ -61,6 +61,9 @@
     <string name="models_whisper_language_pinned"><xliff:g id="model" example="Whisper Small">%1$s</xliff:g>, your selection</string>
     <!-- Under a language whose model the app selected. %1$s is the model name. -->
     <string name="models_whisper_language_auto"><xliff:g id="model" example="Whisper Small">%1$s</xliff:g>, automatic selection</string>
+    <!-- Under a language that no model can be told to expect, so every model must
+         recognise it from the speech. %1$s is the name of that language. -->
+    <string name="models_whisper_language_detect_only">No model accepts <xliff:g id="language" example="Bangla">%1$s</xliff:g> as an input, so every model must recognise it from your speech. A model can select a similar language instead and write correct sentences in the wrong language. The Turbo and the Large v3 models make this mistake least often.</string>
     <!-- Opens the dialog that selects the model for one language. -->
     <string name="models_whisper_change_action">Change</string>
     <string name="models_whisper_routing_info">Voice typing uses the language of the layout that you type on. The app tells the model which language to expect. This applies to a model that is built for one language, and to a multilingual model that accepts a language input. The model does not guess the language from a short clip.</string>

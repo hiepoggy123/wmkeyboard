@@ -310,6 +310,11 @@ private fun WhisperRoutingCard(
                         model.displayName,
                     )
                 }
+                // The catalogue's language lists are compiled into the graphs, so
+                // a language absent from all of them can only ever be guessed at.
+                // That failure is silent and total, which makes it worth a line of
+                // its own rather than leaving it to be discovered in use.
+                val detectOnly = code != null && WhisperCatalog.autoDetectOnly(code)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -336,6 +341,17 @@ private fun WhisperRoutingCard(
                             },
                             modifier = Modifier.padding(top = 2.dp),
                         )
+                        if (detectOnly && model != null) {
+                            Text(
+                                stringResource(
+                                    R.string.models_whisper_language_detect_only,
+                                    language.englishName,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
                     }
                     if (code != null && anyDownloaded) {
                         Text(

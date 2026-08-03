@@ -19,6 +19,21 @@ class WhisperMelTest {
     }
 
     @Test
+    fun `the band count follows the filterbank, not a fixed 80`() {
+        // large-v3 and turbo want 128 bands from the same audio and the same
+        // window, so only the filterbank and the output height change.
+        val nFft = 1 + WhisperMel.N_FFT / 2
+        val mel = WhisperMel.compute(
+            FloatArray(WhisperMel.N_SAMPLES),
+            flatFilters(WhisperMel.N_MEL_V3, nFft),
+            nFft,
+            WhisperMel.N_MEL_V3,
+        )
+        assertEquals(WhisperMel.N_MEL_V3 * WhisperMel.MEL_LEN, mel.size)
+        assertEquals(128, WhisperMel.N_MEL_V3)
+    }
+
+    @Test
     fun `values are finite and span at most the clamped range`() {
         val nFft = 1 + WhisperMel.N_FFT / 2
         val samples = FloatArray(WhisperMel.N_SAMPLES) {

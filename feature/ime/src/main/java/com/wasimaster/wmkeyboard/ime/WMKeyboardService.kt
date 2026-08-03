@@ -242,6 +242,7 @@ import com.wasimaster.wmkeyboard.core.voice.WhisperRecorder
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperEngine
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperException
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperModel
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperScript
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperStore
 import com.wasimaster.wmkeyboard.core.settings.isWhisperEnabled
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
@@ -306,6 +307,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 import java.util.EnumMap
 import com.wasimaster.wmkeyboard.common.R as CommonR
@@ -612,6 +614,12 @@ open class WMKeyboardService : InputMethodService() {
     private var lastVoiceCommit: String? = null
     /** Active offline-Whisper capture, when the Whisper engine is in use. */
     private var whisperRecorder: WhisperRecorder? = null
+    /**
+     * True while a key from the voice panel's own action rail is being
+     * dispatched, so it does not end the dictation session the way typing on the
+     * keyboard does. See [onVoiceRailKey].
+     */
+    private var voiceRailKeyInFlight = false
 
     // ---- handwriting recognition state ----
     private val hwRecognizer = HandwritingRecognizerCache()
@@ -1843,6 +1851,8 @@ open class WMKeyboardService : InputMethodService() {
                 onVoiceModelDownload = ::onVoiceModelDownload,
                 onWhisperTranslateToggle = ::onWhisperTranslateToggle,
                 onOpenVoiceSettings = ::onOpenVoiceSettings,
+                onVoiceUseSystemEngine = ::onVoiceUseSystemEngine,
+                onVoiceRailKey = ::onVoiceRailKey,
                 onMediaPlayPause = ::onMediaPlayPause,
                 onMediaNext = ::onMediaNext,
                 onMediaPrevious = ::onMediaPrevious,
@@ -6114,10 +6124,7 @@ open class WMKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         // Flush the half-typed word so dictation appends after it.
         commitComposing(ic, autocorrect = false)
-        val beforeChar = ic.getTextBeforeCursor(1, 0)?.lastOrNull()
-        val afterChar = ic.getTextAfterCursor(1, 0)?.firstOrNull()
-        voiceNeedsLeadingSpace = VoiceSpacing.needsLeadingSpace(beforeChar, afterChar)
-        voiceNeedsTrailingSpace = VoiceSpacing.needsTrailingSpace(beforeChar, afterChar)
+        refreshVoiceSpacing()
         val generation = ++voiceGeneration
         // Offline-model chip: check once per language, not per utterance
         // (continuous mode restarts sessions constantly).
@@ -6307,9 +6314,15 @@ open class WMKeyboardService : InputMethodService() {
         val gen = voiceGeneration
         val tag = _uiState.value.voice.languageTag
         val model = whisperModel()
+        val languageId = _uiState.value.language.id
         // Grouped graphs take the language as an input, so hand them the language
         // being typed in rather than letting them guess from a short clip.
-        val langToken = model?.langTokenFor(_uiState.value.language.id)
+        val langToken = model?.langTokenFor(languageId)
+        // Only ask for the translate task where the model was actually trained for
+        // it. A graph can carry the signature without it being any good: turbo was
+        // exported with one and trained for transcription alone, and running that
+        // task returns confident nonsense instead of failing.
+        val translate = _uiState.value.settings.whisper.translate && model?.supportsTranslate == true
         if (model == null) {
             serviceScope.launch(Dispatchers.IO) { runCatching { recorder.stop() } }
             _uiState.update { it.copy(voice = it.voice.copy(status = VoiceStatus.IDLE, level = 0f)) }
@@ -6326,14 +6339,19 @@ open class WMKeyboardService : InputMethodService() {
                     WhisperStore.modelFile(filesDir, model),
                     WhisperStore.vocabFile(filesDir, model),
                     pcm,
-                    _uiState.value.settings.whisper.translate,
+                    translate,
                     langToken,
                 )
             }
+            // A graph told which language to use, or built for exactly one, cannot
+            // answer in the wrong script. Only the auto-detecting ones can, and
+            // Bangla misread as Hindi is the case worth repairing.
+            val detected = langToken == null && model.fixedLang == null
             withContext(Dispatchers.Main) {
                 if (gen != voiceGeneration) return@withContext
                 result
-                    .onSuccess { commitWhisperResult(it.trim(), tag, userStopped) }
+                    .map { if (detected) WhisperScript.rescue(it.trim(), languageId) else it.trim() }
+                    .onSuccess { commitWhisperResult(it, tag, userStopped) }
                     .onFailure { e ->
                         // A WhisperException carries a resource id instead of a
                         // message, so its own message is null on purpose.
@@ -6396,6 +6414,53 @@ open class WMKeyboardService : InputMethodService() {
         VoiceSpacing.format(text, voiceNeedsLeadingSpace, voiceNeedsTrailingSpace)
 
     /**
+     * Reads the characters around the cursor to decide whether dictated text
+     * needs a space in front of it or behind it. Run at the start of a session,
+     * and again after an edit made from the panel's own rail — a space typed
+     * there must not turn into two once the transcription lands.
+     */
+    private fun refreshVoiceSpacing() {
+        val ic = currentInputConnection ?: return
+        val beforeChar = ic.getTextBeforeCursor(1, 0)?.lastOrNull()
+        val afterChar = ic.getTextAfterCursor(1, 0)?.firstOrNull()
+        voiceNeedsLeadingSpace = VoiceSpacing.needsLeadingSpace(beforeChar, afterChar)
+        voiceNeedsTrailingSpace = VoiceSpacing.needsTrailingSpace(beforeChar, afterChar)
+    }
+
+    /**
+     * Space, backspace or enter pressed on the voice panel's action rail. Those
+     * keys belong to the dictation surface, not to the keyboard: the keys are not
+     * even on screen, so reaching for space there means "put a space in", never
+     * "I have finished talking". They leave the session running.
+     *
+     * The exception is a partial already sitting in the editor as composing text.
+     * The system recognizer's partials are cumulative and each one rewrites the
+     * whole composing region, so a character typed inside it is either duplicated
+     * or swallowed; that case still ends the utterance and keeps what was heard.
+     * Whisper has no partial — its audio is in the recorder, not the editor — so
+     * a rail key never costs a recording.
+     */
+    fun onVoiceRailKey(key: Key) {
+        if (_uiState.value.voice.partial.isNotEmpty()) {
+            onKey(key)
+            return
+        }
+        voiceRailKeyInFlight = true
+        try {
+            onKey(key)
+        } finally {
+            voiceRailKeyInFlight = false
+        }
+        if (voiceActive()) refreshVoiceSpacing()
+    }
+
+    /** A dictation session is mid-flight: recording, finishing, or transcribing. */
+    private fun voiceActive(): Boolean = when (_uiState.value.voice.status) {
+        VoiceStatus.LISTENING, VoiceStatus.FINISHING, VoiceStatus.TRANSCRIBING -> true
+        else -> false
+    }
+
+    /**
      * Abandons any running dictation: the mic is released and the partial
      * already on screen stays as committed text (the user said it — losing
      * it on a panel switch would be worse than keeping it).
@@ -6427,10 +6492,20 @@ open class WMKeyboardService : InputMethodService() {
      * panel/strip stays open to resume with a mic tap.
      */
     private fun stopVoiceForManualInput() {
+        // The panel's own rail keys are part of the dictation surface and are
+        // handled in [onVoiceRailKey], which dispatches through here.
+        if (voiceRailKeyInFlight) return
         val status = _uiState.value.voice.status
-        if (status == VoiceStatus.LISTENING || status == VoiceStatus.FINISHING ||
-            status == VoiceStatus.TRANSCRIBING
-        ) {
+        // A Whisper clip already off the mic and inside the decoder is not
+        // something a keystroke should throw away: the audio is captured, the mic
+        // is shut, and the words land after whatever was typed. Only the
+        // continuous-mode chain is called off, so the mic does not reopen on top
+        // of typing that has started.
+        if (status == VoiceStatus.TRANSCRIBING) {
+            voiceStopRequested = true
+            return
+        }
+        if (status == VoiceStatus.LISTENING || status == VoiceStatus.FINISHING) {
             voiceStopRequested = true
             cancelVoice()
         }
@@ -6526,6 +6601,34 @@ open class WMKeyboardService : InputMethodService() {
                 }
             },
         )
+    }
+
+    /**
+     * "Use the system recognizer" chip, shown when offline Whisper is selected but
+     * has no model downloaded. Switches the engine back to the system recognizer
+     * and starts listening, so dictation works from the same tap instead of
+     * sending the user to settings for a download they may not want.
+     *
+     * The change is persisted, the same as picking the engine in settings: a
+     * silent one-session override would leave the mic dead again next time.
+     */
+    fun onVoiceUseSystemEngine() {
+        vibrate()
+        serviceScope.launch {
+            settingsRepository.setVoiceEngine("system")
+            // Settings arrive through the state flow, so starting has to wait for
+            // the new value to land or startVoice would read "whisper" again and
+            // put the same prompt back up. Bounded, so a write that never surfaces
+            // leaves the panel as it is now rather than a coroutine parked here.
+            withTimeoutOrNull(ENGINE_SWITCH_TIMEOUT_MS) {
+                _uiState.first { it.settings.whisper.engine == "system" }
+            }
+            // The panel could have been closed while that landed, and a mic opened
+            // with no dictation surface on screen is a privacy dot nobody asked for.
+            if (!voiceSessionAlive()) return@launch
+            voiceSilentRetries = 0
+            startVoice()
+        }
     }
 
     /** Translate chip on the Whisper voice panel: flip translate-to-English. */
@@ -11815,6 +11918,14 @@ open class WMKeyboardService : InputMethodService() {
 
         /** Height offered to autofill chips, matching the suggestion strip. */
         private const val INLINE_CHIP_HEIGHT_DP = 44
+
+        /**
+         * How long switching the dictation engine from the voice panel waits for
+         * the new setting to come back through the state flow before starting to
+         * listen anyway. A DataStore write plus one flow emission, not a user-
+         * visible delay.
+         */
+        private const val ENGINE_SWITCH_TIMEOUT_MS = 1_000L
 
         /** Inline emoji search is a local index lookup — no network wait. */
         private const val EMOJI_SEARCH_DEBOUNCE_MS = 24L

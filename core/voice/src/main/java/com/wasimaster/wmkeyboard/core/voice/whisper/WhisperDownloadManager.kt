@@ -165,7 +165,7 @@ object WhisperDownloadManager {
         val parts = listOf(
             // Vocab first — tiny, so a bad connection fails fast before the big file.
             Part(
-                WhisperCatalog.downloadUrl(model.repo, model.vocabFile),
+                WhisperCatalog.downloadUrl(model.vocabRepo, model.vocabFile),
                 File(dir, model.vocabFile), model.vocabBytes,
             ),
             Part(

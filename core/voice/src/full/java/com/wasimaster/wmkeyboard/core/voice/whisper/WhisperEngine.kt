@@ -24,6 +24,18 @@ import org.tensorflow.lite.Interpreter
  * the grouped `TOP_WORLD`/`EUROPEAN_UNION` graphs add `serving_transcribe_lang`,
  * which takes a scalar `lang_token` so the caller forces one language; and the
  * single-language and `.en` graphs expose just `serving_default`.
+ *
+ * **No decoder prefix can be supplied.** Whisper itself takes an initial prompt,
+ * a piece of text prepended to the decoder as `<|startofprev|>` tokens to bias
+ * spelling and vocabulary, and Whisper's own language forcing works the same way.
+ * Neither is reachable here: each of these graphs was exported with its whole
+ * `generate()` call traced inside, `forced_decoder_ids` and all, and the exported
+ * signature takes only `input_features` (plus `lang_token` where present). The
+ * grouped graphs make this concrete — the language input selects between one
+ * traced branch per language, so even a token they were not built with does
+ * nothing. A prompt, or forcing a language no branch covers, needs graphs that
+ * expose the encoder and the decoder as separate signatures and an autoregressive
+ * loop written on this side; the published conversions do not.
  */
 object WhisperEngine {
 
@@ -68,11 +80,11 @@ object WhisperEngine {
                 throw WhisperException(R.string.core_voice_whisper_model_load_error, cause = e)
             }
 
-            requireMelBins(itp)
+            requireMelBins(itp, voc.nMel)
 
-            val mel = WhisperMel.compute(pcm, voc.filters, voc.nFft)
+            val mel = WhisperMel.compute(pcm, voc.filters, voc.nFft, voc.nMel)
             val input = ByteBuffer
-                .allocateDirect(WhisperMel.N_MEL * WhisperMel.MEL_LEN * Float.SIZE_BYTES)
+                .allocateDirect(voc.nMel * WhisperMel.MEL_LEN * Float.SIZE_BYTES)
                 .order(ByteOrder.nativeOrder())
             for (v in mel) input.putFloat(v)
             input.rewind()
@@ -115,18 +127,19 @@ object WhisperEngine {
     }
 
     /**
-     * Fails a model whose spectrogram input is not the 80-bin one [WhisperMel] and
-     * the shipped `filters_vocab_*.bin` filterbanks produce. Whisper switched to
-     * 128 bins at large-v3, and such a graph would otherwise happily consume the
-     * wrong-shaped features and decode confident nonsense instead of erroring.
+     * Fails a model whose spectrogram input has a different band count from the
+     * filterbank shipped beside it. Whisper switched from 80 bands to 128 at
+     * large-v3, so a model paired with the wrong vocab binary would otherwise
+     * happily consume wrong-shaped features and decode confident nonsense
+     * instead of erroring.
      */
-    private fun requireMelBins(itp: Interpreter) {
+    private fun requireMelBins(itp: Interpreter, filterBins: Int) {
         // A grouped graph's tensor 0 is the scalar lang_token, whose shape has no
         // mel axis at all — nothing to check there.
         val bins = runCatching { itp.getInputTensor(0)?.shape() }.getOrNull()
             ?.takeIf { it.size >= 3 }?.get(1)
             ?: return
-        if (bins > 0 && bins != WhisperMel.N_MEL) {
+        if (bins > 0 && bins != filterBins) {
             releaseLocked()
             throw WhisperException(R.string.core_voice_whisper_mel_bins_error, bins.toString())
         }

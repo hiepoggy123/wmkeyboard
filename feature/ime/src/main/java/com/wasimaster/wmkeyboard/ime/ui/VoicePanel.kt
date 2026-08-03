@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Mic
@@ -86,7 +87,8 @@ internal fun VoicePanel(
     onDownloadModel: () -> Unit,
     onToggleTranslate: () -> Unit,
     onOpenVoiceSettings: () -> Unit,
-    onKey: (Key) -> Unit,
+    onUseSystemEngine: () -> Unit,
+    onRailKey: (Key) -> Unit,
     onLayoutSelect: (String) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -155,7 +157,14 @@ internal fun VoicePanel(
                 voice.status == VoiceStatus.UNAVAILABLE -> VoiceNotice(
                     stringResource(R.string.ime_voice_unavailable_notice),
                 )
-                else -> MicContent(state, onToggle, onDownloadModel, onToggleTranslate, onOpenVoiceSettings)
+                else -> MicContent(
+                    state = state,
+                    onToggle = onToggle,
+                    onDownloadModel = onDownloadModel,
+                    onToggleTranslate = onToggleTranslate,
+                    onOpenVoiceSettings = onOpenVoiceSettings,
+                    onUseSystemEngine = onUseSystemEngine,
+                )
             }
 
             // Language chip: shows the active recognition language, tap
@@ -235,7 +244,7 @@ internal fun VoicePanel(
                 modifier = Modifier.weight(1f),
             ) {
                 feedback()
-                onKey(Key("⌫", action = KeyAction.Delete))
+                onRailKey(Key("⌫", action = KeyAction.Delete))
             }
             VoiceRailKey(
                 description = stringResource(R.string.ime_rail_space_desc),
@@ -243,7 +252,7 @@ internal fun VoicePanel(
                 modifier = Modifier.weight(1f),
             ) {
                 feedback()
-                onKey(Key(" ", action = KeyAction.Space))
+                onRailKey(Key(" ", action = KeyAction.Space))
             }
             // Same icon the enter key on the key rows would show for this
             // field — a search box gets a magnifier here too, so the rail is
@@ -255,7 +264,7 @@ internal fun VoicePanel(
                 modifier = Modifier.weight(1f),
             ) {
                 feedback()
-                onKey(Key("⏎", action = KeyAction.Enter))
+                onRailKey(Key("⏎", action = KeyAction.Enter))
             }
             VoiceRailKey(
                 description = stringResource(R.string.ime_rail_back_desc),
@@ -277,6 +286,7 @@ private fun MicContent(
     onDownloadModel: () -> Unit,
     onToggleTranslate: () -> Unit,
     onOpenVoiceSettings: () -> Unit,
+    onUseSystemEngine: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
     val voice = state.voice
@@ -395,26 +405,23 @@ private fun MicContent(
         // is no language chip — the choice is transcribe vs translate.
         if (voice.whisper || voice.whisperNeedsModel) {
             if (voice.whisperNeedsModel) {
+                // Both ways out of a dead mic, side by side: fetch a model, or go
+                // back to the recognizer that needs no download. Offering only the
+                // download left anyone who did not want a 250 MB file with no way
+                // to dictate at all.
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
-                        .background(kb.chip)
-                        .clickable { onOpenVoiceSettings() }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 8.dp),
                 ) {
-                    Icon(
-                        Icons.Outlined.FileDownload,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = kb.secondaryText,
+                    VoiceChipAction(
+                        text = stringResource(R.string.ime_voice_download_model_action),
+                        icon = Icons.Outlined.FileDownload,
+                        onClick = onOpenVoiceSettings,
                     )
-                    Text(
-                        stringResource(R.string.ime_voice_download_model_action),
-                        color = kb.secondaryText,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(start = 5.dp),
+                    VoiceChipAction(
+                        text = stringResource(R.string.ime_voice_use_system_action),
+                        icon = Icons.Outlined.Cloud,
+                        onClick = onUseSystemEngine,
                     )
                 }
             } else {
@@ -508,6 +515,37 @@ private fun MicContent(
     }
 }
 
+/** One tappable chip under the mic, with a leading icon. */
+@Composable
+private fun VoiceChipAction(text: String, icon: ImageVector, onClick: () -> Unit) {
+    val kb = LocalKbTheme.current
+    val feedback = LocalKeyPressFeedback.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+            .background(kb.chip)
+            .clickable {
+                feedback()
+                onClick()
+            }
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = kb.secondaryText,
+        )
+        Text(
+            text,
+            color = kb.secondaryText,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(start = 5.dp),
+        )
+    }
+}
+
 /** A long press on the mic switches to press-and-hold dictation. */
 private const val HOLD_TO_TALK_MS = 600L
 
@@ -523,6 +561,7 @@ internal fun VoiceStripBar(
     onToggle: () -> Unit,
     onUndo: () -> Unit,
     onRequestPermission: () -> Unit,
+    onOpenVoiceSettings: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -616,16 +655,30 @@ internal fun VoiceStripBar(
                 .weight(1f)
                 .padding(horizontal = 8.dp),
         )
-        if (voice.status == VoiceStatus.NEED_PERMISSION) {
+        // One action, whichever the bar's single line is asking for: grant the
+        // microphone, or open the settings that hold both the model downloads and
+        // the engine choice. The bar has room for one line, so unlike the panel it
+        // sends people to that screen rather than offering both remedies itself.
+        val action = when {
+            voice.status == VoiceStatus.NEED_PERMISSION ->
+                stringResource(R.string.ime_voice_strip_allow_action) to onRequestPermission
+            voice.whisperNeedsModel ->
+                stringResource(R.string.ime_voice_strip_settings_action) to onOpenVoiceSettings
+            else -> null
+        }
+        if (action != null) {
             Text(
-                stringResource(R.string.ime_voice_strip_allow_action),
+                action.first,
                 color = kb.toolCircleActiveIcon,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
                     .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
                     .background(kb.toolCircleActive)
-                    .clickable { onRequestPermission() }
+                    .clickable {
+                        feedback()
+                        action.second()
+                    }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }

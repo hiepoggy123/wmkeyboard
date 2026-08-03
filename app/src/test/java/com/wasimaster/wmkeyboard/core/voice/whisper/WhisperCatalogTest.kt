@@ -52,12 +52,50 @@ class WhisperCatalogTest {
     }
 
     @Test
-    fun `english graphs use the english vocab and everything else the multilingual one`() {
+    fun `each graph pairs with the vocab its tokenizer and spectrogram need`() {
+        // The large-v3 generation wants 128 mel bands, which only the -v3 binary
+        // carries; the English-only graphs want the English tokenizer; everything
+        // else wants the 80-band multilingual one.
+        val v3 = setOf("turbo-multi", "large-v3-multi")
         for (m in WhisperCatalog.models) {
-            val expected =
-                if (m.fixedLang == "en") "filters_vocab_en.bin" else "filters_vocab_multilingual.bin"
+            val expected = when {
+                m.id in v3 -> "filters_vocab_multilingual-v3.bin"
+                m.fixedLang == "en" -> "filters_vocab_en.bin"
+                else -> "filters_vocab_multilingual.bin"
+            }
             assertEquals("${m.id} vocab", expected, m.vocabFile)
         }
+    }
+
+    @Test
+    fun `the 128-band vocab is fetched from the one repo that publishes it`() {
+        for (id in listOf("turbo-multi", "large-v3-multi")) {
+            val m = WhisperCatalog.byId(id)!!
+            assertEquals("nyadla-sys/whisper-tiny.en.tflite", m.repo)
+            assertEquals("cik009/whisper", m.vocabRepo)
+        }
+        // Every other entry takes both files from one place.
+        for (m in WhisperCatalog.models.filter { it.id !in setOf("turbo-multi", "large-v3-multi") }) {
+            assertEquals("${m.id} vocab repo", m.repo, m.vocabRepo)
+        }
+    }
+
+    @Test
+    fun `a language no graph names can only be detected`() {
+        // Bangla is in no grouped graph's list and has no graph of its own, which
+        // is why dictation in it can come back as Hindi.
+        assertTrue(WhisperCatalog.autoDetectOnly("bn"))
+        // German has both a graph of its own and a place in the grouped lists.
+        assertTrue(!WhisperCatalog.autoDetectOnly("de"))
+        // Thai is in TOP_WORLD but has no graph of its own: still forceable.
+        assertTrue(!WhisperCatalog.autoDetectOnly("th"))
+    }
+
+    @Test
+    fun `a detect-only language is offered the model that detects best`() {
+        assertTrue(WhisperCatalog.recommendedFor(setOf("bn")).any { it.id == "turbo-multi" })
+        // Languages a graph can be told about do not need it on the shortlist.
+        assertTrue(WhisperCatalog.recommendedFor(setOf("de")).none { it.id == "turbo-multi" })
     }
 
     @Test
@@ -174,7 +212,10 @@ class WhisperCatalogTest {
     fun `ranking a language no graph covers leaves only the all-language models`() {
         val ids = WhisperCatalog.rankedFor("bn").map { it.id }
         assertEquals(
-            listOf("large-multi", "medium-multi", "small-multi", "base-multi", "tiny-multi"),
+            listOf(
+                "large-v3-multi", "large-multi", "turbo-multi", "medium-multi",
+                "small-multi", "base-multi", "tiny-multi",
+            ),
             ids,
         )
     }

@@ -10,13 +10,23 @@ import kotlin.math.sin
  * whisper.cpp / vilassn reference, verified end-to-end against the tflite
  * models). Output is the `[nMel][nLen]` matrix flattened mel-major
  * (`data[mel * nLen + frame]`), exactly the layout the `input_features`
- * `[1, 80, 3000]` tensor expects.
+ * `[1, nMel, 3000]` tensor expects.
+ *
+ * The band count comes from the filterbank rather than being fixed at 80: the
+ * large-v3 generation (large-v3 and turbo) wants 128 bands. Only the filterbank
+ * differs — window, hop, FFT size and the log/clamp/normalize steps are the same
+ * for both, so one routine covers them.
  */
 object WhisperMel {
 
     const val SAMPLE_RATE = 16_000
     const val N_FFT = 400
+
+    /** Band count of every Whisper model before large-v3, and the usual case. */
     const val N_MEL = 80
+
+    /** Band count large-v3 and turbo want instead. */
+    const val N_MEL_V3 = 128
     const val HOP_LENGTH = 160
     const val CHUNK_SECONDS = 30
     /** Fixed Whisper window: 16 kHz * 30 s = 480000 samples → 3000 frames. */
@@ -28,13 +38,19 @@ object WhisperMel {
      *   zero-padded to 30 s; longer is truncated to the first 30 s.
      * @param filters the `[nMel * nFftCols]` filterbank from [WhisperVocab].
      * @param nFftCols the filterbank's column count (1 + N_FFT/2 = 201).
+     * @param nMel the filterbank's row count — [N_MEL] or [N_MEL_V3].
      */
-    fun compute(samples: FloatArray, filters: FloatArray, nFftCols: Int): FloatArray {
+    fun compute(
+        samples: FloatArray,
+        filters: FloatArray,
+        nFftCols: Int,
+        nMel: Int = N_MEL,
+    ): FloatArray {
         val padded = FloatArray(N_SAMPLES)
         System.arraycopy(samples, 0, padded, 0, minOf(samples.size, N_SAMPLES))
 
         val nLen = MEL_LEN
-        val mel = FloatArray(N_MEL * nLen)
+        val mel = FloatArray(nMel * nLen)
 
         val hann = FloatArray(N_FFT) { (0.5 * (1.0 - cos(2.0 * PI * it / N_FFT))).toFloat() }
 
@@ -55,7 +71,7 @@ object WhisperMel {
             // fold the mirror image onto the first half
             for (j in 1 until N_FFT / 2) fftOut[j] += fftOut[N_FFT - j]
 
-            for (j in 0 until N_MEL) {
+            for (j in 0 until nMel) {
                 var sum = 0.0
                 val base = j * nFftCols
                 for (k in 0 until nFftCols) sum += fftOut[k] * filters[base + k]

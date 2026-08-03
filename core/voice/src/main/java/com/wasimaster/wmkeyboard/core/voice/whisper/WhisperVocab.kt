@@ -10,12 +10,17 @@ import java.nio.ByteOrder
  * the byte-level BPE vocabulary:
  *
  * ```
- * int32 magic == 0x5553454e ("USEN")
- * int32 nMel, int32 nFft            // filterbank dims (80 x 201)
+ * int32 magic                       // see MAGIC_USEN / MAGIC_TFLT
+ * int32 nMel, int32 nFft            // filterbank dims (80 or 128 x 201)
  * float32[nMel*nFft] filters        // row-major [mel][fft]
  * int32 nVocab
  * repeat nVocab: int32 len, byte[len] token   // raw byte-level BPE bytes
  * ```
+ *
+ * [nMel] is read from the file rather than assumed: the large-v3 generation of
+ * models (large-v3 and turbo) wants a 128-band spectrogram where every earlier
+ * one wants 80, and the two are told apart by which vocab binary ships with the
+ * graph. Nothing else about the format changed.
  *
  * Special tokens (EOT/SOT/…) are appended after the file's tokens and never
  * stored; only their ids matter and [eot] is all decoding needs. The
@@ -59,7 +64,11 @@ class WhisperVocab private constructor(
     }
 
     companion object {
-        private const val MAGIC = 0x5553454e
+        /** Magic of the original 80-band binaries: the bytes "NESU", read little-endian. */
+        private const val MAGIC_USEN = 0x5553454e
+
+        /** Magic the 128-band large-v3 binary carries instead: the bytes "tlft". */
+        private const val MAGIC_TFLT = 0x74666c74
 
         /**
          * @param multilingual true for `filters_vocab_multilingual.bin` (99-lang
@@ -68,7 +77,9 @@ class WhisperVocab private constructor(
         fun load(vocabFile: File, multilingual: Boolean): WhisperVocab {
             val buf = ByteBuffer.wrap(vocabFile.readBytes()).order(ByteOrder.LITTLE_ENDIAN)
             val magic = buf.int
-            require(magic == MAGIC) { "bad vocab magic 0x${magic.toString(16)} in ${vocabFile.name}" }
+            require(magic == MAGIC_USEN || magic == MAGIC_TFLT) {
+                "bad vocab magic 0x${magic.toString(16)} in ${vocabFile.name}"
+            }
 
             val nMel = buf.int
             val nFft = buf.int
