@@ -35,7 +35,7 @@ Typing `:cat:` is a different feature entirely: it searches or auto-commits an e
 
 ## Searching for an emoji
 
-Tap the magnifying-glass tab at the start of the tab strip to switch the panel into search mode. It isn't a text field you type into directly. Tapping it turns the letter keys underneath into a query editor: what you type appends to the search pill instead of going to your document, and a small backspace icon next to the pill deletes from your actual text field without leaving search. Tap the search icon again (or switch to any category tab) to leave search and go back to browsing.
+Tap the magnifying-glass tab at the start of the tab strip to switch the panel into search mode. The search pill appears under the results, just above the keys typing into it, so the emoji themselves stay at the top of the panel where your thumb left them. It isn't a text field you type into directly. Tapping it turns the letter keys underneath into a query editor: what you type appends to the search pill instead of going to your document, and a small backspace icon next to the pill deletes from your actual text field without leaving search. Tap the search icon again (or switch to any category tab) to leave search and go back to browsing.
 
 <PhoneFrame caption="Typing 'cat' and 'বিড়াল' in the panel's search field, both surfacing the same cat emoji.">
   {/* shot: emoji/panel-search */}
@@ -97,6 +97,30 @@ Long-pressing a cell on the history tab specifically also offers **Remove from r
 <SettingsPath path="Emoji / Emoji panel / Clear recents button" />
 
 Off by default. Turn it on to add a "Clear recents" button to the Recent tab. It only appears on the Recent view, not Most used, since a frequency ranking isn't something a single tap should wipe.
+
+## Animated emoji
+
+<SettingsPath path="Emoji / Emoji panel / Animated emoji" />
+
+Around 880 emoji have an animated version published by Google as part of [Noto Animated Emoji](https://googlefonts.github.io/noto-emoji-animation/). Long-press any of them in the panel and the popup loops the animation, with a **Send animated emoji** button under it that sends the 512×512 GIF into the field you're typing in.
+
+<PhoneFrame caption="Long-pressing 😀 shows its animation looping, over the send button.">
+  {/* shot: emoji/animated-popup */}
+</PhoneFrame>
+
+The animation is fetched from `fonts.gstatic.com` the moment the popup opens, and the file you previewed is the file that gets sent, so pressing the button costs no second download. Each one is around 800 KB. Nothing is downloaded until you long-press, and nothing about you goes with the request: it's a plain fetch of a fixed URL, with no query, no key, and no identifier.
+
+The button is deliberately absent in three cases:
+
+- **The emoji has no animation.** Flags, most ZWJ sequences, and plenty of symbols aren't in the set. The app ships the list of which ones are (`assets/emoji/animated.txt`, about 8 KB) rather than asking the server, so a long-press never stalls on a request that was going to 404.
+- **The app can't take images.** A GIF goes through the same rich-content path as a sticker, so a field that accepts no images (a plain search box, most password fields) doesn't get the offer. See [GIFs](/emoji/gifs/#apps-that-refuse-gifs) for what does and doesn't accept them.
+- **The setting is off.** Turn **Animated emoji** off and long-press goes back to skin tones and favourites only.
+
+Sending one counts as using that emoji, so it lands in your recents like an ordinary tap would.
+
+:::note[Attribution]
+The animations are **Noto Animated Emoji** by Google, licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The credit is repeated under the send button in the app, and the full notice is in Settings → About → Licences, under the downloaded data packs.
+:::
 
 ## Details & edge cases
 

@@ -296,6 +296,13 @@ private val dataPackAttributions: List<Attribution> = listOf(
         "https://github.com/KDE/kemoji",
     ),
     Attribution(
+        "Noto Animated Emoji",
+        R.string.about_pack_animated_emoji_used,
+        "Copyright Google LLC",
+        "CC BY 4.0", "cc-by-4.0-noto-animated.txt",
+        "https://googlefonts.github.io/noto-emoji-animation/",
+    ),
+    Attribution(
         "CC-CEDICT",
         R.string.about_pack_cedict_used,
         "Copyright MDBG and CC-CEDICT contributors",

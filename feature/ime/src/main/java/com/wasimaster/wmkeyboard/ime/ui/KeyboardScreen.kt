@@ -91,6 +91,7 @@ import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.PictureAsPdf
+import androidx.compose.material.icons.outlined.PlayCircleOutline
 import androidx.compose.material.icons.outlined.VideoFile
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
@@ -113,6 +114,7 @@ import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -234,6 +236,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import coil3.compose.AsyncImage
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
@@ -346,6 +349,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.random.Random
+import java.io.File
 
 /**
  * Fired at pointer-down on any key so feedback (haptics) lands on press,
@@ -628,6 +632,12 @@ fun KeyboardScreen(
     onEmojiRecentsClear: () -> Unit = {},
     onEmojiRecentRemove: (String) -> Unit = {},
     onEmojiFavouritesReorder: (List<String>) -> Unit = {},
+    /** An emoji cell was held: fetch its animated version, if it has one. */
+    onEmojiLongPress: (String) -> Unit = {},
+    /** That popup closed: drop the preview. */
+    onEmojiLongPressEnd: () -> Unit = {},
+    /** Send the animated version of the held emoji as a GIF. */
+    onAnimatedEmojiSend: (String) -> Unit = {},
     onEmojiSearchFieldDelete: () -> Unit = {},
     /**
      * The button-mode emoji row was unfolded. The service holds the usage
@@ -827,6 +837,9 @@ fun KeyboardScreen(
                 onEmojiRecentsClear = onEmojiRecentsClear,
                 onEmojiRecentRemove = onEmojiRecentRemove,
                 onEmojiFavouritesReorder = onEmojiFavouritesReorder,
+                onEmojiLongPress = onEmojiLongPress,
+                onEmojiLongPressEnd = onEmojiLongPressEnd,
+                onAnimatedEmojiSend = onAnimatedEmojiSend,
                 onEmojiSearchFieldDelete = onEmojiSearchFieldDelete,
                 onTextArt = onTextArt,
                 onTextEdit = onTextEdit,
@@ -4870,6 +4883,9 @@ private fun KeyboardBody(
     onEmojiRecentsClear: () -> Unit,
     onEmojiRecentRemove: (String) -> Unit,
     onEmojiFavouritesReorder: (List<String>) -> Unit,
+    onEmojiLongPress: (String) -> Unit,
+    onEmojiLongPressEnd: () -> Unit,
+    onAnimatedEmojiSend: (String) -> Unit,
     onEmojiSearchFieldDelete: () -> Unit,
     onTextArt: (String) -> Unit,
     onTextEdit: (TextEditAction) -> Unit,
@@ -5090,6 +5106,9 @@ private fun KeyboardBody(
                     state, onEmoji, onEmojiVariant, onEmojiFavourite, onEmojiQueryTap, onEmojiRecentsClear,
                     onRecentRemove = onEmojiRecentRemove,
                     onFavouritesReorder = onEmojiFavouritesReorder,
+                    onLongPress = onEmojiLongPress,
+                    onLongPressEnd = onEmojiLongPressEnd,
+                    onAnimatedSend = onAnimatedEmojiSend,
                     onSearchFieldDelete = onEmojiSearchFieldDelete,
                     onTextArt = onTextArt,
                     onKey = onKey,
@@ -9106,6 +9125,9 @@ private fun EmojiPanel(
     onClearRecents: () -> Unit,
     onRecentRemove: (String) -> Unit,
     onFavouritesReorder: (List<String>) -> Unit,
+    onLongPress: (String) -> Unit,
+    onLongPressEnd: () -> Unit,
+    onAnimatedSend: (String) -> Unit,
     onSearchFieldDelete: () -> Unit,
     onTextArt: (String) -> Unit,
     onKey: (Key) -> Unit,
@@ -9310,6 +9332,9 @@ private fun EmojiPanel(
                         onPick = { variant -> onEmojiVariant(emoji, variant) },
                         onFavourite = onEmojiFavourite,
                         onReorderFavourites = onReorderFavourite,
+                        onLongPress = onLongPress,
+                        onLongPressEnd = onLongPressEnd,
+                        onAnimatedSend = onAnimatedSend,
                         focused = index == focusedResult,
                     )
                 }
@@ -9413,6 +9438,9 @@ private fun EmojiPanel(
                                     onPick = onEmoji,
                                     onFavourite = onEmojiFavourite,
                                     onReorderFavourites = onReorderFavourite,
+                                    onLongPress = onLongPress,
+                                    onLongPressEnd = onLongPressEnd,
+                                    onAnimatedSend = onAnimatedSend,
                                     onRemove = onRecentRemove,
                                     focused = index == focusedHistory,
                                 )
@@ -9467,6 +9495,9 @@ private fun EmojiPanel(
                                 onPick = { variant -> onEmojiVariant(emoji, variant) },
                                 onFavourite = onEmojiFavourite,
                                 onReorderFavourites = onReorderFavourite,
+                                onLongPress = onLongPress,
+                                onLongPressEnd = onLongPressEnd,
+                                onAnimatedSend = onAnimatedSend,
                                 focused = index == focusedEmoji,
                             )
                         }
@@ -9740,6 +9771,9 @@ private fun EmojiCell(
     onPick: (String) -> Unit,
     onFavourite: (String) -> Unit,
     onReorderFavourites: (() -> Unit)? = null,
+    onLongPress: (String) -> Unit = {},
+    onLongPressEnd: () -> Unit = {},
+    onAnimatedSend: (String) -> Unit = {},
     onRemove: ((String) -> Unit)? = null,
     focused: Boolean = false,
 ) {
@@ -9758,6 +9792,7 @@ private fun EmojiCell(
                             // inserted", which a long press does not do.
                             if (state.settings.hapticOnLongPress) onHaptic()
                             showVariants = true
+                            onLongPress(display)
                         },
                     )
                 }
@@ -9786,24 +9821,108 @@ private fun EmojiCell(
                 index = state.emojiVariants,
                 genderVariants = genderVariants,
                 favourite = display in state.emojiFavourites,
-                onDismiss = { showVariants = false },
+                animated = state.animatedEmojiOffer(display),
+                onAnimatedSend = { onAnimatedSend(display) },
+                onDismiss = {
+                    showVariants = false
+                    onLongPressEnd()
+                },
                 onPick = {
                     showVariants = false
+                    onLongPressEnd()
                     onPick(it)
                 },
                 onFavourite = onFavourite,
                 onReorderFavourites = onReorderFavourites?.let { reorder ->
                     {
                         showVariants = false
+                        onLongPressEnd()
                         reorder()
                     }
                 },
                 onRemove = onRemove?.let { remove ->
                     {
                         showVariants = false
+                        onLongPressEnd()
                         remove(display)
                     }
                 },
+            )
+        }
+    }
+}
+
+/**
+ * What the long-press popup knows about an emoji's animated version: the file
+ * once it lands, and whether it is still on its way.
+ */
+internal data class AnimatedEmojiOffer(val file: File?, val loading: Boolean)
+
+/**
+ * The animated version on offer for [emoji], or null when there is none to
+ * offer: nothing is published for it, the setting is off, or the focused field
+ * takes no images and a GIF would have nowhere to go.
+ */
+internal fun KeyboardUiState.animatedEmojiOffer(emoji: String): AnimatedEmojiOffer? {
+    if (!settings.emoji.animated || !acceptsRichMedia) return null
+    if (animatedEmoji.keyFor(emoji) == null) return null
+    return AnimatedEmojiOffer(animatedEmojiFile, animatedEmojiLoading)
+}
+
+/**
+ * The animated-emoji block of the long-press popup: the animation itself,
+ * looping, over a button that sends it as a GIF sticker.
+ *
+ * The preview is the very file the button sends — fetched when the popup
+ * opened — so what is previewed is what arrives, and sending costs no second
+ * download. The credit line is not decoration: the assets are Noto Animated
+ * Emoji, and CC BY 4.0 asks for attribution wherever they are used.
+ */
+@Composable
+private fun ColumnScope.AnimatedEmojiOffer(offer: AnimatedEmojiOffer, onSend: () -> Unit) {
+    val loader = rememberMediaImageLoader()
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .size(96.dp)
+            .align(Alignment.CenterHorizontally),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (offer.file != null) {
+            AsyncImage(
+                model = offer.file,
+                contentDescription = null,
+                imageLoader = loader,
+                modifier = Modifier.matchParentSize(),
+                contentScale = ContentScale.Fit,
+            )
+        } else if (offer.loading) {
+            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+        }
+    }
+    Row(
+        modifier = Modifier
+            .clickable(enabled = offer.file != null, onClick = onSend)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.PlayCircleOutline,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Box(modifier = Modifier.width(10.dp))
+        Column {
+            Text(
+                stringResource(R.string.ime_emoji_send_animated),
+                fontSize = 15.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                stringResource(R.string.ime_emoji_animated_credit),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
         }
     }
@@ -9823,6 +9942,8 @@ private fun EmojiVariantPopup(
     index: EmojiVariantIndex,
     genderVariants: List<String>,
     favourite: Boolean,
+    animated: AnimatedEmojiOffer?,
+    onAnimatedSend: () -> Unit,
     onDismiss: () -> Unit,
     onPick: (String) -> Unit,
     onFavourite: (String) -> Unit,
@@ -9865,6 +9986,9 @@ private fun EmojiVariantPopup(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                         )
                     }
+                }
+                if (animated != null) {
+                    AnimatedEmojiOffer(offer = animated, onSend = onAnimatedSend)
                 }
                 // Favourite pins this emoji to the top of the history tab
                 // and the favourites row.

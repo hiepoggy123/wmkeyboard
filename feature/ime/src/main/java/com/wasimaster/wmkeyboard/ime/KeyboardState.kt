@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.ime
 
 import android.view.KeyEvent
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
+import com.wasimaster.wmkeyboard.core.emoji.AnimatedEmoji
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
@@ -30,6 +31,7 @@ import com.wasimaster.wmkeyboard.core.tools.TypingResult
 import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
 import com.wasimaster.wmkeyboard.core.tools.WeatherInfo
 import com.wasimaster.wmkeyboard.core.tools.WpmSample
+import java.io.File
 
 enum class ShiftState { OFF, ON, CAPS_LOCK }
 
@@ -814,6 +816,19 @@ data class KeyboardUiState(
      * can be shown and every enabled language has a pack downloaded for it.
      */
     val emojiNamesByLang: Map<String, Map<String, String>> = emptyMap(),
+    /**
+     * Which emoji have a Noto animated version, and where to fetch it. Read by
+     * the long-press popup to decide whether to offer one.
+     */
+    val animatedEmoji: AnimatedEmoji = AnimatedEmoji.EMPTY,
+    /**
+     * The animated GIF the open long-press popup is showing, once it has been
+     * fetched. Cleared when the popup closes, so a second long press on a
+     * different emoji never previews the last one.
+     */
+    val animatedEmojiFile: File? = null,
+    /** True while [animatedEmojiFile] is on its way down. */
+    val animatedEmojiLoading: Boolean = false,
     /** Emoji candidates for the suggestion strip (word being typed). */
     val emojiSuggestions: List<String> = emptyList(),
     /**

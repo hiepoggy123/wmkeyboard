@@ -1784,6 +1784,14 @@ data class EmojiSettings(
      * preference — the same trick [keywordPackVersion] plays for the packs.
      */
     val usageVersion: Int = 0,
+    /**
+     * Offer Google's animated version of an emoji on its long press, as a GIF
+     * sticker. Fetched from fonts.gstatic.com the moment it is asked for —
+     * around 800 KB apiece, so nothing is downloaded until a long press.
+     *
+     * On by default, and only ever visible on a field that accepts images.
+     */
+    val animated: Boolean = true,
 )
 
 /** Bounds for [EmojiSettings.barCount]; the settings slider shares them. */
@@ -2521,6 +2529,7 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_KAOMOJI_TABS = booleanPreferencesKey("emoji_kaomoji_tabs")
         private val EMOJI_KEYWORD_PACK_VERSION = intPreferencesKey("emoji_keyword_pack_version")
         private val EMOJI_USAGE_VERSION = intPreferencesKey("emoji_usage_version")
+        private val EMOJI_ANIMATED = booleanPreferencesKey("emoji_animated")
         private val EMOJI_AUTO_DOWNLOAD_KEYWORDS =
             booleanPreferencesKey("emoji_auto_download_keywords")
         // Stored as the DISABLED set so tools added in future versions
@@ -3173,6 +3182,7 @@ class SettingsRepository(private val context: Context) {
                 autoDownloadKeywords = p[EMOJI_AUTO_DOWNLOAD_KEYWORDS]
                     ?: defaults.emoji.autoDownloadKeywords,
                 usageVersion = p[EMOJI_USAGE_VERSION] ?: defaults.emoji.usageVersion,
+                animated = p[EMOJI_ANIMATED] ?: defaults.emoji.animated,
             ),
             enabledTools = ToolbarTool.entries - decodeDisabledTools(p[DISABLED_TOOLS]),
             toolboxOrder = decodeToolOrder(p[TOOLBOX_ORDER]),
@@ -4846,6 +4856,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEmojiAutoDownloadKeywords(value: Boolean) =
         editPrefs { it[EMOJI_AUTO_DOWNLOAD_KEYWORDS] = value }
+
+    suspend fun setAnimatedEmoji(value: Boolean) =
+        editPrefs { it[EMOJI_ANIMATED] = value }
 
     suspend fun bumpEmojiKeywordPackVersion() =
         editPrefs {

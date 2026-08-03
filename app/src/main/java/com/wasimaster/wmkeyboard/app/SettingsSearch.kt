@@ -347,6 +347,7 @@ private fun Resources.emojiRows(): List<SettingsSearchEntry> {
         row(R.string.langemoji_emoji_clear_recents_title, R.string.langemoji_emoji_clear_recents_subtitle),
         row(R.string.langemoji_emoji_kaomoji_title, R.string.langemoji_emoji_kaomoji_subtitle),
         row(R.string.langemoji_emoji_long_press_name_title, R.string.langemoji_emoji_long_press_name_subtitle),
+        row(R.string.langemoji_emoji_animated_title, R.string.langemoji_emoji_animated_subtitle),
         row(R.string.langemoji_emoji_row_title, R.string.langemoji_emoji_bar_mode_subtitle),
         row(R.string.langemoji_emoji_bar_content_title, R.string.langemoji_emoji_bar_content_subtitle),
         row(R.string.langemoji_emoji_bar_count_title, R.string.langemoji_emoji_bar_count_subtitle),

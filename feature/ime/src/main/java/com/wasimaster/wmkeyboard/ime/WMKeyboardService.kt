@@ -64,6 +64,7 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.clipboard.ClipSensitivity
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
 import com.wasimaster.wmkeyboard.core.settings.SensitiveClipHandling
+import com.wasimaster.wmkeyboard.core.emoji.AnimatedEmoji
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
@@ -316,6 +317,7 @@ open class WMKeyboardService : InputMethodService() {
     private var emojiSuggester: EmojiSuggester? = null
     private var emojiShortcodes: EmojiShortcodes = EmojiShortcodes.EMPTY
     private var emojiTriggers: EmojiTriggers = EmojiTriggers.EMPTY
+    private var animatedEmoji: AnimatedEmoji = AnimatedEmoji.EMPTY
     private var emojiEntries: List<EmojiEntry> = emptyList()
 
     /**
@@ -566,6 +568,9 @@ open class WMKeyboardService : InputMethodService() {
     private var mediaFetchJob: Job? = null
     private var mediaLiveSearchJob: Job? = null
     private var mediaInsertJob: Job? = null
+
+    /** The in-flight fetch of an animated emoji preview; one at a time. */
+    private var animatedEmojiJob: Job? = null
     private var webSearchJob: Job? = null
     private var imageSearchJob: Job? = null
 
@@ -1502,6 +1507,9 @@ open class WMKeyboardService : InputMethodService() {
                 emojiTriggers = runCatching {
                     assets.open("emoji/triggers.tsv").use { EmojiTriggers.load(it) }
                 }.getOrDefault(EmojiTriggers.EMPTY)
+                animatedEmoji = runCatching {
+                    assets.open("emoji/animated.txt").use { AnimatedEmoji.load(it) }
+                }.getOrDefault(AnimatedEmoji.EMPTY)
                 val seeds = runCatching {
                     assets.open("dictionaries/en_bigrams.txt").use { SeedBigrams.load(it) }
                 }.getOrDefault(SeedBigrams.EMPTY)
@@ -1576,6 +1584,7 @@ open class WMKeyboardService : InputMethodService() {
                     emojiCatalog = catalog,
                     emojiNamesByLang = emojiPackNames,
                     emojiVariants = variants,
+                    animatedEmoji = animatedEmoji,
                 )
             }
             // The catalog is what the hidden-emoji check runs over; now that it
@@ -1684,6 +1693,9 @@ open class WMKeyboardService : InputMethodService() {
                 onEmojiRecentsClear = ::onEmojiRecentsClear,
                 onEmojiRecentRemove = ::onEmojiRecentRemoved,
                 onEmojiFavouritesReorder = ::onEmojiFavouritesReordered,
+                onEmojiLongPress = ::onEmojiLongPressed,
+                onEmojiLongPressEnd = ::onEmojiLongPressDismissed,
+                onAnimatedEmojiSend = ::onAnimatedEmojiSend,
                 onEmojiSearchFieldDelete = ::onEmojiSearchFieldDelete,
                 onEmojiRowShown = { publishEmojiHistory() },
                 onTextArt = ::onTextArtTapped,
@@ -9633,6 +9645,65 @@ open class WMKeyboardService : InputMethodService() {
         emojiUsage.setPreferredVariant(base, variant)
         _uiState.update { it.copy(emojiVariantPrefs = emojiUsage.variantPrefs()) }
         onEmojiTapped(variant)
+    }
+
+    /**
+     * A long-press popup opened on [emoji]: fetch its animated version, if
+     * Google publishes one, so the popup can loop it and offer to send it.
+     *
+     * Fetched on open rather than on the send button so the preview is the
+     * thing being sent, not a still standing in for it. One file, cached by
+     * URL like every other media insert, so sending costs no second download.
+     */
+    fun onEmojiLongPressed(emoji: String) {
+        val key = animatedEmojiKey(emoji) ?: return
+        val url = animatedEmoji.gifUrl(key)
+        animatedEmojiJob?.cancel()
+        _uiState.update { it.copy(animatedEmojiFile = null, animatedEmojiLoading = true) }
+        animatedEmojiJob = serviceScope.launch {
+            val file = withContext(Dispatchers.IO) { downloadMediaFile(url, MediaMime.GIF) }
+            _uiState.update { it.copy(animatedEmojiFile = file, animatedEmojiLoading = false) }
+        }
+    }
+
+    /** The popup closed: stop the fetch and drop the preview. */
+    fun onEmojiLongPressDismissed() {
+        animatedEmojiJob?.cancel()
+        animatedEmojiJob = null
+        _uiState.update { it.copy(animatedEmojiFile = null, animatedEmojiLoading = false) }
+    }
+
+    /**
+     * The animated key for [emoji], honouring the setting and the field: a
+     * field that takes no images has nowhere to put a GIF.
+     */
+    private fun animatedEmojiKey(emoji: String): String? {
+        val state = _uiState.value
+        if (!state.settings.emoji.animated || !state.acceptsRichMedia) return null
+        return state.animatedEmoji.keyFor(emoji)
+    }
+
+    /**
+     * "Send animated emoji" in the long-press popup: commits the 512×512 GIF
+     * through the same content path as a sticker, and counts as using the
+     * emoji so it lands in recents like a plain tap would.
+     */
+    fun onAnimatedEmojiSend(emoji: String) {
+        vibrate()
+        val file = _uiState.value.animatedEmojiFile
+        val sendMode = _uiState.value.settings.gifSendMode
+        emojiUsage.record(emoji)
+        emojiHistoryStale = true
+        if (file != null) {
+            commitImageFile(file, MediaMime.GIF, sendMode)
+            onEmojiLongPressDismissed()
+            return
+        }
+        // Sent before the preview landed: fall back to the ordinary download
+        // path, which shows its own spinner and error toast.
+        val key = animatedEmojiKey(emoji) ?: return
+        onEmojiLongPressDismissed()
+        insertDownloadedImage(key, animatedEmoji.gifUrl(key), MediaMime.GIF, sendMode)
     }
 
     fun onEmojiFavouriteToggled(emoji: String) {

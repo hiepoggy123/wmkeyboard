@@ -97,6 +97,11 @@
     <string name="langemoji_emoji_long_press_name_title">Emoji descriptions</string>
     <string name="langemoji_emoji_long_press_name_subtitle">Show the name of the emoji at the top of its press and hold popup</string>
     <string name="langemoji_emoji_long_press_name_info">Press and hold an emoji to show its Unicode name, such as \"skull and crossbones\". The name appears above the favourite control and the variant controls. This helps you to see the difference between emoji that look almost the same.</string>
+    <string name="langemoji_emoji_animated_title">Animated emoji</string>
+    <string name="langemoji_emoji_animated_subtitle">Send a moving version of an emoji from its press and hold popup</string>
+    <!-- "Noto Animated Emoji" is the name of the image set. Keep it as it is,
+         and keep the licence name CC BY 4.0 as it is. -->
+    <string name="langemoji_emoji_animated_info">Press and hold an emoji in the emoji panel to see the moving version, and a control that sends it as an image. The images are Noto Animated Emoji by Google, under the CC BY 4.0 licence. The keyboard downloads each one from Google when you ask for it, at about 800 KB. About 880 emoji have one, and the control does not appear for the others, or in an app that accepts no images.</string>
     <string name="langemoji_emoji_keywords_title">Emoji keywords</string>
     <string name="langemoji_emoji_keywords_subtitle">Download or import keywords to search emoji in another language</string>
 

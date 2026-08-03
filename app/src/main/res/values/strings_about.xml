@@ -106,6 +106,8 @@
     <string name="about_pack_wordlists_used">The prediction word lists for more than 300 languages, from FrequencyWords (OpenSubtitles), Leipzig Corpora, Wikimedia, wordfreq and others</string>
     <string name="about_pack_offensive_used">The optional filter lists for the suggestions in the languages you download</string>
     <string name="about_pack_emoji_keywords_used">The emoji search keywords in 141 languages, from KDE\'s kemoji</string>
+    <!-- "Noto Animated Emoji" is the name of the image set. Keep it as it is. -->
+    <string name="about_pack_animated_emoji_used">The moving emoji that the press and hold popup sends, from Noto Animated Emoji</string>
     <string name="about_pack_cedict_used">The Chinese Pinyin conversion dictionary</string>
     <!-- dictionary_oss is the name of the file inside mozc. -->
     <string name="about_pack_mozc_used">The Japanese kana to kanji conversion dictionary (dictionary_oss)</string>
