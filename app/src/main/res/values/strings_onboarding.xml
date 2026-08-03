@@ -12,6 +12,9 @@
         <item quantity="other">WM Keyboard works offline and types in many languages. It has %1$d languages built in, with phonetic and native layouts, glide typing and themes. First, set it as your keyboard.</item>
     </plurals>
     <string name="onboarding_welcome_body">The next steps set up the choices that differ for each person: languages, look, feel and gestures. You can change all of them later in settings.</string>
+    <!-- Shown under the setup card while the keyboard is not yet turned on and
+         selected. The Next button waits for both. -->
+    <string name="onboarding_welcome_required">Turn WM Keyboard on and select it to continue. Press Skip at the top of the screen to set it up later.</string>
 
     <!-- Onboarding, languages page. -->
     <string name="onboarding_languages_title">Your languages</string>
@@ -58,6 +61,9 @@
     <string name="onboarding_emoji_row_always">Own row</string>
     <string name="onboarding_symbol_row_title">Symbol row</string>
     <string name="onboarding_symbol_row_subtitle">One press for special characters and snippets, such as @gmail.com, https:// and brackets</string>
+    <!-- Says that keyboard modes override the two row settings above for some
+         apps and some input fields. -->
+    <string name="onboarding_rows_modes_info">Modes change these two rows by themselves. The emoji row turns on in chat apps. The symbol row turns on in email, web and code fields. Both rows turn off in password fields. The modes are in Settings, then Modes.</string>
 
     <!-- Onboarding, emoji page. It appears when the font of the device cannot
          draw some emoji, and on the devices that draw emoji in the set of the
@@ -120,10 +126,16 @@
     <!-- Onboarding, tool setup page: the first-run choices of the tools that need one. -->
     <string name="onboarding_tool_setup_title">Set up your tools</string>
     <string name="onboarding_tool_setup_subtitle">Some of the tools you turned on have their own choices. You can change all of them later in the settings of each tool.</string>
-    <string name="onboarding_calendar_first_title">First calendar</string>
-    <string name="onboarding_calendar_first_subtitle">The month grid shows it next to the Gregorian month and in each day cell</string>
-    <string name="onboarding_calendar_second_title">Second calendar</string>
-    <string name="onboarding_calendar_second_subtitle">A second calendar for the header and the day you select</string>
+    <!-- The row above the two extra-calendar rows. It has no control on it:
+         the Gregorian calendar is always there. -->
+    <string name="onboarding_calendar_gregorian_title">Gregorian calendar</string>
+    <string name="onboarding_calendar_gregorian_subtitle">The tool always shows the Gregorian date. The calendars below show next to it</string>
+    <!-- Label in place of a switch on the row above, because it cannot be turned off. -->
+    <string name="onboarding_calendar_gregorian_always">Always on</string>
+    <string name="onboarding_calendar_first_title">First extra calendar</string>
+    <string name="onboarding_calendar_first_subtitle">The month grid shows it next to the Gregorian month, and in each day cell</string>
+    <string name="onboarding_calendar_second_title">Second extra calendar</string>
+    <string name="onboarding_calendar_second_subtitle">One more calendar for the header and the day you select</string>
     <string name="onboarding_weather_fahrenheit_title">Fahrenheit</string>
     <string name="onboarding_weather_fahrenheit_subtitle">Turn this off to see the temperature in Celsius</string>
     <string name="onboarding_compass_qibla_title">Show qibla</string>

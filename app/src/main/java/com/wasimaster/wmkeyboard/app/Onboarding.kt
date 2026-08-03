@@ -1,6 +1,9 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.Context
+import android.content.Intent
 import android.os.Build
+import android.view.inputmethod.InputMethodManager
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,8 +11,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,8 +31,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -50,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
@@ -84,6 +96,7 @@ import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -128,6 +141,11 @@ internal fun OnboardingScreen(
     // navigating Back to it while already set up would bounce straight
     // forward again, defeating the Back button.
     var welcomeAutoAdvanced by rememberSaveable { mutableStateOf(false) }
+    // Whether the keyboard is both turned on and selected, as the Welcome page
+    // last read it. The rest of the wizard is worth nothing until it is, so
+    // that page's Next button waits for it; Skip is still there for anyone who
+    // wants to set the keyboard up later.
+    var keyboardReady by remember { mutableStateOf(false) }
     SeedLanguagesFromDevice(repository, settings)
     val finish: () -> Unit = {
         scope.launch { repository.setOnboardingDone(true) }
@@ -158,12 +176,18 @@ internal fun OnboardingScreen(
             ) {
                 when (pages[index]) {
                     OnboardingPage.WELCOME -> WelcomePage(
+                        // Set here as well as through onSetupChanged: the
+                        // auto-advance below takes the page out of the
+                        // composition in the same pass, so its own effect
+                        // would never get to report the state that caused it.
                         onReady = {
+                            keyboardReady = true
                             if (!welcomeAutoAdvanced) {
                                 welcomeAutoAdvanced = true
                                 current = pages[(index + 1).coerceAtMost(pages.lastIndex)]
                             }
                         },
+                        onSetupChanged = { ready -> keyboardReady = ready },
                     )
                     OnboardingPage.LANGUAGES -> LanguagesPage(repository, settings)
                     OnboardingPage.LOOK -> LookPage(repository, settings)
@@ -189,7 +213,10 @@ internal fun OnboardingScreen(
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                Button(onClick = { if (onLastPage) finish() else current = pages[index + 1] }) {
+                Button(
+                    onClick = { if (onLastPage) finish() else current = pages[index + 1] },
+                    enabled = pages[index] != OnboardingPage.WELCOME || keyboardReady,
+                ) {
                     Text(
                         stringResource(
                             if (onLastPage) R.string.onboarding_finish_action
@@ -317,8 +344,14 @@ private fun PageHeader(title: String, subtitle: String) {
 // ---- pages ----
 
 @Composable
-private fun WelcomePage(onReady: () -> Unit) {
+private fun WelcomePage(onReady: () -> Unit, onSetupChanged: (Boolean) -> Unit) {
     val context = LocalContext.current
+    val setup = rememberKeyboardSetup(context, onReady)
+    LaunchedEffect(setup.ready) { onSetupChanged(setup.ready) }
+    // Set as the user leaves for the system keyboard settings, so the wizard
+    // knows to watch that screen and come back on its own.
+    var awaitingEnable by rememberSaveable { mutableStateOf(false) }
+    ReturnAfterEnabling(awaitingEnable) { awaitingEnable = false }
     PageHeader(
         stringResource(R.string.onboarding_welcome_title),
         pluralStringResource(
@@ -328,8 +361,9 @@ private fun WelcomePage(onReady: () -> Unit) {
         ),
     )
     Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-        SetupCard(context, onReady = onReady)
+        SetupCard(context, setup = setup, onEnableRequested = { awaitingEnable = true })
     }
+    if (!setup.ready) CaptionText(stringResource(R.string.onboarding_welcome_required))
     Text(
         stringResource(R.string.onboarding_welcome_body),
         style = MaterialTheme.typography.bodyMedium,
@@ -337,6 +371,64 @@ private fun WelcomePage(onReady: () -> Unit) {
         modifier = Modifier.padding(16.dp),
         textAlign = TextAlign.Start,
     )
+}
+
+/**
+ * How long the wizard watches the system keyboard settings after it sends the
+ * user there. Long enough for someone who reads the system's warning dialog,
+ * short enough that a user who wandered off is not polled all day.
+ */
+private const val ENABLE_WATCH_MS = 5 * 60 * 1000L
+
+/** How often that watch reads the enabled keyboard list. */
+private const val ENABLE_POLL_MS = 500L
+
+/** Time for the wizard's window to come back before the picker opens over it. */
+private const val PICKER_DELAY_MS = 700L
+
+/**
+ * Brings the wizard back to the front the moment the keyboard is turned on in
+ * the system settings, then opens the keyboard picker so the switch happens in
+ * the same breath. Both halves are the point: a keyboard that is turned on but
+ * never selected does nothing, and the system settings give no way back.
+ *
+ * The poll here is deliberately not [rememberKeyboardSetup]'s. That one reads
+ * through recomposition, which Compose stops while the activity is not started
+ * — so it sees nothing at all for as long as the system settings are open,
+ * which is exactly the window this has to watch. A read inside the coroutine
+ * keeps working, because `delay` runs off the handler rather than the frame
+ * clock.
+ *
+ * Starting the activity from the background is allowed here: this activity is
+ * in the back stack of the task the user is looking at, which is one of the
+ * standing exemptions.
+ */
+@Composable
+private fun ReturnAfterEnabling(watching: Boolean, onDone: () -> Unit) {
+    val context = LocalContext.current
+    LaunchedEffect(watching) {
+        if (!watching) return@LaunchedEffect
+        var waited = 0L
+        while (!imeEnabled(context) && waited < ENABLE_WATCH_MS) {
+            delay(ENABLE_POLL_MS)
+            waited += ENABLE_POLL_MS
+        }
+        if (imeEnabled(context)) {
+            context.startActivity(
+                Intent(context, MainActivity::class.java).addFlags(
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK,
+                ),
+            )
+            delay(PICKER_DELAY_MS)
+            if (!imeSelected(context)) {
+                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                    as InputMethodManager
+                imm.showInputMethodPicker()
+            }
+        }
+        // Last, so re-keying this effect cancels nothing that still matters.
+        onDone()
+    }
 }
 
 @Composable
@@ -544,7 +636,7 @@ private fun LookPage(repository: SettingsRepository, settings: KeyboardSettings)
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
     )
     LazyRow(
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
@@ -630,6 +722,41 @@ private fun LookPage(repository: SettingsRepository, settings: KeyboardSettings)
             )
         },
     )
+    // Both switches above are the *global* answer, and the seeded modes
+    // override both of them per app and per field. Someone who turns the emoji
+    // row off here and then sees it in WhatsApp has met a bug, unless the page
+    // said so first.
+    OnboardingNotice(stringResource(R.string.onboarding_rows_modes_info))
+}
+
+/**
+ * A note about something the keyboard decides for itself, next to the setting
+ * it overrides. Drawn on its own surface rather than as loose caption text, so
+ * it does not read as the subtitle of the row above it.
+ */
+@Composable
+private fun OnboardingNotice(text: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(12.dp),
+    ) {
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @Composable
@@ -929,6 +1056,32 @@ private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSett
     )
     if (ToolbarTool.CALENDAR in settings.enabledTools) {
         SectionTitle(stringResource(toolTitle(ToolbarTool.CALENDAR)))
+        // The two rows below are additions, not replacements, and reading them
+        // as a calendar *picker* is the obvious mistake. So the Gregorian
+        // calendar gets a row of its own, above them and with no control on
+        // it: the thing that is always there, drawn as always there.
+        ListItem(
+            leadingContent = {
+                Icon(
+                    Icons.Outlined.CalendarMonth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+            headlineContent = {
+                Text(stringResource(R.string.onboarding_calendar_gregorian_title))
+            },
+            supportingContent = {
+                Text(stringResource(R.string.onboarding_calendar_gregorian_subtitle))
+            },
+            trailingContent = {
+                Text(
+                    stringResource(R.string.onboarding_calendar_gregorian_always),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            },
+        )
         // All three already open on what the device's region suggests — the
         // Bengali calendar in Bangladesh, era years in Japan, a Friday-Saturday
         // weekend across much of the Middle East. This page is where someone
@@ -1009,6 +1162,30 @@ private fun SectionTitle(title: String) {
     )
 }
 
+/**
+ * One of the two tool presets. The pair splits the width between them so it
+ * reads as a choice rather than as two links lost above the list, and each
+ * label may wrap to a second line rather than being cut off — which is why the
+ * row that holds them measures to the taller of the two.
+ */
+@Composable
+private fun ToolPresetButton(
+    icon: ImageVector,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.fillMaxHeight(),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+        Text(label, maxLines = 2, textAlign = TextAlign.Center)
+    }
+}
+
 @Composable
 private fun ToolsPage(
     repository: SettingsRepository,
@@ -1033,13 +1210,23 @@ private fun ToolsPage(
             }
         }
     }
-    Row(modifier = Modifier.padding(horizontal = 8.dp)) {
-        TextButton(onClick = { scope.launch { repository.setEnabledTools(RecommendedTools) } }) {
-            Text(stringResource(R.string.onboarding_tools_recommended_action))
-        }
-        TextButton(onClick = { scope.launch { repository.setEnabledTools(ToolbarTool.entries) } }) {
-            Text(stringResource(R.string.onboarding_tools_everything_action))
-        }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        ToolPresetButton(
+            icon = Icons.Outlined.AutoAwesome,
+            label = stringResource(R.string.onboarding_tools_recommended_action),
+            modifier = Modifier.weight(1f),
+        ) { scope.launch { repository.setEnabledTools(RecommendedTools) } }
+        ToolPresetButton(
+            icon = Icons.Outlined.SelectAll,
+            label = stringResource(R.string.onboarding_tools_everything_action),
+            modifier = Modifier.weight(1f),
+        ) { scope.launch { repository.setEnabledTools(ToolbarTool.entries) } }
     }
     // Most-used-by-most-people first — same order the toolbox itself opens with.
     for (tool in DefaultToolOrder.filter(::isSupportedTool)) {

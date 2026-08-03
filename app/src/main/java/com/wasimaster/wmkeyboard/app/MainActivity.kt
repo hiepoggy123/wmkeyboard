@@ -1345,6 +1345,24 @@ internal data class KeyboardSetupState(val enabled: Boolean, val selected: Boole
 }
 
 /**
+ * Whether this keyboard is turned on in the system keyboard settings.
+ *
+ * A plain function rather than part of [rememberKeyboardSetup] alone, because
+ * the onboarding wizard has to read this while its own window is gone and
+ * recomposition is stopped — see `ReturnAfterEnabling`.
+ */
+internal fun imeEnabled(context: Context): Boolean {
+    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+    return imm.enabledInputMethodList.any { it.packageName == context.packageName }
+}
+
+/** Whether this keyboard is the one the system currently types with. */
+internal fun imeSelected(context: Context): Boolean =
+    Settings.Secure
+        .getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+        ?.substringBefore('/') == context.packageName
+
+/**
  * Watches whether this keyboard is enabled and selected. The IME picker is a
  * system dialog, so the activity never pauses or resumes when the user
  * switches keyboards — polling while visible is what keeps the answer honest.
@@ -1358,7 +1376,6 @@ internal fun rememberKeyboardSetup(
     context: Context,
     onReady: (() -> Unit)? = null,
 ): KeyboardSetupState {
-    val imm = remember { context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager }
     var refresh by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -1367,12 +1384,7 @@ internal fun rememberKeyboardSetup(
         }
     }
     val state = remember(refresh) {
-        KeyboardSetupState(
-            enabled = imm.enabledInputMethodList.any { it.packageName == context.packageName },
-            selected = Settings.Secure
-                .getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
-                ?.substringBefore('/') == context.packageName,
-        )
+        KeyboardSetupState(enabled = imeEnabled(context), selected = imeSelected(context))
     }
     LaunchedEffect(state.ready) {
         if (state.ready) onReady?.invoke()
@@ -1384,12 +1396,17 @@ internal fun rememberKeyboardSetup(
  * The enable-and-select prompt. Callers that have already read the state — the
  * home screen, which says the same thing in its heading instead — pass it in
  * rather than starting a second poll.
+ *
+ * [onEnableRequested] fires as the user leaves for the system keyboard
+ * settings, for the caller that wants to watch what happens there. The wizard
+ * uses it to bring itself back the moment the keyboard is turned on.
  */
 @Composable
 internal fun SetupCard(
     context: Context,
     onReady: (() -> Unit)? = null,
     setup: KeyboardSetupState = rememberKeyboardSetup(context, onReady),
+    onEnableRequested: (() -> Unit)? = null,
 ) {
     val imm = remember { context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager }
     val enabled = setup.enabled
@@ -1431,6 +1448,7 @@ internal fun SetupCard(
             Row {
                 if (!enabled) {
                     Button(onClick = {
+                        onEnableRequested?.invoke()
                         context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
                     }) { Text(stringResource(R.string.home_setup_enable_action)) }
                     Spacer(Modifier.width(8.dp))
