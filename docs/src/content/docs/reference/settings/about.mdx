@@ -30,6 +30,24 @@ The **App** group holds four rows:
 
 Underneath the group, a caption spells out what the MIT licence means in practice: you can use, modify, and redistribute the app, provided the copyright notice and licence text travel with it.
 
+## Seeing what the app is using
+
+<SettingsPath path="About / Storage" />
+
+**Storage** breaks the app's disk use into named pieces and lets you delete them one at a time. At the top is a ring split three ways, App / Data / Cache, with your device's own free space underneath, then the pieces themselves in six groups: **The app itself**, **Downloads**, **Looks and add-ons**, **Your data**, **Caches**, and **The rest**. Rows with nothing in them are hidden until you tap **Show all**.
+
+The figures come from Android's own storage stats rather than from adding up file sizes, so they match what Settings → Apps → WM Keyboard reports, down to the block rounding (every size on the screen is a multiple of 4 KB, which is why a thousand tiny sticker files "cost" more than their bytes). A device too old to report exact numbers gets an estimate, and says so.
+
+Tapping a row opens that piece on its own: what it holds, how big each item in it is, and a delete button per item. **Free up** at the top clears every cache in one go and never touches anything you made. Deleting anything else asks first, in wording that matches what you'd lose: a cache is free to delete, a download can be fetched again, and something you made or the keyboard learned is gone for good.
+
+A few rows worth knowing about:
+
+- **Sticker packs** lists one row per pack, plus **Images you made stickers from** — the photos the [sticker editor](/emoji/stickers/#the-sticker-editor) keeps so you can edit a sticker again later. Deleting that row keeps every sticker and only costs you the ability to resume those edits.
+- **Downloads** covers the things the app fetched and can fetch again: word lists, CJK dictionaries, emoji keyword packs, and (on the full build) the speech and AI models, which are usually the biggest rows on the screen.
+- **Your data** is the personal end: learned words, clipboard history, snippets, AI history, and your own imported word lists. This group is also where the reset lives, and it asks twice.
+
+Anything the app writes that no row claims lands in **Other data** under The rest, so nothing is invisible; a new feature that stores files is meant to add its own row rather than grow that one.
+
 ## Reporting a bug
 
 The **Feedback** group is where a problem goes. It has two rows:

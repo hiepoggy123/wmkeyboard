@@ -465,6 +465,10 @@ internal object StorageCategories {
             clearOf = { env ->
                 val store = StickerPackStore.get(env.context)
                 store.packs().forEach { store.deletePack(it.id) }
+                // Deleting the packs takes each sticker's kept picture with
+                // it; this is for the ones a sticker deleted before this
+                // version left behind.
+                store.clearOriginals()
                 sweepLeftovers(File(env.roots.files, "stickers"))
             },
         ),

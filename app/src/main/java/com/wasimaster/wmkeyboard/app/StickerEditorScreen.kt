@@ -702,7 +702,13 @@ private class EditorState(
             )
         }
         restoredMask?.let {
-            AndroidCanvas(mask).drawBitmap(it, null, Rect(0, 0, CANVAS, CANVAS), null)
+            // Cleared first, and not drawn over the white [resetMask] just
+            // laid down: a kept mask says what to erase with holes in it, and
+            // holes drawn SRC_OVER onto opaque white are no holes at all. That
+            // is the whole of a restored cut-out coming back uncut.
+            val canvas = AndroidCanvas(mask)
+            canvas.drawColor(AndroidColor.TRANSPARENT, PorterDuff.Mode.CLEAR)
+            canvas.drawBitmap(it, null, Rect(0, 0, CANVAS, CANVAS), null)
             masked = true
         }
         applyCrop()
