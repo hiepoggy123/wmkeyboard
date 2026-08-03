@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import android.os.Process
 import android.os.StatFs
+import android.os.SystemClock
 import android.os.storage.StorageManager
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import kotlinx.coroutines.Dispatchers
@@ -96,6 +97,8 @@ internal data class StorageReport(
      */
     val exact: Boolean = true,
     val scanning: Boolean = true,
+    /** How far through the categories a running scan is, 0..1. */
+    val progress: Float = 0f,
 ) {
     /** What the system's App info page calls "Total". */
     val totalBytes: Long get() = appBytes + dataBytes
@@ -117,6 +120,53 @@ internal data class StorageReport(
 }
 
 /**
+ * The last complete measurement, held for the life of the process.
+ *
+ * Walking the whole data tree takes about a second, and re-deriving it every
+ * time the user steps back out of a category made the screen rebuild itself in
+ * front of them: rows reordering as sizes landed, the ring replaying its grow,
+ * and the scroll position collapsing because the list was briefly short enough
+ * to have nowhere to scroll to. None of that told anyone anything — the numbers
+ * were seconds old and identical.
+ *
+ * So the screen paints from here first and only measures again when there is a
+ * reason to: a deletion, a deliberate refresh, or enough time passing that the
+ * figures could have moved on their own (a download finishing behind the app).
+ * A re-measure that follows a paint never replaces the numbers until it has all
+ * of them, so the screen updates in one step instead of shuffling.
+ */
+internal object StorageSnapshot {
+
+    /** The most recent complete report, or null before the first scan. */
+    @Volatile
+    var last: StorageReport? = null
+        private set
+
+    @Volatile
+    private var takenAt = 0L
+
+    @Volatile
+    private var stale = true
+
+    fun publish(report: StorageReport) {
+        last = report
+        takenAt = SystemClock.elapsedRealtime()
+        stale = false
+    }
+
+    /** Something was deleted: what is on screen is no longer true. */
+    fun invalidate() {
+        stale = true
+    }
+
+    /** Whether re-entering the screen can skip measuring entirely. */
+    fun isFresh(): Boolean =
+        !stale && last != null && SystemClock.elapsedRealtime() - takenAt < FRESH_FOR_MS
+
+    private const val FRESH_FOR_MS = 30_000L
+}
+
+/**
  * Measures every category, emitting as it goes so the screen fills in rather
  * than staring at a spinner: the totals land immediately, then one category at
  * a time, largest trees last.
@@ -135,17 +185,20 @@ internal fun scanStorage(
     sizes[StorageCategories.APP_PACKAGE] = CategorySize(report.appBytes, 0)
     report = report.copy(sizes = LinkedHashMap(sizes))
     emit(report)
-    for (category in categories) {
-        if (category.synthetic) continue
+    val walked = categories.filterNot { it.synthetic }
+    walked.forEachIndexed { index, category ->
         val paths = category.paths(roots)
         sizes[category.id] = CategorySize(
             bytes = paths.sumOf { diskUsage(it, roots.blockSize) },
             items = category.count(roots),
         )
-        report = report.copy(sizes = LinkedHashMap(sizes))
+        report = report.copy(
+            sizes = LinkedHashMap(sizes),
+            progress = (index + 1).toFloat() / walked.size,
+        )
         emit(report)
     }
-    emit(report.withResiduals(categories).copy(scanning = false))
+    emit(report.withResiduals(categories).copy(scanning = false, progress = 1f))
 }.flowOn(Dispatchers.IO)
 
 /**

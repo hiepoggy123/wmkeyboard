@@ -69,6 +69,10 @@ internal fun StorageCategoryScreen(
             withContext(Dispatchers.IO) {
                 work(StorageEnv(context, repository, storageRoots(context)))
             }
+            // The Storage screen paints from the last measurement, so it has to
+            // be told that measurement is now wrong — otherwise going back
+            // shows the size of something that has just been deleted.
+            StorageSnapshot.invalidate()
             busy = false
             revision++
         }

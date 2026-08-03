@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,11 +16,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -31,16 +33,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
-import com.wasimaster.wmkeyboard.app.CaptionText
 import com.wasimaster.wmkeyboard.app.SectionHeader
 import com.wasimaster.wmkeyboard.app.SettingsGroup
 import com.wasimaster.wmkeyboard.app.WmRow
 import com.wasimaster.wmkeyboard.app.formatBytes
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.common.R as CommonR
@@ -67,8 +68,21 @@ internal fun StorageScreen(
     var confirmReset by remember { mutableStateOf(false) }
     var confirmFreeUp by remember { mutableStateOf(false) }
 
-    val scan: Flow<StorageReport> = remember(revision) { scanStorage(context) }
-    val report by scan.collectAsState(initial = StorageReport())
+    // Painted from the last measurement, so stepping back in from a category
+    // costs nothing and the list keeps both its order and its scroll position.
+    var report by remember { mutableStateOf(StorageSnapshot.last ?: StorageReport()) }
+    LaunchedEffect(revision) {
+        if (revision == 0 && StorageSnapshot.isFresh()) return@LaunchedEffect
+        // With nothing on screen yet, show each category as it lands. With a
+        // picture already up, hold it and swap in the finished one: a partial
+        // report would blank the rows it has not reached and reorder the rest.
+        val progressive = StorageSnapshot.last == null
+        scanStorage(context).collect { next ->
+            report = if (progressive || !next.scanning) next
+            else report.copy(scanning = true, progress = next.progress)
+            if (!next.scanning) StorageSnapshot.publish(next)
+        }
+    }
 
     fun perform(work: suspend (StorageEnv) -> Unit) {
         scope.launch {
@@ -76,17 +90,20 @@ internal fun StorageScreen(
             withContext(Dispatchers.IO) {
                 work(StorageEnv(context, repository, storageRoots(context)))
             }
+            StorageSnapshot.invalidate()
             busy = false
             revision++
         }
     }
 
-    // Registry order while the numbers are still arriving, largest-first once
-    // they have all landed: re-sorting on every emission would have the rows
-    // jumping past each other for the whole of the scan.
-    val ordered = remember(report.scanning, revision) {
-        if (report.scanning) StorageCategories.all
-        else StorageCategories.all.sortedByDescending { report.bytesOf(it.id) }
+    // Largest first, but only re-sorted when a scan finishes. Sorting on every
+    // emission had the rows leapfrogging for the whole of a measure, and doing
+    // it mid-refresh would move them under a finger that is already reaching.
+    var ordered by remember { mutableStateOf(StorageCategories.all) }
+    LaunchedEffect(report.scanning) {
+        if (!report.scanning) {
+            ordered = StorageCategories.all.sortedByDescending { report.bytesOf(it.id) }
+        }
     }
 
     StorageSummary(report, busy) { revision++ }
@@ -95,18 +112,25 @@ internal fun StorageScreen(
         .filter { it.group == StorageGroup.CACHE && it.clearable }
     val freeableBytes = freeable.sumOf { report.bytesOf(it.id) }
     if (freeableBytes >= FREE_UP_FLOOR) {
-        FilledTonalButton(
-            onClick = { confirmFreeUp = true },
-            enabled = !busy,
-            modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
-        ) {
-            Icon(Icons.Outlined.DeleteSweep, contentDescription = null)
-            Text(
-                stringResource(R.string.storage_free_up_action, formatBytes(freeableBytes)),
-                modifier = Modifier.padding(start = 8.dp),
-            )
+        SettingsGroup {
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    FilledTonalButton(onClick = { confirmFreeUp = true }, enabled = !busy) {
+                        Icon(Icons.Outlined.DeleteSweep, contentDescription = null)
+                        Text(
+                            stringResource(R.string.storage_free_up_action, formatBytes(freeableBytes)),
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.storage_free_up_caption),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
         }
-        CaptionText(stringResource(R.string.storage_free_up_caption))
     }
 
     var anyHidden = false
@@ -115,7 +139,10 @@ internal fun StorageScreen(
         val visible = inGroup.filter { showEmpty || report.bytesOf(it.id) > 0L }
         if (visible.size < inGroup.size) anyHidden = true
         if (visible.isEmpty()) continue
-        SectionHeader(stringResource(group.title))
+        StorageSectionHeader(
+            title = stringResource(group.title),
+            bytes = inGroup.sumOf { report.bytesOf(it.id) },
+        )
         StorageBar(
             slices = inGroup.map { StorageSlice(it.accent, report.bytesOf(it.id)) },
             modifier = Modifier.padding(horizontal = 32.dp, vertical = 4.dp),
@@ -190,58 +217,124 @@ internal fun StorageScreen(
     }
 }
 
-/** The ring, its legend, and what the device has left. */
+/** The ring, its legend, and what the device has left, on one card. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StorageSummary(report: StorageReport, busy: Boolean, onRefresh: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    val working = busy || report.scanning
+    SettingsGroup {
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                StorageRing(
+                    report = report,
+                    contentDescription = stringResource(
+                        R.string.storage_ring_desc,
+                        formatBytes(report.totalBytes),
+                        formatBytes(report.appBytes),
+                        formatBytes(report.userDataBytes),
+                        formatBytes(report.cacheBytes),
+                    ),
+                )
+                Spacer(Modifier.height(12.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    StorageLegendChip(ringBucketColor(0), stringResource(R.string.storage_bucket_app), report.appBytes)
+                    StorageLegendChip(ringBucketColor(1), stringResource(R.string.storage_bucket_data), report.userDataBytes)
+                    StorageLegendChip(ringBucketColor(2), stringResource(R.string.storage_bucket_cache), report.cacheBytes)
+                }
+                if (report.deviceBytes > 0L) {
+                    Text(
+                        stringResource(
+                            R.string.storage_device_caption,
+                            formatBytes(report.deviceUsedBytes),
+                            formatBytes(report.deviceBytes),
+                            formatBytes(report.freeBytes),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                }
+                if (!report.exact) {
+                    Text(
+                        stringResource(R.string.storage_estimate_caption),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+                // Only while something is actually running. A measure that
+                // follows a cached paint takes about a second, and this is the
+                // only sign of it — the numbers above deliberately hold still.
+                if (working) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        stringResource(
+                            if (busy) R.string.storage_deleting_label else R.string.storage_measuring_label,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    if (busy) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    } else {
+                        LinearProgressIndicator(
+                            progress = { report.progress },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                } else {
+                    TextButton(onClick = onRefresh, modifier = Modifier.padding(top = 4.dp)) {
+                        Icon(Icons.Outlined.Refresh, contentDescription = null)
+                        Text(
+                            stringResource(R.string.storage_refresh_action),
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A group's name with its total on the right. The same metrics as
+ * [SectionHeader], which cannot carry a trailing value: on this screen the
+ * question "which of these is the big one" is answered at the group level
+ * before it is answered at the row level.
+ */
+@Composable
+private fun StorageSectionHeader(title: String, bytes: Long) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            // Matches SectionHeader's start inset, and ends level with the
+            // right edge of the row content in the card below.
+            .padding(start = 32.dp, end = 32.dp, top = 12.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        StorageRing(
-            report = report,
-            contentDescription = stringResource(
-                R.string.storage_ring_desc,
-                formatBytes(report.totalBytes),
-                formatBytes(report.appBytes),
-                formatBytes(report.userDataBytes),
-                formatBytes(report.cacheBytes),
-            ),
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
         )
-        Spacer(Modifier.height(12.dp))
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-        ) {
-            StorageLegendChip(ringBucketColor(0), stringResource(R.string.storage_bucket_app), report.appBytes)
-            StorageLegendChip(ringBucketColor(1), stringResource(R.string.storage_bucket_data), report.userDataBytes)
-            StorageLegendChip(ringBucketColor(2), stringResource(R.string.storage_bucket_cache), report.cacheBytes)
-        }
-        if (report.deviceBytes > 0L) {
-            CaptionText(
-                stringResource(
-                    R.string.storage_device_caption,
-                    formatBytes(report.deviceUsedBytes),
-                    formatBytes(report.deviceBytes),
-                    formatBytes(report.freeBytes),
-                ),
-            )
-        }
-        if (!report.exact) CaptionText(stringResource(R.string.storage_estimate_caption))
-        TextButton(onClick = onRefresh, enabled = !busy && !report.scanning) {
-            Icon(Icons.Outlined.Refresh, contentDescription = null)
-            Text(
-                stringResource(
-                    when {
-                        busy -> R.string.storage_deleting_label
-                        report.scanning -> R.string.storage_measuring_label
-                        else -> R.string.storage_refresh_action
-                    },
-                ),
-                modifier = Modifier.padding(start = 8.dp),
-            )
-        }
+        Text(
+            formatBytes(bytes),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
