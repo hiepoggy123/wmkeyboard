@@ -75,6 +75,13 @@ data class AiActionSpec(
      */
     val askEachRun: Boolean = false,
     /**
+     * Open that instruction box with [task] already in it, so the stored prompt
+     * is a starting point to edit rather than something to retype. Only means
+     * anything with [askEachRun] on, and it is what makes a stored prompt worth
+     * keeping on an action that otherwise has none.
+     */
+    val prefillPrompt: Boolean = false,
+    /**
      * The action still means something with an empty field: its task describes
      * text to write rather than something to do to text that already exists.
      * The panel keeps this button live when the others turn grey.
@@ -202,6 +209,23 @@ object BuiltInAiActions {
     }
 
     val defaultOrder: List<String> = actions.map { it.id }
+}
+
+/**
+ * What an ask-each-run action's instruction box opens with.
+ *
+ * With the prefill on, the stored prompt wins every time: the point of it is a
+ * template to adjust, and starting from last time's edit instead would mean the
+ * template is only ever seen once. Without it, the box reopens on whatever was
+ * typed last, which is what makes correcting a one-off instruction quick.
+ */
+fun aiInitialInstruction(
+    spec: AiActionSpec,
+    lastInstruction: String,
+    translateTo: String,
+): String = when {
+    spec.prefillPrompt -> AiPrompts.resolvedTask(spec, translateTo)
+    else -> lastInstruction
 }
 
 /**

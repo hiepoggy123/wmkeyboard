@@ -188,6 +188,7 @@ import com.wasimaster.wmkeyboard.core.tools.AiActionSpec
 import com.wasimaster.wmkeyboard.core.tools.AiInputMode
 import com.wasimaster.wmkeyboard.core.tools.AiInsertMode
 import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
+import com.wasimaster.wmkeyboard.core.tools.aiInitialInstruction
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmEngine
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
@@ -7739,9 +7740,12 @@ open class WMKeyboardService : InputMethodService() {
         // No stored prompt: open the input box and let the key rows compose the
         // instruction; the run happens on Enter or the Run chip.
         if (spec.askEachRun) {
-            _uiState.update {
-                it.copy(ai = AiUi.CustomInput(spec, aiLastInstruction[spec.id].orEmpty()))
-            }
+            val opening = aiInitialInstruction(
+                spec,
+                lastInstruction = aiLastInstruction[spec.id].orEmpty(),
+                translateTo = _uiState.value.settings.ai.translateTo,
+            )
+            _uiState.update { it.copy(ai = AiUi.CustomInput(spec, opening)) }
             return
         }
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }

@@ -9799,6 +9799,9 @@ private fun aiActionName(spec: AiActionSpec): String =
 /** The one-line recap under an action's name on the list screen. */
 @Composable
 private fun aiActionSummary(spec: AiActionSpec): String = when {
+    // With a prefill there is a prompt worth showing, even though the action
+    // asks each run: it is what the instruction box will open with.
+    spec.askEachRun && spec.prefillPrompt && spec.task.isNotBlank() -> spec.task
     spec.askEachRun -> stringResource(R.string.toolai_ai_action_ask_summary)
     spec.task.isBlank() -> stringResource(R.string.toolai_ai_action_no_prompt_summary)
     else -> spec.task
@@ -9827,6 +9830,7 @@ private fun AiActionEditor(
     var rawPrompt by remember(actionId) { mutableStateOf(existing?.rawPrompt ?: false) }
     var outputOnly by remember(actionId) { mutableStateOf(existing?.outputOnly ?: true) }
     var askEachRun by remember(actionId) { mutableStateOf(existing?.askEachRun ?: false) }
+    var prefillPrompt by remember(actionId) { mutableStateOf(existing?.prefillPrompt ?: false) }
     var worksWithoutText by remember(actionId) {
         mutableStateOf(existing?.worksWithoutText ?: false)
     }
@@ -9846,8 +9850,14 @@ private fun AiActionEditor(
         inputMode = if (beforeCursor) AiInputMode.BEFORE_CURSOR else AiInputMode.FIELD,
         insertMode = if (append) AiInsertMode.APPEND else AiInsertMode.REPLACE,
         askEachRun = askEachRun,
+        prefillPrompt = prefillPrompt,
         worksWithoutText = worksWithoutText,
     )
+
+    // The prompt is stored either as the whole task, or as the text the
+    // instruction box opens with. Both are the same field, so it shows for
+    // either job and hides only when the action keeps no prompt at all.
+    val showPromptField = !askEachRun || prefillPrompt
 
     if (builtIn != null) {
         // The stored English name is what a shipped action is keyed on, so only
@@ -9868,19 +9878,29 @@ private fun AiActionEditor(
                     .padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
-        if (!askEachRun) {
+        if (showPromptField) {
             item {
                 OutlinedTextField(
                     value = task,
                     onValueChange = { task = it },
-                    label = { Text(stringResource(R.string.toolai_ai_action_task_label)) },
+                    label = {
+                        Text(
+                            stringResource(
+                                if (askEachRun) {
+                                    R.string.toolai_ai_action_prefill_label
+                                } else {
+                                    R.string.toolai_ai_action_task_label
+                                },
+                            ),
+                        )
+                    },
                     supportingText = {
                         Text(
                             stringResource(
-                                if (rawPrompt) {
-                                    R.string.toolai_ai_action_task_raw_hint
-                                } else {
-                                    R.string.toolai_ai_action_task_hint
+                                when {
+                                    askEachRun -> R.string.toolai_ai_action_prefill_hint
+                                    rawPrompt -> R.string.toolai_ai_action_task_raw_hint
+                                    else -> R.string.toolai_ai_action_task_hint
                                 },
                                 AiPrompts.TRANSLATE_TOKEN,
                             ),
@@ -9903,6 +9923,15 @@ private fun AiActionEditor(
                 stringResource(R.string.toolai_ai_action_ask_subtitle),
                 askEachRun,
             ) { askEachRun = it }
+        }
+        if (askEachRun) {
+            item {
+                ToggleSetting(
+                    stringResource(R.string.toolai_ai_action_prefill_title),
+                    stringResource(R.string.toolai_ai_action_prefill_subtitle),
+                    prefillPrompt,
+                ) { prefillPrompt = it }
+            }
         }
         item {
             ToggleSetting(
@@ -9942,13 +9971,21 @@ private fun AiActionEditor(
             }
         }
     }
-    if (!askEachRun) {
+    if (showPromptField) {
         // The safety wording is part of every prompt and is not editable, so
-        // the only way to make it visible is to show the assembled result.
+        // the only way to make it visible is to show the assembled result. An
+        // action that asks each run is framed differently, so with a prefill
+        // this previews the instruction path rather than the stored-prompt one.
         SettingsGroup(stringResource(R.string.toolai_ai_action_preview_title)) {
             item {
                 Text(
-                    AiPrompts.systemPrompt(draft(), settings.ai.translateTo),
+                    if (askEachRun) {
+                        AiPrompts.customPrompt(
+                            AiPrompts.resolvedTask(draft(), settings.ai.translateTo),
+                        )
+                    } else {
+                        AiPrompts.systemPrompt(draft(), settings.ai.translateTo)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

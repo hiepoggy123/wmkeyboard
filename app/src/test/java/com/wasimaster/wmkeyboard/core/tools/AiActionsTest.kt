@@ -120,6 +120,46 @@ class AiActionsTest {
         assertEquals("Do exactly as I say.", AiPrompts.systemPrompt(raw, "English"))
     }
 
+    // ---- what the instruction box opens with ----
+
+    @Test
+    fun `without a prefill the box reopens on what was typed last`() {
+        val ask = spec("custom_1", task = "").copy(askEachRun = true)
+        assertEquals(
+            "make it rhyme",
+            aiInitialInstruction(ask, lastInstruction = "make it rhyme", translateTo = "English"),
+        )
+    }
+
+    @Test
+    fun `with a prefill the saved prompt wins every time`() {
+        // Not just the first time: a template that is replaced by last run's
+        // edit is a template you see once.
+        val ask = spec("custom_1", task = "turn this into a limerick")
+            .copy(askEachRun = true, prefillPrompt = true)
+        assertEquals(
+            "turn this into a limerick",
+            aiInitialInstruction(ask, lastInstruction = "something else", translateTo = "English"),
+        )
+    }
+
+    @Test
+    fun `a prefill fills in the target language too`() {
+        val ask = spec("custom_1", task = "reply in ${AiPrompts.TRANSLATE_TOKEN}")
+            .copy(askEachRun = true, prefillPrompt = true)
+        assertEquals(
+            "reply in Bengali",
+            aiInitialInstruction(ask, lastInstruction = "", translateTo = "Bengali"),
+        )
+    }
+
+    @Test
+    fun `Custom ships without a prefill, so it opens empty`() {
+        val custom = BuiltInAiActions.byId(BuiltInAiActions.CUSTOM_ID)!!
+        assertFalse(custom.prefillPrompt)
+        assertEquals("", aiInitialInstruction(custom, lastInstruction = "", translateTo = "English"))
+    }
+
     // ---- the codec ----
 
     @Test

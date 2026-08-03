@@ -33,7 +33,7 @@ If nothing is configured yet, the panel shows a short explanation instead of the
 
 **What gets sent:** selected text wins if you've selected any; otherwise the whole field. **Continue** is the exception: it always uses the text before the cursor (up to 4,000 characters), since continuing needs to know what came before, not what comes after. Tapping a chip on a truly empty field (and no selection) shows "Nothing to work on — type some text first" instead of sending a request.
 
-While a request is running, the panel reports which step it's on (Preparing, Connecting, Waiting for the model, and Reasoning for a model that thinks before answering) rather than a bare spinner, since a request can spend most of its time waiting on a slow connection or a long field.
+While a request is running, the panel reports which step it's on (Preparing, Connecting, Waiting for the model, and Reasoning for a model that thinks before answering) rather than a bare spinner, since a request can spend most of its time waiting on a slow connection or a long field. **Waiting for the model** is the one you'll see most: it starts the moment your text is on its way and lasts until the first words come back, which for a cloud provider is nearly the whole run.
 
 Once a result streams in, two buttons commit it: **Replace** swaps the field's text for the result, and **Insert** drops it in at the cursor instead. Continue is the one exception to Replace: since deleting the text you just asked it to continue would defeat the point, Replace appends there rather than overwriting. A **strip markdown** checkbox (checked by default when the result contains any) removes headings, bullets, quotes, code fences/inline code, links, and bold/italic syntax from what gets committed; unchecking it keeps the raw markdown. Reasoning output between `<think>` tags is filtered out of both Replace and Insert either way; only the answer itself lands in your field.
 
@@ -158,6 +158,7 @@ An action that ships with the keyboard is never deleted, only changed. Editing o
 The editor holds a name, the prompt, and a handful of behaviour switches:
 
 - **Type the prompt at every run** — the keyboard asks you for the prompt instead of using a saved one. This is what makes **Custom** work the way it does.
+- **Start from the saved prompt** — only shown under the switch above, and it brings the prompt field back. The instruction box then opens with that text already in it, so you adjust a template rather than retype it. Useful for something you run often with a small variation each time: "reply to this politely, and mention that…". The saved text wins every time the box opens, not just the first, since a template you only see once isn't a template. Leave it off and the box reopens on whatever you typed last instead.
 - **Works with an empty field** — with nothing in the field, the action writes new text instead of changing text.
 - **Read the text before the cursor** — the action reads only what's in front of the cursor rather than the whole field. A selection always wins over this.
 - **Add the result to the end** — Replace appends rather than overwriting. Together with the previous switch, this is what **Continue** is; separating them means "append but read the whole field" is now something you can build.
