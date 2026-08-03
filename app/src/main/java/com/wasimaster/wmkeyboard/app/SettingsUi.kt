@@ -595,15 +595,24 @@ private val CollapsedFurnitureWidth = 112.dp
 /** The size the title settles at once the bar is collapsed. */
 private const val CollapsedTitleSp = 20f
 
+/** Tracking as a fraction of the title's size; negative, so it tightens. */
+private const val TitleTrackingRatio = -0.018f
+
 /**
  * The expanded title size. Long titles start smaller so the heading stays on
  * one line — the title is a single moving `Text`, not two cross-faded ones, so
  * it cannot wrap in one state and not the other.
+ *
+ * The steps are the app's display face at its display sizes (see
+ * [WmTypography]): a short title gets the full 33sp, and each band below it
+ * trades size for room. Manrope Bold sets wider than the Roboto these numbers
+ * were first chosen for, hence the extra band rather than a straight scale-up.
  */
 private fun expandedTitleSp(title: String): Float = when {
-    title.length <= 14 -> 30f
-    title.length <= 20 -> 26f
-    else -> 22f
+    title.length <= 14 -> 33f
+    title.length <= 20 -> 28f
+    title.length <= 26 -> 24f
+    else -> 21f
 }
 
 /**
@@ -1025,6 +1034,10 @@ internal fun WmCollapsingTopBar(
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontSize = expandedSp.sp,
                     lineHeight = (expandedSp * 1.25f).sp,
+                    // Tracking is an absolute size, so a heading that picked a
+                    // smaller step would otherwise keep the tightening meant
+                    // for the largest one. Held proportional instead.
+                    letterSpacing = (expandedSp * TitleTrackingRatio).sp,
                 ),
                 color = titleColor,
                 maxLines = 1,

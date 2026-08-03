@@ -264,6 +264,18 @@ private val bundledAttributions: List<Attribution> = buildList {
             "https://fonts.google.com/attribution",
         ),
     )
+    // The two faces the settings app itself is set in. Unlike the keyboard's
+    // typefaces above, these files are in the APK, so their own notices travel
+    // with them rather than the generic licence text.
+    add(
+        Attribution(
+            "Inter & Manrope",
+            R.string.about_bundled_ui_fonts_used,
+            "Copyright 2020 The Inter Project Authors; Copyright 2018 The Manrope Project Authors",
+            "SIL Open Font License 1.1", "ofl-1.1-fonts.txt",
+            "https://github.com/rsms/inter",
+        ),
+    )
 }
 
 /**

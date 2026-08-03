@@ -429,7 +429,10 @@ internal fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Uni
     // provided here rather than per screen — the Tools list and the keyboard
     // must not disagree about what a tool looks like.
     val iconSet by rememberIconSet(settings.icons)
-    MaterialTheme(colorScheme = scheme) {
+    // The type scale is the app's, not Material's — see [WmTypography]. It is
+    // scoped to this theme, so it dresses the settings app and the screens the
+    // core modules contribute to it, and leaves the keyboard itself alone.
+    MaterialTheme(colorScheme = scheme, typography = WmTypography) {
         CompositionLocalProvider(LocalIconSet provides iconSet, content = content)
     }
 }
