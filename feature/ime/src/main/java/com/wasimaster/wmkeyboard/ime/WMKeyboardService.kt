@@ -278,6 +278,7 @@ import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.ime.ui.emojiStickerJobId
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardScreen
 import android.inputmethodservice.InputMethodService
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
@@ -9790,7 +9791,7 @@ open class WMKeyboardService : InputMethodService() {
         val target = File(dir, "emoji_${stamp.hashCode().toUInt()}.webp")
         if (target.exists() && target.length() > 0L) return@runCatching target
 
-        val bitmap = createBitmap(STICKER_SIZE_PX, STICKER_SIZE_PX)
+        val bitmap = createBitmap(StickerImage.TARGET_SIZE, StickerImage.TARGET_SIZE)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.typeface = typeface
             textAlign = Paint.Align.CENTER
@@ -9808,20 +9809,22 @@ open class WMKeyboardService : InputMethodService() {
         }
         Canvas(bitmap).drawText(
             spelling.text,
-            STICKER_SIZE_PX / 2f,
-            STICKER_SIZE_PX / 2f - bounds.exactCenterY(),
+            StickerImage.TARGET_SIZE / 2f,
+            StickerImage.TARGET_SIZE / 2f - bounds.exactCenterY(),
             paint,
         )
-        target.outputStream().use { out ->
-            @Suppress("DEPRECATION")
-            val format = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                Bitmap.CompressFormat.WEBP_LOSSLESS
-            } else {
-                Bitmap.CompressFormat.WEBP
-            }
-            bitmap.compress(format, 100, out)
-        }
+        // Encoded by the sticker tool's own encoder rather than by hand, so
+        // what leaves here has the same shape as a sticker from a pack: same
+        // size, same lossy WebP, same 100 KB ceiling. A difference between the
+        // two is a difference in how apps treat them, and there is no reason
+        // for one to exist.
+        val png = ByteArrayOutputStream().also {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }.toByteArray()
         bitmap.recycle()
+        val processed = (StickerImage.process(png) as? StickerImage.Result.Ok)?.sticker
+            ?: return@runCatching null
+        target.writeBytes(processed.bytes)
         target
     }.getOrNull()
 
@@ -11344,8 +11347,10 @@ open class WMKeyboardService : InputMethodService() {
         /** Minimum spacing between haptic clicks so rapid presses stay distinct. */
         private const val MIN_HAPTIC_GAP_MS = 45L
 
-        /** Sticker canvas, and how much of it one emoji fills. */
-        private const val STICKER_SIZE_PX = 512
+        /**
+         * How much of the sticker canvas one emoji fills. The canvas itself is
+         * [StickerImage.TARGET_SIZE], shared with the sticker tool.
+         */
         private const val STICKER_GLYPH_PX = 448f
 
         /**
