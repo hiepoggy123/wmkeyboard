@@ -21,10 +21,12 @@ object DeviceLocales {
      * (Settings → System → Languages) in the user's preference order.
      *
      * Regions are ordered by how much they say about where someone actually is:
-     * the SIM's country first, then the network's, then the regions carried by
-     * the locales themselves. A locale's region is the weakest of the three —
-     * plenty of phones ship `en-US` and never have it changed — so it is only
-     * consulted when there is no SIM to ask.
+     * the SIM's country first, then the network's, then the phone's time zone,
+     * and only last the regions carried by the locales themselves. A locale's
+     * region is the weakest of the lot — plenty of phones ship `en-GB` or
+     * `en-US` and never have it changed — and only the first region that has
+     * anything to offer is read, so on a phone with a SIM or a set time zone it
+     * never comes up at all.
      */
     fun read(context: Context): DeviceLanguageSignals {
         val locales = ConfigurationCompat.getLocales(context.resources.configuration)
@@ -37,8 +39,27 @@ object DeviceLocales {
         }
         return DeviceLanguageSignals(
             systemLocales = tags.distinct(),
-            regionCodes = (simRegions(context) + localeRegions).distinct(),
+            regionCodes = (simRegions(context) + timeZoneRegion() + localeRegions).distinct(),
         )
+    }
+
+    /**
+     * The country of the phone's own time zone: `Asia/Dhaka` → `BD`.
+     *
+     * Weaker than a SIM but far stronger than a locale, and it is the only
+     * signal a Wi-Fi-only tablet has. ICU keeps the zone-to-country table the
+     * platform already ships, so this costs no data of ours.
+     *
+     * Zones that span countries, or that are not places at all (`UTC`,
+     * `GMT+6`), answer `001` — the whole world — which is filtered out here
+     * rather than looked up and missed.
+     */
+    private fun timeZoneRegion(): List<String> = try {
+        val id = java.util.TimeZone.getDefault()?.id
+        val region = id?.let { android.icu.util.TimeZone.getRegion(it) }
+        listOfNotNull(region?.takeIf { it.length == 2 && it.all(Char::isLetter) }?.uppercase(Locale.ROOT))
+    } catch (_: RuntimeException) {
+        emptyList()
     }
 
     /**

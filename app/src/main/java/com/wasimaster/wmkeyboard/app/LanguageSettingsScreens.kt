@@ -1,8 +1,10 @@
 package com.wasimaster.wmkeyboard.app
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -213,26 +215,34 @@ internal fun AddLanguageScreen(
     // whether its data comes down now, so answering it is never load-bearing.
     var pendingDownload by remember { mutableStateOf<LanguageDef?>(null) }
     val add: (LanguageDef) -> Unit = { lang ->
-        addLanguage(scope, repository, settings, lang)
-        if (languageData(lang.id).isEmpty) onOpenLanguage(lang.id) else pendingDownload = lang
+        if (languageData(lang.id).isEmpty) {
+            addLanguage(scope, repository, settings, lang)
+            onOpenLanguage(lang.id)
+        } else {
+            // Nothing is enabled until the dialog is answered, so its Cancel
+            // really is a cancel and has nothing to undo.
+            pendingDownload = lang
+        }
     }
 
     pendingDownload?.let { lang ->
         val data = languageData(lang.id)
+        val addAndOpen = {
+            addLanguage(scope, repository, settings, lang)
+            pendingDownload = null
+            onOpenLanguage(lang.id)
+        }
         LanguageDataDownloadDialog(
             language = lang,
             data = data,
-            onDismiss = {
-                pendingDownload = null
-                onOpenLanguage(lang.id)
-            },
-            onConfirm = {
+            onCancel = { pendingDownload = null },
+            onSkip = addAndOpen,
+            onDownload = {
                 data.wordlist?.let {
                     WordlistDownloadManager.start(filesDir, it, AUTO_DOWNLOAD_SIZE)
                 }
                 data.emojiDict?.let { EmojiDictDownloadManager.start(filesDir, it) }
-                pendingDownload = null
-                onOpenLanguage(lang.id)
+                addAndOpen()
             },
         )
     }
@@ -349,19 +359,26 @@ private fun downloadedLanguageBytes(filesDir: File, langId: String): Long =
         EmojiDictStore.packFile(filesDir, langId).length()
 
 /**
- * Asks once, right after a language is added, whether to fetch the data that
- * makes it work properly. The alternative to asking is either a silent download
- * on a metered connection or a language that quietly predicts nothing.
+ * Asks once, as a language is added, whether to fetch the data that makes it
+ * work properly. The alternative to asking is either a silent download on a
+ * metered connection or a language that quietly predicts nothing.
+ *
+ * Three answers, because the dialog is the first thing between tapping a name
+ * in a long list and having a new language: [onDownload] and [onSkip] both add
+ * it, [onCancel] backs out of the whole thing for the tap that was a mistake.
+ * All three are laid out in one flow row so a long label wraps instead of
+ * pushing "Download" off the edge.
  */
 @Composable
 private fun LanguageDataDownloadDialog(
     language: LanguageDef,
     data: LanguageData,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    onSkip: () -> Unit,
+    onDownload: () -> Unit,
 ) {
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = onCancel,
         title = { Text(stringResource(R.string.languages_data_download_title)) },
         text = {
             Text(
@@ -373,13 +390,16 @@ private fun LanguageDataDownloadDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(CommonR.string.common_download))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.languages_data_download_dismiss_action))
+            FlowRow(horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onCancel) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+                TextButton(onClick = onSkip) {
+                    Text(stringResource(R.string.languages_data_download_dismiss_action))
+                }
+                TextButton(onClick = onDownload) {
+                    Text(stringResource(CommonR.string.common_download))
+                }
             }
         },
     )

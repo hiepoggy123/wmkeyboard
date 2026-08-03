@@ -9649,19 +9649,20 @@ open class WMKeyboardService : InputMethodService() {
 
     /**
      * A long-press popup opened on [emoji]: fetch its animated version, if
-     * Google publishes one, so the popup can loop it and offer to send it.
+     * Google publishes one, so the popup can loop it.
      *
-     * Fetched on open rather than on the send button so the preview is the
-     * thing being sent, not a still standing in for it. One file, cached by
-     * URL like every other media insert, so sending costs no second download.
+     * The preview is the WebP, which is a third of the GIF for the same
+     * animation — a long press is also how skin tones and favourites are
+     * reached, so most of them never send anything and shouldn't cost 800 KB.
+     * The GIF is fetched only if the send button is actually pressed.
      */
     fun onEmojiLongPressed(emoji: String) {
         val key = animatedEmojiKey(emoji) ?: return
-        val url = animatedEmoji.gifUrl(key)
+        val url = animatedEmoji.webpUrl(key)
         animatedEmojiJob?.cancel()
         _uiState.update { it.copy(animatedEmojiFile = null, animatedEmojiLoading = true) }
         animatedEmojiJob = serviceScope.launch {
-            val file = withContext(Dispatchers.IO) { downloadMediaFile(url, MediaMime.GIF) }
+            val file = withContext(Dispatchers.IO) { downloadMediaFile(url, MediaMime.WEBP) }
             _uiState.update { it.copy(animatedEmojiFile = file, animatedEmojiLoading = false) }
         }
     }
@@ -9684,26 +9685,27 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * "Send animated emoji" in the long-press popup: commits the 512×512 GIF
-     * through the same content path as a sticker, and counts as using the
-     * emoji so it lands in recents like a plain tap would.
+     * "Send animated emoji" in the long-press popup: fetches the 512×512 GIF
+     * and commits it through the same content path as a sticker. Counts as
+     * using the emoji, so it lands in recents like a plain tap would.
+     *
+     * The GIF rather than the WebP already in hand: an app that accepts
+     * `image/webp` may still draw only its first frame, and a still emoji is
+     * not what the button promised.
      */
     fun onAnimatedEmojiSend(emoji: String) {
-        vibrate()
-        val file = _uiState.value.animatedEmojiFile
-        val sendMode = _uiState.value.settings.gifSendMode
+        val key = animatedEmojiKey(emoji) ?: return
         emojiUsage.record(emoji)
         emojiHistoryStale = true
-        if (file != null) {
-            commitImageFile(file, MediaMime.GIF, sendMode)
-            onEmojiLongPressDismissed()
-            return
-        }
-        // Sent before the preview landed: fall back to the ordinary download
-        // path, which shows its own spinner and error toast.
-        val key = animatedEmojiKey(emoji) ?: return
         onEmojiLongPressDismissed()
-        insertDownloadedImage(key, animatedEmoji.gifUrl(key), MediaMime.GIF, sendMode)
+        // The ordinary media path: it vibrates, shows the panel's spinner while
+        // the file comes down, and toasts if it doesn't.
+        insertDownloadedImage(
+            key,
+            animatedEmoji.gifUrl(key),
+            MediaMime.GIF,
+            _uiState.value.settings.gifSendMode,
+        )
     }
 
     fun onEmojiFavouriteToggled(emoji: String) {

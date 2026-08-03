@@ -37,8 +37,15 @@ class AnimatedEmoji private constructor(private val codes: Set<String>) {
             ?: codes.firstMatch(codePoints.filterNot { isSelector(it) || isSkinTone(it) })
     }
 
-    /** The 512×512 GIF for a key from [keyFor]. */
+    /** The 512×512 GIF for a key from [keyFor] — what actually gets sent. */
     fun gifUrl(key: String): String = "$ASSET_BASE/$key/512.gif"
+
+    /**
+     * The same animation as WebP: a third of the GIF's size for the same
+     * frames, which is what the preview wants. Not what gets sent — plenty of
+     * apps take an `image/webp` and then draw only its first frame.
+     */
+    fun webpUrl(key: String): String = "$ASSET_BASE/$key/512.webp"
 
     private fun Set<String>.firstMatch(codePoints: IntArray): String? =
         spell(codePoints)?.takeIf { it in this }

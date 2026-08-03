@@ -260,6 +260,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.backup_section_icons_label, Icons.Outlined.Category)
     put(R.string.backup_section_stickers_label, Icons.Outlined.EmojiEmotions)
     put(R.string.backup_section_addons_label, Icons.Outlined.Extension)
+    put(R.string.backup_section_emoji_label, Icons.Outlined.History)
     put(R.string.backup_include_secrets_title, Icons.Outlined.Key)
 
     // ---- Key press ----
@@ -304,6 +305,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.langemoji_emoji_clear_recents_title, Icons.Outlined.DeleteSweep)
     put(R.string.langemoji_emoji_kaomoji_title, Icons.Outlined.SentimentSatisfied)
     put(R.string.langemoji_emoji_long_press_name_title, Icons.Outlined.Abc)
+    put(R.string.langemoji_emoji_animated_title, Icons.Outlined.Animation)
     put(R.string.langemoji_emoji_row_title, Icons.Outlined.ViewWeek)
     put(R.string.langemoji_emoji_bar_content_title, Icons.Outlined.ViewWeek)
     put(R.string.langemoji_emoji_bar_count_title, Icons.Outlined.Numbers)
@@ -354,6 +356,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.layout_floating_width_title, Icons.Outlined.Straighten)
     put(R.string.layout_comma_emoji_title, Icons.Outlined.EmojiEmotions)
     put(R.string.layout_globe_emoji_title, Icons.Outlined.EmojiEmotions)
+    put(R.string.layout_swap_comma_globe_title, Icons.Outlined.SwapHoriz)
     put(R.string.layout_editor_action_row_title, Icons.AutoMirrored.Outlined.KeyboardReturn)
     put(R.string.layout_editor_role_title, Icons.Outlined.Tune)
     put(R.string.layout_editor_show_shift_title, Icons.Outlined.KeyboardCapslock)

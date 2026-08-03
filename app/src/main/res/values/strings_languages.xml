@@ -87,16 +87,19 @@
         <item quantity="other">%1$,d words, <xliff:g id="size" example="4 MB">%2$s</xliff:g></item>
     </plurals>
     <string name="languages_wordlist_preparing">Preparing the dictionary…</string>
-    <!-- %1$d is how many words the download keeps. -->
+    <!-- %1$d is the most words the download can keep. It is a maximum: the
+         download also stops at the words that occur only one time in the
+         source text, and some lists run out of usual words before the
+         maximum. -->
     <plurals name="languages_wordlist_word_count">
-        <item quantity="one">The %1$,d most frequent word</item>
-        <item quantity="other">The %1$,d most frequent words</item>
+        <item quantity="one">Up to the %1$,d most frequent word</item>
+        <item quantity="other">Up to the %1$,d most frequent words</item>
     </plurals>
     <!-- Size choice in the download menu. %1$s is the name of the size, %2$d is
          how many words that size keeps. -->
     <plurals name="languages_wordlist_size_option">
-        <item quantity="one"><xliff:g id="size_name" example="Medium">%1$s</xliff:g>, %2$,d word</item>
-        <item quantity="other"><xliff:g id="size_name" example="Medium">%1$s</xliff:g>, %2$,d words</item>
+        <item quantity="one"><xliff:g id="size_name" example="Medium">%1$s</xliff:g>, up to %2$,d word</item>
+        <item quantity="other"><xliff:g id="size_name" example="Medium">%1$s</xliff:g>, up to %2$,d words</item>
     </plurals>
     <!-- Progress under a running download. %1$s is how much has arrived. -->
     <string name="languages_wordlist_downloaded_bytes"><xliff:g id="size" example="2 MB">%1$s</xliff:g> downloaded</string>

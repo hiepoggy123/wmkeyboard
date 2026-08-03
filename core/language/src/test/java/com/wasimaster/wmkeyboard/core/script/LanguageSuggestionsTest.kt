@@ -108,6 +108,55 @@ class LanguageSuggestionsTest {
     }
 
     @Test
+    fun `only the first region that offers anything is read`() {
+        // A phone set to English (United Kingdom) sitting in Bangladesh: the
+        // SIM says BD, the locale says GB. Welsh and Irish are not the answer.
+        val out = LanguageSuggestions.suggest(
+            signals(locales = listOf("en-GB"), regions = listOf("BD", "GB")),
+        )
+        assertTrue(out.any { it.language.id == "bn" })
+        assertFalse(out.any { it.language.id == "cy" })
+        assertFalse(out.any { it.language.id == "ga" })
+    }
+
+    @Test
+    fun `a region with nothing to offer falls through to the next`() {
+        // ZZ is in no table, so the next region still gets its turn.
+        val out = LanguageSuggestions.suggest(signals(regions = listOf("ZZ", "JP")))
+        assertTrue(out.any { it.language.id == "ja" })
+    }
+
+    @Test
+    fun `a romanized variant is offered beside its own language`() {
+        val out = LanguageSuggestions.suggest(signals(locales = listOf("bn-BD")))
+        assertEquals(listOf("bn", "bn_rom"), out.take(2).map { it.language.id })
+        assertEquals(SuggestionReason.SYSTEM_LANGUAGE, out[1].reason)
+    }
+
+    @Test
+    fun `a romanized variant follows its language from the region table too`() {
+        val out = LanguageSuggestions.suggest(signals(regions = listOf("BD")))
+        val ids = out.map { it.language.id }
+        assertEquals(ids.indexOf("bn") + 1, ids.indexOf("bn_rom"))
+        assertEquals("BD", out.first { it.language.id == "bn_rom" }.regionCode)
+    }
+
+    @Test
+    fun `an already-enabled romanized variant is not offered again`() {
+        val out = LanguageSuggestions.suggest(
+            signals(locales = listOf("bn-BD")),
+            exclude = setOf("bn_rom"),
+        )
+        assertFalse(out.any { it.language.id == "bn_rom" })
+    }
+
+    @Test
+    fun `a language with no romanized variant is offered alone`() {
+        val out = LanguageSuggestions.suggest(signals(locales = listOf("fr-FR")))
+        assertEquals(listOf("fr"), out.map { it.language.id })
+    }
+
+    @Test
     fun `the limit is honoured`() {
         val out = LanguageSuggestions.suggest(signals(regions = listOf("IN")), limit = 3)
         assertEquals(3, out.size)

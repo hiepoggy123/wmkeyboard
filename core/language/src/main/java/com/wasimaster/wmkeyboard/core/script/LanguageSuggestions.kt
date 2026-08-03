@@ -36,8 +36,9 @@ data class SuggestedLanguage(
  * @param systemLocales BCP-47 tags from the phone's language list, most
  *   preferred first.
  * @param regionCodes ISO-3166 alpha-2 codes, most trustworthy first — the SIM's
- *   country before the locale's, since the locale's region is often just
- *   whatever shipped with the ROM.
+ *   country, then the phone's time zone, then the locale's region, which is
+ *   often just whatever shipped with the ROM. Only the first one that has
+ *   anything to offer is used; see [LanguageSuggestions.suggest].
  */
 data class DeviceLanguageSignals(
     val systemLocales: List<String> = emptyList(),
@@ -71,6 +72,13 @@ object LanguageSuggestions {
      * Order is signal strength: every system language first, in the phone's own
      * preference order, then the region's languages. A language the user has
      * actually chosen in Android beats one merely common where they are.
+     *
+     * Only *one* region is ever read — the first in [DeviceLanguageSignals]
+     * that has something to offer. The regions disagree more often than they
+     * agree: a phone set to English (United Kingdom) sitting in Dhaka carries
+     * both BD and GB, and reading both buried Bengali under Welsh, Irish and
+     * Scottish Gaelic. The SIM and the time zone say where the phone is; the
+     * locale's region frequently says only which ROM it shipped with.
      */
     fun suggest(
         signals: DeviceLanguageSignals,
@@ -87,6 +95,14 @@ object LanguageSuggestions {
             if (language == null || language.layoutIds.isEmpty()) return
             if (out.size >= limit || !seen.add(language.id)) return
             out += SuggestedLanguage(language, reason, region)
+            // Someone who wants Bengali on a phone very often wants Banglish
+            // too, and would otherwise have to know the word to search for it.
+            // Straight after its own language, so the pair reads as a pair.
+            romanizedOf(language.id)?.let { romanized ->
+                if (out.size < limit && seen.add(romanized.id)) {
+                    out += SuggestedLanguage(romanized, reason, region)
+                }
+            }
         }
 
         for (tag in signals.systemLocales) {
@@ -94,9 +110,11 @@ object LanguageSuggestions {
         }
         for (region in signals.regionCodes) {
             val code = region.uppercase()
+            val before = out.size
             for (id in REGION_LANGUAGES[code].orEmpty()) {
                 add(LanguageRegistry.byId(id), SuggestionReason.REGION, code)
             }
+            if (out.size > before) break
         }
         // Never hand back an empty list: a picker with no suggestions is worse
         // than one suggesting the language every layout can fall back to.
@@ -136,7 +154,24 @@ object LanguageSuggestions {
             .distinct()
     }
 
+    /**
+     * The "type this language in Latin letters" variant of [id] — Banglish for
+     * Bengali, Hinglish for Hindi — or null where there is none.
+     *
+     * Keyed on the id suffix rather than a table: the registry names every one
+     * of them `<language>_rom`, and a new one should not need a second edit
+     * here to be suggested.
+     */
+    private fun romanizedOf(id: String): LanguageDef? {
+        if (id.endsWith(ROMANIZED_SUFFIX)) return null
+        val romanized = LanguageRegistry.byId(id + ROMANIZED_SUFFIX)
+        // byId never throws: an id it does not know comes back as GENERIC.
+        return romanized.takeIf { it.id != LanguageRegistry.GENERIC.id && it.layoutIds.isNotEmpty() }
+    }
+
     private const val ENGLISH_ID = "en"
+
+    private const val ROMANIZED_SUFFIX = "_rom"
 }
 
 /**

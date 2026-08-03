@@ -108,7 +108,9 @@ Around 880 emoji have an animated version published by Google as part of [Noto A
   {/* shot: emoji/animated-popup */}
 </PhoneFrame>
 
-The animation is fetched from `fonts.gstatic.com` the moment the popup opens, and the file you previewed is the file that gets sent, so pressing the button costs no second download. Each one is around 800 KB. Nothing is downloaded until you long-press, and nothing about you goes with the request: it's a plain fetch of a fixed URL, with no query, no key, and no identifier.
+Two files exist for every animation, and the popup uses them for different jobs. Opening it fetches the WebP (around 350 KB) to loop in the preview; pressing the button fetches the GIF (around 800 KB) and sends that. Long-press is also how you reach skin tones and favourites, so most long-presses send nothing and shouldn't cost the larger file — and the GIF is what gets sent because an app that accepts `image/webp` may still draw only its first frame, which would make a "send animated emoji" button a liar.
+
+Both come from `fonts.gstatic.com`, and nothing is downloaded until you long-press. Nothing about you goes with either request: it's a plain fetch of a fixed URL, with no query, no key, and no identifier.
 
 The button is deliberately absent in three cases:
 

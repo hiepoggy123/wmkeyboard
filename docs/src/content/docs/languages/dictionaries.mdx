@@ -40,7 +40,14 @@ Before you download, pick how many of the most frequent words to keep:
 
 The source lists are sorted by frequency and downloaded over a streaming connection, so picking a smaller tier doesn't just trim the result: it stops the transfer early. Thai's full list is 4 million words and 41 MB compressed, but downloading Large only pulls the first 300,000 of them, a fraction of the total transfer. **Everything** is the one tier with no cap: it reads to the end of the list, which for a language like Thai means the whole 41 MB.
 
-Each tier shows the word count it would actually keep for that language, so a language whose list is shorter than the tier says the true number. Tiers that would all keep the same words collapse into one, and the picker disappears entirely for a language whose whole list is already smaller than Small, since there is nothing to trim.
+Every count in the picker is an **upper bound**, which is why each one reads "up to". Two things can stop a download before its tier does, and both are deliberate:
+
+- **The one-timers are dropped.** The transfer stops at the first word that occurs only once in the source text. Those are overwhelmingly typos, names, and OCR noise, and letting them in would tell autocorrect that every misspelling is a real word.
+- **Some words are skipped** — anything over 48 characters, or containing a space.
+
+The gap can be wide on a smaller language. Welsh's list is 123,099 lines, but only the first 50,637 occur more than once, and 47,596 of those survive the other filters — so **every** tier from Small upward gives the same 47,596 words for Welsh, and the number you see afterward is smaller than the number the tier promised. That's the list, not a failed download.
+
+Tiers that would all keep the same words collapse into one, and the picker disappears entirely for a language whose whole list is already smaller than Small, since there is nothing to trim.
 
 The size you pick isn't a saved setting; it resets to Large every time you open the screen, and only the finished download remembers what you chose (shown afterward as an exact word count and file size). If you want a different tier later, delete the dictionary and download it again. There's no separate "update" action or size switch.
 

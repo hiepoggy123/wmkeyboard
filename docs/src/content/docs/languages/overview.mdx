@@ -25,7 +25,11 @@ Both the Languages screen and the Add language screen open with a short **Sugges
 Two things on the device feed that list, in this order:
 
 - **Your phone's language list** (Settings → System → Languages), in your own preference order. Anything you've told Android you read is a strong signal that you type it too.
-- **Your region**, from the SIM's country, the network's country, or failing both, the region on your locale. That maps to the languages widely typed there — a Bangladeshi SIM suggests Bangla and Sylheti, an Indian one Hindi, Bengali, Tamil, Marathi and so on.
+- **Your region**, which maps to the languages widely typed there — a Bangladeshi SIM suggests Bangla and Sylheti, an Indian one Hindi, Bengali, Tamil, Marathi and so on.
+
+Where a language has a [Romanized variant](#adding-a-language) — Banglish for Bengali, Hinglish for Hindi — it's offered directly under its own language, since wanting one is a good reason to be shown the other.
+
+Four things can say what your region is, and only the first of them that has anything to offer is used: the **SIM's** country, the **network's** country, your phone's **time zone**, and last the region attached to your locale. They disagree more often than you'd think. A phone set to English (United Kingdom) sitting in Dhaka carries both BD and GB, and reading both would bury Bengali under Welsh, Irish and Scottish Gaelic. The SIM and the time zone say where the phone actually is; a locale's region is very often just the ROM it shipped with.
 
 Nothing else is looked at. The keyboard does not read what you've typed, your contacts, your accounts, or which apps you have installed to decide this, none of it needs a permission, and no part of it leaves the device. See [Permissions](/privacy/permissions/) for the full accounting.
 
@@ -35,7 +39,7 @@ Suggestions are only ever suggestions: nothing is enabled until you tap it. The 
 
 Below the suggestions, tap **Add language** to search the whole registry: the search box matches on endonym, English name, id, and locale tag, so "german", "Deutsch", "de", and "de-DE" all find the same entry. Tap an unadded language and it's enabled immediately, using its first layout, then opens straight to that language's own screen so you can pick a different layout or turn on suggestions from another enabled language.
 
-If the language has data to download — a word list, emoji keywords, or both — you're asked once, right there, whether to fetch it, with the rough size on the dialog. Say yes and both start straight away in the background; say **Not now** and the language is still added, just without them. You can start either download by hand later from the language's own screen. (Emoji keywords have their own automatic download too, covered in [Emoji search in your language](/emoji/customization/#emoji-search-in-your-language); the prompt is the one chance to get the word list at the same time.)
+If the language has data to download — a word list, emoji keywords, or both — you're asked once, right there, whether to fetch it, with the rough size on the dialog. **Download** starts both in the background; **Not now** adds the language without them; **Cancel** backs out of the whole thing, for the tap that landed on the wrong row. Nothing is enabled until you answer, so Cancel really does leave your language list as it was. You can start either download by hand later from the language's own screen. (Emoji keywords have their own automatic download too, covered in [Emoji search in your language](/emoji/customization/#emoji-search-in-your-language); the prompt is the one chance to get the word list at the same time.)
 
 Removing a language asks the mirror question when it has files on disk: delete its downloaded word list and keywords and get the storage back, or keep them for next time. The language goes either way — the dialog is only about the files. Deleting the keywords also tells the automatic download to leave that language alone, so they don't quietly come back.
 

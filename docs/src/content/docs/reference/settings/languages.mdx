@@ -84,7 +84,7 @@ This only changes which glyphs the number row and keypad draw and (depending on 
 
 **Also suggest from** — appears once at least one other language is enabled, which on a fresh install depends on whether your phone's languages seeded more than English. One toggle per other enabled language (<SettingsPath path="Languages / (a language) / Also suggest from" />); all start **off**. Turning one on blends that language's words into suggestions while you type this one, and words pulled in this way are never autocorrected away.
 
-**Dictionary** — a status caption, then one row per downloadable wordlist for the language (a language can have more than one), then a **Custom dictionaries** row to <SettingsPath path="Typing / Custom dictionaries" />. Each wordlist row defaults to the **Medium** size tier (150,000 words, out of Small/50,000 and Large/300,000) and isn't downloaded until you tap it. Full detail, including how downloaded and imported lists combine, is on [Downloadable dictionaries](/languages/dictionaries/).
+**Dictionary** — a status caption, then one row per downloadable wordlist for the language (a language can have more than one), then a **Custom dictionaries** row to <SettingsPath path="Typing / Custom dictionaries" />. Each wordlist row defaults to the **Large** size tier (300,000 words, out of Small/50,000, Medium/150,000 and Everything/the whole list) and isn't downloaded until you tap it. Every count is an upper bound — the transfer also stops at the words that occur only once in the source text — so a finished download is often smaller than the tier promised. Full detail, including how downloaded and imported lists combine, is on [Downloadable dictionaries](/languages/dictionaries/).
 
 **Emoji** — a status caption, an emoji-keyword pack row if one exists for the language, and an **Emoji keywords** row to <SettingsPath path="Emoji / Emoji keywords" />. Whether the pack row auto-downloads depends on the global **Download automatically** toggle under Emoji keywords (default **on**).
 
@@ -123,7 +123,7 @@ Three languages, `zh`, `ja`, and `yue`, get an extra group named after themselve
 | Layouts (per layout) | Languages → *(a language)* → Layouts | On for the one layout that language was added with (its first); off for the rest |
 | Numeral system | Languages → *(a language)* → Numerals | Auto |
 | Also suggest from (per other language) | Languages → *(a language)* → Also suggest from | Off |
-| Dictionary size tier (per download) | Languages → *(a language)* → Dictionary | Medium (150,000 words) |
+| Dictionary size tier (per download) | Languages → *(a language)* → Dictionary | Large (up to 300,000 words) |
 | Download automatically (emoji keywords) | Emoji → Emoji keywords | On |
 | Traditional characters | Languages → *(zh/ja/yue)* → *(language) options* | Off |
 | Region (Standard / Taiwan / Hong Kong) | Languages → *(zh/ja/yue)* → *(language) options* | Standard |
