@@ -260,8 +260,16 @@ enum class FocusRegion {
     /** The panel's search pill, whose only "item" is the pill itself. */
     SEARCH,
 
-    /** Category, source or pack chips above the results. */
+    /** Source or pack chips above the results. */
     CHIPS,
+
+    /**
+     * The scrollable category row in the GIF/sticker default view. Its own
+     * region rather than a second [CHIPS] row: the focus controller keys a
+     * region's activation by region, so two rows publishing one name would
+     * leave Enter running the wrong row's action.
+     */
+    CATEGORIES,
 
     /** The grid or list of results. */
     RESULTS,
@@ -289,7 +297,9 @@ data class ToolPickerState(val armedAt: Long, val cheatSheet: Boolean = false)
 fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     // Query, then the chips that scope it, then what came back.
     PanelMode.EMOJI -> listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS)
-    PanelMode.GIF, PanelMode.STICKER -> listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS)
+    PanelMode.GIF, PanelMode.STICKER -> listOf(
+        FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.CATEGORIES, FocusRegion.RESULTS,
+    )
     PanelMode.SYMBOLS -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS)
     // The clipboard's chips are the fragments pulled out of its history.
     PanelMode.CLIPBOARD ->
@@ -967,6 +977,10 @@ data class KeyboardUiState(
     val stickerPackId: String? = null,
     /** Long-pressed GIF or sticker cell, showing its action sheet. */
     val mediaAction: com.wasimaster.wmkeyboard.core.tools.GifItem? = null,
+    /** Categories to browse in the GIF/sticker default view; empty hides the row. */
+    val mediaCategories: List<com.wasimaster.wmkeyboard.core.tools.MediaCategory> = emptyList(),
+    /** The category chip in effect, or null for trending and for a typed query. */
+    val mediaCategory: String? = null,
     /** What the Plugins panel is showing: the list, a running plugin, or a failure. */
     val plugins: PluginPanelUi = PluginPanelUi.List(emptyList()),
     /**

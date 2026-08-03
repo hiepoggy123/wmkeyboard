@@ -4,6 +4,7 @@ import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -36,6 +37,58 @@ object KlipyClient {
         }
         return parse(ToolHttp.get(url))
     }
+
+    /**
+     * Categories to browse, for the panel's default view. Blocking; call on
+     * an IO dispatcher.
+     *
+     * KLIPY advertises a categories endpoint but does not publish its shape,
+     * so both the path and the response reading here are a best guess. That
+     * is why nothing above this treats a failure as an error: a 404, or a
+     * 200 in a shape we do not know, both come back as an empty list and the
+     * panel falls back to [MediaCategories.bundled].
+     */
+    fun categories(apiKey: String, stickers: Boolean, limit: Int = MediaCategories.MAX_CATEGORIES):
+        List<MediaCategory> {
+        val type = if (stickers) "stickers" else "gifs"
+        val url = "https://api.klipy.com/api/v1/${ToolHttp.encode(apiKey)}/$type/categories" +
+            "?page=1&per_page=$limit"
+        return parseCategories(ToolHttp.get(url))
+    }
+
+    /**
+     * Same `data` unwrap as [parse]. Each entry is either a bare string or an
+     * object naming itself; since the shape is unverified, read whichever of
+     * the plausible keys is there rather than betting on one.
+     */
+    internal fun parseCategories(body: String): List<MediaCategory> {
+        val data = runCatching { Json.parseToJsonElement(body).jsonObject["data"] }.getOrNull()
+            ?: return emptyList()
+        val items = when (data) {
+            is JsonArray -> data
+            is JsonObject -> data["data"] as? JsonArray ?: return emptyList()
+            else -> return emptyList()
+        }
+        return items.mapNotNull { element ->
+            when (element) {
+                is JsonPrimitive -> element.content.takeIf { it.isNotBlank() }
+                    ?.let { MediaCategory(term = it, label = it) }
+                is JsonObject -> {
+                    val name = element.text("name")
+                        ?: element.text("title")
+                        ?: element.text("slug")
+                        ?: element.text("term")
+                        ?: return@mapNotNull null
+                    val term = element.text("slug") ?: element.text("term") ?: name
+                    MediaCategory(term = term, label = name)
+                }
+                else -> null
+            }
+        }
+    }
+
+    private fun JsonObject.text(key: String): String? =
+        (this[key] as? JsonPrimitive)?.content?.takeIf { it.isNotBlank() }
 
     private fun rating(filter: GifContentFilter): String = when (filter) {
         GifContentFilter.HIGH -> "g"

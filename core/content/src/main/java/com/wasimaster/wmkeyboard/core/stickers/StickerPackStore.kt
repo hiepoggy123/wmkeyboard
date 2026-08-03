@@ -89,6 +89,27 @@ class StickerPackStore(private var baseDir: File?) {
 
         /** File name for a sticker; derived, never taken from untrusted input. */
         fun fileNameFor(id: String, mime: String): String = "$id.${MediaMime.extension(mime)}"
+
+        /**
+         * The name an edited sticker's file takes: `s1a2b3c4.webp`, then
+         * `s1a2b3c4_1.webp`, `_2`, and so on.
+         *
+         * An edit must not reuse the name. Both the settings grid and the
+         * keyboard's sticker panel load these files through one shared image
+         * loader with a memory cache and a disk cache, both keyed on the path
+         * — so writing new bytes to the old path leaves the old picture on
+         * screen in two places until something evicts it. A new name is
+         * self-invalidating everywhere at once, and it still derives from the
+         * id and the MIME rather than from anything a user supplied.
+         */
+        fun nextFileName(current: String, id: String, mime: String): String {
+            val extension = MediaMime.extension(mime)
+            val stem = current.substringBeforeLast('.', current)
+            val generation = stem.removePrefix(id).let { suffix ->
+                if (suffix.startsWith("_")) suffix.drop(1).toIntOrNull() ?: 0 else 0
+            }
+            return "${id}_${generation + 1}.$extension"
+        }
     }
 
     // ---- reading -------------------------------------------------------
@@ -124,9 +145,14 @@ class StickerPackStore(private var baseDir: File?) {
     }
 
     /**
-     * Local stickers as grid items. [query] matches sticker name, emoji tags
-     * and pack name case-insensitively; blank shows everything. [packId] limits
-     * the result to one pack (null = all packs, in pack order).
+     * Local stickers as grid items. [query] matches the sticker's search words
+     * and the pack name case-insensitively; blank shows everything. [packId]
+     * limits the result to one pack (null = all packs, in pack order).
+     *
+     * Name and tags are matched as one line rather than field by field, so a
+     * query can span both — the editor shows them as one list of words, and
+     * an imported "grumpy cat" whose name is split across the two fields has
+     * to keep matching the phrase.
      */
     @Synchronized
     fun searchAsGifItems(query: String, packId: String? = null): List<GifItem> {
@@ -138,8 +164,7 @@ class StickerPackStore(private var baseDir: File?) {
             val packMatches = needle.isEmpty() || pack.name.contains(needle, ignoreCase = true)
             for (sticker in pack.stickers) {
                 val matches = packMatches ||
-                    sticker.name.contains(needle, ignoreCase = true) ||
-                    sticker.emojis.any { it.contains(needle, ignoreCase = true) }
+                    StickerSearchWords.haystack(sticker).contains(needle, ignoreCase = true)
                 if (!matches) continue
                 // Paths are ours — hex ids under a pack_<millis> directory —
                 // so a plain file:// URL needs no escaping.
@@ -266,6 +291,58 @@ class StickerPackStore(private var baseDir: File?) {
             addedAt = now,
         )
         packs[index] = packs[index].copy(stickers = packs[index].stickers + sticker)
+        save()
+        return StickerAddResult.Added(sticker)
+    }
+
+    /**
+     * Replaces the image behind [stickerId] with an edited one, keeping the
+     * sticker's id, its search words, when it was added and where it sits in
+     * the pack. Its shape comes from [processed] — the editor always emits a
+     * square still, and the manifest has to say so.
+     *
+     * The file is written under a new name and the old one deleted; see
+     * [nextFileName] for why. A delete that fails leaves a file the manifest
+     * does not name, which [reconcile] sweeps on the next load.
+     */
+    @Synchronized
+    fun replaceStickerImage(
+        packId: String,
+        stickerId: String,
+        processed: ProcessedSticker,
+    ): StickerAddResult {
+        val index = packs.indexOfFirst { it.id == packId }
+        if (index < 0) return StickerAddResult.PackMissing
+        val stickers = packs[index].stickers.toMutableList()
+        val at = stickers.indexOfFirst { it.id == stickerId }
+        if (at < 0) return StickerAddResult.PackMissing
+        val dir = packDir(packId) ?: return StickerAddResult.WriteFailed
+        val previous = stickers[at]
+        val fileName = nextFileName(previous.fileName, previous.id, processed.mime)
+        val written = runCatching {
+            val part = File(dir, "$fileName.part")
+            part.writeBytes(processed.bytes)
+            val target = File(dir, fileName)
+            if (!part.renameTo(target)) {
+                target.delete()
+                if (!part.renameTo(target)) {
+                    part.delete()
+                    return@runCatching false
+                }
+            }
+            true
+        }.getOrDefault(false)
+        if (!written) return StickerAddResult.WriteFailed
+
+        if (previous.fileName != fileName) File(dir, previous.fileName).delete()
+        val sticker = previous.copy(
+            fileName = fileName,
+            mime = processed.mime,
+            animated = processed.animated,
+            aspectRatio = processed.aspectRatio,
+        )
+        stickers[at] = sticker
+        packs[index] = packs[index].copy(stickers = stickers)
         save()
         return StickerAddResult.Added(sticker)
     }

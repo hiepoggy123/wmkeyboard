@@ -38,6 +38,13 @@ object StickerImage {
     /** WhatsApp's static sticker budget. */
     const val TARGET_BYTES = 100 * 1024
 
+    /**
+     * Long edge the editor decodes to. Four times the sticker canvas, so a
+     * crop down to a corner of the picture still has pixels to spare, and
+     * still only 4 MB of heap.
+     */
+    const val EDIT_SIZE = 1024
+
     private val QUALITY_LADDER = intArrayOf(90, 80, 70, 60, 50)
 
     sealed interface Result {
@@ -81,6 +88,37 @@ object StickerImage {
         return if (encoded == null) Result.NotAnImage else Result.Ok(
             ProcessedSticker(bytes = encoded, mime = MediaMime.WEBP, animated = false, aspectRatio = 1f)
         )
+    }
+
+    /**
+     * Whether [bytes] hold an animation, which the editor cannot touch: an
+     * animated source is stored frame for frame, and re-encoding it would
+     * flatten it to one frame.
+     */
+    fun isAnimatedSource(bytes: ByteArray): Boolean = detectAnimation(bytes) != null
+
+    /**
+     * Decodes a still for the editor, at up to [maxSide] on its long edge.
+     *
+     * Bigger than [process] decodes at, on purpose: the editor crops, and a
+     * crop of a picture already resampled down to 512 would be soft. Callers
+     * recycle it as soon as a crop is applied.
+     */
+    fun decodeForEditing(bytes: ByteArray, maxSide: Int = EDIT_SIZE): Bitmap? =
+        decodeStill(bytes, maxSide)
+
+    /**
+     * Encodes an edited 512×512 bitmap as sticker bytes. Anything smaller (or
+     * off-square) is letterboxed first, so the editor may hand over whatever
+     * it has.
+     */
+    fun encodeStill(bitmap: Bitmap): ProcessedSticker? {
+        val canvas = square(bitmap)
+        val encoded = encodeWebp(canvas)
+        if (canvas !== bitmap) canvas.recycle()
+        return encoded?.let {
+            ProcessedSticker(bytes = it, mime = MediaMime.WEBP, animated = false, aspectRatio = 1f)
+        }
     }
 
     /**
@@ -147,7 +185,7 @@ object StickerImage {
      * blow the heap. [ImageDecoder] is preferred on API 28+ because it applies
      * EXIF rotation; [BitmapFactory] below it does not.
      */
-    private fun decodeStill(bytes: ByteArray): Bitmap? {
+    private fun decodeStill(bytes: ByteArray, maxSide: Int = TARGET_SIZE): Bitmap? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             runCatching {
                 val source = ImageDecoder.createSource(java.nio.ByteBuffer.wrap(bytes))
@@ -155,8 +193,8 @@ object StickerImage {
                     decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                     decoder.isMutableRequired = false
                     val longest = maxOf(info.size.width, info.size.height)
-                    if (longest > TARGET_SIZE) {
-                        val scale = TARGET_SIZE.toFloat() / longest
+                    if (longest > maxSide) {
+                        val scale = maxSide.toFloat() / longest
                         decoder.setTargetSize(
                             (info.size.width * scale).toInt().coerceAtLeast(1),
                             (info.size.height * scale).toInt().coerceAtLeast(1),
@@ -167,7 +205,7 @@ object StickerImage {
         }
         val bounds = boundsOf(bytes) ?: return null
         var sample = 1
-        while (maxOf(bounds.first, bounds.second) / sample > TARGET_SIZE * 2) sample *= 2
+        while (maxOf(bounds.first, bounds.second) / sample > maxSide * 2) sample *= 2
         val options = BitmapFactory.Options().apply {
             inSampleSize = sample
             inPreferredConfig = Bitmap.Config.ARGB_8888

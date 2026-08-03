@@ -518,6 +518,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.toolai_weekend_title, Icons.Outlined.Weekend)
     put(R.string.tooldetail_camera_front_title, Icons.Outlined.Cameraswitch)
     put(R.string.tooldetail_camera_mirror_title, Icons.Outlined.Flip)
+    put(R.string.tooldetail_camera_fullframe_title, Icons.Outlined.AspectRatio)
     put(R.string.tooldetail_camera_gallery_title, Icons.Outlined.PhotoLibrary)
     put(R.string.tooldetail_camera_shutter_title, Icons.AutoMirrored.Outlined.VolumeUp)
     put(R.string.tooldetail_camera_haptics_title, Icons.Outlined.Vibration)

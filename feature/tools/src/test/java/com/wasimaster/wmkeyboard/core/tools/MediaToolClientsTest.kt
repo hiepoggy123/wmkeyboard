@@ -91,6 +91,35 @@ class KlipyClientTest {
         assertTrue(KlipyClient.parse("{}").isEmpty())
         assertTrue(KlipyClient.parse("""{"result":true,"data":{}}""").isEmpty())
     }
+
+    @Test
+    fun `categories parse from a wrapped data array`() {
+        val body = """
+            {"result":true,"data":{"data":[
+                {"name":"Reactions","slug":"reactions"},
+                {"title":"Animals"}
+            ]}}
+        """.trimIndent()
+        val categories = KlipyClient.parseCategories(body)
+        assertEquals(listOf("reactions", "Animals"), categories.map { it.term })
+        assertEquals(listOf("Reactions", "Animals"), categories.map { it.label })
+    }
+
+    @Test
+    fun `categories parse from bare strings`() {
+        val body = """{"data":["love","dance",""]}"""
+        val categories = KlipyClient.parseCategories(body)
+        assertEquals(listOf("love", "dance"), categories.map { it.term })
+    }
+
+    @Test
+    fun `an unknown category shape parses to empty list`() {
+        // A wrong guess at the endpoint has to look like "no categories",
+        // never like an error.
+        assertTrue(KlipyClient.parseCategories("{}").isEmpty())
+        assertTrue(KlipyClient.parseCategories("""{"data":{"nope":1}}""").isEmpty())
+        assertTrue(KlipyClient.parseCategories("<html>404</html>").isEmpty())
+    }
 }
 
 class GiphyClientTest {
@@ -130,6 +159,109 @@ class GiphyClientTest {
     @Test
     fun `missing data parses to empty list`() {
         assertTrue(GiphyClient.parse("{}").isEmpty())
+    }
+
+    @Test
+    fun `categories prefer the encoded name as the search term`() {
+        val body = """
+            {"data":[
+                {"name":"Reaction GIFs","name_encoded":"reaction-gifs","subcategories":[{"name":"x"}]},
+                {"name":"Animals"}
+            ]}
+        """.trimIndent()
+        val categories = GiphyClient.parseCategories(body)
+        assertEquals(listOf("reaction-gifs", "Animals"), categories.map { it.term })
+        assertEquals(listOf("Reaction GIFs", "Animals"), categories.map { it.label })
+    }
+
+    @Test
+    fun `trending searches parse as categories`() {
+        val body = """{"data":["birthday","monday"]}"""
+        val categories = GiphyClient.parseCategories(body)
+        assertEquals(listOf("birthday", "monday"), categories.map { it.term })
+        assertEquals(listOf("birthday", "monday"), categories.map { it.label })
+    }
+
+    @Test
+    fun `missing category data parses to empty list`() {
+        assertTrue(GiphyClient.parseCategories("{}").isEmpty())
+        assertTrue(GiphyClient.parseCategories("nonsense").isEmpty())
+    }
+}
+
+class MediaCategoriesTest {
+
+    private fun provider(vararg terms: String) = terms.map { MediaCategory(term = it, label = it) }
+
+    @Test
+    fun `normalise dedupes on the term, ignoring case`() {
+        val categories = MediaCategories.normalise(provider("Love", "love", "LOVE ", "cats"), false)
+        assertEquals(listOf("Love", "cats"), categories.map { it.term })
+    }
+
+    @Test
+    fun `normalise drops blank and overlong terms`() {
+        val long = "a".repeat(33)
+        assertEquals(
+            listOf("cats"),
+            MediaCategories.normalise(provider("", "   ", long, "cats"), false).map { it.term },
+        )
+    }
+
+    @Test
+    fun `normalise caps the row`() {
+        val many = provider(*Array(50) { "term$it" })
+        assertEquals(MediaCategories.MAX_CATEGORIES, MediaCategories.normalise(many, false).size)
+    }
+
+    @Test
+    fun `normalise falls back to the bundle when nothing is usable`() {
+        assertEquals(MediaCategories.bundledGif, MediaCategories.normalise(emptyList(), false))
+        assertEquals(MediaCategories.bundledSticker, MediaCategories.normalise(provider(""), true))
+    }
+
+    @Test
+    fun `bundled categories carry a label resource and an untranslated term`() {
+        for (category in MediaCategories.bundledGif + MediaCategories.bundledSticker) {
+            assertTrue(category.labelRes != 0)
+            assertEquals("", category.label)
+            assertTrue(category.term.isNotBlank())
+            assertTrue(category.term.all { it in 'a'..'z' })
+        }
+    }
+
+    @Test
+    fun `bundled terms are unique within a list`() {
+        for (list in listOf(MediaCategories.bundledGif, MediaCategories.bundledSticker)) {
+            assertEquals(list.size, list.map { it.term }.toSet().size)
+        }
+    }
+}
+
+class MediaCategoryCacheTest {
+
+    private val categories = listOf(MediaCategory(term = "love", label = "Love"))
+
+    @Test
+    fun `entries expire`() {
+        MediaCategoryCache.clear()
+        MediaCategoryCache.put(GifSource.KLIPY, sticker = false, categories, nowMs = 0L)
+        assertEquals(categories, MediaCategoryCache.get(GifSource.KLIPY, false, nowMs = 60_000L))
+        assertNull(MediaCategoryCache.get(GifSource.KLIPY, false, nowMs = 13 * 60 * 60_000L))
+    }
+
+    @Test
+    fun `an empty answer is cached too`() {
+        MediaCategoryCache.clear()
+        MediaCategoryCache.put(GifSource.GIPHY, sticker = true, emptyList(), nowMs = 0L)
+        assertEquals(emptyList<MediaCategory>(), MediaCategoryCache.get(GifSource.GIPHY, true, 1L))
+    }
+
+    @Test
+    fun `keys separate the provider and the panel`() {
+        val gifKey = MediaCategoryCache.keyOf(GifSource.KLIPY, sticker = false)
+        assertTrue(gifKey != MediaCategoryCache.keyOf(GifSource.KLIPY, sticker = true))
+        assertTrue(gifKey != MediaCategoryCache.keyOf(GifSource.GIPHY, sticker = false))
     }
 }
 

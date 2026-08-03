@@ -187,6 +187,9 @@ import com.wasimaster.wmkeyboard.core.tools.GifSources
 import com.wasimaster.wmkeyboard.core.tools.GiphyClient
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.KlipyClient
+import com.wasimaster.wmkeyboard.core.tools.MediaCategories
+import com.wasimaster.wmkeyboard.core.tools.MediaCategory
+import com.wasimaster.wmkeyboard.core.tools.MediaCategoryCache
 import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryEntry
 import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryGuard
 import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryStore
@@ -576,6 +579,8 @@ open class WMKeyboardService : InputMethodService() {
     private var mediaFetchJob: Job? = null
     private var mediaLiveSearchJob: Job? = null
     private var mediaInsertJob: Job? = null
+    /** Fetch of the GIF/sticker category row; see [refreshMediaCategories]. */
+    private var mediaCategoryJob: Job? = null
 
     /** The in-flight fetch of an animated emoji preview; one at a time. */
     private var animatedEmojiJob: Job? = null
@@ -1768,6 +1773,7 @@ open class WMKeyboardService : InputMethodService() {
                 onMediaRetry = ::onMediaRetry,
                 onGifSelect = ::onGifSelect,
                 onGifSourceSelect = ::onGifSourceSelect,
+                onGifCategorySelect = ::onGifCategorySelect,
                 onMediaLongPress = ::onMediaLongPress,
                 onStickerPackFilter = ::onStickerPackFilter,
                 onStickerSaveToPack = ::onStickerSaveToPack,
@@ -5643,9 +5649,12 @@ open class WMKeyboardService : InputMethodService() {
      * different item, and Enter on a stale ring would insert something the user
      * never looked at. Cheaper and safer than trying to follow an item across a
      * refiltered list.
+     *
+     * Typing also ends a category: the grid is about to answer the query, not
+     * the chip, so no chip should keep reading as the selected one.
      */
     private inline fun updateQuery(crossinline block: (KeyboardUiState) -> KeyboardUiState) {
-        _uiState.update { block(it).copy(panelFocus = null) }
+        _uiState.update { block(it).copy(panelFocus = null, mediaCategory = null) }
     }
 
     /**
@@ -5719,6 +5728,8 @@ open class WMKeyboardService : InputMethodService() {
                 stickerPacks = stickerPackStore.packs(),
                 stickerPackId = null,
                 mediaAction = null,
+                mediaCategories = emptyList(),
+                mediaCategory = null,
                 translate = TranslateUi(),
                 grammar = GrammarUi(available = GrammarChecker.available),
                 // Leaving the Plugins panel must hand the keys straight back to
@@ -5742,10 +5753,14 @@ open class WMKeyboardService : InputMethodService() {
         grammarJob?.cancel()
         mediaFetchJob?.cancel()
         mediaLiveSearchJob?.cancel()
+        mediaCategoryJob?.cancel()
         when (_uiState.value.panel) {
             PanelMode.WEATHER -> refreshWeather()
             PanelMode.DICTIONARY -> openDictionary()
-            PanelMode.GIF, PanelMode.STICKER -> refreshMedia(query = "")
+            PanelMode.GIF, PanelMode.STICKER -> {
+                refreshMedia(query = "")
+                refreshMediaCategories()
+            }
             PanelMode.WEB_SEARCH -> _uiState.update {
                 it.copy(webSearch = if (hasSearchKey()) WebSearchUi.Idle else WebSearchUi.NeedKey)
             }
@@ -8611,6 +8626,91 @@ open class WMKeyboardService : InputMethodService() {
         if (_uiState.value.mediaSource == source) return
         _uiState.update { it.copy(mediaSource = source, mediaAction = null, stickerPackId = null) }
         refreshMedia(_uiState.value.mediaQuery.trim())
+        // Categories belong to a provider, so the row follows the chip.
+        refreshMediaCategories()
+    }
+
+    /**
+     * Fills the category row for the panel's default view.
+     *
+     * A function of the provider and the panel, never of the query: that is
+     * what keeps a keystroke from costing a request. Called on panel open and
+     * on a provider switch, and nowhere else — not from the live-search
+     * debounce, the enter search, retry, or the pack filter.
+     *
+     * The bundled list goes up straight away, before anything is fetched. The
+     * row has to be there in the first frame; a row that pops in a second
+     * later reflows the grid under the user's finger.
+     */
+    private fun refreshMediaCategories() {
+        val state = _uiState.value
+        val sticker = state.panel == PanelMode.STICKER
+        if (!sticker && state.panel != PanelMode.GIF) return
+        val settings = state.settings
+        val sources =
+            if (sticker) ToolApiKeys.stickerSources(settings) else ToolApiKeys.gifSources(settings)
+        val tabs = settings.gifSourceMode == GifSourceMode.TABS
+        // One provider, not every target: two taxonomies interleaved are a
+        // row of near-duplicates for twice the requests. Local packs have no
+        // categories at all — the pack chips are their equivalent.
+        val target = GifSources.targets(sources, state.mediaSource, tabs)
+            .firstOrNull { it != GifSource.LOCAL }
+        if (target == null) {
+            _uiState.update { it.copy(mediaCategories = emptyList(), mediaCategory = null) }
+            return
+        }
+        _uiState.update { it.copy(mediaCategories = MediaCategories.bundled(sticker)) }
+        mediaCategoryJob?.cancel()
+        val panel = state.panel
+        mediaCategoryJob = serviceScope.launch {
+            val cached = MediaCategoryCache.get(target, sticker, System.currentTimeMillis())
+            val fetched = cached ?: withContext(Dispatchers.IO) {
+                runCatching { fetchCategories(target, sticker, settings) }
+            }.onSuccess {
+                // Cache the empty answer too: a provider with no categories
+                // endpoint is then asked once a day, not once per open. Only
+                // on success — a cancelled fetch must not poison the entry.
+                MediaCategoryCache.put(target, sticker, it, System.currentTimeMillis())
+            }.getOrNull()
+            if (_uiState.value.panel != panel) return@launch
+            _uiState.update {
+                it.copy(mediaCategories = MediaCategories.normalise(fetched.orEmpty(), sticker))
+            }
+        }
+    }
+
+    /** Blocking provider dispatch; call on an IO dispatcher. */
+    private fun fetchCategories(
+        source: GifSource,
+        sticker: Boolean,
+        settings: com.wasimaster.wmkeyboard.core.settings.KeyboardSettings,
+    ): List<MediaCategory> = when (source) {
+        GifSource.KLIPY -> KlipyClient.categories(ToolApiKeys.klipy(settings), sticker)
+        GifSource.GIPHY -> GiphyClient.categories(ToolApiKeys.giphy(settings), sticker)
+        GifSource.LOCAL -> emptyList()
+    }
+
+    /** Category chip in the GIF/sticker default view: runs it as a search. */
+    fun onGifCategorySelect(term: String) {
+        vibrate()
+        val state = _uiState.value
+        if (state.panel != PanelMode.GIF && state.panel != PanelMode.STICKER) return
+        // A category is a search, so it cancels a debounce that would land
+        // 450 ms later and overwrite the grid with a half-typed query.
+        mediaLiveSearchJob?.cancel()
+        val next = term.trim().takeIf { it.isNotEmpty() && it != state.mediaCategory }
+        _uiState.update {
+            it.copy(
+                mediaCategory = next,
+                // The search pill reads back what the grid is showing, so a
+                // category shows as the search that it is.
+                mediaQuery = next.orEmpty(),
+                mediaSearchActive = false,
+                mediaAction = null,
+                panelFocus = null,
+            )
+        }
+        refreshMedia(next.orEmpty())
     }
 
     private fun runWebSearch(query: String) {

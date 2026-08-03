@@ -74,6 +74,37 @@
     <string name="core_tools_gif_source_online">Online</string>
 
     <!-- ================================================================== -->
+    <!-- GIF and sticker panel: the categories to browse when the search    -->
+    <!-- box is empty. Each label names a subject. The search term that     -->
+    <!-- goes to the provider is a separate value in the code and is never  -->
+    <!-- translated. A provider that sends its own categories replaces      -->
+    <!-- these.                                                             -->
+    <!-- ================================================================== -->
+
+    <!-- Short clips that answer somebody, such as a nod or applause. -->
+    <string name="core_tools_media_category_reactions">Reactions</string>
+    <string name="core_tools_media_category_love">Love</string>
+    <string name="core_tools_media_category_happy">Happy</string>
+    <string name="core_tools_media_category_sad">Sad</string>
+    <string name="core_tools_media_category_angry">Angry</string>
+    <string name="core_tools_media_category_laugh">Laugh</string>
+    <string name="core_tools_media_category_dance">Dance</string>
+    <string name="core_tools_media_category_thanks">Thanks</string>
+    <string name="core_tools_media_category_hello">Hello</string>
+    <string name="core_tools_media_category_yes">Yes</string>
+    <string name="core_tools_media_category_no">No</string>
+    <!-- Surprise. -->
+    <string name="core_tools_media_category_wow">Wow</string>
+    <string name="core_tools_media_category_sports">Sports</string>
+    <string name="core_tools_media_category_animals">Animals</string>
+    <string name="core_tools_media_category_food">Food</string>
+    <string name="core_tools_media_category_sleep">Sleep</string>
+    <string name="core_tools_media_category_cute">Cute</string>
+    <string name="core_tools_media_category_funny">Funny</string>
+    <string name="core_tools_media_category_party">Party</string>
+    <string name="core_tools_media_category_work">Work</string>
+
+    <!-- ================================================================== -->
     <!-- Background photos: the providers and the subjects to browse.       -->
     <!-- The topic labels name a subject to browse. The slug that goes to   -->
     <!-- the provider is a separate value in the code and never translated. -->

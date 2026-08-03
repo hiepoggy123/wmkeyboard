@@ -1532,6 +1532,12 @@ data class CameraSettings(
     val haptics: Boolean = true,
     /** Copy camera captures into Pictures/WM Keyboard as well as sending them. */
     val saveToGallery: Boolean = false,
+    /**
+     * Send the whole 4:3 frame. The keyboard usually crops the capture to the
+     * part of the viewfinder that was on screen, so what you see is what you
+     * send; this keeps the slivers that ran off the top and the bottom too.
+     */
+    val fullFrame: Boolean = false,
 )
 
 /**
@@ -2582,6 +2588,7 @@ class SettingsRepository(private val context: Context) {
         private val CAMERA_SHUTTER_SOUND = booleanPreferencesKey("camera_shutter_sound")
         private val CAMERA_HAPTICS = booleanPreferencesKey("camera_haptics")
         private val CAMERA_SAVE_TO_GALLERY = booleanPreferencesKey("camera_save_to_gallery")
+        private val CAMERA_FULL_FRAME = booleanPreferencesKey("camera_full_frame")
         private val DOC_SCAN_SAVE_TO_GALLERY = booleanPreferencesKey("doc_scan_save_to_gallery")
         private val QR_SAVE_TO_GALLERY = booleanPreferencesKey("qr_save_to_gallery")
         private val STICKER_SEND_MODE = stringPreferencesKey("sticker_send_mode")
@@ -3259,6 +3266,7 @@ class SettingsRepository(private val context: Context) {
                 shutterSound = p[CAMERA_SHUTTER_SOUND] ?: defaults.camera.shutterSound,
                 haptics = p[CAMERA_HAPTICS] ?: defaults.camera.haptics,
                 saveToGallery = p[CAMERA_SAVE_TO_GALLERY] ?: defaults.camera.saveToGallery,
+                fullFrame = p[CAMERA_FULL_FRAME] ?: defaults.camera.fullFrame,
             ),
             docScanSaveToGallery = p[DOC_SCAN_SAVE_TO_GALLERY] ?: defaults.docScanSaveToGallery,
             qrSaveToGallery = p[QR_SAVE_TO_GALLERY] ?: defaults.qrSaveToGallery,
@@ -3695,6 +3703,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setCameraSaveToGallery(value: Boolean) =
         editPrefs { it[CAMERA_SAVE_TO_GALLERY] = value }
+
+    suspend fun setCameraFullFrame(value: Boolean) =
+        editPrefs { it[CAMERA_FULL_FRAME] = value }
 
     suspend fun setDocScanSaveToGallery(value: Boolean) =
         editPrefs { it[DOC_SCAN_SAVE_TO_GALLERY] = value }

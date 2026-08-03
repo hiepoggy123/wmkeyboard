@@ -18,6 +18,8 @@ The sticker tool searches Klipy and GIPHY, sends results as real stickers where 
 
 Open the tool from the toolbar and type to search Klipy and GIPHY, or switch to **My stickers** for packs you've built yourself. Tapping a result downloads and inserts it; while it's downloading the tile shows a spinner in its place.
 
+With the search box empty, a scrollable row of category chips (Trending, Love, Happy, Cute, Funny…) sits above the grid; tapping one runs it as a search, and tapping the active chip goes back to trending. It works the same as the [GIF panel's row](/emoji/gifs/#searching-for-a-gif), and like that one it steps aside as soon as you type. **My stickers** doesn't get it: its pack chips already fill that job.
+
 Android has no dedicated "this is a sticker" flag: the only signal a receiving app gets is the file's MIME type, and WhatsApp in particular only recognizes its own private `image/webp.wasticker` type, not plain `image/webp`. So when the **Send stickers as** setting is set to Sticker, the keyboard offers that WhatsApp type first and falls back to a normal image if the field doesn't advertise it. A source that isn't WebP (an animated GIF result, say) can never go out with the sticker MIME (Android has no animated-WebP encoder), so it always sends as a plain image regardless of that setting.
 
 If the field can't take images at all, the tool doesn't bother downloading first and failing after: it vibrates once and shows a standing notice instead, with results still visible underneath at 45% opacity so you can still long-press one to save or copy it (see [Long-pressing a sticker](#long-pressing-a-sticker) below). If the field does take images but rejects this particular file even after the WebP→PNG fallback, the file lands on the system clipboard instead, with a toast telling you to paste it, the same thing the clipboard tool's own image and file commits do when a field refuses them.
@@ -42,19 +44,34 @@ Long-pressing a sticker from **My stickers** shows "Manage packs" (which jumps s
 
 ## My stickers and your own packs
 
-**My stickers** is always its own tab or chip; your packs are never interleaved into the Klipy/GIPHY grid, in either source layout mode. With more than one pack, a second row of filter chips (All, then one per pack name) appears above the grid, and search there matches sticker name, emoji tags, and pack name together.
+**My stickers** is always its own tab or chip; your packs are never interleaved into the Klipy/GIPHY grid, in either source layout mode. With more than one pack, a second row of filter chips (All, then one per pack name) appears above the grid, and search there matches a sticker's search words and its pack name together.
 
 Building and managing packs happens in the app, not the keyboard: <SettingsPath path="Tools / Stickers / Your stickers / Sticker packs" />.
 
 - **New pack** starts one empty; **Import a pack** reads a `.wmstickers` file.
 - Inside a pack, **Add stickers** opens the photo picker for up to 30 images in one trip. Each one is processed automatically: a still image is resized to 512×512 and re-encoded as WebP, trying progressively lower quality (90 down to 50) until it lands under 100 KB, matching WhatsApp's static sticker spec. An animated source (GIF or animated WebP) is stored byte-for-byte instead, since Android has no animated-WebP encoder to re-compress it with; those are capped at 2 MB rather than the 100 KB still budget. Any single source file over 12 MB is refused before processing even starts.
-- Per sticker, you can rename it, add space-separated emoji tags (matched by search), reorder it within the pack, move it to a different pack, or delete it.
+- Pick exactly **one** still image and it opens in the [sticker editor](#the-sticker-editor) first, instead of being added as-is. Pick several and they're all added the old way; an editor thirty times over isn't a flow anyone wants.
+- Per sticker, you can set its **search words**, reorder it within the pack, move it to a different pack, or delete it. Search words are one space-separated list of anything you'd want to type to find that sticker later, emoji included ("cat 😂 happy"). The first word doubles as the sticker's name, which is what a screen reader reads out for it.
 - Per pack, you can rename it, **export** it as a `.wmstickers` file to share or back up, or delete it; deleting warns you to export first if you want to keep a copy.
 - A pack tops out at 200 stickers; you can have up to 50 packs total.
 
 <PhoneFrame caption="A sticker pack's management screen, with reorder and export controls.">
   ![A sticker pack's management screen, with reorder and export controls.](@assets/screens/emoji/sticker-pack-manage.webp)
 </PhoneFrame>
+
+### The sticker editor
+
+The editor opens two ways: picking a single still image from **Add stickers**, or tapping a sticker you already have and choosing **Edit the image**. Animated stickers don't get it at all, since there's no still to edit and no encoder to put an animation back together afterwards.
+
+Everything happens on the 512×512 sticker canvas, and there are four tabs:
+
+- **Crop** — drag to move the picture, pinch to zoom. The part inside the square is what's kept; anything that isn't square gets transparent bars rather than being stretched.
+- **Erase** and **Restore** — a round brush with a size slider. Erase clears pixels to transparent, Restore paints them back. **Undo** goes back one stroke at a time, twelve deep.
+- **Border** — the white or black outline that hugs the cut-out shape, WhatsApp-style, with a width slider from 0 (off) up to 24px. It traces whatever is left after erasing, so it's most useful once the background is gone. The border is a setting rather than a stroke: sliding it back to 0 is its own undo, which is why the Undo button doesn't touch it.
+
+**Remove the background** does the cutout in one tap. It's in the full build only, and even there the model isn't in the APK: it comes from Google Play services on demand, so the first tap offers a download with a progress bar and then runs. If it can't be fetched, the brushes still work and the screen says so. If it finds nothing recognizable as a subject (or would keep the entire image), it says that too and leaves your picture alone rather than erasing everything. In the lite build the button simply isn't there.
+
+Edits replace the image. There's no stored original, so re-editing a sticker starts from the edited version, and cropping again after you've erased something warns you first, because a new crop throws the erasing away. Nothing is written until you press Save.
 
 ### Importing a `.wmstickers` file
 

@@ -107,6 +107,8 @@
     <string name="ime_gif_need_key_body">The GIF tool needs an API key from Klipy or GIPHY. Both keys are free. Add a key in the settings for this tool.</string>
     <string name="ime_sticker_need_key_body">The sticker tool needs an API key from Klipy or GIPHY. Both keys are free. Add a key in the settings for this tool.</string>
     <string name="ime_media_trending_empty">No trending results now</string>
+    <!-- The first chip in the category row: what is popular now, no category. -->
+    <string name="ime_media_category_trending_label">Trending</string>
     <!-- %1$s is what the user typed in the search box. -->
     <string name="ime_gif_search_empty">No GIFs for “<xliff:g id="query" example="cat">%1$s</xliff:g>”</string>
     <!-- %1$s is what the user typed in the search box. -->

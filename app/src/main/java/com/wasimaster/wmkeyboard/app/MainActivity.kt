@@ -236,6 +236,7 @@ import com.wasimaster.wmkeyboard.core.tools.Weekend
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
+import com.wasimaster.wmkeyboard.core.tools.MediaCategoryCache
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.TypingBests
 import com.wasimaster.wmkeyboard.core.tools.TypingHistory
@@ -879,7 +880,26 @@ private fun SettingsNavGraph(
         composable("sticker_pack/{packId}") { backStackEntry ->
             val packId = backStackEntry.arguments?.getString("packId").orEmpty()
             SettingsScreen(stringResource(R.string.home_screen_sticker_pack_edit_title), { navController.popBackStack() }) {
-                StickerPackScreen(packId)
+                StickerPackScreen(packId) { route -> navController.navigate(route) }
+            }
+        }
+        composable(STICKER_EDITOR_ROUTE) {
+            // Captured once for this back-stack entry, so clearing the handoff
+            // on the way out cannot make the exit animation pop a second time.
+            val request = remember { StickerEditHandoff.current }
+            if (request == null) {
+                // Only reachable after the process was killed on the back stack.
+                LaunchedEffect(Unit) { navController.popBackStack() }
+            } else {
+                SettingsScreen(
+                    stringResource(R.string.import_sticker_editor_title),
+                    { navController.popBackStack() },
+                ) {
+                    StickerEditorScreen(request) {
+                        StickerEditHandoff.current = null
+                        navController.popBackStack()
+                    }
+                }
             }
         }
         composable("keymap_edit/{layoutId}") { backStackEntry ->
@@ -7377,6 +7397,14 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
+                        R.string.tooldetail_camera_fullframe_title,
+                        stringResource(R.string.tooldetail_camera_fullframe_subtitle),
+                        settings.camera.fullFrame,
+                        info = stringResource(R.string.tooldetail_camera_fullframe_info),
+                    ) { scope.launch { repository.setCameraFullFrame(it) } }
+                }
+                item {
+                    ToggleSetting(
                         R.string.tooldetail_camera_gallery_title,
                         stringResource(R.string.tooldetail_camera_gallery_subtitle),
                         settings.camera.saveToGallery,
@@ -7726,7 +7754,12 @@ private fun ToolDetailSettings(
                         value = settings.klipyApiKey,
                         builtInAvailable = ToolApiKeys.builtInKlipy,
                         emptyHint = stringResource(R.string.tooldetail_media_klipy_hint),
-                    ) { repository.setKlipyApiKey(it) }
+                    ) {
+                        repository.setKlipyApiKey(it)
+                        // Categories were fetched with the old key; they are
+                        // not this key's answer.
+                        MediaCategoryCache.clear()
+                    }
                 }
                 item {
                     ApiKeyField(
@@ -7734,7 +7767,10 @@ private fun ToolDetailSettings(
                         value = settings.giphyApiKey,
                         builtInAvailable = ToolApiKeys.builtInGiphy,
                         emptyHint = stringResource(R.string.tooldetail_media_giphy_hint),
-                    ) { repository.setGiphyApiKey(it) }
+                    ) {
+                        repository.setGiphyApiKey(it)
+                        MediaCategoryCache.clear()
+                    }
                 }
             }
             CaptionText(stringResource(R.string.tooldetail_media_info))

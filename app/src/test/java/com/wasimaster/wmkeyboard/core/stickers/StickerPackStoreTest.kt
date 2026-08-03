@@ -160,6 +160,77 @@ class StickerPackStoreTest {
     }
 
     @Test
+    fun `replacing an image keeps the sticker and renames its file`() {
+        val store = store()
+        val pack = store.createPack("Cats")!!
+        store.addSticker(pack.id, webp(1), name = "first")
+        val target = (
+            store.addSticker(pack.id, webp(2), name = "grumpy", emojis = listOf("cat"))
+                as StickerAddResult.Added
+            ).sticker
+        val oldFile = store.fileFor(pack.id, target)!!
+
+        val replaced = store.replaceStickerImage(pack.id, target.id, webp(9))
+        assertTrue(replaced is StickerAddResult.Added)
+        val sticker = (replaced as StickerAddResult.Added).sticker
+
+        assertEquals(target.id, sticker.id)
+        assertEquals("grumpy", sticker.name)
+        assertEquals(listOf("cat"), sticker.emojis)
+        assertEquals(target.addedAt, sticker.addedAt)
+        // Still second in the pack: an edit is not a re-add.
+        assertEquals(1, store.pack(pack.id)!!.stickers.indexOfFirst { it.id == target.id })
+        // A new name, or two caches would keep serving the old picture.
+        assertEquals("${target.id}_1.webp", sticker.fileName)
+        assertFalse(oldFile.exists())
+        assertEquals(9.toByte(), store.fileFor(pack.id, sticker)!!.readBytes()[0])
+    }
+
+    @Test
+    fun `replacing an image leaves nothing for reconcile to sweep`() {
+        val first = store()
+        val pack = first.createPack("Cats")!!
+        val sticker = (first.addSticker(pack.id, webp()) as StickerAddResult.Added).sticker
+        first.replaceStickerImage(pack.id, sticker.id, webp(2))
+        first.replaceStickerImage(pack.id, sticker.id, webp(3))
+
+        val dir = File(temp.root, pack.id)
+        assertEquals(1, dir.listFiles()!!.size)
+        // The second edit counts on from the first.
+        assertEquals("${sticker.id}_2.webp", store().pack(pack.id)!!.stickers.single().fileName)
+        assertEquals(1, store().totalStickers())
+    }
+
+    @Test
+    fun `replacing an image on a missing sticker changes nothing`() {
+        val store = store()
+        val pack = store.createPack("Cats")!!
+        assertEquals(StickerAddResult.PackMissing, store.replaceStickerImage(pack.id, "nope", webp()))
+        assertEquals(StickerAddResult.PackMissing, store.replaceStickerImage("nopack", "nope", webp()))
+        assertEquals(0, store.totalStickers())
+    }
+
+    @Test
+    fun `file names count generations up`() {
+        assertEquals("s1_1.webp", StickerPackStore.nextFileName("s1.webp", "s1", "image/webp"))
+        assertEquals("s1_2.webp", StickerPackStore.nextFileName("s1_1.webp", "s1", "image/webp"))
+        assertEquals("s1_10.webp", StickerPackStore.nextFileName("s1_9.webp", "s1", "image/webp"))
+        // An id with an underscore of its own is not mistaken for a counter.
+        assertEquals("a_b_1.webp", StickerPackStore.nextFileName("a_b.webp", "a_b", "image/webp"))
+    }
+
+    @Test
+    fun `search matches a phrase that spans the name and the tags`() {
+        val store = store()
+        val pack = store.createPack("Cats")!!
+        // What an imported "grumpy cat" looks like once the editor has split
+        // it: first word in the name, the rest in the tags.
+        store.addSticker(pack.id, webp(), name = "grumpy", emojis = listOf("cat"))
+
+        assertEquals(1, store.searchAsGifItems("grumpy cat").size)
+    }
+
+    @Test
     fun `item ids round-trip back to their sticker`() {
         val store = store()
         val pack = store.createPack("Cats")!!

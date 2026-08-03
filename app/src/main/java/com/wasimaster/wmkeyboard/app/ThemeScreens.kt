@@ -1651,8 +1651,9 @@ private fun CropImageDialog(
 
 // ---- small building blocks ----
 
+/** Shared with the sticker editor, which needs the same throttled slider. */
 @Composable
-private fun SliderRow(
+internal fun SliderRow(
     title: String,
     value: Float,
     range: ClosedFloatingPointRange<Float>,

@@ -6,12 +6,14 @@ import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.media.MediaActionSound
 import android.util.Size
+import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -104,12 +106,16 @@ import kotlin.math.roundToInt
  * A photo sitting in the confirm step: the file on disk, its preview, and
  * where the visible region sat in panel coordinates so the confirm step
  * can draw it exactly where the viewfinder showed it.
+ *
+ * Both offsets are null for a whole-frame capture (the full-frame setting):
+ * that photo has no viewfinder slice to line up with, so the confirm step
+ * fits it into the panel box instead.
  */
 private class PendingCapture(
     val file: File,
     val bitmap: Bitmap,
-    val visibleOffsetY: Int,
-    val visibleHeight: Int,
+    val visibleOffsetY: Int?,
+    val visibleHeight: Int?,
 )
 
 /**
@@ -128,7 +134,8 @@ private class PanelGeometry(
 /**
  * In-keyboard camera. The live preview fills the tool viewbox and the
  * captured photo is centre-cropped to that exact aspect ratio — what the
- * viewfinder frames is what gets sent. Controls: shutter, front/back
+ * viewfinder frames is what gets sent, unless the full-frame setting says
+ * to send the whole 4:3 picture. Controls: shutter, front/back
  * switch, flash mode, self-timer; after a capture, retake or send (via
  * commitContent, like clipboard images). Shutter sound and haptics are
  * per-tool settings.
@@ -267,7 +274,9 @@ private fun CameraContent(
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         }
     }
-    val imageCapture = remember {
+    // Send the whole frame instead of the slice the viewfinder showed.
+    val fullFrame = state.settings.camera.fullFrame
+    val imageCapture = remember(fullFrame) {
         ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             // Chat photos don't need the sensor's full 12+ MP — a bounded
@@ -280,6 +289,19 @@ private fun CameraContent(
                             ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
                         )
                     )
+                    .apply {
+                        // The cropped default takes whatever shape the sensor
+                        // offers — it gets sliced anyway. The full-frame
+                        // setting promises 4:3, so ask for it.
+                        if (fullFrame) {
+                            setAspectRatioStrategy(
+                                AspectRatioStrategy(
+                                    AspectRatio.RATIO_4_3,
+                                    AspectRatioStrategy.FALLBACK_RULE_AUTO,
+                                )
+                            )
+                        }
+                    }
                     .build()
             )
             .build()
@@ -299,7 +321,7 @@ private fun CameraContent(
     // (Re)bind on open and on lens switch; release the camera as soon as
     // the panel closes so other apps can use it. No binding while the
     // confirm step is up — the frozen photo is the whole UI.
-    DisposableEffect(provider, selector, pending == null) {
+    DisposableEffect(provider, selector, imageCapture, pending == null) {
         val cameraProvider = provider
         if (cameraProvider != null && selector != null && pending == null) {
             val preview = Preview.Builder().build().also {
@@ -340,13 +362,14 @@ private fun CameraContent(
                     val upright = proxy.use { it.toFramedBitmap(mirror) }
                     // Crop to the part of the width-filling viewfinder that
                     // was actually on screen — what you saw is what you get.
-                    val (bitmap, visibleTop, visibleHeight) =
-                        upright.cropToVisible(geo)
+                    // The full-frame setting skips that and keeps the lot.
+                    val slice = if (fullFrame) null else upright.cropToVisible(geo)
+                    val bitmap = slice?.first ?: upright
                     val file = File(captureDir(context), "IMG_${System.currentTimeMillis()}.jpg")
                     file.outputStream().use { out ->
                         bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
                     }
-                    PendingCapture(file, bitmap, visibleTop, visibleHeight)
+                    PendingCapture(file, bitmap, slice?.second, slice?.third)
                 }.getOrNull()
             }
             if (capture != null) pending = capture
@@ -379,28 +402,47 @@ private fun CameraContent(
     ) {
         val captured = pending
         if (captured != null) {
-            // Drawn exactly where the viewfinder showed this region, so the
-            // confirm step is indistinguishable from the live preview. The
-            // slice is taller than the panel box (the preview spills over
-            // it), so measure at its real size via a layout lambda — a
-            // plain height() would be coerced to the box constraints and
-            // FillBounds would squish the picture into the box.
-            Image(
-                bitmap = captured.bitmap.asImageBitmap(),
-                contentDescription = stringResource(R.string.ime_camera_captured_photo_desc),
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .layout { measurable, constraints ->
-                        val placeable = measurable.measure(
-                            Constraints.fixed(constraints.maxWidth, captured.visibleHeight)
-                        )
-                        layout(constraints.maxWidth, constraints.maxHeight) {
-                            placeable.place(0, captured.visibleOffsetY)
-                        }
-                    },
-                contentScale = ContentScale.FillBounds,
+            val sliceHeight = captured.visibleHeight
+            if (sliceHeight == null) {
+                // A whole-frame capture is taller than the panel box and was
+                // never framed by the viewfinder, so there is no region to
+                // line up with: fit all of it inside the box instead.
+                Image(
+                    bitmap = captured.bitmap.asImageBitmap(),
+                    contentDescription = stringResource(R.string.ime_camera_captured_photo_desc),
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit,
+                )
+            } else {
+                // Drawn exactly where the viewfinder showed this region, so the
+                // confirm step is indistinguishable from the live preview. The
+                // slice is taller than the panel box (the preview spills over
+                // it), so measure at its real size via a layout lambda — a
+                // plain height() would be coerced to the box constraints and
+                // FillBounds would squish the picture into the box.
+                Image(
+                    bitmap = captured.bitmap.asImageBitmap(),
+                    contentDescription = stringResource(R.string.ime_camera_captured_photo_desc),
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .layout { measurable, constraints ->
+                            val placeable = measurable.measure(
+                                Constraints.fixed(constraints.maxWidth, sliceHeight)
+                            )
+                            layout(constraints.maxWidth, constraints.maxHeight) {
+                                placeable.place(0, captured.visibleOffsetY ?: 0)
+                            }
+                        },
+                    contentScale = ContentScale.FillBounds,
+                )
+            }
+            // The fitted photo starts at the top of the box, so the chip sits
+            // there too rather than on the viewfinder's spilled-over top edge.
+            BackChip(
+                offsetY = if (sliceHeight == null) 0 else viewfinderTop,
+                feedback = feedback,
+                onClose = onClose,
             )
-            BackChip(offsetY = viewfinderTop, feedback = feedback, onClose = onClose)
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)

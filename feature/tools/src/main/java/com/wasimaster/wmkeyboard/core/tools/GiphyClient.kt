@@ -2,7 +2,9 @@ package com.wasimaster.wmkeyboard.core.tools
 
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -34,6 +36,51 @@ object GiphyClient {
         }
         return parse(ToolHttp.get(url))
     }
+
+    /**
+     * Categories to browse, for the panel's default view. Blocking; call on
+     * an IO dispatcher.
+     *
+     * GIPHY publishes a category tree for GIFs only, so stickers borrow the
+     * trending search terms instead. Those are live queries rather than a
+     * taxonomy, which reads the same on a chip and works for either panel.
+     */
+    fun categories(apiKey: String, stickers: Boolean, limit: Int = MediaCategories.MAX_CATEGORIES):
+        List<MediaCategory> {
+        val path = if (stickers) "trending/searches" else "gifs/categories"
+        val url = buildString {
+            append("https://api.giphy.com/v1/$path")
+            append("?api_key=${ToolHttp.encode(apiKey)}")
+            if (!stickers) append("&limit=$limit")
+        }
+        return parseCategories(ToolHttp.get(url))
+    }
+
+    /**
+     * `data` holds category objects for `gifs/categories` and bare strings
+     * for `trending/searches`; take either. `name_encoded` is the form the
+     * search endpoint wants, so it wins over the display `name`.
+     * `subcategories` is ignored: flattening it gives hundreds of chips.
+     */
+    internal fun parseCategories(body: String): List<MediaCategory> {
+        val data = runCatching {
+            Json.parseToJsonElement(body).jsonObject["data"] as? JsonArray
+        }.getOrNull() ?: return emptyList()
+        return data.mapNotNull { element ->
+            when (element) {
+                is JsonPrimitive -> element.content.takeIf { it.isNotBlank() }
+                    ?.let { MediaCategory(term = it, label = it) }
+                is JsonObject -> {
+                    val name = element.text("name") ?: return@mapNotNull null
+                    MediaCategory(term = element.text("name_encoded") ?: name, label = name)
+                }
+                else -> null
+            }
+        }
+    }
+
+    private fun JsonObject.text(key: String): String? =
+        (this[key] as? JsonPrimitive)?.content?.takeIf { it.isNotBlank() }
 
     /** GIPHY ratings are cumulative: "pg" means pg and below. */
     private fun rating(filter: GifContentFilter): String = when (filter) {

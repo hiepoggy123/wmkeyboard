@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -82,6 +83,7 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.GifSources
+import com.wasimaster.wmkeyboard.core.tools.MediaCategory
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
@@ -98,6 +100,41 @@ import com.wasimaster.wmkeyboard.ime.WebSearchUi
 
 /** Panel height while its search box is active and the key rows are shown below. */
 private val MediaSearchHeight = 132.dp
+
+/**
+ * Shortest panel that still gets a category row: the search bar, the source
+ * chips, the row itself and one whole row of results. Below this the row would
+ * be taking the last of the grid, and a browsing aid that hides what it browses
+ * is worse than no aid. A three-row layout at the default key height falls
+ * under it; a four-row layout clears it.
+ */
+private val MediaCategoryMinPanelHeight = 190.dp
+
+/**
+ * Whether the GIF/sticker panel shows its category row.
+ *
+ * Pure and separate from the composable so every rule here is a unit test
+ * rather than a device check.
+ *
+ * The row is a default-view thing: it starts a search, it does not refine one,
+ * so a typed query replaces it. It survives a category tap, though — otherwise
+ * you could enter a category and never pick another. Local packs have pack
+ * chips instead, and a field that takes no rich media has a notice to show in
+ * the same space.
+ */
+internal fun showMediaCategories(
+    state: KeyboardUiState,
+    localGrid: Boolean,
+    fullBleed: Boolean,
+    /** Passed in rather than read off [state]: the state's own getter needs a
+     *  framework call, and this rule is worth having under a plain JVM test. */
+    acceptsRichMedia: Boolean,
+): Boolean {
+    if (state.mediaCategories.isEmpty()) return false
+    if (state.mediaSearchActive || localGrid || !acceptsRichMedia) return false
+    if (state.mediaQuery.isNotBlank() && state.mediaCategory == null) return false
+    return fullBleed || keyRowsHeight(state) >= MediaCategoryMinPanelHeight
+}
 
 /**
  * Query text plus a blinking caret, for the in-panel search fields.
@@ -479,6 +516,7 @@ internal fun GifPanel(
     onSourceSelect: (GifSource) -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
     fullBleed: Boolean = false,
+    onCategorySelect: (String) -> Unit = {},
     onLongPress: (GifItem) -> Unit = {},
     onPackFilter: (String?) -> Unit = {},
     onSaveToPack: (GifItem, String?) -> Unit = { _, _ -> },
@@ -541,6 +579,29 @@ internal fun GifPanel(
                     packs = state.stickerPacks,
                     selected = state.stickerPackId,
                     onSelect = onPackFilter,
+                )
+            }
+            if (showMediaCategories(state, localGrid, fullBleed, state.acceptsRichMedia)) {
+                // Trending first, so there is always a way back out of a
+                // category — and somewhere for the focus ring to sit when no
+                // category is on.
+                val entries = listOf(
+                    MediaCategory(term = "", labelRes = R.string.ime_media_category_trending_label),
+                ) + state.mediaCategories
+                PanelFocusTarget(
+                    panel = state.panel,
+                    region = FocusRegion.CATEGORIES,
+                    count = entries.size,
+                    columns = entries.size,
+                    onActivate = { index ->
+                        entries.getOrNull(index)?.let { onCategorySelect(it.term) }
+                    },
+                )
+                GifCategoryChips(
+                    categories = entries,
+                    selected = state.mediaCategory,
+                    onSelect = onCategorySelect,
+                    focused = state.focusedIndex(FocusRegion.CATEGORIES),
                 )
             }
             // The field publishes the MIME types it accepts; when none of them
@@ -681,6 +742,57 @@ private fun GifSourceChips(
         }
     }
 }
+
+/**
+ * Category chips for the default view. Pressing one runs it as a search.
+ *
+ * A `LazyRow` rather than the plain `horizontalScroll` the pack chips use: a
+ * ScrollState has no index-to-offset map, so a focus ring landing on a chip
+ * past the right edge could never be scrolled into view.
+ */
+@Composable
+private fun GifCategoryChips(
+    categories: List<MediaCategory>,
+    selected: String?,
+    onSelect: (String) -> Unit,
+    focused: Int? = null,
+) {
+    val kb = LocalKbTheme.current
+    val listState = rememberLazyListState()
+    ScrollFocusIntoView(focused) { listState.animateScrollToItem(it) }
+    LazyRow(
+        state = listState,
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        itemsIndexed(categories, key = { _, category -> category.term }) { index, category ->
+            // Trending carries the blank term, so it is the active chip
+            // exactly when no category is.
+            val active = category.term == selected.orEmpty()
+            Text(
+                categoryLabel(category),
+                color = if (active) kb.toolCircleActiveIcon else kb.suggestionText,
+                fontSize = 11.sp,
+                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                maxLines = 1,
+                modifier = Modifier
+                    .background(
+                        if (active) kb.toolCircleActive else kb.chip,
+                        RoundedCornerShape(10.dp),
+                    )
+                    .focusRing(index == focused, RoundedCornerShape(10.dp))
+                    .clickable { onSelect(category.term) }
+                    .padding(horizontal = 10.dp, vertical = 3.dp),
+            )
+        }
+    }
+}
+
+/** A bundled category names itself from resources; a provider's names itself. */
+@Composable
+private fun categoryLabel(category: MediaCategory): String =
+    if (category.labelRes != 0) stringResource(category.labelRes) else category.label
 
 /** Pack chips under the "My stickers" tab: All, then one per pack. */
 @Composable

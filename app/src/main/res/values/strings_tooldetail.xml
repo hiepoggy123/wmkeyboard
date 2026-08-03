@@ -149,13 +149,16 @@
     <string name="tooldetail_camera_gallery_title">Save to the gallery</string>
     <string name="tooldetail_camera_gallery_subtitle">Also keep photos in Pictures/WM Keyboard</string>
     <string name="tooldetail_camera_gallery_info">This setting is off by default, because photos that you take here are normally one-time sends and not photos to keep. On: the keyboard copies every photo into the gallery and also sends it.</string>
+    <string name="tooldetail_camera_fullframe_title">Send the whole photo</string>
+    <string name="tooldetail_camera_fullframe_subtitle">Keep the full 4:3 picture instead of the part in the viewfinder</string>
+    <string name="tooldetail_camera_fullframe_info">The viewfinder is as wide as the keyboard, so the top and the bottom of the picture go off the screen. The keyboard usually cuts those parts away, and you send what you saw. On: you send the full 4:3 photo, which holds more than the viewfinder showed you. The preview does not change.</string>
     <string name="tooldetail_camera_feedback_group">Feedback</string>
     <string name="tooldetail_camera_shutter_title">Shutter sound</string>
     <string name="tooldetail_camera_shutter_subtitle">Play the camera click when you take a photo</string>
     <string name="tooldetail_camera_haptics_title">Haptics</string>
     <string name="tooldetail_camera_haptics_subtitle">Vibrate on the shutter, the controls and the timer countdown</string>
     <string name="tooldetail_camera_haptics_info">This uses the haptic style and strength of the keyboard, under Typing → Feedback. If the keyboard haptics are off, the camera tool stays silent too.</string>
-    <string name="tooldetail_camera_info">The keyboard cuts photos down to what the viewfinder shows, saves them in the private storage of the app and sends them into the chat. Nothing goes into your gallery, and the camera runs only while the tool is open.</string>
+    <string name="tooldetail_camera_info">The keyboard cuts photos down to what the viewfinder shows, saves them in the private storage of the app and sends them into the chat. Nothing goes into your gallery, and the camera runs only while the tool is open.\n\nTurn on “Send the whole photo” if you want the full 4:3 picture and not only the part in the viewfinder.</string>
 
     <!-- Dictionary tool. -->
     <string name="tooldetail_dictionary_auto_title">Look up the word at the cursor</string>

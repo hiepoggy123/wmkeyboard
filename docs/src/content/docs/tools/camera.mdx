@@ -32,6 +32,8 @@ The viewfinder fills the width of the panel and behaves like any camera app:
 
 There's no manual crop step, no drag handles, and no filters, despite what the term "crop" might suggest elsewhere. The viewfinder is actually taller than the visible panel (it spills upward to fill the panel's width at the sensor's aspect ratio), so at the moment you tap the shutter, WM Keyboard slices the raw capture down to exactly the region that was on screen. What framed in the viewfinder is what ends up in the photo: nothing more, nothing manually trimmed.
 
+If you'd rather keep everything the sensor saw, turn on **Send the whole photo** in [Options](#options). The photo is then the full 4:3 frame, top and bottom strips included, and the confirm step shows all of it fitted inside the panel instead of drawing it where the viewfinder had it.
+
 The capture itself is deliberately modest: photos are capped at 1600×1600 rather than the sensor's full resolution, because a photo headed straight into a chat message doesn't need 12+ megapixels, and a smaller capture processes faster. Each shot is written to the app's private storage as a JPEG before the confirm step appears.
 
 ## Confirm, retake, or send
@@ -92,6 +94,7 @@ The tool's own settings, split into two groups:
 **Options**
 - **Start with the selfie camera** — off by default. Opens the panel on the front camera instead of the back one.
 - **Mirror selfies** — on by default. See [Confirm, retake, or send](#confirm-retake-or-send) above for what this does and why it exists.
+- **Send the whole photo** — off by default. Skips the crop described in [What you see is what you get](#what-you-see-is-what-you-get) and sends the full 4:3 frame instead, including the strips that ran off the top and bottom of the screen. The live viewfinder is unchanged, so this is the one case where the photo holds more than you framed; the confirm step fits the whole picture inside the panel so you can see what you're about to send.
 - **Save to gallery** — off by default. Also copies every capture into `Pictures/WM Keyboard`, in addition to sending it.
 
 **Feedback**

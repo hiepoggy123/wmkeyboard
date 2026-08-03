@@ -202,6 +202,8 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "emoji" to Color(0xFFFFB300),
     "tools" to Color(0xFFFF7043),
     "sticker_packs" to Color(0xFFF06292),
+    // The editor is opened from a pack, so it keeps the pack screens' pink.
+    "sticker_editor" to Color(0xFFF06292),
     "plugins" to Color(0xFF06B6D4),
     "addons" to Color(0xFF7986CB),
     "accessibility" to Color(0xFF29B6F6),

@@ -50,4 +50,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
+    // Background removal in the sticker editor. Full only: lite ships a stub
+    // with the same signatures, and its editor simply has no cutout button.
+    "fullImplementation"(libs.mlkit.subject.segmentation)
 }

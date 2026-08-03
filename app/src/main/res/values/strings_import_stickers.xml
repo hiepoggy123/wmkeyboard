@@ -231,11 +231,38 @@
 
     <string name="import_sticker_edit_title">Edit sticker</string>
     <string name="import_name_label">Name</string>
-    <string name="import_sticker_emoji_tags_label">Emoji tags</string>
-    <string name="import_sticker_emoji_tags_hint">The app searches these with the name, for example 😂 🐱</string>
+    <string name="import_sticker_search_words_label">Search words</string>
+    <string name="import_sticker_search_words_hint">The keyboard finds this sticker by any of these words. Put a space between them, for example: cat 😂 happy</string>
     <string name="import_sticker_move_up">Move up</string>
     <string name="import_sticker_move_down">Move down</string>
     <string name="import_sticker_move_pack">Move to another pack</string>
     <string name="import_sticker_delete_action">Delete this sticker</string>
+
+    <!-- ==== The sticker editor: crop, background removal and a border. ==== -->
+
+    <string name="import_sticker_editor_title">Edit image</string>
+    <string name="import_sticker_editor_subtitle">Crop the image, remove the background, and add a border</string>
+    <string name="import_sticker_editor_caption">The keyboard saves a 512 by 512 sticker. Move and pinch the image to select the part to keep, then remove the background and add a border. The changes replace the image and you cannot undo them after you save.</string>
+    <string name="import_sticker_editor_crop_action">Crop</string>
+    <string name="import_sticker_editor_crop_hint">Drag to move the image. Pinch to make it larger.</string>
+    <string name="import_sticker_editor_erase_action">Erase</string>
+    <string name="import_sticker_editor_restore_action">Restore</string>
+    <string name="import_sticker_editor_border_action">Border</string>
+    <string name="import_sticker_editor_cutout_action">Remove the background</string>
+    <string name="import_sticker_editor_cutout_subtitle">Find the subject and erase all of the other parts</string>
+    <string name="import_sticker_editor_cutout_download_subtitle">Get the background remover from Google Play services first</string>
+    <string name="import_sticker_editor_cutout_progress">The app removes the background…</string>
+    <string name="import_sticker_editor_cutout_download_progress">The app gets the background remover…</string>
+    <string name="import_sticker_editor_cutout_none_error">The app found no subject in this image. Use the eraser.</string>
+    <string name="import_sticker_editor_cutout_error">The app cannot remove the background now.</string>
+    <string name="import_sticker_editor_brush_size_label">Brush size</string>
+    <string name="import_sticker_editor_border_width_label">Border width</string>
+    <string name="import_sticker_editor_border_white_option">White</string>
+    <string name="import_sticker_editor_border_black_option">Black</string>
+    <string name="import_sticker_editor_undo_action">Undo</string>
+    <string name="import_sticker_editor_recrop_title">Crop again?</string>
+    <string name="import_sticker_editor_recrop_body">A new crop removes the parts that you erased.</string>
+    <string name="import_sticker_editor_save_error">The app cannot save this sticker.</string>
+    <string name="import_sticker_editor_edit_action">Edit the image</string>
 
 </resources>

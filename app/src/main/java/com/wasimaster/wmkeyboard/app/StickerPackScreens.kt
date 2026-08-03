@@ -64,6 +64,7 @@ import com.wasimaster.wmkeyboard.core.stickers.StickerImportResult
 import com.wasimaster.wmkeyboard.core.stickers.StickerPack
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackFile
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
+import com.wasimaster.wmkeyboard.core.stickers.StickerSearchWords
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.ime.ui.rememberMediaImageLoader
 import kotlinx.coroutines.Dispatchers
@@ -369,7 +370,7 @@ private fun StickerPackRow(
 
 /** One pack: rename it, add stickers from photos, edit or remove each one. */
 @Composable
-internal fun StickerPackScreen(packId: String) {
+internal fun StickerPackScreen(packId: String, onNavigate: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { StickerPackStore.get(context) }
@@ -389,6 +390,24 @@ internal fun StickerPackScreen(packId: String) {
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
         busy = true
         scope.launch {
+            // One still image goes through the editor first; a batch is added
+            // as it always was, because an editor thirty times over is not a
+            // flow anybody wants. An animation skips the editor either way:
+            // it is stored frame for frame and there is no encoder to put it
+            // back together.
+            val single = uris.singleOrNull()?.let { uri ->
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.requireInputStream(uri).use { it.readBytes() }
+                    }.getOrNull()
+                }
+            }
+            if (single != null && !StickerImage.isAnimatedSource(single)) {
+                busy = false
+                StickerEditHandoff.current = StickerEditRequest(packId, single, stickerId = null)
+                onNavigate(STICKER_EDITOR_ROUTE)
+                return@launch
+            }
             val outcome = withContext(Dispatchers.IO) {
                 var added = 0
                 var tooLarge = 0
@@ -541,6 +560,21 @@ internal fun StickerPackScreen(packId: String) {
                 revision++
                 editing = null
             },
+            onEditImage = {
+                editing = null
+                scope.launch {
+                    val bytes = withContext(Dispatchers.IO) {
+                        runCatching { store.fileFor(packId, sticker)?.readBytes() }.getOrNull()
+                    }
+                    if (bytes == null) {
+                        message = context.getString(R.string.import_sticker_editor_save_error)
+                    } else {
+                        StickerEditHandoff.current =
+                            StickerEditRequest(packId, bytes, stickerId = sticker.id)
+                        onNavigate(STICKER_EDITOR_ROUTE)
+                    }
+                }
+            },
             onMove = { targetId ->
                 if (!store.moveSticker(packId, sticker.id, targetId)) {
                     message = context.getString(R.string.import_sticker_pack_full)
@@ -625,12 +659,15 @@ private fun StickerEditDialog(
     otherPacks: List<StickerPack>,
     onDismiss: () -> Unit,
     onSave: (String, List<String>) -> Unit,
+    onEditImage: () -> Unit,
     onMove: (String) -> Unit,
     onReorder: (Int) -> Unit,
     onDelete: () -> Unit,
 ) {
-    var name by remember(sticker.id) { mutableStateOf(sticker.name) }
-    var tags by remember(sticker.id) { mutableStateOf(sticker.emojis.joinToString(" ")) }
+    // One field, not a name plus "emoji tags": both feed the same search, and
+    // the first word stays the name so the label a screen reader gets is one
+    // word and not the whole list. See [StickerSearchWords].
+    var words by remember(sticker.id) { mutableStateOf(StickerSearchWords.of(sticker)) }
     var moveOpen by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -639,24 +676,22 @@ private fun StickerEditDialog(
         text = {
             Column {
                 OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.import_name_label)) },
+                    value = words,
+                    onValueChange = { words = it },
+                    label = { Text(stringResource(R.string.import_sticker_search_words_label)) },
+                    supportingText = {
+                        Text(stringResource(R.string.import_sticker_search_words_hint))
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
-                    value = tags,
-                    onValueChange = { tags = it },
-                    label = { Text(stringResource(R.string.import_sticker_emoji_tags_label)) },
-                    supportingText = {
-                        Text(stringResource(R.string.import_sticker_emoji_tags_hint))
-                    },
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                )
+                // Hidden, not disabled, for an animation: there is no still to
+                // edit and a greyed row would only raise the question.
+                if (!sticker.animated) {
+                    TextButton(onClick = onEditImage) {
+                        Text(stringResource(R.string.import_sticker_editor_edit_action))
+                    }
+                }
                 Row(
                     modifier = Modifier.padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -695,7 +730,8 @@ private fun StickerEditDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                onSave(name, tags.split(" ").map { it.trim() }.filter { it.isNotEmpty() })
+                val (name, tags) = StickerSearchWords.split(words)
+                onSave(name, tags)
             }) { Text(stringResource(CommonR.string.common_save)) }
         },
         dismissButton = {
