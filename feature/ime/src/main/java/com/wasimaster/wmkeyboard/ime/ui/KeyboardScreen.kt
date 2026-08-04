@@ -613,6 +613,8 @@ fun KeyboardScreen(
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
+    onKeyTouch: (Float, Float) -> Unit = { _, _ -> },
+    onTouchKeys: (List<KeyCenter>) -> Unit = {},
     onCursorMove: (Int) -> Unit = {},
     onCursorMoveVertical: (Int) -> Unit = {},
     onLayoutSelect: (String) -> Unit = {},
@@ -834,6 +836,8 @@ fun KeyboardScreen(
                 onGesture = onGesture,
                 onGesturePreview = onGesturePreview,
                 onGestureWords = onGestureWords,
+                onKeyTouch = onKeyTouch,
+                onTouchKeys = onTouchKeys,
                 onCursorMove = onCursorMove,
                 onLayoutSelect = onLayoutSelect,
                 onSuggestion = onSuggestion,
@@ -5047,6 +5051,8 @@ private fun KeyboardBody(
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit,
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit,
     onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float) -> Unit,
+    onKeyTouch: (Float, Float) -> Unit = { _, _ -> },
+    onTouchKeys: (List<KeyCenter>) -> Unit = {},
     onCursorMove: (Int) -> Unit,
     onLayoutSelect: (String) -> Unit,
     onSuggestion: (String) -> Unit,
@@ -5818,6 +5824,8 @@ private fun KeyboardBody(
                         state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLayoutSelect,
                         onGestureWords = onGestureWords,
                         onKeyboardHandwritingStroke = onKeyboardHandwritingStroke,
+                        onKeyTouch = onKeyTouch,
+                        onTouchKeys = onTouchKeys,
                     )
                 }
             }
@@ -6421,6 +6429,12 @@ private fun KeyRows(
     onLayoutSelect: (String) -> Unit = {},
     onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
+    /** Down position of the tap that committed a letter, in key-width units
+     * (keyboard space). Fired just before the matching onKey. */
+    onKeyTouch: (Float, Float) -> Unit = { _, _ -> },
+    /** Letter-key centres of the live layout in key-width units, for the
+     * engine's touch-likelihood model. */
+    onTouchKeys: (List<KeyCenter>) -> Unit = {},
 ) {
     val layout = rememberCurrentLayout(state)
     // Letter-area swipes are drawing handwriting rather than gliding a word
@@ -6490,6 +6504,13 @@ private fun KeyRows(
     // Pointer → the letter its down chose to remap to, set at down time by the
     // observer and consumed by the owning key on release.
     val hitRemap = remember { HashMap<PointerId, Char>() }
+    // Pointer → its down position in this Box's space, for the engine's
+    // touch-likelihood model. Written by an always-on Initial-pass observer;
+    // read when the owning key commits. Entries are not removed on lift (the
+    // key's Main-pass handler reads after the observer has seen the up) —
+    // the map is pruned wholesale instead, and ids never repeat within it.
+    val downPositions = remember { HashMap<PointerId, Offset>() }
+    val onKeyTouchNow = rememberUpdatedState(onKeyTouch)
     // Current-layer letter keys by lowercase char, so a remap resolves to the
     // correctly-cased Key to commit. Keyed on layout: rebuilt when it changes.
     val letterKeys = remember(layout) {
@@ -6505,10 +6526,15 @@ private fun KeyRows(
         }
     }
     // Substitutes the committed key when the owning letter's down was remapped
-    // toward a likelier neighbour. Stable across keystrokes (depends only on the
-    // layout), so it never restarts a key's pointerInput.
+    // toward a likelier neighbour, and reports the tap's down position to the
+    // engine's touch model just before the commit. Stable across keystrokes
+    // (depends only on the layout), so it never restarts a key's pointerInput.
     val smartResolve = remember(letterKeys) {
         { key: Key, id: PointerId ->
+            downPositions[id]?.let { down ->
+                val kw = keyWidth.value
+                if (kw > 0f) onKeyTouchNow.value(down.x / kw, down.y / kw)
+            }
             val target = hitRemap[id]
             val own = key.label.singleOrNull()
                 ?.takeIf { key.action == KeyAction.Text && it.isLetter() }
@@ -6519,6 +6545,17 @@ private fun KeyRows(
                 key
             }
         }
+    }
+    // Publish the live layout's letter centres, normalised to key widths, so
+    // the engine can turn tap positions into per-key likelihoods. snapshotFlow
+    // coalesces the per-key positioning bursts during a layout change.
+    LaunchedEffect(layout) {
+        snapshotFlow { keyCenters.toMap() to keyWidth.value }
+            .collect { (centers, kw) ->
+                if (kw > 0f && centers.isNotEmpty()) {
+                    onTouchKeys(centers.map { (char, c) -> KeyCenter(char, c.x / kw, c.y / kw) })
+                }
+            }
     }
     // Drop any in-flight remap when the feature switches off or the layout
     // changes: a release arriving after such a change must not apply a decision
@@ -6808,6 +6845,25 @@ private fun KeyRows(
                                 // Any lift OR cancel (glide steals the pointer):
                                 // once it is no longer pressed the remap is spent.
                                 !change.pressed -> hitRemap.remove(change.id)
+                            }
+                        }
+                    }
+                }
+            }
+            // Touch-position capture for the engine's typo model: record every
+            // down, always on (unlike smart hit above). Never consumes; the
+            // committed key reads the position via smartResolve on release.
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        for (change in event.changes) {
+                            if (change.changedToDownIgnoreConsumed()) {
+                                // Ids increase monotonically, so entries are
+                                // never overwritten — prune wholesale instead
+                                // of on lift (see downPositions above).
+                                if (downPositions.size > 32) downPositions.clear()
+                                downPositions[change.id] = change.position
                             }
                         }
                     }

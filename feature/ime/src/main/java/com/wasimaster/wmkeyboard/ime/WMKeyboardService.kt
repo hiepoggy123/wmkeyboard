@@ -110,6 +110,8 @@ import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.MappedTrie
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
+import com.wasimaster.wmkeyboard.core.prediction.KeyTouchModel
+import com.wasimaster.wmkeyboard.core.prediction.TouchPoint
 import com.wasimaster.wmkeyboard.core.prediction.LanguageMixConfidence
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
 import com.wasimaster.wmkeyboard.core.prediction.SecondaryDictionary
@@ -419,7 +421,61 @@ open class WMKeyboardService : InputMethodService() {
     private var registeredSubtypeSig: String? = null
 
     private var composing = StringBuilder()
+        set(value) {
+            field = value
+            // Any wholesale replacement (commit, field change, re-arm from the
+            // field) invalidates the per-character tap positions: a re-armed
+            // word was never tapped in this session, so it degrades to the
+            // adjacency model via an all-null frame.
+            composingTouch.clear()
+        }
     private var previousWord: String? = null
+
+    /**
+     * Tap position (key-width units, keyboard space) for each character in
+     * [composing], null where unknown — hardware keys, dead-key output,
+     * multi-char inserts. Only trusted when its size matches the buffer;
+     * see [composingTouchFrame].
+     */
+    private val composingTouch = ArrayList<TouchPoint?>()
+
+    /** The most recent letter tap's position, consumed by the next append. */
+    private var pendingTouch: TouchPoint? = null
+
+    /** The tap frame for the current composing buffer, or null to fall back
+     * to the discrete adjacency model. Snapshot copy: the engine caches by
+     * content and the live list mutates per keystroke. */
+    private fun composingTouchFrame(): List<TouchPoint?>? =
+        if (composingTouch.size == composing.length && composingTouch.any { it != null }) {
+            ArrayList(composingTouch)
+        } else {
+            null
+        }
+
+    /** KeyboardScreen: the down position of the tap committing a letter. */
+    private fun onKeyTouch(x: Float, y: Float) {
+        pendingTouch = TouchPoint(x, y)
+    }
+
+    /** Appends to the composing buffer, pairing the pending tap position with
+     * a single appended character (multi-char inserts get null slots). */
+    private fun appendComposing(text: String) {
+        composing.append(text)
+        if (composingTouch.size == composing.length - text.length) {
+            if (text.length == 1) {
+                composingTouch.add(pendingTouch)
+            } else {
+                repeat(text.length) { composingTouch.add(null) }
+            }
+        }
+        pendingTouch = null
+    }
+
+    /** KeyboardScreen: letter-key centres of the live layout, normalised. */
+    private fun onTouchKeys(keys: List<KeyCenter>) {
+        suggestionEngine?.touchModel =
+            KeyTouchModel(keys.associate { it.char to TouchPoint(it.x, it.y) })
+    }
 
     /**
      * The last few completed words, newest last — the free half of the pattern
@@ -1843,6 +1899,8 @@ open class WMKeyboardService : InputMethodService() {
                 onGesture = ::onGesture,
                 onGesturePreview = ::onGesturePreview,
                 onGestureWords = ::onGestureWords,
+                onKeyTouch = ::onKeyTouch,
+                onTouchKeys = ::onTouchKeys,
                 onCursorMove = ::onCursorMove,
                 onCursorMoveVertical = ::onCursorMoveVertical,
                 onLayoutSelect = ::onLayoutSelected,
@@ -3321,7 +3379,7 @@ open class WMKeyboardService : InputMethodService() {
             composing.isEmpty() && composingMode
         ) {
             commitComposing(ic, autocorrect = false)
-            composing.append(text)
+            appendComposing(text)
             updateComposingText(ic)
             refreshSuggestions()
             consumeShift()
@@ -3354,7 +3412,7 @@ open class WMKeyboardService : InputMethodService() {
         }
 
         if (isWordChar && composingMode) {
-            composing.append(text)
+            appendComposing(text)
             updateComposingText(ic)
             refreshSuggestions()
             consumeShift()
@@ -3746,6 +3804,7 @@ open class WMKeyboardService : InputMethodService() {
         }
         if (composing.isNotEmpty()) {
             composing.deleteCharAt(composing.length - 1)
+            composingTouch.removeLastOrNull()
             updateComposingText(ic)
             refreshSuggestions()
         } else {
@@ -4140,6 +4199,7 @@ open class WMKeyboardService : InputMethodService() {
         // A word in progress lives in the composing buffer, not the field.
         if (composing.isNotEmpty()) {
             composing.setLength(0)
+            composingTouch.clear()
             updateComposingText(ic)
             refreshSuggestions()
             return
@@ -4809,7 +4869,8 @@ open class WMKeyboardService : InputMethodService() {
             apostrophized != null -> apostrophized
             autocorrect && state.allowsTypingIntelligence && !gluedToWord -> {
                 corrected = if (pre != null && !pre.isBengali) pre.correction
-                else suggestionEngine?.shouldAutocorrect(typed)?.takeIf { it != typed }
+                else suggestionEngine?.shouldAutocorrect(typed, touch = composingTouchFrame())
+                    ?.takeIf { it != typed }
                 corrected ?: typed
             }
             else -> typed
@@ -5684,11 +5745,13 @@ open class WMKeyboardService : InputMethodService() {
             // clamped so it never becomes perceptible.
             delay((suggestionCostMs / 2).coerceIn(16L, 40L))
             val started = SystemClock.uptimeMillis()
+            val touchFrame = composingTouchFrame()
             val (results, emojis, bias) = withContext(Dispatchers.Default) {
                 val suggested = engine.suggest(
                     composing = typed,
                     previousWord = previousWord,
                     avroMode = state.composer.isBengaliPhonetic,
+                    touch = touchFrame,
                 )
                 // A28: a personal-dictionary shortcut typed in full offers its
                 // expansion as the top chip (e.g. "omw" → "on my way"). Prepended
@@ -5730,7 +5793,8 @@ open class WMKeyboardService : InputMethodService() {
                         typed = typed,
                         isBengali = false,
                         bengaliTop = null,
-                        correction = engine.shouldAutocorrect(typed)?.takeIf { it != typed },
+                        correction = engine.shouldAutocorrect(typed, touch = touchFrame)
+                            ?.takeIf { it != typed },
                     )
                     else -> null
                 }
