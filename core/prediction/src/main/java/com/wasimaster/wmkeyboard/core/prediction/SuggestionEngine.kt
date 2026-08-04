@@ -83,6 +83,21 @@ class SuggestionEngine(
      * (set by the IME on input-mode changes; AZERTY/Dvorak fat-fingers land
      * on different neighbours than QWERTY's).
      */
+    /**
+     * Key-center model of the live layout in key-width units, fed by the IME
+     * alongside proximity. Null (or a tap list of nulls) falls back to the
+     * discrete adjacency weights, so hardware keyboards, pasted text and
+     * re-armed words behave exactly as before.
+     */
+    @Volatile
+    private var touchModelField: KeyTouchModel? = null
+    var touchModel: KeyTouchModel?
+        get() = touchModelField
+        set(value) {
+            touchModelField = value
+            generation.incrementAndGet()
+        }
+
     @Volatile
     private var proximityField: KeyProximity = KeyProximity.QWERTY
     var proximity: KeyProximity
@@ -304,25 +319,40 @@ class SuggestionEngine(
         val generation: Long,
         val lexMutations: Long,
         val k: Int,
+        /** Defensive copy of the tap list; compared structurally (element
+         * identity) so in-place mutation of the caller's buffer misses. */
+        val touch: List<TouchPoint?>?,
         val ranked: List<FuzzyBeamSearch.ScoredCandidate>,
     )
 
     @Volatile
     private var rankedWalk: RankedWalk? = null
 
-    private fun rankedFor(lower: String, limit: Int): List<FuzzyBeamSearch.ScoredCandidate> {
+    private fun rankedFor(
+        lower: String,
+        limit: Int,
+        touch: List<TouchPoint?>?,
+    ): List<FuzzyBeamSearch.ScoredCandidate> {
         val k = maxOf(limit * 2, FuzzyBeamSearch.AUTOCORRECT_K)
         val gen = generation.get()
         val lexGen = userLexicon.mutationCount()
         rankedWalk?.let { cached ->
             if (cached.word == lower && cached.generation == gen &&
-                cached.lexMutations == lexGen && cached.k >= k
+                cached.lexMutations == lexGen && cached.k >= k && cached.touch == touch
             ) {
                 return cached.ranked
             }
         }
-        val ranked = beam.search(walkSources(), lower, proximity, limit, beamWorkspace.get())
-        rankedWalk = RankedWalk(lower, gen, lexGen, k, ranked)
+        val model = touchModelField
+        val scoring = if (model != null && touch != null && touch.any { it != null }) {
+            FuzzyBeamSearch.TouchScoring(model, touch)
+        } else {
+            null
+        }
+        val ranked = beam.search(
+            walkSources(), lower, proximity, limit, beamWorkspace.get(), touch = scoring,
+        )
+        rankedWalk = RankedWalk(lower, gen, lexGen, k, touch?.let(::ArrayList), ranked)
         return ranked
     }
 
@@ -495,6 +525,7 @@ class SuggestionEngine(
         previousWord: String?,
         avroMode: Boolean = false,
         limit: Int = 5,
+        touch: List<TouchPoint?>? = null,
     ): List<String> {
         if (composing.isEmpty()) {
             return nextWords(previousWord, limit)
@@ -511,7 +542,7 @@ class SuggestionEngine(
         // source. Corrections (edited paths) are admitted only when the typed
         // word is unknown, matching the historical gate; pure completions
         // (edits == 0) always participate.
-        for (c in rankedFor(lower, limit)) {
+        for (c in rankedFor(lower, limit, touch)) {
             if (c.edits > 0 && known) continue
             merged.merge(c.word, c.score, ::maxOf)
         }
@@ -671,7 +702,7 @@ class SuggestionEngine(
      * it, or its score beats the runner-up by [autocorrectConfidence].
      * Anything closer stays in the suggestion strip for the user to pick.
      */
-    fun shouldAutocorrect(word: String): String? {
+    fun shouldAutocorrect(word: String, touch: List<TouchPoint?>? = null): String? {
         val lower = word.lowercase()
         if (lower.length < 3) return null
         // An all-caps word is a deliberate acronym or shout, not a typo of a
@@ -684,7 +715,7 @@ class SuggestionEngine(
         if (contacts.contains(lower) || apps.contains(lower)) return null
 
         val candidates = rankedFor(
-            lower, FuzzyBeamSearch.AUTOCORRECT_K / 2,
+            lower, FuzzyBeamSearch.AUTOCORRECT_K / 2, touch,
         ).filter { c ->
             // Silent replacement only trusts classic one-edit shapes: a single
             // edit within one character of the typed length, or the

@@ -33,6 +33,13 @@ class FuzzyBeamSearch {
 
     enum class Tier { DICTIONARY, USER }
 
+    /**
+     * Per-keystroke touch evidence: the layout's key-center model plus the
+     * tap position for each composing character (null where unknown —
+     * hardware keys, pasted text, re-armed words).
+     */
+    class TouchScoring(val model: KeyTouchModel, val points: List<TouchPoint?>)
+
     class ScoredCandidate(
         val word: String,
         val score: Double,
@@ -54,6 +61,7 @@ class FuzzyBeamSearch {
         limit: Int,
         workspace: BeamWorkspace,
         maxEdits: Int = defaultMaxEdits(typed.length),
+        touch: TouchScoring? = null,
     ): List<ScoredCandidate> {
         if (typed.isEmpty() || limit <= 0) return emptyList()
         val k = maxOf(limit * 2, AUTOCORRECT_K)
@@ -68,7 +76,7 @@ class FuzzyBeamSearch {
         for (src in ordered) {
             val rootBound = src.logWeight + ln1p(src.walker.maxSubtree(src.walker.root))
             if (rootBound < floor - EPS) continue
-            floor = searchOne(src, typed, proximity, maxEdits, k, results, floor, workspace)
+            floor = searchOne(src, typed, proximity, maxEdits, k, results, floor, workspace, touch)
         }
 
         return results.values.sortedWith(
@@ -86,13 +94,14 @@ class FuzzyBeamSearch {
         results: HashMap<String, ScoredCandidate>,
         floorIn: Double,
         ws: BeamWorkspace,
+        touch: TouchScoring?,
     ): Double {
         var floor = floorIn
         val walker = src.walker
         val n = typed.length
         ws.reset()
         ws.pushState(
-            node = walker.root, pos = 0, cost = 0.0, edits = 0, comp = 0,
+            node = walker.root, pos = 0, cost = 0.0, editSpend = 0.0, edits = 0, comp = 0,
             parent = -1, viaLabel = BeamWorkspace.NO_LABEL,
             bound = src.logWeight + ln1p(walker.maxSubtree(walker.root)),
         )
@@ -104,6 +113,7 @@ class FuzzyBeamSearch {
             val node = ws.node[s]
             val pos = ws.pos[s].toInt()
             val cost = ws.cost[s]
+            val editSpend = ws.editCost[s]
             val edits = ws.edits[s].toInt()
             val comp = ws.comp[s].toInt()
 
@@ -111,7 +121,7 @@ class FuzzyBeamSearch {
                 if (walker.isWord(node)) {
                     val score = src.logWeight + ln1p(walker.frequency(node)) - cost
                     if (score > floor - EPS || results.size < k) {
-                        emit(ws.materialize(s), score, cost, edits, comp, src.tier, results)
+                        emit(ws.materialize(s), score, editSpend, edits, comp, src.tier, results)
                         if (results.size >= k) floor = kthBest(results, k)
                     }
                 }
@@ -127,7 +137,7 @@ class FuzzyBeamSearch {
                     val child = ws.children.nodes[i]
                     pushIfViable(
                         ws, src, walker, floor,
-                        node = child, pos = n, cost = cost + step,
+                        node = child, pos = n, cost = cost + step, editSpend = editSpend,
                         edits = edits, comp = comp + 1, parent = s,
                         viaLabel = ws.children.labels[i],
                     )
@@ -136,25 +146,31 @@ class FuzzyBeamSearch {
             }
 
             val expected = typed[pos]
-            // Exact match of the next typed char.
+            // Exact match of the next typed char. With touch evidence, an
+            // off-center tap makes even the "match" slightly expensive —
+            // which is exactly what lets the neighbouring key's word win.
             val matched = walker.child(node, expected)
             if (matched >= 0) {
                 pushIfViable(
                     ws, src, walker, floor,
-                    node = matched, pos = pos + 1, cost = cost,
+                    node = matched, pos = pos + 1,
+                    cost = cost + matchCost(touch, pos, expected),
+                    editSpend = editSpend,
                     edits = edits, comp = comp, parent = s, viaLabel = expected,
                 )
             }
 
-            if (edits < maxEdits && cost < MAX_EDIT_COST) {
-                // Budget gates compare base costs; the second-edit surcharge
-                // is a ranking penalty, not budget spend.
+            if (edits < maxEdits && editSpend < MAX_EDIT_COST) {
+                // Budget gates compare base edit costs; the second-edit
+                // surcharge and touch/match adjustments are ranking signal,
+                // not budget spend.
                 val surcharge = if (edits + 1 >= 2) SECOND_EDIT_SURCHARGE else 0.0
                 // Deletion: the typed char was an extra keypress — skip it.
-                if (cost + COST_DELETION <= MAX_EDIT_COST) {
+                if (editSpend + COST_DELETION <= MAX_EDIT_COST) {
                     pushIfViable(
                         ws, src, walker, floor,
                         node = node, pos = pos + 1, cost = cost + COST_DELETION + surcharge,
+                        editSpend = editSpend + COST_DELETION,
                         edits = edits + 1, comp = comp, parent = s,
                         viaLabel = BeamWorkspace.NO_LABEL,
                     )
@@ -166,15 +182,12 @@ class FuzzyBeamSearch {
                     val label = ws.children.labels[i]
                     val child = ws.children.nodes[i]
                     if (label != expected) {
-                        val subCost = if (proximity.areAdjacent(expected, label)) {
-                            COST_SUB_ADJACENT
-                        } else {
-                            COST_SUB_FAR
-                        }
-                        if (cost + subCost <= MAX_EDIT_COST) {
+                        val subCost = substitutionCost(touch, pos, expected, label, proximity)
+                        if (editSpend + subCost <= MAX_EDIT_COST) {
                             pushIfViable(
                                 ws, src, walker, floor,
                                 node = child, pos = pos + 1, cost = cost + subCost + surcharge,
+                                editSpend = editSpend + subCost,
                                 edits = edits + 1, comp = comp, parent = s, viaLabel = label,
                             )
                         }
@@ -184,17 +197,18 @@ class FuzzyBeamSearch {
                     val adjacentToTyped = proximity.areAdjacent(expected, label) ||
                         (pos > 0 && proximity.areAdjacent(typed[pos - 1], label))
                     val insCost = if (adjacentToTyped) COST_INSERT_ADJACENT else COST_INSERT_FAR
-                    if (cost + insCost <= MAX_EDIT_COST) {
+                    if (editSpend + insCost <= MAX_EDIT_COST) {
                         pushIfViable(
                             ws, src, walker, floor,
                             node = child, pos = pos, cost = cost + insCost + surcharge,
+                            editSpend = editSpend + insCost,
                             edits = edits + 1, comp = comp, parent = s, viaLabel = label,
                         )
                     }
                 }
                 // Transposition of the next two typed chars.
                 if (pos + 1 < n && typed[pos] != typed[pos + 1] &&
-                    cost + COST_TRANSPOSITION <= MAX_EDIT_COST
+                    editSpend + COST_TRANSPOSITION <= MAX_EDIT_COST
                 ) {
                     val first = walker.child(node, typed[pos + 1])
                     if (first >= 0) {
@@ -204,13 +218,14 @@ class FuzzyBeamSearch {
                             // into the parent chain; it never enters the heap.
                             val link = ws.pushRecord(
                                 node = first, pos = pos + 1, cost = cost,
-                                edits = edits, comp = comp, parent = s,
-                                viaLabel = typed[pos + 1],
+                                editSpend = editSpend, edits = edits, comp = comp,
+                                parent = s, viaLabel = typed[pos + 1],
                             )
                             pushIfViable(
                                 ws, src, walker, floor,
                                 node = second, pos = pos + 2,
                                 cost = cost + COST_TRANSPOSITION + surcharge,
+                                editSpend = editSpend + COST_TRANSPOSITION,
                                 edits = edits + 1, comp = comp, parent = link,
                                 viaLabel = typed[pos],
                             )
@@ -231,6 +246,7 @@ class FuzzyBeamSearch {
         node: Int,
         pos: Int,
         cost: Double,
+        editSpend: Double,
         edits: Int,
         comp: Int,
         parent: Int,
@@ -238,7 +254,39 @@ class FuzzyBeamSearch {
     ) {
         val bound = src.logWeight + ln1p(walker.maxSubtree(node)) - cost
         if (bound < floor - EPS) return
-        ws.pushState(node, pos, cost, edits, comp, parent, viaLabel, bound)
+        ws.pushState(node, pos, cost, editSpend, edits, comp, parent, viaLabel, bound)
+    }
+
+    /**
+     * Rank cost of consuming [expected] as itself. Zero without touch data;
+     * with a tap position, the likelihood gap to the tap's best key (capped).
+     */
+    private fun matchCost(touch: TouchScoring?, pos: Int, expected: Char): Double {
+        val p = touch?.points?.getOrNull(pos) ?: return 0.0
+        if (!touch.model.knows(expected)) return 0.0
+        val best = touch.model.bestKey(p) ?: return 0.0
+        val gap = touch.model.logLikelihood(p, best) - touch.model.logLikelihood(p, expected)
+        return gap.coerceIn(0.0, MATCH_CAP)
+    }
+
+    /**
+     * Cost of assuming the user meant [label] where they typed [expected].
+     * With a tap position, substituting toward the key the finger actually
+     * landed near is nearly free; without one, the discrete adjacency weights.
+     */
+    private fun substitutionCost(
+        touch: TouchScoring?,
+        pos: Int,
+        expected: Char,
+        label: Char,
+        proximity: KeyProximity,
+    ): Double {
+        val p = touch?.points?.getOrNull(pos)
+        if (p == null || !touch.model.knows(expected) || !touch.model.knows(label)) {
+            return if (proximity.areAdjacent(expected, label)) COST_SUB_ADJACENT else COST_SUB_FAR
+        }
+        val gap = touch.model.logLikelihood(p, expected) - touch.model.logLikelihood(p, label)
+        return COST_SUB_ADJACENT + gap.coerceIn(0.0, COST_SUB_FAR - COST_SUB_ADJACENT)
     }
 
     private fun emit(
@@ -313,6 +361,9 @@ class FuzzyBeamSearch {
         /** Autocorrect wants a deeper ranked list than the strip shows. */
         const val AUTOCORRECT_K = 8
 
+        /** Cap on the rank cost an off-center tap adds to an exact match. */
+        const val MATCH_CAP = 1.0
+
         /** Runaway-state backstop; floor pruning ends healthy walks long before. */
         const val MAX_POPS = 4096
 
@@ -334,6 +385,7 @@ class BeamWorkspace(initialCapacity: Int = 256) {
     var node = IntArray(initialCapacity); private set
     var pos = ShortArray(initialCapacity); private set
     var cost = DoubleArray(initialCapacity); private set
+    var editCost = DoubleArray(initialCapacity); private set
     var edits = ByteArray(initialCapacity); private set
     var comp = ByteArray(initialCapacity); private set
     var parent = IntArray(initialCapacity); private set
@@ -358,6 +410,7 @@ class BeamWorkspace(initialCapacity: Int = 256) {
         node: Int,
         pos: Int,
         cost: Double,
+        editSpend: Double,
         edits: Int,
         comp: Int,
         parent: Int,
@@ -368,6 +421,7 @@ class BeamWorkspace(initialCapacity: Int = 256) {
         this.node[id] = node
         this.pos[id] = pos.toShort()
         this.cost[id] = cost
+        this.editCost[id] = editSpend
         this.edits[id] = edits.toByte()
         this.comp[id] = comp.toByte()
         this.parent[id] = parent
@@ -381,13 +435,14 @@ class BeamWorkspace(initialCapacity: Int = 256) {
         node: Int,
         pos: Int,
         cost: Double,
+        editSpend: Double,
         edits: Int,
         comp: Int,
         parent: Int,
         viaLabel: Char,
         bound: Double,
     ): Int {
-        val id = pushRecord(node, pos, cost, edits, comp, parent, viaLabel)
+        val id = pushRecord(node, pos, cost, editSpend, edits, comp, parent, viaLabel)
         this.bound[id] = bound
         heapPush(id)
         return id
@@ -423,6 +478,7 @@ class BeamWorkspace(initialCapacity: Int = 256) {
         node = node.copyOf(capacity)
         pos = pos.copyOf(capacity)
         cost = cost.copyOf(capacity)
+        editCost = editCost.copyOf(capacity)
         edits = edits.copyOf(capacity)
         comp = comp.copyOf(capacity)
         parent = parent.copyOf(capacity)
