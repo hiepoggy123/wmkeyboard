@@ -192,6 +192,14 @@ class SuggestionEngine(
     var contextWords: Set<String> = emptySet()
 
     /**
+     * Optional reordering model over the ranked top candidates; see
+     * [CandidateReranker]. Applied only when the caller passes
+     * `allowRerank = true` — the synchronous main-thread call sites never do.
+     */
+    @Volatile
+    var reranker: CandidateReranker = CandidateReranker.NONE
+
+    /**
      * Bengali index, rebuilt when an imported Bengali list arrives so its
      * words become reachable by transliteration too.
      */
@@ -546,6 +554,9 @@ class SuggestionEngine(
         private const val JOIN_MAX_LENGTH = 24
         private const val JOIN_MIN_FREQ = 50
         private const val JOIN_CONFIDENCE = 1.25
+
+        /** How many ranked candidates a reranker may reorder. */
+        private const val RERANK_POOL = 8
     }
 
     /**
@@ -561,6 +572,8 @@ class SuggestionEngine(
         limit: Int = 5,
         touch: List<TouchPoint?>? = null,
         previousWord2: String? = null,
+        recentWords: List<String> = emptyList(),
+        allowRerank: Boolean = false,
     ): List<String> {
         if (composing.isEmpty()) {
             return nextWords(previousWord, previousWord2, limit)
@@ -648,7 +661,7 @@ class SuggestionEngine(
             val current = byLower[key]
             if (current == null || score > current.second) byLower[key] = word to score
         }
-        return byLower.values
+        val ranked = byLower.values
             .sortedWith(
                 // Deterministic: score, then word — HashMap iteration order
                 // must never decide a tie.
@@ -657,11 +670,24 @@ class SuggestionEngine(
             .asSequence()
             .map { it.first }
             .filterNot(::suppressed)
+            .take(maxOf(limit, RERANK_POOL))
+            .toList()
+
+        // Optional model pass over the head of the list; null keeps our order.
+        val reordered = if (allowRerank && reranker !== CandidateReranker.NONE) {
+            val pool = ranked.take(RERANK_POOL)
+            reranker.rerank(RerankContext(composing, previousWord, recentWords), pool)
+                ?.filter { it in pool }
+                ?.let { it + ranked.filterNot(it::contains) }
+        } else {
+            null
+        }
+
+        return (reordered ?: ranked)
             .take(limit)
             // Emails are stored verbatim; case-matching the typed prefix would
             // corrupt the address ("John" -> "John.doe@..."). Commit as stored.
             .map { if (it.contains('@')) it else matchCase(composing, it) }
-            .toList()
     }
 
     /** Log-space score for the flat (non-trie) sources, comparable with the
