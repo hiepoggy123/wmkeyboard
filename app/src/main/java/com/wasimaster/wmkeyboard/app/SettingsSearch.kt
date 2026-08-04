@@ -393,6 +393,11 @@ private fun Resources.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
         R.string.tooldetail_clipboard_sensitive_expiry_subtitle,
     ),
     toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_bottom_row_title, R.string.tooldetail_clipboard_bottom_row_subtitle),
+    toolEntry(
+        ToolbarTool.CLIPBOARD,
+        R.string.tooldetail_clipboard_full_bleed_title,
+        R.string.tooldetail_clipboard_full_bleed_subtitle,
+    ),
     toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_pinned_last_title, R.string.tooldetail_clipboard_pinned_last_subtitle),
     toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_search_title, R.string.tooldetail_clipboard_search_subtitle),
     toolEntry(

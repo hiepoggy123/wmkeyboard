@@ -7205,6 +7205,14 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
+                        R.string.tooldetail_clipboard_full_bleed_title,
+                        stringResource(R.string.tooldetail_clipboard_full_bleed_subtitle),
+                        settings.clipboard.fullBleed,
+                        info = stringResource(R.string.tooldetail_clipboard_full_bleed_info),
+                    ) { scope.launch { repository.setClipboardFullBleed(it) } }
+                }
+                item {
+                    ToggleSetting(
                         R.string.tooldetail_clipboard_pinned_last_title,
                         stringResource(R.string.tooldetail_clipboard_pinned_last_subtitle),
                         settings.clipboard.pinnedLast,

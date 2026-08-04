@@ -1749,6 +1749,13 @@ data class ClipboardSettings(
      * verification SMS are one tap away instead of a copy-edit-paste.
      */
     val detectEntities: Boolean = true,
+    /**
+     * Let the clipboard panel take the whole keyboard, hiding the toolbar the
+     * way the emoji and media panels can — the reclaimed rows go to more
+     * history cards. Off by default: the panel is usually a quick paste stop,
+     * and losing the toolbar costs more than two extra cards are worth.
+     */
+    val fullBleed: Boolean = false,
 )
 
 /**
@@ -2529,6 +2536,7 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE =
             booleanPreferencesKey("clipboard_clear_after_password_paste")
         private val CLIPBOARD_DETECT_ENTITIES = booleanPreferencesKey("clipboard_detect_entities")
+        private val CLIPBOARD_FULL_BLEED = booleanPreferencesKey("clipboard_full_bleed")
         private val OTP_CHIP_ENABLED = booleanPreferencesKey("otp_chip_enabled")
         private val OTP_NUMBER_FIELDS_ONLY = booleanPreferencesKey("otp_number_fields_only")
         private val OTP_EXPIRY_MINUTES = intPreferencesKey("otp_expiry_minutes")
@@ -3169,6 +3177,7 @@ class SettingsRepository(private val context: Context) {
                 clearAfterPasswordPaste = p[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE]
                     ?: defaults.clipboard.clearAfterPasswordPaste,
                 detectEntities = p[CLIPBOARD_DETECT_ENTITIES] ?: defaults.clipboard.detectEntities,
+                fullBleed = p[CLIPBOARD_FULL_BLEED] ?: defaults.clipboard.fullBleed,
             ),
             otp = OtpSettings(
                 enabled = p[OTP_CHIP_ENABLED] ?: defaults.otp.enabled,
@@ -5614,6 +5623,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardDetectEntities(value: Boolean) =
         editPrefs { it[CLIPBOARD_DETECT_ENTITIES] = value }
+
+    suspend fun setClipboardFullBleed(value: Boolean) =
+        editPrefs { it[CLIPBOARD_FULL_BLEED] = value }
 
     suspend fun setOtpChipEnabled(value: Boolean) =
         editPrefs { it[OTP_CHIP_ENABLED] = value }

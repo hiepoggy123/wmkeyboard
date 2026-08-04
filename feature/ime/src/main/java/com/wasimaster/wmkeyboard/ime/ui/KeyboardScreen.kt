@@ -4936,6 +4936,7 @@ private val FullBleedPanels = setOf(
 private fun isFullBleedPanel(panel: PanelMode, settings: KeyboardSettings): Boolean = when (panel) {
     PanelMode.EMOJI -> settings.emojiFullBleed
     PanelMode.GIF, PanelMode.STICKER -> settings.mediaFullBleed
+    PanelMode.CLIPBOARD -> settings.clipboard.fullBleed
     else -> panel in FullBleedPanels
 }
 
@@ -5201,17 +5202,6 @@ private fun KeyboardBody(
             // symbol row) too: the tool absorbs those rows' height, so it
             // gets every pixel the keyboard owns. OCR draws its own chrome;
             // the rest get the [FullBleedTool] back-header wrapper.
-            val fullBleed = isFullBleedPanel(state.panel, state.settings)
-            val emojiRowVisible = !fullBleed &&
-                state.settings.emojiBarMode == EmojiBarMode.ALWAYS && state.panel != PanelMode.EMOJI
-            // The symbols panel already is special characters — the row
-            // would be redundant there, so it yields like the emoji row.
-            val symbolRowVisible = !fullBleed &&
-                state.settings.symbolRowEnabled && state.panel != PanelMode.SYMBOLS
-            // The rows stack in the user's chosen order (Rows settings).
-            // While an emoji search is typing, the toolbar is dead weight —
-            // hide it and let the panel spend the height on result rows.
-            val emojiSearching = state.panel == PanelMode.EMOJI && state.emojiSearchActive
             // Lock-screen privacy: with the setting on and the keyguard up, drop
             // the whole top strip (suggestions + toolbar, so the clipboard tool
             // and paste chip go with it) and block the clipboard panel, keeping
@@ -5224,6 +5214,20 @@ private fun KeyboardBody(
             // place there, and a second set would double them.
             val clipboardSearching = state.panel == PanelMode.CLIPBOARD &&
                 state.clipboardSearchActive && !lockHidden
+            // The searching clipboard panel steps out of full-bleed: search
+            // already owns the toolbar row's height, and the keys below need
+            // their usual rows around them.
+            val fullBleed = isFullBleedPanel(state.panel, state.settings) && !clipboardSearching
+            val emojiRowVisible = !fullBleed &&
+                state.settings.emojiBarMode == EmojiBarMode.ALWAYS && state.panel != PanelMode.EMOJI
+            // The symbols panel already is special characters — the row
+            // would be redundant there, so it yields like the emoji row.
+            val symbolRowVisible = !fullBleed &&
+                state.settings.symbolRowEnabled && state.panel != PanelMode.SYMBOLS
+            // The rows stack in the user's chosen order (Rows settings).
+            // While an emoji search is typing, the toolbar is dead weight —
+            // hide it and let the panel spend the height on result rows.
+            val emojiSearching = state.panel == PanelMode.EMOJI && state.emojiSearchActive
             for (row in state.settings.barOrder) {
                 when (row) {
                     // Disabling the toolbar drops the whole strip — suggestions
@@ -5305,14 +5309,38 @@ private fun KeyboardBody(
                     // Toggling the open panel closes it — back to the keys.
                     onClose = { onPanelChange(PanelMode.EMOJI) },
                 )
-                PanelMode.CLIPBOARD -> ClipboardPanel(
-                    state, onClipboardItem, onClipboardSticker, onClipboardPin, onClipboardDelete,
-                    onClipboardSearchToggle = onClipboardSearchToggle,
-                    onClipboardEntity = onClipboardEntity,
-                    onKey = onKey,
-                    // Toggling the open panel closes it — back to the keys.
-                    onClose = { onPanelChange(PanelMode.CLIPBOARD) },
-                )
+                PanelMode.CLIPBOARD -> if (
+                    state.settings.clipboard.fullBleed && !state.clipboardSearchActive
+                ) {
+                    // Full-bleed (opt-in): the toolbar row becomes the back
+                    // header and the reclaimed rows show more history cards.
+                    // Search steps back to the plain panel — its collapsed
+                    // form already shares the screen with the keys.
+                    FullBleedTool(
+                        state, stringResource(R.string.ime_tool_clipboard),
+                        onClose = { onPanelChange(PanelMode.CLIPBOARD) },
+                    ) {
+                        ClipboardPanel(
+                            state, onClipboardItem, onClipboardSticker, onClipboardPin,
+                            onClipboardDelete,
+                            onClipboardSearchToggle = onClipboardSearchToggle,
+                            onClipboardEntity = onClipboardEntity,
+                            onKey = onKey,
+                            onClose = { onPanelChange(PanelMode.CLIPBOARD) },
+                            fullBleed = true,
+                        )
+                    }
+                } else {
+                    ClipboardPanel(
+                        state, onClipboardItem, onClipboardSticker, onClipboardPin,
+                        onClipboardDelete,
+                        onClipboardSearchToggle = onClipboardSearchToggle,
+                        onClipboardEntity = onClipboardEntity,
+                        onKey = onKey,
+                        // Toggling the open panel closes it — back to the keys.
+                        onClose = { onPanelChange(PanelMode.CLIPBOARD) },
+                    )
+                }
                 PanelMode.SNIPPETS -> SnippetsPanel(
                     state, onSnippet,
                     onOpenSettings = { onOpenToolSettings(ToolbarTool.SNIPPETS) },
@@ -10803,6 +10831,8 @@ private fun ClipboardPanel(
     onClipboardEntity: (ClipEntity) -> Unit,
     onKey: (Key) -> Unit,
     onClose: () -> Unit,
+    // Inside a [FullBleedTool], which owns the height — the content fills it.
+    fullBleed: Boolean = false,
 ) {
     // Searching hands the key rows back (they are how the query gets typed), so
     // the panel shrinks to its search field plus a couple of result rows and the
@@ -10821,12 +10851,16 @@ private fun ClipboardPanel(
         keyRowsHeight(state)
     }
     val contentHeight = panelHeight - if (showBottomRow) barHeight else 0.dp
-    Column {
+    Column(modifier = if (fullBleed) Modifier.fillMaxSize() else Modifier) {
         ClipboardPanelContent(
             state, onClipboardItem, onClipboardSticker, onClipboardPin, onClipboardDelete,
             onClipboardSearchToggle = onClipboardSearchToggle,
             onClipboardEntity = onClipboardEntity,
-            height = contentHeight,
+            modifier = if (fullBleed) {
+                Modifier.fillMaxWidth().weight(1f)
+            } else {
+                Modifier.fillMaxWidth().height(contentHeight)
+            },
         )
         if (showBottomRow) {
             EmojiBottomBar(state = state, onKey = onKey, onClose = onClose)
@@ -10897,16 +10931,14 @@ private fun ClipboardPanelContent(
     onClipboardDelete: (ClipItem) -> Unit,
     onClipboardSearchToggle: () -> Unit,
     onClipboardEntity: (ClipEntity) -> Unit,
-    height: Dp,
+    modifier: Modifier,
 ) {
     // The search bar is only offered once there is history to filter and the
     // feature is on; an empty panel just shows the placeholder.
     val showSearch = state.settings.clipboard.search && state.clipboardItems.isNotEmpty()
     if (state.clipboardItems.isEmpty()) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(height),
+            modifier = modifier,
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -10964,7 +10996,7 @@ private fun ClipboardPanelContent(
     val focused = state.focusedIndex()
     val gridState = rememberLazyStaggeredGridState()
     ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
-    Column(modifier = Modifier.height(height)) {
+    Column(modifier = modifier) {
         if (showSearch) {
             ClipboardSearchField(
                 state = state,

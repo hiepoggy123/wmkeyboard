@@ -495,6 +495,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.tooldetail_clipboard_detect_sensitive_title, Icons.Outlined.Search)
     put(R.string.tooldetail_clipboard_sensitive_expiry_title, Icons.Outlined.Timer)
     put(R.string.tooldetail_clipboard_bottom_row_title, Icons.Outlined.ViewAgenda)
+    put(R.string.tooldetail_clipboard_full_bleed_title, Icons.Outlined.Fullscreen)
     put(R.string.tooldetail_clipboard_pinned_last_title, Icons.Outlined.PushPin)
     put(R.string.tooldetail_clipboard_search_title, Icons.Outlined.Search)
     put(R.string.tooldetail_clipboard_password_paste_title, Icons.Outlined.Password)
