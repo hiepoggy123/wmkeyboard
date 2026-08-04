@@ -86,7 +86,9 @@ object ClipEntities {
         RegexOption.IGNORE_CASE,
     )
 
-    private val PHONE = Regex("""(?<![\d+])\+?\d[\d ().\-]{5,18}\d(?!\d)""")
+    // The word-character guards keep digit runs glued to an identifier out —
+    // `emoji_864356927` is a filename's tail, not a number to dial.
+    private val PHONE = Regex("""(?<![\w+])\+?\d[\d ().\-]{5,18}\d(?!\w)""")
 
     /**
      * `2024-05-12`, `12/05/24` — right digit count, wrong meaning. Pinned to

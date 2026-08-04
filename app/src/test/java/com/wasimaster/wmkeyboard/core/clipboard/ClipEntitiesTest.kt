@@ -73,6 +73,13 @@ class ClipEntitiesTest {
         assertEquals(emptyList<String>(), values("suite 12-345", ClipEntityKind.PHONE))
     }
 
+    @Test fun digitsInsideAnIdentifierAreNotAPhoneNumber() {
+        // The tail of a generated filename shares a dialable length.
+        assertEquals(emptyList<String>(), values("saved as emoji_864356927", ClipEntityKind.PHONE))
+        assertEquals(emptyList<String>(), values("build 864356927beta ready", ClipEntityKind.PHONE))
+        assertEquals(emptyList<String>(), values("token 864356927_v2 issued", ClipEntityKind.PHONE))
+    }
+
     // ---- links ----
 
     @Test fun findsLinkInsideASentence() {
