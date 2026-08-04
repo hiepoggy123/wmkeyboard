@@ -437,6 +437,11 @@ open class WMKeyboardService : InputMethodService() {
         }
     private var previousWord: String? = null
 
+    /** The word before [previousWord], for trigram context. Null whenever a
+     * boundary intervenes or recovery is ambiguous — trigram prediction then
+     * silently degrades to bigram. */
+    private var previousWord2: String? = null
+
     /**
      * Tap position (key-width units, keyboard space) for each character in
      * [composing], null where unknown — hardware keys, dead-key output,
@@ -3359,6 +3364,7 @@ open class WMKeyboardService : InputMethodService() {
             _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
             if (text.length == 1 && text[0] in SENTENCE_ENDERS) {
                 previousWord = WordContext.SENTENCE_START
+                previousWord2 = null
                 maybeAutoCapitalize()
             }
             return
@@ -3464,6 +3470,7 @@ open class WMKeyboardService : InputMethodService() {
                 // The next word starts a sentence: its bigram context is the
                 // sentinel, not the word before the full stop.
                 previousWord = WordContext.SENTENCE_START
+                previousWord2 = null
                 maybeAutoCapitalize()
             }
             // Email fields commit straight through (no composing buffer), so the
@@ -3863,7 +3870,7 @@ open class WMKeyboardService : InputMethodService() {
             // stops being true.
             if (before != null && deleteLength <= before.length) {
                 val left = before.subSequence(0, before.length - deleteLength)
-                previousWord = completedWordBefore(left)
+                setContextFrom(left)
                 rebuildRecentWords(left)
             } else {
                 syncPreviousWordFromField(ic)
@@ -3995,7 +4002,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun syncPreviousWordFromField(ic: InputConnection) {
         val before = ic.getTextBeforeCursor(64, 0)
-        previousWord = completedWordBefore(before)
+        setContextFrom(before)
         rebuildRecentWords(before)
     }
 
@@ -4048,6 +4055,13 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun completedWordBefore(text: CharSequence?): String? =
         WordContext.completedWordBefore(text, SENTENCE_ENDERS)
+
+    /** Sets both context words from the text before the caret. */
+    private fun setContextFrom(text: CharSequence?) {
+        val (prev1, prev2) = WordContext.lastTwoWords(text, SENTENCE_ENDERS)
+        previousWord = prev1
+        previousWord2 = prev2
+    }
 
     /**
      * Re-reads the context around a cursor that moved without going through a
@@ -4137,7 +4151,7 @@ open class WMKeyboardService : InputMethodService() {
                 ) {
                     composing = StringBuilder(word)
                     val ahead = before.subSequence(0, before.length - word.length)
-                    previousWord = completedWordBefore(ahead)
+                    setContextFrom(ahead)
                     rebuildRecentWords(ahead)
                     _uiState.update { it.copy(composingPreview = word) }
                     refreshSuggestions()
@@ -4151,7 +4165,7 @@ open class WMKeyboardService : InputMethodService() {
         // `beforeText` is null exactly when the branch above never read it.
         val cached = beforeText
         if (cached != null) {
-            previousWord = completedWordBefore(cached)
+            setContextFrom(cached)
             rebuildRecentWords(cached)
         } else {
             syncPreviousWordFromField(ic)
@@ -4945,7 +4959,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun afterSnippetExpansion(inserted: String, original: String?, caretParked: Boolean) {
         composing = StringBuilder()
-        previousWord = completedWordBefore(inserted)
+        setContextFrom(inserted)
         invalidateRecentWords()
         commitResolution = null
         lastGestureWord = null
@@ -5246,7 +5260,7 @@ open class WMKeyboardService : InputMethodService() {
             return emptyList<String>() to emptyList()
         }
         val (emojis, words) = engine
-            .suggest(composing = "", previousWord = previousWord)
+            .suggest(composing = "", previousWord = previousWord, previousWord2 = previousWord2)
             .partition { isEmojiCandidate(it) }
         return words to if (state.settings.emojiPrediction) {
             (emojis + triggerEmojiForPreviousWord()).distinct()
@@ -5300,11 +5314,13 @@ open class WMKeyboardService : InputMethodService() {
         // lexicon was allowed to keep, so it is fed on both paths.
         for (part in word.split(' ')) pushRecentWord(part)
         if (!learningAllowed) {
+            previousWord2 = previousWord
             previousWord = word
             return
         }
         val state = _uiState.value
         var previous = previousWord
+        var beforePrevious = previousWord2
         var lastLearned: String? = null
         for (part in word.split(' ')) {
             val cleaned = part.trim { !it.isLetter() }
@@ -5321,13 +5337,18 @@ open class WMKeyboardService : InputMethodService() {
                     SystemUserDictionary.add(applicationContext, cleaned)
                 }
             }
-            previous?.let { userLexicon.learnBigram(it, cleaned) }
+            previous?.let { prev ->
+                userLexicon.learnBigram(prev, cleaned)
+                beforePrevious?.let { userLexicon.learnTrigram(it, prev, cleaned) }
+            }
+            beforePrevious = previous
             previous = cleaned
             lastLearned = cleaned
         }
         // A new/reinforced personal word changes the gesture decoder's merged
         // lexicon; drop the cache so the next swipe picks it up.
         if (lastLearned != null) invalidateGestureLexicon()
+        previousWord2 = beforePrevious
         previousWord = lastLearned
     }
 
@@ -5769,6 +5790,7 @@ open class WMKeyboardService : InputMethodService() {
                     previousWord = previousWord,
                     avroMode = state.composer.isBengaliPhonetic,
                     touch = touchFrame,
+                    previousWord2 = previousWord2,
                 )
                 // A28: a personal-dictionary shortcut typed in full offers its
                 // expansion as the top chip (e.g. "omw" → "on my way"). Prepended

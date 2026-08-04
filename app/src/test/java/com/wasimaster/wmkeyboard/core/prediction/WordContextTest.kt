@@ -46,6 +46,20 @@ class WordContextTest {
         assertEquals(WordContext.SENTENCE_START, before("Dr. "))
     }
 
+    @Test fun lastTwoWordsRecoversBothOrDegrades() {
+        fun two(text: String?) = WordContext.lastTwoWords(text, enders)
+        assertEquals("was" to "i", two("I was "))
+        assertEquals("was" to "i", two("I was, "))
+        // A sentence ender between the two words kills prev2.
+        assertEquals("was" to null, two("Stop. Was "))
+        // Sentence start: prev1 is the sentinel, prev2 always null.
+        assertEquals(WordContext.SENTENCE_START to null, two("I was. "))
+        // Single word: no prev2.
+        assertEquals("hello" to null, two("Hello "))
+        // Mid-word: nothing.
+        assertEquals(null to null, two("Hel"))
+    }
+
     @Test fun sentinelIsRecognizableAndUntypeable() {
         assertTrue(WordContext.isSentinel(WordContext.SENTENCE_START))
         assertFalse(WordContext.isSentinel("hello"))

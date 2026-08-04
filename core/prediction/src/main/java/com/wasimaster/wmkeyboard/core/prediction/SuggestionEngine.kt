@@ -542,9 +542,10 @@ class SuggestionEngine(
         avroMode: Boolean = false,
         limit: Int = 5,
         touch: List<TouchPoint?>? = null,
+        previousWord2: String? = null,
     ): List<String> {
         if (composing.isEmpty()) {
-            return nextWords(previousWord, limit)
+            return nextWords(previousWord, previousWord2, limit)
         }
         if (avroMode) {
             return bengaliSuggestions(composing, limit)
@@ -587,9 +588,19 @@ class SuggestionEngine(
         // this is one map hit per candidate on the async path.
         val prev = previousWord?.lowercase()
         if (prev != null) {
+            val prev2 = previousWord2?.lowercase()
             for (entry in merged.entries) {
                 val candidate = entry.key.lowercase()
-                val count = userLexicon.bigramCount(prev, candidate)
+                val count = maxOf(
+                    userLexicon.bigramCount(prev, candidate),
+                    // The two-word context is rarer and stronger evidence;
+                    // its raw count rides the same bounded boost curve.
+                    if (prev2 != null) {
+                        userLexicon.trigramCount(prev2, prev, candidate) * 2
+                    } else {
+                        0
+                    },
+                )
                 val boost = when {
                     count > 0 -> minOf(
                         ln(1.0 + CONTEXT_BIGRAM_BETA * ln(1.0 + count)),
@@ -715,11 +726,16 @@ class SuggestionEngine(
         return ordered.asSequence().filterNot(::suppressed).take(limit).toList()
     }
 
-    private fun nextWords(previousWord: String?, limit: Int): List<String> {
+    private fun nextWords(previousWord: String?, previousWord2: String?, limit: Int): List<String> {
         val prev = previousWord?.lowercase() ?: return emptyList()
-        // Learned bigrams first — the user's own phrases always beat the
-        // bundled seed pairs, which only cover the cold start.
         val ordered = LinkedHashSet<String>()
+        // Most specific first: the two-word context, when known, beats the
+        // bigram tail ("I was" -> "going" over everything "was" alone knows).
+        previousWord2?.lowercase()?.let { prev2 ->
+            ordered.addAll(userLexicon.nextWordsAfter(prev2, prev, limit))
+        }
+        // Learned bigrams next — the user's own phrases always beat the
+        // bundled seed pairs, which only cover the cold start.
         ordered.addAll(userLexicon.nextWords(prev, limit))
         // A contact's name chains through the strip: "Wasi" offers "Mollik".
         ordered.addAll(contacts.nextWords(prev))

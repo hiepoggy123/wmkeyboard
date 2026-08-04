@@ -104,6 +104,31 @@ class UserLexiconTest {
     }
 
     @Test
+    fun trigramsServeRoundTripAndCap() {
+        val f = file()
+        val lexicon = UserLexicon(f)
+        lexicon.learnTrigram("i", "was", "going")
+        lexicon.learnTrigram("i", "was", "going")
+        lexicon.learnTrigram("i", "was", "there")
+        assertEquals(listOf("going", "there"), lexicon.nextWordsAfter("i", "was", 5))
+        assertEquals(2, lexicon.trigramCount("i", "was", "going"))
+        // A different context is a different table.
+        assertTrue(lexicon.nextWordsAfter("he", "was", 5).isEmpty())
+        lexicon.save()
+        val back = UserLexicon(f)
+        assertEquals(listOf("going", "there"), back.nextWordsAfter("i", "was", 5))
+        // Follower cap applies to trigram contexts too.
+        for (i in 0 until 40) back.learnTrigram("a", "b", "w$i")
+        assertTrue(back.nextWordsAfter("a", "b", 50).size <= 32)
+        // forget() scrubs contexts and followers that mention the word.
+        back.learnTrigram("x", "target", "y")
+        back.learnTrigram("p", "q", "target")
+        back.forget("target")
+        assertTrue(back.nextWordsAfter("x", "target", 5).isEmpty())
+        assertTrue("target" !in back.nextWordsAfter("p", "q", 5))
+    }
+
+    @Test
     fun nullFileModeLearnsInMemoryOnly() {
         val lexicon = UserLexicon(null)
         lexicon.learnWord("ghost", 3)

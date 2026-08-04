@@ -21,6 +21,9 @@ class UserLexicon(private val storageFile: File?) {
         val generation: Long = 0L,
         /** Per-word last-touched generation, for lazy decay at compaction. */
         val wordGen: Map<String, Long> = emptyMap(),
+        /** Trigram contexts, keyed "prev2<NUL>prev1". Additive; old files
+         * simply have none. */
+        val trigrams: Map<String, Map<String, Int>> = emptyMap(),
     )
 
     /** A word's followers plus a lazily cached count-descending order, so the
@@ -48,6 +51,7 @@ class UserLexicon(private val storageFile: File?) {
     private var trie = Trie()
     private val words = HashMap<String, Int>()
     private val bigrams = HashMap<String, Followers>()
+    private val trigrams = HashMap<String, Followers>()
     private val wordGen = HashMap<String, Long>()
     private var generation = 0L
     private val json = Json { ignoreUnknownKeys = true }
@@ -127,6 +131,7 @@ class UserLexicon(private val storageFile: File?) {
     fun reload() {
         words.clear()
         bigrams.clear()
+        trigrams.clear()
         wordGen.clear()
         rebuildTrie()
         load()
@@ -150,6 +155,34 @@ class UserLexicon(private val storageFile: File?) {
     @Synchronized
     fun nextWords(previous: String, limit: Int): List<String> =
         bigrams[previous]?.ordered()?.take(limit).orEmpty()
+
+    @Synchronized
+    fun learnTrigram(prev2: String, prev1: String, next: String) {
+        val a = prev2.lowercase()
+        val b = prev1.lowercase()
+        val c = next.lowercase()
+        if (a.isEmpty() || b.isEmpty() || c.isEmpty()) return
+        if (a.length > MAX_WORD_LENGTH || b.length > MAX_WORD_LENGTH ||
+            c.length > MAX_WORD_LENGTH
+        ) {
+            return
+        }
+        trigrams.getOrPut(trigramKey(a, b)) { Followers() }.bump(c)
+        dirty = true
+    }
+
+    /** Followers of the two-word context (prev2, prev1), best first. More
+     * specific than [nextWords]; callers consult this first and fall back. */
+    @Synchronized
+    fun nextWordsAfter(prev2: String, prev1: String, limit: Int): List<String> =
+        trigrams[trigramKey(prev2.lowercase(), prev1.lowercase())]
+            ?.ordered()?.take(limit).orEmpty()
+
+    /** Learned count of ((prev2, prev1) -> next), 0 when never seen. */
+    @Synchronized
+    fun trigramCount(prev2: String, prev1: String, next: String): Int =
+        trigrams[trigramKey(prev2.lowercase(), prev1.lowercase())]
+            ?.counts?.get(next.lowercase()) ?: 0
 
     /** Learned count of the pair (previous -> next), 0 when never seen. */
     @Synchronized
@@ -192,6 +225,10 @@ class UserLexicon(private val storageFile: File?) {
         bigrams.values.forEach {
             if (it.counts.remove(key) != null) it.sorted = null
         }
+        trigrams.keys.removeAll { context -> key in context.split(TRIGRAM_SEPARATOR) }
+        trigrams.values.forEach {
+            if (it.counts.remove(key) != null) it.sorted = null
+        }
         rebuildTrie()
         mutations++
         dirty = true
@@ -201,6 +238,7 @@ class UserLexicon(private val storageFile: File?) {
     fun clear() {
         words.clear()
         bigrams.clear()
+        trigrams.clear()
         wordGen.clear()
         rebuildTrie()
         mutations++
@@ -222,6 +260,7 @@ class UserLexicon(private val storageFile: File?) {
             bigrams = bigrams.mapValues { it.value.counts.toMap() },
             generation = generation,
             wordGen = wordGen,
+            trigrams = trigrams.mapValues { it.value.counts.toMap() },
         )
         runCatching {
             file.parentFile?.mkdirs()
@@ -239,6 +278,9 @@ class UserLexicon(private val storageFile: File?) {
             words.putAll(snapshot.words)
             snapshot.bigrams.forEach { (prev, map) ->
                 bigrams[prev] = Followers().also { it.counts.putAll(map) }
+            }
+            snapshot.trigrams.forEach { (context, map) ->
+                trigrams[context] = Followers().also { it.counts.putAll(map) }
             }
             generation = snapshot.generation
             // Words with no recorded generation (legacy files, settings-app
@@ -299,6 +341,12 @@ class UserLexicon(private val storageFile: File?) {
                 bigrams.remove(entry.key)
             }
         }
+        if (trigrams.size > MAX_TRIGRAM_CONTEXTS) {
+            val evictable = trigrams.entries.sortedBy { it.value.total() }
+            for (entry in evictable.take(trigrams.size - MAX_TRIGRAM_CONTEXTS)) {
+                trigrams.remove(entry.key)
+            }
+        }
     }
 
     private companion object {
@@ -310,7 +358,14 @@ class UserLexicon(private val storageFile: File?) {
          * not churn on every save once the cap is reached. */
         const val EVICT_TO = 9_000
         const val MAX_BIGRAM_PREVS = 5_000
+        const val MAX_TRIGRAM_CONTEXTS = 2_000
         const val MAX_FOLLOWERS = 32
+
+        /** NUL, built rather than written literally. */
+        val TRIGRAM_SEPARATOR: Char = 0.toChar()
+
+        fun trigramKey(prev2: String, prev1: String): String =
+            prev2 + TRIGRAM_SEPARATOR + prev1
         const val HALF_LIFE_GENERATIONS = 64.0
         /** addWord's default boost lands at 200; organic words rarely reach
          * this, so it doubles as the "deliberately added" marker. */

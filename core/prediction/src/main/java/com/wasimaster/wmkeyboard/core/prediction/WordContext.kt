@@ -47,4 +47,23 @@ object WordContext {
 
     /** True for the sentinel (or anything in its reserved control plane). */
     fun isSentinel(word: String?): Boolean = word != null && word.startsWith(SENTINEL_CHAR)
+
+    /**
+     * The last two completed words before the caret, most recent first:
+     * `(prev1, prev2)`. prev2 is null when unknown or when any boundary
+     * (sentence ender, or prev1 itself being the sentinel) intervenes —
+     * trigram context silently degrades to bigram rather than guessing.
+     */
+    fun lastTwoWords(text: CharSequence?, enders: CharArray): Pair<String?, String?> {
+        val prev1 = completedWordBefore(text, enders)
+        if (prev1 == null || isSentinel(prev1)) return prev1 to null
+        // Strip the trailing separators and prev1's own letters, then ask the
+        // same question of what remains.
+        val s = text.toString()
+        var end = s.length
+        while (end > 0 && !s[end - 1].isLetter()) end--
+        while (end > 0 && s[end - 1].isLetter()) end--
+        val prev2 = completedWordBefore(s.substring(0, end), enders)
+        return prev1 to prev2?.takeUnless { isSentinel(it) }
+    }
 }

@@ -72,6 +72,21 @@ class SuggestionEngineTest {
         assertEquals("words", e2.suggest("wor", previousWord = "hello").first())
     }
 
+    @Test fun trigramContextOutranksBigramTail() {
+        val lexicon = UserLexicon(null)
+        // After "was" alone the user usually types "here"; after "i was"
+        // specifically, "going".
+        repeat(5) { lexicon.learnBigram("was", "here") }
+        lexicon.learnBigram("was", "going")
+        lexicon.learnTrigram("i", "was", "going")
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), lexicon)
+        assertEquals("here", e.suggest("", previousWord = "was").first())
+        assertEquals(
+            "going",
+            e.suggest("", previousWord = "was", previousWord2 = "i").first(),
+        )
+    }
+
     @Test fun prefixCompletion() {
         val suggestions = engine().suggest("th", previousWord = null)
         assertEquals("the", suggestions.first())
