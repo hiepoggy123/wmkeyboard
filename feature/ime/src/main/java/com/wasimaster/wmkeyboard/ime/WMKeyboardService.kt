@@ -2426,6 +2426,35 @@ open class WMKeyboardService : InputMethodService() {
             suggestionJob?.cancel()
             _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         }
+        // The editor can also finish a composition on its own: a TextWatcher
+        // that restyles the text (chat apps marking mentions/markdown) drops
+        // the composing span without moving the caret or telling the IME. The
+        // buffer then has no region behind it, so the commit on space *inserts*
+        // the word instead of replacing it — the word doubles. An update that
+        // reports no candidates while a composition is supposedly alive, with
+        // the collapsed caret still exactly where it was left, sitting right
+        // after text that reads back as the buffer's own output, is that state:
+        // quietly re-arm the region. Editors that simply never report
+        // candidates re-set the identical region, a no-op. Same readback guard
+        // as [reattachComposing]; conversion composers are excluded because
+        // their prefix commits manage the region themselves.
+        if (!composingDropped && composing.isNotEmpty() && candidatesStart < 0 &&
+            newSelStart == newSelEnd && !_uiState.value.composer.isConversion
+        ) {
+            val ic = currentInputConnection
+            val state = _uiState.value
+            val text = if (state.composer.isTransliterating) {
+                state.composer.composeBuffer(composing.toString())
+            } else {
+                composing.toString()
+            }
+            if (ic != null && text.isNotEmpty() && newSelStart >= text.length &&
+                caretStillAt(ic, newSelStart) &&
+                ic.getTextBeforeCursor(text.length, 0)?.toString() == text
+            ) {
+                ic.setComposingRegion(newSelStart - text.length, newSelStart)
+            }
+        }
         // Partial dictation results are cumulative per utterance, so they
         // can't follow a cursor jump without duplicating what's already
         // committed — end the session instead, keeping the partial.
@@ -4030,7 +4059,10 @@ open class WMKeyboardService : InputMethodService() {
                 // a buffer with no region behind it makes the next
                 // setComposingText insert the whole word again at the caret —
                 // the word "reappears" and the existing text can't be edited.
-                if (word.isNotEmpty() &&
+                // And only if newSelStart is still the live caret: the word was
+                // read at the *current* cursor, so pairing it with a stale echo
+                // offset puts the region over the wrong span (see caretStillAt).
+                if (word.isNotEmpty() && caretStillAt(ic, newSelStart) &&
                     ic.setComposingRegion(newSelStart - word.length, newSelStart)
                 ) {
                     composing = StringBuilder(word)
@@ -4059,6 +4091,22 @@ open class WMKeyboardService : InputMethodService() {
 
     /** Characters that live in the composing buffer — see [onKey]'s isWordChar. */
     private fun isComposingWordChar(c: Char): Boolean = c.isLetter() || c == '\''
+
+    /**
+     * Whether [reportedSelStart] is still where the editor's caret actually
+     * sits. Selection updates queue behind fast keystrokes and backspaces, so
+     * an echo can describe a caret the field has since moved past — and a
+     * composing region placed from those stale offsets lands on the wrong
+     * characters (the visible symptom is the underline hugging only the last
+     * letter of a word). The extracted text is read live, so a mismatch means
+     * "skip and wait for the next echo". Editors that don't support extraction
+     * return null and are taken at their word, which is today's behavior.
+     */
+    private fun caretStillAt(ic: InputConnection, reportedSelStart: Int): Boolean {
+        val extracted = ic.getExtractedText(ExtractedTextRequest(), 0) ?: return true
+        if (extracted.selectionStart < 0) return true
+        return extracted.startOffset + extracted.selectionStart == reportedSelStart
+    }
 
     /**
      * Deletes the word before the cursor — one step of the backspace swipe.
@@ -4722,11 +4770,23 @@ open class WMKeyboardService : InputMethodService() {
             flushConversion(ic)
             return true
         }
+        // A buffer glued to word characters already in the field is the tail
+        // of a bigger word, not a word of its own: the caret was parked at a
+        // word's end and the composition started before the resume could arm
+        // the rest of it (a tap's selection echo races the next keystroke).
+        // Correcting the fragment corrupts the word it hangs off — "i" typed
+        // onto "hind" must not become "I" — and a suffix is neither a typo to
+        // guess at nor a word worth learning.
+        val gluedToWord = (fixApostrophes || autocorrect) &&
+            state.allowsTypingIntelligence && !state.composer.isTransliterating &&
+            ic.getTextBeforeCursor(typed.length + 1, 0)
+                ?.takeIf { it.length > typed.length }
+                ?.let { isComposingWordChar(it[0]) } == true
         // Apostrophe restoration outranks autocorrect: "dont" is a known
         // contraction slip, not a typo for "font"/"done" to be guessed at.
         val apostrophized =
             if (fixApostrophes && state.allowsTypingIntelligence &&
-                state.language.isEnglish
+                state.language.isEnglish && !gluedToWord
             ) {
                 Apostrophes.fix(typed)
             } else {
@@ -4747,7 +4807,7 @@ open class WMKeyboardService : InputMethodService() {
             // directly, with no dictionary pass.
             state.composer.isTransliterating -> state.composer.composeBuffer(typed)
             apostrophized != null -> apostrophized
-            autocorrect && state.allowsTypingIntelligence -> {
+            autocorrect && state.allowsTypingIntelligence && !gluedToWord -> {
                 corrected = if (pre != null && !pre.isBengali) pre.correction
                 else suggestionEngine?.shouldAutocorrect(typed)?.takeIf { it != typed }
                 corrected ?: typed
@@ -4761,8 +4821,9 @@ open class WMKeyboardService : InputMethodService() {
         ic.commitText(output, 1)
         // An autocorrected word was the engine's choice, not the user's —
         // it earns no personal-dictionary reinforcement, only the bigram.
-        // Conversion-IME output (Hanzi/Kanji) is never learned into the lexicon.
-        if (!state.composer.isConversion) {
+        // Conversion-IME output (Hanzi/Kanji) is never learned into the lexicon,
+        // and neither is a fragment glued onto an existing word.
+        if (!state.composer.isConversion && !gluedToWord) {
             learn(output, reinforcement = if (corrected != null) 0 else 1)
         }
         composing = StringBuilder()
