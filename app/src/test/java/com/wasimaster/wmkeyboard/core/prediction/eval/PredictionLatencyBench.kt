@@ -60,10 +60,19 @@ class PredictionLatencyBench {
         val completeNs = measure("complete") { i ->
             trie.complete(cases[i % cases.size].intended.take(2), 10)
         }
+        // The production shape: one keystroke runs suggest and then the
+        // commit precompute asks shouldAutocorrect for the same word — the
+        // engine's shared-walk cache should make the second ask nearly free.
+        val keystrokeNs = measure("keystroke") { i ->
+            val typed = cases[i % cases.size].typed
+            engine.suggest(typed, previousWord = null)
+            engine.shouldAutocorrect(typed)
+        }
 
         report("suggest", suggestNs)
         report("shouldAutocorrect", autocorrectNs)
         report("complete(prefix2, 10)", completeNs)
+        report("keystroke(suggest+autocorrect)", keystrokeNs)
 
         if (System.getProperty("wmkeyboard.benchAssert") != "false") {
             val p50 = percentile(suggestNs, 50.0) / 1e6

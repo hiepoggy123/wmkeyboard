@@ -36,12 +36,24 @@ class SuggestionEngine(
 ) {
 
     /**
+     * Epoch for every input the fuzzy walk depends on. Any setter below that
+     * changes what the walk would return bumps it, invalidating [rankedWalk].
+     */
+    private val generation = java.util.concurrent.atomic.AtomicLong()
+
+    /**
      * The primary (bundled or downloaded) dictionary. A var so the IME can
      * swap in a bigger downloaded English list the moment its download
      * finishes, without rebuilding the engine.
      */
     @Volatile
-    var dictionary: WordSource = dictionary
+    private var dictionaryField: WordSource = dictionary
+    var dictionary: WordSource
+        get() = dictionaryField
+        set(value) {
+            dictionaryField = value
+            generation.incrementAndGet()
+        }
 
     /**
      * Contact-name words, swapped in whenever the contacts permission and
@@ -72,7 +84,16 @@ class SuggestionEngine(
      * on different neighbours than QWERTY's).
      */
     @Volatile
-    var proximity: KeyProximity = KeyProximity.QWERTY
+    private var proximityField: KeyProximity = KeyProximity.QWERTY
+    var proximity: KeyProximity
+        get() = proximityField
+        set(value) {
+            // The IME rebuilds KeyProximity on every settings emission; only a
+            // genuinely different layout invalidates cached walk results.
+            if (value == proximityField) return
+            proximityField = value
+            generation.incrementAndGet()
+        }
 
     /**
      * Whether the bundled English word list and seed bigrams participate.
@@ -82,7 +103,13 @@ class SuggestionEngine(
      * their words.
      */
     @Volatile
-    var englishSources: Boolean = true
+    private var englishSourcesField: Boolean = true
+    var englishSources: Boolean
+        get() = englishSourcesField
+        set(value) {
+            englishSourcesField = value
+            generation.incrementAndGet()
+        }
 
     /**
      * Word list the user imported for the language now being typed (empty
@@ -94,7 +121,13 @@ class SuggestionEngine(
      * ship no bundled list — can get completions this way.
      */
     @Volatile
-    var customDictionary: WordSource = PackedTrie.EMPTY
+    private var customDictionaryField: WordSource = PackedTrie.EMPTY
+    var customDictionary: WordSource
+        get() = customDictionaryField
+        set(value) {
+            customDictionaryField = value
+            generation.incrementAndGet()
+        }
 
     /**
      * Dictionaries for the user's secondary languages, consulted alongside the
@@ -105,7 +138,13 @@ class SuggestionEngine(
      * [mixConfidence] / [recordUsage]).
      */
     @Volatile
-    var secondaryDictionaries: List<SecondaryDictionary> = emptyList()
+    private var secondaryDictionariesField: List<SecondaryDictionary> = emptyList()
+    var secondaryDictionaries: List<SecondaryDictionary>
+        get() = secondaryDictionariesField
+        set(value) {
+            secondaryDictionariesField = value
+            generation.incrementAndGet()
+        }
 
     /**
      * Language id of the primary (on-screen) language, so a committed word the
@@ -123,7 +162,13 @@ class SuggestionEngine(
      * scaled by the adaptive confidence for "en" like any other secondary.
      */
     @Volatile
-    var englishAsSecondary: Boolean = false
+    private var englishAsSecondaryField: Boolean = false
+    var englishAsSecondary: Boolean
+        get() = englishAsSecondaryField
+        set(value) {
+            englishAsSecondaryField = value
+            generation.incrementAndGet()
+        }
 
     /**
      * Bengali index, rebuilt when an imported Bengali list arrives so its
@@ -247,6 +292,41 @@ class SuggestionEngine(
     private val beamWorkspace = ThreadLocal.withInitial { BeamWorkspace() }
 
     /**
+     * The last walk's ranked result and everything it depended on. One
+     * keystroke asks the same question twice — [suggest] builds the strip,
+     * then [shouldAutocorrect] (precomputing what a space would commit) asks
+     * for the same word moments later — so answering the second ask from the
+     * first halves the per-keystroke walk cost. Single @Volatile slot: racing
+     * threads at worst both recompute the same immutable value.
+     */
+    private class RankedWalk(
+        val word: String,
+        val generation: Long,
+        val lexMutations: Long,
+        val k: Int,
+        val ranked: List<FuzzyBeamSearch.ScoredCandidate>,
+    )
+
+    @Volatile
+    private var rankedWalk: RankedWalk? = null
+
+    private fun rankedFor(lower: String, limit: Int): List<FuzzyBeamSearch.ScoredCandidate> {
+        val k = maxOf(limit * 2, FuzzyBeamSearch.AUTOCORRECT_K)
+        val gen = generation.get()
+        val lexGen = userLexicon.mutationCount()
+        rankedWalk?.let { cached ->
+            if (cached.word == lower && cached.generation == gen &&
+                cached.lexMutations == lexGen && cached.k >= k
+            ) {
+                return cached.ranked
+            }
+        }
+        val ranked = beam.search(walkSources(), lower, proximity, limit, beamWorkspace.get())
+        rankedWalk = RankedWalk(lower, gen, lexGen, k, ranked)
+        return ranked
+    }
+
+    /**
      * The weighted trie sources one fuzzy walk covers. Built per call —
      * cheap — with each language's mix confidence read once, not once per
      * candidate (LanguageMixConfidence is synchronized; per-candidate reads
@@ -319,6 +399,9 @@ class SuggestionEngine(
                 ?: primaryLanguageId
         }
         mixConfidence.record(langId)
+        // Confidences weight the walk sources; recorded use invalidates
+        // cached walk results.
+        generation.incrementAndGet()
     }
 
     companion object {
@@ -428,7 +511,7 @@ class SuggestionEngine(
         // source. Corrections (edited paths) are admitted only when the typed
         // word is unknown, matching the historical gate; pure completions
         // (edits == 0) always participate.
-        for (c in beam.search(walkSources(), lower, proximity, limit, beamWorkspace.get())) {
+        for (c in rankedFor(lower, limit)) {
             if (c.edits > 0 && known) continue
             merged.merge(c.word, c.score, ::maxOf)
         }
@@ -600,8 +683,8 @@ class SuggestionEngine(
         // Contact and app names are known words too — never "corrected" away.
         if (contacts.contains(lower) || apps.contains(lower)) return null
 
-        val candidates = beam.search(
-            walkSources(), lower, proximity, FuzzyBeamSearch.AUTOCORRECT_K, beamWorkspace.get(),
+        val candidates = rankedFor(
+            lower, FuzzyBeamSearch.AUTOCORRECT_K / 2,
         ).filter { c ->
             // Silent replacement only trusts classic one-edit shapes: a single
             // edit within one character of the typed length, or the

@@ -35,6 +35,17 @@ class KeyProximity private constructor(rows: List<String>) {
 
     fun areAdjacent(a: Char, b: Char): Boolean = neighbors[a]?.contains(b) == true
 
+    /**
+     * Structural equality: two proximities derived from the same rows are the
+     * same proximity. The IME rebuilds this object on every settings emission,
+     * so identity comparisons silently treat every emission as a layout change
+     * — value equality is what cache invalidation must key on.
+     */
+    override fun equals(other: Any?): Boolean =
+        other is KeyProximity && other.neighbors == neighbors
+
+    override fun hashCode(): Int = neighbors.hashCode()
+
     companion object {
 
         /**

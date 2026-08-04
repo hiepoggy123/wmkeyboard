@@ -38,6 +38,16 @@ class UserLexicon(private val storageFile: File?) {
      */
     private var dirty = false
 
+    /**
+     * Bumped whenever the word set changes, so the engine's cached walk
+     * results can key on it. Volatile: read lock-free on the suggestion
+     * coroutine while learning happens on the main thread.
+     */
+    @Volatile
+    private var mutations = 0L
+
+    fun mutationCount(): Long = mutations
+
     init {
         load()
     }
@@ -53,6 +63,7 @@ class UserLexicon(private val storageFile: File?) {
         if (key.length < 2 || count <= 0) return
         words.merge(key, count, Int::plus)
         trie.reinforce(key, count)
+        mutations++
         dirty = true
     }
 
@@ -67,6 +78,7 @@ class UserLexicon(private val storageFile: File?) {
         if (key.isEmpty()) return
         words.merge(key, boost, Int::plus)
         trie.reinforce(key, boost)
+        mutations++
         dirty = true
     }
 
@@ -81,6 +93,7 @@ class UserLexicon(private val storageFile: File?) {
         bigrams.clear()
         rebuildTrie()
         load()
+        mutations++
         // Memory is the file again, so there is nothing outstanding to write —
         // and writing would clobber the settings-app edit this reload exists
         // to pick up.
@@ -134,6 +147,7 @@ class UserLexicon(private val storageFile: File?) {
         bigrams.remove(key)
         bigrams.values.forEach { it.remove(key) }
         rebuildTrie()
+        mutations++
         dirty = true
     }
 
@@ -142,6 +156,7 @@ class UserLexicon(private val storageFile: File?) {
         words.clear()
         bigrams.clear()
         rebuildTrie()
+        mutations++
         // The delete is the write, so there is normally nothing left to save.
         // If it failed, the file still holds the data this call was meant to
         // wipe — stay dirty so the next save overwrites it with the empty

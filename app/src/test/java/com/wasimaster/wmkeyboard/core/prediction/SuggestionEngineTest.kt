@@ -29,6 +29,24 @@ class SuggestionEngineTest {
         return SuggestionEngine(dictionary, bengali, UserLexicon(null))
     }
 
+    @Test fun dictionarySwapTakesEffectImmediately() {
+        // The shared-walk cache must invalidate the moment a source changes.
+        val e = engine()
+        assertTrue("zebra" !in e.suggest("ze", previousWord = null))
+        e.customDictionary = PackedTrie.of(listOf("zebra" to 50))
+        assertTrue("zebra" in e.suggest("ze", previousWord = null))
+    }
+
+    @Test fun learnedWordAppearsWithoutStaleCache() {
+        val lexicon = UserLexicon(null)
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), lexicon)
+        // Same composing string twice: the second call may serve from the
+        // walk cache, which must have been invalidated by the learn.
+        assertTrue(e.suggest("wa", previousWord = null).isEmpty())
+        lexicon.learnWord("wasi", count = 5)
+        assertTrue("wasi" in e.suggest("wa", previousWord = null))
+    }
+
     @Test fun prefixCompletion() {
         val suggestions = engine().suggest("th", previousWord = null)
         assertEquals("the", suggestions.first())

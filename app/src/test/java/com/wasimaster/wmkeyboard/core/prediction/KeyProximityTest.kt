@@ -142,4 +142,17 @@ class KeyProximityTest {
         assertTrue(proximity.areAdjacent('x', 'y'))
         assertFalse(proximity.areAdjacent('a', 'b'))
     }
+
+    @Test
+    fun `two builds from the same layout are equal`() {
+        // The IME rebuilds the proximity on every settings emission; cache
+        // invalidation keys on value equality, not identity.
+        val a = KeyProximity.forLayout(BuiltInLayouts.QWERTY)
+        val b = KeyProximity.forLayout(BuiltInLayouts.QWERTY)
+        assertTrue(a !== b)
+        assertTrue(a == b)
+        assertTrue(a.hashCode() == b.hashCode())
+        val dvorak = KeyProximity.forLayout(BuiltInLayouts.DVORAK)
+        assertFalse(a == dvorak)
+    }
 }
