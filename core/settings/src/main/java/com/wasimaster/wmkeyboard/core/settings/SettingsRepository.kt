@@ -1933,10 +1933,11 @@ data class IconSettings(
 data class LayoutBehaviorSettings(
     /**
      * Long-pressing the ?123 / symbols key opens the numeric keypad panel on
-     * any field, instead of the long-press behaving like a plain tap. Off by
-     * default.
+     * any field, instead of the long-press behaving like a plain tap. On by
+     * default — the keypad is otherwise buried in the toolbox, and a held ?123
+     * costs nothing when it is not wanted.
      */
-    val symbolsLongPressNumpad: Boolean = false,
+    val symbolsLongPressNumpad: Boolean = true,
     /**
      * Swiping straight down on the spacebar dismisses the keyboard, the way a
      * downward flick on the toolbar can. Off by default so a stray vertical

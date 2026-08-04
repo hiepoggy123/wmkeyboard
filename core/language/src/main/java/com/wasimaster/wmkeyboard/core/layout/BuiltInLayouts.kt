@@ -845,8 +845,9 @@ private fun numpad(
     bottomLeft: Key,
     bottomRight: Key,
     zero: Key = Key("0"),
+    rightTop: Key = Key("⌫", action = KeyAction.Delete),
 ) = listOf(
-    listOf(Key("1"), Key("2"), Key("3"), Key("⌫", action = KeyAction.Delete)),
+    listOf(Key("1"), Key("2"), Key("3"), rightTop),
     listOf(Key("4"), Key("5"), Key("6"), rightMid),
     listOf(Key("7"), Key("8"), Key("9"), rightLow),
     listOf(bottomLeft, zero, bottomRight, Key("⏎", action = KeyAction.Enter)),
@@ -861,8 +862,12 @@ private fun padSpace() = Key("", action = KeyAction.Space)
  * keeps the pad stable across the many apps that forget to set the flags.
  */
 private val numberRows = numpad(
+    // Space and backspace trade places relative to the other keypads:
+    // deleting is the frequent correction while typing a number, so it sits
+    // on the low-right slot under the thumb, and space takes the top.
+    rightTop = padSpace(),
     rightMid = Key("-", longPress = listOf("+", "%", "*", "/")),
-    rightLow = padSpace(),
+    rightLow = Key("⌫", action = KeyAction.Delete),
     bottomLeft = Key(".", longPress = listOf(":")),
     bottomRight = Key(","),
 )

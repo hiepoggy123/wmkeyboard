@@ -158,13 +158,17 @@ private fun ToolPanelKey(
     val kb = LocalKbTheme.current
     val scope = rememberCoroutineScope()
     val shape = RoundedCornerShape(kb.keyRadiusDp.dp)
+    // Pressed tint, since these keys sit outside the main grid's press
+    // machinery — without it a held numpad digit gives no sign it landed.
+    var pressed by remember { mutableStateOf(false) }
     Box(
         modifier = modifier
             .clip(shape)
-            .background(kb.modifierKey, shape)
+            .background(if (pressed) kb.pressedKey else kb.modifierKey, shape)
             .pointerInput(repeatable) {
                 detectTapGestures(
                     onPress = {
+                        pressed = true
                         onAction()
                         var repeat: Job? = null
                         if (repeatable) {
@@ -178,6 +182,7 @@ private fun ToolPanelKey(
                         }
                         tryAwaitRelease()
                         repeat?.cancel()
+                        pressed = false
                     },
                 )
             },
