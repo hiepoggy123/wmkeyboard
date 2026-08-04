@@ -1,3 +1,7 @@
+// The harness runs on the JVM only and stdout IS its report channel — the
+// device-invisibility rationale behind the println ban does not apply here.
+@file:Suppress("ForbiddenMethodCall")
+
 package com.wasimaster.wmkeyboard.core.prediction.eval
 
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader

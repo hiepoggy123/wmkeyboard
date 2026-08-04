@@ -1,7 +1,5 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
-import java.util.PriorityQueue
-
 /**
  * Immutable, frequency-weighted prefix trie stored as flat primitive arrays
  * (a CSR-style layout) rather than a HashMap-per-node object graph.
@@ -95,37 +93,8 @@ class PackedTrie internal constructor(
 
     override fun contains(word: String): Boolean = frequencyOf(word) > 0
 
-    override fun complete(prefix: String, limit: Int): List<Suggestion> {
-        if (prefix.isEmpty() || limit <= 0) return emptyList()
-        val start = nodeFor(prefix)
-        if (start < 0) return emptyList()
-        // Best-first expansion, identical to Trie.complete: only descend
-        // branches whose maxSubtree can still hold a top-[limit] word.
-        val results = ArrayList<Suggestion>(limit)
-        val heap = PriorityQueue<Frontier>(compareByDescending { it.priority })
-        heap.add(Frontier(start, prefix, maxSubtree[start]))
-        while (heap.isNotEmpty() && results.size < limit) {
-            val f = heap.poll() ?: break
-            if (f.node < 0) {
-                // A completed word: priority is its exact frequency, and no
-                // unopened branch outranks it, so it is safe to emit now.
-                results.add(Suggestion(f.text, f.priority))
-            } else {
-                if (isWord[f.node]) heap.add(Frontier(-1, f.text, freq[f.node]))
-                var e = childStart[f.node]
-                val end = childStart[f.node + 1]
-                while (e < end) {
-                    val child = edgeChild[e]
-                    heap.add(Frontier(child, f.text + edgeLabel[e], maxSubtree[child]))
-                    e++
-                }
-            }
-        }
-        return results
-    }
-
-    /** A heap entry: a subtree to expand ([node] >= 0) or a word to emit ([node] < 0). */
-    private class Frontier(val node: Int, val text: String, val priority: Int)
+    override fun complete(prefix: String, limit: Int): List<Suggestion> =
+        TrieCompleter.complete(this, prefix, limit)
 
     companion object {
         val EMPTY = of(emptyList())

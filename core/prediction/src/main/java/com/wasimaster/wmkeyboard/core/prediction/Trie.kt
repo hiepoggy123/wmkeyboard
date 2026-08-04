@@ -89,41 +89,8 @@ class Trie : WordSource {
     override fun contains(word: String): Boolean = frequencyOf(word) > 0
 
     /** Returns up to [limit] completions of [prefix], best frequency first. */
-    override fun complete(prefix: String, limit: Int): List<Suggestion> {
-        if (prefix.isEmpty() || limit <= 0) return emptyList()
-        var node = root
-        for (ch in prefix) {
-            node = node.children[ch] ?: return emptyList()
-        }
-        // Best-first expansion: only descend branches that can still hold a
-        // top-[limit] word, so cost is bounded near [limit] rather than the
-        // whole prefix subtree (which is huge for a short common prefix).
-        val results = ArrayList<Suggestion>(limit)
-        val heap = java.util.PriorityQueue<Frontier>(compareByDescending { it.priority })
-        heap.add(Frontier(node, prefix, node.maxSubtreeFreq))
-        while (heap.isNotEmpty() && results.size < limit) {
-            val f = heap.poll() ?: break
-            if (f.node == null) {
-                // A completed word: its priority is an exact frequency, and no
-                // unopened branch outranks it, so it is safe to emit now.
-                results.add(Suggestion(f.text, f.priority))
-            } else {
-                val n = f.node
-                if (n.isWord) heap.add(Frontier(null, f.text, n.frequency))
-                for ((ch, child) in n.children) {
-                    heap.add(Frontier(child, f.text + ch, child.maxSubtreeFreq))
-                }
-            }
-        }
-        return results
-    }
-
-    /** A heap entry: a subtree to expand ([node] != null) or a word to emit. */
-    private class Frontier(
-        val node: Node?,
-        val text: String,
-        val priority: Int,
-    )
+    override fun complete(prefix: String, limit: Int): List<Suggestion> =
+        TrieCompleter.complete(NodeWalker(), prefix, limit)
 
     override fun walkers(): List<TrieWalker> = listOf(NodeWalker())
 

@@ -15,6 +15,7 @@ sourceSets {
                 "Main.kt",
                 "Trie.kt",
                 "TrieWalker.kt",
+                "TrieCompleter.kt",
                 "PackedTrie.kt",
                 "PackedTrieCodec.kt",
                 "DictionaryLoader.kt",

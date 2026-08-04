@@ -5,7 +5,6 @@ import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
-import java.util.PriorityQueue
 
 /**
  * Zero-copy [WordSource] over a memory-mapped `.wmdict` file (see
@@ -100,33 +99,8 @@ class MappedTrie private constructor(
 
     override fun contains(word: String): Boolean = frequencyOf(word) > 0
 
-    override fun complete(prefix: String, limit: Int): List<Suggestion> {
-        if (prefix.isEmpty() || limit <= 0) return emptyList()
-        val start = nodeFor(prefix)
-        if (start < 0) return emptyList()
-        val results = ArrayList<Suggestion>(limit)
-        val heap = PriorityQueue<Frontier>(compareByDescending { it.priority })
-        heap.add(Frontier(start, prefix, maxSubtree(start)))
-        while (heap.isNotEmpty() && results.size < limit) {
-            val f = heap.poll() ?: break
-            if (f.node < 0) {
-                results.add(Suggestion(f.text, f.priority))
-            } else {
-                if (isWord(f.node)) heap.add(Frontier(-1, f.text, freq(f.node)))
-                var e = childStart(f.node)
-                val end = childStart(f.node + 1)
-                while (e < end) {
-                    val child = edgeChild(e)
-                    heap.add(Frontier(child, f.text + edgeLabel(e), maxSubtree(child)))
-                    e++
-                }
-            }
-        }
-        return results
-    }
-
-    /** A heap entry: a subtree to expand ([node] >= 0) or a word to emit ([node] < 0). */
-    private class Frontier(val node: Int, val text: String, val priority: Int)
+    override fun complete(prefix: String, limit: Int): List<Suggestion> =
+        TrieCompleter.complete(this, prefix, limit)
 
     /**
      * Every `(word, frequency)` entry, by iterative depth-first walk. Used by
