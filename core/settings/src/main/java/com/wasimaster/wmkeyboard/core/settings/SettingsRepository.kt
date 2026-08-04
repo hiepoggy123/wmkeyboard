@@ -878,6 +878,12 @@ data class KeyboardSettings(
      * because prediction already depends on this package.
      */
     val autocorrectConfidence: Float = 4f,
+    /**
+     * Scale the confidence gate by the user's recent revert rate: a keyboard
+     * whose corrections keep getting undone demands more certainty before
+     * forcing anything. The slider above stays the anchor either way.
+     */
+    val autocorrectAdaptive: Boolean = true,
     /** Backspace right after an autocorrect puts the typed word back. */
     val revertAutocorrectOnBackspace: Boolean = true,
     /** Never autocorrect a word typed all in capitals (acronyms, shouting). */
@@ -2389,6 +2395,7 @@ class SettingsRepository(private val context: Context) {
         private val NUMBER_ROW = booleanPreferencesKey("number_row")
         private val AUTOCORRECT = booleanPreferencesKey("autocorrect")
         private val AUTOCORRECT_CONFIDENCE = floatPreferencesKey("autocorrect_confidence")
+        private val AUTOCORRECT_ADAPTIVE = booleanPreferencesKey("autocorrect_adaptive")
         private val REVERT_AUTOCORRECT_ON_BACKSPACE =
             booleanPreferencesKey("revert_autocorrect_on_backspace")
         private val AUTOCORRECT_SKIP_ALL_CAPS =
@@ -3062,6 +3069,7 @@ class SettingsRepository(private val context: Context) {
             numberRow = p[NUMBER_ROW] ?: defaults.numberRow,
             autocorrect = p[AUTOCORRECT] ?: defaults.autocorrect,
             autocorrectConfidence = p[AUTOCORRECT_CONFIDENCE] ?: defaults.autocorrectConfidence,
+            autocorrectAdaptive = p[AUTOCORRECT_ADAPTIVE] ?: defaults.autocorrectAdaptive,
             revertAutocorrectOnBackspace =
                 p[REVERT_AUTOCORRECT_ON_BACKSPACE] ?: defaults.revertAutocorrectOnBackspace,
             autocorrectSkipAllCaps =
@@ -5165,6 +5173,9 @@ class SettingsRepository(private val context: Context) {
     /** Bounds mirror `SuggestionEngine.MIN/MAX_AUTOCORRECT_CONFIDENCE`. */
     suspend fun setAutocorrectConfidence(value: Float) =
         editPrefs { it[AUTOCORRECT_CONFIDENCE] = value.coerceIn(1.5f, 10f) }
+
+    suspend fun setAutocorrectAdaptive(value: Boolean) =
+        editPrefs { it[AUTOCORRECT_ADAPTIVE] = value }
 
     suspend fun setRevertAutocorrectOnBackspace(value: Boolean) =
         editPrefs { it[REVERT_AUTOCORRECT_ON_BACKSPACE] = value }

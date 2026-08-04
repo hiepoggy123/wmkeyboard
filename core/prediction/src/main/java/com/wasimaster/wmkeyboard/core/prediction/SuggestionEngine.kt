@@ -2,8 +2,6 @@ package com.wasimaster.wmkeyboard.core.prediction
 
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
-import java.util.Collections
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.ln
 
 /**
@@ -237,28 +235,33 @@ class SuggestionEngine(
     var skipAllCapsAutocorrect: Boolean = true
 
     /**
-     * Words whose autocorrect the user has undone, lowercased. Typing one again
-     * commits it as typed: undoing a correction is a stronger statement than
-     * any confidence score, and a word that gets re-corrected every time is one
-     * the user has no way to type at all.
-     *
-     * Deliberately separate from the personal dictionary, which only records
-     * words when learning is on — the rejection has to hold in incognito and
-     * with "learn from typing" off too. Lives for the process, not on disk:
-     * this is a "not now" memory, and the lexicon is where a lasting one goes.
-     * Written from the main thread, read on the suggestion coroutine.
+     * Autocorrect's memory of its own mistakes: per-pair revert penalties and
+     * the fired/reverted ratio behind [adaptiveConfidence]. The default is a
+     * memory-only instance (null file), so tests and locked-boot sessions get
+     * the session-scoped guarantees with no storage; the IME swaps in the
+     * persisted store from attachPersonalStores.
      */
-    private val rejectedCorrections: MutableSet<String> =
-        Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
+    @Volatile
+    var correctionStats: CorrectionStats = CorrectionStats(null)
 
     /**
-     * Records that the user undid the autocorrect of [word] (typically by
-     * backspacing over it), so it is never corrected again; see
-     * [rejectedCorrections].
+     * When on, the effective confidence gate is scaled by the user's recent
+     * revert rate — a keyboard being corrected-then-undone often demands more
+     * certainty before forcing anything. The slider setting stays the anchor.
      */
-    fun rejectCorrection(word: String) {
-        val lower = word.lowercase()
-        if (lower.isNotEmpty()) rejectedCorrections.add(lower)
+    @Volatile
+    var adaptiveConfidence: Boolean = true
+
+    /**
+     * Records that the user undid the autocorrect of [typed] into
+     * [corrected] (typically by backspacing over it). The exact pair is
+     * blocked for this session and penalized across sessions; other
+     * corrections of the same typed word are deliberately untouched.
+     */
+    fun rejectCorrection(typed: String, corrected: String) {
+        if (typed.isNotEmpty() && corrected.isNotEmpty()) {
+            correctionStats.recordRevert(typed, corrected)
+        }
     }
 
     private val emptyTrie: WordSource = PackedTrie.EMPTY
@@ -522,6 +525,9 @@ class SuggestionEngine(
 
         /** Seed pairs are weaker evidence than the user's own habits. */
         private val SEED_CONTEXT_BOOST = ln(1.5)
+
+        /** Handicap on a once-reverted pair: the x0.25 of the old design. */
+        private val PAIR_PENALTY = ln(4.0)
     }
 
     /**
@@ -745,8 +751,6 @@ class SuggestionEngine(
         // An all-caps word is a deliberate acronym or shout, not a typo of a
         // lowercase word — don't "correct" it away when the user asked us not to.
         if (skipAllCapsAutocorrect && isAllCaps(word)) return null
-        // The user already undid this exact correction once.
-        if (lower in rejectedCorrections) return null
         if (inDictionaries(lower) || userLexicon.contains(lower)) return null
         // Contact and app names are known words too — never "corrected" away.
         if (contacts.contains(lower) || apps.contains(lower)) return null
@@ -786,6 +790,20 @@ class SuggestionEngine(
             } else {
                 c
             }
+        }.mapNotNull { c ->
+            // Pair penalties: an exact correction the user undid is blocked
+            // (never a target, never the runner-up that gates another fix);
+            // a once-reverted pair fights with a heavy handicap and loses
+            // its shortcut privileges.
+            when (correctionStats.penalty(lower, c.word)) {
+                CorrectionStats.Penalty.BLOCKED -> null
+                CorrectionStats.Penalty.PENALIZED -> FuzzyBeamSearch.ScoredCandidate(
+                    c.word, c.score - PAIR_PENALTY, c.editCost, c.edits,
+                    c.completedChars, c.tier,
+                    Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY,
+                )
+                CorrectionStats.Penalty.NONE -> c
+            }
         }.sortedWith(
             compareByDescending<FuzzyBeamSearch.ScoredCandidate> { it.score }.thenBy { it.word }
         )
@@ -811,11 +829,22 @@ class SuggestionEngine(
         }
 
         val top = candidates.firstOrNull() ?: return null
+        // A penalized candidate with no competition stays a suggestion: the
+        // user already told us once that this exact fix was wrong.
+        if (candidates.size == 1 && correctionStats.penalty(lower, top.word) !=
+            CorrectionStats.Penalty.NONE
+        ) {
+            return null
+        }
+        val effectiveConfidence = (
+            autocorrectConfidence *
+                (if (adaptiveConfidence) correctionStats.confidenceMultiplier() else 1.0)
+            ).coerceIn(MIN_AUTOCORRECT_CONFIDENCE, MAX_AUTOCORRECT_CONFIDENCE)
         // With no runner-up, a synthetic floor stands in: an unopposed but
         // weak candidate (rare word reached by an expensive edit) must not
         // fire just because nothing else was nearby.
         val runnerUpScore = candidates.getOrNull(1)?.score ?: SOLO_RUNNER_UP_SCORE
-        if (top.score - runnerUpScore < ln(autocorrectConfidence)) return null
+        if (top.score - runnerUpScore < ln(effectiveConfidence)) return null
         return matchCase(word, top.word)
     }
 

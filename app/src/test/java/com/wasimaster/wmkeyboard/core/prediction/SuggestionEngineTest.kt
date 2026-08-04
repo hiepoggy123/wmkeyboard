@@ -141,13 +141,49 @@ class SuggestionEngineTest {
         // word at all.
         val e = engine()
         assertEquals("world", e.shouldAutocorrect("wprld"))
-        e.rejectCorrection("wprld")
+        e.rejectCorrection("wprld", "world")
         assertNull(e.shouldAutocorrect("wprld"))
-        // The rejection is the word, not the exact keystrokes: a capitalised
+        // The rejection is the pair, not the exact keystrokes: a capitalised
         // "Wprld" is the same word the user just insisted on.
         assertNull(e.shouldAutocorrect("Wprld"))
-        // Only that word — everything else still corrects.
+        // Only that pair — everything else still corrects.
         assertEquals("hello", e.shouldAutocorrect("hallo"))
+    }
+
+    @Test fun rejectingOnePairLeavesOtherCorrectionsOfTheSameTypoAlive() {
+        // "cst" can fix to "cat" (adjacent slip) or "cut" (far). Rejecting
+        // cat must not block a later cut — the old blanket-word rejection
+        // left the user unable to reach any correction at all.
+        val dictionary = Trie().apply {
+            insert("cat", 100)
+            insert("cut", 100)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        assertEquals("cat", e.shouldAutocorrect("cst"))
+        e.rejectCorrection("cst", "cat")
+        // cat is blocked; cut (the only remaining shape) may now fire.
+        assertEquals("cut", e.shouldAutocorrect("cst"))
+    }
+
+    @Test fun adaptiveConfidenceTightensAfterManyReverts() {
+        val dictionary = Trie().apply {
+            insert("test", 100)
+            insert("tear", 60)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        // Gap test/tear on "tesr": both adjacent slips; ratio ~ln(101/61)=0.5,
+        // fires only when the gate is loose.
+        e.autocorrectConfidence = 1.5
+        assertEquals("test", e.shouldAutocorrect("tesr"))
+        // A brutal revert history: gate scales up and the same case stays quiet.
+        repeat(40) {
+            e.correctionStats.recordFired()
+            e.correctionStats.recordRevert("word$it", "fix$it")
+        }
+        assertNull(e.shouldAutocorrect("tesr"))
+        // Adaptivity off: the raw slider value rules again.
+        e.adaptiveConfidence = false
+        assertEquals("test", e.shouldAutocorrect("tesr"))
     }
 
     @Test fun blacklistedWordIsNotAnAutocorrectTarget() {

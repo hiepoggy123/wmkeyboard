@@ -110,6 +110,7 @@ import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.MappedTrie
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
+import com.wasimaster.wmkeyboard.core.prediction.CorrectionStats
 import com.wasimaster.wmkeyboard.core.prediction.KeyTouchModel
 import com.wasimaster.wmkeyboard.core.prediction.WordContext
 import com.wasimaster.wmkeyboard.core.prediction.TouchPoint
@@ -420,6 +421,10 @@ open class WMKeyboardService : InputMethodService() {
      * emits on every unrelated change and re-registering thrashes the switcher.
      */
     private var registeredSubtypeSig: String? = null
+
+    /** Autocorrect's revert memory; swapped by attachPersonalStores and
+     * handed to the engine (a memory-only default lives there until then). */
+    private var correctionStats = CorrectionStats(null)
 
     private var composing = StringBuilder()
         set(value) {
@@ -1471,6 +1476,7 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.proximity = KeyProximity.forLayout(activeSpec)
                 suggestionEngine?.autocorrectConfidence =
                     settings.autocorrectConfidence.toDouble()
+                suggestionEngine?.adaptiveConfidence = settings.autocorrectAdaptive
                 suggestionEngine?.blacklist = settings.suggestionBlacklist
                 suggestionEngine?.blockOffensiveWords =
                     settings.suggestionStrip.blockOffensiveWords
@@ -1605,6 +1611,8 @@ open class WMKeyboardService : InputMethodService() {
     private fun attachPersonalStores() {
         fun store(path: String): File? = if (userUnlocked) File(filesDir, path) else null
         userLexicon = UserLexicon(store("learning/user_lexicon.json"))
+        correctionStats = CorrectionStats(store("learning/correction_stats.json"))
+        suggestionEngine?.correctionStats = correctionStats
         // Its own file, so clearing one store never silently clears the other.
         CjkLearning.store = CjkUserHistory(store("learning/cjk_history.json"))
         languageMixConfidence = LanguageMixConfidence(store("learning/language_mix.json"))
@@ -1786,6 +1794,8 @@ open class WMKeyboardService : InputMethodService() {
                 proximity = KeyProximity.forLayout(activeLayoutSpec(_uiState.value.settings))
                 autocorrectConfidence =
                     _uiState.value.settings.autocorrectConfidence.toDouble()
+                adaptiveConfidence = _uiState.value.settings.autocorrectAdaptive
+                correctionStats = this@WMKeyboardService.correctionStats
                 blacklist = _uiState.value.settings.suggestionBlacklist
                 offensiveWords = offensiveSet
                 blockOffensiveWords = _uiState.value.settings.suggestionStrip.blockOffensiveWords
@@ -2695,6 +2705,7 @@ open class WMKeyboardService : InputMethodService() {
         // user types in next.
         fieldLayoutOverride = null
         userLexicon.save()
+        correctionStats.save()
         CjkLearning.store?.save()
         languageMixConfidence.save()
         emojiUsage.save()
@@ -2725,6 +2736,7 @@ open class WMKeyboardService : InputMethodService() {
         // on a Handler it has to be taken off the queue by hand.
         feedbackHandler.removeCallbacks(deferredVibrate)
         userLexicon.save()
+        correctionStats.save()
         CjkLearning.store?.save()
         emojiUsage.save()
         clipboardStore.save()
@@ -3874,12 +3886,12 @@ open class WMKeyboardService : InputMethodService() {
         commitResolution = null
         when (revert.kind) {
             RevertibleCommit.Kind.AUTOCORRECT -> {
-                // Undoing the correction retires it outright: without this the
-                // very next space corrected the word straight back, leaving no
-                // way to type it at all. Unconditional, unlike the personal
-                // dictionary entry below — a rejection has to hold in incognito
-                // and with learning off too.
-                suggestionEngine?.rejectCorrection(revert.original)
+                // Undoing the correction retires that exact pair: without
+                // this the very next space corrected the word straight back.
+                // Unconditional, unlike the personal dictionary entry below —
+                // a rejection has to hold in incognito and with learning off
+                // too. Other corrections of the same typed word stay live.
+                suggestionEngine?.rejectCorrection(revert.original, revert.committed)
                 if (state.settings.learnFromTyping &&
                     !(state.incognitoOn && state.settings.incognitoPausesLearning) &&
                     !state.secureField
@@ -4877,7 +4889,11 @@ open class WMKeyboardService : InputMethodService() {
         lastRevertible = corrected?.let {
             RevertibleCommit(RevertibleCommit.Kind.AUTOCORRECT, original = typed, committed = it)
         }
-        if (lastRevertible != null) armRevertGuard()
+        if (lastRevertible != null) {
+            // The adaptive gate learns from the fired/reverted ratio.
+            correctionStats.recordFired()
+            armRevertGuard()
+        }
         ic.commitText(output, 1)
         // An autocorrected word was the engine's choice, not the user's —
         // it earns no personal-dictionary reinforcement, only the bigram.

@@ -2302,6 +2302,14 @@ private fun TypingSettings(
             }
             item {
                 ToggleSetting(
+                    R.string.typing_autocorrect_adaptive_title,
+                    stringResource(R.string.typing_autocorrect_adaptive_subtitle),
+                    settings.autocorrectAdaptive,
+                    info = stringResource(R.string.typing_autocorrect_adaptive_info),
+                ) { scope.launch { repository.setAutocorrectAdaptive(it) } }
+            }
+            item {
+                ToggleSetting(
                     R.string.typing_undo_autocorrect_title,
                     stringResource(R.string.typing_undo_autocorrect_subtitle),
                     settings.revertAutocorrectOnBackspace,
@@ -9629,6 +9637,8 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
                 OutlinedButton(onClick = {
                     java.io.File(context.filesDir, "learning/user_lexicon.json").delete()
                     java.io.File(context.filesDir, "learning/emoji_usage.json").delete()
+                    // Autocorrect's revert memory is typing-derived data too.
+                    java.io.File(context.filesDir, "learning/correction_stats.json").delete()
                     // Chinese/Japanese/Cantonese picks live apart from the Latin
                     // lexicon, so clearing has to name them or they survive it.
                     java.io.File(context.filesDir, "learning/cjk_history.json").delete()
