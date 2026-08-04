@@ -401,6 +401,37 @@ open class WMKeyboardService : InputMethodService() {
     private var manualModeId: String? = null
     /** Package name of the app the focused field belongs to. */
     private var currentPackage: String? = null
+
+    /**
+     * The last words committed per app, newest last — an in-memory recency
+     * overlay so each app's own vocabulary ranks a little higher there
+     * (usernames in the terminal app, slang in the messenger). Deliberately
+     * never persisted: a package-keyed store of typed words is an app-usage
+     * record, and the ranking win doesn't justify one on disk.
+     */
+    private val perAppRecent = object : LinkedHashMap<String, ArrayDeque<String>>(
+        16, 0.75f, true,
+    ) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ArrayDeque<String>>) =
+            size > PER_APP_LRU_APPS
+    }
+
+    /** Push one committed word into the current app's recency ring and
+     * refresh the engine's overlay set. */
+    private fun notePerAppWord(word: String) {
+        val pkg = currentPackage ?: return
+        val ring = perAppRecent.getOrPut(pkg) { ArrayDeque() }
+        ring.remove(word)
+        ring.addLast(word)
+        while (ring.size > PER_APP_RECENT_WORDS) ring.removeFirst()
+        suggestionEngine?.contextWords = ring.toSet()
+    }
+
+    /** Refresh the engine's overlay for the app now in focus. */
+    private fun refreshPerAppContext() {
+        suggestionEngine?.contextWords =
+            currentPackage?.let { perAppRecent[it]?.toSet() } ?: emptySet()
+    }
     /** Mode-binding kinds of the focused field (password, email, url…). */
     private var currentModeFields: Set<ModeField> = emptySet()
 
@@ -2280,6 +2311,7 @@ open class WMKeyboardService : InputMethodService() {
         val pkg = info?.packageName
         if (pkg != null && pkg != currentPackage) manualModeId = null
         if (pkg != null) currentPackage = pkg
+        refreshPerAppContext()
         currentModeFields = buildSet {
             if (secure) add(ModeField.PASSWORD)
             when (fieldKind) {
@@ -4057,6 +4089,12 @@ open class WMKeyboardService : InputMethodService() {
         WordContext.completedWordBefore(text, SENTENCE_ENDERS)
 
     /** Sets both context words from the text before the caret. */
+    /** Follower counts of the current previous word, as the gesture
+     * decoder's context prior. The sentence-start sentinel works too — it
+     * boosts the user's learned sentence openers after a full stop. */
+    private fun gestureContextBoosts(): Map<String, Int> =
+        previousWord?.let { userLexicon.followerCounts(it) } ?: emptyMap()
+
     private fun setContextFrom(text: CharSequence?) {
         val (prev1, prev2) = WordContext.lastTwoWords(text, SENTENCE_ENDERS)
         previousWord = prev1
@@ -5326,6 +5364,7 @@ open class WMKeyboardService : InputMethodService() {
             val cleaned = part.trim { !it.isLetter() }
             if (cleaned.isEmpty()) continue
             userLexicon.learnWord(cleaned, reinforcement)
+            notePerAppWord(cleaned)
             // Attribute the word to whichever mixed language owns it, so the
             // secondary-dictionary weighting tracks the user's real habit.
             suggestionEngine?.recordUsage(cleaned)
@@ -6097,7 +6136,7 @@ open class WMKeyboardService : InputMethodService() {
             val candidates = withContext(Dispatchers.Default) {
                 // Same lexicon as the final decode, so the previewed word
                 // never differs from the one that commits on finger-up.
-                GestureDecoder(keys, keyWidthPx).decode(points, gestureDecodeLexicon())
+                GestureDecoder(keys, keyWidthPx).decode(points, gestureDecodeLexicon(), contextBoosts = gestureContextBoosts())
             }
             if (candidates.isNotEmpty()) {
                 _uiState.update {
@@ -6129,7 +6168,7 @@ open class WMKeyboardService : InputMethodService() {
         _uiState.update { it.copy(glideWord = null) }
         gestureJob = serviceScope.launch {
             val candidates = withContext(Dispatchers.Default) {
-                GestureDecoder(keys, keyWidthPx).decode(points, gestureDecodeLexicon())
+                GestureDecoder(keys, keyWidthPx).decode(points, gestureDecodeLexicon(), contextBoosts = gestureContextBoosts())
             }
             // Debug builds only: typed content must never be logged in release.
             if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
@@ -6193,7 +6232,10 @@ open class WMKeyboardService : InputMethodService() {
             var lastWords: List<String> = emptyList()
             var committedAny = false
             segments.forEachIndexed { index, segment ->
-                val candidates = withContext(Dispatchers.Default) { decoder.decode(segment, lex) }
+                val boosts = gestureContextBoosts()
+                val candidates = withContext(Dispatchers.Default) {
+                    decoder.decode(segment, lex, contextBoosts = boosts)
+                }
                 if (candidates.isEmpty()) return@forEachIndexed
                 val word = if (index == 0) {
                     when (shiftAtGesture) {
@@ -12571,6 +12613,9 @@ open class WMKeyboardService : InputMethodService() {
          * anyone can read, and every partial recomposes the panel.
          */
         private const val AI_PARTIAL_INTERVAL_MS = 120L
+        private const val PER_APP_LRU_APPS = 20
+        private const val PER_APP_RECENT_WORDS = 50
+
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
 
         /**

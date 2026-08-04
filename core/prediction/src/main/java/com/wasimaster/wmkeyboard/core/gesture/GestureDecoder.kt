@@ -42,6 +42,10 @@ class GestureDecoder(
         private const val ANCHOR_WEIGHT = 0.55f
         private const val FREQUENCY_WEIGHT = 0.18f
 
+        /** Learned-context prior: a follower count of 5 adds ~0.45 — enough
+         * to flip near-ties, well under MAX_COST's shape gate. */
+        private const val CONTEXT_WEIGHT = 0.25f
+
         /** Words scoring worse than this (before the prior) are dropped. */
         private const val MAX_COST = 1.35f
     }
@@ -57,6 +61,11 @@ class GestureDecoder(
         path: List<GesturePoint>,
         lexicon: List<Pair<String, Int>>,
         limit: Int = 4,
+        /** Learned follower counts of the word before the swipe: a small
+         * context prior that flips shape-ambiguous near-ties toward the word
+         * the user actually types here, but can never rescue a bad shape
+         * (the MAX_COST prune runs before the prior applies). */
+        contextBoosts: Map<String, Int> = emptyMap(),
     ): List<Suggestion> {
         if (path.size < 3 || keyWidth <= 0f) return emptyList()
         val drawn = resample(path)
@@ -104,7 +113,9 @@ class GestureDecoder(
             val cost = SHAPE_WEIGHT * shapeCost + ANCHOR_WEIGHT * anchorCost
             if (cost > MAX_COST) continue
 
-            val prior = FREQUENCY_WEIGHT * ln((frequency + 1).toFloat())
+            val context = contextBoosts[word.lowercase()] ?: 0
+            val prior = FREQUENCY_WEIGHT * ln((frequency + 1).toFloat()) +
+                CONTEXT_WEIGHT * ln((context + 1).toFloat())
             // Reuse Suggestion; frequency carries a sortable score (scaled to int).
             scored.add(Suggestion(word, ((prior - cost) * 1000).toInt()))
         }

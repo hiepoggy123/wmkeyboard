@@ -184,6 +184,14 @@ class SuggestionEngine(
         }
 
     /**
+     * Words recently committed in the app now being typed in — an in-memory
+     * recency overlay from the IME, giving each app's own vocabulary a small
+     * ranking edge there. Read post-cache, so no generation bump.
+     */
+    @Volatile
+    var contextWords: Set<String> = emptySet()
+
+    /**
      * Bengali index, rebuilt when an imported Bengali list arrives so its
      * words become reachable by transliteration too.
      */
@@ -528,6 +536,9 @@ class SuggestionEngine(
 
         /** Handicap on a once-reverted pair: the x0.25 of the old design. */
         private val PAIR_PENALTY = ln(4.0)
+
+        /** Recency edge for words typed recently in the same app. */
+        private val APP_RECENCY_BOOST = ln(1.3)
     }
 
     /**
@@ -610,6 +621,15 @@ class SuggestionEngine(
                     else -> 0.0
                 }
                 if (boost > 0.0) entry.setValue(entry.value + boost)
+            }
+        }
+
+        // Words recently typed in this very app get a small recency edge.
+        if (contextWords.isNotEmpty()) {
+            for (entry in merged.entries) {
+                if (entry.key.lowercase() in contextWords) {
+                    entry.setValue(entry.value + APP_RECENCY_BOOST)
+                }
             }
         }
 

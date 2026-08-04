@@ -69,6 +69,25 @@ class GestureDecoderTest {
     }
 
     @Test
+    fun `context boost flips a near-tie without rescuing bad shapes`() {
+        // "good" and "god" draw the exact same g-o-d trace (double letters
+        // collapse); "good" wins on frequency, a learned habit flips it.
+        val trace = gestureFor("god")
+        assertEquals("good", decoder.decode(trace, lexicon).first().word)
+        val boosted = decoder.decode(trace, lexicon, contextBoosts = mapOf("god" to 30))
+        assertEquals("god", boosted.first().word)
+        // An empty map is byte-identical to the old behavior.
+        assertEquals(
+            decoder.decode(trace, lexicon).map { it.word },
+            decoder.decode(trace, lexicon, contextBoosts = emptyMap()).map { it.word },
+        )
+        // No boost can admit a word whose shape was pruned: "was" is nowhere
+        // near the t-h-e trace.
+        val impossible = decoder.decode(trace, lexicon, contextBoosts = mapOf("was" to 1_000_000))
+        assertTrue(impossible.none { it.word == "was" })
+    }
+
+    @Test
     fun `frequency breaks shape ties`() {
         // t-h-e is a prefix of they/then/them paths; "the" must win on prior.
         val results = decoder.decode(gestureFor("the"), lexicon)

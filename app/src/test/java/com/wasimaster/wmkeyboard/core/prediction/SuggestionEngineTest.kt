@@ -87,6 +87,26 @@ class SuggestionEngineTest {
         )
     }
 
+    @Test fun appRecencyOverlayNudgesButNeverDominates() {
+        val dictionary = Trie().apply {
+            insert("world", 95)
+            insert("words", 100)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        assertEquals("words", e.suggest("wor", previousWord = null).first())
+        // Recently typed in this app: the near-tie flips.
+        e.contextWords = setOf("world")
+        assertEquals("world", e.suggest("wor", previousWord = null).first())
+        // A big frequency gap shrugs the nudge off.
+        val lopsided = Trie().apply {
+            insert("world", 50)
+            insert("words", 100)
+        }
+        val e2 = SuggestionEngine(lopsided, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        e2.contextWords = setOf("world")
+        assertEquals("words", e2.suggest("wor", previousWord = null).first())
+    }
+
     @Test fun prefixCompletion() {
         val suggestions = engine().suggest("th", previousWord = null)
         assertEquals("the", suggestions.first())
