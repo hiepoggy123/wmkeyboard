@@ -25,11 +25,36 @@ The panel re-reads the snippet file every time you open it; settings and the key
 
 ## Auto-expanding as you type
 
-Give a snippet a trigger word and it expands on its own: type the trigger by itself and finish it with a space, punctuation, or Enter, and what you typed is replaced with the expanded snippet instead of being committed literally. Matching is case-insensitive and exact: `omw` matches `OMW` but not `omww`; there's no partial or prefix matching.
+Give a snippet a trigger word and it expands on its own: type the trigger by itself and finish it with a space, punctuation, or Enter, and what you typed is replaced with the expanded snippet instead of being committed literally. Matching is case-insensitive and exact: `omw` matches `OMW` but not `omww`; there's no partial or prefix matching. If you'd rather match something that varies — a name, a time, a phrase — use a [pattern trigger](#pattern-triggers) instead.
 
 Trigger expansion is skipped while you're mid-transliteration or mid-conversion. For phonetic composers like Bengali-style transliteration, or Pinyin/Japanese-style conversion, the composing buffer holds an input spelling rather than the literal word you meant as a trigger, so expansion would misfire.
 
 This is a different mechanism from the **Keyword shortcut** field on the Snippets settings screen (see [Options](#options)), which is a [smart chip](/smart/chips/) that offers to *open the Snippets panel* when you type "snippet" or "snippets." It has nothing to do with any individual snippet's own trigger word.
+
+### Pattern triggers
+
+A word trigger matches one fixed word. A **pattern** trigger matches the last few words before the cursor with a regular expression, and hands whatever it captured to the snippet's text. One snippet then covers every name, every time, every phrase:
+
+| Pattern | Snippet text | You type | You get |
+|---|---|---|---|
+| `^hello (.+)$` | `Hello, $1! Nice to meet you.` | `hello John` + space | Hello, John! Nice to meet you. |
+| `^thanks (.+)$` | `Dear $1,`<br/>`Thank you for your message…` | `thanks Sarah` + space | The whole letter, addressed to Sarah |
+| `^/gh (\S+)$` | `https://github.com/$1` | `/gh wasi-master` + space | https://github.com/wasi-master |
+
+Each pair of brackets in the pattern is a capture, and `$1` to `$9` put those captures into the text. `$0` is everything the pattern matched. Four transforms are available when you want the capture reshaped: `${1:upper}`, `${1:lower}`, `${1:title}` and `${1:trim}`. A literal dollar sign is `$$`.
+
+Some details worth knowing:
+
+- **Matching is case-insensitive** by default, so `HELLO John` works too. Start the pattern with `(?-i)` if you want it to care.
+- **`^` and `$` are optional.** The pattern always has to fill the whole span it's matched against, so `hello (.+)` behaves exactly like `^hello (.+)$`. Most people write the anchors anyway, and the examples here follow suit.
+- **Words to match** caps how far back a pattern can reach — three words by default, up to eight. It's there because names are short: with a cap of three, `^hello (.+)$` can turn "hello John Smith" into a greeting but will leave a whole sentence alone.
+- **A pattern never reaches across a line break**, so a snippet can't swallow the paragraph above the one you're writing.
+- **The shortest match wins.** If two patterns both fit, the one that eats fewer of your words is the one that runs. A plain word trigger always beats a pattern.
+- **Backspace takes it back.** One press right after an expansion restores exactly what you typed, spacing and capitals included, and the pattern won't fire again on that same text.
+
+Patterns run on every space you type, so the keyboard is careful about what they cost. Starting a pattern with a plain word (`^hello `, `^/gh `) lets it skip the pattern entirely unless that word is actually behind your cursor — which is nearly always. A pattern that starts with something variable instead, like `^(.+)$` or `^\d+`, has to be tried after every word, and the editor says so when you write one. A pattern that turns out to be pathologically slow is stopped rather than allowed to stall your typing.
+
+Everything else about word triggers applies here too: patterns are skipped mid-transliteration and mid-conversion, and they never run in password fields or in fields that ask for no suggestions.
 
 ## Template variables
 
@@ -68,10 +93,11 @@ Find the list under Settings → Tools → Snippets (see [Options](#options) bel
 
 The settings screen opens with a reference card listing all 18 variables plus `{date:pattern}`, each with a live example. Below it:
 
-- **Add snippet** opens a dialog with a label, a multi-line text field (hint text calls out the most common variables), and an optional trigger word.
+- **Add snippet** opens a dialog with a label, a multi-line text field (hint text calls out the most common variables), and a Word / Pattern switch for how it expands as you type.
+- Choosing **Word** gives you a single trigger-word field. Choosing **Pattern** gives you the pattern itself, chips that write `(.+)`, `$1`, `^` and `$` at the cursor, a words-to-match picker, and a **Try it** box: type what you'd type on the keyboard and the result appears underneath. A pattern that won't compile is flagged as you type, with the regular-expression engine's own complaint underneath it, and Save stays disabled until it's fixed.
 - The pencil icon on a saved snippet reopens that same dialog, pre-filled, to **edit** it.
 - The trash icon **deletes** it immediately: there's no confirmation prompt, so double-check before you tap it.
-- Every row also shows a live "Inserts as: …" preview whenever the expanded text would differ from what you typed, and "Auto-expands from: …" if you've set a trigger.
+- Every row also shows a live "Inserts as: …" preview whenever the expanded text would differ from what you typed, and "Auto-expands from: …" if you've set a trigger (or the pattern itself, if you set one of those).
 
 <PhoneFrame caption="Adding a snippet: label, text with variables, and an optional trigger word.">
   ![Adding a snippet: label, text with variables, and an optional trigger word.](@assets/screens/tools/snippets-add-dialog.webp)
@@ -81,7 +107,7 @@ There's no way to reorder the list from inside settings. Snippets stay in the or
 
 ### Import and export
 
-**Export** writes every current snippet to a `.wmsnippets.json` file (see [file formats](/reference/file-formats/)). **Import** always adds alongside what's already there rather than replacing it, so importing the same file twice leaves you with two copies, not one. Rows are repaired rather than rejected when something's off: a snippet with no text is dropped, text over 20,000 characters is trimmed, a blank label is filled in from the snippet's own first line, and only the first 500 snippets of an oversized file are kept, with a summary of anything that changed shown once the import finishes.
+**Export** writes every current snippet to a `.wmsnippets.json` file (see [file formats](/reference/file-formats/)). **Import** always adds alongside what's already there rather than replacing it, so importing the same file twice leaves you with two copies, not one. Rows are repaired rather than rejected when something's off: a snippet with no text is dropped, text over 20,000 characters is trimmed, a blank label is filled in from the snippet's own first line, a trigger pattern that won't compile (or runs past 200 characters) is removed while the snippet itself is kept, and only the first 500 snippets of an oversized file are kept, with a summary of anything that changed shown once the import finishes.
 
 ## Options
 
@@ -91,7 +117,7 @@ There's no way to reorder the list from inside settings. Snippets stay in the or
 - **Icon colour** — only shown if [colorful tool icons](/tools/overview/) is turned on globally; overrides just this tool's icon color.
 - **Keyword shortcut** — the words that make the [Smart chips](/smart/chips/) suggestion offer to open this panel; "snippet" and "snippets" out of the box, editable or clearable here. This only controls opening the panel; it's unrelated to a snippet's own trigger word (above).
 
-Beyond that, there's nothing to configure about expansion itself: no on/off switch separate from the tool, no way to change how matching works.
+Beyond that, there's nothing global to configure about expansion: no on/off switch separate from the tool. How matching works is set per snippet instead, in the add/edit dialog — word or pattern, and how far back a pattern may reach. Having no pattern snippets at all is what keeps the matching machinery out of the typing path entirely.
 
 ## Snippet packs and backups
 
@@ -104,5 +130,10 @@ That's a different mechanism from the whole-app [config backup](/privacy/backup/
 - Snippets aren't available before you've unlocked your device once after a restart. The snippet file lives in credential-encrypted storage, so this tool sits out any lock-screen or pre-unlock typing until then.
 - Ships the same way in both the full and lite editions: there's no edition gating on this tool.
 - The 500-snippet and 20,000-character limits above are enforced only on import; adding snippets one at a time from the dialog has no equivalent cap.
-- Because the panel re-reads the snippet file only when you open it, a snippet you just added in Settings won't appear if you already had the panel open. Close and reopen the panel (or switch to another panel and back) to pick it up.
+- Because the panel re-reads the snippet file only when you open it, a snippet you just added in Settings won't appear if you already had the panel open. Close and reopen the panel (or switch to another panel and back) to pick it up. Triggers themselves are refreshed whenever you tap into a text field, so a snippet you just saved starts expanding straight away even if you never open the panel.
 - `{uuid}` generates a new value on every single insertion, including inserting the same snippet twice in a row; it's not fixed per snippet.
+- Tapping a **pattern** snippet in the panel inserts its text with the captures left blank and puts the cursor in the first gap, since a tap has no words to capture. `Hello, $1! Nice to meet you.` goes in as "Hello, ! Nice to meet you." with the cursor after "Hello, ". A plain snippet is unaffected: a `$1` in its text is a dollar sign and a one.
+- Capture text is spliced in exactly as you typed it. A template variable that lands inside a capture — typing "note remember `{clip}`" into a `^note (.+)$` pattern — stays literal rather than expanding, so text in the field you're typing into can never pull your clipboard in behind you.
+- A snippet whose text ends at a `{cursor}` marker swallows the key that triggered it, so the space or full stop you pressed doesn't land in the middle of what was just inserted.
+- Triggers only fire where the keyboard keeps a composing buffer, which means they're skipped in password fields, in fields that ask for no suggestions, and when you've turned suggestions off entirely.
+- Swiping a word with gesture typing, or tapping one from the suggestion strip, doesn't fire a pattern. The next word you type by hand does.

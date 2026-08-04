@@ -387,8 +387,11 @@ object AddonInstaller {
         }
         val store = SnippetStore(snippetsFile(context))
         // Ids in the file are ignored — add() assigns fresh ones — so the ids
-        // it hands back are what uninstall has to remember.
-        val added = imported.snippets.map { store.add(it.label, it.text, it.trigger).id }
+        // it hands back are what uninstall has to remember. Whole snippets go
+        // in: rebuilding them out of named fields would silently strip whatever
+        // the format gained last, and a pack would install with its patterns
+        // missing and nothing to say so.
+        val added = imported.snippets.map { store.add(it).id }
         // add() only mutates the in-memory list; nothing reaches disk until save().
         store.save()
         return Outcome.Installed(added.joinToString(","), imported.repairs.map { it.resolve(context) })

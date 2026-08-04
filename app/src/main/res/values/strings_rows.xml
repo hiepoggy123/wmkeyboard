@@ -28,6 +28,26 @@
     <string name="rows_snippet_trigger_label">Trigger word (optional)</string>
     <string name="rows_snippet_trigger_body">The keyboard expands this word to the text above when you type it alone.</string>
 
+    <!-- The two ways a snippet can expand as the user types. -->
+    <string name="rows_snippet_mode_word_label">Word</string>
+    <string name="rows_snippet_mode_pattern_label">Pattern</string>
+
+    <string name="rows_snippet_pattern_label">Pattern</string>
+    <!-- The symbols in this line are code. Keep them exactly as they are. -->
+    <string name="rows_snippet_pattern_body">A pattern matches the words before the cursor. Write (.+) where the text changes, then put $1 in the text above to use what it matched.</string>
+    <string name="rows_snippet_pattern_error">The app cannot read this pattern.</string>
+    <string name="rows_snippet_pattern_slow_info">This pattern does not start with a plain word, so the keyboard tries it after every word that you type. Start it with a word to make it faster.</string>
+    <string name="rows_snippet_pattern_stopped_error">This pattern takes too long. The keyboard stops it. Make it more simple.</string>
+
+    <string name="rows_snippet_words_label">Words to match</string>
+    <string name="rows_snippet_words_body">The largest number of words before the cursor that this pattern can replace.</string>
+
+    <string name="rows_snippet_test_label">Try it</string>
+    <string name="rows_snippet_test_body">Type what you would type on the keyboard. The result shows here.</string>
+    <string name="rows_snippet_test_no_match_label">The pattern does not match this text.</string>
+    <!-- %1$s is the text that the snippet inserts for the trial text above. -->
+    <string name="rows_snippet_test_result_label">Result: %1$s</string>
+
     <!-- ===================================================================
          Rows screen: which rows sit above the keys, and in what order.
          =================================================================== -->

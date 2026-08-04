@@ -225,6 +225,10 @@
     <string name="ime_snippets_variables">Variables: {date} {time} {datetime} {clip}</string>
     <string name="ime_snippets_settings_desc">Snippet settings</string>
 
+    <!-- Shown on a snippet that expands from a pattern instead of one word.
+         %1$s is the pattern itself, for example ^hello (.+)$ — leave it as is. -->
+    <string name="ime_snippets_pattern_label">Pattern: %1$s</string>
+
     <!-- The emoji panel. -->
     <string name="ime_emoji_search_hint">Type to search…</string>
     <string name="ime_emoji_search_delete_desc">Delete from the text field</string>

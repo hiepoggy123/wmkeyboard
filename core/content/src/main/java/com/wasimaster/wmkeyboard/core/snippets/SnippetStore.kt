@@ -2,6 +2,8 @@ package com.wasimaster.wmkeyboard.core.snippets
 
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.content.R
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -9,8 +11,20 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** A reusable text snippet inserted from the keyboard's snippet panel. */
+/**
+ * A reusable text snippet inserted from the keyboard's snippet panel.
+ *
+ * A snippet may also carry a trigger that expands it as the user types: either
+ * [trigger], one exact word, or [triggerPattern], a regular expression over the
+ * words behind the cursor. A snippet that somehow carries both keeps the word,
+ * which is the more specific and the cheaper of the two.
+ *
+ * The two pattern fields are written only when they are set. Every published
+ * pack is a hand-maintained file, and [SnippetFile] encodes defaults, so
+ * without that a plain snippet would grow two empty keys it never uses.
+ */
 @Serializable
+@OptIn(ExperimentalSerializationApi::class)
 data class Snippet(
     val id: Long,
     val label: String,
@@ -18,6 +32,18 @@ data class Snippet(
     val createdAt: Long = 0,
     /** Word that, typed on its own and finished with a space/punctuation/enter, auto-expands to [text]. */
     val trigger: String? = null,
+    /**
+     * Regular expression matched against the words behind the cursor. Capture
+     * groups reach [text] as `$1` to `$9`; see [SnippetMatcher].
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val triggerPattern: String? = null,
+    /**
+     * How many words back the match may reach. 0 asks for
+     * [SnippetMatcher.DEFAULT_WORDS].
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val triggerWords: Int = 0,
 )
 
 /**
@@ -37,6 +63,14 @@ class SnippetStore(private val storageFile: File?) {
     private val json = Json { ignoreUnknownKeys = true }
     private var nextId = 1L
 
+    /**
+     * The triggers, prepared for lookup. Built on first use and thrown away by
+     * every mutator, so the keyboard never pays for a scan on the typing path
+     * and never has to be told the list changed.
+     */
+    @Volatile
+    private var lookup: SnippetIndex? = null
+
     init {
         reload()
     }
@@ -45,39 +79,89 @@ class SnippetStore(private val storageFile: File?) {
     fun items(): List<Snippet> = snippets.toList()
 
     @Synchronized
-    fun add(label: String, text: String, trigger: String? = null, now: Long = System.currentTimeMillis()): Snippet {
-        val snippet = Snippet(
+    fun add(label: String, text: String, trigger: String? = null, now: Long = System.currentTimeMillis()): Snippet =
+        add(Snippet(id = 0, label = label, text = text, trigger = trigger), now)
+
+    /**
+     * Adds [snippet] under a fresh id, keeping every other field it carries.
+     *
+     * Import and add-on installation both go through here. Rebuilding a snippet
+     * out of a handful of named values instead would quietly drop whatever
+     * field was added last, with no error and no repair note.
+     */
+    @Synchronized
+    fun add(snippet: Snippet, now: Long = System.currentTimeMillis()): Snippet {
+        val added = snippet.copy(
             id = nextId++,
-            label = label.trim(),
-            text = text,
+            label = snippet.label.trim(),
             createdAt = now,
-            trigger = normalizeTrigger(trigger),
+            trigger = normalizeTrigger(snippet.trigger),
+            triggerPattern = normalizeTrigger(snippet.triggerPattern),
+            triggerWords = snippet.triggerWords.coerceIn(0, SnippetMatcher.MAX_WORDS),
         )
-        snippets.add(snippet)
-        return snippet
+        snippets.add(added)
+        lookup = null
+        return added
     }
 
     @Synchronized
-    fun update(id: Long, label: String, text: String, trigger: String? = null) {
+    fun update(
+        id: Long,
+        label: String,
+        text: String,
+        trigger: String? = null,
+        triggerPattern: String? = null,
+        triggerWords: Int = 0,
+    ) {
         val index = snippets.indexOfFirst { it.id == id }
         if (index >= 0) {
             snippets[index] = snippets[index].copy(
                 label = label.trim(),
                 text = text,
                 trigger = normalizeTrigger(trigger),
+                triggerPattern = normalizeTrigger(triggerPattern),
+                triggerWords = triggerWords.coerceIn(0, SnippetMatcher.MAX_WORDS),
             )
+            lookup = null
         }
     }
 
     @Synchronized
     fun remove(id: Long) {
         snippets.removeAll { it.id == id }
+        lookup = null
     }
 
     /** The snippet whose trigger matches [word] exactly (case-insensitive), if any. */
+    fun matchTrigger(word: String): Snippet? = index().matchTrigger(word)
+
+    /**
+     * The pattern snippet that fits the end of [window], or null.
+     *
+     * See [SnippetIndex.matchPattern] for what the window has to be and what
+     * [atFieldStart] promises.
+     */
+    fun matchPattern(
+        window: CharSequence,
+        atFieldStart: Boolean = false,
+        now: Long = System.currentTimeMillis(),
+        context: Companion.Context = Companion.Context(),
+    ): SnippetMatch? = index().matchPattern(window, atFieldStart, now, context)
+
+    /** True when any snippet carries a pattern, so the keyboard need not look. */
+    fun hasPatterns(): Boolean = index().hasPatterns
+
+    /** True when a word starting with [first] could begin a gated pattern. */
+    fun couldStartPattern(first: Char): Boolean = index().let { it.hasUngated || it.couldStartAt(first) }
+
+    /** Ids of the patterns the app stopped for taking too long. */
+    fun stoppedPatterns(): Set<Long> = index().stopped()
+
+    private fun index(): SnippetIndex = lookup ?: build()
+
     @Synchronized
-    fun matchTrigger(word: String): Snippet? =
-        snippets.firstOrNull { it.trigger != null && it.trigger.equals(word, ignoreCase = true) }
+    private fun build(): SnippetIndex =
+        lookup ?: SnippetIndex.of(snippets.toList()).also { lookup = it }
 
     private fun normalizeTrigger(trigger: String?): String? =
         trigger?.trim()?.takeIf { it.isNotEmpty() }
@@ -95,6 +179,7 @@ class SnippetStore(private val storageFile: File?) {
     @Synchronized
     fun reload() {
         snippets.clear()
+        lookup = null
         val file = storageFile ?: return
         if (!file.exists()) return
         runCatching {

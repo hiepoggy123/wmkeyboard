@@ -154,6 +154,7 @@ import com.wasimaster.wmkeyboard.core.settings.applyMode
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.resolveKeyboardMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.snippets.SnippetMatcher
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.stickers.StickerAddResult
 import com.wasimaster.wmkeyboard.core.support.Support
@@ -419,6 +420,47 @@ open class WMKeyboardService : InputMethodService() {
 
     private var composing = StringBuilder()
     private var previousWord: String? = null
+
+    /**
+     * The last few completed words, newest last — the free half of the pattern
+     * snippet gate.
+     *
+     * A pattern reaches back over several words, and finding out what they are
+     * means a blocking read into the focused app. This is the same information
+     * [previousWord] holds, kept a few words deeper, so the common answer ("no
+     * pattern could possibly start here") costs nothing at all.
+     *
+     * It is a **hint, and it is allowed to be wrong**. Nothing is ever expanded
+     * on its word: [tryPatternExpansion] reads the field and measures the match
+     * against that, so a stale ring costs at most one wasted read. That is why
+     * it only has to be maintained where [previousWord] already is, and why
+     * [recentWordsValid] falls back to reading rather than to doing nothing.
+     */
+    private val recentWords = ArrayDeque<String>()
+
+    /** False when [recentWords] cannot be trusted, so the gate reads instead. */
+    private var recentWordsValid = false
+
+    /**
+     * Text a pattern expansion was just taken back from, so the space that
+     * re-commits the restored word does not expand it straight back. Same
+     * one-shot shape as [smartMutedAfter]; any typed character clears it.
+     */
+    private var patternMutedAfter: String? = null
+
+    /**
+     * True when the commit that just ran left the caret inside an expansion,
+     * at a `{cursor}` marker. The key that ended the word — space, enter, a
+     * full stop — must then be swallowed: committed at the caret it would drop
+     * a stray character into the middle of the text the snippet inserted.
+     */
+    private var swallowTerminatorAfterCommit = false
+
+    /** The snippets file, watched for edits made by the settings app. */
+    private var snippetsFile: File? = null
+
+    /** [snippetsFile]'s modification time at the last reload. */
+    private var snippetsStamp = 0L
     /**
      * shortcut → expansion from Android's personal dictionary, for
      * [SuggestionStripSettings.expandUserDictShortcuts] (A28). Loaded off the
@@ -442,7 +484,7 @@ open class WMKeyboardService : InputMethodService() {
     private var gestureJob: Job? = null
 
     /**
-     * Caret anchor for the immediate-revert states ([lastAutocorrect],
+     * Caret anchor for the immediate-revert states ([lastRevertible],
      * [lastGestureWord], [pendingAutoSpace]). Each is armed right after one of
      * our own commits and is only valid while the caret still sits exactly
      * where that commit left it — the text-equality probes alone would match
@@ -510,10 +552,20 @@ open class WMKeyboardService : InputMethodService() {
     )
 
     /**
-     * The last commit autocorrect changed, as typed-to-committed, so an
-     * immediate backspace can undo the correction. Any other input clears it.
+     * The last commit one backspace can take back. Any other input clears it.
+     *
+     * [original] is what the user actually typed; [committed] is what went into
+     * the field, and is probed before anything is deleted. The kind decides
+     * what else the undo means: an autocorrect the user rejects is also retired
+     * and taught to the lexicon, while a snippet expansion is a plain text swap
+     * that the keyboard should learn nothing from.
      */
-    private var lastAutocorrect: Pair<String, String>? = null
+    private class RevertibleCommit(val kind: Kind, val original: String, val committed: String) {
+
+        enum class Kind { AUTOCORRECT, SNIPPET }
+    }
+
+    private var lastRevertible: RevertibleCommit? = null
 
     /**
      * True when the last keystroke auto-inserted a space right after
@@ -1503,7 +1555,9 @@ open class WMKeyboardService : InputMethodService() {
             store("clipboard/history.json"),
             imagesDir = store("clipboard/images"),
         )
-        snippetStore = SnippetStore(store("snippets/snippets.json"))
+        snippetsFile = store("snippets/snippets.json")
+        snippetStore = SnippetStore(snippetsFile)
+        snippetsStamp = snippetsFile?.lastModified() ?: 0L
         // A null file here means "in memory, never written", so a locked
         // session records nothing without a check anywhere else.
         aiHistoryStore = AiHistoryStore(store(AiHistoryStore.FILE_PATH))
@@ -2053,8 +2107,9 @@ open class WMKeyboardService : InputMethodService() {
         } else {
             composing = StringBuilder()
             previousWord = null
+            invalidateRecentWords()
             lastGestureWord = null
-            lastAutocorrect = null
+            lastRevertible = null
             pendingAutoSpace = false
             pendingPunctuationSpace = false
             // A genuinely different field. Whatever a plugin was collecting
@@ -2104,10 +2159,16 @@ open class WMKeyboardService : InputMethodService() {
         } else {
             composing = StringBuilder()
             previousWord = null
+            invalidateRecentWords()
             lastGestureWord = null
-            lastAutocorrect = null
+            lastRevertible = null
         }
         smartMutedAfter = null
+        patternMutedAfter = null
+        // The settings app edits snippets in the same file this reads, so a
+        // pattern added there has to reach the keyboard without waiting for
+        // the snippet panel to be opened.
+        reloadSnippetsIfChanged()
         resetHardwareKeyState()
         // Covers the permission being granted after the setting was on.
         if (_uiState.value.settings.contactSuggestions && contactNames.isEmpty) {
@@ -2310,19 +2371,19 @@ open class WMKeyboardService : InputMethodService() {
         // commit left behind; see [revertAnchor]. The first update after
         // arming is the commit's own echo and records the anchor, anything
         // that moves the caret afterwards disarms them.
-        if (lastAutocorrect != null || lastGestureWord != null || pendingAutoSpace) {
+        if (lastRevertible != null || lastGestureWord != null || pendingAutoSpace) {
             val settling = SystemClock.uptimeMillis() - revertArmedAt < REVERT_SETTLE_MS
             when {
                 // A range selection is never one of our own commit echoes.
                 newSelStart != newSelEnd -> {
-                    lastAutocorrect = null
+                    lastRevertible = null
                     lastGestureWord = null
                     pendingAutoSpace = false
                     pendingPunctuationSpace = false
                 }
                 revertAnchor == -1 || settling -> revertAnchor = newSelStart
                 newSelStart != revertAnchor -> {
-                    lastAutocorrect = null
+                    lastRevertible = null
                     lastGestureWord = null
                     pendingAutoSpace = false
                     pendingPunctuationSpace = false
@@ -2685,6 +2746,10 @@ open class WMKeyboardService : InputMethodService() {
         // The auto-space cancel is a one-shot for the shift press immediately
         // after the ". " — any other key means the user typed on past it.
         if (key.action != KeyAction.Shift) pendingAutoSpace = false
+        // Spent by the key that ended the word it was armed for. A commit made
+        // from somewhere else — a panel opening, text inserted by a tool — must
+        // not leave one behind for whatever key comes next.
+        swallowTerminatorAfterCommit = false
         // Space is the other key with something to say about a just-inserted
         // punctuation space: it consumes it rather than adding a second one.
         if (key.action != KeyAction.Shift && key.action != KeyAction.Space) {
@@ -3060,9 +3125,12 @@ open class WMKeyboardService : InputMethodService() {
     private fun processTypedText(input: String, applyDeadKeys: Boolean) {
         val state = _uiState.value
         var text = input
+        // A typed character is new text, so the span a pattern was told to
+        // leave alone is no longer the span in front of the caret.
+        patternMutedAfter = null
         // Any new input ends the window in which backspace reverts the
         // previous autocorrect.
-        lastAutocorrect = null
+        lastRevertible = null
 
         if (applyDeadKeys) {
             // Dead keys: the accent arms and waits, then fuses with the next
@@ -3250,7 +3318,18 @@ open class WMKeyboardService : InputMethodService() {
             refreshSuggestions()
             consumeShift()
         } else {
-            commitComposing(ic, autocorrect = false)
+            // A pattern may fire here too, but only for the marks that really
+            // end a word. This branch also takes every symbol-layer insert,
+            // every slash and every digit, and a pattern eating text behind one
+            // of those is not what anybody typed.
+            val endsWord = text.length == 1 &&
+                (text[0] in SENTENCE_ENDERS || text[0] in AUTO_SPACE_PUNCTUATION)
+            commitComposing(ic, autocorrect = false, expandPatterns = endsWord)
+            if (swallowTerminatorAfterCommit) {
+                swallowTerminatorAfterCommit = false
+                consumeShift()
+                return
+            }
             val autoSpace = shouldAutoSpaceAfterPunctuation(state, text)
             if (autoSpace) {
                 // A run of marks ("...", "?!") must not be pulled apart by the
@@ -3588,37 +3667,38 @@ open class WMKeyboardService : InputMethodService() {
                 }
             }
         }
-        // Backspace straight after an autocorrect undoes it: the corrected
-        // word (and the space that triggered it) become the typed original,
-        // which joins the personal dictionary so it is never auto-"fixed"
-        // again — deleting the fix is the strongest "I meant what I typed".
-        lastAutocorrect?.let { (typed, corrected) ->
-            lastAutocorrect = null
-            if (composing.isEmpty() && state.settings.revertAutocorrectOnBackspace) {
-                val expected = "$corrected "
-                val before = ic.getTextBeforeCursor(expected.length, 0)?.toString()
-                if (before == expected) {
+        // Backspace straight after an autocorrect or a snippet expansion takes
+        // it back: what the keyboard put in the field becomes what the user
+        // typed again. An undone autocorrect also joins the personal dictionary
+        // so it is never auto-"fixed" again — deleting the fix is the strongest
+        // "I meant what I typed".
+        lastRevertible?.let { revert ->
+            lastRevertible = null
+            val allowed = when (revert.kind) {
+                RevertibleCommit.Kind.AUTOCORRECT -> state.settings.revertAutocorrectOnBackspace
+                // A pattern snippet eats several typed words at once, so being
+                // able to take it back is not a preference. There is also no
+                // settings field left to hang one on.
+                RevertibleCommit.Kind.SNIPPET -> true
+            }
+            if (composing.isEmpty() && allowed) {
+                // A correction is always followed by the space that triggered
+                // it, but an expansion can be followed by a newline, a full
+                // stop, or nothing at all when a {cursor} marker swallowed the
+                // key. Reading one character past the commit and putting
+                // whatever it is back verbatim beats guessing which it was.
+                val probe = ic.getTextBeforeCursor(revert.committed.length + 1, 0)?.toString()
+                val tail = if (probe != null && probe.length > revert.committed.length) {
+                    probe.takeLast(1)
+                } else {
+                    ""
+                }
+                if (probe != null && probe.dropLast(tail.length) == revert.committed) {
                     ic.beginBatchEdit()
-                    ic.deleteSurroundingText(expected.length, 0)
-                    ic.commitText("$typed ", 1)
+                    ic.deleteSurroundingText(probe.length, 0)
+                    ic.commitText(revert.original + tail, 1)
                     ic.endBatchEdit()
-                    // Undoing the correction retires it outright: without this
-                    // the very next space corrected the word straight back,
-                    // leaving no way to type it at all. Unconditional, unlike
-                    // the personal-dictionary entry below — a rejection has to
-                    // hold in incognito and with learning off too.
-                    suggestionEngine?.rejectCorrection(typed)
-                    // A stale precompute for this word would hand the old
-                    // correction to the next commit before the strip catches up.
-                    commitResolution = null
-                    if (state.settings.learnFromTyping &&
-                        !(state.incognitoOn && state.settings.incognitoPausesLearning) &&
-                        !state.secureField
-                    ) {
-                        userLexicon.addWord(typed, boost = 5)
-                        invalidateGestureLexicon()
-                    }
-                    previousWord = typed.lowercase().trim { !it.isLetter() }.ifEmpty { null }
+                    revertCommitted(ic, revert, state)
                     return
                 }
             }
@@ -3663,11 +3743,55 @@ open class WMKeyboardService : InputMethodService() {
             // `before` holds, so the guard only falls through if that ever
             // stops being true.
             if (before != null && deleteLength <= before.length) {
-                previousWord = completedWordBefore(before.subSequence(0, before.length - deleteLength))
+                val left = before.subSequence(0, before.length - deleteLength)
+                previousWord = completedWordBefore(left)
+                rebuildRecentWords(left)
             } else {
                 syncPreviousWordFromField(ic)
             }
             refreshSuggestions()
+        }
+    }
+
+    /**
+     * Cleans up after one backspace took a commit back.
+     *
+     * This is where the two kinds part company. Rejecting an autocorrect is a
+     * statement about a word, so the correction is retired and the word taught;
+     * taking back a snippet expansion says nothing about anybody's vocabulary,
+     * so it teaches nothing and only puts the context back where it was.
+     */
+    private fun revertCommitted(ic: InputConnection, revert: RevertibleCommit, state: KeyboardUiState) {
+        // A stale precompute for this word would hand the old answer to the
+        // next commit before the strip catches up.
+        commitResolution = null
+        when (revert.kind) {
+            RevertibleCommit.Kind.AUTOCORRECT -> {
+                // Undoing the correction retires it outright: without this the
+                // very next space corrected the word straight back, leaving no
+                // way to type it at all. Unconditional, unlike the personal
+                // dictionary entry below — a rejection has to hold in incognito
+                // and with learning off too.
+                suggestionEngine?.rejectCorrection(revert.original)
+                if (state.settings.learnFromTyping &&
+                    !(state.incognitoOn && state.settings.incognitoPausesLearning) &&
+                    !state.secureField
+                ) {
+                    userLexicon.addWord(revert.original, boost = 5)
+                    invalidateGestureLexicon()
+                }
+                previousWord = revert.original.lowercase().trim { !it.isLetter() }.ifEmpty { null }
+                invalidateRecentWords()
+            }
+            RevertibleCommit.Kind.SNIPPET -> {
+                // The restored words are back to being exactly what the user
+                // typed, and the caret may be sitting at the end of the last
+                // one — where the keyboard re-arms it as a composing word. The
+                // next space would then expand it straight back, so that one
+                // span is muted until something else is typed.
+                patternMutedAfter = revert.original
+                syncPreviousWordFromField(ic)
+            }
         }
     }
 
@@ -3751,7 +3875,51 @@ open class WMKeyboardService : InputMethodService() {
      * predicts from nothing rather than from the fragment it is inside.
      */
     private fun syncPreviousWordFromField(ic: InputConnection) {
-        previousWord = completedWordBefore(ic.getTextBeforeCursor(64, 0))
+        val before = ic.getTextBeforeCursor(64, 0)
+        previousWord = completedWordBefore(before)
+        rebuildRecentWords(before)
+    }
+
+    /**
+     * Adds a freshly committed [word] to the pattern gate's memory.
+     *
+     * Called wherever [previousWord] takes a word the keyboard just put in the
+     * field, so the two never disagree about what was typed.
+     */
+    private fun pushRecentWord(word: String) {
+        if (word.isEmpty()) return
+        recentWords.addLast(word)
+        while (recentWords.size > RECENT_WORDS) recentWords.removeFirst()
+        recentWordsValid = true
+    }
+
+    /**
+     * Refills the pattern gate's memory from text a caller has already read.
+     *
+     * Always from real field text, never from what the keyboard believes it
+     * committed. A gate that drifts is worse than one that is simply empty, and
+     * every caller here is somewhere [previousWord] is being re-derived from
+     * the same characters — so this costs nothing extra.
+     */
+    private fun rebuildRecentWords(text: CharSequence?) {
+        recentWords.clear()
+        recentWordsValid = true
+        if (text == null) return
+        var end = text.length
+        while (end > 0 && recentWords.size < RECENT_WORDS) {
+            while (end > 0 && text[end - 1].isWhitespace()) end--
+            if (end == 0) break
+            var start = end
+            while (start > 0 && !text[start - 1].isWhitespace()) start--
+            recentWords.addFirst(text.subSequence(start, end).toString())
+            end = start
+        }
+    }
+
+    /** Forgets the recent words, so the gate reads the field rather than guess. */
+    private fun invalidateRecentWords() {
+        recentWords.clear()
+        recentWordsValid = false
     }
 
     /**
@@ -3796,6 +3964,14 @@ open class WMKeyboardService : InputMethodService() {
         // caret move disarms lastGestureWord first (see revertAnchor), so
         // this never suppresses a genuine context re-read.
         if (lastGestureWord != null) {
+            refreshSmartSuggestion()
+            return
+        }
+        // Same for the caret settling after a snippet expansion. An expansion
+        // that ends in a letter would otherwise have its last word re-armed as
+        // composing, and backspace edits a composing buffer instead of taking
+        // the expansion back — which is the one thing backspace has to do here.
+        if (lastRevertible?.kind == RevertibleCommit.Kind.SNIPPET) {
             refreshSmartSuggestion()
             return
         }
@@ -3846,7 +4022,9 @@ open class WMKeyboardService : InputMethodService() {
                     ic.setComposingRegion(newSelStart - word.length, newSelStart)
                 ) {
                     composing = StringBuilder(word)
-                    previousWord = completedWordBefore(before.subSequence(0, before.length - word.length))
+                    val ahead = before.subSequence(0, before.length - word.length)
+                    previousWord = completedWordBefore(ahead)
+                    rebuildRecentWords(ahead)
                     _uiState.update { it.copy(composingPreview = word) }
                     refreshSuggestions()
                     return
@@ -3858,7 +4036,12 @@ open class WMKeyboardService : InputMethodService() {
         // field flags, so this stays correct in secure / no-suggestion fields.
         // `beforeText` is null exactly when the branch above never read it.
         val cached = beforeText
-        if (cached != null) previousWord = completedWordBefore(cached) else syncPreviousWordFromField(ic)
+        if (cached != null) {
+            previousWord = completedWordBefore(cached)
+            rebuildRecentWords(cached)
+        } else {
+            syncPreviousWordFromField(ic)
+        }
         refreshSuggestions()
     }
 
@@ -3906,7 +4089,7 @@ open class WMKeyboardService : InputMethodService() {
         if (length > 0) {
             ic.deleteSurroundingText(length, 0)
             lastGestureWord = null
-            lastAutocorrect = null
+            lastRevertible = null
             // The word that was deleted is gone as context, but whatever now
             // sits behind the cursor is the real one — nulling it outright
             // meant a swipe-delete mid-sentence stopped predicting until the
@@ -4015,7 +4198,17 @@ open class WMKeyboardService : InputMethodService() {
             ic,
             autocorrect = state.settings.autocorrect,
             fixApostrophes = state.settings.autoApostrophe,
+            expandPatterns = true,
         )
+        // The expansion left the caret inside itself, at its {cursor} marker.
+        // A space committed there lands in the middle of the text the snippet
+        // inserted, so this press is spent on the expansion instead.
+        if (swallowTerminatorAfterCommit) {
+            swallowTerminatorAfterCommit = false
+            if (batched) ic.endBatchEdit()
+            lastSpaceTime = now
+            return
+        }
 
         // Double-tap space inserts a tab. Checked before the period rule so
         // enabling it wins, and unlike the period it works anywhere a space
@@ -4097,7 +4290,13 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
         val ic = currentInputConnection ?: return
-        commitComposing(ic, autocorrect = false)
+        commitComposing(ic, autocorrect = false, expandPatterns = true)
+        // Same as the spacebar: a newline typed at a caret parked inside an
+        // expansion would break the text the snippet just inserted.
+        if (swallowTerminatorAfterCommit) {
+            swallowTerminatorAfterCommit = false
+            return
+        }
         // Shift held over Enter overrides the field's action: in a chat app the
         // box declares Send, so this is the only way to put a line break in a
         // message without sending it. The key draws the newline glyph while the
@@ -4446,7 +4645,20 @@ open class WMKeyboardService : InputMethodService() {
         ic: InputConnection,
         autocorrect: Boolean,
         fixApostrophes: Boolean = false,
+        /**
+         * Whether a *pattern* snippet may fire. A pattern consumes committed
+         * text behind the caret, so only the callers where the user has just
+         * ended a word — space, enter, a full stop — may set it. Every other
+         * call here is incidental: a panel opening, a forward delete, a layout
+         * switch, a cursor scrub. A pattern firing from one of those would eat
+         * text the user never touched. The word trigger is unaffected, since it
+         * only ever consumes the composing buffer.
+         */
+        expandPatterns: Boolean = false,
     ): Boolean {
+        // Spent by whichever key ended this word; a commit that does not park
+        // the caret must not leave a stale one behind for the next.
+        swallowTerminatorAfterCommit = false
         if (composing.isEmpty()) return false
         // A strip refresh still debounced for this word must not land after
         // the commit and repaint candidates for text that is no longer being
@@ -4466,26 +4678,28 @@ open class WMKeyboardService : InputMethodService() {
             return true
         }
         // A word that exactly matches a snippet trigger expands to that
-        // snippet's text instead of committing literally. Skipped for
-        // transliterating/conversion composers (Pinyin, Vietnamese, …) —
-        // their buffer holds an input spelling, not the trigger the user
-        // meant to type.
+        // snippet's text instead of committing literally, and a pattern
+        // snippet may then match the words behind it. The exact trigger is
+        // tried first: it is the more specific rule and the cheaper one, so a
+        // careless `^(.+)$` cannot shadow every literal trigger in the list.
+        //
+        // Both are skipped for transliterating/conversion composers (Pinyin,
+        // Vietnamese, …) — their buffer holds an input spelling, not the
+        // trigger the user meant to type. Both also come before apostrophes
+        // and autocorrect, so a trigger is matched as it was actually typed.
         if (!state.composer.isTransliterating && !state.composer.isConversion) {
             val snippet = snippetStore.matchTrigger(typed)
             if (snippet != null) {
                 val expanded = SnippetStore.expandWithCursor(snippet.text, context = snippetContext(ic))
-                ic.commitText(expanded.text, 1)
-                val trailing = expanded.text.length - expanded.cursorOffset
-                if (trailing > 0) {
-                    val end = ic.getExtractedText(ExtractedTextRequest(), 0)?.selectionEnd
-                    if (end != null && end >= trailing) ic.setSelection(end - trailing, end - trailing)
-                }
-                composing = StringBuilder()
-                _uiState.update {
-                    it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
-                }
+                commitSplitAtCaret(ic, expanded.text, expanded.cursorOffset)
+                afterSnippetExpansion(
+                    inserted = expanded.text,
+                    original = null,
+                    caretParked = expanded.cursorOffset < expanded.text.length,
+                )
                 return true
             }
+            if (expandPatterns && tryPatternExpansion(ic, typed, state)) return true
         }
         // Conversion IME (Pinyin, Japanese): flush the whole reading as a
         // sequence of best candidates, each consuming its own syllables, so the
@@ -4528,8 +4742,10 @@ open class WMKeyboardService : InputMethodService() {
             }
             else -> typed
         }
-        lastAutocorrect = corrected?.let { typed to it }
-        if (lastAutocorrect != null) armRevertGuard()
+        lastRevertible = corrected?.let {
+            RevertibleCommit(RevertibleCommit.Kind.AUTOCORRECT, original = typed, committed = it)
+        }
+        if (lastRevertible != null) armRevertGuard()
         ic.commitText(output, 1)
         // An autocorrected word was the engine's choice, not the user's —
         // it earns no personal-dictionary reinforcement, only the bigram.
@@ -4546,6 +4762,131 @@ open class WMKeyboardService : InputMethodService() {
             it.copy(composingPreview = "", suggestions = nextWords, emojiSuggestions = nextEmojis)
         }
         return true
+    }
+
+    /**
+     * Commits [text] and leaves the caret at [caret] inside it.
+     *
+     * Committing the head, then the tail with `newCursorPosition = 0`, parks
+     * the caret between them: the contract puts a non-positive position at the
+     * start of the text just inserted. Asking the editor where the text landed
+     * instead costs a second blocking read and relies on arithmetic the
+     * contract does not promise — a single-line field strips the newlines out
+     * of a multi-line snippet on the way in, and the answer lands elsewhere.
+     */
+    private fun commitSplitAtCaret(ic: InputConnection, text: String, caret: Int) {
+        val split = caret.coerceIn(0, text.length)
+        ic.commitText(text.substring(0, split), 1)
+        val tail = text.substring(split)
+        if (tail.isNotEmpty()) ic.commitText(tail, 0)
+    }
+
+    /**
+     * The state every snippet expansion leaves behind.
+     *
+     * An expansion is not typing. Nothing about it is learned — the text is
+     * boilerplate, and [learn] would split a whole signature into words and
+     * bigrams — and the strip is cleared rather than refilled, because with a
+     * `{cursor}` marker the caret may be sitting in the middle of it. What it
+     * must do is move the prediction context onto the text it inserted: the
+     * word the strip was predicting from is no longer in the field at all.
+     *
+     * [original] is the text the expansion replaced, when one backspace should
+     * be able to put it back, and null when the expansion cannot be undone.
+     */
+    private fun afterSnippetExpansion(inserted: String, original: String?, caretParked: Boolean) {
+        composing = StringBuilder()
+        previousWord = completedWordBefore(inserted)
+        invalidateRecentWords()
+        commitResolution = null
+        lastGestureWord = null
+        // The caret moved with no onUpdateSelection echo yet, so the cached
+        // selection would still answer for where it used to be.
+        invalidateExpectedSelection()
+        swallowTerminatorAfterCommit = caretParked
+        lastRevertible = original
+            ?.takeIf { inserted.length <= SNIPPET_REVERT_MAX }
+            ?.let { RevertibleCommit(RevertibleCommit.Kind.SNIPPET, original = it, committed = inserted) }
+        if (lastRevertible != null) armRevertGuard()
+        _uiState.update {
+            it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+        }
+    }
+
+    /**
+     * Expands the pattern snippet that fits the words behind the cursor, if
+     * there is one. Returns true when it committed something.
+     *
+     * The costly half of the gate lives here. Only once [patternGateOpen] has
+     * said a match is even possible does this read the field, and that one read
+     * does both jobs: it is what the match is measured against, and it refills
+     * the gate's memory of recent words.
+     *
+     * The read is also the probe. Nothing before the batch edit has any effect
+     * on the field, so a dead connection, an editor that answers null, or a
+     * window that turns out not to match all fall through to the ordinary
+     * literal commit.
+     */
+    private fun tryPatternExpansion(ic: InputConnection, typed: String, state: KeyboardUiState): Boolean {
+        if (!snippetStore.hasPatterns()) return false
+        // A pattern rewrites text the user already committed, and it runs a
+        // regular expression the user (or an installed add-on) wrote over a
+        // window of the field. Both are reasons to stay out of the fields the
+        // keyboard keeps its hands off. The composing gate already excludes
+        // them, but that is an accident of how composing works, not a decision.
+        if (!state.allowsTypingIntelligence || state.secureField || state.fieldNoSuggestions) {
+            return false
+        }
+        if (!patternGateOpen(typed)) return false
+        val before = ic.getTextBeforeCursor(SnippetMatcher.MAX_WINDOW, 0) ?: return false
+        // Composing text is part of the field's own text, so the window
+        // normally ends with the word being committed. An editor that
+        // disagrees gets it appended rather than losing the match.
+        val window = if (before.endsWith(typed)) before.toString() else before.toString() + typed
+        rebuildRecentWords(window.dropLast(typed.length))
+        val hit = snippetStore.matchPattern(
+            window = window,
+            // A window that came back short is the whole field, so a match may
+            // start at its first character. A full one may have been cut mid
+            // word, and matching that half would delete text whose start the
+            // user cannot see.
+            atFieldStart = before.length < SnippetMatcher.MAX_WINDOW,
+            context = snippetContext(ic, withSelection = false),
+        ) ?: return false
+        // Text a backspace just restored must not expand straight back.
+        if (hit.consumedText == patternMutedAfter) return false
+        ic.beginBatchEdit()
+        // The composing region has to be finished before the delete. With one
+        // alive, deleteSurroundingText skips the composing text and takes the
+        // characters in front of it instead (BaseInputConnection), while
+        // Compose's own editor does not skip it at all — the same call deletes
+        // different characters in an EditText and in a BasicTextField.
+        // Finishing first turns the word into plain committed text for both.
+        ic.finishComposingText()
+        composing = StringBuilder()
+        ic.deleteSurroundingText(hit.consumedChars, 0)
+        commitSplitAtCaret(ic, hit.text, hit.cursorOffset)
+        ic.endBatchEdit()
+        afterSnippetExpansion(
+            inserted = hit.text,
+            original = hit.consumedText,
+            caretParked = hit.cursorOffset < hit.text.length,
+        )
+        return true
+    }
+
+    /**
+     * Whether a pattern snippet could possibly match here, answered without
+     * touching the input connection.
+     *
+     * A false answer is final. A true answer only buys the right to read the
+     * field, so an untrustworthy ring answers true: a missed update then costs
+     * one read rather than a feature that quietly stops working.
+     */
+    private fun patternGateOpen(typed: String): Boolean {
+        if (!recentWordsValid) return true
+        if (snippetStore.couldStartPattern(typed[0])) return true
+        return recentWords.any { snippetStore.couldStartPattern(it[0]) }
     }
 
     /**
@@ -4804,6 +5145,9 @@ open class WMKeyboardService : InputMethodService() {
         }
 
     private fun learn(word: String, reinforcement: Int = 1) {
+        // The pattern gate follows what went into the field, not what the
+        // lexicon was allowed to keep, so it is fed on both paths.
+        for (part in word.split(' ')) pushRecentWord(part)
         if (!learningAllowed) {
             previousWord = word
             return
@@ -4843,6 +5187,9 @@ open class WMKeyboardService : InputMethodService() {
      * "word" so emoji→word habits are learned too.
      */
     private fun learnEmoji(emoji: String) {
+        // An emoji ends whatever span a pattern was reaching across, so the
+        // gate has to see it land the same way a word does.
+        pushRecentWord(emoji)
         val state = _uiState.value
         if (!state.settings.learnFromTyping ||
             (state.incognitoOn && state.settings.incognitoPausesLearning) ||
@@ -5438,7 +5785,7 @@ open class WMKeyboardService : InputMethodService() {
             if (token.isNotEmpty()) ic.deleteSurroundingText(token.length, 0)
             ic.commitText(suggestion, 1)
             lastGestureWord = null
-            lastAutocorrect = null
+            lastRevertible = null
             _uiState.update {
                 it.copy(
                     composingPreview = "",
@@ -5460,7 +5807,7 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         lastGestureWord = null
-        lastAutocorrect = null
+        lastRevertible = null
 
         // An emoji picked from inline search replaces the ":query" buffer
         // outright: no trailing space (emoji rarely start a new word) and
@@ -5833,7 +6180,7 @@ open class WMKeyboardService : InputMethodService() {
         resetChordInputs()
         if (haptic) vibrate()
         // The settings app edits snippets in the same file; re-read on open.
-        if (panel == PanelMode.SNIPPETS) snippetStore.reload()
+        if (panel == PanelMode.SNIPPETS) reloadSnippetsIfChanged()
         // Same for sticker packs, which the settings app owns outright.
         if (panel == PanelMode.STICKER) stickerPackStore.reloadIfChanged()
         // Same again: the Storage screen can delete the history out from under
@@ -9916,38 +10263,73 @@ open class WMKeyboardService : InputMethodService() {
     fun onSnippetTapped(snippet: Snippet) {
         vibrate()
         val ic = currentInputConnection
-        val expanded = SnippetStore.expandWithCursor(
-            text = snippet.text,
-            context = snippetContext(ic),
-        )
+        val context = snippetContext(ic)
+        // A pattern snippet is written around what its capture groups will
+        // hold, and a tap has nothing to put in them. It goes in with the
+        // blanks left empty and the caret in the first one, so the user types
+        // the missing part where it belongs. A plain snippet takes the ordinary
+        // path, where a "$1" in its text is a dollar sign and a one.
+        val text: String
+        val caret: Int
+        if (snippet.trigger.isNullOrBlank() && !snippet.triggerPattern.isNullOrBlank()) {
+            val blank = SnippetMatcher.blankTemplate(snippet.text, context = context)
+            text = blank.text
+            caret = blank.blankCaret
+        } else {
+            val expanded = SnippetStore.expandWithCursor(snippet.text, context = context)
+            text = expanded.text
+            caret = expanded.cursorOffset
+        }
         if (ic != null) {
             ic.beginBatchEdit()
             // A word still composing commits first — a bare commitText would
             // replace the composing region with the snippet and leave the
             // stale buffer to resurrect the word at the next keystroke.
             commitComposing(ic, autocorrect = false)
-            // Committing with newCursorPosition = 1 leaves the cursor at the
-            // end; {cursor} then walks it back to the marked spot.
-            ic.commitText(expanded.text, 1)
-            val trailing = expanded.text.length - expanded.cursorOffset
-            if (trailing > 0) {
-                val end = ic.getExtractedText(ExtractedTextRequest(), 0)?.selectionEnd
-                if (end != null && end >= trailing) ic.setSelection(end - trailing, end - trailing)
-            }
+            commitSplitAtCaret(ic, text, caret)
             ic.endBatchEdit()
+            invalidateExpectedSelection()
+            invalidateRecentWords()
         }
         _uiState.update { it.copy(panel = PanelMode.NONE) }
     }
 
-    /** The app, clipboard and selection a snippet's variables expand against. */
-    private fun snippetContext(ic: InputConnection?): SnippetStore.Companion.Context {
+    /**
+     * The app, clipboard and selection a snippet's variables expand against.
+     *
+     * [withSelection] is false on the typing path, where reading the selection
+     * costs a blocking round-trip to answer a question already settled: a word
+     * only reaches a trigger with the caret collapsed, since space and the
+     * punctuation keys replace a selection and return long before this.
+     */
+    private fun snippetContext(
+        ic: InputConnection?,
+        withSelection: Boolean = true,
+    ): SnippetStore.Companion.Context {
         val pkg = currentPackage
         return SnippetStore.Companion.Context(
             clipboard = clipboardStore.latestText(),
             appName = pkg?.let(::appLabel),
             packageName = pkg,
-            selection = ic?.getSelectedText(0)?.toString(),
+            selection = if (withSelection) ic?.getSelectedText(0)?.toString() else null,
         )
+    }
+
+    /**
+     * Re-reads the snippets file when the settings app has written to it.
+     *
+     * The two processes share one file with no change feed between them, so the
+     * keyboard watches the modification time. Cheap enough to check whenever a
+     * field opens, which is what stops a snippet saved a moment ago from
+     * looking broken until the panel happens to be opened.
+     */
+    private fun reloadSnippetsIfChanged() {
+        val file = snippetsFile ?: return
+        val stamp = file.lastModified()
+        if (stamp == snippetsStamp) return
+        snippetsStamp = stamp
+        snippetStore.reload()
+        _uiState.update { it.copy(snippets = snippetStore.items()) }
     }
 
     /** Human-readable label for [pkg], falling back to the package name. */
@@ -11942,6 +12324,24 @@ open class WMKeyboardService : InputMethodService() {
 
         /** How far back to read the token being completed in an email field. */
         private const val EMAIL_FIELD_LOOKBEHIND = 96
+
+        /**
+         * Words the pattern snippet gate keeps in memory. One deeper than a
+         * pattern may reach ([SnippetMatcher.MAX_WORDS]), so the gate can
+         * always see the word a match would have to start on.
+         */
+        private const val RECENT_WORDS = 8
+
+        /**
+         * Longest snippet expansion that arms backspace-to-restore.
+         *
+         * The undo probe reads the committed text back out of the field, and a
+         * snippet may hold 20 000 characters. A read that size on the backspace
+         * path — which auto-repeats — is a transaction big enough to fail. Past
+         * this, an expansion the user did not want is obvious on sight anyway,
+         * and the app's own undo is the right tool.
+         */
+        private const val SNIPPET_REVERT_MAX = 256
 
         /** Non-alphanumeric characters that are part of an email token. */
         private const val EMAIL_TOKEN_EXTRA = "._%+-@"

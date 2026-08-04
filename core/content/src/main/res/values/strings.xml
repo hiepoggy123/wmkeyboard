@@ -135,4 +135,15 @@
 
     <string name="core_content_snippet_repair_named_after_text">A snippet has no name, so the app named it after its first line.</string>
 
+    <!-- %1$s is the name of the snippet, as the file spells it. A pattern is
+         the rule that makes a snippet expand as the user types. -->
+    <string name="core_content_snippet_repair_bad_pattern">The app removed the pattern from \"<xliff:g id="snippet" example="Greeting">%1$s</xliff:g>\". The pattern is not correct. The snippet stays in the list.</string>
+
+    <!-- %1$s is the name of the snippet. %2$d is the largest number of
+         characters a pattern can hold, and is also what picks the form. -->
+    <plurals name="core_content_snippet_repair_pattern_too_long">
+        <item quantity="one">The app removed the pattern from \"<xliff:g id="snippet" example="Greeting">%1$s</xliff:g>\". It was longer than %2$d character.</item>
+        <item quantity="other">The app removed the pattern from \"<xliff:g id="snippet" example="Greeting">%1$s</xliff:g>\". It was longer than %2$d characters.</item>
+    </plurals>
+
 </resources>

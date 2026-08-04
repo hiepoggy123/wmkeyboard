@@ -108,6 +108,9 @@ import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.AssistChip
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -309,6 +312,8 @@ import com.wasimaster.wmkeyboard.core.fonts.FontStore
 import com.wasimaster.wmkeyboard.core.fonts.InstalledFont
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetFile
+import com.wasimaster.wmkeyboard.core.snippets.SnippetIndex
+import com.wasimaster.wmkeyboard.core.snippets.SnippetMatcher
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.snippets.SnippetVariable
 import kotlinx.coroutines.delay
@@ -9706,9 +9711,9 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                 // Added alongside what's already there, with fresh ids — an
                 // import should never quietly replace snippets someone wrote.
                 withContext(Dispatchers.IO) {
-                    for (snippet in imported.snippets) {
-                        s.add(snippet.label, snippet.text, snippet.trigger)
-                    }
+                    // Whole snippets, not a handful of named fields: rebuilding
+                    // them would quietly drop whatever the format gained last.
+                    for (snippet in imported.snippets) s.add(snippet)
                     // add() is in-memory only; save() is what writes the file.
                     s.save()
                 }
@@ -9783,6 +9788,23 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
         }
     }
     Spacer(Modifier.height(12.dp))
+    Card(modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(R.string.privacy_snippets_pattern_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.privacy_snippets_pattern_info),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    Spacer(Modifier.height(12.dp))
     Row(
         modifier = Modifier.padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -9824,6 +9846,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                                 )
                             }
                             val trigger = snippet.trigger
+                            val pattern = snippet.triggerPattern
                             if (trigger != null) {
                                 Text(
                                     stringResource(
@@ -9831,6 +9854,17 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                                         trigger,
                                     ),
                                     maxLines = 1,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else if (pattern != null) {
+                                Text(
+                                    stringResource(
+                                        R.string.privacy_snippets_pattern_label,
+                                        pattern,
+                                    ),
+                                    maxLines = 1,
+                                    fontFamily = FontFamily.Monospace,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -9862,10 +9896,21 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
         SnippetDialog(
             initial = editing,
             onDismiss = { showAdd = false; editing = null },
-            onSave = { label, text, trigger ->
+            onSave = { draft ->
                 val current = editing
                 mutate { s ->
-                    if (current == null) s.add(label, text, trigger) else s.update(current.id, label, text, trigger)
+                    if (current == null) {
+                        s.add(draft)
+                    } else {
+                        s.update(
+                            current.id,
+                            draft.label,
+                            draft.text,
+                            draft.trigger,
+                            draft.triggerPattern,
+                            draft.triggerWords,
+                        )
+                    }
                 }
                 showAdd = false
                 editing = null
@@ -9925,15 +9970,46 @@ private fun VariableRow(variable: String, meaning: String, example: String) {
     }
 }
 
+/** How a snippet expands as the user types: on one word, or on a pattern. */
+private enum class SnippetTriggerMode { WORD, PATTERN }
+
+/**
+ * Adds or edits one snippet.
+ *
+ * Hands back a whole [Snippet] rather than the fields it edits. There are five
+ * of them now, and the last two arrived together; a callback that names them
+ * one by one has to grow every time, and every caller with it.
+ */
 @Composable
 private fun SnippetDialog(
     initial: Snippet?,
     onDismiss: () -> Unit,
-    onSave: (String, String, String?) -> Unit,
+    onSave: (Snippet) -> Unit,
 ) {
     var label by remember { mutableStateOf(initial?.label.orEmpty()) }
     var text by remember { mutableStateOf(initial?.text.orEmpty()) }
     var trigger by remember { mutableStateOf(initial?.trigger.orEmpty()) }
+    var pattern by remember {
+        mutableStateOf(TextFieldValue(initial?.triggerPattern.orEmpty()))
+    }
+    var words by remember {
+        mutableIntStateOf(
+            initial?.triggerWords?.takeIf { it in 1..SnippetMatcher.MAX_WORDS }
+                ?: SnippetMatcher.DEFAULT_WORDS,
+        )
+    }
+    var mode by remember {
+        mutableStateOf(
+            if (initial?.triggerPattern.isNullOrBlank()) {
+                SnippetTriggerMode.WORD
+            } else {
+                SnippetTriggerMode.PATTERN
+            },
+        )
+    }
+    val fault = remember(pattern.text) { SnippetMatcher.validate(pattern.text) }
+    val patternOk = mode == SnippetTriggerMode.WORD || fault == null
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -9948,7 +10024,9 @@ private fun SnippetDialog(
             )
         },
         text = {
-            Column {
+            // Seven controls do not fit a phone dialog. They did not quite fit
+            // as three either.
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it },
@@ -9962,29 +10040,196 @@ private fun SnippetDialog(
                     label = { Text(stringResource(R.string.rows_snippet_text_label)) },
                     minLines = 3,
                 )
+                Spacer(Modifier.height(12.dp))
+                ChoiceControl(
+                    options = listOf(
+                        SnippetTriggerMode.WORD to stringResource(R.string.rows_snippet_mode_word_label),
+                        SnippetTriggerMode.PATTERN to
+                            stringResource(R.string.rows_snippet_mode_pattern_label),
+                    ),
+                    selected = mode,
+                    onChange = { mode = it },
+                )
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = trigger,
-                    onValueChange = { trigger = it },
-                    label = { Text(stringResource(R.string.rows_snippet_trigger_label)) },
-                    singleLine = true,
-                )
-                Text(
-                    stringResource(R.string.rows_snippet_trigger_body),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (mode == SnippetTriggerMode.WORD) {
+                    OutlinedTextField(
+                        value = trigger,
+                        onValueChange = { trigger = it },
+                        label = { Text(stringResource(R.string.rows_snippet_trigger_label)) },
+                        singleLine = true,
+                    )
+                    DialogNote(stringResource(R.string.rows_snippet_trigger_body))
+                } else {
+                    SnippetPatternFields(
+                        pattern = pattern,
+                        onPatternChange = { pattern = it },
+                        words = words,
+                        onWordsChange = { words = it },
+                        text = text,
+                        fault = fault,
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
-                enabled = label.isNotBlank() && text.isNotBlank(),
-                onClick = { onSave(label.trim(), text, trigger.trim().ifBlank { null }) },
+                enabled = label.isNotBlank() && text.isNotBlank() && patternOk,
+                onClick = {
+                    val word = mode == SnippetTriggerMode.WORD
+                    onSave(
+                        Snippet(
+                            id = initial?.id ?: 0,
+                            label = label.trim(),
+                            text = text,
+                            trigger = if (word) trigger.trim().ifBlank { null } else null,
+                            triggerPattern = if (word) null else pattern.text.trim().ifBlank { null },
+                            triggerWords = if (word) 0 else words,
+                        ),
+                    )
+                },
             ) { Text(stringResource(CommonR.string.common_save)) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
         },
+    )
+}
+
+/**
+ * A small explanatory line under a field in a dialog.
+ *
+ * Not [CaptionText]: that one insets itself by 32dp to line up with the
+ * content of a settings group, which inside a dialog reads as a mistake.
+ */
+@Composable
+private fun DialogNote(text: String, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = color)
+}
+
+/**
+ * The pattern half of the snippet dialog: the rule, how far back it may reach,
+ * and a place to try it out.
+ *
+ * The tester is the important part. A pattern that does not fire gives no clue
+ * why from inside the keyboard, and the settings app is the one place where a
+ * runaway one is safe to meet — it is a different process, and a stopped
+ * pattern here costs a moment rather than the keyboard.
+ */
+@Composable
+private fun SnippetPatternFields(
+    pattern: TextFieldValue,
+    onPatternChange: (TextFieldValue) -> Unit,
+    words: Int,
+    onWordsChange: (Int) -> Unit,
+    text: String,
+    fault: SnippetMatcher.PatternError?,
+) {
+    var sample by remember { mutableStateOf("") }
+    OutlinedTextField(
+        value = pattern,
+        onValueChange = onPatternChange,
+        label = { Text(stringResource(R.string.rows_snippet_pattern_label)) },
+        singleLine = true,
+        isError = fault != null && pattern.text.isNotBlank(),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+    )
+    // Inserted at the caret, not appended: a chip that only ever adds to the
+    // end is useless once there is anything in the field.
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (piece in PATTERN_PIECES) {
+            AssistChip(
+                onClick = { onPatternChange(pattern.insert(piece)) },
+                label = { Text(piece, fontFamily = FontFamily.Monospace) },
+            )
+        }
+    }
+    if (pattern.text.isNotBlank() && fault != null) {
+        DialogNote(
+            stringResource(R.string.rows_snippet_pattern_error),
+            color = MaterialTheme.colorScheme.error,
+        )
+        // The words java.util.regex uses for what is wrong are more use than
+        // anything this screen could say, and they are not worth translating.
+        fault.description?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+    } else if (pattern.text.isNotBlank() && SnippetMatcher.headOf(pattern.text) == null) {
+        DialogNote(stringResource(R.string.rows_snippet_pattern_slow_info))
+    } else {
+        DialogNote(stringResource(R.string.rows_snippet_pattern_body))
+    }
+    Spacer(Modifier.height(12.dp))
+    Text(
+        stringResource(R.string.rows_snippet_words_label),
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    ChoiceControl(
+        options = (1..SnippetMatcher.MAX_WORDS).map { it to it.toString() },
+        selected = words,
+        onChange = onWordsChange,
+    )
+    DialogNote(stringResource(R.string.rows_snippet_words_body))
+    Spacer(Modifier.height(12.dp))
+    OutlinedTextField(
+        value = sample,
+        onValueChange = { sample = it },
+        label = { Text(stringResource(R.string.rows_snippet_test_label)) },
+        singleLine = true,
+    )
+    val previewContext = SNIPPET_PREVIEW_CONTEXT
+    // The expansion, and whether the pattern had to be stopped for taking too
+    // long. The keyboard would go quiet about the second; this is the one place
+    // it can be found out safely, since a stopped pattern here costs a moment
+    // in the settings app rather than a frame of typing.
+    val attempt = remember(pattern.text, text, words, sample, previewContext) {
+        if (sample.isBlank() || fault != null) {
+            null
+        } else {
+            val index = SnippetIndex.of(
+                listOf(
+                    Snippet(
+                        id = 1,
+                        label = "",
+                        text = text,
+                        triggerPattern = pattern.text.trim(),
+                        triggerWords = words,
+                    ),
+                ),
+            )
+            val hit = index.matchPattern(sample, atFieldStart = true, context = previewContext)
+            hit to index.stopped().isNotEmpty()
+        }
+    }
+    val hit = attempt?.first
+    when {
+        attempt == null -> DialogNote(stringResource(R.string.rows_snippet_test_body))
+        attempt.second -> DialogNote(
+            stringResource(R.string.rows_snippet_pattern_stopped_error),
+            color = MaterialTheme.colorScheme.error,
+        )
+        hit != null -> Text(
+            stringResource(R.string.rows_snippet_test_result_label, hit.text),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        else -> DialogNote(stringResource(R.string.rows_snippet_test_no_match_label))
+    }
+}
+
+/** Chips that write the pieces of a pattern nobody wants to type by hand. */
+private val PATTERN_PIECES = listOf("(.+)", "$1", "^", "$")
+
+/** [piece] written in at the caret, with the caret left after it. */
+private fun TextFieldValue.insert(piece: String): TextFieldValue {
+    val at = selection.end.coerceIn(0, text.length)
+    return TextFieldValue(
+        text = text.substring(0, at) + piece + text.substring(at),
+        selection = TextRange(at + piece.length),
     )
 }
 

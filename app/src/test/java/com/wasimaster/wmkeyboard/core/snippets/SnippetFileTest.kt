@@ -28,6 +28,34 @@ class SnippetFileTest {
     }
 
     @Test
+    fun `the sample repository's pattern pack expands the way it is advertised`() {
+        // The published pack, decoded and run end to end. The two examples are
+        // the ones the documentation promises, so a change that quietly breaks
+        // them fails here rather than on somebody's phone.
+        val imported = SnippetFile.decode(fixture("pattern-replies.wmsnippets.json"))
+        assertNotNull(imported)
+        assertTrue(imported!!.repairs.isEmpty())
+        assertTrue(imported.snippets.all { !it.triggerPattern.isNullOrBlank() })
+
+        val index = SnippetIndex.of(imported.snippets)
+        assertEquals(
+            "Hello, John! Nice to meet you.",
+            index.matchPattern("hello John", atFieldStart = true)?.text,
+        )
+        val letter = index.matchPattern("thanks Sarah", atFieldStart = true)
+        assertTrue(letter!!.text.startsWith("Dear Sarah,"))
+        assertEquals("thanks Sarah", letter.consumedText)
+        // The transform is what turns a typed name into a written one.
+        assertEquals(
+            "Happy birthday, Sarah! Have a wonderful one.",
+            index.matchPattern("bday sarah", atFieldStart = true)?.text,
+        )
+        // Every pattern starts with a plain word, so none of them costs a
+        // check after every word the user types.
+        assertTrue(imported.snippets.all { SnippetMatcher.headOf(it.triggerPattern.orEmpty()) != null })
+    }
+
+    @Test
     fun `round-trips`() {
         val original = listOf(
             snippet(1, "Shrug", "¯\\_(ツ)_/¯", "shrug"),
@@ -122,6 +150,94 @@ class SnippetFileTest {
                     it.args == listOf<Any>(500)
             },
         )
+    }
+
+    @Test
+    fun `a pattern that will not compile is removed and the snippet kept`() {
+        // A row is dropped only when there is nothing left to insert. A snippet
+        // whose trigger stopped working still inserts from the panel.
+        val text = """
+            {"format":"wmkeyboard-snippets","version":1,"snippets":[
+              {"id":1,"label":"Greet","text":"Hello","triggerPattern":"^hi (.+$"}
+            ]}
+        """.trimIndent()
+        val imported = SnippetFile.decode(text)!!
+        assertEquals("Greet", imported.snippets.single().label)
+        assertNull(imported.snippets.single().triggerPattern)
+        assertTrue(
+            imported.repairs.any {
+                it.stringRes == R.string.core_content_snippet_repair_bad_pattern &&
+                    it.args == listOf<Any>("Greet")
+            },
+        )
+    }
+
+    @Test
+    fun `an over-long pattern is removed and reported`() {
+        val huge = "a".repeat(SnippetMatcher.MAX_PATTERN_LENGTH + 1)
+        val text = """
+            {"format":"wmkeyboard-snippets","version":1,"snippets":[
+              {"id":1,"label":"Long","text":"t","triggerPattern":"$huge"}
+            ]}
+        """.trimIndent()
+        val imported = SnippetFile.decode(text)!!
+        assertNull(imported.snippets.single().triggerPattern)
+        assertTrue(
+            imported.repairs.any {
+                it.pluralsRes == R.plurals.core_content_snippet_repair_pattern_too_long &&
+                    it.args.first() == "Long"
+            },
+        )
+    }
+
+    @Test
+    fun `an out of range word budget is clamped without a note`() {
+        val text = """
+            {"format":"wmkeyboard-snippets","version":1,"snippets":[
+              {"id":1,"label":"A","text":"a","triggerPattern":"^a (.+)$","triggerWords":99},
+              {"id":2,"label":"B","text":"b","triggerPattern":"^b (.+)$","triggerWords":-1}
+            ]}
+        """.trimIndent()
+        val imported = SnippetFile.decode(text)!!
+        assertEquals(SnippetMatcher.MAX_WORDS, imported.snippets[0].triggerWords)
+        assertEquals(0, imported.snippets[1].triggerWords)
+        // A number nudged into range is not lost content.
+        assertTrue(imported.repairs.isEmpty())
+    }
+
+    @Test
+    fun `a plain snippet exports no pattern keys`() {
+        // The published packs are hand-maintained files, so a plain snippet
+        // must not grow two empty keys it never uses.
+        val encoded = SnippetFile.encode(listOf(snippet(1, "Shrug", "x", "shrug")), 41, "1.4.0")
+        assertTrue(!encoded.contains("triggerPattern"))
+        assertTrue(!encoded.contains("triggerWords"))
+    }
+
+    @Test
+    fun `a pattern snippet round-trips`() {
+        val original = listOf(
+            Snippet(
+                id = 1,
+                label = "Greet",
+                text = "Hello, \$1!",
+                triggerPattern = "^hi (.+)$",
+                triggerWords = 2,
+            ),
+        )
+        assertEquals(original, SnippetFile.decode(SnippetFile.encode(original, 41, "1.4.0"))!!.snippets)
+    }
+
+    @Test
+    fun `a file written before patterns existed decodes without one`() {
+        val text = """
+            {"format":"wmkeyboard-snippets","version":1,"snippets":[
+              {"id":1,"label":"A","text":"a","trigger":"a"}
+            ]}
+        """.trimIndent()
+        val imported = SnippetFile.decode(text)!!.snippets.single()
+        assertNull(imported.triggerPattern)
+        assertEquals(0, imported.triggerWords)
     }
 
     @Test

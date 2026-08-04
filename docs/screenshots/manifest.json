@@ -853,7 +853,7 @@
     "id": "tools/snippets-add-dialog",
     "page": "docs/src/content/docs/tools/snippets.mdx",
     "file": "src/assets/screens/tools/snippets-add-dialog.webp",
-    "caption": "Adding a snippet: label, text with variables, and an optional trigger word.",
+    "caption": "Adding a snippet: label, text with variables, and a Word or Pattern trigger.",
     "host": "settings",
     "setup": [
       "From the Snippets settings screen (see tools/snippets-settings setup), tap the 'Add snippet' button.",

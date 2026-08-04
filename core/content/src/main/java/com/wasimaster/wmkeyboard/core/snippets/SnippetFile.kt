@@ -139,6 +139,10 @@ object SnippetFile {
                 label = label,
                 text = trimmedBody,
                 trigger = snippet.trigger?.trim()?.takeIf { it.isNotEmpty() },
+                triggerPattern = keptPattern(snippet, label, repairs),
+                // A number nudged back into range is not lost content, so it
+                // earns no note; every other note here is about content.
+                triggerWords = snippet.triggerWords.coerceIn(0, SnippetMatcher.MAX_WORDS),
             )
         }
 
@@ -147,5 +151,30 @@ object SnippetFile {
             repairs = repairs,
             fromAppVersion = envelope.appVersion,
         )
+    }
+
+    /**
+     * The snippet's pattern, or null when the app will not run it.
+     *
+     * A broken pattern drops the pattern and keeps the snippet. A row is
+     * dropped only when there is nothing left to insert, and a snippet whose
+     * trigger no longer works still inserts from the panel.
+     */
+    private fun keptPattern(snippet: Snippet, label: String, repairs: MutableList<ContentText>): String? {
+        val source = snippet.triggerPattern?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val fault = SnippetMatcher.validate(source)?.fault ?: return source
+        repairs += if (fault == SnippetMatcher.Fault.TOO_LONG) {
+            ContentText(
+                pluralsRes = R.plurals.core_content_snippet_repair_pattern_too_long,
+                quantity = SnippetMatcher.MAX_PATTERN_LENGTH,
+                args = listOf(label.take(30), SnippetMatcher.MAX_PATTERN_LENGTH),
+            )
+        } else {
+            ContentText(
+                R.string.core_content_snippet_repair_bad_pattern,
+                args = listOf(label.take(30)),
+            )
+        }
+        return null
     }
 }

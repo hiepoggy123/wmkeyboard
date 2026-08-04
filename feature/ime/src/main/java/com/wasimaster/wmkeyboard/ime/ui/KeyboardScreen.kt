@@ -207,6 +207,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -10765,6 +10766,21 @@ private fun SnippetsPanel(
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
+                    // A pattern snippet is listed with the rule that fires it,
+                    // because nobody remembers the patterns they wrote weeks
+                    // ago — and a tap inserts the text with its blanks empty,
+                    // which only makes sense next to the rule.
+                    val pattern = snippet.triggerPattern
+                    if (!pattern.isNullOrBlank() && snippet.trigger.isNullOrBlank()) {
+                        Text(
+                            text = stringResource(R.string.ime_snippets_pattern_label, pattern),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }

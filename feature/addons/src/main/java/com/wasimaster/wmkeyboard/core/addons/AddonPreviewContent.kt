@@ -203,7 +203,13 @@ object AddonPreviewReader {
             )
         return AddonPreviewContent.Snippets(
             entries = imported.snippets.take(MAX_SNIPPETS).map {
-                AddonPreviewContent.Snippets.Entry(it.label, it.text, it.trigger.orEmpty())
+                // A pattern snippet has no trigger word, so the preview shows
+                // the pattern in its place rather than an empty line.
+                AddonPreviewContent.Snippets.Entry(
+                    it.label,
+                    it.text,
+                    it.trigger ?: it.triggerPattern.orEmpty(),
+                )
             },
             total = imported.snippets.size,
         )
