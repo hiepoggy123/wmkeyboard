@@ -28,6 +28,10 @@ class CompositeWordSource private constructor(
 
     override fun contains(word: String): Boolean = sources.any { it.contains(word) }
 
+    /** The union is expressed as several walks merged by max — the same
+     * semantics [frequencyOf]'s maxOf already gives. */
+    override fun walkers(): List<TrieWalker> = sources.flatMap { it.walkers() }
+
     companion object {
         /** Collapses to the single source (or an empty one) when possible. */
         fun of(sources: List<WordSource>): WordSource = when (sources.size) {

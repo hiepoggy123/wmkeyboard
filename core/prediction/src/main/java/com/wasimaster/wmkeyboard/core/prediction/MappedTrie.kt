@@ -30,7 +30,7 @@ class MappedTrie private constructor(
     private val freqOff: Int,
     private val maxSubtreeOff: Int,
     private val isWordOff: Int,
-) : WordSource {
+) : WordSource, TrieWalker {
 
     private fun childStart(node: Int): Int = buf.getInt(childStartOff + node * 4)
 
@@ -40,10 +40,30 @@ class MappedTrie private constructor(
 
     private fun freq(node: Int): Int = buf.getInt(freqOff + node * 4)
 
-    private fun maxSubtree(node: Int): Int = buf.getInt(maxSubtreeOff + node * 4)
+    override fun maxSubtree(node: Int): Int = buf.getInt(maxSubtreeOff + node * 4)
 
-    private fun isWord(node: Int): Boolean =
+    override fun isWord(node: Int): Boolean =
         buf.get(isWordOff + (node ushr 3)).toInt() shr (node and 7) and 1 == 1
+
+    override fun walkers(): List<TrieWalker> = listOf(this)
+
+    override fun child(node: Int, label: Char): Int {
+        val edge = childEdge(node, label)
+        return if (edge < 0) -1 else edgeChild(edge)
+    }
+
+    override fun childrenInto(node: Int, out: ChildBuffer): Int {
+        val start = childStart(node)
+        val count = childStart(node + 1) - start
+        out.ensure(count)
+        for (i in 0 until count) {
+            out.labels[i] = edgeLabel(start + i)
+            out.nodes[i] = edgeChild(start + i)
+        }
+        return count
+    }
+
+    override fun frequency(node: Int): Int = if (isWord(node)) freq(node) else 0
 
     /** Node reached by walking [word] from the root, or -1 if absent. */
     private fun nodeFor(word: String): Int {

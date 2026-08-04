@@ -31,10 +31,34 @@ class PackedTrie internal constructor(
     internal val freq: IntArray,
     internal val isWord: BooleanArray,
     internal val maxSubtree: IntArray,
-) : WordSource {
+) : WordSource, TrieWalker {
 
     /** Number of distinct words stored. */
     val wordCount: Int get() = isWord.count { it }
+
+    override fun walkers(): List<TrieWalker> = listOf(this)
+
+    override fun child(node: Int, label: Char): Int {
+        val edge = childEdge(node, label)
+        return if (edge < 0) -1 else edgeChild[edge]
+    }
+
+    override fun childrenInto(node: Int, out: ChildBuffer): Int {
+        val start = childStart[node]
+        val count = childStart[node + 1] - start
+        out.ensure(count)
+        for (i in 0 until count) {
+            out.labels[i] = edgeLabel[start + i]
+            out.nodes[i] = edgeChild[start + i]
+        }
+        return count
+    }
+
+    override fun isWord(node: Int): Boolean = isWord[node]
+
+    override fun frequency(node: Int): Int = if (isWord[node]) freq[node] else 0
+
+    override fun maxSubtree(node: Int): Int = maxSubtree[node]
 
     /** Node reached by walking [word] from the root, or -1 if absent. */
     private fun nodeFor(word: String): Int {

@@ -14,6 +14,7 @@ sourceSets {
             include(
                 "Main.kt",
                 "Trie.kt",
+                "TrieWalker.kt",
                 "PackedTrie.kt",
                 "PackedTrieCodec.kt",
                 "DictionaryLoader.kt",

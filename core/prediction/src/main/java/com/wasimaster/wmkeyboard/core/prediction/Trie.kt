@@ -11,6 +11,10 @@ interface WordSource {
     fun complete(prefix: String, limit: Int): List<Suggestion>
     fun frequencyOf(word: String): Int
     fun contains(word: String): Boolean
+
+    /** Walkers over the underlying tries; empty when node-level traversal is
+     * unsupported (flat or delegating sources). */
+    fun walkers(): List<TrieWalker> = emptyList()
 }
 
 /**
@@ -28,15 +32,24 @@ class Trie : WordSource {
         var isWord = false
         /** Highest word frequency anywhere in this node's subtree (incl. self). */
         var maxSubtreeFreq = 0
+        /** Walker handle; index into [nodesById]. Nodes are never removed, so
+         * handles stay valid for the trie's lifetime. */
+        var id = 0
     }
 
     private val root = Node()
+    private val nodesById = ArrayList<Node>().apply { add(root) }
+
+    private fun newNode(): Node = Node().also { node ->
+        node.id = nodesById.size
+        nodesById.add(node)
+    }
 
     fun insert(word: String, frequency: Int) {
         if (word.isEmpty()) return
         var node = root
         for (ch in word) {
-            node = node.children.getOrPut(ch) { Node() }
+            node = node.children.getOrPut(ch) { newNode() }
         }
         node.isWord = true
         node.frequency = maxOf(node.frequency, frequency)
@@ -48,7 +61,7 @@ class Trie : WordSource {
         if (word.isEmpty()) return
         var node = root
         for (ch in word) {
-            node = node.children.getOrPut(ch) { Node() }
+            node = node.children.getOrPut(ch) { newNode() }
         }
         node.isWord = true
         node.frequency += boost
@@ -111,6 +124,37 @@ class Trie : WordSource {
         val text: String,
         val priority: Int,
     )
+
+    override fun walkers(): List<TrieWalker> = listOf(NodeWalker())
+
+    /** Walker over the live node graph. Mutation during a walk has the same
+     * (pre-existing) hazard as mutation during [complete]; callers invalidate
+     * on lexicon change. */
+    private inner class NodeWalker : TrieWalker {
+        override fun child(node: Int, label: Char): Int =
+            nodesById[node].children[label]?.id ?: -1
+
+        override fun childrenInto(node: Int, out: ChildBuffer): Int {
+            val children = nodesById[node].children
+            out.ensure(children.size)
+            var i = 0
+            for ((ch, child) in children) {
+                out.labels[i] = ch
+                out.nodes[i] = child.id
+                i++
+            }
+            return i
+        }
+
+        override fun isWord(node: Int): Boolean = nodesById[node].isWord
+
+        override fun frequency(node: Int): Int {
+            val n = nodesById[node]
+            return if (n.isWord) n.frequency else 0
+        }
+
+        override fun maxSubtree(node: Int): Int = nodesById[node].maxSubtreeFreq
+    }
 }
 
 data class Suggestion(val word: String, val frequency: Int)
