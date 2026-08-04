@@ -17,11 +17,39 @@ class UserLexicon(private val storageFile: File?) {
     private data class Snapshot(
         val words: Map<String, Int> = emptyMap(),
         val bigrams: Map<String, Map<String, Int>> = emptyMap(),
+        /** Save-session counter — the decay clock. Old files default to 0. */
+        val generation: Long = 0L,
+        /** Per-word last-touched generation, for lazy decay at compaction. */
+        val wordGen: Map<String, Long> = emptyMap(),
     )
+
+    /** A word's followers plus a lazily cached count-descending order, so the
+     * per-strip-refresh nextWords read stops re-sorting on every call. */
+    private class Followers {
+        val counts = HashMap<String, Int>()
+        var sorted: List<String>? = null
+
+        fun bump(next: String) {
+            counts.merge(next, 1, Int::plus)
+            sorted = null
+            if (counts.size > MAX_FOLLOWERS) {
+                counts.remove(counts.minByOrNull { it.value }?.key)
+            }
+        }
+
+        fun ordered(): List<String> = sorted ?: counts.entries
+            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+            .map { it.key }
+            .also { sorted = it }
+
+        fun total(): Int = counts.values.sum()
+    }
 
     private var trie = Trie()
     private val words = HashMap<String, Int>()
-    private val bigrams = HashMap<String, HashMap<String, Int>>()
+    private val bigrams = HashMap<String, Followers>()
+    private val wordGen = HashMap<String, Long>()
+    private var generation = 0L
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
@@ -60,9 +88,14 @@ class UserLexicon(private val storageFile: File?) {
     @Synchronized
     fun learnWord(word: String, count: Int = 1) {
         val key = word.lowercase()
-        if (key.length < 2 || count <= 0) return
-        words.merge(key, count, Int::plus)
-        trie.reinforce(key, count)
+        if (key.length < 2 || key.length > MAX_WORD_LENGTH || count <= 0) return
+        val before = words[key] ?: 0
+        val merged = (before.toLong() + count).coerceAtMost(MAX_COUNT.toLong()).toInt()
+        words[key] = merged
+        // Reinforce by the clamped delta so the trie's copy can never race
+        // past the cap (or overflow) while the word map stays clamped.
+        trie.reinforce(key, merged - before)
+        wordGen[key] = generation
         mutations++
         dirty = true
     }
@@ -75,9 +108,12 @@ class UserLexicon(private val storageFile: File?) {
     @Synchronized
     fun addWord(word: String, boost: Int = 200) {
         val key = word.trim().lowercase()
-        if (key.isEmpty()) return
-        words.merge(key, boost, Int::plus)
-        trie.reinforce(key, boost)
+        if (key.isEmpty() || key.length > MAX_WORD_LENGTH) return
+        val before = words[key] ?: 0
+        val merged = (before.toLong() + boost).coerceAtMost(MAX_COUNT.toLong()).toInt()
+        words[key] = merged
+        trie.reinforce(key, merged - before)
+        wordGen[key] = generation
         mutations++
         dirty = true
     }
@@ -91,6 +127,7 @@ class UserLexicon(private val storageFile: File?) {
     fun reload() {
         words.clear()
         bigrams.clear()
+        wordGen.clear()
         rebuildTrie()
         load()
         mutations++
@@ -105,18 +142,24 @@ class UserLexicon(private val storageFile: File?) {
         val prev = previous.lowercase()
         val nxt = next.lowercase()
         if (prev.isEmpty() || nxt.isEmpty()) return
-        bigrams.getOrPut(prev) { HashMap() }.merge(nxt, 1, Int::plus)
+        if (prev.length > MAX_WORD_LENGTH || nxt.length > MAX_WORD_LENGTH) return
+        bigrams.getOrPut(prev) { Followers() }.bump(nxt)
         dirty = true
     }
 
     @Synchronized
     fun nextWords(previous: String, limit: Int): List<String> =
-        bigrams[previous]
-            ?.entries
-            ?.sortedByDescending { it.value }
-            ?.take(limit)
-            ?.map { it.key }
-            .orEmpty()
+        bigrams[previous]?.ordered()?.take(limit).orEmpty()
+
+    /** Learned count of the pair (previous -> next), 0 when never seen. */
+    @Synchronized
+    fun bigramCount(previous: String, next: String): Int =
+        bigrams[previous.lowercase()]?.counts?.get(next.lowercase()) ?: 0
+
+    /** Defensive copy of a word's follower counts (capped at MAX_FOLLOWERS). */
+    @Synchronized
+    fun followerCounts(previous: String): Map<String, Int> =
+        bigrams[previous.lowercase()]?.counts?.let(::HashMap) ?: emptyMap()
 
     @Synchronized
     fun complete(prefix: String, limit: Int): List<Suggestion> = trie.complete(prefix, limit)
@@ -144,8 +187,11 @@ class UserLexicon(private val storageFile: File?) {
     fun forget(word: String) {
         val key = word.lowercase()
         words.remove(key)
+        wordGen.remove(key)
         bigrams.remove(key)
-        bigrams.values.forEach { it.remove(key) }
+        bigrams.values.forEach {
+            if (it.counts.remove(key) != null) it.sorted = null
+        }
         rebuildTrie()
         mutations++
         dirty = true
@@ -155,6 +201,7 @@ class UserLexicon(private val storageFile: File?) {
     fun clear() {
         words.clear()
         bigrams.clear()
+        wordGen.clear()
         rebuildTrie()
         mutations++
         // The delete is the write, so there is normally nothing left to save.
@@ -168,9 +215,13 @@ class UserLexicon(private val storageFile: File?) {
     fun save() {
         val file = storageFile ?: return
         if (!dirty) return
+        generation++
+        compactIfNeeded()
         val snapshot = Snapshot(
             words = words,
-            bigrams = bigrams.mapValues { it.value.toMap() },
+            bigrams = bigrams.mapValues { it.value.counts.toMap() },
+            generation = generation,
+            wordGen = wordGen,
         )
         runCatching {
             file.parentFile?.mkdirs()
@@ -187,7 +238,14 @@ class UserLexicon(private val storageFile: File?) {
             val snapshot = json.decodeFromString<Snapshot>(file.readText())
             words.putAll(snapshot.words)
             snapshot.bigrams.forEach { (prev, map) ->
-                bigrams[prev] = HashMap(map)
+                bigrams[prev] = Followers().also { it.counts.putAll(map) }
+            }
+            generation = snapshot.generation
+            // Words with no recorded generation (legacy files, settings-app
+            // rewrites) are treated as fresh rather than instantly decayed;
+            // orphaned entries for words no longer present are dropped.
+            for (word in words.keys) {
+                wordGen[word] = snapshot.wordGen[word] ?: snapshot.generation
             }
             rebuildTrie()
         }
@@ -198,5 +256,64 @@ class UserLexicon(private val storageFile: File?) {
         val fresh = Trie()
         for ((word, count) in words) fresh.insert(word, count)
         trie = fresh
+    }
+
+    /**
+     * Bounds the store, running only on a dirty save (dismissal-time, main
+     * thread — the same moment that already rewrites the whole file). Words
+     * are scored with lazy exponential decay — `count * 2^(-age/HALF_LIFE)`
+     * with age in save-generations — so a year-old typo-learn finally loses
+     * to anything the user still types, while raw counts are never rewritten
+     * on the hot path. Deliberately user-added words ([addWord], count >=
+     * STICKY_MIN_COUNT) are evicted only after every organic word is gone.
+     */
+    private fun compactIfNeeded() {
+        if (words.size > MAX_WORDS) {
+            fun score(word: String): Double {
+                val age = (generation - (wordGen[word] ?: generation)).coerceAtLeast(0L)
+                val halfLives = age.toDouble() / HALF_LIFE_GENERATIONS
+                return (words[word] ?: 0) * Math.pow(2.0, -halfLives)
+            }
+            val evictable = words.keys
+                .sortedWith(
+                    compareBy(
+                        { (words[it] ?: 0) >= STICKY_MIN_COUNT },
+                        { score(it) },
+                    )
+                )
+            val toEvict = evictable.take(words.size - EVICT_TO)
+            for (word in toEvict) {
+                words.remove(word)
+                wordGen.remove(word)
+                bigrams.remove(word)
+                bigrams.values.forEach {
+                    if (it.counts.remove(word) != null) it.sorted = null
+                }
+            }
+            rebuildTrie()
+            mutations++
+        }
+        if (bigrams.size > MAX_BIGRAM_PREVS) {
+            val evictable = bigrams.entries.sortedBy { it.value.total() }
+            for (entry in evictable.take(bigrams.size - MAX_BIGRAM_PREVS)) {
+                bigrams.remove(entry.key)
+            }
+        }
+    }
+
+    private companion object {
+        const val MAX_WORD_LENGTH = 32
+        /** 1e6 x USER_WORD_WEIGHT(500) stays far inside Int range. */
+        const val MAX_COUNT = 1_000_000
+        const val MAX_WORDS = 10_000
+        /** Eviction target below the cap: 10% hysteresis so compaction does
+         * not churn on every save once the cap is reached. */
+        const val EVICT_TO = 9_000
+        const val MAX_BIGRAM_PREVS = 5_000
+        const val MAX_FOLLOWERS = 32
+        const val HALF_LIFE_GENERATIONS = 64.0
+        /** addWord's default boost lands at 200; organic words rarely reach
+         * this, so it doubles as the "deliberately added" marker. */
+        const val STICKY_MIN_COUNT = 100
     }
 }
