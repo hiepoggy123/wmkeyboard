@@ -539,6 +539,13 @@ class SuggestionEngine(
 
         /** Recency edge for words typed recently in the same app. */
         private val APP_RECENCY_BOOST = ln(1.3)
+
+        // Join-chip guards: the joined word must be a reasonably common word
+        // and clearly beat the rarer of its parts (mirror of WEIGHT_SPLIT's
+        // conservatism, inverted).
+        private const val JOIN_MAX_LENGTH = 24
+        private const val JOIN_MIN_FREQ = 50
+        private const val JOIN_CONFIDENCE = 1.25
     }
 
     /**
@@ -694,6 +701,33 @@ class SuggestionEngine(
         val max = tally.values.maxOrNull() ?: return emptyMap()
         if (max <= 0.0) return emptyMap()
         return tally.mapValues { (it.value / max).toFloat() }
+    }
+
+    /**
+     * The inverse of a split: the previous word and the word being composed
+     * concatenate into something more plausible than the parts — "some" +
+     * "thing" -> "something". Chip-only (never an autocorrect: it rewrites
+     * text already committed to the field) and deliberately conservative:
+     * the joined word must be reasonably common and beat the rarer part by a
+     * clear margin, so "a" + "nd" doesn't offer "and" on every stumble.
+     */
+    fun joinCandidate(previousWord: String?, composing: String): String? {
+        val prev = previousWord?.lowercase() ?: return null
+        if (WordContext.isSentinel(prev)) return null
+        val lower = composing.lowercase()
+        if (lower.length < 2 || prev.isEmpty()) return null
+        if (!prev.all { it.isLetter() } || !lower.all { it.isLetter() }) return null
+        val joined = prev + lower
+        if (joined.length > JOIN_MAX_LENGTH || suppressed(joined)) return null
+        fun freqOf(word: String) = maxOf(
+            dictionaryFrequencyOf(word),
+            weighted(userLexicon.frequencyOf(word), USER_WORD_WEIGHT),
+        )
+        val joinedFreq = freqOf(joined)
+        if (joinedFreq < JOIN_MIN_FREQ) return null
+        val rarerPart = minOf(freqOf(prev), freqOf(lower))
+        if (joinedFreq * JOIN_CONFIDENCE <= rarerPart) return null
+        return joined
     }
 
     /**

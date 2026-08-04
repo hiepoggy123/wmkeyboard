@@ -624,6 +624,7 @@ fun KeyboardScreen(
     canForwardDelete: () -> Boolean = { true },
     onDeleteWord: () -> Unit = {},
     onSuggestion: (String) -> Unit,
+    onJoinSuggestion: () -> Unit = {},
     /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
     onCandidate: (String, Int) -> Unit = { text, _ -> onSuggestion(text) },
     /** Open the expanded candidate grid. */
@@ -841,6 +842,7 @@ fun KeyboardScreen(
                 onCursorMove = onCursorMove,
                 onLayoutSelect = onLayoutSelect,
                 onSuggestion = onSuggestion,
+                onJoinSuggestion = onJoinSuggestion,
                 onCandidate = onCandidate,
                 onCandidatesExpand = onCandidatesExpand,
                 onEmoji = onEmoji,
@@ -1444,6 +1446,7 @@ private class HeldCandidates(state: KeyboardUiState) {
 private fun TopBar(
     state: KeyboardUiState,
     onSuggestion: (String) -> Unit,
+    onJoinSuggestion: () -> Unit = {},
     /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
     onCandidate: (String, Int) -> Unit = { text, _ -> onSuggestion(text) },
     /** Open the expanded candidate grid. */
@@ -2081,6 +2084,31 @@ private fun TopBar(
                     onExpand = onCandidatesExpand,
                 )
             } else {
+                // The join chip leads the row, visually apart from the three
+                // word slots: it rewrites text already in the field, which a
+                // plain suggestion never does.
+                val join = state.joinSuggestion
+                if (join != null && suggestionsShowing) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .graphicsLayer { alpha = stripContentAlpha.value }
+                            .padding(vertical = 8.dp, horizontal = 2.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                            .clickable { onJoinSuggestion() }
+                            .padding(horizontal = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = join,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            maxLines = 1,
+                        )
+                    }
+                }
                 LatinSuggestionChips(
                     candidates = shownSuggestions,
                     enabled = suggestionsShowing,
@@ -5056,6 +5084,7 @@ private fun KeyboardBody(
     onCursorMove: (Int) -> Unit,
     onLayoutSelect: (String) -> Unit,
     onSuggestion: (String) -> Unit,
+    onJoinSuggestion: () -> Unit = {},
     /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
     onCandidate: (String, Int) -> Unit = { text, _ -> onSuggestion(text) },
     /** Open the expanded candidate grid. */
@@ -5245,6 +5274,7 @@ private fun KeyboardBody(
                         TopBar(
                             state,
                             onSuggestion = onSuggestion,
+                            onJoinSuggestion = onJoinSuggestion,
                             onCandidate = onCandidate,
                             onCandidatesExpand = onCandidatesExpand,
                             onEmoji = onEmoji,

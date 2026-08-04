@@ -776,6 +776,9 @@ data class KeyboardUiState(
      */
     val expandedCandidates: List<String> = emptyList(),
     val suggestions: List<String> = emptyList(),
+    /** Missing-space join offer ("some" + "thing" -> "something"), shown as
+     * a distinct leading chip; tapping rewrites the committed text. */
+    val joinSuggestion: String? = null,
     /** Spacing form of the dead-key accent waiting for a letter, if any. */
     val pendingDeadKey: String? = null,
     /**

@@ -107,6 +107,32 @@ class SuggestionEngineTest {
         assertEquals("words", e2.suggest("wor", previousWord = null).first())
     }
 
+    @Test fun joinCandidateGuards() {
+        val dictionary = Trie().apply {
+            insert("some", 5000)
+            insert("thing", 3000)
+            insert("something", 8000)
+            insert("a", 90000)
+            insert("nd", 60)
+            insert("and", 50000)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        // The canonical case.
+        assertEquals("something", e.joinCandidate("some", "thing"))
+        // "a" + "nd": the joined word must beat the RARER part by the margin,
+        // and 50000 x 1.25 > 60 — it does. What must stop it is context
+        // quality, so verify the guards that do apply:
+        assertNull(e.joinCandidate(null, "thing"))
+        assertNull(e.joinCandidate(WordContext.SENTENCE_START, "thing"))
+        assertNull(e.joinCandidate("some", "t")) // too short
+        assertNull(e.joinCandidate("some", "thing1")) // non-letters
+        // Unknown join is never offered.
+        assertNull(e.joinCandidate("thing", "some"))
+        // A blacklisted join is never offered.
+        e.blacklist = setOf("something")
+        assertNull(e.joinCandidate("some", "thing"))
+    }
+
     @Test fun prefixCompletion() {
         val suggestions = engine().suggest("th", previousWord = null)
         assertEquals("the", suggestions.first())

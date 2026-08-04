@@ -660,7 +660,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private class RevertibleCommit(val kind: Kind, val original: String, val committed: String) {
 
-        enum class Kind { AUTOCORRECT, SNIPPET }
+        enum class Kind { AUTOCORRECT, SNIPPET, JOIN }
     }
 
     private var lastRevertible: RevertibleCommit? = null
@@ -1957,6 +1957,7 @@ open class WMKeyboardService : InputMethodService() {
                 canForwardDelete = ::canForwardDelete,
                 onDeleteWord = ::onDeleteWord,
                 onSuggestion = ::onSuggestionTapped,
+                onJoinSuggestion = ::onJoinSuggestionTapped,
                 onCandidate = ::onCandidateTapped,
                 onCandidatesExpand = ::onCandidatesExpand,
                 onEmoji = ::onEmojiTapped,
@@ -3837,6 +3838,8 @@ open class WMKeyboardService : InputMethodService() {
                 // able to take it back is not a preference. There is also no
                 // settings field left to hang one on.
                 RevertibleCommit.Kind.SNIPPET -> true
+                // Undoing a tapped join is not a preference either.
+                RevertibleCommit.Kind.JOIN -> true
             }
             if (composing.isEmpty() && allowed) {
                 // A correction is always followed by the space that triggered
@@ -3949,6 +3952,13 @@ open class WMKeyboardService : InputMethodService() {
                 // span is muted until something else is typed.
                 patternMutedAfter = revert.original
                 syncPreviousWordFromField(ic)
+            }
+            RevertibleCommit.Kind.JOIN -> {
+                // The two original words are back; re-derive context from the
+                // field. No rejectCorrection (the user asked for the join by
+                // tapping) and no unlearning of a real dictionary word.
+                syncPreviousWordFromField(ic)
+                invalidateRecentWords()
             }
         }
     }
@@ -5289,6 +5299,70 @@ open class WMKeyboardService : InputMethodService() {
      * costs less than the dispatch it replaces. Returns words to emojis,
      * matching the split [refreshSuggestions] does.
      */
+    /**
+     * The (previousWord, typed) pair the offered join chip was computed for,
+     * so a stale tap (field changed underneath) can verify before rewriting.
+     */
+    private var joinContext: Pair<String, String>? = null
+
+    /** The join chip: replace "prev typed" in the field with the joined word. */
+    fun onJoinSuggestionTapped() {
+        val state = _uiState.value
+        val joined = state.joinSuggestion ?: return
+        val (prev, typedAt) = joinContext ?: return
+        val typed = composing.toString()
+        // The chip was computed for this exact composing text.
+        if (!typed.equals(typedAt, ignoreCase = true)) return
+        val ic = currentInputConnection ?: return
+        ic.beginBatchEdit()
+        try {
+            ic.finishComposingText()
+            // Verify the field really ends "prev typed" (plus derive the next
+            // bigram context from what precedes it), or do nothing at all.
+            val span = prev.length + 1 + typed.length
+            val window = ic.getTextBeforeCursor(span + 48, 0)?.toString()
+            val tail = window?.takeLast(span)
+            if (tail == null || !tail.equals("$prev $typed", ignoreCase = true) ||
+                tail[prev.length] != ' '
+            ) {
+                return
+            }
+            val beforeContext = window.dropLast(span)
+            val display = joinedCase(tail, joined)
+            ic.deleteSurroundingText(span, 0)
+            ic.commitText(display, 1)
+            composing = StringBuilder()
+            setContextFrom(beforeContext)
+            lastRevertible = RevertibleCommit(
+                RevertibleCommit.Kind.JOIN, original = tail, committed = display,
+            )
+            armRevertGuard()
+            learn(joined, reinforcement = 2)
+            invalidateExpectedSelection()
+        } finally {
+            ic.endBatchEdit()
+        }
+        _uiState.update {
+            it.copy(
+                composingPreview = "",
+                suggestions = emptyList(),
+                emojiSuggestions = emptyList(),
+                joinSuggestion = null,
+            )
+        }
+        joinContext = null
+        val (words, emojis) = nextWordStrip()
+        _uiState.update { it.copy(suggestions = words, emojiSuggestions = emojis) }
+    }
+
+    /** Leading capital carries over from either original part. */
+    private fun joinedCase(originalSpan: String, joined: String): String =
+        if (originalSpan.firstOrNull()?.isUpperCase() == true) {
+            joined.replaceFirstChar { it.uppercase() }
+        } else {
+            joined
+        }
+
     private fun nextWordStrip(): Pair<List<String>, List<String>> {
         val engine = suggestionEngine
         val state = _uiState.value
@@ -5922,6 +5996,17 @@ open class WMKeyboardService : InputMethodService() {
             } else {
                 emptyList()
             }
+            // Join chip: "some" committed, "thing" composing, "something" a
+            // clearly better word. A handful of map hits — fine on main.
+            val join = if (
+                typed.isNotEmpty() && !state.composer.isTransliterating &&
+                !state.composer.isConversion && state.allowsTypingIntelligence
+            ) {
+                engine.joinCandidate(previousWord, typed)
+            } else {
+                null
+            }
+            joinContext = if (join != null) (previousWord ?: "") to typed else null
             _uiState.update {
                 it.copy(
                     suggestions = results,
@@ -5929,6 +6014,7 @@ open class WMKeyboardService : InputMethodService() {
                     punctuationSuggestions = punct,
                     nextLetterBias = bias,
                     inlineEmoji = false,
+                    joinSuggestion = join,
                 )
             }
         }
