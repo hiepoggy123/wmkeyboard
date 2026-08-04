@@ -47,6 +47,31 @@ class SuggestionEngineTest {
         assertTrue("wasi" in e.suggest("wa", previousWord = null))
     }
 
+    @Test fun learnedBigramContextRanksCompletions() {
+        // "words" wins on raw frequency; a learned "hello -> world" habit
+        // restores "world" when that context is present.
+        val lexicon = UserLexicon(null)
+        repeat(5) { lexicon.learnBigram("hello", "world") }
+        val flipped = Trie().apply {
+            insert("world", 90)
+            insert("words", 100)
+        }
+        val e = SuggestionEngine(flipped, BengaliPhoneticIndex(emptyList()), lexicon)
+        assertEquals("world", e.suggest("wor", previousWord = "hello").first())
+        // Without context the raw order stands.
+        assertEquals("words", e.suggest("wor", previousWord = null).first())
+        // The boost is capped: an enormous count cannot bury a much more
+        // frequent candidate (a >4x frequency gap beats the ln(4) cap).
+        val lopsided = Trie().apply {
+            insert("world", 100)
+            insert("words", 500)
+        }
+        val heavy = UserLexicon(null)
+        repeat(10_000) { heavy.learnBigram("hello", "world") }
+        val e2 = SuggestionEngine(lopsided, BengaliPhoneticIndex(emptyList()), heavy)
+        assertEquals("words", e2.suggest("wor", previousWord = "hello").first())
+    }
+
     @Test fun prefixCompletion() {
         val suggestions = engine().suggest("th", previousWord = null)
         assertEquals("the", suggestions.first())

@@ -512,6 +512,16 @@ class SuggestionEngine(
          * confidence, while a lone two-edit hit on a rare word does not.
          */
         private const val SOLO_RUNNER_UP_SCORE = 1.0
+
+        /** Shape of the learned-bigram context boost on completions. */
+        private const val CONTEXT_BIGRAM_BETA = 0.5
+
+        /** Cap: habitual pairs may re-rank the strip, never bury an exact
+         * high-frequency match (ln 4 — a 4x multiplicative equivalent). */
+        private val MAX_CONTEXT_BOOST = ln(4.0)
+
+        /** Seed pairs are weaker evidence than the user's own habits. */
+        private val SEED_CONTEXT_BOOST = ln(1.5)
     }
 
     /**
@@ -562,6 +572,27 @@ class SuggestionEngine(
         if (!known) {
             for ((split, score) in splitCandidates(lower)) {
                 merged.merge(split, score, ::maxOf)
+            }
+        }
+
+        // Context re-rank: a candidate the user has typed after [previousWord]
+        // before (or that the seed pairs know as a follower) gets a bounded
+        // log-space boost. Completions historically ignored context entirely;
+        // this is one map hit per candidate on the async path.
+        val prev = previousWord?.lowercase()
+        if (prev != null) {
+            for (entry in merged.entries) {
+                val candidate = entry.key.lowercase()
+                val count = userLexicon.bigramCount(prev, candidate)
+                val boost = when {
+                    count > 0 -> minOf(
+                        ln(1.0 + CONTEXT_BIGRAM_BETA * ln(1.0 + count)),
+                        MAX_CONTEXT_BOOST,
+                    )
+                    englishSources && seedBigrams.follows(prev, candidate) -> SEED_CONTEXT_BOOST
+                    else -> 0.0
+                }
+                if (boost > 0.0) entry.setValue(entry.value + boost)
             }
         }
 

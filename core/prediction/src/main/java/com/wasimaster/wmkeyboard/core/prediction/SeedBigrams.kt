@@ -17,6 +17,11 @@ class SeedBigrams private constructor(
     /** Continuations of [previous], best first. */
     fun nextWords(previous: String): List<String> = map[previous].orEmpty()
 
+    /** Whether the bundled pairs know [next] as a follower of [previous].
+     * Lists are short (a handful of seeds per word), so the scan is cheap. */
+    fun follows(previous: String, next: String): Boolean =
+        map[previous]?.contains(next) == true
+
     companion object {
         val EMPTY = SeedBigrams(emptyMap())
 
