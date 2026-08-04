@@ -686,7 +686,8 @@ open class WMKeyboardService : InputMethodService() {
 
     private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
         val state = _uiState.value
-        if (!state.settings.clipboard.history ||
+        if (!isClipboardAccessible() ||
+            !state.settings.clipboard.history ||
             (state.incognitoOn && state.settings.incognitoPausesClipboard) ||
             state.secureField
         ) return@OnPrimaryClipChangedListener
@@ -1873,6 +1874,7 @@ open class WMKeyboardService : InputMethodService() {
                 onToolTap = ::onToolTap,
                 onPanelChange = ::onPanelChange,
                 onClipboardItem = ::onClipboardItemTapped,
+                onClipboardSticker = ::onClipboardSticker,
                 onClipboardPin = ::onClipboardPin,
                 onClipboardDelete = ::onClipboardDelete,
                 onClipboardSearchToggle = ::onClipboardSearchToggle,
@@ -2081,6 +2083,13 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * Clipboard data is credential-protected and must not be exposed through
+     * the IME while either direct boot or the keyguard is active.
+     */
+    private fun isClipboardAccessible(): Boolean =
+        userUnlocked && !isDeviceLocked()
+
+    /**
      * True while the device lock screen (keyguard) is showing — secure or
      * swipe-only. Read on each field start to drive the "hide toolbar &
      * clipboard on lock screen" privacy setting.
@@ -2246,6 +2255,8 @@ open class WMKeyboardService : InputMethodService() {
                 }
         }
         val fieldSpec = activeLayoutSpec(current)
+        val deviceLocked = isDeviceLocked()
+        val clipboardAccessible = userUnlocked && !deviceLocked
         _uiState.update {
             it.copy(
                 settings = base?.applyMode(activeMode) ?: it.settings,
@@ -2297,10 +2308,11 @@ open class WMKeyboardService : InputMethodService() {
                     ?.let { editorInfo -> EditorInfoCompat.getContentMimeTypes(editorInfo).toList() }
                     .orEmpty(),
                 secureField = secure,
-                deviceLocked = isDeviceLocked(),
+                deviceLocked = deviceLocked,
                 shiftState = autoCapitalizeShift(),
                 shiftPressedByUser = false,
-                clipboardItems = clipboardStore.items(),
+                clipboardItems = if (clipboardAccessible) clipboardStore.items() else emptyList(),
+                clipboardSuggestion = if (clipboardAccessible) it.clipboardSuggestion else null,
                 enterAction = info.enterAction(),
                 enterActionLabel = info?.actionLabel?.toString()?.takeIf { label -> label.isNotBlank() },
                 handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false),
@@ -6066,7 +6078,10 @@ open class WMKeyboardService : InputMethodService() {
         if (tool !in settings.enabledTools) return
         when (tool) {
             ToolbarTool.EMOJI -> onPanelChange(PanelMode.EMOJI)
-            ToolbarTool.CLIPBOARD -> onPanelChange(PanelMode.CLIPBOARD)
+            ToolbarTool.CLIPBOARD -> {
+                if (isClipboardAccessible()) onPanelChange(PanelMode.CLIPBOARD)
+            }
+
             ToolbarTool.SNIPPETS -> onPanelChange(PanelMode.SNIPPETS)
             ToolbarTool.TEXT_EDIT -> onPanelChange(PanelMode.TEXT_EDIT)
             ToolbarTool.SETTINGS -> openSettings()
@@ -6161,6 +6176,7 @@ open class WMKeyboardService : InputMethodService() {
      * press-time feedback of their own, so they keep it.
      */
     fun onPanelChange(panel: PanelMode, haptic: Boolean = true) {
+        if (panel == PanelMode.CLIPBOARD && !isClipboardAccessible()) return
         // Strip mode reroutes the voice tool: no panel, just the compact
         // bar over the keys. A voice panel already open (setting flipped
         // mid-session) still closes normally below.
@@ -8050,6 +8066,7 @@ open class WMKeyboardService : InputMethodService() {
      * reachable from Lua.
      */
     fun onPluginPaste(inputId: String) {
+        if (!isClipboardAccessible()) return
         vibrate()
         val clip = clipboardStore.latestText().orEmpty()
         if (clip.isEmpty()) return
@@ -10105,6 +10122,7 @@ open class WMKeyboardService : InputMethodService() {
                 _uiState.update { it.copy(textEditSelecting = false) }
             }
             TextEditAction.PASTE -> {
+                if (!isClipboardAccessible()) return
                 ic.performContextMenuAction(android.R.id.paste)
                 purgeAfterPasswordPaste()
             }
@@ -10159,6 +10177,7 @@ open class WMKeyboardService : InputMethodService() {
                 _uiState.update { it.copy(textEditSelecting = false) }
             }
             ClipboardKeyAction.PASTE -> {
+                if (!isClipboardAccessible()) return
                 ic.performContextMenuAction(android.R.id.paste)
                 purgeAfterPasswordPaste()
             }
@@ -10308,7 +10327,7 @@ open class WMKeyboardService : InputMethodService() {
     ): SnippetStore.Companion.Context {
         val pkg = currentPackage
         return SnippetStore.Companion.Context(
-            clipboard = clipboardStore.latestText(),
+            clipboard = clipboardStore.latestText().takeIf { isClipboardAccessible() },
             appName = pkg?.let(::appLabel),
             packageName = pkg,
             selection = if (withSelection) ic?.getSelectedText(0)?.toString() else null,
@@ -10814,7 +10833,35 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /** Converts a held clipboard image to the same 512px transparent WebP sticker
+     * format used by the existing sticker flow, then commits it to the field. */
+    fun onClipboardSticker(item: com.wasimaster.wmkeyboard.core.clipboard.ClipItem) {
+        if (!isClipboardAccessible() || item.kind != ClipKind.IMAGE ||
+            !_uiState.value.acceptsRichMedia) return
+        val source = item.imagePath?.let(::File)?.takeIf { it.exists() } ?: return
+        vibrate()
+        serviceScope.launch {
+            val sticker = withContext(Dispatchers.Default) {
+                runCatching {
+                    val bytes = source.readBytes()
+                    (StickerImage.process(bytes) as? com.wasimaster.wmkeyboard.core.stickers.StickerImage.Result.Ok)
+                        ?.sticker?.bytes
+                }.getOrNull()
+            }
+            if (sticker == null) {
+                Toast.makeText(this@WMKeyboardService, getString(R.string.ime_service_media_download_error_toast), Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val dir = File(cacheDir, "media").apply { mkdirs() }
+            val file = File(dir, "clipboard_sticker_${item.id}.webp")
+            runCatching { file.writeBytes(sticker) }.onSuccess {
+                commitImageFile(file, MediaMime.WEBP, _uiState.value.settings.stickerSendMode)
+            }
+        }
+    }
+
     fun onClipboardItemTapped(item: com.wasimaster.wmkeyboard.core.clipboard.ClipItem) {
+        if (!isClipboardAccessible()) return
         vibrate()
         when (item.kind) {
             ClipKind.IMAGE -> commitImageClip(item)
@@ -10851,6 +10898,7 @@ open class WMKeyboardService : InputMethodService() {
      * clipboard for every app to read.
      */
     fun onClipboardEntityTapped(entity: com.wasimaster.wmkeyboard.core.clipboard.ClipEntity) {
+        if (!isClipboardAccessible()) return
         vibrate()
         commitToField(entity.value)
         clearClipboardSuggestion()

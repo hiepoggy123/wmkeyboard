@@ -661,6 +661,7 @@ fun KeyboardScreen(
     onToolTap: (ToolbarTool) -> Unit = {},
     onPanelChange: (PanelMode) -> Unit,
     onClipboardItem: (ClipItem) -> Unit,
+    onClipboardSticker: (ClipItem) -> Unit = {},
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
     onClipboardSearchToggle: () -> Unit = {},
@@ -856,6 +857,7 @@ fun KeyboardScreen(
                 onTextEdit = onTextEdit,
                 onPanelChange = onPanelChange,
                 onClipboardItem = onClipboardItem,
+                onClipboardSticker = onClipboardSticker,
                 onClipboardPin = onClipboardPin,
                 onClipboardDelete = onClipboardDelete,
                 onClipboardSearchToggle = onClipboardSearchToggle,
@@ -5069,6 +5071,7 @@ private fun KeyboardBody(
     onTextEdit: (TextEditAction) -> Unit,
     onPanelChange: (PanelMode) -> Unit,
     onClipboardItem: (ClipItem) -> Unit,
+    onClipboardSticker: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
     onClipboardSearchToggle: () -> Unit,
@@ -5303,7 +5306,7 @@ private fun KeyboardBody(
                     onClose = { onPanelChange(PanelMode.EMOJI) },
                 )
                 PanelMode.CLIPBOARD -> ClipboardPanel(
-                    state, onClipboardItem, onClipboardPin, onClipboardDelete,
+                    state, onClipboardItem, onClipboardSticker, onClipboardPin, onClipboardDelete,
                     onClipboardSearchToggle = onClipboardSearchToggle,
                     onClipboardEntity = onClipboardEntity,
                     onKey = onKey,
@@ -10793,6 +10796,7 @@ private fun SnippetsPanel(
 private fun ClipboardPanel(
     state: KeyboardUiState,
     onClipboardItem: (ClipItem) -> Unit,
+    onClipboardSticker: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
     onClipboardSearchToggle: () -> Unit,
@@ -10819,7 +10823,7 @@ private fun ClipboardPanel(
     val contentHeight = panelHeight - if (showBottomRow) barHeight else 0.dp
     Column {
         ClipboardPanelContent(
-            state, onClipboardItem, onClipboardPin, onClipboardDelete,
+            state, onClipboardItem, onClipboardSticker, onClipboardPin, onClipboardDelete,
             onClipboardSearchToggle = onClipboardSearchToggle,
             onClipboardEntity = onClipboardEntity,
             height = contentHeight,
@@ -10888,6 +10892,7 @@ private fun ClipboardSearchField(
 private fun ClipboardPanelContent(
     state: KeyboardUiState,
     onClipboardItem: (ClipItem) -> Unit,
+    onClipboardSticker: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
     onClipboardSearchToggle: () -> Unit,
@@ -11043,7 +11048,13 @@ private fun ClipboardPanelContent(
                         ),
                 ) {
                     if (showInfo) {
-                        ClipInfoPopup(item, onDismiss = { showInfo = false })
+                        ClipInfoPopup(
+                            item,
+                            onSendSticker = if (item.kind == ClipKind.IMAGE) {
+                                { onClipboardSticker(item); showInfo = false }
+                            } else null,
+                            onDismiss = { showInfo = false },
+                        )
                     }
                     when {
                         // A masked secret outranks every other body: the point
@@ -11322,7 +11333,11 @@ private fun ClipActionCircle(
  * length. Anchored above the card; dismissed by tapping elsewhere.
  */
 @Composable
-private fun ClipInfoPopup(item: ClipItem, onDismiss: () -> Unit) {
+private fun ClipInfoPopup(
+    item: ClipItem,
+    onSendSticker: (() -> Unit)? = null,
+    onDismiss: () -> Unit,
+) {
     val kb = LocalKbTheme.current
     val now = System.currentTimeMillis()
     val relative = android.text.format.DateUtils.getRelativeTimeSpanString(
@@ -11382,6 +11397,16 @@ private fun ClipInfoPopup(item: ClipItem, onDismiss: () -> Unit) {
                 ClipInfoRow(stringResource(R.string.ime_clip_info_type), typeLabel, kb.popupText)
                 sizeLabel?.let {
                     ClipInfoRow(stringResource(R.string.ime_clip_info_size), it, kb.popupText)
+                }
+                if (onSendSticker != null) {
+                    TextButton(
+                        onClick = onSendSticker,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Outlined.EmojiEmotions, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.ime_clip_send_as_sticker))
+                    }
                 }
                 if (item.sensitive) {
                     ClipInfoRow(

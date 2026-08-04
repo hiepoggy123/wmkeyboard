@@ -265,6 +265,9 @@
     <string name="ime_clipboard_no_match">No clips match “%1$s”.</string>
     <string name="ime_clip_pin">Pin</string>
     <string name="ime_clip_unpin">Unpin</string>
+    <!-- Button in the press-and-hold details for an image clip. The image is
+         fitted into a transparent 512 × 512 sticker canvas before sending. -->
+    <string name="ime_clip_send_as_sticker">Send as sticker</string>
     <string name="ime_clip_entity_hint">Found in your clips. Press to paste only this part</string>
     <!-- Title of the popup for one part of a clip. %1$s names the kind of
          part, such as a phone number or a one-time code. -->
