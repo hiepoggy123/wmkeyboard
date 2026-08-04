@@ -4,6 +4,7 @@ import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.ln
 
 /**
  * A secondary-language word list paired with the id of the language it belongs
@@ -16,10 +17,9 @@ data class SecondaryDictionary(val langId: String, val source: WordSource)
  * Produces the suggestion-bar candidates for the word being composed.
  *
  * Sources, merged and ranked by frequency:
- *  - prefix completions from the main dictionary trie (bundled word list
- *    plus everything the user has typed);
- *  - Norvig-style edit-distance-1 corrections when the typed word is not
- *    in the dictionary;
+ *  - prefix completions and trie-guided fuzzy corrections (one shared
+ *    [FuzzyBeamSearch] walk over every dictionary and the user lexicon)
+ *    when the typed word is not in the dictionary;
  *  - learned bigrams (backed by bundled seed pairs) for next-word
  *    prediction when composition is empty;
  *  - Bengali transliteration of the romanized composition when the Avro
@@ -243,6 +243,40 @@ class SuggestionEngine(
             0
         }
 
+    private val beam = FuzzyBeamSearch()
+    private val beamWorkspace = ThreadLocal.withInitial { BeamWorkspace() }
+
+    /**
+     * The weighted trie sources one fuzzy walk covers. Built per call —
+     * cheap — with each language's mix confidence read once, not once per
+     * candidate (LanguageMixConfidence is synchronized; per-candidate reads
+     * were the one real lock-contention point on the hot path).
+     */
+    private fun walkSources(): List<FuzzyBeamSearch.WalkSource> {
+        val sources = ArrayList<FuzzyBeamSearch.WalkSource>()
+        fun add(wordSource: WordSource, logWeight: Double, tier: FuzzyBeamSearch.Tier) {
+            for (walker in wordSource.walkers()) {
+                sources.add(FuzzyBeamSearch.WalkSource(walker, logWeight, tier))
+            }
+        }
+        add(activeDictionary, 0.0, FuzzyBeamSearch.Tier.DICTIONARY)
+        add(customDictionary, LOG_CUSTOM_WORD_WEIGHT, FuzzyBeamSearch.Tier.DICTIONARY)
+        if (englishAsSecondary && !englishSources) {
+            val factor = englishSecondaryFactor()
+            if (factor > 0) add(dictionary, ln(factor), FuzzyBeamSearch.Tier.DICTIONARY)
+        }
+        for (t in secondaryDictionaries) {
+            val weight = SECONDARY_WORD_WEIGHT * mixConfidence.confidenceFor(t.langId)
+            if (weight > 0) add(t.source, ln(weight), FuzzyBeamSearch.Tier.DICTIONARY)
+        }
+        for (walker in userLexicon.walkers()) {
+            sources.add(
+                FuzzyBeamSearch.WalkSource(walker, LOG_USER_WORD_WEIGHT, FuzzyBeamSearch.Tier.USER)
+            )
+        }
+        return sources
+    }
+
     /** Best frequency for a word across the primary and secondary lists. */
     private fun dictionaryFrequencyOf(word: String): Int = maxOf(
         activeDictionary.frequencyOf(word),
@@ -288,7 +322,6 @@ class SuggestionEngine(
     }
 
     companion object {
-        private const val ALPHABET = "abcdefghijklmnopqrstuvwxyz"
         /** Language id of bundled English, the only special-cased secondary. */
         private const val EN = "en"
         /** Learned words get a large boost so personalization wins quickly. */
@@ -353,16 +386,19 @@ class SuggestionEngine(
          */
         private const val SIBLING_CONFIDENCE = 2.0
 
-        // Likelihood weights per edit kind, multiplied into a candidate's
-        // frequency. A neighbouring-key substitution is the classic
-        // fat-finger slip; a distant substitution usually means the user
-        // typed a different word on purpose.
-        private const val WEIGHT_TRANSPOSITION = 0.9
-        private const val WEIGHT_SUB_ADJACENT = 0.9
-        private const val WEIGHT_DELETION = 0.7
-        private const val WEIGHT_INSERT_ADJACENT = 0.7
-        private const val WEIGHT_INSERT_FAR = 0.25
-        private const val WEIGHT_SUB_FAR = 0.2
+        /** Log-space forms of the source weights, fed to the fuzzy walk. */
+        private val LOG_USER_WORD_WEIGHT = ln(USER_WORD_WEIGHT.toDouble())
+        private val LOG_CUSTOM_WORD_WEIGHT = ln(CUSTOM_WORD_WEIGHT.toDouble())
+
+        /**
+         * Synthetic runner-up score when a correction has no competition at
+         * all: an unopposed but weak candidate — a rare word reached by an
+         * expensive edit — must clear `SOLO_RUNNER_UP_SCORE + ln(confidence)`
+         * or stay a suggestion. Tuned so a mid-frequency word one far slip
+         * away (hallo -> hello at frequency 70) still fires at the default
+         * confidence, while a lone two-edit hit on a rare word does not.
+         */
+        private const val SOLO_RUNNER_UP_SCORE = 1.0
     }
 
     /**
@@ -385,50 +421,31 @@ class SuggestionEngine(
         }
 
         val lower = composing.lowercase()
-        val merged = LinkedHashMap<String, Int>()
+        val known = inDictionaries(lower) || userLexicon.contains(lower)
+        val merged = HashMap<String, Double>()
 
-        for (s in activeDictionary.complete(lower, limit * 2)) {
-            merged.merge(s.word, s.frequency, ::maxOf)
-        }
-        for (s in customDictionary.complete(lower, limit * 2)) {
-            merged.merge(s.word, weighted(s.frequency, CUSTOM_WORD_WEIGHT), ::maxOf)
-        }
-        if (englishAsSecondary && !englishSources) {
-            val factor = englishSecondaryFactor()
-            for (s in dictionary.complete(lower, limit * 2)) {
-                merged.merge(s.word, (s.frequency * factor).toInt(), ::maxOf)
-            }
-        }
-        for (t in secondaryDictionaries) {
-            val weight = secondaryWeight(t.langId)
-            for (s in t.source.complete(lower, limit * 2)) {
-                merged.merge(s.word, weighted(s.frequency, weight), ::maxOf)
-            }
-        }
-        for (s in userLexicon.complete(lower, limit)) {
-            merged.merge(s.word, s.frequency * USER_WORD_WEIGHT, ::maxOf)
+        // One fuzzy walk covers completions AND corrections over every trie
+        // source. Corrections (edited paths) are admitted only when the typed
+        // word is unknown, matching the historical gate; pure completions
+        // (edits == 0) always participate.
+        for (c in beam.search(walkSources(), lower, proximity, limit, beamWorkspace.get())) {
+            if (c.edits > 0 && known) continue
+            merged.merge(c.word, c.score, ::maxOf)
         }
         for (s in contacts.complete(lower, limit)) {
-            merged.merge(s.word, s.frequency * CONTACT_WEIGHT, ::maxOf)
+            merged.merge(s.word, flatScore(s.frequency, CONTACT_WEIGHT), ::maxOf)
         }
         // Whole contact emails complete from their local part; short prefixes
         // are ignored so a single letter doesn't dump the address book.
         if (lower.length >= CONTACT_EMAIL_MIN_PREFIX) {
             for (email in contactEmails.complete(lower, limit)) {
-                merged.merge(email, CONTACT_EMAIL_WEIGHT, ::maxOf)
+                merged.merge(email, flatScore(1, CONTACT_EMAIL_WEIGHT), ::maxOf)
             }
         }
         for (s in apps.complete(lower, limit)) {
-            merged.merge(s.word, s.frequency * APP_WEIGHT, ::maxOf)
+            merged.merge(s.word, flatScore(s.frequency, APP_WEIGHT), ::maxOf)
         }
-        if (!inDictionaries(lower) && !userLexicon.contains(lower)) {
-            for ((candidate, weight) in edits1Weighted(lower)) {
-                val freq = maxOf(
-                    dictionaryFrequencyOf(candidate),
-                    userLexicon.frequencyOf(candidate) * USER_WORD_WEIGHT,
-                )
-                if (freq > 0) merged.merge(candidate, (freq * weight).toInt(), ::maxOf)
-            }
+        if (!known) {
             for ((split, score) in splitCandidates(lower)) {
                 merged.merge(split, score, ::maxOf)
             }
@@ -436,14 +453,18 @@ class SuggestionEngine(
 
         // Contact words carry their own capitalization ("Wasi"), so the
         // same word can arrive in two cases; keep the better-scored one.
-        val byLower = HashMap<String, Pair<String, Int>>()
+        val byLower = HashMap<String, Pair<String, Double>>()
         for ((word, score) in merged) {
             val key = word.lowercase()
             val current = byLower[key]
             if (current == null || score > current.second) byLower[key] = word to score
         }
         return byLower.values
-            .sortedByDescending { it.second }
+            .sortedWith(
+                // Deterministic: score, then word — HashMap iteration order
+                // must never decide a tie.
+                compareByDescending<Pair<String, Double>> { it.second }.thenBy { it.first }
+            )
             .asSequence()
             .map { it.first }
             .filterNot(::suppressed)
@@ -453,6 +474,11 @@ class SuggestionEngine(
             .map { if (it.contains('@')) it else matchCase(composing, it) }
             .toList()
     }
+
+    /** Log-space score for the flat (non-trie) sources, comparable with the
+     * beam's `logWeight + ln(1 + freq)` shape. */
+    private fun flatScore(frequency: Int, weight: Int): Double =
+        ln(1.0 + frequency.toDouble() * weight)
 
     /**
      * A distribution over the character most likely to be typed next, given the
@@ -492,9 +518,9 @@ class SuggestionEngine(
      * Missing-space fixes: "ofthe" → "of the", scored by the rarer half so
      * two genuinely common words outrank a coincidental split.
      */
-    private fun splitCandidates(word: String): List<Pair<String, Int>> {
+    private fun splitCandidates(word: String): List<Pair<String, Double>> {
         if (word.length < 4 || !word.all { it.isLetter() }) return emptyList()
-        val results = ArrayList<Pair<String, Int>>()
+        val results = ArrayList<Pair<String, Double>>()
         for (i in 1 until word.length) {
             val left = word.substring(0, i)
             val right = word.substring(i)
@@ -507,7 +533,8 @@ class SuggestionEngine(
                 userLexicon.frequencyOf(right) * USER_WORD_WEIGHT,
             )
             if (leftFreq > 0 && rightFreq > 0) {
-                results.add("$left $right" to (minOf(leftFreq, rightFreq) * WEIGHT_SPLIT).toInt())
+                val score = ln(1.0 + minOf(leftFreq, rightFreq) * WEIGHT_SPLIT)
+                results.add("$left $right" to score)
             }
         }
         return results
@@ -573,134 +600,72 @@ class SuggestionEngine(
         // Contact and app names are known words too — never "corrected" away.
         if (contacts.contains(lower) || apps.contains(lower)) return null
 
-        var bestDict: String? = null
-        var bestDictScore = 0.0
-        var bestUser: String? = null
-        var bestUserScore = 0.0
-        val combined = HashMap<String, Double>()
-        for ((candidate, weight) in edits1Weighted(lower)) {
-            // A suppressed word (blacklisted or offensive) is never offered, so
-            // it is never a correction target either — otherwise it would be
-            // forced in silently.
-            if (suppressed(candidate)) continue
-            val dictScore = dictionaryFrequencyOf(candidate) * weight
-            val userScore = userLexicon.frequencyOf(candidate) * USER_WORD_WEIGHT * weight
-            if (dictScore <= 0 && userScore <= 0) continue
-            if (dictScore > bestDictScore) {
-                bestDictScore = dictScore
-                bestDict = candidate
+        val candidates = beam.search(
+            walkSources(), lower, proximity, FuzzyBeamSearch.AUTOCORRECT_K, beamWorkspace.get(),
+        ).filter { c ->
+            // Silent replacement only trusts classic one-edit shapes: a single
+            // edit within one character of the typed length, or the
+            // one-extra-letter completion the old insert-at-end edit produced.
+            // Two-edit words and edited-then-completed words stay in the strip
+            // — and, crucially, they don't stand in as runner-ups that block
+            // an otherwise-unopposed correction. A suppressed word
+            // (blacklisted or offensive) is never a target either.
+            // Exact shapes only: a pure edit with no completion tail, or the
+            // one-extra-letter pure completion. An edited-then-completed
+            // inflection ("questiom" -> "questions") must be neither a target
+            // nor the runner-up that blocks the real fix.
+            val correctionShaped = when (c.edits) {
+                0 -> c.completedChars == 1 && c.word != lower
+                1 -> c.completedChars == 0
+                else -> false
             }
-            if (userScore > bestUserScore) {
-                bestUserScore = userScore
-                bestUser = candidate
+            correctionShaped && !suppressed(c.word)
+        }.map { c ->
+            // A one-extra-letter completion rides the walk at zero cost, but
+            // as a *correction* it is the old insert-at-end edit and must
+            // carry that edit's weight — both as a target and as the
+            // runner-up that gates someone else's correction.
+            if (c.edits == 0) {
+                FuzzyBeamSearch.ScoredCandidate(
+                    c.word, c.score - FuzzyBeamSearch.COST_INSERT_ADJACENT,
+                    FuzzyBeamSearch.COST_INSERT_ADJACENT, 1, 0, c.tier,
+                    c.dictScore - FuzzyBeamSearch.COST_INSERT_ADJACENT,
+                    c.userScore - FuzzyBeamSearch.COST_INSERT_ADJACENT,
+                )
+            } else {
+                c
             }
-            combined[candidate] = dictScore + userScore
-        }
+        }.sortedWith(
+            compareByDescending<FuzzyBeamSearch.ScoredCandidate> { it.score }.thenBy { it.word }
+        )
 
         // Two independent sources naming the same word is confidence enough
         // on its own.
-        if (bestDict != null && bestDict == bestUser) return matchCase(word, bestDict)
-
-        val ranked = combined.entries.sortedByDescending { it.value }
-        val top = ranked.firstOrNull() ?: return null
-        val runnerUp = ranked.getOrNull(1)
-        if (runnerUp != null && top.value < runnerUp.value * autocorrectConfidence) return null
-        return matchCase(word, top.key)
-    }
-
-    /**
-     * All strings one edit away from [word] (Norvig's generator), each with
-     * the likelihood weight of the edit that produced it. A candidate
-     * reachable by several edits keeps the most likely one.
-     */
-    /**
-     * The last answer [edits1Weighted] gave, and what it was asked.
-     *
-     * One keystroke asks the same question twice: [suggest] builds the strip
-     * from the edit set and then [shouldAutocorrect] — called moments later,
-     * for the same word, to precompute what a space would commit — builds it
-     * again. That set is the most expensive thing the engine does (for a
-     * five-letter word it is some 300 candidates, each a string and a map
-     * merge, over ~425 key-adjacency lookups), so answering the second ask
-     * from the first is close to halving the per-keystroke prediction cost.
-     *
-     * Guarded by the keyboard layout it was computed against, since that is
-     * the only other input: switching layouts changes which keys are adjacent
-     * and so what a plausible typo is.
-     */
-    private class Edits1Memo(
-        val word: String,
-        val proximity: KeyProximity,
-        val edits: Map<String, Double>,
-    )
-
-    @Volatile
-    private var edits1Memo: Edits1Memo? = null
-
-    private fun edits1Weighted(word: String): Map<String, Double> {
-        val proximityNow = proximity
-        edits1Memo?.let { memo ->
-            if (memo.word == word && memo.proximity === proximityNow) return memo.edits
-        }
-        val edits = computeEdits1Weighted(word, proximityNow)
-        edits1Memo = Edits1Memo(word, proximityNow, edits)
-        return edits
-    }
-
-    private fun computeEdits1Weighted(word: String, proximity: KeyProximity): Map<String, Double> {
-        val result = HashMap<String, Double>()
-        val n = word.length
-        // One reusable builder for every candidate: the substring+concat form
-        // allocated 3-4 throwaway Strings per candidate (~27n+26 candidates);
-        // building in place leaves one — the map key we can't avoid.
-        val sb = StringBuilder(n + 1)
-        fun emit(weight: Double) {
-            val candidate = sb.toString()
-            if (candidate != word) result.merge(candidate, weight, ::maxOf)
-        }
-        // Deletion: drop char i.
-        for (i in 0 until n) {
-            sb.setLength(0)
-            sb.append(word, 0, i).append(word, i + 1, n)
-            emit(WEIGHT_DELETION)
-        }
-        // Transposition: swap chars i and i+1.
-        for (i in 0 until n - 1) {
-            sb.setLength(0)
-            sb.append(word, 0, i).append(word[i + 1]).append(word[i]).append(word, i + 2, n)
-            emit(WEIGHT_TRANSPOSITION)
-        }
-        // Substitution: replace char i with c (c == word[i] would just be
-        // `word`, which emit() drops anyway — skip it up front).
-        for (i in 0 until n) {
-            val original = word[i]
-            for (c in ALPHABET) {
-                if (c == original) continue
-                sb.setLength(0)
-                sb.append(word, 0, i).append(c).append(word, i + 1, n)
-                val weight = if (proximity.areAdjacent(original, c)) {
-                    WEIGHT_SUB_ADJACENT
-                } else {
-                    WEIGHT_SUB_FAR
-                }
-                emit(weight)
+        var bestDict: String? = null
+        var bestDictScore = Double.NEGATIVE_INFINITY
+        var bestUser: String? = null
+        var bestUserScore = Double.NEGATIVE_INFINITY
+        for (c in candidates) {
+            if (c.dictScore > bestDictScore) {
+                bestDictScore = c.dictScore
+                bestDict = c.word
+            }
+            if (c.userScore > bestUserScore) {
+                bestUserScore = c.userScore
+                bestUser = c.word
             }
         }
-        // Insertion: insert c before position i (0..n).
-        for (i in 0..n) {
-            for (c in ALPHABET) {
-                sb.setLength(0)
-                sb.append(word, 0, i).append(c).append(word, i, n)
-                // An accidental extra press usually lands next to one of the
-                // characters it slipped in between.
-                val nearNeighbour =
-                    (i > 0 && proximity.areAdjacent(word[i - 1], c)) ||
-                        (i < n && proximity.areAdjacent(word[i], c))
-                val weight = if (nearNeighbour) WEIGHT_INSERT_ADJACENT else WEIGHT_INSERT_FAR
-                emit(weight)
-            }
+        if (bestDict != null && bestUser != null && bestDict == bestUser) {
+            return matchCase(word, bestDict)
         }
-        return result
+
+        val top = candidates.firstOrNull() ?: return null
+        // With no runner-up, a synthetic floor stands in: an unopposed but
+        // weak candidate (rare word reached by an expensive edit) must not
+        // fire just because nothing else was nearby.
+        val runnerUpScore = candidates.getOrNull(1)?.score ?: SOLO_RUNNER_UP_SCORE
+        if (top.score - runnerUpScore < ln(autocorrectConfidence)) return null
+        return matchCase(word, top.word)
     }
 
     /** True when [word] has letters and every one of them is uppercase. */

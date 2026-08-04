@@ -38,7 +38,13 @@ class FuzzyBeamSearch {
         val score: Double,
         val editCost: Double,
         val edits: Int,
+        /** Characters appended beyond the typed length by completion descent. */
+        val completedChars: Int,
         val tier: Tier,
+        /** Best score contributed by DICTIONARY-tier sources (NEGATIVE_INFINITY if none). */
+        val dictScore: Double = Double.NEGATIVE_INFINITY,
+        /** Best score contributed by USER-tier sources (NEGATIVE_INFINITY if none). */
+        val userScore: Double = Double.NEGATIVE_INFINITY,
     )
 
     fun search(
@@ -86,7 +92,7 @@ class FuzzyBeamSearch {
         val n = typed.length
         ws.reset()
         ws.pushState(
-            node = walker.root, pos = 0, cost = 0.0, edits = 0,
+            node = walker.root, pos = 0, cost = 0.0, edits = 0, comp = 0,
             parent = -1, viaLabel = BeamWorkspace.NO_LABEL,
             bound = src.logWeight + ln1p(walker.maxSubtree(walker.root)),
         )
@@ -99,24 +105,31 @@ class FuzzyBeamSearch {
             val pos = ws.pos[s].toInt()
             val cost = ws.cost[s]
             val edits = ws.edits[s].toInt()
+            val comp = ws.comp[s].toInt()
 
             if (pos == n) {
                 if (walker.isWord(node)) {
                     val score = src.logWeight + ln1p(walker.frequency(node)) - cost
                     if (score > floor - EPS || results.size < k) {
-                        emit(ws.materialize(s), score, cost, edits, src.tier, results)
+                        emit(ws.materialize(s), score, cost, edits, comp, src.tier, results)
                         if (results.size >= k) floor = kthBest(results, k)
                     }
                 }
-                // Completion: descend freely at no cost; the bound (maxSubtree)
-                // steers toward the best words, exactly like classic complete().
+                // Completion: descend at no cost on a clean prefix — the bound
+                // (maxSubtree) steers toward the best words, exactly like
+                // classic complete(). After an edit, each extra character is
+                // charged like the old insert-at-end edit: an edited-then-
+                // completed word is speculation stacked on speculation and
+                // must not outrank the direct fix by raw frequency.
+                val step = if (edits > 0) COST_COMPLETION_AFTER_EDIT else COMPLETION_STEP
                 val count = walker.childrenInto(node, ws.children)
                 for (i in 0 until count) {
                     val child = ws.children.nodes[i]
                     pushIfViable(
                         ws, src, walker, floor,
-                        node = child, pos = n, cost = cost + COMPLETION_STEP,
-                        edits = edits, parent = s, viaLabel = ws.children.labels[i],
+                        node = child, pos = n, cost = cost + step,
+                        edits = edits, comp = comp + 1, parent = s,
+                        viaLabel = ws.children.labels[i],
                     )
                 }
                 continue
@@ -129,17 +142,21 @@ class FuzzyBeamSearch {
                 pushIfViable(
                     ws, src, walker, floor,
                     node = matched, pos = pos + 1, cost = cost,
-                    edits = edits, parent = s, viaLabel = expected,
+                    edits = edits, comp = comp, parent = s, viaLabel = expected,
                 )
             }
 
             if (edits < maxEdits && cost < MAX_EDIT_COST) {
+                // Budget gates compare base costs; the second-edit surcharge
+                // is a ranking penalty, not budget spend.
+                val surcharge = if (edits + 1 >= 2) SECOND_EDIT_SURCHARGE else 0.0
                 // Deletion: the typed char was an extra keypress — skip it.
                 if (cost + COST_DELETION <= MAX_EDIT_COST) {
                     pushIfViable(
                         ws, src, walker, floor,
-                        node = node, pos = pos + 1, cost = cost + COST_DELETION,
-                        edits = edits + 1, parent = s, viaLabel = BeamWorkspace.NO_LABEL,
+                        node = node, pos = pos + 1, cost = cost + COST_DELETION + surcharge,
+                        edits = edits + 1, comp = comp, parent = s,
+                        viaLabel = BeamWorkspace.NO_LABEL,
                     )
                 }
                 // Substitution and insertion candidates come from the node's
@@ -157,8 +174,8 @@ class FuzzyBeamSearch {
                         if (cost + subCost <= MAX_EDIT_COST) {
                             pushIfViable(
                                 ws, src, walker, floor,
-                                node = child, pos = pos + 1, cost = cost + subCost,
-                                edits = edits + 1, parent = s, viaLabel = label,
+                                node = child, pos = pos + 1, cost = cost + subCost + surcharge,
+                                edits = edits + 1, comp = comp, parent = s, viaLabel = label,
                             )
                         }
                     }
@@ -170,8 +187,8 @@ class FuzzyBeamSearch {
                     if (cost + insCost <= MAX_EDIT_COST) {
                         pushIfViable(
                             ws, src, walker, floor,
-                            node = child, pos = pos, cost = cost + insCost,
-                            edits = edits + 1, parent = s, viaLabel = label,
+                            node = child, pos = pos, cost = cost + insCost + surcharge,
+                            edits = edits + 1, comp = comp, parent = s, viaLabel = label,
                         )
                     }
                 }
@@ -187,12 +204,15 @@ class FuzzyBeamSearch {
                             // into the parent chain; it never enters the heap.
                             val link = ws.pushRecord(
                                 node = first, pos = pos + 1, cost = cost,
-                                edits = edits, parent = s, viaLabel = typed[pos + 1],
+                                edits = edits, comp = comp, parent = s,
+                                viaLabel = typed[pos + 1],
                             )
                             pushIfViable(
                                 ws, src, walker, floor,
-                                node = second, pos = pos + 2, cost = cost + COST_TRANSPOSITION,
-                                edits = edits + 1, parent = link, viaLabel = typed[pos],
+                                node = second, pos = pos + 2,
+                                cost = cost + COST_TRANSPOSITION + surcharge,
+                                edits = edits + 1, comp = comp, parent = link,
+                                viaLabel = typed[pos],
                             )
                         }
                     }
@@ -212,12 +232,13 @@ class FuzzyBeamSearch {
         pos: Int,
         cost: Double,
         edits: Int,
+        comp: Int,
         parent: Int,
         viaLabel: Char,
     ) {
         val bound = src.logWeight + ln1p(walker.maxSubtree(node)) - cost
         if (bound < floor - EPS) return
-        ws.pushState(node, pos, cost, edits, parent, viaLabel, bound)
+        ws.pushState(node, pos, cost, edits, comp, parent, viaLabel, bound)
     }
 
     private fun emit(
@@ -225,12 +246,26 @@ class FuzzyBeamSearch {
         score: Double,
         editCost: Double,
         edits: Int,
+        completedChars: Int,
         tier: Tier,
         results: HashMap<String, ScoredCandidate>,
     ) {
         val existing = results[word]
-        if (existing == null || score > existing.score) {
-            results[word] = ScoredCandidate(word, score, editCost, edits, tier)
+        val dictScore = maxOf(
+            existing?.dictScore ?: Double.NEGATIVE_INFINITY,
+            if (tier == Tier.DICTIONARY) score else Double.NEGATIVE_INFINITY,
+        )
+        val userScore = maxOf(
+            existing?.userScore ?: Double.NEGATIVE_INFINITY,
+            if (tier == Tier.USER) score else Double.NEGATIVE_INFINITY,
+        )
+        results[word] = if (existing == null || score > existing.score) {
+            ScoredCandidate(word, score, editCost, edits, completedChars, tier, dictScore, userScore)
+        } else {
+            ScoredCandidate(
+                word, existing.score, existing.editCost, existing.edits,
+                existing.completedChars, existing.tier, dictScore, userScore,
+            )
         }
     }
 
@@ -254,8 +289,26 @@ class FuzzyBeamSearch {
         val COST_SUB_FAR = -ln(0.2)
         const val COMPLETION_STEP = 0.0
 
-        /** Two far substitutions can never survive; two adjacent slips can. */
+        /** Per-character completion cost once the path holds an edit. As
+         * expensive as a far insertion: an edited-then-completed word needs a
+         * ~4x frequency advantage per extra character to outrank the direct
+         * fix (otherwise "skills" buries "skill" for typed "skiml", and
+         * deleted-prefix floods like "bwl" -> "bl" -> blue/black/blood push
+         * the real fix out of the result set). */
+        val COST_COMPLETION_AFTER_EDIT = -ln(0.25)
+
+        /** Two far substitutions can never survive; two adjacent slips can.
+         * Applies to the base edit costs, before [SECOND_EDIT_SURCHARGE]. */
         const val MAX_EDIT_COST = 2.0
+
+        /**
+         * Extra cost on the second edit: the legacy engine only ever reached
+         * one edit, so a two-edit word must rank below any one-edit fix of
+         * comparable frequency — it exists to catch typos nothing else
+         * explains, not to outbid them. (Cheapest 2-edit total: ~2.21 nats,
+         * above the most expensive single edit at 1.609.)
+         */
+        const val SECOND_EDIT_SURCHARGE = 2.0
 
         /** Autocorrect wants a deeper ranked list than the strip shows. */
         const val AUTOCORRECT_K = 8
@@ -282,6 +335,7 @@ class BeamWorkspace(initialCapacity: Int = 256) {
     var pos = ShortArray(initialCapacity); private set
     var cost = DoubleArray(initialCapacity); private set
     var edits = ByteArray(initialCapacity); private set
+    var comp = ByteArray(initialCapacity); private set
     var parent = IntArray(initialCapacity); private set
     var viaLabel = CharArray(initialCapacity); private set
     var bound = DoubleArray(initialCapacity); private set
@@ -300,13 +354,22 @@ class BeamWorkspace(initialCapacity: Int = 256) {
 
     /** Appends a state record without scheduling it for expansion. */
     @Suppress("LongParameterList")
-    fun pushRecord(node: Int, pos: Int, cost: Double, edits: Int, parent: Int, viaLabel: Char): Int {
+    fun pushRecord(
+        node: Int,
+        pos: Int,
+        cost: Double,
+        edits: Int,
+        comp: Int,
+        parent: Int,
+        viaLabel: Char,
+    ): Int {
         ensure(size + 1)
         val id = size++
         this.node[id] = node
         this.pos[id] = pos.toShort()
         this.cost[id] = cost
         this.edits[id] = edits.toByte()
+        this.comp[id] = comp.toByte()
         this.parent[id] = parent
         this.viaLabel[id] = viaLabel
         this.bound[id] = 0.0
@@ -314,8 +377,17 @@ class BeamWorkspace(initialCapacity: Int = 256) {
     }
 
     @Suppress("LongParameterList")
-    fun pushState(node: Int, pos: Int, cost: Double, edits: Int, parent: Int, viaLabel: Char, bound: Double): Int {
-        val id = pushRecord(node, pos, cost, edits, parent, viaLabel)
+    fun pushState(
+        node: Int,
+        pos: Int,
+        cost: Double,
+        edits: Int,
+        comp: Int,
+        parent: Int,
+        viaLabel: Char,
+        bound: Double,
+    ): Int {
+        val id = pushRecord(node, pos, cost, edits, comp, parent, viaLabel)
         this.bound[id] = bound
         heapPush(id)
         return id
@@ -352,6 +424,7 @@ class BeamWorkspace(initialCapacity: Int = 256) {
         pos = pos.copyOf(capacity)
         cost = cost.copyOf(capacity)
         edits = edits.copyOf(capacity)
+        comp = comp.copyOf(capacity)
         parent = parent.copyOf(capacity)
         viaLabel = viaLabel.copyOf(capacity)
         bound = bound.copyOf(capacity)

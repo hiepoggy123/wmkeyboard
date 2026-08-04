@@ -108,6 +108,15 @@ class UserLexicon(private val storageFile: File?) {
     @Synchronized
     fun complete(prefix: String, limit: Int): List<Suggestion> = trie.complete(prefix, limit)
 
+    /**
+     * Walkers over the learned-word trie for the fuzzy beam search. The walker
+     * escapes this monitor, so a walk concurrent with learning has the same
+     * (pre-existing, benign) staleness hazard as [complete] — callers
+     * invalidate their caches on lexicon change.
+     */
+    @Synchronized
+    fun walkers(): List<TrieWalker> = trie.walkers()
+
     @Synchronized
     fun contains(word: String): Boolean = trie.contains(word)
 
