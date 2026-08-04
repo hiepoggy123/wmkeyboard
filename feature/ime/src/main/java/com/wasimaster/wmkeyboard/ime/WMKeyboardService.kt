@@ -111,6 +111,7 @@ import com.wasimaster.wmkeyboard.core.prediction.MappedTrie
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
 import com.wasimaster.wmkeyboard.core.prediction.KeyTouchModel
+import com.wasimaster.wmkeyboard.core.prediction.WordContext
 import com.wasimaster.wmkeyboard.core.prediction.TouchPoint
 import com.wasimaster.wmkeyboard.core.prediction.LanguageMixConfidence
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
@@ -3344,7 +3345,10 @@ open class WMKeyboardService : InputMethodService() {
             ic.commitText(text, 1)
             consumeShift()
             _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
-            if (text.length == 1 && text[0] in SENTENCE_ENDERS) maybeAutoCapitalize()
+            if (text.length == 1 && text[0] in SENTENCE_ENDERS) {
+                previousWord = WordContext.SENTENCE_START
+                maybeAutoCapitalize()
+            }
             return
         }
 
@@ -3445,6 +3449,9 @@ open class WMKeyboardService : InputMethodService() {
             // sentence ender can turn shift back on for the next sentence.
             consumeShift()
             if (text.length == 1 && text[0] in SENTENCE_ENDERS) {
+                // The next word starts a sentence: its bigram context is the
+                // sentinel, not the word before the full stop.
+                previousWord = WordContext.SENTENCE_START
                 maybeAutoCapitalize()
             }
             // Email fields commit straight through (no composing buffer), so the
@@ -4027,16 +4034,8 @@ open class WMKeyboardService : InputMethodService() {
      * next — or null when [text] ends inside a word (a fragment is no context)
      * or holds no word at all.
      */
-    private fun completedWordBefore(text: CharSequence?): String? = when {
-        text.isNullOrEmpty() -> null
-        // Still inside a word: the fragment is not a bigram context.
-        text.last().isLetterOrDigit() -> null
-        else -> text.toString()
-            .trim { !it.isLetter() }
-            .takeLastWhile { it.isLetter() }
-            .lowercase()
-            .ifEmpty { null }
-    }
+    private fun completedWordBefore(text: CharSequence?): String? =
+        WordContext.completedWordBefore(text, SENTENCE_ENDERS)
 
     /**
      * Re-reads the context around a cursor that moved without going through a
@@ -5254,7 +5253,9 @@ open class WMKeyboardService : InputMethodService() {
         // After an emoji commit the "previous word" is that emoji; suggesting
         // from it would be a lookup on a glyph, and the chip that was just
         // tapped would come straight back.
-        val word = previousWord?.takeUnless { isEmojiCandidate(it) } ?: return emptyList()
+        val word = previousWord
+            ?.takeUnless { isEmojiCandidate(it) || WordContext.isSentinel(it) }
+            ?: return emptyList()
         return emojiSuggester?.suggest(word).orEmpty()
     }
 

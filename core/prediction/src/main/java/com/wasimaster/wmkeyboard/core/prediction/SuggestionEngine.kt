@@ -719,7 +719,13 @@ class SuggestionEngine(
         ordered.addAll(contacts.nextWords(prev))
         // Seed bigrams are English pairs; they only cold-start English modes.
         if (englishSources) ordered.addAll(seedBigrams.nextWords(prev))
-        return ordered.asSequence().filterNot(::suppressed).take(limit).toList()
+        return ordered.asSequence()
+            .filterNot(::suppressed)
+            // Belt and braces: the sentence-start sentinel is context, never
+            // an offer — nothing should ever have learned it as a follower.
+            .filterNot { WordContext.isSentinel(it) }
+            .take(limit)
+            .toList()
     }
 
     /**
