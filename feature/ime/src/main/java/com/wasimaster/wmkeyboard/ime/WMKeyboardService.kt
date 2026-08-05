@@ -2116,6 +2116,7 @@ open class WMKeyboardService : InputMethodService() {
                 onDictionarySearchToggle = ::onDictionarySearchToggle,
                 onDictionaryInsert = ::onDictionaryInsert,
                 onThemeSelect = ::onThemeSelect,
+                onIconPackSelect = ::onIconPackSelect,
                 onSoundHaptic = ::onSoundHaptic,
                 onHandwritingStroke = ::onHandwritingStroke,
                 onKeyboardHandwritingStroke = ::onKeyboardHandwritingStroke,
@@ -8007,6 +8008,12 @@ open class WMKeyboardService : InputMethodService() {
     fun onThemeSelect(id: String) {
         vibrate()
         serviceScope.launch { settingsRepository.setKeyboardThemeId(id) }
+    }
+
+    /** Blank id means the built-in icons; the board redraws on its own. */
+    fun onIconPackSelect(id: String) {
+        vibrate()
+        serviceScope.launch { settingsRepository.setIconPack(id) }
     }
 
     /** Sound & haptics quick panel writes straight into the shared settings. */

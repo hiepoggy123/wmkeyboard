@@ -64,11 +64,14 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -101,8 +104,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wasimaster.wmkeyboard.core.icons.IconPack
+import com.wasimaster.wmkeyboard.core.icons.IconPackStore
+import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
+import com.wasimaster.wmkeyboard.core.settings.IconSettings
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.app.ThemePreview
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
@@ -115,6 +123,7 @@ import com.wasimaster.wmkeyboard.core.tools.MoonPhase
 import com.wasimaster.wmkeyboard.core.tools.Qibla
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
@@ -1378,15 +1387,21 @@ internal fun hasCalendarPermission(context: Context): Boolean =
  * every built-in and every custom theme. Tap to apply immediately. The Auto
  * swatch previews what the default id would resolve to (device dynamic
  * colors), not the currently active theme.
+ *
+ * A second chip switches the panel to the installed icon packs — the same
+ * tap-to-apply grid, drawing each pack's own glyphs. Icon packs have no
+ * auto-theme or mode override, so that half is never read-only.
  */
 @Composable
 internal fun ThemesPanel(
     state: KeyboardUiState,
     onThemeSelect: (String) -> Unit,
-    onOpenSettings: () -> Unit,
+    onIconPackSelect: (String) -> Unit,
+    onOpenRoute: (String) -> Unit,
 ) {
     val height = keyRowsHeight(state)
     val kb = LocalKbTheme.current
+    var iconsTab by remember { mutableStateOf(false) }
     // With auto-theme on, its trigger owns the active theme; with a mode that
     // carries a theme active, the mode does. Either way the panel shows which
     // one is live but taps do nothing (it's read-only).
@@ -1410,12 +1425,31 @@ internal fun ThemesPanel(
     }
     val auto = autoKbTheme(state.settings)
     val themes = BuiltInThemes + state.settings.customThemes
+    val context = LocalContext.current
+    val packStore = remember(context) { IconPackStore.get(context) }
+    val packRevision by packStore.revision.collectAsState()
+    val packs = remember(packRevision) { packStore.packs() }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
             .padding(top = 6.dp),
     ) {
+        // Tab reaches the chips: the icon grid is unreachable if the keyboard
+        // can browse the themes but never switch the panel over.
+        PanelFocusTarget(
+            panel = PanelMode.THEMES,
+            region = FocusRegion.CHIPS,
+            count = 2,
+            columns = 2,
+            onActivate = { index -> iconsTab = index == 1 },
+        )
+        ThemesTabChips(
+            iconsTab = iconsTab,
+            onSelect = { iconsTab = it },
+            focused = state.focusedIndex(FocusRegion.CHIPS),
+        )
+        Spacer(modifier = Modifier.height(4.dp))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1424,6 +1458,9 @@ internal fun ThemesPanel(
         ) {
             Text(
                 when {
+                    iconsTab && packs.isEmpty() ->
+                        stringResource(R.string.ime_icons_empty_info)
+                    iconsTab -> stringResource(R.string.ime_icons_pick_info)
                     modeTheme != null -> stringResource(
                         R.string.ime_themes_mode_locked_info, modeTheme.name,
                     )
@@ -1435,10 +1472,20 @@ internal fun ThemesPanel(
                 modifier = Modifier.weight(1f),
             )
             ToolPanelKey(
-                description = stringResource(R.string.ime_themes_edit_desc),
-                label = stringResource(R.string.ime_themes_edit_action),
+                description = stringResource(
+                    if (iconsTab) R.string.ime_icons_edit_desc
+                    else R.string.ime_themes_edit_desc,
+                ),
+                label = stringResource(
+                    if (iconsTab) R.string.ime_icons_edit_action
+                    else R.string.ime_themes_edit_action,
+                ),
                 modifier = Modifier.height(32.dp).width(120.dp),
-            ) { onOpenSettings() }
+            ) { onOpenRoute(if (iconsTab) "icons" else "themes") }
+        }
+        if (iconsTab) {
+            IconPacksGrid(state, packs, packStore, packRevision, onIconPackSelect)
+            return@Column
         }
         // Index 0 is the leading "Auto" card, so a theme sits one past its own
         // position. Read-only while auto-theme owns the choice, exactly as taps are.
@@ -1484,6 +1531,181 @@ internal fun ThemesPanel(
                 ) { ThemePreview(theme) }
             }
         }
+    }
+}
+
+/** The two chips switching the panel between themes and icon packs. */
+@Composable
+private fun ThemesTabChips(
+    iconsTab: Boolean,
+    onSelect: (Boolean) -> Unit,
+    focused: Int? = null,
+) {
+    val kb = LocalKbTheme.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        listOf(
+            R.string.ime_themes_tab_themes,
+            R.string.ime_themes_tab_icons,
+        ).forEachIndexed { index, labelRes ->
+            val active = (index == 1) == iconsTab
+            Text(
+                stringResource(labelRes),
+                color = if (active) kb.toolCircleActiveIcon else kb.suggestionText,
+                fontSize = 12.sp,
+                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        if (active) kb.toolCircleActive else kb.chip,
+                        RoundedCornerShape(12.dp),
+                    )
+                    .focusRing(index == focused, RoundedCornerShape(12.dp))
+                    .clickable { onSelect(index == 1) }
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The icon pack half of the themes panel: Built-in first, then every
+ * installed pack, each card previewing a handful of the pack's own glyphs.
+ */
+@Composable
+private fun IconPacksGrid(
+    state: KeyboardUiState,
+    packs: List<IconPack>,
+    store: IconPackStore,
+    revision: Int,
+    onIconPackSelect: (String) -> Unit,
+) {
+    PanelFocusTarget(
+        panel = PanelMode.THEMES,
+        count = packs.size + 1,
+        columns = 2,
+        onActivate = { index ->
+            if (index == 0) onIconPackSelect("")
+            else packs.getOrNull(index - 1)?.let { onIconPackSelect(it.id) }
+        },
+    )
+    val focused = state.focusedIndex()
+    val gridState = rememberLazyGridState()
+    ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
+    // One resolved set per pack, parsed off the main thread on first sight
+    // and thrown away wholesale when the store changes — the revision is the
+    // store's own change signal, exactly what rememberIconSet keys on. Cards
+    // draw built-in glyphs for the frame or two the parse takes.
+    val previews = remember(revision) { mutableStateMapOf<String, IconSet>() }
+    val selected = state.settings.icons.activePackId
+    LazyVerticalGrid(
+        state = gridState,
+        columns = GridCells.Fixed(2),
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item(key = "") {
+            IconPackCard(
+                name = stringResource(R.string.ime_icons_builtin_label),
+                selected = selected.isEmpty(),
+                focused = focused == 0,
+                iconSet = IconSet.Builtin,
+                onClick = { onIconPackSelect("") },
+            )
+        }
+        itemsIndexed(packs, key = { _, pack -> pack.id }) { index, pack ->
+            LaunchedEffect(pack.id, revision) {
+                if (pack.id !in previews) {
+                    previews[pack.id] = withContext(Dispatchers.Default) {
+                        buildIconSet(IconSettings(activePackId = pack.id), store)
+                    }
+                }
+            }
+            IconPackCard(
+                name = pack.name,
+                selected = selected == pack.id,
+                focused = focused == index + 1,
+                iconSet = previews[pack.id] ?: IconSet.Builtin,
+                onClick = { onIconPackSelect(pack.id) },
+            )
+        }
+    }
+}
+
+/**
+ * A spread of key and tool slots, so packs that only cover one group still
+ * look different from each other on the cards.
+ */
+private val IconPackPreviewSlots = listOf(
+    IconSlots.KEY_SHIFT,
+    IconSlots.KEY_BACKSPACE,
+    IconSlots.KEY_ENTER,
+    IconSlots.KEY_GLOBE,
+    IconSlots.forTool(ToolbarTool.EMOJI),
+    IconSlots.forTool(ToolbarTool.CLIPBOARD),
+)
+
+/** [ThemeCard]'s shape and selection border around a grid of pack glyphs. */
+@Composable
+private fun IconPackCard(
+    name: String,
+    selected: Boolean,
+    focused: Boolean,
+    iconSet: IconSet,
+    onClick: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(92.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .then(
+                if (selected) Modifier.border(2.dp, kb.accent, RoundedCornerShape(10.dp))
+                else Modifier.border(1.dp, kb.divider, RoundedCornerShape(10.dp))
+            )
+            .focusRing(focused, RoundedCornerShape(10.dp))
+            .background(kb.chip)
+            .clickable(onClick = onClick),
+    ) {
+        CompositionLocalProvider(LocalIconSet provides iconSet) {
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                IconPackPreviewSlots.chunked(3).forEach { rowSlots ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        rowSlots.forEach { slot ->
+                            SlotIcon(
+                                slot,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = kb.suggestionText,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        Text(
+            name,
+            color = kb.suggestionText,
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 8.dp, bottom = 4.dp),
+        )
     }
 }
 

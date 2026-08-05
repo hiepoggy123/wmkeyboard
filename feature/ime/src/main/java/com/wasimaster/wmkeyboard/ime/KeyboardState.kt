@@ -302,13 +302,15 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
         FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.CATEGORIES, FocusRegion.RESULTS,
     )
     PanelMode.SYMBOLS -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS)
+    // Chips switch between the theme grid and the icon pack grid.
+    PanelMode.THEMES -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS)
     // The clipboard's chips are the fragments pulled out of its history.
     PanelMode.CLIPBOARD ->
         listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS)
     PanelMode.DICTIONARY,
     PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH, PanelMode.WIKIPEDIA,
     -> listOf(FocusRegion.SEARCH, FocusRegion.RESULTS)
-    PanelMode.TOOLBOX, PanelMode.SNIPPETS, PanelMode.THEMES, PanelMode.MODES,
+    PanelMode.TOOLBOX, PanelMode.SNIPPETS, PanelMode.MODES,
     // The candidate grid is a wall of choices and nothing else.
     PanelMode.CANDIDATES,
     -> listOf(FocusRegion.RESULTS)

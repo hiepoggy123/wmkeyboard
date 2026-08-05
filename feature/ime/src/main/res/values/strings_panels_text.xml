@@ -222,6 +222,16 @@
     <string name="ime_themes_pick_info">Press a theme to use it.</string>
     <string name="ime_themes_edit_action">Edit themes</string>
     <string name="ime_themes_edit_desc">Create and edit themes in the settings</string>
+    <!-- Chips that switch the panel between the theme grid and the icon
+         pack grid. -->
+    <string name="ime_themes_tab_themes">Themes</string>
+    <string name="ime_themes_tab_icons">Icons</string>
+    <!-- The icon pack half of the themes tool panel. -->
+    <string name="ime_icons_builtin_label">Built-in</string>
+    <string name="ime_icons_pick_info">Press an icon pack to use it on the keys and tools.</string>
+    <string name="ime_icons_empty_info">To add icon packs, open the settings.</string>
+    <string name="ime_icons_edit_action">Edit icons</string>
+    <string name="ime_icons_edit_desc">Manage icon packs in the settings</string>
 
     <!-- Sound and haptics tool panel. -->
     <string name="ime_sound_haptics_title">Haptics</string>

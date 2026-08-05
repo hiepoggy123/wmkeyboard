@@ -709,6 +709,7 @@ fun KeyboardScreen(
     onDictionarySearchToggle: () -> Unit = {},
     onDictionaryInsert: (String) -> Unit = {},
     onThemeSelect: (String) -> Unit = {},
+    onIconPackSelect: (String) -> Unit = {},
     onSoundHaptic: (SoundHapticAction) -> Unit = {},
     onHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
     onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
@@ -903,6 +904,7 @@ fun KeyboardScreen(
                 onDictionarySearchToggle = onDictionarySearchToggle,
                 onDictionaryInsert = onDictionaryInsert,
                 onThemeSelect = onThemeSelect,
+                onIconPackSelect = onIconPackSelect,
                 onSoundHaptic = onSoundHaptic,
                 onHandwritingStroke = onHandwritingStroke,
                 onKeyboardHandwritingStroke = onKeyboardHandwritingStroke,
@@ -5157,6 +5159,7 @@ private fun KeyboardBody(
     onDictionarySearchToggle: () -> Unit,
     onDictionaryInsert: (String) -> Unit,
     onThemeSelect: (String) -> Unit,
+    onIconPackSelect: (String) -> Unit,
     onSoundHaptic: (SoundHapticAction) -> Unit,
     onHandwritingStroke: (HwStroke, IntSize) -> Unit,
     onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit,
@@ -5427,7 +5430,8 @@ private fun KeyboardBody(
                 PanelMode.THEMES -> ThemesPanel(
                     state,
                     onThemeSelect,
-                    onOpenSettings = { onOpenRoute("themes") },
+                    onIconPackSelect,
+                    onOpenRoute = onOpenRoute,
                 )
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
                 PanelMode.NUMPAD -> NumpadPanel(state, onText, onKey)
