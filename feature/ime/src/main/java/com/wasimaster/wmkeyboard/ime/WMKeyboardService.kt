@@ -295,6 +295,7 @@ import com.wasimaster.wmkeyboard.core.script.mapDigits
 import com.wasimaster.wmkeyboard.core.script.resolveNumeralDigits
 import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.language
+import com.wasimaster.wmkeyboard.core.layout.layoutAfterFancy
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.layout.compile
@@ -2386,6 +2387,17 @@ open class WMKeyboardService : InputMethodService() {
             lastGestureWord = null
             lastRevertible = null
         }
+        // The Fancy tool's automatic pass, run here rather than when the
+        // keyboard closed: this is the first moment the work is safe again (the
+        // buffer above is settled, the mic is released, no panel is open), and
+        // the user sees the same thing either way — the keyboard comes back
+        // typing plainly. A restart is the same field reporting itself, so the
+        // request waits for a real new session instead of ending this one.
+        if (fancyToolAutoOffPending && !restarting) {
+            fancyToolAutoOffPending = false
+            val state = _uiState.value
+            if (state.language.id == FancyStyles.LANG_ID) turnFancyOff(state, quiet = true)
+        }
         smartMutedAfter = null
         patternMutedAfter = null
         // The settings app edits snippets in the same file this reads, so a
@@ -2865,6 +2877,14 @@ open class WMKeyboardService : InputMethodService() {
         // set would apply an ASCII lock or a locale hint to whatever the
         // user types in next.
         fieldLayoutOverride = null
+        // Fancy Text is a one-off for most people: one nickname, one message.
+        // The switch back is only armed here and runs on the next
+        // onStartInputView, which is where a layout change is safe to make.
+        if (_uiState.value.settings.layoutBehavior.fancyToolAutoOff &&
+            fancyToolReturnLayoutId != null
+        ) {
+            fancyToolAutoOffPending = true
+        }
         userLexicon.save()
         correctionStats.save()
         CjkLearning.store?.save()
@@ -3691,7 +3711,7 @@ open class WMKeyboardService : InputMethodService() {
      * wins over the persisted pick.
      */
     private fun fancyStyleFor(state: KeyboardUiState): FancyStyle? =
-        if (state.language.id == "fancy") {
+        if (state.language.id == FancyStyles.LANG_ID) {
             FancyStyles.byId(
                 state.activeFancyStyleId ?: state.settings.layoutBehavior.fancyStyleId,
             )
@@ -3708,6 +3728,78 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         _uiState.update { it.copy(activeFancyStyleId = id) }
         serviceScope.launch { settingsRepository.setFancyStyle(id) }
+    }
+
+    /**
+     * The layout the Fancy tool switched away from, and the marker that the tool
+     * — rather than the 🌐 key — is what put Fancy Text on screen. Session-only
+     * on purpose: it says where to go back to, which is a fact about this
+     * sitting at the keyboard and not a setting to carry into the next one.
+     */
+    private var fancyToolReturnLayoutId: String? = null
+
+    /** Set when the keyboard closed with Fancy Text on and the setting asks for the switch back. */
+    private var fancyToolAutoOffPending = false
+
+    /**
+     * The Fancy tool: put the fancy layout on the keyboard, or take it back off.
+     *
+     * Turning it on adds the layout to the enabled cycle when it isn't there
+     * already, so a user who never opened the language settings still gets it in
+     * one press. Turning it off returns to the layout it came from and takes the
+     * cycle back to what it was, unless
+     * [LayoutBehaviorSettings.fancyToolKeepsLanguage] says to leave it.
+     */
+    fun onFancyToggle() {
+        vibrate()
+        val state = _uiState.value
+        if (state.language.id == FancyStyles.LANG_ID) turnFancyOff(state) else turnFancyOn(state)
+    }
+
+    private fun turnFancyOn(state: KeyboardUiState) {
+        val behavior = state.settings.layoutBehavior
+        fancyToolReturnLayoutId = state.layoutId
+        // A pinned style applies to the session only. Writing it through would
+        // make the tool quietly replace whatever style the strip last chose.
+        val style = behavior.fancyToolStyleId?.let { FancyStyles.byId(it) }
+        if (style != null) _uiState.update { it.copy(activeFancyStyleId = style.id) }
+        val enabled = state.settings.enabledLayoutIds
+        if (AssetLayouts.FANCY_ID !in enabled) {
+            serviceScope.launch {
+                settingsRepository.setEnabledLayoutIds(enabled + AssetLayouts.FANCY_ID)
+            }
+        }
+        onLayoutSelected(AssetLayouts.FANCY_ID)
+        val active = style ?: fancyStyleFor(_uiState.value)
+        Toast.makeText(
+            this,
+            if (active != null) {
+                getString(R.string.ime_service_fancy_on_style_toast, active.name)
+            } else {
+                getString(R.string.ime_service_fancy_on_toast)
+            },
+            Toast.LENGTH_SHORT,
+        ).show()
+    }
+
+    /** [turnFancyOn]'s opposite. [quiet] is the automatic pass, which says nothing. */
+    private fun turnFancyOff(state: KeyboardUiState, quiet: Boolean = false) {
+        val remaining = state.settings.enabledLayoutIds.filter { it != AssetLayouts.FANCY_ID }
+        val target = layoutAfterFancy(fancyToolReturnLayoutId, remaining)
+        fancyToolReturnLayoutId = null
+        // The session style dies with the layout, so the next time the tool runs
+        // it starts from the pinned or persisted style rather than this one.
+        _uiState.update { it.copy(activeFancyStyleId = null) }
+        // Never empty the cycle: one layout has to stay enabled, and a user with
+        // only Fancy Text enabled asked for exactly that.
+        if (!state.settings.layoutBehavior.fancyToolKeepsLanguage && remaining.isNotEmpty()) {
+            serviceScope.launch { settingsRepository.setEnabledLayoutIds(remaining) }
+        }
+        onLayoutSelected(target)
+        if (!quiet) {
+            Toast.makeText(this, getString(R.string.ime_service_fancy_off_toast), Toast.LENGTH_SHORT)
+                .show()
+        }
     }
 
     private fun keyOutput(key: Key, state: KeyboardUiState): String {
@@ -6820,6 +6912,7 @@ open class WMKeyboardService : InputMethodService() {
             ToolbarTool.POWER_SAVING -> onPowerSavingToggle()
             ToolbarTool.THEMES -> onPanelChange(PanelMode.THEMES)
             ToolbarTool.AUTOCORRECT -> onAutocorrectToggle()
+            ToolbarTool.FANCY -> onFancyToggle()
             ToolbarTool.SOUND_HAPTICS -> onPanelChange(PanelMode.SOUND_HAPTICS)
             ToolbarTool.NUMPAD -> onPanelChange(PanelMode.NUMPAD)
             ToolbarTool.HANDWRITING -> onPanelChange(PanelMode.HANDWRITING)

@@ -31,6 +31,13 @@ object FancyStyles {
 
     const val DEFAULT_ID = "bold"
 
+    /**
+     * The language id the fancy layout carries. Everything that has to ask
+     * "is this the fancy keyboard?" reads it from here rather than repeating
+     * the string, since a style only applies on that one language.
+     */
+    const val LANG_ID = "fancy"
+
     val all: List<FancyStyle> = listOf(
         style(
             "bold", "Bold", "𝐁𝐨𝐥𝐝",

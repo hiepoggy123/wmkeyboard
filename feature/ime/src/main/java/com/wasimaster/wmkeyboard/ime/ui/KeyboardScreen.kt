@@ -3111,7 +3111,7 @@ internal val FancyRowHeight = 40.dp
  * every fancy branch in this file checks.
  */
 internal fun fancyStyleFor(state: KeyboardUiState): FancyStyle? =
-    if (state.language.id == "fancy") {
+    if (state.language.id == FancyStyles.LANG_ID) {
         FancyStyles.byId(
             state.activeFancyStyleId ?: state.settings.layoutBehavior.fancyStyleId,
         )
@@ -3497,6 +3497,7 @@ internal fun toolLabelRes(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.APP_LAUNCHER -> R.string.ime_tool_app_launcher
     ToolbarTool.AI -> R.string.ime_tool_ai
     ToolbarTool.MODES -> R.string.ime_tool_modes
+    ToolbarTool.FANCY -> R.string.ime_tool_fancy
     ToolbarTool.CURSOR_LEFT -> R.string.ime_tool_cursor_left
     ToolbarTool.CURSOR_RIGHT -> R.string.ime_tool_cursor_right
     ToolbarTool.CURSOR_WORD_LEFT -> R.string.ime_tool_cursor_word_left
@@ -3565,6 +3566,9 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.APP_LAUNCHER -> state.panel == PanelMode.APP_LAUNCHER
     ToolbarTool.AI -> state.panel == PanelMode.AI
     ToolbarTool.MODES -> state.panel == PanelMode.MODES || state.activeModeId != null
+    // Lit while the fancy layout is the one typing, however it got there:
+    // the tool and the 🌐 key reach the same place.
+    ToolbarTool.FANCY -> state.language.id == FancyStyles.LANG_ID
     // Stateless one-shot moves, like undo/redo: nothing to stay lit for.
     ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
     ToolbarTool.CURSOR_WORD_LEFT, ToolbarTool.CURSOR_WORD_RIGHT,

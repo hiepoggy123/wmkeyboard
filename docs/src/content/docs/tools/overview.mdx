@@ -11,7 +11,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import Flavor from '@components/Flavor.astro';
 
-WM Keyboard ships 60 tools (panels, sensors, generators, and one-tap actions), but only a handful sit on the toolbar at once. The rest wait one tap away in the toolbox, and you decide which is which by dragging tools between the two.
+WM Keyboard ships 62 tools (panels, sensors, generators, and one-tap actions), but only a handful sit on the toolbar at once. The rest wait one tap away in the toolbox, and you decide which is which by dragging tools between the two.
 
 <PhoneFrame caption="The toolbar's default row (Emoji, Clipboard, Settings) with the toolbox grid open below it.">
   {/* shot: tools/toolbar-and-toolbox */}
@@ -54,7 +54,7 @@ The trade is muscle memory against reach. Paging keeps every tool at the same sp
 
 Pick a page size that's a multiple of your row size and every page comes out with full rows. Ask for more tools than fit the panel's height and the page will scroll as well as swipe, which rather defeats the point.
 
-## Browsing all 60 tools
+## Browsing all 62 tools
 
 <SettingsPath path="Tools" />
 
@@ -76,7 +76,7 @@ To back out of any open panel:
 
 ## Which tools work before you unlock your phone
 
-Some tools stay usable during **direct boot**: the window right after a restart, before you've entered your PIN or pattern for the first time, when the keyboard has no access to its stored data. WM Keyboard exposes 36 of its 60 tools during this window: everything that's pure arithmetic, a sensor reading, or a control over the keyboard's own on-screen state (Emoji, Text editing, Numpad, Symbols, One-handed, Split, Floating, Hide keyboard, Themes, Autocorrect, Sound & haptics, Incognito, Modes, Undo, Redo, Power saving, Calculator, Unit converter, Password generator, QR generator, Flashlight, Compass, Level, Moon phase, and all twelve cursor tools). Anything backed by a file on disk (Clipboard, Snippets, Camera, downloaded speech or AI models), anything that needs a credential (Translate, the online searches, AI), anything that reads a content provider behind the lock screen (Calendar), or anything that has to launch a separate activity (Settings, the document scanner) sits out until you unlock. This set isn't a toggle anywhere; it's automatic, and only applies during that specific before-first-unlock window.
+Some tools stay usable during **direct boot**: the window right after a restart, before you've entered your PIN or pattern for the first time, when the keyboard has no access to its stored data. WM Keyboard exposes 37 of its 62 tools during this window: everything that's pure arithmetic, a sensor reading, or a control over the keyboard's own on-screen state (Emoji, Text editing, Numpad, Symbols, One-handed, Split, Floating, Hide keyboard, Themes, Autocorrect, Sound & haptics, Incognito, Modes, Fancy text, Undo, Redo, Power saving, Calculator, Unit converter, Password generator, QR generator, Flashlight, Compass, Level, Moon phase, and all twelve cursor tools). Anything backed by a file on disk (Clipboard, Snippets, Camera, downloaded speech or AI models), anything that needs a credential (Translate, the online searches, AI), anything that reads a content provider behind the lock screen (Calendar), or anything that has to launch a separate activity (Settings, the document scanner) sits out until you unlock. This set isn't a toggle anywhere; it's automatic, and only applies during that specific before-first-unlock window.
 
 That's a different thing from the **"Hide toolbar & clipboard on lock screen"** option under <SettingsPath path="Appearance / Toolbar" /> (off by default), which hides the *entire* toolbar (not a filtered subset) any time the phone's screen is currently locked, even long after you've unlocked it once since the last restart. Turn that on if you don't want a pinned tool or the suggestion strip visible while replying to a notification from the lock screen.
 
@@ -113,7 +113,7 @@ This is one part of a broader hardware-keyboard settings group: the leader itsel
 ## Details & edge cases
 
 - A tool that's disabled under <SettingsPath path="Tools" /> disappears from the toolbar, the toolbox, *and* its hardware leader-key letter all at once, since there's a single switch, not three.
-- Five tools depend on ML Kit and are <Flavor edition="full" />: Handwriting, OCR, QR scan, Document scanner, and Grammar. The lite edition ships 55 of the 60 tools rather than 60, and a build-gated tool gets no settings row at all, never a switch you can't turn on.
+- Five tools depend on ML Kit and are <Flavor edition="full" />: Handwriting, OCR, QR scan, Document scanner, and Grammar. The lite edition ships 57 of the 62 tools rather than 62, and a build-gated tool gets no settings row at all, never a switch you can't turn on.
 - Toolbar reordering is per-installation, not per-language: pinning a tool applies everywhere, not just while a particular language is active. A keyboard mode's own toolbar override is the one exception; see [above](#pinning-and-reordering).
 - The toolbox shows only tools that are both enabled *and* not already pinned, so enabling a tool that's already pinned won't create a second entry in the toolbox.
 - With paging on, a drag reorders within the page you're holding it over. The pages don't flip under your finger, so moving a tool to another page means dragging it onto the toolbar first, then off again on the page you want. Dragging up onto the toolbar to pin works from any page.

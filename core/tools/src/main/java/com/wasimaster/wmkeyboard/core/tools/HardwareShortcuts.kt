@@ -359,6 +359,7 @@ val DefaultToolLetters: Map<Char, ToolbarTool> = mapOf(
     'B' to ToolbarTool.POWER_SAVING,
     // J for "jump to an app": A is the AI tool and P the password generator.
     'J' to ToolbarTool.APP_LAUNCHER,
+    'F' to ToolbarTool.FANCY,
 )
 
 /** `"c=CLIPBOARD;e=EMOJI"`, sorted so the stored string is stable. */

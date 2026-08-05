@@ -255,6 +255,21 @@
     <string name="tooldetail_typing_nav_title">All typing settings</string>
     <string name="tooldetail_typing_nav_subtitle">Suggestions, autocorrect, capital letters and more</string>
 
+    <!-- Fancy text tool. -->
+    <string name="tooldetail_fancy_style_title">Style to start with</string>
+    <string name="tooldetail_fancy_style_subtitle">The style the tool turns on. The strip over the keys still changes it</string>
+    <string name="tooldetail_fancy_style_info">Select a style and the tool always starts there. The strip over the keys changes the style for the rest of the session, and your selection here stays as it is.</string>
+    <string name="tooldetail_fancy_style_follow">Last used</string>
+    <string name="tooldetail_fancy_keep_title">Keep the language after you turn it off</string>
+    <string name="tooldetail_fancy_keep_subtitle">Fancy text stays in the language cycle of the 🌐 key</string>
+    <string name="tooldetail_fancy_keep_info">The tool adds Fancy text to your languages when you turn it on. With this setting off, the tool deletes it again when you turn it off, so the 🌐 key cycles only the languages you read.</string>
+    <string name="tooldetail_fancy_auto_off_title">Turn off when the keyboard closes</string>
+    <string name="tooldetail_fancy_auto_off_subtitle">The next time you type, the keyboard is back in your own language</string>
+    <string name="tooldetail_fancy_auto_off_info">Fancy text is usually one name or one message. This setting takes the keyboard back to the language you came from as soon as you leave the field. It applies only when the tool turned Fancy text on.</string>
+    <string name="tooldetail_fancy_language_nav_title">Fancy text language</string>
+    <string name="tooldetail_fancy_language_nav_subtitle">The saved style, and the layout switch</string>
+    <string name="tooldetail_fancy_info">The tool types with Unicode letters, not with a font. The letters stay fancy in every app, but a screen reader cannot read them and a search cannot find them.</string>
+
     <!-- Sound and haptics tool. -->
     <string name="tooldetail_keypress_nav_title">All key press settings</string>
     <string name="tooldetail_keypress_nav_subtitle">Haptic style and strength, key preview, press and hold</string>

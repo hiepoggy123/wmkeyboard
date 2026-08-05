@@ -85,3 +85,17 @@ fun canonicalLayoutId(id: String, customLayouts: List<LayoutSpec>): String =
     } else {
         id
     }
+
+/**
+ * Where the keyboard lands when the Fancy tool turns Fancy Text off.
+ *
+ * [returnLayoutId] is the layout the tool switched away from, which the user may
+ * have turned off in the meantime, so it only counts while it is still in
+ * [remaining] (the enabled cycle without the fancy layout). Failing that the
+ * first stop left in the cycle, and failing that the built-in default: a user
+ * whose only enabled layout was the fancy one still has to land somewhere.
+ */
+fun layoutAfterFancy(returnLayoutId: String?, remaining: List<String>): String =
+    returnLayoutId?.takeIf { it in remaining }
+        ?: remaining.firstOrNull()
+        ?: BuiltInLayouts.DEFAULT_ID

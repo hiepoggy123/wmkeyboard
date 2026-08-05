@@ -2109,6 +2109,26 @@ data class LayoutBehaviorSettings(
      * outside the fancy layout.
      */
     val fancyStyleId: String = "bold",
+    /**
+     * The style the Fancy tool turns on with (a FancyStyles id), or null to
+     * start from whatever style is already picked. Only the session is
+     * restyled: the tool never overwrites the style the strip persisted, so
+     * a pinned style is a way in rather than a new default.
+     */
+    val fancyToolStyleId: String? = null,
+    /**
+     * Keep Fancy Text in the language cycle after the Fancy tool turns it off.
+     * Off (the default) takes the layout back out again, so the 🌐 key cycles
+     * the languages the user actually reads. On leaves it there, for someone
+     * who types fancy often enough to want it one swipe away.
+     */
+    val fancyToolKeepsLanguage: Boolean = false,
+    /**
+     * Turn Fancy Text off again when the keyboard closes, if the Fancy tool is
+     * what turned it on. Fancy text is usually one nickname or one message, and
+     * without this a user who forgets the tool types the next mail in Fraktur.
+     */
+    val fancyToolAutoOff: Boolean = false,
 ) {
     /** [langId]'s numeral system, [NumeralSystem.AUTO] when it has no entry. */
     fun numeralSystemFor(langId: String): NumeralSystem =
@@ -2517,6 +2537,10 @@ class SettingsRepository(private val context: Context) {
         private val SPACE_CURSOR_2D = booleanPreferencesKey("space_cursor_2d")
         private val HINT_FONT_SCALE = floatPreferencesKey("hint_font_scale")
         private val FANCY_STYLE = stringPreferencesKey("fancy_style")
+        private val FANCY_TOOL_STYLE = stringPreferencesKey("fancy_tool_style")
+        private val FANCY_TOOL_KEEPS_LANGUAGE =
+            booleanPreferencesKey("fancy_tool_keeps_language")
+        private val FANCY_TOOL_AUTO_OFF = booleanPreferencesKey("fancy_tool_auto_off")
         private val NUMBER_ROW_SHIFT_SYMBOLS = booleanPreferencesKey("number_row_shift_symbols")
         private val NUMBER_ROW_IN_SYMBOLS = booleanPreferencesKey("number_row_in_symbols")
         private val BOTTOM_ROW_HEIGHT = intPreferencesKey("bottom_row_height")
@@ -3312,6 +3336,14 @@ class SettingsRepository(private val context: Context) {
                 hintFontScale = p[HINT_FONT_SCALE] ?: defaults.layoutBehavior.hintFontScale,
                 fancyStyleId = p[FANCY_STYLE] ?: legacyFancyStyle(p)
                     ?: defaults.layoutBehavior.fancyStyleId,
+                // An empty string is how "no pinned style" is stored, so the
+                // setting can go back to following the strip.
+                fancyToolStyleId = p[FANCY_TOOL_STYLE]?.takeIf { it.isNotEmpty() }
+                    ?: defaults.layoutBehavior.fancyToolStyleId,
+                fancyToolKeepsLanguage = p[FANCY_TOOL_KEEPS_LANGUAGE]
+                    ?: defaults.layoutBehavior.fancyToolKeepsLanguage,
+                fancyToolAutoOff = p[FANCY_TOOL_AUTO_OFF]
+                    ?: defaults.layoutBehavior.fancyToolAutoOff,
                 numberRowShiftSymbols =
                     p[NUMBER_ROW_SHIFT_SYMBOLS] ?: defaults.layoutBehavior.numberRowShiftSymbols,
                 smartHitDetection =
@@ -6015,6 +6047,16 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setFancyStyle(id: String) =
         editPrefs { it[FANCY_STYLE] = id }
+
+    /** The style the Fancy tool turns on with; null (stored empty) follows the strip. */
+    suspend fun setFancyToolStyle(id: String?) =
+        editPrefs { it[FANCY_TOOL_STYLE] = id.orEmpty() }
+
+    suspend fun setFancyToolKeepsLanguage(value: Boolean) =
+        editPrefs { it[FANCY_TOOL_KEEPS_LANGUAGE] = value }
+
+    suspend fun setFancyToolAutoOff(value: Boolean) =
+        editPrefs { it[FANCY_TOOL_AUTO_OFF] = value }
 
     /**
      * The style an install that predates the single fancy layout should keep:

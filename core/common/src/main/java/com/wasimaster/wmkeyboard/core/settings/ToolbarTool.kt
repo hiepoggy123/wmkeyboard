@@ -30,7 +30,7 @@ enum class ToolbarTool {
     DICTIONARY, TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, DOC_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
-    MODES, TYPING_TEST, MEDIA_CONTROL, PLUGINS, POWER_SAVING, APP_LAUNCHER,
+    MODES, TYPING_TEST, MEDIA_CONTROL, PLUGINS, POWER_SAVING, APP_LAUNCHER, FANCY,
     // One-tap cursor moves. The text-edit panel already offers these, but on
     // the toolbar they cost a single tap instead of opening a panel first.
     CURSOR_LEFT, CURSOR_RIGHT, CURSOR_UP, CURSOR_DOWN,
@@ -71,6 +71,9 @@ fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.HIDE_KEYBOARD,
     ToolbarTool.THEMES, ToolbarTool.AUTOCORRECT, ToolbarTool.SOUND_HAPTICS, ToolbarTool.INCOGNITO,
     ToolbarTool.MODES, ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.POWER_SAVING,
+    // The fancy layout ships in the assets and its styles are code, so it
+    // needs nothing the locked half of the device holds.
+    ToolbarTool.FANCY,
     ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.PASSWORD_GEN, ToolbarTool.QR_GEN,
     ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     -> true
@@ -95,7 +98,7 @@ fun toolOpensScreen(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
     ToolbarTool.FLASHLIGHT, ToolbarTool.UNDO, ToolbarTool.REDO,
     ToolbarTool.INCOGNITO, ToolbarTool.POWER_SAVING, ToolbarTool.AUTOCORRECT,
-    ToolbarTool.HIDE_KEYBOARD,
+    ToolbarTool.FANCY, ToolbarTool.HIDE_KEYBOARD,
     -> false
     // The cursor moves nudge the caret and nothing else.
     else -> tool !in CursorTools
@@ -128,7 +131,7 @@ private val RankedToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.AI, ToolbarTool.GRAMMAR, ToolbarTool.PLUGINS, ToolbarTool.TYPING_TEST,
     ToolbarTool.NUMPAD, ToolbarTool.ONE_HANDED,
     ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.INCOGNITO, ToolbarTool.AUTOCORRECT,
-    ToolbarTool.SOUND_HAPTICS, ToolbarTool.POWER_SAVING,
+    ToolbarTool.FANCY, ToolbarTool.SOUND_HAPTICS, ToolbarTool.POWER_SAVING,
     ToolbarTool.MODES, ToolbarTool.OCR, ToolbarTool.QR_SCAN,
     ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA, ToolbarTool.HANDWRITING,
     ToolbarTool.SYMBOLS, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY, ToolbarTool.PASSWORD_GEN,

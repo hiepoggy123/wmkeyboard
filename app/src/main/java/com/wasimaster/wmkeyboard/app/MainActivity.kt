@@ -256,6 +256,7 @@ import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.CursorTools
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
+import com.wasimaster.wmkeyboard.core.script.FancyStyles
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
 import com.wasimaster.wmkeyboard.core.script.ScriptId
@@ -6830,6 +6831,7 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.APP_LAUNCHER -> R.string.fonts_tool_app_launcher_title
     ToolbarTool.AI -> R.string.fonts_tool_ai_title
     ToolbarTool.MODES -> R.string.fonts_tool_modes_title
+    ToolbarTool.FANCY -> ImeR.string.ime_tool_fancy
     ToolbarTool.CURSOR_LEFT -> R.string.fonts_tool_cursor_left_title
     ToolbarTool.CURSOR_RIGHT -> R.string.fonts_tool_cursor_right_title
     ToolbarTool.CURSOR_WORD_LEFT -> ImeR.string.ime_tool_cursor_word_left
@@ -6896,6 +6898,7 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.APP_LAUNCHER -> R.string.fonts_tool_app_launcher_desc
     ToolbarTool.AI -> R.string.fonts_tool_ai_desc
     ToolbarTool.MODES -> R.string.fonts_tool_modes_desc
+    ToolbarTool.FANCY -> R.string.fonts_tool_fancy_desc
     ToolbarTool.CURSOR_LEFT -> R.string.fonts_tool_cursor_left_desc
     ToolbarTool.CURSOR_RIGHT -> R.string.fonts_tool_cursor_right_desc
     ToolbarTool.CURSOR_WORD_LEFT -> R.string.fonts_tool_cursor_word_left_desc
@@ -7072,8 +7075,8 @@ private val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
     add(
         R.string.tools_group_quick_actions_title to listOf(
             ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.AUTOCORRECT,
-            ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS, ToolbarTool.THEMES,
-            ToolbarTool.POWER_SAVING, ToolbarTool.SETTINGS,
+            ToolbarTool.FANCY, ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS,
+            ToolbarTool.THEMES, ToolbarTool.POWER_SAVING, ToolbarTool.SETTINGS,
         ),
     )
     add(
@@ -7865,6 +7868,49 @@ private fun ToolDetailSettings(
                     onClick = { onNavigate("typing") },
                 )
             }
+        }
+        ToolbarTool.FANCY -> {
+            val behavior = settings.layoutBehavior
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
+                item {
+                    // "Follow the strip" is the empty pick, so the tool can go
+                    // back to starting from whatever style was last used.
+                    val follow = stringResource(R.string.tooldetail_fancy_style_follow)
+                    ChoiceSetting(
+                        R.string.tooldetail_fancy_style_title,
+                        subtitle = stringResource(R.string.tooldetail_fancy_style_subtitle),
+                        info = stringResource(R.string.tooldetail_fancy_style_info),
+                        options = listOf<Pair<String?, String>>(null to follow) +
+                            FancyStyles.all.map { it.id to it.sample },
+                        selected = behavior.fancyToolStyleId
+                            ?.takeIf { FancyStyles.byId(it) != null },
+                    ) { scope.launch { repository.setFancyToolStyle(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_fancy_keep_title,
+                        stringResource(R.string.tooldetail_fancy_keep_subtitle),
+                        behavior.fancyToolKeepsLanguage,
+                        info = stringResource(R.string.tooldetail_fancy_keep_info),
+                    ) { scope.launch { repository.setFancyToolKeepsLanguage(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_fancy_auto_off_title,
+                        stringResource(R.string.tooldetail_fancy_auto_off_subtitle),
+                        behavior.fancyToolAutoOff,
+                        info = stringResource(R.string.tooldetail_fancy_auto_off_info),
+                    ) { scope.launch { repository.setFancyToolAutoOff(it) } }
+                }
+                item {
+                    NavRow(
+                        R.string.tooldetail_fancy_language_nav_title,
+                        stringResource(R.string.tooldetail_fancy_language_nav_subtitle),
+                        onClick = { onNavigate("language/${FancyStyles.LANG_ID}") },
+                    )
+                }
+            }
+            CaptionText(stringResource(R.string.tooldetail_fancy_info))
         }
         ToolbarTool.SOUND_HAPTICS -> {
             KeySoundGroup(repository, settings, onNavigate) {

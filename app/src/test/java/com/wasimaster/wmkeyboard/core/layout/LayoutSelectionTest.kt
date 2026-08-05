@@ -155,4 +155,31 @@ class LayoutSelectionTest {
         assertEquals(AssetLayouts.FANCY_ID, canonicalLayoutId(AssetLayouts.FANCY_ID, emptyList()))
         assertEquals("custom_1", canonicalLayoutId("custom_1", emptyList()))
     }
+
+    // ---- where the Fancy tool lands when it turns fancy off --------------
+
+    @Test
+    fun `the fancy tool goes back to the layout it came from`() {
+        assertEquals(
+            BuiltInLayouts.PROBHAT_ID,
+            layoutAfterFancy(
+                BuiltInLayouts.PROBHAT_ID,
+                listOf(BuiltInLayouts.QWERTY_ID, BuiltInLayouts.PROBHAT_ID),
+            ),
+        )
+    }
+
+    @Test
+    fun `a layout turned off while fancy was on is not landed on`() {
+        assertEquals(
+            BuiltInLayouts.QWERTY_ID,
+            layoutAfterFancy(BuiltInLayouts.PROBHAT_ID, listOf(BuiltInLayouts.QWERTY_ID)),
+        )
+    }
+
+    @Test
+    fun `fancy as the only enabled layout still lands somewhere`() {
+        assertEquals(BuiltInLayouts.DEFAULT_ID, layoutAfterFancy(null, emptyList()))
+        assertEquals(BuiltInLayouts.DEFAULT_ID, layoutAfterFancy(AssetLayouts.FANCY_ID, emptyList()))
+    }
 }

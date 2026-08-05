@@ -78,6 +78,7 @@ import androidx.compose.material.icons.outlined.SportsSoccer
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.material.icons.outlined.TextFormat
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material.icons.outlined.Tune
@@ -155,6 +156,7 @@ object IconDefaults {
         ToolbarTool.PLUGINS -> Icons.Outlined.Extension
         ToolbarTool.APP_LAUNCHER -> Icons.Outlined.Apps
         ToolbarTool.AI -> Icons.Outlined.AutoAwesome
+        ToolbarTool.FANCY -> Icons.Outlined.TextFormat
         ToolbarTool.MODES -> Icons.Outlined.Tune
         ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft
         ToolbarTool.CURSOR_RIGHT -> Icons.AutoMirrored.Outlined.KeyboardArrowRight

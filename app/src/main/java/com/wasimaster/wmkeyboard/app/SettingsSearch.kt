@@ -584,6 +584,15 @@ private fun Resources.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
         R.string.tooldetail_keypress_nav_subtitle,
         weight = EntryWeight.MIRROR,
     ),
+    toolEntry(ToolbarTool.FANCY, R.string.tooldetail_fancy_style_title, R.string.tooldetail_fancy_style_subtitle),
+    toolEntry(ToolbarTool.FANCY, R.string.tooldetail_fancy_keep_title, R.string.tooldetail_fancy_keep_subtitle),
+    toolEntry(ToolbarTool.FANCY, R.string.tooldetail_fancy_auto_off_title, R.string.tooldetail_fancy_auto_off_subtitle),
+    toolEntry(
+        ToolbarTool.FANCY,
+        R.string.tooldetail_fancy_language_nav_title,
+        R.string.tooldetail_fancy_language_nav_subtitle,
+        weight = EntryWeight.MIRROR,
+    ),
     toolEntry(ToolbarTool.HANDWRITING, R.string.tooldetail_handwriting_stylus_title, R.string.tooldetail_handwriting_stylus_subtitle),
     toolEntry(
         ToolbarTool.HANDWRITING,
