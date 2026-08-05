@@ -32,6 +32,10 @@
     <string name="onboarding_language_all_added">Every language is already in your list.</string>
     <!-- Shown when the search finds nothing. %1$s is the text the user typed. -->
     <string name="onboarding_language_no_match">No language matches “<xliff:g id="query" example="beng">%1$s</xliff:g>”.</string>
+    <!-- Dialog that asks which of a language's layouts to turn on, for a
+         language that has more than one. %1$s is the name of the language. -->
+    <string name="onboarding_layout_picker_title">Layouts for <xliff:g id="language" example="বাংলা · Bangla">%1$s</xliff:g></string>
+    <string name="onboarding_layout_picker_body">This language has more than one layout or input system, and most people use only one of them. Select the ones you want. You can change them later in Settings, then Languages.</string>
     <!-- Shown when the list is cut off. %1$d is how many more languages match the search. -->
     <plurals name="onboarding_language_more_count">
         <item quantity="one">%1$d more language matches. Search to make the list shorter.</item>

@@ -36,8 +36,10 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -80,6 +82,7 @@ import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.script.DeviceLocales
+import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.LanguageSuggestions
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolOrder
@@ -496,18 +499,47 @@ private const val ONBOARDING_LANGUAGE_LIMIT = 30
 private const val ONBOARDING_SUGGESTION_LIMIT = 4
 
 /**
- * Adds any language in the registry, without leaving the wizard. Tapping one
- * enables its default layout — the layouts it also ships, and secondary
- * suggestion sources, stay in Settings → Languages, which has room for them.
+ * Adds any language in the registry, without leaving the wizard. Tapping a
+ * language with one layout enables it on the spot; a language with several
+ * asks which of them to enable first — Bengali alone ships three input systems
+ * (Avro, Probhat, National) and most people type in exactly one of them, so
+ * enabling all three unasked put two dead layouts on the 🌐 cycle. Secondary
+ * suggestion sources stay in Settings → Languages, which has room for them.
  */
 @Composable
 private fun AddLanguageSection(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     var query by rememberSaveable { mutableStateOf("") }
+    // The language whose layout-picker dialog is open, by id — the id rather
+    // than the LanguageDef so the open dialog survives rotation.
+    var layoutChoice by rememberSaveable { mutableStateOf<String?>(null) }
     val enabledLangIds = settings.enabledLanguages.mapTo(HashSet()) { it.id }
     val q = query.trim().lowercase()
-    val matches = LanguageRegistry.all.filter { it.id !in enabledLangIds && it.matchesQuery(q) }
+    val matches = searchLanguages(q).filter { it.id !in enabledLangIds }
     val suggested = rememberSuggestedLanguages(settings, limit = ONBOARDING_SUGGESTION_LIMIT)
+    val add: (LanguageDef) -> Unit = { language ->
+        if (language.layoutIds.size > 1) {
+            layoutChoice = language.id
+        } else {
+            addLanguage(scope, repository, settings, language)
+            query = ""
+        }
+    }
+
+    layoutChoice?.let { langId ->
+        LayoutPickerDialog(
+            language = LanguageRegistry.byId(langId),
+            layoutName = { resolveLayout(settings.customLayouts, it).name },
+            onConfirm = { chosen ->
+                layoutChoice = null
+                query = ""
+                scope.launch {
+                    repository.setEnabledLayoutIds((settings.enabledLayoutIds + chosen).distinct())
+                }
+            },
+            onDismiss = { layoutChoice = null },
+        )
+    }
 
     // Above the search box, because for most people this is the whole step:
     // the languages their phone is already in are the ones they came to add.
@@ -533,7 +565,7 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { addLanguage(scope, repository, settings, suggestion.language) },
+                    .clickable { add(suggestion.language) },
             )
             HorizontalDivider()
         }
@@ -571,17 +603,7 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable {
-                    // A language joins by its default layout; the rest of its
-                    // layouts are then togglable in the list above.
-                    val first = language.layoutIds.firstOrNull() ?: return@clickable
-                    scope.launch {
-                        repository.setEnabledLayoutIds(
-                            (settings.enabledLayoutIds + first).distinct(),
-                        )
-                    }
-                    query = ""
-                },
+                .clickable { add(language) },
         )
         HorizontalDivider()
     }
@@ -594,6 +616,70 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
         val extra = matches.size - ONBOARDING_LANGUAGE_LIMIT
         CaptionText(pluralStringResource(R.plurals.onboarding_language_more_count, extra, extra))
     }
+}
+
+/**
+ * Asks which of a multi-layout language's layouts to enable, as it is added.
+ * The default (first) layout starts checked, so Add without touching anything
+ * does what adding the language always did; unchecking it and checking another
+ * is the whole point — the person who types Bengali in Probhat should never
+ * have Avro on their 🌐 cycle. At least one box must stay checked: a language
+ * added with no layout would not exist.
+ */
+@Composable
+private fun LayoutPickerDialog(
+    language: LanguageDef,
+    layoutName: (String) -> String,
+    onConfirm: (List<String>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var selected by remember(language.id) {
+        mutableStateOf(setOfNotNull(language.layoutIds.firstOrNull()))
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.onboarding_layout_picker_title, language.displayName)) },
+        text = {
+            // Scrollable for the long tail: Chinese ships six input systems,
+            // and a small-screen dialog has to reach all of them.
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.onboarding_layout_picker_body))
+                Spacer(Modifier.height(8.dp))
+                for (layoutId in language.layoutIds) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selected =
+                                    if (layoutId in selected) selected - layoutId
+                                    else selected + layoutId
+                            },
+                    ) {
+                        Checkbox(
+                            checked = layoutId in selected,
+                            // The row is the click target; a second one on the
+                            // box itself would double-toggle under TalkBack.
+                            onCheckedChange = null,
+                        )
+                        Text(layoutName(layoutId))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = selected.isNotEmpty(),
+                // Filtered through layoutIds rather than passed as the set, so
+                // the layouts enable in the language's shipped order however
+                // the boxes were ticked.
+                onClick = { onConfirm(language.layoutIds.filter { it in selected }) },
+            ) { Text(stringResource(CommonR.string.common_add)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
 }
 
 @Composable

@@ -19,6 +19,9 @@
 
     <string name="langemoji_lang_switch_order_title">Switch order</string>
     <string name="langemoji_lang_switch_order_dialog_title">Reorder input languages</string>
+    <!-- One layout in the "Switch order" list. %1$s is the name of the language,
+         %2$s the name of the layout, for example "English (QWERTY)". -->
+    <string name="langemoji_lang_switch_order_item_label"><xliff:g id="language" example="English">%1$s</xliff:g> (<xliff:g id="layout" example="QWERTY">%2$s</xliff:g>)</string>
 
     <string name="langemoji_lang_your_layouts_title">Your layouts</string>
     <!-- Subtitle of one custom layout. %1$s is the name of the language and the

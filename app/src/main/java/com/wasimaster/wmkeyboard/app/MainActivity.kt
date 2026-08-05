@@ -4751,13 +4751,22 @@ private fun LanguageSettings(
     // Reorder the switch ring (spacebar swipe / 🌐 cycle) across every enabled
     // layout, not just languages, so AZERTY and QWERTY keep distinct slots.
     if (settings.enabledLayoutIds.size > 1) {
+        // Two layouts of one language, and two languages on one layout, both
+        // read the same by layout name alone, so each row carries its language.
+        val switchOrderItem = stringResource(R.string.langemoji_lang_switch_order_item_label)
         SettingsGroup {
             item {
                 ReorderSetting(
                     stringResource(R.string.langemoji_lang_switch_order_title),
                     stringResource(R.string.langemoji_lang_switch_order_dialog_title),
                     settings.enabledLayoutIds,
-                    label = { resolveLayout(settings.customLayouts, it).name },
+                    label = {
+                        val layout = resolveLayout(settings.customLayouts, it)
+                        val language = layout.language().displayName
+                        // A layout named after its own language would say it twice.
+                        if (layout.name == language) language
+                        else switchOrderItem.format(language, layout.name)
+                    },
                     onReordered = { scope.launch { repository.setEnabledLayoutIds(it) } },
                 )
             }

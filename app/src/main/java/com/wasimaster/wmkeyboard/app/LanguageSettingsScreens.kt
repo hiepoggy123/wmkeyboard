@@ -55,6 +55,8 @@ import com.wasimaster.wmkeyboard.core.input.composer.CjkDictPack
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyin
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
+import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
+import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.script.ComposerType
@@ -111,26 +113,17 @@ internal fun languageRowSubtitle(lang: LanguageDef): String =
     }
 
 /**
- * Matches a language against an already-lowercased search term on endonym,
- * English name, id and locale, so "german", "deutsch", "de" and "de-DE" all find
- * it. An empty term matches everything.
- */
-internal fun LanguageDef.matchesQuery(query: String): Boolean =
-    query.isEmpty() ||
-        displayName.lowercase().contains(query) ||
-        englishName.lowercase().contains(query) ||
-        id.lowercase().contains(query) ||
-        localeTag.lowercase().contains(query)
-
-/**
- * The four fields [matchesQuery] searches, lowercased once.
+ * One language's search text, lowercased once: endonym, English name, id and
+ * locale — so "german", "deutsch", "de" and "de-DE" all find it — plus its
+ * layouts' names and ids, so "avro" or "bepo" finds the language that ships
+ * that layout for someone who knows the input system but not what the app
+ * files it under. An empty term matches everything.
  *
- * There are 352 languages in the registry and [matchesQuery] lowercases all
- * four of a language's names on every call, so filtering the list built and
- * threw away fourteen hundred strings — per keystroke, in the search box that
- * runs the filter. The comparisons are kept field by field rather than
- * concatenated so a query cannot match across a boundary between two names,
- * which is a match [matchesQuery] would not make.
+ * There are 352 languages in the registry, and filtering it runs per keystroke
+ * in the search box; lowercasing every field on every call built and threw
+ * away fourteen hundred strings per letter typed, which is why the strings are
+ * built once here. The comparisons are kept field by field rather than
+ * concatenated so a query cannot match across a boundary between two names.
  */
 internal class LanguageSearchKey(language: LanguageDef) {
     private val displayName = language.displayName.lowercase()
@@ -138,22 +131,64 @@ internal class LanguageSearchKey(language: LanguageDef) {
     private val id = language.id.lowercase()
     private val localeTag = language.localeTag.lowercase()
 
-    /** [query] must already be trimmed and lowercased, as [matchesQuery] wants. */
+    /**
+     * The layout names ("Avro phonetic", "প্রভাত (Probhat)") and the layout ids
+     * minus their `builtin_`/`asset_` prefix ("avro", "fr_bepo"). The prefix is
+     * dropped because "builtin" or "asset" would match every language at once.
+     */
+    private val layouts = language.layoutIds.flatMap { layoutId ->
+        listOfNotNull(
+            (BuiltInLayouts.byId(layoutId) ?: AssetLayouts.byId(layoutId))?.name?.lowercase(),
+            layoutId.substringAfter('_').lowercase(),
+        )
+    }
+
+    /** [query] must already be trimmed and lowercased. */
     fun matches(query: String): Boolean =
         query.isEmpty() ||
             displayName.contains(query) ||
             englishName.contains(query) ||
             id.contains(query) ||
-            localeTag.contains(query)
+            localeTag.contains(query) ||
+            layouts.any { it.contains(query) }
 }
 
 /**
- * Every registry language paired with its search key. Built once for the
- * process: the registry is a constant, so nothing here can go stale.
+ * Every registry language paired with its search key. The registry is a
+ * constant, but the asset layouts' names arrive only once their JSON finishes
+ * parsing off the main thread — so the index is memoised on
+ * [AssetLayouts.generation] rather than built once, the same way
+ * `resolveLayouts` is: an index built before the load would file every asset
+ * layout under no name at all, forever.
  */
-private val languageSearchIndex: List<Pair<LanguageDef, LanguageSearchKey>> by lazy {
-    LanguageRegistry.all.map { it to LanguageSearchKey(it) }
+private object LanguageSearchIndex {
+    class Entry(val generation: Int, val index: List<Pair<LanguageDef, LanguageSearchKey>>)
+
+    @Volatile
+    var cache: Entry? = null
+
+    fun get(): List<Pair<LanguageDef, LanguageSearchKey>> {
+        val generation = AssetLayouts.generation
+        cache?.let { if (it.generation == generation) return it.index }
+        val built = LanguageRegistry.all.map { it to LanguageSearchKey(it) }
+        cache = Entry(generation, built)
+        return built
+    }
 }
+
+/**
+ * The registry languages matching an already-trimmed, lowercased [query], in
+ * registry order — see [LanguageSearchKey] for what the query is compared
+ * against. Shared by the settings and onboarding add-language searches.
+ */
+internal fun searchLanguages(query: String): List<LanguageDef> =
+    if (query.isEmpty()) {
+        LanguageRegistry.all
+    } else {
+        LanguageSearchIndex.get().mapNotNull { (language, key) ->
+            language.takeIf { key.matches(query) }
+        }
+    }
 
 /**
  * The enabled languages, for the one-line summary under the Languages row.
@@ -227,7 +262,7 @@ internal fun suggestionReasonLabel(suggestion: SuggestedLanguage): String = when
 
 /**
  * The searchable add-language list, over every [LanguageRegistry] entry — see
- * [matchesQuery] for what a search term is compared against. Tapping a
+ * [LanguageSearchKey] for what a search term is compared against. Tapping a
  * not-yet-added language enables its default layout, then opens its detail so
  * the user can pick others or a secondary.
  */
@@ -248,15 +283,7 @@ internal fun AddLanguageScreen(
     // letter typed into the search box, and re-running the filter over 352
     // languages — and rebuilding the enabled-id set — for a query that has not
     // changed is work with no result to show for it.
-    val matches = remember(q) {
-        if (q.isEmpty()) {
-            LanguageRegistry.all
-        } else {
-            languageSearchIndex.mapNotNull { (language, key) ->
-                language.takeIf { key.matches(q) }
-            }
-        }
-    }
+    val matches = remember(q) { searchLanguages(q) }
     val suggested = rememberSuggestedLanguages(settings)
     // The language is enabled straight away either way; the prompt only decides
     // whether its data comes down now, so answering it is never load-bearing.
