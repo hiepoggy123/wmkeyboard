@@ -112,6 +112,8 @@ import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
 import com.wasimaster.wmkeyboard.core.prediction.CandidateReranker
 import com.wasimaster.wmkeyboard.core.prediction.CorrectionStats
+import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackDownloadManager
+import com.wasimaster.wmkeyboard.core.prediction.NgramPack
 import com.wasimaster.wmkeyboard.core.prediction.NgramReranker
 import com.wasimaster.wmkeyboard.core.prediction.KeyTouchModel
 import com.wasimaster.wmkeyboard.core.prediction.WordContext
@@ -1352,6 +1354,16 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
 
+        // A freshly landed n-gram pack goes live without waiting for a
+        // language switch — but only when it is the active language's.
+        serviceScope.launch {
+            NgramPackDownloadManager.completions.collect { langId ->
+                if (userUnlocked && _uiState.value.language.id == langId) {
+                    suggestionEngine?.ngramPack = loadNgramPack(langId)
+                }
+            }
+        }
+
         serviceScope.launch {
             var lexiconVersion = -1
             var customDictVersion = -1
@@ -1585,6 +1597,7 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.primaryLanguageId = activeLang.id
                 suggestionEngine?.customDictionary =
                     customDictionaries[activeLang.id] ?: PackedTrie.EMPTY
+                suggestionEngine?.ngramPack = loadNgramPack(activeLang.id)
                 // Secondary languages feed the strip alongside the primary. English
                 // rides its bundled list (englishAsSecondary); every other language
                 // its imported list. Each is tagged with its id so its share of the
@@ -1858,6 +1871,7 @@ open class WMKeyboardService : InputMethodService() {
                 englishSources = lang.isEnglish
                 primaryLanguageId = lang.id
                 customDictionary = customTries[lang.id] ?: PackedTrie.EMPTY
+                ngramPack = loadNgramPack(lang.id)
                 val secondaryIds = _uiState.value.settings.secondaryLanguages[lang.id].orEmpty()
                 secondaryDictionaries = secondaryIds.filter { it != "en" }
                     .mapNotNull { id -> customTries[id]?.let { SecondaryDictionary(id, it) } }
@@ -1870,6 +1884,7 @@ open class WMKeyboardService : InputMethodService() {
                     dictionaryFrequency = { word ->
                         suggestionEngine?.dictionary?.frequencyOf(word) ?: 0
                     },
+                    ngramPack = { suggestionEngine?.ngramPack ?: NgramPack.EMPTY },
                 )
                 reranker = resolveReranker(_uiState.value.settings)
             }
@@ -1928,6 +1943,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun refreshEmojiDictDownloads(settings: KeyboardSettings) {
         if (!userUnlocked || !settings.emoji.autoDownloadKeywords) return
         EmojiDictDownloadManager.ensure(filesDir, settings.enabledLanguages.map { it.id })
+        NgramPackDownloadManager.ensure(filesDir, settings.enabledLanguages.map { it.id })
     }
 
     private suspend fun reloadEmojiCatalog() {
@@ -12338,10 +12354,23 @@ open class WMKeyboardService : InputMethodService() {
             engine.bengaliIndex = buildBengaliIndex()
             val lang = _uiState.value.language
             engine.customDictionary = customDictionaries[lang.id] ?: PackedTrie.EMPTY
+            engine.ngramPack = loadNgramPack(lang.id)
             val secondaryIds = _uiState.value.settings.secondaryLanguages[lang.id].orEmpty()
             engine.secondaryDictionaries = secondaryIds.filter { it != "en" }
                 .mapNotNull { id -> customDictionaries[id]?.let { SecondaryDictionary(id, it) } }
         }
+    }
+
+    /**
+     * The downloaded n-gram pack for [langId], or EMPTY while locked or not
+     * yet downloaded. mmap-backed: opening is one map call, no heap.
+     */
+    private fun loadNgramPack(langId: String): NgramPack {
+        if (!userUnlocked) return NgramPack.EMPTY
+        return NgramPack.of(
+            MappedTrie.open(NgramPackDownloadManager.bigramFile(filesDir, langId)),
+            MappedTrie.open(NgramPackDownloadManager.trigramFile(filesDir, langId)),
+        )
     }
 
     /**

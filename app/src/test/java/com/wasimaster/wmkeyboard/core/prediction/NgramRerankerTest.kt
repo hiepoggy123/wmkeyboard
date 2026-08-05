@@ -16,7 +16,7 @@ class NgramRerankerTest {
     private fun reranker(
         lexicon: UserLexicon = UserLexicon(null),
         seeds: SeedBigrams = SeedBigrams.EMPTY,
-    ) = NgramReranker(lexicon, seeds) { dictionary.frequencyOf(it) }
+    ) = NgramReranker(lexicon, seeds, dictionaryFrequency = { dictionary.frequencyOf(it) })
 
     private fun context(
         prev: String?,
@@ -47,9 +47,11 @@ class NgramRerankerTest {
     @Test
     fun trigramEvidenceOutweighsBigram() {
         val lexicon = UserLexicon(null)
-        // Bigram habit says "world"; the exact two-word context says "work".
+        // Bigram habit says "world"; the exact two-word context, typed often,
+        // says "work". Trigram evidence carries more weight per count and a
+        // higher cap, so a strong habit climbs past both other candidates.
         repeat(4) { lexicon.learnBigram("was", "world") }
-        repeat(4) { lexicon.learnTrigram("i", "was", "work") }
+        repeat(12) { lexicon.learnTrigram("i", "was", "work") }
         val r = reranker(lexicon)
         val out = r.rerank(
             context(prev = "was", prev2 = "i"),
@@ -59,21 +61,28 @@ class NgramRerankerTest {
     }
 
     @Test
-    fun seedCountsAndRecencyAreWeakerNudges() {
+    fun weakEvidenceAloneNeverOutranksTypedEvidence() {
+        // The incoming order encodes edit costs and touch likelihoods; a
+        // population prior or a recency hit is capped at (or under) one rank
+        // step, so alone neither may flip the list — only agreement can.
         val seeds = SeedBigrams.load(
             "hello world 500\nhello work 20\n".byteInputStream()
         )
         val r = reranker(seeds = seeds)
-        // Seed evidence alone reorders a near-tie (words 120 vs world 100).
-        val out = r.rerank(context(prev = "hello"), listOf("words", "world"))
-        assertEquals("world", out!!.first())
-        // Recency alone flips a near-tie too.
+        val seedOnly = r.rerank(context(prev = "hello"), listOf("words", "world"))
+        assertEquals(listOf("words", "world"), seedOnly)
         val r2 = reranker()
-        val recent = r2.rerank(
+        val recencyOnly = r2.rerank(
             context(prev = "hello", recent = listOf("world")),
             listOf("words", "world"),
         )
-        assertEquals("world", recent!!.first())
+        assertEquals(listOf("words", "world"), recencyOnly)
+        // Two independent sources agreeing is what earns the flip.
+        val both = r.rerank(
+            context(prev = "hello", recent = listOf("world")),
+            listOf("words", "world"),
+        )
+        assertEquals(listOf("world", "words"), both)
     }
 
     @Test
@@ -85,7 +94,9 @@ class NgramRerankerTest {
         // asking with a previous word only the reranker sees... it can't be:
         // both read the same store. So compare opt-in vs not with the same
         // inputs — the reranker path must at minimum never lose the word.
-        engine.reranker = NgramReranker(lexicon, SeedBigrams.EMPTY) { dictionary.frequencyOf(it) }
+        engine.reranker = NgramReranker(
+            lexicon, SeedBigrams.EMPTY, dictionaryFrequency = { dictionary.frequencyOf(it) },
+        )
         val without = engine.suggest("wor", previousWord = "hello")
         val with = engine.suggest("wor", previousWord = "hello", allowRerank = true)
         assertEquals(without.toSet(), with.toSet())
@@ -98,12 +109,13 @@ class NgramRerankerTest {
         val lexicon = UserLexicon(null)
         lexicon.learnBigram("hello", "world")
         lexicon.learnBigram("hello", "words")
-        val tied = NgramReranker(lexicon, SeedBigrams.EMPTY) { 100 }
+        val tied = NgramReranker(lexicon, SeedBigrams.EMPTY, dictionaryFrequency = { 100 })
         val a = tied.rerank(context(prev = "hello"), listOf("alpha", "beta", "world", "words"))
         val b = tied.rerank(context(prev = "hello"), listOf("alpha", "beta", "world", "words"))
         assertEquals(a, b)
-        // Equal-evidence, equal-base candidates keep their incoming order.
-        assertEquals(listOf("alpha", "beta"), a!!.takeLast(2))
+        // One learned use each is real but weak evidence — under one rank
+        // step, so the whole incoming order is preserved.
+        assertEquals(listOf("alpha", "beta", "world", "words"), a)
         assertNull(r.rerank(context(prev = "zzz"), listOf("alpha")))
     }
 }

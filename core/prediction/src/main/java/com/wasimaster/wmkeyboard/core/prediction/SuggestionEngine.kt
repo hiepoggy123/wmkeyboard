@@ -200,6 +200,15 @@ class SuggestionEngine(
     var reranker: CandidateReranker = CandidateReranker.NONE
 
     /**
+     * Downloaded corpus n-grams for the active language ([NgramPack.EMPTY]
+     * until a pack lands). Corpus context: consulted below every personal
+     * store, and its counts are damped so one habitual personal pair beats
+     * any population prior.
+     */
+    @Volatile
+    var ngramPack: NgramPack = NgramPack.EMPTY
+
+    /**
      * Bengali index, rebuilt when an imported Bengali list arrives so its
      * words become reachable by transliteration too.
      */
@@ -557,6 +566,10 @@ class SuggestionEngine(
 
         /** How many ranked candidates a reranker may reorder. */
         private const val RERANK_POOL = 8
+
+        /** Corpus n-gram counts divided by this before joining the personal
+         * evidence scale: one personal use ~ this many corpus sightings. */
+        private const val PACK_COUNT_SCALE = 50
     }
 
     /**
@@ -628,6 +641,14 @@ class SuggestionEngine(
                     // its raw count rides the same bounded boost curve.
                     if (prev2 != null) {
                         userLexicon.trigramCount(prev2, prev, candidate) * 2
+                    } else {
+                        0
+                    },
+                    // Corpus counts are damped so a personal pair typed once
+                    // outranks a population prior seen dozens of times.
+                    ngramPack.bigramCount(prev, candidate) / PACK_COUNT_SCALE,
+                    if (prev2 != null) {
+                        ngramPack.trigramCount(prev2, prev, candidate) * 2 / PACK_COUNT_SCALE
                     } else {
                         0
                     },
@@ -821,6 +842,14 @@ class SuggestionEngine(
         ordered.addAll(userLexicon.nextWords(prev, limit))
         // A contact's name chains through the strip: "Wasi" offers "Mollik".
         ordered.addAll(contacts.nextWords(prev))
+        // Corpus n-grams (downloaded pack): below everything personal, above
+        // the bundled seeds they supersede. The trigram context first.
+        if (!ngramPack.isEmpty) {
+            previousWord2?.lowercase()?.let { prev2 ->
+                ordered.addAll(ngramPack.nextWordsAfter(prev2, prev, limit))
+            }
+            ordered.addAll(ngramPack.nextWords(prev, limit))
+        }
         // Seed bigrams are English pairs; they only cold-start English modes.
         if (englishSources) ordered.addAll(seedBigrams.nextWords(prev))
         return ordered.asSequence()

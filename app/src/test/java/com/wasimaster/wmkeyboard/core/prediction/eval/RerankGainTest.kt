@@ -57,7 +57,9 @@ class RerankGainTest {
             dictionary, BengaliPhoneticIndex(emptyList()), lexicon,
             seedBigrams = seeds,
         ).also { engine ->
-            engine.reranker = NgramReranker(lexicon, seeds) { dictionary.frequencyOf(it) }
+            engine.reranker = NgramReranker(
+                lexicon, seeds, dictionaryFrequency = { dictionary.frequencyOf(it) },
+            )
         }
     }
 
