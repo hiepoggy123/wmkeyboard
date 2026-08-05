@@ -2125,6 +2125,12 @@ data class SuggestionStripSettings(
      */
     val blockOffensiveWords: Boolean = true,
     /**
+     * Context reranking of the suggestion strip's top candidates by learned
+     * n-grams (Play-channel builds; other channels ignore the flag and keep
+     * the plain frequency order).
+     */
+    val contextRerank: Boolean = true,
+    /**
      * Type a space after a suggestion picked from the strip, so the next word
      * starts cleanly without reaching for the spacebar. On by default. Off
      * commits the word bare — for languages or fields where a trailing space is
@@ -2414,6 +2420,7 @@ class SettingsRepository(private val context: Context) {
         private val SUGGESTIONS_FIRST = booleanPreferencesKey("suggestions_first")
         private val SUGGESTION_PRIMARY_CENTER = booleanPreferencesKey("suggestion_primary_center")
         private val BLOCK_OFFENSIVE_WORDS = booleanPreferencesKey("block_offensive_words")
+        private val CONTEXT_RERANK = booleanPreferencesKey("context_rerank")
         private val CONTACT_SUGGESTIONS = booleanPreferencesKey("contact_suggestions")
         private val CONTACT_EMAIL_SUGGESTIONS =
             booleanPreferencesKey("contact_email_suggestions")
@@ -3202,6 +3209,8 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.suggestionStrip.suggestionPrimaryCenter,
                 blockOffensiveWords = p[BLOCK_OFFENSIVE_WORDS]
                     ?: defaults.suggestionStrip.blockOffensiveWords,
+                contextRerank = p[CONTEXT_RERANK]
+                    ?: defaults.suggestionStrip.contextRerank,
                 autoSpaceAfterSuggestion = p[AUTO_SPACE_AFTER_SUGGESTION]
                     ?: defaults.suggestionStrip.autoSpaceAfterSuggestion,
                 expandUserDictShortcuts = p[EXPAND_USER_DICT_SHORTCUTS]
@@ -5215,6 +5224,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setBlockOffensiveWords(value: Boolean) =
         editPrefs { it[BLOCK_OFFENSIVE_WORDS] = value }
+
+    suspend fun setContextRerank(value: Boolean) =
+        editPrefs { it[CONTEXT_RERANK] = value }
 
     suspend fun setAutoSpaceAfterSuggestion(value: Boolean) =
         editPrefs { it[AUTO_SPACE_AFTER_SUGGESTION] = value }

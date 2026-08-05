@@ -676,7 +676,9 @@ class SuggestionEngine(
         // Optional model pass over the head of the list; null keeps our order.
         val reordered = if (allowRerank && reranker !== CandidateReranker.NONE) {
             val pool = ranked.take(RERANK_POOL)
-            reranker.rerank(RerankContext(composing, previousWord, recentWords), pool)
+            reranker.rerank(
+                RerankContext(composing, previousWord, recentWords, previousWord2), pool,
+            )
                 ?.filter { it in pool }
                 ?.let { it + ranked.filterNot(it::contains) }
         } else {

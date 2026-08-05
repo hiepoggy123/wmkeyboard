@@ -5,6 +5,9 @@ class RerankContext(
     val composing: String,
     val previousWord: String?,
     val recentWords: List<String>,
+    /** The word before [previousWord], null when unknown or across a
+     * sentence boundary — same contract as the engine's trigram context. */
+    val previousWord2: String? = null,
 )
 
 /**

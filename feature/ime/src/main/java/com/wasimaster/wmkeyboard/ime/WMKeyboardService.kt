@@ -110,7 +110,9 @@ import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.MappedTrie
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
+import com.wasimaster.wmkeyboard.core.prediction.CandidateReranker
 import com.wasimaster.wmkeyboard.core.prediction.CorrectionStats
+import com.wasimaster.wmkeyboard.core.prediction.NgramReranker
 import com.wasimaster.wmkeyboard.core.prediction.KeyTouchModel
 import com.wasimaster.wmkeyboard.core.prediction.WordContext
 import com.wasimaster.wmkeyboard.core.prediction.TouchPoint
@@ -456,6 +458,21 @@ open class WMKeyboardService : InputMethodService() {
     /** Autocorrect's revert memory; swapped by attachPersonalStores and
      * handed to the engine (a memory-only default lives there until then). */
     private var correctionStats = CorrectionStats(null)
+
+    /**
+     * The context reranker, built once the seed bigrams are loaded. Wired
+     * into the engine only on Play-channel builds with the setting on; every
+     * other channel (F-Droid, direct download) keeps CandidateReranker.NONE
+     * and byte-identical strip ordering.
+     */
+    private var ngramReranker: NgramReranker? = null
+
+    private fun resolveReranker(settings: KeyboardSettings): CandidateReranker =
+        if (BuildConfig.ENABLE_PLAY_STORE && settings.suggestionStrip.contextRerank) {
+            ngramReranker ?: CandidateReranker.NONE
+        } else {
+            CandidateReranker.NONE
+        }
 
     private var composing = StringBuilder()
         set(value) {
@@ -1513,6 +1530,7 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.autocorrectConfidence =
                     settings.autocorrectConfidence.toDouble()
                 suggestionEngine?.adaptiveConfidence = settings.autocorrectAdaptive
+                suggestionEngine?.reranker = resolveReranker(settings)
                 suggestionEngine?.blacklist = settings.suggestionBlacklist
                 suggestionEngine?.blockOffensiveWords =
                     settings.suggestionStrip.blockOffensiveWords
@@ -1844,6 +1862,16 @@ open class WMKeyboardService : InputMethodService() {
                 secondaryDictionaries = secondaryIds.filter { it != "en" }
                     .mapNotNull { id -> customTries[id]?.let { SecondaryDictionary(id, it) } }
                 englishAsSecondary = "en" in secondaryIds && !lang.isEnglish
+                ngramReranker = NgramReranker(
+                    userLexicon,
+                    seedBigrams,
+                    // Read-through: dictionary downloads swap the engine's
+                    // list at runtime and the reranker must follow.
+                    dictionaryFrequency = { word ->
+                        suggestionEngine?.dictionary?.frequencyOf(word) ?: 0
+                    },
+                )
+                reranker = resolveReranker(_uiState.value.settings)
             }
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog, emojiShortcodes)
@@ -5897,6 +5925,7 @@ open class WMKeyboardService : InputMethodService() {
             delay((suggestionCostMs / 2).coerceIn(16L, 40L))
             val started = SystemClock.uptimeMillis()
             val touchFrame = composingTouchFrame()
+            val recentSnapshot = recentWords.toList()
             val (results, emojis, bias) = withContext(Dispatchers.Default) {
                 val suggested = engine.suggest(
                     composing = typed,
@@ -5904,6 +5933,8 @@ open class WMKeyboardService : InputMethodService() {
                     avroMode = state.composer.isBengaliPhonetic,
                     touch = touchFrame,
                     previousWord2 = previousWord2,
+                    recentWords = recentSnapshot,
+                    allowRerank = true,
                 )
                 // A28: a personal-dictionary shortcut typed in full offers its
                 // expansion as the top chip (e.g. "omw" → "on my way"). Prepended

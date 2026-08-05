@@ -35,6 +35,10 @@
     <string name="typing_autocorrect_confidence_subtitle">How certain the keyboard must be before it corrects a word</string>
     <string name="typing_autocorrect_confidence_info">The keyboard corrects a word only when the best candidate scores higher than the second candidate by this factor. A low value corrects more typos, but it guesses wrong more often. A high value corrects only when the word is almost certain. The keyboard always applies a correction that two sources agree on.</string>
 
+    <string name="typing_context_rerank_title">Context-aware suggestions</string>
+    <string name="typing_context_rerank_subtitle">Reorder suggestions by the words around them</string>
+    <string name="typing_context_rerank_info">The keyboard reorders the top suggestions with the words you typed before them: your own word pairs, common English pairs, and words from the current conversation. The reorder applies only when there is real evidence, so the usual order stays for unfamiliar contexts. This never changes which word autocorrect applies.</string>
+
     <string name="typing_autocorrect_adaptive_title">Adaptive confidence</string>
     <string name="typing_autocorrect_adaptive_subtitle">Correct less eagerly when you undo corrections often</string>
     <string name="typing_autocorrect_adaptive_info">The keyboard tracks how often you undo its corrections. When you undo corrections often, the keyboard raises the confidence it needs before it corrects a word. When you rarely undo corrections, the confidence returns to the value of the slider. The keyboard also remembers each correction you undo. A correction you undo twice never applies again.</string>

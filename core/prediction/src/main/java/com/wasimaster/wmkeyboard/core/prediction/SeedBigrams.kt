@@ -11,16 +11,22 @@ import java.io.InputStream
  * malformed lines skipped.
  */
 class SeedBigrams private constructor(
-    private val map: Map<String, List<String>>,
+    private val map: Map<String, List<Pair<String, Int>>>,
 ) {
 
     /** Continuations of [previous], best first. */
-    fun nextWords(previous: String): List<String> = map[previous].orEmpty()
+    fun nextWords(previous: String): List<String> =
+        map[previous]?.map { it.first }.orEmpty()
 
     /** Whether the bundled pairs know [next] as a follower of [previous].
      * Lists are short (a handful of seeds per word), so the scan is cheap. */
     fun follows(previous: String, next: String): Boolean =
-        map[previous]?.contains(next) == true
+        map[previous]?.any { it.first == next } == true
+
+    /** The bundled count of the pair, 0 when unknown. The list carried these
+     * all along; the context reranker is what finally reads them. */
+    fun count(previous: String, next: String): Int =
+        map[previous]?.firstOrNull { it.first == next }?.second ?: 0
 
     companion object {
         val EMPTY = SeedBigrams(emptyMap())
@@ -39,9 +45,7 @@ class SeedBigrams private constructor(
                 }
             }
             return SeedBigrams(
-                pairs.mapValues { (_, list) ->
-                    list.sortedByDescending { it.second }.map { it.first }
-                }
+                pairs.mapValues { (_, list) -> list.sortedByDescending { it.second } }
             )
         }
     }
