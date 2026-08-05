@@ -3451,7 +3451,19 @@ private class ToolDragController {
      * nodes: the handoff needs a holder that outlives both.
      */
     val emojiPlacement = SharedPlacement()
+    /**
+     * The stored pinned-tool list, in the order it is saved back (mirrored for
+     * an RTL bar; see KeyboardBody). Every commit is a rewrite of this.
+     */
     var currentTools: List<ToolbarTool> = emptyList()
+    /**
+     * The subset of [currentTools] the bar actually draws — a pinned tool the
+     * user has disabled, or one this build does not ship, is stored but never
+     * shown. Slots are counted against this list, because it is the one the
+     * finger is pointing at; [end] then translates the slot back into a
+     * position in the stored list, so hiding a tool never unpins it.
+     */
+    var visibleTools: List<ToolbarTool> = emptyList()
     var onCommit: (List<ToolbarTool>) -> Unit = {}
     /** Haptic tick when the drop target changes: slot to slot, or on/off the bar. */
     var onSnap: () -> Unit = {}
@@ -3516,8 +3528,7 @@ private class ToolDragController {
         val box = if (bar == null) toolboxSlotAt(position) else null
         cancel()
         if (bar != null) {
-            val without = currentTools - tool
-            onCommit(without.toMutableList().apply { add(bar, tool) })
+            onCommit(barWith(tool, bar))
         } else if (box != null) {
             // Dropped on the grid: place it at that spot in the toolbox
             // order — and off the bar first, when that's where it came from.
@@ -3539,11 +3550,26 @@ private class ToolDragController {
         val tool = dragging ?: return null
         val bar = toolbarBounds?.inflate(30f) ?: return null
         if (!bar.contains(at)) return null
-        val without = currentTools - tool
+        val without = visibleTools - tool
         if (without.isEmpty()) return 0
         return (((at.x - bar.left) / bar.width) * (without.size + 1))
             .toInt()
             .coerceIn(0, without.size)
+    }
+
+    /**
+     * The stored pinned list with [tool] moved to display slot [slot] of the
+     * bar. The same trick [orderWith] uses for the toolbox: the slot indexes
+     * the drawn tools, so the drawn tool it lands in front of is what pins the
+     * position down in a stored list that may hold tools the bar never drew.
+     */
+    private fun barWith(tool: ToolbarTool, slot: Int): List<ToolbarTool> {
+        val shown = visibleTools - tool
+        val successor = shown.getOrNull(slot.coerceIn(0, shown.size))
+        val bar = currentTools.toMutableList().apply { remove(tool) }
+        val at = successor?.let { bar.indexOf(it) }?.takeIf { it >= 0 } ?: bar.size
+        bar.add(at, tool)
+        return bar
     }
 
     /**
@@ -3741,6 +3767,12 @@ private fun Modifier.animatePlacement(
         // lands before the icon is ever painted undisplaced.
         var immediate by remember { mutableStateOf<IntOffset?>(null) }
         var lastTarget by remember { mutableStateOf<IntOffset?>(null) }
+        // Whether [lastTarget] was measured against the anchor or against the
+        // parent. The anchor is published from an onGloballyPositioned, which
+        // runs AFTER this node's first placement, so the first target is always
+        // parent-relative and every later one anchor-relative. Two different
+        // spaces: subtracting one from the other invents a move nothing made.
+        var lastAnchored by remember { mutableStateOf(false) }
         this
             .onPlaced { coords ->
                 val anchorCoords = anchor()?.takeIf { it.isAttached }
@@ -3748,10 +3780,22 @@ private fun Modifier.animatePlacement(
                     anchorCoords?.localPositionOf(coords, Offset.Zero)
                         ?: coords.positionInParent()
                     ).round()
-                val previous = lastTarget
+                val anchored = anchorCoords != null
+                val previous = lastTarget.takeIf { lastAnchored == anchored }
                 lastTarget = target
-                // First placement settles in place: a fresh icon has nowhere
-                // to have travelled from.
+                lastAnchored = anchored
+                // First placement settles in place: a fresh icon has nowhere to
+                // have travelled from. So does the first one after the anchor
+                // turned up, for the same reason — that target and the one
+                // before it are in different spaces.
+                //
+                // This is what made a freshly opened toolbox slide its pills
+                // around: parent-relative, every pill sits at ~(0,0) inside its
+                // own cell, so the second pass handed each one a "move" equal to
+                // its own slot in the grid. Column offsets and the lower rows
+                // were past [PlacementSlideCap] and snapped, but the left column
+                // of row 2 is exactly one pill-pitch down — inside the cap — so
+                // that one pill, and only that one, slid in from the row above.
                 if (previous == null || previous == target) return@onPlaced
                 val delta = previous - target
                 // A row-bound icon that moved vertically did not move: its row
@@ -3823,6 +3867,9 @@ private fun placementCap(inRow: Boolean, anchorCoords: LayoutCoordinates?): Floa
 private class SharedPlacement {
     var last: IntOffset? = null
 
+    /** Whether [last] was measured against the anchor or against a parent. */
+    var lastAnchored: Boolean = false
+
     /**
      * When the node holding [last] was disposed, or 0 while one still holds it.
      *
@@ -3874,6 +3921,12 @@ private fun Modifier.animateSharedPlacement(
         // not just the cross-parent handoff. Without this the emoji snapped
         // whenever the toolbar reshuffled — every other icon slid but it.
         var lastTarget by remember { mutableStateOf<IntOffset?>(null) }
+        // Anchor-relative or parent-relative, for this node and for the shared
+        // stamp alike. The anchor arrives from an onGloballyPositioned a pass
+        // late, so a first position is parent-relative and everything after it
+        // is not; comparing across the two would invent a move. See the same
+        // note in [animatePlacement].
+        var lastAnchored by remember { mutableStateOf(false) }
         this
             .onPlaced { coords ->
                 val anchorCoords = anchor()?.takeIf { it.isAttached }
@@ -3881,13 +3934,16 @@ private fun Modifier.animateSharedPlacement(
                     anchorCoords?.localPositionOf(coords, Offset.Zero)
                         ?: coords.positionInParent()
                     ).round()
-                if (lastTarget == position) return@onPlaced
-                val ownPrevious = lastTarget
-                val sharedPrevious = shared.last
+                val anchored = anchorCoords != null
+                if (lastTarget == position && lastAnchored == anchored) return@onPlaced
+                val ownPrevious = lastTarget.takeIf { lastAnchored == anchored }
+                val sharedPrevious = shared.last?.takeIf { shared.lastAnchored == anchored }
                 val vacatedAt = shared.vacatedAtNanos
                 val first = ownPrevious == null
                 lastTarget = position
+                lastAnchored = anchored
                 shared.last = position
+                shared.lastAnchored = anchored
                 // Claim the slot: while this node lives there is no vacancy.
                 shared.vacatedAtNanos = 0L
                 if (!enabled) return@onPlaced
@@ -3906,7 +3962,15 @@ private fun Modifier.animateSharedPlacement(
                     else -> null
                 } ?: return@onPlaced
                 if (previous == position) return@onPlaced
-                val delta = previous - position
+                val raw = previous - position
+                // A handoff travels along the bar and nowhere else, so only the
+                // horizontal part of it is real. The two nodes are not the same
+                // shape — the toolbar's pinned emoji is a 30dp circle with its
+                // name under it, the strip's is a bare 38dp one — so their tops
+                // sit a few pixels apart and the vertical rule below read that
+                // as "the row moved" and snapped. Which is why the icon stopped
+                // sliding across the moment toolbar labels were switched on.
+                val delta = if (handoff) IntOffset(raw.x, 0) else raw
                 // A slide along the bar never changes height; a vertical move
                 // means the rows themselves shifted (a panel opened, the emoji
                 // row appeared), which animating reads as lag — snap it.
@@ -3973,14 +4037,26 @@ private fun ToolCircle(
     // long-press tooltip is then redundant and suppressed.
     label: String? = null,
     labelSizeSp: Int = 9,
+    // Draws this button as a drop preview — washed out, outlined, "will go
+    // here" — while keeping the footprint of the real thing. Same look as
+    // [GhostToolCircle], but it follows the label setting, and a bare circle
+    // standing in for a labelled button is a whole row's worth of height
+    // missing from the preview.
+    ghost: Boolean = false,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
     val shape = RoundedCornerShape(kb.toolRadiusDp.dp)
     val background = when {
+        ghost -> kb.toolCircleActive.copy(alpha = 0.22f)
         active -> kb.toolCircleActive
         kb.toolRadiusDp > 0 -> kb.toolCircle
         else -> Color.Transparent
+    }
+    val outline = if (ghost) {
+        Modifier.border(1.dp, kb.toolbarIcon.copy(alpha = 0.35f), shape)
+    } else {
+        Modifier
     }
     var showLabel by remember { mutableStateOf(false) }
     val feedback = LocalKeyPressFeedback.current
@@ -3999,8 +4075,9 @@ private fun ToolCircle(
             )
         }
     }
-    val iconTint = if (active) kb.toolCircleActiveIcon else (tint ?: kb.toolbarIcon)
-    val iconBrush = if (active) null else tintBrush
+    val fullTint = if (active) kb.toolCircleActiveIcon else (tint ?: kb.toolbarIcon)
+    val iconTint = if (ghost) fullTint.copy(alpha = 0.45f) else fullTint
+    val iconBrush = if (active || ghost) null else tintBrush
     if (label != null) {
         // Labelled variant (toolbar labels): icon in its circle, name beneath.
         Column(
@@ -4012,7 +4089,8 @@ private fun ToolCircle(
                 modifier = Modifier
                     .size(30.dp)
                     .clip(shape)
-                    .background(background, shape),
+                    .background(background, shape)
+                    .then(outline),
                 contentAlignment = Alignment.Center,
             ) {
                 SlotIcon(
@@ -4029,7 +4107,7 @@ private fun ToolCircle(
                 lineHeight = (labelSizeSp + 1).sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = iconTint,
+                color = if (ghost) fullTint.copy(alpha = 0.5f) else fullTint,
                 modifier = Modifier.padding(top = 1.dp, start = 1.dp, end = 1.dp),
             )
         }
@@ -4040,6 +4118,7 @@ private fun ToolCircle(
             .size(38.dp)
             .clip(shape)
             .background(background, shape)
+            .then(outline)
             .then(click),
         contentAlignment = Alignment.Center,
     ) {
@@ -4139,28 +4218,28 @@ private fun RowScope.ToolbarRow(
     val tools = state.settings.toolbarTools
         .filter { it in state.settings.enabledTools && isSupportedTool(it) }
         .let { if (toolbarReadsRtl(state)) it.reversed() else it }
-    // While a drag is live the bar previews the drop: the dragged tool's
-    // cell leaves the row and a null entry (the ghost) occupies the slot
-    // under the finger, so the pinned icons slide out of the way before
-    // anything is committed.
-    // The dragged tool's own cell has to STAY composed: it hosts the pointer
-    // handler driving the drag, and dropping it from the row disposed that
-    // handler the instant the hold registered — which cancelled the gesture
-    // and sent every long-press down the "open settings" path instead. It
-    // renders invisible in place; the ghost marks where the drop would land.
+    drag.visibleTools = tools
+    // While a drag is live the bar previews the drop by MOVING the dragged
+    // tool's own cell to the slot under the finger and drawing it as a ghost
+    // there. Not by inserting a separate ghost entry: the dragged cell has to
+    // stay composed (it hosts the pointer handler driving the drag — dropping
+    // it disposed that handler the instant the hold registered, which sent
+    // every long-press down the "open settings" path instead), so an inserted
+    // ghost made the row one cell longer than the row the drop commits to.
+    // Every icon between the tool's old slot and the new one then previewed a
+    // slot to the side of where it actually ended up.
+    //
+    // A keyed move is enough here. Row re-measures and re-places its children
+    // on a pure reorder — unlike FlowRow, which is why the toolbox grid has to
+    // re-key its ghost per slot instead (see [ToolboxGrid]).
     val dragTool = drag.dragging
     val ghostSlot = drag.barSlot
-    val displayTools: List<ToolbarTool?> = ArrayList<ToolbarTool?>(tools).apply {
-        if (dragTool == null || ghostSlot == null) return@apply
-        val source = tools.indexOf(dragTool)
-        val at = ghostSlot.coerceIn(0, (tools - dragTool).size)
-        // Landing back where it started needs no ghost — the held cell's own
-        // gap already marks the spot. Drawing one there would shove the held
-        // cell sideways under a still finger, which reads as a drag.
-        if (at == source) return@apply
-        // The slot indexes the row without the dragged tool, so a slot past
-        // the (still present) source cell shifts one to the right.
-        add(if (source >= 0 && at > source) at + 1 else at, null)
+    val displayTools: List<ToolbarTool> = if (dragTool != null && ghostSlot != null) {
+        (tools - dragTool).toMutableList().apply {
+            add(ghostSlot.coerceIn(0, size), dragTool)
+        }
+    } else {
+        tools
     }
     val panelOpen = state.panel != PanelMode.NONE
 
@@ -4231,7 +4310,7 @@ private fun RowScope.ToolbarRow(
     }
     val toolCells: @Composable RowScope.() -> Unit = {
         for (tool in displayTools) {
-            key(tool ?: "bar-ghost") {
+            key(tool) {
                 val cell = if (greedy) {
                     Modifier
                         .weight(1f)
@@ -4248,60 +4327,53 @@ private fun RowScope.ToolbarRow(
                     cell.graphicsLayer { alpha = contentAlpha() }
                 }
                 Box(fadedCell, contentAlignment = Alignment.Center) {
-                    if (tool == null) {
-                        // The drop preview; dragTool is never null when a
-                        // ghost entry exists.
-                        GhostToolCircle(
-                            dragTool ?: return@Box,
-                            modifier = Modifier
-                                .animatePlacement(enabled = motion, inRow = true) { drag.bodyCoords },
-                        )
-                    } else {
-                        // Drag is always live: hold-and-drag reorders the bar
-                        // (or unpins into an open toolbox); a hold that never
-                        // moves opens the tool's settings page instead.
-                        DraggableTool(
-                            tool,
-                            fromToolbar = true,
-                            enabled = true,
-                            drag = drag,
-                            onTap = { onToolTap(tool) },
-                        ) { dragModifier ->
-                            ToolCircle(
-                                slot = IconSlots.forTool(tool),
-                                description = toolLabel(tool),
-                                active = toolActive(tool, state),
-                                label = if (labels) toolLabel(tool) else null,
-                                labelSizeSp = labelSize,
-                                // The icon itself animates, anchored at the
-                                // keyboard body: cells are weighted so their
-                                // widths snap, and only body-relative tracking
-                                // sees the true on-screen motion. While this is
-                                // the tool being dragged the cell holds its
-                                // place but shows nothing — the floating icon
-                                // under the finger is the one to look at.
-                                // The emoji tool also exists on the
-                                // suggestion strip, so it hands its position
-                                // across that swap instead of tracking only
-                                // its own node.
-                                modifier = dragModifier
-                                    .then(
-                                        if (tool == ToolbarTool.EMOJI) {
-                                            Modifier.animateSharedPlacement(
-                                                drag.emojiPlacement,
-                                                enabled = motion,
-                                            ) { drag.bodyCoords }
-                                        } else {
-                                            Modifier.animatePlacement(
-                                                enabled = motion,
-                                                inRow = true,
-                                            ) { drag.bodyCoords }
-                                        },
-                                    )
-                                    .alpha(if (tool == dragTool) 0f else 1f),
-                                interactive = false,
-                            ) {}
-                        }
+                    // Drag is always live: hold-and-drag reorders the bar
+                    // (or unpins into an open toolbox); a hold that never
+                    // moves opens the tool's settings page instead.
+                    DraggableTool(
+                        tool,
+                        fromToolbar = true,
+                        enabled = true,
+                        drag = drag,
+                        onTap = { onToolTap(tool) },
+                    ) { dragModifier ->
+                        ToolCircle(
+                            slot = IconSlots.forTool(tool),
+                            description = toolLabel(tool),
+                            active = toolActive(tool, state),
+                            label = if (labels) toolLabel(tool) else null,
+                            labelSizeSp = labelSize,
+                            // This cell IS the drop preview while it is the one
+                            // being dragged: it has moved to the slot under the
+                            // finger and draws washed out there, so the row on
+                            // screen is exactly the row the drop commits. The
+                            // solid icon to look at is the floating one under
+                            // the finger.
+                            ghost = tool == dragTool,
+                            // The icon itself animates, anchored at the
+                            // keyboard body: cells are weighted so their
+                            // widths snap, and only body-relative tracking
+                            // sees the true on-screen motion.
+                            // The emoji tool also exists on the
+                            // suggestion strip, so it hands its position
+                            // across that swap instead of tracking only
+                            // its own node.
+                            modifier = dragModifier
+                                .then(
+                                    if (tool == ToolbarTool.EMOJI) {
+                                        Modifier.animateSharedPlacement(
+                                            drag.emojiPlacement,
+                                            enabled = motion,
+                                        ) { drag.bodyCoords }
+                                    } else {
+                                        Modifier.animatePlacement(
+                                            enabled = motion,
+                                            inRow = true,
+                                        ) { drag.bodyCoords }
+                                    },
+                                ),
+                            interactive = false,
+                        ) {}
                     }
                 }
             }
