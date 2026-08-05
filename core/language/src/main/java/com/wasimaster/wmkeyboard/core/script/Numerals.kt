@@ -15,6 +15,11 @@ import com.wasimaster.wmkeyboard.language.R
  * language's own [LanguageDef.numeralSystem]"; every other value forces that
  * system while that language is active.
  *
+ * Settings offers two of these per language — [AUTO] (that language's own
+ * digits) and [LATIN] — because no Bengali writer wants Persian digits. The
+ * named systems stay here for [LanguageDef.numeralSystem] to point at, and so a
+ * value an older build stored still decodes and still types what it says.
+ *
  * [labelRes] is the settings label, resolved where it is drawn so it follows the
  * device language. Every value but [AUTO] labels itself with its own digits, so
  * those resources are marked untranslatable.

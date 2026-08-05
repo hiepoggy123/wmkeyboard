@@ -70,6 +70,7 @@ import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.script.SuggestedLanguage
 import com.wasimaster.wmkeyboard.core.script.SuggestionReason
+import com.wasimaster.wmkeyboard.core.script.resolveNumeralDigits
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -640,25 +641,43 @@ internal fun LanguageDetailScreen(
     }
 
     // Numerals are per language: Arabic can type ٠-٩ while English beside it
-    // stays 0-9. Auto is the language's own default, so most languages never
-    // need touching.
-    SettingsGroup(stringResource(R.string.languages_numerals_title)) {
-        item {
-            val options = NumeralSystem.entries.map { it to stringResource(it.labelRes) }
-            ChoiceSetting(
-                R.string.languages_numeral_system_title,
-                subtitle = stringResource(
-                    R.string.languages_numeral_system_subtitle,
-                    lang.englishName,
-                ),
-                info = stringResource(
-                    R.string.languages_numeral_system_info,
-                    lang.englishName,
-                    stringResource(lang.numeralSystem.labelRes),
-                ),
-                options = options,
-                selected = settings.layoutBehavior.numeralSystemFor(langId),
-            ) { scope.launch { repository.setNumeralSystemForLanguage(langId, it) } }
+    // stays 0-9. Two options only — this language's own digits (stored as
+    // [NumeralSystem.AUTO], which follows the language) or 0-9. The full list of
+    // systems was there before and made no sense to offer: nobody writing
+    // Bengali wants Persian digits, and every extra button was one more way to
+    // get the keyboard into a state the user did not mean. A language whose own
+    // digits are 0-9 has nothing to choose, so it gets no row at all.
+    val nativeNumerals = lang.numeralSystem
+    if (nativeNumerals != NumeralSystem.LATIN) {
+        SettingsGroup(stringResource(R.string.languages_numerals_title)) {
+            item {
+                val current = settings.layoutBehavior.numeralSystemFor(langId)
+                ChoiceSetting(
+                    R.string.languages_numeral_system_title,
+                    subtitle = stringResource(
+                        R.string.languages_numeral_system_subtitle,
+                        lang.englishName,
+                    ),
+                    info = stringResource(
+                        R.string.languages_numeral_system_info,
+                        lang.englishName,
+                        stringResource(nativeNumerals.labelRes),
+                    ),
+                    options = listOf(
+                        NumeralSystem.AUTO to stringResource(nativeNumerals.labelRes),
+                        NumeralSystem.LATIN to stringResource(NumeralSystem.LATIN.labelRes),
+                    ),
+                    // A value an older build stored (say Persian digits under
+                    // Bengali) is not one of the two buttons. It reads as
+                    // whichever of them it behaves like, so the row still shows
+                    // the truth and one press writes a value from this list.
+                    selected = if (resolveNumeralDigits(current, lang) == null) {
+                        NumeralSystem.LATIN
+                    } else {
+                        NumeralSystem.AUTO
+                    },
+                ) { scope.launch { repository.setNumeralSystemForLanguage(langId, it) } }
+            }
         }
     }
 
