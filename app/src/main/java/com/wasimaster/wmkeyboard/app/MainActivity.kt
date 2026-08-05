@@ -11354,7 +11354,9 @@ private fun ModeEditor(
                 }
                 ReorderSetting(
                     title = stringResource(R.string.modes_pinned_order_title),
-                    dialogTitle = stringResource(R.string.modes_pinned_order_dialog_title),
+                    dialogTitle = stringResource(
+                        R.string.modes_pinned_order_dialog_title_mode, mode.name,
+                    ),
                     items = pinned,
                     label = { toolNames[it].orEmpty() },
                 ) { save(mode.copy(toolbarTools = it)) }
@@ -11392,7 +11394,9 @@ private fun ModeEditor(
                 }
                 ReorderSetting(
                     title = stringResource(R.string.modes_toolbox_order_reorder_title),
-                    dialogTitle = stringResource(R.string.modes_toolbox_order_dialog_title),
+                    dialogTitle = stringResource(
+                        R.string.modes_toolbox_order_dialog_title_mode, mode.name,
+                    ),
                     items = order,
                     label = { toolNames[it].orEmpty() },
                 ) { save(mode.copy(toolboxOrder = it)) }
@@ -11452,7 +11456,9 @@ private fun ModeEditor(
                 val setName = { id: String -> setNames[id] ?: id }
                 ReorderSetting(
                     title = stringResource(R.string.modes_symbol_set_order_title),
-                    dialogTitle = stringResource(R.string.modes_symbol_set_order_dialog_title),
+                    dialogTitle = stringResource(
+                        R.string.modes_symbol_set_order_dialog_title_mode, mode.name,
+                    ),
                     items = modeSets,
                     label = setName,
                 ) { save(mode.copy(symbolSetIds = it)) }

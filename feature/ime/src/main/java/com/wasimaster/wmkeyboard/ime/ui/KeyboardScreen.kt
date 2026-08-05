@@ -5926,10 +5926,44 @@ private fun KeyboardBody(
                 )
             }
         }
+        // Names the scope a tool drag lands in — a mode's own arrangement or
+        // the one shared by every app. TopCenter never clashes with the
+        // picker overlay below: a picker cannot be armed mid-drag.
+        if (drag.dragging != null) {
+            DragScopeLabel(state, modifier = Modifier.align(Alignment.TopCenter))
+        }
         // Last in the Box, so the armed picker's hint floats over the top strip
         // instead of pushing the keys down — arming must not resize the keyboard.
         ToolPickerOverlay(state, modifier = Modifier.align(Alignment.TopCenter))
     }
+}
+
+/**
+ * Floating pill shown for the whole of a tool drag, telling the user where
+ * the new arrangement is saved: the active mode's own tool order (when mode
+ * drag-edits are on and the mode carries one — the same rule as the
+ * service's `toolOrderOwner`) or the global order every app shares.
+ */
+@Composable
+private fun DragScopeLabel(state: KeyboardUiState, modifier: Modifier = Modifier) {
+    val kb = LocalKbTheme.current
+    val mode = state.settings.keyboardModes
+        .firstOrNull { it.id == state.activeModeId }
+        ?.takeIf { state.settings.modeToolOrderEdits && it.ownsToolOrder }
+    Text(
+        text = if (mode != null) {
+            stringResource(R.string.ime_toolbox_drag_scope_mode, mode.name)
+        } else {
+            stringResource(R.string.ime_toolbox_drag_scope_global)
+        },
+        fontSize = 11.sp,
+        color = kb.toolCircleActiveIcon,
+        maxLines = 1,
+        modifier = modifier
+            .padding(top = 4.dp)
+            .background(kb.toolCircleActive, RoundedCornerShape(12.dp))
+            .padding(horizontal = 10.dp, vertical = 3.dp),
+    )
 }
 
 // ---- key grid ----
