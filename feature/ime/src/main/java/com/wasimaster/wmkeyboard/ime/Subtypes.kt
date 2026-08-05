@@ -44,9 +44,10 @@ internal fun stableSubtypeId(layoutId: String): Int {
 
 /**
  * Reads the layout id out of a subtype's raw extra-value string, or null when the
- * subtype is not one of ours (e.g. the static bootstrap subtype from method.xml,
- * which carries no layout id). Pure so it is unit-testable without the Android
- * framework's [InputMethodSubtype].
+ * subtype is not one of ours (method.xml declares none, but the framework hands
+ * back a subtype we never registered often enough — a stale one from before an
+ * update, say — to be worth the null). Pure so it is unit-testable without the
+ * Android framework's [InputMethodSubtype].
  */
 internal fun layoutIdFromExtraValue(extraValue: String?): String? {
     if (extraValue.isNullOrEmpty()) return null

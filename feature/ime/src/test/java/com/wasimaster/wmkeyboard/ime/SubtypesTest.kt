@@ -26,7 +26,7 @@ class SubtypesTest {
         assertNull(layoutIdFromExtraValue(null))
         assertNull(layoutIdFromExtraValue(""))
         assertNull(layoutIdFromExtraValue("foo=bar"))
-        // The static bootstrap subtype and a truncated value carry no id.
+        // A subtype that is not ours and a truncated value carry no id.
         assertNull(layoutIdFromExtraValue("layoutId="))
     }
 

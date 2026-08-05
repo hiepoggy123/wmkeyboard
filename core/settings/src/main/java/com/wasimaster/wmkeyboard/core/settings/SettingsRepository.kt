@@ -1013,9 +1013,14 @@ data class KeyboardSettings(
      * system language switcher (the "Choose input method" sheet) lists them and
      * can switch between them. Off = the keyboard registers no subtypes and
      * ignores OS subtype switches; language switching then lives entirely
-     * in-keyboard (globe / spacebar / picker).
+     * in-keyboard (globe / spacebar / picker), and the sheet lists the keyboard
+     * under its own name, like keyboards that expose no subtypes at all.
+     *
+     * Off by default: the switcher draws the subtype label where a subtype-less
+     * keyboard draws its name, so one language name in that row reads as the
+     * keyboard's name.
      */
-    val osLanguageSwitcher: Boolean = true,
+    val osLanguageSwitcher: Boolean = false,
     /**
      * Lead the switcher's subtype label with the app name ("WM Keyboard ·
      * English") rather than the bare language. The system decides how it styles

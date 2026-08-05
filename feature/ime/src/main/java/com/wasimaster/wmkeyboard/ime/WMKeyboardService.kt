@@ -4698,8 +4698,10 @@ open class WMKeyboardService : InputMethodService() {
      * Mirrors the enabled layouts to the OS as additional input-method subtypes,
      * so the system language switcher lists them and can switch between them.
      * Off (the [KeyboardSettings.osLanguageSwitcher] toggle) registers an empty
-     * set, clearing any previously exposed subtypes. Diffed against the last
-     * write via [registeredSubtypeSig].
+     * set, clearing any previously exposed subtypes. method.xml declares no
+     * static subtype either, so off leaves the keyboard with none at all and the
+     * switcher lists it under its own name rather than under a language.
+     * Diffed against the last write via [registeredSubtypeSig].
      */
     // The String-id overload is deprecated on new SDKs but is the only one that
     // exists at minSdk 24 — the typed replacement is API 36+.
@@ -4733,7 +4735,8 @@ open class WMKeyboardService : InputMethodService() {
      *
      * API 34+ lets an IME write its own entry in
      * `Settings.Secure.ENABLED_INPUT_METHODS`; an empty array resets to that
-     * locale-derived default, which is what the switcher-off path wants. The
+     * locale-derived default, which is what the switcher-off path wants — and
+     * with no registered subtypes left to derive from, that default is empty. The
      * framework keys the entry on [InputMethodSubtype.hashCode], which is the
      * explicit [stableSubtypeId] we hand the builder in [subtypeFor].
      *

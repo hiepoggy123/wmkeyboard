@@ -1870,7 +1870,7 @@ python3 docs/screenshots/import.py settings-languages
 - am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages
 - Scroll to the System language switcher group near the bottom of the screen.
 
-> osLanguageSwitcher defaults to true, so 'List languages in Android's switcher' is on and the 'Show app name first' sub-toggle (default off) should be visible beneath it.
+> osLanguageSwitcher defaults to false, so 'List languages in Android's switcher' is off and the 'Show app name first' sub-toggle is hidden. Turn the toggle on before the shot so both rows are visible.
 
 ### 12. `languages/bengali-language-screen`
 

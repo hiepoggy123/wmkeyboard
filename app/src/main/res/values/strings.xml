@@ -15,7 +15,6 @@
       has to read as an action rather than as the app's name.
     -->
     <string name="import_file_label">Import into WM Keyboard</string>
-    <string name="subtype_english">English</string>
     <!--
       Launcher shortcuts (long-press the app icon). "short" is what the launcher
       draws under the icon and is clipped hard — around 10 characters — so it is

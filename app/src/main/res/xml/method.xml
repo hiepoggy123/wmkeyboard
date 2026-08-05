@@ -3,14 +3,15 @@
     android:settingsActivity="com.wasimaster.wmkeyboard.app.MainActivity"
     android:supportsSwitchingToNextInputMethod="true">
     <!--
-      A single bootstrap subtype, valid before the service registers the real
-      per-layout subtypes at runtime (WMKeyboardService.registerSubtypes). It
-      carries no layoutId extra value, so selecting it in the OS switcher is a
-      harmless no-op; the additional subtypes are what actually switch layout.
+      No static subtypes on purpose. Every subtype we expose is registered at
+      runtime, one per enabled layout (WMKeyboardService.registerSubtypes), and
+      only while the "list languages in the Android switcher" setting is on.
+
+      A static one used to sit here as a bootstrap entry. The system implicitly
+      enables it whenever nothing else is enabled, and the input-method picker
+      draws the subtype label where the other keyboards show their own name — so
+      with the setting off the keyboard was listed as "English" while everything
+      else was listed by name. With no static subtype the picker has no label to
+      draw and falls back to the IME label, @string/ime_name.
     -->
-    <subtype
-        android:label="@string/subtype_english"
-        android:imeSubtypeLocale="en_US"
-        android:imeSubtypeMode="keyboard"
-        android:isAsciiCapable="true" />
 </input-method>
