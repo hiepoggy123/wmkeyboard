@@ -8,8 +8,9 @@
  *   <ThemePreview />        — built-in showcase set (ThemeSpec-shaped)
  *
  * Honoured fields: boardBackground, boardGradient (LINEAR/RADIAL/SWEEP +
- * angle), backgroundImageBase64 (+opacity/blur), keyShape (ROUNDED/PILL/
- * CUT/SQUIRCLE), keyGradient, keyBackground/keyText (alpha included),
+ * angle), backgroundImageBase64 (+opacity/blur), keyShape (all eleven, the
+ * fancier ones approximated in CSS), keyGradient, keyBackground/keyText
+ * (alpha included),
  * modifierKeyBackground/Text, enterKeyBackground/Text, keyBorderColor/
  * WidthDp, keyCornerRadiusDp, toolbarIcon, toolCircleBackground/
  * ActiveBackground, toolCircleRadiusDp, animation FLOW/HUE_CYCLE +
@@ -35,7 +36,9 @@ interface Spec {
 	backgroundImageBase64?: string | null;
 	backgroundImageOpacity?: number;
 	backgroundImageBlur?: number;
-	keyShape?: 'ROUNDED' | 'PILL' | 'CUT' | 'SQUIRCLE';
+	keyShape?:
+		| 'ROUNDED' | 'SHARP' | 'PILL' | 'CUT' | 'SQUIRCLE' | 'ARCH'
+		| 'LEAF' | 'SLANT' | 'HEXAGON' | 'SCALLOP' | 'TICKET';
 	keyGradient?: Gradient | null;
 	keyBackground?: number;
 	keyText?: number;
@@ -85,6 +88,66 @@ function imageMime(b64: string): string {
 	return 'image/jpeg';
 }
 
+/**
+ * The `clip-path` for a key shape, or `none` when `border-radius` covers it.
+ *
+ * The app draws these as real paths sized off each key. A mock keyboard has
+ * percentages instead, so the counts here (six bumps across a key, two down
+ * each side) are fixed rather than measured, and the corners of the ticket and
+ * the bumps of the scallop are polygons approximating their arcs.
+ */
+function clipFor(shape: string): string {
+	if (shape === 'CUT') {
+		return 'polygon(12% 0,88% 0,100% 22%,100% 78%,88% 100%,12% 100%,0 78%,0 22%)';
+	}
+	if (shape === 'SLANT') return 'polygon(16% 0,100% 0,84% 100%,0 100%)';
+	if (shape === 'HEXAGON') {
+		return 'polygon(16% 0,84% 0,100% 50%,84% 100%,16% 100%,0 50%)';
+	}
+	// Both remaining shapes walk the key's outline in percentages, so they share
+	// one corner-to-corner walk: `arc` appends one quarter or half turn of an
+	// ellipse as line segments.
+	const pts: string[] = [];
+	const arc = (
+		cx: number, cy: number, rx: number, ry: number,
+		fromDeg: number, toDeg: number, steps: number,
+	) => {
+		for (let i = 0; i <= steps; i++) {
+			const t = ((fromDeg + ((toDeg - fromDeg) * i) / steps) * Math.PI) / 180;
+			pts.push(`${(cx + rx * Math.cos(t)).toFixed(1)}% ${(cy + ry * Math.sin(t)).toFixed(1)}%`);
+		}
+	};
+	if (shape === 'TICKET') {
+		const rx = 12, ry = 26;
+		arc(0, 0, rx, ry, 90, 0, 4);
+		arc(100, 0, rx, ry, 180, 90, 4);
+		arc(100, 100, rx, ry, 270, 180, 4);
+		arc(0, 100, rx, ry, 0, -90, 4);
+		return `polygon(${pts.join(',')})`;
+	}
+	if (shape === 'SCALLOP') {
+		// Three bumps a side, tuned against a letter key. The real keyboard
+		// counts bumps off each key's own size, so a spacebar there keeps them
+		// small; percentages can't do that, so a wide key here gets wide bumps.
+		const across = 3, down = 3, dx = 14, dy = 14;
+		const stepX = (100 - 2 * dx) / across, stepY = (100 - 2 * dy) / down;
+		for (let i = 0; i < across; i++) {
+			arc(dx + stepX * (i + 0.5), dy, stepX / 2, dy, 180, 360, 6);
+		}
+		for (let j = 0; j < down; j++) {
+			arc(100 - dx, dy + stepY * (j + 0.5), dx, stepY / 2, -90, 90, 6);
+		}
+		for (let i = across - 1; i >= 0; i--) {
+			arc(dx + stepX * (i + 0.5), 100 - dy, stepX / 2, dy, 0, 180, 6);
+		}
+		for (let j = down - 1; j >= 0; j--) {
+			arc(dx, dy + stepY * (j + 0.5), dx, stepY / 2, 90, 270, 6);
+		}
+		return `polygon(${pts.join(',')})`;
+	}
+	return 'none';
+}
+
 /** ThemeSpec → the CSS custom properties the mock consumes. */
 function toVars(s: Spec): { vars: string; anim: string; dur: number; chipBg: string; chipKey: string } {
 	const keyText = css(s.keyText, '#e9e9ee');
@@ -94,12 +157,16 @@ function toVars(s: Spec): { vars: string; anim: string; dur: number; chipBg: str
 	const radius =
 		shape === 'PILL' ? '999px'
 		: shape === 'SQUIRCLE' ? '0.95rem'
-		: shape === 'CUT' ? '0px'
+		: shape === 'SHARP' ? '0px'
+		// Half of .tp-key's 2.7rem height, the way the app rounds these two off
+		// the key's short side. Percentages would arc across the whole width and
+		// turn the arch into a dome.
+		: shape === 'ARCH' ? '1.35rem 1.35rem 0.35rem 0.35rem'
+		: shape === 'LEAF' ? '1.35rem 0.3rem 1.35rem 0.3rem'
+		: shape === 'CUT' || shape === 'SLANT' || shape === 'HEXAGON'
+			|| shape === 'SCALLOP' || shape === 'TICKET' ? '0px'
 		: `${s.keyCornerRadiusDp ?? 9}px`;
-	const clip =
-		shape === 'CUT'
-			? 'polygon(12% 0,88% 0,100% 22%,100% 78%,88% 100%,12% 100%,0 78%,0 22%)'
-			: 'none';
+	const clip = clipFor(shape);
 	const sweep = s.boardGradient?.type === 'SWEEP';
 	const v: Record<string, string> = {
 		'--tp-fill-color': fillColor,

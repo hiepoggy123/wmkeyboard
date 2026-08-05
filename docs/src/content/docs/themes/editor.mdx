@@ -47,11 +47,37 @@ The rest of the editor is grouped into sections, each opening a standard color p
 
 ### Keys
 
-- **Key shape** — a segmented picker: Rounded, Pill, Cut, or Squircle. Rounded and Cut both follow the corner-radius value (global or per-theme override, see [Corners](#corners)); Cut clamps its radius between 2 and 14dp regardless of the slider. Pill is always a full stadium shape, independent of the radius. Squircle draws a hand-computed superellipse curve (the same shape family as an iOS app icon) that's also independent of the radius slider.
+- **Key shape** — a row that opens a picker with all eleven shapes listed by name, each drawn beside its name at key proportions and at this theme's own corner radius, so you can see what you're choosing before you choose it. The full list, and which shapes react to the radius slider, is under [Key shapes](#key-shapes) below.
 - **Letter keys** — the color, plus an optional **Key gradient**, a subtle sheen painted over letter keys only (see [Gradients](#gradients)).
 - **Key text**, **Modifier keys**, **Modifier key text** (falls back to Key text when left on Auto), **Enter key**, **Enter key icon**.
 - **Pressed key** — the color a key flashes while held; Auto derives it from Letter keys.
 - **Key border** — off (Auto, no visible border) until you pick a color. Once a border color is set, a **Border width** slider (0–3dp) appears; it starts at 0dp, so turning on a border color alone doesn't show one until you also raise the width.
+
+### Key shapes
+
+Eleven shapes, in the order the picker lists them. The four plain outlines come first, then the decorative ones:
+
+| Shape | What it looks like | Reads the radius slider? |
+|---|---|---|
+| Rounded *(default)* | The ordinary rounded rectangle | Yes, 0–28dp |
+| Square | Four sharp corners, no rounding at all | No |
+| Pill | A full stadium, rounded to half the key's height | No |
+| Cut | Corners chamfered off at 45° | Yes, but clamped to 2–14dp |
+| Squircle | A superellipse, the same curve family as an iOS app icon | No |
+| Arch | Round across the top, nearly square at the bottom | No |
+| Leaf | Top-left and bottom-right fully round, the other two nearly square | No |
+| Slanted | A parallelogram, both vertical sides leaning right | No |
+| Hexagon | Points at the left and right, flat top and bottom | No |
+| Scalloped | A rim of even bumps, like the edge of a biscuit | No |
+| Ticket | Corners bitten inwards by a circle, like a cinema ticket | No |
+
+The shapes that ignore the slider aren't being lazy about it. Their whole look is a proportion of the key rather than a corner size, so they measure themselves off the key's own width and height: the arch is always half the key's height, the hexagon's points are always a sixth of its width, the scallops always count out at roughly the same size whether it's a letter key or a spacebar. Wire them to a 0–28dp slider instead and one end of it flattens them into plain rectangles.
+
+Only the drawing changes. Touch targets stay rectangular for every shape, so the gap between two hexagons still belongs to one key or the other, and nothing gets harder to hit.
+
+:::note
+Shapes past the first four are new. A theme exported with one of them won't import into a version of the app that predates it: the importer drops a theme whose shape name it doesn't recognise rather than guessing. Stick to Rounded, Pill, Cut, or Squircle in a theme you plan to share widely.
+:::
 
 ### Accent & popups
 

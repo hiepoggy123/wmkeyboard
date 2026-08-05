@@ -20,7 +20,7 @@ import KeyCap from '@components/KeyCap.astro';
 Tapping <KeyCap>?123</KeyCap> steps through the symbol pages; <KeyCap>ABC</KeyCap> always jumps straight back to letters, from any page. The cycle is short and doesn't grow a third stop:
 
 - **Letters → Symbols.** <KeyCap>?123</KeyCap> on the letters layout opens the first symbol page (digits, `@`, `#`, currency, brackets, punctuation).
-- **Symbols → Symbols 2.** The key relabels to `` `=\<` `` at 1.5&times; width; tapping it opens the second page (math and typographic symbols, a dead-key accent key, more punctuation).
+- **Symbols → Symbols 2.** The key relabels to <KeyCap>{'=\\<'}</KeyCap> at 1.5&times; width; tapping it opens the second page (math and typographic symbols, a dead-key accent key, more punctuation).
 - **Symbols 2 → Symbols.** The same corner now reads <KeyCap>?123</KeyCap> again and goes back one page: there's no page 3, it just bounces between the two.
 - **Letters key wins from anywhere**, including from the Fn layer: pressing <KeyCap>ABC</KeyCap> while Fn is active leaves Fn entirely and drops any Fn lock, rather than returning to whatever Fn was layered over.
 
@@ -29,6 +29,16 @@ Pressing <KeyCap>?123</KeyCap> to leave letters also drops any in-progress handw
 <SettingsPath path="Key press / Hold ?123 for numpad" />
 
 **Hold ?123 for numpad** turns a long-press on <KeyCap>?123</KeyCap> into a shortcut straight to the number pad, skipping the symbol pages entirely. It's off by default: a quick tap always cycles the layers as described above regardless of this setting; only the long-press behavior changes.
+
+### Coming back automatically
+
+<SettingsPath path="Layout & size / Symbols layer / Go back to the letters" />
+
+Most trips to ?123 are one character long: a full stop, a question mark, a comma. **Go back to the letters** notices that and returns you to the letter keys as soon as you type one of them, so you don't press <KeyCap>ABC</KeyCap> yourself every time. It's off by default, and the characters that trigger it are yours to edit (they start as `!` `?` `.` `,` `;` `:`) in **Characters that go back** just below the toggle.
+
+Digits stay off the list on purpose, because typing "12" is exactly when you want the symbols to stay. Only single-character keys count either way, so a `.com` key won't send you back, and both symbol pages behave the same. Full detail is in the [Layout & size reference](/reference/settings/layout/#symbols-layer).
+
+The emoji panel has had the same setting for a while, under Emoji → Return to keyboard after inserting.
 
 ## The symbol row
 
@@ -111,13 +121,20 @@ A mode with no pinned tools or toolbox order of its own is unaffected either way
 
 ## Options
 
-These settings live on three separate screens.
+These settings live on four separate screens.
 
 <SettingsPath path="Key press" />
 
 | Setting | Default |
 | --- | --- |
 | Hold ?123 for numpad | Off |
+
+<SettingsPath path="Layout & size" />
+
+| Setting | Default |
+| --- | --- |
+| Go back to the letters | Off |
+| Characters that go back | `!?.,;:` |
 
 <SettingsPath path="Rows & bars" />
 

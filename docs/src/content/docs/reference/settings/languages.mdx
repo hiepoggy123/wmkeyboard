@@ -69,16 +69,20 @@ Tapping a language (from Your languages or straight after adding one) opens a sc
 
 **Clusters** — shown only for a language whose script forms conjunct clusters (Bengali, Devanagari, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Sinhala, Khmer, Myanmar, Tibetan and others). One toggle, **Conjunct-aware backspace** (<SettingsPath path="Languages / (a language) / Clusters / Conjunct-aware backspace" />, default **off**), deletes a whole cluster in a single press instead of one code point at a time. The subtitle shows a cluster from that language's own script, so the Bengali row reads ক্ষ and the Hindi one क्ष. Set per language: turning it on for one leaves the others alone.
 
-**Numerals** — a single choice, **Numeral system** (<SettingsPath path="Languages / (a language) / Numerals / Numeral system" />), shown as a row of short segmented options. Six choices, all defaulting to **Auto** for every language:
+**Numerals** — a single choice, **Numeral system** (<SettingsPath path="Languages / (a language) / Numerals / Numeral system" />), shown as two short segmented options: the language's own digits, or `0-9`. The language's own digits is the default. So Arabic offers `٠-٩` or `0-9`, Hindi offers `०-९` or `0-9`, Bengali offers `০-৯` or `0-9`, and so on:
 
-| Option | Digits |
+| Language's script | The two options |
 |---|---|
-| Auto (default) | Follows the language's own default system |
-| 0-9 | Latin |
-| ٠-٩ | Arabic-Indic |
-| ۰-۹ | Persian |
-| ০-৯ | Bengali |
-| ०-९ | Devanagari |
+| Arabic | ٠-٩ (default) or 0-9 |
+| Persian, Urdu | ۰-۹ (default) or 0-9 |
+| Bengali, Assamese, Sylheti | ০-৯ (default) or 0-9 |
+| Hindi, Marathi, Nepali and the other Devanagari languages | ०-९ (default) or 0-9 |
+
+A language whose own digits are already `0-9` (English, and every other Latin-script language) has nothing to choose here, so it gets no Numerals group at all.
+
+:::note
+Older versions listed all six numeral systems for every language, so Bengali could be set to Persian digits. That combination isn't something anyone writes, and the extra buttons were mostly a way to get the keyboard into a state you didn't mean. If you set one of them before the change, the keyboard still types those digits, and the row shows whichever of the two buttons it behaves like until you press one.
+:::
 
 This only changes which glyphs the number row and keypad draw and (depending on the field) commit; it never touches the layout, script, or dictionary. Where a non-Latin choice actually gets typed into text fields versus kept as ASCII is a separate, global setting: <SettingsPath path="Layout & size / Numerals" />, not per-language.
 
@@ -121,7 +125,7 @@ Three languages, `zh`, `ja`, and `yue`, get an extra group named after themselve
 | Choose languages in system settings | Languages → System language switcher | Opens Android's settings (no stored value) |
 | Conjunct-aware backspace | Languages → *(a language)* → Clusters | Off, per language |
 | Layouts (per layout) | Languages → *(a language)* → Layouts | On for the one layout that language was added with (its first); off for the rest |
-| Numeral system | Languages → *(a language)* → Numerals | Auto |
+| Numeral system | Languages → *(a language)* → Numerals | The language's own digits |
 | Also suggest from (per other language) | Languages → *(a language)* → Also suggest from | Off |
 | Dictionary size tier (per download) | Languages → *(a language)* → Dictionary | Large (up to 300,000 words) |
 | Download automatically (emoji keywords) | Emoji → Emoji keywords | On |
