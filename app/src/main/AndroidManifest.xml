@@ -260,12 +260,20 @@
 
         <!-- Invisible one-shot activity: the IME cannot show the runtime
              permission dialog itself, so the camera tool bounces through
-             this to request android.permission.CAMERA. -->
+             this to request android.permission.CAMERA.
+
+             Every trampoline the IME launches carries taskAffinity="": the
+             launch needs FLAG_ACTIVITY_NEW_TASK (a Service is starting it),
+             and with the default affinity that flag *fronts the settings
+             task* whenever one sits in recents — finishing the translucent
+             trampoline then strands the user in the settings app instead of
+             the field they were typing in. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.CameraPermissionActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
+            android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Same trampoline pattern for the voice input tool's
@@ -275,6 +283,7 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
+            android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Same trampoline pattern for save-to-gallery's
@@ -284,6 +293,7 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
+            android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Same trampoline pattern for the calendar tool's
@@ -293,6 +303,7 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
+            android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Same trampoline pattern for the screenshot setting's
@@ -302,6 +313,7 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
+            android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Notification access, usage access and the accessibility service are
@@ -316,15 +328,21 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
+            android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Invisible trampoline that runs ML Kit's full-screen document
              scanner for the doc-scan tool; the IME commits the scanned
-             pages once the target app gets focus back. -->
+             pages once the target app gets focus back. No noHistory here —
+             it would kill the scanner's activity result. singleTask keeps a
+             double-tap from stacking two scanners; the result still arrives
+             because this activity is the *caller*, not the callee. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.DocScanActivity"
             android:excludeFromRecents="true"
             android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!--
