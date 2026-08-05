@@ -4360,6 +4360,49 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         }
     }
 
+    SettingsGroup(stringResource(R.string.layout_symbols_title)) {
+        item {
+            ToggleSetting(
+                R.string.layout_symbols_return_title,
+                stringResource(R.string.layout_symbols_return_subtitle),
+                settings.layoutBehavior.symbolsReturnToLetters,
+                info = stringResource(R.string.layout_symbols_return_info),
+            ) { scope.launch { repository.setSymbolsReturnToLetters(it) } }
+        }
+        if (settings.layoutBehavior.symbolsReturnToLetters) {
+            item {
+                // Saves as it is typed, like the currency keys field; blank
+                // restores the default set. Seeded once rather than re-read on
+                // every keystroke: the repository drops spaces and duplicates,
+                // and feeding that back would move the caret while typing.
+                var returnChars by remember {
+                    mutableStateOf(settings.layoutBehavior.symbolsReturnCharSet())
+                }
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.layout_symbols_return_chars_title),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        InfoButton(
+                            stringResource(R.string.layout_symbols_return_chars_title),
+                            stringResource(R.string.layout_symbols_return_chars_info),
+                        )
+                    }
+                    OutlinedTextField(
+                        value = returnChars,
+                        onValueChange = {
+                            returnChars = it
+                            scope.launch { repository.setSymbolsReturnChars(it) }
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+    }
+
     SettingsGroup(stringResource(R.string.layout_numerals_title)) {
         item {
             ChoiceSetting(

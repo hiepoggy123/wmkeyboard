@@ -2129,7 +2129,27 @@ data class LayoutBehaviorSettings(
      * without this a user who forgets the tool types the next mail in Fraktur.
      */
     val fancyToolAutoOff: Boolean = false,
+    /**
+     * Go back to the letters after typing one of [symbolsReturnChars] on the
+     * symbols layer, so a full stop from ?123 does not leave the user on ?123.
+     * The emoji panel has the same idea in
+     * [EmojiSettings.closeAfterInsert]: one character is a detour, not a mode
+     * change. Off by default, because the other half of the audience opens
+     * ?123 to type a whole line of punctuation.
+     */
+    val symbolsReturnToLetters: Boolean = false,
+    /**
+     * The characters that send the symbols layer back to the letters, as one
+     * string of single characters. Empty means [DefaultSymbolsReturnChars].
+     * Digits are deliberately not in the default: typing "12" is exactly the
+     * case where the user wants to stay.
+     */
+    val symbolsReturnChars: String = "",
 ) {
+    /** The characters that spring the symbols layer back, with the default applied. */
+    fun symbolsReturnCharSet(): String =
+        symbolsReturnChars.ifEmpty { DefaultSymbolsReturnChars }
+
     /** [langId]'s numeral system, [NumeralSystem.AUTO] when it has no entry. */
     fun numeralSystemFor(langId: String): NumeralSystem =
         numeralSystemByLang[langId] ?: NumeralSystem.AUTO
@@ -2146,6 +2166,13 @@ val BottomRowHeightRange = 32..96
 
 /** The built-in currency glyphs, used when [LayoutBehaviorSettings.currencyKeys] is empty. */
 val DefaultCurrencyKeys = listOf("৳", "€", "£", "¥", "₹", "₿")
+
+/**
+ * The sentence punctuation that sends the symbols layer back to the letters,
+ * used when [LayoutBehaviorSettings.symbolsReturnChars] is empty. Each of these
+ * ends a sentence or a clause, so the next thing typed is almost always a word.
+ */
+const val DefaultSymbolsReturnChars = "!?.,;:"
 
 /**
  * Accent variants per base Latin letter, merged into a key's long-press popup
@@ -2569,6 +2596,9 @@ class SettingsRepository(private val context: Context) {
         private val SHIFT_CAPS_LOCK_MS = intPreferencesKey("shift_caps_lock_ms")
         private val SHOW_ALL_POPUP_KEYS = booleanPreferencesKey("show_all_popup_keys")
         private val CURRENCY_KEYS = stringPreferencesKey("currency_keys")
+        private val SYMBOLS_RETURN_TO_LETTERS =
+            booleanPreferencesKey("symbols_return_to_letters")
+        private val SYMBOLS_RETURN_CHARS = stringPreferencesKey("symbols_return_chars")
         private val AUTO_SPACE_AFTER_SUGGESTION = booleanPreferencesKey("auto_space_after_suggestion")
         private val EXPAND_USER_DICT_SHORTCUTS = booleanPreferencesKey("expand_user_dict_shortcuts")
         private val SYSTEM_SMART_REPLIES = booleanPreferencesKey("system_smart_replies")
@@ -3394,6 +3424,10 @@ class SettingsRepository(private val context: Context) {
                 currencyKeys = p[CURRENCY_KEYS]
                     ?.split('\n')?.filter { it.isNotEmpty() }
                     ?: defaults.layoutBehavior.currencyKeys,
+                symbolsReturnToLetters = p[SYMBOLS_RETURN_TO_LETTERS]
+                    ?: defaults.layoutBehavior.symbolsReturnToLetters,
+                symbolsReturnChars = p[SYMBOLS_RETURN_CHARS]
+                    ?: defaults.layoutBehavior.symbolsReturnChars,
             ),
             rawClipboardShortcuts = p[RAW_CLIPBOARD_SHORTCUTS] ?: defaults.rawClipboardShortcuts,
             longPressLetterActions = LongPressLetterActions(
@@ -5459,6 +5493,24 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setShowAllPopupKeys(value: Boolean) =
         editPrefs { it[SHOW_ALL_POPUP_KEYS] = value }
+
+    suspend fun setSymbolsReturnToLetters(value: Boolean) =
+        editPrefs { it[SYMBOLS_RETURN_TO_LETTERS] = value }
+
+    /**
+     * Persist the characters that send ?123 back to the letters. Whitespace and
+     * duplicates are dropped, so "! ? ." and "!?." store the same thing; empty
+     * falls back to [DefaultSymbolsReturnChars].
+     */
+    suspend fun setSymbolsReturnChars(value: String) =
+        editPrefs { prefs ->
+            val cleaned = value.filterNot { it.isWhitespace() }.toSet().joinToString("")
+            if (cleaned.isEmpty()) {
+                prefs.remove(SYMBOLS_RETURN_CHARS)
+            } else {
+                prefs[SYMBOLS_RETURN_CHARS] = cleaned
+            }
+        }
 
     /** Persist the currency long-press glyphs; empty list falls back to the built-in set. */
     suspend fun setCurrencyKeys(value: List<String>) =

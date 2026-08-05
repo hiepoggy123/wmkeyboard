@@ -3346,7 +3346,32 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     private fun onTextKey(key: Key) {
-        processTypedText(keyOutput(key, _uiState.value), applyDeadKeys = true)
+        val output = keyOutput(key, _uiState.value)
+        processTypedText(output, applyDeadKeys = true)
+        returnFromSymbolsAfter(output)
+    }
+
+    /**
+     * Springs ?123 back to the letters after one of the user's listed
+     * characters, when the symbols-return setting is on. The emoji panel's
+     * "return to keyboard after inserting" is the same bargain: a full stop is
+     * a detour into the other grid, not a move to it.
+     *
+     * Only single-character keys count. A `.com` or an emoticon key is a phrase
+     * the user went to ?123 to type, and it usually is not the last one.
+     */
+    private fun returnFromSymbolsAfter(output: String) {
+        if (output.length != 1) return
+        val state = _uiState.value
+        if (state.layoutMode != LayoutMode.SYMBOLS &&
+            state.layoutMode != LayoutMode.SYMBOLS_SHIFTED
+        ) {
+            return
+        }
+        val behavior = state.settings.layoutBehavior
+        if (!behavior.symbolsReturnToLetters) return
+        if (output[0] !in behavior.symbolsReturnCharSet()) return
+        _uiState.update { it.copy(layoutMode = LayoutMode.LETTERS) }
     }
 
     /**

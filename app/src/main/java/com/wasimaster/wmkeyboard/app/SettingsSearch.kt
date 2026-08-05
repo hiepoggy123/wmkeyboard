@@ -358,6 +358,8 @@ private fun Resources.layoutRows(): List<SettingsSearchEntry> {
         row(R.string.layout_number_row_height_title, R.string.layout_number_row_height_subtitle),
         row(R.string.layout_number_row_shift_symbols_title, R.string.layout_number_row_shift_symbols_subtitle),
         row(R.string.layout_number_row_in_symbols_title, R.string.layout_number_row_in_symbols_subtitle),
+        row(R.string.layout_symbols_return_title, R.string.layout_symbols_return_subtitle),
+        row(R.string.layout_symbols_return_chars_title),
         row(R.string.layout_numeral_scope_title, R.string.layout_numeral_scope_subtitle),
         row(R.string.layout_key_height_title, R.string.layout_key_height_subtitle),
         row(R.string.layout_bottom_row_height_title, R.string.layout_bottom_row_height_subtitle),
