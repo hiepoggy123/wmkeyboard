@@ -119,11 +119,11 @@ object SmartSuggest {
      * read this way in front of a currency, where "5m usd" cannot be metres.
      */
     private val magnitudes: Map<String, Double> = mapOf(
-        "k" to 1e3, "thousand" to 1e3, "thousands" to 1e3,
+        "k" to 1e3, "thousand" to 1e3, "thousands" to 1e3, "hajar" to 1e3,
         "m" to 1e6, "mn" to 1e6, "million" to 1e6, "millions" to 1e6,
         "b" to 1e9, "bn" to 1e9, "billion" to 1e9, "billions" to 1e9,
         "lakh" to 1e5, "lakhs" to 1e5, "lac" to 1e5, "lacs" to 1e5,
-        "crore" to 1e7, "crores" to 1e7,
+        "koti" to 1e7, "crore" to 1e7, "crores" to 1e7,
     )
 
     // Longest first, so "million" is never read as "m" with "illion" left over.
