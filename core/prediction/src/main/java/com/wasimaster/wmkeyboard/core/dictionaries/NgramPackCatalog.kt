@@ -36,10 +36,12 @@ object NgramPackCatalog {
             bigramStem = "en_bigrams",
             trigramStem = "en_trigrams",
         ),
-        // Romanized Bengali: pairs are in the roman spellings Avro users
-        // type, so they serve the romanized input path.
+        // Banglish: bn_rom is its own first-class language (Latin script,
+        // plain QWERTY, transliterated wordlist), so its romanized pairs
+        // match that language's typing directly — the ordinary pipeline,
+        // nothing Avro-specific. The files live under the repo's bn/ dir.
         NgramPackEntry(
-            languageId = "bn",
+            languageId = "bn_rom",
             repoCode = "bn",
             bigramStem = "bn_rom_bigrams",
             trigramStem = "bn_rom_trigrams",

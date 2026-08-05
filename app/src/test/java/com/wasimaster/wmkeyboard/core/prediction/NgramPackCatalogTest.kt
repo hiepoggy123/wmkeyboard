@@ -1,0 +1,44 @@
+package com.wasimaster.wmkeyboard.core.prediction
+
+import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackCatalog
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class NgramPackCatalogTest {
+
+    @Test
+    fun everyEntryTargetsARegisteredLanguage() {
+        // The blunder this pins: bn_rom is its own language in the registry,
+        // not a mode of "bn" — a pack keyed to a language id that does not
+        // exist (or the wrong one) silently never downloads for anyone.
+        for (entry in NgramPackCatalog.entries) {
+            // byId falls back to GENERIC for unknown ids; the id echo is the
+            // real registration check.
+            assertEquals(
+                "unknown language id ${entry.languageId}",
+                entry.languageId,
+                LanguageRegistry.byId(entry.languageId).id,
+            )
+        }
+    }
+
+    @Test
+    fun urlsPointAtTheDataRepo() {
+        for (entry in NgramPackCatalog.entries) {
+            assertTrue(entry.bigramUrl().startsWith("https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/"))
+            assertTrue(entry.bigramUrl().endsWith(".txt.gz"))
+            assertTrue(entry.trigramUrl().endsWith(".txt.gz"))
+        }
+    }
+
+    @Test
+    fun romanizedBengaliIsItsOwnPackNotAvros() {
+        assertTrue(NgramPackCatalog.forLanguage("bn_rom") != null)
+        // Script-Bengali has no romanized pack: its typing is Bengali script
+        // and the romanized keys could never match.
+        assertNull(NgramPackCatalog.forLanguage("bn"))
+    }
+}
