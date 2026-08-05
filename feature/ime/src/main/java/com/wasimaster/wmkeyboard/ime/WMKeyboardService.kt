@@ -2445,6 +2445,10 @@ open class WMKeyboardService : InputMethodService() {
         // as long as the user stays in the same app.
         val pkg = info?.packageName
         if (pkg != null && pkg != currentPackage) manualModeId = null
+        // A pick still waiting to be stored belongs to the app it was made in:
+        // per-app memory reads a different id in the next app, which the pending
+        // one would otherwise outrank for as long as the write took to land.
+        if (pkg != null && pkg != currentPackage) pendingLayoutId = null
         if (pkg != null) currentPackage = pkg
         refreshPerAppContext()
         currentModeFields = buildSet {
@@ -4870,13 +4874,46 @@ open class WMKeyboardService : InputMethodService() {
      * focused app when per-app memory is on, otherwise the global choice. A
      * remembered id whose layout has since been deleted heals back to the global
      * pick rather than snapping to the default.
+     *
+     * An explicit pick that has not been persisted yet ([pendingLayoutId]) wins
+     * over the stored one, and clears itself the moment the store catches up.
      */
     private fun baseLayoutId(settings: KeyboardSettings): String {
+        val stored = storedLayoutId(settings)
+        val pending = pendingLayoutId ?: return stored
+        if (stored == pending) {
+            pendingLayoutId = null
+            return stored
+        }
+        return pending
+    }
+
+    /** [baseLayoutId] as the settings alone see it, before any pending pick. */
+    private fun storedLayoutId(settings: KeyboardSettings): String {
         if (!settings.perAppLanguage.enabled) return settings.activeLayoutId
         val remembered = settings.perAppLanguage.layoutByPackage[currentPackage]
             ?.takeIf { id -> resolveLayout(settings.customLayouts, id).id == id }
         return remembered ?: settings.activeLayoutId
     }
+
+    /**
+     * The layout [onLayoutSelected] has just moved to, held until the settings
+     * flow reports it back.
+     *
+     * The settings collector re-derives the active layout from the stored ids on
+     * *every* emission, and the writes behind a pick are asynchronous — so any
+     * other settings write racing one lands with the new layout on screen but the
+     * old id still in the store, and the collector snaps the keyboard back to the
+     * old layout for a frame.
+     *
+     * The Fancy tool does exactly that: it enables the fancy layout (one write)
+     * and then selects it (another). The first write's emission rolled the pick
+     * back, so the fancy style strip appeared, vanished for a frame and came back
+     * — a 40dp row flickering in and out, taking the whole keyboard's height with
+     * it. Holding the pick here until it is stored keeps the two writes looking
+     * like the one action they are.
+     */
+    private var pendingLayoutId: String? = null
 
     private fun resolveLayoutSet(spec: LayoutSpec, fieldKind: FieldKind): LayoutSet {
         val key = spec.id to fieldKind
@@ -4921,6 +4958,9 @@ open class WMKeyboardService : InputMethodService() {
         // see the box they are typing in, FORCE_ASCII and hintLocales are
         // only the app's guess.
         fieldLayoutOverride = null
+        // Claimed before the state update, so a settings emission arriving
+        // between here and the store catching up does not roll the pick back.
+        pendingLayoutId = spec.id
         _uiState.update {
             it.copy(
                 language = spec.language(),

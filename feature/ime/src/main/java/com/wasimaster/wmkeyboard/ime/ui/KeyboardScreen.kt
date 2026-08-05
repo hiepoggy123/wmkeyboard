@@ -11,6 +11,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.VisibilityThreshold
@@ -194,6 +195,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.positionInWindow
@@ -1358,6 +1360,18 @@ private fun OneHandedRail(
 private const val ToolbarMotionMs = 140
 
 /**
+ * How long the surface leaving the bar — the tools, or the candidates — takes
+ * to dissolve before the other one takes the row.
+ *
+ * Shorter than [ToolbarMotionMs] because it is spent before the flip rather
+ * than during it: the whole exchange costs this plus the arrival, and a longer
+ * exit would make a bar flip feel like it was waiting on something. Long enough
+ * to read as a fade at 120Hz, which is all it has to be — the eye is following
+ * the emoji, which does not fade and carries straight through the swap.
+ */
+private const val ToolbarExitMs = 90
+
+/**
  * The matching spring for anything that slides within the toolbar. Tuned to
  * settle in about [ToolbarMotionMs] so it lands with the fades.
  */
@@ -1585,8 +1599,44 @@ private fun TopBar(
             }
         }
     }
-    val showToolbar = state.panel != PanelMode.NONE || toolbarOverride ||
+    val wantToolbar = state.panel != PanelMode.NONE || toolbarOverride ||
         (!hasSuggestions && emptySettled && !suggestionsFirst)
+
+    // The surface the bar is actually drawing, which lags [wantToolbar] by one
+    // [ToolbarExitMs] fade.
+    //
+    // The two surfaces are branches of an `if`, so the one being replaced is
+    // disposed on the frame the decision lands: seven tool icons, or a row of
+    // candidates, gone between one frame and the next while the emoji — the one
+    // thing that survives the swap — took another 140ms to slide into its new
+    // spot. A single icon crawling across an otherwise empty bar is what reads
+    // as the flip being broken. Holding the old surface for a short fade first
+    // makes the exchange a dissolve, and the emoji's slide starts from a bar
+    // that still had something in it.
+    //
+    // Not a Crossfade, and not both branches at once: the emoji exists in both
+    // and hands its position from one node to the other (see [SharedPlacement]),
+    // which needs the old node gone before the new one is placed.
+    var showToolbar by remember { mutableStateOf(wantToolbar) }
+    val barExit = remember { Animatable(1f) }
+    LaunchedEffect(wantToolbar, state.settings.reduceMotion) {
+        if (wantToolbar == showToolbar) {
+            // Flipped back inside the fade — the surface that was leaving is
+            // staying after all, so bring it back rather than leaving it dim.
+            if (barExit.value != 1f) barExit.animateTo(1f, tween(ToolbarExitMs))
+            return@LaunchedEffect
+        }
+        if (state.settings.reduceMotion) {
+            barExit.snapTo(1f)
+            showToolbar = wantToolbar
+            return@LaunchedEffect
+        }
+        barExit.animateTo(0f, tween(ToolbarExitMs, easing = LinearEasing))
+        showToolbar = wantToolbar
+        // The arriving surface runs its own fade-in, so this goes back to
+        // transparent-to-it on the same frame the swap happens.
+        barExit.snapTo(1f)
+    }
 
     // Previous toolbar state, advanced after each frame commits; drives the
     // synchronous reveal blank for the tools fade below.
@@ -1710,7 +1760,14 @@ private fun TopBar(
             toolsFade.animateTo(1f, tween(if (freshMount) FullBleedReturnFadeMs else ToolbarMotionMs))
         }
     }
-    val toolContentAlpha = { if (toolbarJustRevealed) 0f else toolsFade.value }
+    // [barExit] is the dissolve the tools run when the strip is taking the row
+    // back; [toolsFade] is the one they run arriving. Only ever one of the two
+    // is away from 1, so the product is whichever is in play.
+    val toolContentAlpha = {
+        if (toolbarJustRevealed) 0f else toolsFade.value * barExit.value
+    }
+    /** The candidates' alpha: their own fade, dimmed by the bar's dissolve. */
+    val stripContentFade = { stripContentAlpha.value * barExit.value }
 
     // The suggestion strip (and the toolbar that shares its bar) lays out
     // right-to-left for RTL scripts — Arabic, Hebrew, Persian, Urdu, Thaana —
@@ -1805,8 +1862,11 @@ private fun TopBar(
         // moment `hasSuggestions` goes false and the guard drops the button.
         // The node died on the very frame the rotation was meant to play, so
         // the chevron vanished mid-turn instead of turning.
+        // Keyed on the decision, not on the drawn surface: the turn is the
+        // acknowledgement of the tap, so it starts on the frame the tap lands
+        // and runs through the outgoing dissolve rather than waiting it out.
         val chevronTurn by animateFloatAsState(
-            targetValue = if (showToolbar) 180f else 0f,
+            targetValue = if (wantToolbar) 180f else 0f,
             animationSpec = if (state.settings.reduceMotion) snap() else tween(ToolbarMotionMs),
             label = "chevronTurn",
         )
@@ -1837,10 +1897,14 @@ private fun TopBar(
         // everything left of it — the emoji icon included — slid across
         // before the handoff to the toolbar had even begun, and the icon
         // started its slide from a position it had already been shoved out of.
-        // Now the chevron leaves on the same frame the toolbar arrives.
+        // Now the chevron leaves on the same frame the toolbar arrives — which
+        // is why the panel test is under `!showToolbar` rather than beside it.
+        // A panel opening decides the flip one dissolve before the toolbar is
+        // drawn, and dropping the chevron on the decision pulled 36dp out of a
+        // strip that was still on screen and fading.
         AnimatedVisibility(
-            visible = state.panel == PanelMode.NONE &&
-                (hasSuggestions || suggestionsFirst || !showToolbar),
+            visible = !showToolbar ||
+                (state.panel == PanelMode.NONE && (hasSuggestions || suggestionsFirst)),
             enter = fadeIn(tween(motionMs)),
             exit = ExitTransition.None,
         ) {
@@ -1862,7 +1926,13 @@ private fun TopBar(
             }
         }
         if (showToolbar) {
-            ToolbarRow(state, onPanelChange, onToolTap, drag, toolContentAlpha, emojiFadesWithTools)
+            // The emoji never joins the dissolve on the way out: it is the one
+            // icon that survives the swap, and it has to be solid at the moment
+            // it hands its position to the strip's copy.
+            ToolbarRow(
+                state, onPanelChange, onToolTap, drag, toolContentAlpha,
+                fadeEmoji = emojiFadesWithTools && wantToolbar,
+            )
             if (state.settings.emojiBarMode == EmojiBarMode.BUTTON) {
                 IconButton(
                     onClick = {
@@ -1884,16 +1954,34 @@ private fun TopBar(
             }
         } else {
             if (state.settings.emojiToolbar && ToolbarTool.EMOJI in state.settings.enabledTools) {
+                // The width the bar would give this icon, so the two copies are
+                // the same shape. Nothing constrains it here, so at a tool width
+                // wider than a toolbar cell the strip's copy came out at the
+                // full setting while the pinned one was capped at its cell — the
+                // icon changed size mid-slide, and since the slide tracks left
+                // edges its centre jumped by half the difference first. See
+                // [ToolDragController.pinnedToolWidthPx].
+                val pinnedWidth = with(LocalDensity.current) {
+                    drag.pinnedToolWidthPx.takeIf { it > 0 }?.toDp()
+                }
                 ToolCircle(
                     slot = IconSlots.CHROME_EMOJI_SHORTCUT,
                     description = stringResource(R.string.ime_tool_emoji),
                     active = false,
                     // Same icon the toolbar pins: it slides between the two
                     // spots instead of vanishing here and reappearing there.
-                    modifier = Modifier.animateSharedPlacement(
-                        drag.emojiPlacement,
-                        enabled = !state.settings.reduceMotion,
-                    ) { drag.bodyCoords },
+                    modifier = Modifier
+                        .then(
+                            if (pinnedWidth != null) {
+                                Modifier.widthIn(max = pinnedWidth)
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .animateSharedPlacement(
+                            drag.emojiPlacement,
+                            enabled = !state.settings.reduceMotion,
+                        ) { drag.bodyCoords },
                     longPressLabel = stringResource(R.string.ime_tool_emoji),
                     // Matches the toolbar's pinned emoji footprint, so the
                     // shared-placement slide lands on an identical shape.
@@ -2102,14 +2190,14 @@ private fun TopBar(
                 InlineEmojiChips(
                     emojis = shownSuggestions,
                     enabled = suggestionsShowing,
-                    alpha = { stripContentAlpha.value },
+                    alpha = stripContentFade,
                     onEmoji = onSuggestion,
                 )
             } else if (state.composer.isConversion) {
                 CandidateStrip(
                     candidates = shownSuggestions,
                     enabled = suggestionsShowing,
-                    alpha = { stripContentAlpha.value },
+                    alpha = stripContentFade,
                     onCandidate = onCandidate,
                     onExpand = onCandidatesExpand,
                 )
@@ -2127,7 +2215,7 @@ private fun TopBar(
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .graphicsLayer { alpha = stripContentAlpha.value }
+                            .graphicsLayer { alpha = stripContentFade() }
                             .padding(vertical = 8.dp, horizontal = 2.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .background(MaterialTheme.colorScheme.secondaryContainer)
@@ -2149,7 +2237,7 @@ private fun TopBar(
                 LatinSuggestionChips(
                     candidates = shownSuggestions,
                     enabled = suggestionsShowing,
-                    alpha = { stripContentAlpha.value },
+                    alpha = stripContentFade,
                     centerPrimaryEnabled = state.settings.suggestionStrip.suggestionPrimaryCenter,
                     shiftState = state.shiftState,
                     onSuggestion = onSuggestion,
@@ -2162,7 +2250,7 @@ private fun TopBar(
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .graphicsLayer { alpha = stripContentAlpha.value }
+                        .graphicsLayer { alpha = stripContentFade() }
                         .clickable(enabled = suggestionsShowing) { onEmojiSuggestion(emoji) }
                         .padding(horizontal = 5.dp),
                     contentAlignment = Alignment.Center,
@@ -2195,14 +2283,14 @@ private fun TopBar(
                 VerticalDivider(
                     modifier = Modifier
                         .height(20.dp)
-                        .graphicsLayer { alpha = stripContentAlpha.value },
+                        .graphicsLayer { alpha = stripContentFade() },
                     color = MaterialTheme.colorScheme.outlineVariant,
                 )
                 for (mark in shownPunctuation) {
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .graphicsLayer { alpha = stripContentAlpha.value }
+                            .graphicsLayer { alpha = stripContentFade() }
                             .clickable(enabled = suggestionsShowing) { onPunctuation(mark) }
                             .padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center,
@@ -3137,13 +3225,19 @@ private fun FancyStyleStrip(
 ) {
     var pickerOpen by remember { mutableStateOf(false) }
     val feedback = LocalKeyPressFeedback.current
-    val listState = rememberLazyListState()
     // Land on the active chip when the strip appears — with 22 styles the
     // selected one is otherwise likely off-screen to the right.
-    LaunchedEffect(Unit) {
-        val index = FancyStyles.all.indexOfFirst { it.id == active.id }
-        if (index > 0) listState.scrollToItem(index)
-    }
+    //
+    // Seeded into the list's initial index rather than scrolled to from a
+    // LaunchedEffect. An effect runs after the first layout, so the strip drew
+    // one frame from the top of the list and then jumped to the active style —
+    // and it appears on the same frame the fancy layout does, which is exactly
+    // when the eye is already on it.
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = FancyStyles.all
+            .indexOfFirst { it.id == active.id }
+            .coerceAtLeast(0),
+    )
     // The chips are Latin glyphs whatever the system locale; mirroring the
     // strip under RTL would put the list order at odds with the layout.
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -3606,6 +3700,19 @@ private class ToolDragController {
         private set
     private var fromToolbar = false
     var toolbarBounds: Rect? = null
+    /**
+     * Width, in px, that the toolbar last gave one of its buttons.
+     *
+     * Not the same as the theme's tool width. The bar spreads its buttons over
+     * equal weighted cells, so a tool width wider than a cell is silently capped
+     * at the cell — and the emoji shortcut the *strip* draws sits in no cell at
+     * all, so it took the full width and the two copies of one icon came out
+     * different sizes. At the top of the width slider that is a 60px jump on
+     * every strip↔toolbar flip, right as the icon is meant to be sliding
+     * smoothly between the two spots. Recorded from the toolbox launcher, which
+     * is drawn whenever the bar is and shares the tools' cell.
+     */
+    var pinnedToolWidthPx: Int = 0
     /** Keyboard-body coordinates; the anchor for tool placement animations. */
     var bodyCoords: LayoutCoordinates? = null
     /**
@@ -4476,6 +4583,9 @@ private fun RowScope.ToolbarRow(
                 description = stringResource(R.string.ime_toolbox_desc),
                 active = customizing,
                 modifier = Modifier
+                    // The width a pinned button actually gets, published for the
+                    // strip's emoji shortcut to match (see [pinnedToolWidthPx]).
+                    .onSizeChanged { drag.pinnedToolWidthPx = it.width }
                     .graphicsLayer { alpha = contentAlpha() }
                     .animatePlacement(enabled = motion, inRow = true) { drag.bodyCoords },
                 longPressLabel = stringResource(R.string.ime_toolbox_desc),
@@ -5489,12 +5599,16 @@ private fun KeyboardBody(
     drag.onSnap = LocalKeyPressFeedback.current
     drag.onOpenSettings = onToolSettings
     var bodyOrigin by remember { mutableStateOf(Offset.Zero) }
+    // Kept alongside the origin so the drag-scope pill can park itself against
+    // the bottom of the keyboard when the toolbar end is where the finger is.
+    var bodyHeightPx by remember { mutableIntStateOf(0) }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .onGloballyPositioned {
                 bodyOrigin = it.positionInRoot()
+                bodyHeightPx = it.size.height
                 drag.bodyCoords = it
             },
     ) {
@@ -6221,10 +6335,17 @@ private fun KeyboardBody(
             }
         }
         // Names the scope a tool drag lands in — a mode's own arrangement or
-        // the one shared by every app. TopCenter never clashes with the
-        // picker overlay below: a picker cannot be armed mid-drag.
+        // the one shared by every app. It never clashes with the picker overlay
+        // below: a picker cannot be armed mid-drag.
         if (drag.dragging != null) {
-            DragScopeLabel(state, modifier = Modifier.align(Alignment.TopCenter))
+            DragScopeLabel(
+                state = state,
+                drag = drag,
+                bodyOrigin = bodyOrigin,
+                bodyHeightPx = bodyHeightPx,
+                // Horizontally centred; the pill picks its own vertical spot.
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
         }
         // Last in the Box, so the armed picker's hint floats over the top strip
         // instead of pushing the keys down — arming must not resize the keyboard.
@@ -6232,18 +6353,63 @@ private fun KeyboardBody(
     }
 }
 
+/** Gap the drag-scope pill keeps from the toolbar and from the keyboard's edge. */
+private val DragScopeGap = 4.dp
+
+/**
+ * How close the finger may come to the pill before it moves out of the way.
+ * Wide enough to clear the 44dp puck drawn under the finger.
+ */
+private val DragScopeDodgeMargin = 32.dp
+
 /**
  * Floating pill shown for the whole of a tool drag, telling the user where
  * the new arrangement is saved: the active mode's own tool order (when mode
  * drag-edits are on and the mode carries one — the same rule as the
  * service's `toolOrderOwner`) or the global order every app shares.
+ *
+ * It parks itself immediately *below* the toolbar rather than over it. The
+ * toolbar is the thing a tool drag is rearranging, and a pill sitting on top of
+ * it hid the very slots the drop was aiming at — which tools were already
+ * pinned, and in what order. So the row it names is the one row it never
+ * covers. Below that it also dodges the finger: a drag working the top of the
+ * toolbox grid would otherwise be dragging straight under the pill, so it
+ * swaps to the bottom of the keyboard until the finger leaves.
  */
 @Composable
-private fun DragScopeLabel(state: KeyboardUiState, modifier: Modifier = Modifier) {
+private fun DragScopeLabel(
+    state: KeyboardUiState,
+    drag: ToolDragController,
+    /** Keyboard-body origin in root coordinates; the drag reports in root. */
+    bodyOrigin: Offset,
+    bodyHeightPx: Int,
+    modifier: Modifier = Modifier,
+) {
     val kb = LocalKbTheme.current
     val mode = state.settings.keyboardModes
         .firstOrNull { it.id == state.activeModeId }
         ?.takeIf { state.settings.modeToolOrderEdits && it.ownsToolOrder }
+    var labelHeightPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val gapPx = with(density) { DragScopeGap.roundToPx() }
+    val dodgePx = with(density) { DragScopeDodgeMargin.toPx() }
+    // Resting spot: just clear of the toolbar's bottom edge. Measured rather
+    // than assumed — the toolbar is not always the top row (see barOrder), and
+    // its height is a theme setting.
+    val restY = drag.toolbarBounds
+        ?.let { (it.bottom - bodyOrigin.y).roundToInt() + gapPx }
+        ?.coerceAtLeast(0)
+        ?: 0
+    val floorY = (bodyHeightPx - labelHeightPx - gapPx).coerceAtLeast(0)
+    val fingerY = drag.position.y - bodyOrigin.y
+    val crowded = labelHeightPx > 0 &&
+        fingerY > restY - dodgePx && fingerY < restY + labelHeightPx + dodgePx
+    val targetY = if (crowded) floorY else restY.coerceAtMost(floorY)
+    val y by animateIntAsState(
+        targetValue = targetY,
+        animationSpec = if (state.settings.reduceMotion) snap() else tween(ToolbarMotionMs),
+        label = "dragScopeY",
+    )
     Text(
         text = if (mode != null) {
             stringResource(R.string.ime_toolbox_drag_scope_mode, mode.name)
@@ -6254,7 +6420,8 @@ private fun DragScopeLabel(state: KeyboardUiState, modifier: Modifier = Modifier
         color = kb.toolCircleActiveIcon,
         maxLines = 1,
         modifier = modifier
-            .padding(top = 4.dp)
+            .offset { IntOffset(0, y) }
+            .onSizeChanged { labelHeightPx = it.height }
             .background(kb.toolCircleActive, RoundedCornerShape(12.dp))
             .padding(horizontal = 10.dp, vertical = 3.dp),
     )
