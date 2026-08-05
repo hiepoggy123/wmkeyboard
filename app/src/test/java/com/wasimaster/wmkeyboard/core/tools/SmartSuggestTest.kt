@@ -85,6 +85,43 @@ class SmartSuggestTest {
     }
 
     @Test
+    fun shortAndSpelledOutMagnitudesScaleTheAmount() {
+        for (typed in listOf("1.5k usd", "1.5K USD", "1.5k dollars", "1 thousand 500 dollars")) {
+            val h = hit(typed)
+            assertNotNull("no hit for \"$typed\"", h)
+            assertEquals(typed, "180,000.00 Taka", h!!.result)
+            assertEquals(typed, typed.length, h.replaceSpan)
+        }
+        assertEquals("240,000,000.00 Taka", hit("2m usd")?.result)
+        assertEquals("240,000,000.00 Taka", hit("2 million dollars")?.result)
+        assertEquals("180,000.00 Taka", hit("$1.5k")?.result)
+    }
+
+    @Test
+    fun aScaledAmountReachesTheConverterAsAPlainNumber() {
+        val prefill = hit("1.5k usd")?.prefill as? ToolPrefill.Currency
+        assertEquals("USD", prefill?.from)
+        assertEquals("1500", prefill?.amount)
+        // The chip itself still shows the amount the way it was typed.
+        assertEquals("1.5k USD", hit("1.5k usd")?.query)
+    }
+
+    @Test
+    fun onlyTheLastNumberOfARunIsSpentWhenItStandsAlone() {
+        // "1 thousand 500" is one amount; "in 2020 500" is a year and a price.
+        val h = hit("in 2020 500 usd")
+        assertEquals("60,000.00 Taka", h?.result)
+        assertEquals("500 usd".length, h?.replaceSpan)
+    }
+
+    @Test
+    fun aMagnitudeLetterNeverEatsIntoTheCurrencyCode() {
+        // "b" is billion, but not when "bdt" follows it.
+        assertEquals("120 BDT", hit("120 bdt")?.query)
+        assertEquals("5 bucks", SmartSuggest.Kind.CURRENCY, hit("5 bucks")?.kind)
+    }
+
+    @Test
     fun poundsReadAsWeightNotSterling() {
         assertEquals(SmartSuggest.Kind.UNIT, hit("5 pounds")?.kind)
     }
@@ -151,8 +188,35 @@ class SmartSuggestTest {
         assertNull(hit("12/04"))
         assertNull(hit("2024-07"))
         assertNull(hit("555-1234"))
+        assertNull(hit("12/04/2025"))
         // Unless the user asks outright.
         assertEquals("3", hit("12/4=")?.result)
+    }
+
+    @Test
+    fun aPlainDivisionIsASumOfItsOwn() {
+        assertEquals("0.5", hit("1/2")?.result)
+        assertEquals("3", hit("12/4")?.result)
+        assertEquals("1/2".length, hit("1/2")?.replaceSpan)
+    }
+
+    @Test
+    fun countingOperatorsAreOffered() {
+        assertEquals("60", hit("5p3")?.result)
+        assertEquals("6", hit("4c2")?.result)
+        assertEquals("120", hit("10C3")?.result)
+        assertEquals(SmartSuggest.Kind.CALC, hit("5P3")?.kind)
+    }
+
+    @Test
+    fun aStrayLetterBesideANumberIsNotACount() {
+        // The letters only count glued between two digits.
+        assertNull(hit("page 5 c 2"))
+        assertNull(hit("chapter 3 p"))
+        // A lone "5c" is still a temperature.
+        assertEquals(SmartSuggest.Kind.UNIT, hit("5c")?.kind)
+        // r cannot be bigger than n.
+        assertNull(hit("2c5"))
     }
 
     @Test

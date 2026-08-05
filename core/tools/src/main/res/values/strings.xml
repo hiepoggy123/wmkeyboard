@@ -176,6 +176,8 @@
     <string name="core_tools_calc_error_unknown_function">Unknown function “<xliff:g id="name" example="sin">%1$s</xliff:g>”</string>
     <!-- %1$s is a function name. The function has no value for that input. -->
     <string name="core_tools_calc_error_function_undefined"><xliff:g id="name" example="sqrt">%1$s</xliff:g> is undefined there</string>
+    <!-- nPr and nCr count picks out of a set, as in "5p3". -->
+    <string name="core_tools_calc_error_bad_counts">nPr and nCr need whole numbers, and r cannot be more than n</string>
 
     <!-- ================================================================== -->
     <!-- Network tools: what a failed request tells the user.               -->

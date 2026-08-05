@@ -24,9 +24,10 @@ import kotlin.math.tanh
 
 /**
  * Expression evaluator for the calculator tool. Recursive descent over
- * `+ - × ÷ * / mod ^ ( )`, scientific functions, the constants π and e,
- * and implicit multiplication (`2π`, `3(4+1)`). Trig honors the tool's
- * degree/radian setting. Pure and synchronous — nothing leaves the device.
+ * `+ - × ÷ * / mod ^ ( )`, the counting operators `nPr` and `nCr`,
+ * scientific functions, the constants π and e, and implicit multiplication
+ * (`2π`, `3(4+1)`). Trig honors the tool's degree/radian setting. Pure and
+ * synchronous — nothing leaves the device.
  */
 object CalcEngine {
 
@@ -82,6 +83,51 @@ object CalcEngine {
         return if (rounded.contains('.')) rounded.trimEnd('0').trimEnd('.') else rounded
     }
 
+    /** The letters that stand for nPr and nCr. */
+    private const val CHOOSE_OPS = "pPcC"
+
+    /**
+     * nPr — how many ordered picks of [r] there are out of [n]. Built up as
+     * a running product rather than from factorials, so 60P3 is a number and
+     * not an overflow of 60!.
+     */
+    private fun permutations(n: Double, r: Double): Double {
+        requireCounts(n, r)
+        var result = 1.0
+        var i = 0.0
+        while (i < r) {
+            result *= n - i
+            if (result.isInfinite()) return result
+            i++
+        }
+        return result
+    }
+
+    /**
+     * nCr — the same without the ordering. Multiplying and dividing in step
+     * keeps every partial value a whole number, and picking the smaller of
+     * r and n−r keeps the loop short.
+     */
+    private fun combinations(n: Double, r: Double): Double {
+        requireCounts(n, r)
+        var result = 1.0
+        val k = kotlin.math.min(r, n - r)
+        var i = 0.0
+        while (i < k) {
+            result = result * (n - i) / (i + 1)
+            if (result.isInfinite()) return result
+            i++
+        }
+        return kotlin.math.round(result)
+    }
+
+    private fun requireCounts(n: Double, r: Double) {
+        val whole = n == floor(n) && r == floor(r)
+        if (!whole || n < 0 || r < 0 || r > n) {
+            throw CalcException(R.string.core_tools_calc_error_bad_counts)
+        }
+    }
+
     private class Parser(private val text: String, private val degrees: Boolean) {
         private var pos = 0
 
@@ -110,7 +156,7 @@ object CalcEngine {
             }
         }
 
-        // term := unary (('*' | '/' | '%' | juxtaposition) unary)*
+        // term := unary (('*' | '/' | '%' | 'p' | 'c' | juxtaposition) unary)*
         private fun parseTerm(): Double {
             var value = parseUnary()
             while (true) {
@@ -143,6 +189,19 @@ object CalcEngine {
                         val rhs = parseUnary()
                         if (rhs == 0.0) throw CalcException(R.string.core_tools_calc_error_division_by_zero)
                         value = value.mod(rhs)
+                    }
+                    // "5p3" and "4c2" — the counting operators, written the
+                    // way a calculator keypad writes them. A letter that
+                    // starts a longer name is never one of them, which keeps
+                    // "2pi", "2cos(30)" and "3cbrt(8)" as multiplication.
+                    c in CHOOSE_OPS && text.getOrNull(pos + 1)?.isLetter() != true -> {
+                        pos++
+                        val r = parseUnary()
+                        value = if (c == 'p' || c == 'P') {
+                            permutations(value, r)
+                        } else {
+                            combinations(value, r)
+                        }
                     }
                     // Implicit multiplication: 2π, 2(3+4), (1+2)(3+4), 3√4.
                     c == '(' || c == '√' || c.isLetter() && !text.startsWith("mod", pos) ->

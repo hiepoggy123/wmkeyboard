@@ -111,37 +111,106 @@ object SmartSuggest {
         return DecimalFormat(pattern).format(value)
     }
 
+    // ---- amount phrases ----
+
+    /**
+     * What a number can be multiplied by when it is written short or spelled
+     * out: "1.5k", "2 million", "3 crore". The single letters are only ever
+     * read this way in front of a currency, where "5m usd" cannot be metres.
+     */
+    private val magnitudes: Map<String, Double> = mapOf(
+        "k" to 1e3, "thousand" to 1e3, "thousands" to 1e3,
+        "m" to 1e6, "mn" to 1e6, "million" to 1e6, "millions" to 1e6,
+        "b" to 1e9, "bn" to 1e9, "billion" to 1e9, "billions" to 1e9,
+        "lakh" to 1e5, "lakhs" to 1e5, "lac" to 1e5, "lacs" to 1e5,
+        "crore" to 1e7, "crores" to 1e7,
+    )
+
+    // Longest first, so "million" is never read as "m" with "illion" left over.
+    private val MAG = magnitudes.keys.sortedByDescending { it.length }.joinToString("|")
+
+    /**
+     * A multiplier has to end where it ends: without this, "150 bdt" reads as
+     * 150 billion of a currency called "dt".
+     */
+    private const val MAG_END = """(?![\p{L}])"""
+
+    /** One number with an optional multiplier after it. */
+    private val CHUNK = Regex("""($NUM)(?:\s?($MAG)$MAG_END)?""", RegexOption.IGNORE_CASE)
+
+    /** A run of such numbers: "1500", "1.5k", "1 thousand 500". */
+    private val AMOUNT = """(?:$NUM)(?:\s?(?:$MAG)$MAG_END)?""" +
+        """(?:\s+(?:$NUM)(?:\s?(?:$MAG)$MAG_END)?)*"""
+
+    /**
+     * An amount phrase read back as a number, plus where in the phrase the
+     * part that counts begins — text to the left of [start] is prose that
+     * happened to end in a number.
+     */
+    private data class Amount(val value: Double, val text: String, val start: Int)
+
+    /**
+     * Reads [phrase] right to left. Only the last number may stand without a
+     * multiplier, and each number further left has to name a bigger one, so
+     * "1 thousand 500" is 1500 while "in 2020 500" keeps only the 500.
+     */
+    private fun parseAmount(phrase: String): Amount? {
+        val chunks = CHUNK.findAll(phrase).toList()
+        if (chunks.isEmpty()) return null
+        var total = 0.0
+        var lastScale = 0.0
+        var start = phrase.length
+        for (index in chunks.indices.reversed()) {
+            val chunk = chunks[index]
+            val word = chunk.groupValues[2]
+            val scale = if (word.isEmpty()) 1.0 else magnitudes[word.lowercase(Locale.ROOT)] ?: break
+            if (index != chunks.lastIndex && (word.isEmpty() || scale <= lastScale)) break
+            val value = parseNumber(chunk.groupValues[1]) ?: break
+            total += value * scale
+            lastScale = scale
+            start = chunk.range.first
+        }
+        if (start >= phrase.length) return null
+        return Amount(total, phrase.substring(start).trim(), start)
+    }
+
     // ---- currency ----
 
-    private val CURRENCY_SUFFIX = Regex("""(?<![\w.,])($NUM)\s?([\p{L}]{2,8}|[^\s\w])$""")
-    private val CURRENCY_PREFIX = Regex("""(?<![\w])([\p{L}]{0,2}[^\s\w])\s?($NUM)$""")
+    private val CURRENCY_SUFFIX =
+        Regex("""(?<![\w.,])($AMOUNT)\s?([\p{L}]{2,8}|[^\s\w])$""", RegexOption.IGNORE_CASE)
+    private val CURRENCY_PREFIX =
+        Regex("""(?<![\w])([\p{L}]{0,2}[^\s\w])\s?($AMOUNT)$""", RegexOption.IGNORE_CASE)
 
     private fun detectCurrency(tail: String, ctx: Context): SmartHit? {
-        val (amountRaw, tokenRaw, span) = run {
-            CURRENCY_SUFFIX.find(tail)?.let {
-                return@run Triple(it.groupValues[1], it.groupValues[2], it.value.length)
+        val (amount, tokenRaw, span) = run {
+            CURRENCY_SUFFIX.find(tail)?.let { match ->
+                val parsed = parseAmount(match.groupValues[1]) ?: return null
+                return@run Triple(parsed, match.groupValues[2], match.value.length - parsed.start)
             }
-            CURRENCY_PREFIX.find(tail)?.let {
-                return@run Triple(it.groupValues[2], it.groupValues[1], it.value.length)
+            CURRENCY_PREFIX.find(tail)?.let { match ->
+                val parsed = parseAmount(match.groupValues[2]) ?: return null
+                // The symbol sits in front of the amount, so dropping a
+                // leading number would leave it stranded outside the span.
+                if (parsed.start != 0) return null
+                return@run Triple(parsed, match.groupValues[1], match.value.length)
             }
             return null
         }
-        val amount = parseNumber(amountRaw) ?: return null
         val from = resolveCurrency(tokenRaw, ctx.rates) ?: return null
         // Converting a currency into itself says nothing; when the amount is
         // already in the target, fall back to the pair's other side.
         val to = if (from == ctx.currencyTo) ctx.currencyFrom else ctx.currencyTo
         if (from == to) return null
 
-        val query = "${tidyNumber(amountRaw)} $from"
-        val prefill = ToolPrefill.Currency(from, to, tidyNumber(amountRaw))
+        val query = "${amount.text} $from"
+        val prefill = ToolPrefill.Currency(from, to, CalcEngine.format(amount.value, 4))
         val rates = ctx.rates
             ?: return SmartHit(
                 kind = Kind.CURRENCY, query = query, result = null, insert = null,
                 replaceSpan = span, tool = ToolbarTool.CURRENCY, prefill = prefill,
                 pending = true,
             )
-        val converted = CurrencyClient.convert(amount, from, to, rates) ?: return null
+        val converted = CurrencyClient.convert(amount.value, from, to, rates) ?: return null
         // The result side is the user's local currency: show and insert its
         // name ("Taka") rather than the ISO code ("BDT").
         val result = "${money(converted, ctx.currencyDecimals)} ${CurrencyClient.unitName(to)}"
@@ -447,9 +516,14 @@ object SmartSuggest {
 
     // ---- arithmetic ----
 
-    private val CALC_TAIL = Regex("""(?<![\w.])([\d.,()+\-*/^%×÷−√πe ]{2,40}?)(=?)$""")
+    private val CALC_TAIL = Regex("""(?<![\w.])([\d.,()+\-*/^%×÷−√πePpCc ]{2,40}?)(=?)$""")
     private const val CALC_OPERATORS = "+-*/^%×÷−√"
-    private val DATE_LIKE = Regex("""^\d{1,4}([/.\-])\d{1,2}(\1\d{1,4})?$""")
+    /** nPr and nCr, the only letters the strip reads as operators. */
+    private const val CHOOSE_OPS = "pPcC"
+    /** A written date: "12/04/2025", "2025-01-02", "3.4.26". */
+    private val DATE_LIKE = Regex("""^\d{1,4}([/.\-])\d{1,2}\1\d{1,4}$""")
+    /** "12/04" — a zero-padded pair is a date, not a division. */
+    private val PADDED_PAIR = Regex("""^0\d+/\d+$|^\d+/0\d+$""")
 
     private fun detectCalc(tail: String, ctx: Context): SmartHit? {
         val match = CALC_TAIL.find(tail) ?: return null
@@ -498,10 +572,21 @@ object SmartSuggest {
         if (!compact.first().let { it.isDigit() || it == '(' || it == '-' || it == '√' || it == 'π' }) {
             return false
         }
+        // nPr and nCr only count glued between two digits — "5p3". Spread
+        // out ("page 5 c 2") or up against anything else it is prose that
+        // happens to hold a number, so the whole reading is dropped.
+        if (expression.any { it in CHOOSE_OPS }) {
+            val glued = expression.indices.filter { expression[it] in CHOOSE_OPS }.all { index ->
+                index > 0 && expression[index - 1].isDigit() &&
+                    expression.getOrNull(index + 1)?.isDigit() == true
+            }
+            if (!glued) return false
+        }
+
         // A sign at the very front is part of the number, not a sum — but a
         // leading root is the whole point of "√9".
         val operators = compact.filterIndexed { index, c ->
-            c in CALC_OPERATORS && (index > 0 || c == '√')
+            c in CHOOSE_OPS || c in CALC_OPERATORS && (index > 0 || c == '√')
         }
         if (operators.isEmpty()) return false
         if (compact.count { it.isDigit() } < 2 && '√' !in compact && 'π' !in compact) return false
@@ -511,12 +596,16 @@ object SmartSuggest {
         // it by a hundred. Infix "%" still counts, as does "50%+10".
         if (operators == "%" && compact.endsWith("%")) return false
 
-        // "12/04" is a date and "555-1234" a phone number far more often
-        // than either is a sum, so a single slash or dash between plain
-        // integers needs a second operator before it earns a chip.
+        // A whole date is never a sum, and neither is the zero-padded half of
+        // one: "12/04" is December. A plain "1/2" is a half, though, so an
+        // unpadded pair earns its chip.
         if (DATE_LIKE.matches(compact)) return false
-        if (operators.length == 1 && (operators == "-" || operators == "/")) {
-            val parts = compact.split('-', '/')
+        if (PADDED_PAIR.matches(compact)) return false
+
+        // "555-1234" is a phone number far more often than a subtraction, so
+        // a lone dash between plain integers needs a second operator first.
+        if (operators == "-") {
+            val parts = compact.split('-')
             if (parts.size == 2 && parts.all { it.isNotEmpty() && it.all(Char::isDigit) }) return false
         }
         return true

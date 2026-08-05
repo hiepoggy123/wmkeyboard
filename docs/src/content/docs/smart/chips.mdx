@@ -16,15 +16,17 @@ Smart chips watch the text right before your cursor and, the moment it looks lik
 
 ## Doing the math
 
-Type an expression like `12*8` and the strip offers `96` as a tappable chip: `+ - * / × ÷ − ^ % ( )`, `√`, `π`, and `e` are all recognized, along with implicit multiplication (`2π`, `3(4+1)`). Tapping the chip replaces what you typed with the result; typing `=` yourself appends the answer instead and leaves your sum in place, so `12*4=` becomes `12*4=48`.
+Type an expression like `12*8` and the strip offers `96` as a tappable chip: `+ - * / × ÷ − ^ % ( )`, `√`, `π`, and `e` are all recognized, along with implicit multiplication (`2π`, `3(4+1)`). A plain division counts on its own, so `1/2` offers `0.5`. Tapping the chip replaces what you typed with the result; typing `=` yourself appends the answer instead and leaves your sum in place, so `12*4=` becomes `12*4=48`.
 
-A few things deliberately don't trigger a chip: a bare number on its own isn't a sum, and a trailing `%` reads as "percent" rather than an instruction to divide by 100. Named functions and word-operators like `sin`, `sqrt`, `log`, or `mod` never show up as an inline chip either. The trigger only looks for digits, operators, and the two symbols `π`/`e`, so anything with letters beyond that only works by opening the Calculator tool itself.
+Permutations and combinations use the shorthand a calculator keypad uses: `5p3` offers `60` and `4c2` offers `6`. Both letters have to sit tight between two digits, so `page 5 c 2` stays a sentence.
+
+A few things deliberately don't trigger a chip: a bare number on its own isn't a sum, and a trailing `%` reads as "percent" rather than an instruction to divide by 100. Named functions and word-operators like `sin`, `sqrt`, `log`, or `mod` never show up as an inline chip either. Apart from `p` and `c`, the trigger only looks for digits, operators, and the two symbols `π`/`e`, so anything with more letters than that only works by opening the Calculator tool itself.
 
 The chip's gear icon opens **Calculator** with your expression prefilled. Result precision (decimal places) is shared with the unit converter, and there's a separate degrees/radians switch for trig, set below in [Options](#options).
 
 ## Converting currencies and units
 
-Type an amount next to a currency (`150 usd`, `150$`, `$150`, or `150 dollars`) and the strip converts it into your other currency, using symbols, spelled-out words, or 3-letter codes. If what you typed is already in your target currency, the chip flips and converts the other way instead, so either side of your currency pair gets an answer. The result shows a currency's name rather than its code (`Taka`, not `BDT`). If exchange rates haven't loaded yet, the chip shows a brief spinner while they fetch.
+Type an amount next to a currency (`150 usd`, `150$`, `$150`, or `150 dollars`) and the strip converts it into your other currency, using symbols, spelled-out words, or 3-letter codes. Big amounts can be written the short way or the long way: `1.5k usd`, `2m dollars`, `3 crore taka`, `2 million dollars`, even `1 thousand 500 dollars`. `k`, `m` and `b` are thousand, million and billion, and `lakh` and `crore` work as well. If what you typed is already in your target currency, the chip flips and converts the other way instead, so either side of your currency pair gets an answer. The result shows a currency's name rather than its code (`Taka`, not `BDT`). If exchange rates haven't loaded yet, the chip shows a brief spinner while they fetch.
 
 Units work the same way. Type `1 ft` (or `1ft`) and the chip offers the same length in meters across 14 categories: length, mass, temperature, area, volume, speed, time, data, energy, power, pressure, angle, frequency, and fuel economy. Short, easy-to-confuse abbreviations (`c`, `f`, `in`, `s`, and a couple dozen others) only count when glued directly to the number (`30c` triggers, `30 c` doesn't), so ordinary sentences don't turn into unwanted chips. The unit it converts into is whichever one you paired it with last time you used the converter, falling back to a sensible default (feet to meters, kilograms to pounds, and so on) the first time.
 
@@ -64,7 +66,7 @@ Both surfaces are covered by the same setting (see [Options](#options)) and neit
 
 Each detector has guards against the shapes of text that look like a trigger but usually aren't:
 
-- **Dates** (`12/04`, `2024-07`) never read as arithmetic. A lone `-` or `/` between two plain numbers needs a second operator to count as a sum, and both need an explicit `=` to force an answer.
+- **Dates** (`12/04`, `12/04/2025`, `2024-07`) never read as arithmetic. A zero-padded pair reads as a date, and a lone `-` between two plain numbers needs a second operator to count as a sum. Either way, an explicit `=` forces the answer.
 - **Order numbers and prices** don't turn into phone numbers. A leading `#`, `$`, `£`, or `€` rules a run of digits out.
 - **Years** don't turn into codes. A bare 4-digit value between 1900 and 2099 is rejected even next to a code-sounding word.
 - Google's `G-123456` SMS prefix is stripped before the code check, since it's branding, not part of the code.
