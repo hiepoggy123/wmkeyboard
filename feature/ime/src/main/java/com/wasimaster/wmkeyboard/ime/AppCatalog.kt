@@ -47,20 +47,26 @@ data class LauncherActivity(
 
 object AppCatalog {
 
-    /** All launchable apps, one entry per package, sorted by label. */
+    /**
+     * All launchable apps, one entry per package, sorted by label. Empty on
+     * a package-manager failure (a dying system service) — the panel shows
+     * its empty state rather than crashing the keyboard.
+     */
     suspend fun loadApps(pm: PackageManager): List<LauncherApp> = withContext(Dispatchers.IO) {
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        pm.queryIntentActivities(intent, 0)
-            .mapNotNull { info ->
-                val activity = info.activityInfo ?: return@mapNotNull null
-                LauncherApp(
-                    packageName = activity.packageName,
-                    label = info.loadLabel(pm)?.toString() ?: activity.packageName,
-                    activityName = activity.name,
-                )
-            }
-            .distinctBy { it.packageName }
-            .sortedBy { it.label.lowercase() }
+        runCatching {
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            pm.queryIntentActivities(intent, 0)
+                .mapNotNull { info ->
+                    val activity = info.activityInfo ?: return@mapNotNull null
+                    LauncherApp(
+                        packageName = activity.packageName,
+                        label = info.loadLabel(pm).toString(),
+                        activityName = activity.name,
+                    )
+                }
+                .distinctBy { it.packageName }
+                .sortedBy { it.label.lowercase() }
+        }.getOrDefault(emptyList())
     }
 
     /**

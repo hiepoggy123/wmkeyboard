@@ -964,6 +964,12 @@ data class KeyboardUiState(
      * (possibly mode-supplied) persisted choice; cleared on field switch.
      */
     val activeSymbolSetId: String? = null,
+    /**
+     * Fancy Text style picked from the style strip this session, for instant
+     * chip response while the persisted write lands; cleared on field switch
+     * (the tap persists immediately, so nothing is lost).
+     */
+    val activeFancyStyleId: String? = null,
     val enterAction: EnterAction = EnterAction.DEFAULT,
     /**
      * The app's own label for the enter key (EditorInfo.actionLabel), set

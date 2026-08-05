@@ -259,31 +259,13 @@ object AssetLayouts {
     const val YUE_JYUTPING_ID = "asset_yue_jyutping"
     const val ZH_STROKE_ID = "asset_zh_stroke"
 
-    // --- Fancy Text: per-style Unicode "font" layouts (the 𝔣𝔞𝔫𝔠𝔶 𝕦𝕟𝕚𝕔𝕠𝕕𝕖
-    // trick). Each is a plain QWERTY grid whose keys carry the styled glyph as
-    // their output — no composer, the substitution is the layout itself. ---
-    const val FANCY_BOLD_ID = "asset_fancy_bold"
-    const val FANCY_ITALIC_ID = "asset_fancy_italic"
-    const val FANCY_BOLD_ITALIC_ID = "asset_fancy_bold_italic"
-    const val FANCY_SCRIPT_ID = "asset_fancy_script"
-    const val FANCY_BOLD_SCRIPT_ID = "asset_fancy_bold_script"
-    const val FANCY_FRAKTUR_ID = "asset_fancy_fraktur"
-    const val FANCY_BOLD_FRAKTUR_ID = "asset_fancy_bold_fraktur"
-    const val FANCY_DOUBLE_STRUCK_ID = "asset_fancy_double_struck"
-    const val FANCY_SANS_ID = "asset_fancy_sans"
-    const val FANCY_SANS_BOLD_ID = "asset_fancy_sans_bold"
-    const val FANCY_SANS_ITALIC_ID = "asset_fancy_sans_italic"
-    const val FANCY_SANS_BOLD_ITALIC_ID = "asset_fancy_sans_bold_italic"
-    const val FANCY_MONOSPACE_ID = "asset_fancy_monospace"
-    const val FANCY_FULLWIDTH_ID = "asset_fancy_fullwidth"
-    const val FANCY_CIRCLED_ID = "asset_fancy_circled"
-    const val FANCY_CIRCLED_FILLED_ID = "asset_fancy_circled_filled"
-    const val FANCY_SQUARED_ID = "asset_fancy_squared"
-    const val FANCY_SQUARED_FILLED_ID = "asset_fancy_squared_filled"
-    const val FANCY_SMALL_CAPS_ID = "asset_fancy_small_caps"
-    const val FANCY_SUPERSCRIPT_ID = "asset_fancy_superscript"
-    const val FANCY_STRIKETHROUGH_ID = "asset_fancy_strikethrough"
-    const val FANCY_UNDERLINE_ID = "asset_fancy_underline"
+    // --- Fancy Text: one plain QWERTY grid (the 𝔣𝔞𝔫𝔠𝔶 𝕦𝕟𝕚𝕔𝕠𝕕𝕖 trick). The
+    // styled glyphs come from FancyStyles at draw and commit time, keyed by
+    // the selected style — the layout data itself stays plain a–z, so the
+    // compiled-layout caches never see a style change. The old per-style
+    // asset_fancy_* ids are collapsed onto this one at read time; see
+    // canonicalLayoutId. ---
+    const val FANCY_ID = "asset_fancy"
 
     // --- Language expansion: 140 new languages across Latin/Cyrillic/
     // Devanagari/Arabic/reused-script/conlang families + Ol Chiki (Santali) +

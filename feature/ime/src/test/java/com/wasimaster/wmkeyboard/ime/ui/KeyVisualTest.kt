@@ -7,6 +7,7 @@ import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.compile
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
@@ -85,6 +86,28 @@ class KeyVisualTest {
         assertEquals("q", keyLabelled(off, "q").label)
         assertEquals("Q", keyLabelled(on, "q").label)
         assertNotEquals(visuals(off), visuals(on))
+    }
+
+    /**
+     * Fancy Text: the layout stores plain letters and the style restyles them
+     * at draw time — the session override included, which is why it sits in
+     * rememberKeyGrid's key list.
+     */
+    @Test
+    fun `the fancy style restyles the letter labels, and only for fancy`() {
+        val fancy = state().copy(language = LanguageRegistry.byId("fancy"))
+        assertEquals("the persisted default (bold)", "𝐪", keyLabelled(fancy, "q").label)
+        assertEquals(
+            "the session override wins over the persisted pick",
+            "𝔮",
+            keyLabelled(fancy.copy(activeFancyStyleId = "fraktur"), "q").label,
+        )
+        assertEquals(
+            "shift reaches the style's capital through the plain uppercase",
+            "𝐐",
+            keyLabelled(fancy.copy(shiftState = ShiftState.ON), "q").label,
+        )
+        assertEquals("every other language is untouched", "q", keyLabelled(state(), "q").label)
     }
 
     /**

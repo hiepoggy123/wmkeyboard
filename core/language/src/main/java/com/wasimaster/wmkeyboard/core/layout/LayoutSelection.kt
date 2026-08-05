@@ -35,16 +35,24 @@ fun resolveLayoutSelection(
     defaultActiveId: String = BuiltInLayouts.DEFAULT_ID,
     defaultEnabledIds: List<String> = BuiltInLayouts.defaultEnabledIds,
 ): LayoutSelection {
-    val activeId = storedLayoutId
-        ?: storedInputMode?.let { LEGACY_MODE_LAYOUT[it] }
-        ?: defaultActiveId
+    val activeId = canonicalLayoutId(
+        storedLayoutId
+            ?: storedInputMode?.let { LEGACY_MODE_LAYOUT[it] }
+            ?: defaultActiveId,
+        customLayouts,
+    )
 
-    val enabledIds = storedEnabledLayoutIds
-        ?.split(',')?.filter { it.isNotEmpty() }?.ifEmpty { null }
-        ?: storedEnabledModes?.split(',')
-            ?.mapNotNull { LEGACY_MODE_LAYOUT[it] }
-            ?.ifEmpty { null }
-        ?: defaultEnabledIds
+    // Canonicalised before dedup: an install with several fancy styles
+    // enabled collapses to the one fancy layout instead of listing it once
+    // per style it used to have.
+    val enabledIds = (
+        storedEnabledLayoutIds
+            ?.split(',')?.filter { it.isNotEmpty() }?.ifEmpty { null }
+            ?: storedEnabledModes?.split(',')
+                ?.mapNotNull { LEGACY_MODE_LAYOUT[it] }
+                ?.ifEmpty { null }
+            ?: defaultEnabledIds
+        ).map { canonicalLayoutId(it, customLayouts) }.distinct()
 
     return LayoutSelection(
         // Resolved rather than raw, so an id whose layout was deleted out from
@@ -60,3 +68,20 @@ fun resolveLayoutSelection(
             .ifEmpty { listOf(LanguageRegistry.byId("en")) },
     )
 }
+
+/**
+ * Folds a retired stored layout id onto the layout that replaced it — today
+ * that is the 22 per-style `asset_fancy_*` layouts, which became the one
+ * [AssetLayouts.FANCY_ID] with the style applied at runtime. Same read-time,
+ * nothing-rewritten contract as the InputMode translation above, and the same
+ * downgrade story: the old preference values stay on disk untouched.
+ *
+ * A custom layout stored under the exact legacy id is somebody's edited copy
+ * of that style; it still exists, so its id keeps resolving to it.
+ */
+fun canonicalLayoutId(id: String, customLayouts: List<LayoutSpec>): String =
+    if (id.startsWith("asset_fancy_") && customLayouts.none { it.id == id }) {
+        AssetLayouts.FANCY_ID
+    } else {
+        id
+    }

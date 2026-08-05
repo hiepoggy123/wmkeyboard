@@ -994,16 +994,16 @@
  {
   "id": "pt",
   "lang": "pt",
-  "name": "Português · Portuguese (Europe)",
-  "english": "Portuguese (Europe)",
+  "name": "Português · Portuguese",
+  "english": "Portuguese",
   "words": 763183,
   "gzBytes": 3138081
  },
  {
   "id": "pt_br",
   "lang": "pt",
-  "name": "Português · Portuguese (Brazil)",
-  "english": "Portuguese (Brazil)",
+  "name": "Português · Portuguese",
+  "english": "Portuguese",
   "words": 847162,
   "gzBytes": 3384245
  },
@@ -1474,7 +1474,7 @@
  {
   "id": "as",
   "lang": "as",
-  "name": "অসমীয়া · Assamese",
+  "name": "অসমীয়া · Assamese",
   "english": "Assamese",
   "words": 142052,
   "gzBytes": 708124
@@ -1482,7 +1482,7 @@
  {
   "id": "bpy",
   "lang": "bpy",
-  "name": "বিষ্ণুপ্রিয়া · Bishnupriya Manipuri",
+  "name": "বিষ্ণুপ্রিয়া · Bishnupriya Manipuri",
   "english": "Bishnupriya Manipuri",
   "words": 36838,
   "gzBytes": 181959

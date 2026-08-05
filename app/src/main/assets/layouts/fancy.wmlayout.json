@@ -2,8 +2,8 @@
   "format": "wmkeyboard-layout",
   "version": 1,
   "layout": {
-    "id": "asset_fancy_circled_filled",
-    "name": "Circled (Filled)",
+    "id": "asset_fancy",
+    "name": "Fancy",
     "langId": "fancy",
     "version": 2,
     "layers": {
@@ -11,82 +11,63 @@
         "rows": [
           [
             {
-              "label": "🅠",
-              "shiftLabel": "🅠"
+              "label": "q"
             },
             {
-              "label": "🅦",
-              "shiftLabel": "🅦"
+              "label": "w"
             },
             {
-              "label": "🅔",
-              "shiftLabel": "🅔"
+              "label": "e"
             },
             {
-              "label": "🅡",
-              "shiftLabel": "🅡"
+              "label": "r"
             },
             {
-              "label": "🅣",
-              "shiftLabel": "🅣"
+              "label": "t"
             },
             {
-              "label": "🅨",
-              "shiftLabel": "🅨"
+              "label": "y"
             },
             {
-              "label": "🅤",
-              "shiftLabel": "🅤"
+              "label": "u"
             },
             {
-              "label": "🅘",
-              "shiftLabel": "🅘"
+              "label": "i"
             },
             {
-              "label": "🅞",
-              "shiftLabel": "🅞"
+              "label": "o"
             },
             {
-              "label": "🅟",
-              "shiftLabel": "🅟"
+              "label": "p"
             }
           ],
           [
             {
-              "label": "🅐",
-              "shiftLabel": "🅐"
+              "label": "a"
             },
             {
-              "label": "🅢",
-              "shiftLabel": "🅢"
+              "label": "s"
             },
             {
-              "label": "🅓",
-              "shiftLabel": "🅓"
+              "label": "d"
             },
             {
-              "label": "🅕",
-              "shiftLabel": "🅕"
+              "label": "f"
             },
             {
-              "label": "🅖",
-              "shiftLabel": "🅖"
+              "label": "g"
             },
             {
-              "label": "🅗",
-              "shiftLabel": "🅗"
+              "label": "h"
             },
             {
-              "label": "🅙",
-              "shiftLabel": "🅙"
+              "label": "j"
             },
             {
-              "label": "🅚",
-              "shiftLabel": "🅚"
+              "label": "k"
             },
             {
-              "label": "🅛",
-              "shiftLabel": "🅛"
+              "label": "l"
             }
           ],
           [
@@ -98,32 +79,25 @@
               "width": 1.5
             },
             {
-              "label": "🅩",
-              "shiftLabel": "🅩"
+              "label": "z"
             },
             {
-              "label": "🅧",
-              "shiftLabel": "🅧"
+              "label": "x"
             },
             {
-              "label": "🅒",
-              "shiftLabel": "🅒"
+              "label": "c"
             },
             {
-              "label": "🅥",
-              "shiftLabel": "🅥"
+              "label": "v"
             },
             {
-              "label": "🅑",
-              "shiftLabel": "🅑"
+              "label": "b"
             },
             {
-              "label": "🅝",
-              "shiftLabel": "🅝"
+              "label": "n"
             },
             {
-              "label": "🅜",
-              "shiftLabel": "🅜"
+              "label": "m"
             },
             {
               "label": "⌫",

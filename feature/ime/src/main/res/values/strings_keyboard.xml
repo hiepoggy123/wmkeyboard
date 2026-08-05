@@ -224,6 +224,9 @@
     <string name="ime_ai_insert">Insert</string>
     <string name="ime_ai_settings_desc">AI settings</string>
 
+    <!-- The Fancy Text style strip. -->
+    <string name="ime_fancy_style_switch_desc">Switch fancy style</string>
+
     <!-- The app-launcher panel. -->
     <string name="ime_launcher_search_hint">Search apps</string>
     <string name="ime_launcher_loading">Loading apps…</string>

@@ -61,6 +61,7 @@ import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.DeviceLocales
+import com.wasimaster.wmkeyboard.core.script.FancyStyles
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.LanguageSuggestions
@@ -595,6 +596,23 @@ internal fun LanguageDetailScreen(
                         if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
                     }
                 }
+            }
+        }
+    }
+
+    // Fancy Text: the style the one fancy layout draws and types. The strip
+    // over the keys switches it too; this row makes it discoverable from
+    // Settings and readable as a plain list.
+    if (langId == "fancy") {
+        SettingsGroup(stringResource(R.string.languages_fancy_style_title)) {
+            item {
+                ChoiceSetting(
+                    R.string.languages_fancy_style_row_title,
+                    subtitle = stringResource(R.string.languages_fancy_style_row_subtitle),
+                    options = FancyStyles.all.map { it to it.sample },
+                    selected = FancyStyles.byId(settings.layoutBehavior.fancyStyleId)
+                        ?: FancyStyles.all.first(),
+                ) { scope.launch { repository.setFancyStyle(it.id) } }
             }
         }
     }

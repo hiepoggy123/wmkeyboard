@@ -54,6 +54,10 @@
     <string name="languages_conjunct_backspace_info">Backspace usually deletes one code point at a time. This sometimes leaves half-formed clusters on the screen. With this setting on, one press deletes the whole cluster while you type <xliff:g id="language" example="Bengali">%1$s</xliff:g>. Other languages keep their own setting.</string>
 
     <string name="languages_numerals_title">Numerals</string>
+    <!-- Fancy Text: the styled-letters pseudo-language. -->
+    <string name="languages_fancy_style_title">Style</string>
+    <string name="languages_fancy_style_row_title">Fancy style</string>
+    <string name="languages_fancy_style_row_subtitle">The lettering the fancy keyboard types. Also switchable from the strip over the keys.</string>
     <string name="languages_numeral_system_title">Numeral system</string>
     <!-- %1$s is the English name of the language, for example "Arabic". -->
     <string name="languages_numeral_system_subtitle">The digits that the number row and the keypad show while you type <xliff:g id="language" example="Arabic">%1$s</xliff:g></string>

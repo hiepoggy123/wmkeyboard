@@ -269,6 +269,8 @@ import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.handwriting.HwPoint
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
+import com.wasimaster.wmkeyboard.core.script.FancyStyle
+import com.wasimaster.wmkeyboard.core.script.FancyStyles
 import com.wasimaster.wmkeyboard.core.script.TextDirection
 import com.wasimaster.wmkeyboard.core.script.mapDigits
 import com.wasimaster.wmkeyboard.core.script.resolveNumeralDigits
@@ -747,6 +749,7 @@ fun KeyboardScreen(
     onWikiLoadFull: () -> Unit = {},
     onSymbolInsert: (String) -> Unit = {},
     onSymbolSetSelect: (String) -> Unit = {},
+    onFancyStyleSelect: (String) -> Unit = {},
     onModeSelect: (String?) -> Unit = {},
     onToolInsert: (String) -> Unit = {},
     onUnitSelection: (String) -> Unit = {},
@@ -956,6 +959,7 @@ fun KeyboardScreen(
                 onWikiLoadFull = onWikiLoadFull,
                 onSymbolInsert = onSymbolInsert,
                 onSymbolSetSelect = onSymbolSetSelect,
+                onFancyStyleSelect = onFancyStyleSelect,
                 onModeSelect = onModeSelect,
                 onToolInsert = onToolInsert,
                 onUnitSelection = onUnitSelection,
@@ -3098,6 +3102,138 @@ private fun SymbolRowStrip(
     }
 }
 
+/** Height of the Fancy Text style strip (mirrors [SymbolRowHeight]). */
+internal val FancyRowHeight = 40.dp
+
+/**
+ * The Fancy Text style in force at draw time, or null outside the fancy
+ * layout — the render-side twin of the service's own resolver, and the gate
+ * every fancy branch in this file checks.
+ */
+internal fun fancyStyleFor(state: KeyboardUiState): FancyStyle? =
+    if (state.language.id == "fancy") {
+        FancyStyles.byId(
+            state.activeFancyStyleId ?: state.settings.layoutBehavior.fancyStyleId,
+        )
+    } else {
+        null
+    }
+
+/**
+ * The style picker for Fancy Text: a strip over the keys, shown only while
+ * the fancy layout is active, with each style's chip written in the style
+ * itself (𝐁𝐨𝐥𝐝, 𝘐𝘵𝘢𝘭𝘪𝘤, 𝔉𝔯𝔞𝔨𝔱𝔲𝔯 …). Modeled on [SymbolRowStrip]: a
+ * left-hand dropdown naming the current style in plain text, then the
+ * scrollable WYSIWYG chips. Not a [BarRow] — that enum is serialized, and an
+ * older build reading an unknown constant would crash; this row simply
+ * appears with the layout, unordered and unconfigurable.
+ */
+@Composable
+private fun FancyStyleStrip(
+    state: KeyboardUiState,
+    active: FancyStyle,
+    onStyleSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var pickerOpen by remember { mutableStateOf(false) }
+    val feedback = LocalKeyPressFeedback.current
+    val listState = rememberLazyListState()
+    // Land on the active chip when the strip appears — with 22 styles the
+    // selected one is otherwise likely off-screen to the right.
+    LaunchedEffect(Unit) {
+        val index = FancyStyles.all.indexOfFirst { it.id == active.id }
+        if (index > 0) listState.scrollToItem(index)
+    }
+    // The chips are Latin glyphs whatever the system locale; mirroring the
+    // strip under RTL would put the list order at odds with the layout.
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(FancyRowHeight),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable {
+                            feedback()
+                            pickerOpen = true
+                        }
+                        .padding(start = 10.dp, end = 2.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        active.name,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                    Icon(
+                        Icons.Outlined.ArrowDropDown,
+                        contentDescription = stringResource(R.string.ime_fancy_style_switch_desc),
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                DropdownMenu(expanded = pickerOpen, onDismissRequest = { pickerOpen = false }) {
+                    for (style in FancyStyles.all) {
+                        DropdownMenuItem(
+                            text = { Text(style.name) },
+                            trailingIcon = if (style.id == active.id) {
+                                {
+                                    Icon(
+                                        Icons.Outlined.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                            onClick = {
+                                pickerOpen = false
+                                onStyleSelect(style.id)
+                            },
+                        )
+                    }
+                }
+            }
+            LazyRow(
+                state = listState,
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                lazyRowItems(FancyStyles.all) { style ->
+                    val selected = style.id == active.id
+                    Text(
+                        text = style.sample,
+                        modifier = Modifier
+                            .padding(horizontal = 2.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (selected) {
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                } else {
+                                    Color.Transparent
+                                },
+                            )
+                            .clickable { onStyleSelect(style.id) }
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
+                            // The samples are astral soup to TalkBack; speak
+                            // the plain name instead.
+                            .semantics { contentDescription = style.name },
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
 /**
  * The Modes panel: pick which keyboard mode is active. "Automatic" follows
  * the per-app and per-field bindings; picking a mode by hand overrides them
@@ -5099,10 +5235,14 @@ private fun isFullBleedPanel(panel: PanelMode, settings: KeyboardSettings): Bool
  * keyboard window. Shared with the scanner panels, which draw their own
  * chrome instead of using [FullBleedTool].
  */
-internal fun fullBleedHiddenRows(settings: KeyboardSettings): Dp =
-    topBarHeight(settings) +
-        (if (settings.emojiBarMode == EmojiBarMode.ALWAYS) EmojiBarHeight else 0.dp) +
-        (if (settings.symbolRowEnabled) SymbolRowHeight else 0.dp)
+internal fun fullBleedHiddenRows(state: KeyboardUiState): Dp =
+    topBarHeight(state.settings) +
+        (if (state.settings.emojiBarMode == EmojiBarMode.ALWAYS) EmojiBarHeight else 0.dp) +
+        (if (state.settings.symbolRowEnabled) SymbolRowHeight else 0.dp) +
+        // The fancy style strip hides under a full-bleed panel like the rows
+        // above it, so its height rides along — it depends on the active
+        // layout, which is why this takes the state and not just settings.
+        (if (fancyStyleFor(state) != null) FancyRowHeight else 0.dp)
 
 /**
  * Chrome for a full-bleed tool: a slim header (back button + tool name)
@@ -5139,7 +5279,7 @@ private fun FullBleedTool(
     val height = if (compact) {
         compactHeight
     } else {
-        keyRowsHeight(state) + fullBleedHiddenRows(state.settings) + extraHeight
+        keyRowsHeight(state) + fullBleedHiddenRows(state) + extraHeight
     }
     Column(
         modifier = Modifier
@@ -5303,6 +5443,7 @@ private fun KeyboardBody(
     onWikiLoadFull: () -> Unit,
     onSymbolInsert: (String) -> Unit,
     onSymbolSetSelect: (String) -> Unit,
+    onFancyStyleSelect: (String) -> Unit,
     onModeSelect: (String?) -> Unit,
     onToolInsert: (String) -> Unit,
     onUnitSelection: (String) -> Unit,
@@ -5439,6 +5580,18 @@ private fun KeyboardBody(
                         )
                     }
                 }
+            }
+            // The Fancy Text style strip rides with its layout rather than
+            // with barOrder (a serialized enum an older build must still
+            // decode), so it renders after the ordered rows, closest to the
+            // keys whose glyphs it changes.
+            val fancyStyle = fancyStyleFor(state)
+            if (!fullBleed && fancyStyle != null) {
+                FancyStyleStrip(
+                    state = state,
+                    active = fancyStyle,
+                    onStyleSelect = onFancyStyleSelect,
+                )
             }
             // Deliberately NOT animated. A fade here was tried and reverted:
             // an alpha on this subtree covers the key rows as well as the
@@ -6340,6 +6493,10 @@ private fun rememberKeyGrid(
         state.shiftState, state.modifiers, state.effectiveEnterAction,
         state.enterActionLabel, state.language, state.script,
         state.composer.isClusterShaping, state.vowelForm, state.layoutId,
+        // The fancy style rewrites every letter label via displayLabel. The
+        // persisted pick rides in through `settings` (already a key); this is
+        // the session override the strip flips for instant response.
+        state.activeFancyStyleId,
     ) {
         val digits = extraRow?.let { row ->
             keyRowVisual(
@@ -8737,6 +8894,12 @@ private fun displayLabel(key: Key, state: KeyboardUiState): String {
             ?.let { BengaliGraphemes.vowelKeyText(it, state.vowelForm) }
             ?.let { return it }
     }
+    // Fancy Text: the layout carries plain a–z; the selected style's glyph is
+    // drawn here (and committed by the service's twin of this substitution),
+    // so the keys are WYSIWYG and the compiled layout never varies. The
+    // uppercase branch above already cased the plain letter, so shift shows
+    // the style's capital via the upper map.
+    fancyStyleFor(state)?.let { style -> return FancyStyles.transform(raw, style) }
     return mapDigits(raw, digits)
 }
 
@@ -9685,9 +9848,9 @@ private fun EmojiPanel(
     // accounting applies with fewer rows to reclaim.
     val fullBleed = state.settings.emojiFullBleed
     val height = when {
-        state.emojiSearchActive && fullBleed -> 120.dp + fullBleedHiddenRows(state.settings)
+        state.emojiSearchActive && fullBleed -> 120.dp + fullBleedHiddenRows(state)
         state.emojiSearchActive -> 120.dp + topBarHeight(state.settings) + barCompensation
-        fullBleed -> keyRowsHeight(state) + fullBleedHiddenRows(state.settings)
+        fullBleed -> keyRowsHeight(state) + fullBleedHiddenRows(state)
         else -> keyRowsHeight(state) + barCompensation
     }
     // One category rendered at a time behind tabs: the full catalog in a

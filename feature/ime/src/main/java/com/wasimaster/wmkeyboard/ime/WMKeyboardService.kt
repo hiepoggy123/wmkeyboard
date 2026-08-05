@@ -285,6 +285,8 @@ import com.wasimaster.wmkeyboard.core.input.composer.T9Pinyin
 import com.wasimaster.wmkeyboard.core.input.composer.ZhuyinSyllables
 import com.wasimaster.wmkeyboard.core.input.composer.CodeTableDictionary
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
+import com.wasimaster.wmkeyboard.core.script.FancyStyle
+import com.wasimaster.wmkeyboard.core.script.FancyStyles
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
@@ -2165,6 +2167,7 @@ open class WMKeyboardService : InputMethodService() {
                 onWikiLoadFull = ::onWikiLoadFull,
                 onSymbolInsert = ::onSymbolInsert,
                 onSymbolSetSelect = ::onSymbolSetSelect,
+                onFancyStyleSelect = ::onFancyStyleSelect,
                 onModeSelect = ::onModeSelect,
                 onToolInsert = ::onToolTextInsert,
                 // Selection memory, not a user action — persist silently.
@@ -2492,6 +2495,9 @@ open class WMKeyboardService : InputMethodService() {
                 layouts = resolveLayoutSet(fieldSpec, fieldKind),
                 activeModeId = activeMode?.id,
                 activeSymbolSetId = null,
+                // Harmless reset: the strip persists the pick on tap, so the
+                // persisted style takes over seamlessly on the next field.
+                activeFancyStyleId = null,
                 panel = PanelMode.NONE,
                 // A fresh field starts on the letter layer; a restart of the
                 // same field keeps whatever layer the user was on.
@@ -3470,6 +3476,13 @@ open class WMKeyboardService : InputMethodService() {
         }
 
         val ic = currentInputConnection ?: return
+        // Fancy Text: swap plain letters for the styled glyphs at the last
+        // moment — after every keyboard-buffer and search intercept above
+        // (those want plain, searchable letters) and before the field sees
+        // anything. Hardware keys and typing over a selection funnel through
+        // here too, so they style for free.
+        val fancyStyle = fancyStyleFor(state)
+        text = applyFancyStyle(text, fancyStyle)
         // contextualForm is the identity for every composer except the
         // cluster-shaping (fixed Indic) ones, so only they are worth the
         // synchronous getTextBeforeCursor round-trip on the keypress path.
@@ -3537,7 +3550,12 @@ open class WMKeyboardService : InputMethodService() {
         // in password fields and with the strip off, or the roman keys commit
         // untransliterated and no Bengali is produced. English composing only
         // exists to feed suggestions, so it stays gated on those.
-        val composingMode = !state.composer.isClusterShaping && (
+        //
+        // Fancy Text never composes: the styled glyphs have no dictionary, and
+        // half of them are astral pairs that would fail isWordChar anyway —
+        // forcing every style down the direct-commit branch keeps the BMP
+        // styles (small caps, fullwidth) consistent with the astral ones.
+        val composingMode = fancyStyle == null && !state.composer.isClusterShaping && (
             state.composer.isTransliterating ||
                 (state.allowsTypingIntelligence && state.settings.suggestions)
             )
@@ -3665,6 +3683,31 @@ open class WMKeyboardService : InputMethodService() {
         // the selection update it triggers reads as "the user moved the caret"
         // and disarms the cancel before it can ever be used.
         armRevertGuard()
+    }
+
+    /**
+     * The Fancy Text style in force, or null everywhere outside the fancy
+     * layout. The session override (the strip's tap, for instant response)
+     * wins over the persisted pick.
+     */
+    private fun fancyStyleFor(state: KeyboardUiState): FancyStyle? =
+        if (state.language.id == "fancy") {
+            FancyStyles.byId(
+                state.activeFancyStyleId ?: state.settings.layoutBehavior.fancyStyleId,
+            )
+        } else {
+            null
+        }
+
+    /** [text] restyled, or unchanged when no fancy style is in force. */
+    private fun applyFancyStyle(text: String, style: FancyStyle?): String =
+        if (style != null) FancyStyles.transform(text, style) else text
+
+    /** A style chip on the fancy strip: instant in-session, persisted behind. */
+    fun onFancyStyleSelect(id: String) {
+        vibrate()
+        _uiState.update { it.copy(activeFancyStyleId = id) }
+        serviceScope.launch { settingsRepository.setFancyStyle(id) }
     }
 
     private fun keyOutput(key: Key, state: KeyboardUiState): String {
@@ -5851,8 +5894,9 @@ open class WMKeyboardService : InputMethodService() {
         }
         _uiState.update { it.copy(launcherLoading = true) }
         serviceScope.launch {
-            val apps = runCatching { AppCatalog.loadApps(packageManager) }
-                .getOrDefault(emptyList())
+            // Failure handling lives inside loadApps (empty list), so nothing
+            // here swallows a coroutine cancellation by accident.
+            val apps = AppCatalog.loadApps(packageManager)
             launcherAppsCache = apps
             _uiState.update { it.copy(launcherApps = apps, launcherLoading = false) }
         }

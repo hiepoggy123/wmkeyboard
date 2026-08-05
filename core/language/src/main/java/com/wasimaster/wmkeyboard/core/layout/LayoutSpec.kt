@@ -278,6 +278,12 @@ private object ResolvedLayouts {
  * slot, a custom-only id resolves to itself, anything else is the default.
  */
 fun resolveLayout(custom: List<LayoutSpec>, id: String): LayoutSpec {
+    // Retired ids (the per-style fancy layouts) fold onto their replacement
+    // here too, so readers that bypass resolveLayoutSelection — the per-app
+    // remembered layout, a stale active id — keep resolving to Fancy rather
+    // than healing to the default.
+    @Suppress("NAME_SHADOWING")
+    val id = canonicalLayoutId(id, custom)
     val shipped = BuiltInLayouts.byId(id) ?: AssetLayouts.byId(id)
     return if (shipped != null) {
         // `associateBy` keeps the last entry for a repeated key, so an override

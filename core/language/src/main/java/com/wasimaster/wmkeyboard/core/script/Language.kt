@@ -1638,43 +1638,22 @@ object LanguageRegistry {
             localeTag = "mul-fonipa",
             layoutIds = listOf(AssetLayouts.IPA_ID),
         ),
-        // Not a language but a family of styled-Latin "fonts": each layout maps
-        // the Latin letters onto a Mathematical-Alphanumeric (or enclosed /
-        // fullwidth / combining) variant so a tap commits 𝔣𝔞𝔫𝔠𝔶 𝕦𝕟𝕚𝕔𝕠𝕕𝕖 text
-        // straight into any field. It rides the Latin script (bicameral, so shift
-        // reaches the capital variant via each key's shiftLabel) and ships no
-        // dictionary or gesture lexicon — the substitution is the whole point.
-        // Primary subtag "mul" (multiple languages) so the locale tag still parses.
+        // Not a language but a set of styled-Latin "fonts": one plain QWERTY
+        // layout whose letters are mapped onto a Mathematical-Alphanumeric
+        // (or enclosed / fullwidth / combining) variant at draw and commit
+        // time, so a tap commits 𝔣𝔞𝔫𝔠𝔶 𝕦𝕟𝕚𝕔𝕠𝕕𝕖 text straight into any field.
+        // The style is picked from a strip over the keys (see FancyStyles);
+        // it used to be 22 separate layouts, and canonicalLayoutId still
+        // folds those stored ids onto this one. Ships no dictionary or
+        // gesture lexicon — the substitution is the whole point. Primary
+        // subtag "mul" (multiple languages) so the locale tag still parses.
         LanguageDef(
             id = "fancy",
             displayName = "𝓕𝓪𝓷𝓬𝔂 · Fancy Text",
             englishName = "Fancy Text (fonts)",
             script = ScriptId.LATIN,
             localeTag = "mul",
-            layoutIds = listOf(
-                AssetLayouts.FANCY_BOLD_ID,
-                AssetLayouts.FANCY_ITALIC_ID,
-                AssetLayouts.FANCY_BOLD_ITALIC_ID,
-                AssetLayouts.FANCY_SCRIPT_ID,
-                AssetLayouts.FANCY_BOLD_SCRIPT_ID,
-                AssetLayouts.FANCY_FRAKTUR_ID,
-                AssetLayouts.FANCY_BOLD_FRAKTUR_ID,
-                AssetLayouts.FANCY_DOUBLE_STRUCK_ID,
-                AssetLayouts.FANCY_SANS_ID,
-                AssetLayouts.FANCY_SANS_BOLD_ID,
-                AssetLayouts.FANCY_SANS_ITALIC_ID,
-                AssetLayouts.FANCY_SANS_BOLD_ITALIC_ID,
-                AssetLayouts.FANCY_MONOSPACE_ID,
-                AssetLayouts.FANCY_FULLWIDTH_ID,
-                AssetLayouts.FANCY_CIRCLED_ID,
-                AssetLayouts.FANCY_CIRCLED_FILLED_ID,
-                AssetLayouts.FANCY_SQUARED_ID,
-                AssetLayouts.FANCY_SQUARED_FILLED_ID,
-                AssetLayouts.FANCY_SMALL_CAPS_ID,
-                AssetLayouts.FANCY_SUPERSCRIPT_ID,
-                AssetLayouts.FANCY_STRIKETHROUGH_ID,
-                AssetLayouts.FANCY_UNDERLINE_ID,
-            ),
+            layoutIds = listOf(AssetLayouts.FANCY_ID),
         ),
         // Western musical notation — a notation like IPA, not a language. The
         // layout's keys commit the Musical Symbols block (SMP) plus the BMP

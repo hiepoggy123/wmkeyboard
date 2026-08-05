@@ -112,4 +112,47 @@ class LayoutSelectionTest {
         assertEquals("My Probhat", s.active.name)
         assertEquals("bn", s.active.language().id)
     }
+
+    // ---- the fancy collapse: 22 per-style layouts became one -------------
+
+    @Test
+    fun `stored per-style fancy ids collapse to the one fancy layout`() {
+        assertEquals(AssetLayouts.FANCY_ID, canonicalLayoutId("asset_fancy_fraktur", emptyList()))
+        val s = select(
+            layoutId = "asset_fancy_fraktur",
+            enabledIds = BuiltInLayouts.QWERTY_ID +
+                ",asset_fancy_bold,asset_fancy_italic,asset_fancy_fraktur",
+        )
+        // The enabled list is asserted rather than the resolved active spec:
+        // asset layouts are not loaded in a JVM test, so the active id would
+        // heal to the default here either way.
+        assertEquals(
+            "three enabled styles dedupe to one layout, not three copies of it",
+            listOf(BuiltInLayouts.QWERTY_ID, AssetLayouts.FANCY_ID),
+            s.enabledLayoutIds,
+        )
+    }
+
+    @Test
+    fun `a custom layout shadowing a legacy fancy id keeps resolving to itself`() {
+        val edited = LayoutSpec(id = "asset_fancy_bold", name = "My Bold", langId = "fancy")
+        val s = select(
+            layoutId = "asset_fancy_bold",
+            enabledIds = "asset_fancy_bold",
+            custom = listOf(edited),
+        )
+        assertEquals(
+            "the user's edited copy of the style still exists and wins its id",
+            "My Bold",
+            s.active.name,
+        )
+        assertEquals(listOf("asset_fancy_bold"), s.enabledLayoutIds)
+    }
+
+    @Test
+    fun `canonicalLayoutId leaves every other id alone`() {
+        assertEquals("qwerty", canonicalLayoutId("qwerty", emptyList()))
+        assertEquals(AssetLayouts.FANCY_ID, canonicalLayoutId(AssetLayouts.FANCY_ID, emptyList()))
+        assertEquals("custom_1", canonicalLayoutId("custom_1", emptyList()))
+    }
 }

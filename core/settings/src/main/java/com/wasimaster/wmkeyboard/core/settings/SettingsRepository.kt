@@ -2102,6 +2102,13 @@ data class LayoutBehaviorSettings(
      * their own currency first without editing a whole custom layout.
      */
     val currencyKeys: List<String> = emptyList(),
+    /**
+     * The Fancy Text style the fancy layout draws and types
+     * (FancyStyles id — "bold", "fraktur", …). Written by the style strip
+     * over the keys and by the language's settings page; ignored everywhere
+     * outside the fancy layout.
+     */
+    val fancyStyleId: String = "bold",
 ) {
     /** [langId]'s numeral system, [NumeralSystem.AUTO] when it has no entry. */
     fun numeralSystemFor(langId: String): NumeralSystem =
@@ -2509,6 +2516,7 @@ class SettingsRepository(private val context: Context) {
         private val SPACE_SWIPE_DOWN_HIDE = booleanPreferencesKey("space_swipe_down_hide")
         private val SPACE_CURSOR_2D = booleanPreferencesKey("space_cursor_2d")
         private val HINT_FONT_SCALE = floatPreferencesKey("hint_font_scale")
+        private val FANCY_STYLE = stringPreferencesKey("fancy_style")
         private val NUMBER_ROW_SHIFT_SYMBOLS = booleanPreferencesKey("number_row_shift_symbols")
         private val NUMBER_ROW_IN_SYMBOLS = booleanPreferencesKey("number_row_in_symbols")
         private val BOTTOM_ROW_HEIGHT = intPreferencesKey("bottom_row_height")
@@ -3302,6 +3310,8 @@ class SettingsRepository(private val context: Context) {
                     p[SPACE_SWIPE_DOWN_HIDE] ?: defaults.layoutBehavior.spaceSwipeDownHide,
                 spaceCursor2d = p[SPACE_CURSOR_2D] ?: defaults.layoutBehavior.spaceCursor2d,
                 hintFontScale = p[HINT_FONT_SCALE] ?: defaults.layoutBehavior.hintFontScale,
+                fancyStyleId = p[FANCY_STYLE] ?: legacyFancyStyle(p)
+                    ?: defaults.layoutBehavior.fancyStyleId,
                 numberRowShiftSymbols =
                     p[NUMBER_ROW_SHIFT_SYMBOLS] ?: defaults.layoutBehavior.numberRowShiftSymbols,
                 smartHitDetection =
@@ -6002,6 +6012,24 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSymbolRowActiveSet(id: String) =
         editPrefs { it[SYMBOL_ROW_ACTIVE_SET] = id }
+
+    suspend fun setFancyStyle(id: String) =
+        editPrefs { it[FANCY_STYLE] = id }
+
+    /**
+     * The style an install that predates the single fancy layout should keep:
+     * the first old per-style layout id still sitting in the raw preferences
+     * ("asset_fancy_fraktur" → "fraktur"). Read-time only, like the Bengali
+     * font fallback — nothing is rewritten, so a downgrade finds its layout
+     * ids untouched.
+     */
+    private fun legacyFancyStyle(p: Preferences): String? =
+        (
+            p[ENABLED_LAYOUT_IDS]?.split(',').orEmpty() +
+                listOfNotNull(p[ACTIVE_LAYOUT_ID])
+            )
+            .firstOrNull { it.startsWith("asset_fancy_") }
+            ?.removePrefix("asset_fancy_")
 
     /** Adds the set or replaces the stored set with the same id. */
     suspend fun upsertSymbolSet(set: SymbolSet) =
