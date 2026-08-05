@@ -2162,6 +2162,20 @@ data class SuggestionStripSettings(
      * field ceiling.
      */
     val systemSmartReplies: Boolean = true,
+    /**
+     * Adapt suggestions to where you're typing: chat-speak ("lol", "gonna")
+     * ranks a little higher in messaging apps and a little lower in email
+     * fields and clients. Ranking only — nothing is ever hidden or blocked —
+     * and off by default.
+     */
+    val registerPriors: Boolean = false,
+    /**
+     * How strongly the typing rhythm of a word sways autocorrect, 0 (off,
+     * the default) to 1. Fast, sloppy bursts make autocorrect fire more
+     * eagerly; slow, deliberate typing — an unusual name, a foreign word —
+     * makes it hold back.
+     */
+    val timingSignalStrength: Float = 0f,
 )
 
 /**
@@ -2425,6 +2439,8 @@ class SettingsRepository(private val context: Context) {
         private val SUGGESTION_PRIMARY_CENTER = booleanPreferencesKey("suggestion_primary_center")
         private val BLOCK_OFFENSIVE_WORDS = booleanPreferencesKey("block_offensive_words")
         private val CONTEXT_RERANK = booleanPreferencesKey("context_rerank")
+        private val REGISTER_PRIORS = booleanPreferencesKey("register_priors")
+        private val TIMING_SIGNAL_STRENGTH = floatPreferencesKey("timing_signal_strength")
         private val CONTACT_SUGGESTIONS = booleanPreferencesKey("contact_suggestions")
         private val CONTACT_EMAIL_SUGGESTIONS =
             booleanPreferencesKey("contact_email_suggestions")
@@ -3221,6 +3237,10 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.suggestionStrip.expandUserDictShortcuts,
                 systemSmartReplies = p[SYSTEM_SMART_REPLIES]
                     ?: defaults.suggestionStrip.systemSmartReplies,
+                registerPriors = p[REGISTER_PRIORS]
+                    ?: defaults.suggestionStrip.registerPriors,
+                timingSignalStrength = p[TIMING_SIGNAL_STRENGTH]
+                    ?: defaults.suggestionStrip.timingSignalStrength,
             ),
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
@@ -5240,6 +5260,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSystemSmartReplies(value: Boolean) =
         editPrefs { it[SYSTEM_SMART_REPLIES] = value }
+
+    suspend fun setRegisterPriors(value: Boolean) =
+        editPrefs { it[REGISTER_PRIORS] = value }
+
+    suspend fun setTimingSignalStrength(value: Float) =
+        editPrefs { it[TIMING_SIGNAL_STRENGTH] = value.coerceIn(0f, 1f) }
 
     suspend fun setNumberRowInSymbols(value: Boolean) =
         editPrefs { it[NUMBER_ROW_IN_SYMBOLS] = value }

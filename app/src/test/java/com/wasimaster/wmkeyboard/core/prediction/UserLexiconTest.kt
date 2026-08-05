@@ -43,6 +43,26 @@ class UserLexiconTest {
     }
 
     @Test
+    fun languageTagsRoundTripAndFollowTheWord() {
+        val f = file()
+        UserLexicon(f).apply {
+            learnWord("wasi", 3, langId = "bn_rom")
+            // Untagged learns (blank langId) leave no tag behind.
+            learnWord("hello", 3)
+            save()
+        }
+        val back = UserLexicon(f)
+        assertEquals("bn_rom", back.languageOf("wasi"))
+        assertEquals(null, back.languageOf("hello"))
+        // The most recent language wins.
+        back.learnWord("wasi", 1, langId = "en")
+        assertEquals("en", back.languageOf("wasi"))
+        // Forgetting the word drops its tag with it.
+        back.forget("wasi")
+        assertEquals(null, back.languageOf("wasi"))
+    }
+
+    @Test
     fun nextWordsOrderSurvivesMutation() {
         val lexicon = UserLexicon(null)
         lexicon.learnBigram("a", "x")

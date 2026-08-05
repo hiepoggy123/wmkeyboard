@@ -24,6 +24,10 @@ class UserLexicon(private val storageFile: File?) {
         /** Trigram contexts, keyed "prev2<NUL>prev1". Additive; old files
          * simply have none. */
         val trigrams: Map<String, Map<String, Int>> = emptyMap(),
+        /** Language id each word was last learned under. Additive; words
+         * with no entry (legacy files, settings-app adds) are untagged and
+         * treated as belonging to every language. */
+        val wordLang: Map<String, String> = emptyMap(),
     )
 
     /** A word's followers plus a lazily cached count-descending order, so the
@@ -53,6 +57,7 @@ class UserLexicon(private val storageFile: File?) {
     private val bigrams = HashMap<String, Followers>()
     private val trigrams = HashMap<String, Followers>()
     private val wordGen = HashMap<String, Long>()
+    private val wordLangs = HashMap<String, String>()
     private var generation = 0L
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -90,7 +95,7 @@ class UserLexicon(private val storageFile: File?) {
      * committed in passing.
      */
     @Synchronized
-    fun learnWord(word: String, count: Int = 1) {
+    fun learnWord(word: String, count: Int = 1, langId: String = "") {
         val key = word.lowercase()
         if (key.length < 2 || key.length > MAX_WORD_LENGTH || count <= 0) return
         val before = words[key] ?: 0
@@ -100,9 +105,21 @@ class UserLexicon(private val storageFile: File?) {
         // past the cap (or overflow) while the word map stays clamped.
         trie.reinforce(key, merged - before)
         wordGen[key] = generation
+        // Most-recent language wins: a word the user types under several
+        // languages keeps flipping its tag, which is harmless — the engine
+        // only damps a tag that *disagrees* with the active language, and a
+        // genuinely shared word keeps being re-tagged to whatever is active.
+        if (langId.isNotBlank()) wordLangs[key] = langId
         mutations++
         dirty = true
     }
+
+    /**
+     * Language id [word] was last learned under, or null for untagged words
+     * (settings-app additions, legacy files) — untagged means "any language".
+     */
+    @Synchronized
+    fun languageOf(word: String): String? = wordLangs[word.lowercase()]
 
     /**
      * User-added dictionary entry: weighted like a word typed [boost]
@@ -133,6 +150,7 @@ class UserLexicon(private val storageFile: File?) {
         bigrams.clear()
         trigrams.clear()
         wordGen.clear()
+        wordLangs.clear()
         rebuildTrie()
         load()
         mutations++
@@ -221,6 +239,7 @@ class UserLexicon(private val storageFile: File?) {
         val key = word.lowercase()
         words.remove(key)
         wordGen.remove(key)
+        wordLangs.remove(key)
         bigrams.remove(key)
         bigrams.values.forEach {
             if (it.counts.remove(key) != null) it.sorted = null
@@ -240,6 +259,7 @@ class UserLexicon(private val storageFile: File?) {
         bigrams.clear()
         trigrams.clear()
         wordGen.clear()
+        wordLangs.clear()
         rebuildTrie()
         mutations++
         // The delete is the write, so there is normally nothing left to save.
@@ -261,6 +281,7 @@ class UserLexicon(private val storageFile: File?) {
             generation = generation,
             wordGen = wordGen,
             trigrams = trigrams.mapValues { it.value.counts.toMap() },
+            wordLang = wordLangs,
         )
         runCatching {
             file.parentFile?.mkdirs()
@@ -288,6 +309,7 @@ class UserLexicon(private val storageFile: File?) {
             // orphaned entries for words no longer present are dropped.
             for (word in words.keys) {
                 wordGen[word] = snapshot.wordGen[word] ?: snapshot.generation
+                snapshot.wordLang[word]?.let { wordLangs[word] = it }
             }
             rebuildTrie()
         }
@@ -327,6 +349,7 @@ class UserLexicon(private val storageFile: File?) {
             for (word in toEvict) {
                 words.remove(word)
                 wordGen.remove(word)
+                wordLangs.remove(word)
                 bigrams.remove(word)
                 bigrams.values.forEach {
                     if (it.counts.remove(word) != null) it.sorted = null

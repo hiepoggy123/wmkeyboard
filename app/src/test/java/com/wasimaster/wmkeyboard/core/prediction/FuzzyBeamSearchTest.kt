@@ -33,6 +33,28 @@ class FuzzyBeamSearchTest {
     }
 
     @Test
+    fun doubledLetterDeletionCostsTheCheapTier() {
+        // "helllo": the extra l doubles its neighbours — a double-strike or
+        // hold-repeat slip, priced like a transposition rather than an
+        // arbitrary stray character.
+        val trie = PackedTrie.of(listOf("hello" to 100))
+        val got = run(listOf(source(trie)), "helllo").first()
+        assertEquals("hello", got.word)
+        assertEquals(FuzzyBeamSearch.COST_DELETE_DOUBLED, got.editCost, 1e-9)
+    }
+
+    @Test
+    fun missedDoublingInsertsAtAdjacentCost() {
+        // "runing" -> "running": the inserted edge repeats the char just
+        // typed. 'n' is nowhere near 'i' on QWERTY, so without the
+        // same-char rule this would be priced as a far insertion.
+        val trie = PackedTrie.of(listOf("running" to 100))
+        val got = run(listOf(source(trie)), "runing").first()
+        assertEquals("running", got.word)
+        assertEquals(FuzzyBeamSearch.COST_INSERT_ADJACENT, got.editCost, 1e-9)
+    }
+
+    @Test
     fun zeroEditWalkMatchesClassicCompletion() {
         val trie = PackedTrie.of(realEntries())
         for (prefix in listOf("th", "he", "wo", "pre", "a")) {

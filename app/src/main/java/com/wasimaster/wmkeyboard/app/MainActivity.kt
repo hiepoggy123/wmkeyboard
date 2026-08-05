@@ -2309,6 +2309,17 @@ private fun TypingSettings(
                 ) { scope.launch { repository.setAutocorrectAdaptive(it) } }
             }
             item {
+                val percentFormat = stringResource(R.string.typing_value_percent)
+                SliderSetting(
+                    R.string.typing_timing_signal_title,
+                    subtitle = stringResource(R.string.typing_timing_signal_subtitle),
+                    value = settings.suggestionStrip.timingSignalStrength,
+                    range = 0f..1f,
+                    display = { percentFormat.format((it * 100).toInt()) },
+                    info = stringResource(R.string.typing_timing_signal_info),
+                ) { scope.launch { repository.setTimingSignalStrength(it) } }
+            }
+            item {
                 ToggleSetting(
                     R.string.typing_undo_autocorrect_title,
                     stringResource(R.string.typing_undo_autocorrect_subtitle),
@@ -2340,6 +2351,14 @@ private fun TypingSettings(
                     info = stringResource(R.string.typing_context_rerank_info),
                 ) { scope.launch { repository.setContextRerank(it) } }
             }
+        }
+        item {
+            ToggleSetting(
+                R.string.typing_register_priors_title,
+                stringResource(R.string.typing_register_priors_subtitle),
+                settings.suggestionStrip.registerPriors,
+                info = stringResource(R.string.typing_register_priors_info),
+            ) { scope.launch { repository.setRegisterPriors(it) } }
         }
         item {
             ToggleSetting(

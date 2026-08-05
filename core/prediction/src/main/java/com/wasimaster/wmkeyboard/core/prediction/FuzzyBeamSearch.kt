@@ -166,11 +166,22 @@ class FuzzyBeamSearch {
                 // not budget spend.
                 val surcharge = if (edits + 1 >= 2) SECOND_EDIT_SURCHARGE else 0.0
                 // Deletion: the typed char was an extra keypress — skip it.
-                if (editSpend + COST_DELETION <= MAX_EDIT_COST) {
+                // A char that doubles its neighbour ("helllo", key auto-repeat)
+                // is the classic double-strike slip and costs far less than
+                // deleting an arbitrary stray character.
+                val delCost = if (
+                    (pos + 1 < n && typed[pos + 1] == expected) ||
+                    (pos > 0 && typed[pos - 1] == expected)
+                ) {
+                    COST_DELETE_DOUBLED
+                } else {
+                    COST_DELETION
+                }
+                if (editSpend + delCost <= MAX_EDIT_COST) {
                     pushIfViable(
                         ws, src, walker, floor,
-                        node = node, pos = pos + 1, cost = cost + COST_DELETION + surcharge,
-                        editSpend = editSpend + COST_DELETION,
+                        node = node, pos = pos + 1, cost = cost + delCost + surcharge,
+                        editSpend = editSpend + delCost,
                         edits = edits + 1, comp = comp, parent = s,
                         viaLabel = BeamWorkspace.NO_LABEL,
                     )
@@ -194,8 +205,12 @@ class FuzzyBeamSearch {
                     }
                     // Insertion: the intended word has [label] here and the
                     // typed text missed it — consume the edge, hold position.
+                    // A missed doubling ("aple" → "apple": the edge repeats
+                    // the char just typed) is as forgivable as an adjacent
+                    // slip; self-adjacency isn't in the proximity maps.
                     val adjacentToTyped = proximity.areAdjacent(expected, label) ||
-                        (pos > 0 && proximity.areAdjacent(typed[pos - 1], label))
+                        (pos > 0 && (typed[pos - 1] == label ||
+                            proximity.areAdjacent(typed[pos - 1], label)))
                     val insCost = if (adjacentToTyped) COST_INSERT_ADJACENT else COST_INSERT_FAR
                     if (editSpend + insCost <= MAX_EDIT_COST) {
                         pushIfViable(
@@ -332,6 +347,11 @@ class FuzzyBeamSearch {
         val COST_TRANSPOSITION = -ln(0.9)
         val COST_SUB_ADJACENT = -ln(0.9)
         val COST_DELETION = -ln(0.7)
+
+        /** Deleting a char that doubles its neighbour ("helllo", hold-repeat
+         * noise): the cheapest edit tier, alongside transposition — a
+         * double-strike explains itself. */
+        val COST_DELETE_DOUBLED = -ln(0.9)
         val COST_INSERT_ADJACENT = -ln(0.7)
         val COST_INSERT_FAR = -ln(0.25)
         val COST_SUB_FAR = -ln(0.2)

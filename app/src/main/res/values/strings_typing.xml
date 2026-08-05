@@ -43,6 +43,14 @@
     <string name="typing_autocorrect_adaptive_subtitle">Correct less eagerly when you undo corrections often</string>
     <string name="typing_autocorrect_adaptive_info">The keyboard tracks how often you undo its corrections. When you undo corrections often, the keyboard raises the confidence it needs before it corrects a word. When you rarely undo corrections, the confidence returns to the value of the slider. The keyboard also remembers each correction you undo. A correction you undo twice never applies again.</string>
 
+    <string name="typing_timing_signal_title">Typing rhythm</string>
+    <string name="typing_timing_signal_subtitle">Let your typing speed sway autocorrect</string>
+    <string name="typing_timing_signal_info">The keyboard measures how fast you type each word. When you type in a fast burst, typos are likely, so autocorrect fires more eagerly. When you type slowly and deliberately — an unusual name, a word from another language — autocorrect holds back. The slider sets how strongly the rhythm sways the decision. Zero turns the signal off.</string>
+
+    <string name="typing_register_priors_title">Adapt to app tone</string>
+    <string name="typing_register_priors_subtitle">Casual words rank higher in chats, lower in email</string>
+    <string name="typing_register_priors_info">Chat words such as "lol" and "gonna" rank a little higher in messaging apps, and a little lower in email apps and email fields. This only reorders the suggestions. No word is ever hidden or blocked, and autocorrect does not change.</string>
+
     <string name="typing_undo_autocorrect_title">Undo autocorrect with backspace</string>
     <string name="typing_undo_autocorrect_subtitle">Backspace right after a correction restores what you typed</string>
     <string name="typing_undo_autocorrect_info">Press backspace immediately after autocorrect changes a word. The keyboard puts your original spelling back and learns it, so it does not correct that word again. Turn this off to make backspace always delete one character.</string>

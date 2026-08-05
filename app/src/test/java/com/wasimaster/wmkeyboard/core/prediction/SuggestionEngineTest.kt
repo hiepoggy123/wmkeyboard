@@ -29,6 +29,91 @@ class SuggestionEngineTest {
         return SuggestionEngine(dictionary, bengali, UserLexicon(null))
     }
 
+    @Test fun mismatchedLanguageTagDampsLearnedWords() {
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("wasi", count = 10, langId = "bn_rom")
+        lexicon.learnWord("wash", count = 5, langId = "en")
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), lexicon)
+        // Typing English: the bn_rom-tagged habit yields to the weaker
+        // same-language word (a 2x count edge loses to the 3x damp)...
+        e.primaryLanguageId = "en"
+        assertEquals("wash", e.suggest("was", previousWord = null).first())
+        // ...but is damped, not hidden.
+        assertTrue("wasi" in e.suggest("was", previousWord = null))
+        // Back under bn_rom the raw counts decide again.
+        e.primaryLanguageId = "bn_rom"
+        assertEquals("wasi", e.suggest("was", previousWord = null).first())
+    }
+
+    @Test fun untaggedLearnedWordsAreNeverDamped() {
+        val lexicon = UserLexicon(null)
+        // No langId: settings-app additions and legacy entries belong to
+        // every language and must rank purely on count anywhere.
+        lexicon.learnWord("wasi", count = 10)
+        lexicon.learnWord("wash", count = 5, langId = "en")
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), lexicon)
+        e.primaryLanguageId = "en"
+        assertEquals("wasi", e.suggest("was", previousWord = null).first())
+    }
+
+    @Test fun dictionaryWordsAreNeverLanguageDamped() {
+        // A learned word the dictionary also knows is a real word of the
+        // active language, whatever its tag says.
+        val dictionary = Trie().apply { insert("wash", 50) }
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("wash", count = 10, langId = "bn_rom")
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), lexicon)
+        e.primaryLanguageId = "en"
+        assertEquals("wash", e.suggest("was", previousWord = null).first())
+    }
+
+    @Test fun registerPriorShiftsChatSpeak() {
+        val dictionary = Trie().apply {
+            insert("lol", 120)
+            insert("low", 110)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        // Neutral (setting off): raw frequency order.
+        assertEquals("lol", e.suggest("lo", previousWord = null).first())
+        // Formal field: the chat word sinks below the near-tie...
+        e.register = Register.FORMAL
+        val formal = e.suggest("lo", previousWord = null)
+        assertEquals("low", formal.first())
+        // ...but is never hidden.
+        assertTrue("lol" in formal)
+        // Casual field with the frequencies flipped: "lol" climbs back.
+        val flipped = Trie().apply {
+            insert("lol", 100)
+            insert("low", 110)
+        }
+        val c = SuggestionEngine(flipped, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        assertEquals("low", c.suggest("lo", previousWord = null).first())
+        c.register = Register.CASUAL
+        assertEquals("lol", c.suggest("lo", previousWord = null).first())
+    }
+
+    @Test fun timingMultiplierScalesTheAutocorrectGate() {
+        val dictionary = Trie().apply { insert("hello", 70) }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        // The canonical solo correction fires at the default gate...
+        assertEquals("hello", e.shouldAutocorrect("hallo"))
+        // ...and at an eased (fast-burst) gate...
+        assertEquals("hello", e.shouldAutocorrect("hallo", timingMultiplier = 0.5))
+        // ...but deliberate typing pushes the gate past its margin.
+        assertNull(e.shouldAutocorrect("hallo", timingMultiplier = 2.5))
+    }
+
+    @Test fun oovPreviousWordBackfillsNextWordsFromSkipContext() {
+        val lexicon = UserLexicon(null)
+        repeat(3) { lexicon.learnBigram("met", "yesterday") }
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), lexicon)
+        // "priya" was never learned: alone it predicts nothing, but with the
+        // word before it known, its slot backfills from that context.
+        assertTrue(e.suggest("", previousWord = "priya").isEmpty())
+        val rescued = e.suggest("", previousWord = "priya", previousWord2 = "met")
+        assertTrue("yesterday" in rescued)
+    }
+
     @Test fun dictionarySwapTakesEffectImmediately() {
         // The shared-walk cache must invalidate the moment a source changes.
         val e = engine()

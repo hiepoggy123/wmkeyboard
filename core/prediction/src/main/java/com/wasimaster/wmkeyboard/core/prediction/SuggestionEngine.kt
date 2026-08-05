@@ -162,10 +162,20 @@ class SuggestionEngine(
     /**
      * Language id of the primary (on-screen) language, so a committed word the
      * primary already covers is attributed to it rather than mistaken for
-     * secondary-language use. Blank when no language is set (tests).
+     * secondary-language use, and so learned words tagged with a different
+     * language are damped (see [rankedFor]). Blank when no language is set
+     * (tests). Bumps the walk generation: the damp is applied inside the
+     * cached walk, so a language switch must invalidate it.
      */
     @Volatile
-    var primaryLanguageId: String = ""
+    private var primaryLanguageIdField: String = ""
+    var primaryLanguageId: String
+        get() = primaryLanguageIdField
+        set(value) {
+            if (value == primaryLanguageIdField) return
+            primaryLanguageIdField = value
+            generation.incrementAndGet()
+        }
 
     /**
      * True when English is a secondary language and the primary is not: the
@@ -278,6 +288,15 @@ class SuggestionEngine(
     var adaptiveConfidence: Boolean = true
 
     /**
+     * Register of the field being typed into, set by the IME from the target
+     * app and field kind when the user enables register priors. CASUAL nudges
+     * chat-speak up, FORMAL pushes it down; NEUTRAL (always, when the setting
+     * is off) changes nothing. Ranking only — never gates what commits.
+     */
+    @Volatile
+    var register: Register = Register.NEUTRAL
+
+    /**
      * Records that the user undid the autocorrect of [typed] into
      * [corrected] (typically by backspacing over it). The exact pair is
      * blocked for this session and penalized across sessions; other
@@ -377,11 +396,45 @@ class SuggestionEngine(
         } else {
             null
         }
-        val ranked = beam.search(
+        val walked = beam.search(
             walkSources(), lower, proximity, limit, beamWorkspace.get(), touch = scoring,
         )
+        val ranked = dampMismatchedLanguages(walked)
         rankedWalk = RankedWalk(lower, gen, lexGen, k, touch?.let(::ArrayList), ranked)
         return ranked
+    }
+
+    /**
+     * Damp learned-only words tagged with a language other than the active
+     * one, so Bengali-romanized habits learned under bn_rom stop crowding the
+     * English strip (and vice versa). Applies only to pure-user candidates —
+     * anything a dictionary also knows is a real word of the active language
+     * — and only to tagged words: untagged (legacy, settings-app) words
+     * belong to every language. The damp is a ranking handicap, not a ban;
+     * a strong habit still surfaces when nothing else fits.
+     */
+    private fun dampMismatchedLanguages(
+        ranked: List<FuzzyBeamSearch.ScoredCandidate>,
+    ): List<FuzzyBeamSearch.ScoredCandidate> {
+        val active = primaryLanguageId
+        if (active.isEmpty()) return ranked
+        var changed = false
+        val damped = ranked.map { c ->
+            val pureUser = c.dictScore == Double.NEGATIVE_INFINITY &&
+                c.userScore != Double.NEGATIVE_INFINITY
+            if (!pureUser) return@map c
+            val tag = userLexicon.languageOf(c.word) ?: return@map c
+            if (tag == active) return@map c
+            changed = true
+            FuzzyBeamSearch.ScoredCandidate(
+                c.word, c.score - LANG_MISMATCH_DAMP, c.editCost, c.edits,
+                c.completedChars, c.tier, c.dictScore, c.userScore - LANG_MISMATCH_DAMP,
+            )
+        }
+        if (!changed) return ranked
+        return damped.sortedWith(
+            compareByDescending<FuzzyBeamSearch.ScoredCandidate> { it.score }.thenBy { it.word }
+        )
     }
 
     /**
@@ -557,6 +610,17 @@ class SuggestionEngine(
         /** Recency edge for words typed recently in the same app. */
         private val APP_RECENCY_BOOST = ln(1.3)
 
+        /** Handicap on a learned-only word tagged with another language: a
+         * 3x frequency disadvantage, enough to stop cross-language crowding
+         * without ever hiding a genuinely strong habit. */
+        private val LANG_MISMATCH_DAMP = ln(3.0)
+
+        /** Register prior shifts: chat-speak's edge in casual fields, and its
+         * (heavier) handicap in formal ones — misranking "lol" upward in an
+         * email costs more than missing it in a chat. */
+        private val CASUAL_INFORMAL_BOOST = ln(1.5)
+        private val FORMAL_INFORMAL_DAMP = ln(2.5)
+
         // Join-chip guards: the joined word must be a reasonably common word
         // and clearly beat the rarer of its parts (mirror of WEIGHT_SPLIT's
         // conservatism, inverted).
@@ -577,6 +641,14 @@ class SuggestionEngine(
      * @param previousWord last committed word, used for next-word prediction
      * @param avroMode when true, [composing] is romanized Bengali and the
      *        top suggestion is its transliteration
+     * @param limit how many candidates to return
+     * @param touch per-character tap positions (null entries fall back to
+     *        the discrete adjacency model)
+     * @param previousWord2 the word before [previousWord], for trigram context
+     * @param recentWords the last few committed words, a topical recency bag
+     *        for the reranker
+     * @param allowRerank whether [reranker] may reorder the head of the list
+     *        (never set on the synchronous main-thread call sites)
      */
     fun suggest(
         composing: String,
@@ -670,6 +742,22 @@ class SuggestionEngine(
             for (entry in merged.entries) {
                 if (entry.key.lowercase() in contextWords) {
                     entry.setValue(entry.value + APP_RECENCY_BOOST)
+                }
+            }
+        }
+
+        // Register prior: chat-speak rises in messaging fields, sinks in
+        // formal ones. Bounded like every other boost — it re-ranks, never
+        // hides; "lol" still surfaces in an email if nothing else matches.
+        if (register != Register.NEUTRAL) {
+            val shift = if (register == Register.CASUAL) {
+                CASUAL_INFORMAL_BOOST
+            } else {
+                -FORMAL_INFORMAL_DAMP
+            }
+            for (entry in merged.entries) {
+                if (entry.key.lowercase() in RegisterVocabulary.informal) {
+                    entry.setValue(entry.value + shift)
                 }
             }
         }
@@ -852,13 +940,29 @@ class SuggestionEngine(
         }
         // Seed bigrams are English pairs; they only cold-start English modes.
         if (englishSources) ordered.addAll(seedBigrams.nextWords(prev))
-        return ordered.asSequence()
+        // Skip-gram rescue: an unknown prev (a just-typed name, a typo) has
+        // no followers anywhere and the strip would go quiet. Treat it as
+        // transparent and backfill from the word before it — "met Priya"
+        // still offers what tends to follow "met". Appended after every
+        // direct source, so genuine followers of prev always rank first.
+        if (ordered.size < limit && previousWord2 != null) {
+            val prev2 = previousWord2.lowercase()
+            ordered.addAll(userLexicon.nextWords(prev2, limit))
+            if (!ngramPack.isEmpty) ordered.addAll(ngramPack.nextWords(prev2, limit))
+        }
+        var result = ordered.asSequence()
             .filterNot(::suppressed)
             // Belt and braces: the sentence-start sentinel is context, never
             // an offer — nothing should ever have learned it as a follower.
             .filterNot { WordContext.isSentinel(it) }
             .take(limit)
             .toList()
+        // Formal fields: chat-speak yields its slot when anything else is
+        // on offer (order-based here — this path carries no scores).
+        if (register == Register.FORMAL) {
+            result = result.sortedBy { it.lowercase() in RegisterVocabulary.informal }
+        }
+        return result
     }
 
     /**
@@ -871,8 +975,20 @@ class SuggestionEngine(
      * the user's lexicon independently agree on
      * it, or its score beats the runner-up by [autocorrectConfidence].
      * Anything closer stays in the suggestion strip for the user to pick.
+     *
+     * @param word the composing word a space or enter is about to commit
+     * @param touch per-character tap positions, as in [suggest]
+     * @param timingMultiplier scales the confidence gate from the typing
+     *        rhythm of this word: fast, sloppy bursts (< 1.0) correct more
+     *        eagerly, slow deliberate typing (> 1.0) demands near-certainty.
+     *        1.0 — the default, and always when the setting is off — keeps
+     *        the gate exactly at the slider value.
      */
-    fun shouldAutocorrect(word: String, touch: List<TouchPoint?>? = null): String? {
+    fun shouldAutocorrect(
+        word: String,
+        touch: List<TouchPoint?>? = null,
+        timingMultiplier: Double = 1.0,
+    ): String? {
         val lower = word.lowercase()
         if (lower.length < 3) return null
         // An all-caps word is a deliberate acronym or shout, not a typo of a
@@ -965,7 +1081,8 @@ class SuggestionEngine(
         }
         val effectiveConfidence = (
             autocorrectConfidence *
-                (if (adaptiveConfidence) correctionStats.confidenceMultiplier() else 1.0)
+                (if (adaptiveConfidence) correctionStats.confidenceMultiplier() else 1.0) *
+                timingMultiplier
             ).coerceIn(MIN_AUTOCORRECT_CONFIDENCE, MAX_AUTOCORRECT_CONFIDENCE)
         // With no runner-up, a synthetic floor stands in: an unopposed but
         // weak candidate (rare word reached by an expensive edit) must not

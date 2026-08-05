@@ -117,6 +117,8 @@ private fun Resources.typingRows(): List<SettingsSearchEntry> {
     return listOfNotNull(
         row(R.string.typing_autocorrect_title, R.string.typing_autocorrect_subtitle),
         row(R.string.typing_autocorrect_confidence_title, R.string.typing_autocorrect_confidence_subtitle),
+        row(R.string.typing_timing_signal_title, R.string.typing_timing_signal_subtitle),
+        row(R.string.typing_register_priors_title, R.string.typing_register_priors_subtitle),
         row(R.string.typing_undo_autocorrect_title, R.string.typing_undo_autocorrect_subtitle),
         row(R.string.typing_skip_all_caps_title, R.string.typing_skip_all_caps_subtitle),
         row(R.string.typing_block_offensive_title, R.string.typing_block_offensive_subtitle),

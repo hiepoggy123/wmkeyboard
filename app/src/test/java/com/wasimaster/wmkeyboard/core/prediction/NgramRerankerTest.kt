@@ -104,6 +104,33 @@ class NgramRerankerTest {
     }
 
     @Test
+    fun skipGramRescuesAnOovPreviousWord() {
+        // "priya" is nowhere — not in the dictionary, never learned as a
+        // word — so every direct store is silent. The word before it still
+        // carries the habit, and the gappy bigram lets it vouch.
+        val lexicon = UserLexicon(null)
+        repeat(8) { lexicon.learnBigram("met", "world") }
+        val r = reranker(lexicon)
+        val out = r.rerank(context(prev = "priya", prev2 = "met"), listOf("words", "world"))
+        assertEquals(listOf("world", "words"), out)
+        // Without the two-word context there is nothing to skip to.
+        assertNull(r.rerank(context(prev = "priya"), listOf("words", "world")))
+    }
+
+    @Test
+    fun knownPreviousWordNeverConsultsSkipEvidence() {
+        val lexicon = UserLexicon(null)
+        // A massive gappy habit (met -> world) that must NOT leak through a
+        // known prev: "work" is in the dictionary, so only its own direct
+        // followers count, and the modest work -> words habit wins.
+        repeat(50) { lexicon.learnBigram("met", "world") }
+        repeat(3) { lexicon.learnBigram("work", "words") }
+        val r = reranker(lexicon)
+        val out = r.rerank(context(prev = "work", prev2 = "met"), listOf("world", "words"))
+        assertEquals(listOf("words", "world"), out)
+    }
+
+    @Test
     fun deterministicAndStableForTies() {
         val r = reranker()
         val lexicon = UserLexicon(null)

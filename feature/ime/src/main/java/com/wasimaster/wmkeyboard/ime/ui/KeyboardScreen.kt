@@ -625,6 +625,7 @@ fun KeyboardScreen(
     onDeleteWord: () -> Unit = {},
     onSuggestion: (String) -> Unit,
     onJoinSuggestion: () -> Unit = {},
+    onRevisionSuggestion: () -> Unit = {},
     /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
     onCandidate: (String, Int) -> Unit = { text, _ -> onSuggestion(text) },
     /** Open the expanded candidate grid. */
@@ -843,6 +844,7 @@ fun KeyboardScreen(
                 onLayoutSelect = onLayoutSelect,
                 onSuggestion = onSuggestion,
                 onJoinSuggestion = onJoinSuggestion,
+                onRevisionSuggestion = onRevisionSuggestion,
                 onCandidate = onCandidate,
                 onCandidatesExpand = onCandidatesExpand,
                 onEmoji = onEmoji,
@@ -1447,6 +1449,7 @@ private fun TopBar(
     state: KeyboardUiState,
     onSuggestion: (String) -> Unit,
     onJoinSuggestion: () -> Unit = {},
+    onRevisionSuggestion: () -> Unit = {},
     /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
     onCandidate: (String, Int) -> Unit = { text, _ -> onSuggestion(text) },
     /** Open the expanded candidate grid. */
@@ -2086,9 +2089,14 @@ private fun TopBar(
             } else {
                 // The join chip leads the row, visually apart from the three
                 // word slots: it rewrites text already in the field, which a
-                // plain suggestion never does.
+                // plain suggestion never does. The revision chip shares the
+                // slot (they can't coexist: join needs a composing word,
+                // revision needs an empty one) and the same look, for the
+                // same reason — both rewrite committed text on tap.
                 val join = state.joinSuggestion
-                if (join != null && suggestionsShowing) {
+                val revision = state.revisionSuggestion
+                val rewriteChip = join ?: revision
+                if (rewriteChip != null && suggestionsShowing) {
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
@@ -2096,12 +2104,14 @@ private fun TopBar(
                             .padding(vertical = 8.dp, horizontal = 2.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .background(MaterialTheme.colorScheme.secondaryContainer)
-                            .clickable { onJoinSuggestion() }
+                            .clickable {
+                                if (join != null) onJoinSuggestion() else onRevisionSuggestion()
+                            }
                             .padding(horizontal = 10.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = join,
+                            text = rewriteChip,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -5085,6 +5095,7 @@ private fun KeyboardBody(
     onLayoutSelect: (String) -> Unit,
     onSuggestion: (String) -> Unit,
     onJoinSuggestion: () -> Unit = {},
+    onRevisionSuggestion: () -> Unit = {},
     /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
     onCandidate: (String, Int) -> Unit = { text, _ -> onSuggestion(text) },
     /** Open the expanded candidate grid. */
@@ -5275,6 +5286,7 @@ private fun KeyboardBody(
                             state,
                             onSuggestion = onSuggestion,
                             onJoinSuggestion = onJoinSuggestion,
+                            onRevisionSuggestion = onRevisionSuggestion,
                             onCandidate = onCandidate,
                             onCandidatesExpand = onCandidatesExpand,
                             onEmoji = onEmoji,

@@ -89,7 +89,7 @@ object NgramPackDownloadManager {
         }
     }
 
-    private suspend fun download(filesDir: File, entry: NgramPackEntry) {
+    private fun download(filesDir: File, entry: NgramPackEntry) {
         val langId = entry.languageId
         if (isDownloaded(filesDir, langId)) return
         val ok = runCatching {
@@ -121,7 +121,12 @@ object NgramPackDownloadManager {
                     val words = trimmed.substring(0, separator).trim().split(' ')
                     if (words.size != parts) continue
                     if (words.any { it.isEmpty() || it.length > MAX_WORD_LENGTH }) continue
-                    entries.add(NgramPack.key(*words.toTypedArray()) to count)
+                    // Joined directly rather than through the vararg key():
+                    // a spread would copy the array for every accepted line.
+                    entries.add(
+                        words.joinToString(NgramPack.SEPARATOR.toString()) { it.lowercase() }
+                            to count
+                    )
                 }
             }
         }

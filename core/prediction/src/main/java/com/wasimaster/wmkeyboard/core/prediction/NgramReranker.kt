@@ -42,6 +42,19 @@ class NgramReranker(
         }
 
         val pack = ngramPack()
+        // Skip-gram backoff: when the immediate previous word is one no store
+        // has ever seen (a name, a typo — the common reason context suddenly
+        // goes silent), treat it as transparent and let the word before it
+        // vouch through its own bigrams: "met Priya at" still knows "at"
+        // follows "met". Only ever consulted for an OOV prev — a known prev's
+        // direct evidence must never be diluted by the gappy kind.
+        val skipContext = if (
+            prev2 != null && dictionaryFrequency(prev) == 0 && !userLexicon.contains(prev)
+        ) {
+            prev2
+        } else {
+            null
+        }
         var anyEvidence = false
         val scored = candidates.mapIndexed { index, word ->
             val w = word.lowercase()
@@ -51,11 +64,15 @@ class NgramReranker(
             val pack2 = pack.bigramCount(prev, w)
             val seed = seedBigrams.count(prev, w)
             val recency = if (w in recent) 1 else 0
+            val skipUser = if (skipContext != null) userLexicon.bigramCount(skipContext, w) else 0
+            val skipPack = if (skipContext != null) pack.bigramCount(skipContext, w) else 0
             val evidence = term(WEIGHT_USER_TRIGRAM, user3, CAP_USER_TRIGRAM) +
                 term(WEIGHT_USER_BIGRAM, user2, CAP_USER_BIGRAM) +
                 term(WEIGHT_PACK_TRIGRAM, pack3 / PACK_COUNT_SCALE, CAP_PACK_TRIGRAM) +
                 term(WEIGHT_PACK_BIGRAM, pack2 / PACK_COUNT_SCALE, CAP_PACK_BIGRAM) +
                 term(WEIGHT_SEED_BIGRAM, seed, CAP_SEED) +
+                term(WEIGHT_SKIP_USER, skipUser, CAP_SKIP_USER) +
+                term(WEIGHT_SKIP_PACK, skipPack / PACK_COUNT_SCALE, CAP_SKIP_PACK) +
                 WEIGHT_RECENCY * recency
             if (evidence > 0.0) anyEvidence = true
             // The base is the ENGINE'S rank, not a recomputed frequency: the
@@ -98,5 +115,13 @@ class NgramReranker(
         const val CAP_SEED = 1.0
         const val WEIGHT_RECENCY = 0.3
         const val PACK_COUNT_SCALE = 50
+
+        // Gappy (skip-one) bigram evidence, used only behind an OOV prev:
+        // weaker than the direct bigram it stands in for — a rescue signal
+        // for a context the direct stores are blind to, never a competitor.
+        const val WEIGHT_SKIP_USER = 0.5
+        const val CAP_SKIP_USER = 1.2
+        const val WEIGHT_SKIP_PACK = 0.3
+        const val CAP_SKIP_PACK = 0.8
     }
 }

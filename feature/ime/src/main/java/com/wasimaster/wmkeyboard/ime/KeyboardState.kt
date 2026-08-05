@@ -779,6 +779,13 @@ data class KeyboardUiState(
     /** Missing-space join offer ("some" + "thing" -> "something"), shown as
      * a distinct leading chip; tapping rewrites the committed text. */
     val joinSuggestion: String? = null,
+    /**
+     * Replacement for the word before the one just committed, when its
+     * follower proves it a classic confusable slip ("their going" →
+     * "they're"). Chip-only, like [joinSuggestion]: tapping rewrites the
+     * committed word; nothing applies on its own.
+     */
+    val revisionSuggestion: String? = null,
     /** Spacing form of the dead-key accent waiting for a letter, if any. */
     val pendingDeadKey: String? = null,
     /**
