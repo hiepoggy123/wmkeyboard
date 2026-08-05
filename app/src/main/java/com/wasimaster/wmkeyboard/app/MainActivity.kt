@@ -10927,6 +10927,7 @@ private fun modeFieldLabel(field: ModeField): String = stringResource(
         ModeField.NUMBER -> R.string.rows_mode_field_number_label
         ModeField.PHONE -> R.string.rows_mode_field_phone_label
         ModeField.TEXT -> R.string.rows_mode_field_text_label
+        ModeField.NOTIFICATION_REPLY -> R.string.rows_mode_field_notification_reply_label
     },
 )
 
@@ -10939,6 +10940,7 @@ private fun modeFieldLowercaseLabel(field: ModeField): Int = when (field) {
     ModeField.NUMBER -> R.string.rows_mode_field_number_lowercase_label
     ModeField.PHONE -> R.string.rows_mode_field_phone_lowercase_label
     ModeField.TEXT -> R.string.rows_mode_field_text_lowercase_label
+    ModeField.NOTIFICATION_REPLY -> R.string.rows_mode_field_notification_reply_lowercase_label
 }
 
 /** Row height inside [ReorderDialog] — fixed, so drags map to index shifts. */

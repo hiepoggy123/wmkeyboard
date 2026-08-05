@@ -2414,7 +2414,15 @@ open class WMKeyboardService : InputMethodService() {
                 // Plain prose. A password box reports TEXT too, so it is
                 // excluded — modes bound to TEXT (chat composers, document
                 // bodies) must never take over a login form.
-                FieldKind.TEXT -> if (!secure) add(ModeField.TEXT)
+                FieldKind.TEXT -> if (!secure) {
+                    add(ModeField.TEXT)
+                    // A text box hosted by the system UI is the inline
+                    // notification reply — the one field whose package can
+                    // never name the app the user is actually replying to.
+                    if (pkg in notificationShellPackages) {
+                        add(ModeField.NOTIFICATION_REPLY)
+                    }
+                }
                 else -> {}
             }
         }
@@ -12820,6 +12828,13 @@ open class WMKeyboardService : InputMethodService() {
     companion object {
         /** Minimum spacing between haptic clicks so rapid presses stay distinct. */
         private const val MIN_HAPTIC_GAP_MS = 45L
+
+        /**
+         * Packages that host input fields on behalf of other apps — in
+         * practice the inline notification reply box, which reports the
+         * system UI's package rather than the app being replied to.
+         */
+        private val notificationShellPackages = setOf("com.android.systemui")
 
         /**
          * How much of the sticker canvas one emoji fills. The canvas itself is

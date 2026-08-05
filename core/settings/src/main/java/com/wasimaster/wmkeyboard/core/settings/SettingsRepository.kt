@@ -5999,17 +5999,25 @@ class SettingsRepository(private val context: Context) {
         editPrefs { prefs ->
             val seeded = prefs[MODE_SEED_VERSION] ?: 0
             if (seeded >= CurrentModeSeedVersion) return@editPrefs
-            val stored = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
             prefs[MODE_SEED_VERSION] = CurrentModeSeedVersion
             // No stored list at all: the read path already falls back to the
             // full defaults, so there is nothing to top up.
-            if (stored == null) return@editPrefs
-            val have = stored.map { it.id }.toSet()
-            val missing = DefaultKeyboardModes.filter {
-                it.id !in have && it.id in ModesAddedInSeedVersion2
+            var stored = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
+                ?: return@editPrefs
+            if (seeded < 2) {
+                val have = stored.map { it.id }.toSet()
+                stored = stored + DefaultKeyboardModes.filter {
+                    it.id !in have && it.id in ModesAddedInSeedVersion2
+                }
             }
-            if (missing.isEmpty()) return@editPrefs
-            prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(stored + missing)
+            // Version 2 runs first so a chat mode it just added already
+            // carries the version-3 apps — the bound-set check in the
+            // top-up then leaves it alone.
+            if (seeded < 3) {
+                stored = topUpModeApps(stored, ModeAppsAddedInSeedVersion3)
+                stored = topUpModeFields(stored, ModeFieldsAddedInSeedVersion3)
+            }
+            prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(stored)
         }
 
     /** Adds the mode or replaces the stored mode with the same id. */

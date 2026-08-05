@@ -27,8 +27,13 @@ fun sanitizeBarOrder(rows: List<BarRow>): List<BarRow> =
  * document body is, and it is deliberately the *narrow* option — binding a
  * mode to an app plus [TEXT] keeps that mode off the app's search boxes,
  * address fields and login forms.
+ *
+ * [NOTIFICATION_REPLY] is the inline reply box in a notification. That box
+ * is hosted by the system UI, so the package the IME sees is the shell's,
+ * never the app whose notification it is — which is why this is a field
+ * kind and why it matches without an app binding (see [matchesField]).
  */
-enum class ModeField { PASSWORD, EMAIL, URL, NUMBER, PHONE, TEXT }
+enum class ModeField { PASSWORD, EMAIL, URL, NUMBER, PHONE, TEXT, NOTIFICATION_REPLY }
 
 /**
  * One keyboard mode: a named bundle of overrides applied while the mode is
@@ -175,7 +180,7 @@ object KeyboardModeCodec {
         }
 }
 
-/** Messaging apps the Chat mode ships bound to. */
+/** Messaging and social apps the Chat mode ships bound to. */
 private val ChatApps = listOf(
     "com.facebook.orca",
     "com.instagram.android",
@@ -183,6 +188,15 @@ private val ChatApps = listOf(
     "com.whatsapp",
     "org.thoughtcrime.securesms",
     "com.discord",
+    "com.facebook.katana",
+    "com.facebook.lite",
+    "com.zhiliaoapp.musically",
+    "com.snapchat.android",
+    "com.viber.voip",
+    "jp.naver.line.android",
+    "com.kakao.talk",
+    "com.tencent.mm",
+    "com.beeper.android",
 )
 
 /**
@@ -283,7 +297,10 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
             ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.STICKER, ToolbarTool.VOICE,
         ),
         apps = ChatApps,
-        fieldKinds = listOf(ModeField.TEXT),
+        // NOTIFICATION_REPLY rides along so the inline reply box in the
+        // notification shade — hosted by the system UI, so the app binding
+        // can never match there — still gets the chat treatment.
+        fieldKinds = listOf(ModeField.TEXT, ModeField.NOTIFICATION_REPLY),
     ),
     KeyboardMode(
         id = "mode_writing",
@@ -343,10 +360,57 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
  * so upgrades pick the new modes up — see
  * `SettingsRepository.seedNewDefaultModes`.
  */
-const val CurrentModeSeedVersion: Int = 2
+const val CurrentModeSeedVersion: Int = 3
 
 /** Default modes added in seed version 2 (chat and writing). */
 val ModesAddedInSeedVersion2: Set<String> = setOf("mode_chat", "mode_writing")
+
+/** Apps appended to already-stored default modes in seed version 3. */
+val ModeAppsAddedInSeedVersion3: Map<String, List<String>> = mapOf(
+    "mode_chat" to listOf(
+        "com.facebook.katana",
+        "com.facebook.lite",
+        "com.zhiliaoapp.musically",
+        "com.snapchat.android",
+        "com.viber.voip",
+        "jp.naver.line.android",
+        "com.kakao.talk",
+        "com.tencent.mm",
+        "com.beeper.android",
+    ),
+)
+
+/** Field kinds appended to already-stored default modes in seed version 3. */
+val ModeFieldsAddedInSeedVersion3: Map<String, List<ModeField>> = mapOf(
+    "mode_chat" to listOf(ModeField.NOTIFICATION_REPLY),
+)
+
+/**
+ * Appends [additions] (mode id to packages) to the stored modes. A package
+ * already bound to *any* stored mode is skipped: the user (or an earlier
+ * seed) already routed it, and a package only sensibly drives one mode. A
+ * mode the user deleted is simply absent and gets nothing.
+ */
+fun topUpModeApps(
+    stored: List<KeyboardMode>,
+    additions: Map<String, List<String>>,
+): List<KeyboardMode> {
+    val bound = stored.flatMapTo(HashSet()) { it.apps }
+    return stored.map { mode ->
+        val extra = additions[mode.id].orEmpty().filter { it !in bound }
+        if (extra.isEmpty()) mode else mode.copy(apps = mode.apps + extra)
+    }
+}
+
+/** [topUpModeApps] for field kinds, minus the cross-mode check — a field
+ *  kind can drive several modes, so only same-mode duplicates are skipped. */
+fun topUpModeFields(
+    stored: List<KeyboardMode>,
+    additions: Map<String, List<ModeField>>,
+): List<KeyboardMode> = stored.map { mode ->
+    val extra = additions[mode.id].orEmpty().filter { it !in mode.fieldKinds }
+    if (extra.isEmpty()) mode else mode.copy(fieldKinds = mode.fieldKinds + extra)
+}
 
 /**
  * Whether the focused field satisfies this mode's automatic bindings.
@@ -355,8 +419,18 @@ val ModesAddedInSeedVersion2: Set<String> = setOf("mode_chat", "mode_writing")
  * to WhatsApp *and* [ModeField.TEXT] keeps it on the message composer and
  * off the contact search. Setting only one of the two matches on that one
  * alone; setting neither makes the mode manual-only.
+ *
+ * [ModeField.NOTIFICATION_REPLY] is the one exception to the AND: the
+ * inline reply box lives in the system UI, whose package is never the app
+ * the user is replying to, so a mode bound to that field matches it with
+ * the app bindings ignored.
  */
 private fun KeyboardMode.matchesField(packageName: String?, fields: Set<ModeField>): Boolean {
+    if (ModeField.NOTIFICATION_REPLY in fields &&
+        ModeField.NOTIFICATION_REPLY in fieldKinds
+    ) {
+        return true
+    }
     val appMatch = packageName != null && packageName in apps
     val fieldMatch = fieldKinds.any { it in fields }
     return when {

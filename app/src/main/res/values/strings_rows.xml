@@ -112,6 +112,7 @@
     <string name="rows_mode_field_number_label">Number</string>
     <string name="rows_mode_field_phone_label">Phone</string>
     <string name="rows_mode_field_text_label">Text</string>
+    <string name="rows_mode_field_notification_reply_label">Notification replies</string>
 
     <!-- The same field type names, written the way they read inside a
          sentence such as "Automatic: email, password fields". -->
@@ -121,6 +122,7 @@
     <string name="rows_mode_field_number_lowercase_label">number</string>
     <string name="rows_mode_field_phone_lowercase_label">phone</string>
     <string name="rows_mode_field_text_lowercase_label">text</string>
+    <string name="rows_mode_field_notification_reply_lowercase_label">notification replies</string>
 
     <!-- ===================================================================
          Reorder dialog: drag rows into the order the user wants.

@@ -81,6 +81,81 @@ class KeyboardModeTest {
     }
 
     @Test
+    fun `notification reply matches on the field alone`() {
+        val replyChat = chat.copy(
+            fieldKinds = listOf(ModeField.TEXT, ModeField.NOTIFICATION_REPLY),
+        )
+        // The reply box reports the system UI's package, never WhatsApp's —
+        // the app binding is ignored for this one field kind.
+        assertEquals(
+            "chat",
+            resolveKeyboardMode(
+                listOf(password, email, browser, replyChat),
+                "com.android.systemui",
+                setOf(ModeField.TEXT, ModeField.NOTIFICATION_REPLY),
+                null,
+            )?.id,
+        )
+        // A mode without the reply binding still needs its app to match.
+        assertNull(
+            resolveKeyboardMode(
+                modes,
+                "com.android.systemui",
+                setOf(ModeField.TEXT, ModeField.NOTIFICATION_REPLY),
+                null,
+            ),
+        )
+    }
+
+    @Test
+    fun `topUpModeApps appends only to the named mode`() {
+        val additions = mapOf("chat" to listOf("com.facebook.katana"))
+        val topped = topUpModeApps(modes, additions)
+        assertEquals(
+            listOf("com.whatsapp", "com.facebook.katana"),
+            topped.first { it.id == "chat" }.apps,
+        )
+        assertEquals(browser.apps, topped.first { it.id == "browser" }.apps)
+    }
+
+    @Test
+    fun `topUpModeApps skips a package the user already routed`() {
+        // Bound to the same mode already: no duplicate.
+        val same = topUpModeApps(modes, mapOf("chat" to listOf("com.whatsapp")))
+        assertEquals(chat.apps, same.first { it.id == "chat" }.apps)
+        // Bound to a different mode: the user's routing wins.
+        val other = topUpModeApps(modes, mapOf("chat" to listOf("com.android.chrome")))
+        assertEquals(chat.apps, other.first { it.id == "chat" }.apps)
+    }
+
+    @Test
+    fun `topUpModeApps leaves a deleted mode deleted`() {
+        val withoutChat = listOf(password, email, browser)
+        val topped = topUpModeApps(withoutChat, mapOf("chat" to listOf("com.facebook.katana")))
+        assertEquals(withoutChat, topped)
+    }
+
+    @Test
+    fun `topUpModeFields appends without duplicating`() {
+        val additions = mapOf("chat" to listOf(ModeField.NOTIFICATION_REPLY, ModeField.TEXT))
+        val topped = topUpModeFields(modes, additions)
+        assertEquals(
+            listOf(ModeField.TEXT, ModeField.NOTIFICATION_REPLY),
+            topped.first { it.id == "chat" }.fieldKinds,
+        )
+        assertEquals(email.fieldKinds, topped.first { it.id == "email" }.fieldKinds)
+    }
+
+    @Test
+    fun `default chat mode carries the social apps and the reply binding`() {
+        val defaultChat = DefaultKeyboardModes.first { it.id == "mode_chat" }
+        for (pkg in ModeAppsAddedInSeedVersion3.getValue("mode_chat")) {
+            assertTrue(pkg, pkg in defaultChat.apps)
+        }
+        assertTrue(ModeField.NOTIFICATION_REPLY in defaultChat.fieldKinds)
+    }
+
+    @Test
     fun `a mode with no bindings never matches automatically`() {
         val manualOnly = listOf(KeyboardMode(id = "manual", name = "Manual"))
         assertNull(resolveKeyboardMode(manualOnly, "com.whatsapp", setOf(ModeField.TEXT), null))
