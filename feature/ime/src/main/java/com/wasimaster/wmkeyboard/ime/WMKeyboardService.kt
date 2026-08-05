@@ -432,7 +432,7 @@ open class WMKeyboardService : InputMethodService() {
     /** Refresh the engine's overlay for the app now in focus. */
     private fun refreshPerAppContext() {
         suggestionEngine?.contextWords =
-            currentPackage?.let { perAppRecent[it]?.toSet() } ?: emptySet()
+            currentPackage?.let { perAppRecent[it]?.toSet() }.orEmpty()
     }
     /** Mode-binding kinds of the focused field (password, email, url…). */
     private var currentModeFields: Set<ModeField> = emptySet()
@@ -460,15 +460,15 @@ open class WMKeyboardService : InputMethodService() {
     private var correctionStats = CorrectionStats(null)
 
     /**
-     * The context reranker, built once the seed bigrams are loaded. Wired
-     * into the engine only on Play-channel builds with the setting on; every
-     * other channel (F-Droid, direct download) keeps CandidateReranker.NONE
-     * and byte-identical strip ordering.
+     * The context reranker, built once the seed bigrams are loaded. Pure
+     * Kotlin over on-device data, so it ships in every channel; the setting
+     * is the only gate, and off means CandidateReranker.NONE and the plain
+     * frequency order.
      */
     private var ngramReranker: NgramReranker? = null
 
     private fun resolveReranker(settings: KeyboardSettings): CandidateReranker =
-        if (BuildConfig.ENABLE_PLAY_STORE && settings.suggestionStrip.contextRerank) {
+        if (settings.suggestionStrip.contextRerank) {
             ngramReranker ?: CandidateReranker.NONE
         } else {
             CandidateReranker.NONE
@@ -4131,7 +4131,7 @@ open class WMKeyboardService : InputMethodService() {
      * decoder's context prior. The sentence-start sentinel works too — it
      * boosts the user's learned sentence openers after a full stop. */
     private fun gestureContextBoosts(): Map<String, Int> =
-        previousWord?.let { userLexicon.followerCounts(it) } ?: emptyMap()
+        previousWord?.let { userLexicon.followerCounts(it) }.orEmpty()
 
     private fun setContextFrom(text: CharSequence?) {
         val (prev1, prev2) = WordContext.lastTwoWords(text, SENTENCE_ENDERS)
@@ -6037,7 +6037,7 @@ open class WMKeyboardService : InputMethodService() {
             } else {
                 null
             }
-            joinContext = if (join != null) (previousWord ?: "") to typed else null
+            joinContext = join?.let { previousWord.orEmpty() to typed }
             _uiState.update {
                 it.copy(
                     suggestions = results,
@@ -11172,7 +11172,11 @@ open class WMKeyboardService : InputMethodService() {
                 }.getOrNull()
             }
             if (sticker == null) {
-                Toast.makeText(this@WMKeyboardService, getString(R.string.ime_service_media_download_error_toast), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this@WMKeyboardService,
+                    getString(R.string.ime_service_media_download_error_toast),
+                    Toast.LENGTH_SHORT,
+                ).show()
                 return@launch
             }
             val dir = File(cacheDir, "media").apply { mkdirs() }

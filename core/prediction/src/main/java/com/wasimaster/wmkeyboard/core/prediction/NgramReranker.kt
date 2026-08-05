@@ -11,8 +11,8 @@ import kotlin.math.ln
  *
  * Where the engine's in-strip context boost is deliberately capped (a habit
  * may re-rank but never bury a frequent exact match), this pass — opt-in per
- * call, Play-channel builds only — rescores the head of the list with the
- * full interpolated evidence. It returns null whenever no candidate has any
+ * call — rescores the head of the list with the full interpolated
+ * evidence. It returns null whenever no candidate has any
  * context evidence at all, which is the common case and means the engine's
  * order stands untouched; a reorder can therefore only ever be
  * evidence-driven.

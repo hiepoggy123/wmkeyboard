@@ -2126,8 +2126,7 @@ data class SuggestionStripSettings(
     val blockOffensiveWords: Boolean = true,
     /**
      * Context reranking of the suggestion strip's top candidates by learned
-     * n-grams (Play-channel builds; other channels ignore the flag and keep
-     * the plain frequency order).
+     * n-grams — pure on-device data, available in every channel.
      */
     val contextRerank: Boolean = true,
     /**

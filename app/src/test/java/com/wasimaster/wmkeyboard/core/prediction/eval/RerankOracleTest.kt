@@ -45,7 +45,7 @@ class RerankOracleTest {
         var intended = ""
         engine.reranker = CandidateReranker { _, candidates ->
             val hit = candidates.firstOrNull { it.equals(intended, ignoreCase = true) }
-            if (hit == null) null else listOf(hit) + candidates.filterNot { it == hit }
+            hit?.let { h -> listOf(h) + candidates.filterNot { it == h } }
         }
         for (case in cases) {
             intended = case.intended

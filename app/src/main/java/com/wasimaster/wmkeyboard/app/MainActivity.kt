@@ -2332,17 +2332,13 @@ private fun TypingSettings(
                     info = stringResource(R.string.typing_block_offensive_info),
                 ) { scope.launch { repository.setBlockOffensiveWords(it) } }
             }
-            // Play-channel builds only: other channels never wire the
-            // reranker, so showing the toggle there would be a lie.
-            if (com.wasimaster.wmkeyboard.config.BuildConfig.ENABLE_PLAY_STORE) {
-                item {
-                    ToggleSetting(
-                        R.string.typing_context_rerank_title,
-                        stringResource(R.string.typing_context_rerank_subtitle),
-                        settings.suggestionStrip.contextRerank,
-                        info = stringResource(R.string.typing_context_rerank_info),
-                    ) { scope.launch { repository.setContextRerank(it) } }
-                }
+            item {
+                ToggleSetting(
+                    R.string.typing_context_rerank_title,
+                    stringResource(R.string.typing_context_rerank_subtitle),
+                    settings.suggestionStrip.contextRerank,
+                    info = stringResource(R.string.typing_context_rerank_info),
+                ) { scope.launch { repository.setContextRerank(it) } }
             }
         }
         item {

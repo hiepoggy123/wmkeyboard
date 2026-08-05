@@ -46,6 +46,11 @@ class TypoCorpus(seed: Long = 42L) {
     private fun usable(entry: Pair<String, Int>): Boolean =
         entry.first.length >= 3 && entry.first.all { it in 'a'..'z' }
 
+    /** One realistic error injected into [word], or null when the roll
+     * produced nothing usable. Public so context-specific corpora (the
+     * reranker gain measurement) can corrupt their own word choices. */
+    fun corrupt(word: String): String? = injectError(word)?.takeIf { it != word }
+
     private fun injectError(word: String): String? {
         val roll = random.nextFloat()
         return when {
