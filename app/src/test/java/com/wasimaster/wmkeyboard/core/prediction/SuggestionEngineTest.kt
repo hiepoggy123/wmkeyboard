@@ -574,4 +574,82 @@ class SuggestionEngineTest {
         assertTrue(mix.confidenceFor("es") < LanguageMixConfidence.NEUTRAL)
         assertTrue(mix.confidenceFor("en") > mix.confidenceFor("es"))
     }
+
+    // ---- missing-space splits ----
+
+    @Test fun `stray spacebar-neighbour letter offers the split in the strip`() {
+        val out = engine().suggest("thebworld", previousWord = null)
+        assertTrue("expected 'the world' in $out", "the world" in out)
+    }
+
+    @Test fun `boundary letter far from the spacebar never reads as a space`() {
+        val out = engine().suggest("thexworld", previousWord = null)
+        assertTrue("unexpected split in $out", "the world" !in out)
+    }
+
+    @Test fun `split autocorrect is off unless the IME enables it`() {
+        assertNull(engine().shouldAutocorrect("theworld"))
+    }
+
+    @Test fun `split autocorrect inserts the missed space`() {
+        val e = engine().apply { autocorrectSplits = true }
+        assertEquals("the world", e.shouldAutocorrect("theworld"))
+        // Typed capitalization carries over to the split.
+        assertEquals("The world", e.shouldAutocorrect("Theworld"))
+    }
+
+    @Test fun `split autocorrect drops a fat-fingered space letter`() {
+        val e = engine().apply { autocorrectSplits = true }
+        assertEquals("the world", e.shouldAutocorrect("thebworld"))
+    }
+
+    @Test fun `single-word fix always outranks a split`() {
+        val e = engine().apply { autocorrectSplits = true }
+        assertEquals("world", e.shouldAutocorrect("wprld"))
+    }
+
+    @Test fun `known words are never split`() {
+        val e = engine().apply { autocorrectSplits = true }
+        assertNull(e.shouldAutocorrect("hello"))
+    }
+
+    @Test fun `reverted split never fires again`() {
+        val e = engine().apply { autocorrectSplits = true }
+        assertEquals("the world", e.shouldAutocorrect("theworld"))
+        e.rejectCorrection("theworld", "the world")
+        assertNull(e.shouldAutocorrect("theworld"))
+    }
+
+    // ---- number-row digit slips ----
+
+    private fun digitEngine(): SuggestionEngine = engine().apply {
+        digitSlipCorrections = true
+        proximity = KeyProximity.forLayout(
+            com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts.QWERTY,
+            numberRow = true,
+        )
+    }
+
+    @Test fun `single digit corrects to the letter below it`() {
+        assertEquals("help", digitEngine().shouldAutocorrect("h3lp"))
+    }
+
+    @Test fun `digit words are untouched when the feature is off`() {
+        val e = engine().apply {
+            proximity = KeyProximity.forLayout(
+                com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts.QWERTY,
+                numberRow = true,
+            )
+        }
+        assertNull(e.shouldAutocorrect("h3lp"))
+    }
+
+    @Test fun `digit is only ever swapped in place, never deleted`() {
+        // "help3" -> "help" would be a deletion of text typed on purpose.
+        assertNull(digitEngine().shouldAutocorrect("help3"))
+    }
+
+    @Test fun `two digits mean deliberate input`() {
+        assertNull(digitEngine().shouldAutocorrect("h3lp4"))
+    }
 }

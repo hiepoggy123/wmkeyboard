@@ -155,4 +155,18 @@ class KeyProximityTest {
         val dvorak = KeyProximity.forLayout(BuiltInLayouts.DVORAK)
         assertFalse(a == dvorak)
     }
+
+    @Test fun `number row digits neighbour the top letter row`() {
+        val p = KeyProximity.forLayout(BuiltInLayouts.QWERTY, numberRow = true)
+        assertTrue(p.areAdjacent('3', 'e'))
+        assertTrue(p.areAdjacent('7', 'i'))
+        assertTrue(p.areAdjacent('8', 'i'))
+        assertTrue(p.areAdjacent('9', 'o'))
+        assertTrue(p.areAdjacent('e', '3'))
+        assertFalse(p.areAdjacent('3', 's'))
+        // Without the flag the grid stays digit-free, and the two variants
+        // must not compare equal (the engine's cache keys on value equality).
+        assertFalse(KeyProximity.QWERTY.areAdjacent('3', 'e'))
+        assertFalse(KeyProximity.QWERTY == p)
+    }
 }

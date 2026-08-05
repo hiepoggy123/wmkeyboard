@@ -2243,6 +2243,25 @@ data class SuggestionStripSettings(
      * makes it hold back.
      */
     val timingSignalStrength: Float = 0f,
+    /**
+     * Fix number-row slips: with the number row shown, a lone digit inside a
+     * word ("as3", "tar8khe") reads as a tap that landed above the intended
+     * letter, so the digit joins the composing word and autocorrect may swap
+     * it for the letter below it ("ase", "tarikhe"). Only a same-length,
+     * single-digit swap is ever trusted — "room3" is never shortened to
+     * "room", and anything with two or more digits is left alone. Lives here
+     * rather than beside the other autocorrect flags only to stay under the
+     * settings class's JVM field ceiling.
+     */
+    val numberRowCorrections: Boolean = true,
+    /**
+     * Let autocorrect insert a missed space: "kortehobe" → "korte hobe" when
+     * both halves are known words and no single-word fix is anywhere near,
+     * including the fat-fingered-space reading ("amibtomake" → "ami tomake").
+     * Backspace right after reverts the whole thing, exactly like a word
+     * correction. Same ceiling note as above.
+     */
+    val autocorrectSplits: Boolean = true,
 )
 
 /**
@@ -2506,6 +2525,8 @@ class SettingsRepository(private val context: Context) {
         private val SUGGESTION_PRIMARY_CENTER = booleanPreferencesKey("suggestion_primary_center")
         private val BLOCK_OFFENSIVE_WORDS = booleanPreferencesKey("block_offensive_words")
         private val CONTEXT_RERANK = booleanPreferencesKey("context_rerank")
+        private val NUMBER_ROW_CORRECTIONS = booleanPreferencesKey("number_row_corrections")
+        private val AUTOCORRECT_SPLITS = booleanPreferencesKey("autocorrect_splits")
         private val REGISTER_PRIORS = booleanPreferencesKey("register_priors")
         private val TIMING_SIGNAL_STRENGTH = floatPreferencesKey("timing_signal_strength")
         private val CONTACT_SUGGESTIONS = booleanPreferencesKey("contact_suggestions")
@@ -3323,6 +3344,10 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.suggestionStrip.registerPriors,
                 timingSignalStrength = p[TIMING_SIGNAL_STRENGTH]
                     ?: defaults.suggestionStrip.timingSignalStrength,
+                numberRowCorrections = p[NUMBER_ROW_CORRECTIONS]
+                    ?: defaults.suggestionStrip.numberRowCorrections,
+                autocorrectSplits = p[AUTOCORRECT_SPLITS]
+                    ?: defaults.suggestionStrip.autocorrectSplits,
             ),
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
@@ -5398,6 +5423,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setContextRerank(value: Boolean) =
         editPrefs { it[CONTEXT_RERANK] = value }
+
+    suspend fun setNumberRowCorrections(value: Boolean) =
+        editPrefs { it[NUMBER_ROW_CORRECTIONS] = value }
+
+    suspend fun setAutocorrectSplits(value: Boolean) =
+        editPrefs { it[AUTOCORRECT_SPLITS] = value }
 
     suspend fun setAutoSpaceAfterSuggestion(value: Boolean) =
         editPrefs { it[AUTO_SPACE_AFTER_SUGGESTION] = value }

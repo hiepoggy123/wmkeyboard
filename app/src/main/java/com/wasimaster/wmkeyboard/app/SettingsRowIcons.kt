@@ -124,6 +124,7 @@ import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.PhotoSizeSelectLarge
 import androidx.compose.material.icons.outlined.PhotoSizeSelectSmall
 import androidx.compose.material.icons.outlined.PictureInPicture
+import androidx.compose.material.icons.outlined.Pin
 import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.material.icons.outlined.PrivacyTip
@@ -418,6 +419,8 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.typing_autocorrect_title, Icons.Outlined.Spellcheck)
     put(R.string.typing_autocorrect_confidence_title, Icons.Outlined.Tune)
     put(R.string.typing_timing_signal_title, Icons.Outlined.Timer)
+    put(R.string.typing_number_row_corrections_title, Icons.Outlined.Pin)
+    put(R.string.typing_autocorrect_splits_title, Icons.Outlined.SpaceBar)
     put(R.string.typing_register_priors_title, Icons.Outlined.QuestionAnswer)
     put(R.string.typing_undo_autocorrect_title, Icons.AutoMirrored.Outlined.Undo)
     put(R.string.typing_skip_all_caps_title, Icons.Outlined.KeyboardCapslock)

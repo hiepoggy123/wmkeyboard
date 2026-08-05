@@ -62,8 +62,17 @@ class KeyProximity private constructor(rows: List<String>) {
          * grid cannot express: a staggered or split arrangement whose rows do not
          * share a column origin.
          */
-        fun forLayout(spec: LayoutSpec): KeyProximity =
-            KeyProximity(spec.proximityRows ?: letterRows(spec))
+        fun forLayout(spec: LayoutSpec, numberRow: Boolean = false): KeyProximity {
+            val rows = spec.proximityRows ?: letterRows(spec)
+            // The number row is injected at render time (it is a setting, not
+            // part of any LayoutSpec), so it is stitched on here the same way:
+            // digits become neighbours of the top letter row, which is what
+            // prices a number-row slip ("as3" for "ase") as an adjacent
+            // substitution instead of a distant one.
+            return KeyProximity(if (numberRow) listOf(NUMBER_ROW) + rows else rows)
+        }
+
+        private const val NUMBER_ROW = "1234567890"
 
         /** The default a suggestion engine starts on, before a layout is known. */
         val QWERTY: KeyProximity = forLayout(BuiltInLayouts.QWERTY)

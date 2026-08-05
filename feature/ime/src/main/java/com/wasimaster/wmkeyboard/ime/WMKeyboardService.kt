@@ -1587,7 +1587,11 @@ open class WMKeyboardService : InputMethodService() {
                 val activeLang = activeSpec.language()
                 // Typo weighting follows the grid actually on screen, so a
                 // rearranged custom layout weights its own neighbours.
-                suggestionEngine?.proximity = KeyProximity.forLayout(activeSpec)
+                suggestionEngine?.proximity = KeyProximity.forLayout(
+                    activeSpec,
+                    numberRow = settings.numberRow &&
+                        settings.suggestionStrip.numberRowCorrections,
+                )
                 suggestionEngine?.autocorrectConfidence =
                     settings.autocorrectConfidence.toDouble()
                 suggestionEngine?.adaptiveConfidence = settings.autocorrectAdaptive
@@ -1596,6 +1600,9 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.blockOffensiveWords =
                     settings.suggestionStrip.blockOffensiveWords
                 suggestionEngine?.skipAllCapsAutocorrect = settings.autocorrectSkipAllCaps
+                suggestionEngine?.autocorrectSplits = settings.suggestionStrip.autocorrectSplits
+                suggestionEngine?.digitSlipCorrections =
+                    settings.numberRow && settings.suggestionStrip.numberRowCorrections
                 pushRegister(settings)
                 // Chinese Pinyin options the composer reads at call time (it stays a
                 // parameter-less singleton). Pushed from the same block, like above.
@@ -1908,7 +1915,11 @@ open class WMKeyboardService : InputMethodService() {
                 contacts = contactNames
                 contactEmails = this@WMKeyboardService.contactEmails
                 apps = appNames
-                proximity = KeyProximity.forLayout(activeLayoutSpec(_uiState.value.settings))
+                proximity = KeyProximity.forLayout(
+                    activeLayoutSpec(_uiState.value.settings),
+                    numberRow = _uiState.value.settings.numberRow &&
+                        _uiState.value.settings.suggestionStrip.numberRowCorrections,
+                )
                 autocorrectConfidence =
                     _uiState.value.settings.autocorrectConfidence.toDouble()
                 adaptiveConfidence = _uiState.value.settings.autocorrectAdaptive
@@ -1917,6 +1928,9 @@ open class WMKeyboardService : InputMethodService() {
                 offensiveWords = offensiveSet
                 blockOffensiveWords = _uiState.value.settings.suggestionStrip.blockOffensiveWords
                 skipAllCapsAutocorrect = _uiState.value.settings.autocorrectSkipAllCaps
+                autocorrectSplits = _uiState.value.settings.suggestionStrip.autocorrectSplits
+                digitSlipCorrections = _uiState.value.settings.numberRow &&
+                    _uiState.value.settings.suggestionStrip.numberRowCorrections
                 val lang = _uiState.value.language
                 englishSources = lang.isEnglish
                 primaryLanguageId = lang.id
@@ -3564,6 +3578,18 @@ open class WMKeyboardService : InputMethodService() {
                 (
                     state.composer.bufferDigits && text[0].isDigit() &&
                         (composing.isNotEmpty() || state.composer.digitsStartBuffer)
+                    ) ||
+                (
+                    // Number-row slip capture: a digit typed *inside* a word
+                    // joins the composing buffer so autocorrect can read it as
+                    // the letter below it ("as3" → "ase"). Word-initial digits
+                    // still commit literally ("3pm"), and without the number
+                    // row on screen a digit was a long-press or symbols-layer
+                    // choice — deliberate, never buffered.
+                    text[0].isDigit() && composing.isNotEmpty() &&
+                        state.settings.numberRow &&
+                        state.settings.suggestionStrip.numberRowCorrections &&
+                        state.allowsTypingIntelligence
                     )
             )
         // Avro is a transliterating input method: its composing must run even

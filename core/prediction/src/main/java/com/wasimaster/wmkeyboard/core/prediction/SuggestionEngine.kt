@@ -235,6 +235,34 @@ class SuggestionEngine(
     var autocorrectConfidence: Double = DEFAULT_AUTOCORRECT_CONFIDENCE
 
     /**
+     * When on, [shouldAutocorrect] may return a two-word split ("kortehobe" →
+     * "korte hobe") when no single-word correction fires and both halves are
+     * known words that clear the same confidence gate. Off by default — the
+     * IME turns it on from the user's setting; the standalone spell checker
+     * judges isolated words and leaves it off.
+     */
+    @Volatile
+    var autocorrectSplits: Boolean = false
+
+    /**
+     * When on, a composing word carrying exactly one digit may be corrected
+     * by a same-length substitution at that digit ("as3" → "ase", a
+     * number-row slip above the intended letter). Off by default: only the
+     * IME path that actually buffers number-row digits into words sets it,
+     * so the spell checker never rewrites genuine alphanumerics.
+     */
+    @Volatile
+    var digitSlipCorrections: Boolean = false
+
+    /**
+     * Letters flanking the spacebar on the active layout's bottom row: a
+     * stray one of these between two known words is read as a fat-fingered
+     * space by [splitCandidates]. Defaults to the QWERTY family's set.
+     */
+    @Volatile
+    var spaceAdjacentKeys: String = SPACE_ADJACENT_DEFAULT
+
+    /**
      * Words the user never wants offered. Stored lowercased; any candidate
      * whose lowercase form is in here is dropped from the strip and never used
      * as an autocorrect target. This only suppresses *suggesting* the word —
@@ -562,6 +590,22 @@ class SuggestionEngine(
         /** Split suggestions score slightly under their rarer half. */
         private const val WEIGHT_SPLIT = 0.8
 
+        /** Split weight when a stray boundary letter had to be dropped: ~1
+         * nat under [WEIGHT_SPLIT], pricing the dropped letter like a far
+         * substitution rather than a plain deletion. Tuned against the eval
+         * harness — at deletion-cost pricing (0.55) these splits crowded
+         * genuine one-edit corrections out of the strip's top-1 (-0.45pt);
+         * the halves must together be ~3x more frequent than the correction
+         * they outrank, which is what "both halves are clearly words" means. */
+        private const val WEIGHT_SPLIT_DROPPED = 0.3
+
+        /** Letters that flank the spacebar on a QWERTY-family bottom row. */
+        const val SPACE_ADJACENT_DEFAULT = "cvbnm"
+
+        /** Shortest typed run a split autocorrect may rewrite: two 2-letter
+         * halves plus margin — below this, splits stay strip suggestions. */
+        private const val SPLIT_AUTOCORRECT_MIN_LENGTH = 5
+
         /**
          * Autocorrect fires only when the best candidate outscores the
          * runner-up by this factor; anything closer is ambiguous and only
@@ -885,24 +929,43 @@ class SuggestionEngine(
     /**
      * Missing-space fixes: "ofthe" → "of the", scored by the rarer half so
      * two genuinely common words outrank a coincidental split.
+     *
+     * Also covers the fat-fingered spacebar: a stray [spaceAdjacentKeys]
+     * letter between two known words ("amibtomake") was probably a space
+     * press that landed on the bottom row, so the split that drops it is
+     * offered too — at a discount that mirrors the walk's deletion cost, so
+     * an exact split of the same material always outranks a dropped-letter
+     * reading of it.
      */
     private fun splitCandidates(word: String): List<Pair<String, Double>> {
         if (word.length < 4 || !word.all { it.isLetter() }) return emptyList()
         val results = ArrayList<Pair<String, Double>>()
+        fun freqOf(part: String) = maxOf(
+            dictionaryFrequencyOf(part),
+            userLexicon.frequencyOf(part) * USER_WORD_WEIGHT,
+        )
         for (i in 1 until word.length) {
             val left = word.substring(0, i)
+            val leftFreq = freqOf(left)
+            if (leftFreq <= 0) continue
             val right = word.substring(i)
-            val leftFreq = maxOf(
-                dictionaryFrequencyOf(left),
-                userLexicon.frequencyOf(left) * USER_WORD_WEIGHT,
-            )
-            val rightFreq = maxOf(
-                dictionaryFrequencyOf(right),
-                userLexicon.frequencyOf(right) * USER_WORD_WEIGHT,
-            )
-            if (leftFreq > 0 && rightFreq > 0) {
+            val rightFreq = freqOf(right)
+            if (rightFreq > 0) {
                 val score = ln(1.0 + minOf(leftFreq, rightFreq) * WEIGHT_SPLIT)
                 results.add("$left $right" to score)
+            }
+            // Boundary char dropped: both halves must be real words of some
+            // substance — single-letter halves ("a", "i") explain nearly any
+            // string and would fire on every stumble.
+            if (i + 1 < word.length - 1 && word[i] in spaceAdjacentKeys && left.length >= 2) {
+                val tail = word.substring(i + 1)
+                if (tail.length >= 2) {
+                    val tailFreq = freqOf(tail)
+                    if (tailFreq > 0) {
+                        val score = ln(1.0 + minOf(leftFreq, tailFreq) * WEIGHT_SPLIT_DROPPED)
+                        results.add("$left $tail" to score)
+                    }
+                }
             }
         }
         return results
@@ -1012,6 +1075,11 @@ class SuggestionEngine(
         if (inDictionaries(lower) || userLexicon.contains(lower)) return null
         // Contact and app names are known words too — never "corrected" away.
         if (contacts.contains(lower) || apps.contains(lower)) return null
+        // Digits: exactly one digit may be a number-row slip (when the IME
+        // buffers those); anything more digit-heavy is deliberate input —
+        // codes, model numbers — and is never rewritten.
+        val digits = lower.count { it.isDigit() }
+        if (digits > 0 && (!digitSlipCorrections || digits > 1)) return null
 
         // The walk ranks WALK_K deep for the strip's context boosts, but the
         // silent-replacement decision stays on the same top-8 it has always
@@ -1036,7 +1104,12 @@ class SuggestionEngine(
                 1 -> c.completedChars == 0
                 else -> false
             }
-            correctionShaped && !suppressed(c.word)
+            // A digit-carrying word is only ever fixed in place: same length,
+            // letters untouched, the digit swapped for a letter. A deletion
+            // ("room3" -> "room") or completion reading would rewrite text
+            // the user typed on purpose.
+            correctionShaped && !suppressed(c.word) &&
+                (digits == 0 || digitSubShape(lower, c.word))
         }.map { c ->
             // A one-extra-letter completion rides the walk at zero cost, but
             // as a *correction* it is the old insert-at-end edit and must
@@ -1090,25 +1163,80 @@ class SuggestionEngine(
             return matchCase(word, bestDict)
         }
 
-        val top = candidates.firstOrNull() ?: return null
-        // A penalized candidate with no competition stays a suggestion: the
-        // user already told us once that this exact fix was wrong.
-        if (candidates.size == 1 && correctionStats.penalty(lower, top.word) !=
-            CorrectionStats.Penalty.NONE
-        ) {
-            return null
-        }
         val effectiveConfidence = (
             autocorrectConfidence *
                 (if (adaptiveConfidence) correctionStats.confidenceMultiplier() else 1.0) *
                 timingMultiplier
             ).coerceIn(MIN_AUTOCORRECT_CONFIDENCE, MAX_AUTOCORRECT_CONFIDENCE)
-        // With no runner-up, a synthetic floor stands in: an unopposed but
-        // weak candidate (rare word reached by an expensive edit) must not
-        // fire just because nothing else was nearby.
-        val runnerUpScore = candidates.getOrNull(1)?.score ?: SOLO_RUNNER_UP_SCORE
-        if (top.score - runnerUpScore < ln(effectiveConfidence)) return null
-        return matchCase(word, top.word)
+        val top = candidates.firstOrNull()
+        val single = when {
+            top == null -> null
+            // A penalized candidate with no competition stays a suggestion:
+            // the user already told us once that this exact fix was wrong.
+            candidates.size == 1 && correctionStats.penalty(lower, top.word) !=
+                CorrectionStats.Penalty.NONE -> null
+            // With no runner-up, a synthetic floor stands in: an unopposed
+            // but weak candidate (rare word reached by an expensive edit)
+            // must not fire just because nothing else was nearby.
+            top.score - (candidates.getOrNull(1)?.score ?: SOLO_RUNNER_UP_SCORE) <
+                ln(effectiveConfidence) -> null
+            else -> top.word
+        }
+        if (single != null) return matchCase(word, single)
+        // No single word explains the typed string; a missing space might.
+        val split = splitCorrection(lower, top?.score, effectiveConfidence) ?: return null
+        return matchCase(word, split)
+    }
+
+    /**
+     * Missing-space autocorrect: "kortehobe" → "korte hobe", including the
+     * fat-fingered-space reading ("amibtomake" → "ami tomake"). Considered
+     * only after every single-word gate declined, and held to the same
+     * confidence discipline: the best split must beat the best single-word
+     * candidate, the runner-up split, and the solo floor by the gate margin,
+     * with halves of at least two letters. The committed text becomes two
+     * words — the IME's learn/revert paths already handle multi-word commits.
+     */
+    private fun splitCorrection(
+        lower: String,
+        bestWordScore: Double?,
+        effectiveConfidence: Double,
+    ): String? {
+        if (!autocorrectSplits) return null
+        if (lower.length < SPLIT_AUTOCORRECT_MIN_LENGTH) return null
+        val splits = splitCandidates(lower)
+            .filter { (candidate, _) ->
+                candidate.split(' ').all { it.length >= 2 && !suppressed(it) }
+            }
+            .sortedWith(
+                compareByDescending<Pair<String, Double>> { it.second }.thenBy { it.first }
+            )
+        val (best, bestScore) = splits.firstOrNull() ?: return null
+        // The same pair memory word corrections use: a split the user
+        // reverted is never forced on them again.
+        if (correctionStats.penalty(lower, best) != CorrectionStats.Penalty.NONE) return null
+        val rival = maxOf(
+            bestWordScore ?: Double.NEGATIVE_INFINITY,
+            splits.getOrNull(1)?.second ?: Double.NEGATIVE_INFINITY,
+            SOLO_RUNNER_UP_SCORE,
+        )
+        if (bestScore - rival < ln(effectiveConfidence)) return null
+        return best
+    }
+
+    /** True when [candidate] is [typed] with its single digit swapped for a
+     * letter and every other character untouched. */
+    private fun digitSubShape(typed: String, candidate: String): Boolean {
+        if (candidate.length != typed.length) return false
+        for (i in typed.indices) {
+            val t = typed[i]
+            if (t.isDigit()) {
+                if (candidate[i].isDigit()) return false
+            } else if (candidate[i] != t) {
+                return false
+            }
+        }
+        return true
     }
 
     /** True when [word] has letters and every one of them is uppercase. */

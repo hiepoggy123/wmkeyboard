@@ -39,6 +39,14 @@
     <string name="typing_context_rerank_subtitle">Reorder suggestions by the words around them</string>
     <string name="typing_context_rerank_info">The keyboard reorders the top suggestions with the words you typed before them: your own word pairs, common English pairs, and words from the current conversation. The reorder applies only when there is real evidence, so the usual order stays for unfamiliar contexts. This never changes which word autocorrect applies.</string>
 
+    <string name="typing_number_row_corrections_title">Fix number row slips</string>
+    <string name="typing_number_row_corrections_subtitle">Correct a stray digit to the letter below it</string>
+    <string name="typing_number_row_corrections_info">With the number row on, a tap meant for the top letter row can land on a digit, and "as3" appears instead of "ase". With this setting on, one digit inside a word can be corrected to the letter below it when you press space. The correction only ever swaps the digit for a letter. A word that starts with a digit, and a word with two or more digits, never change. This setting has an effect only while the number row is shown.</string>
+
+    <string name="typing_autocorrect_splits_title">Add missing spaces</string>
+    <string name="typing_autocorrect_splits_subtitle">Split two words typed together when you press space</string>
+    <string name="typing_autocorrect_splits_info">When the word you typed is unknown, but it divides into two words the keyboard knows, the keyboard can commit the two words with a space between them: "ofthe" becomes "of the". A letter next to the spacebar can also stand in for the space itself, so "amibtomake" becomes "ami tomake". The split applies only when no single word explains the typed text and both halves are clear words. Backspace right after the split puts your text back, like any other correction.</string>
+
     <string name="typing_autocorrect_adaptive_title">Adaptive confidence</string>
     <string name="typing_autocorrect_adaptive_subtitle">Correct less eagerly when you undo corrections often</string>
     <string name="typing_autocorrect_adaptive_info">The keyboard tracks how often you undo its corrections. When you undo corrections often, the keyboard raises the confidence it needs before it corrects a word. When you rarely undo corrections, the confidence returns to the value of the slider. The keyboard also remembers each correction you undo. A correction you undo twice never applies again.</string>

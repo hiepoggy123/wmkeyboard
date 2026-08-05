@@ -2353,6 +2353,24 @@ private fun TypingSettings(
                     info = stringResource(R.string.typing_context_rerank_info),
                 ) { scope.launch { repository.setContextRerank(it) } }
             }
+            item {
+                ToggleSetting(
+                    R.string.typing_autocorrect_splits_title,
+                    stringResource(R.string.typing_autocorrect_splits_subtitle),
+                    settings.suggestionStrip.autocorrectSplits,
+                    info = stringResource(R.string.typing_autocorrect_splits_info),
+                ) { scope.launch { repository.setAutocorrectSplits(it) } }
+            }
+            if (settings.numberRow) {
+                item {
+                    ToggleSetting(
+                        R.string.typing_number_row_corrections_title,
+                        stringResource(R.string.typing_number_row_corrections_subtitle),
+                        settings.suggestionStrip.numberRowCorrections,
+                        info = stringResource(R.string.typing_number_row_corrections_info),
+                    ) { scope.launch { repository.setNumberRowCorrections(it) } }
+                }
+            }
         }
         item {
             ToggleSetting(

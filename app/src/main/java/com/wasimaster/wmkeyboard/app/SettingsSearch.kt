@@ -145,6 +145,11 @@ private fun Resources.typingRows(): List<SettingsSearchEntry> {
         row(R.string.typing_skip_all_caps_title, R.string.typing_skip_all_caps_subtitle),
         row(R.string.typing_block_offensive_title, R.string.typing_block_offensive_subtitle),
         row(R.string.typing_context_rerank_title, R.string.typing_context_rerank_subtitle),
+        row(R.string.typing_autocorrect_splits_title, R.string.typing_autocorrect_splits_subtitle),
+        row(
+            R.string.typing_number_row_corrections_title,
+            R.string.typing_number_row_corrections_subtitle,
+        ),
         row(R.string.typing_auto_apostrophe_title, R.string.typing_auto_apostrophe_subtitle),
         row(R.string.typing_auto_capitalize_title, R.string.typing_auto_capitalize_subtitle),
         row(R.string.typing_double_space_period_title, R.string.typing_double_space_period_subtitle),
