@@ -4,7 +4,8 @@
         Settings search. The index in SettingsSearch.kt reads the row titles and
         subtitles straight from the screens that draw them, so almost nothing
         belongs here. A key lands in this file only when the screen has no
-        resource of its own to point at.
+        resource of its own to point at, or when it is a word the search matches
+        on but no screen draws.
     -->
 
     <!--
@@ -13,4 +14,132 @@
         what a search result says about that screen instead.
     -->
     <string name="search_languages_subtitle">Add, delete and reorder your typing languages</string>
+
+    <!--
+        Words that a search ignores, because they are in too many settings to
+        narrow anything down. Space separated. A query made only of these words
+        keeps them, so that a search for "the" still answers.
+        Translators: give the equivalent short function words of your language,
+        not a translation of these ones.
+    -->
+    <string name="search_stop_words">a an and are as at be by for from in is it me my of on or the to with you your</string>
+
+    <!--
+        Groups of words that mean the same thing when you look for a setting.
+        Type any word of a group and the search also looks for the others, at a
+        lower score than the word you typed.
+
+        The settings screens follow one glossary (config/i18n/STRINGS.md): they
+        say "press and hold", never "long press", and "glide typing", never
+        "swipe typing". These groups are the other side of that: the words the
+        screens never use, joined to the word they do.
+
+        Each item is one group, and the words in it are separated by spaces.
+        Order does not matter and a word can be in more than one group.
+
+        Translators: these are search words, not sentences. Give the words a
+        person types in your language to look for the same setting, including
+        the common misspellings and the alternative spellings. The list does not
+        have to be the same length as the English one, and a group with no
+        equivalent in your language can hold a single word.
+    -->
+    <string-array name="search_word_groups">
+        <item>haptics haptic vibration vibrate vibrations vibrator buzz rumble</item>
+        <item>sound sounds audio volume beep loud mute silent</item>
+        <item>press tap taps tapping click clicks touch hit</item>
+        <item>theme themes skin skins</item>
+        <item>colour color colours colors coloured colored</item>
+        <item>dark night amoled oled</item>
+        <item>light day bright</item>
+        <item>background wallpaper backdrop</item>
+        <item>photo photos picture pictures image images</item>
+        <item>font fonts typeface typefaces typography lettering</item>
+        <item>glide swipe swiping gesture gestures trace</item>
+        <item>autocorrect autocorrection correction corrections spellcheck spelling spell typo typos mistake mistakes</item>
+        <item>suggestion suggestions prediction predictions predictive autocomplete autocompletion candidates</item>
+        <item>emoji emojis emoticon emoticons smiley smileys</item>
+        <item>clipboard clip clips copy paste</item>
+        <item>snippet snippets shortcut shortcuts abbreviation abbreviations macro macros expansion phrase phrases</item>
+        <item>dictionary dictionaries wordlist wordlists lexicon vocabulary</item>
+        <item>language languages locale locales</item>
+        <item>layout layouts keymap keymaps qwerty azerty dvorak colemak</item>
+        <item>number numbers numeric numeral numerals digit digits</item>
+        <item>symbol symbols punctuation</item>
+        <item>incognito private privacy anonymous</item>
+        <item>backup backups restore export exports import imports migrate transfer</item>
+        <item>voice speech dictation dictate microphone mic speak spoken transcription</item>
+        <item>accessibility talkback screenreader</item>
+        <item>cursor caret</item>
+        <item>delete backspace erase remove</item>
+        <item>spacebar space</item>
+        <item>shift capitals capital capitalise capitalize uppercase caps</item>
+        <item>popup popups bubble</item>
+        <item>ai llm gpt chatgpt claude gemini chatbot assistant</item>
+        <item>otp 2fa verification</item>
+        <item>power battery energy</item>
+        <item>handwriting handwrite stylus pen ink scribble</item>
+        <item>calculator calc math maths arithmetic</item>
+        <item>currency money exchange</item>
+        <item>password passwords passphrase</item>
+        <item>qr barcode</item>
+        <item>plugin plugins addon addons extension extensions</item>
+        <item>grammar proofread proofreading</item>
+        <item>animation animations motion transition transitions</item>
+        <item>radius corner corners rounded round</item>
+        <item>gap gaps spacing padding margin</item>
+        <item>opacity transparency alpha translucent</item>
+        <item>size sizes scale zoom</item>
+        <item>toolbar toolbox</item>
+        <item>sticker stickers</item>
+        <item>gif gifs</item>
+        <item>enable disable turn activate deactivate</item>
+        <item>hide show display visibility</item>
+        <item>keyboard ime</item>
+        <item>update updates upgrade version</item>
+        <item>search find lookup</item>
+        <item>translate translation translator</item>
+        <item>notification notifications</item>
+        <item>contact contacts addressbook</item>
+        <item>trail trace tail</item>
+        <item>sensitive password secret</item>
+    </string-array>
+
+    <!--
+        Extra words for the screens on the settings home, so that a search finds
+        a screen by what it holds and not only by its name. The screen draws none
+        of these: they are search words only. Separate them with commas.
+        Translators: same as above. Give the words a person types, and drop the
+        ones your language has no equivalent for.
+    -->
+    <string name="search_kw_typing">spell check, autocomplete, predictive text, glide, swipe typing, gestures, contacts, undo</string>
+    <string name="search_kw_keypress">vibration, sound, volume, feedback, popup, long press, key repeat</string>
+    <string name="search_kw_appearance">dark mode, colours, wallpaper, background, icon pack, toolbar, style</string>
+    <!--
+        The theme editor opens on one theme, so its own rows have nothing for a
+        search result to land on. Their words are here instead, and they lead to
+        the theme list, which is one press from every one of them.
+    -->
+    <string name="search_kw_themes">dark mode, light mode, amoled, colours, wallpaper, background image, custom theme, image blur, opacity, border width, key gap, gradient</string>
+    <string name="search_kw_layout">keyboard size, height, resize, one handed, floating, split, number row, padding, position</string>
+    <string name="search_kw_languages">keyboard layout, qwerty, locale, script, alphabet, transliteration, add language</string>
+    <string name="search_kw_emoji">emoticons, smileys, kaomoji, skin tone, stickers, gifs, recent</string>
+    <string name="search_kw_tools">toolbar, toolbox, shortcuts, widgets, buttons</string>
+    <string name="search_kw_privacy">incognito, permissions, tracking, learning, data</string>
+    <string name="search_kw_backup">export, import, transfer, migrate, restore, copy settings, new phone</string>
+    <string name="search_kw_accessibility">talkback, screen reader, contrast, colour blind, large text, motion</string>
+    <string name="search_kw_about">version, update, licence, source code, privacy policy, help, support, bug report, contact</string>
+    <string name="search_kw_rows">snippets, text expansion, abbreviations, macros, symbol row</string>
+    <string name="search_kw_modes">profiles, presets, per app</string>
+    <string name="search_kw_keymaps">layout editor, custom layout, qwerty, azerty, dvorak, colemak</string>
+    <string name="search_kw_fonts">typeface, custom font, ttf</string>
+    <string name="search_kw_icons">icon pack, glyphs, svg</string>
+    <string name="search_kw_dictionary">learned words, user dictionary, my words, add word</string>
+    <string name="search_kw_blacklist">banned words, never suggest, block words, ban</string>
+    <string name="search_kw_customdictionaries">word lists, import words, wordlist</string>
+    <string name="search_kw_emojikeywords">shortcodes, emoji names, emoji search</string>
+    <string name="search_kw_storage">space, cache, clear data, downloads, free up</string>
+    <string name="search_kw_addons">repository, community, downloads, packs, install</string>
+    <string name="search_kw_licenses">open source, attribution, credits</string>
+    <string name="search_kw_diagnostics">logs, logcat, troubleshooting, crash, report</string>
+    <string name="search_kw_hwshortcuts">physical keyboard, leader key, hotkeys</string>
 </resources>

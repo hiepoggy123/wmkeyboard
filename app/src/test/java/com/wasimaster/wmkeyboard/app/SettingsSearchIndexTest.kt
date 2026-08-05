@@ -25,9 +25,26 @@ class SettingsSearchIndexTest {
     private val appDir = File("src/main/java/com/wasimaster/wmkeyboard/app")
     private val valuesDir = File("src/main/res/values")
 
+    /** The two files search is built from: the index, and the matcher. */
+    private val searchFiles = listOf("SettingsSearch.kt", "SettingsSearchMatch.kt")
+
     private val indexSource: String by lazy {
         val file = File(appDir, "SettingsSearch.kt")
         assertTrue("search index not found at ${file.absolutePath}", file.isFile)
+        file.readText()
+    }
+
+    private val searchSource: String by lazy {
+        searchFiles.joinToString("\n") { name ->
+            val file = File(appDir, name)
+            assertTrue("$name not found at ${file.absolutePath}", file.isFile)
+            file.readText()
+        }
+    }
+
+    private val searchStringsXml: String by lazy {
+        val file = File(valuesDir, "strings_search.xml")
+        assertTrue("search strings not found at ${file.absolutePath}", file.isFile)
         file.readText()
     }
 
@@ -36,8 +53,8 @@ class SettingsSearchIndexTest {
      * belong to :core:common and are not in this module's resource files.
      */
     private val indexedKeys: List<String> by lazy {
-        Regex("""(?<!Common)R\.string\.([a-z0-9_]+)""")
-            .findAll(indexSource)
+        Regex("""(?<!Common)R\.(?:string|array)\.([a-z0-9_]+)""")
+            .findAll(searchSource)
             .map { it.groupValues[1] }
             .distinct()
             .toList()
@@ -50,7 +67,7 @@ class SettingsSearchIndexTest {
             .orEmpty()
         assertTrue("no strings*.xml under ${valuesDir.absolutePath}", files.isNotEmpty())
         files.flatMapTo(mutableSetOf()) { file ->
-            Regex("<string name=\"([^\"]+)\"")
+            Regex("<string(?:-array)? name=\"([^\"]+)\"")
                 .findAll(file.readText())
                 .map { it.groupValues[1] }
                 .toList()
@@ -67,7 +84,7 @@ class SettingsSearchIndexTest {
     private val keysDrawnByScreens: Set<String> by lazy {
         appDir.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
-            .filterNot { it.name == "SettingsSearch.kt" }
+            .filterNot { it.name in searchFiles }
             .flatMapTo(mutableSetOf()) { file ->
                 Regex("""R\.string\.([a-z0-9_]+)""")
                     .findAll(file.readText())
@@ -80,14 +97,18 @@ class SettingsSearchIndexTest {
      * Strings the index owns outright, because the screen has nothing to point
      * at. Keep this list short: each entry is a second copy of some wording
      * that a translator has to keep in step by hand.
+     *
+     * Everything named `search_…` is owned by definition: those are the words
+     * the search matches on, and no screen draws them.
      */
     private val indexOwnedKeys = setOf(
-        "search_languages_subtitle",
         // The sticker editor has no row of its own: it opens from a photo the
         // user picked or from a sticker they tapped, so the index describes it
         // and lands on the pack list instead.
         "import_sticker_editor_subtitle",
     )
+
+    private fun isIndexOwned(key: String) = key in indexOwnedKeys || key.startsWith("search_")
 
     @Test
     fun `the index names only strings this module defines`() {
@@ -99,7 +120,7 @@ class SettingsSearchIndexTest {
     fun `every string the index names is drawn by a settings screen`() {
         val orphans = indexedKeys
             .filterNot { it in keysDrawnByScreens }
-            .filterNot { it in indexOwnedKeys }
+            .filterNot { isIndexOwned(it) }
         assertEquals("indexed rows no longer drawn by any screen", emptyList<String>(), orphans)
     }
 
@@ -107,6 +128,41 @@ class SettingsSearchIndexTest {
     fun `the index owns no wording it does not have to`() {
         val unused = indexOwnedKeys.filterNot { it in indexedKeys }
         assertEquals("index-owned strings the index stopped using", emptyList<String>(), unused)
+    }
+
+    @Test
+    fun `every search-only string is used by the index`() {
+        val declared = Regex("<string name=\"(search_[a-z0-9_]+)\"")
+            .findAll(searchStringsXml)
+            .map { it.groupValues[1] }
+            .toList()
+        assertTrue("no search_ strings declared", declared.isNotEmpty())
+        val unused = declared.filterNot { it in indexedKeys }
+        assertEquals("search words no entry carries", emptyList<String>(), unused)
+    }
+
+    /**
+     * The word groups are what makes a search for "vibration" find the haptics
+     * rows. They are matched against text that [normalizeForSearch] has already
+     * been through, so a group holding a capital, an accent or a comma would
+     * hold a word that can never be typed back.
+     */
+    @Test
+    fun `every word group is made of plain lower-case words`() {
+        val groups = Regex("<item>([^<]+)</item>")
+            .findAll(searchStringsXml)
+            .map { it.groupValues[1].split(' ').filter(String::isNotEmpty) }
+            .toList()
+        assertTrue("no word groups found", groups.size > 20)
+        val malformed = groups.flatten().filterNot { it == normalizeForSearch(it) }
+        assertEquals("word-group words that no query can match", emptyList<String>(), malformed)
+        val tooShort = groups.filter { it.size < 2 }
+        assertEquals("word groups with nothing to map to", emptyList<List<String>>(), tooShort)
+        val repeated = groups.flatten().groupBy { it }
+            .filterValues { it.size > 1 }
+            .keys
+            .filterNot { it in setOf("password", "trace") }
+        assertEquals("words in more than one group by accident", emptyList<String>(), repeated)
     }
 
     @Test
@@ -131,7 +187,8 @@ class SettingsSearchIndexTest {
         route: String = "typing",
         weight: EntryWeight = EntryWeight.NORMAL,
         tool: ToolbarTool? = null,
-    ) = SettingsSearchEntry(title, subtitle, screen, route, weight, tool)
+        keywords: String = "",
+    ) = SettingsSearchEntry(title, subtitle, screen, route, weight, tool, keywords = keywords)
 
     /**
      * A stand-in for the real index: one entry for every ranking rule the tests
@@ -222,5 +279,103 @@ class SettingsSearchIndexTest {
         val results = searchSettings("api key", fixture)
         assertTrue(results.isNotEmpty())
         assertTrue(results.first().route.startsWith("tool/"))
+    }
+
+    // ---- matching ----
+
+    /** What the resources hold, in the shape [searchSettings] wants it. */
+    private val vocabulary = SettingsSearchVocabulary(
+        groups = listOf(
+            listOf("haptics", "vibration", "vibrate", "buzz"),
+            listOf("theme", "themes", "skin"),
+        ),
+        stopWords = setOf("the", "a", "of", "on", "for"),
+    )
+
+    private val hapticRow = row("Haptics", "A short vibration under each key press", "Key press", "keypress")
+
+    @Test
+    fun `a word the screens never use finds the setting that means it`() {
+        val results = searchSettings("vibrate", listOf(hapticRow) + fixture, vocabulary)
+        assertTrue(results.isNotEmpty())
+        assertEquals("Haptics", results.first().title)
+    }
+
+    @Test
+    fun `the word as typed outranks a word that only means the same`() {
+        val skin = row("Skin tone", "The default tone of a hand or a face", "Emoji", "emoji")
+        val results = searchSettings("skin", listOf(skin) + fixture, vocabulary)
+        assertTrue(results.isNotEmpty())
+        assertEquals("Skin tone", results.first().title)
+    }
+
+    @Test
+    fun `a misspelt word still finds the setting`() {
+        val results = searchSettings("autocorect", fixture)
+        assertTrue(results.isNotEmpty())
+        assertEquals("Autocorrect", results.first().title)
+    }
+
+    @Test
+    fun `two letters typed in the wrong order still find the setting`() {
+        val results = searchSettings("hpatics", listOf(hapticRow), vocabulary)
+        assertEquals(listOf("Haptics"), results.map { it.title })
+    }
+
+    @Test
+    fun `a misspelling in a sentence is not a match`() {
+        // "mode" is one edit from "more", and a subtitle long enough says
+        // "more" about something. Only the names spell-correct.
+        val row = row("Bottom row height", "Make the bottom row taller for more reach")
+        assertEquals(emptyList<SettingsSearchEntry>(), searchSettings("mode", listOf(row)))
+    }
+
+    @Test
+    fun `a plural finds the singular`() {
+        val results = searchSettings("theme", fixture)
+        assertTrue(results.any { it.title == "Keyboard themes" })
+    }
+
+    @Test
+    fun `punctuation in a name does not have to be typed`() {
+        val split = row("One-handed mode", "Move the keys to one side", "Layout & size", "layout")
+        assertEquals(listOf("One-handed mode"), searchSettings("onehanded", listOf(split)).map { it.title })
+        assertEquals(listOf("One-handed mode"), searchSettings("one handed", listOf(split)).map { it.title })
+    }
+
+    @Test
+    fun `words a search cannot narrow with are ignored`() {
+        val results = searchSettings("the autocorrect", fixture, vocabulary)
+        assertTrue(results.isNotEmpty())
+        assertEquals("Autocorrect", results.first().title)
+    }
+
+    @Test
+    fun `a screen is found by a word it never draws`() {
+        val themes = row(
+            "Keyboard themes",
+            "Light, dark and AMOLED themes",
+            "Appearance",
+            "themes",
+            weight = EntryWeight.SECTION,
+            keywords = "dark mode, wallpaper, colours",
+        )
+        val results = searchSettings("wallpaper", listOf(themes) + fixture)
+        assertEquals(listOf("Keyboard themes"), results.map { it.title })
+    }
+
+    @Test
+    fun `half a query answers with the half that lands`() {
+        // No row is both offensive and blocked-by-name; the block one carries
+        // most of the query and answers it rather than an empty screen.
+        val results = searchSettings("offensive zzzznotasetting", fixture)
+        assertTrue(results.isNotEmpty())
+        assertEquals("Block offensive words", results.first().title)
+    }
+
+    @Test
+    fun `one word out of four is not an answer`() {
+        val results = searchSettings("offensive zzzza zzzzb zzzzc", fixture)
+        assertEquals(emptyList<SettingsSearchEntry>(), results)
     }
 }

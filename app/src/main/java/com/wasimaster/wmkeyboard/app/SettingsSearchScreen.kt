@@ -255,7 +255,10 @@ internal fun SettingsSearchScreen(
     // rebuilding it on each keystroke would read ~1000 resources a character.
     val context = LocalContext.current
     val index = remember(context) { settingsSearchIndex(context.resources) }
-    val results = remember(query, index) { searchSettings(query, index) }
+    // The same reason: the word groups are one resource array and one string,
+    // and they turn into a map that every keystroke reads.
+    val vocabulary = remember(context) { settingsSearchVocabulary(context.resources) }
+    val results = remember(query, index, vocabulary) { searchSettings(query, index, vocabulary) }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
