@@ -210,7 +210,7 @@ class UserLexicon(private val storageFile: File?) {
     /** Defensive copy of a word's follower counts (capped at MAX_FOLLOWERS). */
     @Synchronized
     fun followerCounts(previous: String): Map<String, Int> =
-        bigrams[previous.lowercase()]?.counts?.let(::HashMap) ?: emptyMap()
+        bigrams[previous.lowercase()]?.counts?.let(::HashMap).orEmpty()
 
     @Synchronized
     fun complete(prefix: String, limit: Int): List<Suggestion> = trie.complete(prefix, limit)
