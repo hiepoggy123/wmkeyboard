@@ -778,15 +778,44 @@ private val hindiRows = listOf(
 )
 
 private val symbolRows = listOf(
+    // This row is also what the optional number row shows over the letter
+    // layer, so its long presses are the only symbols reachable there without
+    // a layer switch. They follow one rule per key rather than a hand-picked
+    // pile, so nothing has to be learnt digit by digit:
+    //
+    //   1. the character a physical US keyboard puts on Shift+digit — ! @ # $
+    //      % ^ & * ( ) — which is where the fingers already expect them, and
+    //      is how percent became typable from the number row at all;
+    //   2. the superscript and subscript of that digit, all ten of each;
+    //   3. every vulgar fraction with that digit as the *denominator*, so
+    //      "hold 4 for quarters, hold 8 for eighths" holds for the whole row.
+    //
+    // What was here before came from AOSP: superscripts on 1-4 only, no
+    // subscripts, fractions sorted by numerator so 1 carried ½ ⅓ ¼ and 5-9
+    // carried nothing, and a superscript n on 0 that answers no question
+    // anyone asks of a number row.
     listOf(
-        Key("1", longPress = listOf("¹", "½", "⅓", "¼")), Key("2", longPress = listOf("²", "⅔")),
-        Key("3", longPress = listOf("³", "¾")), Key("4", longPress = listOf("⁴")), Key("5"),
-        Key("6"), Key("7"), Key("8"), Key("9"), Key("0", longPress = listOf("ⁿ", "∅")),
+        Key("1", longPress = listOf("!", "¹", "₁")),
+        Key("2", longPress = listOf("@", "²", "₂", "½")),
+        Key("3", longPress = listOf("#", "³", "₃", "⅓", "⅔")),
+        Key("4", longPress = listOf("$", "⁴", "₄", "¼", "¾")),
+        Key("5", longPress = listOf("%", "⁵", "₅", "⅕", "⅖", "⅗", "⅘")),
+        Key("6", longPress = listOf("^", "⁶", "₆", "⅙", "⅚")),
+        Key("7", longPress = listOf("&", "⁷", "₇", "⅐")),
+        Key("8", longPress = listOf("*", "⁸", "₈", "⅛", "⅜", "⅝", "⅞")),
+        Key("9", longPress = listOf("(", "⁹", "₉", "⅑")),
+        Key("0", longPress = listOf(")", "⁰", "₀", "⅒", "∅")),
     ),
     listOf(
         Key("@"), Key("#", longPress = listOf("№")),
         Key("$", longPress = listOf("৳", "€", "£", "¥", "₹", "₿")),
-        Key("_"), Key("&"), Key("-", longPress = listOf("–", "—", "·")),
+        // Percent sat two layers deep (?123 → =\< → %), which is one switch
+        // too many for a character that belongs next to the digits. It takes
+        // the underscore's slot here — the arrangement Gboard ships — and the
+        // underscore drops onto the dash, where the other dash-shaped
+        // characters already live.
+        Key("%", longPress = listOf("‰")), Key("&"),
+        Key("-", longPress = listOf("_", "–", "—", "·")),
         Key("+", longPress = listOf("±")), Key("(", longPress = listOf("[", "{", "<")),
         Key(")", longPress = listOf("]", "}", ">")), Key("/", longPress = listOf("\\", "÷")),
     ),
@@ -826,7 +855,9 @@ private val symbolsShiftedRows = listOf(
     ),
     listOf(
         Key("?123", action = KeyAction.Symbols, width = 1.5f),
-        Key("%", longPress = listOf("‰")), Key("©"), Key("®"), Key("™"),
+        // Percent moved up to the first symbol layer; the underscore it
+        // displaced takes the slot it left behind.
+        Key("_"), Key("©"), Key("®"), Key("™"),
         Key("✓", longPress = listOf("✔", "✗", "☆", "★")), Key("[", longPress = listOf("{")),
         Key("]", longPress = listOf("}")),
         Key("⌫", action = KeyAction.Delete, width = 1.5f),
