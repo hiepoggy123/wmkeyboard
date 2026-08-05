@@ -91,6 +91,7 @@ import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.SidePadScaleRange
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.PoolEntry
 import com.wasimaster.wmkeyboard.core.settings.softenedForPhoto
@@ -1379,6 +1380,143 @@ fun ThemeEditorScreen(
                     range = 0f..20f,
                     display = { if (it.toInt() == 0) offLabel else "${it.toInt()} dp" },
                 ) { update { t -> t.copy(toolCircleRadiusDp = it.toInt()) } }
+            }
+        }
+    }
+
+    // The toolbar-height field doubles as the group's on/off sentinel: the
+    // switch always seeds or clears all ten fields together, so any one of
+    // them being set means the group is on.
+    val hasLayoutOverrides = theme.toolbarHeightDp != null
+    SettingsGroup(stringResource(R.string.theme_layout_section_title)) {
+        item { CaptionText(stringResource(R.string.theme_layout_section_body)) }
+        item {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_custom_layout_title)) },
+                supportingContent = { Text(stringResource(R.string.theme_custom_layout_subtitle)) },
+                trailingContent = {
+                    Switch(
+                        checked = hasLayoutOverrides,
+                        onCheckedChange = { enable ->
+                            update { t ->
+                                if (enable) {
+                                    t.copy(
+                                        toolWidthDp = settings.toolbarBehavior.toolWidthDp,
+                                        toolbarHeightDp = settings.toolbarHeightDp,
+                                        keyHeightDp = settings.keyHeightDp,
+                                        keyGapScale = settings.keyGapScale,
+                                        sidePadScale = settings.layoutBehavior.sidePadScale,
+                                        fontScale = settings.fontScale,
+                                        boldKeyLabels = settings.boldKeyLabels,
+                                        hintFontScale = settings.layoutBehavior.hintFontScale,
+                                        gestureTrailWidthDp = settings.gesture.trailWidthDp,
+                                        gestureTrailOpacity = settings.gesture.trailOpacity,
+                                    )
+                                } else {
+                                    t.copy(
+                                        toolWidthDp = null,
+                                        toolbarHeightDp = null,
+                                        keyHeightDp = null,
+                                        keyGapScale = null,
+                                        sidePadScale = null,
+                                        fontScale = null,
+                                        boldKeyLabels = null,
+                                        hintFontScale = null,
+                                        gestureTrailWidthDp = null,
+                                        gestureTrailOpacity = null,
+                                    )
+                                }
+                            }
+                        },
+                    )
+                },
+                colors = transparentListColors(),
+            )
+        }
+        if (hasLayoutOverrides) {
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_tool_width_title),
+                    value = (theme.toolWidthDp ?: 38).toFloat(),
+                    range = 38f..64f,
+                    display = { "${it.toInt()} dp" },
+                ) { update { t -> t.copy(toolWidthDp = it.toInt()) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_toolbar_height_title),
+                    value = (theme.toolbarHeightDp ?: 44).toFloat(),
+                    range = 32f..80f,
+                    display = { "${it.toInt()} dp" },
+                ) { update { t -> t.copy(toolbarHeightDp = it.toInt()) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_key_height_title),
+                    value = (theme.keyHeightDp ?: 48).toFloat(),
+                    range = 32f..100f,
+                    display = { "${it.toInt()} dp" },
+                ) { update { t -> t.copy(keyHeightDp = it.toInt()) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_key_gap_title),
+                    value = theme.keyGapScale ?: 1f,
+                    range = 0f..2f,
+                    display = { "%.2f×".format(it) },
+                ) { update { t -> t.copy(keyGapScale = (it * 20).toInt() / 20f) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_side_padding_title),
+                    value = theme.sidePadScale ?: 0f,
+                    range = SidePadScaleRange,
+                    display = { "${(it * 100).toInt()} %" },
+                ) { update { t -> t.copy(sidePadScale = (it * 100).toInt() / 100f) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_font_scale_title),
+                    value = theme.fontScale ?: 1f,
+                    range = 0.7f..1.5f,
+                    display = { "%.2f×".format(it) },
+                ) { update { t -> t.copy(fontScale = (it * 20).toInt() / 20f) } }
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.theme_bold_labels_title)) },
+                    trailingContent = {
+                        Switch(
+                            checked = theme.boldKeyLabels ?: false,
+                            onCheckedChange = { update { t -> t.copy(boldKeyLabels = it) } },
+                        )
+                    },
+                    colors = transparentListColors(),
+                )
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_hint_scale_title),
+                    value = theme.hintFontScale ?: 1f,
+                    range = 0.5f..2f,
+                    display = { "%.2f×".format(it) },
+                ) { update { t -> t.copy(hintFontScale = (it * 20).toInt() / 20f) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_trail_width_title),
+                    value = theme.gestureTrailWidthDp ?: 10f,
+                    range = 2f..24f,
+                    display = { "${it.toInt()} dp" },
+                ) { update { t -> t.copy(gestureTrailWidthDp = it.toInt().toFloat()) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_trail_opacity_title),
+                    value = theme.gestureTrailOpacity ?: 0.55f,
+                    range = 0.1f..1f,
+                    display = { "${(it * 100).toInt()} %" },
+                ) { update { t -> t.copy(gestureTrailOpacity = (it * 100).toInt() / 100f) } }
             }
         }
     }

@@ -145,6 +145,19 @@ data class ThemeSpec(
     val keyCornerRadiusDp: Int? = null,
     val popupCornerRadiusDp: Int? = null,
     val toolCircleRadiusDp: Int? = null,
+    // Layout/type overrides; null = follow the global appearance settings.
+    // Primitives only — an enum here would drop the whole theme on older
+    // builds (see the note above PhotoAttribution.provider).
+    val toolWidthDp: Int? = null,
+    val toolbarHeightDp: Int? = null,
+    val keyHeightDp: Int? = null,
+    val keyGapScale: Float? = null,
+    val sidePadScale: Float? = null,
+    val fontScale: Float? = null,
+    val boldKeyLabels: Boolean? = null,
+    val hintFontScale: Float? = null,
+    val gestureTrailWidthDp: Float? = null,
+    val gestureTrailOpacity: Float? = null,
     // Animation
     val animation: ThemeAnimation = ThemeAnimation.NONE,
     /** Multiplier on the animation cycle speed; 1 = one cycle every ~16 s. */

@@ -1,0 +1,87 @@
+package com.wasimaster.wmkeyboard.core.settings
+
+import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
+import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
+import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+
+/**
+ * The theme id the keyboard is actually showing right now. Auto-theme, when
+ * on, picks from its light/dark pair and ignores the manually selected id;
+ * [darkSlot] is which half of that pair is currently due (the IME computes it
+ * from the trigger — system dark mode, a schedule, or the sun).
+ *
+ * This is the single definition of "which theme is active"; the theme
+ * provider and the settings overlay both resolve through here so the spec
+ * that paints the board and the spec whose overrides reshape it can never
+ * disagree.
+ */
+fun KeyboardSettings.effectiveThemeId(darkSlot: Boolean): String =
+    if (autoTheme.enabled) {
+        if (darkSlot) autoTheme.darkThemeId else autoTheme.lightThemeId
+    } else {
+        keyboardThemeId
+    }
+
+/**
+ * The stored [ThemeSpec] behind [effectiveThemeId], or null when the default
+ * ("Auto") theme is active — that one is derived from the Material scheme and
+ * has no spec to carry overrides.
+ */
+fun KeyboardSettings.activeThemeSpec(darkSlot: Boolean): ThemeSpec? {
+    val id = effectiveThemeId(darkSlot)
+    if (id == DEFAULT_THEME_ID) return null
+    return customThemes.find { it.id == id } ?: BuiltInThemes.find { it.id == id }
+}
+
+/**
+ * Lays the theme's layout/type overrides over the global appearance settings,
+ * the way [resolvedFor] lays screen-variant sizing over them: the result is a
+ * whole [KeyboardSettings], so every `settings.fontScale` downstream keeps
+ * working without knowing themes can reshape the board. Null fields fall
+ * through to the user's globals.
+ *
+ * Ordering contract (see the call site in KeyboardScreen): mode overlays run
+ * first in the service, this runs second, and [resolvedFor] runs last — a
+ * per-screen sizing override is the most explicit user intent and beats the
+ * theme, while the theme beats the plain globals.
+ *
+ * Never touches [KeyboardSettings.keyboardThemeId], [KeyboardSettings.autoTheme]
+ * or [KeyboardSettings.customThemes]: theme selection feeds this overlay, so
+ * writing any of them back would loop.
+ */
+fun KeyboardSettings.applyThemeOverrides(spec: ThemeSpec?): KeyboardSettings {
+    if (spec == null) return this
+    val untouched = spec.toolbarHeightDp == null && spec.keyHeightDp == null &&
+        spec.keyGapScale == null && spec.sidePadScale == null &&
+        spec.fontScale == null && spec.boldKeyLabels == null &&
+        spec.hintFontScale == null && spec.gestureTrailWidthDp == null &&
+        spec.gestureTrailOpacity == null && spec.toolWidthDp == null
+    // Instance-stable in the no-override case: the caller remembers on the
+    // result, and a fresh-but-equal copy per frame would defeat that.
+    if (untouched) return this
+    return copy(
+        toolbarHeightDp = spec.toolbarHeightDp ?: toolbarHeightDp,
+        keyHeightDp = spec.keyHeightDp ?: keyHeightDp,
+        keyGapScale = spec.keyGapScale ?: keyGapScale,
+        fontScale = spec.fontScale ?: fontScale,
+        boldKeyLabels = spec.boldKeyLabels ?: boldKeyLabels,
+        toolbarBehavior = spec.toolWidthDp
+            ?.let { toolbarBehavior.copy(toolWidthDp = it) } ?: toolbarBehavior,
+        layoutBehavior = if (spec.sidePadScale != null || spec.hintFontScale != null) {
+            layoutBehavior.copy(
+                sidePadScale = spec.sidePadScale ?: layoutBehavior.sidePadScale,
+                hintFontScale = spec.hintFontScale ?: layoutBehavior.hintFontScale,
+            )
+        } else {
+            layoutBehavior
+        },
+        gesture = if (spec.gestureTrailWidthDp != null || spec.gestureTrailOpacity != null) {
+            gesture.copy(
+                trailWidthDp = spec.gestureTrailWidthDp ?: gesture.trailWidthDp,
+                trailOpacity = spec.gestureTrailOpacity ?: gesture.trailOpacity,
+            )
+        } else {
+            gesture
+        },
+    )
+}

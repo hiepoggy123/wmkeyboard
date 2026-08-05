@@ -4191,6 +4191,16 @@ private fun AppearanceSettings(
             ) { scope.launch { repository.setToolCircleRadiusDp(it.toInt()) } }
         }
         item {
+            SliderSetting(
+                R.string.appearance_tool_width_title,
+                subtitle = stringResource(R.string.appearance_tool_width_subtitle),
+                value = settings.toolbarBehavior.toolWidthDp.toFloat(),
+                range = 38f..64f,
+                display = { dpFormat.format(it.roundToInt()) },
+                info = stringResource(R.string.appearance_tool_width_info),
+            ) { scope.launch { repository.setToolbarToolWidthDp(it.roundToInt()) } }
+        }
+        item {
             ChoiceSetting(
                 R.string.appearance_toolbox_layout_title,
                 subtitle = stringResource(R.string.appearance_toolbox_layout_subtitle),

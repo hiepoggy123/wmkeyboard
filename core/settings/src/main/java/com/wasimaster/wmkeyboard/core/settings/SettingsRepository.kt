@@ -539,6 +539,13 @@ data class ToolbarBehavior(
      * by default; locked or not, the keyboard looks the same.
      */
     val hideWhenLocked: Boolean = false,
+    /**
+     * Width of each pinned tool's background on the bar. 38 is the classic
+     * circle; wider stretches it into a pill (pairs best with a low corner
+     * radius and the scrollable bar for a Gboard-style strip). The background
+     * still needs a corner radius above zero to be visible at all.
+     */
+    val toolWidthDp: Int = 38,
 )
 
 /**
@@ -2605,6 +2612,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBAR_LABELS = booleanPreferencesKey("toolbar_labels")
         private val TOOLBAR_LABEL_SIZE = intPreferencesKey("toolbar_label_size")
         private val TOOL_CIRCLE_RADIUS = intPreferencesKey("tool_circle_radius")
+        private val TOOLBAR_TOOL_WIDTH = intPreferencesKey("toolbar_tool_width")
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
         private val SWAP_COMMA_GLOBE = booleanPreferencesKey("swap_comma_globe")
         private val EMOJI_TAB_MODE = stringPreferencesKey("emoji_tab_mode")
@@ -3312,6 +3320,7 @@ class SettingsRepository(private val context: Context) {
                 greedy = p[TOOLBAR_GREEDY] ?: defaults.toolbarBehavior.greedy,
                 scrollable = p[TOOLBAR_SCROLLABLE] ?: defaults.toolbarBehavior.scrollable,
                 hideWhenLocked = p[TOOLBAR_HIDE_WHEN_LOCKED] ?: defaults.toolbarBehavior.hideWhenLocked,
+                toolWidthDp = p[TOOLBAR_TOOL_WIDTH] ?: defaults.toolbarBehavior.toolWidthDp,
             ),
             toolbarHeightDp = p[TOOLBAR_HEIGHT] ?: defaults.toolbarHeightDp,
             toolbarLabels = p[TOOLBAR_LABELS] ?: defaults.toolbarLabels,
@@ -3965,6 +3974,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setToolCircleRadiusDp(value: Int) =
         editPrefs { it[TOOL_CIRCLE_RADIUS] = value.coerceIn(0, 20) }
+
+    suspend fun setToolbarToolWidthDp(value: Int) =
+        editPrefs { it[TOOLBAR_TOOL_WIDTH] = value.coerceIn(38, 64) }
 
     /**
      * Moving emoji onto the comma key also pulls the emoji tool off the

@@ -30,6 +30,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -149,6 +150,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalConfiguration
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
+import com.wasimaster.wmkeyboard.core.settings.activeThemeSpec
+import com.wasimaster.wmkeyboard.core.settings.applyThemeOverrides
 import com.wasimaster.wmkeyboard.core.settings.resolvedFor
 import com.wasimaster.wmkeyboard.core.input.MorseCode
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -801,7 +804,20 @@ fun KeyboardScreen(
     // instance. Folding this into the state.copy below handed out a fresh
     // settings object on every keystroke whenever the variant had an override,
     // which is enough on its own to stop every key from skipping.
-    val settings = remember(rawState.settings, variant) { rawState.settings.resolvedFor(variant) }
+    //
+    // Overlay order: the active theme's layout overrides first, then the
+    // screen-variant sizing — a per-screen override the user set by hand is
+    // more specific than the theme and wins. The spec here is resolved by the
+    // same helpers KeyboardThemeProvider uses, so the theme that paints the
+    // board and the one that reshapes it are always the same theme.
+    val systemDark = isSystemInDarkTheme()
+    val darkSlot = rememberAutoThemeDarkSlot(rawState.settings, systemDark)
+    val activeSpec = remember(rawState.settings, darkSlot) {
+        rawState.settings.activeThemeSpec(darkSlot)
+    }
+    val settings = remember(rawState.settings, variant, activeSpec) {
+        rawState.settings.applyThemeOverrides(activeSpec).resolvedFor(variant)
+    }
     val state = remember(rawState, settings) { rawState.copy(settings = settings) }
 
     // Resolved off the main thread, so the first frame or two after a cold
@@ -1873,6 +1889,9 @@ private fun TopBar(
                         enabled = !state.settings.reduceMotion,
                     ) { drag.bodyCoords },
                     longPressLabel = stringResource(R.string.ime_tool_emoji),
+                    // Matches the toolbar's pinned emoji footprint, so the
+                    // shared-placement slide lands on an identical shape.
+                    wide = true,
                 ) { onToolTap(ToolbarTool.EMOJI) }
             }
             // Autofill chips take the whole strip while they are up: they
@@ -4043,6 +4062,9 @@ private fun ToolCircle(
     // standing in for a labelled button is a whole row's worth of height
     // missing from the preview.
     ghost: Boolean = false,
+    // Bar buttons stretch to the theme's tool width (38 = today's circle);
+    // panel headers and grids keep the fixed circle regardless of the setting.
+    wide: Boolean = false,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -4087,7 +4109,10 @@ private fun ToolCircle(
         ) {
             Box(
                 modifier = Modifier
-                    .size(30.dp)
+                    .size(
+                        width = (if (wide) (kb.toolWidthDp - 8).coerceAtLeast(30) else 30).dp,
+                        height = 30.dp,
+                    )
                     .clip(shape)
                     .background(background, shape)
                     .then(outline),
@@ -4115,7 +4140,7 @@ private fun ToolCircle(
     }
     Box(
         modifier = modifier
-            .size(38.dp)
+            .size(width = (if (wide) kb.toolWidthDp else 38).dp, height = 38.dp)
             .clip(shape)
             .background(background, shape)
             .then(outline)
@@ -4162,12 +4187,16 @@ private fun ToolCircle(
  * slide from slot to slot as the finger moves.
  */
 @Composable
-private fun GhostToolCircle(tool: ToolbarTool, modifier: Modifier = Modifier) {
+private fun GhostToolCircle(
+    tool: ToolbarTool,
+    modifier: Modifier = Modifier,
+    wide: Boolean = false,
+) {
     val kb = LocalKbTheme.current
     val shape = RoundedCornerShape(kb.toolRadiusDp.dp)
     Box(
         modifier = modifier
-            .size(38.dp)
+            .size(width = (if (wide) kb.toolWidthDp else 38).dp, height = 38.dp)
             .background(kb.toolCircleActive.copy(alpha = 0.22f), shape)
             .border(1.dp, kb.toolbarIcon.copy(alpha = 0.35f), shape),
         contentAlignment = Alignment.Center,
@@ -4292,6 +4321,7 @@ private fun RowScope.ToolbarRow(
                         description = stringResource(R.string.ime_panel_back_desc),
                         active = false,
                         longPressLabel = stringResource(R.string.ime_panel_back_desc),
+                        wide = true,
                     ) { onPanelChange(state.panel) }
                 }
             }
@@ -4305,6 +4335,7 @@ private fun RowScope.ToolbarRow(
                     .graphicsLayer { alpha = contentAlpha() }
                     .animatePlacement(enabled = motion, inRow = true) { drag.bodyCoords },
                 longPressLabel = stringResource(R.string.ime_toolbox_desc),
+                wide = true,
             ) { onPanelChange(PanelMode.TOOLBOX) }
         }
     }
@@ -4350,6 +4381,7 @@ private fun RowScope.ToolbarRow(
                             // solid icon to look at is the floating one under
                             // the finger.
                             ghost = tool == dragTool,
+                            wide = true,
                             // The icon itself animates, anchored at the
                             // keyboard body: cells are weighted so their
                             // widths snap, and only body-relative tracking

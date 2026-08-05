@@ -50,11 +50,11 @@ import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
+import com.wasimaster.wmkeyboard.core.settings.activeThemeSpec
+import com.wasimaster.wmkeyboard.core.settings.effectiveThemeId
 import com.wasimaster.wmkeyboard.core.tools.SolarCalculator
 import androidx.compose.ui.unit.dp
-import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.ColorVision
-import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
@@ -106,6 +106,7 @@ data class KbTheme(
     val keyRadiusDp: Int,
     val popupRadiusDp: Int,
     val toolRadiusDp: Int,
+    val toolWidthDp: Int,
     val animation: ThemeAnimation,
     val animationSpeed: Float,
     /**
@@ -324,6 +325,7 @@ private fun defaultKbTheme(
         keyRadiusDp = settings.keyCornerRadiusDp,
         popupRadiusDp = 12,
         toolRadiusDp = settings.toolCircleRadiusDp,
+        toolWidthDp = settings.toolbarBehavior.toolWidthDp,
         animation = ThemeAnimation.NONE,
         animationSpeed = 1f,
         reduceMotion = settings.reduceMotion,
@@ -384,6 +386,7 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         keyRadiusDp = spec.keyCornerRadiusDp ?: settings.keyCornerRadiusDp,
         popupRadiusDp = spec.popupCornerRadiusDp ?: 12,
         toolRadiusDp = spec.toolCircleRadiusDp ?: settings.toolCircleRadiusDp,
+        toolWidthDp = spec.toolWidthDp ?: settings.toolbarBehavior.toolWidthDp,
         animation = spec.animation,
         animationSpeed = spec.animationSpeed,
         reduceMotion = settings.reduceMotion,
@@ -579,13 +582,11 @@ fun KeyboardThemeProvider(
     // Auto-theme, when on, picks the id from whichever half of its pair is
     // currently due and ignores the manually-selected keyboardThemeId (the
     // theme tool is read-only while it's active). Off, the selected id wins.
+    // Resolution lives in effectiveThemeId/activeThemeSpec so the settings
+    // overlay (applyThemeOverrides) can never pick a different spec.
     val auto = settings.autoTheme
     val darkSlot = rememberAutoThemeDarkSlot(settings, systemDark)
-    val effectiveId = if (auto.enabled) {
-        if (darkSlot) auto.darkThemeId else auto.lightThemeId
-    } else {
-        settings.keyboardThemeId
-    }
+    val effectiveId = settings.effectiveThemeId(darkSlot)
     // Everything below is a pure function of the keys listed here, and all of
     // it is expensive enough to matter: dynamicDark/LightColorScheme reads
     // forty system colours out of resources, and the two builders derive a
@@ -598,12 +599,7 @@ fun KeyboardThemeProvider(
     val resolved = remember(
         settings, systemDark, darkSlot, rotationStates, context, configuration,
     ) {
-        val spec = if (effectiveId == DEFAULT_THEME_ID) {
-            null
-        } else {
-            settings.customThemes.find { it.id == effectiveId }
-                ?: BuiltInThemes.find { it.id == effectiveId }
-        }
+        val spec = settings.activeThemeSpec(darkSlot)
         if (spec == null) {
             // Under auto-theme the chosen slot decides light vs dark directly;
             // otherwise the theme mode does.
@@ -840,6 +836,10 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         keyRadiusDp = lerpI(a.keyRadiusDp, b.keyRadiusDp, t),
         popupRadiusDp = lerpI(a.popupRadiusDp, b.popupRadiusDp, t),
         toolRadiusDp = lerpI(a.toolRadiusDp, b.toolRadiusDp, t),
+        // Width is measured, not painted — tweening it would re-measure the
+        // toolbar every crossfade frame, which the top bar forbids (a width
+        // animation restarts every icon's placement spring). Snap at midpoint.
+        toolWidthDp = if (past) b.toolWidthDp else a.toolWidthDp,
         animation = if (past) b.animation else a.animation,
         animationSpeed = lerpF(a.animationSpeed, b.animationSpeed, t),
         reduceMotion = b.reduceMotion,

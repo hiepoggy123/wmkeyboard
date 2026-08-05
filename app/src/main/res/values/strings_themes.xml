@@ -141,6 +141,23 @@
     <string name="theme_popup_radius_title">Popup corner radius</string>
     <string name="theme_tool_circle_radius_title">Tool circle radius</string>
 
+    <!-- Theme editor: layout overrides. -->
+    <string name="theme_layout_section_title">Layout</string>
+    <string name="theme_layout_section_body">A theme can set its own sizes and spacing, so one import changes the whole look. Screen-specific sizes from Layout settings still win over the theme.</string>
+    <string name="theme_custom_layout_title">Layout for this theme</string>
+    <!-- "Appearance" is the name of another settings screen. -->
+    <string name="theme_custom_layout_subtitle">Off: the theme follows the sliders in Appearance and Layout</string>
+    <string name="theme_tool_width_title">Tool background width</string>
+    <string name="theme_toolbar_height_title">Toolbar height</string>
+    <string name="theme_key_height_title">Key height</string>
+    <string name="theme_key_gap_title">Key gap</string>
+    <string name="theme_side_padding_title">Side padding</string>
+    <string name="theme_font_scale_title">Key label size</string>
+    <string name="theme_bold_labels_title">Bold key labels</string>
+    <string name="theme_hint_scale_title">Corner hint size</string>
+    <string name="theme_trail_width_title">Gesture trail width</string>
+    <string name="theme_trail_opacity_title">Gesture trail opacity</string>
+
     <!-- Theme editor: animation. "Flow" and "Hue cycle" are the two names
          below. -->
     <string name="theme_animation_section_title">Animation</string>
