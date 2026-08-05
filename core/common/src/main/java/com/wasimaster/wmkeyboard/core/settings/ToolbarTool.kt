@@ -30,7 +30,7 @@ enum class ToolbarTool {
     DICTIONARY, TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, DOC_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
-    MODES, TYPING_TEST, MEDIA_CONTROL, PLUGINS, POWER_SAVING,
+    MODES, TYPING_TEST, MEDIA_CONTROL, PLUGINS, POWER_SAVING, APP_LAUNCHER,
     // One-tap cursor moves. The text-edit panel already offers these, but on
     // the toolbar they cost a single tap instead of opening a panel first.
     CURSOR_LEFT, CURSOR_RIGHT, CURSOR_UP, CURSOR_DOWN,
@@ -124,7 +124,7 @@ private val RankedToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.UNDO, ToolbarTool.REDO,
     ToolbarTool.SETTINGS, ToolbarTool.THEMES,
     ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH, ToolbarTool.DICTIONARY, ToolbarTool.CALCULATOR,
-    ToolbarTool.MEDIA_CONTROL,
+    ToolbarTool.MEDIA_CONTROL, ToolbarTool.APP_LAUNCHER,
     ToolbarTool.AI, ToolbarTool.GRAMMAR, ToolbarTool.PLUGINS, ToolbarTool.TYPING_TEST,
     ToolbarTool.NUMPAD, ToolbarTool.ONE_HANDED,
     ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.INCOGNITO, ToolbarTool.AUTOCORRECT,

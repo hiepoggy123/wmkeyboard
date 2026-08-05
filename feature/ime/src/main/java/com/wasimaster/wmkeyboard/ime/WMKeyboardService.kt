@@ -39,8 +39,11 @@ import android.view.inputmethod.InlineSuggestionsResponse
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.InputMethodSubtype
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import android.content.ClipDescription
@@ -1366,6 +1369,9 @@ open class WMKeyboardService : InputMethodService() {
         }
         startDndWatch()
         attachPersonalStores()
+        // Keeps the app-launcher tool's list honest across installs/removals;
+        // cheap (it only drops caches), so registered unconditionally.
+        registerPackageChangeReceiver()
         // Direct boot: nothing below can read credential-encrypted storage yet,
         // so wait for the unlock rather than for the next process start — the
         // keyboard is very often the app that is *on screen* when it happens.
@@ -2024,7 +2030,15 @@ open class WMKeyboardService : InputMethodService() {
         inputRootView = view
         lifecycleOwner.attachTo(requireNotNull(window.window).decorView)
         view.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-        view.setContent {
+        // A named composable, not an inline lambda: the argument list below
+        // compiles to one method, and inside setContent's lambda it crossed
+        // the JVM's 64K method-size ceiling.
+        view.setContent { ServiceKeyboardContent() }
+        return view
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun ServiceKeyboardContent() {
             KeyboardScreen(
                 stateFlow = uiState,
                 panelFocus = panelFocus,
@@ -2180,14 +2194,13 @@ open class WMKeyboardService : InputMethodService() {
                 onPluginInputFocus = ::onPluginInputFocus,
                 onPluginPaste = ::onPluginPaste,
                 onPluginCopy = ::onPluginCopy,
+                launcher = launcherCallbacks,
                 onDismissInlineSuggestions = ::onDismissInlineSuggestions,
                 onSmartAccept = ::onSmartSuggestionTapped,
                 onSmartOpen = ::onSmartSuggestionOpen,
                 onToolPrefillConsumed = ::onToolPrefillConsumed,
                 onHideKeyboard = ::onHideKeyboard,
             )
-        }
-        return view
     }
 
     // ---- floating mode ----
@@ -2494,6 +2507,7 @@ open class WMKeyboardService : InputMethodService() {
                 mediaSearchActive = false,
                 mediaQuery = "",
                 mediaDownloadingId = null,
+                launcherDetail = null,
                 // A run belongs to the field it was started over; moving to
                 // another one abandons it rather than resuming half-typed.
                 typingTest = TypingTestUi(),
@@ -5772,6 +5786,158 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    // ---- app launcher tool ----
+
+    /**
+     * The launchable-app list, loaded once per process and reused across panel
+     * opens; a package install/remove drops it (see [packageChangeReceiver])
+     * so the next open re-enumerates.
+     */
+    private var launcherAppsCache: List<LauncherApp>? = null
+
+    /**
+     * Decoded app icons, keyed by flattened component. Bounded: an adaptive
+     * icon decodes to a fixed 48dp square, so the whole cache stays around a
+     * megabyte and lives for the process — a panel close is not a reason to
+     * re-decode a hundred icons.
+     */
+    private val launcherIconCache = android.util.LruCache<String, ImageBitmap>(128)
+
+    private var launcherDetailJob: Job? = null
+
+    /** One stable bundle for the panel; see [LauncherPanelCallbacks]'s doc. */
+    private val launcherCallbacks by lazy {
+        com.wasimaster.wmkeyboard.ime.ui.LauncherPanelCallbacks(
+            onAppTap = ::onLauncherAppTap,
+            onOpenDetail = ::onLauncherOpenDetail,
+            onActivityTap = ::onLauncherActivityTap,
+            onPinToggle = ::onLauncherPinToggle,
+            onAppInfo = ::onLauncherAppInfo,
+            onDetailClose = ::onLauncherDetailClose,
+            iconFor = ::launcherIconFor,
+        )
+    }
+
+    private val packageChangeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            launcherAppsCache = null
+            launcherIconCache.evictAll()
+            _uiState.update { it.copy(launcherApps = emptyList(), launcherDetail = null) }
+        }
+    }
+
+    /**
+     * Stays registered for the rest of the process's life, like the DND
+     * observer ([startDndWatch]): an IME process dies with its receivers, and
+     * an install/removal while the keyboard is up is exactly the case the
+     * cache invalidation has to catch.
+     */
+    internal fun registerPackageChangeReceiver() {
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addDataScheme("package")
+        }
+        registerReceiver(packageChangeReceiver, filter)
+    }
+
+    /** Fills [KeyboardUiState.launcherApps] from the cache or a fresh query. */
+    private fun loadLauncherApps() {
+        val cached = launcherAppsCache
+        if (cached != null) {
+            _uiState.update { it.copy(launcherApps = cached, launcherLoading = false) }
+            return
+        }
+        _uiState.update { it.copy(launcherLoading = true) }
+        serviceScope.launch {
+            val apps = runCatching { AppCatalog.loadApps(packageManager) }
+                .getOrDefault(emptyList())
+            launcherAppsCache = apps
+            _uiState.update { it.copy(launcherApps = apps, launcherLoading = false) }
+        }
+    }
+
+    /** One app's icon for the panel grid, through the LRU, decoded on IO. */
+    internal suspend fun launcherIconFor(app: LauncherApp): ImageBitmap? {
+        val key = "${app.packageName}/${app.activityName}"
+        launcherIconCache.get(key)?.let { return it }
+        val bitmap = withContext(Dispatchers.IO) {
+            runCatching {
+                val px = (48 * resources.displayMetrics.density).toInt().coerceAtLeast(1)
+                packageManager.getActivityIcon(app.component)
+                    .toBitmap(px, px)
+                    .asImageBitmap()
+            }.getOrNull()
+        } ?: return null
+        launcherIconCache.put(key, bitmap)
+        return bitmap
+    }
+
+    fun onLauncherAppTap(app: LauncherApp) {
+        val intent = packageManager.getLaunchIntentForPackage(app.packageName)
+            ?: Intent().setComponent(app.component)
+        launchFromLauncherPanel(intent, app.packageName)
+    }
+
+    fun onLauncherActivityTap(activity: LauncherActivity) {
+        launchFromLauncherPanel(Intent().setComponent(activity.component), activity.packageName)
+    }
+
+    /**
+     * Starts the target and closes the panel — the foreground app is about to
+     * change, so a keyboard left showing the launcher would be stale. Failures
+     * (a non-exported activity, an OEM background-start rule) just keep the
+     * panel up.
+     */
+    private fun launchFromLauncherPanel(intent: Intent, packageName: String) {
+        val started = runCatching {
+            startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.isSuccess
+        if (!started) return
+        serviceScope.launch { settingsRepository.addLauncherRecent(packageName) }
+        if (_uiState.value.panel == PanelMode.APP_LAUNCHER) {
+            onPanelChange(PanelMode.APP_LAUNCHER)
+        }
+    }
+
+    fun onLauncherOpenDetail(app: LauncherApp) {
+        _uiState.update { it.copy(launcherDetail = LauncherDetailUi(app)) }
+        launcherDetailJob?.cancel()
+        launcherDetailJob = serviceScope.launch {
+            val activities = AppCatalog.loadActivities(packageManager, app.packageName)
+            _uiState.update { state ->
+                val detail = state.launcherDetail
+                if (detail?.app?.packageName == app.packageName) {
+                    state.copy(
+                        launcherDetail = detail.copy(activities = activities, loading = false),
+                    )
+                } else {
+                    state
+                }
+            }
+        }
+    }
+
+    fun onLauncherDetailClose() {
+        launcherDetailJob?.cancel()
+        _uiState.update { it.copy(launcherDetail = null) }
+    }
+
+    fun onLauncherPinToggle(packageName: String) {
+        serviceScope.launch { settingsRepository.toggleLauncherPin(packageName) }
+    }
+
+    fun onLauncherAppInfo(packageName: String) {
+        runCatching {
+            startActivity(
+                Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(android.net.Uri.fromParts("package", packageName, null))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+    }
+
     /** Arms or clears the dead-key accent, keeping the strip chip in step. */
     private fun setPendingDeadKey(mark: Char?) {
         pendingDeadKey = mark
@@ -6636,6 +6802,7 @@ open class WMKeyboardService : InputMethodService() {
             ToolbarTool.TYPING_TEST -> onPanelChange(PanelMode.TYPING_TEST)
             ToolbarTool.MEDIA_CONTROL -> onPanelChange(PanelMode.MEDIA_CONTROL)
             ToolbarTool.PLUGINS -> onPanelChange(PanelMode.PLUGINS)
+            ToolbarTool.APP_LAUNCHER -> onPanelChange(PanelMode.APP_LAUNCHER)
             ToolbarTool.AI -> onPanelChange(PanelMode.AI)
             ToolbarTool.MODES -> onPanelChange(PanelMode.MODES)
             // Same moves the text-editing panel offers, one tap deep instead
@@ -6753,6 +6920,9 @@ open class WMKeyboardService : InputMethodService() {
                 pluginFocusedInput = null,
                 pluginInputs = if (next == PanelMode.PLUGINS) it.pluginInputs else emptyMap(),
                 plugins = if (next == PanelMode.PLUGINS) it.plugins else PluginPanelUi.List(emptyList()),
+                // The drill-down never outlives the panel: reopening the tool
+                // lands on the grid, not on whatever app was open last time.
+                launcherDetail = if (next == PanelMode.APP_LAUNCHER) it.launcherDetail else null,
             )
         }
         // Leaving the panel ends the plugin session outright. Not paused, not
@@ -6803,6 +6973,7 @@ open class WMKeyboardService : InputMethodService() {
                 refreshAiHasText()
             }
             PanelMode.PLUGINS -> openPluginList()
+            PanelMode.APP_LAUNCHER -> loadLauncherApps()
             PanelMode.TYPING_TEST -> {
                 // Flush the half-typed word first: the test swallows every
                 // key from here, so a composing word would otherwise hang

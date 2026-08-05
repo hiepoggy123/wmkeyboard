@@ -1,0 +1,52 @@
+---
+title: "App launcher"
+description: "Open any app, or a specific screen inside one, straight from the keyboard."
+sidebar:
+  order: 17
+---
+
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
+
+The app launcher puts your app drawer inside the keyboard: a searchable grid of every launchable app, with the ones you pinned and the ones you opened recently in a row on top. Tap an app to jump to it. Hold one to look inside it and open a specific screen, like a settings page or a compose view, without going through the app's own navigation first.
+
+It's handy mid-conversation: someone asks for a booking reference, you hop to the airline app, copy it, and the keyboard is still where you left it when you come back.
+
+<PhoneFrame caption="The app grid with a pinned row on top and search in the header.">
+  {/* shot: tools/app-launcher-grid */}
+</PhoneFrame>
+
+## Opening the panel
+
+Open **Apps** from the [toolbar, or the toolbox](/tools/overview/) if you haven't pinned it. Typing `apps` or `launch` offers the tool on the suggestion strip too. On a hardware keyboard, use the [leader key](/reference/shortcuts/): double-tap <KeyCap>Ctrl</KeyCap>, then press <KeyCap>J</KeyCap>.
+
+## The grid
+
+- **Search** sits in the header. Tap it and the keys come back under a shortened panel, filtering live over app names and package names as you type.
+- **Pinned and recent apps** lead the grid in their own row. Pin an app from its detail view, or hold an app in the shortcut row to unpin it. Recents track the last 10 apps you opened from this tool and never leave your device.
+- **Tap** launches the app. The panel closes itself, since you are about to leave the app you were typing in anyway.
+
+## Screens inside an app
+
+Hold any app in the grid to open its detail view: the app's icon, name and package, a pin toggle, an **App info** shortcut to the system settings page, and every screen (activity) the app declares.
+
+Screens the app allows others to open are listed first; tap one to open it directly. Android blocks the rest for anyone but the app itself. Those stay hidden unless you turn on **Show private screens**, and then they show dimmed with a lock so you can explore what an app contains without wondering why a tap did nothing.
+
+This works without any special permission. The keyboard sees the same launcher list the home screen does, and for those apps it can read the full screen table.
+
+## Options
+
+<SettingsPath path="Tools / App launcher" />
+
+- **Sort order** — A to Z, or the apps you opened most recently first.
+- **App names** — show or hide the label under each grid icon.
+- **Recent apps** — the recents row and its tracking. Turning it off also deletes the stored list.
+- **Open screens inside apps** — the hold gesture. With it off, holding an app pins it instead.
+- **Show private screens** — list the screens other apps may not open, dimmed.
+
+## Privacy notes
+
+- The app list is read from the system on your device and never leaves it.
+- Recents and pins are stored as plain package names in the keyboard's own settings, nowhere else.
+- The tool is unavailable before the first unlock after a reboot, like every tool that starts other apps.

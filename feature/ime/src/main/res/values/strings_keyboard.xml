@@ -181,6 +181,7 @@
     <string name="ime_tool_typing_test">Typing speed</string>
     <string name="ime_tool_media_control">Media</string>
     <string name="ime_tool_plugins">Plugins</string>
+    <string name="ime_tool_app_launcher">Apps</string>
     <!-- Artificial intelligence. Keep the short form the toolbar can fit. -->
     <string name="ime_tool_ai">AI</string>
     <string name="ime_tool_modes">Modes</string>
@@ -222,6 +223,19 @@
     <string name="ime_ai_replace">Replace</string>
     <string name="ime_ai_insert">Insert</string>
     <string name="ime_ai_settings_desc">AI settings</string>
+
+    <!-- The app-launcher panel. -->
+    <string name="ime_launcher_search_hint">Search apps</string>
+    <string name="ime_launcher_loading">Loading apps…</string>
+    <string name="ime_launcher_empty">No apps match</string>
+    <string name="ime_launcher_pinned_label">Pinned</string>
+    <string name="ime_launcher_recents_label">Recent</string>
+    <string name="ime_launcher_activities_label">Screens</string>
+    <string name="ime_launcher_app_info_action">App info</string>
+    <string name="ime_launcher_pin_action">Pin app</string>
+    <string name="ime_launcher_unpin_action">Unpin app</string>
+    <!-- Marks a screen inside an app that only the app itself may open. -->
+    <string name="ime_launcher_not_exported_label">Not openable from outside the app</string>
 
     <!-- The Snippets panel. Keep the words inside the braces as they are: the
          keyboard looks for them and puts a value in their place. -->

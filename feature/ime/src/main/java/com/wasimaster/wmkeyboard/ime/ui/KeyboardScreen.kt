@@ -773,6 +773,7 @@ fun KeyboardScreen(
     onPluginInputFocus: (String?) -> Unit = {},
     onPluginPaste: (String) -> Unit = {},
     onPluginCopy: (String) -> Unit = {},
+    launcher: LauncherPanelCallbacks = LauncherPanelCallbacks(),
     onDismissInlineSuggestions: () -> Unit = {},
     /** Smart chip tapped: type the answer over the text that triggered it. */
     onSmartAccept: () -> Unit = {},
@@ -981,6 +982,7 @@ fun KeyboardScreen(
                 onPluginInputFocus = onPluginInputFocus,
                 onPluginPaste = onPluginPaste,
                 onPluginCopy = onPluginCopy,
+                launcher = launcher,
             )
         }
     }
@@ -3356,6 +3358,7 @@ internal fun toolLabelRes(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.TYPING_TEST -> R.string.ime_tool_typing_test
     ToolbarTool.MEDIA_CONTROL -> R.string.ime_tool_media_control
     ToolbarTool.PLUGINS -> R.string.ime_tool_plugins
+    ToolbarTool.APP_LAUNCHER -> R.string.ime_tool_app_launcher
     ToolbarTool.AI -> R.string.ime_tool_ai
     ToolbarTool.MODES -> R.string.ime_tool_modes
     ToolbarTool.CURSOR_LEFT -> R.string.ime_tool_cursor_left
@@ -3423,6 +3426,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.TYPING_TEST -> state.panel == PanelMode.TYPING_TEST
     ToolbarTool.MEDIA_CONTROL -> state.panel == PanelMode.MEDIA_CONTROL
     ToolbarTool.PLUGINS -> state.panel == PanelMode.PLUGINS
+    ToolbarTool.APP_LAUNCHER -> state.panel == PanelMode.APP_LAUNCHER
     ToolbarTool.AI -> state.panel == PanelMode.AI
     ToolbarTool.MODES -> state.panel == PanelMode.MODES || state.activeModeId != null
     // Stateless one-shot moves, like undo/redo: nothing to stay lit for.
@@ -5072,6 +5076,7 @@ private val FullBleedPanels = setOf(
     PanelMode.UNIT_CONVERT, PanelMode.CALENDAR, PanelMode.AI,
     PanelMode.TRANSLATE, PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH,
     PanelMode.DICTIONARY, PanelMode.SYMBOLS, PanelMode.MEDIA_CONTROL,
+    PanelMode.APP_LAUNCHER,
 )
 
 /**
@@ -5324,6 +5329,7 @@ private fun KeyboardBody(
     onPluginInputFocus: (String?) -> Unit = {},
     onPluginPaste: (String) -> Unit = {},
     onPluginCopy: (String) -> Unit = {},
+    launcher: LauncherPanelCallbacks = LauncherPanelCallbacks(),
 ) {
     val drag = remember { ToolDragController() }
     // Mirror the drag's view of the bar when the tools read RTL, then flip the
@@ -5626,6 +5632,29 @@ private fun KeyboardBody(
                         onCopy = onPluginCopy,
                         onPaste = onPluginPaste,
                         onManage = { onOpenRoute("plugins") },
+                    )
+                }
+                PanelMode.APP_LAUNCHER -> FullBleedTool(
+                    state, title = "",
+                    // Back out one level at a time, like the plugins panel:
+                    // from an app's activity list to the grid, then out.
+                    onClose = {
+                        if (state.launcherDetail != null) launcher.onDetailClose()
+                        else onPanelChange(PanelMode.APP_LAUNCHER)
+                    },
+                    compact = state.mediaSearchActive,
+                    headerActions = {
+                        MediaHeaderSearchBar(
+                            state = state,
+                            placeholder = stringResource(R.string.ime_launcher_search_hint),
+                            onQueryTap = onMediaQueryTap,
+                        )
+                    },
+                ) {
+                    AppLauncherPanel(
+                        state = state,
+                        callbacks = launcher,
+                        onQueryTap = onMediaQueryTap,
                     )
                 }
                 PanelMode.MEDIA_CONTROL -> FullBleedTool(

@@ -69,6 +69,7 @@ import com.wasimaster.wmkeyboard.app.updates.UpdateCard
 import com.wasimaster.wmkeyboard.app.updates.rememberAppUpdater
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
+import com.wasimaster.wmkeyboard.core.settings.AppSortOrder
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
 import com.wasimaster.wmkeyboard.core.tools.CheatSheetLetter
 import com.wasimaster.wmkeyboard.core.tools.DefaultLeader
@@ -6826,6 +6827,7 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.TYPING_TEST -> R.string.fonts_tool_typing_test_title
     ToolbarTool.MEDIA_CONTROL -> R.string.fonts_tool_media_control_title
     ToolbarTool.PLUGINS -> ImeR.string.ime_tool_plugins
+    ToolbarTool.APP_LAUNCHER -> R.string.fonts_tool_app_launcher_title
     ToolbarTool.AI -> R.string.fonts_tool_ai_title
     ToolbarTool.MODES -> R.string.fonts_tool_modes_title
     ToolbarTool.CURSOR_LEFT -> R.string.fonts_tool_cursor_left_title
@@ -6891,6 +6893,7 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.TYPING_TEST -> R.string.fonts_tool_typing_test_desc
     ToolbarTool.MEDIA_CONTROL -> R.string.fonts_tool_media_control_desc
     ToolbarTool.PLUGINS -> R.string.fonts_tool_plugins_desc
+    ToolbarTool.APP_LAUNCHER -> R.string.fonts_tool_app_launcher_desc
     ToolbarTool.AI -> R.string.fonts_tool_ai_desc
     ToolbarTool.MODES -> R.string.fonts_tool_modes_desc
     ToolbarTool.CURSOR_LEFT -> R.string.fonts_tool_cursor_left_desc
@@ -7039,7 +7042,7 @@ private val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
             ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
             ToolbarTool.TEXT_EDIT, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
             ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.DICTIONARY,
-            ToolbarTool.GRAMMAR,
+            ToolbarTool.GRAMMAR, ToolbarTool.APP_LAUNCHER,
         ),
     )
     add(
@@ -7173,6 +7176,53 @@ private fun ToolDetailSettings(
     }
     ToolKeywordSetting(repository, settings, tool)
     when (tool) {
+        ToolbarTool.APP_LAUNCHER ->
+            SettingsGroup(stringResource(R.string.tooldetail_launcher_group)) {
+                item {
+                    ChoiceSetting(
+                        R.string.tooldetail_launcher_sort_title,
+                        subtitle = stringResource(R.string.tooldetail_launcher_sort_subtitle),
+                        options = listOf(
+                            AppSortOrder.ALPHABETICAL to
+                                stringResource(R.string.tooldetail_launcher_sort_alpha_label),
+                            AppSortOrder.RECENT_FIRST to
+                                stringResource(R.string.tooldetail_launcher_sort_recent_label),
+                        ),
+                        selected = settings.launcher.sortOrder,
+                    ) { scope.launch { repository.setLauncherSortOrder(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_launcher_labels_title,
+                        stringResource(R.string.tooldetail_launcher_labels_subtitle),
+                        settings.launcher.showLabels,
+                    ) { scope.launch { repository.setLauncherShowLabels(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_launcher_recents_title,
+                        stringResource(R.string.tooldetail_launcher_recents_subtitle),
+                        settings.launcher.recentsEnabled,
+                        info = stringResource(R.string.tooldetail_launcher_recents_info),
+                    ) { scope.launch { repository.setLauncherRecentsEnabled(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_launcher_drilldown_title,
+                        stringResource(R.string.tooldetail_launcher_drilldown_subtitle),
+                        settings.launcher.activityDrilldown,
+                        info = stringResource(R.string.tooldetail_launcher_drilldown_info),
+                    ) { scope.launch { repository.setLauncherActivityDrilldown(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_launcher_non_exported_title,
+                        stringResource(R.string.tooldetail_launcher_non_exported_subtitle),
+                        settings.launcher.showNonExported,
+                        info = stringResource(R.string.tooldetail_launcher_non_exported_info),
+                    ) { scope.launch { repository.setLauncherShowNonExported(it) } }
+                }
+            }
         ToolbarTool.PLUGINS -> SettingsGroup(stringResource(R.string.tooldetail_plugins_group)) {
             item {
                 WmRow(

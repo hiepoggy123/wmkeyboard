@@ -1201,6 +1201,8 @@ data class KeyboardSettings(
     val whisper: WhisperSettings = WhisperSettings(),
     /** Camera tool settings, grouped (see [CameraSettings]). */
     val camera: CameraSettings = CameraSettings(),
+    /** App-launcher tool settings, grouped (see [LauncherToolSettings]). */
+    val launcher: LauncherToolSettings = LauncherToolSettings(),
     /** Copy scanned document pages into Pictures/WM Keyboard. */
     val docScanSaveToGallery: Boolean = false,
     /** Copy generated QR codes into Pictures/WM Keyboard. */
@@ -1515,6 +1517,37 @@ data class AiSettings(
     /** How many runs the history keeps before the oldest fall off. */
     val historyMax: Int = 100,
 )
+
+/** How the app-launcher grid orders its apps. */
+enum class AppSortOrder { ALPHABETICAL, RECENT_FIRST }
+
+/**
+ * App-launcher tool settings, grouped like [AiSettings] (same 255-slot
+ * rationale). The keys stay flat (`launcher_*`), so backup and locked-settings
+ * handling need no change.
+ */
+data class LauncherToolSettings(
+    val sortOrder: AppSortOrder = AppSortOrder.ALPHABETICAL,
+    /** App names under the grid icons; off leaves bare icons. */
+    val showLabels: Boolean = true,
+    /** Track launches and lead the grid with a recents row. */
+    val recentsEnabled: Boolean = true,
+    /** Long-press an app to open its activity list. */
+    val activityDrilldown: Boolean = true,
+    /**
+     * List activities other apps cannot start, dimmed. Off by default: they
+     * fail with SecurityException when tapped, so they are debugging fare.
+     */
+    val showNonExported: Boolean = false,
+    /** Pinned packages, in the user's order; they lead the grid. */
+    val pinned: List<String> = emptyList(),
+    /** Most-recent-first launched packages, capped at [MAX_RECENTS]. */
+    val recents: List<String> = emptyList(),
+) {
+    companion object {
+        const val MAX_RECENTS = 10
+    }
+}
 
 /**
  * Camera-tool settings, grouped into their own object.
@@ -2739,6 +2772,15 @@ class SettingsRepository(private val context: Context) {
         private val MODE_TOOL_ORDER_HINT = booleanPreferencesKey("mode_tool_order_hint")
         private val KEYBOARD_MODES = stringPreferencesKey("keyboard_modes")
         private val MODE_SEED_VERSION = intPreferencesKey("mode_seed_version")
+        private val LAUNCHER_SORT = stringPreferencesKey("launcher_sort")
+        private val LAUNCHER_SHOW_LABELS = booleanPreferencesKey("launcher_show_labels")
+        private val LAUNCHER_RECENTS_ENABLED = booleanPreferencesKey("launcher_recents_enabled")
+        private val LAUNCHER_DRILLDOWN = booleanPreferencesKey("launcher_drilldown")
+        private val LAUNCHER_SHOW_NON_EXPORTED =
+            booleanPreferencesKey("launcher_show_non_exported")
+        // Tab-separated package names (package names never contain tabs).
+        private val LAUNCHER_PINNED = stringPreferencesKey("launcher_pinned")
+        private val LAUNCHER_RECENTS = stringPreferencesKey("launcher_recents")
         private val SMART_SUGGESTIONS = booleanPreferencesKey("smart_suggestions")
         private val SMART_CALC = booleanPreferencesKey("smart_calc")
         private val SMART_CURRENCY = booleanPreferencesKey("smart_currency")
@@ -3606,6 +3648,18 @@ class SettingsRepository(private val context: Context) {
                 historyEnabled = p[AI_HISTORY_ENABLED] ?: defaults.ai.historyEnabled,
                 historyMax = p[AI_HISTORY_MAX] ?: defaults.ai.historyMax,
             ),
+            launcher = LauncherToolSettings(
+                sortOrder = p[LAUNCHER_SORT]
+                    ?.let { runCatching { AppSortOrder.valueOf(it) }.getOrNull() }
+                    ?: defaults.launcher.sortOrder,
+                showLabels = p[LAUNCHER_SHOW_LABELS] ?: defaults.launcher.showLabels,
+                recentsEnabled = p[LAUNCHER_RECENTS_ENABLED] ?: defaults.launcher.recentsEnabled,
+                activityDrilldown = p[LAUNCHER_DRILLDOWN] ?: defaults.launcher.activityDrilldown,
+                showNonExported =
+                    p[LAUNCHER_SHOW_NON_EXPORTED] ?: defaults.launcher.showNonExported,
+                pinned = p[LAUNCHER_PINNED]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty(),
+                recents = p[LAUNCHER_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty(),
+            ),
         )
     }
 
@@ -3682,6 +3736,45 @@ class SettingsRepository(private val context: Context) {
         }
         return result
     }
+
+    suspend fun setLauncherSortOrder(value: AppSortOrder) =
+        editPrefs { it[LAUNCHER_SORT] = value.name }
+
+    suspend fun setLauncherShowLabels(value: Boolean) =
+        editPrefs { it[LAUNCHER_SHOW_LABELS] = value }
+
+    suspend fun setLauncherRecentsEnabled(value: Boolean) =
+        editPrefs { prefs ->
+            prefs[LAUNCHER_RECENTS_ENABLED] = value
+            // Turning tracking off also forgets what was tracked.
+            if (!value) prefs.remove(LAUNCHER_RECENTS)
+        }
+
+    suspend fun setLauncherActivityDrilldown(value: Boolean) =
+        editPrefs { it[LAUNCHER_DRILLDOWN] = value }
+
+    suspend fun setLauncherShowNonExported(value: Boolean) =
+        editPrefs { it[LAUNCHER_SHOW_NON_EXPORTED] = value }
+
+    /** Records a launch at the head of the recents, newest first, capped. */
+    suspend fun addLauncherRecent(packageName: String) =
+        editPrefs { prefs ->
+            if (prefs[LAUNCHER_RECENTS_ENABLED] == false) return@editPrefs
+            val current = prefs[LAUNCHER_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }
+                .orEmpty()
+            val next = (listOf(packageName) + (current - packageName))
+                .take(LauncherToolSettings.MAX_RECENTS)
+            prefs[LAUNCHER_RECENTS] = next.joinToString("\t")
+        }
+
+    suspend fun toggleLauncherPin(packageName: String) =
+        editPrefs { prefs ->
+            val current = prefs[LAUNCHER_PINNED]?.split('\t')?.filter { it.isNotEmpty() }
+                .orEmpty()
+            val next = if (packageName in current) current - packageName
+            else current + packageName
+            prefs[LAUNCHER_PINNED] = next.joinToString("\t")
+        }
 
     suspend fun setFlashlightAutoOff(value: Boolean) =
         editPrefs { it[FLASHLIGHT_AUTO_OFF] = value }

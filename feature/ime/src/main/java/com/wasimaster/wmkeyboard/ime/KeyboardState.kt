@@ -234,7 +234,7 @@ enum class PanelMode {
     TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
-    MODES, TYPING_TEST, MEDIA_CONTROL, PLUGINS,
+    MODES, TYPING_TEST, MEDIA_CONTROL, PLUGINS, APP_LAUNCHER,
 
     /** The CJK candidate grid: the strip's overflow, opened from its chevron. */
     CANDIDATES,
@@ -248,6 +248,7 @@ val PanelMode.hasMediaSearch: Boolean
     get() = this == PanelMode.GIF || this == PanelMode.STICKER ||
         this == PanelMode.WEB_SEARCH || this == PanelMode.IMAGE_SEARCH ||
         this == PanelMode.WIKIPEDIA || this == PanelMode.TRANSLATE ||
+        this == PanelMode.APP_LAUNCHER ||
         // QR generator reuses the buffer as its own editable content, so it
         // encodes what the user types rather than the field's text.
         this == PanelMode.QR_GEN
@@ -310,6 +311,9 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.DICTIONARY,
     PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH, PanelMode.WIKIPEDIA,
     -> listOf(FocusRegion.SEARCH, FocusRegion.RESULTS)
+    // Query, the pinned/recents row, then the app grid.
+    PanelMode.APP_LAUNCHER ->
+        listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS)
     PanelMode.TOOLBOX, PanelMode.SNIPPETS, PanelMode.MODES,
     // The candidate grid is a wall of choices and nothing else.
     PanelMode.CANDIDATES,
@@ -329,6 +333,17 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.PLUGINS,
     -> emptyList()
 }
+
+/**
+ * The app-launcher panel's drill-down view: one app and the activities it
+ * declares. Owned by the service so the enumeration runs off the main thread;
+ * [activities] is empty while the load is in flight.
+ */
+data class LauncherDetailUi(
+    val app: LauncherApp,
+    val activities: List<LauncherActivity> = emptyList(),
+    val loading: Boolean = true,
+)
 
 /** Readiness of the handwriting panel's recognition model. */
 enum class HandwritingStatus { CHECKING, NEED_MODEL, DOWNLOADING, READY, ERROR }
@@ -1031,6 +1046,12 @@ data class KeyboardUiState(
      */
     val aiHasText: Boolean = false,
     val typingTest: TypingTestUi = TypingTestUi(),
+    /** Launchable apps for the app-launcher panel; empty until first opened. */
+    val launcherApps: List<LauncherApp> = emptyList(),
+    /** First enumeration in flight — the panel shows its loading state. */
+    val launcherLoading: Boolean = false,
+    /** The app whose activity list is open, or null for the grid. */
+    val launcherDetail: LauncherDetailUi? = null,
 ) {
     /**
      * Whether incognito is in force right now, from either source: the

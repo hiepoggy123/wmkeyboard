@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.automirrored.outlined.TextSnippet
 import androidx.compose.material.icons.automirrored.outlined.Undo
+import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.BatterySaver
@@ -152,6 +153,7 @@ object IconDefaults {
         ToolbarTool.TYPING_TEST -> Icons.Outlined.Speed
         ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
         ToolbarTool.PLUGINS -> Icons.Outlined.Extension
+        ToolbarTool.APP_LAUNCHER -> Icons.Outlined.Apps
         ToolbarTool.AI -> Icons.Outlined.AutoAwesome
         ToolbarTool.MODES -> Icons.Outlined.Tune
         ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft

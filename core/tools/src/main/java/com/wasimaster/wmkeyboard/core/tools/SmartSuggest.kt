@@ -687,6 +687,7 @@ object SmartSuggest {
         ToolbarTool.NUMPAD to listOf("numpad"),
         ToolbarTool.CAMERA to listOf("camera"),
         ToolbarTool.TEXT_EDIT to listOf("edit"),
+        ToolbarTool.APP_LAUNCHER to listOf("apps", "launch"),
     )
 
     fun keywordsFor(tool: ToolbarTool, overrides: String): List<String> =

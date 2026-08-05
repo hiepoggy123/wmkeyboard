@@ -482,6 +482,19 @@ private fun Resources.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
         R.string.tooldetail_power_drop_screenshot_subtitle,
     ),
     toolEntry(ToolbarTool.POWER_SAVING, R.string.tooldetail_power_drop_models_title, R.string.tooldetail_power_drop_models_subtitle),
+    toolEntry(ToolbarTool.APP_LAUNCHER, R.string.tooldetail_launcher_sort_title, R.string.tooldetail_launcher_sort_subtitle),
+    toolEntry(ToolbarTool.APP_LAUNCHER, R.string.tooldetail_launcher_labels_title, R.string.tooldetail_launcher_labels_subtitle),
+    toolEntry(ToolbarTool.APP_LAUNCHER, R.string.tooldetail_launcher_recents_title, R.string.tooldetail_launcher_recents_subtitle),
+    toolEntry(
+        ToolbarTool.APP_LAUNCHER,
+        R.string.tooldetail_launcher_drilldown_title,
+        R.string.tooldetail_launcher_drilldown_subtitle,
+    ),
+    toolEntry(
+        ToolbarTool.APP_LAUNCHER,
+        R.string.tooldetail_launcher_non_exported_title,
+        R.string.tooldetail_launcher_non_exported_subtitle,
+    ),
     // The tool screen's own "Autocorrect" toggle is not listed: toolRows
     // already indexes the tool under that title and route. A row named after
     // the tool holding it is always a duplicate result, never a second one.

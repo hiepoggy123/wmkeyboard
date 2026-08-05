@@ -26,6 +26,24 @@
     <string name="tooldetail_layout_nav_floating_subtitle">Keyboard height, width, alignment and floating mode</string>
     <string name="tooldetail_layout_nav_one_handed_subtitle">Keyboard height, width, alignment and one-handed mode</string>
 
+    <!-- App-launcher tool. -->
+    <string name="tooldetail_launcher_group">App launcher</string>
+    <string name="tooldetail_launcher_sort_title">Sort order</string>
+    <string name="tooldetail_launcher_sort_subtitle">How the app grid orders the apps</string>
+    <string name="tooldetail_launcher_sort_alpha_label">A to Z</string>
+    <string name="tooldetail_launcher_sort_recent_label">Recent first</string>
+    <string name="tooldetail_launcher_labels_title">App names</string>
+    <string name="tooldetail_launcher_labels_subtitle">Show each app\'s name under its icon</string>
+    <string name="tooldetail_launcher_recents_title">Recent apps</string>
+    <string name="tooldetail_launcher_recents_subtitle">Show the apps you opened last in a row above the grid</string>
+    <string name="tooldetail_launcher_recents_info">The keyboard keeps the last 10 apps you opened from this tool, on your device only. Turn this off to stop the tracking and delete the list.</string>
+    <string name="tooldetail_launcher_drilldown_title">Open screens inside apps</string>
+    <string name="tooldetail_launcher_drilldown_subtitle">Press and hold an app to list its screens</string>
+    <string name="tooldetail_launcher_drilldown_info">With this off, press and hold pins the app instead.</string>
+    <string name="tooldetail_launcher_non_exported_title">Show private screens</string>
+    <string name="tooldetail_launcher_non_exported_subtitle">Also list screens that only the app itself may open</string>
+    <string name="tooldetail_launcher_non_exported_info">Android does not let other apps open these screens. They show dimmed, and a press on one does nothing. Useful to explore what an app contains.</string>
+
     <!-- Plugins tool. -->
     <string name="tooldetail_plugins_group">Plugins</string>
     <string name="tooldetail_plugins_manage_title">Manage plugins</string>

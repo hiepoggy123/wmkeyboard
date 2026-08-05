@@ -65,6 +65,7 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.TYPING_TEST -> Color(0xFFFF7043)
     ToolbarTool.MEDIA_CONTROL -> Color(0xFFAB47BC)
     ToolbarTool.PLUGINS -> Color(0xFF06B6D4)
+    ToolbarTool.APP_LAUNCHER -> Color(0xFF7E57C2)
 
     // Keyboard modes / layout — indigos & neutrals
     ToolbarTool.MODES -> Color(0xFF5C6BC0)
