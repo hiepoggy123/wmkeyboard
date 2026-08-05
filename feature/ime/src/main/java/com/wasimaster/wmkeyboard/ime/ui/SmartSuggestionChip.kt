@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
@@ -27,9 +28,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
@@ -122,11 +130,9 @@ internal fun SmartSuggestionChip(
                     tint = tint.copy(alpha = 0.7f),
                     modifier = Modifier.size(15.dp),
                 )
-            } else {
-                // Natural width (not a weighted half): the query is the short
-                // side, so it takes only what it needs and hands the rest of
-                // the row to the result. Capped so a freak-long token still
-                // can't crowd the answer out.
+            } else if (hit.result == null) {
+                // Rates still in flight. The chip is already up so the
+                // strip does not jump when the number lands.
                 Text(
                     text = hit.query,
                     color = kb.secondaryText,
@@ -136,25 +142,51 @@ internal fun SmartSuggestionChip(
                     modifier = Modifier.widthIn(max = 160.dp),
                 )
                 Text("→", color = kb.secondaryText, fontSize = 12.sp)
-                val result = hit.result
-                if (result != null) {
-                    Text(
-                        text = result,
-                        color = tint,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                } else {
-                    // Rates still in flight. The chip is already up so the
-                    // strip does not jump when the number lands.
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(13.dp),
-                        strokeWidth = 1.5.dp,
-                        color = tint,
-                    )
+                CircularProgressIndicator(
+                    modifier = Modifier.size(13.dp),
+                    strokeWidth = 1.5.dp,
+                    color = tint,
+                )
+            } else {
+                // The hit carries its text in tiers, widest first. Measure
+                // each against the space the row actually has and show the
+                // richest one that fits — degrading the strings first, then
+                // the font, then the spelled-out amount (see ChipTier).
+                BoxWithConstraints(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    val measurer = rememberTextMeasurer()
+                    val density = LocalDensity.current
+                    val tiers = remember(hit) {
+                        hit.tiers.ifEmpty { listOf(SmartSuggest.ChipTier(hit.query, hit.result.orEmpty())) }
+                    }
+                    val (tier, small) = remember(tiers, maxWidth) {
+                        chooseTier(tiers, measurer, density, maxWidth)
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = tier.query,
+                            color = kb.secondaryText,
+                            fontSize = if (small) 11.sp else 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = 160.dp),
+                        )
+                        Text("→", color = kb.secondaryText, fontSize = if (small) 10.sp else 12.sp)
+                        Text(
+                            text = tier.result,
+                            color = tint,
+                            fontSize = if (small) 13.sp else 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                    }
                 }
             }
         }
@@ -187,4 +219,48 @@ internal fun SmartSuggestionChip(
             }
         }
     }
+}
+
+/**
+ * The richest (tier, font) pairing that fits in [maxWidth], honouring the
+ * degradation order the tiers encode: every ordinary tier at full size, the
+ * same tiers again at the smaller font, and only then the last-resort tiers
+ * ("1 thousand" flattened to "1000"), largest font first. When nothing fits
+ * the narrowest tier ships at the small font and ellipsises like any text.
+ *
+ * Returns the tier plus whether the small font was needed.
+ */
+private fun chooseTier(
+    tiers: List<SmartSuggest.ChipTier>,
+    measurer: TextMeasurer,
+    density: Density,
+    maxWidth: Dp,
+): Pair<SmartSuggest.ChipTier, Boolean> {
+    val available = with(density) { maxWidth.toPx() }
+    // Two 6dp gaps around the arrow, plus a little slack so a measurement
+    // that lands exactly on the edge doesn't ellipsise anyway.
+    val fixed = with(density) { 16.dp.toPx() }
+    fun width(text: String, size: Int, bold: Boolean): Float {
+        val style = TextStyle(
+            fontSize = size.sp,
+            fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
+        )
+        return measurer.measure(AnnotatedString(text), style, maxLines = 1).size.width.toFloat()
+    }
+    fun fits(tier: SmartSuggest.ChipTier, small: Boolean): Boolean {
+        val needed = width(tier.query, if (small) 11 else 13, bold = false) +
+            width("→", if (small) 10 else 12, bold = false) +
+            width(tier.result, if (small) 13 else 15, bold = true) +
+            fixed
+        return needed <= available
+    }
+    val ordinary = tiers.filterNot { it.lastResort }
+    val lastResort = tiers.filter { it.lastResort }
+    for (small in booleanArrayOf(false, true)) {
+        ordinary.firstOrNull { fits(it, small) }?.let { return it to small }
+    }
+    for (small in booleanArrayOf(false, true)) {
+        lastResort.firstOrNull { fits(it, small) }?.let { return it to small }
+    }
+    return (lastResort.lastOrNull() ?: tiers.last()) to true
 }

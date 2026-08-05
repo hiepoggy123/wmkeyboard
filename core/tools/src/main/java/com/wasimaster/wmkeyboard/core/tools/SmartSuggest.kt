@@ -37,6 +37,21 @@ object SmartSuggest {
     enum class Kind { CALC, CURRENCY, UNIT, TOOL }
 
     /**
+     * One way of drawing an answer chip, verbose first. The strip walks the
+     * list until one fits its width: "1 thousand Dollar → 120,000.00 Taka",
+     * then the result loses its ".00", then it rounds (a "~" marks a rounding
+     * that actually moved the number — a tap still inserts the exact amount),
+     * then the codes give way to symbols. Tiers marked [lastResort] trade the
+     * amount as typed for plain digits ("1 thousand" → "1000") and are only
+     * reached after the strip has also tried a smaller font.
+     */
+    data class ChipTier(
+        val query: String,
+        val result: String,
+        val lastResort: Boolean = false,
+    )
+
+    /**
      * One recognised trigger. [replaceSpan] is how many characters before
      * the cursor the trigger occupies — tapping the chip deletes exactly
      * that many and types [insert] in their place. A trigger that ends in
@@ -55,6 +70,8 @@ object SmartSuggest {
         val prefill: ToolPrefill?,
         /** True while a currency conversion is waiting on exchange rates. */
         val pending: Boolean = false,
+        /** Width-tiered renderings of query → result; empty for keyword chips. */
+        val tiers: List<ChipTier> = emptyList(),
     )
 
     /** Everything [detect] needs from settings and live tool state. */
@@ -102,9 +119,6 @@ object SmartSuggest {
     private const val NUM = """\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?"""
 
     private fun parseNumber(raw: String): Double? = raw.replace(",", "").toDoubleOrNull()
-
-    /** Trims a plain number back to how the user typed it, for the chip. */
-    private fun tidyNumber(raw: String): String = raw.replace(",", "")
 
     private fun money(value: Double, decimals: Int): String {
         val pattern = if (decimals > 0) "#,##0." + "0".repeat(decimals) else "#,##0"
@@ -181,44 +195,110 @@ object SmartSuggest {
     private val CURRENCY_PREFIX =
         Regex("""(?<![\w])([\p{L}]{0,2}[^\s\w])\s?($AMOUNT)$""", RegexOption.IGNORE_CASE)
 
+    /** How the trigger was typed, kept so the chip can echo it back. */
+    private data class CurrencyMatch(
+        val amount: Amount,
+        val token: String,
+        val span: Int,
+        /** True when the token sat in front of the amount, "$150" style. */
+        val tokenLeads: Boolean,
+    )
+
     private fun detectCurrency(tail: String, ctx: Context): SmartHit? {
-        val (amount, tokenRaw, span) = run {
+        val m = run {
             CURRENCY_SUFFIX.find(tail)?.let { match ->
                 val parsed = parseAmount(match.groupValues[1]) ?: return null
-                return@run Triple(parsed, match.groupValues[2], match.value.length - parsed.start)
+                return@run CurrencyMatch(
+                    parsed, match.groupValues[2], match.value.length - parsed.start, tokenLeads = false,
+                )
             }
             CURRENCY_PREFIX.find(tail)?.let { match ->
                 val parsed = parseAmount(match.groupValues[2]) ?: return null
                 // The symbol sits in front of the amount, so dropping a
                 // leading number would leave it stranded outside the span.
                 if (parsed.start != 0) return null
-                return@run Triple(parsed, match.groupValues[1], match.value.length)
+                return@run CurrencyMatch(parsed, match.groupValues[1], match.value.length, tokenLeads = true)
             }
             return null
         }
-        val from = resolveCurrency(tokenRaw, ctx.rates) ?: return null
+        val from = resolveCurrency(m.token, ctx.rates) ?: return null
         // Converting a currency into itself says nothing; when the amount is
         // already in the target, fall back to the pair's other side.
         val to = if (from == ctx.currencyTo) ctx.currencyFrom else ctx.currencyTo
         if (from == to) return null
 
-        val query = "${amount.text} $from"
-        val prefill = ToolPrefill.Currency(from, to, CalcEngine.format(amount.value, 4))
+        val query = "${m.amount.text} $from"
+        val prefill = ToolPrefill.Currency(from, to, CalcEngine.format(m.amount.value, 4))
         val rates = ctx.rates
             ?: return SmartHit(
                 kind = Kind.CURRENCY, query = query, result = null, insert = null,
-                replaceSpan = span, tool = ToolbarTool.CURRENCY, prefill = prefill,
+                replaceSpan = m.span, tool = ToolbarTool.CURRENCY, prefill = prefill,
                 pending = true,
             )
-        val converted = CurrencyClient.convert(amount.value, from, to, rates) ?: return null
+        val converted = CurrencyClient.convert(m.amount.value, from, to, rates) ?: return null
         // The result side is the user's local currency: show and insert its
         // name ("Taka") rather than the ISO code ("BDT").
         val result = "${money(converted, ctx.currencyDecimals)} ${CurrencyClient.unitName(to)}"
         return SmartHit(
             kind = Kind.CURRENCY, query = query, result = result, insert = result,
-            replaceSpan = span, tool = ToolbarTool.CURRENCY, prefill = prefill,
+            replaceSpan = m.span, tool = ToolbarTool.CURRENCY, prefill = prefill,
+            tiers = currencyTiers(m, from, to, converted, ctx.currencyDecimals),
         )
     }
+
+    /**
+     * The display ladder for a currency chip. The widest tier echoes the
+     * trigger the way it was typed — "150 dollar" stays "150 Dollar", not
+     * "150 USD" — and the result carries full decimals and the currency's
+     * name. Each step down gives something up: the ".00", exactness (the "~"
+     * tiers round to whole units), the name (code, then symbol). The
+     * [ChipTier.lastResort] tiers also flatten a spelled-out amount
+     * ("1 thousand") into digits, which the strip only shows once a smaller
+     * font has failed too.
+     */
+    private fun currencyTiers(
+        m: CurrencyMatch,
+        from: String,
+        to: String,
+        converted: Double,
+        decimals: Int,
+    ): List<ChipTier> {
+        val name = CurrencyClient.unitName(to)
+        val full = money(converted, decimals)
+        val rounded = kotlin.math.round(converted)
+        // "~" only when the rounding visibly moved the number: nobody calls
+        // 18,300.55 → 18,301 an approximation, but 1.25 → 1 is one.
+        val tilde = if (kotlin.math.abs(converted - rounded) > 0.005 * kotlin.math.abs(converted)) "~" else ""
+        val roundText = "$tilde${money(rounded, 0)}"
+        val symbolResult = symbolFor(to)?.let { "$tilde$it${money(rounded, 0)}" } ?: "$roundText $to"
+
+        val word = m.token.takeIf { it.lowercase(Locale.ROOT) in currencyWords }
+            ?.replaceFirstChar { it.titlecase(Locale.ROOT) }
+        val qTyped = when {
+            // "150 dollar" reads back as "150 Dollar" — the word the user
+            // wrote, not the code it resolved to.
+            word != null -> "${m.amount.text} $word"
+            m.token.none(Char::isLetter) ->
+                if (m.tokenLeads) "${m.token}${m.amount.text}" else "${m.amount.text}${m.token}"
+            else -> "${m.amount.text} $from"
+        }
+        val qCode = "${m.amount.text} $from"
+        val digits = CalcEngine.format(m.amount.value, 4)
+        val qDigits = "$digits $from"
+        val qCompact = symbolFor(from)?.let { "$it$digits" } ?: qDigits
+        return buildList {
+            add(ChipTier(qTyped, "$full $name"))
+            if (decimals > 0 && full.endsWith("." + "0".repeat(decimals))) {
+                add(ChipTier(qTyped, "${money(converted, 0)} $name"))
+            }
+            add(ChipTier(qTyped, "$roundText $name"))
+            add(ChipTier(qCode, "$roundText $name"))
+            add(ChipTier(qCode, symbolResult))
+            add(ChipTier(qDigits, symbolResult, lastResort = true))
+            add(ChipTier(qCompact, symbolResult, lastResort = true))
+        }.distinct()
+    }
+
 
     /**
      * A currency token → ISO code. Symbols and spelled-out names always
@@ -253,6 +333,16 @@ object SmartSuggest {
         "zł" to "PLN", "Kč" to "CZK",
     )
 
+    /**
+     * The display symbol for a code — the reverse of [currencySymbols],
+     * first spelling wins so USD is "$" and not "US$".
+     */
+    private val symbolByCode: Map<String, String> = buildMap {
+        currencySymbols.forEach { (symbol, code) -> putIfAbsent(code, symbol) }
+    }
+
+    private fun symbolFor(code: String): String? = symbolByCode[code]
+
     // "pound(s)" is deliberately absent: it reads as mass far more often
     // than as sterling, and £/GBP/quid cover the currency.
     private val currencyWords: Map<String, String> = mapOf(
@@ -275,36 +365,80 @@ object SmartSuggest {
 
     // ---- units ----
 
-    private val UNIT_TAIL = Regex("""(?<![\w.,])($NUM)(\s?)([\p{L}°²³/]{1,9})$""")
+    /**
+     * The magnitudes a unit amount may spell out — the words only. The
+     * single-letter shorthands stay currency-territory: "5m" is five metres
+     * and "1.5k" could be kelvin, but "1 thousand miles" is unambiguous.
+     */
+    private val MAG_WORDS = magnitudes.keys.filter { it.length >= 2 }
+        .sortedByDescending { it.length }.joinToString("|")
+
+    /** "1500", "1.5", "2 lakh", "1 thousand 500" — in front of a unit. */
+    private val UNIT_AMOUNT = """(?:$NUM)(?:\s?(?i:$MAG_WORDS)$MAG_END)?""" +
+        """(?:\s+(?:$NUM)(?:\s?(?i:$MAG_WORDS)$MAG_END)?)*"""
+
+    private val UNIT_TAIL = Regex("""(?<![\w.,])($UNIT_AMOUNT)(\s?)([\p{L}°²³/]{1,9})$""")
 
     private fun detectUnit(tail: String, ctx: Context): SmartHit? {
         val match = UNIT_TAIL.find(tail) ?: return null
-        val amountRaw = match.groupValues[1]
+        val amount = parseAmount(match.groupValues[1]) ?: return null
         val spaced = match.groupValues[2].isNotEmpty()
         val token = match.groupValues[3]
-        val amount = parseNumber(amountRaw) ?: return null
         val from = resolveUnit(token, spaced) ?: return null
         val category = UnitConvert.categories.first { cat -> cat.units.any { it.symbol == from.symbol } }
         val to = targetUnit(category, from, ctx.unitLast) ?: return null
 
-        val converted = UnitConvert.convert(amount, from, to)
+        val converted = UnitConvert.convert(amount.value, from, to)
         if (converted.isNaN() || converted.isInfinite()) return null
+        val digits = CalcEngine.format(amount.value, ctx.precision)
         val resultValue = CalcEngine.format(converted, ctx.precision)
         val result = "$resultValue ${to.symbol}"
         return SmartHit(
             kind = Kind.UNIT,
-            query = "${tidyNumber(amountRaw)} ${from.symbol}",
+            query = "$digits ${from.symbol}",
             result = result,
             insert = result,
-            replaceSpan = match.value.length,
+            // Like currency, prose to the left of the amount that happened to
+            // end in a number ("in 2020 500 miles") stays outside the span.
+            replaceSpan = match.value.length - amount.start,
             tool = ToolbarTool.UNIT_CONVERT,
             prefill = ToolPrefill.Units(
                 category = category.id,
                 from = from.symbol,
                 to = to.symbol,
-                value = tidyNumber(amountRaw),
+                value = digits,
             ),
+            tiers = unitTiers(amount, token, spaced, digits, from, result, converted),
         )
+    }
+
+    /**
+     * The display ladder for a unit chip, mirroring [currencyTiers]: the
+     * amount and unit as typed with the full result first, then a rounded
+     * result ("~" when the rounding moved it), and as a last resort the
+     * amount flattened to digits with the catalog symbol — "1 thousand
+     * miles" → "1000 mi".
+     */
+    private fun unitTiers(
+        amount: Amount,
+        token: String,
+        spaced: Boolean,
+        digits: String,
+        from: UnitConvert.ConvUnit,
+        fullResult: String,
+        converted: Double,
+    ): List<ChipTier> {
+        val toSymbol = fullResult.substringAfter(' ')
+        val rounded = kotlin.math.round(converted)
+        val tilde = if (kotlin.math.abs(converted - rounded) > 0.005 * kotlin.math.abs(converted)) "~" else ""
+        val roundText = "$tilde${CalcEngine.format(rounded, 0)} $toSymbol"
+        val qTyped = "${amount.text}${if (spaced) " " else ""}$token"
+        val qCanon = "$digits ${from.symbol}"
+        return buildList {
+            add(ChipTier(qTyped, fullResult))
+            add(ChipTier(qTyped, roundText))
+            if (qCanon != qTyped) add(ChipTier(qCanon, roundText, lastResort = true))
+        }.distinct()
     }
 
     /**
@@ -541,6 +675,14 @@ object SmartSuggest {
         // "5" evaluating to "5" is not an answer worth a chip.
         if (result == expression.replace(" ", "")) return null
 
+        // The narrow tier keeps two decimals; "~" says it is a preview and
+        // the tap still inserts the full-precision answer.
+        val short = CalcEngine.format(value, 2)
+        val tiers = buildList {
+            add(ChipTier(expression, result))
+            if (short != result) add(ChipTier(expression, "~$short"))
+        }
+
         return SmartHit(
             kind = Kind.CALC,
             query = expression,
@@ -555,6 +697,7 @@ object SmartSuggest {
             replaceSpan = if (explicit) 0 else raw.trimStart().length,
             tool = ToolbarTool.CALCULATOR,
             prefill = ToolPrefill.Calc(expression),
+            tiers = tiers,
         )
     }
 

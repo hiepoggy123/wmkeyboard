@@ -126,6 +126,60 @@ class SmartSuggestTest {
         assertEquals(SmartSuggest.Kind.UNIT, hit("5 pounds")?.kind)
     }
 
+    // ---- display tiers ----
+
+    @Test
+    fun theWidestTierEchoesTheWordTheUserTyped() {
+        val tiers = hit("150 dollar")!!.tiers
+        assertEquals("150 Dollar", tiers.first().query)
+        assertEquals("18,000.00 Taka", tiers.first().result)
+        // The insert never degrades with the display.
+        assertEquals("18,000.00 Taka", hit("150 dollar")?.insert)
+    }
+
+    @Test
+    fun aTypedSymbolStaysASymbolOnTheChip() {
+        assertEquals("$150", hit("$150")!!.tiers.first().query)
+        assertEquals("150€", hit("150€")!!.tiers.first().query)
+    }
+
+    @Test
+    fun tiersShedZerosThenNamesThenCodes() {
+        val tiers = hit("150 dollar")!!.tiers
+        // ".00" goes first, then the name gives way to the symbol.
+        assertTrue("18,000 Taka" in tiers.map { it.result })
+        assertEquals("৳18,000", tiers.last().result)
+        assertTrue("the digits tier is a last resort", tiers.last().lastResort)
+        assertEquals("$150", tiers.last().query)
+    }
+
+    @Test
+    fun aSpelledOutAmountOnlyFlattensToDigitsAsALastResort() {
+        val tiers = hit("1 thousand 500 dollars")!!.tiers
+        assertEquals("1 thousand 500 Dollars", tiers.first().query)
+        assertFalse(tiers.first().lastResort)
+        val resort = tiers.first { it.lastResort }
+        assertEquals("1500 USD", resort.query)
+    }
+
+    @Test
+    fun aRoundingThatMovesTheNumberWearsATilde() {
+        // 5 BDT is about 0.0417 USD; rounding to a whole unit is a real lie.
+        val tiers = hit("5 bdt")!!.tiers
+        assertTrue(tiers.any { it.result.startsWith("~") })
+        // 150 USD is exactly 18,000 BDT; no tilde anywhere.
+        assertTrue(hit("150 usd")!!.tiers.none { it.result.startsWith("~") })
+    }
+
+    @Test
+    fun calcOffersARoundedPreviewTier() {
+        val tiers = hit("1/3")!!.tiers
+        assertEquals("0.3333", tiers.first().result)
+        assertEquals("~0.33", tiers.last().result)
+        // Exact sums have nothing to round away.
+        assertEquals(1, hit("12*4")!!.tiers.size)
+    }
+
     // ---- units ----
 
     @Test
@@ -164,6 +218,40 @@ class SmartSuggestTest {
     @Test
     fun temperatureCrossesTheOffsetCorrectly() {
         assertEquals("86 °F", hit("30c")?.result)
+    }
+
+    @Test
+    fun unitsReadSpelledOutMagnitudesLikeCurrencyDoes() {
+        val h = hit("1 thousand miles")
+        assertEquals(SmartSuggest.Kind.UNIT, h?.kind)
+        assertEquals("1609.344 km", h?.result)
+        assertEquals("1 thousand miles".length, h?.replaceSpan)
+        assertEquals("1000", (h?.prefill as? ToolPrefill.Units)?.value)
+        // "2 lakh km" and friends scale the same way.
+        assertEquals(SmartSuggest.Kind.UNIT, hit("2 lakh km")?.kind)
+    }
+
+    @Test
+    fun theMagnitudeLettersStayOutOfUnits() {
+        // "5m" is five metres, never five million of anything.
+        assertEquals("16.4042 ft", hit("5m")?.result)
+    }
+
+    @Test
+    fun aUnitAmountOnlySpendsTheNumbersThatBelongToIt() {
+        val h = hit("in 2020 500 miles")
+        assertEquals("500 miles".length, h?.replaceSpan)
+        assertEquals("804.672 km", h?.result)
+    }
+
+    @Test
+    fun unitTiersMirrorTheCurrencyLadder() {
+        val tiers = hit("1 thousand miles")!!.tiers
+        assertEquals("1 thousand miles", tiers.first().query)
+        assertEquals("1609.344 km", tiers.first().result)
+        val resort = tiers.first { it.lastResort }
+        assertEquals("1000 mi", resort.query)
+        assertEquals("1609 km", resort.result)
     }
 
     // ---- arithmetic ----
