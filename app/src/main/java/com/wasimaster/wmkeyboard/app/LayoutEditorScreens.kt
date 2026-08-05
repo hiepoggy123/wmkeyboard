@@ -949,12 +949,14 @@ private fun rowReorderLabel(context: Context, number: Int, keyCount: Int): Strin
  * Takes a [context] because the label lambda it feeds is a plain lambda, and the
  * name of an action is a resource now.
  */
-private fun keyReorderLabel(context: Context, key: Key): String = when {
-    key.label.isNotBlank() -> key.label
-    else -> context.getString(
+private fun keyReorderLabel(context: Context, key: Key): String {
+    val actionName = context.getString(
         KeyActionCatalog.firstOrNull { it.matches(key.action) }?.titleRes
             ?: R.string.layout_editor_key_fallback_label,
     )
+    // An icon-drawn action reads as its name here too: the globe key's stored
+    // label is 🌐, and a row of keys that says "🌐" identifies nothing.
+    return if (key.label.isBlank() || actionIconName(key.action) != null) actionName else key.label
 }
 
 /** Contextual actions for the row the selected key sits in. */
@@ -1193,7 +1195,7 @@ private fun RowScope.EditorKeyCell(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            val cellIcon = KeyIcons.byName(key.icon)
+            val cellIcon = KeyIcons.byName(key.icon) ?: KeyIcons.byName(actionIconName(key.action))
             if (cellIcon != null) {
                 Icon(
                     cellIcon,
@@ -1238,6 +1240,22 @@ private fun labelSize(label: String) = when {
     label.length <= 1 -> 16.sp
     label.length <= 3 -> 13.sp
     else -> 11.sp
+}
+
+/**
+ * The [KeyIcons] name an action always draws with, whatever its stored label
+ * says, or null for an action that draws its label.
+ *
+ * The keyboard itself ignores the label on these two and draws an icon (see
+ * `KeyContent`), so the grid has to as well. The globe key is why: its label is
+ * the emoji `🌐`, and drawing that verbatim gave the editor a colour glyph in
+ * whichever house style the device's emoji font uses, beside a row of flat
+ * monochrome keys, and it was never what the keyboard put on screen anyway.
+ */
+private fun actionIconName(action: KeyAction): String? = when (action) {
+    KeyAction.LanguageSwitch -> "language"
+    KeyAction.Emoji -> "emoji"
+    else -> null
 }
 
 /**
