@@ -380,7 +380,7 @@ class SuggestionEngine(
         limit: Int,
         touch: List<TouchPoint?>?,
     ): List<FuzzyBeamSearch.ScoredCandidate> {
-        val k = maxOf(limit * 2, FuzzyBeamSearch.AUTOCORRECT_K)
+        val k = maxOf(limit * 2, WALK_K)
         val gen = generation.get()
         val lexGen = userLexicon.mutationCount()
         rankedWalk?.let { cached ->
@@ -396,8 +396,10 @@ class SuggestionEngine(
         } else {
             null
         }
+        // search() sizes its own result list as max(limit * 2, AUTOCORRECT_K);
+        // k / 2 makes that exactly k.
         val walked = beam.search(
-            walkSources(), lower, proximity, limit, beamWorkspace.get(), touch = scoring,
+            walkSources(), lower, proximity, k / 2, beamWorkspace.get(), touch = scoring,
         )
         val ranked = dampMismatchedLanguages(walked)
         rankedWalk = RankedWalk(lower, gen, lexGen, k, touch?.let(::ArrayList), ranked)
@@ -630,6 +632,19 @@ class SuggestionEngine(
 
         /** How many ranked candidates a reranker may reorder. */
         private const val RERANK_POOL = 8
+
+        /**
+         * How deep the fuzzy walk ranks for the suggest path. The post-walk
+         * context boosts can only promote candidates the walk emitted, and
+         * ContextMissRateTest measured that single-error targets land in the
+         * walk's ranks 9-32 often enough to matter (11% of rarest-quartile
+         * targets fall outside the top-8; under 1.2% fall outside the top-32).
+         * Autocorrect deliberately still judges only the top
+         * [FuzzyBeamSearch.AUTOCORRECT_K]: its confidence gate compares the
+         * top pair, and deeper candidates should neither become silent
+         * replacements nor stand in as runner-ups.
+         */
+        private const val WALK_K = 32
 
         /** Corpus n-gram counts divided by this before joining the personal
          * evidence scale: one personal use ~ this many corpus sightings. */
@@ -998,9 +1013,13 @@ class SuggestionEngine(
         // Contact and app names are known words too — never "corrected" away.
         if (contacts.contains(lower) || apps.contains(lower)) return null
 
+        // The walk ranks WALK_K deep for the strip's context boosts, but the
+        // silent-replacement decision stays on the same top-8 it has always
+        // judged: a rank-20 word must never fire as a correction, nor may it
+        // appear as the runner-up that tightens (or loosens) the gate.
         val candidates = rankedFor(
             lower, FuzzyBeamSearch.AUTOCORRECT_K / 2, touch,
-        ).filter { c ->
+        ).take(FuzzyBeamSearch.AUTOCORRECT_K).filter { c ->
             // Silent replacement only trusts classic one-edit shapes: a single
             // edit within one character of the typed length, or the
             // one-extra-letter completion the old insert-at-end edit produced.

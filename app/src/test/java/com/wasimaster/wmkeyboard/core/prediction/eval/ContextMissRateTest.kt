@@ -133,6 +133,8 @@ class ContextMissRateTest {
             val n: Int,
             val top1: Int,
             val top8: Int,
+            val top16: Int,
+            val top32: Int,
             val top64: Int,
             val misses: List<Case>,
         )
@@ -140,6 +142,8 @@ class ContextMissRateTest {
         fun measure(label: String, cases: List<Case>): SliceResult {
             var top1 = 0
             var top8 = 0
+            var top16 = 0
+            var top32 = 0
             var top64 = 0
             val misses = ArrayList<Case>()
             for (case in cases) {
@@ -147,12 +151,14 @@ class ContextMissRateTest {
                     null -> misses.add(case)
                     else -> {
                         top64++
+                        if (rank <= 32) top32++
+                        if (rank <= 16) top16++
                         if (rank <= STRIP_K) top8++
                         if (rank == 1) top1++
                     }
                 }
             }
-            return SliceResult(label, cases.size, top1, top8, top64, misses)
+            return SliceResult(label, cases.size, top1, top8, top16, top32, top64, misses)
         }
 
         // Slice A: real bundled seed pairs, follower corrupted.
@@ -179,15 +185,17 @@ class ContextMissRateTest {
         val slices = listOf(seedSlice) + quartileSlices
         fun pct(v: Double) = String.format(Locale.ROOT, "%.4f", v)
         println("=== context miss rate (seed=$SEED, k=$WIDE_K, strip k=$STRIP_K) ===")
-        println("slice        n     top1    top8    top64   top8Miss  absentAt64")
+        println("slice        n     top1    top8    top16   top32   top64   top8Miss  absentAt64")
         for (s in slices) {
             println(
                 String.format(
                     Locale.ROOT,
-                    "%-11s %5d  %s  %s  %s  %s    %s",
+                    "%-11s %5d  %s  %s  %s  %s  %s  %s    %s",
                     s.label, s.n,
                     pct(s.top1 / s.n.toDouble()),
                     pct(s.top8 / s.n.toDouble()),
+                    pct(s.top16 / s.n.toDouble()),
+                    pct(s.top32 / s.n.toDouble()),
                     pct(s.top64 / s.n.toDouble()),
                     pct(1.0 - s.top8 / s.n.toDouble()),
                     pct(s.misses.size / s.n.toDouble()),
@@ -212,6 +220,8 @@ class ContextMissRateTest {
                 append("\"label\": \"${s.label}\", \"n\": ${s.n}, ")
                 append("\"top1\": ${pct(s.top1 / s.n.toDouble())}, ")
                 append("\"top8\": ${pct(s.top8 / s.n.toDouble())}, ")
+                append("\"top16\": ${pct(s.top16 / s.n.toDouble())}, ")
+                append("\"top32\": ${pct(s.top32 / s.n.toDouble())}, ")
                 append("\"top64\": ${pct(s.top64 / s.n.toDouble())}, ")
                 append("\"top8MissRate\": ${pct(1.0 - s.top8 / s.n.toDouble())}, ")
                 append("\"absentAt64\": ${pct(s.misses.size / s.n.toDouble())}")
