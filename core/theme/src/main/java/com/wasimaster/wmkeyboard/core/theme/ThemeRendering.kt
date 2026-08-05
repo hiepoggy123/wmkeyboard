@@ -6,23 +6,32 @@ import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.LinearGradientShader
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.RadialGradientShader
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SweepGradientShader
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlin.math.sign
 import kotlin.math.sin
 
@@ -120,12 +129,134 @@ fun GradientSpec.brush(
     }
 }
 
-/** The visible key outline for a shape kind; ROUNDED/CUT use [radiusDp]. */
+/**
+ * The visible key outline for a shape kind; ROUNDED/CUT use [radiusDp].
+ *
+ * The rest size their own corners off the key, as a fraction of it. A shape
+ * whose look *is* its proportion — a half-height arch, a hexagon's points, the
+ * bite out of a ticket — would come apart at one end of the radius slider and
+ * be a plain rectangle at the other, so it does not read the slider at all.
+ */
 fun keyShapeFor(kind: KeyShapeKind, radiusDp: Int): Shape = when (kind) {
     KeyShapeKind.ROUNDED -> RoundedCornerShape(radiusDp.dp)
+    KeyShapeKind.SHARP -> RectangleShape
     KeyShapeKind.PILL -> RoundedCornerShape(percent = 50)
     KeyShapeKind.CUT -> CutCornerShape(radiusDp.coerceIn(2, 14).dp)
     KeyShapeKind.SQUIRCLE -> SquircleKeyShape
+    KeyShapeKind.ARCH -> ArchKeyShape
+    KeyShapeKind.LEAF -> LeafKeyShape
+    KeyShapeKind.SLANT -> SlantKeyShape
+    KeyShapeKind.HEXAGON -> HexagonKeyShape
+    KeyShapeKind.SCALLOP -> ScallopKeyShape
+    KeyShapeKind.TICKET -> TicketKeyShape
+}
+
+/** Round top, square bottom: a row of keys reads as a row of arches. */
+private val ArchKeyShape: Shape = RoundedCornerShape(
+    topStartPercent = 50,
+    topEndPercent = 50,
+    bottomStartPercent = 12,
+    bottomEndPercent = 12,
+)
+
+/** Two opposite corners fully round, the other two nearly square. */
+private val LeafKeyShape: Shape = RoundedCornerShape(
+    topStartPercent = 50,
+    topEndPercent = 8,
+    bottomStartPercent = 8,
+    bottomEndPercent = 50,
+)
+
+/** Parallelogram: both vertical sides lean right by a fraction of the height. */
+private val SlantKeyShape: Shape = GenericShape { size, _ ->
+    val lean = min(size.height * 0.22f, size.width * 0.3f)
+    moveTo(lean, 0f)
+    lineTo(size.width, 0f)
+    lineTo(size.width - lean, size.height)
+    lineTo(0f, size.height)
+    close()
+}
+
+/**
+ * Points left and right, flat top and bottom — the way round for a key, which
+ * is wider than it is tall. A pointy-top hexagon would waste the width.
+ */
+private val HexagonKeyShape: Shape = GenericShape { size, _ ->
+    val cut = min(size.width * 0.16f, size.height * 0.5f)
+    val mid = size.height / 2f
+    moveTo(cut, 0f)
+    lineTo(size.width - cut, 0f)
+    lineTo(size.width, mid)
+    lineTo(size.width - cut, size.height)
+    lineTo(cut, size.height)
+    lineTo(0f, mid)
+    close()
+}
+
+/**
+ * A rim of even bumps, like the edge of a biscuit: a rectangle inset by the
+ * bump depth, with a half-oval pushed back out along each step of each side.
+ *
+ * The bumps are counted per side from the key's own width and height, so they
+ * come out roughly square whatever shape the key is — a spacebar gets more of
+ * them, not longer ones. A radial ripple was the first attempt at this and
+ * bunched its waves up at the corners, where the radius changes fastest.
+ */
+private val ScallopKeyShape: Shape = GenericShape { size, _ ->
+    // A seventh of the short side: fewer, chunkier bumps than that read as a
+    // cloud, and more of them disappear at the size a key is on screen.
+    val depth = min(size.width, size.height) / 7f
+    val left = depth
+    val top = depth
+    val right = size.width - depth
+    val bottom = size.height - depth
+    val across = max(2, ((right - left) / (2f * depth)).roundToInt())
+    val down = max(1, ((bottom - top) / (2f * depth)).roundToInt())
+    val stepX = (right - left) / across
+    val stepY = (bottom - top) / down
+    // Angles run clockwise from three o'clock, so each half-oval starts at the
+    // corner the previous one ended on and bulges away from the key's middle.
+    moveTo(left, top)
+    for (i in 0 until across) {
+        val x = left + i * stepX
+        arcTo(Rect(x, top - depth, x + stepX, top + depth), 180f, 180f, false)
+    }
+    for (j in 0 until down) {
+        val y = top + j * stepY
+        arcTo(Rect(right - depth, y, right + depth, y + stepY), 270f, 180f, false)
+    }
+    for (i in across - 1 downTo 0) {
+        val x = left + i * stepX
+        arcTo(Rect(x, bottom - depth, x + stepX, bottom + depth), 0f, 180f, false)
+    }
+    for (j in down - 1 downTo 0) {
+        val y = top + j * stepY
+        arcTo(Rect(left - depth, y, left + depth, y + stepY), 90f, 180f, false)
+    }
+    close()
+}
+
+/**
+ * Concave corners, like a cinema ticket: the rectangle minus a circle at each
+ * corner. Built with a path difference rather than four arcs because the arcs
+ * have to meet the sides exactly, and one rounding error there shows as a nick.
+ */
+private val TicketKeyShape: Shape = object : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        val radius = min(size.width, size.height) * 0.25f
+        val body = Path().apply { addRect(Rect(Offset.Zero, size)) }
+        val bites = Path().apply {
+            addOval(Rect(Offset.Zero, radius))
+            addOval(Rect(Offset(size.width, 0f), radius))
+            addOval(Rect(Offset(0f, size.height), radius))
+            addOval(Rect(Offset(size.width, size.height), radius))
+        }
+        return Outline.Generic(Path().apply { op(body, bites, PathOperation.Difference) })
+    }
 }
 
 /**

@@ -96,10 +96,24 @@
     <string name="theme_keys_section_title">Keys</string>
     <string name="theme_key_shape_title">Key shape</string>
     <string name="theme_key_shape_rounded_label">Rounded</string>
+    <!-- A rectangle with four sharp corners. -->
+    <string name="theme_key_shape_sharp_label">Square</string>
     <string name="theme_key_shape_pill_label">Pill</string>
+    <!-- The four corners are cut off at an angle. -->
     <string name="theme_key_shape_cut_label">Cut</string>
     <!-- A shape between a square and a circle. -->
     <string name="theme_key_shape_squircle_label">Squircle</string>
+    <!-- Round at the top, square at the bottom, like an arch. -->
+    <string name="theme_key_shape_arch_label">Arch</string>
+    <!-- Two opposite corners are round, the other two are square. -->
+    <string name="theme_key_shape_leaf_label">Leaf</string>
+    <!-- The left and right sides lean, like italic text. -->
+    <string name="theme_key_shape_slant_label">Slanted</string>
+    <string name="theme_key_shape_hexagon_label">Hexagon</string>
+    <!-- The edge has small waves in it, like the edge of a biscuit. -->
+    <string name="theme_key_shape_scallop_label">Scalloped</string>
+    <!-- The corners curve inwards, like a cinema ticket. -->
+    <string name="theme_key_shape_ticket_label">Ticket</string>
     <string name="theme_letter_keys_title">Letter keys</string>
     <string name="theme_key_gradient_title">Key gradient</string>
     <string name="theme_key_gradient_subtitle">The keyboard paints this sheen over the letter keys</string>

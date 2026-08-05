@@ -107,6 +107,7 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.brush
+import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import com.wasimaster.wmkeyboard.core.theme.reseeded
 import com.wasimaster.wmkeyboard.core.theme.themeFromSeed
 import com.wasimaster.wmkeyboard.core.theme.themeName
@@ -249,6 +250,86 @@ internal fun ModeThemePickerDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_done)) }
+        },
+    )
+}
+
+/** The name of a key shape, in the language of the device. */
+@Composable
+private fun keyShapeName(kind: KeyShapeKind): String = stringResource(
+    when (kind) {
+        KeyShapeKind.ROUNDED -> R.string.theme_key_shape_rounded_label
+        KeyShapeKind.SHARP -> R.string.theme_key_shape_sharp_label
+        KeyShapeKind.PILL -> R.string.theme_key_shape_pill_label
+        KeyShapeKind.CUT -> R.string.theme_key_shape_cut_label
+        KeyShapeKind.SQUIRCLE -> R.string.theme_key_shape_squircle_label
+        KeyShapeKind.ARCH -> R.string.theme_key_shape_arch_label
+        KeyShapeKind.LEAF -> R.string.theme_key_shape_leaf_label
+        KeyShapeKind.SLANT -> R.string.theme_key_shape_slant_label
+        KeyShapeKind.HEXAGON -> R.string.theme_key_shape_hexagon_label
+        KeyShapeKind.SCALLOP -> R.string.theme_key_shape_scallop_label
+        KeyShapeKind.TICKET -> R.string.theme_key_shape_ticket_label
+    },
+)
+
+/**
+ * One key drawn in [kind], at the proportions of a real key so the shape reads
+ * the way it will on the keyboard. [radiusDp] is the theme's own key radius,
+ * which two of the shapes follow.
+ */
+@Composable
+private fun KeyShapeSwatch(kind: KeyShapeKind, radiusDp: Int, color: Color) {
+    Box(
+        modifier = Modifier
+            .width(52.dp)
+            .height(34.dp)
+            .background(color, keyShapeFor(kind, radiusDp)),
+    )
+}
+
+/** Radio list of every key shape, each row with the shape drawn beside its name. */
+@Composable
+private fun KeyShapePickerDialog(
+    selected: KeyShapeKind,
+    radiusDp: Int,
+    onPick: (KeyShapeKind) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.theme_key_shape_title)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                for (kind in KeyShapeKind.entries) {
+                    val picked = kind == selected
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(kind) }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = picked, onClick = { onPick(kind) })
+                        Spacer(Modifier.width(8.dp))
+                        Text(keyShapeName(kind), modifier = Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        KeyShapeSwatch(
+                            kind = kind,
+                            radiusDp = radiusDp,
+                            // The picked shape carries the accent, so the row
+                            // that is on reads at a glance from the swatches.
+                            color = if (picked) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
         },
     )
 }
@@ -829,6 +910,7 @@ fun ThemeEditorScreen(
     }
     var cropOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var cropLandscapeOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    var shapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var sourceDialogSlot by remember(theme.id) { mutableStateOf<BackgroundSlot?>(null) }
 
     // The photo rows appear only once the user has started using photos.
@@ -1146,28 +1228,37 @@ fun ThemeEditorScreen(
         )
     }
 
+    val keyRadiusDp = theme.keyCornerRadiusDp ?: settings.keyCornerRadiusDp
+    if (shapePickerOpen) {
+        KeyShapePickerDialog(
+            selected = theme.keyShape,
+            radiusDp = keyRadiusDp,
+            onPick = { kind ->
+                update { t -> t.copy(keyShape = kind) }
+                shapePickerOpen = false
+            },
+            onDismiss = { shapePickerOpen = false },
+        )
+    }
+
     SettingsGroup(stringResource(R.string.theme_keys_section_title)) {
         item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text(
-                    stringResource(R.string.theme_key_shape_title),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-                ChoiceControl(
-                    options = KeyShapeKind.entries.map { kind ->
-                        kind to when (kind) {
-                            KeyShapeKind.ROUNDED ->
-                                stringResource(R.string.theme_key_shape_rounded_label)
-                            KeyShapeKind.PILL -> stringResource(R.string.theme_key_shape_pill_label)
-                            KeyShapeKind.CUT -> stringResource(R.string.theme_key_shape_cut_label)
-                            KeyShapeKind.SQUIRCLE ->
-                                stringResource(R.string.theme_key_shape_squircle_label)
-                        }
-                    },
-                    selected = theme.keyShape,
-                ) { kind -> update { t -> t.copy(keyShape = kind) } }
-            }
+            // A row plus a dialog, not a segmented row: eleven shapes never fit
+            // side by side, and a name on its own ("Squircle", "Leaf") does not
+            // say what the key will look like. The dialog draws each one.
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_key_shape_title)) },
+                supportingContent = { Text(keyShapeName(theme.keyShape)) },
+                trailingContent = {
+                    KeyShapeSwatch(
+                        kind = theme.keyShape,
+                        radiusDp = keyRadiusDp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                colors = transparentListColors(),
+                modifier = Modifier.clickable { shapePickerOpen = true },
+            )
         }
         item {
             ColorRow(

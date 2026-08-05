@@ -38,8 +38,32 @@ data class GradientSpec(
     val angleDeg: Float = 45f,
 )
 
-/** Outline used for every key. ROUNDED follows the corner-radius sliders. */
-enum class KeyShapeKind { ROUNDED, PILL, CUT, SQUIRCLE }
+/**
+ * Outline used for every key. ROUNDED, CUT and TICKET follow the corner-radius
+ * sliders; the rest set their own corners from the key's size, because their
+ * whole look is the proportion (a half-height arch, a hexagon's points).
+ *
+ * Order is the order the shape picker lists them in: the four plain outlines
+ * first, then the decorative ones.
+ *
+ * A value added here is not readable by an older build — `ThemeCodec.decode`
+ * drops a theme whose enum name it does not know — so a theme exported with
+ * HEXAGON does not import into a build from before it existed. That is the
+ * price of the field being an enum, which it already was.
+ */
+enum class KeyShapeKind {
+    ROUNDED,
+    SHARP,
+    PILL,
+    CUT,
+    SQUIRCLE,
+    ARCH,
+    LEAF,
+    SLANT,
+    HEXAGON,
+    SCALLOP,
+    TICKET,
+}
 
 /**
  * Who took a background photo and where it came from, kept beside the image so
