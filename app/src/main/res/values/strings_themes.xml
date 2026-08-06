@@ -189,6 +189,21 @@
     <string name="theme_background_animated_title">Play animated image</string>
     <string name="theme_background_animated_subtitle">Plays a GIF or animated WebP background. Turns off blur. Does not play with reduce motion or power saving.</string>
 
+    <!-- Theme editor: key textures. -->
+    <string name="theme_texture_section_title">Key textures</string>
+    <string name="theme_texture_section_body">An image drawn on the keys, clipped to the key shape, over the key color. One image for the letter keys is enough — the other keys reuse it unless you give them their own.</string>
+    <string name="theme_texture_normal_title">Letter keys</string>
+    <string name="theme_texture_modifier_title">Modifier keys</string>
+    <string name="theme_texture_enter_title">Enter key</string>
+    <string name="theme_texture_space_title">Space bar</string>
+    <string name="theme_texture_pressed_title">Pressed keys</string>
+    <string name="theme_texture_set_label">Image set — tap to replace</string>
+    <string name="theme_texture_unset_label">Tap to pick an image</string>
+    <string name="theme_texture_scale_crop_label">Crop</string>
+    <string name="theme_texture_scale_stretch_label">Stretch</string>
+    <string name="theme_texture_scale_tile_label">Tile</string>
+    <string name="theme_texture_opacity_title">Texture opacity</string>
+
     <!-- Theme editor: per-theme font and sound. -->
     <string name="theme_font_sound_section_title">Font and sound</string>
     <string name="theme_font_sound_section_body">The theme can bring its own key font and key sound. If the device does not have them, the keyboard uses your global choices. Fonts and sounds install as add-ons, so you can also use them with other themes.</string>

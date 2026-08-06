@@ -1,7 +1,13 @@
 package com.wasimaster.wmkeyboard.app
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import com.wasimaster.wmkeyboard.core.theme.BackgroundBitmapCache
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -267,6 +273,15 @@ private fun RowScope.LetterKey(
     weight: Float = 1f,
     dot: Boolean = true,
 ) {
+    // The letter-key texture, drawn the way the real board draws it: over the
+    // key colour, clipped to the key shape. One shared 128 px decode serves
+    // every key of the mock-up through the bitmap cache.
+    val texture by produceState<ImageBitmap?>(null, theme.keyTexture) {
+        value = theme.keyTexture?.let {
+            BackgroundBitmapCache.load(it, 0f, PREVIEW_TEXTURE_PX, PREVIEW_TEXTURE_PX)
+                ?.asImageBitmap()
+        }
+    }
     Box(
         modifier = Modifier
             .weight(weight)
@@ -274,6 +289,17 @@ private fun RowScope.LetterKey(
             .background(colorOf(theme.keyBackground), keyShape),
         contentAlignment = Alignment.Center,
     ) {
+        texture?.let {
+            Image(
+                bitmap = it,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(keyShape)
+                    .alpha(theme.keyTextureOpacity),
+            )
+        }
         if (dot) {
             Box(
                 modifier = Modifier
@@ -284,6 +310,9 @@ private fun RowScope.LetterKey(
         }
     }
 }
+
+/** Decode edge for the mock-up's key texture; its keys are a few dp across. */
+private const val PREVIEW_TEXTURE_PX = 128
 
 /** Shift, backspace and the symbol key, which carry the modifier colour. */
 @Composable

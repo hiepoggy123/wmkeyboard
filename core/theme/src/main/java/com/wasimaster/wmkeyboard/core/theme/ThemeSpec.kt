@@ -154,6 +154,30 @@ data class ThemeSpec(
     val backgroundPhotoLandscape: PhotoAttribution? = null,
     // Keys
     val keyShape: KeyShapeKind = KeyShapeKind.ROUNDED,
+    /**
+     * Absolute path of an image drawn on every letter key, clipped to the key
+     * shape, over the key colour. Never set in exports — the bytes travel in
+     * [assets] under `"keyTexture"`. The class-specific slots below fall back
+     * sensibly (space → this, pressed → the pressed colour over this), so a
+     * theme with one texture already themes the whole board.
+     */
+    val keyTexture: String? = null,
+    /** Texture for the modifier keys (shift, delete, mode…); null follows [keyTexture]. */
+    val keyTextureModifier: String? = null,
+    /** Texture for the enter key; null follows [keyTextureModifier]'s chain. */
+    val keyTextureEnter: String? = null,
+    /** Texture for the space bar; null follows [keyTexture]. */
+    val keyTextureSpace: String? = null,
+    /** Texture drawn while a key is held; null keeps the pressed colour overlay. */
+    val keyTexturePressed: String? = null,
+    /**
+     * How a texture fits its key: `"crop"` (default — centre-crop, keeps
+     * aspect), `"stretch"`, or `"tile"`. A string so a mode from a later build
+     * costs the field, not the theme; read through [keyTextureScaleOrDefault].
+     */
+    val keyTextureScale: String? = null,
+    /** Alpha the textures draw with over the key colour. */
+    val keyTextureOpacity: Float = 1f,
     /** Painted over letter keys when set (subtle sheen); stops may be translucent. */
     val keyGradient: GradientSpec? = null,
     val keyBackground: Long = 0xFF303338,
@@ -252,7 +276,28 @@ data class ThemeSpec(
      * their own addon like fonts; a missing id falls back to the global sound.
      */
     val soundCustomId: String? = null,
+    /**
+     * Auxiliary image bytes for transport, keyed by slot name — the key
+     * textures today (`"keyTexture"`, `"keyTextureModifier"`, …), whatever
+     * needs to travel tomorrow. The generic sibling of
+     * [backgroundImageBase64]: populated by [withEmbeddedImages] on the way
+     * out, written to files and emptied by [withExtractedImages] on the way
+     * in, never non-empty at rest. A map of strings so an older build ignores
+     * the whole thing and a slot it doesn't know costs that slot alone.
+     */
+    val assets: Map<String, String> = emptyMap(),
 )
+
+/** How a key texture fits its key. Never serialized — travels as a string. */
+enum class KeyTextureScale { CROP, STRETCH, TILE }
+
+/**
+ * The scale mode behind [ThemeSpec.keyTextureScale]; an unknown or absent
+ * name is CROP, the mode that never distorts.
+ */
+fun keyTextureScaleOrDefault(name: String?): KeyTextureScale =
+    KeyTextureScale.entries.firstOrNull { it.name.equals(name, ignoreCase = true) }
+        ?: KeyTextureScale.CROP
 
 /** Follows system light/dark + Material You; not a stored [ThemeSpec]. */
 const val DEFAULT_THEME_ID = "default"
@@ -311,6 +356,13 @@ fun ThemeSpec.withEmbeddedImages(): ThemeSpec {
     }
     val portrait = encode(backgroundImage)
     val landscape = encode(backgroundImageLandscape)
+    // The generic slots: every auxiliary image the theme points at, keyed by
+    // the field it came from. A path that no longer resolves is simply absent.
+    val embedded = buildMap {
+        for ((slot, path) in assetPaths()) {
+            encode(path)?.let { put(slot, it) }
+        }
+    }
     return copy(
         backgroundImage = null,
         backgroundImageBase64 = portrait,
@@ -322,8 +374,29 @@ fun ThemeSpec.withEmbeddedImages(): ThemeSpec {
         // the file — which is worse than no credit at all.
         backgroundPhoto = backgroundPhoto?.takeIf { portrait != null },
         backgroundPhotoLandscape = backgroundPhotoLandscape?.takeIf { landscape != null },
+        keyTexture = null,
+        keyTextureModifier = null,
+        keyTextureEnter = null,
+        keyTextureSpace = null,
+        keyTexturePressed = null,
+        assets = embedded,
     )
 }
+
+/** Slot name → local path, for every auxiliary image field. */
+private fun ThemeSpec.assetPaths(): List<Pair<String, String?>> = listOf(
+    ASSET_KEY_TEXTURE to keyTexture,
+    ASSET_KEY_TEXTURE_MODIFIER to keyTextureModifier,
+    ASSET_KEY_TEXTURE_ENTER to keyTextureEnter,
+    ASSET_KEY_TEXTURE_SPACE to keyTextureSpace,
+    ASSET_KEY_TEXTURE_PRESSED to keyTexturePressed,
+)
+
+const val ASSET_KEY_TEXTURE = "keyTexture"
+const val ASSET_KEY_TEXTURE_MODIFIER = "keyTextureModifier"
+const val ASSET_KEY_TEXTURE_ENTER = "keyTextureEnter"
+const val ASSET_KEY_TEXTURE_SPACE = "keyTextureSpace"
+const val ASSET_KEY_TEXTURE_PRESSED = "keyTexturePressed"
 
 /**
  * Inverse of [withEmbeddedImages]: writes any embedded base64 image(s) into
@@ -345,6 +418,16 @@ fun ThemeSpec.withExtractedImages(dir: File): ThemeSpec {
         backgroundImageLandscape = write("${id}_land.img", backgroundImageLandscapeBase64)
             ?: backgroundImageLandscape,
         backgroundImageLandscapeBase64 = null,
+        keyTexture = write("${id}_tex.img", assets[ASSET_KEY_TEXTURE]) ?: keyTexture,
+        keyTextureModifier = write("${id}_tex_mod.img", assets[ASSET_KEY_TEXTURE_MODIFIER])
+            ?: keyTextureModifier,
+        keyTextureEnter = write("${id}_tex_enter.img", assets[ASSET_KEY_TEXTURE_ENTER])
+            ?: keyTextureEnter,
+        keyTextureSpace = write("${id}_tex_space.img", assets[ASSET_KEY_TEXTURE_SPACE])
+            ?: keyTextureSpace,
+        keyTexturePressed = write("${id}_tex_press.img", assets[ASSET_KEY_TEXTURE_PRESSED])
+            ?: keyTexturePressed,
+        assets = emptyMap(),
     )
 }
 

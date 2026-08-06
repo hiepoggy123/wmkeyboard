@@ -34,6 +34,13 @@ fun themePhotoSweepPlan(
         themes.forEach { theme ->
             theme.backgroundImage?.let { add(it.substringAfterLast('/')) }
             theme.backgroundImageLandscape?.let { add(it.substringAfterLast('/')) }
+            // Key textures live in the same directory; a sweep that does not
+            // know them would take an active theme's textures after a day.
+            theme.keyTexture?.let { add(it.substringAfterLast('/')) }
+            theme.keyTextureModifier?.let { add(it.substringAfterLast('/')) }
+            theme.keyTextureEnter?.let { add(it.substringAfterLast('/')) }
+            theme.keyTextureSpace?.let { add(it.substringAfterLast('/')) }
+            theme.keyTexturePressed?.let { add(it.substringAfterLast('/')) }
         }
         rotationStates.values.forEach { state ->
             state.imagePath?.let { add(it.substringAfterLast('/')) }

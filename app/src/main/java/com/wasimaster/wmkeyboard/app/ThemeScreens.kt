@@ -109,6 +109,8 @@ import com.wasimaster.wmkeyboard.core.theme.builtInThemeNameRes
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
 import com.wasimaster.wmkeyboard.core.theme.GradientType
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
+import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
+import com.wasimaster.wmkeyboard.core.theme.keyTextureScaleOrDefault
 import com.wasimaster.wmkeyboard.core.theme.SeedSwatches
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
@@ -1419,6 +1421,101 @@ fun ThemeEditorScreen(
         }
     }
 
+    var texturePickerSlot by remember(theme.id) { mutableStateOf<KeyTextureSlot?>(null) }
+    val texturePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        val slot = texturePickerSlot
+        texturePickerSlot = null
+        if (uri != null && slot != null) {
+            scope.launch(Dispatchers.IO) {
+                runCancellable {
+                    val path = importKeyTexture(context, theme.id, slot, uri)
+                    if (path != null) {
+                        slot.pathIn(theme)?.let { File(it).delete() }
+                        repository.upsertCustomTheme(slot.withPath(theme, path))
+                    }
+                }
+            }
+        }
+    }
+    SettingsGroup(stringResource(R.string.theme_texture_section_title)) {
+        item { CaptionText(stringResource(R.string.theme_texture_section_body)) }
+        for (slot in KeyTextureSlot.entries) {
+            item {
+                val path = slot.pathIn(theme)
+                ListItem(
+                    headlineContent = { Text(stringResource(slot.titleRes)) },
+                    supportingContent = {
+                        Text(
+                            stringResource(
+                                if (path != null) {
+                                    R.string.theme_texture_set_label
+                                } else {
+                                    R.string.theme_texture_unset_label
+                                },
+                            ),
+                        )
+                    },
+                    leadingContent = { Icon(Icons.Outlined.Image, contentDescription = null) },
+                    trailingContent = {
+                        if (path != null) {
+                            IconButton(
+                                onClick = {
+                                    update { t ->
+                                        slot.pathIn(t)?.let { File(it).delete() }
+                                        slot.withPath(t, null)
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription =
+                                        stringResource(CommonR.string.common_remove),
+                                )
+                            }
+                        }
+                    },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable {
+                        texturePickerSlot = slot
+                        texturePicker.launch(
+                            PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly,
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+        if (KeyTextureSlot.entries.any { it.pathIn(theme) != null }) {
+            item {
+                ChoiceControl(
+                    options = KeyTextureScale.entries.map { mode ->
+                        mode to stringResource(
+                            when (mode) {
+                                KeyTextureScale.CROP -> R.string.theme_texture_scale_crop_label
+                                KeyTextureScale.STRETCH ->
+                                    R.string.theme_texture_scale_stretch_label
+                                KeyTextureScale.TILE -> R.string.theme_texture_scale_tile_label
+                            },
+                        )
+                    },
+                    selected = keyTextureScaleOrDefault(theme.keyTextureScale),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                ) { mode -> update { t -> t.copy(keyTextureScale = mode.name) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_texture_opacity_title),
+                    value = theme.keyTextureOpacity,
+                    range = 0.1f..1f,
+                    display = { "${(it * 100).toInt()}%" },
+                ) { update { t -> t.copy(keyTextureOpacity = (it * 100).toInt() / 100f) } }
+            }
+        }
+    }
+
     SettingsGroup(stringResource(R.string.theme_accent_section_title)) {
         item {
             ColorRow(stringResource(R.string.theme_accent_title), theme.accent) {
@@ -2008,6 +2105,76 @@ private fun ThemeSoundPickerDialog(
 
 /** Loud enough to judge by, without reading the user's live volume setting. */
 private const val PREVIEW_SOUND_VOLUME = 0.6f
+
+/**
+ * The five texture slots of the editor's key-texture section, each knowing
+ * which [ThemeSpec] field it reads and writes.
+ */
+private enum class KeyTextureSlot(@StringRes val titleRes: Int, val fileTag: String) {
+    NORMAL(R.string.theme_texture_normal_title, "tex"),
+    MODIFIER(R.string.theme_texture_modifier_title, "tex_mod"),
+    ENTER(R.string.theme_texture_enter_title, "tex_enter"),
+    SPACE(R.string.theme_texture_space_title, "tex_space"),
+    PRESSED(R.string.theme_texture_pressed_title, "tex_press"),
+    ;
+
+    fun pathIn(theme: ThemeSpec): String? = when (this) {
+        NORMAL -> theme.keyTexture
+        MODIFIER -> theme.keyTextureModifier
+        ENTER -> theme.keyTextureEnter
+        SPACE -> theme.keyTextureSpace
+        PRESSED -> theme.keyTexturePressed
+    }
+
+    fun withPath(theme: ThemeSpec, path: String?): ThemeSpec = when (this) {
+        NORMAL -> theme.copy(keyTexture = path)
+        MODIFIER -> theme.copy(keyTextureModifier = path)
+        ENTER -> theme.copy(keyTextureEnter = path)
+        SPACE -> theme.copy(keyTextureSpace = path)
+        PRESSED -> theme.copy(keyTexturePressed = path)
+    }
+}
+
+/** Longest edge a texture is stored at. A key never draws bigger than this. */
+private const val KEY_TEXTURE_IMPORT_PX = 512
+
+/**
+ * Copies a picked texture into the theme-images folder, downscaled to at most
+ * [KEY_TEXTURE_IMPORT_PX] on its longest edge — a camera photo per key would
+ * bloat every export for pixels no key can show. Compressed as PNG so pixel
+ * art (the most likely texture) and alpha both survive. Null when the image
+ * cannot be read.
+ */
+private fun importKeyTexture(
+    context: android.content.Context,
+    themeId: String,
+    slot: KeyTextureSlot,
+    uri: android.net.Uri,
+): String? = runCatching {
+    val source = context.contentResolver.requireInputStream(uri).use { input ->
+        android.graphics.BitmapFactory.decodeStream(input)
+    } ?: return null
+    val longest = maxOf(source.width, source.height)
+    val scaled = if (longest > KEY_TEXTURE_IMPORT_PX) {
+        val scale = KEY_TEXTURE_IMPORT_PX.toFloat() / longest
+        android.graphics.Bitmap.createScaledBitmap(
+            source,
+            maxOf(1, (source.width * scale).toInt()),
+            maxOf(1, (source.height * scale).toInt()),
+            true,
+        )
+    } else {
+        source
+    }
+    val file = File(
+        themeImagesDir(context),
+        "${themeId}_${slot.fileTag}_${System.currentTimeMillis()}.img",
+    )
+    file.outputStream().use { out ->
+        scaled.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+    }
+    file.absolutePath
+}.getOrNull()
 
 /** Opens a credit link in the browser. Failure is not worth a message. */
 private fun openLink(context: android.content.Context, url: String) {

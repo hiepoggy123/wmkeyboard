@@ -9135,6 +9135,9 @@ private fun KeyButton(
 
     // The popups' own colours; the key's face is already resolved in [visual].
     val kb = LocalKbTheme.current
+    // The theme's key textures. A static local, changing only on a theme
+    // switch — reading it here adds nothing to the press path.
+    val textures = LocalKeyTextures.current
     // The gap is handed to the shape as the room a leaning outline may spill
     // into: a slanted key then leans across the gap rather than out of its own
     // width, and neighbouring keys interlock instead of thinning out.
@@ -9306,9 +9309,30 @@ private fun KeyButton(
                 val sheen = kb.keyGradient
                     ?.takeIf { key.action == KeyAction.Text }
                     ?.brush()
+                // The theme's texture for this key class, prepared here so the
+                // press-path draw below only picks between ready-made values.
+                // The clip path and tile brush depend on size/shape alone —
+                // the cache block's own invalidation keys.
+                val texture = textures.forKey(key.action)
+                val texturePaint = texture?.let {
+                    KeyTexturePaint.of(it, textures, outline, size)
+                }
+                val pressedTexture = textures.pressed
+                val pressedPaint = pressedTexture?.let {
+                    KeyTexturePaint.of(it, textures, outline, size)
+                }
                 onDrawBehind {
                     val down = pressed.value
                     drawOutline(outline, if (down) visual.pressedBackground else visual.background)
+                    val paint = if (down) pressedPaint ?: texturePaint else texturePaint
+                    if (paint != null) {
+                        paint.draw(this, textures.opacity)
+                        // With no pressed texture of its own, the press stays
+                        // visible as a tint over the textured face.
+                        if (down && pressedPaint == null) {
+                            drawOutline(outline, visual.pressedBackground.copy(alpha = 0.5f))
+                        }
+                    }
                     if (sheen != null && !down) drawOutline(outline, sheen)
                 }
             }

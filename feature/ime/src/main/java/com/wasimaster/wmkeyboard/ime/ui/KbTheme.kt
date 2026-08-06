@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.theme.ColorVision
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
+import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeBackgroundImage
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
@@ -64,6 +65,7 @@ import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.hueShift
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import com.wasimaster.wmkeyboard.core.theme.keyShapeKindOrNull
+import com.wasimaster.wmkeyboard.core.theme.keyTextureScaleOrDefault
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import java.io.File
@@ -87,6 +89,20 @@ data class KbTheme(
     val backgroundAnimated: Boolean,
     val keyShapeKind: KeyShapeKind,
     val keyGradient: GradientSpec?,
+    /** Image drawn over the letter-key colour, clipped to the key shape. */
+    val keyTexture: String?,
+    /** Modifier-key texture; null falls back to [keyTexture]. */
+    val keyTextureModifier: String?,
+    /** Enter-key texture; null falls back to [keyTextureModifier]'s chain. */
+    val keyTextureEnter: String?,
+    /** Space-bar texture; null falls back to [keyTexture]. */
+    val keyTextureSpace: String?,
+    /** Texture drawn while a key is held; null keeps the pressed colour. */
+    val keyTexturePressed: String?,
+    /** How a texture fits its key. */
+    val keyTextureScale: KeyTextureScale,
+    /** Alpha the textures draw with. */
+    val keyTextureOpacity: Float,
     val key: Color,
     val keyText: Color,
     val modifierKey: Color,
@@ -328,6 +344,13 @@ private fun defaultKbTheme(
         backgroundAnimated = false,
         keyShapeKind = KeyShapeKind.ROUNDED,
         keyGradient = null,
+        keyTexture = null,
+        keyTextureModifier = null,
+        keyTextureEnter = null,
+        keyTextureSpace = null,
+        keyTexturePressed = null,
+        keyTextureScale = KeyTextureScale.CROP,
+        keyTextureOpacity = 1f,
         key = key,
         keyText = scheme.onSurface,
         modifierKey = modifier,
@@ -394,6 +417,13 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         backgroundAnimated = spec.backgroundAnimated && spec.backgroundImageBlur == 0f,
         keyShapeKind = spec.keyShape,
         keyGradient = spec.keyGradient,
+        keyTexture = spec.keyTexture,
+        keyTextureModifier = spec.keyTextureModifier,
+        keyTextureEnter = spec.keyTextureEnter,
+        keyTextureSpace = spec.keyTextureSpace,
+        keyTexturePressed = spec.keyTexturePressed,
+        keyTextureScale = keyTextureScaleOrDefault(spec.keyTextureScale),
+        keyTextureOpacity = spec.keyTextureOpacity,
         key = key,
         keyText = keyText,
         modifierKey = colorOf(spec.modifierKeyBackground),
@@ -536,6 +566,11 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
             backgroundImage = null,
             backgroundImageLandscape = null,
             backgroundAnimated = false,
+            keyTexture = null,
+            keyTextureModifier = null,
+            keyTextureEnter = null,
+            keyTextureSpace = null,
+            keyTexturePressed = null,
             animation = ThemeAnimation.NONE,
             key = key,
             modifierKey = modifier,
@@ -758,6 +793,7 @@ fun KeyboardThemeProvider(
     ) {
         CompositionLocalProvider(
             LocalKbTheme provides kb,
+            LocalKeyTextures provides rememberKeyTextures(kb),
             LocalEmojiFontFamily provides emojiFontFamily,
             LocalEmojiShaper provides emojiShaper,
             content = content,
@@ -882,6 +918,14 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         backgroundAnimated = if (past) b.backgroundAnimated else a.backgroundAnimated,
         keyShapeKind = if (past) b.keyShapeKind else a.keyShapeKind,
         keyGradient = lerpGradient(a.keyGradient, b.keyGradient, t, a.key, b.key),
+        // Discrete like the background image: a texture is a decoded file.
+        keyTexture = if (past) b.keyTexture else a.keyTexture,
+        keyTextureModifier = if (past) b.keyTextureModifier else a.keyTextureModifier,
+        keyTextureEnter = if (past) b.keyTextureEnter else a.keyTextureEnter,
+        keyTextureSpace = if (past) b.keyTextureSpace else a.keyTextureSpace,
+        keyTexturePressed = if (past) b.keyTexturePressed else a.keyTexturePressed,
+        keyTextureScale = if (past) b.keyTextureScale else a.keyTextureScale,
+        keyTextureOpacity = lerpF(a.keyTextureOpacity, b.keyTextureOpacity, t),
         key = lerp(a.key, b.key, t),
         keyText = lerp(a.keyText, b.keyText, t),
         modifierKey = lerp(a.modifierKey, b.modifierKey, t),
