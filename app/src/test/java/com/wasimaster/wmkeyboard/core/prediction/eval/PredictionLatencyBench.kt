@@ -30,18 +30,23 @@ class PredictionLatencyBench {
         /**
          * Loose ceilings — regressions, not noise, should trip them.
          *
-         * Baseline 2026-08-06 on a desktop JVM, `.wmdict` v2 and the v1
-         * NUL-joined n-gram packs:
+         * Baseline 2026-08-06 on a desktop JVM, `.wmdict` v2 and `.wmng` packs:
          * ```
-         * suggest                        p50 0.33ms   p99 0.56-0.62ms
-         * suggest with pack              p50 0.39-0.55ms  p99 0.87-1.26ms
-         * pack.bigramCount               p50 <0.001ms
-         * pack.nextWords(5)              p50 0.008-0.010ms
-         * shouldAutocorrect              p50 0.32ms   p99 0.55ms
-         * complete(prefix2, 10)          p50 0.037ms  p99 0.07-0.11ms
-         * keystroke(suggest+autocorrect) p50 0.33ms   p99 0.60-0.65ms
+         * suggest                        p50 0.34ms   p99 0.53ms
+         * suggest with pack              p50 0.41ms   p99 0.76ms
+         * pack.bigramCount               p50 ~0.001ms (0.11us measured over 200k)
+         * pack.nextWords(5)              p50 0.003ms  p99 0.010ms
+         * shouldAutocorrect              p50 0.33ms   p99 0.52ms
+         * complete(prefix2, 10)          p50 0.022ms  p99 0.044ms
+         * keystroke(suggest+autocorrect) p50 0.33ms   p99 0.51ms
          * ```
-         * Ranges, not points: back-to-back runs move p50 by up to 40%, so this
+         * Against the same run with the superseded NUL-joined trie packs,
+         * which measured `nextWords` at 0.008-0.010ms and the pack itself at
+         * 17.4 MB: follower enumeration got about three times faster, because
+         * it went from a priority queue that concatenates a string per node to
+         * a scan of two-byte counts.
+         *
+         * Treat these as ranges: back-to-back runs move p50 by up to 40%, so this
          * catches a change of scale and nothing finer. Treat a single run as
          * evidence only when the shift is well outside those bands.
          *

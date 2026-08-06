@@ -1,8 +1,7 @@
 package com.wasimaster.wmkeyboard.core.dictionaries
 
-import com.wasimaster.wmkeyboard.core.prediction.NgramPack
-import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
-import com.wasimaster.wmkeyboard.core.prediction.PackedTrieCodec
+import com.wasimaster.wmkeyboard.core.prediction.NgramPackBuilder
+import com.wasimaster.wmkeyboard.core.prediction.NgramPackCodec
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -22,13 +21,16 @@ import kotlinx.coroutines.sync.withLock
 
 /**
  * Fetches [NgramPackCatalog] packs and compiles them on device into
- * `dict/<langId>/bigrams.wmdict` + `trigrams.wmdict`, next to that
- * language's downloaded wordlist.
+ * `dict/<langId>/ngrams.wmng`, next to that language's downloaded wordlist.
  *
- * Pipeline per file: HTTP stream -> gzip inflate -> parse `words count`
- * lines (count-descending, so the read simply stops at the cap) -> join the
- * words with NUL into one trie key -> `PackedTrie.of` -> codec write ->
- * `.part` -> atomic rename. Presence == valid, exactly like the wordlists.
+ * Pipeline: two HTTP streams -> gzip inflate -> parse `words count` lines
+ * (count-descending, so each read simply stops at its cap) -> intern the words
+ * into one shared vocabulary -> [NgramPackCodec] write -> `.part` -> atomic
+ * rename. Presence == valid, exactly like the wordlists.
+ *
+ * Both lists land in a single file. They share a vocabulary, so splitting them
+ * would store it twice, and one atomic rename makes a half-installed pack
+ * impossible rather than something to clean up after.
  *
  * Modeled on `EmojiDictDownloadManager`'s automatic pass: [ensure] is
  * silent, queues one language at a time, and a language that fails is
@@ -56,24 +58,30 @@ object NgramPackDownloadManager {
 
     private val _completions = MutableSharedFlow<String>(extraBufferCapacity = 8)
 
-    /** Emits a language id once both of its pack files are on disk. */
+    /** Emits a language id once its pack is on disk. */
     val completions: SharedFlow<String> = _completions.asSharedFlow()
 
-    fun bigramFile(filesDir: File, langId: String): File =
-        File(File(File(filesDir, "dict"), langId), "bigrams.wmdict")
+    fun packFile(filesDir: File, langId: String): File =
+        File(langDir(filesDir, langId), "ngrams.wmng")
 
-    fun trigramFile(filesDir: File, langId: String): File =
-        File(File(File(filesDir, "dict"), langId), "trigrams.wmdict")
+    private fun langDir(filesDir: File, langId: String) =
+        File(File(filesDir, "dict"), langId)
+
+    fun isDownloaded(filesDir: File, langId: String): Boolean =
+        packFile(filesDir, langId).isFile
 
     /**
-     * Whether a pack this build can read is already on disk. Judged by parsing
-     * the header rather than by file existence: a pack left by a superseded
-     * `.wmdict` format would otherwise make [ensure] early-return forever, so
-     * the language would never get a readable pack again.
+     * Removes the two-file `.wmdict` packs of the format this replaced.
+     *
+     * Eagerly, before the presence check rather than after a successful
+     * download: they are some 17 MB per language of a format nothing reads any
+     * more, and leaving them until the new pack lands is exactly the case where
+     * a full disk stops the new pack from landing at all.
      */
-    fun isDownloaded(filesDir: File, langId: String): Boolean =
-        PackedTrieCodec.isReadable(bigramFile(filesDir, langId)) ||
-            PackedTrieCodec.isReadable(trigramFile(filesDir, langId))
+    private fun deleteLegacy(filesDir: File, langId: String) {
+        File(langDir(filesDir, langId), "bigrams.wmdict").delete()
+        File(langDir(filesDir, langId), "trigrams.wmdict").delete()
+    }
 
     /**
      * Queues every catalogued language in [langIds] the device does not
@@ -87,6 +95,7 @@ object NgramPackDownloadManager {
                 val entry = NgramPackCatalog.forLanguage(langId) ?: continue
                 synchronized(jobs) {
                     if (langId in givenUp || jobs[langId]?.isActive == true) return@synchronized
+                    deleteLegacy(filesDir, langId)
                     if (isDownloaded(filesDir, langId)) return@synchronized
                     jobs[langId] = scope.launch {
                         gate.withLock { download(filesDir, entry) }
@@ -99,27 +108,36 @@ object NgramPackDownloadManager {
     private fun download(filesDir: File, entry: NgramPackEntry) {
         val langId = entry.languageId
         if (isDownloaded(filesDir, langId)) return
-        val ok = runCatching {
-            compileOne(entry.bigramUrl(), bigramFile(filesDir, langId), MAX_BIGRAMS, parts = 2)
-            compileOne(entry.trigramUrl(), trigramFile(filesDir, langId), MAX_TRIGRAMS, parts = 3)
-        }.isSuccess
+        val ok = runCatching { compile(filesDir, entry) }.isSuccess
         if (ok) {
             _completions.tryEmit(langId)
         } else {
-            // Half a pack is worse than none: a bigram file without its
-            // trigram sibling would look downloaded forever.
-            bigramFile(filesDir, langId).delete()
-            trigramFile(filesDir, langId).delete()
             synchronized(jobs) { givenUp.add(langId) }
         }
     }
 
-    private fun compileOne(url: String, target: File, cap: Int, parts: Int) {
-        val entries = ArrayList<Pair<String, Int>>(cap)
+    private fun compile(filesDir: File, entry: NgramPackEntry) {
+        val builder = NgramPackBuilder()
+        read(entry.bigramUrl(), MAX_BIGRAMS, parts = 2) { words, count ->
+            builder.addBigram(words[0], words[1], count)
+        }
+        read(entry.trigramUrl(), MAX_TRIGRAMS, parts = 3) { words, count ->
+            builder.addTrigram(words[0], words[1], words[2], count)
+        }
+        if (builder.isEmpty) throw IOException("empty ngram lists for ${entry.languageId}")
+        val target = packFile(filesDir, entry.languageId)
+        target.parentFile?.mkdirs()
+        val part = File(target.parentFile, target.name + ".part")
+        part.outputStream().use { out -> NgramPackCodec.write(builder.build(), out) }
+        if (!part.renameTo(target)) throw IOException("rename failed for $target")
+    }
+
+    private inline fun read(url: String, cap: Int, parts: Int, accept: (List<String>, Int) -> Unit) {
+        var taken = 0
         openStream(url).use { raw ->
             GZIPInputStream(raw).bufferedReader().useLines { lines ->
                 for (line in lines) {
-                    if (entries.size >= cap) break
+                    if (taken >= cap) break
                     val trimmed = line.trim()
                     if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
                     val separator = trimmed.lastIndexOf(' ')
@@ -128,22 +146,11 @@ object NgramPackDownloadManager {
                     val words = trimmed.substring(0, separator).trim().split(' ')
                     if (words.size != parts) continue
                     if (words.any { it.isEmpty() || it.length > MAX_WORD_LENGTH }) continue
-                    // Joined directly rather than through the vararg key():
-                    // a spread would copy the array for every accepted line.
-                    entries.add(
-                        words.joinToString(NgramPack.SEPARATOR.toString()) { it.lowercase() }
-                            to count
-                    )
+                    accept(words.map { it.lowercase() }, count)
+                    taken++
                 }
             }
         }
-        if (entries.isEmpty()) throw IOException("empty ngram list at $url")
-        target.parentFile?.mkdirs()
-        val part = File(target.parentFile, target.name + ".part")
-        part.outputStream().use { out ->
-            PackedTrieCodec.write(PackedTrie.of(entries), out)
-        }
-        if (!part.renameTo(target)) throw IOException("rename failed for $target")
     }
 
     private fun openStream(url: String): InputStream {

@@ -110,6 +110,7 @@ import com.wasimaster.wmkeyboard.core.prediction.ContactNames
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryStore
 import com.wasimaster.wmkeyboard.core.prediction.CompositeWordSource
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
+import com.wasimaster.wmkeyboard.core.prediction.MappedNgramPack
 import com.wasimaster.wmkeyboard.core.prediction.MappedTrie
 import com.wasimaster.wmkeyboard.core.prediction.BengaliSpellingMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
@@ -13063,8 +13064,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun loadNgramPack(langId: String): NgramPack {
         if (!userUnlocked) return NgramPack.EMPTY
         return NgramPack.of(
-            MappedTrie.open(NgramPackDownloadManager.bigramFile(filesDir, langId)),
-            MappedTrie.open(NgramPackDownloadManager.trigramFile(filesDir, langId)),
+            MappedNgramPack.open(NgramPackDownloadManager.packFile(filesDir, langId)),
         )
     }
 

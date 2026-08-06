@@ -1,9 +1,9 @@
 package com.wasimaster.wmkeyboard.core.prediction.eval
 
-import com.wasimaster.wmkeyboard.core.prediction.MappedTrie
+import com.wasimaster.wmkeyboard.core.prediction.MappedNgramPack
 import com.wasimaster.wmkeyboard.core.prediction.NgramPack
-import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
-import com.wasimaster.wmkeyboard.core.prediction.PackedTrieCodec
+import com.wasimaster.wmkeyboard.core.prediction.NgramPackBuilder
+import com.wasimaster.wmkeyboard.core.prediction.NgramPackCodec
 import java.io.File
 import kotlin.random.Random
 
@@ -34,18 +34,27 @@ object SyntheticNgramPack {
         bigrams: Int = BIGRAMS,
         trigrams: Int = TRIGRAMS,
         seed: Long = 7L,
-    ): NgramPack {
-        val sampler = Sampler(dictionary, Random(seed))
-        return NgramPack.of(
-            compile(File(dir, "bigrams.wmdict"), sampler.pairs(bigrams, parts = 2)),
-            compile(File(dir, "trigrams.wmdict"), sampler.pairs(trigrams, parts = 3)),
-        )
-    }
+    ): NgramPack = NgramPack.of(mapped(dictionary, dir, bigrams, trigrams, seed))
 
-    private fun compile(file: File, entries: List<Pair<String, Int>>): MappedTrie {
-        file.parentFile?.mkdirs()
-        file.outputStream().use { PackedTrieCodec.write(PackedTrie.of(entries), it) }
-        return MappedTrie.open(file) ?: error("failed to map ${file.name}")
+    fun mapped(
+        dictionary: List<Pair<String, Int>>,
+        dir: File,
+        bigrams: Int = BIGRAMS,
+        trigrams: Int = TRIGRAMS,
+        seed: Long = 7L,
+    ): MappedNgramPack {
+        val sampler = Sampler(dictionary, Random(seed))
+        val builder = NgramPackBuilder()
+        for ((words, count) in sampler.pairs(bigrams, parts = 2)) {
+            builder.addBigram(words[0], words[1], count)
+        }
+        for ((words, count) in sampler.pairs(trigrams, parts = 3)) {
+            builder.addTrigram(words[0], words[1], words[2], count)
+        }
+        dir.mkdirs()
+        val file = File(dir, "ngrams.wmng")
+        file.outputStream().use { NgramPackCodec.write(builder.build(), it) }
+        return MappedNgramPack.open(file) ?: error("failed to map ${file.name}")
     }
 
     /** Draws words in proportion to their dictionary frequency. */
@@ -74,21 +83,19 @@ object SyntheticNgramPack {
             return lo
         }
 
-        /** [count] distinct NUL-joined keys of [parts] words, with plausible counts. */
-        fun pairs(count: Int, parts: Int): List<Pair<String, Int>> {
-            val separator = NgramPack.SEPARATOR.toString()
-            val seen = HashSet<String>(count * 2)
-            val out = ArrayList<Pair<String, Int>>(count)
+        /** [count] distinct n-grams of [parts] words, with plausible counts. */
+        fun pairs(count: Int, parts: Int): List<Pair<List<String>, Int>> {
+            val seen = HashSet<List<Int>>(count * 2)
+            val out = ArrayList<Pair<List<String>, Int>>(count)
             while (out.size < count) {
                 val picked = IntArray(parts) { pick() }
-                val key = picked.joinToString(separator) { words[it] }
-                if (!seen.add(key)) continue
+                if (!seen.add(picked.toList())) continue
                 // A pair is about as common as its words co-occurring by
                 // chance would be, which reproduces the long tail the real
                 // lists have without needing them.
                 var joint = frequency[picked[0]].toLong()
                 for (i in 1 until parts) joint = joint * frequency[picked[i]] / total
-                out.add(key to joint.coerceIn(1L, Int.MAX_VALUE.toLong()).toInt())
+                out.add(picked.map { words[it] } to joint.coerceIn(1L, Int.MAX_VALUE.toLong()).toInt())
             }
             return out
         }

@@ -3,7 +3,11 @@ package com.wasimaster.wmkeyboard.core.prediction
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import java.io.ByteArrayOutputStream
 import java.io.File
+import kotlin.random.Random
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -14,35 +18,33 @@ class NgramPackTest {
     @get:Rule
     val temp = TemporaryFolder()
 
-    /** Compile entries the way NgramPackDownloadManager does and mmap them
-     * back — the round trip the real pipeline takes. */
-    private fun compile(name: String, entries: List<Pair<String, Int>>): WordSource {
-        val file = File(temp.root, name)
-        ByteArrayOutputStream().use { bytes ->
-            PackedTrieCodec.write(PackedTrie.of(entries), bytes)
-            file.writeBytes(bytes.toByteArray())
+    private fun compareUnsigned(a: ByteArray, b: ByteArray): Int {
+        for (i in 0 until minOf(a.size, b.size)) {
+            val diff = (a[i].toInt() and 0xFF) - (b[i].toInt() and 0xFF)
+            if (diff != 0) return diff
         }
-        return MappedTrie.open(file) ?: error("failed to map $name")
+        return a.size - b.size
     }
 
-    private fun pack(): NgramPack {
-        val bigrams = compile(
-            "bigrams.wmdict",
-            listOf(
-                NgramPack.key("of", "the") to 204351,
-                NgramPack.key("of", "a") to 50000,
-                NgramPack.key("in", "the") to 179968,
-            ),
-        )
-        val trigrams = compile(
-            "trigrams.wmdict",
-            listOf(
-                NgramPack.key("one", "of", "the") to 16821,
-                NgramPack.key("one", "of", "us") to 900,
-            ),
-        )
-        return NgramPack.of(bigrams, trigrams)
+    /** Writes and mmaps a pack the way the download pipeline does. */
+    private fun compile(name: String, build: NgramPackBuilder.() -> Unit): MappedNgramPack {
+        val file = File(temp.root, name)
+        ByteArrayOutputStream().use { bytes ->
+            NgramPackCodec.write(NgramPackBuilder().apply(build).build(), bytes)
+            file.writeBytes(bytes.toByteArray())
+        }
+        return MappedNgramPack.open(file) ?: error("failed to map $name")
     }
+
+    private fun mapped(): MappedNgramPack = compile("ngrams.wmng") {
+        addBigram("of", "the", 204351)
+        addBigram("of", "a", 50000)
+        addBigram("in", "the", 179968)
+        addTrigram("one", "of", "the", 16821)
+        addTrigram("one", "of", "us", 900)
+    }
+
+    private fun pack(): NgramPack = NgramPack.of(mapped())
 
     @Test
     fun countsAndFollowersRoundTrip() {
@@ -54,12 +56,157 @@ class NgramPackTest {
         assertEquals(204351.0, p.bigramCount("of", "the").toDouble(), 204351 * 0.001)
         assertEquals(204351.0, p.bigramCount("OF", "The").toDouble(), 204351 * 0.001) // case-folded
         assertEquals(0, p.bigramCount("of", "zzz"))
+        assertEquals(0, p.bigramCount("zzz", "the"))
         assertEquals(16821.0, p.trigramCount("one", "of", "the").toDouble(), 16821 * 0.001)
-        // Followers come best-first via the trie's branch-and-bound.
+        assertEquals(0, p.trigramCount("one", "of", "zzz"))
+        assertEquals(0, p.trigramCount("zzz", "of", "the"))
         assertEquals(listOf("the", "a"), p.nextWords("of", 5))
         assertEquals(listOf("the", "us"), p.nextWordsAfter("one", "of", 5))
         assertTrue(p.nextWords("zzz", 5).isEmpty())
+        assertTrue(p.nextWordsAfter("zzz", "of", 5).isEmpty())
         assertTrue(NgramPack.EMPTY.nextWords("of", 5).isEmpty())
+        assertTrue(NgramPack.EMPTY.isEmpty)
+        assertFalse(p.isEmpty)
+    }
+
+    @Test
+    fun vocabularyIsRankedByUtf8BytesAndRoundTrips() {
+        // The invariant every lookup rests on: a run sorted by follower id is
+        // sorted alphabetically, which is only true if ids are UTF-8 ranks.
+        val words = listOf("of", "the", "a", "in", "zebra", "Ápple".lowercase(), "ñu", "日本")
+        val m = compile("vocab.wmng") {
+            for (w in words) addBigram("head", w, 100)
+        }
+        var previous: ByteArray? = null
+        for (id in 0 until words.size + 1) {
+            val word = m.word(id) ?: continue
+            assertEquals("idOf(word(id)) for id $id", id, m.idOf(word))
+            val bytes = word.toByteArray(Charsets.UTF_8)
+            previous?.let {
+                assertTrue("vocab out of UTF-8 order at $id", compareUnsigned(it, bytes) < 0)
+            }
+            previous = bytes
+        }
+        assertEquals(-1, m.idOf("notpresent"))
+        assertNull(m.word(-1))
+        assertNull(m.word(9999))
+    }
+
+    @Test
+    fun theLastFollowerInEachSectionIsReadable() {
+        // A u24 is read as one getInt and a u48 as one getLong, so the final
+        // element of each packed section reads past itself. Without the
+        // writer's tail padding this is the query that throws, and only this
+        // one — the file opens and every other lookup works.
+        val words = (0 until 400).map { "w%03d".format(it) }
+        val m = compile("tail.wmng") {
+            for ((i, w) in words.withIndex()) {
+                addBigram("head", w, i + 1)
+                addTrigram("head", "two", w, i + 1)
+            }
+        }
+        val last = words.last()
+        assertEquals(400, m.bigramCount("head", last))
+        assertEquals(400, m.trigramCount("head", "two", last))
+        // And the highest-numbered context key, which is the u48 tail.
+        assertEquals(listOf(last), m.nextWordsAfter("head", "two", 1))
+    }
+
+    @Test
+    fun followersComeBackBestFirstWithAlphabeticalTies() {
+        val m = compile("order.wmng") {
+            addBigram("x", "delta", 10)
+            addBigram("x", "alpha", 50)
+            addBigram("x", "charlie", 50)
+            addBigram("x", "bravo", 90)
+        }
+        assertEquals(listOf("bravo", "alpha", "charlie", "delta"), m.nextWords("x", 10))
+        // Truncation keeps the head of that same order.
+        assertEquals(listOf("bravo"), m.nextWords("x", 1))
+        assertEquals(listOf("bravo", "alpha"), m.nextWords("x", 2))
+        assertTrue(m.nextWords("x", 0).isEmpty())
+    }
+
+    @Test
+    fun everyPairSurvivesAFuzzRoundTrip() {
+        val random = Random(11)
+        val vocabulary = (0 until 300).map { "v$it" }
+        val expected = LinkedHashMap<Pair<String, String>, Int>()
+        val builder = NgramPackBuilder()
+        while (expected.size < 4000) {
+            val key = vocabulary.random(random) to vocabulary.random(random)
+            if (expected.containsKey(key)) continue
+            val count = random.nextInt(1, 5_000_000)
+            expected[key] = count
+            builder.addBigram(key.first, key.second, count)
+        }
+        val file = File(temp.root, "fuzz.wmng")
+        ByteArrayOutputStream().use { bytes ->
+            NgramPackCodec.write(builder.build(), bytes)
+            file.writeBytes(bytes.toByteArray())
+        }
+        val m = MappedNgramPack.open(file) ?: error("failed to map fuzz pack")
+        for ((key, count) in expected) {
+            val got = m.bigramCount(key.first, key.second)
+            assertEquals("count for $key", count.toDouble(), got.toDouble(), count * 0.001)
+        }
+        // Absent pairs over a vocabulary that does contain both words.
+        var misses = 0
+        for (a in vocabulary) {
+            for (b in vocabulary) {
+                if ((a to b) !in expected && misses++ < 500) assertEquals(0, m.bigramCount(a, b))
+            }
+        }
+    }
+
+    @Test
+    fun corruptAndTruncatedPacksReadAsAbsent() {
+        val file = File(temp.root, "src.wmng")
+        ByteArrayOutputStream().use { bytes ->
+            NgramPackCodec.write(
+                NgramPackBuilder().apply { addBigram("of", "the", 7) }.build(),
+                bytes,
+            )
+            file.writeBytes(bytes.toByteArray())
+        }
+        val good = file.readBytes()
+        assertNotNull(MappedNgramPack.open(file))
+
+        fun opens(mutate: ByteArray.() -> Unit): Boolean {
+            val copy = good.copyOf().apply(mutate)
+            val target = File(temp.root, "mutated.wmng")
+            target.writeBytes(copy)
+            return MappedNgramPack.open(target) != null
+        }
+        assertFalse("bad magic", opens { this[0] = 0 })
+        assertFalse("bad version", opens { this[5] = 9 })
+        assertFalse("zero vocab", opens { for (i in 8..11) this[i] = 0 })
+        for (cut in listOf(4, 32, good.size / 2, good.size - 1)) {
+            val target = File(temp.root, "cut$cut.wmng")
+            target.writeBytes(good.copyOf(cut))
+            assertNull("truncated at $cut", MappedNgramPack.open(target))
+        }
+        assertNull(MappedNgramPack.open(File(temp.root, "missing.wmng")))
+    }
+
+    @Test
+    fun repeatedAndAlternatingHeadsStayCorrectThroughTheResolveCache() {
+        // Two bigram slots and one trigram slot are cached; a reranker pass
+        // alternates between prev and prev2 and must not read one head's run
+        // for the other.
+        val m = mapped()
+        repeat(3) {
+            assertEquals(0, m.bigramCount("in", "a"))
+            assertEquals(204288, m.bigramCount("of", "the"))
+            assertEquals(179968, m.bigramCount("in", "the"))
+            assertEquals(50000, m.bigramCount("of", "a"))
+            assertEquals(0, m.bigramCount("zzz", "the"))
+            assertEquals(listOf("the"), m.nextWords("in", 1))
+            assertEquals(listOf("the", "a"), m.nextWords("of", 2))
+            assertEquals(16816, m.trigramCount("one", "of", "the"))
+            assertEquals(0, m.trigramCount("one", "in", "the"))
+            assertEquals(900, m.trigramCount("one", "of", "us"))
+        }
     }
 
     @Test
