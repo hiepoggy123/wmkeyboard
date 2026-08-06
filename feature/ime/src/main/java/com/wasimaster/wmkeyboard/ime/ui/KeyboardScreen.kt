@@ -6481,8 +6481,150 @@ private fun DragScopeLabel(
 
 // ---- key grid ----
 
-/** One sampled point of the glide trail, timestamped for age-based fading. */
-private data class TrailPoint(val position: Offset, val timeMs: Long)
+/**
+ * The comet trail behind a gliding finger.
+ *
+ * The points live in plain arrays that Compose cannot observe, because a stroke
+ * appends one every touch report — up to 240 a second. Holding them in snapshot
+ * state and reading them from the composable body, which is what this replaced,
+ * recomposed the whole key grid at that rate and allocated a fresh list per
+ * sample. The rule the rest of the keyboard already follows applies here too:
+ * gesture state is never read at composition scope.
+ *
+ * So the reads are split by phase:
+ *
+ *  - [revision] changes on every sample and every frame. Read it from a **draw**
+ *    lambda and only the draw is invalidated. [sampleCount] takes it as an
+ *    argument so a call site cannot forget to subscribe.
+ *  - [headX]/[headY] follow the fingertip and are read from a **placement**
+ *    lambda (`Modifier.offset`), so the floating word pill re-places without
+ *    recomposing.
+ *  - [visible] and [released] are ordinary snapshot state, but they flip twice
+ *    a stroke rather than hundreds of times, so the body may read them to decide
+ *    whether the trail and the pill exist at all.
+ */
+@Stable
+internal class GlideTrail {
+
+    private var xs = FloatArray(INITIAL_CAPACITY)
+    private var ys = FloatArray(INITIAL_CAPACITY)
+    private var ts = LongArray(INITIAL_CAPACITY)
+    private var count = 0
+
+    /** Bumped by every append, expiry and frame tick. Draw-phase subscription. */
+    var revision by mutableIntStateOf(0)
+        private set
+
+    /** Set while the trail has anything to draw; the body may read this. */
+    var visible by mutableStateOf(false)
+        private set
+
+    /** The finger has lifted and the trail is fading in place. */
+    var released by mutableStateOf(false)
+        private set
+
+    /** Latest frame time, for the age fade. Plain — [revision] carries the invalidation. */
+    var nowMs = 0L
+        private set
+
+    var headX by mutableFloatStateOf(0f)
+        private set
+
+    var headY by mutableFloatStateOf(0f)
+        private set
+
+    /**
+     * How many live samples there are. Takes [revision] so that reading the
+     * count forces a read of the snapshot state that actually changes — the
+     * arrays behind it are invisible to Compose, so a call site that skipped
+     * the subscription would draw once and then freeze.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun sampleCount(revision: Int): Int = count
+
+    fun x(i: Int): Float = xs[i]
+
+    fun y(i: Int): Float = ys[i]
+
+    fun ageAt(i: Int): Long = nowMs - ts[i]
+
+    /** A stroke has taken over from a tap; start a fresh trail. */
+    fun begin() {
+        count = 0
+        released = false
+        visible = true
+        revision++
+    }
+
+    /** Appends the sample and drops whatever has aged past [keepMs]. */
+    fun add(x: Float, y: Float, timeMs: Long, keepMs: Long) {
+        if (count == xs.size) grow()
+        xs[count] = x
+        ys[count] = y
+        ts[count] = timeMs
+        count++
+        nowMs = timeMs
+        headX = x
+        headY = y
+        expire(timeMs, keepMs)
+        revision++
+    }
+
+    fun release() {
+        released = true
+    }
+
+    /**
+     * Advances the fade clock to [now]. Returns false once a released trail has
+     * fully expired, which is the frame loop's signal to stop.
+     */
+    fun tick(now: Long, keepMs: Long): Boolean {
+        nowMs = now
+        if (released) {
+            expire(now, keepMs)
+            if (count == 0) {
+                visible = false
+                revision++
+                return false
+            }
+        }
+        revision++
+        return true
+    }
+
+    /** Abandons the trail outright — the feature switched off, or the layout changed. */
+    fun clear() {
+        count = 0
+        released = true
+        visible = false
+        revision++
+    }
+
+    private fun expire(now: Long, keepMs: Long) {
+        var drop = 0
+        while (drop < count && now - ts[drop] > keepMs) drop++
+        if (drop == 0) return
+        val kept = count - drop
+        if (kept > 0) {
+            System.arraycopy(xs, drop, xs, 0, kept)
+            System.arraycopy(ys, drop, ys, 0, kept)
+            System.arraycopy(ts, drop, ts, 0, kept)
+        }
+        count = kept
+    }
+
+    private fun grow() {
+        val bigger = xs.size * 2
+        xs = xs.copyOf(bigger)
+        ys = ys.copyOf(bigger)
+        ts = ts.copyOf(bigger)
+    }
+
+    private companion object {
+        /** ~350 ms of samples at 120 Hz; longer trails grow once and stay grown. */
+        const val INITIAL_CAPACITY = 64
+    }
+}
 
 /**
  * Takes the place of the `?123` layer's own digit row when the number row is
@@ -7155,10 +7297,7 @@ private fun KeyRows(
     // made against the old grid (the down-observer that would have cleared it is
     // gone once smartHit is false).
     LaunchedEffect(smartHit, layout) { hitRemap.clear() }
-    var trail by remember { mutableStateOf<List<TrailPoint>>(emptyList()) }
-    var trailReleased by remember { mutableStateOf(false) }
-    // Frame clock driving the fade; points older than trailMs vanish.
-    var trailNow by remember { mutableLongStateOf(0L) }
+    val trail = remember { GlideTrail() }
     val kbTheme = LocalKbTheme.current
     val trailColor = kbTheme.gestureTrail
     // The board's one preview bubble. Hoisted here so pressing a key publishes to
@@ -7234,17 +7373,20 @@ private fun KeyRows(
         onDispose { KeyboardPassthrough.publishRegion(null) }
     }
 
-    LaunchedEffect(trail.isNotEmpty()) {
-        while (trail.isNotEmpty()) {
-            withFrameMillis { now ->
-                trailNow = now
-                // After finger-up the trail is left in place to fade out on
-                // its own; drop it once every point has expired.
-                if (trailReleased && trail.all { now - it.timeMs > trailMs }) {
-                    trail = emptyList()
-                }
-            }
+    // Drives the age fade. Keyed on `visible`, which flips twice a stroke, so
+    // this restarts when a glide begins and ends — not when the finger moves.
+    // After finger-up the trail is left in place to fade out on its own; tick
+    // reports false once every point has expired.
+    LaunchedEffect(trail.visible) {
+        while (trail.visible) {
+            withFrameMillis { now -> trail.tick(now, trailMs) }
         }
+    }
+    // A trail outlives the thing that drew it otherwise: switching the feature
+    // off or changing the layout leaves the last stroke painted over the new
+    // grid, because the pointer loop that would have released it is gone.
+    DisposableEffect(gestureEnabled, layout) {
+        onDispose { trail.clear() }
     }
 
     Box(
@@ -7281,8 +7423,14 @@ private fun KeyRows(
                     @Suppress("DoubleMutabilityForCollection")
                     var seg = ArrayList<GesturePoint>()
                     var wasOverSpace = false
-                    var samples = 0
-                    val trailPoints = ArrayList<TrailPoint>()
+                    // Wall-clock stamp of the last preview. Sample counting was
+                    // digitizer-rate dependent — every sixth report is ten
+                    // decodes a second at 60 Hz and forty at 240 Hz, so the
+                    // same swipe cost four times as much on a better screen.
+                    var lastPreviewMs = 0L
+                    // The letter grid, built once per stroke rather than per
+                    // preview: it cannot change while a finger is down.
+                    var keyList: List<KeyCenter>? = null
                     seg.add(GesturePoint(down.position.x, down.position.y, down.uptimeMillis))
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -7296,11 +7444,13 @@ private fun KeyRows(
                             nearLetterKey(down.position, keyCenters, keyWidth.value)
                         ) {
                             isGesture = true
-                            trailReleased = false
+                            trail.begin()
+                            keyList = keyCenters.map { (char, center) ->
+                                KeyCenter(char, center.x, center.y)
+                            }
                         }
                         if (isGesture) {
                             change.consume()
-                            samples++
                             // Crossing the spacebar ends the current word and
                             // begins the next, so a stroke can chain words
                             // without lifting. Spacebar points anchor no letter,
@@ -7325,41 +7475,38 @@ private fun KeyRows(
                                 )
                             }
                             wasOverSpace = overSpace
-                            trailPoints.add(TrailPoint(change.position, change.uptimeMillis))
-                            // Long swipes keep only the still-visible tail.
-                            while (trailPoints.size > 1 &&
-                                change.uptimeMillis - trailPoints.first().timeMs > trailMs
-                            ) {
-                                trailPoints.removeAt(0)
-                            }
-                            trailNow = change.uptimeMillis
-                            trail = trailPoints.toList()
-                            // Live preview of the word being drawn now, every
-                            // few samples.
-                            if (samples % 6 == 0 && seg.size >= 3) {
-                                onGesturePreview(
-                                    seg.toList(),
-                                    keyCenters.map { (char, center) -> KeyCenter(char, center.x, center.y) },
-                                    keyWidth.value,
-                                )
+                            // Appends and drops the aged tail in one go; only
+                            // the draw phase ever reads it back.
+                            trail.add(
+                                change.position.x,
+                                change.position.y,
+                                change.uptimeMillis,
+                                trailMs,
+                            )
+                            // Live preview of the word being drawn now, at a
+                            // fixed wall-clock cadence.
+                            val sincePreview = change.uptimeMillis - lastPreviewMs
+                            if (sincePreview >= PREVIEW_INTERVAL_MS && seg.size >= 3) {
+                                lastPreviewMs = change.uptimeMillis
+                                keyList?.let { keys ->
+                                    onGesturePreview(seg.toList(), keys, keyWidth.value)
+                                }
                             }
                         }
                     }
                     if (isGesture) {
                         if (seg.size >= 4) segments.add(seg)
                         val words = segments.filter { it.size >= 4 }
-                        if (words.isNotEmpty()) {
-                            val keyList = keyCenters.map { (char, center) ->
-                                KeyCenter(char, center.x, center.y)
-                            }
+                        val keys = keyList
+                        if (words.isNotEmpty() && keys != null) {
                             if (words.size > 1) {
-                                onGestureWords(words, keyList, keyWidth.value)
+                                onGestureWords(words, keys, keyWidth.value)
                             } else {
-                                onGesture(words.first(), keyList, keyWidth.value)
+                                onGesture(words.first(), keys, keyWidth.value)
                             }
                         }
+                        trail.release()
                     }
-                    trailReleased = true
                 }
             }
             // Handwriting: a drag over the keys is one ink stroke instead of a
@@ -7628,23 +7775,26 @@ private fun KeyRows(
         // anything is held — see [KeyPreviewOverlay].
         KeyPreviewOverlay(keyPreview, state.settings, boxOrigin, boxSize)
 
-        if (trail.size > 1) {
+        // `visible` flips twice a stroke, so this composes and decomposes once
+        // per glide. Everything that changes per sample is read inside the draw
+        // lambda below, where it invalidates the draw alone.
+        if (trail.visible) {
             Canvas(modifier = Modifier.matchParentSize()) {
                 // Comet-style trail: each segment fades and thins with age,
                 // so the tail dissolves behind the finger instead of leaving
                 // the whole path on screen. Head width, life span and peak
                 // opacity all come from the gesture settings.
+                val count = trail.sampleCount(trail.revision)
                 val headWidth = trailHeadWidth.dp.toPx()
                 val tailWidth = headWidth * 0.3f
-                for (i in 1 until trail.size) {
-                    val point = trail[i]
+                for (i in 1 until count) {
                     val life =
-                        (1f - (trailNow - point.timeMs) / trailMs.toFloat()).coerceIn(0f, 1f)
+                        (1f - trail.ageAt(i) / trailMs.toFloat()).coerceIn(0f, 1f)
                     if (life == 0f) continue
                     drawLine(
                         color = trailColor.copy(alpha = trailOpacity * life),
-                        start = trail[i - 1].position,
-                        end = point.position,
+                        start = Offset(trail.x(i - 1), trail.y(i - 1)),
+                        end = Offset(trail.x(i), trail.y(i)),
                         strokeWidth = tailWidth + (headWidth - tailWidth) * life,
                         cap = StrokeCap.Round,
                     )
@@ -7697,7 +7847,7 @@ private fun KeyRows(
         // Floating preview of the word the swipe currently decodes to,
         // hovering above the finger like a key popup.
         val glideWord = state.glideWord
-        if (glideWord != null && trail.isNotEmpty() && !trailReleased) {
+        if (glideWord != null && trail.visible && !trail.released) {
             val theme = LocalKbTheme.current
             val display = when (state.shiftState) {
                 ShiftState.CAPS_LOCK -> glideWord.uppercase()
@@ -7705,14 +7855,16 @@ private fun KeyRows(
                 ShiftState.OFF -> glideWord
             }
             var pillSize by remember { mutableStateOf(IntSize.Zero) }
-            val head = trail.last().position
             val gapPx = with(LocalDensity.current) { 56.dp.roundToPx() }
             Surface(
                 modifier = Modifier
                     .offset {
-                        val x = (head.x - pillSize.width / 2f).toInt()
+                        // The fingertip is read here, in the placement lambda,
+                        // rather than in the body: following the finger then
+                        // costs a re-place instead of a recomposition.
+                        val x = (trail.headX - pillSize.width / 2f).toInt()
                             .coerceIn(0, (boxSize.width - pillSize.width).coerceAtLeast(0))
-                        val y = (head.y - gapPx - pillSize.height).toInt().coerceAtLeast(0)
+                        val y = (trail.headY - gapPx - pillSize.height).toInt().coerceAtLeast(0)
                         IntOffset(x, y)
                     }
                     .onGloballyPositioned { pillSize = it.size },
@@ -8255,6 +8407,16 @@ private fun keyGapV(settings: KeyboardSettings): Dp = KeyGapVertical * settings.
  * 3.5× as far (1 + 2.5) as it normally would before it is read as a swipe-word.
  */
 private const val POST_TYPE_SLOP_BOOST = 2.5f
+
+/**
+ * How often a glide in progress asks the decoder for a preview word.
+ *
+ * Counting samples instead ties the rate to the digitizer: every sixth touch
+ * report is ten decodes a second on a 60 Hz panel and forty on a 240 Hz one, so
+ * the better screen paid four times as much for the same swipe. 40 ms is about
+ * two frames — fast enough that the floating word keeps up with the finger.
+ */
+private const val PREVIEW_INTERVAL_MS = 40L
 
 /** Vertical padding of the [KeyRows] column, mirrored into [keyRowsHeight]. */
 private val KeyRowsPadVertical = 2.dp

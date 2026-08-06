@@ -315,6 +315,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -329,6 +330,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 import java.util.EnumMap
+import java.util.concurrent.atomic.AtomicInteger
 import com.wasimaster.wmkeyboard.common.R as CommonR
 
 /**
@@ -806,7 +808,29 @@ open class WMKeyboardService : InputMethodService() {
 
     /** Last word committed by a swipe, so tapping an alternate replaces it. */
     private var lastGestureWord: String? = null
-    private var previewJob: Job? = null
+
+    /**
+     * Live-preview requests from a glide in progress. Conflated: a preview that
+     * has not started yet is worth nothing once a newer one exists, and a swipe
+     * issues one every 40 ms. One long-lived consumer drains it, in place of
+     * cancelling and relaunching a job per preview.
+     */
+    private val gesturePreviews = Channel<GesturePreviewRequest>(Channel.CONFLATED)
+
+    /**
+     * Bumped when a swipe commits. A preview decoded from an earlier stroke must
+     * not overwrite the strip afterwards — with a cancellable job that was the
+     * cancel's job, and a conflated channel needs it stated explicitly.
+     */
+    private val gestureGeneration = AtomicInteger(0)
+
+    /**
+     * One decoder per (grid, key width). Constructing it re-indexes the key
+     * centres, which a swipe was paying for on every preview event.
+     */
+    private var cachedDecoder: GestureDecoder? = null
+    private var cachedDecoderKeys: List<KeyCenter> = emptyList()
+    private var cachedDecoderWidth = 0f
 
     // ---- network tool state (translate, gif/sticker, web/image search) ----
     private var translateJob: Job? = null
@@ -1325,6 +1349,9 @@ open class WMKeyboardService : InputMethodService() {
 
         userUnlocked = DirectBoot.isUserUnlocked(this)
         DebugLog.i("ime", "service created (unlocked=$userUnlocked)")
+        // Parks on an empty channel until the first glide; costs nothing until
+        // then, and saves a job launch per preview once a finger is down.
+        startGesturePreviewConsumer()
         // A process that started on the lock screen never ran ML Kit's init
         // provider, and every ML Kit tool in it — handwriting, OCR, QR, doc
         // scan — stays broken until it is initialized by hand.
@@ -6865,6 +6892,24 @@ open class WMKeyboardService : InputMethodService() {
         cachedGestureLexicon = null
     }
 
+    /**
+     * The decoder for this grid, rebuilt only when the grid itself changes.
+     * The UI hands the same key list back for every preview within a stroke, so
+     * the equality check below is an identity check in the common case.
+     */
+    @Synchronized
+    private fun decoderFor(keys: List<KeyCenter>, keyWidthPx: Float): GestureDecoder {
+        val cached = cachedDecoder
+        if (cached != null && cachedDecoderWidth == keyWidthPx && cachedDecoderKeys == keys) {
+            return cached
+        }
+        return GestureDecoder(keys, keyWidthPx).also {
+            cachedDecoder = it
+            cachedDecoderKeys = keys
+            cachedDecoderWidth = keyWidthPx
+        }
+    }
+
     /** Mid-swipe: show the current best candidates without committing. */
     fun onGesturePreview(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
         val state = _uiState.value
@@ -6872,14 +6917,34 @@ open class WMKeyboardService : InputMethodService() {
         if (!state.language.isEnglish || state.typingTestActive) return
         val lexicon = gestureLexicon
         if (lexicon.isEmpty() || keys.isEmpty()) return
-        previewJob?.cancel()
-        previewJob = serviceScope.launch {
-            val candidates = withContext(Dispatchers.Default) {
-                // Same lexicon as the final decode, so the previewed word
-                // never differs from the one that commits on finger-up.
-                GestureDecoder(keys, keyWidthPx).decode(points, gestureDecodeLexicon(), contextBoosts = gestureContextBoosts())
-            }
-            if (candidates.isNotEmpty()) {
+        gesturePreviews.trySend(
+            GesturePreviewRequest(points, keys, keyWidthPx, gestureGeneration.get()),
+        )
+    }
+
+    /**
+     * Drains [gesturePreviews] for the life of the service. One coroutine
+     * instead of a cancel-and-relaunch per preview, and the generation check is
+     * what the cancel used to buy: a preview decoded before the swipe committed
+     * must not put its own candidates back on the strip afterwards.
+     */
+    private fun startGesturePreviewConsumer() {
+        serviceScope.launch {
+            for (request in gesturePreviews) {
+                if (request.generation != gestureGeneration.get()) continue
+                val candidates = withContext(Dispatchers.Default) {
+                    // Same lexicon as the final decode, so the previewed word
+                    // never differs from the one that commits on finger-up.
+                    decoderFor(request.keys, request.keyWidthPx).decode(
+                        request.points,
+                        gestureDecodeLexicon(),
+                        contextBoosts = gestureContextBoosts(),
+                    )
+                }
+                if (candidates.isEmpty()) continue
+                // Re-checked after the decode: the finger may have lifted and
+                // the word committed while this was running.
+                if (request.generation != gestureGeneration.get()) continue
                 _uiState.update {
                     it.copy(
                         suggestions = candidates.map { candidate -> candidate.word },
@@ -6903,13 +6968,15 @@ open class WMKeyboardService : InputMethodService() {
         if (lexicon.isEmpty() || keys.isEmpty()) return
 
         val shiftAtGesture = state.shiftState
-        previewJob?.cancel()
+        // Retires every preview from this stroke, in flight or queued.
+        gestureGeneration.incrementAndGet()
         suggestionJob?.cancel()
         gestureJob?.cancel()
         _uiState.update { it.copy(glideWord = null) }
         gestureJob = serviceScope.launch {
             val candidates = withContext(Dispatchers.Default) {
-                GestureDecoder(keys, keyWidthPx).decode(points, gestureDecodeLexicon(), contextBoosts = gestureContextBoosts())
+                decoderFor(keys, keyWidthPx)
+                    .decode(points, gestureDecodeLexicon(), contextBoosts = gestureContextBoosts())
             }
             // Debug builds only: typed content must never be logged in release.
             if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
@@ -6960,12 +7027,13 @@ open class WMKeyboardService : InputMethodService() {
         if (lexicon.isEmpty() || keys.isEmpty() || segments.isEmpty()) return
 
         val shiftAtGesture = state.shiftState
-        previewJob?.cancel()
+        // Retires every preview from this stroke, in flight or queued.
+        gestureGeneration.incrementAndGet()
         suggestionJob?.cancel()
         gestureJob?.cancel()
         _uiState.update { it.copy(glideWord = null) }
         gestureJob = serviceScope.launch {
-            val decoder = GestureDecoder(keys, keyWidthPx)
+            val decoder = decoderFor(keys, keyWidthPx)
             val lex = gestureDecodeLexicon()
             val ic = currentInputConnection ?: return@launch
             // Flush any composing text before the first glided word.
@@ -13632,3 +13700,15 @@ fun cursorLeftComposingRegion(
     candidatesEnd: Int,
 ): Boolean = candidatesStart >= 0 && candidatesEnd >= candidatesStart &&
     (newSelStart < candidatesStart || newSelEnd > candidatesEnd)
+
+/**
+ * One live-preview ask from a glide in progress. [generation] is the stroke it
+ * belongs to: a preview that finishes decoding after its swipe has committed is
+ * stale, and putting its candidates on the strip would undo the commit's own.
+ */
+private class GesturePreviewRequest(
+    val points: List<GesturePoint>,
+    val keys: List<KeyCenter>,
+    val keyWidthPx: Float,
+    val generation: Int,
+)
