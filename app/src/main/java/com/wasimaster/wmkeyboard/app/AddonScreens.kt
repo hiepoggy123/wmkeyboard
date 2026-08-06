@@ -725,6 +725,9 @@ private fun RequiresAwareInstall(
                 ) { Text(stringResource(R.string.addon_requires_all_action)) }
             },
             dismissButton = {
+                TextButton(onClick = { prompt = null }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
                 TextButton(
                     onClick = {
                         prompt = null
