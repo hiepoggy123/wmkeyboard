@@ -53,6 +53,12 @@
     <!-- %1$s is the English name of the language, for example "Bengali". -->
     <string name="languages_conjunct_backspace_info">Backspace usually deletes one code point at a time. This sometimes leaves half-formed clusters on the screen. With this setting on, one press deletes the whole cluster while you type <xliff:g id="language" example="Bengali">%1$s</xliff:g>. Other languages keep their own setting.</string>
 
+    <string name="languages_spelling_map_title">Spellings</string>
+    <string name="languages_spelling_map_row_title">Use known spellings</string>
+    <string name="languages_spelling_map_row_subtitle">Type "tmr" to get তোমার, and "table" to get টেবিল</string>
+    <!-- %1$s is the English name of the language, for example "Bengali". -->
+    <string name="languages_spelling_map_info">Some words are not spelled the way they sound. "Table" is written টেবিল, not তাবলে, and people type "tmr" for তোমার with no vowels at all. This setting uses a list of those spellings while you type <xliff:g id="language" example="Bengali">%1$s</xliff:g>, so you get the word people write. Turn it off to get the letter-for-letter reading instead. Other languages keep their own setting.</string>
+
     <string name="languages_numerals_title">Numerals</string>
     <!-- Fancy Text: the styled-letters pseudo-language. -->
     <string name="languages_fancy_style_title">Style</string>

@@ -1,6 +1,6 @@
 ---
 title: "Bengali"
-description: "First-class Bengali: Avro-style phonetic typing, the Probhat and Jatiya layouts, and English loanwords."
+description: "First-class Bengali: Avro-style phonetic typing, the Probhat and Jatiya layouts, and the spellings phonetic rules can't reach."
 sidebar:
   order: 3
 ---
@@ -39,7 +39,21 @@ A few more of the rules worth knowing:
 | `$` / `123` | ৳ / ১২৩ | currency and digits convert too |
 | `.` / `..` | । / `.` | a single dot is দাঁড়ি; two dots is a literal period |
 
-Loanwords get their own path: words like "keyboard" or "chair" don't have a conventional phonetic spelling in Bengali (কিবোর্ড, চেয়ার), so a curated list of roughly 2,300 English words mapped to their everyday Bengali spelling is checked before the phonetic engine runs, and a match there always wins over anything the transliterator would have produced. See [Downloadable dictionaries](/languages/dictionaries/) for how Bengali's dictionary and this loanword layer fit into suggestions generally.
+### Spellings the rules can't reach
+
+Some words just aren't spelled the way they sound, so a list of them is checked before the phonetic engine runs. A match there always wins over whatever the transliterator would have produced. Two kinds of word need this:
+
+- **English loanwords.** "Keyboard" is written কিবোর্ড and "chair" চেয়ার by convention, not by sound. Left to the rules, "table" would come out তাবলে instead of টেবিল. About 2,300 of these are listed by hand.
+- **Banglish as people actually type it.** Chat spelling drops vowels wholesale, and no phonetic rule can put back a vowel that was never typed. `tmr` is তোমার, `amk` is আমাকে, `trpr` is তারপর. Colloquial and regional inflections like `boltiso` (বলতিসো) are in the same list, which covers about 12,000 spellings drawn from a corpus of real Bengali chat.
+
+| you type | you get | without the list |
+| --- | --- | --- |
+| `tmr` | তোমার | ত্ম্র |
+| `amk` | আমাকে | আম্ক |
+| `tmi` | তুমি | টমি |
+| `table` | টেবিল | তাবলে |
+
+You can switch this off per language if you'd rather have the letter-for-letter reading (see **Spellings** under [Options](#options) below). See [Downloadable dictionaries](/languages/dictionaries/) for how Bengali's dictionary and these lists fit into suggestions generally.
 
 ## Choosing a layout: Avro, Probhat, or Jatiya
 
@@ -93,6 +107,7 @@ Open Bengali's own screen from **Languages** in the app, or search for it from *
 - **Dictionary** — Bengali ships with a bundled dictionary, and a downloadable wordlist (about 451,000 words) is available for better suggestions; you can also import your own list. See [Downloadable dictionaries](/languages/dictionaries/) for how sizes compare across languages.
 - **Emoji** — download the larger Bengali emoji-keyword pack here (about 3,900 emoji named; the bundled catalog's Bengali keywords already work without it). Downloads automatically if [Download automatically](/emoji/customization/) is on.
 
+- **Spellings** — <SettingsPath path="Languages / Bangla / Spellings / Use known spellings" />, on by default. This is the list described above: it's what makes `table` commit টেবিল rather than তাবলে, and `tmr` commit তোমার rather than ত্ম্র. Switch it off if you want the letter-for-letter reading instead, which is otherwise unreachable because the list outranks every other suggestion source. The setting is per language, so turning it off for Bengali says nothing about any other script.
 - **Clusters** — <SettingsPath path="Languages / Bangla / Clusters / Conjunct-aware backspace" />, covered above, off by default.
 
 One more Bengali-relevant setting lives outside this screen:

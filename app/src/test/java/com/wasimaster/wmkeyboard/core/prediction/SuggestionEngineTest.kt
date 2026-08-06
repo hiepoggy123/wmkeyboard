@@ -391,7 +391,7 @@ class SuggestionEngineTest {
 
     @Test fun avroLoanwordWinsOverPhonetics() {
         val dictionary = Trie()
-        val loanwords = EnglishBengaliMap.load(
+        val loanwords = BengaliSpellingMap.load(
             "keyboard\tকিবোর্ড\nchair\tচেয়ার\n".byteInputStream(Charsets.UTF_8)
         )
         val e = SuggestionEngine(

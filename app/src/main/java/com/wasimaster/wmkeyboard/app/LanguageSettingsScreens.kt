@@ -59,6 +59,7 @@ import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
+import com.wasimaster.wmkeyboard.core.prediction.BengaliSpellingMap
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.DeviceLocales
 import com.wasimaster.wmkeyboard.core.script.FancyStyles
@@ -636,6 +637,27 @@ internal fun LanguageDetailScreen(
                         lang.englishName,
                     ),
                 ) { scope.launch { repository.setConjunctBackspace(langId, it) } }
+            }
+        }
+    }
+
+    // Fixed spellings, for the languages that ship the lists. On by default:
+    // it is what makes "table" commit টেবিল rather than তাবলে, and "tmr" তোমার
+    // rather than ত্ম্র. Off is for the person who wants the letter-for-letter
+    // reading and cannot otherwise get it, since the map outranks every other
+    // suggestion source.
+    if (langId in BengaliSpellingMap.LANGUAGES) {
+        SettingsGroup(stringResource(R.string.languages_spelling_map_title)) {
+            item {
+                ToggleSetting(
+                    R.string.languages_spelling_map_row_title,
+                    stringResource(R.string.languages_spelling_map_row_subtitle),
+                    settings.suggestionStrip.spellingMapEnabledFor(langId),
+                    info = stringResource(
+                        R.string.languages_spelling_map_info,
+                        lang.englishName,
+                    ),
+                ) { scope.launch { repository.setSpellingMapEnabled(langId, it) } }
             }
         }
     }

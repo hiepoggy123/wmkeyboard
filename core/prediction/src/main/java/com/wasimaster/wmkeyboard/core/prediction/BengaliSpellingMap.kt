@@ -3,59 +3,81 @@ package com.wasimaster.wmkeyboard.core.prediction
 import java.io.InputStream
 
 /**
- * Manual English → Bengali map for common loanwords.
+ * Spellings that resolve to a fixed Bengali form, for the Avro input mode.
  *
- * Words like "keyboard" (কিবোর্ড) or "chair" (চেয়ার) are typed constantly in
- * Bengali script but are not reliably reachable from Avro phonetic rules —
- * their Bengali spelling is fixed by convention, not by sound-for-sound
- * transliteration. When the keyboard is in the Bengali (Avro) input mode,
- * the suggestion engine consults this map first so that typing the English
- * spelling offers the accepted Bengali form ahead of the raw transliteration.
+ * Two kinds of spelling need this, and neither is reachable from phonetic
+ * rules:
  *
- * The backing asset ([load]) is a two-column TSV (`english<TAB>bengali`).
- * A single English key may map to several Bengali forms (e.g. ticket →
- * টিকেট / টিকিট); they are returned in file order, most-preferred first.
+ *  - **English loanwords.** "keyboard" is written কিবোর্ড and "chair" চেয়ার by
+ *    convention, not by sound-for-sound transliteration. Left to the rules,
+ *    "table" would come out তাবলে rather than টেবিল.
+ *  - **Romanized Bengali as people actually type it.** Chat spelling drops
+ *    vowels wholesale — "tmr" for তোমার, "amk" for আমাকে, "trpr" for তারপর.
+ *    No fold recovers a vowel that was never typed, so these are listed
+ *    outright. Colloquial and regional inflections ("boltiso" → বলতিসো) are
+ *    here for the same reason.
+ *
+ * The suggestion engine consults this before anything else, so a wrong entry
+ * is worse than a missing one: it outranks both the dictionary and the literal
+ * transliteration.
+ *
+ * The backing assets ([load]) are two-column TSV (`spelling<TAB>bengali`). A
+ * single spelling may map to several Bengali forms (ki → কি / কী); they are
+ * returned in file order, most-preferred first. Where two assets disagree the
+ * earlier one leads, which is how the hand-written list stays ahead of the
+ * generated one.
  */
-class EnglishBengaliMap private constructor(
+class BengaliSpellingMap private constructor(
     private val byWord: Map<String, List<String>>,
 ) {
 
-    /** Bengali forms for [english], best first; empty if unmapped. */
-    fun lookup(english: String): List<String> =
-        byWord[english.trim().lowercase()].orEmpty()
+    /** Bengali forms for [spelling], best first; empty if unmapped. */
+    fun lookup(spelling: String): List<String> =
+        byWord[spelling.trim().lowercase()].orEmpty()
 
-    /** True when [english] has at least one mapped Bengali form. */
-    fun contains(english: String): Boolean =
-        byWord.containsKey(english.trim().lowercase())
+    /** True when [spelling] has at least one mapped Bengali form. */
+    fun contains(spelling: String): Boolean =
+        byWord.containsKey(spelling.trim().lowercase())
 
     val size: Int get() = byWord.size
 
     companion object {
         /** Empty map, used as the default when no asset is supplied (tests). */
-        val EMPTY = EnglishBengaliMap(emptyMap())
+        val EMPTY = BengaliSpellingMap(emptyMap())
 
         /**
-         * Parses the `english<TAB>bengali` TSV. Blank lines and `#` comments
-         * are skipped; malformed lines (no tab, empty side) are ignored so the
-         * asset survives hand editing. Duplicate English keys accumulate their
-         * Bengali forms in file order, de-duplicated.
+         * Languages that ship a spelling map, by
+         * [com.wasimaster.wmkeyboard.core.script.LanguageDef.id]. Only these
+         * get the settings row — a language with no lists behind it would be
+         * offering a switch that does nothing.
          */
-        fun load(stream: InputStream): EnglishBengaliMap {
+        val LANGUAGES = setOf("bn")
+
+        /**
+         * Parses `spelling<TAB>bengali` TSVs. Blank lines and `#` comments are
+         * skipped; malformed lines (no tab, empty side) are ignored so the
+         * assets survive hand editing. Duplicate keys accumulate their Bengali
+         * forms in the order the streams are given, de-duplicated — so passing
+         * the curated list first leaves it outranking the generated one.
+         */
+        fun load(vararg streams: InputStream): BengaliSpellingMap {
             val byWord = LinkedHashMap<String, MutableList<String>>()
-            stream.bufferedReader().useLines { lines ->
-                for (line in lines) {
-                    val trimmed = line.trim()
-                    if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
-                    val tab = trimmed.indexOf('\t')
-                    if (tab <= 0) continue
-                    val english = trimmed.substring(0, tab).trim().lowercase()
-                    val bengali = trimmed.substring(tab + 1).trim()
-                    if (english.isEmpty() || bengali.isEmpty()) continue
-                    val forms = byWord.getOrPut(english) { mutableListOf() }
-                    if (bengali !in forms) forms.add(bengali)
+            for (stream in streams) {
+                stream.bufferedReader().useLines { lines ->
+                    for (line in lines) {
+                        val trimmed = line.trim()
+                        if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
+                        val tab = trimmed.indexOf('\t')
+                        if (tab <= 0) continue
+                        val spelling = trimmed.substring(0, tab).trim().lowercase()
+                        val bengali = trimmed.substring(tab + 1).trim()
+                        if (spelling.isEmpty() || bengali.isEmpty()) continue
+                        val forms = byWord.getOrPut(spelling) { mutableListOf() }
+                        if (bengali !in forms) forms.add(bengali)
+                    }
                 }
             }
-            return EnglishBengaliMap(byWord)
+            return BengaliSpellingMap(byWord)
         }
     }
 }

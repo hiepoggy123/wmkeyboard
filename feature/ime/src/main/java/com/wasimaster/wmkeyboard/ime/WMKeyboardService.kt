@@ -111,7 +111,7 @@ import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryStore
 import com.wasimaster.wmkeyboard.core.prediction.CompositeWordSource
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.MappedTrie
-import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
+import com.wasimaster.wmkeyboard.core.prediction.BengaliSpellingMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
 import com.wasimaster.wmkeyboard.core.prediction.KeystrokeTiming
 import com.wasimaster.wmkeyboard.core.prediction.Register
@@ -787,9 +787,21 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var loadedBengali = false
 
+    /**
+     * Whether the last dictionary load included the spelling map. Same story as
+     * [loadedBengali]: the map reaches the engine through its constructor, so
+     * turning it on or off has to run the load again to take effect.
+     */
+    private var loadedSpellingMap = false
+
     /** Whether any enabled language routes through the Bengali machinery. */
     private fun bengaliEnabled(): Boolean =
         _uiState.value.settings.enabledLanguages.any { it.id == "bn" }
+
+    /** Whether Bengali is on *and* has kept its fixed-spelling map switched on. */
+    private fun spellingMapEnabled(): Boolean =
+        bengaliEnabled() &&
+            _uiState.value.settings.suggestionStrip.spellingMapEnabledFor("bn")
 
     /** Last word committed by a swipe, so tapping an alternate replaces it. */
     private var lastGestureWord: String? = null
@@ -1617,8 +1629,12 @@ open class WMKeyboardService : InputMethodService() {
                 CjkLearning.enabled = settings.learnFromTyping
                 // Adding or removing Bengali changes what the engine was built
                 // with, not just what it looks up, so it is rebuilt rather than
-                // patched. Only fires on an actual change to the enabled set.
-                if (suggestionEngine != null && bengaliEnabled() != loadedBengali) {
+                // patched. Switching the spelling map counts for the same
+                // reason — it is a constructor argument too. Only fires on an
+                // actual change.
+                if (suggestionEngine != null &&
+                    (bengaliEnabled() != loadedBengali || spellingMapEnabled() != loadedSpellingMap)
+                ) {
                     loadDictionariesAndEmoji()
                 }
                 // Only English drives the bundled English word list; every other
@@ -1851,11 +1867,20 @@ open class WMKeyboardService : InputMethodService() {
             val (englishEntries, bengaliEntries) = withContext(Dispatchers.Default) {
                 english?.entries().orEmpty() to bengali?.entries().orEmpty()
             }
+            val spellingMapOn = bengaliEnabled &&
+                _uiState.value.settings.suggestionStrip.spellingMapEnabledFor("bn")
+            loadedSpellingMap = spellingMapOn
             val (loanwords, variants, seedBigrams) = withContext(Dispatchers.Default) {
-                val lw = if (bengaliEnabled) {
-                    assets.open("dictionaries/en_bn.tsv").use { EnglishBengaliMap.load(it) }
+                // Curated list first: where the two disagree, the hand-written
+                // loanword spelling outranks the generated romanized one.
+                val lw = if (spellingMapOn) {
+                    assets.open("dictionaries/en_bn.tsv").use { en ->
+                        assets.open("dictionaries/bn_rom.tsv").use { rom ->
+                            BengaliSpellingMap.load(en, rom)
+                        }
+                    }
                 } else {
-                    EnglishBengaliMap.EMPTY
+                    BengaliSpellingMap.EMPTY
                 }
                 val v = runCatching {
                     assets.open("emoji/variants.tsv").use { EmojiVariantIndex.load(it) }

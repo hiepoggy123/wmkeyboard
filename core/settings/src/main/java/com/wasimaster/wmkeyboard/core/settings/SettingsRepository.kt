@@ -2289,7 +2289,26 @@ data class SuggestionStripSettings(
      * correction. Same ceiling note as above.
      */
     val autocorrectSplits: Boolean = true,
-)
+    /**
+     * Languages that have turned the fixed-spelling map off, keyed by
+     * [com.wasimaster.wmkeyboard.core.script.LanguageDef.id]. Absent means on,
+     * so the map works out of the box and only an explicit opt-out disables it.
+     *
+     * The map is what makes "table" commit টেবিল instead of তাবলে, and "tmr"
+     * তোমার instead of ত্ম্র. Someone who genuinely wants the letter-for-letter
+     * reading — writing তাবলে on purpose — has no other way to get it, since
+     * the map outranks every other source. Per language rather than global
+     * because the lists are language-specific: switching Bengali's off says
+     * nothing about any other script's.
+     *
+     * Lives here rather than beside the other language options only to stay
+     * under the settings class's JVM field ceiling.
+     */
+    val spellingMapOffLangs: Set<String> = emptySet(),
+) {
+    /** Whether the fixed-spelling map applies to [langId]. */
+    fun spellingMapEnabledFor(langId: String): Boolean = langId !in spellingMapOffLangs
+}
 
 /**
  * DataStore-backed settings. Every option on the settings screens flows
@@ -2563,6 +2582,7 @@ class SettingsRepository(private val context: Context) {
             booleanPreferencesKey("contact_email_suggestions_in_email_fields")
         private val APP_NAME_SUGGESTIONS = booleanPreferencesKey("app_name_suggestions")
         private val SUGGESTION_BLACKLIST = stringSetPreferencesKey("suggestion_blacklist")
+        private val SPELLING_MAP_OFF_LANGS = stringSetPreferencesKey("spelling_map_off_langs")
         private val INLINE_EMOJI_SEARCH = booleanPreferencesKey("inline_emoji_search")
         private val INLINE_AUTOFILL = booleanPreferencesKey("inline_autofill")
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
@@ -3378,6 +3398,8 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.suggestionStrip.numberRowCorrections,
                 autocorrectSplits = p[AUTOCORRECT_SPLITS]
                     ?: defaults.suggestionStrip.autocorrectSplits,
+                spellingMapOffLangs = p[SPELLING_MAP_OFF_LANGS]
+                    ?: defaults.suggestionStrip.spellingMapOffLangs,
             ),
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
@@ -5517,6 +5539,17 @@ class SettingsRepository(private val context: Context) {
         editPrefs { prefs ->
             val cleaned = value.map { it.trim() }.filter { it.isNotEmpty() }
             if (cleaned.isEmpty()) prefs.remove(CURRENCY_KEYS) else prefs[CURRENCY_KEYS] = cleaned.joinToString("\n")
+        }
+
+    /**
+     * Turn the fixed-spelling map on or off for one language. Only the
+     * switched-off languages are stored, so a language nobody has touched
+     * keeps the map without needing an entry.
+     */
+    suspend fun setSpellingMapEnabled(langId: String, enabled: Boolean) =
+        editPrefs {
+            val off = it[SPELLING_MAP_OFF_LANGS].orEmpty()
+            it[SPELLING_MAP_OFF_LANGS] = if (enabled) off - langId else off + langId
         }
 
     suspend fun setContactSuggestions(value: Boolean) =

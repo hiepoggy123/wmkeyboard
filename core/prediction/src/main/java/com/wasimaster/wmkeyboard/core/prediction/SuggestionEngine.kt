@@ -28,7 +28,7 @@ class SuggestionEngine(
     dictionary: WordSource,
     bengaliIndex: BengaliPhoneticIndex,
     private val userLexicon: UserLexicon,
-    private val loanwords: EnglishBengaliMap = EnglishBengaliMap.EMPTY,
+    private val spellings: BengaliSpellingMap = BengaliSpellingMap.EMPTY,
     private val seedBigrams: SeedBigrams = SeedBigrams.EMPTY,
     private val mixConfidence: LanguageMixConfidence = LanguageMixConfidence(),
 ) {
@@ -974,10 +974,10 @@ class SuggestionEngine(
     private fun bengaliSuggestions(composing: String, limit: Int): List<String> {
         val phonetic = AvroPhonetic.transliterate(composing)
         val ordered = LinkedHashSet<String>()
-        // Manually mapped loanwords win outright: "keyboard" → কিবোর্ড,
-        // "chair" → চেয়ার. Avro phonetics can't reach these conventional
-        // spellings, so the map is consulted before anything else.
-        ordered.addAll(loanwords.lookup(composing))
+        // Listed spellings win outright — loanwords like "keyboard" → কিবোর্ড,
+        // and chat shorthand like "tmr" → তোমার whose vowels were never typed.
+        // Neither is reachable from the rules, so the map goes first.
+        ordered.addAll(spellings.lookup(composing))
         // Phonetic siblings from the dictionary (আছি for "asi") outrank the
         // literal transliteration only when clearly more common — the commit
         // path takes the first entry, and the preview showed the literal, so
