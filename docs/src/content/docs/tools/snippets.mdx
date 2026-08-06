@@ -56,6 +56,25 @@ Patterns run on every space you type, so the keyboard is careful about what they
 
 Everything else about word triggers applies here too: patterns are skipped mid-transliteration and mid-conversion, and they never run in password fields or in fields that ask for no suggestions.
 
+A pattern either expands on its own or asks first, never both. Which one it is decides when it's looked for at all: the expanding kind is checked on the space that ends a word, the asking kind on every keystroke (see below).
+
+### Ask before it expands
+
+Every snippet has an **Ask before it expands** switch in its add/edit dialog. Turn it on and the trigger stops rewriting your text. Instead, the moment it matches, the snippet appears as a chip on the suggestion bar showing the text it would insert, and nothing goes into the field until you tap it. Keep typing and the chip goes away, leaving what you typed exactly as you typed it.
+
+The chip arrives as soon as the trigger is typed. There's no need to press space first, and that goes for both kinds of trigger:
+
+- A **word** trigger offers itself while you're still typing the word. Type `brb` and the chip is there before you reach the space bar; press space instead of tapping and you get a literal "brb."
+- A **pattern** offers itself mid-phrase, and keeps up as you type. With `^hello (.+)$`, typing "hello Jo" already shows a chip reading "Hello, Jo!" — the next letter re-reads it as "Hello, Jon!", and so on. The offer survives the space that ends the word, so you can finish the phrase and then decide.
+
+Tapping the chip swaps the words it matched for the expansion, keeping any trailing space. Everything on the chip is what actually goes in: what you're looking at is what you get.
+
+The chip shares the suggestion bar with your word candidates, so turning an offer down never costs you the predictions you were about to use. Backspace takes an accepted expansion back the same way it does an automatic one. The offer isn't remembered anywhere — it's worked out fresh from the text in front of the cursor, so moving the cursor, editing from elsewhere, or carrying on typing all simply stop it matching, and the chip goes.
+
+One cost worth knowing: an asking *pattern* is checked on every keystroke rather than once a word, so it reads a little of the text in front of your cursor each time you type. The check is debounced and runs off the typing path, and it doesn't happen at all unless you have an asking pattern installed. Plain word triggers are free either way — matching one is a dictionary lookup on the word you're typing, with nothing to read.
+
+This is what the **Pattern Replies** pack in the [addon repository](/addons/overview/) uses. Canned replies written by somebody else are exactly the case where silent rewriting is unwelcome: "hello John" turning itself into a paragraph you didn't ask for is a worse outcome than one extra tap. Every pack's preview says which way each of its snippets goes, so you can see it before installing.
+
 ## Template variables
 
 A snippet's text can include any of these tokens. They're substituted the moment the snippet is inserted, not when you save it, so `{date}` always reflects the day you actually type it:
@@ -95,9 +114,10 @@ The settings screen opens with a reference card listing all 18 variables plus `{
 
 - **Add snippet** opens a dialog with a label, a multi-line text field (hint text calls out the most common variables), and a Word / Pattern switch for how it expands as you type.
 - Choosing **Word** gives you a single trigger-word field. Choosing **Pattern** gives you the pattern itself, chips that write `(.+)`, `$1`, `^` and `$` at the cursor, a words-to-match picker, and a **Try it** box: type what you'd type on the keyboard and the result appears underneath. A pattern that won't compile is flagged as you type, with the regular-expression engine's own complaint underneath it, and Save stays disabled until it's fixed.
+- Under both is **Ask before it expands**, which turns the trigger into a suggestion-bar offer instead of an automatic rewrite (see [Ask before it expands](#ask-before-it-expands)).
 - The pencil icon on a saved snippet reopens that same dialog, pre-filled, to **edit** it.
 - The trash icon **deletes** it immediately: there's no confirmation prompt, so double-check before you tap it.
-- Every row also shows a live "Inserts as: …" preview whenever the expanded text would differ from what you typed, and "Auto-expands from: …" if you've set a trigger (or the pattern itself, if you set one of those).
+- Every row also shows a live "Inserts as: …" preview whenever the expanded text would differ from what you typed, and "Expands by itself from: …" if you've set a trigger (or the pattern itself, if you set one of those). A snippet set to ask first says "Offers itself after: …" instead.
 
 <PhoneFrame caption="Adding a snippet: label, text with variables, and an optional trigger word.">
   ![Adding a snippet: label, text with variables, and an optional trigger word.](@assets/screens/tools/snippets-add-dialog.webp)
@@ -117,7 +137,7 @@ There's no way to reorder the list from inside settings. Snippets stay in the or
 - **Icon colour** — only shown if [colorful tool icons](/tools/overview/) is turned on globally; overrides just this tool's icon color.
 - **Keyword shortcut** — the words that make the [Smart chips](/smart/chips/) suggestion offer to open this panel; "snippet" and "snippets" out of the box, editable or clearable here. This only controls opening the panel; it's unrelated to a snippet's own trigger word (above).
 
-Beyond that, there's nothing global to configure about expansion: no on/off switch separate from the tool. How matching works is set per snippet instead, in the add/edit dialog — word or pattern, and how far back a pattern may reach. Having no pattern snippets at all is what keeps the matching machinery out of the typing path entirely.
+Beyond that, there's nothing global to configure about expansion: no on/off switch separate from the tool. How matching works is set per snippet instead, in the add/edit dialog: word or pattern, how far back a pattern may reach, and whether it expands on its own or asks first. Having no pattern snippets at all is what keeps the matching machinery out of the typing path entirely.
 
 ## Snippet packs and backups
 

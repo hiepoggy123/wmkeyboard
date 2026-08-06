@@ -100,6 +100,9 @@
     <string name="ime_clip_chip_dismiss_desc">Hide the copied text</string>
     <!-- The ✕ on the chip that offers a code found in a notification. -->
     <string name="ime_otp_chip_dismiss_desc">Hide the code</string>
+    <!-- Screen reader text for the chip that offers a snippet the user marked
+         "ask first". %1$s is the name that the user gave the snippet. -->
+    <string name="ime_snippet_offer_desc">Insert the snippet %1$s</string>
 
     <!-- The Modes panel: which keyboard mode is active. -->
     <string name="ime_modes_empty">No modes yet. Create one in Settings → Modes.</string>

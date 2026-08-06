@@ -346,4 +346,50 @@ class SnippetMatcherTest {
         assertTrue(!plain.hasPatterns)
         assertNull(plain.matchPattern("hello John", atFieldStart = true))
     }
+
+    // ---- asking versus expanding ----
+
+    @Test
+    fun `neither kind of pattern answers for the other`() {
+        // The two are asked for at different moments — one at the commit that
+        // rewrites text, one on every keystroke to fill a chip — so a leak
+        // either way is a pattern firing when nobody asked it to.
+        val asks = index(snip("^hello (.+)$", "Hello, \$1!").copy(confirm = true))
+        assertNull(asks.matchPattern("hello John", atFieldStart = true))
+        assertEquals(
+            "Hello, John!",
+            asks.matchPattern("hello John", atFieldStart = true, confirm = true)?.text,
+        )
+
+        val expands = index(snip("^hello (.+)$", "Hello, \$1!"))
+        assertNull(expands.matchPattern("hello John", atFieldStart = true, confirm = true))
+        assertNotNull(expands.matchPattern("hello John", atFieldStart = true))
+    }
+
+    @Test
+    fun `an asking pattern does not stop one that expands from firing`() {
+        // Both halves of a mixed list have to stay reachable: the search skips
+        // the wrong kind rather than stopping at it.
+        val mixed = index(
+            snip("^hello (.+)$", "asked", id = 1).copy(confirm = true),
+            snip("^hi (.+)$", "expanded", id = 2),
+        )
+        assertEquals("expanded", mixed.matchPattern("hi John", atFieldStart = true)?.text)
+        assertEquals(
+            "asked",
+            mixed.matchPattern("hello John", atFieldStart = true, confirm = true)?.text,
+        )
+        assertTrue(mixed.hasConfirmPatterns && mixed.hasAutoPatterns)
+    }
+
+    @Test
+    fun `a half-typed word still matches, so the chip arrives before the space`() {
+        // The whole point of the offer: it is derived from the text as it
+        // stands, not from a word that has been finished.
+        val asks = index(snip("^hello (.+)$", "Hello, \$1!").copy(confirm = true))
+        assertEquals(
+            "Hello, Jo!",
+            asks.matchPattern("hello Jo", atFieldStart = true, confirm = true)?.text,
+        )
+    }
 }

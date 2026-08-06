@@ -27,7 +27,13 @@ sealed interface AddonPreviewContent {
         val entries: List<Entry>,
         val total: Int,
     ) : AddonPreviewContent {
-        data class Entry(val label: String, val text: String, val trigger: String)
+        data class Entry(
+            val label: String,
+            val text: String,
+            val trigger: String,
+            /** The trigger offers itself on the strip rather than rewriting. */
+            val confirm: Boolean = false,
+        )
     }
 
     /** A word list, plus how many lines it actually has. */
@@ -209,6 +215,7 @@ object AddonPreviewReader {
                     it.label,
                     it.text,
                     it.trigger ?: it.triggerPattern.orEmpty(),
+                    it.confirm,
                 )
             },
             total = imported.snippets.size,

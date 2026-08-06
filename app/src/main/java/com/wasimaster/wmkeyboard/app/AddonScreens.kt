@@ -1947,7 +1947,29 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
                     WmRow(
                         title = snippet.label,
                         supporting = {
-                            Text(snippet.text, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            Column {
+                                Text(snippet.text, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                // Whether an installed snippet rewrites what you
+                                // type or waits to be asked is the thing worth
+                                // knowing before installing somebody else's
+                                // pack, so both answers are spelled out rather
+                                // than one being left to be inferred from the
+                                // absence of the other. A snippet with no
+                                // trigger does neither: it is panel-only.
+                                if (snippet.trigger.isNotBlank()) {
+                                    Text(
+                                        stringResource(
+                                            if (snippet.confirm) {
+                                                R.string.addon_preview_snippet_asks
+                                            } else {
+                                                R.string.addon_preview_snippet_auto
+                                            },
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
                         },
                         trailing = snippet.trigger.takeIf { it.isNotBlank() }?.let {
                             { Text(it, style = MaterialTheme.typography.labelSmall) }

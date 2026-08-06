@@ -208,10 +208,30 @@ class SnippetFileTest {
     @Test
     fun `a plain snippet exports no pattern keys`() {
         // The published packs are hand-maintained files, so a plain snippet
-        // must not grow two empty keys it never uses.
+        // must not grow three empty keys it never uses.
         val encoded = SnippetFile.encode(listOf(snippet(1, "Shrug", "x", "shrug")), 41, "1.4.0")
         assertTrue(!encoded.contains("triggerPattern"))
         assertTrue(!encoded.contains("triggerWords"))
+        assertTrue(!encoded.contains("confirm"))
+    }
+
+    @Test
+    fun `a pack can ask before it expands`() {
+        // What the pattern-replies pack rides on: a downloaded snippet says so
+        // in the file, and the flag comes back out of it.
+        val text = """
+            {"format":"wmkeyboard-snippets","version":1,"snippets":[
+              {"id":1,"label":"Greet","text":"Hello, ${'$'}1!",
+               "triggerPattern":"^hello (.+)${'$'}","confirm":true},
+              {"id":2,"label":"Shrug","text":"x","trigger":"shrug"}
+            ]}
+        """.trimIndent()
+        val imported = SnippetFile.decode(text)!!.snippets
+        assertTrue(imported[0].confirm)
+        assertTrue(!imported[1].confirm)
+        // A pattern the app refuses drops the pattern, not the whole row —
+        // and the flag has nothing to do with that.
+        assertEquals("^hello (.+)$", imported[0].triggerPattern)
     }
 
     @Test

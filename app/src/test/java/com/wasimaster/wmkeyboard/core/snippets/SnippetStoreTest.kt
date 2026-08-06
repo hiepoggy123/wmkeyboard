@@ -139,6 +139,24 @@ class SnippetStoreTest {
     }
 
     @Test
+    fun `the ask-first flag survives an edit and a reload`() {
+        val file = File(tmp.newFolder(), "snippets.json")
+        val store = SnippetStore(file)
+        val snippet = store.add(
+            Snippet(id = 0, label = "Reply", text = "Thanks!", trigger = "ty", confirm = true),
+        )
+        assertTrue(store.matchTrigger("ty")!!.confirm)
+        store.save()
+        assertTrue(SnippetStore(file).matchTrigger("TY")!!.confirm)
+
+        // The dialog hands every field back on save, so the flag has to be
+        // clearable through the same call that sets it.
+        store.update(snippet.id, "Reply", "Thanks!", trigger = "ty", confirm = false)
+        store.save()
+        assertTrue(!SnippetStore(file).matchTrigger("ty")!!.confirm)
+    }
+
+    @Test
     fun `expands date and time variables`() {
         val expanded = SnippetStore.expand("Meeting on {date} at {time}", now = fixedTime())
         if (Locale.getDefault().language == "en") {

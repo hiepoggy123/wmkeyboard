@@ -706,6 +706,29 @@ sealed interface TypingTestAction {
 }
 
 /**
+ * A snippet whose trigger matched while [Snippet.confirm] is set: it is shown
+ * as a chip on the suggestion strip and inserts nothing until it is tapped.
+ *
+ * [text] is already expanded — variables, capture groups and all — because it
+ * is what the chip shows, and the promise of an offer is that tapping it gives
+ * you what you were looking at. Nothing here is re-derived at the tap.
+ *
+ * [consumed] is what accepting takes back out. [composed] says whether that is
+ * exactly the word still being composed, in which case committing over it
+ * replaces it for free, or a span of the field — a pattern reaches back across
+ * words the editor has long since taken, and only its tail is still composing.
+ */
+data class SnippetOffer(
+    val id: Long,
+    val label: String,
+    val text: String,
+    /** Where a `{cursor}` marker asked the caret to land inside [text]. */
+    val cursorOffset: Int,
+    val consumed: String,
+    val composed: Boolean,
+)
+
+/**
  * Immutable UI state rendered by the Compose keyboard. The service owns a
  * MutableStateFlow of this and mutates it via copy().
  */
@@ -920,6 +943,12 @@ data class KeyboardUiState(
      * in-process bus — it is never written anywhere.
      */
     val otpSuggestion: NotificationOtp? = null,
+    /**
+     * A snippet that matched but was told to ask first, waiting on the strip
+     * for a tap. Null whenever no such trigger matches the text in front of the
+     * cursor — see [SnippetOffer].
+     */
+    val snippetOffer: SnippetOffer? = null,
     val snippets: List<Snippet> = emptyList(),
     /**
      * MIME types the focused editor advertises for commitContent

@@ -115,6 +115,11 @@
     <string name="privacy_snippets_trigger_label">Expands by itself from: %1$s</string>
     <!-- %1$s is the pattern, for example ^hello (.+)$ — leave it as it is. -->
     <string name="privacy_snippets_pattern_label">Expands by itself from the pattern: %1$s</string>
+    <!-- The same two lines for a snippet that waits to be tapped. %1$s is the
+         short text that the user types; in the second line it is the pattern,
+         for example ^hello (.+)$ — leave that as it is. -->
+    <string name="privacy_snippets_trigger_asks_label">Offers itself after: %1$s</string>
+    <string name="privacy_snippets_pattern_asks_label">Offers itself after the pattern: %1$s</string>
 
     <string name="privacy_snippets_pattern_title">Patterns</string>
     <!-- The symbols in this line are code. Keep them exactly as they are. -->

@@ -19,9 +19,12 @@ import java.util.Locale
  * words behind the cursor. A snippet that somehow carries both keeps the word,
  * which is the more specific and the cheaper of the two.
  *
- * The two pattern fields are written only when they are set. Every published
- * pack is a hand-maintained file, and [SnippetFile] encodes defaults, so
- * without that a plain snippet would grow two empty keys it never uses.
+ * [confirm] turns that trigger from a rewrite into an offer: the keyboard shows
+ * a chip and waits to be tapped rather than replacing what was typed.
+ *
+ * The three optional trigger fields are written only when they are set. Every
+ * published pack is a hand-maintained file, and [SnippetFile] encodes defaults,
+ * so without that a plain snippet would grow three empty keys it never uses.
  */
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
@@ -44,6 +47,17 @@ data class Snippet(
      */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val triggerWords: Int = 0,
+    /**
+     * Ask before expanding. The trigger still matches, but instead of rewriting
+     * the text the keyboard offers the expansion as a chip on the suggestion
+     * strip and inserts nothing until it is tapped.
+     *
+     * For text somebody else wrote — a downloaded pack of replies — this is the
+     * difference between a keyboard that helps and one that rewrites sentences
+     * out from under the person typing them.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val confirm: Boolean = false,
 )
 
 /**
@@ -112,6 +126,7 @@ class SnippetStore(private val storageFile: File?) {
         trigger: String? = null,
         triggerPattern: String? = null,
         triggerWords: Int = 0,
+        confirm: Boolean = false,
     ) {
         val index = snippets.indexOfFirst { it.id == id }
         if (index >= 0) {
@@ -121,6 +136,7 @@ class SnippetStore(private val storageFile: File?) {
                 trigger = normalizeTrigger(trigger),
                 triggerPattern = normalizeTrigger(triggerPattern),
                 triggerWords = triggerWords.coerceIn(0, SnippetMatcher.MAX_WORDS),
+                confirm = confirm,
             )
             lookup = null
         }
@@ -146,10 +162,20 @@ class SnippetStore(private val storageFile: File?) {
         atFieldStart: Boolean = false,
         now: Long = System.currentTimeMillis(),
         context: Companion.Context = Companion.Context(),
-    ): SnippetMatch? = index().matchPattern(window, atFieldStart, now, context)
+        confirm: Boolean = false,
+    ): SnippetMatch? = index().matchPattern(window, atFieldStart, now, context, confirm)
 
     /** True when any snippet carries a pattern, so the keyboard need not look. */
     fun hasPatterns(): Boolean = index().hasPatterns
+
+    /** True when some pattern expands on its own, the commit path's question. */
+    fun hasAutoPatterns(): Boolean = index().hasAutoPatterns
+
+    /** True when some pattern offers itself instead, the strip's question. */
+    fun hasConfirmPatterns(): Boolean = index().hasConfirmPatterns
+
+    /** True when some plain trigger offers itself instead of expanding. */
+    fun hasConfirmTriggers(): Boolean = index().hasConfirmTriggers
 
     /** True when a word starting with [first] could begin a gated pattern. */
     fun couldStartPattern(first: Char): Boolean = index().let { it.hasUngated || it.couldStartAt(first) }

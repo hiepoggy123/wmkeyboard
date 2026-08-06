@@ -134,6 +134,10 @@
     <string name="addon_preview_section_title">Preview</string>
     <string name="addon_preview_loading_progress">Loading the preview…</string>
     <string name="addon_preview_error">The app cannot download the preview.</string>
+    <!-- Shown under each snippet in a pack that has a trigger, to say how the
+         trigger behaves. The first waits to be tapped; the second does not. -->
+    <string name="addon_preview_snippet_asks">Offers itself on the suggestion bar</string>
+    <string name="addon_preview_snippet_auto">Expands by itself as you type</string>
     <!-- Last line of a short list. %1$d is how many more items the pack holds. -->
     <plurals name="addon_preview_more_count">
         <item quantity="one">…and %1$d more</item>

@@ -10155,10 +10155,17 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                             }
                             val trigger = snippet.trigger
                             val pattern = snippet.triggerPattern
+                            // Which of the two lines a trigger gets is only
+                            // about wording: one asks first, the other rewrites
+                            // what you typed, and the row has to say which.
                             if (trigger != null) {
                                 Text(
                                     stringResource(
-                                        R.string.privacy_snippets_trigger_label,
+                                        if (snippet.confirm) {
+                                            R.string.privacy_snippets_trigger_asks_label
+                                        } else {
+                                            R.string.privacy_snippets_trigger_label
+                                        },
                                         trigger,
                                     ),
                                     maxLines = 1,
@@ -10168,7 +10175,11 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                             } else if (pattern != null) {
                                 Text(
                                     stringResource(
-                                        R.string.privacy_snippets_pattern_label,
+                                        if (snippet.confirm) {
+                                            R.string.privacy_snippets_pattern_asks_label
+                                        } else {
+                                            R.string.privacy_snippets_pattern_label
+                                        },
                                         pattern,
                                     ),
                                     maxLines = 1,
@@ -10217,6 +10228,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                             draft.trigger,
                             draft.triggerPattern,
                             draft.triggerWords,
+                            draft.confirm,
                         )
                     }
                 }
@@ -10315,6 +10327,7 @@ private fun SnippetDialog(
             },
         )
     }
+    var confirm by remember { mutableStateOf(initial?.confirm == true) }
     val fault = remember(pattern.text) { SnippetMatcher.validate(pattern.text) }
     val patternOk = mode == SnippetTriggerMode.WORD || fault == null
 
@@ -10377,6 +10390,16 @@ private fun SnippetDialog(
                         fault = fault,
                     )
                 }
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.rows_snippet_confirm_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(checked = confirm, onCheckedChange = { confirm = it })
+                }
+                DialogNote(stringResource(R.string.rows_snippet_confirm_body))
             }
         },
         confirmButton = {
@@ -10392,6 +10415,7 @@ private fun SnippetDialog(
                             trigger = if (word) trigger.trim().ifBlank { null } else null,
                             triggerPattern = if (word) null else pattern.text.trim().ifBlank { null },
                             triggerWords = if (word) 0 else words,
+                            confirm = confirm,
                         ),
                     )
                 },

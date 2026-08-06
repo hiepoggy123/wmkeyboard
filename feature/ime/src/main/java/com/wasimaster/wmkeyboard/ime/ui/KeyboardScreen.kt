@@ -333,6 +333,7 @@ import com.wasimaster.wmkeyboard.ime.TypingTestAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
+import com.wasimaster.wmkeyboard.ime.SnippetOffer
 import com.wasimaster.wmkeyboard.ime.displayCaseForShift
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -785,6 +786,8 @@ fun KeyboardScreen(
     onSmartAccept: () -> Unit = {},
     /** Smart chip's tool button: clear the trigger and stage the prefill. */
     onSmartOpen: () -> Unit = {},
+    /** Snippet chip tapped: insert the expansion it was offering. */
+    onSnippetOfferAccept: () -> Unit = {},
     /** A tool panel has read [KeyboardUiState.toolPrefill]. */
     onToolPrefillConsumed: () -> Unit = {},
     /** Dismiss the keyboard — the hide-keyboard tool and the toolbar swipe-down. */
@@ -855,6 +858,7 @@ fun KeyboardScreen(
                 onDismissInlineSuggestions = onDismissInlineSuggestions,
                 onSmartAccept = onSmartAccept,
                 onSmartOpen = onSmartOpen,
+                onSnippetOfferAccept = onSnippetOfferAccept,
                 onToolPrefillConsumed = onToolPrefillConsumed,
                 onHideKeyboard = onHideKeyboard,
                 onKey = onKey,
@@ -1506,6 +1510,7 @@ private fun TopBar(
     onDismissInlineSuggestions: () -> Unit = {},
     onSmartAccept: () -> Unit = {},
     onSmartOpen: () -> Unit = {},
+    onSnippetOfferAccept: () -> Unit = {},
     onClipboardSuggestion: (ClipItem) -> Unit = {},
     onClipboardSuggestionDismiss: () -> Unit = {},
     onClipboardEntity: (ClipEntity) -> Unit = {},
@@ -1530,6 +1535,10 @@ private fun TopBar(
         // The one-time-code chip counts as strip content for the same reason
         // the paste chip does: it lands exactly when nothing is being typed.
         state.otpSuggestion != null ||
+        // So does a snippet waiting to be let in: a pattern's offer arrives on
+        // the space that ends a sentence, which is precisely when the word
+        // candidates are gone and the toolbar would otherwise take the row.
+        state.snippetOffer != null ||
         // A morse sequence being tapped out counts as strip content: the
         // toolbar taking the row would hide the one live view of the chord.
         state.morsePending.isNotEmpty() ||
@@ -2088,6 +2097,25 @@ private fun TopBar(
                     },
                 )
                 if (!otpShares) return@Row
+            }
+            // A snippet whose trigger matched but which was told to ask first.
+            // It shares the row rather than taking it: what the user typed is
+            // still perfectly good text, and the word candidates are how they
+            // carry on typing it if the answer is no.
+            val snippetOffer = state.snippetOffer
+            if (snippetOffer != null) {
+                val offerShares = suggestionsShowing || state.smart != null
+                SnippetOfferChip(
+                    offer = snippetOffer,
+                    onAccept = onSnippetOfferAccept,
+                    stretch = !offerShares,
+                    modifier = if (offerShares) {
+                        Modifier.widthIn(max = 200.dp).padding(horizontal = 4.dp)
+                    } else {
+                        Modifier.weight(1f).padding(horizontal = 4.dp)
+                    },
+                )
+                if (!offerShares) return@Row
             }
             // A recognised sum/conversion answers the text directly, so it
             // takes the whole strip the way autofill chips do. A keyword
@@ -2976,6 +3004,80 @@ private fun OtpSuggestionChip(
         }
     }
 }
+
+/**
+ * The snippet chip: a snippet whose trigger matched and which was marked "ask
+ * first", one tap from inserted.
+ *
+ * It shows the text it would put in rather than the snippet's name. The name is
+ * how the panel lists it, and for a pack of replies it is a category ("Thank-you
+ * letter"); what matters here is the sentence about to be typed for you. Solid
+ * fill in the [SmartSuggestionChip] language — this is text the user set up,
+ * not a piece lifted out of somewhere else.
+ */
+@Composable
+private fun SnippetOfferChip(
+    offer: SnippetOffer,
+    onAccept: () -> Unit,
+    modifier: Modifier = Modifier,
+    stretch: Boolean = false,
+) {
+    val kb = LocalKbTheme.current
+    val feedback = LocalKeyPressFeedback.current
+    val tint = kb.accent
+    // One line, so the newlines in a signature or a letter have to become
+    // spaces; a snippet with any in it would otherwise show only its first.
+    val preview = remember(offer.text) { offer.text.replace(WHITESPACE_RUN, " ").trim() }
+    Row(
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(vertical = 5.dp)
+            .clip(RoundedCornerShape(50))
+            .background(tint.copy(alpha = if (kb.dark) 0.20f else 0.11f))
+            .border(1.dp, tint.copy(alpha = 0.32f), RoundedCornerShape(50))
+            .clickable {
+                feedback()
+                onAccept()
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier
+                .weight(1f, fill = stretch)
+                .fillMaxHeight()
+                .padding(start = 6.dp, end = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(tint.copy(alpha = 0.22f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    toolIcon(ToolbarTool.SNIPPETS),
+                    contentDescription = stringResource(R.string.ime_snippet_offer_desc, offer.label),
+                    tint = tint,
+                    modifier = Modifier.size(13.dp),
+                )
+            }
+            Text(
+                text = preview,
+                color = kb.keyText,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+        }
+    }
+}
+
+/** Any run of spaces, tabs or newlines, folded to one space for a preview. */
+private val WHITESPACE_RUN = Regex("""\s+""")
 
 /** Fallback content for the dedicated emoji row before any usage exists. */
 private val DEFAULT_BAR_EMOJIS = listOf(
@@ -5475,6 +5577,7 @@ private fun KeyboardBody(
     onDismissInlineSuggestions: () -> Unit,
     onSmartAccept: () -> Unit,
     onSmartOpen: () -> Unit,
+    onSnippetOfferAccept: () -> Unit,
     onToolPrefillConsumed: () -> Unit,
     onHideKeyboard: () -> Unit,
     onKey: (Key) -> Unit,
@@ -5702,6 +5805,7 @@ private fun KeyboardBody(
                             onDismissInlineSuggestions = onDismissInlineSuggestions,
                             onSmartAccept = onSmartAccept,
                             onSmartOpen = onSmartOpen,
+                            onSnippetOfferAccept = onSnippetOfferAccept,
                             onClipboardSuggestion = onClipboardItem,
                             onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
                             onClipboardEntity = onClipboardEntity,

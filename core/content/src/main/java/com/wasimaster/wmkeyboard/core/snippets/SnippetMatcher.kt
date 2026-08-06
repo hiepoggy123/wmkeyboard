@@ -443,6 +443,22 @@ class SnippetIndex private constructor(
     /** True when some pattern has no literal start and must be tried anywhere. */
     val hasUngated: Boolean = ungated.isNotEmpty()
 
+    /**
+     * True when some pattern asks before it expands.
+     *
+     * The two kinds are looked for at different moments — one at the commit,
+     * one on every keystroke — so each side asks whether the other exists
+     * before it does any work at all. A user with no asking patterns never
+     * pays for the keystroke path, which is the expensive one.
+     */
+    val hasConfirmPatterns: Boolean = (byHead.values.flatten() + ungated).any { it.snippet.confirm }
+
+    /** True when some pattern expands on its own. */
+    val hasAutoPatterns: Boolean = (byHead.values.flatten() + ungated).any { !it.snippet.confirm }
+
+    /** True when some plain trigger asks before it expands. */
+    val hasConfirmTriggers: Boolean = plain.values.any { it.confirm }
+
     /** The snippet whose plain trigger is [word], ignoring case. */
     fun matchTrigger(word: String): Snippet? = plain[word.lowercase(Locale.ROOT)]
 
@@ -473,14 +489,21 @@ class SnippetIndex private constructor(
      * When it did not, a span is never anchored at the very first character:
      * the read may have cut a word in half, and a pattern matching that half
      * would delete text the user cannot see the start of.
+     *
+     * [confirm] picks which half of the list is searched: the patterns that
+     * rewrite text on their own, or the ones that only offer to. They are asked
+     * for at different moments and one must never answer for the other — a
+     * pattern that expands by itself has no business appearing as a chip
+     * mid-word, and one that asks first must not fire on the space.
      */
     fun matchPattern(
         window: CharSequence,
         atFieldStart: Boolean = false,
         now: Long = System.currentTimeMillis(),
         context: SnippetStore.Companion.Context = SnippetStore.Companion.Context(),
+        confirm: Boolean = false,
     ): SnippetMatch? {
-        if (!hasPatterns) return null
+        if (if (confirm) !hasConfirmPatterns else !hasAutoPatterns) return null
         val whole = window.toString()
         val line = whole.substringAfterLast('\n')
         val trimmed = if (line.length > SnippetMatcher.MAX_WINDOW) {
@@ -504,7 +527,7 @@ class SnippetIndex private constructor(
         // says about the field.
         val cutAtCap = trimmed.length < line.length
         val anchored = !cutAtCap && (atFieldStart || line.length < whole.length)
-        return search(w, wordStarts(w), anchored, now, context)
+        return search(w, wordStarts(w), anchored, now, context, confirm)
     }
 
     /** Word start offsets in [w], nearest to the cursor first. */
@@ -530,6 +553,7 @@ class SnippetIndex private constructor(
         anchored: Boolean,
         now: Long,
         context: SnippetStore.Companion.Context,
+        confirm: Boolean,
     ): SnippetMatch? {
         var attempts = 0
         for (back in starts.indices) {
@@ -539,6 +563,7 @@ class SnippetIndex private constructor(
             val gated = byHead[span[0].lowercaseChar()].orEmpty()
             for (pass in 0..1) {
                 for (compiled in if (pass == 0) gated else ungated) {
+                    if (compiled.snippet.confirm != confirm) continue
                     if (compiled.snippet.id in stopped) continue
                     if (back + 1 > compiled.words) continue
                     val head = compiled.head

@@ -643,6 +643,13 @@ open class WMKeyboardService : InputMethodService() {
     private var smartJob: Job? = null
 
     /**
+     * The read behind an asking pattern's chip. Its own job rather than
+     * [smartJob]: the two chips are gated on different settings and read
+     * different amounts of text, and either may be the only one running.
+     */
+    private var snippetOfferJob: Job? = null
+
+    /**
      * Gesture decode-and-commit runs in its own job, NOT [suggestionJob]: the
      * strip refresh of the very next keystroke cancels [suggestionJob], and
      * when the commit lived there a tap ~50 ms after a swipe cancelled the
@@ -2281,6 +2288,7 @@ open class WMKeyboardService : InputMethodService() {
                 onDismissInlineSuggestions = ::onDismissInlineSuggestions,
                 onSmartAccept = ::onSmartSuggestionTapped,
                 onSmartOpen = ::onSmartSuggestionOpen,
+                onSnippetOfferAccept = ::onSnippetOfferAccept,
                 onToolPrefillConsumed = ::onToolPrefillConsumed,
                 onHideKeyboard = ::onHideKeyboard,
             )
@@ -2479,6 +2487,9 @@ open class WMKeyboardService : InputMethodService() {
         }
         smartMutedAfter = null
         patternMutedAfter = null
+        // A chip offering to rewrite a span of the last field has no business
+        // being up over this one.
+        clearSnippetOffer()
         // The settings app edits snippets in the same file this reads, so a
         // pattern added there has to reach the keyboard without waiting for
         // the snippet panel to be opened.
@@ -2710,21 +2721,17 @@ open class WMKeyboardService : InputMethodService() {
         // that moves the caret afterwards disarms them.
         if (lastRevertible != null || lastGestureWord != null || pendingAutoSpace) {
             val settling = SystemClock.uptimeMillis() - revertArmedAt < REVERT_SETTLE_MS
+            fun disarm() {
+                lastRevertible = null
+                lastGestureWord = null
+                pendingAutoSpace = false
+                pendingPunctuationSpace = false
+            }
             when {
                 // A range selection is never one of our own commit echoes.
-                newSelStart != newSelEnd -> {
-                    lastRevertible = null
-                    lastGestureWord = null
-                    pendingAutoSpace = false
-                    pendingPunctuationSpace = false
-                }
+                newSelStart != newSelEnd -> disarm()
                 revertAnchor == -1 || settling -> revertAnchor = newSelStart
-                newSelStart != revertAnchor -> {
-                    lastRevertible = null
-                    lastGestureWord = null
-                    pendingAutoSpace = false
-                    pendingPunctuationSpace = false
-                }
+                newSelStart != revertAnchor -> disarm()
             }
         }
         val wasComposing = composing.isNotEmpty()
@@ -2798,6 +2805,10 @@ open class WMKeyboardService : InputMethodService() {
             currentInputConnection?.let { restartSuggestionsAtCursor(it, newSelStart) }
         } else {
             refreshSmartSuggestion()
+            // The snippet chip reads the same text and goes stale the same way
+            // — a selection dragged out over the span it names is no longer a
+            // caret sitting after it.
+            refreshSnippetOffer(_uiState.value)
         }
         // The grammar strip follows the field: any text or cursor change
         // while it is open re-extracts and re-lints (offline, so cheap).
@@ -5326,7 +5337,10 @@ open class WMKeyboardService : InputMethodService() {
         // trigger the user meant to type. Both also come before apostrophes
         // and autocorrect, so a trigger is matched as it was actually typed.
         if (!state.composer.isTransliterating && !state.composer.isConversion) {
-            val snippet = snippetStore.matchTrigger(typed)
+            // A trigger that asks first has already put its chip on the strip
+            // (see [refreshSnippetOffer]); the word it matched commits as
+            // ordinary text, and the offer goes with it.
+            val snippet = snippetStore.matchTrigger(typed)?.takeIf { !it.confirm }
             if (snippet != null) {
                 val expanded = SnippetStore.expandWithCursor(snippet.text, context = snippetContext(ic))
                 commitSplitAtCaret(ic, expanded.text, expanded.cursorOffset)
@@ -5486,7 +5500,11 @@ open class WMKeyboardService : InputMethodService() {
      * literal commit.
      */
     private fun tryPatternExpansion(ic: InputConnection, typed: String, state: KeyboardUiState): Boolean {
-        if (!snippetStore.hasPatterns()) return false
+        // Only the patterns that expand on their own are this path's business.
+        // The ones that ask first are offered by [refreshSnippetOffer] while the
+        // words are still being typed, and firing one here would answer for the
+        // user instead of asking.
+        if (!snippetStore.hasAutoPatterns()) return false
         // A pattern rewrites text the user already committed, and it runs a
         // regular expression the user (or an installed add-on) wrote over a
         // window of the field. Both are reasons to stay out of the fields the
@@ -5545,6 +5563,212 @@ open class WMKeyboardService : InputMethodService() {
         if (!recentWordsValid) return true
         if (snippetStore.couldStartPattern(typed[0])) return true
         return recentWords.any { snippetStore.couldStartPattern(it[0]) }
+    }
+
+    /** Takes down whatever the strip was offering, if anything. */
+    private fun clearSnippetOffer() {
+        snippetOfferJob?.cancel()
+        if (_uiState.value.snippetOffer != null) _uiState.update { it.copy(snippetOffer = null) }
+    }
+
+    /** Publishes [offer], or takes the chip down when it is null. */
+    private fun publishSnippetOffer(offer: SnippetOffer?) {
+        if (_uiState.value.snippetOffer != offer) _uiState.update { it.copy(snippetOffer = offer) }
+    }
+
+    /**
+     * Offers whatever snippet the text in front of the cursor matches, when
+     * that snippet asks before it expands.
+     *
+     * This is derived state, recomputed from the field rather than remembered
+     * from a commit, and that is what makes the chip arrive when the trigger is
+     * typed instead of when the space is. Type "hello Jo" and the offer is
+     * already there, reading "Hello, Jo!"; the next letter re-derives it. There
+     * is nothing to keep in sync and nothing to go stale — an edit, a caret
+     * jump, a change made from outside the keyboard all end up back here.
+     *
+     * Two gates keep it off the typing path for everyone else. A user with no
+     * asking snippets does no work at all, and a plain trigger is answered by a
+     * map lookup with no round-trip. Only an asking *pattern* costs a read of
+     * the field, and that one is debounced onto a worker the way the smart chip
+     * is, because it happens on every keystroke rather than once a word.
+     */
+    private fun refreshSnippetOffer(state: KeyboardUiState) {
+        snippetOfferJob?.cancel()
+        // The chip needs a strip to sit on, so a field that asked for a quiet
+        // one gets neither the offer nor the expansion behind it. Same fields
+        // [tryPatternExpansion] stays out of, for the same reason. A composing
+        // buffer holding an input spelling (Avro, Pinyin) is not a trigger and
+        // not a word a pattern can read.
+        val allowed = state.allowsTypingIntelligence && !state.secureField &&
+            !state.fieldNoSuggestions && state.panel == PanelMode.NONE &&
+            !state.composer.isTransliterating && !state.composer.isConversion
+        if (!allowed) {
+            publishSnippetOffer(null)
+            return
+        }
+        val typed = composing.toString()
+        // A plain trigger is the cheaper and the more specific rule, so it is
+        // tried first and a match ends the search — the same order the commit
+        // path uses.
+        val trigger = typed
+            .takeIf { it.isNotEmpty() && snippetStore.hasConfirmTriggers() }
+            ?.let { snippetStore.matchTrigger(it) }
+            ?.takeIf { it.confirm }
+        if (trigger != null) {
+            val expanded = SnippetStore.expandWithCursor(
+                trigger.text,
+                // The selection is not worth a blocking round-trip on the
+                // typing path: a word only composes with the caret collapsed.
+                context = snippetContext(currentInputConnection, withSelection = false),
+            )
+            publishSnippetOffer(
+                SnippetOffer(
+                    id = trigger.id,
+                    label = trigger.label,
+                    text = expanded.text,
+                    cursorOffset = expanded.cursorOffset,
+                    consumed = typed,
+                    composed = true,
+                ),
+            )
+            return
+        }
+        if (!snippetStore.hasConfirmPatterns() || !patternGateOpen(typed)) {
+            publishSnippetOffer(null)
+            return
+        }
+        val ic = currentInputConnection
+        if (ic == null) {
+            publishSnippetOffer(null)
+            return
+        }
+        // A trigger's offer is about the buffer, and the buffer has just
+        // changed into something that is not that trigger, so it goes now
+        // rather than after the read. A pattern's offer is left up until the
+        // read answers: it usually still matches, and blanking it first is a
+        // chip that blinks on every keystroke.
+        if (_uiState.value.snippetOffer?.composed == true) publishSnippetOffer(null)
+        snippetOfferJob = serviceScope.launch {
+            // Debounced ahead of the read, for the reason spelled out in
+            // [refreshSmartSuggestion]: one keystroke reaches here twice, and
+            // sleeping first means the second scheduling cancels the first
+            // while it is still asleep rather than after it has already paid
+            // for a round-trip into the app being typed into.
+            delay(SNIPPET_OFFER_DEBOUNCE_MS)
+            val window = withContext(Dispatchers.Default) {
+                ic.getTextBeforeCursor(SnippetMatcher.MAX_WINDOW, 0)?.toString()
+            }
+            if (window == null) {
+                publishSnippetOffer(null)
+                return@launch
+            }
+            // The gate was read before the sleep; a panel opening or a field
+            // turning out to be secure does not cancel this job.
+            val still = _uiState.value
+            if (still.panel != PanelMode.NONE || still.secureField || still.fieldNoSuggestions) {
+                publishSnippetOffer(null)
+                return@launch
+            }
+            // The space that ends a word is already in the field by the time
+            // anyone can tap, and `(.+)` would swallow it into the capture. The
+            // match is made against the text without it; [onSnippetOfferAccept]
+            // finds the same trailing run again and puts it back.
+            val hit = snippetStore.matchPattern(
+                window = window.trimEnd(),
+                atFieldStart = window.length < SnippetMatcher.MAX_WINDOW,
+                context = snippetContext(ic, withSelection = false),
+                confirm = true,
+            )
+            publishSnippetOffer(
+                hit?.let {
+                    SnippetOffer(
+                        id = it.snippet.id,
+                        label = it.snippet.label,
+                        text = it.text,
+                        cursorOffset = it.cursorOffset,
+                        consumed = it.consumedText,
+                        composed = false,
+                    )
+                },
+            )
+        }
+    }
+
+    /**
+     * Inserts the offer the strip was showing.
+     *
+     * A trigger's offer replaces the composing region, which is what an
+     * ordinary [InputConnection.commitText] does anyway. A pattern's offer has
+     * to find its span again, since it reaches back over words the editor has
+     * already taken, and the key that ended the last one may have landed since.
+     * Both are put back on a backspace, exactly as an expansion that fired on
+     * its own is.
+     *
+     * Either way the offer is checked against the field before anything is
+     * edited. It is derived state, refreshed a frame behind the keystrokes, so
+     * a tap can always land just after the text it was about stopped being
+     * there — and an expansion that deletes the wrong span is far worse than
+     * one that does nothing.
+     */
+    fun onSnippetOfferAccept() {
+        val offer = _uiState.value.snippetOffer ?: return
+        val ic = currentInputConnection ?: return
+        val tail = if (offer.composed) {
+            // The buffer is the span. Nothing follows it — a terminator would
+            // have committed it — so the only question is whether it is still
+            // the word the chip was offering for.
+            if (composing.toString() != offer.consumed) {
+                clearSnippetOffer()
+                return
+            }
+            ""
+        } else {
+            val before = ic
+                .getTextBeforeCursor(SnippetMatcher.MAX_WINDOW + SNIPPET_OFFER_TAIL_MAX, 0)
+                ?.toString()
+                .orEmpty()
+            val at = before.lastIndexOf(offer.consumed)
+            // The span has to still be in front of the cursor with nothing
+            // behind it but the key that ended the word: the space the match
+            // was made without, or a full stop and its space.
+            before
+                .takeIf { at >= 0 }
+                ?.substring(at + offer.consumed.length)
+                ?.takeIf { it.length <= SNIPPET_OFFER_TAIL_MAX && it.none(Char::isLetterOrDigit) }
+                ?: run {
+                    clearSnippetOffer()
+                    return
+                }
+        }
+        stopVoiceForManualInput()
+        vibrate()
+        val inserted = offer.text + tail
+        val original = offer.consumed + tail
+        // With no marker in it the caret belongs after everything this puts in,
+        // the trailing space included; a marker is an instruction about where
+        // inside the snippet's own text to stop.
+        val marker = offer.cursorOffset.takeIf { it < offer.text.length }
+        ic.beginBatchEdit()
+        if (!offer.composed) {
+            // Same reason as [tryPatternExpansion]: a live composing region and
+            // deleteSurroundingText disagree about which characters they mean.
+            // A pattern's span ends in the word still being typed, so there
+            // usually is one.
+            ic.finishComposingText()
+            composing = StringBuilder()
+            ic.deleteSurroundingText(offer.consumed.length + tail.length, 0)
+        }
+        commitSplitAtCaret(ic, inserted, marker ?: inserted.length)
+        ic.endBatchEdit()
+        afterSnippetExpansion(
+            inserted = inserted,
+            original = original,
+            // Nothing to swallow: this expansion was tapped, so no terminator
+            // key is on its way in behind it.
+            caretParked = false,
+        )
+        clearSnippetOffer()
     }
 
     /**
@@ -6500,6 +6724,10 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
         refreshSmartSuggestion()
+        // Ahead of the engine check: a snippet offer is the user's own text
+        // waiting on their own trigger, not a guess the dictionary made, so it
+        // does not wait for a lexicon to have finished loading.
+        refreshSnippetOffer(state)
         val engine = suggestionEngine ?: return
         if (!state.settings.suggestions || state.secureField || state.fieldNoSuggestions) return
 
@@ -13424,6 +13652,9 @@ open class WMKeyboardService : InputMethodService() {
 
         /** See the delay in [refreshSmartSuggestion]; one frame, near enough. */
         private const val SMART_SUGGEST_DEBOUNCE_MS = 24L
+
+        /** Same job, same reasoning, in [refreshSnippetOffer]. */
+        private const val SNIPPET_OFFER_DEBOUNCE_MS = 24L
         private const val INLINE_EMOJI_LIMIT = 12
 
         /** How many contact-email completions the email-field strip may show. */
@@ -13452,6 +13683,17 @@ open class WMKeyboardService : InputMethodService() {
          * and the app's own undo is the right tool.
          */
         private const val SNIPPET_REVERT_MAX = 256
+
+        /**
+         * Characters that may sit between an offered pattern's span and the
+         * cursor when its chip is tapped.
+         *
+         * The match was made just before the key that ended the word landed, so
+         * by the time anyone can tap there is a space, or a full stop and the
+         * space after it, in the way. Room for both, and for nothing that could
+         * be a word — past that the field has moved on and the offer is stale.
+         */
+        private const val SNIPPET_OFFER_TAIL_MAX = 2
 
         /** Non-alphanumeric characters that are part of an email token. */
         private const val EMAIL_TOKEN_EXTRA = "._%+-@"
