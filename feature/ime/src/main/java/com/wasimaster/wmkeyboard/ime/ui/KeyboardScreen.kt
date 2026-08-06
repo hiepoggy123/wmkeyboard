@@ -8188,6 +8188,12 @@ private fun KeyRows(
             }
         }
 
+        // The theme's stickers, laid over the keys and under the transient
+        // layers (trail, ink, popups). A plain Canvas takes no touches, so
+        // typing goes straight through a decal; it draws only when the board
+        // draws, with no clock of its own.
+        BoardDecalsOverlay(kbTheme)
+
         // Anchored on the grid rather than on a key, and composed whether or not
         // anything is held — see [KeyPreviewOverlay].
         KeyPreviewOverlay(keyPreview, state.settings, boxOrigin, boxSize)

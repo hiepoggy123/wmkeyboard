@@ -41,6 +41,9 @@ fun themePhotoSweepPlan(
             theme.keyTextureEnter?.let { add(it.substringAfterLast('/')) }
             theme.keyTextureSpace?.let { add(it.substringAfterLast('/')) }
             theme.keyTexturePressed?.let { add(it.substringAfterLast('/')) }
+            theme.decals.forEach { decal ->
+                decal.image?.let { add(it.substringAfterLast('/')) }
+            }
         }
         rotationStates.values.forEach { state ->
             state.imagePath?.let { add(it.substringAfterLast('/')) }

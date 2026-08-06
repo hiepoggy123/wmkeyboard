@@ -56,8 +56,10 @@ import com.wasimaster.wmkeyboard.core.tools.SolarCalculator
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.theme.ColorVision
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
+import com.wasimaster.wmkeyboard.core.theme.DecalSpec
 import com.wasimaster.wmkeyboard.core.theme.KeyOverride
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
+import com.wasimaster.wmkeyboard.core.theme.MAX_DECALS
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeBackgroundImage
@@ -106,6 +108,8 @@ data class KbTheme(
     val keyTextureOpacity: Float,
     /** Single-key style overrides, keyed as [ThemeSpec.keyOverrides] is. */
     val keyOverrides: Map<String, KeyOverride>,
+    /** Decorative stickers over the key grid. */
+    val decals: List<DecalSpec>,
     val key: Color,
     val keyText: Color,
     val modifierKey: Color,
@@ -355,6 +359,7 @@ private fun defaultKbTheme(
         keyTextureScale = KeyTextureScale.CROP,
         keyTextureOpacity = 1f,
         keyOverrides = emptyMap(),
+        decals = emptyList(),
         key = key,
         keyText = scheme.onSurface,
         modifierKey = modifier,
@@ -429,6 +434,7 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         keyTextureScale = keyTextureScaleOrDefault(spec.keyTextureScale),
         keyTextureOpacity = spec.keyTextureOpacity,
         keyOverrides = spec.keyOverrides,
+        decals = spec.decals.take(MAX_DECALS),
         key = key,
         keyText = keyText,
         modifierKey = colorOf(spec.modifierKeyBackground),
@@ -577,6 +583,7 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
             keyTextureSpace = null,
             keyTexturePressed = null,
             keyOverrides = emptyMap(),
+            decals = emptyList(),
             animation = ThemeAnimation.NONE,
             key = key,
             modifierKey = modifier,
@@ -933,6 +940,7 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         keyTextureScale = if (past) b.keyTextureScale else a.keyTextureScale,
         keyTextureOpacity = lerpF(a.keyTextureOpacity, b.keyTextureOpacity, t),
         keyOverrides = if (past) b.keyOverrides else a.keyOverrides,
+        decals = if (past) b.decals else a.decals,
         key = lerp(a.key, b.key, t),
         keyText = lerp(a.keyText, b.keyText, t),
         modifierKey = lerp(a.modifierKey, b.modifierKey, t),

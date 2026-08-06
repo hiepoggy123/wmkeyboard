@@ -108,8 +108,10 @@ import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.builtInThemeNameRes
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
 import com.wasimaster.wmkeyboard.core.theme.GradientType
+import com.wasimaster.wmkeyboard.core.theme.DecalSpec
 import com.wasimaster.wmkeyboard.core.theme.KeyOverride
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
+import com.wasimaster.wmkeyboard.core.theme.MAX_DECALS
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.keyTextureScaleOrDefault
 import com.wasimaster.wmkeyboard.core.theme.SeedSwatches
@@ -1573,6 +1575,84 @@ fun ThemeEditorScreen(
         )
     }
 
+    var decalEditorId by rememberSaveable(theme.id) { mutableStateOf<String?>(null) }
+    val decalPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                runCancellable {
+                    val decalId = "d${System.currentTimeMillis()}"
+                    val path = importDecalImage(context, theme.id, decalId, uri)
+                    if (path != null) {
+                        repository.upsertCustomTheme(
+                            theme.copy(
+                                decals = theme.decals + DecalSpec(id = decalId, image = path),
+                            ),
+                        )
+                        decalEditorId = decalId
+                    }
+                }
+            }
+        }
+    }
+    SettingsGroup(stringResource(R.string.theme_decal_section_title)) {
+        item { CaptionText(stringResource(R.string.theme_decal_section_body)) }
+        theme.decals.forEachIndexed { index, decal ->
+            item {
+                ListItem(
+                    headlineContent = {
+                        Text(stringResource(R.string.theme_decal_item_label, index + 1))
+                    },
+                    leadingContent = { Icon(Icons.Outlined.Image, contentDescription = null) },
+                    trailingContent = {
+                        IconButton(
+                            onClick = {
+                                update { t ->
+                                    decal.image?.let { File(it).delete() }
+                                    t.copy(decals = t.decals.filterNot { it.id == decal.id })
+                                }
+                            },
+                        ) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(CommonR.string.common_remove),
+                            )
+                        }
+                    },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable { decalEditorId = decal.id },
+                )
+            }
+        }
+        if (theme.decals.size < MAX_DECALS) {
+            item {
+                OutlinedButton(
+                    onClick = {
+                        decalPicker.launch(
+                            PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly,
+                            ),
+                        )
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                ) { Text(stringResource(R.string.theme_decal_add_action)) }
+            }
+        }
+    }
+    decalEditorId?.let { id ->
+        DecalDialog(
+            theme = theme,
+            decalId = id,
+            onChange = { changed ->
+                update { t ->
+                    t.copy(decals = t.decals.map { if (it.id == id) changed else it })
+                }
+            },
+            onDismiss = { decalEditorId = null },
+        )
+    }
+
     SettingsGroup(stringResource(R.string.theme_accent_section_title)) {
         item {
             ColorRow(stringResource(R.string.theme_accent_title), theme.accent) {
@@ -2299,6 +2379,95 @@ private fun KeyOverrideDialog(
         },
     )
 }
+
+/**
+ * One sticker's placement, adjusted over a live preview: the miniature
+ * keyboard at the top draws the decal exactly where the sliders put it.
+ */
+@Composable
+private fun DecalDialog(
+    theme: ThemeSpec,
+    decalId: String,
+    onChange: (DecalSpec) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val decal = theme.decals.firstOrNull { it.id == decalId } ?: return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.theme_decal_section_title)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                ThemePreview(theme, animatedBadge = false)
+                Spacer(Modifier.height(8.dp))
+                SliderRow(
+                    stringResource(R.string.theme_decal_x_title),
+                    value = decal.x,
+                    range = 0f..1f,
+                    display = { "${(it * 100).toInt()}%" },
+                ) { onChange(decal.copy(x = (it * 100).toInt() / 100f)) }
+                SliderRow(
+                    stringResource(R.string.theme_decal_y_title),
+                    value = decal.y,
+                    range = 0f..1f,
+                    display = { "${(it * 100).toInt()}%" },
+                ) { onChange(decal.copy(y = (it * 100).toInt() / 100f)) }
+                SliderRow(
+                    stringResource(R.string.theme_decal_size_title),
+                    value = decal.scale,
+                    range = 0.05f..0.8f,
+                    display = { "${(it * 100).toInt()}%" },
+                ) { onChange(decal.copy(scale = (it * 100).toInt() / 100f)) }
+                SliderRow(
+                    stringResource(R.string.theme_decal_rotation_title),
+                    value = decal.rotationDeg,
+                    range = -180f..180f,
+                    display = { "${it.toInt()}°" },
+                ) { onChange(decal.copy(rotationDeg = it.toInt().toFloat())) }
+                SliderRow(
+                    stringResource(R.string.theme_image_opacity_title),
+                    value = decal.opacity,
+                    range = 0.1f..1f,
+                    display = { "${(it * 100).toInt()}%" },
+                ) { onChange(decal.copy(opacity = (it * 100).toInt() / 100f)) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_done)) }
+        },
+    )
+}
+
+/**
+ * Copies a picked sticker into the theme-images folder, downscaled like a key
+ * texture and kept as PNG so its transparency survives.
+ */
+private fun importDecalImage(
+    context: android.content.Context,
+    themeId: String,
+    decalId: String,
+    uri: android.net.Uri,
+): String? = runCatching {
+    val source = context.contentResolver.requireInputStream(uri).use { input ->
+        android.graphics.BitmapFactory.decodeStream(input)
+    } ?: return null
+    val longest = maxOf(source.width, source.height)
+    val scaled = if (longest > KEY_TEXTURE_IMPORT_PX) {
+        val scale = KEY_TEXTURE_IMPORT_PX.toFloat() / longest
+        android.graphics.Bitmap.createScaledBitmap(
+            source,
+            maxOf(1, (source.width * scale).toInt()),
+            maxOf(1, (source.height * scale).toInt()),
+            true,
+        )
+    } else {
+        source
+    }
+    val file = File(themeImagesDir(context), "${themeId}_decal_${decalId}.img")
+    file.outputStream().use { out ->
+        scaled.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+    }
+    file.absolutePath
+}.getOrNull()
 
 /** Longest edge a texture is stored at. A key never draws bigger than this. */
 private const val KEY_TEXTURE_IMPORT_PX = 512

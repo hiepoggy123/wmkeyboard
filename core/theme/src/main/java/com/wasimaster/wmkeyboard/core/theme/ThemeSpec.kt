@@ -277,6 +277,11 @@ data class ThemeSpec(
      */
     val soundCustomId: String? = null,
     /**
+     * Decorative stickers over the key grid; see [DecalSpec]. One unknown
+     * JSON key to an older build.
+     */
+    val decals: List<DecalSpec> = emptyList(),
+    /**
      * Per-key style overrides — a single key's own colours, keyed by the
      * key's lowercase label (letter keys) or its action name (special keys);
      * see [KeyOverride]. One unknown JSON key to an older build, which
@@ -316,6 +321,30 @@ data class KeyOverride(
         get() = background == null && text == null && border == null &&
             popupBackground == null && popupText == null
 }
+
+/**
+ * One decorative sticker laid over the key grid — a character leaning on the
+ * keys, hearts in a corner. Purely visual: the layer it draws on takes no
+ * touches. Coordinates are normalized to the key grid's rect so a decal keeps
+ * its place across widths and orientations.
+ */
+@Serializable
+data class DecalSpec(
+    /** Unique within the theme; names the image's transport slot (`decal:<id>`). */
+    val id: String,
+    /** Absolute local path of the sticker image; never set in exports. */
+    val image: String? = null,
+    /** Centre, as fractions of the grid's width and height. */
+    val x: Float = 0.5f,
+    val y: Float = 0.5f,
+    /** Width, as a fraction of the grid's width; height follows the image. */
+    val scale: Float = 0.25f,
+    val rotationDeg: Float = 0f,
+    val opacity: Float = 1f,
+)
+
+/** The most decals a theme may carry; past a handful they are just occlusion. */
+const val MAX_DECALS = 6
 
 /** How a key texture fits its key. Never serialized — travels as a string. */
 enum class KeyTextureScale { CROP, STRETCH, TILE }
@@ -391,6 +420,9 @@ fun ThemeSpec.withEmbeddedImages(): ThemeSpec {
         for ((slot, path) in assetPaths()) {
             encode(path)?.let { put(slot, it) }
         }
+        for (decal in decals) {
+            encode(decal.image)?.let { put("$ASSET_DECAL_PREFIX${decal.id}", it) }
+        }
     }
     return copy(
         backgroundImage = null,
@@ -408,6 +440,7 @@ fun ThemeSpec.withEmbeddedImages(): ThemeSpec {
         keyTextureEnter = null,
         keyTextureSpace = null,
         keyTexturePressed = null,
+        decals = decals.map { it.copy(image = null) },
         assets = embedded,
     )
 }
@@ -426,6 +459,9 @@ const val ASSET_KEY_TEXTURE_MODIFIER = "keyTextureModifier"
 const val ASSET_KEY_TEXTURE_ENTER = "keyTextureEnter"
 const val ASSET_KEY_TEXTURE_SPACE = "keyTextureSpace"
 const val ASSET_KEY_TEXTURE_PRESSED = "keyTexturePressed"
+
+/** Prefix of a decal image's transport slot; the decal's id follows it. */
+const val ASSET_DECAL_PREFIX = "decal:"
 
 /**
  * Inverse of [withEmbeddedImages]: writes any embedded base64 image(s) into
@@ -456,6 +492,12 @@ fun ThemeSpec.withExtractedImages(dir: File): ThemeSpec {
             ?: keyTextureSpace,
         keyTexturePressed = write("${id}_tex_press.img", assets[ASSET_KEY_TEXTURE_PRESSED])
             ?: keyTexturePressed,
+        decals = decals.map { decal ->
+            decal.copy(
+                image = write("${id}_decal_${decal.id}.img", assets["$ASSET_DECAL_PREFIX${decal.id}"])
+                    ?: decal.image,
+            )
+        },
         assets = emptyMap(),
     )
 }

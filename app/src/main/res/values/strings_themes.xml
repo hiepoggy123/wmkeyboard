@@ -212,6 +212,17 @@
     <string name="theme_key_override_letter_label">Letter</string>
     <string name="theme_key_background_title">Key background</string>
 
+    <!-- Theme editor: stickers over the keyboard. -->
+    <string name="theme_decal_section_title">Stickers</string>
+    <string name="theme_decal_section_body">Images laid over the keys, only for decoration. Typing goes through them. Transparent PNG images work best.</string>
+    <string name="theme_decal_add_action">Add a sticker</string>
+    <!-- %1$d is the sticker's number in the list. -->
+    <string name="theme_decal_item_label">Sticker %1$d</string>
+    <string name="theme_decal_x_title">Position, across</string>
+    <string name="theme_decal_y_title">Position, down</string>
+    <string name="theme_decal_size_title">Size</string>
+    <string name="theme_decal_rotation_title">Rotation</string>
+
     <!-- Theme editor: per-theme font and sound. -->
     <string name="theme_font_sound_section_title">Font and sound</string>
     <string name="theme_font_sound_section_body">The theme can bring its own key font and key sound. If the device does not have them, the keyboard uses your global choices. Fonts and sounds install as add-ons, so you can also use them with other themes.</string>

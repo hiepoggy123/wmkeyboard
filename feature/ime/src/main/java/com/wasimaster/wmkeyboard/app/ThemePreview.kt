@@ -8,6 +8,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.wasimaster.wmkeyboard.core.theme.BackgroundBitmapCache
+import com.wasimaster.wmkeyboard.ime.ui.DecalsCanvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -206,6 +207,10 @@ fun ThemePreview(
                 )
             }
         }
+        // Stickers over the mock-up keys, the same normalized placement the
+        // real grid uses. The toolbar row is excluded there and included here;
+        // at this scale the difference does not read.
+        DecalsCanvas(theme.decals)
         if (animatedBadge && theme.animation != ThemeAnimation.NONE) {
             AnimatedThemeBadge(
                 theme = theme,
