@@ -304,6 +304,16 @@
     <string name="typing_hw_digit_chord_subtitle">Ctrl+1 opens the toolbox, Ctrl+2 the first tool, and so on</string>
     <string name="typing_hw_digit_chord_info">The numbers count the buttons on the toolbar from the start. Ctrl+1 is the toolbox button, Ctrl+2 is the first tool after it. Ctrl+0 is the tenth button.\n\nThis needs no shortcut key first. Turn it off if you use Ctrl with a number in your apps: browsers and editors change tab with it, and the keyboard takes the key first while you write in a text field.\n\nThe same numbers also work after the shortcut key, at any setting.</string>
 
+    <string name="typing_hw_modifier_words_title">Write the modifier names</string>
+    <string name="typing_hw_modifier_words_subtitle">Show Ctrl and Shift on the keys instead of their symbols</string>
+    <string name="typing_hw_modifier_words_info">The keys under each button read \"Ctrl+2\" and \"Shift+Q\". These are the names printed on a PC keyboard.\n\nTurn this off for the shorter symbols. They take less space, but they come from Mac keyboards, and a keyboard that does not print them gives you no help to read them.</string>
+
+    <string name="typing_hw_picker_timeout_title">Time to press a key</string>
+    <string name="typing_hw_picker_timeout_subtitle">How long the keys stay on the screen after the shortcut key</string>
+    <string name="typing_hw_picker_timeout_info">After you press the shortcut key, each button shows the key that operates it. This is how long they stay before the keyboard goes back to usual.\n\nMake this longer while you learn the keys. Make it shorter when you know them, because the keyboard does nothing else until the time is finished or you press a key.</string>
+    <!-- Length of time in seconds. %1$s is a number such as 8.0. -->
+    <string name="typing_hw_picker_timeout_value">%1$ss</string>
+
     <string name="typing_hw_suggestion_hints_title">Show the suggestion numbers</string>
     <string name="typing_hw_suggestion_hints_subtitle">Put the key under each suggestion while a physical keyboard is connected</string>
     <string name="typing_hw_suggestion_hints_info">Each suggestion shows the key that selects it, for as long as a physical keyboard is connected.\n\nThis applies only to \"Alt + number\", which needs no shortcut key first. With \"After the shortcut key\", the numbers show after you press the shortcut key, because that is when they operate.</string>

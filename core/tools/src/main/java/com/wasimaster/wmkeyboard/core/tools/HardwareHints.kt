@@ -64,9 +64,9 @@ enum class HintSurface { TOOLBAR, TOOLBOX, SYMBOL_ROW, EMOJI_ROW, SUGGESTION }
 data class HintTarget(val surface: HintSurface, val index: Int)
 
 /**
- * Modifier glyphs for the badges. Written as escapes rather than literals: the
- * badge is two or three characters wide, and a mangled encoding somewhere in
- * the build would be invisible until it reached a device.
+ * Modifier glyphs, for the compact spelling. Written as escapes rather than
+ * literals: the badge is two or three characters wide, and a mangled encoding
+ * somewhere in the build would be invisible until it reached a device.
  */
 const val ShiftHintPrefix: String = "\u21E7"
 
@@ -75,37 +75,69 @@ const val CtrlHintPrefix: String = "\u2303"
 const val AltHintPrefix: String = "\u2325"
 
 /**
- * The second tier: everything with no bare key of its own answers to Shift plus
- * one of these.
+ * How a modifier reads on a badge.
  *
- * All 25 non-reserved letters are already spoken for by [DefaultToolLetters],
- * and there are far more tools than letters, so a second tier is not a luxury —
- * without it, "give every tool a key" is arithmetically impossible.
- *
- * Ordered the way the keys sit under the hands (top row, home row, bottom row,
- * then the digits) so a row of badges reads left to right across the keyboard.
+ * Words by default. The glyphs are Mac keycap conventions that a Windows or
+ * Linux keyboard never prints, so on the wrong keyboard they are a puzzle rather
+ * than a hint, while "Ctrl" and "Shift" are written on the key itself.
+ * [Symbols] is there for anyone who would rather the badges took less room.
  */
-val ExtendedHintKeys: List<Char> =
-    ("QWERTYUIOP" + "ASDFGHJKL" + "ZXCVBNM" + "1234567890").toList()
+data class HintModifiers(val ctrl: String, val shift: String, val alt: String) {
+    companion object {
+        val Words = HintModifiers(ctrl = "Ctrl+", shift = "Shift+", alt = "Alt+")
+
+        val Symbols = HintModifiers(
+            ctrl = CtrlHintPrefix,
+            shift = ShiftHintPrefix,
+            alt = AltHintPrefix,
+        )
+
+        fun of(spellOut: Boolean): HintModifiers = if (spellOut) Words else Symbols
+    }
+}
 
 /**
- * Where the emoji row starts drawing from [ExtendedHintKeys], leaving the keys
- * before it to the symbol row.
+ * The second tier for the symbol row: Shift plus a letter, in keyboard order, so
+ * a row of badges reads left to right across the physical keys.
  *
- * Fixed slices rather than one running counter: with a shared drain, adding a
- * character to a symbol set would silently renumber every emoji beside it, and
- * the whole point of these keys is that they stay where the user learned them.
+ * A second tier is not a luxury. All 25 non-reserved letters are already spoken
+ * for by [DefaultToolLetters] and there are far more tools than letters, so
+ * "give everything a key" is arithmetically impossible on one tier.
  */
-const val EmojiHintKeyOffset: Int = 20
+val SymbolHintKeys: List<Char> = ("QWERTYUIOP" + "ASDFGHJKL" + "ZXCVBNM").toList()
 
-/** How many symbol cells can be reached before the emoji row's slice starts. */
-const val MaxSymbolHintKeys: Int = EmojiHintKeyOffset
+/**
+ * The second tier for the emoji row: Shift plus a digit, counting from the left
+ * exactly as the toolbar's Ctrl+digit does. One counting rule for two rows of
+ * evenly spaced cells is less to remember than two.
+ *
+ * Disjoint from [SymbolHintKeys] by construction - letters against digits - so
+ * neither row can renumber the other, however long its content grows.
+ */
+val EmojiHintKeys: List<Char> = "1234567890".toList()
 
-/** How many emoji cells can be reached; the rest of the pool, after the symbols. */
-const val MaxEmojiHintKeys: Int = 16
+/** The toolbox drains both pools, letters first; it is the widest consumer. */
+val ExtendedHintKeys: List<Char> = SymbolHintKeys + EmojiHintKeys
 
 /** Toolbar positions get a digit each: 1-9, then 0 for the tenth. */
 val ToolbarHintDigits: List<Char> = "1234567890".toList()
+
+/**
+ * Which engine-ranked suggestion sits in each display slot, left to right.
+ *
+ * The strip has a setting that puts the top candidate in the *middle* with the
+ * runner-up to its left, so the second-ranked word is drawn first. The badges
+ * count slots the way the eye reads them, 1 2 3 from the left, which means the
+ * key has to know which rank it is really committing. Mirrors the reordering in
+ * `LatinSuggestionChips`; the conversion strip never reorders, so it passes
+ * [centerPrimary] false.
+ */
+fun suggestionSlotOrder(count: Int, centerPrimary: Boolean): List<Int> {
+    val order = List(count) { it }
+    // Fewer than two and there is nothing to swap; the strip's own guard.
+    if (!centerPrimary || count < 2) return order
+    return listOf(1, 0) + order.drop(2)
+}
 
 /**
  * The bar's buttons in drawn order, as far as the digits reach: the toolbox
@@ -179,6 +211,7 @@ fun buildHintPlan(
     digitChord: Boolean = false,
     leaderDigitsPickSuggestions: Boolean = false,
     suggestionAltDigits: Boolean = false,
+    modifiers: HintModifiers = HintModifiers.Words,
 ): HintPlan {
     val labels = mutableMapOf<HintTarget, String>()
     val strokes = mutableMapOf<HintStroke, HintAction>()
@@ -189,10 +222,10 @@ fun buildHintPlan(
         if (!leaderDigitsPickSuggestions) strokes[HintStroke(digit)] = action
         // Spelled as the chord when the chord is on: that is the shortcut the
         // user can press at any time, and the bare digit only exists for the
-        // three seconds after the leader. A button with no route at all (chord
+        // few seconds after the leader. A button with no route at all (chord
         // off *and* the digits given to suggestions) gets no badge.
         val label = when {
-            digitChord -> CtrlHintPrefix + digit
+            digitChord -> modifiers.ctrl + digit
             !leaderDigitsPickSuggestions -> digit.toString()
             else -> null
         }
@@ -216,20 +249,20 @@ fun buildHintPlan(
             } else {
                 val key = ExtendedHintKeys.getOrNull(next++) ?: return@forEachIndexed
                 strokes[HintStroke(key, shift = true)] = HintAction.OpenTool(tool)
-                ShiftHintPrefix + key
+                modifiers.shift + key
             }
             labels[HintTarget(HintSurface.TOOLBOX, index)] = label
         }
     } else {
-        for (index in 0 until minOf(symbolCells, MaxSymbolHintKeys)) {
-            val key = ExtendedHintKeys[index]
+        for (index in 0 until minOf(symbolCells, SymbolHintKeys.size)) {
+            val key = SymbolHintKeys[index]
             strokes[HintStroke(key, shift = true)] = HintAction.InsertSymbol(index)
-            labels[HintTarget(HintSurface.SYMBOL_ROW, index)] = ShiftHintPrefix + key
+            labels[HintTarget(HintSurface.SYMBOL_ROW, index)] = modifiers.shift + key
         }
-        for (index in 0 until minOf(emojiCells, MaxEmojiHintKeys)) {
-            val key = ExtendedHintKeys[EmojiHintKeyOffset + index]
+        for (index in 0 until minOf(emojiCells, EmojiHintKeys.size)) {
+            val key = EmojiHintKeys[index]
             strokes[HintStroke(key, shift = true)] = HintAction.InsertEmoji(index)
-            labels[HintTarget(HintSurface.EMOJI_ROW, index)] = ShiftHintPrefix + key
+            labels[HintTarget(HintSurface.EMOJI_ROW, index)] = modifiers.shift + key
         }
     }
 
@@ -237,14 +270,21 @@ fun buildHintPlan(
     // Alt+digit needs no leader, so its badge is a standing label rather than
     // something the picker reveals; the leader-digit mode is the opposite, and
     // registers a stroke instead.
+    //
+    // Both are keyed by *display slot* — a position on the strip, counted from
+    // the left, not an engine rank. With the top candidate centred those differ,
+    // and the caller resolves one to the other in exactly one place
+    // (`pickSuggestion`). Conflating them is how a badge reading 1 commits the
+    // middle word.
     if (suggestionAltDigits || leaderDigitsPickSuggestions) {
-        for (index in 0 until minOf(suggestions, ToolbarHintDigits.size)) {
-            val digit = ToolbarHintDigits[index]
+        val slots = minOf(suggestions, ToolbarHintDigits.size)
+        for (slot in 0 until slots) {
+            val digit = ToolbarHintDigits[slot]
             if (leaderDigitsPickSuggestions) {
-                strokes[HintStroke(digit)] = HintAction.PickSuggestion(index)
+                strokes[HintStroke(digit)] = HintAction.PickSuggestion(slot)
             }
-            labels[HintTarget(HintSurface.SUGGESTION, index)] =
-                if (suggestionAltDigits) AltHintPrefix + digit else digit.toString()
+            labels[HintTarget(HintSurface.SUGGESTION, slot)] =
+                if (suggestionAltDigits) modifiers.alt + digit else digit.toString()
         }
     }
 

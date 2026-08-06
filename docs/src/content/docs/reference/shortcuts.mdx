@@ -18,7 +18,7 @@ This is the flattened, all-in-one-table version of what a physical keyboard can 
 
 ## Opening the tool picker
 
-Double-tap <KeyCap>Ctrl</KeyCap> (the default shortcut key) and every button on the keyboard shows a badge with the key that operates it. Press a letter to open that tool, <KeyCap>T</KeyCap> for the full toolbox, or <KeyCap>?</KeyCap> for the complete legend shown above — which is the place to look for the tools that aren't on screen to wear a badge. The picker waits about three seconds for a key before it disarms itself; that timeout isn't adjustable from settings.
+Double-tap <KeyCap>Ctrl</KeyCap> (the default shortcut key) and every button on the keyboard shows a badge with the key that operates it. Press a letter to open that tool, <KeyCap>T</KeyCap> for the full toolbox, or <KeyCap>?</KeyCap> for the complete legend shown above — which is the place to look for the tools that aren't on screen to wear a badge. The badges spell their modifier out (`Ctrl+2`, `Shift+Q`) unless you turn **Write the modifier names** off, and they stay up for eight seconds by default — **Time to press a key** takes that anywhere from one to thirty. The legend has its own close button, so it is never a dead end without a keyboard.
 
 You can pick a different double-tapped modifier (<KeyCap>Ctrl</KeyCap>, <KeyCap>Alt</KeyCap> or <KeyCap>Shift</KeyCap>) or capture an arbitrary chord instead, from <SettingsPath path="Typing / Physical keyboard / Tool shortcuts list" />. A captured chord that the focused app is likely to want still works, but the capture dialog warns that it's "usually the app's own shortcut". It's a nudge, not a block:
 
@@ -65,7 +65,14 @@ The chord is on by default and can be turned off from <SettingsPath path="Typing
 
 ## Symbol and emoji rows
 
-Double-tap the shortcut key and each cell in the symbol row and the emoji row shows a <KeyCap>Shift</KeyCap>+key badge that inserts it. The two rows draw from separate blocks of keys, so editing one never renumbers the other. An open toolbox claims the whole <KeyCap>Shift</KeyCap> tier for its own tools, and the rows drop their badges until it closes.
+Double-tap the shortcut key and each cell in the symbol row and the emoji row shows a <KeyCap>Shift</KeyCap>+key badge that inserts it.
+
+| Row | Keys |
+| --- | --- |
+| Symbol row | <KeyCap>Shift</KeyCap>+a letter, in keyboard order (<KeyCap>Q</KeyCap>, <KeyCap>W</KeyCap>, <KeyCap>E</KeyCap>, …) |
+| Emoji row | <KeyCap>Shift</KeyCap>+<KeyCap>1</KeyCap> onward, counting from the left |
+
+Letters against digits, so the two pools cannot collide and editing one row never renumbers the other. An open toolbox claims the whole <KeyCap>Shift</KeyCap> tier for its own tools, and the rows drop their badges until it closes.
 
 ## macOS shortcuts
 
@@ -94,6 +101,8 @@ Hold <KeyCap>Shift</KeyCap> with a move to select. <KeyCap>Ctrl</KeyCap> is unto
 | After the shortcut key | Double-tap the shortcut key, then <KeyCap>1</KeyCap>–<KeyCap>9</KeyCap> | |
 
 There's no slot for suggestion "10": only the first nine entries in the strip are reachable by number. In **Alt + number** mode the strip shows its keys under the words whenever a physical keyboard is attached, which <SettingsPath path="Typing / Physical keyboard / Show the suggestion numbers" /> turns off. **After the shortcut key** takes the bare numbers for itself, so the toolbar's tools then rely on the <KeyCap>Ctrl</KeyCap>+number chord.
+
+The numbers count slots from the left, not the engine's ranking, so with <SettingsPath path="Typing / Best suggestion in the middle" /> on the strip still reads 1 2 3 across and <KeyCap>1</KeyCap> commits the leftmost word.
 
 ## Driving an open panel
 
@@ -133,6 +142,8 @@ The physical-key behavior WM Keyboard adds on top is all on this page: the leade
 | Tool shortcuts | On |
 | Shortcut key | Double-tap Ctrl |
 | Ctrl + number opens a toolbar tool | On |
+| Write the modifier names | On |
+| Time to press a key | 8.0s |
 | Arrow keys move a highlight | On |
 | Esc closes the tool | On |
 | Number keys pick suggestions | Alt + number |

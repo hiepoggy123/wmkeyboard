@@ -308,12 +308,14 @@ import com.wasimaster.wmkeyboard.core.settings.toolboxPage
 import com.wasimaster.wmkeyboard.core.settings.toolboxPageCount
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
+import com.wasimaster.wmkeyboard.core.tools.HintModifiers
 import com.wasimaster.wmkeyboard.core.tools.HintPlan
 import com.wasimaster.wmkeyboard.core.tools.HintSurface
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.tools.buildHintPlan
 import com.wasimaster.wmkeyboard.core.tools.resolveSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.resolvedToolLetters
+import com.wasimaster.wmkeyboard.core.tools.suggestionSlotOrder
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.symbolChipLabel
@@ -791,6 +793,8 @@ fun KeyboardScreen(
     onPluginCopy: (String) -> Unit = {},
     launcher: LauncherPanelCallbacks = LauncherPanelCallbacks(),
     onDismissInlineSuggestions: () -> Unit = {},
+    /** The shortcut legend's close button: disarm the picker and drop the badges. */
+    onPickerDismiss: () -> Unit = {},
     /** Smart chip tapped: type the answer over the text that triggered it. */
     onSmartAccept: () -> Unit = {},
     /** Smart chip's tool button: clear the trigger and stage the prefill. */
@@ -865,6 +869,7 @@ fun KeyboardScreen(
                 state = bodyState,
                 onEmojiRowShown = onEmojiRowShown,
                 onDismissInlineSuggestions = onDismissInlineSuggestions,
+                onPickerDismiss = onPickerDismiss,
                 onSmartAccept = onSmartAccept,
                 onSmartOpen = onSmartOpen,
                 onSnippetOfferAccept = onSnippetOfferAccept,
@@ -2675,11 +2680,10 @@ private fun RowScope.LatinSuggestionChips(
                         .clickable(enabled = enabled) { onSuggestion(suggestion) },
                     contentAlignment = Alignment.Center,
                 ) {
-                    // The hotkey commits by engine rank, and the centre-primary
-                    // display swaps the first two chips — so the badge follows
-                    // the word to wherever it was drawn, not the slot it sits in.
-                    val rank = if (centerPrimary && index < 2) 1 - index else index
-                    val hint = hints?.label(HintSurface.SUGGESTION, rank)
+                    // Counted by slot, so the strip always reads 1 2 3 from the
+                    // left even with the primary centred. The plan holds the
+                    // rank each slot is drawing (see [suggestionDisplayOrder]).
+                    val hint = hints?.label(HintSurface.SUGGESTION, index)
                     if (hint != null) {
                         HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
                     }
@@ -3377,6 +3381,9 @@ private fun EmojiBarCell(
             text = LocalEmojiShaper.current.shape(emoji),
             modifier = Modifier
                 .width(width)
+                // Lifted so the badge sits under the emoji rather than over it;
+                // the cell's own size is unchanged.
+                .offset(y = if (hint != null) -(HintBadgeHeight / 2) else 0.dp)
                 .clickable { onEmoji(emoji) }
                 .padding(vertical = 6.dp),
             fontSize = fontSize,
@@ -3487,10 +3494,14 @@ private fun SymbolRowStrip(
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             itemsIndexed(active.chars) { index, symbol ->
+                val hint = hints?.label(HintSurface.SYMBOL_ROW, index)
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = symbolChipLabel(symbol),
                         modifier = Modifier
+                            // Lifted so the badge sits under the character
+                            // instead of across it; the cell keeps its size.
+                            .offset(y = if (hint != null) -(HintBadgeHeight / 2) else 0.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .clickable { onInsert(symbol) }
                             .padding(horizontal = 8.dp, vertical = 8.dp),
@@ -3498,7 +3509,6 @@ private fun SymbolRowStrip(
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                     )
-                    val hint = hints?.label(HintSurface.SYMBOL_ROW, index)
                     if (hint != null) {
                         HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
                     }
@@ -4698,12 +4708,17 @@ private fun ToolCircle(
                 SlotIcon(
                     slot,
                     contentDescription = description,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier
+                        .size(20.dp)
+                        // Lifted, not shrunk, so the badge below has room inside
+                        // a box whose size must not change (see [HintBadge]).
+                        .offset(y = if (hint != null) -(HintBadgeHeight / 2) else 0.dp),
                     tint = iconTint,
                     brush = iconBrush,
                 )
-                // Over the icon rather than over the name below it: the name is
-                // the thing the labels setting was turned on for.
+                // Under the icon, over the name: the badge is temporary and the
+                // name is what the labels setting was turned on for, so the
+                // badge borrows the name's top edge rather than the icon's face.
                 if (hint != null) {
                     HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
                 }
@@ -4732,7 +4747,12 @@ private fun ToolCircle(
         SlotIcon(
             slot,
             contentDescription = description,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier
+                .size(20.dp)
+                // The icon steps up by half the badge's height so the badge sits
+                // under it rather than across it. The button's own 38 dp box is
+                // untouched, so nothing on the bar moves.
+                .offset(y = if (hint != null) -(HintBadgeHeight / 2) else 0.dp),
             tint = iconTint,
             brush = iconBrush,
         )
@@ -5836,6 +5856,7 @@ private fun FullBleedTool(
 private fun KeyboardBody(
     state: KeyboardUiState,
     onDismissInlineSuggestions: () -> Unit,
+    onPickerDismiss: () -> Unit,
     onSmartAccept: () -> Unit,
     onSmartOpen: () -> Unit,
     onSnippetOfferAccept: () -> Unit,
@@ -6737,12 +6758,17 @@ private fun KeyboardBody(
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
-        // Last in the Box, so the legend and its pill float over the top strip
-        // instead of pushing the keys down — arming must not resize the keyboard.
-        ToolPickerOverlay(state, modifier = Modifier.align(Alignment.TopCenter))
-        // Out at the end of the strip, clear of the badges the arming just put
-        // under the icons.
-        PickerHelpPill(state, modifier = Modifier.align(Alignment.TopEnd))
+        // Last in the Box, so the legend and its pill float over the keyboard
+        // instead of pushing the keys down — arming must not resize it.
+        ToolPickerOverlay(
+            state,
+            onClose = onPickerDismiss,
+            modifier = Modifier.align(Alignment.TopCenter),
+        )
+        // Down in the corner, not up by the strip: at the top it sat over the
+        // first toolbar buttons and hid the very badges the arming had just put
+        // there. The bottom-right of the key grid is the emptiest corner.
+        PickerHelpPill(state, modifier = Modifier.align(Alignment.BottomEnd))
     }
 }
 
@@ -9032,7 +9058,26 @@ internal fun keyboardHintPlan(state: KeyboardUiState): HintPlan {
         digitChord = hw.toolbarDigitChord,
         leaderDigitsPickSuggestions = hw.suggestionHotkeys == SuggestionHotkeyMode.LEADER_DIGIT,
         suggestionAltDigits = hw.suggestionHotkeys == SuggestionHotkeyMode.ALT_DIGIT,
+        modifiers = HintModifiers.of(hw.hintModifierWords),
     )
+}
+
+/**
+ * Which engine rank each suggestion slot is drawing, left to right.
+ *
+ * The centre-primary setting swaps the first two chips, so slot 0 shows rank 1.
+ * The badges count slots, not ranks — a strip labelled 2 1 3 is exactly the
+ * puzzle the badges exist to remove — which means the key must resolve back to
+ * the rank before it commits. Shared with the service so the badge and the
+ * keypress can never disagree about which word is which.
+ *
+ * Only the Latin chips reorder: the conversion strip is a scrolling row in the
+ * composer's own order, and the inline-emoji row is not word candidates at all.
+ */
+internal fun suggestionDisplayOrder(state: KeyboardUiState): List<Int> {
+    val reorders = !state.composer.isConversion && !state.inlineEmoji &&
+        state.settings.suggestionStrip.suggestionPrimaryCenter
+    return suggestionSlotOrder(state.suggestions.size, reorders)
 }
 
 /**

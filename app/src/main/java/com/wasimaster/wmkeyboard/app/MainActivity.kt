@@ -203,6 +203,7 @@ import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
+import com.wasimaster.wmkeyboard.core.settings.PickerTimeoutRange
 import com.wasimaster.wmkeyboard.core.settings.BottomRowHeightRange
 import com.wasimaster.wmkeyboard.core.settings.SidePadScaleRange
 import com.wasimaster.wmkeyboard.core.settings.ShiftCapsLockMsRange
@@ -2997,6 +2998,27 @@ private fun TypingSettings(
                     hw.toolbarDigitChord,
                     info = stringResource(R.string.typing_hw_digit_chord_info),
                 ) { scope.launch { repository.setHwToolbarDigitChord(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_hw_modifier_words_title,
+                    stringResource(R.string.typing_hw_modifier_words_subtitle),
+                    hw.hintModifierWords,
+                    info = stringResource(R.string.typing_hw_modifier_words_info),
+                ) { scope.launch { repository.setHwHintModifierWords(it) } }
+            }
+            item {
+                // The readout tracks the live thumb, so its format string is
+                // resolved out here: the display lambda is not composable.
+                val secondsFormat = stringResource(R.string.typing_hw_picker_timeout_value)
+                SliderSetting(
+                    R.string.typing_hw_picker_timeout_title,
+                    subtitle = stringResource(R.string.typing_hw_picker_timeout_subtitle),
+                    value = hw.pickerTimeoutMs.toFloat(),
+                    range = PickerTimeoutRange.first.toFloat()..PickerTimeoutRange.last.toFloat(),
+                    display = { secondsFormat.format("%.1f".format(it / 1000f)) },
+                    info = stringResource(R.string.typing_hw_picker_timeout_info),
+                ) { scope.launch { repository.setHwPickerTimeoutMs(it.toInt()) } }
             }
         }
         item {

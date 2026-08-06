@@ -199,6 +199,7 @@ import com.wasimaster.wmkeyboard.core.tools.pickerLetter
 import com.wasimaster.wmkeyboard.core.tools.toolbarHintButtons
 import com.wasimaster.wmkeyboard.ime.ui.activeSymbolSet
 import com.wasimaster.wmkeyboard.ime.ui.keyboardHintPlan
+import com.wasimaster.wmkeyboard.ime.ui.suggestionDisplayOrder
 import com.wasimaster.wmkeyboard.ime.ui.visibleEmojiBarItems
 import com.wasimaster.wmkeyboard.ime.ui.visibleToolbarTools
 import com.wasimaster.wmkeyboard.core.tools.step
@@ -2310,6 +2311,7 @@ open class WMKeyboardService : InputMethodService() {
                 onPluginCopy = ::onPluginCopy,
                 launcher = launcherCallbacks,
                 onDismissInlineSuggestions = ::onDismissInlineSuggestions,
+                onPickerDismiss = ::disarmToolPicker,
                 onSmartAccept = ::onSmartSuggestionTapped,
                 onSmartOpen = ::onSmartSuggestionOpen,
                 onSnippetOfferAccept = ::onSnippetOfferAccept,
@@ -13175,13 +13177,17 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * Commits the numbered suggestion, or reports false so the key goes back to
-     * the app — with an empty strip, Alt+1 belongs to whatever is switching tabs
-     * with it.
+     * Commits the suggestion in the numbered *slot*, counting from the left, or
+     * reports false so the key goes back to the app — with an empty strip, Alt+1
+     * belongs to whatever is switching tabs with it.
+     *
+     * [slot] is a position on the strip, not an engine rank. With the primary
+     * candidate centred those differ, and the badges count what the eye sees.
      */
-    private fun pickSuggestion(index: Int): Boolean {
+    private fun pickSuggestion(slot: Int): Boolean {
         val state = _uiState.value
         if (!hardwareIntercepts(state)) return false
+        val index = suggestionDisplayOrder(state).getOrNull(slot) ?: return false
         val word = state.suggestions.getOrNull(index) ?: return false
         // Through the *tapped-candidate* handler, not the tapped-suggestion one:
         // a conversion IME (Pinyin, kana to kanji) resolves a candidate by its

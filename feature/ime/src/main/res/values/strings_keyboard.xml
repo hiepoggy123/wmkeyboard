@@ -331,6 +331,8 @@
     <!-- The pill that points at the legend, shown while the leader key waits.
          %1$s is the key that opens the legend. Key names are not translated. -->
     <string name="ime_tool_picker_help">%1$s for all keys</string>
+    <!-- Content description of the button that closes the list of keys. -->
+    <string name="ime_tool_picker_close_desc">Close the list of keys</string>
 
     <!-- The chip the suggestion strip shows for a tool. %1$s is a tool name. -->
     <string name="ime_smart_open_tool">Open %1$s</string>

@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.ime.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,12 +11,16 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -52,7 +57,11 @@ import com.wasimaster.wmkeyboard.ime.R
  * a read-only list has no business touching.
  */
 @Composable
-internal fun ToolPickerOverlay(state: KeyboardUiState, modifier: Modifier = Modifier) {
+internal fun ToolPickerOverlay(
+    state: KeyboardUiState,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val showing = state.toolPicker?.cheatSheet == true
     AnimatedVisibility(visible = showing, modifier = modifier) {
         val kb = LocalKbTheme.current
@@ -82,6 +91,7 @@ internal fun ToolPickerOverlay(state: KeyboardUiState, modifier: Modifier = Modi
                         config.suggestionHotkeys == SuggestionHotkeyMode.ALT_DIGIT,
                 ),
                 leader = leader,
+                onClose = onClose,
             )
         }
     }
@@ -119,16 +129,36 @@ internal fun PickerHelpPill(state: KeyboardUiState, modifier: Modifier = Modifie
 
 /** Every binding, laid out two columns wide so it fits the keyboard's height. */
 @Composable
-private fun CheatSheet(rows: List<CheatRow>, leader: String) {
+private fun CheatSheet(rows: List<CheatRow>, leader: String, onClose: () -> Unit) {
     val kb = LocalKbTheme.current
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            stringResource(R.string.ime_tool_picker_leader, leader),
-            color = kb.accent,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 4.dp),
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 4.dp),
+        ) {
+            Text(
+                stringResource(R.string.ime_tool_picker_leader, leader),
+                color = kb.accent,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            // Escape closes this and so does any bound key, but every one of
+            // those needs the keyboard that opened it. Unplug it, or put it
+            // down, and the legend is a box on screen with no way out.
+            Icon(
+                Icons.Outlined.Close,
+                contentDescription = stringResource(R.string.ime_tool_picker_close_desc),
+                tint = kb.secondaryText,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onClose)
+                    .padding(4.dp)
+                    .size(16.dp),
+            )
+        }
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             contentPadding = PaddingValues(vertical = 2.dp),
@@ -140,11 +170,18 @@ private fun CheatSheet(rows: List<CheatRow>, leader: String) {
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.padding(vertical = 2.dp),
                 ) {
+                    // The trigger measures first and never yields: it is the
+                    // whole point of the row, and a spelled-out "Shift+Q" was
+                    // wrapping to a second line and losing its tail. The tool
+                    // name is the one that gives up space, because a clipped
+                    // name is still recognisable and half a key name is not.
                     Text(
                         row.trigger,
                         color = kb.toolCircleActiveIcon,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false,
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .background(kb.toolCircleActive)
@@ -161,6 +198,7 @@ private fun CheatSheet(rows: List<CheatRow>, leader: String) {
                         fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                 }
             }

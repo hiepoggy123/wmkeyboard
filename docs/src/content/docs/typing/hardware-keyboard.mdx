@@ -34,22 +34,27 @@ A physical dead key (an accent key that combines with the next letter) is compos
 
 <SettingsPath path="Typing / Physical keyboard / Tool shortcuts list" />
 
-**Tool shortcuts** (on by default) let you open any tool without touching the screen at all. Double-tap <KeyCap>Ctrl</KeyCap> — nothing else uses that combination, so it's safe by default — and every button on the keyboard sprouts a small badge showing the key that operates it. Press that key and the button fires. If you don't press anything, the badges disappear on their own after a few seconds.
+**Tool shortcuts** (on by default) let you open any tool without touching the screen at all. Double-tap <KeyCap>Ctrl</KeyCap> — nothing else uses that combination, so it's safe by default — and every button on the keyboard sprouts a small badge, under its icon, showing the key that operates it. Press that key and the button fires. If you don't press anything, the badges disappear on their own.
 
 Four kinds of badge appear, and between them they cover everything on screen:
 
 | Where | Key |
 | --- | --- |
 | Toolbar icons | <KeyCap>1</KeyCap> onward, counting from the toolbox button at the start |
-| Toolbox tools | the tool's own letter, or <KeyCap>Shift</KeyCap>+a key for the ones with no letter |
-| Symbol and emoji rows | <KeyCap>Shift</KeyCap>+a key |
-| Suggestions | <KeyCap>1</KeyCap> to <KeyCap>9</KeyCap> (see below) |
+| Toolbox tools | the tool's own letter, or <KeyCap>Shift</KeyCap>+a letter for the ones with no letter |
+| Symbol row | <KeyCap>Shift</KeyCap>+a letter |
+| Emoji row | <KeyCap>Shift</KeyCap>+<KeyCap>1</KeyCap> onward, counting from the left like the toolbar |
+| Suggestions | <KeyCap>1</KeyCap> to <KeyCap>9</KeyCap>, left to right (see below) |
+
+The badges spell their modifier out — `Ctrl+2`, `Shift+Q` — because those are the names printed on a PC keyboard. <SettingsPath path="Typing / Physical keyboard / Write the modifier names" /> swaps them for the shorter `⌃` and `⇧` glyphs if you'd rather have the space back.
+
+<SettingsPath path="Typing / Physical keyboard / Time to press a key" /> is how long they stay up: eight seconds by default, anywhere from one to thirty. Long while you're learning them, short once you aren't — the keyboard does nothing else until the time runs out or you press a key.
 
 <PhoneFrame caption="Hotkey badges under the toolbar icons after double-tapping Ctrl.">
   {/* shot: typing/hardware-tool-picker */}
 </PhoneFrame>
 
-<KeyCap>T</KeyCap> still opens the full toolbox from anywhere, and <KeyCap>?</KeyCap> opens the cheat sheet: a complete legend of every key, including the tools that aren't on screen to wear a badge. While the badges are up, a small `? for all keys` pill at the end of the strip points at it.
+<KeyCap>T</KeyCap> still opens the full toolbox from anywhere, and <KeyCap>?</KeyCap> opens the cheat sheet: a complete legend of every key, including the tools that aren't on screen to wear a badge. While the badges are up, a small `? for all keys` pill in the bottom-right corner points at it. The legend has a close button of its own, so you're never stuck in it without a keyboard.
 
 ### Ctrl and a number, with no leader
 
@@ -92,7 +97,9 @@ There are far more tools than there are letters, so the ones with no letter of t
 
 ## Symbols and emoji from the keyboard
 
-While the toolbox is closed, the same <KeyCap>Shift</KeyCap>+key tier goes to the symbol row and the emoji row: double-tap <KeyCap>Ctrl</KeyCap>, then <KeyCap>Shift</KeyCap> with the key shown under the cell you want, and it's inserted. The two rows have separate blocks of keys, so adding a character to a symbol set never renumbers the emoji beside it.
+While the toolbox is closed, the same <KeyCap>Shift</KeyCap> tier goes to the symbol row and the emoji row: double-tap <KeyCap>Ctrl</KeyCap>, then <KeyCap>Shift</KeyCap> with the key shown under the cell you want, and it's inserted.
+
+The symbol row takes the letters, the emoji row takes the digits — <KeyCap>Shift</KeyCap>+<KeyCap>1</KeyCap> for the first emoji, counting from the left exactly the way the toolbar's numbers do. Letters against digits means the two pools can never collide, so adding a character to a symbol set never renumbers the emoji beside it.
 
 An open toolbox takes the whole tier for itself and the rows drop their badges while it's up. That's deliberate: sharing would move the rows' keys around every time a panel opened, and a key that moves is a key nobody learns.
 
@@ -144,7 +151,9 @@ Either way there's no slot for suggestion "10": only the first nine entries in t
 
 <SettingsPath path="Typing / Physical keyboard / Show the suggestion numbers" />
 
-In **Alt + number** mode the strip is the one surface that wears its badges all the time — a small <KeyCap>⌥</KeyCap>1, <KeyCap>⌥</KeyCap>2, <KeyCap>⌥</KeyCap>3 under the words, for as long as a physical keyboard is attached. That's on by default and can be turned off if you'd rather have the clean strip. **After the shortcut key** has no equivalent: a bare <KeyCap>1</KeyCap> does nothing until the leader is pressed, so its numbers only appear once it is.
+In **Alt + number** mode the strip is the one surface that wears its badges all the time — a small `Alt+1`, `Alt+2`, `Alt+3` under the words, for as long as a physical keyboard is attached. That's on by default and can be turned off if you'd rather have the clean strip. **After the shortcut key** has no equivalent: a bare <KeyCap>1</KeyCap> does nothing until the leader is pressed, so its numbers only appear once it is.
+
+The numbers count **slots, left to right**, not the engine's ranking. That matters if you use <SettingsPath path="Typing / Best suggestion in the middle" />, which draws the runner-up first: the strip still reads 1, 2, 3 across, and <KeyCap>Alt</KeyCap>+<KeyCap>1</KeyCap> commits the leftmost word you can see rather than the one the engine ranked first.
 
 ## Options
 
@@ -156,6 +165,8 @@ In **Alt + number** mode the strip is the one surface that wears its badges all 
 | Tool shortcuts | On |
 | Shortcut key | Double-tap Ctrl |
 | Ctrl + number opens a toolbar tool | On |
+| Write the modifier names | On |
+| Time to press a key | 8.0s |
 | Arrow keys move a highlight | On |
 | Esc closes the tool | On |
 | Number keys pick suggestions | Alt + number |
@@ -169,7 +180,7 @@ A related setting lives elsewhere: <SettingsPath path="Appearance / Only toolbar
 
 ## Details and edge cases
 
-- **The tool picker waits about three seconds for a letter** before it disarms itself if you don't press one; that timeout isn't adjustable from settings.
+- **The tool picker waits eight seconds for a key** before it disarms itself if you don't press one. Adjustable from one to thirty under **Time to press a key**.
 - **The badges never resize the keyboard.** They're drawn over the buttons rather than added beside them, so double-tapping <KeyCap>Ctrl</KeyCap> can't shove the app's text out from under your hands.
 - **Toolbar badges only show when the toolbar does.** With suggestions occupying the strip instead, <KeyCap>Ctrl</KeyCap>+number still opens the same tools — there's just nothing on screen to label. The cheat sheet lists them either way.
 - **Reserved chords still work as a shortcut key, with a warning.** If you capture a chord like Ctrl+C, Ctrl+V, Ctrl+S or Ctrl+Tab as your shortcut key, the picker warns you it's "usually the app's own shortcut" but still lets you use it; it's a nudge, not a block.
