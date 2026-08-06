@@ -212,6 +212,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiSkinTone
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
+import com.wasimaster.wmkeyboard.core.util.PlayServices
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.WMKeyboardService
@@ -368,6 +369,10 @@ class MainActivity : ComponentActivity() {
         // screen its init provider was skipped, and the handwriting model
         // manager below is one of the screens that pays for it.
         MlKitInit.ensure(applicationContext)
+        // Which of the two Play services features this device can offer. Read
+        // without a Context by the tool lists below, so it has to be answered
+        // before the first screen composes.
+        PlayServices.prime(applicationContext)
         repository = SettingsRepository(applicationContext)
         // The JSON asset layouts back the tail of the language list; load them
         // before the first settings emission so an enabled asset layout resolves
@@ -5210,15 +5215,30 @@ private fun EmojiSettings(
                 title = R.string.langemoji_emoji_font_title,
                 subtitle = stringResource(R.string.langemoji_emoji_font_subtitle),
                 info = stringResource(R.string.langemoji_emoji_font_info),
-                options = listOf(
-                    EmojiFontChoice.SYSTEM to
-                        stringResource(R.string.langemoji_emoji_font_system_label),
-                    EmojiFontChoice.NOTO to
-                        stringResource(R.string.langemoji_emoji_font_noto_label),
-                    EmojiFontChoice.INSTALLED to
-                        stringResource(R.string.langemoji_emoji_font_installed_label),
-                    EmojiFontChoice.CUSTOM to stringResource(CommonR.string.common_custom),
-                ),
+                options = buildList {
+                    add(
+                        EmojiFontChoice.SYSTEM to
+                            stringResource(R.string.langemoji_emoji_font_system_label),
+                    )
+                    // Noto is not a file of the app's own: it comes from the
+                    // same Play services font provider as the Google fonts, and
+                    // without it the choice draws the system set. Kept when it
+                    // is the standing choice, so a phone that lost Play
+                    // services still shows what it is set to and can move off.
+                    if (PlayServices.hasFontProvider(context) ||
+                        settings.emojiFont == EmojiFontChoice.NOTO
+                    ) {
+                        add(
+                            EmojiFontChoice.NOTO to
+                                stringResource(R.string.langemoji_emoji_font_noto_label),
+                        )
+                    }
+                    add(
+                        EmojiFontChoice.INSTALLED to
+                            stringResource(R.string.langemoji_emoji_font_installed_label),
+                    )
+                    add(EmojiFontChoice.CUSTOM to stringResource(CommonR.string.common_custom))
+                },
                 selected = settings.emojiFont,
             ) { scope.launch { repository.setEmojiFont(it) } }
             EmojiFontPreviewRow(
@@ -6601,6 +6621,16 @@ private fun FontSettings(
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
+    // Said once, at the top, so the short pickers below read as a missing
+    // platform piece rather than a keyboard that forgot its fonts.
+    if (!PlayServices.hasFontProvider(context)) {
+        Text(
+            stringResource(R.string.fonts_google_unavailable_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp),
+        )
+    }
     AddonStoreGroup(AddonType.Font, onNavigate)
     FontPickerSection(
         header = stringResource(R.string.fonts_english_header),
@@ -6702,6 +6732,12 @@ private fun FontPickerSection(
                 font.langIds.any { LanguageRegistry.byId(it).script in scripts }
         }
     }
+    // Every Google Fonts row is a file fetched from the Play services font
+    // provider. On a device without it each one would resolve to the system
+    // face, so picking one would change nothing on screen — the rows come out
+    // rather than sit there doing nothing. The system default, the imported
+    // file and the font library are all this app's own and stay.
+    val googleFontNames = if (PlayServices.hasFontProvider(context)) googleNames else emptyList()
     if (relevant.isNotEmpty()) {
         SettingsGroup(installedTitle) {
             for (font in relevant) {
@@ -6727,7 +6763,7 @@ private fun FontPickerSection(
                 selected = selectedId == KeyboardFonts.DEFAULT_ID,
             ) { onSelect(KeyboardFonts.DEFAULT_ID) }
         }
-        for (name in googleNames) {
+        for (name in googleFontNames) {
             item {
                 val id = KeyboardFonts.googleId(name)
                 FontChoiceRow(

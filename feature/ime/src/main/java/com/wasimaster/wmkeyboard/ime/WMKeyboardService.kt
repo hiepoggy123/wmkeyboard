@@ -1350,6 +1350,10 @@ open class WMKeyboardService : InputMethodService() {
 
         userUnlocked = DirectBoot.isUserUnlocked(this)
         DebugLog.i("ime", "service created (unlocked=$userUnlocked)")
+        // Two PackageManager lookups, before the first toolbar is laid out:
+        // isSupportedTool reads the answer with no Context of its own, and a
+        // tool that appears and then vanishes a frame later looks like a bug.
+        PlayServices.prime(this)
         // Parks on an empty channel until the first glide; costs nothing until
         // then, and saves a job launch per preview once a finger is down.
         startGesturePreviewConsumer()

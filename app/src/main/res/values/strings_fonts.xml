@@ -6,6 +6,9 @@
     <!-- ==================================================================== -->
     <string name="fonts_info">The font applies to the key labels, the suggestions and the panels of the keyboard. Each script has its own font. You select it below, and the keyboard uses it when you type a language that writes in that script. The English font also covers Cyrillic and Greek. The app downloads a Google font one time through the system font provider and keeps it on your device. If a font does not have a glyph, the keyboard uses the system font for that glyph.</string>
 
+    <!-- Shown above the pickers when the device has no Google Play services, which supplies the Google fonts. -->
+    <string name="fonts_google_unavailable_body">This device does not have Google Play services, which supplies the Google fonts. The lists below show the system font, the fonts that you import and the fonts that you install from the store.</string>
+
     <!-- Header of the picker that sets the font for Latin, Cyrillic and Greek. -->
     <string name="fonts_english_header">English font</string>
     <!-- Header of the picker for one script. %1$s is the name of the script, for example Bengali. -->

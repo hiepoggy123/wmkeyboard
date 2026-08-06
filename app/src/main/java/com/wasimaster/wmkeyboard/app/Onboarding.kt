@@ -98,6 +98,7 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
+import com.wasimaster.wmkeyboard.core.util.PlayServices
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -902,7 +903,12 @@ private fun EmojiPage(
     val installedFonts = remember { FontStore.get(context).emojiFonts() }
     val fontOptions = buildList {
         add(EmojiFontChoice.SYSTEM to stringResource(R.string.langemoji_emoji_font_system_label))
-        add(EmojiFontChoice.NOTO to stringResource(R.string.langemoji_emoji_font_noto_label))
+        // Noto comes from the Play services font provider, so it is a real
+        // choice only where that provider answers. This page exists to fix
+        // missing emoji; offering a set that cannot be fetched would fix none.
+        if (PlayServices.hasFontProvider(context)) {
+            add(EmojiFontChoice.NOTO to stringResource(R.string.langemoji_emoji_font_noto_label))
+        }
         if (installedFonts.isNotEmpty()) {
             add(
                 EmojiFontChoice.INSTALLED to

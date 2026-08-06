@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.settings
 
 import com.wasimaster.wmkeyboard.config.BuildConfig
+import com.wasimaster.wmkeyboard.core.util.PlayServices
 
 // Extracted from SettingsRepository.kt so the low-level modules (icons, tools,
 // media) can reference these types without depending on the settings module —
@@ -110,6 +111,11 @@ fun isSupportedTool(tool: ToolbarTool): Boolean = when {
         ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN
     ) -> false
     !BuildConfig.ENABLE_GRAMMAR && tool == ToolbarTool.GRAMMAR -> false
+    // The only tool that is not this app's own code: the scanner is an
+    // activity inside Play services, so on a device without it the tool can
+    // do nothing but apologise. OCR and QR stay — their models are in the
+    // APK and run with no Play services at all.
+    !PlayServices.available && tool == ToolbarTool.DOC_SCAN -> false
     else -> true
 }
 
