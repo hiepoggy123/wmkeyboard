@@ -1174,6 +1174,13 @@ data class KeyboardSettings(
     /** Font size of those toolbar labels, in sp. */
     val toolbarLabelSize: Int = 9,
     val toolCircleRadiusDp: Int = 20,
+    /**
+     * Outline of that background. Shares the key shapes, the way the popups do;
+     * a theme may override it ([ThemeSpec.toolShape]). Only the rounded and cut
+     * shapes read [toolCircleRadiusDp], and a radius of 0 still means no
+     * background, whatever the shape is.
+     */
+    val toolShape: KeyShapeKind = KeyShapeKind.ROUNDED,
     val commaAsEmoji: Boolean = false,
     /**
      * Swap the comma and 🌐 keys either side of the spacebar, so the bottom row
@@ -2811,6 +2818,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBAR_LABELS = booleanPreferencesKey("toolbar_labels")
         private val TOOLBAR_LABEL_SIZE = intPreferencesKey("toolbar_label_size")
         private val TOOL_CIRCLE_RADIUS = intPreferencesKey("tool_circle_radius")
+        private val TOOL_SHAPE = stringPreferencesKey("tool_circle_shape")
         private val TOOLBAR_TOOL_WIDTH = intPreferencesKey("toolbar_tool_width")
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
         private val SWAP_COMMA_GLOBE = booleanPreferencesKey("swap_comma_globe")
@@ -3551,6 +3559,9 @@ class SettingsRepository(private val context: Context) {
             toolbarLabels = p[TOOLBAR_LABELS] ?: defaults.toolbarLabels,
             toolbarLabelSize = p[TOOLBAR_LABEL_SIZE] ?: defaults.toolbarLabelSize,
             toolCircleRadiusDp = p[TOOL_CIRCLE_RADIUS] ?: defaults.toolCircleRadiusDp,
+            toolShape = p[TOOL_SHAPE]
+                ?.let { runCatching { KeyShapeKind.valueOf(it) }.getOrNull() }
+                ?: defaults.toolShape,
             commaAsEmoji = p[COMMA_AS_EMOJI] ?: defaults.commaAsEmoji,
             swapCommaAndGlobe = p[SWAP_COMMA_GLOBE] ?: defaults.swapCommaAndGlobe,
             emojiTabMode = p[EMOJI_TAB_MODE]
@@ -4250,6 +4261,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setToolCircleRadiusDp(value: Int) =
         editPrefs { it[TOOL_CIRCLE_RADIUS] = value.coerceIn(0, 20) }
+
+    suspend fun setToolShape(value: KeyShapeKind) =
+        editPrefs { it[TOOL_SHAPE] = value.name }
 
     suspend fun setToolbarToolWidthDp(value: Int) =
         editPrefs { it[TOOLBAR_TOOL_WIDTH] = value.coerceIn(38, 64) }

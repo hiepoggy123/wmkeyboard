@@ -100,6 +100,9 @@ data class KbTheme(
     val toolCircle: Color,
     val toolCircleActive: Color,
     val toolCircleActiveIcon: Color,
+    /** Outline around a tool's background; null draws none. */
+    val toolBorder: Color?,
+    val toolBorderWidthDp: Float,
     val chip: Color,
     val suggestionText: Color,
     val secondaryText: Color,
@@ -107,7 +110,10 @@ data class KbTheme(
     val keyRadiusDp: Int,
     val popupRadiusDp: Int,
     val popupShapeKind: KeyShapeKind,
+    /** Height of the key-preview bubble; a theme may override the setting. */
+    val popupHeightDp: Int,
     val toolRadiusDp: Int,
+    val toolShapeKind: KeyShapeKind,
     val toolWidthDp: Int,
     val animation: ThemeAnimation,
     val animationSpeed: Float,
@@ -123,14 +129,27 @@ data class KbTheme(
     val reduceMotion: Boolean,
 )
 
-/** The resolved outline every key draws with. */
-fun KbTheme.keyShape() = keyShapeFor(keyShapeKind, keyRadiusDp)
+/**
+ * The resolved outline every key draws with.
+ *
+ * [bleedDp] is how far a leaning shape may spill into the gap around the key —
+ * pass the horizontal gap where there is one, so a slanted key keeps its full
+ * width; leave it at zero where the key has no gap of its own to lean into.
+ */
+fun KbTheme.keyShape(bleedDp: Float = 0f) = keyShapeFor(keyShapeKind, keyRadiusDp, bleedDp)
 
 /**
  * The resolved outline every popup surface draws with — the preview bubble, the
  * long-press alternates, the language picker and the panel menus.
  */
 fun KbTheme.popupShape() = keyShapeFor(popupShapeKind, popupRadiusDp)
+
+/**
+ * The resolved outline behind a toolbar tool — the toolbox launcher, every
+ * pinned tool, and the two buttons on the floating panel's handle. A radius of
+ * 0 still means no background at all, so the shape only shows above it.
+ */
+fun KbTheme.toolShape() = keyShapeFor(toolShapeKind, toolRadiusDp)
 
 /** Added text and deleted text, for the AI tool's comparison view. */
 internal data class DiffColors(val added: Color, val deleted: Color)
@@ -326,6 +345,8 @@ private fun defaultKbTheme(
             scheme.primaryContainer,
             listOf(scheme.onPrimaryContainer, scheme.primary),
         ),
+        toolBorder = null,
+        toolBorderWidthDp = 0f,
         chip = chip,
         suggestionText = scheme.onSurface,
         secondaryText = scheme.onSurfaceVariant,
@@ -333,7 +354,9 @@ private fun defaultKbTheme(
         keyRadiusDp = settings.keyCornerRadiusDp,
         popupRadiusDp = settings.popup.cornerRadiusDp,
         popupShapeKind = settings.popup.shape,
+        popupHeightDp = settings.popup.heightDp,
         toolRadiusDp = settings.toolCircleRadiusDp,
+        toolShapeKind = settings.toolShape,
         toolWidthDp = settings.toolbarBehavior.toolWidthDp,
         animation = ThemeAnimation.NONE,
         animationSpeed = 1f,
@@ -388,6 +411,8 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
             spec.toolCircleActiveBackground?.let(::colorOf) ?: pressed,
             listOf(accent, keyText),
         ),
+        toolBorder = spec.toolBorderColor?.let(::colorOf),
+        toolBorderWidthDp = spec.toolBorderWidthDp,
         chip = spec.chipBackground?.let(::colorOf) ?: colorOf(spec.modifierKeyBackground),
         suggestionText = spec.suggestionText?.let(::colorOf) ?: keyText,
         secondaryText = secondary,
@@ -395,7 +420,9 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         keyRadiusDp = spec.keyCornerRadiusDp ?: settings.keyCornerRadiusDp,
         popupRadiusDp = spec.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
         popupShapeKind = keyShapeKindOrNull(spec.popupShape) ?: settings.popup.shape,
+        popupHeightDp = spec.popupHeightDp ?: settings.popup.heightDp,
         toolRadiusDp = spec.toolCircleRadiusDp ?: settings.toolCircleRadiusDp,
+        toolShapeKind = keyShapeKindOrNull(spec.toolShape) ?: settings.toolShape,
         toolWidthDp = spec.toolWidthDp ?: settings.toolbarBehavior.toolWidthDp,
         animation = spec.animation,
         animationSpeed = spec.animationSpeed,
@@ -513,11 +540,23 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
         )
     }
 
-    if (settings.keyOutlines && kb.keyBorderWidthDp <= 0f) {
-        kb = kb.copy(
-            keyBorder = maxContrastOn(kb.key).copy(alpha = if (settings.highContrastKeys) 0.9f else 0.45f),
-            keyBorderWidthDp = 1.5f,
-        )
+    if (settings.keyOutlines) {
+        val alpha = if (settings.highContrastKeys) 0.9f else 0.45f
+        // Only where the theme has drawn no outline of its own: a theme that
+        // carries a border has already answered this question, for the keys and
+        // for the tools separately.
+        if (kb.keyBorderWidthDp <= 0f) {
+            kb = kb.copy(
+                keyBorder = maxContrastOn(kb.key).copy(alpha = alpha),
+                keyBorderWidthDp = 1.5f,
+            )
+        }
+        if (kb.toolBorderWidthDp <= 0f && kb.toolRadiusDp > 0) {
+            kb = kb.copy(
+                toolBorder = maxContrastOn(kb.toolCircle).copy(alpha = alpha),
+                toolBorderWidthDp = 1.5f,
+            )
+        }
     }
     return kb
 }
@@ -839,6 +878,8 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         toolCircle = lerp(a.toolCircle, b.toolCircle, t),
         toolCircleActive = lerp(a.toolCircleActive, b.toolCircleActive, t),
         toolCircleActiveIcon = lerp(a.toolCircleActiveIcon, b.toolCircleActiveIcon, t),
+        toolBorder = lerpColorOrNull(a.toolBorder, b.toolBorder, t),
+        toolBorderWidthDp = lerpF(a.toolBorderWidthDp, b.toolBorderWidthDp, t),
         chip = lerp(a.chip, b.chip, t),
         suggestionText = lerp(a.suggestionText, b.suggestionText, t),
         secondaryText = lerp(a.secondaryText, b.secondaryText, t),
@@ -846,7 +887,9 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         keyRadiusDp = lerpI(a.keyRadiusDp, b.keyRadiusDp, t),
         popupRadiusDp = lerpI(a.popupRadiusDp, b.popupRadiusDp, t),
         popupShapeKind = if (past) b.popupShapeKind else a.popupShapeKind,
+        popupHeightDp = lerpI(a.popupHeightDp, b.popupHeightDp, t),
         toolRadiusDp = lerpI(a.toolRadiusDp, b.toolRadiusDp, t),
+        toolShapeKind = if (past) b.toolShapeKind else a.toolShapeKind,
         // Width is measured, not painted — tweening it would re-measure the
         // toolbar every crossfade frame, which the top bar forbids (a width
         // animation restarts every icon's placement spring). Snap at midpoint.

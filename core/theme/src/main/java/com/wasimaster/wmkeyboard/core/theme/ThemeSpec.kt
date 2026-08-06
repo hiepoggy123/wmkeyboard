@@ -170,6 +170,13 @@ data class ThemeSpec(
     val toolbarIcon: Long? = null,
     val toolCircleBackground: Long? = null,
     val toolCircleActiveBackground: Long? = null,
+    /**
+     * Outline around the background of every toolbar tool. Null draws none,
+     * exactly like [keyBorderColor], and [toolBorderWidthDp] still has to be
+     * above 0 for it to show.
+     */
+    val toolBorderColor: Long? = null,
+    val toolBorderWidthDp: Float = 0f,
     // Panels (clipboard/snippet cards, emoji search bar)
     val chipBackground: Long? = null,
     val suggestionText: Long? = null,
@@ -185,11 +192,24 @@ data class ThemeSpec(
      * [keyShapeKindOrNull].
      */
     val popupShape: String? = null,
+    /**
+     * Outline for the background behind every toolbar tool, as a [KeyShapeKind]
+     * name; null follows the global setting. A string for the same reason
+     * [popupShape] is one. The tool radius still decides how round the rounded
+     * and cut shapes are, and 0 still means no background at all.
+     */
+    val toolShape: String? = null,
     // Layout/type overrides; null = follow the global appearance settings.
     // Primitives only — an enum here would drop the whole theme on older
     // builds (see the note above PhotoAttribution.provider).
     val toolWidthDp: Int? = null,
     val toolbarHeightDp: Int? = null,
+    /**
+     * Height of the key-preview bubble, in dp. Null follows the global slider,
+     * which keeps a separate value for the on-key and the floating bubble; the
+     * override applies to whichever of the two is switched on.
+     */
+    val popupHeightDp: Int? = null,
     val keyHeightDp: Int? = null,
     val keyGapScale: Float? = null,
     val sidePadScale: Float? = null,

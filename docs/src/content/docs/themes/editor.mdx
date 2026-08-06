@@ -75,6 +75,8 @@ The shapes that ignore the slider aren't being lazy about it. Their whole look i
 
 Only the drawing changes. Touch targets stay rectangular for every shape, so the gap between two hexagons still belongs to one key or the other, and nothing gets harder to hit.
 
+Slanted is the one shape that draws slightly outside its key. A parallelogram kept inside the key would lose about a third of the width at the top and the bottom, which on a phone-sized key reads as a row of thin straps, so it leans half its slant into the gap on each side instead. Every key stays exactly as wide as it would be with any other shape, and the gap between two keys stays the same width; it just runs on a diagonal. Where there is no gap to lean into, the lean is trimmed to fit.
+
 :::note
 Shapes past the first four are new. A theme exported with one of them won't import into a version of the app that predates it: the importer drops a theme whose shape name it doesn't recognise rather than guessing. Stick to Rounded, Pill, Cut, or Squircle in a theme you plan to share widely.
 :::
@@ -84,11 +86,14 @@ Shapes past the first four are new. A theme exported with one of them won't impo
 - **Accent** — the shift-on tint, active-tool color, and buttons across the panels.
 - **Gesture trail** — the color of the swipe-typing trail; Auto falls back to Accent. Supports alpha.
 - **Popup background** and **Popup text** — the bubble that appears above a key on press; both support Auto fallbacks (deriving from the board/key colors and Key text respectively). Popup background supports alpha.
+- **Popup shape** — the outline of every popup surface the keyboard draws: the character bubble, the long-press alternates, the language list, the panel menus. Same picker and same eleven shapes as Key shape, drawn at this theme's popup radius. Until you pick one, the theme follows <SettingsPath path="Key press / Popup shape" />.
 
 ### Toolbar
 
+- **Tool background shape** — the outline of the background behind each toolbar tool, from the same eleven shapes. It follows <SettingsPath path="Appearance / Toolbar / Tool background shape" /> until you pick one here, and it draws nothing at all while the tool radius is 0, which is the setting for bare icons.
 - **Tool icons** — the toolbar's icon color, Auto by default.
 - **Tool circles** and **Active tool circle** — the background behind a toolbar icon, at rest and while pressed/active. Both support alpha.
+- **Tool outline** and **Tool outline width** — a border around that background, off until you pick a color, exactly like the key border in [Keys](#keys). The width row appears once a color is set, and nothing draws until it's above 0. A theme that sets one keeps it even with the accessibility **Key outlines** toggle on.
 
 ### Panels & suggestions
 
@@ -120,6 +125,12 @@ Off by default, so keys everywhere follow the global sliders under Appearance �
 - **Key corner radius** — 0–28dp, seeded from the global Key corner radius slider (default 8dp) when you turn the switch on.
 - **Popup corner radius** — 0–24dp, seeded to 12dp (there's no matching global popup-radius slider to inherit from).
 - **Tool circle radius** — 0–20dp ("off," i.e. square, at 0), seeded from the global Tool circle radius slider (default 20dp).
+
+### Layout
+
+A second opt-in group, **Layout for this theme**, works the same way: one switch seeds a set of size overrides from your current global settings, and turning it off clears them all again. Tool background width, toolbar height, popup height, key height, key gap, side padding, key label size, bold labels, corner hint size, and the gesture trail's width and opacity all live here. Screen-specific sizes from Layout settings (folded, unfolded, landscape) still win over a theme's own.
+
+Popup height is the height of the key-preview bubble. The global slider under <SettingsPath path="Key press" /> keeps one value for the on-key bubble and another for the floating one; the theme's override applies to whichever style is switched on.
 
 ### Animation
 

@@ -134,12 +134,16 @@
     <string name="theme_gesture_trail_title">Gesture trail</string>
     <string name="theme_popup_background_title">Popup background</string>
     <string name="theme_popup_text_title">Popup text</string>
+    <string name="theme_popup_shape_title">Popup shape</string>
 
     <!-- Theme editor: toolbar. -->
     <string name="theme_toolbar_section_title">Toolbar</string>
+    <string name="theme_tool_shape_title">Tool background shape</string>
     <string name="theme_tool_icons_title">Tool icons</string>
     <string name="theme_tool_circles_title">Tool circles</string>
     <string name="theme_tool_circle_active_title">Active tool circle</string>
+    <string name="theme_tool_border_title">Tool outline</string>
+    <string name="theme_tool_border_width_title">Tool outline width</string>
 
     <!-- Theme editor: panels and the suggestion strip. -->
     <string name="theme_panels_section_title">Panels and suggestions</string>
@@ -152,7 +156,6 @@
     <!-- "Appearance" is the name of another settings screen. -->
     <string name="theme_custom_radii_subtitle">Off: the theme follows the sliders in Appearance</string>
     <string name="theme_key_radius_title">Key corner radius</string>
-    <string name="theme_popup_shape_title">Popup shape</string>
     <string name="theme_popup_radius_title">Popup corner radius</string>
     <string name="theme_tool_circle_radius_title">Tool circle radius</string>
 
@@ -164,6 +167,7 @@
     <string name="theme_custom_layout_subtitle">Off: the theme follows the sliders in Appearance and Layout</string>
     <string name="theme_tool_width_title">Tool background width</string>
     <string name="theme_toolbar_height_title">Toolbar height</string>
+    <string name="theme_popup_height_title">Popup height</string>
     <string name="theme_key_height_title">Key height</string>
     <string name="theme_key_gap_title">Key gap</string>
     <string name="theme_side_padding_title">Side padding</string>

@@ -21,8 +21,8 @@
     <string name="accessibility_high_contrast_info">The keyboard replaces the key colours and the board colours of the theme with flat high contrast colours. Every label becomes pure black or pure white.\n\nThe keyboard keeps the accent colour of your theme. Shift and the active tools stay easy to see.\n\nThis setting replaces the colours of the selected theme while it is on.</string>
 
     <string name="accessibility_key_outlines_title">Key outlines</string>
-    <string name="accessibility_key_outlines_subtitle">Draw a border around every key</string>
-    <string name="accessibility_key_outlines_info">Outlines keep the key edges easy to see when the key colour and the board colour have almost the same brightness. This helps with themes that are partly transparent, or with a background image.\n\nA theme that has its own key border keeps that border.</string>
+    <string name="accessibility_key_outlines_subtitle">Draw a border around every key and every toolbar tool</string>
+    <string name="accessibility_key_outlines_info">Outlines keep the key edges easy to see when the key colour and the board colour have almost the same brightness. This helps with themes that are partly transparent, or with a background image.\n\nThe background behind each toolbar tool gets the same border, unless that background is switched off in Appearance.\n\nA theme that has its own key border or tool outline keeps it.</string>
 
     <string name="accessibility_bold_labels_title">Bold key labels</string>
     <string name="accessibility_bold_labels_subtitle">Heavier letters on the keys</string>

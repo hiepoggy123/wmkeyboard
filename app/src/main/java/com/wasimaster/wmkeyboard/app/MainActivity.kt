@@ -4070,6 +4070,19 @@ private fun AppearanceSettings(
     val multiplierFormat = stringResource(R.string.keypress_value_multiplier)
     // Turning the toolbar off is guarded — it hides suggestions and every tool.
     var confirmDisableToolbar by remember { mutableStateOf(false) }
+    var toolShapePickerOpen by rememberSaveable { mutableStateOf(false) }
+    if (toolShapePickerOpen) {
+        KeyShapePickerDialog(
+            selected = settings.toolShape,
+            radiusDp = settings.toolCircleRadiusDp,
+            onPick = { kind ->
+                scope.launch { repository.setToolShape(kind) }
+                toolShapePickerOpen = false
+            },
+            onDismiss = { toolShapePickerOpen = false },
+            title = R.string.appearance_tool_shape_title,
+        )
+    }
     SettingsGroup(stringResource(R.string.appearance_style_section_title)) {
         item {
             val selected = settings.customThemes.find { it.id == settings.keyboardThemeId }
@@ -4259,6 +4272,18 @@ private fun AppearanceSettings(
                 display = { if (it.toInt() == 0) offLabel else dpFormat.format(it.toInt()) },
                 info = stringResource(R.string.appearance_tool_circle_info),
             ) { scope.launch { repository.setToolCircleRadiusDp(it.toInt()) } }
+        }
+        // The same shapes the keys and the popups use. It draws nothing while
+        // the radius above is at 0, which is the setting for "no background".
+        if (settings.toolCircleRadiusDp > 0) {
+            item {
+                NavRow(
+                    R.string.appearance_tool_shape_title,
+                    subtitle = stringResource(R.string.appearance_tool_shape_subtitle),
+                    value = keyShapeName(settings.toolShape),
+                    onClick = { toolShapePickerOpen = true },
+                )
+            }
         }
         item {
             SliderSetting(

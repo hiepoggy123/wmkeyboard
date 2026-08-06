@@ -342,6 +342,7 @@ private fun Resources.appearanceRows(): List<SettingsSearchEntry> {
         row(R.string.appearance_toolbar_label_size_title, R.string.appearance_toolbar_label_size_subtitle),
         row(R.string.home_reset_pinned_tools_title, R.string.home_reset_pinned_tools_subtitle),
         row(R.string.appearance_tool_circle_title, R.string.appearance_tool_circle_subtitle),
+        row(R.string.appearance_tool_shape_title, R.string.appearance_tool_shape_subtitle),
         row(R.string.appearance_tool_width_title, R.string.appearance_tool_width_subtitle),
         row(R.string.appearance_toolbox_layout_title, R.string.appearance_toolbox_layout_subtitle),
         row(R.string.appearance_toolbox_columns_title, R.string.appearance_toolbox_columns_subtitle),

@@ -38,11 +38,13 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import com.wasimaster.wmkeyboard.ime.R
+import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeBackgroundImage
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
+import com.wasimaster.wmkeyboard.core.theme.keyShapeKindOrNull
 
 /**
  * Miniature keyboard drawn from the spec: toolbar, two key rows, bottom row.
@@ -65,7 +67,22 @@ fun ThemePreview(
     landscape: Boolean = false,
     animatedBadge: Boolean = true,
 ) {
-    val keyShape = keyShapeFor(theme.keyShape, ((theme.keyCornerRadiusDp ?: 8) / 3f + 1).toInt())
+    // Half the 3 dp the rows space their keys by, so a leaning shape spills
+    // into the gap here exactly as it does on the keyboard itself.
+    val keyShape = keyShapeFor(
+        theme.keyShape,
+        ((theme.keyCornerRadiusDp ?: 8) / 3f + 1).toInt(),
+        bleedDp = 1.5f,
+    )
+    // The theme's own tool shape where it has one; a theme that follows the
+    // global setting is drawn with the shipped default, since the preview is
+    // handed a spec and never sees the settings. The mock-up's tools are a
+    // tenth the size of the real ones, so the radius rounds them fully either
+    // way and the row still reads as circles unless the theme says otherwise.
+    val toolShape = keyShapeFor(
+        keyShapeKindOrNull(theme.toolShape) ?: KeyShapeKind.ROUNDED,
+        theme.toolCircleRadiusDp ?: 20,
+    )
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -144,7 +161,7 @@ fun ThemePreview(
                         modifier = Modifier
                             .fillMaxHeight(0.6f)
                             .aspectRatio(1f)
-                            .background(colorOf(theme.effectiveToolCircle()), CircleShape),
+                            .background(colorOf(theme.effectiveToolCircle()), toolShape),
                     )
                 }
             }

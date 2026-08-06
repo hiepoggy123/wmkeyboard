@@ -4428,20 +4428,28 @@ private fun ToolCircle(
     // Bar buttons stretch to the theme's tool width (38 = today's circle);
     // panel headers and grids keep the fixed circle regardless of the setting.
     wide: Boolean = false,
+    // The physical key that opens this tool, drawn as a badge over the bottom of
+    // the button. An overlay, never an extra child: the badge appears the moment
+    // the picker arms, and a button that grew a row then would shove the whole
+    // keyboard down under the user's hands.
+    hint: String? = null,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
-    val shape = RoundedCornerShape(kb.toolRadiusDp.dp)
+    val shape = kb.toolShape()
     val background = when {
         ghost -> kb.toolCircleActive.copy(alpha = 0.22f)
         active -> kb.toolCircleActive
         kb.toolRadiusDp > 0 -> kb.toolCircle
         else -> Color.Transparent
     }
-    val outline = if (ghost) {
-        Modifier.border(1.dp, kb.toolbarIcon.copy(alpha = 0.35f), shape)
-    } else {
-        Modifier
+    val outline = when {
+        // The ghost's own dashed-out look wins: it is saying "will go here",
+        // not wearing the theme's outline.
+        ghost -> Modifier.border(1.dp, kb.toolbarIcon.copy(alpha = 0.35f), shape)
+        kb.toolBorder != null && kb.toolBorderWidthDp > 0f ->
+            Modifier.border(kb.toolBorderWidthDp.dp, kb.toolBorder, shape)
+        else -> Modifier
     }
     var showLabel by remember { mutableStateOf(false) }
     val feedback = LocalKeyPressFeedback.current
@@ -4556,7 +4564,7 @@ private fun GhostToolCircle(
     wide: Boolean = false,
 ) {
     val kb = LocalKbTheme.current
-    val shape = RoundedCornerShape(kb.toolRadiusDp.dp)
+    val shape = kb.toolShape()
     Box(
         modifier = modifier
             .size(width = (if (wide) kb.toolWidthDp else 38).dp, height = 38.dp)
@@ -7127,6 +7135,10 @@ private fun KeyPreviewOverlay(
     gridSize: IntSize,
 ) {
     val popup = settings.popup
+    // The height comes off the theme rather than the settings: a theme may
+    // carry its own, and both the headroom above the grid and the bubble
+    // itself have to agree on which one won.
+    val bubbleHeightDp = LocalKbTheme.current.popupHeightDp
     // One coroutine for the board, in place of the two LaunchedEffects every key
     // ran per press. It sleeps until the nearest bubble is due or something is
     // pressed, whichever lands first; `expire` owns the arithmetic.
@@ -7152,7 +7164,7 @@ private fun KeyPreviewOverlay(
     val gapPx = with(density) { KeyPopupGap.roundToPx() }
     // Room above the grid for a floating bubble over the top row: its own height
     // plus the gap it keeps from the key.
-    val headroomPx = with(density) { (popup.heightDp.dp + KeyPopupGap * 2).roundToPx() }
+    val headroomPx = with(density) { (bubbleHeightDp.dp + KeyPopupGap * 2).roundToPx() }
     val onKeyStyle = popup.onKey
     val bubbles = state.shown.toList()
     Popup(
@@ -7219,7 +7231,7 @@ private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKey
     ) {
         Box(
             modifier = Modifier
-                .height(popup.heightDp.dp)
+                .height(kb.popupHeightDp.dp)
                 .widthIn(
                     min = if (onKeyStyle) with(density) { preview.size.width.toDp() } + 8.dp else 0.dp,
                 )
@@ -8749,7 +8761,10 @@ private fun KeyButton(
 
     // The popups' own colours; the key's face is already resolved in [visual].
     val kb = LocalKbTheme.current
-    val keyShape = kb.keyShape()
+    // The gap is handed to the shape as the room a leaning outline may spill
+    // into: a slanted key then leans across the gap rather than out of its own
+    // width, and neighbouring keys interlock instead of thinning out.
+    val keyShape = kb.keyShape(bleedDp = keyGapH(settings).value)
 
     // Outer box = full grid cell and the touch target; inner box = the
     // visible key, inset by the gap. Presses in the gap between keys land
@@ -10942,7 +10957,7 @@ private fun EmojiBottomBar(
     val canDelete = LocalCanDelete.current
     val scope = rememberCoroutineScope()
     val settings = state.settings
-    val shape = kb.keyShape()
+    val shape = kb.keyShape(bleedDp = keyGapH(settings).value)
     // Cell = touch target spanning the gap, like KeyButton: the input
     // modifier sits outside the padding so presses between keys still land.
     val cell: @Composable RowScope.(Float, Modifier, @Composable () -> Unit) -> Unit =

@@ -274,19 +274,33 @@ internal fun keyShapeName(kind: KeyShapeKind): String = stringResource(
 )
 
 /**
- * One key drawn in [kind], at the proportions of a real key so the shape reads
- * the way it will on the keyboard. [radiusDp] is the theme's own key radius,
- * which two of the shapes follow.
+ * One key drawn in [kind], at the size and the proportions of a real key so the
+ * shape reads the way it will on the keyboard. [radiusDp] is the theme's own
+ * key radius, which two of the shapes follow.
+ *
+ * A letter key on a phone is about 31 dp across and 48 dp tall — taller than it
+ * is wide. The swatch used to be 52 x 34, half again as wide as it was tall,
+ * which flattered every shape that leans or points: a slant that eats a third
+ * of a real key barely tilted, and the radius slider looked far gentler than it
+ * is. Drawing the swatch at the real size means the same radius in dp draws the
+ * same corner here and on the keyboard.
  */
 @Composable
 internal fun KeyShapeSwatch(kind: KeyShapeKind, radiusDp: Int, color: Color) {
     Box(
         modifier = Modifier
-            .width(52.dp)
-            .height(34.dp)
-            .background(color, keyShapeFor(kind, radiusDp)),
+            // The horizontal room a key has either side of it on the keyboard,
+            // which is what a leaning shape spills into. Without it the slant
+            // would draw over whatever sits beside the swatch.
+            .padding(horizontal = KeySwatchGapDp.dp)
+            .width(31.dp)
+            .height(48.dp)
+            .background(color, keyShapeFor(kind, radiusDp, bleedDp = KeySwatchGapDp)),
     )
 }
+
+/** The keyboard's own horizontal key gap, which [KeyShapeSwatch] reproduces. */
+private const val KeySwatchGapDp = 2.5f
 
 /**
  * Radio list of every key shape, each row with the shape drawn beside its name.
@@ -917,6 +931,7 @@ fun ThemeEditorScreen(
     var cropLandscapeOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var shapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var popupShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    var toolShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var sourceDialogSlot by remember(theme.id) { mutableStateOf<BackgroundSlot?>(null) }
 
     // The photo rows appear only once the user has started using photos.
@@ -1258,6 +1273,18 @@ fun ThemeEditorScreen(
             title = R.string.theme_popup_shape_title,
         )
     }
+    if (toolShapePickerOpen) {
+        KeyShapePickerDialog(
+            selected = keyShapeKindOrNull(theme.toolShape) ?: settings.toolShape,
+            radiusDp = theme.toolCircleRadiusDp ?: settings.toolCircleRadiusDp,
+            onPick = { kind ->
+                update { t -> t.copy(toolShape = kind.name) }
+                toolShapePickerOpen = false
+            },
+            onDismiss = { toolShapePickerOpen = false },
+            title = R.string.theme_tool_shape_title,
+        )
+    }
 
     SettingsGroup(stringResource(R.string.theme_keys_section_title)) {
         item {
@@ -1387,9 +1414,45 @@ fun ThemeEditorScreen(
                 onChange = { update { t -> t.copy(popupText = it) } },
             )
         }
+        item {
+            // Beside the popup colours rather than down in Corners, where it
+            // sat behind the custom-radii switch: the shape is not a radius,
+            // and a theme that wants round popups on the standard radii had to
+            // turn a slider group on to reach it.
+            val popupShape = keyShapeKindOrNull(theme.popupShape) ?: settings.popup.shape
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_popup_shape_title)) },
+                supportingContent = { Text(keyShapeName(popupShape)) },
+                trailingContent = {
+                    KeyShapeSwatch(
+                        kind = popupShape,
+                        radiusDp = theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                colors = transparentListColors(),
+                modifier = Modifier.clickable { popupShapePickerOpen = true },
+            )
+        }
     }
 
     SettingsGroup(stringResource(R.string.theme_toolbar_section_title)) {
+        item {
+            val toolShape = keyShapeKindOrNull(theme.toolShape) ?: settings.toolShape
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_tool_shape_title)) },
+                supportingContent = { Text(keyShapeName(toolShape)) },
+                trailingContent = {
+                    KeyShapeSwatch(
+                        kind = toolShape,
+                        radiusDp = theme.toolCircleRadiusDp ?: settings.toolCircleRadiusDp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                colors = transparentListColors(),
+                modifier = Modifier.clickable { toolShapePickerOpen = true },
+            )
+        }
         item {
             NullableColorRow(
                 stringResource(R.string.theme_tool_icons_title), theme.toolbarIcon,
@@ -1413,6 +1476,26 @@ fun ThemeEditorScreen(
                 supportsAlpha = true,
                 onChange = { update { t -> t.copy(toolCircleActiveBackground = it) } },
             )
+        }
+        item {
+            // Colour then width, the way the key border is set: the colour is
+            // what turns the outline on, and the width row appears with it.
+            NullableColorRow(
+                stringResource(R.string.theme_tool_border_title),
+                theme.toolBorderColor, fallback = theme.toolbarIcon ?: theme.keyText,
+                supportsAlpha = true,
+                onChange = { update { t -> t.copy(toolBorderColor = it) } },
+            )
+        }
+        if (theme.toolBorderColor != null) {
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_tool_border_width_title),
+                    value = theme.toolBorderWidthDp,
+                    range = 0f..3f,
+                    display = { "%.1f dp".format(it) },
+                ) { update { t -> t.copy(toolBorderWidthDp = (it * 10).toInt() / 10f) } }
+            }
         }
     }
 
@@ -1445,18 +1528,20 @@ fun ThemeEditorScreen(
                         checked = hasCustomRadii,
                         onCheckedChange = { enable ->
                             update { t ->
+                                // Radii only. The popup and tool shapes live
+                                // with their own colours now, and a theme that
+                                // has picked one keeps it whether or not it
+                                // also carries its own radii.
                                 if (enable) {
                                     t.copy(
                                         keyCornerRadiusDp = settings.keyCornerRadiusDp,
                                         popupCornerRadiusDp = settings.popup.cornerRadiusDp,
-                                        popupShape = settings.popup.shape.name,
                                         toolCircleRadiusDp = settings.toolCircleRadiusDp,
                                     )
                                 } else {
                                     t.copy(
                                         keyCornerRadiusDp = null,
                                         popupCornerRadiusDp = null,
-                                        popupShape = null,
                                         toolCircleRadiusDp = null,
                                     )
                                 }
@@ -1475,26 +1560,6 @@ fun ThemeEditorScreen(
                     range = 0f..28f,
                     display = { "${it.toInt()} dp" },
                 ) { update { t -> t.copy(keyCornerRadiusDp = it.toInt()) } }
-            }
-            item {
-                val popupRadiusDp = theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp
-                val popupShape = keyShapeKindOrNull(theme.popupShape) ?: settings.popup.shape
-                // Same row-plus-dialog shape picker the keys use: a popup can be
-                // squared off, a squircle or a full circle, and only the two
-                // radius-following shapes read the slider below.
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.theme_popup_shape_title)) },
-                    supportingContent = { Text(keyShapeName(popupShape)) },
-                    trailingContent = {
-                        KeyShapeSwatch(
-                            kind = popupShape,
-                            radiusDp = popupRadiusDp,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    },
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable { popupShapePickerOpen = true },
-                )
             }
             item {
                 SliderRow(
@@ -1534,6 +1599,7 @@ fun ThemeEditorScreen(
                                     t.copy(
                                         toolWidthDp = settings.toolbarBehavior.toolWidthDp,
                                         toolbarHeightDp = settings.toolbarHeightDp,
+                                        popupHeightDp = settings.popup.heightDp,
                                         keyHeightDp = settings.keyHeightDp,
                                         keyGapScale = settings.keyGapScale,
                                         sidePadScale = settings.layoutBehavior.sidePadScale,
@@ -1547,6 +1613,7 @@ fun ThemeEditorScreen(
                                     t.copy(
                                         toolWidthDp = null,
                                         toolbarHeightDp = null,
+                                        popupHeightDp = null,
                                         keyHeightDp = null,
                                         keyGapScale = null,
                                         sidePadScale = null,
@@ -1580,6 +1647,18 @@ fun ThemeEditorScreen(
                     range = 32f..80f,
                     display = { "${it.toInt()} dp" },
                 ) { update { t -> t.copy(toolbarHeightDp = it.toInt()) } }
+            }
+            item {
+                // One height for whichever bubble style is on, the way the
+                // setting itself works: the global slider keeps a separate
+                // value for the on-key and the floating bubble, and the
+                // override lands on the one the user is looking at.
+                SliderRow(
+                    stringResource(R.string.theme_popup_height_title),
+                    value = (theme.popupHeightDp ?: settings.popup.heightDp).toFloat(),
+                    range = 32f..160f,
+                    display = { "${it.toInt()} dp" },
+                ) { update { t -> t.copy(popupHeightDp = it.toInt()) } }
             }
             item {
                 SliderRow(

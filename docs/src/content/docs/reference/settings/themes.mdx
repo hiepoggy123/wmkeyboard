@@ -139,16 +139,20 @@ The Key shape row opens a dialog rather than filling a segmented row: eleven nam
 | Gesture trail | Color, alpha, Auto → Accent | Auto |
 | Popup background | Color, alpha, Auto → computed scrim | Auto |
 | Popup text | Color, Auto → Key text | Auto |
+| Popup shape | Row → the same picker dialog Key shape uses | follows <SettingsPath path="Key press / Popup shape" /> |
 
-Accent drives the shift-on tint, active-tool highlight, and buttons across the panels.
+Accent drives the shift-on tint, active-tool highlight, and buttons across the panels. Popup shape covers every popup surface, not just the character bubble: the long-press alternates, the language list, and the panel menus all draw with it.
 
 ### Toolbar
 
 | Setting | Control | Default |
 |---|---|---|
+| Tool background shape | Row → the same picker dialog Key shape uses | follows <SettingsPath path="Appearance / Toolbar / Tool background shape" /> |
 | Tool icons | Color, Auto → Key text at partial opacity over the board | Auto |
 | Tool circles | Color, alpha, Auto → computed | Auto |
 | Active tool circle | Color, alpha, Auto → same formula as Pressed key | Auto |
+| Tool outline | Color, alpha, Auto → no outline | Auto |
+| Tool outline width *(outline color set)* | Slider, 0–3dp | 0dp |
 
 ### Panels & suggestions
 

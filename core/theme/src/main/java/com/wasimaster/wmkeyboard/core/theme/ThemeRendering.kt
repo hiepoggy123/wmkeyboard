@@ -136,8 +136,13 @@ fun GradientSpec.brush(
  * whose look *is* its proportion — a half-height arch, a hexagon's points, the
  * bite out of a ticket — would come apart at one end of the radius slider and
  * be a plain rectangle at the other, so it does not read the slider at all.
+ *
+ * [bleedDp] is how far the shape may spill past its own box on each side, and
+ * only the slant uses it: see [SlantKeyShape]. Keys pass the gap they are inset
+ * by; anything that clips to its bounds, or has no gap to spill into, leaves it
+ * at zero.
  */
-fun keyShapeFor(kind: KeyShapeKind, radiusDp: Int): Shape = when (kind) {
+fun keyShapeFor(kind: KeyShapeKind, radiusDp: Int, bleedDp: Float = 0f): Shape = when (kind) {
     KeyShapeKind.ROUNDED -> RoundedCornerShape(radiusDp.dp)
     KeyShapeKind.SHARP -> RectangleShape
     KeyShapeKind.PILL -> RoundedCornerShape(percent = 50)
@@ -145,7 +150,7 @@ fun keyShapeFor(kind: KeyShapeKind, radiusDp: Int): Shape = when (kind) {
     KeyShapeKind.SQUIRCLE -> SquircleKeyShape
     KeyShapeKind.ARCH -> ArchKeyShape
     KeyShapeKind.LEAF -> LeafKeyShape
-    KeyShapeKind.SLANT -> SlantKeyShape
+    KeyShapeKind.SLANT -> SlantKeyShape(bleedDp)
     KeyShapeKind.HEXAGON -> HexagonKeyShape
     KeyShapeKind.SCALLOP -> ScallopKeyShape
     KeyShapeKind.TICKET -> TicketKeyShape
@@ -167,14 +172,39 @@ private val LeafKeyShape: Shape = RoundedCornerShape(
     bottomEndPercent = 50,
 )
 
-/** Parallelogram: both vertical sides lean right by a fraction of the height. */
-private val SlantKeyShape: Shape = GenericShape { size, _ ->
-    val lean = min(size.height * 0.22f, size.width * 0.3f)
-    moveTo(lean, 0f)
-    lineTo(size.width, 0f)
-    lineTo(size.width - lean, size.height)
-    lineTo(0f, size.height)
-    close()
+/**
+ * Parallelogram: both vertical sides lean right by a fraction of the height.
+ *
+ * Kept inside its box, the lean is taken out of the key — the top and the
+ * bottom lose a third of the width a key has to begin with, and a column of
+ * them reads as a row of thin straps. [bleedDp] pushes half the lean out past
+ * each side instead, so the shape is exactly as wide as its box at every
+ * height and the lean is spent on the gap between keys rather than on the key.
+ * Neighbouring keys stay the same distance apart — the gap simply runs on a
+ * diagonal — because their leaning edges are parallel.
+ *
+ * The spill is capped at half the lean (past that the shape would be *wider*
+ * than the key) and at whatever the caller says is free, so a keyboard with the
+ * gaps turned down never has two keys overlapping.
+ */
+private data class SlantKeyShape(private val bleedDp: Float) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        val lean = min(size.height * 0.22f, size.width * 0.3f)
+        val bleed = min(lean / 2f, with(density) { bleedDp.dp.toPx() }).coerceAtLeast(0f)
+        return Outline.Generic(
+            Path().apply {
+                moveTo(lean - bleed, 0f)
+                lineTo(size.width + bleed, 0f)
+                lineTo(size.width - lean + bleed, size.height)
+                lineTo(-bleed, size.height)
+                close()
+            }
+        )
+    }
 }
 
 /**

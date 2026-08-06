@@ -258,6 +258,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.appearance_toolbar_labels_title, Icons.AutoMirrored.Outlined.Label)
     put(R.string.appearance_toolbar_label_size_title, Icons.Outlined.FormatSize)
     put(R.string.appearance_tool_circle_title, Icons.Outlined.Circle)
+    put(R.string.appearance_tool_shape_title, Icons.Outlined.Category)
     put(R.string.appearance_toolbox_layout_title, Icons.Outlined.GridView)
     put(R.string.appearance_toolbox_columns_title, Icons.Outlined.GridOn)
     put(R.string.appearance_toolbox_pill_columns_title, Icons.Outlined.ViewAgenda)

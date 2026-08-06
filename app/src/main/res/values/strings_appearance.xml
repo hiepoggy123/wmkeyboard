@@ -71,6 +71,8 @@
     <string name="appearance_tool_circle_subtitle">How round the circle behind each toolbar tool is</string>
     <!-- Gboard is the name of another keyboard app. Keep it as it is. -->
     <string name="appearance_tool_circle_info">20 draws a full circle behind every tool icon, like Gboard. Smaller values give rounded squares. 0 removes the background and leaves only the icons.</string>
+    <string name="appearance_tool_shape_title">Tool background shape</string>
+    <string name="appearance_tool_shape_subtitle">Outline of the shape behind each toolbar tool</string>
     <string name="appearance_tool_width_title">Tool background width</string>
     <string name="appearance_tool_width_subtitle">Width of the shape behind each toolbar tool</string>
     <!-- Gboard is the name of another keyboard app. Keep it as it is. -->
