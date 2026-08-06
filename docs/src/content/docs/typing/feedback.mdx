@@ -25,14 +25,18 @@ With haptics on, **Haptic style** picks how the buzz is produced:
 
 | Style | What it does | Requires |
 | --- | --- | --- |
-| Key | Platform's own "virtual key" haptic (what Gboard and SwiftKey use) | — |
-| Tap | Platform's own "keyboard tap" haptic (Samsung's own keyboard feel) | — |
+| Tap | Platform's own "keyboard tap" haptic, the one vendors tune for keyboards (default) | — |
+| Key | Platform's own "virtual key" haptic, the general button press | — |
 | Click | Hardware-tuned click effect | Android 10+ |
 | Heavy | Hardware-tuned heavy-click effect | Android 10+ |
 | Sharp | Hardware click primitive, strength follows the intensity slider | Android 11+ |
 | Custom | Drives the vibration motor directly by duration and intensity | Android 8+ |
 
-Key and Tap are the recommended styles: they hand the buzz to the same platform call stock keyboards use, so on a phone with vendor-tuned haptics (Samsung, Pixel) you get that crafted click, and it follows the system's own haptic-intensity slider automatically. Click, Heavy, Sharp and Custom bypass that and drive the motor more directly: useful if you want a feel the platform styles don't offer, or your device doesn't tune Key/Tap well. When a style isn't available on a device, it falls back to a hardware Click, then to Custom, so every style produces some feedback everywhere.
+Tap and Key are the recommended styles: they hand the buzz to the same platform call stock keyboards use, so on a phone with vendor-tuned haptics (Samsung, Pixel) you get that crafted click, and it follows the system's own haptic-intensity slider automatically.
+
+Tap is the default, and on most phones it's the one you want. Vendors usually tune a separate waveform for keyboards and Tap is what their own keyboard plays, so it tends to feel crisper than Key even though the two are only one constant apart. On a Galaxy S25 Ultra, for instance, Tap and Key resolve to genuinely different Samsung effects, and Tap is the one Samsung Keyboard uses. Switch to Key if Tap feels wrong on your device, which happens on phones whose vendor never bothered to tune a keyboard-specific effect.
+
+Click, Heavy, Sharp and Custom bypass the platform call and drive the motor more directly: useful if you want a feel the platform styles don't offer. When a style isn't available on a device, it falls back to a hardware Click, then to Custom, so every style produces some feedback everywhere.
 
 Custom exposes two sliders: **Haptic strength** (5–60&nbsp;ms, vibration length) and **Haptic intensity** (1–255, how hard the motor is driven). Sharp exposes intensity too, to control the punch of its click primitive, but not strength; the primitive's length is fixed by the hardware. The system-wide touch-feedback vibration setting still scales the final strength on top of whatever you set here.
 

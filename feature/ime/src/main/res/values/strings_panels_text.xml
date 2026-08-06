@@ -245,8 +245,8 @@
     <!-- The deep sound of a mechanical key. -->
     <string name="ime_sound_style_thock_label">Thock</string>
     <string name="ime_sound_style_chime_label">Chime</string>
-    <string name="ime_sound_haptic_system_key_info">The system key haptic, like Gboard and SwiftKey. It follows the haptic intensity setting of your device.</string>
-    <string name="ime_sound_haptic_system_tap_info">The system keyboard tap. It is softer, like the Samsung keyboard. It follows the setting of your device.</string>
+    <string name="ime_sound_haptic_system_key_info">The system button haptic. Use this if the keyboard tap feels wrong on your phone. It follows the haptic intensity setting of your device.</string>
+    <string name="ime_sound_haptic_system_tap_info">The system keyboard tap. Most phones tune this for keyboards, so it is usually the best choice. It follows the haptic intensity setting of your device.</string>
     <string name="ime_sound_vibrate_info">Your device is on vibrate. The key press sounds do not play.</string>
     <string name="ime_sound_silent_info">Your device is silent. The key press sounds do not play.</string>
 

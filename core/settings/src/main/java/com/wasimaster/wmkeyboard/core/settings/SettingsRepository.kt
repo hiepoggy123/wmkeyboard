@@ -408,10 +408,21 @@ data class KeySoundSettings(
  * [SYSTEM_KEY] and [SYSTEM_TAP] delegate to the platform's own key haptic via
  * `View.performHapticFeedback` — the exact path stock keyboards use, so on
  * tuned OEMs (Samsung, Pixel) they inherit the vendor's crafted click and
- * follow the system haptic-intensity setting. [SYSTEM_KEY] asks for
- * `VIRTUAL_KEY` (what Gboard/SwiftKey/Ridmik use); [SYSTEM_TAP] asks for
- * `KEYBOARD_TAP` (softer — Samsung's own keyboard). They fall back to a
- * hardware click when no attached view is available.
+ * follow the system haptic-intensity setting. They fall back to a hardware
+ * click when no attached view is available.
+ *
+ * [SYSTEM_TAP] asks for `KEYBOARD_TAP` and is the default: OEMs tune a
+ * separate waveform for keyboards, and it is the one their own keyboard
+ * plays. Measured on a Galaxy S25 Ultra (One UI 8), `KEYBOARD_TAP` and
+ * `VIRTUAL_KEY` resolve to *different* Samsung effects — 50025 vs 50038 — at
+ * near-identical durations (122 ms vs 132 ms). Samsung's Honeyboard and
+ * Ridmik both play 50025; 50038 is the generic button press, and it reads as
+ * duller. `KEYBOARD_TAP` also lands the vibration under
+ * `VibrationAttributes.USAGE_IME` rather than `USAGE_TOUCH`, which is the
+ * bucket an OEM's keyboard-vibration setting governs.
+ *
+ * [SYSTEM_KEY] asks for `VIRTUAL_KEY` — kept for devices whose vendor never
+ * tuned a keyboard-specific effect, where the two are the same waveform.
  *
  * The rest drive the vibrator directly: [CUSTOM] with the duration/amplitude
  * sliders; [CLICK]/[HEAVY_CLICK] with the device's predefined effects
@@ -423,8 +434,8 @@ data class KeySoundSettings(
 // so reordering is storage-safe. [labelRes] is the short chip caption shared by
 // every picker; resolve it where it is drawn.
 enum class HapticStyle(@StringRes val labelRes: Int) {
-    SYSTEM_KEY(R.string.core_settings_haptic_style_system_key_label),
     SYSTEM_TAP(R.string.core_settings_haptic_style_system_tap_label),
+    SYSTEM_KEY(R.string.core_settings_haptic_style_system_key_label),
     CLICK(R.string.core_settings_haptic_style_click_label),
     HEAVY_CLICK(R.string.core_settings_haptic_style_heavy_label),
     SHARP(R.string.core_settings_haptic_style_sharp_label),
@@ -865,7 +876,7 @@ data class KeyboardSettings(
     val hapticFeedback: Boolean = true,
     val hapticStrengthMs: Int = 15,
     val hapticAmplitude: Int = 255,
-    val hapticStyle: HapticStyle = HapticStyle.SYSTEM_KEY,
+    val hapticStyle: HapticStyle = HapticStyle.SYSTEM_TAP,
     val hapticOnLongPress: Boolean = true,
     val hapticOnLongPressRelease: Boolean = false,
     /** Per-event haptic gates + copy toast (see [FeedbackSettings]); nested to

@@ -28,7 +28,7 @@ The screen has five groups, top to bottom: Haptic feedback, Key press sound, Key
 | Setting | Control | Options / range | Default |
 |---|---|---|---|
 | Key press haptics | Toggle | — | On |
-| Haptic style | Choice (chips) | Key / Tap / Click / Heavy / Sharp / Custom | Key |
+| Haptic style | Choice (chips) | Tap / Key / Click / Heavy / Sharp / Custom | Tap |
 | Haptic strength *(Custom only)* | Slider | 5–60 ms | 15 ms |
 | Haptic intensity *(Custom, Sharp)* | Slider | 1–255, shown as a percentage | 255 (100%) |
 | Long-press haptics | Toggle | — | On |
@@ -38,7 +38,7 @@ The screen has five groups, top to bottom: Haptic feedback, Key press sound, Key
 | Vibrate on key repeat *(same)* | Toggle | — | On |
 | Mute haptics in Do Not Disturb *(same)* | Toggle | — | Off |
 
-**Key press haptics** is the master switch; turning it off hides the four "Vibrate on…" rows entirely rather than just disabling them. **Haptic style** picks how the buzz is produced. Key and Tap hand it to the platform's own haptic call (what stock keyboards use, so it follows the vendor's tuning and the system haptic-intensity setting), Click and Heavy use a hardware-tuned effect (Android 10+), Sharp plays a hardware click primitive whose strength follows the intensity slider (Android 11+), and Custom drives the vibration motor directly from the strength and intensity sliders. When a style isn't available on a device it falls back to a hardware Click, then Custom.
+**Key press haptics** is the master switch; turning it off hides the four "Vibrate on…" rows entirely rather than just disabling them. **Haptic style** picks how the buzz is produced. Tap and Key hand it to the platform's own haptic call (what stock keyboards use, so it follows the vendor's tuning and the system haptic-intensity setting); Tap asks for the keyboard-specific waveform most vendors tune and is the default, Key asks for the general button press. Click and Heavy use a hardware-tuned effect (Android 10+), Sharp plays a hardware click primitive whose strength follows the intensity slider (Android 11+), and Custom drives the vibration motor directly from the strength and intensity sliders. When a style isn't available on a device it falls back to a hardware Click, then Custom.
 
 <PhoneFrame caption="Haptic style set to Custom, showing the strength and intensity sliders.">
   {/* shot: reference/settings/keypress-haptic-custom-sliders */}
