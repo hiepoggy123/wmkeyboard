@@ -7,11 +7,13 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Typeface
 import android.os.Bundle
+import android.provider.Settings
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -19,6 +21,9 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.wasimaster.wmkeyboard.common.R
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.support.Support
@@ -81,6 +86,12 @@ class CrashReportActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Edge to edge on every version, rather than only on the ones that
+        // force it, so [applyBarInsets] is the single place that decides where
+        // the bars are. The alternative is a window that pads itself on old
+        // Android and not on new, and a title behind the status bar on one of
+        // the two.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         DebugLog.useCrashFile(this)
         report = buildReport(intent?.getStringExtra(EXTRA_REPORT).orEmpty())
         setContentView(buildLayout())
@@ -112,6 +123,7 @@ class CrashReportActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
         }
+        applyBarInsets(root, pad)
 
         root.addView(
             TextView(this).apply {
@@ -142,31 +154,102 @@ class CrashReportActivity : Activity() {
             LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f),
         )
 
+        // First of the actions, because it is the only one that is urgent: if
+        // what crashed was the keyboard itself, every other button — and every
+        // app the user opens next — needs a keyboard that works to be any use.
+        root.addView(
+            button(getString(R.string.common_crash_switch_action)) { switchKeyboard() },
+            wideButtonParams(),
+        )
         root.addView(
             button(getString(R.string.common_crash_email_action)) { emailReport() },
-            LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT),
+            wideButtonParams(),
         )
-        root.addView(buttonRow())
+        root.addView(buttonRow(), wideButtonParams())
         return root
     }
+
+    /**
+     * Full-width, with a gap above it. Platform buttons draw their own
+     * background inset, which reads as a hairline of space and nothing more —
+     * these are the buttons that send a report and change the keyboard, so
+     * hitting the wrong one has to take an actual mis-tap.
+     */
+    private fun wideButtonParams(): LinearLayout.LayoutParams =
+        LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+            topMargin = dp(GAP_DP)
+        }
 
     private fun buttonRow(): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val even = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
-        row.addView(button(getString(R.string.common_copy)) { copyReport() }, even)
-        row.addView(button(getString(R.string.common_share)) { shareReport() }, even)
-        row.addView(button(getString(R.string.common_close)) { finishAndRemoveTask() }, even)
+        row.addView(button(getString(R.string.common_copy)) { copyReport() }, rowButtonParams())
+        row.addView(button(getString(R.string.common_share)) { shareReport() }, rowButtonParams())
+        row.addView(
+            button(getString(R.string.common_close)) { finishAndRemoveTask() },
+            rowButtonParams(),
+        )
         return row
     }
+
+    /** An equal share of the row, with half a gap either side of each button. */
+    private fun rowButtonParams(): LinearLayout.LayoutParams =
+        LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply {
+            val half = dp(GAP_DP) / 2
+            marginStart = half
+            marginEnd = half
+        }
 
     private fun button(label: String, onClick: () -> Unit): Button =
         Button(this).apply {
             text = label
             setOnClickListener { onClick() }
         }
+
+    /**
+     * Opens the system's "change keyboard" picker, the way out of a crashed
+     * keyboard: whatever is typed next needs a different IME until this build
+     * is fixed or restarted.
+     *
+     * The picker is only granted to the window that currently has input focus,
+     * which this one does; where it cannot be reached at all the input-method
+     * settings screen is the fallback, since that one is always openable and
+     * gets to the same place in two taps.
+     */
+    private fun switchKeyboard() {
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        if (imm != null && runCatching { imm.showInputMethodPicker() }.isSuccess) return
+        val opened = runCatching {
+            startActivity(
+                Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.isSuccess
+        if (!opened) toast(getString(R.string.common_crash_switch_error))
+    }
+
+    /**
+     * Keeps the screen clear of the status bar, the navigation bar and any
+     * cutout. The activity runs under a platform theme on a target that is
+     * always edge-to-edge, so without this the title sits behind the status bar
+     * and the bottom row behind the gesture handle.
+     */
+    private fun applyBarInsets(root: View, pad: Int) {
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout(),
+            )
+            view.setPadding(
+                pad + bars.left,
+                pad + bars.top,
+                pad + bars.right,
+                pad + bars.bottom,
+            )
+            insets
+        }
+    }
 
     private fun copyReport() {
         val copied = runCatching {

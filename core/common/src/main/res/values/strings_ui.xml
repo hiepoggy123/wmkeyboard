@@ -76,6 +76,11 @@
     <string name="common_crash_title">WM Keyboard stopped</string>
     <string name="common_crash_body">This build shows crashes instead of hiding them. Copy or share the report below, and send it to the developer. The report says what failed, on which build and on which device. It contains nothing that you have typed.</string>
 
+    <!-- Opens the system keyboard picker. The keyboard is what crashed, so the
+         user may have no way to type until they change to another one. -->
+    <string name="common_crash_switch_action">Change keyboard</string>
+    <string name="common_crash_switch_error">This device cannot open the keyboard picker. Change the keyboard in the system settings.</string>
+
     <string name="common_crash_email_action">Email the developer</string>
 
     <!-- Title of the Android share sheet that this screen opens. -->
