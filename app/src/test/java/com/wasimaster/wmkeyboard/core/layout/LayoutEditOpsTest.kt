@@ -131,4 +131,95 @@ class LayoutEditOpsTest {
         assertEquals(BuiltInLayouts.QWERTY_ID, edited.id)
         assertEquals(edited, resolveLayout(listOf(edited), BuiltInLayouts.QWERTY_ID))
     }
+
+    /**
+     * The editor's "what does an edit to this layer start from", mirrored from
+     * KeyLayoutEditorScreen exactly as [withLayerRows] is.
+     */
+    private fun LayoutSpec.baseLayerOf(which: LayoutLayer): LayerSpec {
+        layer(which)?.let { return it }
+        if (BuiltInLayouts.default.layer(which) == null) return LayerSpec(rows = emptyList())
+        val compiled = compile(which)
+        return LayerSpec(rows = compiled.rows, rowHeights = compiled.rowHeights)
+    }
+
+    @Test
+    fun `compile falls through to the letters grid for a layer nothing ships`() {
+        // The fact the editor has to work around: Fn is the one layer no built-in
+        // defines, so compile runs off the end of its fallback chain. Anything
+        // that treats compile's answer as "the grid to edit" authors Fn as a
+        // second copy of the alphabet.
+        assertNull(BuiltInLayouts.default.layer(LayoutLayer.FN))
+        assertEquals(
+            BuiltInLayouts.default.compile(LayoutLayer.LETTERS).rows,
+            mine().compile(LayoutLayer.FN).rows,
+        )
+    }
+
+    @Test
+    fun `an edit to the Fn layer starts from nothing, not from the letters`() {
+        val base = mine().baseLayerOf(LayoutLayer.FN)
+        assertEquals("Fn has no shipped grid to inherit", emptyList<List<Key>>(), base.rows)
+    }
+
+    @Test
+    fun `an edit to an inherited shipped layer still starts from that layer`() {
+        val base = mine().baseLayerOf(LayoutLayer.PHONE)
+        assertEquals(
+            BuiltInLayouts.default.compile(LayoutLayer.PHONE).rows,
+            base.rows,
+        )
+    }
+
+    @Test
+    fun `an authored Fn layer is edited from itself`() {
+        val withFn = mine().copy(
+            layers = mapOf(LayoutLayer.FN.key to BuiltInLayouts.FN_DEFAULT),
+        )
+        assertEquals(BuiltInLayouts.FN_DEFAULT.rows, withFn.baseLayerOf(LayoutLayer.FN).rows)
+    }
+
+    @Test
+    fun `the editing encoding drops defaults and still round-trips`() {
+        val full = LayoutCodec.encode(BuiltInLayouts.QWERTY)
+        val lean = LayoutCodec.encodeForEditing(BuiltInLayouts.QWERTY)
+
+        assertTrue(
+            "the raw-JSON screen is read by a person; ${lean.length} vs ${full.length}",
+            lean.length < full.length / 2,
+        )
+        assertTrue("no null-valued field survives", !lean.contains(":null"))
+        assertEquals(
+            "and what it prints still decodes to the same layout",
+            BuiltInLayouts.QWERTY,
+            LayoutCodec.decode(lean),
+        )
+    }
+
+    @Test
+    fun `a layout edited after it was turned on is repaired where it is used`() {
+        // What the keyboard does to a spec before drawing it (WMKeyboardService's
+        // resolveLayoutSet). The editor saves whatever you are mid-way through,
+        // and an enabled layout is live while you build it — so deleting the row
+        // that carries ⌫ must not cost the running keyboard its backspace.
+        val enabledAndBroken = BuiltInLayouts.QWERTY.withLayerRows(
+            BuiltInLayouts.QWERTY.compile(layer).rows
+                .map { row -> row.filter { it.action != KeyAction.Delete } },
+        )
+        assertTrue(
+            "the stored layout is allowed to be broken",
+            validateLayout(enabledAndBroken).any { it.severity == LayoutSeverity.BLOCKING },
+        )
+
+        val drawn = enabledAndBroken.repair().spec
+        assertTrue(
+            "but the grid the keyboard draws always has one",
+            drawn.compile(layer).rows.flatten().any { it.action == KeyAction.Delete },
+        )
+        assertEquals(
+            "and repairing an already-good layout changes nothing",
+            drawn.repair().spec,
+            drawn,
+        )
+    }
 }

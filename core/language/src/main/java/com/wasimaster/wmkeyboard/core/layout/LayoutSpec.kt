@@ -162,8 +162,26 @@ private val layoutJson = Json {
     }
 }
 
+/**
+ * The same format with the defaults left out, for the one reader that is a
+ * person: the raw-JSON editor.
+ *
+ * Storage keeps `encodeDefaults = true` — every field written every time is the
+ * cheapest guarantee that a downgrade reads what an upgrade wrote. Handed to a
+ * human it is unusable: a plain four-row QWERTY came to 33 kB, almost all of it
+ * `"output":null,"shiftLabel":null,"clipboardAction":null,"role":null,
+ * "icon":null,"iconHint":null,"flick":{}` repeated four hundred times, and the
+ * Apply button sat forty screens below the field. Omitting them costs nothing to
+ * read back — every one of those fields has a default — and shrinks the same
+ * layout to about a tenth.
+ */
+private val layoutEditorJson = Json(layoutJson) { encodeDefaults = false }
+
 object LayoutCodec {
     fun encodeList(layouts: List<LayoutSpec>): String = layoutJson.encodeToString(layouts)
+
+    /** [encode], without the fields that hold their default value. */
+    fun encodeForEditing(layout: LayoutSpec): String = layoutEditorJson.encodeToString(layout)
 
     fun decodeList(json: String): List<LayoutSpec> {
         // Blank is the ordinary state — nothing is written here until the user

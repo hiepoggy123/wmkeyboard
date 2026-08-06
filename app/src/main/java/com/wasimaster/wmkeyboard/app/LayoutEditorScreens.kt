@@ -237,9 +237,12 @@ internal fun KeyLayoutsScreen(
     }
 
     SettingsGroup(stringResource(R.string.layout_editor_your_layouts_title)) {
-        // Only enabled layouts are listed: this page manages the grids you
-        // actually type with, not the whole registry. Enable others under
-        // Languages first and they appear here.
+        // Every grid the user made, on or off. Filtering to the enabled ones
+        // made the two buttons on this very screen — Duplicate and Import —
+        // produce a layout that then vanished from it: neither turns its result
+        // on, so a copy opened the editor, and coming back said "No layouts of
+        // your own yet". Whether a layout is on is a word in its subtitle, not
+        // a reason to hide the thing you just made.
         //
         // Addon layouts are left out entirely. This group is "grids you made",
         // and an installed one is neither made here nor managed here — it is
@@ -248,8 +251,7 @@ internal fun KeyLayoutsScreen(
         val customs = layouts.filter {
             it.id in customIds &&
                 it.id !in shippedIds &&
-                it.id !in addonLayoutIds &&
-                it.id in settings.enabledLayoutIds
+                it.id !in addonLayoutIds
         }
         if (customs.isEmpty()) {
             item {
@@ -567,6 +569,22 @@ internal fun KeyLayoutEditorScreen(
         return spec.copy(layers = spec.layers + (layer.key to existing.copy(rows = rows)))
     }
 
+    /**
+     * The layer an edit starts from: this layout's own, the shipped one it
+     * inherits, or an empty grid.
+     *
+     * The empty case is Fn, the one layer nothing ships. `compile`'s fallback
+     * chain ends at the default *letters* grid, so without this every edit path
+     * on the Fn tab — add a row, reorder, touch a key — would author Fn as a
+     * second copy of the alphabet.
+     */
+    fun baseLayerOf(spec: LayoutSpec): LayerSpec {
+        spec.layer(layer)?.let { return it }
+        if (BuiltInLayouts.default.layer(layer) == null) return LayerSpec(rows = emptyList())
+        val compiled = spec.compile(layer)
+        return LayerSpec(rows = compiled.rows, rowHeights = compiled.rowHeights)
+    }
+
     fun push() {
         undo = (undo + layout).takeLast(UndoDepth)
         redo = emptyList()
@@ -609,19 +627,14 @@ internal fun KeyLayoutEditorScreen(
     // Every transform below derives its rows from the spec it is handed, never
     // from the copy this composition is holding, for the staleness reason above.
     fun editRows(transform: (List<List<Key>>) -> List<List<Key>>) {
-        edit { spec -> withLayerRows(spec, transform(spec.compile(layer).rows)) }
+        edit { spec -> withLayerRows(spec, transform(baseLayerOf(spec).rows)) }
     }
 
     // Whole-layer edit, so a structural change to the rows can keep the parallel
     // per-row heights aligned. Authoring an inherited layer copies the built-in's
     // compiled grid (heights and all) first.
     fun editLayer(transform: (LayerSpec) -> LayerSpec) {
-        edit { spec ->
-            val compiled = spec.compile(layer)
-            val base = spec.layer(layer)
-                ?: LayerSpec(rows = compiled.rows, rowHeights = compiled.rowHeights)
-            spec.copy(layers = spec.layers + (layer.key to transform(base)))
-        }
+        edit { spec -> spec.copy(layers = spec.layers + (layer.key to transform(baseLayerOf(spec)))) }
     }
 
     // Reindexes per-row heights by source row index so they follow the rows
@@ -638,8 +651,21 @@ internal fun KeyLayoutEditorScreen(
         }
     }
 
-    val rows = layout.compile(layer).rows
-    val rowHeights = layout.compile(layer).rowHeights
+    // Fn is the one layer nothing ships, so `compile` runs off the end of its
+    // fallback chain and hands back the *letters* grid. Drawn, that stand-in
+    // invited a tap, and a tap on an unauthored layer authors it from whatever
+    // the grid is showing — so one keystroke on the empty Fn tab wrote a second
+    // copy of QWERTY into the Fn layer and took the template row away. An empty
+    // grid here leaves "Add an Fn layer" as the only way in, which is what the
+    // caption below already says it is.
+    val inheritable = layout.layer(layer) != null || BuiltInLayouts.default.layer(layer) != null
+    val compiled = if (inheritable) {
+        layout.compile(layer)
+    } else {
+        KeyboardLayout(name = "$layoutId/${layer.key}", rows = emptyList())
+    }
+    val rows = compiled.rows
+    val rowHeights = compiled.rowHeights
     val selectedKey = selection?.let { rows.getOrNull(it.row)?.getOrNull(it.col) }
 
     SectionHeaderPublic(layout.name)
@@ -716,7 +742,7 @@ internal fun KeyLayoutEditorScreen(
     }
 
     EditorGrid(
-        layout = layout.compile(layer),
+        layout = compiled,
         settings = settings,
         selection = selection,
         showShift = showShift,
@@ -865,7 +891,19 @@ internal fun KeyLayoutEditorScreen(
         }
     }
 
-    CaptionText(stringResource(R.string.layout_editor_not_live_caption))
+    // A layout that is already on is live while you edit it, so the standing
+    // "this does not affect typing yet" line was a lie in exactly the case where
+    // it mattered — the keyboard follows every keystroke made here, and only the
+    // repair pass at the point of use keeps a half-built grid typeable.
+    CaptionText(
+        stringResource(
+            if (layoutId in settings.enabledLayoutIds) {
+                R.string.layout_editor_live_caption
+            } else {
+                R.string.layout_editor_not_live_caption
+            },
+        ),
+    )
 
     val ref = selection
     if (sheetOpen && ref != null && selectedKey != null) {
@@ -882,7 +920,7 @@ internal fun KeyLayoutEditorScreen(
                 editCoalesced { spec ->
                     withLayerRows(
                         spec,
-                        spec.compile(layer).rows.mapIndexed { r, row ->
+                        baseLayerOf(spec).rows.mapIndexed { r, row ->
                             if (r != ref.row) {
                                 row
                             } else {
@@ -982,14 +1020,25 @@ private fun RowActionBar(
         // Only worth saying when it disagrees with the grid — the width the
         // keyboard measures every other row against. Printed on every row it
         // would be five numbers that are correct and identical almost always.
+        //
+        // Weighted, and wrapping, because it is a whole sentence sharing a row
+        // with three buttons: at its natural width it pushed Delete row clean
+        // off the screen and clipped Duplicate row — and a row wide enough to
+        // warn about is precisely the row you want to delete.
         if (kotlin.math.abs(rowWidth - gridWeight) > 0.01f) {
             Text(
                 stringResource(R.string.layout_editor_row_width_mismatch, rowWidth, gridWeight),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp),
             )
+        } else {
+            Spacer(Modifier.weight(1f))
         }
-        Spacer(Modifier.weight(1f))
         IconButton(onClick = onAddKey) {
             Icon(
                 Icons.Outlined.Add,
@@ -1503,18 +1552,21 @@ private fun KeyEditSheet(
                 label = stringResource(R.string.layout_editor_key_label_label),
                 value = key.label,
                 supporting = stringResource(R.string.layout_editor_key_label_hint),
+                resetKey = ref,
             ) { onChange(key.copy(label = it)) }
 
             SheetField(
                 label = stringResource(R.string.layout_editor_key_output_label),
                 value = key.output.orEmpty(),
                 supporting = stringResource(R.string.layout_editor_key_output_hint),
+                resetKey = ref,
             ) { onChange(key.copy(output = it.ifBlank { null })) }
 
             SheetField(
                 label = stringResource(R.string.layout_editor_key_shift_label_label),
                 value = key.shiftLabel.orEmpty(),
                 supporting = stringResource(R.string.layout_editor_key_shift_label_hint),
+                resetKey = ref,
             ) { onChange(key.copy(shiftLabel = it.ifBlank { null })) }
 
             val option = KeyActionCatalog.firstOrNull { it.matches(key.action) }
@@ -1534,6 +1586,7 @@ private fun KeyEditSheet(
                     label = stringResource(R.string.layout_editor_broadcast_field_label),
                     value = broadcast.action,
                     supporting = stringResource(R.string.layout_editor_broadcast_field_hint),
+                    resetKey = ref,
                 ) { onChange(key.copy(action = KeyAction.Broadcast(it.trim()))) }
             }
 
@@ -1543,6 +1596,7 @@ private fun KeyEditSheet(
                     label = stringResource(R.string.layout_editor_dot_field_label),
                     value = brailleDot.dot.toString(),
                     supporting = stringResource(R.string.layout_editor_dot_field_hint),
+                    resetKey = ref,
                 ) { text ->
                     text.trim().toIntOrNull()?.takeIf { it in 1..6 }?.let {
                         onChange(key.copy(action = KeyAction.BrailleDot(it)))
@@ -1561,18 +1615,21 @@ private fun KeyEditSheet(
                     label = stringResource(R.string.layout_editor_icon_field_label),
                     value = key.icon.orEmpty(),
                     supporting = iconFieldSupport(key.icon),
+                    resetKey = ref,
                 ) { onChange(key.copy(icon = it.ifBlank { null })) }
 
                 SheetField(
                     label = stringResource(R.string.layout_editor_icon_hint_field_label),
                     value = key.iconHint.orEmpty(),
                     supporting = iconFieldSupport(key.iconHint),
+                    resetKey = ref,
                 ) { onChange(key.copy(iconHint = it.ifBlank { null })) }
 
                 SheetField(
                     label = stringResource(R.string.layout_editor_alternates_field_label),
                     value = alternates,
                     supporting = stringResource(R.string.layout_editor_alternates_field_hint),
+                    resetKey = ref,
                 ) { text ->
                     alternates = text
                     onChange(key.copy(longPress = parseAlternates(text)))
@@ -1676,16 +1733,46 @@ private fun AlternatePreview(alternates: List<String>) {
     }
 }
 
+/**
+ * A text field whose text survives the round trip through the settings store.
+ *
+ * [value] is read back out of the repository, so it lags the keystroke that
+ * caused it by a frame or more. Fed straight back into a Compose text field it
+ * rewinds the text *and the cursor* mid-word: typing "ABCDEF" into a key label
+ * landed as "qE", and even one character a second put the last one at the front.
+ *
+ * So the text lives here, and an incoming value is taken only while nothing of
+ * ours is in flight. [pending] is the last thing this field emitted; until the
+ * store echoes exactly that back, every value arriving is an older read rather
+ * than a change from outside, and ignoring it is the whole fix. Once the echo
+ * lands the field is in sync again and an undo — or anything else that rewrites
+ * the key — moves the text as it should.
+ *
+ * [resetKey] bounds all of that to one editing session: hand it the key being
+ * edited, and moving to another one starts the field over rather than waiting
+ * for an echo that will now never come.
+ */
 @Composable
 private fun SheetField(
     label: String,
     value: String,
     supporting: String,
+    resetKey: Any?,
     onChange: (String) -> Unit,
 ) {
+    var text by remember(resetKey) { mutableStateOf(value) }
+    var pending by remember(resetKey) { mutableStateOf<String?>(null) }
+    when {
+        pending == null -> if (value != text) text = value
+        value == pending -> pending = null
+    }
     OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
+        value = text,
+        onValueChange = {
+            text = it
+            pending = it
+            onChange(it)
+        },
         label = { Text(label) },
         supportingText = { Text(supporting) },
         singleLine = true,
@@ -1859,7 +1946,7 @@ internal fun KeyLayoutJsonScreen(
         return
     }
 
-    var text by rememberSaveable(layoutId) { mutableStateOf(LayoutCodec.encode(layout)) }
+    var text by rememberSaveable(layoutId) { mutableStateOf(LayoutCodec.encodeForEditing(layout)) }
     var error by remember { mutableStateOf<String?>(null) }
     var repairs by remember { mutableStateOf<List<LayoutMessage>>(emptyList()) }
     // The Apply button is a plain lambda, so the message it may set is read here.
@@ -1874,9 +1961,12 @@ internal fun KeyLayoutJsonScreen(
         isError = error != null,
         supportingText = error?.let { { Text(it) } },
         visualTransformation = rememberJsonSyntaxHighlighter(),
+        // Capped, and scrolling inside itself. Uncapped the field grew to the
+        // height of the whole document, which put Apply — and the repair notes
+        // it prints — dozens of screens below the fold on any real layout.
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 240.dp)
+            .heightIn(min = 240.dp, max = 420.dp)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     )
 

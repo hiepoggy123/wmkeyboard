@@ -270,6 +270,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
+import com.wasimaster.wmkeyboard.core.layout.repair
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
 import com.wasimaster.wmkeyboard.core.input.composer.CjkConfig
@@ -4935,31 +4936,51 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var pendingLayoutId: String? = null
 
+    /**
+     * The grids the keyboard draws for [spec], repaired.
+     *
+     * Repaired *here* because this is the last gate before a layout becomes the
+     * thing you type on, and it is the only one that catches an edit made after
+     * the layout was turned on. `setActiveLayoutId` repairs what it stores, but
+     * the editor saves on every keystroke — deliberately, so it does not fight
+     * you — and nothing re-checked an already-enabled layout afterwards. Delete
+     * the row that carries ⌫ from a layout that is on and the live keyboard lost
+     * its backspace, which is the one outcome the repair pass exists to prevent.
+     * The editor still reads the layout unrepaired, so the grid it shows is what
+     * the user is building.
+     *
+     * Cached against the spec rather than its id alone: keyed on the id, an edit
+     * never reached a keyboard whose process was still alive, so the grid stayed
+     * at whatever it was when the layout was first drawn. Structural equality
+     * short-circuits on identity, and the settings flow hands back the same
+     * instance until something actually changes.
+     */
     private fun resolveLayoutSet(spec: LayoutSpec, fieldKind: FieldKind): LayoutSet {
         val key = spec.id to fieldKind
-        layoutSetCache[key]?.let { return it }
+        layoutSetCache[key]?.let { (cached, set) -> if (cached == spec) return set }
+        val safe = spec.repair().spec
         val set = LayoutSet(
-            letters = spec.compile(LayoutLayer.LETTERS),
-            symbols = spec.compile(LayoutLayer.SYMBOLS),
-            symbolsShifted = spec.compile(LayoutLayer.SYMBOLS_SHIFTED),
+            letters = safe.compile(LayoutLayer.LETTERS),
+            symbols = safe.compile(LayoutLayer.SYMBOLS),
+            symbolsShifted = safe.compile(LayoutLayer.SYMBOLS_SHIFTED),
             // Only when the layout actually defines one: compile() falls back
             // to the shipped grid for a missing layer, which would give every
             // layout an Fn layer that is really a second copy of the letters.
-            fn = spec.layer(LayoutLayer.FN)?.let { spec.compile(LayoutLayer.FN) },
-            numeric = fieldKind.numericLayer?.let(spec::compile),
+            fn = safe.layer(LayoutLayer.FN)?.let { safe.compile(LayoutLayer.FN) },
+            numeric = fieldKind.numericLayer?.let(safe::compile),
             numberRows = buildMap {
-                spec.numberRowFor(LayoutLayer.LETTERS)?.let { put(LayoutMode.LETTERS, it) }
-                spec.numberRowFor(LayoutLayer.SYMBOLS)?.let { put(LayoutMode.SYMBOLS, it) }
-                spec.numberRowFor(LayoutLayer.SYMBOLS_SHIFTED)
+                safe.numberRowFor(LayoutLayer.LETTERS)?.let { put(LayoutMode.LETTERS, it) }
+                safe.numberRowFor(LayoutLayer.SYMBOLS)?.let { put(LayoutMode.SYMBOLS, it) }
+                safe.numberRowFor(LayoutLayer.SYMBOLS_SHIFTED)
                     ?.let { put(LayoutMode.SYMBOLS_SHIFTED, it) }
-                spec.numberRowFor(LayoutLayer.FN)?.let { put(LayoutMode.FN, it) }
+                safe.numberRowFor(LayoutLayer.FN)?.let { put(LayoutMode.FN, it) }
             },
         )
-        layoutSetCache[key] = set
+        layoutSetCache[key] = spec to set
         return set
     }
 
-    private val layoutSetCache = HashMap<Pair<String, FieldKind>, LayoutSet>()
+    private val layoutSetCache = HashMap<Pair<String, FieldKind>, Pair<LayoutSpec, LayoutSet>>()
 
     private fun switchLanguage() {
         val state = _uiState.value
