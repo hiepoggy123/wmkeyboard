@@ -280,6 +280,43 @@ object AddonDownloadManager {
         appVersionCode: Int,
     ) {
         if (isBusy) return
+        activeJob = scope.launch {
+            performInstall(context, store, manifestUrl, repo, entry, appVersionCode)
+        }
+    }
+
+    /**
+     * Installs [entries] one after another under the single-install lock — the
+     * "download all" answer to a theme whose [AddonEntry.requires] names its
+     * font and sound. A failed entry (offline mid-batch, a rejected payload)
+     * moves on to the next: the addons are soft dependencies, and the theme at
+     * the end of the list still installs and falls back. Cancelling stops the
+     * whole batch.
+     */
+    fun installAll(
+        context: Context,
+        store: AddonStore,
+        manifestUrl: String,
+        repo: AddonRepoInfo,
+        entries: List<AddonEntry>,
+        appVersionCode: Int,
+    ) {
+        if (isBusy || entries.isEmpty()) return
+        activeJob = scope.launch {
+            entries.forEach { entry ->
+                performInstall(context, store, manifestUrl, repo, entry, appVersionCode)
+            }
+        }
+    }
+
+    private suspend fun performInstall(
+        context: Context,
+        store: AddonStore,
+        manifestUrl: String,
+        repo: AddonRepoInfo,
+        entry: AddonEntry,
+        appVersionCode: Int,
+    ) {
         val key = entry.key(repo.id)
 
         val minAppVersion = entry.minAppVersion
@@ -324,7 +361,7 @@ object AddonDownloadManager {
         set(key, AddonStatus.Downloading(0, entry.sizeBytes ?: 0L))
 
         val appContext = context.applicationContext
-        activeJob = scope.launch {
+        run {
             val part = File(stagingDir(appContext), "${sanitise(key)}.part")
             try {
                 requireSpace(appContext, entry)

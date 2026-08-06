@@ -185,6 +185,13 @@
     <string name="theme_animation_hue_cycle_label">Hue cycle</string>
     <string name="theme_animation_speed_title">Speed</string>
 
+    <!-- Theme editor: per-theme font and sound. -->
+    <string name="theme_font_sound_section_title">Font and sound</string>
+    <string name="theme_font_sound_section_body">The theme can bring its own key font and key sound. If the device does not have them, the keyboard uses your global choices. Fonts and sounds install as add-ons, so you can also use them with other themes.</string>
+    <string name="theme_font_title">Key font</string>
+    <string name="theme_sound_title">Key sound</string>
+    <string name="theme_follow_settings_label">Follow settings</string>
+
     <!-- Gradient editor. -->
     <string name="theme_gradient_linear_label">Linear</string>
     <string name="theme_gradient_radial_label">Radial</string>

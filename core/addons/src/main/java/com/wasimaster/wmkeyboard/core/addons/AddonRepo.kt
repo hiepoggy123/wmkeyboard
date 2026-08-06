@@ -96,6 +96,16 @@ data class AddonEntry(
     val licenseText: String? = null,
     /** Licence text as a file in the repository, relative or absolute; fetched on demand. */
     val licenseFile: String? = null,
+    /**
+     * Ids of other entries **in this same manifest** the addon depends on — a
+     * theme naming the font and sound it was designed around. Soft by design:
+     * the install screen offers to download them alongside, and skipping them
+     * still installs a working addon (a theme without its font falls back to
+     * the global one). Keeping them separate entries is what lets the user
+     * repurpose a theme's font anywhere else. An id this manifest doesn't
+     * carry is ignored.
+     */
+    val requires: List<String> = emptyList(),
 ) {
     /** `"<repoId>/<addonId>"` — how an install is tracked in [AddonStore]. */
     fun key(repoId: String): String = "$repoId/$id"
@@ -187,7 +197,10 @@ enum class AddonType {
      */
     val maxBytes: Long
         get() = when (this) {
-            Theme, Layout, Snippets -> 4L * 1024 * 1024
+            Layout, Snippets -> 4L * 1024 * 1024
+            // A theme can carry base64 background images — an animated GIF
+            // pair plus key textures runs well past the old 4 MB.
+            Theme -> 16L * 1024 * 1024
             Dictionary -> 32L * 1024 * 1024
             // A keyword pack is one row per emoji: a few thousand short
             // lines, even for a language that names every one of them.

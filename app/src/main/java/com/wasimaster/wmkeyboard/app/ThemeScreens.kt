@@ -85,6 +85,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
+import com.wasimaster.wmkeyboard.core.feedback.SoundStore
+import com.wasimaster.wmkeyboard.core.fonts.FontStore
+import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
+import com.wasimaster.wmkeyboard.core.util.PlayServices
+import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.addons.AddonType
@@ -1758,8 +1765,221 @@ fun ThemeEditorScreen(
             }
         }
     }
+
+    var fontPickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    var soundPickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    SettingsGroup(stringResource(R.string.theme_font_sound_section_title)) {
+        item { CaptionText(stringResource(R.string.theme_font_sound_section_body)) }
+        item {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_font_title)) },
+                supportingContent = {
+                    Text(
+                        theme.fontId?.let { KeyboardFonts.displayName(context, it, "") }
+                            ?: stringResource(R.string.theme_follow_settings_label),
+                    )
+                },
+                modifier = Modifier.clickable { fontPickerOpen = true },
+                colors = transparentListColors(),
+            )
+        }
+        item {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_sound_title)) },
+                supportingContent = { Text(themeSoundLabel(theme)) },
+                modifier = Modifier.clickable { soundPickerOpen = true },
+                colors = transparentListColors(),
+            )
+        }
+    }
+    if (fontPickerOpen) {
+        ThemeFontPickerDialog(
+            current = theme.fontId,
+            onPick = { id ->
+                fontPickerOpen = false
+                update { t -> t.copy(fontId = id) }
+            },
+            onDismiss = { fontPickerOpen = false },
+        )
+    }
+    if (soundPickerOpen) {
+        ThemeSoundPickerDialog(
+            currentStyle = theme.soundStyle,
+            currentCustomId = theme.soundCustomId,
+            onPick = { style, customId ->
+                soundPickerOpen = false
+                update { t -> t.copy(soundStyle = style, soundCustomId = customId) }
+            },
+            onDismiss = { soundPickerOpen = false },
+        )
+    }
     Spacer(Modifier.height(24.dp))
 }
+
+/** The sound row's current-value line: a style's name, or "follow settings". */
+@Composable
+private fun themeSoundLabel(theme: ThemeSpec): String {
+    val context = LocalContext.current
+    val style = theme.soundStyle?.let { name ->
+        KeySoundStyle.entries.firstOrNull { it.name == name }
+    } ?: return stringResource(R.string.theme_follow_settings_label)
+    if (style == KeySoundStyle.CUSTOM) {
+        val name = remember(theme.soundCustomId) {
+            SoundStore.get(context).sounds()
+                .firstOrNull { it.id == theme.soundCustomId }?.name
+        }
+        if (name != null) return name
+    }
+    return stringResource(keySoundStyleLabelRes(style))
+}
+
+@StringRes
+private fun keySoundStyleLabelRes(style: KeySoundStyle): Int = when (style) {
+    KeySoundStyle.CLICK -> R.string.hardware_sound_style_click_label
+    KeySoundStyle.STANDARD -> R.string.hardware_sound_style_standard_label
+    KeySoundStyle.POP -> R.string.hardware_sound_style_pop_label
+    KeySoundStyle.THOCK -> R.string.hardware_sound_style_thock_label
+    KeySoundStyle.CHIME -> R.string.hardware_sound_style_chime_label
+    KeySoundStyle.CUSTOM -> CommonR.string.common_custom
+}
+
+/**
+ * Picks the theme's key font: follow the global setting, a Google face, or a
+ * font from the installed library. Every row draws in its own face — the row
+ * is the preview, the same trick the Fonts screen uses.
+ */
+@Composable
+private fun ThemeFontPickerDialog(
+    current: String?,
+    onPick: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val installed = remember { FontStore.get(context).textFonts() }
+    val googleNames =
+        if (PlayServices.hasFontProvider(context)) KeyboardFonts.googleFonts else emptyList()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.theme_font_title)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                ThemeFontChoiceRow(
+                    label = stringResource(R.string.theme_follow_settings_label),
+                    family = null,
+                    selected = current == null,
+                ) { onPick(null) }
+                for (font in installed) {
+                    val id = FontStore.fontIdFor(font.id)
+                    ThemeFontChoiceRow(
+                        label = font.name,
+                        family = remember(id) { KeyboardFonts.family(context, id) },
+                        selected = current == id,
+                    ) { onPick(id) }
+                }
+                for (name in googleNames) {
+                    val id = KeyboardFonts.googleId(name)
+                    ThemeFontChoiceRow(
+                        label = name,
+                        family = remember(id) { KeyboardFonts.family(context, id) },
+                        selected = current == id,
+                    ) { onPick(id) }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+}
+
+@Composable
+private fun ThemeFontChoiceRow(
+    label: String,
+    family: FontFamily?,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+    ) {
+        Text(
+            label,
+            fontFamily = family,
+            fontSize = 17.sp,
+            modifier = Modifier.weight(1f),
+        )
+        if (selected) {
+            Icon(
+                Icons.Outlined.Check,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+/**
+ * Picks the theme's key sound. Tapping a row previews it right away — a sound
+ * has to be heard to be chosen. Installed sounds each get their own row (they
+ * are the CUSTOM style plus an id under the hood).
+ */
+@Composable
+private fun ThemeSoundPickerDialog(
+    currentStyle: String?,
+    currentCustomId: String?,
+    onPick: (style: String?, customId: String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val installed = remember { SoundStore.get(context).sounds() }
+    val styles = KeySoundStyle.entries.filter { it != KeySoundStyle.CUSTOM }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.theme_sound_title)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                ThemeFontChoiceRow(
+                    label = stringResource(R.string.theme_follow_settings_label),
+                    family = null,
+                    selected = currentStyle == null,
+                ) { onPick(null, null) }
+                for (style in styles) {
+                    ThemeFontChoiceRow(
+                        label = stringResource(keySoundStyleLabelRes(style)),
+                        family = null,
+                        selected = currentStyle == style.name && currentCustomId == null,
+                    ) {
+                        KeySoundPlayer.preview(context, style, PREVIEW_SOUND_VOLUME)
+                        onPick(style.name, null)
+                    }
+                }
+                for (sound in installed) {
+                    ThemeFontChoiceRow(
+                        label = sound.name,
+                        family = null,
+                        selected = currentStyle == KeySoundStyle.CUSTOM.name &&
+                            currentCustomId == sound.id,
+                    ) {
+                        KeySoundPlayer.preview(
+                            context, KeySoundStyle.CUSTOM, PREVIEW_SOUND_VOLUME, sound.id,
+                        )
+                        onPick(KeySoundStyle.CUSTOM.name, sound.id)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+}
+
+/** Loud enough to judge by, without reading the user's live volume setting. */
+private const val PREVIEW_SOUND_VOLUME = 0.6f
 
 /** Opens a credit link in the browser. Failure is not worth a message. */
 private fun openLink(context: android.content.Context, url: String) {

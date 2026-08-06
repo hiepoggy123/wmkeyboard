@@ -696,8 +696,17 @@ fun KeyboardThemeProvider(
     // different from the rest — its faces simply also carry Latin glyphs, which
     // is what keeps Avro's romanized keys and mixed strips in one face.
     val scriptId = settings.script.id
+    // A theme may carry its own key font, by id. It sits between the
+    // per-script face and the global pick: script correctness still beats the
+    // theme's display face, and an id the device has no font for (the font is
+    // its own addon, which the user may not have installed) resolves to null
+    // in KeyboardFonts.family and falls through to the global setting.
+    val themeFontId = remember(settings, darkSlot) {
+        settings.activeThemeSpec(darkSlot)?.fontId
+    }
     val keyFontFamily = remember(
         scriptId,
+        themeFontId,
         settings.keyFontId,
         settings.scriptFontIds,
         settings.customFontName,
@@ -707,7 +716,8 @@ fun KeyboardThemeProvider(
             context,
             scriptId,
             settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
-        ) ?: KeyboardFonts.family(context, settings.keyFontId)
+        ) ?: themeFontId?.let { KeyboardFonts.family(context, it) }
+            ?: KeyboardFonts.family(context, settings.keyFontId)
     }
     val emojiFontFamily = remember(settings.emojiFont, settings.emojiFontInstalled.installedId) {
         KeyboardFonts.emojiFamily(

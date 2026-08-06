@@ -222,6 +222,27 @@ data class ThemeSpec(
     val animation: ThemeAnimation = ThemeAnimation.NONE,
     /** Multiplier on the animation cycle speed; 1 = one cycle every ~16 s. */
     val animationSpeed: Float = 1f,
+    /**
+     * Key-label font, as a font id the font system already understands
+     * (`serif`, `google:<Name>`, `installed:<id>`, …). Null follows the global
+     * font setting. A font the device does not have falls back to the global
+     * setting rather than erroring: fonts travel as their own addon, listed as
+     * a dependency of the theme in a repo, never embedded in the theme file.
+     * Per-script faces still win over this, so a display face never blanks a
+     * non-Latin board.
+     */
+    val fontId: String? = null,
+    /**
+     * Key sound, as a KeySoundStyle name. A string rather than the enum for
+     * the reason spelled out above [PhotoAttribution]; an unknown name costs
+     * the field, not the theme. Null follows the global sound setting.
+     */
+    val soundStyle: String? = null,
+    /**
+     * Which installed sound to play when [soundStyle] is `CUSTOM`. Sounds are
+     * their own addon like fonts; a missing id falls back to the global sound.
+     */
+    val soundCustomId: String? = null,
 )
 
 /** Follows system light/dark + Material You; not a stored [ThemeSpec]. */

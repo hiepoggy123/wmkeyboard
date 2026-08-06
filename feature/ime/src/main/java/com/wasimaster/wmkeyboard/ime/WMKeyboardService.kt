@@ -72,7 +72,11 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.clipboard.ClipSensitivity
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
+import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.SensitiveClipHandling
+import com.wasimaster.wmkeyboard.core.settings.activeThemeSpec
+import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.tools.SolarCalculator
 import com.wasimaster.wmkeyboard.core.emoji.AnimatedEmoji
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
@@ -13164,9 +13168,14 @@ open class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         if (!hardwareIntercepts(state)) return false
         val word = state.suggestions.getOrNull(index) ?: return false
-        // Already vibrates, stops dictation and handles the email/CJK/gesture
-        // cases — the hotkey must not reimplement any of that.
-        onSuggestionTapped(word)
+        // Through the *tapped-candidate* handler, not the tapped-suggestion one:
+        // a conversion IME (Pinyin, kana to kanji) resolves a candidate by its
+        // position, because the position is what says how much of the reading
+        // buffer the choice consumes. Handing it only the text commits the right
+        // characters against the wrong span. For everything else this delegates
+        // straight to onSuggestionTapped, which already vibrates, stops dictation
+        // and handles the email and gesture cases.
+        onCandidateTapped(word, index)
         return true
     }
 
@@ -13624,7 +13633,9 @@ open class WMKeyboardService : InputMethodService() {
     /**
      * Plays the key-press sound via [KeySoundPlayer]. [force] previews even
      * while the setting is off (the quick panel's toggle fires before the
-     * DataStore write lands).
+     * DataStore write lands). A theme that carries its own sound
+     * ([ThemeSpec.soundStyle]) beats the global pick, the same precedence its
+     * colours get; an explicit [style] (a settings preview) beats both.
      */
     private fun playKeySound(
         style: com.wasimaster.wmkeyboard.core.settings.KeySoundStyle? = null,
@@ -13633,12 +13644,70 @@ open class WMKeyboardService : InputMethodService() {
     ) {
         val settings = _uiState.value.settings
         if (!force && !settings.keySound) return
+        val theme = themeKeySound(settings)
         KeySoundPlayer.play(
             this,
-            style ?: settings.keySoundStyle,
+            style ?: theme?.first ?: settings.keySoundStyle,
             volume ?: settings.keySoundVolume,
-            settings.keySoundCustom.customId,
+            theme?.second ?: settings.keySoundCustom.customId,
         )
+    }
+
+    // The resolved theme sound is cached per settings instance and clock
+    // minute: resolving it walks the theme lists, and under the schedule/sun
+    // auto-theme triggers the active slot is a function of the time — a
+    // keystroke is too hot a path to re-answer either on.
+    private var themeSoundSettings: KeyboardSettings? = null
+    private var themeSoundMinute: Int = -1
+    private var themeSoundValue: Pair<com.wasimaster.wmkeyboard.core.settings.KeySoundStyle, String>? =
+        null
+
+    /**
+     * The sound the active theme asks for — (style, custom sound id) — or null
+     * to follow the global setting. Mirrors the composition side's
+     * darkSlot resolution ([KeyboardSettings.usesDarkSlot] is the shared
+     * definition) so the sounding theme is the one being painted. An unknown
+     * style name, or a theme with no sound, resolves to null: the sound field
+     * costs itself, never the theme.
+     */
+    private fun themeKeySound(
+        settings: KeyboardSettings,
+    ): Pair<com.wasimaster.wmkeyboard.core.settings.KeySoundStyle, String>? {
+        val minute = java.util.Calendar.getInstance().let {
+            it.get(java.util.Calendar.HOUR_OF_DAY) * 60 + it.get(java.util.Calendar.MINUTE)
+        }
+        if (settings === themeSoundSettings && minute == themeSoundMinute) return themeSoundValue
+        val systemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+        val auto = settings.autoTheme
+        val sun = if (auto.enabled && auto.trigger == AutoThemeTrigger.SUN) {
+            val latitude = settings.weatherLatitude
+            val longitude = settings.weatherLongitude
+            if (latitude == null || longitude == null) {
+                null
+            } else {
+                SolarCalculator.forDate(
+                    latitude.toDouble(),
+                    longitude.toDouble(),
+                    System.currentTimeMillis(),
+                )
+            }
+        } else {
+            null
+        }
+        val darkSlot = auto.usesDarkSlot(systemDark, minute, sun)
+        val spec = settings.activeThemeSpec(darkSlot)
+        val styleName = spec?.soundStyle
+        val resolved = styleName
+            ?.let { wanted ->
+                com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.entries
+                    .firstOrNull { it.name == wanted }
+            }
+            ?.let { it to spec.soundCustomId.orEmpty() }
+        themeSoundSettings = settings
+        themeSoundMinute = minute
+        themeSoundValue = resolved
+        return resolved
     }
 
     private fun doVibrate() {

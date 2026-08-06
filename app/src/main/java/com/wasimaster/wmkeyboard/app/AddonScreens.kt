@@ -625,6 +625,124 @@ private fun AddonApplyPrompt() {
     )
 }
 
+/**
+ * The entries [entry] lists in [AddonEntry.requires] that resolve in this
+ * manifest and are not installed yet. An id the manifest doesn't carry is
+ * ignored — the dependency is soft either way.
+ */
+private fun missingRequirements(
+    store: AddonStore,
+    repoId: String,
+    all: List<AddonEntry>,
+    entry: AddonEntry,
+): List<AddonEntry> {
+    if (entry.requires.isEmpty()) return emptyList()
+    val installed = store.installed()
+    return entry.requires
+        .mapNotNull { id -> all.firstOrNull { it.id == id } }
+        .filter { installed[it.key(repoId)] == null }
+}
+
+/**
+ * The install front door shared by the catalogue card and the detail page.
+ *
+ * [content] gets a `request` to call instead of [AddonDownloadManager.install]:
+ * an addon whose [AddonEntry.requires] names uninstalled entries first asks
+ * whether to bring them along (a theme's font and sound are their own addons,
+ * so the user can reuse them anywhere — and so the theme still works without
+ * them). "Download all" installs the dependencies first and the addon last;
+ * skipping installs the addon alone, which its fallbacks make valid.
+ */
+@Composable
+private fun RequiresAwareInstall(
+    store: AddonStore,
+    manifestUrl: String,
+    repo: AddonRepoInfo,
+    all: List<AddonEntry>,
+    content: @Composable (request: (AddonEntry) -> Unit) -> Unit,
+) {
+    val context = LocalContext.current
+    var prompt by remember { mutableStateOf<Pair<AddonEntry, List<AddonEntry>>?>(null) }
+    content { entry ->
+        // Following a link doesn't add the repository; choosing to install
+        // from it does. No-op when it is already there.
+        store.addRepo(manifestUrl)
+        val missing = missingRequirements(store, repo.id, all, entry)
+        if (missing.isEmpty()) {
+            AddonDownloadManager.install(
+                context = context,
+                store = store,
+                manifestUrl = manifestUrl,
+                repo = repo,
+                entry = entry,
+                appVersionCode = BuildConfig.VERSION_CODE,
+            )
+        } else {
+            prompt = entry to missing
+        }
+    }
+    prompt?.let { (entry, missing) ->
+        AlertDialog(
+            onDismissRequest = { prompt = null },
+            title = { Text(stringResource(R.string.addon_requires_title, entry.name)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.addon_requires_body))
+                    Spacer(Modifier.height(12.dp))
+                    missing.forEach { dep ->
+                        Text(
+                            buildString {
+                                append(dep.name)
+                                dep.sizeBytes?.let { append("  ·  ${formatBytes(it)}") }
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            stringResource(dep.type.singularLabelRes),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        prompt = null
+                        AddonDownloadManager.installAll(
+                            context = context,
+                            store = store,
+                            manifestUrl = manifestUrl,
+                            repo = repo,
+                            // Dependencies first: the addon that asked for them
+                            // is the one whose "use it?" question should be the
+                            // one left standing at the end of the batch.
+                            entries = missing + entry,
+                            appVersionCode = BuildConfig.VERSION_CODE,
+                        )
+                    },
+                ) { Text(stringResource(R.string.addon_requires_all_action)) }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        prompt = null
+                        AddonDownloadManager.install(
+                            context = context,
+                            store = store,
+                            manifestUrl = manifestUrl,
+                            repo = repo,
+                            entry = entry,
+                            appVersionCode = BuildConfig.VERSION_CODE,
+                        )
+                    },
+                ) { Text(stringResource(R.string.addon_requires_skip_action)) }
+            },
+        )
+    }
+}
+
 @Composable
 private fun RepositoryRow(
     ref: AddonRepoRef,
@@ -896,16 +1014,23 @@ internal fun AddonRepoScreen(
     // addon's first screenshot, which a list row cannot, and screenshots are
     // most of what tells two themes apart.
     Spacer(Modifier.height(8.dp))
-    for (row in shown.chunked(2)) {
-        Row(modifier = Modifier.padding(horizontal = 12.dp)) {
-            for (entry in row) {
-                Box(modifier = Modifier.weight(1f)) {
-                    AddonCard(entry, manifest.repo, manifestUrl) {
-                        onNavigate(addonDetailRoute(manifestUrl, entry.id))
+    RequiresAwareInstall(store, manifestUrl, manifest.repo, manifest.addons) { request ->
+        for (row in shown.chunked(2)) {
+            Row(modifier = Modifier.padding(horizontal = 12.dp)) {
+                for (entry in row) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        AddonCard(
+                            entry,
+                            manifest.repo,
+                            manifestUrl,
+                            onInstall = { request(entry) },
+                        ) {
+                            onNavigate(addonDetailRoute(manifestUrl, entry.id))
+                        }
                     }
                 }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
-            if (row.size == 1) Spacer(Modifier.weight(1f))
         }
     }
     AddonApplyPrompt()
@@ -945,10 +1070,10 @@ private fun AddonCard(
     entry: AddonEntry,
     repo: AddonRepoInfo,
     manifestUrl: String,
+    /** The download arrow / Update badge. Routed through [RequiresAwareInstall]. */
+    onInstall: () -> Unit,
     onClick: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val store = remember { AddonStore.get(context) }
     val states by AddonDownloadManager.states.collectAsStateWithLifecycle()
     val status = states[entry.key(repo.id)] ?: AddonDownloadManager.AddonStatus.NotInstalled
     val tint = tintFor(entry.type)
@@ -1013,19 +1138,7 @@ private fun AddonCard(
                 )
             }
             Box(modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)) {
-                StatusBadge(status, hasPreview = preview != null) {
-                    // Following a link doesn't add the repository; choosing to
-                    // install from it does. No-op when it is already there.
-                    store.addRepo(manifestUrl)
-                    AddonDownloadManager.install(
-                        context = context,
-                        store = store,
-                        manifestUrl = manifestUrl,
-                        repo = repo,
-                        entry = entry,
-                        appVersionCode = BuildConfig.VERSION_CODE,
-                    )
-                }
+                StatusBadge(status, hasPreview = preview != null, onInstall = onInstall)
             }
         }
         Text(
@@ -1403,6 +1516,7 @@ internal fun AddonDetailScreen(
         repo = loaded.repo,
         manifestUrl = manifestUrl,
         store = store,
+        allEntries = loaded.addons,
         blocked = tooOld || pluginsOff,
         onUninstall = {
             scope.launch { AddonDownloadManager.uninstall(context, store, key, entry) }
@@ -1630,6 +1744,8 @@ private fun AddonActions(
     repo: AddonRepoInfo,
     manifestUrl: String,
     store: AddonStore,
+    /** Every entry in the manifest, for resolving [AddonEntry.requires]. */
+    allEntries: List<AddonEntry>,
     /** Install is refused: the app is too old, or the type's subsystem is off. */
     blocked: Boolean,
     onUninstall: () -> Unit,
@@ -1682,29 +1798,19 @@ private fun AddonActions(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Button(
-                    onClick = {
-                        // Following a link doesn't add the repository; choosing
-                        // to install from it does. No-op when it is already there.
-                        store.addRepo(manifestUrl)
-                        AddonDownloadManager.install(
-                            context = context,
-                            store = store,
-                            manifestUrl = manifestUrl,
-                            repo = repo,
-                            entry = entry,
-                            appVersionCode = BuildConfig.VERSION_CODE,
+                RequiresAwareInstall(store, manifestUrl, repo, allEntries) { request ->
+                    Button(
+                        onClick = { request(entry) },
+                        enabled = !blocked && !installed,
+                    ) {
+                        Text(
+                            when {
+                                updatable -> stringResource(CommonR.string.common_update)
+                                installed -> stringResource(R.string.addon_status_installed)
+                                else -> stringResource(CommonR.string.common_install)
+                            },
                         )
-                    },
-                    enabled = !blocked && !installed,
-                ) {
-                    Text(
-                        when {
-                            updatable -> stringResource(CommonR.string.common_update)
-                            installed -> stringResource(R.string.addon_status_installed)
-                            else -> stringResource(CommonR.string.common_install)
-                        },
-                    )
+                    }
                 }
                 if (installed || updatable) UninstallButton(onUninstall)
             }
