@@ -8,7 +8,7 @@ import java.io.RandomAccessFile
 import java.util.Arrays
 
 /**
- * Serializer for the `.wmdict` binary dictionary format (version 2).
+ * Serializer for the `.wmdict` binary dictionary format (version 3).
  *
  * The file is an uncompressed, big-endian image of [PackedTrie]'s arrays, laid
  * out in 4-byte-aligned sections so [MappedTrie] can traverse it directly
@@ -17,7 +17,8 @@ import java.util.Arrays
  * Compression is transport-only: the APK deflates bundled `.wmdict` assets and
  * the download pipeline inflates `.gz` wordlists *before* writing this format.
  *
- * Version 2 halves version 1 by spending fewer bytes on the same trie:
+ * The format spends fewer bytes on the same trie than version 1 did, at 5.9
+ * bytes per node rather than 18.1:
  *  - `edgeChild` is gone. [PackedTrie.of] numbers nodes breadth-first, handing
  *    out `nextId` and `edgeCursor` in the same loop iteration, so the target of
  *    edge `e` is always node `e + 1` — v1 stored an identity function in 22% of
@@ -27,21 +28,30 @@ import java.util.Arrays
  *    alphabetic script. Japanese and Korean word lists blow past it, so the
  *    [FLAG_LABELS_U8] bit says which encoding a file actually used.
  *  - Frequencies and subtree bounds are [FrequencyCodec] 16-bit minifloats.
+ *  - `childStart` is not stored. Version 3 keeps one byte of child *count* per
+ *    node plus a running total every [CHECKPOINT_STRIDE] nodes, and adds the
+ *    counts back at read time. A node with more than [MAX_DEGREE] children
+ *    cannot be counted in a byte — the root of a Hangul list has thousands —
+ *    so [FLAG_DEGREE_U8] says which encoding a file actually used.
  *
  * Layout:
  * ```
  * magic       u32   "WMDC" (0x574D4443)
- * version     u16   2
- * flags       u16   bit 0 = FLAG_LABELS_U8
+ * version     u16   3
+ * flags       u16   bit 0 = FLAG_LABELS_U8, bit 1 = FLAG_DEGREE_U8
  * wordCount   i32   distinct words (UI display; not needed for traversal)
  * nodeCount   i32
  * edgeCount   i32   (= nodeCount - 1)
  * symbolCount i32   distinct edge labels when FLAG_LABELS_U8, else 0
- * offsets     i32 × 6   absolute file offset of each section, in order:
- *                       symbols, childStart, edgeLabel, freq, maxSubtree, isWord
+ * offsets     i32 × 7   absolute file offset of each section, in order:
+ *                       symbols, childStart, checkpoint, edgeLabel,
+ *                       freq, maxSubtree, isWord
  * symbols     u16 × symbolCount, ascending, zero-padded to a 4-byte boundary
  *                   (empty unless FLAG_LABELS_U8)
- * childStart  i32 × (nodeCount + 1)
+ * childStart  u8 × nodeCount when FLAG_DEGREE_U8 (children per node),
+ *             else i32 × (nodeCount + 1); zero-padded to a 4-byte boundary
+ * checkpoint  i32 × (nodeCount / CHECKPOINT_STRIDE + 1) when FLAG_DEGREE_U8
+ *             (childStart at every CHECKPOINT_STRIDE'th node), else empty
  * edgeLabel   u8 × edgeCount when FLAG_LABELS_U8 (indices into symbols),
  *             else u16 × edgeCount; zero-padded to a 4-byte boundary
  * freq        u16 × nodeCount, zero-padded to a 4-byte boundary
@@ -53,16 +63,32 @@ import java.util.Arrays
 object PackedTrieCodec {
 
     const val MAGIC = 0x574D4443
-    const val VERSION = 2
+    const val VERSION = 3
 
     /** Set when [edgeLabel][PackedTrie.edgeLabel] is stored as symbol-table indices. */
     const val FLAG_LABELS_U8 = 1
 
+    /** Set when `childStart` is stored as per-node child counts plus checkpoints. */
+    const val FLAG_DEGREE_U8 = 2
+
     /** A byte index addresses this many symbols, so this many distinct labels. */
     const val MAX_SYMBOLS = 256
 
+    /** The most children a node can have and still fit its count in a byte. */
+    const val MAX_DEGREE = 255
+
+    /**
+     * Nodes between stored running totals. A `childStart` read sums at most this
+     * many counts, and the counts are contiguous — 32 of them are half a cache
+     * line, so the sum is arithmetic on data the first read already fetched.
+     * Doubling it would save 0.06 bytes per node and double that arithmetic.
+     */
+    const val CHECKPOINT_STRIDE = 32
+
+    internal const val CHECKPOINT_SHIFT = 5
+
     /** Fixed byte size of everything before the first section. */
-    internal const val HEADER_BYTES = 4 + 2 + 2 + 4 + 4 + 4 + 4 + 6 * 4
+    internal const val HEADER_BYTES = 4 + 2 + 2 + 4 + 4 + 4 + 4 + 7 * 4
 
     class Header(val wordCount: Int, val nodeCount: Int, val edgeCount: Int)
 
@@ -86,19 +112,34 @@ object PackedTrieCodec {
         val symbolCount = if (labelsAreBytes) symbols.size else 0
         val labelBytes = if (labelsAreBytes) edgeCount else edgeCount * 2
 
+        // One byte per node holds its child count only if every node has few
+        // enough children; the root of a Hangul list does not.
+        var maxDegree = 0
+        for (node in 0 until nodeCount) {
+            val degree = trie.childStart[node + 1] - trie.childStart[node]
+            if (degree > maxDegree) maxDegree = degree
+        }
+        val degreesAreBytes = maxDegree <= MAX_DEGREE
+        val childStartBytes = if (degreesAreBytes) pad4(nodeCount) else (nodeCount + 1) * 4
+        val checkpointCount = if (degreesAreBytes) (nodeCount shr CHECKPOINT_SHIFT) + 1 else 0
+
         var cursor = HEADER_BYTES
-        val offsets = IntArray(6)
+        val offsets = IntArray(7)
         offsets[0] = cursor.also { cursor += pad4(symbolCount * 2) } // symbols
-        offsets[1] = cursor.also { cursor += (nodeCount + 1) * 4 } // childStart
-        offsets[2] = cursor.also { cursor += pad4(labelBytes) } // edgeLabel
-        offsets[3] = cursor.also { cursor += pad4(nodeCount * 2) } // freq
-        offsets[4] = cursor.also { cursor += pad4(nodeCount * 2) } // maxSubtree
-        offsets[5] = cursor // isWord
+        offsets[1] = cursor.also { cursor += childStartBytes } // childStart
+        offsets[2] = cursor.also { cursor += checkpointCount * 4 } // checkpoint
+        offsets[3] = cursor.also { cursor += pad4(labelBytes) } // edgeLabel
+        offsets[4] = cursor.also { cursor += pad4(nodeCount * 2) } // freq
+        offsets[5] = cursor.also { cursor += pad4(nodeCount * 2) } // maxSubtree
+        offsets[6] = cursor // isWord
 
         val data = DataOutputStream(out.buffered())
         data.writeInt(MAGIC)
         data.writeShort(VERSION)
-        data.writeShort(if (labelsAreBytes) FLAG_LABELS_U8 else 0)
+        data.writeShort(
+            (if (labelsAreBytes) FLAG_LABELS_U8 else 0) or
+                (if (degreesAreBytes) FLAG_DEGREE_U8 else 0),
+        )
         data.writeInt(trie.wordCount)
         data.writeInt(nodeCount)
         data.writeInt(edgeCount)
@@ -108,7 +149,18 @@ object PackedTrieCodec {
         for (index in 0 until symbolCount) data.writeChar(symbols[index].code)
         data.pad(pad4(symbolCount * 2) - symbolCount * 2)
 
-        for (value in trie.childStart) data.writeInt(value)
+        if (degreesAreBytes) {
+            for (node in 0 until nodeCount) {
+                data.writeByte(trie.childStart[node + 1] - trie.childStart[node])
+            }
+            data.pad(pad4(nodeCount) - nodeCount)
+            // Checkpoint k is childStart at node k * CHECKPOINT_STRIDE. The last
+            // one covers reads of childStart(nodeCount), which is how a caller
+            // asks for the end of the final node's edges.
+            for (k in 0 until checkpointCount) data.writeInt(trie.childStart[k shl CHECKPOINT_SHIFT])
+        } else {
+            for (value in trie.childStart) data.writeInt(value)
+        }
 
         if (labelsAreBytes) {
             for (label in trie.edgeLabel) data.writeByte(Arrays.binarySearch(symbols, label))

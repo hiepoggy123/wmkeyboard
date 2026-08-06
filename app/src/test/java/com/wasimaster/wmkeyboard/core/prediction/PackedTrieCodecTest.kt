@@ -30,10 +30,24 @@ class PackedTrieCodecTest {
         return file.inputStream().use { DictionaryLoader.loadEntries(it) }
     }
 
+    private var written = 0
+
+    /** The last file [roundTrip] wrote, so a test can inspect its header. */
+    private lateinit var lastFile: File
+
     private fun roundTrip(trie: PackedTrie): MappedTrie {
-        val file = tmp.newFile("dict.wmdict")
+        // Numbered: a test that round-trips several tries would otherwise ask
+        // TemporaryFolder for the same name twice, which it refuses.
+        val file = tmp.newFile("dict${written++}.wmdict")
         file.outputStream().use { PackedTrieCodec.write(trie, it) }
+        lastFile = file
         return MappedTrie.open(file) ?: error("MappedTrie rejected its own codec's output")
+    }
+
+    /** The flags word of the last file written, read straight off the header. */
+    private fun lastFlags(): Int {
+        val head = lastFile.readBytes()
+        return (head[6].toInt() and 0xFF shl 8) or (head[7].toInt() and 0xFF)
     }
 
     private fun canonical(list: List<Suggestion>): List<Pair<String, Int>> =
@@ -106,6 +120,68 @@ class PackedTrieCodecTest {
             canonical(PackedTrie.of(entries).complete("ক", 10)),
             canonical(mapped.complete("ক", 10)),
         )
+    }
+
+    /**
+     * The counted `childStart` keeps one byte per node, so a node with more
+     * children than a byte can count forces the codec back to a plain `i32`
+     * array. No shipped Latin or Bengali list comes near it — the root of the
+     * English list has 26 children — but a Hangul word list has thousands, and
+     * that fallback is the branch nothing else here exercises.
+     */
+    @Test
+    fun aNodeWithMoreChildrenThanAByteCanCountStillRoundTrips() {
+        // 300 distinct second characters hang off "a", from a block with no
+        // surrogates so one code unit is one child.
+        val entries = (0 until 300).map { "a" + (0x4E00 + it).toChar() to it + 1 }
+        val packed = PackedTrie.of(entries)
+        val mapped = roundTrip(packed)
+
+        // Pins the branch under test: if a future change made this fit in a
+        // byte after all, the assertions below would stop covering the
+        // fallback and nothing else would notice.
+        assertEquals(
+            "expected the i32 childStart fallback",
+            0,
+            lastFlags() and PackedTrieCodec.FLAG_DEGREE_U8,
+        )
+        assertEquals(300, mapped.wordCount)
+        for ((word, frequency) in entries) {
+            assertEquals("frequencyOf(\"$word\")", frequency, mapped.frequencyOf(word))
+            assertTrue("contains(\"$word\")", mapped.contains(word))
+        }
+        assertEquals(canonical(packed.complete("a", 300)), canonical(mapped.complete("a", 300)))
+        assertEquals(entries.toMap(), mapped.entries().toMap())
+    }
+
+    /**
+     * The counted path only pays off past the first checkpoint, and the sum it
+     * does is over the nodes since that checkpoint — so the interesting sizes
+     * are the ones straddling a stride boundary, where an off-by-one in either
+     * the writer's checkpoints or the reader's loop shows up.
+     */
+    @Test
+    fun triesStraddlingACheckpointBoundaryRoundTrip() {
+        val stride = PackedTrieCodec.CHECKPOINT_STRIDE
+        for (count in listOf(stride - 1, stride, stride + 1, stride * 2, stride * 3 + 7)) {
+            val entries = (0 until count).map { "w%04d".format(it) to it + 1 }
+            val packed = PackedTrie.of(entries)
+            val mapped = roundTrip(packed)
+            assertEquals(
+                "$count words: expected the counted childStart",
+                PackedTrieCodec.FLAG_DEGREE_U8,
+                lastFlags() and PackedTrieCodec.FLAG_DEGREE_U8,
+            )
+            for ((word, frequency) in entries) {
+                assertEquals("$count words: frequencyOf(\"$word\")", frequency, mapped.frequencyOf(word))
+            }
+            assertEquals("$count words: full walk", entries.toMap(), mapped.entries().toMap())
+            assertEquals(
+                "$count words: completion",
+                canonical(packed.complete("w", count)),
+                canonical(mapped.complete("w", count)),
+            )
+        }
     }
 
     @Test
