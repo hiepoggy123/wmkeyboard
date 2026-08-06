@@ -127,11 +127,25 @@ object KeySoundPlayer {
     /**
      * The pool's sample id for an installed sound, loading it on first use.
      * Null while it is still decoding, and on the press that triggers the load.
+     *
+     * [soundId] resolves by the store id first, then by the sound's display
+     * name. The id is minted per device at install time, so a *distributed*
+     * theme has no way to know it — but an addon-installed sound keeps its
+     * catalogue name on every device, which is what a theme's `soundCustomId`
+     * can carry ("Typewriter") next to a `requires` on that sound's addon.
      */
     private fun customSampleId(context: Context, soundId: String): Int? {
         if (soundId.isBlank()) return null
-        val file = SoundStore.get(context).existingFileFor(soundId) ?: return null
-        val key = "$soundId:${file.lastModified()}"
+        val store = SoundStore.get(context)
+        // Resolved to the store id before anything is cached, so forgetCustom
+        // (which speaks store ids) still evicts a name-resolved sample.
+        val resolvedId = if (store.existingFileFor(soundId) != null) {
+            soundId
+        } else {
+            store.sounds().firstOrNull { it.name.equals(soundId, ignoreCase = true) }?.id
+        } ?: return null
+        val file = store.existingFileFor(resolvedId) ?: return null
+        val key = "$resolvedId:${file.lastModified()}"
         customIds[key]?.let { return it.takeIf { id -> id in loadedIds } }
         val p = ensurePool(context)
         customIds[key] = p.load(file.path, 1)
