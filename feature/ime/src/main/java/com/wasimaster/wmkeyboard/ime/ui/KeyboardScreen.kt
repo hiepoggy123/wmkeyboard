@@ -6432,10 +6432,31 @@ private fun DragScopeLabel(
     val crowded = labelHeightPx > 0 &&
         fingerY > restY - dodgePx && fingerY < restY + labelHeightPx + dodgePx
     val targetY = if (crowded) floorY else restY.coerceAtMost(floorY)
+    // Which end the pill belongs at depends on its own height, and it cannot be
+    // measured before it is laid out — so the first pass computes a spot with a
+    // height of zero, and if the finger is up by the toolbar the pass after that
+    // corrects it to the other end of the keyboard. Animating that correction is
+    // what made the pill appear at the top and then travel down for no reason a
+    // user could see. So it stays invisible and snaps until it has been measured
+    // once, and fades in already where it belongs; the dodge animates only from
+    // there on, when there is a real move to show.
+    var placed by remember { mutableStateOf(false) }
+    LaunchedEffect(labelHeightPx > 0) {
+        if (labelHeightPx > 0) placed = true
+    }
     val y by animateIntAsState(
         targetValue = targetY,
-        animationSpec = if (state.settings.reduceMotion) snap() else tween(ToolbarMotionMs),
+        animationSpec = if (!placed || state.settings.reduceMotion) {
+            snap()
+        } else {
+            tween(ToolbarMotionMs)
+        },
         label = "dragScopeY",
+    )
+    val appear by animateFloatAsState(
+        targetValue = if (placed) 1f else 0f,
+        animationSpec = if (state.settings.reduceMotion) snap() else tween(ToolbarMotionMs),
+        label = "dragScopeAppear",
     )
     Text(
         text = if (mode != null) {
@@ -6449,6 +6470,10 @@ private fun DragScopeLabel(
         modifier = modifier
             .offset { IntOffset(0, y) }
             .onSizeChanged { labelHeightPx = it.height }
+            // Above the background so the pill fades as one piece, and outside
+            // the offset so the fade's buffer travels with it (see the note on
+            // the toolbar's tool cells).
+            .graphicsLayer { alpha = appear }
             .background(kb.toolCircleActive, RoundedCornerShape(12.dp))
             .padding(horizontal = 10.dp, vertical = 3.dp),
     )
