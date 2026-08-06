@@ -20,6 +20,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -178,6 +179,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.graphicsLayer
@@ -5737,7 +5739,7 @@ private val FullBleedPanels = setOf(
     PanelMode.UNIT_CONVERT, PanelMode.CALENDAR, PanelMode.AI,
     PanelMode.TRANSLATE, PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH,
     PanelMode.DICTIONARY, PanelMode.SYMBOLS, PanelMode.MEDIA_CONTROL,
-    PanelMode.APP_LAUNCHER,
+    PanelMode.APP_LAUNCHER, PanelMode.THEMES,
 )
 
 /**
@@ -5777,7 +5779,7 @@ internal fun fullBleedHiddenRows(state: KeyboardUiState): Dp =
  * gets the reclaimed space instead.
  */
 @Composable
-private fun FullBleedTool(
+internal fun FullBleedTool(
     state: KeyboardUiState,
     title: String,
     onClose: () -> Unit,
@@ -6224,6 +6226,7 @@ private fun KeyboardBody(
                     onThemeSelect,
                     onIconPackSelect,
                     onOpenRoute = onOpenRoute,
+                    onClose = { onPanelChange(PanelMode.THEMES) },
                 )
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
                 PanelMode.NUMPAD -> NumpadPanel(state, onText, onKey)
@@ -7461,10 +7464,11 @@ private fun KeyPreviewOverlay(
     gridSize: IntSize,
 ) {
     val popup = settings.popup
-    // The height comes off the theme rather than the settings: a theme may
-    // carry its own, and both the headroom above the grid and the bubble
-    // itself have to agree on which one won.
-    val bubbleHeightDp = LocalKbTheme.current.popupHeightDp
+    // The height and the placement come off the theme rather than the
+    // settings: a theme may carry its own, and both the headroom above the
+    // grid and the bubble itself have to agree on which one won.
+    val kbTheme = LocalKbTheme.current
+    val bubbleHeightDp = kbTheme.popupHeightDp
     // One coroutine for the board, in place of the two LaunchedEffects every key
     // ran per press. It sleeps until the nearest bubble is due or something is
     // pressed, whichever lands first; `expire` owns the arithmetic.
@@ -7491,7 +7495,7 @@ private fun KeyPreviewOverlay(
     // Room above the grid for a floating bubble over the top row: its own height
     // plus the gap it keeps from the key.
     val headroomPx = with(density) { (bubbleHeightDp.dp + KeyPopupGap * 2).roundToPx() }
-    val onKeyStyle = popup.onKey
+    val onKeyStyle = kbTheme.popupOnKey ?: popup.onKey
     val bubbles = state.shown.toList()
     Popup(
         popupPositionProvider = remember(headroomPx) { GridOverlayPositionProvider(headroomPx) },
@@ -7550,9 +7554,12 @@ private fun KeyPreviewOverlay(
 private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKeyStyle: Boolean) {
     val kb = LocalKbTheme.current
     val density = LocalDensity.current
+    val shape = kb.popupShape()
     Surface(
-        shape = kb.popupShape(),
+        shape = shape,
         color = preview.popupBackground ?: kb.popup,
+        border = kb.popupBorder?.takeIf { kb.popupBorderWidthDp > 0f }
+            ?.let { BorderStroke(kb.popupBorderWidthDp.dp, it) },
         shadowElevation = 6.dp,
     ) {
         Box(
@@ -7561,6 +7568,7 @@ private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKey
                 .widthIn(
                     min = if (onKeyStyle) with(density) { preview.size.width.toDp() } + 8.dp else 0.dp,
                 )
+                .popupTexture(LocalKeyTextures.current, shape)
                 .padding(horizontal = 14.dp),
             contentAlignment = if (onKeyStyle) Alignment.TopCenter else Alignment.Center,
         ) {
@@ -7571,6 +7579,20 @@ private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKey
                 color = preview.popupText ?: kb.popupText,
             )
         }
+    }
+}
+
+/**
+ * Paints the theme's popup texture behind the bubble's label, clipped to the
+ * bubble's shape. Built the way the key textures are: outline and paint in the
+ * cache block, so the draw pass only issues the draw call.
+ */
+private fun Modifier.popupTexture(textures: KeyTextures, shape: Shape): Modifier {
+    val bitmap = textures.popup ?: return this
+    return drawWithCache {
+        val outline = shape.createOutline(size, layoutDirection, this)
+        val paint = KeyTexturePaint.of(bitmap, textures, outline, size)
+        onDrawBehind { paint.draw(this, textures.opacity) }
     }
 }
 

@@ -5,8 +5,10 @@ import android.graphics.Matrix
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -154,6 +156,22 @@ fun keyShapeFor(kind: KeyShapeKind, radiusDp: Int, bleedDp: Float = 0f): Shape =
     KeyShapeKind.HEXAGON -> HexagonKeyShape
     KeyShapeKind.SCALLOP -> ScallopKeyShape
     KeyShapeKind.TICKET -> TicketKeyShape
+    KeyShapeKind.CIRCLE -> CircleKeyShape
+}
+
+/**
+ * A centred circle inscribed in the key — the round cap people picture on a
+ * typewriter. The touch target stays the full key box; only the paint shrinks.
+ * The wide keys (space, enter, a stretched shift) keep a stadium instead: a
+ * lone circle in the middle of a spacebar reads as a hole, not a key.
+ */
+private val CircleKeyShape: Shape = GenericShape { size, _ ->
+    if (size.width > size.height * 1.6f) {
+        addRoundRect(RoundRect(Rect(Offset.Zero, size), CornerRadius(size.height / 2f)))
+    } else {
+        val d = min(size.width, size.height)
+        addOval(Rect(Offset((size.width - d) / 2f, (size.height - d) / 2f), Size(d, d)))
+    }
 }
 
 /** Round top, square bottom: a row of keys reads as a row of arches. */

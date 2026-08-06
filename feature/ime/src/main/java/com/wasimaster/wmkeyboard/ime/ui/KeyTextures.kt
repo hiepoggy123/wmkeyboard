@@ -45,12 +45,14 @@ class KeyTextures(
     val enter: ImageBitmap?,
     val space: ImageBitmap?,
     val pressed: ImageBitmap?,
+    /** Painted inside the key-preview bubble; no fallback from the key slots. */
+    val popup: ImageBitmap?,
     val scale: KeyTextureScale,
     val opacity: Float,
 ) {
     val isEmpty: Boolean
         get() = normal == null && modifier == null && enter == null &&
-            space == null && pressed == null
+            space == null && pressed == null && popup == null
 
     /**
      * The texture a key of this action draws, with the same fallbacks the
@@ -65,7 +67,7 @@ class KeyTextures(
     }
 
     companion object {
-        val EMPTY = KeyTextures(null, null, null, null, null, KeyTextureScale.CROP, 1f)
+        val EMPTY = KeyTextures(null, null, null, null, null, null, KeyTextureScale.CROP, 1f)
     }
 }
 
@@ -153,6 +155,10 @@ private const val KEY_TEXTURE_PX = 256
 private const val SPACE_TEXTURE_W = 1024
 private const val SPACE_TEXTURE_H = 320
 
+/** The preview bubble is wider than a key but far smaller than the board. */
+private const val POPUP_TEXTURE_W = 512
+private const val POPUP_TEXTURE_H = 256
+
 /**
  * Decodes the theme's key textures off the main thread, re-running only when
  * one of the paths (which snap at the crossfade midpoint) or the fit
@@ -164,7 +170,7 @@ private const val SPACE_TEXTURE_H = 320
 fun rememberKeyTextures(kb: KbTheme): KeyTextures {
     val hasAny = kb.keyTexture != null || kb.keyTextureModifier != null ||
         kb.keyTextureEnter != null || kb.keyTextureSpace != null ||
-        kb.keyTexturePressed != null
+        kb.keyTexturePressed != null || kb.popupTexture != null
     if (!hasAny) return KeyTextures.EMPTY
     val textures by produceState(
         initialValue = KeyTextures.EMPTY,
@@ -173,6 +179,7 @@ fun rememberKeyTextures(kb: KbTheme): KeyTextures {
         kb.keyTextureEnter,
         kb.keyTextureSpace,
         kb.keyTexturePressed,
+        kb.popupTexture,
         kb.keyTextureScale,
         kb.keyTextureOpacity,
     ) {
@@ -184,6 +191,7 @@ fun rememberKeyTextures(kb: KbTheme): KeyTextures {
             enter = load(kb.keyTextureEnter),
             space = load(kb.keyTextureSpace, SPACE_TEXTURE_W, SPACE_TEXTURE_H),
             pressed = load(kb.keyTexturePressed),
+            popup = load(kb.popupTexture, POPUP_TEXTURE_W, POPUP_TEXTURE_H),
             scale = kb.keyTextureScale,
             opacity = kb.keyTextureOpacity,
         )

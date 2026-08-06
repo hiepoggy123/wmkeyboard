@@ -520,11 +520,13 @@ private fun MicContent(
 private fun VoiceChipAction(text: String, icon: ImageVector, onClick: () -> Unit) {
     val kb = LocalKbTheme.current
     val feedback = LocalKeyPressFeedback.current
+    val shape = kb.chipShape()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+            .clip(shape)
             .background(kb.chip)
+            .chipBorder(kb, shape)
             .clickable {
                 feedback()
                 onClick()

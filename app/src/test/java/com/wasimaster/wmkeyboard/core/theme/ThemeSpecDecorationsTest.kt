@@ -37,6 +37,17 @@ class ThemeSpecDecorationsTest {
         keyEffectParam = "🎉🔥",
         keyEffectIntensity = 1.5f,
         keyEffectImages = listOf("/data/theme_images/fx0.img", "/data/theme_images/fx1.img"),
+        popupPlacement = "float",
+        popupBorderColor = 0xFFB3282D,
+        popupBorderWidthDp = 1.5f,
+        popupTexture = "/data/theme_images/p.img",
+        chipText = 0xFFE8DFC8,
+        chipActiveBackground = 0xFFB3282D,
+        chipActiveText = 0xFFFFFFFF,
+        chipBorderColor = 0xFF241F19,
+        chipBorderWidthDp = 1f,
+        chipShape = "SHARP",
+        chipCornerRadiusDp = 0,
         assets = mapOf("keyTexture" to "aGVsbG8="),
     )
 
@@ -62,6 +73,9 @@ class ThemeSpecDecorationsTest {
         assertTrue(decoded.keyOverrides.isEmpty())
         assertTrue(decoded.decals.isEmpty())
         assertNull(decoded.keyEffect)
+        assertNull(decoded.popupPlacement)
+        assertNull(decoded.popupTexture)
+        assertNull(decoded.chipShape)
         assertTrue(decoded.assets.isEmpty())
     }
 
@@ -82,6 +96,21 @@ class ThemeSpecDecorationsTest {
         assertEquals(KeyTextureScale.CROP, keyTextureScaleOrDefault(null))
         assertEquals(KeyTextureScale.CROP, keyTextureScaleOrDefault("HOLOGRAM"))
         assertEquals(KeyTextureScale.TILE, keyTextureScaleOrDefault("tile"))
+    }
+
+    @Test
+    fun `popup placement parses the two names and nothing else`() {
+        assertEquals(true, popupOnKeyOrNull("key"))
+        assertEquals(true, popupOnKeyOrNull("KEY"))
+        assertEquals(false, popupOnKeyOrNull("float"))
+        assertNull(popupOnKeyOrNull(null))
+        assertNull(popupOnKeyOrNull("orbiting"))
+    }
+
+    @Test
+    fun `circle is a known key shape and unknown chip shapes cost the field`() {
+        assertEquals(KeyShapeKind.CIRCLE, keyShapeKindOrNull("CIRCLE"))
+        assertNull(keyShapeKindOrNull("DODECAHEDRON"))
     }
 
     @Test

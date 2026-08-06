@@ -55,7 +55,7 @@ The rest of the editor is grouped into sections, each opening a standard color p
 
 ### Key shapes
 
-Eleven shapes, in the order the picker lists them. The four plain outlines come first, then the decorative ones:
+Twelve shapes, in the order the picker lists them. The four plain outlines come first, then the decorative ones:
 
 | Shape | What it looks like | Reads the radius slider? |
 |---|---|---|
@@ -70,6 +70,7 @@ Eleven shapes, in the order the picker lists them. The four plain outlines come 
 | Hexagon | Points at the left and right, flat top and bottom | No |
 | Scalloped | A rim of even bumps, like the edge of a biscuit | No |
 | Ticket | Corners bitten inwards by a circle, like a cinema ticket | No |
+| Circle | A round cap centred in the key, like a typewriter's; wide keys (space, enter) keep a stadium | No |
 
 The shapes that ignore the slider aren't being lazy about it. Their whole look is a proportion of the key rather than a corner size, so they measure themselves off the key's own width and height: the arch is always half the key's height, the hexagon's points are always a sixth of its width, the scallops always count out at roughly the same size whether it's a letter key or a spacebar. Wire them to a 0–28dp slider instead and one end of it flattens them into plain rectangles.
 
@@ -83,7 +84,7 @@ Shapes past the first four are new. A theme exported with one of them won't impo
 
 ### Key textures
 
-Keys can wear an image instead of just a color. One picture for the letter keys is enough to theme the whole board; the modifier keys, the enter key, the space bar and the pressed state each take an optional image of their own, and fall back sensibly when you don't set one (space reuses the letter texture, pressed draws the press tint over it).
+Keys can wear an image instead of just a color. One picture for the letter keys is enough to theme the whole board; the modifier keys, the enter key, the space bar, the pressed state and the key-preview popup each take an optional image of their own, and fall back sensibly when you don't set one (space reuses the letter texture, pressed draws the press tint over it; the popup draws color-only rather than borrowing a key's image).
 
 - Each texture row picks an image from your gallery; it's stored downscaled to 512px, so a camera photo won't bloat the theme file.
 - **Crop / Stretch / Tile** decides how the image fits a key. Crop keeps its proportions, stretch fills the key exactly, tile repeats it at its natural size — the right choice for pixel-art.
@@ -116,11 +117,14 @@ For a theme you plan to share: Google Font ids (`google:Caveat`) resolve the sam
 - **Accent** — the shift-on tint, active-tool color, and buttons across the panels.
 - **Gesture trail** — the color of the swipe-typing trail; Auto falls back to Accent. Supports alpha.
 - **Popup background** and **Popup text** — the bubble that appears above a key on press; both support Auto fallbacks (deriving from the board/key colors and Key text respectively). Popup background supports alpha.
-- **Popup shape** — the outline of every popup surface the keyboard draws: the character bubble, the long-press alternates, the language list, the panel menus. Same picker and same eleven shapes as Key shape, drawn at this theme's popup radius. Until you pick one, the theme follows <SettingsPath path="Key press / Popup shape" />.
+- **Popup shape** — the outline of every popup surface the keyboard draws: the character bubble, the long-press alternates, the language list, the panel menus. Same picker and same twelve shapes as Key shape, drawn at this theme's popup radius. Until you pick one, the theme follows <SettingsPath path="Key press / Popup shape" />.
+- **Popup placement** — whether the character bubble grows out of the pressed key (the stock style) or floats detached above it. **Default** leaves the choice to <SettingsPath path="Key press" />; the other two make it part of the theme, so a bubble-popup theme looks right on every phone it lands on.
+- **Popup outline** and its width row — a border around the bubble, off until you pick a color, exactly like the key border.
+- The popup can also wear an image: the **Key preview popup** row under [Key textures](#key-textures) paints one inside the bubble, clipped to the popup shape, using the same Crop/Stretch/Tile mode and opacity as the key textures.
 
 ### Toolbar
 
-- **Tool background shape** — the outline of the background behind each toolbar tool, from the same eleven shapes. It follows <SettingsPath path="Appearance / Toolbar / Tool background shape" /> until you pick one here, and it draws nothing at all while the tool radius is 0, which is the setting for bare icons.
+- **Tool background shape** — the outline of the background behind each toolbar tool, from the same twelve shapes. It follows <SettingsPath path="Appearance / Toolbar / Tool background shape" /> until you pick one here, and it draws nothing at all while the tool radius is 0, which is the setting for bare icons.
 - **Tool icons** — the toolbar's icon color, Auto by default.
 - **Tool circles** and **Active tool circle** — the background behind a toolbar icon, at rest and while pressed/active. Both support alpha.
 - **Tool outline** and **Tool outline width** — a border around that background, off until you pick a color, exactly like the key border in [Keys](#keys). The width row appears once a color is set, and nothing draws until it's above 0. A theme that sets one keeps it even with the accessibility **Key outlines** toggle on.
@@ -128,7 +132,15 @@ For a theme you plan to share: Google Font ids (`google:Caveat`) resolve the sam
 ### Panels & suggestions
 
 - **Cards & search bar** — the `chipBackground` field; covers suggestion chips and the search-bar surface across the tool panels. Auto falls back to Modifier keys. Supports alpha.
-- **Suggestion text** — the color of suggestion-strip text; Auto falls back to Key text.
+- **Suggestion text** — the color of suggestion-strip text and the panels' body text; Auto falls back to Key text, contrast-guarded against the board. A theme whose keys invert against its board (dark ink on cream keys over a near-black board) gets a legible strip either way, and an explicit choice here is honoured as written.
+
+### Chips & buttons
+
+Chips are the small tappable buttons inside the tool panels — style pickers, converter controls, dictionary suggestions, and the buttons a [plugin](/tools/plugins/) draws. They take the card color above as their background, and this group styles the rest:
+
+- **Chip text** and **Selected chip** / **Selected chip text** — the resting label, and the fill and label of the chip that's currently active. Auto derives all three from the theme (the selected fill follows the active tool circle).
+- **Chip outline** and its width row — a border around every chip, off until you pick a color.
+- **Chip shape** and **Chip corner radius** — the same twelve-shape picker as everywhere else. The default is the 12dp soft rectangle chips have always drawn.
 
 Any row left on Auto shows an "Auto" label under its name instead of a fixed value. Once you've overridden it, that row's color picker gains an **Auto** button (next to Apply) that clears the override and puts it back on Auto.
 

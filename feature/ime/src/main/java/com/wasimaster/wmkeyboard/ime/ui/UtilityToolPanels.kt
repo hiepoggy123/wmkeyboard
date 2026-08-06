@@ -76,16 +76,18 @@ internal fun ToolPanelChip(
     // a new one: some themes draw chips translucent to begin with, and no theme
     // defines a "disabled" colour pair that would stay legible across all of them.
     fun Color.dim() = if (enabled) this else copy(alpha = alpha * DISABLED_ALPHA)
+    val shape = kb.chipShape()
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background((if (selected) kb.toolCircleActive else kb.chip).dim())
+            .clip(shape)
+            .background((if (selected) kb.chipActive else kb.chip).dim())
+            .chipBorder(kb, shape)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
         Text(
             label,
-            color = (if (selected) kb.toolCircleActiveIcon else kb.modifierKeyText).dim(),
+            color = (if (selected) kb.chipActiveText else kb.chipText).dim(),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,

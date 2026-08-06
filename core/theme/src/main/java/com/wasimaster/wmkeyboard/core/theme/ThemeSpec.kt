@@ -63,6 +63,7 @@ enum class KeyShapeKind {
     HEXAGON,
     SCALLOP,
     TICKET,
+    CIRCLE,
 }
 
 /**
@@ -199,6 +200,23 @@ data class ThemeSpec(
     // Popups (key preview bubble + long-press alternates)
     val popupBackground: Long? = null,
     val popupText: Long? = null,
+    /**
+     * Where the key-preview bubble sits, as a name: `"key"` (the bubble grows
+     * out of the pressed key, stock style) or `"float"` (a detached bubble
+     * hovering above it). Null follows the global popup setting. A string for
+     * the usual forward-compat reason; read through [popupOnKeyOrNull].
+     */
+    val popupPlacement: String? = null,
+    /** Outline around the preview bubble; null draws none, like [keyBorderColor]. */
+    val popupBorderColor: Long? = null,
+    val popupBorderWidthDp: Float = 0f,
+    /**
+     * Image painted inside the preview bubble, over [popupBackground] and
+     * under the label, clipped to the popup shape. Fit and alpha follow
+     * [keyTextureScale] and [keyTextureOpacity]. Never set in exports — the
+     * bytes travel in [assets] under `"popupTexture"`.
+     */
+    val popupTexture: String? = null,
     // Toolbar
     val toolbarIcon: Long? = null,
     val toolCircleBackground: Long? = null,
@@ -213,6 +231,24 @@ data class ThemeSpec(
     // Panels (clipboard/snippet cards, emoji search bar)
     val chipBackground: Long? = null,
     val suggestionText: Long? = null,
+    // Chips (tool-panel buttons, style strips, plugin buttons)
+    /** Text on an unselected chip; null derives from the modifier-key text. */
+    val chipText: Long? = null,
+    /** A selected chip's fill; null follows [toolCircleActiveBackground]'s chain. */
+    val chipActiveBackground: Long? = null,
+    /** Text on a selected chip; null derives a legible colour from the fill. */
+    val chipActiveText: Long? = null,
+    /** Outline around every chip; null draws none, like [keyBorderColor]. */
+    val chipBorderColor: Long? = null,
+    val chipBorderWidthDp: Float = 0f,
+    /**
+     * Chip outline shape, as a [KeyShapeKind] name; null keeps the soft
+     * rectangle every chip has always drawn. A string for the same reason
+     * [popupShape] is one.
+     */
+    val chipShape: String? = null,
+    /** Chip corner radius for the rounded and cut shapes; null keeps 12. */
+    val chipCornerRadiusDp: Int? = null,
     // Radii overrides; null = follow the global appearance sliders
     val keyCornerRadiusDp: Int? = null,
     val popupCornerRadiusDp: Int? = null,
@@ -381,6 +417,18 @@ fun keyEffectKindOrNull(name: String?): KeyEffectKind? =
 enum class KeyTextureScale { CROP, STRETCH, TILE }
 
 /**
+ * The placement behind [ThemeSpec.popupPlacement]: true for `"key"`, false for
+ * `"float"`, and null for an absent or unknown name — which follows the global
+ * setting, so a placement from a later build costs the field, not the theme.
+ */
+fun popupOnKeyOrNull(name: String?): Boolean? = when {
+    name == null -> null
+    name.equals("key", ignoreCase = true) -> true
+    name.equals("float", ignoreCase = true) -> false
+    else -> null
+}
+
+/**
  * The scale mode behind [ThemeSpec.keyTextureScale]; an unknown or absent
  * name is CROP, the mode that never distorts.
  */
@@ -474,6 +522,7 @@ fun ThemeSpec.withEmbeddedImages(): ThemeSpec {
         keyTextureEnter = null,
         keyTextureSpace = null,
         keyTexturePressed = null,
+        popupTexture = null,
         decals = decals.map { it.copy(image = null) },
         keyEffectImages = emptyList(),
         assets = embedded,
@@ -487,6 +536,7 @@ private fun ThemeSpec.assetPaths(): List<Pair<String, String?>> = listOf(
     ASSET_KEY_TEXTURE_ENTER to keyTextureEnter,
     ASSET_KEY_TEXTURE_SPACE to keyTextureSpace,
     ASSET_KEY_TEXTURE_PRESSED to keyTexturePressed,
+    ASSET_POPUP_TEXTURE to popupTexture,
 )
 
 const val ASSET_KEY_TEXTURE = "keyTexture"
@@ -494,6 +544,7 @@ const val ASSET_KEY_TEXTURE_MODIFIER = "keyTextureModifier"
 const val ASSET_KEY_TEXTURE_ENTER = "keyTextureEnter"
 const val ASSET_KEY_TEXTURE_SPACE = "keyTextureSpace"
 const val ASSET_KEY_TEXTURE_PRESSED = "keyTexturePressed"
+const val ASSET_POPUP_TEXTURE = "popupTexture"
 
 /** Prefix of a decal image's transport slot; the decal's id follows it. */
 const val ASSET_DECAL_PREFIX = "decal:"
@@ -530,6 +581,8 @@ fun ThemeSpec.withExtractedImages(dir: File): ThemeSpec {
             ?: keyTextureSpace,
         keyTexturePressed = write("${id}_tex_press.img", assets[ASSET_KEY_TEXTURE_PRESSED])
             ?: keyTexturePressed,
+        popupTexture = write("${id}_tex_popup.img", assets[ASSET_POPUP_TEXTURE])
+            ?: popupTexture,
         decals = decals.map { decal ->
             decal.copy(
                 image = write("${id}_decal_${decal.id}.img", assets["$ASSET_DECAL_PREFIX${decal.id}"])

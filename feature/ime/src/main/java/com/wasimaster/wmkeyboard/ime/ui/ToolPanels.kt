@@ -109,11 +109,13 @@ import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.settings.DefaultThemesPanelBuiltIns
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
+import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.IconSettings
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.app.ThemePreview
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
+import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
 import com.wasimaster.wmkeyboard.core.tools.AltCalendars
@@ -1399,8 +1401,8 @@ internal fun ThemesPanel(
     onThemeSelect: (String) -> Unit,
     onIconPackSelect: (String) -> Unit,
     onOpenRoute: (String) -> Unit,
+    onClose: () -> Unit,
 ) {
-    val height = keyRowsHeight(state)
     val kb = LocalKbTheme.current
     var iconsTab by remember { mutableStateOf(false) }
     // With auto-theme on, its trigger owns the active theme; with a mode that
@@ -1437,27 +1439,59 @@ internal fun ThemesPanel(
     val packStore = remember(context) { IconPackStore.get(context) }
     val packRevision by packStore.revision.collectAsState()
     val packs = remember(packRevision) { packStore.packs() }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(height)
-            .padding(top = 6.dp),
+    // Full-bleed: the toolbar row hides and its space becomes the header —
+    // back button on the left, the Themes/Icons tabs filling the rest — so
+    // the cards get the reclaimed rows.
+    FullBleedTool(
+        state,
+        title = "",
+        onClose = onClose,
+        headerActions = {
+            // Tab reaches the chips: the icon grid is unreachable if the
+            // keyboard can browse the themes but never switch the panel over.
+            PanelFocusTarget(
+                panel = PanelMode.THEMES,
+                region = FocusRegion.CHIPS,
+                count = 2,
+                columns = 2,
+                onActivate = { index -> iconsTab = index == 1 },
+            )
+            ThemesTabChips(
+                iconsTab = iconsTab,
+                onSelect = { iconsTab = it },
+                focused = state.focusedIndex(FocusRegion.CHIPS),
+                modifier = Modifier.weight(1f),
+            )
+        },
     ) {
-        // Tab reaches the chips: the icon grid is unreachable if the keyboard
-        // can browse the themes but never switch the panel over.
-        PanelFocusTarget(
-            panel = PanelMode.THEMES,
-            region = FocusRegion.CHIPS,
-            count = 2,
-            columns = 2,
-            onActivate = { index -> iconsTab = index == 1 },
+        ThemesPanelBody(
+            state, kb, iconsTab, locked, selectedId, auto, themes,
+            packs, packStore, packRevision, modeTheme, autoOn,
+            onThemeSelect, onIconPackSelect, onOpenRoute,
         )
-        ThemesTabChips(
-            iconsTab = iconsTab,
-            onSelect = { iconsTab = it },
-            focused = state.focusedIndex(FocusRegion.CHIPS),
-        )
-        Spacer(modifier = Modifier.height(4.dp))
+    }
+}
+
+/** Everything under the header: the info row, then the theme or pack grid. */
+@Composable
+private fun ThemesPanelBody(
+    state: KeyboardUiState,
+    kb: KbTheme,
+    iconsTab: Boolean,
+    locked: Boolean,
+    selectedId: String,
+    auto: KbTheme,
+    themes: List<ThemeSpec>,
+    packs: List<IconPack>,
+    packStore: IconPackStore,
+    packRevision: Int,
+    modeTheme: KeyboardMode?,
+    autoOn: Boolean,
+    onThemeSelect: (String) -> Unit,
+    onIconPackSelect: (String) -> Unit,
+    onOpenRoute: (String) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1548,12 +1582,11 @@ private fun ThemesTabChips(
     iconsTab: Boolean,
     onSelect: (Boolean) -> Unit,
     focused: Int? = null,
+    modifier: Modifier = Modifier.fillMaxWidth(),
 ) {
     val kb = LocalKbTheme.current
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp),
+        modifier = modifier.padding(horizontal = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         listOf(
@@ -1831,16 +1864,18 @@ private fun AutoThemePreview(auto: KbTheme) {
 @Composable
 private fun StyleChip(label: String, selected: Boolean, onClick: () -> Unit) {
     val kb = LocalKbTheme.current
+    val shape = kb.chipShape()
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (selected) kb.toolCircleActive else kb.chip)
+            .clip(shape)
+            .background(if (selected) kb.chipActive else kb.chip)
+            .chipBorder(kb, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
         Text(
             label,
-            color = if (selected) kb.toolCircleActiveIcon else kb.modifierKeyText,
+            color = if (selected) kb.chipActiveText else kb.chipText,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
         )

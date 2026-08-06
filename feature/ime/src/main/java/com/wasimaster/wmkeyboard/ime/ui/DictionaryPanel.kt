@@ -337,16 +337,18 @@ private fun WordChipRow(label: String, words: List<String>, onLookup: (String) -
 @Composable
 private fun DictionaryChip(label: String, filled: Boolean, onClick: () -> Unit) {
     val kb = LocalKbTheme.current
+    val shape = kb.chipShape()
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (filled) kb.toolCircleActive else kb.chip)
+            .clip(shape)
+            .background(if (filled) kb.chipActive else kb.chip)
+            .chipBorder(kb, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
         Text(
             label,
-            color = if (filled) kb.toolCircleActiveIcon else kb.modifierKeyText,
+            color = if (filled) kb.chipActiveText else kb.chipText,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,

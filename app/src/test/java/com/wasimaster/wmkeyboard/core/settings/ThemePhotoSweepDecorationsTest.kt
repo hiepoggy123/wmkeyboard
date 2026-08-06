@@ -23,6 +23,7 @@ class ThemePhotoSweepDecorationsTest {
             name = "a",
             keyTexture = "/data/files/theme_images/a_tex.img",
             keyTextureEnter = "/data/files/theme_images/a_tex_enter.img",
+            popupTexture = "/data/files/theme_images/a_tex_popup.img",
             decals = listOf(
                 DecalSpec(id = "d1", image = "/data/files/theme_images/a_decal_d1.img"),
             ),
@@ -33,6 +34,7 @@ class ThemePhotoSweepDecorationsTest {
             imagesOnDisk = listOf(
                 SweptFile("a_tex.img", old),
                 SweptFile("a_tex_enter.img", old),
+                SweptFile("a_tex_popup.img", old),
                 SweptFile("a_decal_d1.img", old),
                 SweptFile("orphan_tex.img", old),
             ),

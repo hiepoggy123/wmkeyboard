@@ -81,6 +81,10 @@ internal fun SmartSuggestionChip(
     val fill = tint.copy(alpha = if (kb.dark) 0.20f else 0.11f)
     val keyword = hit.kind == SmartSuggest.Kind.TOOL
 
+    // The accent tint is this chip's identity (it is an *answer*, not a word),
+    // so the colours stay accent-based; only the outline follows the theme's
+    // chip shape.
+    val shape = kb.chipShape()
     Row(
         modifier = modifier
             .fillMaxHeight()
@@ -90,9 +94,9 @@ internal fun SmartSuggestionChip(
                 scaleY = appear.value
                 alpha = appear.value
             }
-            .clip(RoundedCornerShape(50))
+            .clip(shape)
             .background(fill)
-            .border(1.dp, tint.copy(alpha = 0.32f), RoundedCornerShape(50)),
+            .border(1.dp, tint.copy(alpha = 0.32f), shape),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(

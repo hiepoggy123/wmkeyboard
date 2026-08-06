@@ -114,6 +114,7 @@
     <string name="theme_key_shape_scallop_label">Scalloped</string>
     <!-- The corners curve inwards, like a cinema ticket. -->
     <string name="theme_key_shape_ticket_label">Ticket</string>
+    <string name="theme_key_shape_circle_label">Circle</string>
     <string name="theme_letter_keys_title">Letter keys</string>
     <string name="theme_key_gradient_title">Key gradient</string>
     <string name="theme_key_gradient_subtitle">The keyboard paints this sheen over the letter keys</string>
@@ -135,6 +136,19 @@
     <string name="theme_popup_background_title">Popup background</string>
     <string name="theme_popup_text_title">Popup text</string>
     <string name="theme_popup_shape_title">Popup shape</string>
+    <string name="theme_popup_placement_title">Popup placement</string>
+    <string name="theme_popup_placement_default_label">Default</string>
+    <string name="theme_popup_placement_key_label">On the key</string>
+    <string name="theme_popup_placement_float_label">Floating</string>
+    <string name="theme_popup_border_title">Popup outline</string>
+    <string name="theme_chips_section_title">Chips and buttons</string>
+    <string name="theme_chips_section_body">Chips are the small buttons in the tool panels — style pickers, converters, plugin buttons. Their background color is the card color above.</string>
+    <string name="theme_chip_text_title">Chip text</string>
+    <string name="theme_chip_active_title">Selected chip</string>
+    <string name="theme_chip_active_text_title">Selected chip text</string>
+    <string name="theme_chip_border_title">Chip outline</string>
+    <string name="theme_chip_shape_title">Chip shape</string>
+    <string name="theme_chip_radius_title">Chip corner radius</string>
 
     <!-- Theme editor: toolbar. -->
     <string name="theme_toolbar_section_title">Toolbar</string>
@@ -203,6 +217,7 @@
     <string name="theme_texture_enter_title">Enter key</string>
     <string name="theme_texture_space_title">Space bar</string>
     <string name="theme_texture_pressed_title">Pressed keys</string>
+    <string name="theme_texture_popup_title">Key preview popup</string>
     <string name="theme_texture_set_label">Image set — tap to replace</string>
     <string name="theme_texture_unset_label">Tap to pick an image</string>
     <string name="theme_texture_scale_crop_label">Crop</string>

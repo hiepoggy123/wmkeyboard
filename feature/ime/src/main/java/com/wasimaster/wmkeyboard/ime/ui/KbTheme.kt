@@ -29,7 +29,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.border
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
@@ -72,6 +74,7 @@ import com.wasimaster.wmkeyboard.core.theme.hueShift
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import com.wasimaster.wmkeyboard.core.theme.keyShapeKindOrNull
 import com.wasimaster.wmkeyboard.core.theme.keyTextureScaleOrDefault
+import com.wasimaster.wmkeyboard.core.theme.popupOnKeyOrNull
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import java.io.File
@@ -135,6 +138,13 @@ data class KbTheme(
     val gestureTrail: Color,
     val popup: Color,
     val popupText: Color,
+    /** Preview-bubble placement override: true on-key, false floating, null follows the setting. */
+    val popupOnKey: Boolean?,
+    /** Outline around the preview bubble; null draws none. */
+    val popupBorder: Color?,
+    val popupBorderWidthDp: Float,
+    /** Image painted inside the preview bubble, clipped to its shape. */
+    val popupTexture: String?,
     val toolbarIcon: Color,
     val toolCircle: Color,
     val toolCircleActive: Color,
@@ -143,6 +153,14 @@ data class KbTheme(
     val toolBorder: Color?,
     val toolBorderWidthDp: Float,
     val chip: Color,
+    /** Text on an unselected chip. */
+    val chipText: Color,
+    /** A selected chip's fill and its text. */
+    val chipActive: Color,
+    val chipActiveText: Color,
+    /** Outline around every chip; null draws none. */
+    val chipBorder: Color?,
+    val chipBorderWidthDp: Float,
     val suggestionText: Color,
     val secondaryText: Color,
     val divider: Color,
@@ -153,6 +171,8 @@ data class KbTheme(
     val popupHeightDp: Int,
     val toolRadiusDp: Int,
     val toolShapeKind: KeyShapeKind,
+    val chipRadiusDp: Int,
+    val chipShapeKind: KeyShapeKind,
     val toolWidthDp: Int,
     val animation: ThemeAnimation,
     val animationSpeed: Float,
@@ -189,6 +209,21 @@ fun KbTheme.popupShape() = keyShapeFor(popupShapeKind, popupRadiusDp)
  * 0 still means no background at all, so the shape only shows above it.
  */
 fun KbTheme.toolShape() = keyShapeFor(toolShapeKind, toolRadiusDp)
+
+/**
+ * The resolved outline behind a chip — the tool-panel buttons, the style
+ * strips, the plugin buttons. Defaults to the 12dp soft rectangle every chip
+ * drew before a theme could say otherwise.
+ */
+fun KbTheme.chipShape() = keyShapeFor(chipShapeKind, chipRadiusDp)
+
+/** The chip outline a theme asked for, or nothing — chips default to none. */
+fun Modifier.chipBorder(kb: KbTheme, shape: Shape): Modifier =
+    if (kb.chipBorder != null && kb.chipBorderWidthDp > 0f) {
+        border(kb.chipBorderWidthDp.dp, kb.chipBorder, shape)
+    } else {
+        this
+    }
 
 /** Added text and deleted text, for the AI tool's comparison view. */
 internal data class DiffColors(val added: Color, val deleted: Color)
@@ -388,6 +423,10 @@ private fun defaultKbTheme(
         gestureTrail = scheme.primary,
         popup = popup,
         popupText = scheme.onSurface,
+        popupOnKey = null,
+        popupBorder = null,
+        popupBorderWidthDp = 0f,
+        popupTexture = null,
         toolbarIcon = scheme.onSurfaceVariant,
         toolCircle = toolCircle,
         toolCircleActive = scheme.primaryContainer,
@@ -401,6 +440,14 @@ private fun defaultKbTheme(
         toolBorder = null,
         toolBorderWidthDp = 0f,
         chip = chip,
+        chipText = scheme.onSurface,
+        chipActive = scheme.primaryContainer,
+        chipActiveText = legibleOn(
+            scheme.primaryContainer,
+            listOf(scheme.onPrimaryContainer, scheme.primary),
+        ),
+        chipBorder = null,
+        chipBorderWidthDp = 0f,
         suggestionText = scheme.onSurface,
         secondaryText = scheme.onSurfaceVariant,
         divider = scheme.outlineVariant,
@@ -410,12 +457,17 @@ private fun defaultKbTheme(
         popupHeightDp = settings.popup.heightDp,
         toolRadiusDp = settings.toolCircleRadiusDp,
         toolShapeKind = settings.toolShape,
+        chipRadiusDp = DEFAULT_CHIP_RADIUS_DP,
+        chipShapeKind = KeyShapeKind.ROUNDED,
         toolWidthDp = settings.toolbarBehavior.toolWidthDp,
         animation = ThemeAnimation.NONE,
         animationSpeed = 1f,
         reduceMotion = settings.reduceMotion,
     )
 }
+
+/** What the rounded and cut chip shapes use when a theme sets no chip radius. */
+private const val DEFAULT_CHIP_RADIUS_DP = 12
 
 /** Resolves a stored [ThemeSpec] into a [KbTheme], deriving nullable fields. */
 private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
@@ -427,7 +479,15 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
     // darken/lighten of the key), not the accent — same reasoning as the
     // default theme. Themes that want a colored press set it explicitly.
     val pressed = spec.pressedKeyBackground?.let(::colorOf) ?: lerp(key, keyText, 0.25f)
-    val secondary = keyText.copy(alpha = 0.65f)
+    // Board-level text: what the suggestion strip, the dividers and the panel
+    // chrome draw with. A theme may invert its keys against its board (dark
+    // ink on cream keys over a dark board), so the keyText fallback is
+    // contrast-guarded against the board; an explicit suggestionText is
+    // honoured as written.
+    val stripText = spec.suggestionText?.let(::colorOf) ?: legibleOn(board, listOf(keyText))
+    val secondary = stripText.copy(alpha = 0.65f)
+    val toolActive = spec.toolCircleActiveBackground?.let(::colorOf) ?: pressed
+    val chipActive = spec.chipActiveBackground?.let(::colorOf) ?: toolActive
     return KbTheme(
         dark = spec.dark,
         board = board,
@@ -472,26 +532,36 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         popup = spec.popupBackground?.let(::colorOf)
             ?: blendOver(keyText, board, if (spec.dark) 0.20f else 0.06f),
         popupText = spec.popupText?.let(::colorOf) ?: keyText,
+        popupOnKey = popupOnKeyOrNull(spec.popupPlacement),
+        popupBorder = spec.popupBorderColor?.let(::colorOf),
+        popupBorderWidthDp = spec.popupBorderWidthDp,
+        popupTexture = spec.popupTexture,
         toolbarIcon = spec.toolbarIcon?.let(::colorOf) ?: secondary,
         toolCircle = spec.toolCircleBackground?.let(::colorOf)
             ?: blendOver(keyText, board, 0.14f),
-        toolCircleActive = spec.toolCircleActiveBackground?.let(::colorOf) ?: pressed,
-        toolCircleActiveIcon = legibleOn(
-            spec.toolCircleActiveBackground?.let(::colorOf) ?: pressed,
-            listOf(accent, keyText),
-        ),
+        toolCircleActive = toolActive,
+        toolCircleActiveIcon = legibleOn(toolActive, listOf(accent, keyText)),
         toolBorder = spec.toolBorderColor?.let(::colorOf),
         toolBorderWidthDp = spec.toolBorderWidthDp,
         chip = spec.chipBackground?.let(::colorOf) ?: colorOf(spec.modifierKeyBackground),
-        suggestionText = spec.suggestionText?.let(::colorOf) ?: keyText,
+        chipText = spec.chipText?.let(::colorOf)
+            ?: spec.modifierKeyText?.let(::colorOf) ?: keyText,
+        chipActive = chipActive,
+        chipActiveText = spec.chipActiveText?.let(::colorOf)
+            ?: legibleOn(chipActive, listOf(accent, keyText)),
+        chipBorder = spec.chipBorderColor?.let(::colorOf),
+        chipBorderWidthDp = spec.chipBorderWidthDp,
+        suggestionText = stripText,
         secondaryText = secondary,
-        divider = keyText.copy(alpha = 0.25f),
+        divider = stripText.copy(alpha = 0.25f),
         keyRadiusDp = spec.keyCornerRadiusDp ?: settings.keyCornerRadiusDp,
         popupRadiusDp = spec.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
         popupShapeKind = keyShapeKindOrNull(spec.popupShape) ?: settings.popup.shape,
         popupHeightDp = spec.popupHeightDp ?: settings.popup.heightDp,
         toolRadiusDp = spec.toolCircleRadiusDp ?: settings.toolCircleRadiusDp,
         toolShapeKind = keyShapeKindOrNull(spec.toolShape) ?: settings.toolShape,
+        chipRadiusDp = spec.chipCornerRadiusDp ?: DEFAULT_CHIP_RADIUS_DP,
+        chipShapeKind = keyShapeKindOrNull(spec.chipShape) ?: KeyShapeKind.ROUNDED,
         toolWidthDp = spec.toolWidthDp ?: settings.toolbarBehavior.toolWidthDp,
         animation = spec.animation,
         animationSpeed = spec.animationSpeed,
@@ -514,9 +584,13 @@ private fun schemeFor(kb: KbTheme): ColorScheme {
         primaryContainer = kb.pressedKey.copy(alpha = 1f),
         onPrimaryContainer = kb.keyText,
         background = opaqueBoard,
-        onBackground = kb.keyText,
+        // suggestionText, not keyText: this is the "text on the board" role
+        // (the strip, panel bodies), and a theme may invert its keys against
+        // its board — dark ink on cream keys over a near-black board. keyText
+        // belongs on keys, which have their own colour.
+        onBackground = kb.suggestionText,
         surface = opaqueBoard,
-        onSurface = kb.keyText,
+        onSurface = kb.suggestionText,
         surfaceContainerLowest = opaqueBoard,
         surfaceContainerLow = opaqueBoard,
         surfaceContainer = kb.chip.copy(alpha = 1f),
@@ -549,11 +623,16 @@ private fun KbTheme.mapColors(f: (Color) -> Color): KbTheme = copy(
     gestureTrail = f(gestureTrail),
     popup = f(popup),
     popupText = f(popupText),
+    popupBorder = popupBorder?.let(f),
     toolbarIcon = f(toolbarIcon),
     toolCircle = f(toolCircle),
     toolCircleActive = f(toolCircleActive),
     toolCircleActiveIcon = f(toolCircleActiveIcon),
     chip = f(chip),
+    chipText = f(chipText),
+    chipActive = f(chipActive),
+    chipActiveText = f(chipActiveText),
+    chipBorder = chipBorder?.let(f),
     suggestionText = f(suggestionText),
     secondaryText = f(secondaryText),
     divider = f(divider),
@@ -601,6 +680,7 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
             keyTextureEnter = null,
             keyTextureSpace = null,
             keyTexturePressed = null,
+            popupTexture = null,
             keyOverrides = emptyMap(),
             decals = emptyList(),
             keyEffect = null,
@@ -611,6 +691,8 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
             modifierKeyText = maxContrastOn(modifier),
             enterKeyText = maxContrastOn(kb.enterKey),
             popupText = maxContrastOn(kb.popup),
+            chipText = maxContrastOn(kb.chip),
+            chipActiveText = maxContrastOn(kb.chipActive),
             suggestionText = maxContrastOn(board),
             toolbarIcon = maxContrastOn(board),
             secondaryText = maxContrastOn(board).copy(alpha = 0.75f),
@@ -978,6 +1060,11 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         gestureTrail = lerp(a.gestureTrail, b.gestureTrail, t),
         popup = lerp(a.popup, b.popup, t),
         popupText = lerp(a.popupText, b.popupText, t),
+        // Discrete, like the shape kind beside it: a placement is either.
+        popupOnKey = if (past) b.popupOnKey else a.popupOnKey,
+        popupBorder = lerpColorOrNull(a.popupBorder, b.popupBorder, t),
+        popupBorderWidthDp = lerpF(a.popupBorderWidthDp, b.popupBorderWidthDp, t),
+        popupTexture = if (past) b.popupTexture else a.popupTexture,
         toolbarIcon = lerp(a.toolbarIcon, b.toolbarIcon, t),
         toolCircle = lerp(a.toolCircle, b.toolCircle, t),
         toolCircleActive = lerp(a.toolCircleActive, b.toolCircleActive, t),
@@ -985,6 +1072,11 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         toolBorder = lerpColorOrNull(a.toolBorder, b.toolBorder, t),
         toolBorderWidthDp = lerpF(a.toolBorderWidthDp, b.toolBorderWidthDp, t),
         chip = lerp(a.chip, b.chip, t),
+        chipText = lerp(a.chipText, b.chipText, t),
+        chipActive = lerp(a.chipActive, b.chipActive, t),
+        chipActiveText = lerp(a.chipActiveText, b.chipActiveText, t),
+        chipBorder = lerpColorOrNull(a.chipBorder, b.chipBorder, t),
+        chipBorderWidthDp = lerpF(a.chipBorderWidthDp, b.chipBorderWidthDp, t),
         suggestionText = lerp(a.suggestionText, b.suggestionText, t),
         secondaryText = lerp(a.secondaryText, b.secondaryText, t),
         divider = lerp(a.divider, b.divider, t),
@@ -994,6 +1086,8 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         popupHeightDp = lerpI(a.popupHeightDp, b.popupHeightDp, t),
         toolRadiusDp = lerpI(a.toolRadiusDp, b.toolRadiusDp, t),
         toolShapeKind = if (past) b.toolShapeKind else a.toolShapeKind,
+        chipRadiusDp = lerpI(a.chipRadiusDp, b.chipRadiusDp, t),
+        chipShapeKind = if (past) b.chipShapeKind else a.chipShapeKind,
         // Width is measured, not painted — tweening it would re-measure the
         // toolbar every crossfade frame, which the top bar forbids (a width
         // animation restarts every icon's placement spring). Snap at midpoint.

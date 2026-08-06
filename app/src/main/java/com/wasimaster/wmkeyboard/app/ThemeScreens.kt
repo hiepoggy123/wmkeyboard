@@ -287,6 +287,7 @@ internal fun keyShapeName(kind: KeyShapeKind): String = stringResource(
         KeyShapeKind.HEXAGON -> R.string.theme_key_shape_hexagon_label
         KeyShapeKind.SCALLOP -> R.string.theme_key_shape_scallop_label
         KeyShapeKind.TICKET -> R.string.theme_key_shape_ticket_label
+        KeyShapeKind.CIRCLE -> R.string.theme_key_shape_circle_label
     },
 )
 
@@ -318,6 +319,9 @@ internal fun KeyShapeSwatch(kind: KeyShapeKind, radiusDp: Int, color: Color) {
 
 /** The keyboard's own horizontal key gap, which [KeyShapeSwatch] reproduces. */
 private const val KeySwatchGapDp = 2.5f
+
+/** What chips draw with when a theme sets no chip radius; mirrors the keyboard. */
+private const val DefaultChipRadiusDp = 12
 
 /**
  * Radio list of every key shape, each row with the shape drawn beside its name.
@@ -979,6 +983,7 @@ fun ThemeEditorScreen(
     var cropLandscapeOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var shapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var popupShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    var chipShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var toolShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var sourceDialogSlot by remember(theme.id) { mutableStateOf<BackgroundSlot?>(null) }
 
@@ -1361,6 +1366,18 @@ fun ThemeEditorScreen(
             title = R.string.theme_tool_shape_title,
         )
     }
+    if (chipShapePickerOpen) {
+        KeyShapePickerDialog(
+            selected = keyShapeKindOrNull(theme.chipShape) ?: KeyShapeKind.ROUNDED,
+            radiusDp = theme.chipCornerRadiusDp ?: DefaultChipRadiusDp,
+            onPick = { kind ->
+                update { t -> t.copy(chipShape = kind.name) }
+                chipShapePickerOpen = false
+            },
+            onDismiss = { chipShapePickerOpen = false },
+            title = R.string.theme_chip_shape_title,
+        )
+    }
 
     SettingsGroup(stringResource(R.string.theme_keys_section_title)) {
         item {
@@ -1739,6 +1756,45 @@ fun ThemeEditorScreen(
                 modifier = Modifier.clickable { popupShapePickerOpen = true },
             )
         }
+        item {
+            // Placement: whether the bubble grows out of the key or floats
+            // detached above it; the first option leaves the global setting
+            // in charge.
+            ListItem(
+                headlineContent = {
+                    Text(stringResource(R.string.theme_popup_placement_title))
+                },
+                colors = transparentListColors(),
+            )
+            ChoiceControl(
+                options = listOf(
+                    null to stringResource(R.string.theme_popup_placement_default_label),
+                    "key" to stringResource(R.string.theme_popup_placement_key_label),
+                    "float" to stringResource(R.string.theme_popup_placement_float_label),
+                ),
+                selected = theme.popupPlacement
+                    ?.lowercase()
+                    ?.takeIf { it == "key" || it == "float" },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) { value -> update { t -> t.copy(popupPlacement = value) } }
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_popup_border_title),
+                theme.popupBorderColor, fallback = theme.popupText ?: theme.keyText,
+                onChange = { update { t -> t.copy(popupBorderColor = it) } },
+            )
+        }
+        if (theme.popupBorderColor != null) {
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_border_width_title),
+                    value = theme.popupBorderWidthDp,
+                    range = 0f..3f,
+                    display = { "%.1f dp".format(it) },
+                ) { update { t -> t.copy(popupBorderWidthDp = (it * 10).toInt() / 10f) } }
+            }
+        }
     }
 
     SettingsGroup(stringResource(R.string.theme_toolbar_section_title)) {
@@ -1819,6 +1875,79 @@ fun ThemeEditorScreen(
                 theme.suggestionText, fallback = theme.keyText,
                 onChange = { update { t -> t.copy(suggestionText = it) } },
             )
+        }
+    }
+
+    SettingsGroup(stringResource(R.string.theme_chips_section_title)) {
+        item { CaptionText(stringResource(R.string.theme_chips_section_body)) }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_chip_text_title),
+                theme.chipText, fallback = theme.modifierKeyText ?: theme.keyText,
+                onChange = { update { t -> t.copy(chipText = it) } },
+            )
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_chip_active_title),
+                theme.chipActiveBackground,
+                fallback = theme.toolCircleActiveBackground ?: theme.effectivePressed(),
+                supportsAlpha = true,
+                onChange = { update { t -> t.copy(chipActiveBackground = it) } },
+            )
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_chip_active_text_title),
+                theme.chipActiveText, fallback = theme.accent,
+                onChange = { update { t -> t.copy(chipActiveText = it) } },
+            )
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_chip_border_title),
+                theme.chipBorderColor, fallback = theme.accent,
+                onChange = { update { t -> t.copy(chipBorderColor = it) } },
+            )
+        }
+        if (theme.chipBorderColor != null) {
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_border_width_title),
+                    value = theme.chipBorderWidthDp,
+                    range = 0f..3f,
+                    display = { "%.1f dp".format(it) },
+                ) { update { t -> t.copy(chipBorderWidthDp = (it * 10).toInt() / 10f) } }
+            }
+        }
+        item {
+            val chipShape = keyShapeKindOrNull(theme.chipShape) ?: KeyShapeKind.ROUNDED
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_chip_shape_title)) },
+                supportingContent = { Text(keyShapeName(chipShape)) },
+                trailingContent = {
+                    KeyShapeSwatch(
+                        kind = chipShape,
+                        radiusDp = theme.chipCornerRadiusDp ?: DefaultChipRadiusDp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                colors = transparentListColors(),
+                modifier = Modifier.clickable { chipShapePickerOpen = true },
+            )
+        }
+        if (keyShapeKindOrNull(theme.chipShape).let {
+                it == null || it == KeyShapeKind.ROUNDED || it == KeyShapeKind.CUT
+            }
+        ) {
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_chip_radius_title),
+                    value = (theme.chipCornerRadiusDp ?: DefaultChipRadiusDp).toFloat(),
+                    range = 0f..24f,
+                    display = { "${it.toInt()} dp" },
+                ) { update { t -> t.copy(chipCornerRadiusDp = it.toInt()) } }
+            }
         }
     }
 
@@ -2422,6 +2551,7 @@ private enum class KeyTextureSlot(@StringRes val titleRes: Int, val fileTag: Str
     ENTER(R.string.theme_texture_enter_title, "tex_enter"),
     SPACE(R.string.theme_texture_space_title, "tex_space"),
     PRESSED(R.string.theme_texture_pressed_title, "tex_press"),
+    POPUP(R.string.theme_texture_popup_title, "tex_popup"),
     ;
 
     fun pathIn(theme: ThemeSpec): String? = when (this) {
@@ -2430,6 +2560,7 @@ private enum class KeyTextureSlot(@StringRes val titleRes: Int, val fileTag: Str
         ENTER -> theme.keyTextureEnter
         SPACE -> theme.keyTextureSpace
         PRESSED -> theme.keyTexturePressed
+        POPUP -> theme.popupTexture
     }
 
     fun withPath(theme: ThemeSpec, path: String?): ThemeSpec = when (this) {
@@ -2438,6 +2569,7 @@ private enum class KeyTextureSlot(@StringRes val titleRes: Int, val fileTag: Str
         ENTER -> theme.copy(keyTextureEnter = path)
         SPACE -> theme.copy(keyTextureSpace = path)
         PRESSED -> theme.copy(keyTexturePressed = path)
+        POPUP -> theme.copy(popupTexture = path)
     }
 }
 
