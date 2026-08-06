@@ -77,9 +77,11 @@ class PackedTrieCodecTest {
         val packed = PackedTrie.of(entries)
         val mapped = roundTrip(packed)
         // Duplicate words keep their max frequency in the trie, so compare
-        // against the folded input, not the raw line list.
+        // against the folded input, not the raw line list. Frequencies are
+        // snapped to the format's minifloat grid on the way in; rounding is
+        // monotone, so folding before or after would give the same answer.
         val folded = HashMap<String, Int>()
-        for ((w, f) in entries) if (w.isNotEmpty()) folded.merge(w, f, ::maxOf)
+        for ((w, f) in entries) if (w.isNotEmpty()) folded.merge(w, FrequencyCodec.round(f), ::maxOf)
         val walked = mapped.entries()
         assertEquals(folded.size, walked.size)
         assertEquals(folded, walked.toMap())

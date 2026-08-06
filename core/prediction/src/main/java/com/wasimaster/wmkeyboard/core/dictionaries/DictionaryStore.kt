@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.core.dictionaries
 
 import android.content.Context
 import com.wasimaster.wmkeyboard.config.BuildConfig
+import com.wasimaster.wmkeyboard.core.prediction.PackedTrieCodec
 import java.io.File
 import java.io.IOException
 
@@ -36,8 +37,35 @@ object DictionaryStore {
     fun partFile(filesDir: File, langId: String): File =
         File(File(root(filesDir), langId), "$FILE_NAME.part")
 
+    /**
+     * Whether this build can actually read [langId]'s downloaded dictionary.
+     *
+     * Deliberately more than a file-existence test. A `.wmdict` written by an
+     * older format still exists on disk after an update, but nothing can map
+     * it: the engine would fall back to the bundled list while Settings kept
+     * claiming the language was downloaded — and showed it as holding zero
+     * words, because reading its header throws. Judging the file by whether it
+     * parses means a stale one reads as absent, so the UI offers it again and
+     * [sweepUnreadable] can reclaim the space.
+     */
     fun isDownloaded(filesDir: File, langId: String): Boolean =
-        downloadedFile(filesDir, langId).isFile
+        PackedTrieCodec.isReadable(downloadedFile(filesDir, langId))
+
+    /**
+     * Deletes every downloaded dictionary this build cannot read, and returns
+     * the language ids it removed. Called once at startup: a format change
+     * strands the old files otherwise, and they are the largest thing the app
+     * puts on disk.
+     */
+    fun sweepUnreadable(filesDir: File): List<String> =
+        root(filesDir).listFiles { file -> file.isDirectory && file.name != BUNDLED_DIR }
+            .orEmpty()
+            .filter { dir ->
+                val main = File(dir, FILE_NAME)
+                main.isFile && !PackedTrieCodec.isReadable(main)
+            }
+            .map { dir -> dir.also { it.deleteRecursively() }.name }
+            .sorted()
 
     fun delete(filesDir: File, langId: String) {
         File(root(filesDir), langId).takeIf { it.name != BUNDLED_DIR }?.deleteRecursively()
@@ -71,7 +99,7 @@ object DictionaryStore {
     fun downloadedLanguageIds(filesDir: File): List<String> =
         root(filesDir).listFiles { file -> file.isDirectory && file.name != BUNDLED_DIR }
             .orEmpty()
-            .filter { File(it, FILE_NAME).isFile }
+            .filter { PackedTrieCodec.isReadable(File(it, FILE_NAME)) }
             .map { it.name }
             .sorted()
 

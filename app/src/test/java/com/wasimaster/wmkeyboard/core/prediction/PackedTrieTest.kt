@@ -23,9 +23,19 @@ class PackedTrieTest {
         return file.inputStream().use { DictionaryLoader.loadEntries(it) }
     }
 
+    /**
+     * Both structures from one input, with the frequencies pre-snapped to the
+     * `.wmdict` grid. [PackedTrie] stores [FrequencyCodec] minifloats and [Trie]
+     * stores exact `Int`s, so three of the shipped English words (`is`, `was`,
+     * `are` — all in the 8000s, off by 2) would differ for a reason that has
+     * nothing to do with what these tests are for. Rounding at the boundary
+     * keeps every assertion below exact; [FrequencyCodecTest] is what pins the
+     * rounding itself.
+     */
     private fun buildBoth(entries: List<Pair<String, Int>>): Pair<Trie, PackedTrie> {
-        val trie = Trie().apply { for ((w, f) in entries) insert(w, f) }
-        return trie to PackedTrie.of(entries)
+        val snapped = entries.map { (w, f) -> w to FrequencyCodec.round(f) }
+        val trie = Trie().apply { for ((w, f) in snapped) insert(w, f) }
+        return trie to PackedTrie.of(snapped)
     }
 
     /** Order-independent view of a completion list: two results are equal iff

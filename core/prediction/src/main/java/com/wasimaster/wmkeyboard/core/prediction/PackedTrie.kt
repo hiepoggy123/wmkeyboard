@@ -118,7 +118,12 @@ class PackedTrie internal constructor(
                     }
                 }
                 node.isWord = true
-                node.freq = maxOf(node.freq, frequency)
+                // Snapped here rather than in the codec so that this trie and
+                // the .wmdict written from it hold identical numbers, and so
+                // that the eval harnesses — which build straight from of(),
+                // never through a file — measure the frequencies the keyboard
+                // will really see.
+                node.freq = maxOf(node.freq, FrequencyCodec.round(frequency))
             }
 
             val childStart = IntArray(nodeCount + 1)

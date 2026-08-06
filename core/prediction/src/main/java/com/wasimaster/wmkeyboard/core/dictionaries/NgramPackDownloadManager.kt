@@ -65,8 +65,15 @@ object NgramPackDownloadManager {
     fun trigramFile(filesDir: File, langId: String): File =
         File(File(File(filesDir, "dict"), langId), "trigrams.wmdict")
 
+    /**
+     * Whether a pack this build can read is already on disk. Judged by parsing
+     * the header rather than by file existence: a pack left by a superseded
+     * `.wmdict` format would otherwise make [ensure] early-return forever, so
+     * the language would never get a readable pack again.
+     */
     fun isDownloaded(filesDir: File, langId: String): Boolean =
-        bigramFile(filesDir, langId).isFile || trigramFile(filesDir, langId).isFile
+        PackedTrieCodec.isReadable(bigramFile(filesDir, langId)) ||
+            PackedTrieCodec.isReadable(trigramFile(filesDir, langId))
 
     /**
      * Queues every catalogued language in [langIds] the device does not

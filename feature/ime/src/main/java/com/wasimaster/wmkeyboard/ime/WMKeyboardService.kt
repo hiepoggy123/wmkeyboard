@@ -1867,7 +1867,14 @@ open class WMKeyboardService : InputMethodService() {
                 // Older installs inflated the bundled lists into
                 // credential-encrypted storage; they live in the
                 // device-protected area now (see [openLanguageDictionary]).
-                if (userUnlocked) DictionaryStore.deleteLegacyBundled(filesDir)
+                if (userUnlocked) {
+                    DictionaryStore.deleteLegacyBundled(filesDir)
+                    // Downloaded lists written by a superseded .wmdict format
+                    // cannot be mapped, so they are pure dead weight — and the
+                    // largest thing on disk. Dropping them here is also what
+                    // makes Settings offer the language for download again.
+                    DictionaryStore.sweepUnreadable(filesDir)
+                }
                 // Bundled lists ship as compiled .wmdict binaries and are
                 // memory-mapped, not parsed: the trie stays out of the Java
                 // heap and "loading" is one mmap call. A downloaded list for

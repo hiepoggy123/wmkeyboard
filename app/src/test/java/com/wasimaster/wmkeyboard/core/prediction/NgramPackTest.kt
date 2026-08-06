@@ -47,10 +47,14 @@ class NgramPackTest {
     @Test
     fun countsAndFollowersRoundTrip() {
         val p = pack()
-        assertEquals(204351, p.bigramCount("of", "the"))
-        assertEquals(204351, p.bigramCount("OF", "The")) // case-folded keys
+        // Counts are stored as minifloats, so they come back within 0.1% of
+        // what went in rather than bit-identical. What the consumers actually
+        // do with them — integer-divide by 50, then take a log — cannot see a
+        // difference this small; FrequencyCodecTest is what pins the rounding.
+        assertEquals(204351.0, p.bigramCount("of", "the").toDouble(), 204351 * 0.001)
+        assertEquals(204351.0, p.bigramCount("OF", "The").toDouble(), 204351 * 0.001) // case-folded
         assertEquals(0, p.bigramCount("of", "zzz"))
-        assertEquals(16821, p.trigramCount("one", "of", "the"))
+        assertEquals(16821.0, p.trigramCount("one", "of", "the").toDouble(), 16821 * 0.001)
         // Followers come best-first via the trie's branch-and-bound.
         assertEquals(listOf("the", "a"), p.nextWords("of", 5))
         assertEquals(listOf("the", "us"), p.nextWordsAfter("one", "of", 5))
