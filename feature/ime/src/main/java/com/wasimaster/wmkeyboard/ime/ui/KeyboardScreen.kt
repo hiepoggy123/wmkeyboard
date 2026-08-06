@@ -264,6 +264,8 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.emoji.TextArt
 import com.wasimaster.wmkeyboard.core.text.EmojiGraphemes
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
+import androidx.compose.ui.graphics.lerp
+import com.wasimaster.wmkeyboard.core.theme.KeyOverride
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.ui.ToolPaint
 import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
@@ -7042,6 +7044,12 @@ internal data class KeyPalette(
     val enterKeyText: Color,
     val pressedKey: Color,
     val accent: Color,
+    /**
+     * Single-key style overrides, carried on the palette so the resolved keys
+     * still depend on this one object: the map changes only when the theme
+     * does, exactly like the eight colours above.
+     */
+    val overrides: Map<String, KeyOverride> = emptyMap(),
 )
 
 internal fun KbTheme.keyPalette(): KeyPalette = KeyPalette(
@@ -7053,6 +7061,7 @@ internal fun KbTheme.keyPalette(): KeyPalette = KeyPalette(
     enterKeyText = enterKeyText,
     pressedKey = pressedKey,
     accent = accent,
+    overrides = keyOverrides,
 )
 
 /**
@@ -7097,6 +7106,11 @@ internal data class KeyVisual(
     /** Spacebar: its label, and whether the language-cycle arrows flank it. */
     val spaceText: String,
     val spaceArrows: Boolean,
+    /** A per-key style's own border colour; null follows the theme border. */
+    val borderColor: Color? = null,
+    /** A per-key style's own bubble colours; null follows the theme. */
+    val popupBackground: Color? = null,
+    val popupText: Color? = null,
 )
 
 /**
@@ -7130,16 +7144,27 @@ internal fun keyVisual(key: Key, state: KeyboardUiState, palette: KeyPalette): K
     // A latched modifier has to look held: it changes what the *next* key does,
     // so with no visible state the user finds out by pressing one.
     val latch = (action as? KeyAction.Mod)?.let { state.modifiers[it.key] }
+    // The theme's own style for this one key, if it carries one. Applied over
+    // the class colours below, but never over a latch — an armed modifier has
+    // to look armed whatever colour its face was given.
+    val override = if (palette.overrides.isEmpty()) {
+        null
+    } else {
+        keyOverrideId(key)?.let { palette.overrides[it] }
+    }
+    val overrideBackground = override?.background
+        ?.takeIf { latch == null || latch == ModifierState.OFF }
+        ?.let { Color(it.toInt()) }
     // Samsung-style contrast: letter keys clearly lighter than the board,
     // modifier keys a shade darker than the letters.
-    val background = when {
+    val background = overrideBackground ?: when {
         latch == ModifierState.LOCKED -> palette.accent
         latch == ModifierState.ARMED -> palette.pressedKey
         action == KeyAction.Enter -> palette.enterKey
         action != KeyAction.Text -> palette.modifierKey
         else -> palette.key
     }
-    val contentColor = when {
+    val contentColor = override?.text?.let { Color(it.toInt()) } ?: when {
         action == KeyAction.Enter -> palette.enterKeyText
         action != KeyAction.Text -> palette.modifierKeyText
         else -> palette.keyText
@@ -7150,7 +7175,13 @@ internal fun keyVisual(key: Key, state: KeyboardUiState, palette: KeyPalette): K
         spoken = spokenLabel(key, state),
         latch = latch,
         background = background,
-        pressedBackground = palette.pressedKey,
+        // An overridden face derives its own pressed shade the way specKbTheme
+        // derives the theme's: a quarter of the way toward the label colour.
+        pressedBackground = if (overrideBackground != null) {
+            lerp(overrideBackground, contentColor, 0.25f)
+        } else {
+            palette.pressedKey
+        },
         contentColor = contentColor,
         // Enter is the one key that recolours under the finger: its text colour
         // is picked for its own accented face, which the press paints over.
@@ -7174,7 +7205,22 @@ internal fun keyVisual(key: Key, state: KeyboardUiState, palette: KeyPalette): K
         },
         spaceText = if (action == KeyAction.Space) spacebarText(state) else "",
         spaceArrows = action == KeyAction.Space && spacebarArrowsShown(state),
+        borderColor = override?.border?.let { Color(it.toInt()) },
+        popupBackground = override?.popupBackground?.let { Color(it.toInt()) },
+        popupText = override?.popupText?.let { Color(it.toInt()) },
     )
+}
+
+/**
+ * The name a [ThemeSpec.keyOverrides] entry uses for this key: the lowercase
+ * label for letter keys — so an override follows the letter across layouts —
+ * and the action's name (`ENTER`, `SHIFT`, `SPACE`, `DELETE`, `SYMBOLS`,
+ * `MOD_CTRL`, …) for everything else. Null for a letter key with no label.
+ */
+internal fun keyOverrideId(key: Key): String? = when (val action = key.action) {
+    KeyAction.Text -> key.label.takeIf { it.isNotBlank() }?.lowercase()
+    is KeyAction.Mod -> "MOD_${action.key.name}"
+    else -> action::class.simpleName?.uppercase()
 }
 
 /**
@@ -7264,6 +7310,9 @@ internal data class KeyPreview(
     /** The key's place in the compose root, and its size. */
     val position: Offset,
     val size: IntSize,
+    /** A per-key style's own bubble colours; null follows the theme. */
+    val popupBackground: Color? = null,
+    val popupText: Color? = null,
 )
 
 /**
@@ -7477,7 +7526,7 @@ private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKey
     val density = LocalDensity.current
     Surface(
         shape = kb.popupShape(),
-        color = kb.popup,
+        color = preview.popupBackground ?: kb.popup,
         shadowElevation = 6.dp,
     ) {
         Box(
@@ -7493,7 +7542,7 @@ private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKey
                 text = preview.label,
                 modifier = if (onKeyStyle) Modifier.padding(top = 8.dp) else Modifier,
                 fontSize = ((if (onKeyStyle) 34 else 22) * popup.fontScale).sp,
-                color = kb.popupText,
+                color = preview.popupText ?: kb.popupText,
             )
         }
     }
@@ -9130,6 +9179,10 @@ private fun KeyButton(
             key.action == KeyAction.Text,
     )
     val previewLabel = rememberUpdatedState(visual.label)
+    // Same staleness rule as the label: the pointer input holds its lambdas
+    // across recompositions, so a per-key popup colour has to be read through
+    // an updated state or a theme edit would keep bubbling the old colour.
+    val previewColors = rememberUpdatedState(visual.popupBackground to visual.popupText)
     // The key's place in the compose root, for the overlay to position against.
     val keyBounds = remember { mutableStateOf(Rect.Zero) }
 
@@ -9252,6 +9305,8 @@ private fun KeyButton(
                                         bounds.width.roundToInt(),
                                         bounds.height.roundToInt(),
                                     ),
+                                    popupBackground = previewColors.value.first,
+                                    popupText = previewColors.value.second,
                                 ),
                             )
                         } else if (!down) {
@@ -9340,11 +9395,21 @@ private fun KeyButton(
                 // Left as a border modifier: it does not depend on the press, and
                 // Modifier.border insets a rounded outline by half the stroke so
                 // the whole width lands inside the key — hand-stroking the same
-                // outline would straddle the edge and read thinner.
-                if (kb.keyBorder != null && kb.keyBorderWidthDp > 0f) {
-                    Modifier.border(kb.keyBorderWidthDp.dp, kb.keyBorder, keyShape)
-                } else {
-                    Modifier
+                // outline would straddle the edge and read thinner. A per-key
+                // border colour wins over the theme's, and draws at the theme's
+                // width or 1.5 dp when the theme has no border of its own.
+                run {
+                    val border = visual.borderColor ?: kb.keyBorder
+                    val width = if (visual.borderColor != null) {
+                        maxOf(kb.keyBorderWidthDp, 1.5f)
+                    } else {
+                        kb.keyBorderWidthDp
+                    }
+                    if (border != null && width > 0f) {
+                        Modifier.border(width.dp, border, keyShape)
+                    } else {
+                        Modifier
+                    }
                 }
             )
             .onGloballyPositioned { keyBounds.value = it.boundsInRoot() },

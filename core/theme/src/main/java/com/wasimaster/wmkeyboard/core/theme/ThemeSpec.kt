@@ -277,6 +277,13 @@ data class ThemeSpec(
      */
     val soundCustomId: String? = null,
     /**
+     * Per-key style overrides — a single key's own colours, keyed by the
+     * key's lowercase label (letter keys) or its action name (special keys);
+     * see [KeyOverride]. One unknown JSON key to an older build, which
+     * imports the theme without them.
+     */
+    val keyOverrides: Map<String, KeyOverride> = emptyMap(),
+    /**
      * Auxiliary image bytes for transport, keyed by slot name — the key
      * textures today (`"keyTexture"`, `"keyTextureModifier"`, …), whatever
      * needs to travel tomorrow. The generic sibling of
@@ -287,6 +294,28 @@ data class ThemeSpec(
      */
     val assets: Map<String, String> = emptyMap(),
 )
+
+/**
+ * One key's own style, overriding the class-level colours. Everything is
+ * nullable: a key that only recolours its popup carries exactly that.
+ *
+ * The map key naming these (see [ThemeSpec.keyOverrides]) is the key's
+ * lowercase label for letter keys — so the override follows the letter across
+ * layouts and languages — and the action's name (`ENTER`, `SHIFT`, `SPACE`,
+ * `DELETE`, `SYMBOLS`, …) for the special keys.
+ */
+@Serializable
+data class KeyOverride(
+    val background: Long? = null,
+    val text: Long? = null,
+    val border: Long? = null,
+    val popupBackground: Long? = null,
+    val popupText: Long? = null,
+) {
+    val isEmpty: Boolean
+        get() = background == null && text == null && border == null &&
+            popupBackground == null && popupText == null
+}
 
 /** How a key texture fits its key. Never serialized — travels as a string. */
 enum class KeyTextureScale { CROP, STRETCH, TILE }

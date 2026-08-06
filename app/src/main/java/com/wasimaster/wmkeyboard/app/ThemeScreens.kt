@@ -108,6 +108,7 @@ import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.builtInThemeNameRes
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
 import com.wasimaster.wmkeyboard.core.theme.GradientType
+import com.wasimaster.wmkeyboard.core.theme.KeyOverride
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.keyTextureScaleOrDefault
@@ -1516,6 +1517,62 @@ fun ThemeEditorScreen(
         }
     }
 
+    var overrideEditorId by rememberSaveable(theme.id) { mutableStateOf<String?>(null) }
+    var addOverrideOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    SettingsGroup(stringResource(R.string.theme_key_override_section_title)) {
+        item { CaptionText(stringResource(R.string.theme_key_override_section_body)) }
+        for (id in theme.keyOverrides.keys.sorted()) {
+            item {
+                ListItem(
+                    headlineContent = { Text(keyOverrideDisplayName(id)) },
+                    trailingContent = {
+                        IconButton(
+                            onClick = {
+                                update { t -> t.copy(keyOverrides = t.keyOverrides - id) }
+                            },
+                        ) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(CommonR.string.common_remove),
+                            )
+                        }
+                    },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable { overrideEditorId = id },
+                )
+            }
+        }
+        item {
+            OutlinedButton(
+                onClick = { addOverrideOpen = true },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) { Text(stringResource(R.string.theme_key_override_add_action)) }
+        }
+    }
+    if (addOverrideOpen) {
+        AddKeyOverrideDialog(
+            onAdd = { id ->
+                addOverrideOpen = false
+                update { t ->
+                    t.copy(keyOverrides = t.keyOverrides + (id to (t.keyOverrides[id] ?: KeyOverride())))
+                }
+                overrideEditorId = id
+            },
+            onDismiss = { addOverrideOpen = false },
+        )
+    }
+    overrideEditorId?.let { id ->
+        KeyOverrideDialog(
+            id = id,
+            override = theme.keyOverrides[id] ?: KeyOverride(),
+            theme = theme,
+            onChange = { changed ->
+                update { t -> t.copy(keyOverrides = t.keyOverrides + (id to changed)) }
+            },
+            onDismiss = { overrideEditorId = null },
+        )
+    }
+
     SettingsGroup(stringResource(R.string.theme_accent_section_title)) {
         item {
             ColorRow(stringResource(R.string.theme_accent_title), theme.accent) {
@@ -2133,6 +2190,114 @@ private enum class KeyTextureSlot(@StringRes val titleRes: Int, val fileTag: Str
         SPACE -> theme.copy(keyTextureSpace = path)
         PRESSED -> theme.copy(keyTexturePressed = path)
     }
+}
+
+/**
+ * The special keys the per-key style editor offers, with the id convention the
+ * keyboard resolves (`keyOverrideId`): the action's name in uppercase.
+ */
+private val specialOverrideKeys = listOf(
+    "ENTER", "SPACE", "SHIFT", "DELETE", "SYMBOLS", "EMOJI", "LANGUAGESWITCH",
+)
+
+/** How an override id reads in the editor list: `A` for a letter, `Enter` for a special. */
+private fun keyOverrideDisplayName(id: String): String =
+    if (id.length <= 2 && id.none { it.isUpperCase() }) {
+        id.uppercase()
+    } else {
+        id.lowercase().replaceFirstChar { it.uppercase() }
+    }
+
+/** Picks which key gets its own style: type a letter, or choose a special key. */
+@Composable
+private fun AddKeyOverrideDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.theme_key_override_add_action)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.theme_key_override_add_body))
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.take(2) },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.theme_key_override_letter_label)) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(12.dp))
+                for (special in specialOverrideKeys) {
+                    Text(
+                        keyOverrideDisplayName(special),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onAdd(special) }
+                            .padding(vertical = 8.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onAdd(text.trim().lowercase()) },
+                enabled = text.isNotBlank(),
+            ) { Text(stringResource(CommonR.string.common_add)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+}
+
+/** One key's own colours: face, label, border, and its preview bubble. */
+@Composable
+private fun KeyOverrideDialog(
+    id: String,
+    override: KeyOverride,
+    theme: ThemeSpec,
+    onChange: (KeyOverride) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(keyOverrideDisplayName(id)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                NullableColorRow(
+                    stringResource(R.string.theme_key_background_title),
+                    override.background, fallback = theme.keyBackground,
+                    supportsAlpha = true,
+                    onChange = { onChange(override.copy(background = it)) },
+                )
+                NullableColorRow(
+                    stringResource(R.string.theme_key_text_title),
+                    override.text, fallback = theme.keyText,
+                    onChange = { onChange(override.copy(text = it)) },
+                )
+                NullableColorRow(
+                    stringResource(R.string.theme_key_border_title),
+                    override.border, fallback = theme.keyBorderColor ?: theme.keyText,
+                    onChange = { onChange(override.copy(border = it)) },
+                )
+                NullableColorRow(
+                    stringResource(R.string.theme_popup_background_title),
+                    override.popupBackground,
+                    fallback = theme.popupBackground ?: theme.keyBackground,
+                    onChange = { onChange(override.copy(popupBackground = it)) },
+                )
+                NullableColorRow(
+                    stringResource(R.string.theme_popup_text_title),
+                    override.popupText, fallback = theme.popupText ?: theme.keyText,
+                    onChange = { onChange(override.copy(popupText = it)) },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_done)) }
+        },
+    )
 }
 
 /** Longest edge a texture is stored at. A key never draws bigger than this. */

@@ -56,6 +56,7 @@ import com.wasimaster.wmkeyboard.core.tools.SolarCalculator
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.theme.ColorVision
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
+import com.wasimaster.wmkeyboard.core.theme.KeyOverride
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
@@ -103,6 +104,8 @@ data class KbTheme(
     val keyTextureScale: KeyTextureScale,
     /** Alpha the textures draw with. */
     val keyTextureOpacity: Float,
+    /** Single-key style overrides, keyed as [ThemeSpec.keyOverrides] is. */
+    val keyOverrides: Map<String, KeyOverride>,
     val key: Color,
     val keyText: Color,
     val modifierKey: Color,
@@ -351,6 +354,7 @@ private fun defaultKbTheme(
         keyTexturePressed = null,
         keyTextureScale = KeyTextureScale.CROP,
         keyTextureOpacity = 1f,
+        keyOverrides = emptyMap(),
         key = key,
         keyText = scheme.onSurface,
         modifierKey = modifier,
@@ -424,6 +428,7 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         keyTexturePressed = spec.keyTexturePressed,
         keyTextureScale = keyTextureScaleOrDefault(spec.keyTextureScale),
         keyTextureOpacity = spec.keyTextureOpacity,
+        keyOverrides = spec.keyOverrides,
         key = key,
         keyText = keyText,
         modifierKey = colorOf(spec.modifierKeyBackground),
@@ -571,6 +576,7 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
             keyTextureEnter = null,
             keyTextureSpace = null,
             keyTexturePressed = null,
+            keyOverrides = emptyMap(),
             animation = ThemeAnimation.NONE,
             key = key,
             modifierKey = modifier,
@@ -926,6 +932,7 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         keyTexturePressed = if (past) b.keyTexturePressed else a.keyTexturePressed,
         keyTextureScale = if (past) b.keyTextureScale else a.keyTextureScale,
         keyTextureOpacity = lerpF(a.keyTextureOpacity, b.keyTextureOpacity, t),
+        keyOverrides = if (past) b.keyOverrides else a.keyOverrides,
         key = lerp(a.key, b.key, t),
         keyText = lerp(a.keyText, b.keyText, t),
         modifierKey = lerp(a.modifierKey, b.modifierKey, t),
