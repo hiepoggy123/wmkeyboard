@@ -2990,6 +2990,14 @@ private fun TypingSettings(
                     onClick = onOpenHardwareShortcuts,
                 )
             }
+            item {
+                ToggleSetting(
+                    R.string.typing_hw_digit_chord_title,
+                    stringResource(R.string.typing_hw_digit_chord_subtitle),
+                    hw.toolbarDigitChord,
+                    info = stringResource(R.string.typing_hw_digit_chord_info),
+                ) { scope.launch { repository.setHwToolbarDigitChord(it) } }
+            }
         }
         item {
             ToggleSetting(
@@ -3015,6 +3023,24 @@ private fun TypingSettings(
                 options = SuggestionHotkeyMode.entries.map { it to stringResource(it.labelRes) },
                 selected = hw.suggestionHotkeys,
             ) { scope.launch { repository.setHwSuggestionHotkeys(it) } }
+        }
+        if (hw.suggestionHotkeys == SuggestionHotkeyMode.ALT_DIGIT) {
+            item {
+                ToggleSetting(
+                    R.string.typing_hw_suggestion_hints_title,
+                    stringResource(R.string.typing_hw_suggestion_hints_subtitle),
+                    hw.suggestionHintsAlways,
+                    info = stringResource(R.string.typing_hw_suggestion_hints_info),
+                ) { scope.launch { repository.setHwSuggestionHintsAlways(it) } }
+            }
+        }
+        item {
+            ToggleSetting(
+                R.string.typing_hw_mac_title,
+                stringResource(R.string.typing_hw_mac_subtitle),
+                hw.macShortcuts,
+                info = stringResource(R.string.typing_hw_mac_info),
+            ) { scope.launch { repository.setHwMacShortcuts(it) } }
         }
         item {
             ToggleSetting(

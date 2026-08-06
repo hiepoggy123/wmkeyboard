@@ -326,14 +326,11 @@
     <string name="ime_clip_info_private_detail">The keyboard hides this clip in the panel and deletes it sooner than other clips.</string>
 
     <!-- The legend the physical keyboard shows after the leader key. -->
-    <!-- %1$s is the letter that opens the toolbox. -->
-    <string name="ime_tool_picker_empty">No tool letters. Press %1$s for all tools.</string>
-    <!-- One line of letters. %1$s is the letters the user bound to a tool,
-         %2$s is the letter for all tools, %3$s is the letter for this legend.
-         The spaces around the middle dots are part of the layout. -->
-    <string name="ime_tool_picker_hint">"%1$s  ·  %2$s all  ·  %3$s help"</string>
     <!-- %1$s names the leader key, such as "Double tap Ctrl". -->
     <string name="ime_tool_picker_leader">%1$s, then:</string>
+    <!-- The pill that points at the legend, shown while the leader key waits.
+         %1$s is the key that opens the legend. Key names are not translated. -->
+    <string name="ime_tool_picker_help">%1$s for all keys</string>
 
     <!-- The chip the suggestion strip shows for a tool. %1$s is a tool name. -->
     <string name="ime_smart_open_tool">Open %1$s</string>

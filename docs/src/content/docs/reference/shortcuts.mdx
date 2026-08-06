@@ -18,7 +18,7 @@ This is the flattened, all-in-one-table version of what a physical keyboard can 
 
 ## Opening the tool picker
 
-Double-tap <KeyCap>Ctrl</KeyCap> (the default shortcut key) and an overlay appears listing the letters on offer. Press a letter to open that tool, <KeyCap>T</KeyCap> for the full toolbox, or <KeyCap>?</KeyCap> to expand the overlay into the complete legend shown above. The picker waits about three seconds for a letter before it disarms itself; that timeout isn't adjustable from settings.
+Double-tap <KeyCap>Ctrl</KeyCap> (the default shortcut key) and every button on the keyboard shows a badge with the key that operates it. Press a letter to open that tool, <KeyCap>T</KeyCap> for the full toolbox, or <KeyCap>?</KeyCap> for the complete legend shown above — which is the place to look for the tools that aren't on screen to wear a badge. The picker waits about three seconds for a key before it disarms itself; that timeout isn't adjustable from settings.
 
 You can pick a different double-tapped modifier (<KeyCap>Ctrl</KeyCap>, <KeyCap>Alt</KeyCap> or <KeyCap>Shift</KeyCap>) or capture an arbitrary chord instead, from <SettingsPath path="Typing / Physical keyboard / Tool shortcuts list" />. A captured chord that the focused app is likely to want still works, but the capture dialog warns that it's "usually the app's own shortcut". It's a nudge, not a block:
 
@@ -49,7 +49,39 @@ The default letter is the tool's own initial, wherever that letter was still fre
 
 <KeyCap>T</KeyCap> and <KeyCap>?</KeyCap> are reserved and can never be bound to a tool.
 
-The remaining 37 tools ship with no default letter at all: flashlight, compass, bubble level, redo, moon phase, weather, calendar, incognito, themes, autocorrect, sound & haptics, handwriting, camera, text scan (OCR), QR & barcode scanner, document scanner, grammar check, Wikipedia, currency converter, keyboard modes, typing speed test, plugins, one-handed mode, split and floating keyboard, every cursor-move tool, and select word/line. Any of them reach the picker only through <KeyCap>T</KeyCap> for the toolbox, unless you assign a free letter to them yourself. Handwriting, the three scanners and grammar checking also only appear in the list at all <Flavor edition="full" />.
+The remaining 37 tools ship with no default letter at all: flashlight, compass, bubble level, redo, moon phase, weather, calendar, incognito, themes, autocorrect, sound & haptics, handwriting, camera, text scan (OCR), QR & barcode scanner, document scanner, grammar check, Wikipedia, currency converter, keyboard modes, typing speed test, plugins, one-handed mode, split and floating keyboard, every cursor-move tool, and select word/line. There aren't 37 letters left to give them, so they get a <KeyCap>Shift</KeyCap>+key instead, assigned automatically in toolbox order and shown as a badge under each one while the toolbox is open. Handwriting, the three scanners and grammar checking only appear in the list at all <Flavor edition="full" />.
+
+## Toolbar buttons
+
+Each button on the toolbar answers to a number, counting from the toolbox button at the start:
+
+| Keys | Opens |
+| --- | --- |
+| <KeyCap>Ctrl</KeyCap>+<KeyCap>1</KeyCap> | The toolbox |
+| <KeyCap>Ctrl</KeyCap>+<KeyCap>2</KeyCap> … <KeyCap>Ctrl</KeyCap>+<KeyCap>0</KeyCap> | The first to the ninth pinned tool |
+| Double-tap the shortcut key, then <KeyCap>1</KeyCap>–<KeyCap>0</KeyCap> | The same buttons, unless the numbers are set to pick suggestions |
+
+The chord is on by default and can be turned off from <SettingsPath path="Typing / Physical keyboard / Ctrl + number opens a toolbar tool" /> — browsers and editors use <KeyCap>Ctrl</KeyCap>+number to change tab, and the keyboard takes the key first while a text field has focus. A toolbar longer than ten buttons leaves the rest without a number; they stay reachable through the toolbox.
+
+## Symbol and emoji rows
+
+Double-tap the shortcut key and each cell in the symbol row and the emoji row shows a <KeyCap>Shift</KeyCap>+key badge that inserts it. The two rows draw from separate blocks of keys, so editing one never renumbers the other. An open toolbox claims the whole <KeyCap>Shift</KeyCap> tier for its own tools, and the rows drop their badges until it closes.
+
+## macOS shortcuts
+
+<SettingsPath path="Typing / Physical keyboard / macOS shortcuts" /> — off by default.
+
+| Chord | Does |
+| --- | --- |
+| <KeyCap>⌘</KeyCap>+<KeyCap>C</KeyCap> / <KeyCap>V</KeyCap> / <KeyCap>X</KeyCap> / <KeyCap>A</KeyCap> | Copy, paste, cut, select all |
+| <KeyCap>⌘</KeyCap>+<KeyCap>Z</KeyCap> / <KeyCap>⌘</KeyCap>+<KeyCap>Shift</KeyCap>+<KeyCap>Z</KeyCap> | Undo, redo |
+| <KeyCap>⌘</KeyCap>+<KeyCap>←</KeyCap> / <KeyCap>→</KeyCap> | Start, end of the line |
+| <KeyCap>⌘</KeyCap>+<KeyCap>↑</KeyCap> / <KeyCap>↓</KeyCap> | Start, end of the text |
+| <KeyCap>⌥</KeyCap>+<KeyCap>←</KeyCap> / <KeyCap>→</KeyCap> | One word left, right |
+| <KeyCap>⌥</KeyCap>+<KeyCap>⌫</KeyCap> | Delete the word before the cursor |
+| <KeyCap>⌘</KeyCap>+<KeyCap>⌫</KeyCap> | Delete to the start of the line |
+
+Hold <KeyCap>Shift</KeyCap> with a move to select. <KeyCap>Ctrl</KeyCap> is untouched, and every Command chord not in this table goes straight to the app.
 
 ## Picking a suggestion from the keyboard
 
@@ -58,10 +90,10 @@ The remaining 37 tools ship with no default letter at all: flashlight, compass, 
 | Mode | Keys | Default |
 | --- | --- | --- |
 | Off | — | |
-| After the shortcut key | Double-tap the shortcut key, then <KeyCap>1</KeyCap>–<KeyCap>9</KeyCap> | Yes |
-| Alt + number | <KeyCap>Alt</KeyCap>+<KeyCap>1</KeyCap>–<KeyCap>Alt</KeyCap>+<KeyCap>9</KeyCap> | |
+| Alt + number | <KeyCap>Alt</KeyCap>+<KeyCap>1</KeyCap>–<KeyCap>Alt</KeyCap>+<KeyCap>9</KeyCap> | Yes |
+| After the shortcut key | Double-tap the shortcut key, then <KeyCap>1</KeyCap>–<KeyCap>9</KeyCap> | |
 
-There's no slot for suggestion "10": only the first nine entries in the strip are reachable by number. **Alt + number** is opt-in rather than the default because browsers, editors and chat apps often claim modifier+digit for tab or workspace switching.
+There's no slot for suggestion "10": only the first nine entries in the strip are reachable by number. In **Alt + number** mode the strip shows its keys under the words whenever a physical keyboard is attached, which <SettingsPath path="Typing / Physical keyboard / Show the suggestion numbers" /> turns off. **After the shortcut key** takes the bare numbers for itself, so the toolbar's tools then rely on the <KeyCap>Ctrl</KeyCap>+number chord.
 
 ## Driving an open panel
 
@@ -85,9 +117,11 @@ Plugin panels have no fixed set of sections to cycle, so hardware navigation ins
 
 ## What always reaches the app
 
-WM Keyboard deliberately does not reimplement editing shortcuts on a physical keyboard. Any <KeyCap>Ctrl</KeyCap> or <KeyCap>Meta</KeyCap> combination (copy, paste, undo, save, whatever the app binds it to) is passed straight through, whether or not **Process hardware keys** is on. <KeyCap>AltGr</KeyCap> is the one combination that looks like a shortcut but isn't: it arrives as Ctrl+Alt held together, so it falls through to the normal character path instead (a German keyboard's AltGr+Q still types "@").
+WM Keyboard doesn't reimplement the app's editing shortcuts. Any <KeyCap>Ctrl</KeyCap> or <KeyCap>Meta</KeyCap> combination (copy, paste, undo, save, whatever the app binds it to) is passed straight through, whether or not **Process hardware keys** is on. <KeyCap>AltGr</KeyCap> is the one combination that looks like a shortcut but isn't: it arrives as Ctrl+Alt held together, so it falls through to the normal character path instead (a German keyboard's AltGr+Q still types "@").
 
-The only physical-key behavior WM Keyboard adds on top of that is on this page: the leader and its picker, <KeyCap>Esc</KeyCap> closing an open panel, the focus ring, and the suggestion hotkeys. All four work regardless of the **Process hardware keys** toggle, since none of them touch typed text; that toggle only governs typing itself. See [Hardware keyboards](/typing/hardware-keyboard/#typing-on-a-physical-keyboard) for what typing on a physical keyboard does and doesn't intercept.
+Two opt-in settings are the exceptions, and both say so on their own row: **Ctrl + number opens a toolbar tool** claims <KeyCap>Ctrl</KeyCap>+<KeyCap>1</KeyCap> through <KeyCap>Ctrl</KeyCap>+<KeyCap>0</KeyCap> (on by default), and **macOS shortcuts** claims the Command and Option chords in the table above (off by default). Nothing else is intercepted.
+
+The physical-key behavior WM Keyboard adds on top is all on this page: the leader and its picker, <KeyCap>Esc</KeyCap> closing an open panel, the focus ring, and the suggestion hotkeys. They work regardless of the **Process hardware keys** toggle, since none of them touch typed text; that toggle only governs typing itself. See [Hardware keyboards](/typing/hardware-keyboard/#typing-on-a-physical-keyboard) for what typing on a physical keyboard does and doesn't intercept.
 
 ## Options
 
@@ -98,9 +132,12 @@ The only physical-key behavior WM Keyboard adds on top of that is on this page: 
 | Process hardware keys | On |
 | Tool shortcuts | On |
 | Shortcut key | Double-tap Ctrl |
+| Ctrl + number opens a toolbar tool | On |
 | Arrow keys move a highlight | On |
 | Esc closes the tool | On |
-| Number keys pick suggestions | After the shortcut key |
+| Number keys pick suggestions | Alt + number |
+| Show the suggestion numbers | On |
+| macOS shortcuts | Off |
 | Show the keyboard for shortcuts | On |
 
 A related pair of settings lives in the same **Typing** screen's <SettingsPath path="Typing / Volume keys" /> group rather than here, since they're volume-key shortcuts and not part of the leader/picker mechanism:

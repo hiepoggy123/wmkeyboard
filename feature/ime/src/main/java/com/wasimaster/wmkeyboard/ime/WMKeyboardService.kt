@@ -182,13 +182,23 @@ import com.wasimaster.wmkeyboard.core.tools.BraveSearchClient
 import com.wasimaster.wmkeyboard.core.tools.CheatSheetLetter
 import com.wasimaster.wmkeyboard.core.tools.DefaultLeader
 import com.wasimaster.wmkeyboard.core.tools.DoubleTapDetector
+import com.wasimaster.wmkeyboard.core.tools.HintAction
 import com.wasimaster.wmkeyboard.core.tools.LeaderTrigger
+import com.wasimaster.wmkeyboard.core.tools.MacAction
+import com.wasimaster.wmkeyboard.core.tools.MacBinding
+import com.wasimaster.wmkeyboard.core.tools.ToolbarHintDigits
 import com.wasimaster.wmkeyboard.core.tools.ToolboxLetter
+import com.wasimaster.wmkeyboard.core.tools.macBindingFor
 import com.wasimaster.wmkeyboard.core.tools.matches
 import com.wasimaster.wmkeyboard.core.tools.parseLeader
 import com.wasimaster.wmkeyboard.core.tools.pickerLetter
-import com.wasimaster.wmkeyboard.core.tools.resolvedToolLetters
+import com.wasimaster.wmkeyboard.core.tools.toolbarHintButtons
+import com.wasimaster.wmkeyboard.ime.ui.activeSymbolSet
+import com.wasimaster.wmkeyboard.ime.ui.keyboardHintPlan
+import com.wasimaster.wmkeyboard.ime.ui.visibleEmojiBarItems
+import com.wasimaster.wmkeyboard.ime.ui.visibleToolbarTools
 import com.wasimaster.wmkeyboard.core.tools.step
+import com.wasimaster.wmkeyboard.core.util.PlayServices
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.ui.PanelFocusController
 import com.wasimaster.wmkeyboard.core.tools.DictionaryClient
@@ -11417,8 +11427,13 @@ open class WMKeyboardService : InputMethodService() {
      * selected they select all first, so a bare long press copies or cuts the
      * whole field. Undo/redo delegate to [onUndoRedo], the same path the
      * toolbar's Undo/Redo tools use.
+     *
+     * [selectAllIfEmpty] is what makes that select-all convenience opt-out. It
+     * suits a long press, which is a deliberate one-off gesture, and not a Mac
+     * user's `Cmd+C`, where it would silently copy the whole message instead of
+     * doing nothing the way every other keyboard on that machine does.
      */
-    fun onClipboardKey(action: ClipboardKeyAction) {
+    fun onClipboardKey(action: ClipboardKeyAction, selectAllIfEmpty: Boolean = true) {
         if (action == ClipboardKeyAction.UNDO || action == ClipboardKeyAction.REDO) {
             onUndoRedo(redo = action == ClipboardKeyAction.REDO)
             return
@@ -11433,13 +11448,13 @@ open class WMKeyboardService : InputMethodService() {
                 _uiState.update { it.copy(textEditSelecting = true) }
             }
             ClipboardKeyAction.COPY -> {
-                if (!hasSelection) ic.performContextMenuAction(android.R.id.selectAll)
+                if (!hasSelection && selectAllIfEmpty) ic.performContextMenuAction(android.R.id.selectAll)
                 ic.performContextMenuAction(android.R.id.copy)
                 maybeToastCopied()
                 _uiState.update { it.copy(textEditSelecting = false) }
             }
             ClipboardKeyAction.CUT -> {
-                if (!hasSelection) ic.performContextMenuAction(android.R.id.selectAll)
+                if (!hasSelection && selectAllIfEmpty) ic.performContextMenuAction(android.R.id.selectAll)
                 ic.performContextMenuAction(android.R.id.cut)
                 _uiState.update { it.copy(textEditSelecting = false) }
             }
@@ -12800,6 +12815,33 @@ open class WMKeyboardService : InputMethodService() {
             return if (dismissTopLayer()) consumeHardwareKey(keyCode) else false
         }
 
+        // Ctrl+1 … Ctrl+9 open the toolbar buttons with no leader first. Exact
+        // modifiers: Ctrl+Alt is AltGr and produces characters, and Ctrl+Shift+1
+        // belongs to whatever the app does with it.
+        if (config.shortcutsEnabled && config.toolbarDigitChord &&
+            event.metaState and KeyEvent.META_CTRL_ON != 0 &&
+            event.metaState and
+            (KeyEvent.META_ALT_ON or KeyEvent.META_META_ON or KeyEvent.META_SHIFT_ON) == 0
+        ) {
+            // Resolved off the bar rather than out of the plan's strokes: in the
+            // leader-digit suggestion mode the bare digits belong to the strip,
+            // and the chord still has to open the tool it is drawn under.
+            // Zero is the tenth button, not the noughth, so the slot comes from
+            // the digit's place in the sequence rather than from keycode maths.
+            val slot = if (keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) {
+                ToolbarHintDigits.indexOf('0' + (keyCode - KeyEvent.KEYCODE_0))
+            } else {
+                -1
+            }
+            val action = toolbarHintButtons(visibleToolbarTools(_uiState.value)).getOrNull(slot)
+            if (action != null && runHintAction(action)) return consumeHardwareKey(keyCode)
+        }
+
+        if (config.macShortcuts) {
+            val binding = macBindingFor(keyCode, event.metaState)
+            if (binding != null && runMacBinding(binding)) return consumeHardwareKey(keyCode)
+        }
+
         if (config.suggestionHotkeys == SuggestionHotkeyMode.ALT_DIGIT &&
             event.metaState and KeyEvent.META_ALT_ON != 0 &&
             event.metaState and (KeyEvent.META_CTRL_ON or KeyEvent.META_META_ON) == 0
@@ -12848,7 +12890,6 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun handleArmedKey(event: KeyEvent): Boolean {
         val keyCode = event.keyCode
-        val config = hardwareShortcutSettings()
         when (keyCode) {
             KeyEvent.KEYCODE_ESCAPE -> {
                 disarmToolPicker()
@@ -12873,6 +12914,12 @@ open class WMKeyboardService : InputMethodService() {
             disarmToolPicker()
             return false
         }
+        // Shift is a tier of its own here, and it has to be read off the event:
+        // [pickerLetter] decodes with no meta state on purpose, so that a binding
+        // can never depend on which shift level a layout puts a character on.
+        val shift = event.metaState and KeyEvent.META_SHIFT_ON != 0
+        // The two reserved keys come first, ahead of the plan: '?' is Shift+/ on
+        // most layouts, so a shift-tier lookup would swallow the request for help.
         when {
             letter == CheatSheetLetter -> {
                 // Stays armed: the legend is there to be read and then acted on.
@@ -12880,21 +12927,108 @@ open class WMKeyboardService : InputMethodService() {
                 vibrate()
                 return consumeHardwareKey(keyCode)
             }
-            letter == ToolboxLetter -> {
+            letter == ToolboxLetter && !shift -> {
                 disarmToolPicker()
                 openToolPanelByKey(PanelMode.TOOLBOX)
                 return consumeHardwareKey(keyCode)
             }
-            letter in '1'..'9' && config.suggestionHotkeys != SuggestionHotkeyMode.OFF -> {
-                disarmToolPicker()
-                pickSuggestion(letter - '1')
-                return consumeHardwareKey(keyCode)
-            }
         }
-        val tool = resolvedToolLetters(config.toolByLetter, _uiState.value.settings.enabledTools)[letter]
+        val action = keyboardHintPlan(_uiState.value).action(letter, shift)
         disarmToolPicker()
-        if (tool != null) openToolByKey(tool) else vibrate()
+        if (action == null || !runHintAction(action)) vibrate()
         return consumeHardwareKey(keyCode)
+    }
+
+    /**
+     * Fires one resolved hint, whichever route found it — the leader's letter,
+     * the `Ctrl`+digit chord, or a second-tier `Shift` key. False when there was
+     * nothing to act on, so the caller can buzz instead of pretending.
+     */
+    private fun runHintAction(action: HintAction): Boolean = when (action) {
+        is HintAction.OpenToolbox -> {
+            openToolPanelByKey(PanelMode.TOOLBOX)
+            true
+        }
+        is HintAction.OpenTool -> {
+            openToolByKey(action.tool)
+            true
+        }
+        is HintAction.PickSuggestion -> pickSuggestion(action.index)
+        // The same handlers the tapped cells are wired to, so a key and a tap
+        // cannot drift apart (see the row wiring in [KeyboardBody]).
+        is HintAction.InsertSymbol -> {
+            val symbol = activeSymbolSet(_uiState.value).chars.getOrNull(action.index)
+            if (symbol != null) onToolTextInsert(symbol)
+            symbol != null
+        }
+        is HintAction.InsertEmoji -> {
+            val emoji = visibleEmojiBarItems(_uiState.value).getOrNull(action.index)
+            if (emoji != null) onEmojiTapped(emoji)
+            emoji != null
+        }
+    }
+
+    /**
+     * Runs a Mac chord through the handlers the soft keyboard already uses, so
+     * `Cmd+C` and a long-pressed C do exactly the same thing.
+     *
+     * Copy and cut deliberately do *not* select the whole field first the way
+     * the long-press path does: on a Mac, Cmd+C with nothing selected is a no-op,
+     * and quietly copying the entire message the user was writing is the kind of
+     * surprise that costs a clipboard entry.
+     */
+    private fun runMacBinding(binding: MacBinding): Boolean {
+        if (currentInputConnection == null) return false
+        val selecting = binding.selecting
+        when (binding.action) {
+            MacAction.COPY -> onClipboardKey(ClipboardKeyAction.COPY, selectAllIfEmpty = false)
+            MacAction.CUT -> onClipboardKey(ClipboardKeyAction.CUT, selectAllIfEmpty = false)
+            MacAction.PASTE -> onClipboardKey(ClipboardKeyAction.PASTE)
+            MacAction.SELECT_ALL -> onClipboardKey(ClipboardKeyAction.SELECT_ALL)
+            MacAction.UNDO -> onUndoRedo(redo = false)
+            MacAction.REDO -> onUndoRedo(redo = true)
+            MacAction.LINE_START -> macEditorKey(KeyEvent.KEYCODE_MOVE_HOME, selecting)
+            MacAction.LINE_END -> macEditorKey(KeyEvent.KEYCODE_MOVE_END, selecting)
+            // Ctrl+Home and Ctrl+End are the editor's document ends, which is
+            // what Cmd+Up and Cmd+Down mean on a Mac.
+            MacAction.DOC_START -> macEditorKey(KeyEvent.KEYCODE_MOVE_HOME, selecting, ctrl = true)
+            MacAction.DOC_END -> macEditorKey(KeyEvent.KEYCODE_MOVE_END, selecting, ctrl = true)
+            MacAction.WORD_LEFT -> macEditorKey(KeyEvent.KEYCODE_DPAD_LEFT, selecting, ctrl = true)
+            MacAction.WORD_RIGHT -> macEditorKey(KeyEvent.KEYCODE_DPAD_RIGHT, selecting, ctrl = true)
+            MacAction.DELETE_WORD -> macDelete(KeyEvent.KEYCODE_DPAD_LEFT, ctrl = true)
+            MacAction.DELETE_TO_LINE_START -> macDelete(KeyEvent.KEYCODE_MOVE_HOME, ctrl = false)
+        }
+        return true
+    }
+
+    /**
+     * A cursor move on the Mac path. Commits the composing buffer first, exactly
+     * as [onTextEdit] does — a caret jump with a live buffer strands it.
+     */
+    private fun macEditorKey(keyCode: Int, selecting: Boolean, ctrl: Boolean = false) {
+        val ic = currentInputConnection ?: return
+        commitComposing(ic, autocorrect = false)
+        lastGestureWord = null
+        sendEditorKey(keyCode, selecting, ctrl = ctrl)
+    }
+
+    /**
+     * Select-then-delete, which is how the framework's own editors implement
+     * delete-by-word: extend the selection with the same shifted move the caret
+     * would have made, then send one backspace over it. Deleting a counted span
+     * from `getTextBeforeCursor` was the alternative and gets grapheme clusters,
+     * a live selection and an out-of-date cursor cache all subtly wrong.
+     */
+    private fun macDelete(keyCode: Int, ctrl: Boolean) {
+        val ic = currentInputConnection ?: return
+        commitComposing(ic, autocorrect = false)
+        lastGestureWord = null
+        // Nothing to extend over: an existing selection is what backspace should
+        // eat, so leave it alone and let the plain delete run.
+        if (ic.getSelectedText(0).isNullOrEmpty()) {
+            sendEditorKey(keyCode, shift = true, ctrl = ctrl)
+        }
+        sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
     }
 
     private fun armToolPicker() {

@@ -298,7 +298,19 @@
 
     <string name="typing_hw_shortcuts_title">Tool shortcuts</string>
     <string name="typing_hw_shortcuts_subtitle">Open tools from a physical keyboard without touching the screen</string>
-    <string name="typing_hw_shortcuts_info">Press the shortcut key, then a letter. The letter opens that tool. T opens the full toolbox, and ? shows the list of letters.\n\nThe shortcut key is two presses of Ctrl by default. No app uses this, because a Ctrl alone makes no character, and the keyboard still passes it through. You can change the shortcut key and every letter below.</string>
+    <string name="typing_hw_shortcuts_info">Press the shortcut key. Each button on the keyboard then shows the key that operates it: a number under each toolbar icon, a letter under each tool in the toolbox, and Shift with a key for the symbol and emoji rows.\n\nT opens the full toolbox, and ? shows the list of every key, including the tools that are not on the screen.\n\nThe shortcut key is two presses of Ctrl by default. No app uses this, because a Ctrl alone makes no character, and the keyboard still passes it through. You can change the shortcut key and every letter below.</string>
+
+    <string name="typing_hw_digit_chord_title">Ctrl + number opens a toolbar tool</string>
+    <string name="typing_hw_digit_chord_subtitle">Ctrl+1 opens the toolbox, Ctrl+2 the first tool, and so on</string>
+    <string name="typing_hw_digit_chord_info">The numbers count the buttons on the toolbar from the start. Ctrl+1 is the toolbox button, Ctrl+2 is the first tool after it. Ctrl+0 is the tenth button.\n\nThis needs no shortcut key first. Turn it off if you use Ctrl with a number in your apps: browsers and editors change tab with it, and the keyboard takes the key first while you write in a text field.\n\nThe same numbers also work after the shortcut key, at any setting.</string>
+
+    <string name="typing_hw_suggestion_hints_title">Show the suggestion numbers</string>
+    <string name="typing_hw_suggestion_hints_subtitle">Put the key under each suggestion while a physical keyboard is connected</string>
+    <string name="typing_hw_suggestion_hints_info">Each suggestion shows the key that selects it, for as long as a physical keyboard is connected.\n\nThis applies only to \"Alt + number\", which needs no shortcut key first. With \"After the shortcut key\", the numbers show after you press the shortcut key, because that is when they operate.</string>
+
+    <string name="typing_hw_mac_title">macOS shortcuts</string>
+    <string name="typing_hw_mac_subtitle">Command and Option behave as they do on a Mac</string>
+    <string name="typing_hw_mac_info">For a keyboard made for a Mac. Command is the key next to the space bar.\n\nCommand+C, Command+V, Command+X and Command+A copy, paste, cut and select all. Command+Z is undo and Command+Shift+Z is redo. Command+Left and Command+Right go to the start and the end of the line. Option+Left and Option+Right move one word. Option+Backspace deletes one word, and Command+Backspace deletes to the start of the line. Hold Shift with a move to select.\n\nCtrl keeps its usual behaviour, and every other Command shortcut goes to the app. Some devices keep a small number of Command shortcuts for the system, and those do not reach the keyboard.</string>
 
     <string name="typing_hw_shortcuts_list_title">Tool shortcuts list</string>
     <string name="typing_hw_shortcuts_list_subtitle">Which letter opens which tool</string>

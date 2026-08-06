@@ -294,6 +294,7 @@ import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
+import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.ToolboxLayout
 import com.wasimaster.wmkeyboard.core.settings.ToolboxPageSizeRange
@@ -304,8 +305,12 @@ import com.wasimaster.wmkeyboard.core.settings.toolboxPage
 import com.wasimaster.wmkeyboard.core.settings.toolboxPageCount
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
+import com.wasimaster.wmkeyboard.core.tools.HintPlan
+import com.wasimaster.wmkeyboard.core.tools.HintSurface
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
+import com.wasimaster.wmkeyboard.core.tools.buildHintPlan
 import com.wasimaster.wmkeyboard.core.tools.resolveSymbolSets
+import com.wasimaster.wmkeyboard.core.tools.resolvedToolLetters
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.symbolChipLabel
@@ -346,6 +351,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
+import com.wasimaster.wmkeyboard.core.layout.fallbackLabel
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
 import com.wasimaster.wmkeyboard.core.layout.sidePadFor
 import com.wasimaster.wmkeyboard.core.layout.Layouts
@@ -2236,6 +2242,7 @@ private fun TopBar(
                     candidates = shownSuggestions,
                     enabled = suggestionsShowing,
                     alpha = stripContentFade,
+                    hints = if (suggestionsShowing) suggestionHintPlan(state) else null,
                     onCandidate = onCandidate,
                     onExpand = onCandidatesExpand,
                 )
@@ -2278,6 +2285,10 @@ private fun TopBar(
                     alpha = stripContentFade,
                     centerPrimaryEnabled = state.settings.suggestionStrip.suggestionPrimaryCenter,
                     shiftState = state.shiftState,
+                    // Only while the live candidates are the ones on screen: the
+                    // strip holds the last set behind alpha 0, and a key promised
+                    // against a faded word would commit something else.
+                    hints = if (suggestionsShowing) suggestionHintPlan(state) else null,
                     onSuggestion = onSuggestion,
                 )
             }
@@ -2444,6 +2455,8 @@ private fun RowScope.LatinSuggestionChips(
     alpha: () -> Float,
     centerPrimaryEnabled: Boolean,
     shiftState: ShiftState,
+    /** The hotkey badges, or null when no physical keyboard is asking for them. */
+    hints: HintPlan? = null,
     onSuggestion: (String) -> Unit,
 ) {
     // BoxWithConstraints, not a bare Row, because the chips shrink long words to
@@ -2498,6 +2511,14 @@ private fun RowScope.LatinSuggestionChips(
                         .clickable(enabled = enabled) { onSuggestion(suggestion) },
                     contentAlignment = Alignment.Center,
                 ) {
+                    // The hotkey commits by engine rank, and the centre-primary
+                    // display swaps the first two chips — so the badge follows
+                    // the word to wherever it was drawn, not the slot it sits in.
+                    val rank = if (centerPrimary && index < 2) 1 - index else index
+                    val hint = hints?.label(HintSurface.SUGGESTION, rank)
+                    if (hint != null) {
+                        HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
+                    }
                     // A chip is sometimes an emoji rather than a word — a learned
                     // bigram can predict one ("you" → ❤️). Those have to be drawn
                     // in the chosen emoji font, and in the spelling that font
@@ -2642,6 +2663,8 @@ private fun RowScope.CandidateStrip(
     candidates: List<String>,
     enabled: Boolean,
     alpha: () -> Float,
+    /** The hotkey badges, or null when no physical keyboard is asking for them. */
+    hints: HintPlan? = null,
     onCandidate: (String, Int) -> Unit,
     onExpand: () -> Unit,
 ) {
@@ -2679,6 +2702,10 @@ private fun RowScope.CandidateStrip(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                val hint = hints?.label(HintSurface.SUGGESTION, index)
+                if (hint != null) {
+                    HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
+                }
             }
         }
     }
@@ -3107,11 +3134,7 @@ private fun EmojiBarStrip(
     // them), so each content mode is a straight pick. History entries are
     // exact sequences already; only the starter set is written as neutral
     // bases, so it is the one that needs the skin tone applied.
-    val emojis = when (state.settings.emojiBarContent) {
-        EmojiBarContent.MOST_USED -> state.emojiFrequents
-        EmojiBarContent.RECENTS -> state.emojiRecents
-        EmojiBarContent.FAVOURITES -> state.emojiFavourites
-    }.ifEmpty { DEFAULT_BAR_EMOJIS.map { emojiDisplay(state, it) } }
+    val emojis = visibleEmojiBarItems(state)
     val scrollable = state.settings.emoji.barScrollable
     val count = state.settings.emoji.barCount.coerceIn(EmojiBarCountRange)
     Row(
@@ -3141,14 +3164,18 @@ private fun EmojiBarStrip(
             // (slot-relative) and converted back, so a large system font scale
             // can't push emoji wider than their slot.
             val fontSize = minOf(24f, slot.value * 0.74f / fontScale).sp
+            val hints = armedHintPlan(state)
             if (scrollable) {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    lazyRowItems(emojis) { emoji ->
-                        EmojiBarCell(emoji, slot, fontSize, onEmoji)
+                    itemsIndexed(emojis) { index, emoji ->
+                        EmojiBarCell(
+                            emoji, slot, fontSize, onEmoji,
+                            hint = hints?.label(HintSurface.EMOJI_ROW, index),
+                        )
                     }
                 }
             } else {
@@ -3159,8 +3186,11 @@ private fun EmojiBarStrip(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    emojis.take(count).forEach { emoji ->
-                        EmojiBarCell(emoji, slot, fontSize, onEmoji)
+                    emojis.take(count).forEachIndexed { index, emoji ->
+                        EmojiBarCell(
+                            emoji, slot, fontSize, onEmoji,
+                            hint = hints?.label(HintSurface.EMOJI_ROW, index),
+                        )
                     }
                 }
             }
@@ -3175,19 +3205,25 @@ private fun EmojiBarCell(
     width: Dp,
     fontSize: TextUnit,
     onEmoji: (String) -> Unit,
+    hint: String? = null,
 ) {
-    Text(
-        // Drawn as this font spells it; onEmoji still commits the standard form.
-        text = LocalEmojiShaper.current.shape(emoji),
-        modifier = Modifier
-            .width(width)
-            .clickable { onEmoji(emoji) }
-            .padding(vertical = 6.dp),
-        fontSize = fontSize,
-        fontFamily = emojiFamilyFor(emoji),
-        textAlign = TextAlign.Center,
-        maxLines = 1,
-    )
+    Box(contentAlignment = Alignment.Center) {
+        Text(
+            // Drawn as this font spells it; onEmoji still commits the standard form.
+            text = LocalEmojiShaper.current.shape(emoji),
+            modifier = Modifier
+                .width(width)
+                .clickable { onEmoji(emoji) }
+                .padding(vertical = 6.dp),
+            fontSize = fontSize,
+            fontFamily = emojiFamilyFor(emoji),
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+        )
+        if (hint != null) {
+            HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
+        }
+    }
 }
 
 /** Height of the dedicated symbol row (chips are text, not emoji). */
@@ -3221,8 +3257,7 @@ private fun SymbolRowStrip(
     val enabledSets = settings.symbolRowSetIds
         .mapNotNull { id -> allSets.firstOrNull { it.id == id } }
         .ifEmpty { BuiltInSymbolSets.sets }
-    val activeId = state.activeSymbolSetId ?: settings.symbolRowActiveSetId
-    val active = enabledSets.firstOrNull { it.id == activeId } ?: enabledSets.first()
+    val active = activeSymbolSet(state)
     var pickerOpen by remember { mutableStateOf(false) }
     val feedback = LocalKeyPressFeedback.current
     Row(
@@ -3281,22 +3316,29 @@ private fun SymbolRowStrip(
                 }
             }
         }
+        val hints = armedHintPlan(state)
         LazyRow(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            lazyRowItems(active.chars) { symbol ->
-                Text(
-                    text = symbolChipLabel(symbol),
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { onInsert(symbol) }
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                )
+            itemsIndexed(active.chars) { index, symbol ->
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = symbolChipLabel(symbol),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onInsert(symbol) }
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                    )
+                    val hint = hints?.label(HintSurface.SYMBOL_ROW, index)
+                    if (hint != null) {
+                        HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
+                    }
+                }
             }
         }
     }
@@ -4496,6 +4538,11 @@ private fun ToolCircle(
                     tint = iconTint,
                     brush = iconBrush,
                 )
+                // Over the icon rather than over the name below it: the name is
+                // the thing the labels setting was turned on for.
+                if (hint != null) {
+                    HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
+                }
             }
             Text(
                 label,
@@ -4525,6 +4572,9 @@ private fun ToolCircle(
             tint = iconTint,
             brush = iconBrush,
         )
+        if (hint != null) {
+            HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
+        }
         if (showLabel && longPressLabel != null) {
             LaunchedEffect(Unit) {
                 delay(1200)
@@ -4615,9 +4665,7 @@ private fun RowScope.ToolbarRow(
     // RTL scripts read the bar right-to-left, so the pinned tools mirror. The
     // drag controller mirrors its copy in lockstep (see KeyboardBody), so slot
     // hit-testing stays aligned with what's drawn.
-    val tools = state.settings.toolbarTools
-        .filter { it in state.settings.enabledTools && isSupportedTool(it) }
-        .let { if (toolbarReadsRtl(state)) it.reversed() else it }
+    val tools = visibleToolbarTools(state)
     drag.visibleTools = tools
     // While a drag is live the bar previews the drop by MOVING the dragged
     // tool's own cell to the slot under the finger and drawing it as a ghost
@@ -4641,6 +4689,11 @@ private fun RowScope.ToolbarRow(
     } else {
         tools
     }
+    // Slot 0 is the toolbox launcher, so a tool's badge is its place in `tools`
+    // plus one. Dropped entirely during a drag: the dragged cell may have come
+    // from the toolbox and not be in `tools` at all, and a badge indexed off the
+    // preview order would label cells with their neighbours' keys.
+    val hints = if (dragTool == null) armedHintPlan(state) else null
     val panelOpen = state.panel != PanelMode.NONE
 
     // In greedy mode every button — chevron, toolbox and tools alike — is an
@@ -4713,6 +4766,7 @@ private fun RowScope.ToolbarRow(
                     .graphicsLayer { alpha = contentAlpha() },
                 longPressLabel = stringResource(R.string.ime_toolbox_desc),
                 wide = true,
+                hint = hints?.label(HintSurface.TOOLBAR, 0),
             ) { onPanelChange(PanelMode.TOOLBOX) }
         }
     }
@@ -4765,6 +4819,7 @@ private fun RowScope.ToolbarRow(
                             // the finger.
                             ghost = tool == dragTool,
                             wide = true,
+                            hint = hints?.label(HintSurface.TOOLBAR, tools.indexOf(tool) + 1),
                             // The icon itself animates, anchored at the
                             // keyboard body: cells are weighted so their
                             // widths snap, and only body-relative tracking
@@ -4950,9 +5005,7 @@ private fun ToolboxPanel(
         }
         // Toolbox order is a complete ranking over every tool; the grid
         // shows the available subset in that order.
-        val available = state.settings.toolboxOrder.filter {
-            it !in state.settings.toolbarTools && it in state.settings.enabledTools && isSupportedTool(it)
-        }
+        val available = visibleToolboxTools(state)
         val toolbox = state.settings.toolbox
         val pills = toolbox.layout == ToolboxLayout.PILLS
         // The two layouts count their columns separately: a pill needs room for
@@ -5113,6 +5166,12 @@ private fun ToolboxGrid(
     var gridCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var gridOrigin by remember { mutableStateOf(Offset.Zero) }
     val feedback = LocalKeyPressFeedback.current
+    // Once for the grid, not once per cell: this walks the tool lists and
+    // builds two maps, and a forty-cell toolbox would have done it forty times
+    // for one answer. Null with no picker armed, and during a drag — a drag
+    // inserts a ghost into `display`, and every slot past it would then be
+    // labelled with its neighbour's key.
+    val hints = if (dragTool == null) armedHintPlan(state) else null
     val scope = rememberCoroutineScope()
     val tapTool by rememberUpdatedState(onToolTap)
     // Read through holders, and key the handler on nothing. `display` is a
@@ -5249,6 +5308,7 @@ private fun ToolboxGrid(
                     // for the whole of a drag, and only a drag inserts a ghost.
                     val focused = focusedSlot == pageStart + slot
                     val paint = toolAccentPaint(shown, state.settings)
+                    val hint = hints?.label(HintSurface.TOOLBOX, pageStart + slot)
                     // Anchored at the scrolling content (see gridCoords), NOT
                     // the keyboard body: body-relative, every scroll frame
                     // moved every icon and restarted its spring — a per-frame
@@ -5263,6 +5323,7 @@ private fun ToolboxGrid(
                             paint = paint,
                             filled = state.settings.toolbox.pillFilled,
                             ghost = ghost,
+                            hint = hint,
                             modifier = placement
                                 .padding(horizontal = 3.dp, vertical = 3.dp)
                                 .focusRing(focused, RoundedCornerShape(pillRadius())),
@@ -5285,6 +5346,7 @@ private fun ToolboxGrid(
                                 interactive = false,
                                 tint = paint?.color,
                                 tintBrush = paint?.brush,
+                                hint = hint,
                             ) {}
                         }
                         Text(
@@ -5347,6 +5409,8 @@ private fun ToolPill(
     filled: Boolean,
     ghost: Boolean,
     modifier: Modifier = Modifier,
+    /** The physical key that opens this tool; see [ToolCircle]'s own `hint`. */
+    hint: String? = null,
 ) {
     val kb = LocalKbTheme.current
     val shape = RoundedCornerShape(pillRadius())
@@ -5411,6 +5475,9 @@ private fun ToolPill(
                 .weight(1f)
                 .padding(start = 8.dp),
         )
+        // A pill is a row, so its badge sits at the end beside the chevron
+        // rather than under an icon. Same footprint either way.
+        if (hint != null) HintBadge(hint, modifier = Modifier.padding(end = 4.dp))
         if (toolOpensScreen(tool)) {
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardArrowRight,
@@ -5763,24 +5830,21 @@ private fun KeyboardBody(
             // the whole top strip (suggestions + toolbar, so the clipboard tool
             // and paste chip go with it) and block the clipboard panel, keeping
             // copied text and pinned tools off a screen anyone can wake.
-            val lockHidden = state.deviceLocked && state.settings.toolbarBehavior.hideWhenLocked
+            val lockHidden = barLockHidden(state)
             // Same deal for the clipboard panel's search bar: the panel shrinks
             // to its search field plus a couple of result rows and the keys come
             // back underneath, so the query is actually typeable. Not while the
             // lock screen has blocked the panel — the keys are already up in its
             // place there, and a second set would double them.
-            val clipboardSearching = state.panel == PanelMode.CLIPBOARD &&
-                state.clipboardSearchActive && !lockHidden
+            val clipboardSearching = barClipboardSearching(state)
             // The searching clipboard panel steps out of full-bleed: search
             // already owns the toolbar row's height, and the keys below need
             // their usual rows around them.
-            val fullBleed = isFullBleedPanel(state.panel, state.settings) && !clipboardSearching
-            val emojiRowVisible = !fullBleed &&
-                state.settings.emojiBarMode == EmojiBarMode.ALWAYS && state.panel != PanelMode.EMOJI
+            val fullBleed = barFullBleed(state)
             // The symbols panel already is special characters — the row
             // would be redundant there, so it yields like the emoji row.
-            val symbolRowVisible = !fullBleed &&
-                state.settings.symbolRowEnabled && state.panel != PanelMode.SYMBOLS
+            val showEmojiRow = emojiRowVisible(state)
+            val showSymbolRow = symbolRowVisible(state)
             // The rows stack in the user's chosen order (Rows settings).
             // While an emoji search is typing, the toolbar is dead weight —
             // hide it and let the panel spend the height on result rows.
@@ -5823,14 +5887,14 @@ private fun KeyboardBody(
                             onSwipeDownHide = onHideKeyboard,
                         )
                     }
-                    BarRow.EMOJI -> if (emojiRowVisible) {
+                    BarRow.EMOJI -> if (showEmojiRow) {
                         EmojiBarStrip(
                             state = state,
                             onEmoji = onEmoji,
                             onOpenPanel = { onPanelChange(PanelMode.EMOJI) },
                         )
                     }
-                    BarRow.SYMBOL -> if (symbolRowVisible) {
+                    BarRow.SYMBOL -> if (showSymbolRow) {
                         SymbolRowStrip(
                             state = state,
                             onInsert = onToolInsert,
@@ -6487,9 +6551,12 @@ private fun KeyboardBody(
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
-        // Last in the Box, so the armed picker's hint floats over the top strip
+        // Last in the Box, so the legend and its pill float over the top strip
         // instead of pushing the keys down — arming must not resize the keyboard.
         ToolPickerOverlay(state, modifier = Modifier.align(Alignment.TopCenter))
+        // Out at the end of the strip, clear of the badges the arming just put
+        // under the icons.
+        PickerHelpPill(state, modifier = Modifier.align(Alignment.TopEnd))
     }
 }
 
@@ -8596,6 +8663,129 @@ internal fun numberRowShown(state: KeyboardUiState): Boolean =
         (state.settings.layoutBehavior.numberRowInSymbols ||
             (state.layoutMode != LayoutMode.SYMBOLS &&
                 state.layoutMode != LayoutMode.SYMBOLS_SHIFTED))
+
+// ---- what is on screen: one answer, read by the renderer and the service ----
+//
+// The physical keyboard's hint badges pair a key with the button under it, and
+// the service dispatches the same key against the same list. Both sides derive
+// their list here rather than each working it out, because a disagreement is
+// silent and vicious: the badge says one thing and another cell opens.
+
+/**
+ * Lock-screen privacy has dropped the whole top strip, taking the clipboard
+ * tool and paste chip with it.
+ */
+internal fun barLockHidden(state: KeyboardUiState): Boolean =
+    state.deviceLocked && state.settings.toolbarBehavior.hideWhenLocked
+
+/** The clipboard panel has traded its full-bleed height for a search field. */
+internal fun barClipboardSearching(state: KeyboardUiState): Boolean =
+    state.panel == PanelMode.CLIPBOARD && state.clipboardSearchActive && !barLockHidden(state)
+
+/** A panel is claiming the strip's height, so the rows above the keys are gone. */
+internal fun barFullBleed(state: KeyboardUiState): Boolean =
+    isFullBleedPanel(state.panel, state.settings) && !barClipboardSearching(state)
+
+internal fun emojiRowVisible(state: KeyboardUiState): Boolean =
+    !barFullBleed(state) &&
+        state.settings.emojiBarMode == EmojiBarMode.ALWAYS &&
+        state.panel != PanelMode.EMOJI
+
+internal fun symbolRowVisible(state: KeyboardUiState): Boolean =
+    !barFullBleed(state) &&
+        state.settings.symbolRowEnabled &&
+        state.panel != PanelMode.SYMBOLS
+
+/**
+ * The pinned tools in the order the bar draws them, RTL flip included, so a
+ * digit badge counts the same way the eye does.
+ */
+internal fun visibleToolbarTools(state: KeyboardUiState): List<ToolbarTool> =
+    state.settings.toolbarTools
+        .filter { it in state.settings.enabledTools && isSupportedTool(it) }
+        .let { if (toolbarReadsRtl(state)) it.reversed() else it }
+
+/** What the toolbox has to show: everything enabled that is not already pinned. */
+internal fun visibleToolboxTools(state: KeyboardUiState): List<ToolbarTool> =
+    state.settings.toolboxOrder.filter {
+        it !in state.settings.toolbarTools && it in state.settings.enabledTools && isSupportedTool(it)
+    }
+
+/** The symbol set the row is showing, resolved the way the row itself resolves it. */
+internal fun activeSymbolSet(state: KeyboardUiState): SymbolSet {
+    val all = resolveSymbolSets(state.settings.customSymbolSets)
+    val enabled = state.settings.symbolRowSetIds
+        .mapNotNull { id -> all.firstOrNull { it.id == id } }
+        .ifEmpty { BuiltInSymbolSets.sets }
+    val activeId = state.activeSymbolSetId ?: state.settings.symbolRowActiveSetId
+    return enabled.firstOrNull { it.id == activeId } ?: enabled.first()
+}
+
+/** The emoji the bar is showing, already toned, in the order the cells draw them. */
+internal fun visibleEmojiBarItems(state: KeyboardUiState): List<String> =
+    when (state.settings.emojiBarContent) {
+        EmojiBarContent.MOST_USED -> state.emojiFrequents
+        EmojiBarContent.RECENTS -> state.emojiRecents
+        EmojiBarContent.FAVOURITES -> state.emojiFavourites
+    }.ifEmpty { DEFAULT_BAR_EMOJIS.map { emojiDisplay(state, it) } }
+
+/**
+ * Every hotkey the keyboard is currently offering.
+ *
+ * Cheap enough to call per composition and per keystroke: it walks four short
+ * lists and allocates two maps. Caching it would mean inventing an invalidation
+ * rule for a value that has to be exactly right at both call sites.
+ */
+internal fun keyboardHintPlan(state: KeyboardUiState): HintPlan {
+    val hw = state.settings.hardwareKeyboard
+    if (!hw.shortcutsEnabled) return HintPlan()
+    val symbols = if (symbolRowVisible(state)) activeSymbolSet(state).chars.size else 0
+    val emoji = if (emojiRowVisible(state)) {
+        minOf(
+            visibleEmojiBarItems(state).size,
+            state.settings.emoji.barCount.coerceIn(EmojiBarCountRange),
+        )
+    } else {
+        0
+    }
+    return buildHintPlan(
+        toolbarTools = visibleToolbarTools(state),
+        toolboxTools = if (state.panel == PanelMode.TOOLBOX) visibleToolboxTools(state) else emptyList(),
+        toolLetters = resolvedToolLetters(hw.toolByLetter, state.settings.enabledTools),
+        symbolCells = symbols,
+        emojiCells = emoji,
+        suggestions = state.suggestions.size,
+        digitChord = hw.toolbarDigitChord,
+        leaderDigitsPickSuggestions = hw.suggestionHotkeys == SuggestionHotkeyMode.LEADER_DIGIT,
+        suggestionAltDigits = hw.suggestionHotkeys == SuggestionHotkeyMode.ALT_DIGIT,
+    )
+}
+
+/**
+ * The hints to draw on the tools and rows, which is only ever while the picker
+ * is armed. Badges on every icon at all times would be noise for the far larger
+ * number of people who never plug a keyboard in.
+ */
+internal fun armedHintPlan(state: KeyboardUiState): HintPlan? =
+    state.toolPicker?.let { keyboardHintPlan(state) }
+
+/**
+ * The hints to draw on the suggestion strip, which is the one surface that
+ * shows them without being asked.
+ *
+ * The strip is where a hardware-keyboard user's eyes already are, and `Alt`+1
+ * needs no leader, so its digits are worth standing ink. The leader-digit mode
+ * is the opposite: a bare `1` does nothing until the picker is armed, and a
+ * badge promising otherwise would be a lie.
+ */
+internal fun suggestionHintPlan(state: KeyboardUiState): HintPlan? {
+    val hw = state.settings.hardwareKeyboard
+    if (!hw.shortcutsEnabled) return null
+    val standing = state.hardwareKeyboardPresent &&
+        hw.suggestionHintsAlways &&
+        hw.suggestionHotkeys == SuggestionHotkeyMode.ALT_DIGIT
+    return if (state.toolPicker != null || standing) keyboardHintPlan(state) else null
+}
 
 internal fun keyRowsHeight(state: KeyboardUiState): Dp {
     val settings = state.settings

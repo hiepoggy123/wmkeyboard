@@ -214,7 +214,10 @@ private fun Resources.typingRows(): List<SettingsSearchEntry> {
         row(R.string.typing_hw_shortcuts_title, R.string.typing_hw_shortcuts_subtitle),
         row(R.string.typing_hw_panel_nav_title, R.string.typing_hw_panel_nav_subtitle),
         row(R.string.typing_hw_esc_title, R.string.typing_hw_esc_subtitle),
+        row(R.string.typing_hw_digit_chord_title, R.string.typing_hw_digit_chord_subtitle),
         row(R.string.typing_hw_suggestion_hotkeys_title, R.string.typing_hw_suggestion_hotkeys_subtitle),
+        row(R.string.typing_hw_suggestion_hints_title, R.string.typing_hw_suggestion_hints_subtitle),
+        row(R.string.typing_hw_mac_title, R.string.typing_hw_mac_subtitle),
         row(R.string.typing_hw_auto_show_title, R.string.typing_hw_auto_show_subtitle),
     )
 }

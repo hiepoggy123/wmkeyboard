@@ -34,11 +34,32 @@ A physical dead key (an accent key that combines with the next letter) is compos
 
 <SettingsPath path="Typing / Physical keyboard / Tool shortcuts list" />
 
-**Tool shortcuts** (on by default) let you open any tool without touching the screen at all. Double-tap <KeyCap>Ctrl</KeyCap> (nothing else uses that combination, so it's safe by default) and a small overlay appears listing the letters on offer. Press a bound letter and its tool opens; press <KeyCap>T</KeyCap> for the full toolbox, or <KeyCap>?</KeyCap> to expand the overlay into a complete legend. If you don't press anything, the overlay disappears on its own after a few seconds.
+**Tool shortcuts** (on by default) let you open any tool without touching the screen at all. Double-tap <KeyCap>Ctrl</KeyCap> — nothing else uses that combination, so it's safe by default — and every button on the keyboard sprouts a small badge showing the key that operates it. Press that key and the button fires. If you don't press anything, the badges disappear on their own after a few seconds.
 
-<PhoneFrame caption="The tool-picker overlay after double-tapping Ctrl, showing the bound letters.">
+Four kinds of badge appear, and between them they cover everything on screen:
+
+| Where | Key |
+| --- | --- |
+| Toolbar icons | <KeyCap>1</KeyCap> onward, counting from the toolbox button at the start |
+| Toolbox tools | the tool's own letter, or <KeyCap>Shift</KeyCap>+a key for the ones with no letter |
+| Symbol and emoji rows | <KeyCap>Shift</KeyCap>+a key |
+| Suggestions | <KeyCap>1</KeyCap> to <KeyCap>9</KeyCap> (see below) |
+
+<PhoneFrame caption="Hotkey badges under the toolbar icons after double-tapping Ctrl.">
   {/* shot: typing/hardware-tool-picker */}
 </PhoneFrame>
+
+<KeyCap>T</KeyCap> still opens the full toolbox from anywhere, and <KeyCap>?</KeyCap> opens the cheat sheet: a complete legend of every key, including the tools that aren't on screen to wear a badge. While the badges are up, a small `? for all keys` pill at the end of the strip points at it.
+
+### Ctrl and a number, with no leader
+
+<SettingsPath path="Typing / Physical keyboard / Ctrl + number opens a toolbar tool" />
+
+The toolbar's numbers also work as a direct chord, so the common tools are one keystroke away rather than three. <KeyCap>Ctrl</KeyCap>+<KeyCap>1</KeyCap> is the toolbox button, <KeyCap>Ctrl</KeyCap>+<KeyCap>2</KeyCap> the first tool after it, and so on to <KeyCap>Ctrl</KeyCap>+<KeyCap>0</KeyCap> for the tenth button. Anything past the tenth stays reachable through the toolbox.
+
+That's the one setting here worth a second thought before leaving it on: browsers and editors use <KeyCap>Ctrl</KeyCap>+number to switch tabs, and while you're writing in a text field the keyboard takes the key first. Turn it off and the same numbers still work after the leader key.
+
+### The tool letters
 
 The default letter for each tool is close to its own initial, wherever that letter was still free:
 
@@ -65,7 +86,35 @@ Open **Tool shortcuts list** (reachable only while Tool shortcuts is on) to chan
   ![The Tool shortcuts list screen: every tool with the letter that opens it.](@assets/screens/typing/hardware-shortcuts-list.webp)
 </PhoneFrame>
 
-<KeyCap>T</KeyCap> and <KeyCap>?</KeyCap> are reserved and can never be bound to a tool: they always open the toolbox and the cheat sheet, respectively. <KeyCap>F</KeyCap> and <KeyCap>J</KeyCap> have no default binding; whatever tool you'd want on them is still one press away through the toolbox until you assign it a letter yourself. The full binding table and cheat sheet also live in [Hardware shortcuts](/reference/shortcuts/).
+<KeyCap>T</KeyCap> and <KeyCap>?</KeyCap> are reserved and can never be bound to a tool: they always open the toolbox and the cheat sheet, respectively. The full binding table and cheat sheet also live in [Hardware shortcuts](/reference/shortcuts/).
+
+There are far more tools than there are letters, so the ones with no letter of their own get a <KeyCap>Shift</KeyCap>+key assigned automatically when the toolbox is open — that's what the badges in the grid are showing. Those follow the grid's order, so they stay put unless you rearrange the toolbox itself.
+
+## Symbols and emoji from the keyboard
+
+While the toolbox is closed, the same <KeyCap>Shift</KeyCap>+key tier goes to the symbol row and the emoji row: double-tap <KeyCap>Ctrl</KeyCap>, then <KeyCap>Shift</KeyCap> with the key shown under the cell you want, and it's inserted. The two rows have separate blocks of keys, so adding a character to a symbol set never renumbers the emoji beside it.
+
+An open toolbox takes the whole tier for itself and the rows drop their badges while it's up. That's deliberate: sharing would move the rows' keys around every time a panel opened, and a key that moves is a key nobody learns.
+
+## macOS shortcuts
+
+<SettingsPath path="Typing / Physical keyboard / macOS shortcuts" />
+
+Off by default, and worth turning on for a keyboard built for a Mac. With it on, Command (the key beside the space bar, which Android sees as Meta) and Option behave the way they do on macOS:
+
+| Chord | Does |
+| --- | --- |
+| <KeyCap>⌘</KeyCap>+<KeyCap>C</KeyCap> / <KeyCap>V</KeyCap> / <KeyCap>X</KeyCap> / <KeyCap>A</KeyCap> | Copy, paste, cut, select all |
+| <KeyCap>⌘</KeyCap>+<KeyCap>Z</KeyCap> / <KeyCap>⌘</KeyCap>+<KeyCap>Shift</KeyCap>+<KeyCap>Z</KeyCap> | Undo, redo |
+| <KeyCap>⌘</KeyCap>+<KeyCap>←</KeyCap> / <KeyCap>→</KeyCap> | Start, end of the line |
+| <KeyCap>⌘</KeyCap>+<KeyCap>↑</KeyCap> / <KeyCap>↓</KeyCap> | Start, end of the text |
+| <KeyCap>⌥</KeyCap>+<KeyCap>←</KeyCap> / <KeyCap>→</KeyCap> | One word left, right |
+| <KeyCap>⌥</KeyCap>+<KeyCap>⌫</KeyCap> | Delete the word before the cursor |
+| <KeyCap>⌘</KeyCap>+<KeyCap>⌫</KeyCap> | Delete to the start of the line |
+
+Hold <KeyCap>Shift</KeyCap> with any of the moves to select instead. <KeyCap>Ctrl</KeyCap> keeps its usual meaning throughout — on a Mac it's a separate modifier with its own habits, and an app that already handles <KeyCap>Ctrl</KeyCap>+<KeyCap>C</KeyCap> should keep getting it. Every other Command chord (<KeyCap>⌘</KeyCap>+<KeyCap>F</KeyCap>, <KeyCap>⌘</KeyCap>+<KeyCap>S</KeyCap>) goes straight to the app, and a few Command chords are claimed by the system on some devices, so those never reach the keyboard to be remapped at all.
+
+One deliberate difference from the on-screen long-press shortcuts: <KeyCap>⌘</KeyCap>+<KeyCap>C</KeyCap> with nothing selected does nothing, rather than selecting the whole field first. That's what every other keyboard on a Mac does, and quietly copying a half-written message is a poor surprise.
 
 ## Driving a tool with the keyboard
 
@@ -88,10 +137,14 @@ Once a tool is open, **Arrow keys move a highlight** (on by default) lets you dr
 Since the suggestion strip can't be tapped while you're typing on a physical keyboard, **Number keys pick suggestions** gives you a keystroke instead, with three modes:
 
 - **Off** — number keys always type digits.
-- **After the shortcut key** (the default) — double-tap the shortcut key, then press <KeyCap>1</KeyCap> through <KeyCap>9</KeyCap> to commit that suggestion.
-- **Alt + number** — <KeyCap>Alt</KeyCap>+<KeyCap>1</KeyCap> through <KeyCap>Alt</KeyCap>+<KeyCap>9</KeyCap> commit directly, one keystroke shorter, but opt-in: browsers, editors and chat apps often claim Alt+number for tab or workspace switching.
+- **Alt + number** (the default) — <KeyCap>Alt</KeyCap>+<KeyCap>1</KeyCap> through <KeyCap>Alt</KeyCap>+<KeyCap>9</KeyCap> commit directly, with no leader key first. Browsers and chat apps sometimes claim Alt+number for tab switching, so it's the one to change if that bites.
+- **After the shortcut key** — double-tap the shortcut key, then press <KeyCap>1</KeyCap> through <KeyCap>9</KeyCap>. Nothing else uses it, at the cost of one extra keystroke. In this mode the bare numbers belong to the strip, so the toolbar's tools rely on the <KeyCap>Ctrl</KeyCap>+number chord above.
 
 Either way there's no slot for suggestion "10": only the first nine entries in the strip are reachable by number.
+
+<SettingsPath path="Typing / Physical keyboard / Show the suggestion numbers" />
+
+In **Alt + number** mode the strip is the one surface that wears its badges all the time — a small <KeyCap>⌥</KeyCap>1, <KeyCap>⌥</KeyCap>2, <KeyCap>⌥</KeyCap>3 under the words, for as long as a physical keyboard is attached. That's on by default and can be turned off if you'd rather have the clean strip. **After the shortcut key** has no equivalent: a bare <KeyCap>1</KeyCap> does nothing until the leader is pressed, so its numbers only appear once it is.
 
 ## Options
 
@@ -102,9 +155,12 @@ Either way there's no slot for suggestion "10": only the first nine entries in t
 | Process hardware keys | On |
 | Tool shortcuts | On |
 | Shortcut key | Double-tap Ctrl |
+| Ctrl + number opens a toolbar tool | On |
 | Arrow keys move a highlight | On |
 | Esc closes the tool | On |
-| Number keys pick suggestions | After the shortcut key |
+| Number keys pick suggestions | Alt + number |
+| Show the suggestion numbers | On |
+| macOS shortcuts | Off |
 | Show the keyboard for shortcuts | On |
 
 **Show the keyboard for shortcuts** covers the case where you have a physical keyboard attached and no reason for the on-screen keyboard to be up: pressing a shortcut that opens a tool brings it up anyway, since the tool needs somewhere to draw, and it's hidden again once you close the tool.
@@ -114,6 +170,8 @@ A related setting lives elsewhere: <SettingsPath path="Appearance / Only toolbar
 ## Details and edge cases
 
 - **The tool picker waits about three seconds for a letter** before it disarms itself if you don't press one; that timeout isn't adjustable from settings.
+- **The badges never resize the keyboard.** They're drawn over the buttons rather than added beside them, so double-tapping <KeyCap>Ctrl</KeyCap> can't shove the app's text out from under your hands.
+- **Toolbar badges only show when the toolbar does.** With suggestions occupying the strip instead, <KeyCap>Ctrl</KeyCap>+number still opens the same tools — there's just nothing on screen to label. The cheat sheet lists them either way.
 - **Reserved chords still work as a shortcut key, with a warning.** If you capture a chord like Ctrl+C, Ctrl+V, Ctrl+S or Ctrl+Tab as your shortcut key, the picker warns you it's "usually the app's own shortcut" but still lets you use it; it's a nudge, not a block.
 - **Process hardware keys only governs typed characters.** Turning it off stops physical keys from running through autocorrect and suggestions, but Tool shortcuts, panel navigation and Esc keep working regardless; none of them touch typed text, so none of them are governed by that toggle.
 - **No edition split.** Everything on this page works the same on both the full and lite builds.

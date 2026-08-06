@@ -698,7 +698,26 @@ data class HardwareKeyboardSettings(
      * browser loading a page or an editor leaving insert mode.
      */
     val escClosesPanel: Boolean = true,
-    val suggestionHotkeys: SuggestionHotkeyMode = SuggestionHotkeyMode.LEADER_DIGIT,
+    val suggestionHotkeys: SuggestionHotkeyMode = SuggestionHotkeyMode.ALT_DIGIT,
+    /**
+     * Digits under the suggestions whenever a physical keyboard is attached,
+     * rather than only while the picker is armed. The strip is the one thing a
+     * hardware-keyboard user looks at constantly, so its keys are worth the ink.
+     */
+    val suggestionHintsAlways: Boolean = true,
+    /**
+     * Ctrl+1 … Ctrl+9 open the toolbar tools with no leader first. Off is a real
+     * choice: browsers use exactly these to switch tabs, and while a text field
+     * has focus the keyboard would win.
+     */
+    val toolbarDigitChord: Boolean = true,
+    /**
+     * Command and Option behave as they do on a Mac: Cmd+C copies, Cmd+left goes
+     * to the start of the line, Option+Backspace deletes a word. Off by default —
+     * on a PC keyboard the Meta key is the Search/Windows key and belongs to the
+     * system.
+     */
+    val macShortcuts: Boolean = false,
     /**
      * A shortcut that opens a tool also shows the keyboard, which a physical
      * keyboard usually hides. Restored to however it was as soon as the tool closes.
@@ -2718,6 +2737,10 @@ class SettingsRepository(private val context: Context) {
         private val HW_PANEL_NAVIGATION = booleanPreferencesKey("hw_panel_navigation")
         private val HW_ESC_CLOSES_PANEL = booleanPreferencesKey("hw_esc_closes_panel")
         private val HW_SUGGESTION_HOTKEYS = stringPreferencesKey("hw_suggestion_hotkeys")
+        private val HW_SUGGESTION_HINTS_ALWAYS =
+            booleanPreferencesKey("hw_suggestion_hints_always")
+        private val HW_TOOLBAR_DIGIT_CHORD = booleanPreferencesKey("hw_toolbar_digit_chord")
+        private val HW_MAC_SHORTCUTS = booleanPreferencesKey("hw_mac_shortcuts")
         private val HW_AUTO_SHOW_UI = booleanPreferencesKey("hw_auto_show_ui")
         private val HW_LEADER = stringPreferencesKey("hw_leader")
         private val HW_PICKER_TIMEOUT_MS = intPreferencesKey("hw_picker_timeout_ms")
@@ -3368,6 +3391,11 @@ class SettingsRepository(private val context: Context) {
                 suggestionHotkeys = p[HW_SUGGESTION_HOTKEYS]
                     ?.let { raw -> runCatching { SuggestionHotkeyMode.valueOf(raw) }.getOrNull() }
                     ?: defaults.hardwareKeyboard.suggestionHotkeys,
+                suggestionHintsAlways = p[HW_SUGGESTION_HINTS_ALWAYS]
+                    ?: defaults.hardwareKeyboard.suggestionHintsAlways,
+                toolbarDigitChord = p[HW_TOOLBAR_DIGIT_CHORD]
+                    ?: defaults.hardwareKeyboard.toolbarDigitChord,
+                macShortcuts = p[HW_MAC_SHORTCUTS] ?: defaults.hardwareKeyboard.macShortcuts,
                 autoShowUi = p[HW_AUTO_SHOW_UI] ?: defaults.hardwareKeyboard.autoShowUi,
                 leader = p[HW_LEADER] ?: defaults.hardwareKeyboard.leader,
                 pickerTimeoutMs = p[HW_PICKER_TIMEOUT_MS] ?: defaults.hardwareKeyboard.pickerTimeoutMs,
@@ -5847,6 +5875,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHwSuggestionHotkeys(value: SuggestionHotkeyMode) =
         editPrefs { it[HW_SUGGESTION_HOTKEYS] = value.name }
+
+    suspend fun setHwSuggestionHintsAlways(value: Boolean) =
+        editPrefs { it[HW_SUGGESTION_HINTS_ALWAYS] = value }
+
+    suspend fun setHwToolbarDigitChord(value: Boolean) =
+        editPrefs { it[HW_TOOLBAR_DIGIT_CHORD] = value }
+
+    suspend fun setHwMacShortcuts(value: Boolean) =
+        editPrefs { it[HW_MAC_SHORTCUTS] = value }
 
     suspend fun setHwAutoShowUi(value: Boolean) =
         editPrefs { it[HW_AUTO_SHOW_UI] = value }

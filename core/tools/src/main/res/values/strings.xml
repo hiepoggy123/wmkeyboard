@@ -141,6 +141,11 @@
     <!-- Opens the toolbox, which lists every tool. -->
     <string name="core_tools_shortcut_cheat_all_tools">All tools</string>
     <string name="core_tools_shortcut_cheat_select_suggestion">Select a suggestion</string>
+    <!--
+      Hold Shift with a key to reach the second tier: the symbol and emoji rows,
+      or the tools in the toolbox that have no letter of their own.
+    -->
+    <string name="core_tools_shortcut_cheat_second_tier">Hold Shift for the row and toolbox keys</string>
     <!-- Shows the cheat sheet the user is looking at. -->
     <string name="core_tools_shortcut_cheat_this_list">This list</string>
 

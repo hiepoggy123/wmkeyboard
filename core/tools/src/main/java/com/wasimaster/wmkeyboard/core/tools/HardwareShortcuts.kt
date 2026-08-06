@@ -447,6 +447,69 @@ fun validate(
         .forEach { (tool, keys) -> add(ShortcutProblem.DuplicateTool(tool, keys.sorted())) }
 }
 
+// ----------------------------------------------------------- macOS mode ----
+
+/**
+ * What a Mac chord means. Every one of these already has an implementation on
+ * the IME side (the clipboard keys, the text-edit actions); the mode is a
+ * routing table, not a second editor.
+ */
+enum class MacAction {
+    COPY, PASTE, CUT, SELECT_ALL, UNDO, REDO,
+    LINE_START, LINE_END, DOC_START, DOC_END,
+    WORD_LEFT, WORD_RIGHT,
+    DELETE_WORD, DELETE_TO_LINE_START,
+}
+
+/** A resolved Mac chord: what to do, and whether Shift made it a selection. */
+data class MacBinding(val action: MacAction, val selecting: Boolean = false)
+
+/**
+ * The Mac chord for a keypress, or null to leave the key alone.
+ *
+ * Command is Android's META modifier — a Mac keyboard paired over Bluetooth
+ * sends its Cmd keys as `META_META_ON` — and Option is ALT. Ctrl is deliberately
+ * a disqualifier rather than an alias: on a Mac, Ctrl is its own modifier with
+ * its own (Emacs-flavoured) meanings, and an app that already handles Ctrl+C
+ * must keep getting it.
+ *
+ * Only the chords a Mac user would miss are claimed. Cmd with any other letter,
+ * and Option with anything but the arrows or Backspace, falls straight through
+ * to the focused app, which is where Cmd+F, Cmd+S and the rest belong.
+ */
+@Suppress("ReturnCount", "CyclomaticComplexMethod")
+fun macBindingFor(keyCode: Int, metaState: Int): MacBinding? {
+    if (metaState and KeyEvent.META_CTRL_ON != 0) return null
+    val cmd = metaState and KeyEvent.META_META_ON != 0
+    val option = metaState and KeyEvent.META_ALT_ON != 0
+    val shift = metaState and KeyEvent.META_SHIFT_ON != 0
+    // Cmd+Opt together is a third modifier again (window and dev-tool chords).
+    if (cmd == option) return null
+    if (cmd) {
+        return when (keyCode) {
+            // Shift is what tells undo from redo, so Z reads it; the plain
+            // editing chords do not, because Cmd+Shift+C is the app's.
+            KeyEvent.KEYCODE_Z -> MacBinding(if (shift) MacAction.REDO else MacAction.UNDO)
+            KeyEvent.KEYCODE_C -> if (shift) null else MacBinding(MacAction.COPY)
+            KeyEvent.KEYCODE_V -> if (shift) null else MacBinding(MacAction.PASTE)
+            KeyEvent.KEYCODE_X -> if (shift) null else MacBinding(MacAction.CUT)
+            KeyEvent.KEYCODE_A -> if (shift) null else MacBinding(MacAction.SELECT_ALL)
+            KeyEvent.KEYCODE_DPAD_LEFT -> MacBinding(MacAction.LINE_START, shift)
+            KeyEvent.KEYCODE_DPAD_RIGHT -> MacBinding(MacAction.LINE_END, shift)
+            KeyEvent.KEYCODE_DPAD_UP -> MacBinding(MacAction.DOC_START, shift)
+            KeyEvent.KEYCODE_DPAD_DOWN -> MacBinding(MacAction.DOC_END, shift)
+            KeyEvent.KEYCODE_DEL -> MacBinding(MacAction.DELETE_TO_LINE_START)
+            else -> null
+        }
+    }
+    return when (keyCode) {
+        KeyEvent.KEYCODE_DPAD_LEFT -> MacBinding(MacAction.WORD_LEFT, shift)
+        KeyEvent.KEYCODE_DPAD_RIGHT -> MacBinding(MacAction.WORD_RIGHT, shift)
+        KeyEvent.KEYCODE_DEL -> MacBinding(MacAction.DELETE_WORD)
+        else -> null
+    }
+}
+
 // ------------------------------------------------------------ cheat sheet ----
 
 /** Which block of the cheat sheet a row belongs to. */
@@ -465,22 +528,57 @@ data class CheatRow(
     val group: CheatGroup = CheatGroup.TOOLS,
 )
 
+/**
+ * The full legend, which is the answer for everything the on-screen badges
+ * cannot show: a tool that is neither pinned nor in the open panel still has a
+ * letter, and the reader has no other way to find it.
+ *
+ * @param toolbarTools the pinned tools, in drawn order, so their digits read
+ *   down the list in the same order the icons read across the bar.
+ * @param digitChord whether `Ctrl`+digit is on, which decides how those digits
+ *   are spelled here.
+ * @param altSuggestionDigits true when the suggestions answer to `Alt`+digit
+ *   rather than to a bare digit after the leader.
+ */
 fun cheatSheetRows(
     letters: Map<Char, ToolbarTool>,
     enabled: Collection<ToolbarTool>,
+    toolbarTools: List<ToolbarTool> = emptyList(),
+    digitChord: Boolean = false,
+    altSuggestionDigits: Boolean = false,
 ): List<CheatRow> = buildList {
+    fun digit(slot: Int): String {
+        val key = ToolbarHintDigits[slot].toString()
+        return if (digitChord) CtrlHintPrefix + key else key
+    }
+    // Digit 1 is the toolbox launcher, exactly as the bar draws it, so the
+    // numbering here matches the badges the user has already seen.
+    toolbarTools.filter { isSupportedTool(it) && it in enabled }
+        .take(ToolbarHintDigits.size - 1)
+        .forEachIndexed { index, tool -> add(CheatRow(digit(index + 1), tool = tool)) }
     resolvedToolLetters(letters, enabled).entries.sortedBy { it.key }
         .forEach { (letter, tool) -> add(CheatRow(letter.toString(), tool = tool)) }
     add(
         CheatRow(
-            ToolboxLetter.toString(),
+            if (toolbarTools.isEmpty()) {
+                ToolboxLetter.toString()
+            } else {
+                ToolboxLetter.toString() + "  " + digit(0)
+            },
             labelRes = R.string.core_tools_shortcut_cheat_all_tools,
             group = CheatGroup.ACTIONS,
         ),
     )
     add(
         CheatRow(
-            "1–9",
+            ShiftHintPrefix + ExtendedHintKeys.first(),
+            labelRes = R.string.core_tools_shortcut_cheat_second_tier,
+            group = CheatGroup.ACTIONS,
+        ),
+    )
+    add(
+        CheatRow(
+            if (altSuggestionDigits) AltHintPrefix + "1–9" else "1–9",
             labelRes = R.string.core_tools_shortcut_cheat_select_suggestion,
             group = CheatGroup.ACTIONS,
         ),

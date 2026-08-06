@@ -13,7 +13,7 @@
     <!-- ================================================================== -->
 
     <!-- %1$s is the toolbox letter, for example T. %2$s is the cheat sheet key, for example ?. -->
-    <string name="hardware_shortcuts_intro_body">Press the shortcut key, then a letter. <xliff:g id="toolbox_letter" example="T">%1$s</xliff:g> opens the toolbox. <xliff:g id="cheat_sheet_key" example="?">%2$s</xliff:g> shows this list on the keyboard.</string>
+    <string name="hardware_shortcuts_intro_body">Press the shortcut key, then a letter. Each key also shows under the button it operates while the shortcut key waits. <xliff:g id="toolbox_letter" example="T">%1$s</xliff:g> opens the toolbox. <xliff:g id="cheat_sheet_key" example="?">%2$s</xliff:g> shows this list on the keyboard, tools that are not on the screen included.</string>
 
     <!-- The key that arms the tool letters. Used as a group header, as a row title and as a dialog title. -->
     <string name="hardware_shortcuts_leader_title">Shortcut key</string>

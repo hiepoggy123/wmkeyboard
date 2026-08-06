@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -29,17 +30,21 @@ import com.wasimaster.wmkeyboard.core.tools.CheatGroup
 import com.wasimaster.wmkeyboard.core.tools.CheatRow
 import com.wasimaster.wmkeyboard.core.tools.CheatSheetLetter
 import com.wasimaster.wmkeyboard.core.tools.DefaultLeader
-import com.wasimaster.wmkeyboard.core.tools.ToolboxLetter
 import com.wasimaster.wmkeyboard.core.tools.cheatSheetRows
 import com.wasimaster.wmkeyboard.core.tools.leaderLabel
 import com.wasimaster.wmkeyboard.core.tools.parseLeader
-import com.wasimaster.wmkeyboard.core.tools.resolvedToolLetters
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.R
 
 /**
- * What the physical keyboard's leader key put on screen: a one-line hint of the
- * letters on offer, or — after `?` — the full legend.
+ * The full legend, after the leader and then `?`.
+ *
+ * There used to be a compact form as well: one line of every bound letter,
+ * floated over the top bar the instant the picker armed. It named every binding
+ * and pointed at none of them, and it covered the toolbar it was describing.
+ * The badges under the buttons replaced it — a key drawn on the thing it opens
+ * needs no legend. What is left here is the answer for what the badges cannot
+ * show, which is every tool that is not on screen right now.
  *
  * Drawn over the top strip rather than as a [com.wasimaster.wmkeyboard.ime.PanelMode]
  * of its own. A panel replaces the keys, which would hide the very keyboard the
@@ -48,11 +53,10 @@ import com.wasimaster.wmkeyboard.ime.R
  */
 @Composable
 internal fun ToolPickerOverlay(state: KeyboardUiState, modifier: Modifier = Modifier) {
-    val picker = state.toolPicker
-    AnimatedVisibility(visible = picker != null, modifier = modifier) {
+    val showing = state.toolPicker?.cheatSheet == true
+    AnimatedVisibility(visible = showing, modifier = modifier) {
         val kb = LocalKbTheme.current
         val config = state.settings.hardwareKeyboard
-        val letters = resolvedToolLetters(config.toolByLetter, state.settings.enabledTools)
         // A chord spells itself, so it arrives with no template around it.
         val leaderParts = leaderLabel(parseLeader(config.leader) ?: DefaultLeader)
         val leader = if (leaderParts.templateRes == 0) {
@@ -68,51 +72,47 @@ internal fun ToolPickerOverlay(state: KeyboardUiState, modifier: Modifier = Modi
                 .border(1.dp, kb.accent, RoundedCornerShape(14.dp))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
-            if (picker?.cheatSheet == true) {
-                CheatSheet(
-                    rows = cheatSheetRows(config.toolByLetter, state.settings.enabledTools),
-                    leader = leader,
-                )
-            } else {
-                PickerHint(letters = letters.keys.toList(), leader = leader)
-            }
+            CheatSheet(
+                rows = cheatSheetRows(
+                    letters = config.toolByLetter,
+                    enabled = state.settings.enabledTools,
+                    toolbarTools = visibleToolbarTools(state),
+                    digitChord = config.toolbarDigitChord,
+                    altSuggestionDigits =
+                        config.suggestionHotkeys == SuggestionHotkeyMode.ALT_DIGIT,
+                ),
+                leader = leader,
+            )
         }
     }
 }
 
 /**
- * The compact form: enough to jog the memory without covering the screen. The
- * letters are the user's own bindings, in order, truncated to one line — `?`
- * opens the full list, which is the only thing anyone needs to remember.
+ * The way in to the legend: a small `?` pill at the end of the strip for as long
+ * as the picker is armed.
+ *
+ * The cheat sheet has always been one keypress away and nobody knew, because
+ * nothing on screen said so. The badges under the buttons cover the tools you
+ * can see; this covers the ones you cannot.
  */
 @Composable
-private fun PickerHint(letters: List<Char>, leader: String) {
-    val kb = LocalKbTheme.current
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+internal fun PickerHelpPill(state: KeyboardUiState, modifier: Modifier = Modifier) {
+    val picker = state.toolPicker
+    val armed = picker != null && !picker.cheatSheet
+    AnimatedVisibility(visible = armed, modifier = modifier) {
+        val kb = LocalKbTheme.current
         Text(
-            leader,
+            stringResource(R.string.ime_tool_picker_help, CheatSheetLetter),
             color = kb.accent,
-            fontSize = 11.sp,
+            fontSize = 9.sp,
             fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            if (letters.isEmpty()) {
-                stringResource(R.string.ime_tool_picker_empty, ToolboxLetter)
-            } else {
-                stringResource(
-                    R.string.ime_tool_picker_hint,
-                    letters.joinToString(" "),
-                    ToolboxLetter,
-                    CheatSheetLetter,
-                )
-            },
-            color = kb.popupText,
-            fontSize = 11.sp,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .padding(4.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(kb.popup)
+                .border(1.dp, kb.accent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp),
         )
     }
 }

@@ -481,7 +481,10 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.typing_hw_shortcuts_list_title, Icons.Outlined.Keyboard)
     put(R.string.typing_hw_panel_nav_title, Icons.Outlined.Gamepad)
     put(R.string.typing_hw_esc_title, Icons.Outlined.Close)
+    put(R.string.typing_hw_digit_chord_title, Icons.Outlined.Pin)
     put(R.string.typing_hw_suggestion_hotkeys_title, Icons.Outlined.Numbers)
+    put(R.string.typing_hw_suggestion_hints_title, Icons.Outlined.Tag)
+    put(R.string.typing_hw_mac_title, Icons.Outlined.KeyboardCommandKey)
     put(R.string.typing_hw_auto_show_title, Icons.Outlined.Visibility)
     put(R.string.hardware_shortcuts_leader_subtitle, Icons.Outlined.KeyboardCommandKey)
 
