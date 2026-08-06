@@ -187,6 +187,77 @@ sealed interface KeyAction {
 }
 
 /**
+ * What to draw on a key of this action that carries no label of its own.
+ *
+ * Both the keyboard and the layout editor's preview grid resolve a blank label
+ * through here, because they used to disagree and the disagreement hid a hole:
+ * the editor drew a placeholder dot for anything it had no glyph for, while the
+ * keyboard drew the label and nothing else — so a Tab, Escape, Ctrl or Fn key
+ * built from the action picker, which does not ask for a label and has no reason
+ * to, came out of the editor looking fine and reached the keyboard **invisible**.
+ * An unlabelled key is not a small cosmetic problem: it is a button the user
+ * cannot find.
+ *
+ * Glyphs and key names rather than words, and deliberately untranslated: these
+ * are the names printed on physical keyboards, the shipped layouts already spell
+ * `?123` and `ABC` this way, and a layout file is a document people hand-edit
+ * and swap between devices with different languages.
+ *
+ * Actions the keyboard draws from an icon slot — shift, delete, forward delete,
+ * enter, the globe, emoji — never reach here; their branches run first. The
+ * entries below are the ones that fall through to a text label.
+ */
+fun KeyAction.fallbackLabel(): String = when (this) {
+    KeyAction.Space -> " "
+    KeyAction.Symbols -> "?123"
+    KeyAction.Letters -> "ABC"
+    KeyAction.Numpad -> "123"
+    KeyAction.Fn -> "Fn"
+    KeyAction.KanaVariant -> "小"
+    KeyAction.MorseDot -> "·"
+    KeyAction.MorseDash -> "–"
+    KeyAction.None -> ""
+    is KeyAction.Mod -> when (key) {
+        ModifierKey.CTRL -> "Ctrl"
+        ModifierKey.ALT -> "Alt"
+        ModifierKey.META -> "Meta"
+    }
+    // The six the action picker offers by name. Any other code is something a
+    // hand-written layout chose, and a bare arrow says "this key sends a key
+    // press" without pretending to name it.
+    is KeyAction.SendKey -> when (keyCode) {
+        KEYCODE_TAB -> "⇥"
+        KEYCODE_ESCAPE -> "esc"
+        KEYCODE_DPAD_UP -> "↑"
+        KEYCODE_DPAD_DOWN -> "↓"
+        KEYCODE_DPAD_LEFT -> "←"
+        KEYCODE_DPAD_RIGHT -> "→"
+        else -> "⌨"
+    }
+    // The dot number is the whole identity of a braille key, and a chord is
+    // typed by position, so the digit is what the user needs to see.
+    is KeyAction.BrailleDot -> dot.toString()
+    is KeyAction.Broadcast -> "⚡"
+    // Reached only by a layout that repair has not been through yet.
+    is KeyAction.Unknown -> "?"
+    // Text keys have nothing to fall back to: a blank one is a blank key, which
+    // `repair` deletes rather than draws. The icon-slot actions are listed so
+    // this stays exhaustive and a new action cannot be added without deciding.
+    KeyAction.Text, KeyAction.Shift, KeyAction.Delete, KeyAction.ForwardDelete,
+    KeyAction.Enter, KeyAction.LanguageSwitch, KeyAction.Emoji,
+    -> ""
+}
+
+// Written as numbers rather than KeyEvent.KEYCODE_* so this module, which is
+// pure layout data, needs no android.view import.
+private const val KEYCODE_TAB = 61
+private const val KEYCODE_ESCAPE = 111
+private const val KEYCODE_DPAD_UP = 19
+private const val KEYCODE_DPAD_DOWN = 20
+private const val KEYCODE_DPAD_LEFT = 21
+private const val KEYCODE_DPAD_RIGHT = 22
+
+/**
  * A modifier a [KeyAction.Mod] key latches.
  *
  * Shift is deliberately absent: it has its own action, its own three-state latch

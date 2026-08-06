@@ -392,6 +392,21 @@ private fun Key.repairKey(label: String, repairs: MutableList<LayoutMessage>): K
     }
 
     var fixed = this
+    // The one blocking finding repair used to leave behind, which broke the
+    // promise the rest of this file makes: [validateLayout] refuses a dot
+    // outside 1..6, so an imported layout carrying one came through the repair
+    // pass "clean" — no note, nothing to act on — and then could not be turned
+    // on. Clamped rather than dropped: a braille grid is chorded by position, so
+    // removing a dot key leaves the remaining six unable to spell anything,
+    // where a nearest-valid dot leaves a usable grid and a line saying so.
+    (action as? KeyAction.BrailleDot)?.takeIf { it.dot !in 1..6 }?.let { bad ->
+        val dot = bad.dot.coerceIn(1, 6)
+        repairs += LayoutMessage(
+            R.string.core_lang_repair_braille_dot_clamped,
+            args = listOf(label, bad.dot, dot),
+        )
+        fixed = fixed.copy(action = KeyAction.BrailleDot(dot))
+    }
     if (!width.isFinite() || width <= 0f) {
         repairs += LayoutMessage(
             R.string.core_lang_repair_key_width_set,
@@ -445,5 +460,23 @@ private inline fun List<List<Key>>.ensuring(
     return appendToLastRow(fallback)
 }
 
-private fun List<List<Key>>.appendToLastRow(key: Key): List<List<Key>> =
-    if (isEmpty()) listOf(listOf(key)) else dropLast(1) + listOf(last() + key)
+/**
+ * Puts [key] at the end of the grid without breaking the size limits repair has
+ * just brought it inside.
+ *
+ * Appending blindly was a hole in repair's one promise. The row trim runs before
+ * the delete/space/enter keys are added, so a layer whose last row was trimmed
+ * to [MaxKeysPerRow] came back out at 27 keys — over the limit, still blocking,
+ * "repaired" into a layout that would not enable and with no note saying why.
+ *
+ * A new row when the layer has space for one. When it has neither — every row
+ * full and every row slot used — the last key gives way instead: a grid at both
+ * limits at once is pathological, and being able to backspace is worth more than
+ * the twenty-fourth key of the eighth row.
+ */
+private fun List<List<Key>>.appendToLastRow(key: Key): List<List<Key>> = when {
+    isEmpty() -> listOf(listOf(key))
+    last().size < MaxKeysPerRow -> dropLast(1) + listOf(last() + key)
+    size < MaxRowsPerLayer -> this + listOf(listOf(key))
+    else -> dropLast(1) + listOf(last().dropLast(1) + key)
+}

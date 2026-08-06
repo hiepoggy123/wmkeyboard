@@ -1,7 +1,9 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import com.wasimaster.wmkeyboard.app.KeyActionCatalog
 import com.wasimaster.wmkeyboard.language.R
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -194,6 +196,75 @@ class LayoutEditOpsTest {
             BuiltInLayouts.QWERTY,
             LayoutCodec.decode(lean),
         )
+    }
+
+    @Test
+    fun `every action a key can carry draws something when its label is blank`() {
+        // A key with no label and no glyph is a button the user cannot see. The
+        // action picker never asks for a label, so every action it offers has to
+        // answer this — including the payload-carrying ones.
+        val actions = listOf(
+            KeyAction.Symbols, KeyAction.Letters, KeyAction.Fn, KeyAction.Numpad,
+            KeyAction.KanaVariant, KeyAction.MorseDot, KeyAction.MorseDash,
+            KeyAction.Mod(ModifierKey.CTRL), KeyAction.Mod(ModifierKey.ALT),
+            KeyAction.Mod(ModifierKey.META),
+            KeyAction.SendKey(61), KeyAction.SendKey(111), KeyAction.SendKey(19),
+            KeyAction.SendKey(20), KeyAction.SendKey(21), KeyAction.SendKey(22),
+            KeyAction.SendKey(999), KeyAction.BrailleDot(3), KeyAction.Broadcast("x"),
+        )
+        for (action in actions) {
+            assertTrue("$action draws nothing", action.fallbackLabel().isNotEmpty())
+        }
+    }
+
+    @Test
+    fun `the actions drawn from an icon slot claim no text fallback`() {
+        // These never reach the text branch — the keyboard answers them with an
+        // icon first — and handing them a glyph too would be a second spelling of
+        // the same key that only the editor would ever show.
+        val drawnAsIcons = listOf(
+            KeyAction.Shift, KeyAction.Delete, KeyAction.ForwardDelete,
+            KeyAction.Enter, KeyAction.LanguageSwitch, KeyAction.Emoji,
+            KeyAction.Text, KeyAction.None,
+        )
+        for (action in drawnAsIcons) {
+            assertEquals("$action", "", action.fallbackLabel())
+        }
+    }
+
+    @Test
+    fun `the action picker never shows one group twice`() {
+        // The picker prints a header whenever the group changes as it walks the
+        // catalogue, so a catalogue that leaves a group and comes back to it
+        // splits that group across two headings. Fn used to sit after the
+        // modifiers, giving two "Layers" sections.
+        val order = KeyActionCatalog.map { it.groupRes }
+        assertEquals(
+            "each group must be one contiguous run",
+            order.distinct().size,
+            order.zipWithNext().count { (a, b) -> a != b } + 1,
+        )
+    }
+
+    @Test
+    fun `a layout with a blocking finding is refused by the enable gate`() {
+        // Mirrors rememberLayoutEnableGate: the editor has always said "you must
+        // fix this before you turn this layout on", and nothing enforced it.
+        fun blockers(spec: LayoutSpec) =
+            validateLayout(spec).filter { it.severity == LayoutSeverity.BLOCKING }
+
+        val broken = mine().withLayerRows(listOf(listOf(Key("a"))))
+        assertTrue("no delete, enter or space", blockers(broken).isNotEmpty())
+        assertFalse(broken.canBeEnabled())
+
+        assertTrue("a shipped layout still passes", blockers(BuiltInLayouts.QWERTY).isEmpty())
+        // A warning is not a refusal: a layout with no shift key still enables.
+        val noShift = BuiltInLayouts.QWERTY.withLayerRows(
+            BuiltInLayouts.QWERTY.compile(layer).rows
+                .map { row -> row.filter { it.action != KeyAction.Shift } },
+        )
+        assertTrue(validateLayout(noShift).any { it.severity == LayoutSeverity.WARNING })
+        assertTrue("but it is not blocked", blockers(noShift).isEmpty())
     }
 
     @Test

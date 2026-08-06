@@ -130,6 +130,8 @@
     <string name="layout_editor_problem_warning_subtitle">Look at this, but the layout still works</string>
     <string name="layout_editor_not_live_caption">Your changes here do not affect typing until you turn the layout on under Languages.</string>
     <string name="layout_editor_live_caption">This layout is on, so your changes affect typing straight away. The keyboard adds a delete, space or enter key back if you remove the last one.</string>
+    <string name="layout_editor_cannot_enable_title">Cannot turn on %1$s</string>
+    <string name="layout_editor_cannot_enable_body">Fix these problems in the layout editor first:</string>
 
     <!-- ===================================================================
          Key edit sheet: everything about the one key you selected.

@@ -4857,6 +4857,9 @@ private fun LanguageSettings(
                 com.wasimaster.wmkeyboard.core.layout.AssetLayouts.byId(it.id) == null
         }
         .sortedBy { it.name.lowercase() }
+    // Turning a layout on is gated on it validating; switching one off never is,
+    // or a layout broken while enabled would be impossible to put away.
+    val enableGate = rememberLayoutEnableGate(settings)
     SettingsGroup(stringResource(R.string.langemoji_lang_your_layouts_title)) {
         for (layout in customs) {
             item {
@@ -4868,12 +4871,15 @@ private fun LanguageSettings(
                     ),
                     layout.id in settings.enabledLayoutIds,
                 ) { enable ->
-                    scope.launch {
-                        val next =
-                            if (enable) settings.enabledLayoutIds + layout.id
-                            else settings.enabledLayoutIds - layout.id
-                        if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
+                    fun write() {
+                        scope.launch {
+                            val next =
+                                if (enable) settings.enabledLayoutIds + layout.id
+                                else settings.enabledLayoutIds - layout.id
+                            if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
+                        }
                     }
+                    if (enable) enableGate(layout.id) { write() } else write()
                 }
             }
         }

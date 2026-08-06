@@ -71,6 +71,62 @@ class LayoutRepairTest {
     }
 
     @Test
+    fun `a braille dot outside the range blocks and is clamped by repair`() {
+        val spec = letters(
+            listOf(Key("a"), Key("d", action = KeyAction.BrailleDot(9))) + usableBottomRow,
+        )
+
+        assertFalse(spec.canBeEnabled())
+
+        val repaired = spec.repair()
+        assertEquals(
+            KeyAction.BrailleDot(6),
+            repaired.spec.lettersKeys().first { it.action is KeyAction.BrailleDot }.action,
+        )
+        assertTrue(
+            "repair notes were ${repaired.repairNotes}",
+            repaired.repairNotes.any {
+                it.stringRes == R.string.core_lang_repair_braille_dot_clamped
+            },
+        )
+        assertTrue(repaired.spec.canBeEnabled())
+    }
+
+    /**
+     * Repair's whole contract in one test: whatever went in, what comes out can
+     * be turned on. A braille dot outside 1..6 used to slip through — validate
+     * blocked it, repair had no branch for it, and the import sheet reported
+     * nothing — so a file could be imported "clean" and still refuse to enable.
+     */
+    @Test
+    fun `every blocking finding this file can produce is one repair fixes`() {
+        val awkward = listOf(
+            letters(listOf(Key("a"))),
+            letters(emptyList()),
+            letters(listOf(Key("a"), Key("z", action = KeyAction.Unknown("teleport")))),
+            letters(listOf(Key("a"), Key("d", action = KeyAction.BrailleDot(0)))),
+            letters(listOf(Key("a"), Key("d", action = KeyAction.BrailleDot(99)))),
+            letters(listOf(Key("a", width = 0f))),
+            letters(listOf(Key("a", width = Float.NaN))),
+            letters(List(30) { Key("k$it") }),
+            letters(*Array(11) { listOf(Key("r$it")) }),
+            LayoutSpec(
+                id = "custom_1",
+                name = "Test",
+                layers = mapOf(
+                    LayoutLayer.SYMBOLS.key to LayerSpec(listOf(listOf(Key("!"), Key("@")))),
+                ),
+            ),
+        )
+        for (spec in awkward) {
+            val repaired = spec.repair().spec
+            val blocking =
+                validateLayout(repaired).filter { it.severity == LayoutSeverity.BLOCKING }
+            assertTrue("$spec repaired to $blocking", blocking.isEmpty())
+        }
+    }
+
+    @Test
     fun `a missing shift key warns but does not block`() {
         val spec = letters(listOf(Key("a")) + usableBottomRow.filter { it.action != KeyAction.Shift })
         val findings = validateLayout(spec)

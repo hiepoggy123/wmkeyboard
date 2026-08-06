@@ -105,6 +105,8 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutSeverity
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.ime.ui.KeyIcons
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
+import com.wasimaster.wmkeyboard.core.layout.fallbackLabel
+import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.resolveLayouts
 import com.wasimaster.wmkeyboard.core.layout.sidePadFor
 import com.wasimaster.wmkeyboard.core.layout.validateLayout
@@ -513,6 +515,64 @@ internal fun layoutSummary(resources: Resources, layout: LayoutSpec, enabled: Bo
  */
 internal fun baseModeTitle(layout: LayoutSpec): String =
     "${layout.language().displayName} · ${layout.name}"
+
+/**
+ * The check that has to pass before a layout may be switched on, as a function
+ * the toggles call.
+ *
+ * The editor has always told the user "You must fix this before you turn this
+ * layout on" under every blocking finding, and nothing anywhere enforced it —
+ * [canBeEnabled] existed and was called only from tests, so a layout with no
+ * delete key, no way back off its symbols layer, or keys from a newer build
+ * turned on with no warning at all. Repairing at draw time keeps such a layout
+ * *typeable*, but that is a backstop, not permission: the grid the user then
+ * types on is not the one they built, and nothing said so.
+ *
+ * Returns a gate: call it with the layout id and what to do if it passes. A
+ * blocking layout opens a dialog naming every reason instead, which is the same
+ * list the editor shows, so the two can never disagree.
+ */
+@Composable
+internal fun rememberLayoutEnableGate(
+    settings: KeyboardSettings,
+): (String, () -> Unit) -> Unit {
+    val resources = LocalContext.current.resources
+    var blocked by remember { mutableStateOf<Pair<String, List<LayoutMessage>>?>(null) }
+
+    blocked?.let { (name, reasons) ->
+        AlertDialog(
+            onDismissRequest = { blocked = null },
+            title = { Text(stringResource(R.string.layout_editor_cannot_enable_title, name)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.layout_editor_cannot_enable_body))
+                    Spacer(Modifier.height(8.dp))
+                    for (reason in reasons) {
+                        Text(
+                            stringResource(
+                                R.string.layout_editor_repair_note,
+                                reason.format(resources),
+                            ),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { blocked = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
+        )
+    }
+
+    return { layoutId, enable ->
+        val spec = resolveLayout(settings.customLayouts, layoutId)
+        val reasons = validateLayout(spec)
+            .filter { it.severity == LayoutSeverity.BLOCKING }
+            .map { it.text }
+        if (reasons.isEmpty()) enable() else blocked = spec.name to reasons
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Editor
@@ -1310,6 +1370,12 @@ private fun actionIconName(action: KeyAction): String? = when (action) {
 /**
  * What to draw for an action key whose label is blank, like a keypad spacebar.
  *
+ * Only the handful the keyboard draws from an icon slot are answered here; every
+ * other action defers to [KeyAction.fallbackLabel], which is what the keyboard
+ * itself falls back to. The two used to disagree — this one ended in a catch-all
+ * "·" — and a Tab or Ctrl key therefore looked present in the editor and came
+ * out invisible on the keyboard.
+ *
  * [spaceLabel] is the one glyph here that is a word, so the caller reads it and
  * hands it over.
  */
@@ -1319,8 +1385,7 @@ private fun actionGlyph(action: KeyAction, spaceLabel: String): String = when (a
     KeyAction.Delete -> "⌫"
     KeyAction.ForwardDelete -> "⌦"
     KeyAction.Shift -> "⇧"
-    KeyAction.None -> ""
-    else -> "·"
+    else -> action.fallbackLabel()
 }
 
 
@@ -1407,6 +1472,12 @@ internal val KeyActionCatalog: List<KeyActionOption> = listOf(
         { KeyAction.LanguageSwitch }, { it == KeyAction.LanguageSwitch },
     ),
     KeyActionOption(
+        R.string.layout_editor_action_fn_title,
+        R.string.layout_editor_action_group_layers,
+        R.string.layout_editor_action_fn_detail,
+        { KeyAction.Fn }, { it == KeyAction.Fn },
+    ),
+    KeyActionOption(
         R.string.layout_editor_action_ctrl_title,
         R.string.layout_editor_action_group_modifiers,
         R.string.layout_editor_action_modifier_detail,
@@ -1426,12 +1497,6 @@ internal val KeyActionCatalog: List<KeyActionOption> = listOf(
         R.string.layout_editor_action_meta_detail,
         { KeyAction.Mod(ModifierKey.META) },
         { it is KeyAction.Mod && it.key == ModifierKey.META },
-    ),
-    KeyActionOption(
-        R.string.layout_editor_action_fn_title,
-        R.string.layout_editor_action_group_layers,
-        R.string.layout_editor_action_fn_detail,
-        { KeyAction.Fn }, { it == KeyAction.Fn },
     ),
     KeyActionOption(
         R.string.layout_editor_action_tab_title,

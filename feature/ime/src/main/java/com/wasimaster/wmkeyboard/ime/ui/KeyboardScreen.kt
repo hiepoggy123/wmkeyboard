@@ -9217,15 +9217,43 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
                         .size((22f * fontScale).dp),
                 )
             } else {
-                // Multi-character mode labels (?123, ABC, =\<) read as labels,
-                // not characters — render them clearly smaller than letters.
-                val isModeLabel = key.action != KeyAction.Text && key.label.length > 1
+                // A blank label on an action key used to draw literally nothing,
+                // so a Tab, Escape, Ctrl or Fn key made in the editor — where the
+                // action picker never asks for a label — arrived here invisible.
+                // The fallback lives in the layout module so the editor's preview
+                // and this draw the same thing.
+                val text = visual.label.ifBlank { key.action.fallbackLabel() }
+                // Multi-character mode labels (?123, ABC, =\<, Ctrl) read as
+                // labels, not characters — render them clearly smaller than
+                // letters. Measured on the resolved text, or every fallback above
+                // would come out at full letter size.
+                val isModeLabel = key.action != KeyAction.Text && text.length > 1
+                val baseSize = if (isModeLabel) 15.6f else 23f
+                // A custom layout may put any string on a key — ".com", or a word
+                // like "SEND". Left alone, a long one wrapped onto a second line
+                // and drew outside the key it belongs to, so it is held to one
+                // line and stepped down until it fits.
+                //
+                // Measured rather than counted: a Bengali conjunct is three
+                // UTF-16 units and one glyph, so a rule on `length` would shrink
+                // exactly the labels that never needed it. Asking the finished
+                // layout whether it overflowed is script-agnostic, costs the
+                // ordinary one-glyph key nothing, and settles in a frame or two.
+                var scale by remember(text, baseSize, fontScale) { mutableFloatStateOf(1f) }
                 Text(
-                    text = visual.label,
+                    text = text,
                     modifier = Modifier.align(Alignment.Center),
-                    fontSize = ((if (isModeLabel) 15.6f else 23f) * fontScale).sp,
+                    fontSize = (baseSize * fontScale * scale).sp,
                     fontWeight = if (settings.boldKeyLabels) FontWeight.Bold else FontWeight.Medium,
                     color = contentColor,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                    onTextLayout = {
+                        // Floored, so a label nothing could fit ellipsises rather
+                        // than shrinking to nothing.
+                        if (it.hasVisualOverflow && scale > 0.5f) scale -= 0.08f
+                    },
                 )
             }
             // Corner hint: a named icon if the key carries one, otherwise the

@@ -585,18 +585,25 @@ internal fun LanguageDetailScreen(
         )
     }
 
+    // A shipped layout always validates, but an *edited* one is stored under the
+    // same id and resolves in its place, so this list can hold a broken layout
+    // too. Same gate as the custom list; switching off is never gated.
+    val enableGate = rememberLayoutEnableGate(settings)
     SettingsGroup(stringResource(R.string.languages_layouts_title)) {
         for (layoutId in lang.layoutIds) {
             item {
                 val name = resolveLayout(settings.customLayouts, layoutId).name
                 ToggleSetting(name, null, layoutId in settings.enabledLayoutIds) { enable ->
-                    scope.launch {
-                        val next =
-                            if (enable) settings.enabledLayoutIds + layoutId
-                            else settings.enabledLayoutIds - layoutId
-                        // At least one layout must stay enabled somewhere.
-                        if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
+                    fun write() {
+                        scope.launch {
+                            val next =
+                                if (enable) settings.enabledLayoutIds + layoutId
+                                else settings.enabledLayoutIds - layoutId
+                            // At least one layout must stay enabled somewhere.
+                            if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
+                        }
                     }
+                    if (enable) enableGate(layoutId) { write() } else write()
                 }
             }
         }
