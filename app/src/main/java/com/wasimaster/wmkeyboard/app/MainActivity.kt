@@ -4873,6 +4873,9 @@ private fun LanguageSettings(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    // Same prompt the add-language list shows, so the shortlist below cannot be
+    // the one path that downloads a language's data without asking.
+    val dataPrompt = rememberLanguageDataPrompt()
     CaptionText(stringResource(R.string.langemoji_lang_intro_body))
     // "Your languages" is the enabled set (deduped, in switch order); each opens
     // its detail. Adding one is a search over the whole registry.
@@ -4912,14 +4915,29 @@ private fun LanguageSettings(
                         suggestion.language.displayName,
                         subtitle = suggestionReasonLabel(suggestion),
                     ) {
-                        addLanguage(scope, repository, settings, suggestion.language)
-                        onNavigate("language/${suggestion.language.id}")
+                        dataPrompt.ask(suggestion.language) {
+                            addLanguage(scope, repository, settings, suggestion.language)
+                            onNavigate("language/${suggestion.language.id}")
+                        }
                     }
                 }
             }
             item {
                 CaptionText(stringResource(R.string.langemoji_lang_suggested_source_body))
             }
+        }
+    }
+    // The master switch over every download the keyboard would otherwise start
+    // on its own. Here rather than under Emoji because it covers prediction
+    // data too, and this is the screen where languages arrive.
+    SettingsGroup(stringResource(R.string.langemoji_lang_data_title)) {
+        item {
+            ToggleSetting(
+                R.string.langemoji_lang_auto_download_title,
+                stringResource(R.string.langemoji_lang_auto_download_subtitle),
+                settings.autoDownloadLanguageData,
+                info = stringResource(R.string.langemoji_lang_auto_download_info),
+            ) { scope.launch { repository.setAutoDownloadLanguageData(it) } }
         }
     }
     // Reorder the switch ring (spacebar swipe / 🌐 cycle) across every enabled

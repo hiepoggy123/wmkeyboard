@@ -14,6 +14,17 @@ class NgramPackEntry(
     /** File stem, e.g. `bn_rom_bigrams` -> `data/bn/bn_rom_bigrams.txt.gz`. */
     val bigramStem: String,
     val trigramStem: String,
+    /**
+     * Roughly what the two files cost to fetch, compressed, for the prompt
+     * that asks before downloading them.
+     *
+     * The *transferred* share, not the published size: the lists are
+     * count-descending and the read stops at
+     * [NgramPackDownloadManager]'s caps, so English sends about a quarter of
+     * its bigram file and an eighth of its trigram one. A pack whose lists are
+     * shorter than the caps is simply its full size.
+     */
+    val approxGzBytes: Long,
 ) {
     fun bigramUrl(): String = url(bigramStem)
     fun trigramUrl(): String = url(trigramStem)
@@ -35,6 +46,7 @@ object NgramPackCatalog {
             repoCode = "en",
             bigramStem = "en_bigrams",
             trigramStem = "en_trigrams",
+            approxGzBytes = 1_100_000,
         ),
         // Banglish: bn_rom is its own first-class language (Latin script,
         // plain QWERTY, transliterated wordlist), so its romanized pairs
@@ -45,6 +57,7 @@ object NgramPackCatalog {
             repoCode = "bn",
             bigramStem = "bn_rom_bigrams",
             trigramStem = "bn_rom_trigrams",
+            approxGzBytes = 315_000,
         ),
     )
 

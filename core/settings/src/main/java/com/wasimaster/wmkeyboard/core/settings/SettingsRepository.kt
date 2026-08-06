@@ -900,6 +900,18 @@ data class KeyboardSettings(
     val lexiconVersion: Int = 0,
     /** Bumped when the settings app imports or removes a custom word list. */
     val customDictVersion: Int = 0,
+    /**
+     * Let the keyboard fetch the data an enabled language needs — emoji
+     * keywords, n-gram packs — on its own, without asking.
+     *
+     * On by default, because a language whose data never arrives predicts
+     * badly and searches emoji only in English, and the packs are small. Off
+     * means nothing is ever downloaded unless a button was pressed for it:
+     * the prompt shown as a language is added, or the per-item rows under
+     * Settings › Languages. Word lists are never fetched automatically either
+     * way — they are the megabyte-sized ones, so they are always a choice.
+     */
+    val autoDownloadLanguageData: Boolean = true,
     /** Emoji look on the keyboard: system pack, Noto (stock Android), or custom. */
     val emojiFont: EmojiFontChoice = EmojiFontChoice.SYSTEM,
     /** Which library face [EmojiFontChoice.INSTALLED] uses; see [EmojiFontSettings]. */
@@ -1956,6 +1968,10 @@ data class EmojiSettings(
      * answers English, and the packs are 148 B to 112 KB compressed — smaller
      * than one photo. Off leaves every download to the buttons under
      * Settings › Emoji › Emoji keywords.
+     *
+     * Narrower than [KeyboardSettings.autoDownloadLanguageData], which turns
+     * off every automatic download at once; this one is the emoji half of it,
+     * and both have to be on for a pack to arrive unasked.
      */
     val autoDownloadKeywords: Boolean = true,
     /**
@@ -2601,6 +2617,8 @@ class SettingsRepository(private val context: Context) {
         private const val DEFAULT_FONT_ID = "default"
         private val LEXICON_VERSION = intPreferencesKey("lexicon_version")
         private val CUSTOM_DICT_VERSION = intPreferencesKey("custom_dict_version")
+        private val AUTO_DOWNLOAD_LANGUAGE_DATA =
+            booleanPreferencesKey("auto_download_language_data")
         private val EMOJI_FONT = stringPreferencesKey("emoji_font")
         private val EMOJI_FONT_INSTALLED_ID = stringPreferencesKey("emoji_font_installed_id")
         private val AUTO_APOSTROPHE = booleanPreferencesKey("auto_apostrophe")
@@ -3289,6 +3307,8 @@ class SettingsRepository(private val context: Context) {
             customScriptFontNames = customScriptFontNamesFromPrefs(p, defaults),
             lexiconVersion = p[LEXICON_VERSION] ?: defaults.lexiconVersion,
             customDictVersion = p[CUSTOM_DICT_VERSION] ?: defaults.customDictVersion,
+            autoDownloadLanguageData = p[AUTO_DOWNLOAD_LANGUAGE_DATA]
+                ?: defaults.autoDownloadLanguageData,
             emojiFont = p[EMOJI_FONT]
                 ?.let { runCatching { EmojiFontChoice.valueOf(it) }.getOrNull() }
                 ?: defaults.emojiFont,
@@ -5387,6 +5407,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun bumpCustomDictVersion() =
         editPrefs { it[CUSTOM_DICT_VERSION] = (it[CUSTOM_DICT_VERSION] ?: 0) + 1 }
+
+    suspend fun setAutoDownloadLanguageData(value: Boolean) =
+        editPrefs { it[AUTO_DOWNLOAD_LANGUAGE_DATA] = value }
 
     suspend fun setEmojiAutoDownloadKeywords(value: Boolean) =
         editPrefs { it[EMOJI_AUTO_DOWNLOAD_KEYWORDS] = value }

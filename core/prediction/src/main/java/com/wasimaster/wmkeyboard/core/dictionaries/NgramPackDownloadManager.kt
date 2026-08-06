@@ -105,6 +105,18 @@ object NgramPackDownloadManager {
         }
     }
 
+    /**
+     * Fetches one language's pack because the user asked — from the prompt
+     * shown as a language is added, or a row under Settings › Languages.
+     *
+     * The same work [ensure] does, minus the give-up memory: a tap on Download
+     * is a request to retry exactly the transfer that failed earlier.
+     */
+    fun start(filesDir: File, langId: String) {
+        synchronized(jobs) { givenUp.remove(langId) }
+        ensure(filesDir, listOf(langId))
+    }
+
     private fun download(filesDir: File, entry: NgramPackEntry) {
         val langId = entry.languageId
         if (isDownloaded(filesDir, langId)) return

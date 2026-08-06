@@ -1720,7 +1720,7 @@ open class WMKeyboardService : InputMethodService() {
                     publishEmojiHistory(force = true)
                 }
                 emojiUsageVersion = settings.emoji.usageVersion
-                refreshEmojiDictDownloads(settings)
+                refreshLanguageDataDownloads(settings)
                 suggestionEngine?.primaryLanguageId = activeLang.id
                 suggestionEngine?.customDictionary =
                     customDictionaries[activeLang.id] ?: PackedTrie.EMPTY
@@ -2085,20 +2085,30 @@ open class WMKeyboardService : InputMethodService() {
             EmojiKeywordPacks.languages(filesDir).flatMap { EmojiKeywordPacks.load(filesDir, it) }
 
     /**
-     * Fetches the emoji dictionary for any enabled language that hasn't got
-     * one, so emoji search answers in the language being typed rather than
-     * only in English.
+     * Fetches the data an enabled language is missing — its emoji dictionary,
+     * so emoji search answers in the language being typed rather than only in
+     * English, and its n-gram pack, so predictions know which word follows
+     * which.
      *
      * Runs off the enabled-language set rather than a one-shot at startup:
      * that covers both "the user just added Tamil" and "this install predates
-     * the feature". The manager itself skips what is already on disk and
-     * remembers failures, so calling this on every settings emission is free
+     * the feature". The managers themselves skip what is already on disk and
+     * remember failures, so calling this on every settings emission is free
      * after the first pass.
+     *
+     * Both halves are behind [KeyboardSettings.autoDownloadLanguageData]: with
+     * it off nothing arrives unless the user asked for it, either on the
+     * prompt shown as the language was added or from the rows under Settings ›
+     * Languages. Word lists are never fetched here at all — they are the big
+     * ones, and they stay a deliberate choice.
      */
-    private fun refreshEmojiDictDownloads(settings: KeyboardSettings) {
-        if (!userUnlocked || !settings.emoji.autoDownloadKeywords) return
-        EmojiDictDownloadManager.ensure(filesDir, settings.enabledLanguages.map { it.id })
-        NgramPackDownloadManager.ensure(filesDir, settings.enabledLanguages.map { it.id })
+    private fun refreshLanguageDataDownloads(settings: KeyboardSettings) {
+        if (!userUnlocked || !settings.autoDownloadLanguageData) return
+        val languages = settings.enabledLanguages.map { it.id }
+        if (settings.emoji.autoDownloadKeywords) {
+            EmojiDictDownloadManager.ensure(filesDir, languages)
+        }
+        NgramPackDownloadManager.ensure(filesDir, languages)
     }
 
     private suspend fun reloadEmojiCatalog() {

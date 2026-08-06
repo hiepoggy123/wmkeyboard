@@ -17,6 +17,12 @@
     <string name="langemoji_lang_suggested_title">Suggested for you</string>
     <string name="langemoji_lang_suggested_source_body">The suggestions come from the language settings and the region of your device. The keyboard does not read what you type. No data leaves your device.</string>
 
+    <!-- Master switch over the downloads the keyboard starts on its own. -->
+    <string name="langemoji_lang_data_title">Language data</string>
+    <string name="langemoji_lang_auto_download_title">Download data automatically</string>
+    <string name="langemoji_lang_auto_download_subtitle">Get emoji keywords and prediction data for the languages that you use</string>
+    <string name="langemoji_lang_auto_download_info">With this on, the keyboard downloads the small files a language needs, when you add it and when a new one is published: emoji keywords, so emoji search answers in your language, and word-pair data, which makes predictions better. Word lists are never downloaded automatically. With this off, nothing is downloaded until you ask for it on a language screen.</string>
+
     <string name="langemoji_lang_switch_order_title">Switch order</string>
     <string name="langemoji_lang_switch_order_dialog_title">Reorder input languages</string>
     <!-- One layout in the "Switch order" list. %1$s is the name of the language,

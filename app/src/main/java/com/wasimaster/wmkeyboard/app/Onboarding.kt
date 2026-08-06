@@ -518,24 +518,38 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
     val q = query.trim().lowercase()
     val matches = searchLanguages(q).filter { it.id !in enabledLangIds }
     val suggested = rememberSuggestedLanguages(settings, limit = ONBOARDING_SUGGESTION_LIMIT)
+    // Asked here too. The wizard is where most languages are added, so skipping
+    // the question here would leave the download unasked-for in the common case
+    // — which is the whole point of asking.
+    val dataPrompt = rememberLanguageDataPrompt()
     val add: (LanguageDef) -> Unit = { language ->
         if (language.layoutIds.size > 1) {
             layoutChoice = language.id
         } else {
-            addLanguage(scope, repository, settings, language)
-            query = ""
+            dataPrompt.ask(language) {
+                addLanguage(scope, repository, settings, language)
+                query = ""
+            }
         }
     }
 
     layoutChoice?.let { langId ->
+        val language = LanguageRegistry.byId(langId)
         LayoutPickerDialog(
-            language = LanguageRegistry.byId(langId),
+            language = language,
             layoutName = { resolveLayout(settings.customLayouts, it).name },
             onConfirm = { chosen ->
                 layoutChoice = null
-                query = ""
-                scope.launch {
-                    repository.setEnabledLayoutIds((settings.enabledLayoutIds + chosen).distinct())
+                // After the picker, not instead of it: which layout to type on
+                // and whether to spend the data are separate questions, and the
+                // second one only makes sense once the first is answered.
+                dataPrompt.ask(language) {
+                    query = ""
+                    scope.launch {
+                        repository.setEnabledLayoutIds(
+                            (settings.enabledLayoutIds + chosen).distinct(),
+                        )
+                    }
                 }
             },
             onDismiss = { layoutChoice = null },

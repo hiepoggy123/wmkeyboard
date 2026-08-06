@@ -32,6 +32,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -44,6 +45,9 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryStore
+import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackCatalog
+import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackDownloadManager
+import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackEntry
 import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
@@ -276,7 +280,6 @@ internal fun AddLanguageScreen(
     onOpenLanguage: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val filesDir = LocalContext.current.filesDir
     var query by remember { mutableStateOf("") }
     val enabledLangIds = remember(settings.enabledLanguages) {
         settings.enabledLanguages.mapTo(HashSet()) { it.id }
@@ -290,38 +293,14 @@ internal fun AddLanguageScreen(
     val suggested = rememberSuggestedLanguages(settings)
     // The language is enabled straight away either way; the prompt only decides
     // whether its data comes down now, so answering it is never load-bearing.
-    var pendingDownload by remember { mutableStateOf<LanguageDef?>(null) }
+    val prompt = rememberLanguageDataPrompt()
     val add: (LanguageDef) -> Unit = { lang ->
-        if (languageData(lang.id).isEmpty) {
+        // Nothing is enabled until the dialog is answered, so its Cancel really
+        // is a cancel and has nothing to undo.
+        prompt.ask(lang) {
             addLanguage(scope, repository, settings, lang)
             onOpenLanguage(lang.id)
-        } else {
-            // Nothing is enabled until the dialog is answered, so its Cancel
-            // really is a cancel and has nothing to undo.
-            pendingDownload = lang
         }
-    }
-
-    pendingDownload?.let { lang ->
-        val data = languageData(lang.id)
-        val addAndOpen = {
-            addLanguage(scope, repository, settings, lang)
-            pendingDownload = null
-            onOpenLanguage(lang.id)
-        }
-        LanguageDataDownloadDialog(
-            language = lang,
-            data = data,
-            onCancel = { pendingDownload = null },
-            onSkip = addAndOpen,
-            onDownload = {
-                data.wordlist?.let {
-                    WordlistDownloadManager.start(filesDir, it, AUTO_DOWNLOAD_SIZE)
-                }
-                data.emojiDict?.let { EmojiDictDownloadManager.start(filesDir, it) }
-                addAndOpen()
-            },
-        )
     }
 
     OutlinedTextField(
@@ -395,32 +374,52 @@ private fun conjunctSample(script: ScriptId): String? = when (script) {
 }
 
 /**
- * What a language can download: its word list and its emoji keywords, with a
- * rough size for the two together. Either half may be missing — most languages
- * have a word list, only 125 have keywords.
+ * What a language can download: its word list, its emoji keywords and its
+ * n-gram pack, with a rough size for all three together. Any of them may be
+ * missing — most languages have a word list, only 125 have keywords, and two
+ * so far have an n-gram pack.
  */
 internal data class LanguageData(
     val wordlist: DictionaryEntry?,
     val emojiDict: EmojiDictEntry?,
+    val ngram: NgramPackEntry?,
     val bytes: Long,
 ) {
-    val isEmpty: Boolean get() = wordlist == null && emojiDict == null
+    val isEmpty: Boolean get() = wordlist == null && emojiDict == null && ngram == null
 }
 
-/** Word list and emoji keywords on offer for [langId], sized for a prompt. */
+/** Everything downloadable for [langId], sized for a prompt. */
 internal fun languageData(langId: String): LanguageData {
     val lists = DictionaryCatalog.forLanguage(langId)
     // Where a language has several lists (Portuguese), the one whose id is the
     // language itself is its default; the other is the regional variant.
     val wordlist = lists.firstOrNull { it.id == langId } ?: lists.firstOrNull()
     val emojiDict = EmojiDictCatalog.forLanguage(langId)
+    val ngram = NgramPackCatalog.forLanguage(langId)
     // The catalogue sizes the whole file, and a capped download stops partway
     // through it, so scale by the share of the list actually read.
     val wordlistBytes = wordlist?.let {
         val cap = DictionaryCatalog.wordCap(it, AUTO_DOWNLOAD_SIZE)
         it.approxGzBytes * cap / it.totalWordCount.coerceAtLeast(1)
     } ?: 0L
-    return LanguageData(wordlist, emojiDict, wordlistBytes + (emojiDict?.approxGzBytes ?: 0L))
+    return LanguageData(
+        wordlist = wordlist,
+        emojiDict = emojiDict,
+        ngram = ngram,
+        bytes = wordlistBytes + (emojiDict?.approxGzBytes ?: 0L) + (ngram?.approxGzBytes ?: 0L),
+    )
+}
+
+/**
+ * Fetches everything [data] offers, as the prompt's Download does.
+ *
+ * All three managers queue internally and skip what is already on disk, so
+ * this is safe to call for a language that is half downloaded already.
+ */
+internal fun startLanguageDataDownload(filesDir: File, data: LanguageData) {
+    data.wordlist?.let { WordlistDownloadManager.start(filesDir, it, AUTO_DOWNLOAD_SIZE) }
+    data.emojiDict?.let { EmojiDictDownloadManager.start(filesDir, it) }
+    data.ngram?.let { NgramPackDownloadManager.start(filesDir, it.languageId) }
 }
 
 /**
@@ -434,6 +433,70 @@ private val AUTO_DOWNLOAD_SIZE = DictionaryCatalog.DictionarySize.LARGE
 private fun downloadedLanguageBytes(filesDir: File, langId: String): Long =
     DictionaryStore.downloadedFile(filesDir, langId).length() +
         EmojiDictStore.packFile(filesDir, langId).length()
+
+/**
+ * The download prompt, hoisted so every screen that can add a language asks the
+ * same question in the same words — the add-language list, the shortlist on the
+ * Languages screen and the setup wizard all go through this.
+ *
+ * Returns the holder; the dialog itself is rendered here, when there is one to
+ * render. See [LanguageDataPrompt.ask] for how a row uses it.
+ */
+@Composable
+internal fun rememberLanguageDataPrompt(): LanguageDataPrompt {
+    val filesDir = LocalContext.current.filesDir
+    val prompt = remember { LanguageDataPrompt() }
+    prompt.pending?.let { (language, proceed) ->
+        val data = remember(language.id) { languageData(language.id) }
+        LanguageDataDownloadDialog(
+            language = language,
+            data = data,
+            onCancel = { prompt.dismiss() },
+            onSkip = {
+                prompt.dismiss()
+                proceed()
+            },
+            onDownload = {
+                startLanguageDataDownload(filesDir, data)
+                prompt.dismiss()
+                proceed()
+            },
+        )
+    }
+    return prompt
+}
+
+/**
+ * State for [rememberLanguageDataPrompt]: which language is being asked about,
+ * and what to do once the question is answered.
+ *
+ * The "what to do" is per call rather than fixed on the holder because the
+ * screens differ on it — one opens the language it just added, one clears its
+ * search box, and the wizard's layout picker has already enabled a specific
+ * layout by the time the prompt is asked.
+ */
+@Stable
+internal class LanguageDataPrompt {
+
+    /** The open dialog's language and its continuation, or null for none. */
+    var pending by mutableStateOf<Pair<LanguageDef, () -> Unit>?>(null)
+        private set
+
+    /**
+     * Asks whether to download [language]'s data, then runs [proceed] — which
+     * is where the caller actually adds the language, on either answer.
+     *
+     * A language with nothing to download never shows the dialog: an empty
+     * question is worse than no question.
+     */
+    fun ask(language: LanguageDef, proceed: () -> Unit) {
+        if (languageData(language.id).isEmpty) proceed() else pending = language to proceed
+    }
+
+    fun dismiss() {
+        pending = null
+    }
+}
 
 /**
  * Asks once, as a language is added, whether to fetch the data that makes it
@@ -735,6 +798,33 @@ internal fun LanguageDetailScreen(
         }
     }
 
+    // One tap for the whole set: the word list, the emoji keywords and the
+    // n-gram pack together. Here for the language that was added before this
+    // screen existed, and for the one added with automatic downloads off — the
+    // rows below still fetch them one at a time. The size is on the button
+    // because pressing it is the consent.
+    val downloadable = remember(langId) { languageData(langId) }
+    if (!downloadable.isEmpty) {
+        SettingsGroup(stringResource(R.string.languages_data_title)) {
+            item {
+                OutlinedButton(
+                    onClick = { startLanguageDataDownload(filesDir, downloadable) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                ) {
+                    Text(
+                        stringResource(
+                            R.string.languages_data_download_all_action,
+                            formatBytes(downloadable.bytes),
+                        ),
+                    )
+                }
+            }
+            item { CaptionText(stringResource(R.string.languages_data_download_all_info)) }
+        }
+    }
+
     val wordlistEntries = DictionaryCatalog.forLanguage(langId)
     SettingsGroup(stringResource(R.string.languages_dictionary_title)) {
         item {
@@ -772,7 +862,7 @@ internal fun LanguageDetailScreen(
                 stringResource(
                     when {
                         emojiDict == null -> R.string.languages_emoji_keywords_unavailable
-                        settings.emoji.autoDownloadKeywords ->
+                        settings.autoDownloadLanguageData && settings.emoji.autoDownloadKeywords ->
                             R.string.languages_emoji_keywords_auto
                         else -> R.string.languages_emoji_keywords_manual
                     },

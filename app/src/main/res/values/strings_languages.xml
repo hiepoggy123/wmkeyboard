@@ -186,12 +186,19 @@
     <!-- Button that takes a language off the list. %1$s is its English name. -->
     <string name="languages_remove_action">Remove <xliff:g id="language" example="Bengali">%1$s</xliff:g></string>
 
-    <!-- Dialog after the user adds a language. It offers the downloads that
-         make the language work better: the word list and the emoji keywords. -->
+    <!-- Dialog shown as the user adds a language. It offers the downloads that
+         make the language work properly: the word list, the emoji keywords and
+         the word-pair data predictions use. -->
     <string name="languages_data_download_title">Download language data?</string>
     <!-- %1$s is the language name, %2$s a data size like "4.2 MB". -->
-    <string name="languages_data_download_body">The keyboard can download a word list and emoji keywords for <xliff:g id="language" example="German">%1$s</xliff:g>. This uses about <xliff:g id="size" example="4.2 MB">%2$s</xliff:g> of data. You can also do this later from the language screen.</string>
+    <string name="languages_data_download_body">The keyboard can download the data <xliff:g id="language" example="German">%1$s</xliff:g> needs to predict and correct well: a word list, emoji keywords and word-pair data, whichever of those exist. This uses about <xliff:g id="size" example="4.2 MB">%2$s</xliff:g> of data. You can also download them later from the language screen.</string>
     <string name="languages_data_download_dismiss_action">Not now</string>
+
+    <!-- Group on one language's screen, holding the download-everything button. -->
+    <string name="languages_data_title">Language data</string>
+    <!-- Button that downloads every file the language has. %1$s is a size. -->
+    <string name="languages_data_download_all_action">Download all data (about <xliff:g id="size" example="4.2 MB">%1$s</xliff:g>)</string>
+    <string name="languages_data_download_all_info">Downloads the word list, the emoji keywords and the word-pair data for this language. Files already on the device are not downloaded again. The rows below do the same one file at a time.</string>
 
     <!-- Dialog after the user removes a language that has downloaded files. -->
     <string name="languages_data_delete_title">Delete the downloaded files?</string>
