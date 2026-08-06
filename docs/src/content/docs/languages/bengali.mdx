@@ -31,13 +31,22 @@ A few more of the rules worth knowing:
 
 | You type | You get | Why |
 |---|---|---|
-| `valo` or `bhalo` | ভালো | "bh" and "v" both fold to the "b" sound |
+| `valo` or `bhalo` | ভাল | "bh" and "v" both fold to the "b" sound |
+| `valO` | ভালো | lowercase "o" is the inherent vowel and writes nothing; only capital "O" is ও/ো |
 | `kolokata` | কলকাতা | the explicit "o" between l and k breaks the conjunct that `kolkata` (no vowel between them) would form |
-| `hoThat` + a trailing backquote, or `hoThat,,` | হঠাৎ | a backquote or trailing hasant spells khanda-ta (ৎ) |
+| `bangla` / `bangali` | বাংলা / বাঙালি | ং joins nothing; before a vowel it is ঙ, which can carry the syllable |
+| `swasthyo` | স্বাস্থ্য | "w" after a consonant is a ব-ফলা join |
+| `wasi` | ওয়াসি | "w" anywhere else is ও |
+| `panjabi` | পাঞ্জাবি | "n" before "j" is ঞ |
+| `hoThaTH`, `hoThat` + a trailing backquote, or `hoThat,,` | হঠাৎ | `TH`, a backquote or a trailing hasant all spell khanda-ta (ৎ) |
 | `shyam` | শ্যাম | "y" after a consonant is a য-ফলা join |
 | `meye` | মেয়ে | "y" elsewhere is য়, not a join |
+| `ggan` | জ্ঞান | `gg` is the জ্ঞ conjunct |
+| `Bangla` | বাংলা | a capital that spells nothing of its own reads as its lowercase self |
 | `$` / `123` | ৳ / ১২৩ | currency and digits convert too |
 | `.` / `..` | । / `.` | a single dot is দাঁড়ি; two dots is a literal period |
+
+Both of Avro's spellings for the marks work, and so do the ones Ridmik uses: ঁ is `^` or `qq`/`cb`, ঃ is `:` or `HH`, ৎ is `t` plus a backquote or `TH`, and the hasant is `,,` or `hs`. The `hs` form only fires after a consonant, where a hasant can actually go, so it never eats the h and s of a name like `ahsan`.
 
 ### Spellings the rules can't reach
 
@@ -52,6 +61,8 @@ Some words just aren't spelled the way they sound, so a list of them is checked 
 | `amk` | আমাকে | আম্ক |
 | `tmi` | তুমি | টমি |
 | `table` | টেবিল | তাবলে |
+
+A listed spelling shows up in the composing text as soon as you finish typing it, not when you hit space: `tmr` reads তোমার at the r. That's the same answer the space would have committed, so nothing changes under you at the last moment.
 
 You can switch this off per language if you'd rather have the letter-for-letter reading (see **Spellings** under [Options](#options) below). See [Downloadable dictionaries](/languages/dictionaries/) for how Bengali's dictionary and these lists fit into suggestions generally.
 
@@ -70,6 +81,8 @@ Bengali ships three layouts, and (unusually for a non-English language) all thre
 On Probhat, shift mostly gives you the aspirated partner of a consonant (দ→ধ, ট→ঠ, গ→ঘ, ক→খ) but not uniformly: some shift pairs are vowel-length pairs (ি→ই, ু→উ, ী→ঈ) and a few are unrelated letters that just share a key for space reasons (র→ড়, ন→ণ, স→ষ). The 10th key on the home row carries ে with ো on shift and ৈ/ৌ on long-press. A handful of less common marks (ৎ, ঞ, ঁ, ৃ, ৗ, ঽ) live as long-press alternates on a phonetically related key rather than getting a dedicated slot.
 
 Jatiya's letter keys also match its desktop layout; independent vowels that sit on a desktop AltGr key are reached here as long-press on their matching kar sign instead: long-press ু for উ or ঊ, long-press ি for ই or ঈ, and so on.
+
+All three layouts type দাঁড়ি (।) from the key next to the spacebar rather than a full stop, with the ASCII `.` moved to that key's long-press for numbers, file names and web addresses.
 
 Both fixed layouts share the same cluster-editing behavior as Avro (see [Editing conjuncts and clusters](#editing-conjuncts-and-clusters) below), and the same font choice applies across all three (see [Options](#options)). Switching between them works exactly like switching between any other enabled layouts: spacebar swipe, hold-drag picker, or the <KeyCap>🌐</KeyCap> key. See [Switching languages](/languages/switching/) for the full mechanics.
 

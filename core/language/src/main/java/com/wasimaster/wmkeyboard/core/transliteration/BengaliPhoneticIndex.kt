@@ -132,6 +132,9 @@ class BengaliPhoneticIndex(entries: List<Pair<String, Int>>) {
             'প' to 'p', 'ফ' to 'p', 'ব' to 'b', 'ভ' to 'b', 'ম' to 'm',
             'য' to 'j', 'র' to 'r', 'ল' to 'l', 'শ' to 's', 'ষ' to 's',
             'স' to 's', 'হ' to 'h',
+            // খণ্ড-ত is a ত, and nobody spells it with a key of its own when
+            // typing fast: "hotat" has to be able to reach হঠাৎ.
+            'ৎ' to 't',
             // Nukta letters as precomposed code points (ড় ঢ় য়); decomposed
             // input is normalized before lookup.
             'ড়' to 'r', 'ঢ়' to 'r', 'য়' to 'y',

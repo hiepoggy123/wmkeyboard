@@ -8,6 +8,8 @@ import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.settings.LongPressLetterActions
 import com.wasimaster.wmkeyboard.ime.FieldKind
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
@@ -137,6 +139,26 @@ class CurrentLayoutTest {
             "the bottom-row comma should be gone",
             layout.rows.last().none { it.label == "," && it.action == KeyAction.Text },
         )
+    }
+
+    @Test
+    fun `a bengali layout types dari from the period key`() {
+        val s = state(BuiltInLayouts.AVRO, settings = plain())
+            .copy(script = ScriptRegistry[ScriptId.BENGALI])
+        val period = currentLayout(s).rows.last().first { it.role == KeyRole.Period }
+        assertEquals("।", period.output ?: period.label)
+        assertEquals(".", period.longPress.first())
+        assertTrue(
+            "the mark the key now types must not also sit in its own popup",
+            period.longPress.none { it == "।" },
+        )
+    }
+
+    @Test
+    fun `a latin layout keeps its full stop`() {
+        val period = currentLayout(state(settings = plain()))
+            .rows.last().first { it.role == KeyRole.Period }
+        assertEquals(".", period.output ?: period.label)
     }
 
     @Test

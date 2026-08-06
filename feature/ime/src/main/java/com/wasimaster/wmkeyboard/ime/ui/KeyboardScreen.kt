@@ -7983,6 +7983,12 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
             listOf(".com", ".org", ".net", "www.", "https://", "/")
         else -> emptyList()
     }
+    // Bengali (and any other script that ends a sentence with something other
+    // than a full stop) types its own mark from the key next to the spacebar,
+    // with "." kept on the long press for numbers, file names and URLs. Only
+    // where the layout has not already put the mark there itself — the fixed
+    // Bengali layouts carry দাঁড়ি on their own keys.
+    val fullStop = state.script.fullStop.takeIf { it != "." }
     // Optional Gboard-style emoji key: the letter layouts' comma key becomes
     // an emoji-panel key, with comma demoted to its long-press alternates.
     val commaAsEmoji = state.settings.commaAsEmoji && state.layoutMode == LayoutMode.LETTERS
@@ -8019,7 +8025,7 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
         }
     if (!commaAsEmoji && !globeAsEmoji && !swapCommaGlobe && !stripDigits &&
         clipboardKeys.isEmpty() && fieldKey == null && domainAlternates.isEmpty() &&
-        currencyKeys.isEmpty() && !allAccents
+        currencyKeys.isEmpty() && !allAccents && fullStop == null
     ) {
         return base
     }
@@ -8027,8 +8033,24 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     // copy rather than KeyboardLayout(name, rows): a positional rebuild
     // silently drops any field later added to the class.
     val rewritten = base.rows.mapIndexed { rowIndex, row ->
-        row.map { key ->
-            val role = key.roleIn(rowIndex, bottom)
+        row.map { rowKey ->
+            val role = rowKey.roleIn(rowIndex, bottom)
+            // Ahead of the field/emoji rewrites below, which may replace the
+            // period key outright or hang domain endings off it — the script's
+            // own mark and the "." it displaces travel together either way. A
+            // layout that already types the mark is left alone.
+            val key = if (
+                fullStop != null && role == KeyRole.Period &&
+                (rowKey.output ?: rowKey.label) == "."
+            ) {
+                rowKey.copy(
+                    label = fullStop,
+                    output = null,
+                    longPress = listOf(".") + rowKey.longPress.filterNot { it == fullStop },
+                )
+            } else {
+                rowKey
+            }
             var mapped = when {
                 // Field adaptation outranks the emoji-key preference: an
                 // email box needs its @ more than a shortcut to emoji.

@@ -2727,12 +2727,7 @@ open class WMKeyboardService : InputMethodService() {
             newSelStart == newSelEnd && !_uiState.value.composer.isConversion
         ) {
             val ic = currentInputConnection
-            val state = _uiState.value
-            val text = if (state.composer.isTransliterating) {
-                state.composer.composeBuffer(composing.toString())
-            } else {
-                composing.toString()
-            }
+            val text = composedPreview(_uiState.value, composing.toString())
             if (ic != null && text.isNotEmpty() && newSelStart >= text.length &&
                 caretStillAt(ic, newSelStart) &&
                 ic.getTextBeforeCursor(text.length, 0)?.toString() == text
@@ -5116,13 +5111,28 @@ open class WMKeyboardService : InputMethodService() {
 
     // ---- composing & suggestions ----
 
-    private fun updateComposingText(ic: InputConnection) {
-        val state = _uiState.value
-        val preview = if (state.composer.isTransliterating) {
-            state.composer.composeBuffer(composing.toString())
-        } else {
-            composing.toString()
+    /**
+     * What the field holds for the buffer currently being typed.
+     *
+     * For Avro that is the transliteration, except where the fixed-spelling
+     * map has an entry for exactly this buffer: "tmr" reads তোমার as the r
+     * lands rather than waiting for the space. Showing it early is safe
+     * precisely because the map is what a space would have committed anyway —
+     * it wins [SuggestionEngine.suggest]'s Bengali path outright — so this is
+     * the preview catching up with the commit, not a second opinion that might
+     * disagree with it. Every caller that has to recognise the field's own text
+     * as this buffer's output derives it from here for that reason.
+     */
+    private fun composedPreview(state: KeyboardUiState, buffer: String): String {
+        if (!state.composer.isTransliterating) return buffer
+        if (state.composer.isBengaliPhonetic) {
+            suggestionEngine?.bengaliSpelling(buffer)?.let { return it }
         }
+        return state.composer.composeBuffer(buffer)
+    }
+
+    private fun updateComposingText(ic: InputConnection) {
+        val preview = composedPreview(_uiState.value, composing.toString())
         ic.setComposingText(preview, 1)
         _uiState.update { it.copy(composingPreview = preview) }
     }
@@ -5165,12 +5175,7 @@ open class WMKeyboardService : InputMethodService() {
         // What the field actually holds for this buffer: a transliterating
         // composer's text is the composed form, not the roman source mirrored
         // in the buffer. Same derivation as [updateComposingText].
-        val state = _uiState.value
-        val text = if (state.composer.isTransliterating) {
-            state.composer.composeBuffer(composing.toString())
-        } else {
-            composing.toString()
-        }
+        val text = composedPreview(_uiState.value, composing.toString())
         val reattached = ic != null && text.isNotEmpty() &&
             start == end && start >= text.length &&
             ic.getTextBeforeCursor(text.length, 0)?.toString() == text &&

@@ -10,18 +10,18 @@ class AvroPhoneticTest {
     @Test fun simpleWords() {
         assertEquals("আমি", t("ami"))
         assertEquals("তুমি", t("tumi"))
-        assertEquals("ভালো", t("valo"))
-        assertEquals("ভালো", t("bhalo"))
+        assertEquals("ভাল", t("valo"))
+        assertEquals("ভাল", t("bhalo"))
         assertEquals("আছি", t("achi"))
         assertEquals("আসি", t("asi"))
     }
 
     @Test fun sentence() {
-        assertEquals("আমি ভালো আছি", t("ami valo achi"))
+        assertEquals("আমি ভালো আছি", t("ami valO achi"))
     }
 
     @Test fun inherentVowel() {
-        // Medial "o" is silent, word-final "o" takes o-kar, initial "o" is অ.
+        // "o" is the inherent vowel: no glyph after a consonant, অ elsewhere.
         assertEquals("করি", t("kori"))
         assertEquals("মন", t("mon"))
         assertEquals("কেমন", t("kemon"))
@@ -69,7 +69,7 @@ class AvroPhoneticTest {
     @Test fun aAfterKarGlidesWithAntastyaYo() {
         // "a" right after a kar glides with য় instead of independent আ.
         assertEquals("কিয়ামত", t("kiamot"))
-        assertEquals("পিয়ানো", t("piano"))
+        assertEquals("পিয়ানো", t("pianO"))
         assertEquals("দেয়া", t("dea"))
         assertEquals("মায়া", t("maa"))
         // ...and after any rendered vowel, not just kar.
@@ -83,13 +83,73 @@ class AvroPhoneticTest {
         assertEquals("আমি", t("ami"))
     }
 
-    @Test fun wordFinalOAfterConjunctStaysSilent() {
+    @Test fun onlyCapitalOWritesOKar() {
+        // Lowercase "o" is the inherent vowel wherever a consonant precedes
+        // it, word-final included — desktop Avro's rule, and the difference
+        // between "bhalo" and "bhalO" is the whole point of the shift.
         assertEquals("স্বপ্ন", t("sbopno"))
         assertEquals("কষ্ট", t("koShTo"))
         assertEquals("সত্য", t("sotyo"))
-        // ...but after a plain consonant the final "o" still takes o-kar.
-        assertEquals("ভালো", t("valo"))
-        assertEquals("কালো", t("kalo"))
+        assertEquals("ভাল", t("valo"))
+        assertEquals("কাল", t("kalo"))
+        assertEquals("ভালো", t("valO"))
+        assertEquals("কালো", t("kalO"))
+        // A sign closes a consonant's syllable, so the "o" after one is
+        // inherent too rather than a fresh অ.
+        assertEquals("রং", t("rongo"))
+    }
+
+    @Test fun anusvaraJoinsNothing() {
+        // ং hangs off the syllable in front of it: no hasant either side.
+        assertEquals("বাংলা", t("bangla"))
+        assertEquals("পংক্তি", t("pongkti"))
+        assertEquals("আকাংখা", t("akangkha"))
+        assertEquals("অংক", t("ongko"))
+        // Before a vowel there is a new syllable to carry, and only ঙ can.
+        assertEquals("বাঙালি", t("bangali"))
+        // ...and ঁ and ঃ are the same kind of thing.
+        assertEquals("চাঁদ", t("ca^d"))
+        assertEquals("দুঃখ", t("du:kh"))
+    }
+
+    @Test fun baFolaViaW() {
+        assertEquals("স্বাস্থ্য", t("swasthyo"))
+        assertEquals("স্বাধীনতা", t("swadhInota"))
+        // Off a consonant it is still ও, and the "a" after it still glides.
+        assertEquals("ওয়াসি", t("wasi"))
+        assertEquals("খাওয়া", t("khaOa"))
+    }
+
+    @Test fun nBeforeJIsNio() {
+        assertEquals("পাঞ্জাবি", t("panjabi"))
+        assertEquals("অঞ্জন", t("onjon"))
+    }
+
+    @Test fun capitalsThatSpellNothingReadAsLowercase() {
+        // A latched shift must not drop a Latin letter into the word.
+        assertEquals("বাংলা", t("Bangla"))
+        assertEquals("কেমন", t("Kemon"))
+        assertEquals("ছল", t("Cholo"))
+        assertEquals("ভাল", t("Valo"))
+        // The fold spans the whole rule, so a digraph still matches.
+        assertEquals("খাবার", t("KHabar"))
+        // Capitals Avro does use are untouched by it.
+        assertEquals("টাকা", t("Taka"))
+        assertEquals("নদী", t("nodI"))
+        assertEquals("ভালো", t("valO"))
+        assertEquals("ওকে!", t("OkE!"))
+    }
+
+    @Test fun ridmikSpellings() {
+        assertEquals("হঠাৎ", t("hoThaTH"))
+        assertEquals("দুঃখ", t("duHHkho"))
+        assertEquals("চাঁদ", t("caqqd"))
+        assertEquals("চাঁদ", t("cacbd"))
+        assertEquals("জ্ঞান", t("ggan"))
+        // "hs" is the hasant only where a hasant can go — on a consonant —
+        // so the h and s of a name are still ordinary letters.
+        assertEquals("ন্ব", t("nhsb"))
+        assertEquals("আহ্সান", t("ahsan"))
     }
 
     @Test fun clusterBreaksOnlyWithInherentVowel() {

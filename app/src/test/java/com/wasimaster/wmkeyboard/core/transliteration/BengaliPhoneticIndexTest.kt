@@ -29,6 +29,10 @@ class BengaliPhoneticIndexTest {
             // The confusable folds the index was built for.
             "আছি" to 6900, "আসি" to 2300,
             "চলে" to 2100, "ছলে" to 40,
+            // খণ্ড-ত: nobody reaches for its key mid-word, so it has to be
+            // findable from the plain t — without dragging ordinary ত-final
+            // words along with it.
+            "হঠাৎ" to 1252, "হঠাত" to 40, "ভারত" to 3900,
         )
     )
 
@@ -75,6 +79,13 @@ class BengaliPhoneticIndexTest {
         assertEquals("চলে", top("chole"))
         assertEquals("আছি", top("achi"))
         assertEquals("আছি", top("asi"))
+    }
+
+    @Test fun khandaTaIsReachableFromAPlainT() {
+        assertEquals("হঠাৎ", top("hotat"))
+        assertEquals("হঠাৎ", top("hoThat"))
+        // ...and a word that really does end in ত keeps its ত.
+        assertEquals("ভারত", top("bharot"))
     }
 
     @Test fun unknownInputHasNoSiblings() {

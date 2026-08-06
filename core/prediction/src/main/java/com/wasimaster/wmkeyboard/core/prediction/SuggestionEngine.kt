@@ -971,6 +971,20 @@ class SuggestionEngine(
         return results
     }
 
+    /**
+     * The fixed-spelling map's answer for exactly [composing], or null.
+     *
+     * The composing preview calls this so a listed spelling shows up while the
+     * word is still being typed — "tmr" reads তোমার at the r, not at the
+     * space. Only the map layer, deliberately: it is keyed on the whole buffer,
+     * so it either hits or it doesn't and the preview never flickers between
+     * dictionary siblings on its way to the end of a word. It is also the layer
+     * that wins [bengaliSuggestions] outright, so what the preview shows is
+     * what a space would commit.
+     */
+    fun bengaliSpelling(composing: String): String? =
+        spellings.lookup(composing).firstOrNull { !suppressed(it) }
+
     private fun bengaliSuggestions(composing: String, limit: Int): List<String> {
         val phonetic = AvroPhonetic.transliterate(composing)
         val ordered = LinkedHashSet<String>()

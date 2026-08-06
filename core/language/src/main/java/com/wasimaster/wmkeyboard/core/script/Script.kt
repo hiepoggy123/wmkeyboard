@@ -128,6 +128,15 @@ data class ScriptDef(
     val composer: ComposerType = ComposerType.NONE,
     val fontHint: FontHint = FontHint.GENERIC,
     val unicodeRange: IntRange = IntRange.EMPTY,
+    /**
+     * The mark this script ends a sentence with, for the key next to the
+     * spacebar. Bengali writes দাঁড়ি (।), not a full stop, and a Bengali
+     * keyboard that types "." is the single most-noticed way of being not
+     * quite the keyboard people are used to. The ASCII "." moves to the key's
+     * long-press wherever this is not "." — it is still wanted for numbers,
+     * file names and URLs.
+     */
+    val fullStop: String = ".",
 )
 
 /**
@@ -155,6 +164,7 @@ object ScriptRegistry {
             composer = ComposerType.INDIC_CLUSTER,
             fontHint = FontHint.BENGALI,
             unicodeRange = 0x0980..0x09FF,
+            fullStop = "।",
         ),
         ScriptDef(
             id = ScriptId.HANGUL,
