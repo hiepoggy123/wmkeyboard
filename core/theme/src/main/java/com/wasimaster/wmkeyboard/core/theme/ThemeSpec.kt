@@ -282,6 +282,16 @@ data class ThemeSpec(
      */
     val decals: List<DecalSpec> = emptyList(),
     /**
+     * Particle burst on every key press, as a [KeyEffectKind] name; null for
+     * none. A string for the usual forward-compat reason; read through
+     * [keyEffectKindOrNull]. Never plays under reduce motion or power saving.
+     */
+    val keyEffect: String? = null,
+    /** The emoji the `EMOJI` effect throws; each glyph is one particle kind. */
+    val keyEffectParam: String? = null,
+    /** Scales how many particles a press throws. */
+    val keyEffectIntensity: Float = 1f,
+    /**
      * Per-key style overrides — a single key's own colours, keyed by the
      * key's lowercase label (letter keys) or its action name (special keys);
      * see [KeyOverride]. One unknown JSON key to an older build, which
@@ -345,6 +355,17 @@ data class DecalSpec(
 
 /** The most decals a theme may carry; past a handful they are just occlusion. */
 const val MAX_DECALS = 6
+
+/** A key-press particle burst's kind. Never serialized — travels as a string. */
+enum class KeyEffectKind { STARS, HEARTS, SPARKLE, CONFETTI, EMOJI }
+
+/**
+ * The effect behind [ThemeSpec.keyEffect]; null for an absent or unknown
+ * name, which is also what a name from a later build resolves to — the field
+ * costs itself, never the theme.
+ */
+fun keyEffectKindOrNull(name: String?): KeyEffectKind? =
+    name?.let { wanted -> KeyEffectKind.entries.firstOrNull { it.name.equals(wanted, true) } }
 
 /** How a key texture fits its key. Never serialized — travels as a string. */
 enum class KeyTextureScale { CROP, STRETCH, TILE }

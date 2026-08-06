@@ -223,6 +223,17 @@
     <string name="theme_decal_size_title">Size</string>
     <string name="theme_decal_rotation_title">Rotation</string>
 
+    <!-- Theme editor: key-press particle effects. -->
+    <string name="theme_effect_section_title">Key press effect</string>
+    <string name="theme_effect_section_body">A small burst of particles under every key press. It does not play with reduce motion or power saving.</string>
+    <string name="theme_effect_stars_label">Stars</string>
+    <string name="theme_effect_hearts_label">Hearts</string>
+    <string name="theme_effect_sparkle_label">Sparkle</string>
+    <string name="theme_effect_confetti_label">Confetti</string>
+    <string name="theme_effect_emoji_label">Emoji</string>
+    <string name="theme_effect_emoji_field_label">Emoji to throw</string>
+    <string name="theme_effect_intensity_title">Intensity</string>
+
     <!-- Theme editor: per-theme font and sound. -->
     <string name="theme_font_sound_section_title">Font and sound</string>
     <string name="theme_font_sound_section_body">The theme can bring its own key font and key sound. If the device does not have them, the keyboard uses your global choices. Fonts and sounds install as add-ons, so you can also use them with other themes.</string>

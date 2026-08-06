@@ -7723,6 +7723,29 @@ private fun KeyRows(
     // The eight colours the keys themselves are painted with. Remembered so the
     // resolved rows below compare it by identity rather than by value.
     val palette = remember(kbTheme) { kbTheme.keyPalette() }
+    // The key-press particle burst. The field and its glyphs exist only while
+    // the theme carries an effect (reduce motion and power saving both zero
+    // the count); the spawn lambda is what the keys see, and it reads the box
+    // origin live so a burst lands under the finger wherever the grid sits.
+    val particleField = remember { ParticleField() }
+    val particleGlyphs = rememberEffectGlyphs(kbTheme)
+    val particleBurst = burstCount(kbTheme)
+    val onBurst: ((Rect) -> Unit)? =
+        if (particleBurst > 0 && particleGlyphs.isNotEmpty()) {
+            remember(particleField, particleBurst, particleGlyphs) {
+                { bounds ->
+                    particleField.spawn(
+                        bounds.center.x - boxOrigin.x,
+                        bounds.center.y - boxOrigin.y,
+                        particleBurst,
+                        particleGlyphs.size,
+                        SystemClock.uptimeMillis(),
+                    )
+                }
+            }
+        } else {
+            null
+        }
     // Customisable glide-trail + start-sensitivity knobs (Settings → Gestures).
     val gesture = state.settings.gesture
     val trailMs = gesture.trailDurationMs.toLong()
@@ -8153,6 +8176,7 @@ private fun KeyRows(
                     onLayoutSelect = onLayoutSelect,
                     onLetterPositioned = onLetterPositioned,
                     smartResolve = smartResolve,
+                    onBurst = onBurst,
                 )
             }
             // Layers shorter than the reserved span pad at the top rather than
@@ -8184,6 +8208,7 @@ private fun KeyRows(
                     onLetterPositioned = onLetterPositioned,
                     onSpacePositioned = onSpacePositioned,
                     smartResolve = smartResolve,
+                    onBurst = onBurst,
                 )
             }
         }
@@ -8193,6 +8218,10 @@ private fun KeyRows(
         // typing goes straight through a decal; it draws only when the board
         // draws, with no clock of its own.
         BoardDecalsOverlay(kbTheme)
+
+        // The press bursts, over the decals and under the trail. Composed only
+        // while particles live; the frame loop dies with them.
+        KeyPressEffectsOverlay(particleField, particleGlyphs)
 
         // Anchored on the grid rather than on a key, and composed whether or not
         // anything is held — see [KeyPreviewOverlay].
@@ -8328,6 +8357,8 @@ private fun KeyRow(
     onLetterPositioned: (Char, LayoutCoordinates) -> Unit,
     onSpacePositioned: (LayoutCoordinates) -> Unit = {},
     smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
+    /** Spawns the theme's press burst at the key's bounds; null when off. */
+    onBurst: ((Rect) -> Unit)? = null,
 ) {
     Row {
         if (row.sidePad > 0.01f) Spacer(modifier = Modifier.weight(row.sidePad))
@@ -8346,6 +8377,7 @@ private fun KeyRow(
                 onLetterPositioned,
                 onSpacePositioned,
                 smartResolve,
+                onBurst,
             )
         }
         // Split mode only: the halves are cut where the row was resolved, so an
@@ -8367,6 +8399,7 @@ private fun KeyRow(
                     onLetterPositioned,
                     onSpacePositioned,
                     smartResolve,
+                    onBurst,
                 )
             }
         }
@@ -8389,6 +8422,7 @@ private fun RowScope.KeyCell(
     onLetterPositioned: (Char, LayoutCoordinates) -> Unit,
     onSpacePositioned: (LayoutCoordinates) -> Unit = {},
     smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
+    onBurst: ((Rect) -> Unit)? = null,
 ) {
     val key = visual.key
     val letter = key.label.singleOrNull()?.takeIf {
@@ -8417,6 +8451,7 @@ private fun RowScope.KeyCell(
         onCursorMove = onCursorMove,
         onLayoutSelect = onLayoutSelect,
         smartResolve = smartResolve,
+        onBurst = onBurst,
     )
 }
 
@@ -9137,6 +9172,8 @@ private fun KeyButton(
     /** The board's shared preview bubble; this key only publishes to it. */
     keyPreview: KeyPreviewState,
     smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
+    /** Spawns the theme's press burst at this key; null when the effect is off. */
+    onBurst: ((Rect) -> Unit)? = null,
 ) {
     val key = visual.key
     // Held as the state object, never read through a `by` delegate: every read of
@@ -9189,6 +9226,9 @@ private fun KeyButton(
     // across recompositions, so a per-key popup colour has to be read through
     // an updated state or a theme edit would keep bubbling the old colour.
     val previewColors = rememberUpdatedState(visual.popupBackground to visual.popupText)
+    // And the burst likewise: switching to an effect-less theme must null it
+    // out under a finger that is already down.
+    val burst = rememberUpdatedState(onBurst)
     // The key's place in the compose root, for the overlay to position against.
     val keyBounds = remember { mutableStateOf(Rect.Zero) }
 
@@ -9300,6 +9340,12 @@ private fun KeyButton(
                         if (down) gate.press(debounceMs.value)
                         pressed.value = down
                         announce(down)
+                        // The burst spends nothing when off, and rides the same
+                        // debounce as the sound: a dropped contact throws no
+                        // confetti either.
+                        if (down && gate.accepted) {
+                            burst.value?.invoke(keyBounds.value)
+                        }
                         if (down && previewWanted.value) {
                             val bounds = keyBounds.value
                             keyPreview.press(

@@ -57,7 +57,9 @@ import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.theme.ColorVision
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
 import com.wasimaster.wmkeyboard.core.theme.DecalSpec
+import com.wasimaster.wmkeyboard.core.theme.KeyEffectKind
 import com.wasimaster.wmkeyboard.core.theme.KeyOverride
+import com.wasimaster.wmkeyboard.core.theme.keyEffectKindOrNull
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.MAX_DECALS
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
@@ -110,6 +112,12 @@ data class KbTheme(
     val keyOverrides: Map<String, KeyOverride>,
     /** Decorative stickers over the key grid. */
     val decals: List<DecalSpec>,
+    /** Particle burst on key press; null for none. Gated by [reduceMotion]. */
+    val keyEffect: KeyEffectKind?,
+    /** Glyphs the EMOJI effect throws. */
+    val keyEffectParam: String,
+    /** Scales the burst's particle count. */
+    val keyEffectIntensity: Float,
     val key: Color,
     val keyText: Color,
     val modifierKey: Color,
@@ -360,6 +368,9 @@ private fun defaultKbTheme(
         keyTextureOpacity = 1f,
         keyOverrides = emptyMap(),
         decals = emptyList(),
+        keyEffect = null,
+        keyEffectParam = "",
+        keyEffectIntensity = 1f,
         key = key,
         keyText = scheme.onSurface,
         modifierKey = modifier,
@@ -435,6 +446,9 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         keyTextureOpacity = spec.keyTextureOpacity,
         keyOverrides = spec.keyOverrides,
         decals = spec.decals.take(MAX_DECALS),
+        keyEffect = keyEffectKindOrNull(spec.keyEffect),
+        keyEffectParam = spec.keyEffectParam.orEmpty(),
+        keyEffectIntensity = spec.keyEffectIntensity,
         key = key,
         keyText = keyText,
         modifierKey = colorOf(spec.modifierKeyBackground),
@@ -584,6 +598,7 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
             keyTexturePressed = null,
             keyOverrides = emptyMap(),
             decals = emptyList(),
+            keyEffect = null,
             animation = ThemeAnimation.NONE,
             key = key,
             modifierKey = modifier,
@@ -941,6 +956,9 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         keyTextureOpacity = lerpF(a.keyTextureOpacity, b.keyTextureOpacity, t),
         keyOverrides = if (past) b.keyOverrides else a.keyOverrides,
         decals = if (past) b.decals else a.decals,
+        keyEffect = if (past) b.keyEffect else a.keyEffect,
+        keyEffectParam = if (past) b.keyEffectParam else a.keyEffectParam,
+        keyEffectIntensity = lerpF(a.keyEffectIntensity, b.keyEffectIntensity, t),
         key = lerp(a.key, b.key, t),
         keyText = lerp(a.keyText, b.keyText, t),
         modifierKey = lerp(a.modifierKey, b.modifierKey, t),

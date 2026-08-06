@@ -109,7 +109,9 @@ import com.wasimaster.wmkeyboard.core.theme.builtInThemeNameRes
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
 import com.wasimaster.wmkeyboard.core.theme.GradientType
 import com.wasimaster.wmkeyboard.core.theme.DecalSpec
+import com.wasimaster.wmkeyboard.core.theme.KeyEffectKind
 import com.wasimaster.wmkeyboard.core.theme.KeyOverride
+import com.wasimaster.wmkeyboard.core.theme.keyEffectKindOrNull
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.MAX_DECALS
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
@@ -2024,6 +2026,62 @@ fun ThemeEditorScreen(
                     range = 0.25f..3f,
                     display = { "%.2f×".format(it) },
                 ) { update { t -> t.copy(animationSpeed = (it * 20).toInt() / 20f) } }
+            }
+        }
+    }
+
+    SettingsGroup(stringResource(R.string.theme_effect_section_title)) {
+        item { CaptionText(stringResource(R.string.theme_effect_section_body)) }
+        item {
+            val current = keyEffectKindOrNull(theme.keyEffect)
+            ChoiceControl(
+                options = listOf<KeyEffectKind?>(null).plus(KeyEffectKind.entries).map { kind ->
+                    kind to when (kind) {
+                        null -> stringResource(CommonR.string.common_none)
+                        KeyEffectKind.STARS -> stringResource(R.string.theme_effect_stars_label)
+                        KeyEffectKind.HEARTS -> stringResource(R.string.theme_effect_hearts_label)
+                        KeyEffectKind.SPARKLE ->
+                            stringResource(R.string.theme_effect_sparkle_label)
+                        KeyEffectKind.CONFETTI ->
+                            stringResource(R.string.theme_effect_confetti_label)
+                        KeyEffectKind.EMOJI -> stringResource(R.string.theme_effect_emoji_label)
+                    }
+                },
+                selected = current,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) { kind -> update { t -> t.copy(keyEffect = kind?.name) } }
+        }
+        if (keyEffectKindOrNull(theme.keyEffect) == KeyEffectKind.EMOJI) {
+            item {
+                // Local state is the source of truth while typing: a field
+                // bound straight to the async theme write scrambles input when
+                // the DataStore emission echoes back mid-edit.
+                var emojiParam by remember(theme.id) {
+                    mutableStateOf(theme.keyEffectParam.orEmpty())
+                }
+                OutlinedTextField(
+                    value = emojiParam,
+                    onValueChange = { text ->
+                        val clipped = text.take(16)
+                        emojiParam = clipped
+                        update { t -> t.copy(keyEffectParam = clipped) }
+                    },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.theme_effect_emoji_field_label)) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+        if (keyEffectKindOrNull(theme.keyEffect) != null) {
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_effect_intensity_title),
+                    value = theme.keyEffectIntensity,
+                    range = 0.4f..2.4f,
+                    display = { "%.1f×".format(it) },
+                ) { update { t -> t.copy(keyEffectIntensity = (it * 10).toInt() / 10f) } }
             }
         }
     }
