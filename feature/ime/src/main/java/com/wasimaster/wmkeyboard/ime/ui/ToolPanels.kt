@@ -107,6 +107,7 @@ import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.icons.IconPack
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
+import com.wasimaster.wmkeyboard.core.settings.DefaultThemesPanelBuiltIns
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.IconSettings
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
@@ -1424,7 +1425,14 @@ internal fun ThemesPanel(
         state.settings.keyboardThemeId
     }
     val auto = autoKbTheme(state.settings)
-    val themes = BuiltInThemes + state.settings.customThemes
+    // The panel is a shortlist, not the gallery: every custom and downloaded
+    // theme, plus the built-ins the user picked for it in Settings (a default
+    // spread until they touch it). The active theme always shows even if it
+    // was taken off the list — a live theme with no card reads as a bug.
+    val shortlist = state.settings.toolbarBehavior.themesPanelBuiltIns
+        ?: DefaultThemesPanelBuiltIns
+    val themes = BuiltInThemes.filter { it.id in shortlist || it.id == selectedId } +
+        state.settings.customThemes
     val context = LocalContext.current
     val packStore = remember(context) { IconPackStore.get(context) }
     val packRevision by packStore.revision.collectAsState()

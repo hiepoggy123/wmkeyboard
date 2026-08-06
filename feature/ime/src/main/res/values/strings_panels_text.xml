@@ -219,7 +219,7 @@
     <!-- %1$s is the name of the keyboard mode that is active. -->
     <string name="ime_themes_mode_locked_info">The <xliff:g id="mode_name" example="Work">%1$s</xliff:g> mode sets the theme while it is active.</string>
     <string name="ime_themes_auto_on_info">The automatic theme is on. It selects between your light and dark themes.</string>
-    <string name="ime_themes_pick_info">Press a theme to use it.</string>
+    <string name="ime_themes_pick_info">Press a theme to use it. More themes, and which show here, are in Settings.</string>
     <string name="ime_themes_edit_action">Edit themes</string>
     <string name="ime_themes_edit_desc">Create and edit themes in the settings</string>
     <!-- Chips that switch the panel between the theme grid and the icon

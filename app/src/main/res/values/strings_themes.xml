@@ -189,6 +189,12 @@
     <string name="theme_background_animated_title">Play animated image</string>
     <string name="theme_background_animated_subtitle">Plays a GIF or animated WebP background. Turns off blur. Does not play with reduce motion or power saving.</string>
 
+    <!-- Which built-ins show in the keyboard's Themes tool. -->
+    <string name="theme_panel_pin_body">The pin on each card decides if the theme shows in the keyboard\'s Themes tool. Your own themes always show there.</string>
+    <!-- %1$s is a theme name. -->
+    <string name="theme_panel_shown_desc">Remove %1$s from the keyboard\'s theme list</string>
+    <string name="theme_panel_hidden_desc">Show %1$s in the keyboard\'s theme list</string>
+
     <!-- Theme editor: key textures. -->
     <string name="theme_texture_section_title">Key textures</string>
     <string name="theme_texture_section_body">An image drawn on the keys, clipped to the key shape, over the key color. One image for the letter keys is enough — the other keys reuse it unless you give them their own.</string>
@@ -232,6 +238,11 @@
     <string name="theme_effect_confetti_label">Confetti</string>
     <string name="theme_effect_emoji_label">Emoji</string>
     <string name="theme_effect_emoji_field_label">Emoji to throw</string>
+    <string name="theme_effect_images_label">Images</string>
+    <string name="theme_effect_images_body">Your own particle images, up to six. Each press throws a random mix of them. Transparent PNG images work best.</string>
+    <!-- %1$d is the image's number in the list. -->
+    <string name="theme_effect_image_item_label">Particle image %1$d</string>
+    <string name="theme_effect_image_add_action">Add an image</string>
     <string name="theme_effect_intensity_title">Intensity</string>
 
     <!-- Theme editor: per-theme font and sound. -->

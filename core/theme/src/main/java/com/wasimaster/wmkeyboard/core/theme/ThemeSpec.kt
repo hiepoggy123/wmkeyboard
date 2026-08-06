@@ -292,6 +292,13 @@ data class ThemeSpec(
     /** Scales how many particles a press throws. */
     val keyEffectIntensity: Float = 1f,
     /**
+     * The images the `CUSTOM_IMAGE` effect throws — up to [MAX_EFFECT_IMAGES]
+     * local paths, each one a particle kind, the way each emoji in
+     * [keyEffectParam] is one. Transparent PNGs look best. Never set in
+     * exports; the bytes travel in [assets] under `effectImage:<index>`.
+     */
+    val keyEffectImages: List<String> = emptyList(),
+    /**
      * Per-key style overrides — a single key's own colours, keyed by the
      * key's lowercase label (letter keys) or its action name (special keys);
      * see [KeyOverride]. One unknown JSON key to an older build, which
@@ -357,7 +364,10 @@ data class DecalSpec(
 const val MAX_DECALS = 6
 
 /** A key-press particle burst's kind. Never serialized — travels as a string. */
-enum class KeyEffectKind { STARS, HEARTS, SPARKLE, CONFETTI, EMOJI }
+enum class KeyEffectKind { STARS, HEARTS, SPARKLE, CONFETTI, EMOJI, CUSTOM_IMAGE }
+
+/** The most images the CUSTOM_IMAGE press effect may carry. */
+const val MAX_EFFECT_IMAGES = 6
 
 /**
  * The effect behind [ThemeSpec.keyEffect]; null for an absent or unknown
@@ -444,6 +454,9 @@ fun ThemeSpec.withEmbeddedImages(): ThemeSpec {
         for (decal in decals) {
             encode(decal.image)?.let { put("$ASSET_DECAL_PREFIX${decal.id}", it) }
         }
+        keyEffectImages.forEachIndexed { index, path ->
+            encode(path)?.let { put("$ASSET_EFFECT_IMAGE_PREFIX$index", it) }
+        }
     }
     return copy(
         backgroundImage = null,
@@ -462,6 +475,7 @@ fun ThemeSpec.withEmbeddedImages(): ThemeSpec {
         keyTextureSpace = null,
         keyTexturePressed = null,
         decals = decals.map { it.copy(image = null) },
+        keyEffectImages = emptyList(),
         assets = embedded,
     )
 }
@@ -483,6 +497,9 @@ const val ASSET_KEY_TEXTURE_PRESSED = "keyTexturePressed"
 
 /** Prefix of a decal image's transport slot; the decal's id follows it. */
 const val ASSET_DECAL_PREFIX = "decal:"
+
+/** Prefix of a press-effect image's transport slot; its list index follows. */
+const val ASSET_EFFECT_IMAGE_PREFIX = "effectImage:"
 
 /**
  * Inverse of [withEmbeddedImages]: writes any embedded base64 image(s) into
@@ -518,6 +535,13 @@ fun ThemeSpec.withExtractedImages(dir: File): ThemeSpec {
                 image = write("${id}_decal_${decal.id}.img", assets["$ASSET_DECAL_PREFIX${decal.id}"])
                     ?: decal.image,
             )
+        },
+        keyEffectImages = run {
+            // Extracted by index; a theme edited on-device keeps its paths.
+            val extracted = (0 until MAX_EFFECT_IMAGES).mapNotNull { index ->
+                write("${id}_fx_$index.img", assets["$ASSET_EFFECT_IMAGE_PREFIX$index"])
+            }
+            extracted.ifEmpty { keyEffectImages }
         },
         assets = emptyMap(),
     )

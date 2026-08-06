@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Crop
 import androidx.compose.material.icons.outlined.Delete
@@ -108,12 +109,14 @@ import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.builtInThemeNameRes
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
 import com.wasimaster.wmkeyboard.core.theme.GradientType
+import com.wasimaster.wmkeyboard.core.settings.DefaultThemesPanelBuiltIns
 import com.wasimaster.wmkeyboard.core.theme.DecalSpec
 import com.wasimaster.wmkeyboard.core.theme.KeyEffectKind
 import com.wasimaster.wmkeyboard.core.theme.KeyOverride
 import com.wasimaster.wmkeyboard.core.theme.keyEffectKindOrNull
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.MAX_DECALS
+import com.wasimaster.wmkeyboard.core.theme.MAX_EFFECT_IMAGES
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.keyTextureScaleOrDefault
 import com.wasimaster.wmkeyboard.core.theme.SeedSwatches
@@ -693,10 +696,13 @@ fun ThemesScreen(
     }
     SectionHeaderPublic(stringResource(R.string.theme_builtin_section_title))
     CaptionText(stringResource(R.string.theme_builtin_section_body))
+    CaptionText(stringResource(R.string.theme_panel_pin_body))
+    val panelBuiltIns = settings.toolbarBehavior.themesPanelBuiltIns ?: DefaultThemesPanelBuiltIns
     for (rowThemes in BuiltInThemes.chunked(2)) {
         Row(modifier = Modifier.padding(horizontal = 12.dp)) {
             for (theme in rowThemes) {
                 Box(modifier = Modifier.weight(1f)) {
+                    val pinned = theme.id in panelBuiltIns
                     ThemeCard(
                         theme = theme,
                         selected = settings.keyboardThemeId == theme.id,
@@ -704,6 +710,10 @@ fun ThemesScreen(
                         onEdit = { duplicateAndEdit(theme) },
                         onExport = { export(theme) },
                         onDelete = null,
+                        panelShown = pinned,
+                        onTogglePanel = {
+                            scope.launch { repository.setThemesPanelBuiltIn(theme.id, !pinned) }
+                        },
                     )
                 }
             }
@@ -756,6 +766,9 @@ private fun ThemeCard(
     onExport: (() -> Unit)?,
     onDelete: (() -> Unit)?,
     subtitle: String? = null,
+    /** Whether this theme sits on the keyboard Themes tool's shortlist; null hides the toggle. */
+    panelShown: Boolean? = null,
+    onTogglePanel: (() -> Unit)? = null,
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
     // A built-in theme draws its translated name; a theme the user made keeps
@@ -834,6 +847,27 @@ private fun ThemeCard(
                             contentDescription = stringResource(R.string.theme_delete_desc, displayName),
                             modifier = Modifier.size(17.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (panelShown != null && onTogglePanel != null) {
+                    IconButton(onClick = onTogglePanel, modifier = Modifier.size(34.dp)) {
+                        Icon(
+                            Icons.Outlined.PushPin,
+                            contentDescription = stringResource(
+                                if (panelShown) {
+                                    R.string.theme_panel_shown_desc
+                                } else {
+                                    R.string.theme_panel_hidden_desc
+                                },
+                                displayName,
+                            ),
+                            modifier = Modifier.size(17.dp),
+                            tint = if (panelShown) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                         )
                     }
                 }
@@ -2030,6 +2064,25 @@ fun ThemeEditorScreen(
         }
     }
 
+    val effectImagePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                runCancellable {
+                    val path = importEffectImage(context, theme.id, uri)
+                    if (path != null) {
+                        repository.upsertCustomTheme(
+                            theme.copy(
+                                keyEffectImages =
+                                    (theme.keyEffectImages + path).take(MAX_EFFECT_IMAGES),
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
     SettingsGroup(stringResource(R.string.theme_effect_section_title)) {
         item { CaptionText(stringResource(R.string.theme_effect_section_body)) }
         item {
@@ -2045,6 +2098,8 @@ fun ThemeEditorScreen(
                         KeyEffectKind.CONFETTI ->
                             stringResource(R.string.theme_effect_confetti_label)
                         KeyEffectKind.EMOJI -> stringResource(R.string.theme_effect_emoji_label)
+                        KeyEffectKind.CUSTOM_IMAGE ->
+                            stringResource(R.string.theme_effect_images_label)
                     }
                 },
                 selected = current,
@@ -2072,6 +2127,62 @@ fun ThemeEditorScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 )
+            }
+        }
+        if (keyEffectKindOrNull(theme.keyEffect) == KeyEffectKind.CUSTOM_IMAGE) {
+            item { CaptionText(stringResource(R.string.theme_effect_images_body)) }
+            theme.keyEffectImages.forEachIndexed { index, path ->
+                item {
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                stringResource(
+                                    R.string.theme_effect_image_item_label,
+                                    index + 1,
+                                ),
+                            )
+                        },
+                        leadingContent = {
+                            Icon(Icons.Outlined.Image, contentDescription = null)
+                        },
+                        trailingContent = {
+                            IconButton(
+                                onClick = {
+                                    update { t ->
+                                        File(path).delete()
+                                        t.copy(
+                                            keyEffectImages =
+                                                t.keyEffectImages.filterIndexed { i, _ ->
+                                                    i != index
+                                                },
+                                        )
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription =
+                                        stringResource(CommonR.string.common_remove),
+                                )
+                            }
+                        },
+                        colors = transparentListColors(),
+                    )
+                }
+            }
+            if (theme.keyEffectImages.size < MAX_EFFECT_IMAGES) {
+                item {
+                    OutlinedButton(
+                        onClick = {
+                            effectImagePicker.launch(
+                                PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                ),
+                            )
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    ) { Text(stringResource(R.string.theme_effect_image_add_action)) }
+                }
             }
         }
         if (keyEffectKindOrNull(theme.keyEffect) != null) {
@@ -2521,6 +2632,43 @@ private fun importDecalImage(
         source
     }
     val file = File(themeImagesDir(context), "${themeId}_decal_$decalId.img")
+    file.outputStream().use { out ->
+        scaled.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+    }
+    file.absolutePath
+}.getOrNull()
+
+/** Longest edge a press-effect particle image is stored at. */
+private const val EFFECT_IMAGE_IMPORT_PX = 192
+
+/**
+ * Copies a picked particle image into the theme-images folder, small — a
+ * particle is a few dozen dp — and as PNG so its transparency survives.
+ */
+private fun importEffectImage(
+    context: android.content.Context,
+    themeId: String,
+    uri: android.net.Uri,
+): String? = runCatching {
+    val source = context.contentResolver.requireInputStream(uri).use { input ->
+        android.graphics.BitmapFactory.decodeStream(input)
+    } ?: return null
+    val longest = maxOf(source.width, source.height)
+    val scaled = if (longest > EFFECT_IMAGE_IMPORT_PX) {
+        val scale = EFFECT_IMAGE_IMPORT_PX.toFloat() / longest
+        android.graphics.Bitmap.createScaledBitmap(
+            source,
+            maxOf(1, (source.width * scale).toInt()),
+            maxOf(1, (source.height * scale).toInt()),
+            true,
+        )
+    } else {
+        source
+    }
+    val file = File(
+        themeImagesDir(context),
+        "${themeId}_fx_${System.currentTimeMillis()}.img",
+    )
     file.outputStream().use { out ->
         scaled.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
     }

@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.runtime.withFrameMillis
+import com.wasimaster.wmkeyboard.core.theme.BackgroundBitmapCache
 import com.wasimaster.wmkeyboard.core.theme.KeyEffectKind
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -116,12 +118,17 @@ internal fun burstCount(kb: KbTheme): Int =
         (BASE_BURST * kb.keyEffectIntensity).roundToInt().coerceIn(1, 12)
     }
 
-/** The glyphs an effect kind throws; one particle picks one at random. */
+/**
+ * The glyphs a text-based effect kind throws; one particle picks one at
+ * random. CUSTOM_IMAGE has no glyphs — its particle kinds are the theme's
+ * own image files, loaded in [rememberEffectGlyphs].
+ */
 internal fun effectGlyphs(kind: KeyEffectKind, param: String): List<String> = when (kind) {
     KeyEffectKind.STARS -> listOf("⭐", "🌟", "✨")
     KeyEffectKind.HEARTS -> listOf("❤️", "💖", "💜")
     KeyEffectKind.SPARKLE -> listOf("✨", "❇️", "💫")
     KeyEffectKind.CONFETTI -> listOf("🎊", "🎉", "🟡", "🔴", "🔵")
+    KeyEffectKind.CUSTOM_IMAGE -> emptyList()
     KeyEffectKind.EMOJI -> {
         // Each grapheme-ish chunk is one particle kind. A BreakIterator would
         // be exact; splitting on code points pairs surrogates well enough for
@@ -139,17 +146,31 @@ internal fun effectGlyphs(kind: KeyEffectKind, param: String): List<String> = wh
 }
 
 /**
- * Pre-rasterized particle glyphs. Text layout per frame would be the whole
- * frame budget; each glyph becomes one small bitmap, drawn per particle with
- * a transform and a fade.
+ * The particle bitmaps: pre-rasterized emoji glyphs for the text-based kinds
+ * (text layout per frame would be the whole frame budget), or the theme's own
+ * image files for CUSTOM_IMAGE, decoded off the main thread through the same
+ * cache every other theme image uses. Empty while a decode is landing — the
+ * spawn lambda upstream stays null and presses simply throw nothing yet.
  */
 @Composable
 internal fun rememberEffectGlyphs(kb: KbTheme): List<ImageBitmap> {
     val kind = kb.keyEffect ?: return emptyList()
+    if (kind == KeyEffectKind.CUSTOM_IMAGE) {
+        val images by produceState(emptyList<ImageBitmap>(), kb.keyEffectImages) {
+            value = kb.keyEffectImages.mapNotNull { path ->
+                BackgroundBitmapCache.load(path, 0f, EFFECT_IMAGE_PX, EFFECT_IMAGE_PX)
+                    ?.asImageBitmap()
+            }
+        }
+        return images
+    }
     return remember(kind, kb.keyEffectParam) {
         effectGlyphs(kind, kb.keyEffectParam).map { rasterizeGlyph(it) }
     }
 }
+
+/** Decode edge for a custom particle image; a particle is a few dozen dp. */
+private const val EFFECT_IMAGE_PX = 96
 
 private const val GLYPH_PX = 56
 
@@ -191,7 +212,10 @@ internal fun BoxScope.KeyPressEffectsOverlay(field: ParticleField, glyphs: List<
             val py = field.y[i] + field.vy[i] * t + 0.5f * ParticleField.GRAVITY_PX_S2 * t * t
             val life = 1f - age / ParticleField.LIFETIME_MS.toFloat()
             val bitmap = glyphs[field.glyphIndex[i] % glyphs.size]
-            val edge = (GLYPH_PX * field.sizePx[i] * density / 2.5f).roundToInt()
+            // Height is the particle's size; width follows the bitmap so a
+            // custom PNG keeps its proportions (emoji glyphs are square).
+            val edgeH = (GLYPH_PX * field.sizePx[i] * density / 2.5f).roundToInt()
+            val edgeW = (edgeH * bitmap.width / bitmap.height.toFloat()).roundToInt()
             rotate(
                 degrees = field.spinDegPerS[i] * t,
                 pivot = androidx.compose.ui.geometry.Offset(px, py),
@@ -200,8 +224,8 @@ internal fun BoxScope.KeyPressEffectsOverlay(field: ParticleField, glyphs: List<
                     image = bitmap,
                     srcOffset = IntOffset.Zero,
                     srcSize = IntSize(bitmap.width, bitmap.height),
-                    dstOffset = IntOffset(px.roundToInt() - edge / 2, py.roundToInt() - edge / 2),
-                    dstSize = IntSize(edge, edge),
+                    dstOffset = IntOffset(px.roundToInt() - edgeW / 2, py.roundToInt() - edgeH / 2),
+                    dstSize = IntSize(edgeW, edgeH),
                     alpha = life.coerceIn(0f, 1f),
                 )
             }

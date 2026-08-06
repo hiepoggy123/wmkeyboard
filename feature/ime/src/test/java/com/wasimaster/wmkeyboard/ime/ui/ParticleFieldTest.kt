@@ -58,4 +58,9 @@ class ParticleFieldTest {
         assertEquals(listOf("🎉"), effectGlyphs(KeyEffectKind.EMOJI, ""))
         assertTrue(effectGlyphs(KeyEffectKind.STARS, "").isNotEmpty())
     }
+
+    @Test
+    fun `custom image kind has no text glyphs — its bitmaps come from files`() {
+        assertTrue(effectGlyphs(KeyEffectKind.CUSTOM_IMAGE, "ignored").isEmpty())
+    }
 }

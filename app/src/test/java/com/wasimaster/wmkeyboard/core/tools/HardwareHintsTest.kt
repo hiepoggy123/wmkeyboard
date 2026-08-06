@@ -37,7 +37,7 @@ class HardwareHintsTest {
     @Test
     fun `the chord setting only changes how the badge is spelled`() {
         val plan = buildHintPlan(toolbarTools = toolbar, digitChord = true)
-        assertEquals(CtrlHintPrefix + "1", plan.label(HintSurface.TOOLBAR, 0))
+        assertEquals("Ctrl+1", plan.label(HintSurface.TOOLBAR, 0))
         // The bare digit still fires it: the chord is an extra route, not a swap.
         assertEquals(HintAction.OpenToolbox, plan.action('1', shift = false))
     }
@@ -60,7 +60,7 @@ class HardwareHintsTest {
         )
         assertEquals(HintAction.PickSuggestion(0), plan.action('1', shift = false))
         // The toolbar keeps its badges because the chord still works.
-        assertEquals(CtrlHintPrefix + "2", plan.label(HintSurface.TOOLBAR, 1))
+        assertEquals("Ctrl+2", plan.label(HintSurface.TOOLBAR, 1))
     }
 
     @Test
@@ -108,8 +108,8 @@ class HardwareHintsTest {
         // Neither of these is in DefaultToolLetters.
         val unlettered = listOf(ToolbarTool.WEATHER, ToolbarTool.COMPASS)
         val plan = buildHintPlan(toolboxTools = unlettered, toolLetters = DefaultToolLetters)
-        assertEquals(ShiftHintPrefix + ExtendedHintKeys[0], plan.label(HintSurface.TOOLBOX, 0))
-        assertEquals(ShiftHintPrefix + ExtendedHintKeys[1], plan.label(HintSurface.TOOLBOX, 1))
+        assertEquals(HintModifiers.Words.shift + ExtendedHintKeys[0], plan.label(HintSurface.TOOLBOX, 0))
+        assertEquals(HintModifiers.Words.shift + ExtendedHintKeys[1], plan.label(HintSurface.TOOLBOX, 1))
         assertEquals(
             HintAction.OpenTool(ToolbarTool.WEATHER),
             plan.action(ExtendedHintKeys[0], shift = true),
@@ -131,32 +131,91 @@ class HardwareHintsTest {
     // --------------------------------------------------------------- rows ----
 
     @Test
-    fun `the row slices are fixed, so one row cannot renumber the other`() {
+    fun `the emoji row counts in digits, like the toolbar`() {
+        val plan = buildHintPlan(emojiCells = 3)
+        assertEquals("Shift+1", plan.label(HintSurface.EMOJI_ROW, 0))
+        assertEquals("Shift+3", plan.label(HintSurface.EMOJI_ROW, 2))
+    }
+
+    @Test
+    fun `the row pools are disjoint, so one row cannot renumber the other`() {
         val few = buildHintPlan(symbolCells = 4, emojiCells = 6)
-        val many = buildHintPlan(symbolCells = 18, emojiCells = 6)
+        val many = buildHintPlan(symbolCells = 22, emojiCells = 6)
         for (index in 0 until 6) {
             assertEquals(
                 many.label(HintSurface.EMOJI_ROW, index),
                 few.label(HintSurface.EMOJI_ROW, index),
             )
         }
+        assertTrue(SymbolHintKeys.none { it in EmojiHintKeys })
     }
 
     @Test
     fun `row cells map to their own index`() {
         val plan = buildHintPlan(symbolCells = 3, emojiCells = 3)
-        assertEquals(HintAction.InsertSymbol(2), plan.action(ExtendedHintKeys[2], shift = true))
-        assertEquals(
-            HintAction.InsertEmoji(2),
-            plan.action(ExtendedHintKeys[EmojiHintKeyOffset + 2], shift = true),
-        )
+        assertEquals(HintAction.InsertSymbol(2), plan.action(SymbolHintKeys[2], shift = true))
+        assertEquals(HintAction.InsertEmoji(2), plan.action(EmojiHintKeys[2], shift = true))
     }
 
     @Test
-    fun `rows past their slice get no key rather than someone else's`() {
+    fun `rows past their pool get no key rather than someone else's`() {
         val plan = buildHintPlan(symbolCells = 40, emojiCells = 40)
-        assertNull(plan.label(HintSurface.SYMBOL_ROW, MaxSymbolHintKeys))
-        assertNull(plan.label(HintSurface.EMOJI_ROW, MaxEmojiHintKeys))
+        assertNull(plan.label(HintSurface.SYMBOL_ROW, SymbolHintKeys.size))
+        assertNull(plan.label(HintSurface.EMOJI_ROW, EmojiHintKeys.size))
+    }
+
+    // ------------------------------------------------------------- labels ----
+
+    @Test
+    fun `modifiers spell themselves out by default`() {
+        val plan = buildHintPlan(
+            toolbarTools = toolbar,
+            symbolCells = 1,
+            suggestions = 1,
+            digitChord = true,
+            suggestionAltDigits = true,
+        )
+        assertEquals("Ctrl+1", plan.label(HintSurface.TOOLBAR, 0))
+        assertEquals("Shift+Q", plan.label(HintSurface.SYMBOL_ROW, 0))
+        assertEquals("Alt+1", plan.label(HintSurface.SUGGESTION, 0))
+    }
+
+    @Test
+    fun `the compact spelling swaps the words for glyphs and nothing else`() {
+        val args = { m: HintModifiers ->
+            buildHintPlan(
+                toolbarTools = toolbar,
+                symbolCells = 1,
+                digitChord = true,
+                modifiers = m,
+            )
+        }
+        val words = args(HintModifiers.Words)
+        val symbols = args(HintModifiers.Symbols)
+        assertEquals(CtrlHintPrefix + "1", symbols.label(HintSurface.TOOLBAR, 0))
+        assertEquals(words.strokes, symbols.strokes)
+    }
+
+    // -------------------------------------------------- suggestion order ----
+
+    @Test
+    fun `slots count left to right even with the primary centred`() {
+        // The strip draws rank 1 first, then rank 0: slot 0 must commit rank 1.
+        assertEquals(listOf(1, 0, 2), suggestionSlotOrder(3, centerPrimary = true))
+        assertEquals(listOf(0, 1, 2), suggestionSlotOrder(3, centerPrimary = false))
+    }
+
+    @Test
+    fun `a lone candidate has nothing to swap`() {
+        assertEquals(listOf(0), suggestionSlotOrder(1, centerPrimary = true))
+        assertEquals(emptyList<Int>(), suggestionSlotOrder(0, centerPrimary = true))
+    }
+
+    @Test
+    fun `the plan numbers slots, leaving the caller to resolve the rank`() {
+        val plan = buildHintPlan(suggestions = 3, leaderDigitsPickSuggestions = true)
+        assertEquals(HintAction.PickSuggestion(0), plan.action('1', shift = false))
+        assertEquals("1", plan.label(HintSurface.SUGGESTION, 0))
     }
 
     // -------------------------------------------------------- suggestions ----
@@ -164,7 +223,7 @@ class HardwareHintsTest {
     @Test
     fun `alt digits are a standing label with no picker stroke`() {
         val plan = buildHintPlan(suggestions = 3, suggestionAltDigits = true)
-        assertEquals(AltHintPrefix + "1", plan.label(HintSurface.SUGGESTION, 0))
+        assertEquals("Alt+1", plan.label(HintSurface.SUGGESTION, 0))
         // Alt+digit is dispatched outside the picker, so the bare digits stay
         // with the toolbar. (Digit 1 is the toolbox launcher even on an empty bar.)
         assertTrue(plan.strokes.values.none { it is HintAction.PickSuggestion })

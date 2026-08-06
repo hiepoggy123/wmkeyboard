@@ -62,6 +62,7 @@ import com.wasimaster.wmkeyboard.core.theme.KeyOverride
 import com.wasimaster.wmkeyboard.core.theme.keyEffectKindOrNull
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.MAX_DECALS
+import com.wasimaster.wmkeyboard.core.theme.MAX_EFFECT_IMAGES
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeBackgroundImage
@@ -118,6 +119,8 @@ data class KbTheme(
     val keyEffectParam: String,
     /** Scales the burst's particle count. */
     val keyEffectIntensity: Float,
+    /** Image paths the CUSTOM_IMAGE effect throws. */
+    val keyEffectImages: List<String>,
     val key: Color,
     val keyText: Color,
     val modifierKey: Color,
@@ -371,6 +374,7 @@ private fun defaultKbTheme(
         keyEffect = null,
         keyEffectParam = "",
         keyEffectIntensity = 1f,
+        keyEffectImages = emptyList(),
         key = key,
         keyText = scheme.onSurface,
         modifierKey = modifier,
@@ -449,6 +453,7 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         keyEffect = keyEffectKindOrNull(spec.keyEffect),
         keyEffectParam = spec.keyEffectParam.orEmpty(),
         keyEffectIntensity = spec.keyEffectIntensity,
+        keyEffectImages = spec.keyEffectImages.take(MAX_EFFECT_IMAGES),
         key = key,
         keyText = keyText,
         modifierKey = colorOf(spec.modifierKeyBackground),
@@ -959,6 +964,7 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         keyEffect = if (past) b.keyEffect else a.keyEffect,
         keyEffectParam = if (past) b.keyEffectParam else a.keyEffectParam,
         keyEffectIntensity = lerpF(a.keyEffectIntensity, b.keyEffectIntensity, t),
+        keyEffectImages = if (past) b.keyEffectImages else a.keyEffectImages,
         key = lerp(a.key, b.key, t),
         keyText = lerp(a.keyText, b.keyText, t),
         modifierKey = lerp(a.modifierKey, b.modifierKey, t),

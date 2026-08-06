@@ -36,6 +36,7 @@ class ThemeSpecDecorationsTest {
         keyEffect = "EMOJI",
         keyEffectParam = "🎉🔥",
         keyEffectIntensity = 1.5f,
+        keyEffectImages = listOf("/data/theme_images/fx0.img", "/data/theme_images/fx1.img"),
         assets = mapOf("keyTexture" to "aGVsbG8="),
     )
 
@@ -88,6 +89,7 @@ class ThemeSpecDecorationsTest {
         assertNull(keyEffectKindOrNull(null))
         assertNull(keyEffectKindOrNull("FIREWORKS_3D"))
         assertEquals(KeyEffectKind.HEARTS, keyEffectKindOrNull("hearts"))
+        assertEquals(KeyEffectKind.CUSTOM_IMAGE, keyEffectKindOrNull("custom_image"))
     }
 
     @Test

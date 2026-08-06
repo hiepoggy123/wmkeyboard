@@ -601,6 +601,27 @@ data class ToolbarBehavior(
      * still needs a corner radius above zero to be visible at all.
      */
     val toolWidthDp: Int = 38,
+    /**
+     * Which built-in themes the keyboard's Themes tool offers, by id — a
+     * quick-switch shortlist for changing looks mid-typing, while the full
+     * gallery stays in Settings. Custom and downloaded themes always show.
+     * Null (never touched) falls back to [DefaultThemesPanelBuiltIns]; the
+     * theme gallery in Settings edits it per card.
+     */
+    val themesPanelBuiltIns: Set<String>? = null,
+)
+
+/**
+ * The built-ins the Themes tool starts with: a spread of dark, light, AMOLED
+ * and the animated ones, small enough to scan mid-typing.
+ */
+val DefaultThemesPanelBuiltIns: Set<String> = setOf(
+    "builtin_ocean",
+    "builtin_pitch",
+    "builtin_snow",
+    "builtin_nebula",
+    "builtin_sunset_drift",
+    "builtin_aurora",
 )
 
 /**
@@ -671,6 +692,13 @@ enum class SuggestionHotkeyMode(@StringRes val labelRes: Int) {
 }
 
 /**
+ * How long the armed picker may wait, in milliseconds. The floor is about as
+ * fast as anyone can read one badge; the ceiling is half a minute, past which
+ * "armed" stops meaning anything and the next digit typed opens a tool.
+ */
+val PickerTimeoutRange = 1000..30_000
+
+/**
  * Physical-keyboard shortcuts and panel navigation: opening a tool and driving
  * it without touching the screen. Grouped into their own class rather than
  * sitting flat on [KeyboardSettings] because that class's primary constructor is
@@ -719,6 +747,13 @@ data class HardwareKeyboardSettings(
      */
     val macShortcuts: Boolean = false,
     /**
+     * Badges spell their modifier out — `Ctrl+1`, `Shift+Q` — instead of using
+     * the `⌃` and `⇧` glyphs. On by default: those glyphs are a Mac keycap
+     * convention, and a keyboard that does not print them makes the badge a
+     * puzzle. Off is for anyone who would rather the badges took less room.
+     */
+    val hintModifierWords: Boolean = true,
+    /**
      * A shortcut that opens a tool also shows the keyboard, which a physical
      * keyboard usually hides. Restored to however it was as soon as the tool closes.
      */
@@ -730,8 +765,14 @@ data class HardwareKeyboardSettings(
      * round-trip is the identity.
      */
     val leader: String = "doubletap:ctrl",
-    /** How long the armed picker waits for its letter. */
-    val pickerTimeoutMs: Int = 3000,
+    /**
+     * How long the armed picker waits for its key.
+     *
+     * This is also how long the badges stay on screen, which is the thing people
+     * actually notice — three seconds was enough to act on a key you already
+     * knew and nowhere near enough to read a bar full of new ones.
+     */
+    val pickerTimeoutMs: Int = 8000,
     /**
      * Letter → the tool it opens, the complete map rather than a delta: the
      * default is non-empty, so "absent means default" could never express the
@@ -2759,6 +2800,7 @@ class SettingsRepository(private val context: Context) {
             booleanPreferencesKey("hw_suggestion_hints_always")
         private val HW_TOOLBAR_DIGIT_CHORD = booleanPreferencesKey("hw_toolbar_digit_chord")
         private val HW_MAC_SHORTCUTS = booleanPreferencesKey("hw_mac_shortcuts")
+        private val HW_HINT_MODIFIER_WORDS = booleanPreferencesKey("hw_hint_modifier_words")
         private val HW_AUTO_SHOW_UI = booleanPreferencesKey("hw_auto_show_ui")
         private val HW_LEADER = stringPreferencesKey("hw_leader")
         private val HW_PICKER_TIMEOUT_MS = intPreferencesKey("hw_picker_timeout_ms")
@@ -2861,6 +2903,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOL_CIRCLE_RADIUS = intPreferencesKey("tool_circle_radius")
         private val TOOL_SHAPE = stringPreferencesKey("tool_circle_shape")
         private val TOOLBAR_TOOL_WIDTH = intPreferencesKey("toolbar_tool_width")
+        private val THEMES_PANEL_BUILTINS = stringSetPreferencesKey("themes_panel_builtins")
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
         private val SWAP_COMMA_GLOBE = booleanPreferencesKey("swap_comma_globe")
         private val EMOJI_TAB_MODE = stringPreferencesKey("emoji_tab_mode")
@@ -3416,6 +3459,8 @@ class SettingsRepository(private val context: Context) {
                 toolbarDigitChord = p[HW_TOOLBAR_DIGIT_CHORD]
                     ?: defaults.hardwareKeyboard.toolbarDigitChord,
                 macShortcuts = p[HW_MAC_SHORTCUTS] ?: defaults.hardwareKeyboard.macShortcuts,
+                hintModifierWords = p[HW_HINT_MODIFIER_WORDS]
+                    ?: defaults.hardwareKeyboard.hintModifierWords,
                 autoShowUi = p[HW_AUTO_SHOW_UI] ?: defaults.hardwareKeyboard.autoShowUi,
                 leader = p[HW_LEADER] ?: defaults.hardwareKeyboard.leader,
                 pickerTimeoutMs = p[HW_PICKER_TIMEOUT_MS] ?: defaults.hardwareKeyboard.pickerTimeoutMs,
@@ -3602,6 +3647,7 @@ class SettingsRepository(private val context: Context) {
                 scrollable = p[TOOLBAR_SCROLLABLE] ?: defaults.toolbarBehavior.scrollable,
                 hideWhenLocked = p[TOOLBAR_HIDE_WHEN_LOCKED] ?: defaults.toolbarBehavior.hideWhenLocked,
                 toolWidthDp = p[TOOLBAR_TOOL_WIDTH] ?: defaults.toolbarBehavior.toolWidthDp,
+                themesPanelBuiltIns = p[THEMES_PANEL_BUILTINS],
             ),
             toolbarHeightDp = p[TOOLBAR_HEIGHT] ?: defaults.toolbarHeightDp,
             toolbarLabels = p[TOOLBAR_LABELS] ?: defaults.toolbarLabels,
@@ -4455,6 +4501,17 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setKeyboardThemeId(id: String) =
         editPrefs { it[KEYBOARD_THEME_ID] = id }
+
+    /**
+     * Adds or removes one built-in from the keyboard Themes tool's shortlist.
+     * The first toggle materialises the default set, so taking one theme off
+     * the untouched shortlist doesn't suddenly mean "only that change".
+     */
+    suspend fun setThemesPanelBuiltIn(id: String, shown: Boolean) =
+        editPrefs { prefs ->
+            val current = prefs[THEMES_PANEL_BUILTINS] ?: DefaultThemesPanelBuiltIns
+            prefs[THEMES_PANEL_BUILTINS] = if (shown) current + id else current - id
+        }
 
     suspend fun setAutoThemeEnabled(value: Boolean) =
         editPrefs { it[AUTO_THEME_ENABLED] = value }
@@ -5907,6 +5964,13 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHwMacShortcuts(value: Boolean) =
         editPrefs { it[HW_MAC_SHORTCUTS] = value }
+
+    suspend fun setHwHintModifierWords(value: Boolean) =
+        editPrefs { it[HW_HINT_MODIFIER_WORDS] = value }
+
+    /** Clamped, so a corrupt or out-of-range value cannot strand the badges on screen. */
+    suspend fun setHwPickerTimeoutMs(value: Int) =
+        editPrefs { it[HW_PICKER_TIMEOUT_MS] = value.coerceIn(PickerTimeoutRange) }
 
     suspend fun setHwAutoShowUi(value: Boolean) =
         editPrefs { it[HW_AUTO_SHOW_UI] = value }
