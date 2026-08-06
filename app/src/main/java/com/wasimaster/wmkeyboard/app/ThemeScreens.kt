@@ -1137,7 +1137,35 @@ fun ThemeEditorScreen(
                     value = theme.backgroundImageBlur,
                     range = 0f..25f,
                     display = { if (it < 0.5f) offLabel else it.toInt().toString() },
-                ) { update { t -> t.copy(backgroundImageBlur = it) } }
+                    // Blurring an animation re-renders the effect every frame,
+                    // so the two settings exclude each other: raising the blur
+                    // stops the animation, and the switch below zeroes the blur.
+                ) { update { t -> t.copy(backgroundImageBlur = it, backgroundAnimated = false) } }
+            }
+            item {
+                ListItem(
+                    headlineContent = {
+                        Text(stringResource(R.string.theme_background_animated_title))
+                    },
+                    supportingContent = {
+                        Text(stringResource(R.string.theme_background_animated_subtitle))
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = theme.backgroundAnimated,
+                            onCheckedChange = { on ->
+                                update { t ->
+                                    t.copy(
+                                        backgroundAnimated = on,
+                                        backgroundImageBlur =
+                                            if (on) 0f else t.backgroundImageBlur,
+                                    )
+                                }
+                            },
+                        )
+                    },
+                    colors = transparentListColors(),
+                )
             }
             item { CaptionText(stringResource(R.string.theme_background_image_alpha_body)) }
         }

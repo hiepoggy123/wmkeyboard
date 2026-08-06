@@ -64,6 +64,9 @@ import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.hueShift
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import com.wasimaster.wmkeyboard.core.theme.keyShapeKindOrNull
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
+import java.io.File
 import kotlinx.coroutines.delay
 
 /**
@@ -80,6 +83,8 @@ data class KbTheme(
     val backgroundImageLandscape: String?,
     val backgroundImageOpacity: Float,
     val backgroundImageBlur: Float,
+    /** Play the background as an animated image; see [ThemeSpec.backgroundAnimated]. */
+    val backgroundAnimated: Boolean,
     val keyShapeKind: KeyShapeKind,
     val keyGradient: GradientSpec?,
     val key: Color,
@@ -320,6 +325,7 @@ private fun defaultKbTheme(
         backgroundImageLandscape = null,
         backgroundImageOpacity = 1f,
         backgroundImageBlur = 0f,
+        backgroundAnimated = false,
         keyShapeKind = KeyShapeKind.ROUNDED,
         keyGradient = null,
         key = key,
@@ -383,6 +389,9 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         backgroundImageLandscape = spec.backgroundImageLandscape,
         backgroundImageOpacity = spec.backgroundImageOpacity,
         backgroundImageBlur = spec.backgroundImageBlur,
+        // Blur wins when a theme file claims both: playing a blurred animation
+        // re-renders the effect every frame, which the editor already forbids.
+        backgroundAnimated = spec.backgroundAnimated && spec.backgroundImageBlur == 0f,
         keyShapeKind = spec.keyShape,
         keyGradient = spec.keyGradient,
         key = key,
@@ -526,6 +535,7 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
             keyGradient = null,
             backgroundImage = null,
             backgroundImageLandscape = null,
+            backgroundAnimated = false,
             animation = ThemeAnimation.NONE,
             key = key,
             modifierKey = modifier,
@@ -869,6 +879,7 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         // it is a draw-time alpha, it costs nothing, and it is what makes the
         // swap look smooth.
         backgroundImageBlur = if (past) b.backgroundImageBlur else a.backgroundImageBlur,
+        backgroundAnimated = if (past) b.backgroundAnimated else a.backgroundAnimated,
         keyShapeKind = if (past) b.keyShapeKind else a.keyShapeKind,
         keyGradient = lerpGradient(a.keyGradient, b.keyGradient, t, a.key, b.key),
         key = lerp(a.key, b.key, t),
@@ -990,13 +1001,30 @@ fun BoxScope.BoardBackground(kb: KbTheme) {
     // sharpness, so the board is assumed to be a generous share of the screen.
     val targetW = with(density) { configuration.screenWidthDp.dp.roundToPx() }
     val targetH = with(density) { (configuration.screenHeightDp * BOARD_HEIGHT_SHARE).dp.roundToPx() }
-    ThemeBackgroundImage(
-        path = imagePath,
-        blur = kb.backgroundImageBlur,
-        opacity = kb.backgroundImageOpacity,
-        targetW = targetW,
-        targetH = targetH,
-    )
+    // Animated backgrounds play through Coil (its loader already carries the
+    // GIF/animated-WebP decoders for the media tools) and stop by themselves
+    // when the keyboard leaves the screen. Reduce motion — which power saving
+    // also sets — falls back to the still path below, whose BitmapFactory
+    // decode of the same file is its first frame. Blur is structurally
+    // excluded (editor + specKbTheme), so the two paths never fight.
+    if (kb.backgroundAnimated && !kb.reduceMotion && imagePath != null) {
+        AsyncImage(
+            model = remember(imagePath) { File(imagePath) },
+            contentDescription = null,
+            imageLoader = rememberMediaImageLoader(),
+            contentScale = ContentScale.Crop,
+            alpha = kb.backgroundImageOpacity,
+            modifier = Modifier.matchParentSize(),
+        )
+    } else {
+        ThemeBackgroundImage(
+            path = imagePath,
+            blur = kb.backgroundImageBlur,
+            opacity = kb.backgroundImageOpacity,
+            targetW = targetW,
+            targetH = targetH,
+        )
+    }
     val phase = themeAnimationPhase(kb.animation, kb.animationSpeed, kb.reduceMotion)
     val gradient = kb.boardGradient
     if (gradient != null) {

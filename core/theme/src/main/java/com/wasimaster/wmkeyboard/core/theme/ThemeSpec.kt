@@ -135,6 +135,15 @@ data class ThemeSpec(
     val backgroundImageOpacity: Float = 1f,
     /** Blur radius applied to the background image (0 = sharp, 25 = heavy). */
     val backgroundImageBlur: Float = 0f,
+    /**
+     * The background image(s) are animated (GIF / animated WebP) and should
+     * play. Off, or on a build from before this field, the same file draws as
+     * its first frame — which is what makes an animated theme degrade to a
+     * still one instead of failing. Mutually exclusive with
+     * [backgroundImageBlur] (blurring every frame re-renders the effect per
+     * frame); the editor enforces it and the renderer double-checks.
+     */
+    val backgroundAnimated: Boolean = false,
     /** Image bytes for export/import payloads only; stripped after import. */
     val backgroundImageBase64: String? = null,
     /** Landscape image bytes for export/import payloads only; stripped after import. */

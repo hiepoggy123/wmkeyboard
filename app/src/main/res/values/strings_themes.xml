@@ -185,6 +185,10 @@
     <string name="theme_animation_hue_cycle_label">Hue cycle</string>
     <string name="theme_animation_speed_title">Speed</string>
 
+    <!-- Theme editor: animated background image. -->
+    <string name="theme_background_animated_title">Play animated image</string>
+    <string name="theme_background_animated_subtitle">Plays a GIF or animated WebP background. Turns off blur. Does not play with reduce motion or power saving.</string>
+
     <!-- Theme editor: per-theme font and sound. -->
     <string name="theme_font_sound_section_title">Font and sound</string>
     <string name="theme_font_sound_section_body">The theme can bring its own key font and key sound. If the device does not have them, the keyboard uses your global choices. Fonts and sounds install as add-ons, so you can also use them with other themes.</string>
