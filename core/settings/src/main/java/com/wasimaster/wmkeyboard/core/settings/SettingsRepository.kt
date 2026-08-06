@@ -201,7 +201,19 @@ data class KeyPopupSettings(
     val maxDurationMs: Int = 750,
     val onKey: Boolean = true,
     val fontScale: Float = 1.0f,
+    /**
+     * Height of the bubble in the mode that [onKey] selects. The two styles want
+     * very different numbers — an on-key bubble is measured from the bottom of
+     * the key it covers, so most of its height is spent climbing back out from
+     * under the finger, while a floating bubble already starts above the key and
+     * only has to hold one character. The repository resolves this field from a
+     * separate stored key per mode ([floatingHeightDp] is the default for the
+     * floating one), so each style keeps its own tuned value and a slider drag
+     * in one mode does not resize the other.
+     */
     val heightDp: Int = 110,
+    /** Default [heightDp] when [onKey] is off; see there. */
+    val floatingHeightDp: Int = 65,
     /**
      * Whether the bubble also shows on the numeric keypads (number, phone,
      * date and time fields). Off by default: on a PIN-style pad the floating
@@ -2585,6 +2597,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_POPUP_IN_NUMERIC = booleanPreferencesKey("key_popup_in_numeric_fields")
         private val POPUP_FONT_SCALE = floatPreferencesKey("popup_font_scale")
         private val KEY_POPUP_HEIGHT = intPreferencesKey("key_popup_height")
+        private val KEY_POPUP_FLOATING_HEIGHT = intPreferencesKey("key_popup_floating_height")
         private val KEY_POPUP_RADIUS = intPreferencesKey("key_popup_radius")
         private val KEY_POPUP_SHAPE = stringPreferencesKey("key_popup_shape")
         private val COLOR_VISION_FILTER = stringPreferencesKey("color_vision_filter")
@@ -3276,19 +3289,7 @@ class SettingsRepository(private val context: Context) {
             keySoundCustom = KeySoundSettings(
                 customId = p[KEY_SOUND_CUSTOM_ID] ?: defaults.keySoundCustom.customId,
             ),
-            popup = KeyPopupSettings(
-                enabled = p[KEY_POPUP] ?: defaults.popup.enabled,
-                minDurationMs = p[KEY_POPUP_MIN_DURATION] ?: defaults.popup.minDurationMs,
-                maxDurationMs = p[KEY_POPUP_MAX_DURATION] ?: defaults.popup.maxDurationMs,
-                onKey = p[KEY_POPUP_ON_KEY] ?: defaults.popup.onKey,
-                inNumericFields = p[KEY_POPUP_IN_NUMERIC] ?: defaults.popup.inNumericFields,
-                fontScale = p[POPUP_FONT_SCALE] ?: defaults.popup.fontScale,
-                heightDp = p[KEY_POPUP_HEIGHT] ?: defaults.popup.heightDp,
-                cornerRadiusDp = p[KEY_POPUP_RADIUS] ?: defaults.popup.cornerRadiusDp,
-                shape = p[KEY_POPUP_SHAPE]
-                    ?.let { runCatching { KeyShapeKind.valueOf(it) }.getOrNull() }
-                    ?: defaults.popup.shape,
-            ),
+            popup = popupFromPrefs(p, defaults),
             colorVisionFilter = p[COLOR_VISION_FILTER]
                 ?.let { runCatching { ColorVisionFilter.valueOf(it) }.getOrNull() }
                 ?: defaults.colorVisionFilter,
@@ -4746,6 +4747,32 @@ class SettingsRepository(private val context: Context) {
             putScriptFontId(prefs, script, customFontId)
         }
 
+    /**
+     * The preview-bubble block. Split out because the height is stored twice —
+     * once per bubble style — and picking between the two keys needs `onKey`
+     * resolved first; see [KeyPopupSettings.heightDp].
+     */
+    private fun popupFromPrefs(p: Preferences, defaults: KeyboardSettings): KeyPopupSettings {
+        val onKey = p[KEY_POPUP_ON_KEY] ?: defaults.popup.onKey
+        return KeyPopupSettings(
+            enabled = p[KEY_POPUP] ?: defaults.popup.enabled,
+            minDurationMs = p[KEY_POPUP_MIN_DURATION] ?: defaults.popup.minDurationMs,
+            maxDurationMs = p[KEY_POPUP_MAX_DURATION] ?: defaults.popup.maxDurationMs,
+            onKey = onKey,
+            inNumericFields = p[KEY_POPUP_IN_NUMERIC] ?: defaults.popup.inNumericFields,
+            fontScale = p[POPUP_FONT_SCALE] ?: defaults.popup.fontScale,
+            heightDp = if (onKey) {
+                p[KEY_POPUP_HEIGHT] ?: defaults.popup.heightDp
+            } else {
+                p[KEY_POPUP_FLOATING_HEIGHT] ?: defaults.popup.floatingHeightDp
+            },
+            cornerRadiusDp = p[KEY_POPUP_RADIUS] ?: defaults.popup.cornerRadiusDp,
+            shape = p[KEY_POPUP_SHAPE]
+                ?.let { runCatching { KeyShapeKind.valueOf(it) }.getOrNull() }
+                ?: defaults.popup.shape,
+        )
+    }
+
     private fun putScriptFontId(prefs: MutablePreferences, script: String, fontId: String) {
         val current = prefs[SCRIPT_FONT_IDS]?.let { decodeScriptFontIds(it) }.orEmpty()
         val next = if (fontId == DEFAULT_FONT_ID) current - script else current + (script to fontId)
@@ -5464,8 +5491,13 @@ class SettingsRepository(private val context: Context) {
     suspend fun setPopupFontScale(value: Float) =
         editPrefs { it[POPUP_FONT_SCALE] = value.coerceIn(0.7f, 1.6f) }
 
+    /** Writes the height of whichever bubble style is on; see [KeyPopupSettings.heightDp]. */
     suspend fun setKeyPopupHeightDp(value: Int) =
-        editPrefs { it[KEY_POPUP_HEIGHT] = value.coerceIn(32, 160) }
+        editPrefs {
+            val onKey = it[KEY_POPUP_ON_KEY] ?: KeyPopupSettings().onKey
+            val key = if (onKey) KEY_POPUP_HEIGHT else KEY_POPUP_FLOATING_HEIGHT
+            it[key] = value.coerceIn(32, 160)
+        }
 
     // ---- accessibility ----
 

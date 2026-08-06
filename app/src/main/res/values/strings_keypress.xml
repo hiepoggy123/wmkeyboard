@@ -75,7 +75,7 @@
     <string name="keypress_popup_height_title">Popup height</string>
     <string name="keypress_popup_height_subtitle">Height of the key preview bubble</string>
     <!-- "Popup on key" is the title of the setting keypress_popup_on_key_title. -->
-    <string name="keypress_popup_height_info">This is the height of the character bubble. With \"Popup on key\" turned on, the keyboard measures it from the bottom of the key that you press. A bubble taller than the key goes above it and stays visible past your finger.</string>
+    <string name="keypress_popup_height_info">This is the height of the character bubble. With \"Popup on key\" turned on, the keyboard measures it from the bottom of the key that you press. A bubble taller than the key goes above it and stays visible past your finger.\n\nEach of the two bubble styles keeps its own height, because a floating bubble starts above the key and needs less of it. Turn \"Popup on key\" on or off, and this slider shows the height of that style.</string>
 
     <string name="keypress_popup_shape_title">Popup shape</string>
     <string name="keypress_popup_shape_subtitle">Outline of every popup, from a square to a circle</string>
