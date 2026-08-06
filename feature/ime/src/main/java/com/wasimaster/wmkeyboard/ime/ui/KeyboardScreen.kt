@@ -144,6 +144,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.movableContentWithReceiverOf
 import android.content.res.Configuration
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
@@ -173,7 +174,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
@@ -193,6 +193,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.onSizeChanged
@@ -1004,6 +1005,27 @@ fun KeyboardScreen(
         }
     }
 
+    // The body is emitted from several mutually exclusive places below — docked,
+    // one-handed left, one-handed right, floating — and every one of them is a
+    // different slot in the composition. Called plainly, moving between them is
+    // a dispose plus a fresh compose, which throws away everything the open
+    // panel remembered: toggling the floating keyboard from the toolbox sent
+    // its grid back to the top, and the same went for every other panel's
+    // scroll, search field and pager page.
+    //
+    // movableContent makes the move a move: the nodes and their remembered
+    // state travel to the new parent intact. The lambda is remembered once (it
+    // has to be, or it is a new content identity every frame), so it reads the
+    // live `body` through a holder rather than capturing the one it was born
+    // with. `body` is structurally identical every recomposition, so calling
+    // the latest instance at the same slot keeps the remembers inside it.
+    val currentBody by rememberUpdatedState(body)
+    val movableBody = remember {
+        movableContentWithReceiverOf<ColumnScope, KeyboardUiState> { bodyState ->
+            currentBody(bodyState)
+        }
+    }
+
     val rotationStates by PhotoBackgroundManager.rotationStates.collectAsState()
     KeyboardThemeProvider(settings = state.settings, rotationStates = rotationStates) {
         if (state.settings.floatingKeyboard) {
@@ -1025,7 +1047,7 @@ fun KeyboardScreen(
                             numberRowHeightDp = (state.settings.numberRowHeightDp * heightScale).roundToInt(),
                         ),
                     )
-                    body(scaled)
+                    movableBody(scaled)
                 },
             )
             return@KeyboardThemeProvider
@@ -1073,7 +1095,7 @@ fun KeyboardScreen(
                         KeyboardAlignment.RIGHT -> slack
                     }
                     if (leftSlack > 0.001f) Spacer(modifier = Modifier.weight(leftSlack))
-                    Column(modifier = Modifier.weight(widthFraction)) { body(state) }
+                    Column(modifier = Modifier.weight(widthFraction)) { movableBody(state) }
                     val rightSlack = slack - leftSlack
                     if (rightSlack > 0.001f) Spacer(modifier = Modifier.weight(rightSlack))
                 } else {
@@ -1104,9 +1126,9 @@ fun KeyboardScreen(
                     if (oneHanded == OneHandedMode.RIGHT) {
                         if (slack > 0.001f) Spacer(modifier = Modifier.weight(slack))
                         rail()
-                        Column(modifier = Modifier.weight(widthFraction)) { body(ohState) }
+                        Column(modifier = Modifier.weight(widthFraction)) { movableBody(ohState) }
                     } else {
-                        Column(modifier = Modifier.weight(widthFraction)) { body(ohState) }
+                        Column(modifier = Modifier.weight(widthFraction)) { movableBody(ohState) }
                         rail()
                         if (slack > 0.001f) Spacer(modifier = Modifier.weight(slack))
                     }
@@ -1135,44 +1157,87 @@ private fun FloatingKeyboardFrame(
         val density = LocalDensity.current
         val boxWidthPx = constraints.maxWidth
         val boxHeightPx = constraints.maxHeight
-        val maxWidthDp = with(density) { boxWidthPx.toDp().value } - 16f
-        var liveWidthDp by remember(state.settings.floatingWidthDp) {
-            mutableFloatStateOf(state.settings.floatingWidthDp.toFloat())
-        }
-        var liveHeightScale by remember(state.settings.floatingHeightScale) {
-            mutableFloatStateOf(state.settings.floatingHeightScale)
-        }
-        val panelWidthDp = liveWidthDp.coerceIn(FLOATING_MIN_WIDTH_DP, maxWidthDp.coerceAtLeast(FLOATING_MIN_WIDTH_DP))
+        val maxWidthDp = (with(density) { boxWidthPx.toDp().value } - 16f)
+            .coerceAtLeast(FLOATING_MIN_WIDTH_DP)
 
-        var panelSize by remember { mutableStateOf(IntSize.Zero) }
+        // Panel size in px, written from layout. Never read during composition
+        // — see the deferred reads below — so a resize settling over a couple
+        // of layout passes does not drag the keyboard through a recomposition
+        // for each one.
+        val panelSize = remember { mutableStateOf(IntSize.Zero) }
         // Live drag position in px; null = follow the persisted fractions.
         // Reset when the window size changes (rotation) so the fractions
         // re-anchor the panel.
-        var dragOffset by remember(boxWidthPx, boxHeightPx) { mutableStateOf<Offset?>(null) }
-        fun slackX() = (boxWidthPx - panelSize.width).coerceAtLeast(0).toFloat()
-        fun slackY() = (boxHeightPx - panelSize.height).coerceAtLeast(0).toFloat()
-        val offset = dragOffset ?: Offset(
-            state.settings.floatingXFraction * slackX(),
-            state.settings.floatingYFraction * slackY(),
-        )
+        val dragOffset = remember(boxWidthPx, boxHeightPx) { mutableStateOf<Offset?>(null) }
+        // Width is a layout input only, so it too is read from a measure
+        // lambda rather than from composition: dragging the grip re-measures
+        // the panel instead of recomposing the entire keyboard per frame.
+        val liveWidthDp = remember(state.settings.floatingWidthDp) {
+            mutableFloatStateOf(
+                state.settings.floatingWidthDp.toFloat()
+                    .coerceIn(FLOATING_MIN_WIDTH_DP, maxWidthDp),
+            )
+        }
+        // Height is the one value a resize cannot keep out of composition: it
+        // scales the key heights, which is a settings change. Quantised (see
+        // the gesture below) so a drag costs a handful of recompositions
+        // rather than one per frame.
+        var liveHeightScale by remember(state.settings.floatingHeightScale) {
+            mutableFloatStateOf(state.settings.floatingHeightScale)
+        }
+        // Everything a gesture needs but nothing else reads: kept off the
+        // snapshot so touching it invalidates nothing.
+        val gesture = remember { FloatingGesture() }
+
+        fun slackX() = (boxWidthPx - panelSize.value.width).coerceAtLeast(0).toFloat()
+        fun slackY() = (boxHeightPx - panelSize.value.height).coerceAtLeast(0).toFloat()
+        fun currentOffset(): Offset {
+            val live = dragOffset.value
+            val raw = live ?: Offset(
+                state.settings.floatingXFraction * slackX(),
+                state.settings.floatingYFraction * slackY(),
+            )
+            return Offset(raw.x.coerceIn(0f, slackX()), raw.y.coerceIn(0f, slackY()))
+        }
+        fun publishBounds() = gesture.bounds?.let(onBounds)
 
         Surface(
             modifier = Modifier
-                .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
-                .width(panelWidthDp.dp)
+                // Placement-scope read: moving the panel re-places one node.
+                // Read at composition scope (the old `val offset = …`) it
+                // recomposed the whole keyboard on every drag frame, which is
+                // what made dragging feel like it was catching.
+                .offset {
+                    val o = currentOffset()
+                    IntOffset(o.x.roundToInt(), o.y.roundToInt())
+                }
+                // Measure-scope read of the live width, for the same reason.
+                .layout { measurable, constraints ->
+                    val widthPx = with(density) {
+                        liveWidthDp.floatValue.coerceIn(FLOATING_MIN_WIDTH_DP, maxWidthDp).dp.roundToPx()
+                    }
+                    val placeable = measurable.measure(
+                        constraints.copy(minWidth = widthPx, maxWidth = widthPx),
+                    )
+                    layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+                }
                 // Invisible for the first frame, before the panel has been
                 // measured and placed from real sizes — avoids a flash at a
-                // wrong position.
-                .alpha(if (panelSize == IntSize.Zero) 0f else 1f)
+                // wrong position. Draw-scope read, so first measure costs a
+                // redraw and not a recomposition.
+                .graphicsLayer { alpha = if (panelSize.value == IntSize.Zero) 0f else 1f }
                 .onGloballyPositioned { coords ->
-                    panelSize = coords.size
+                    panelSize.value = coords.size
                     val position = coords.positionInWindow()
-                    onBounds(
-                        IntRect(
-                            offset = IntOffset(position.x.roundToInt(), position.y.roundToInt()),
-                            size = coords.size,
-                        )
+                    gesture.bounds = IntRect(
+                        offset = IntOffset(position.x.roundToInt(), position.y.roundToInt()),
+                        size = coords.size,
                     )
+                    // Publishing mid-gesture forces a decor-view layout pass
+                    // per frame just to update the touchable region, and the
+                    // region cannot matter while a finger is already captured.
+                    // The end of the gesture publishes the settled bounds.
+                    if (!gesture.active) publishBounds()
                 },
             shape = RoundedCornerShape(18.dp),
             // The theme paints the panel (color + optional image); Surface
@@ -1185,35 +1250,75 @@ private fun FloatingKeyboardFrame(
                 Column {
                     FloatingHandleBar(
                         onDock = onDock,
+                        onDragStart = { gesture.active = true },
                         onDragBy = { delta ->
-                            val current = dragOffset ?: offset
-                            dragOffset = Offset(
+                            val current = currentOffset()
+                            dragOffset.value = Offset(
                                 (current.x + delta.x).coerceIn(0f, slackX()),
                                 (current.y + delta.y).coerceIn(0f, slackY()),
                             )
                         },
                         onDragEnd = {
-                            val end = dragOffset ?: return@FloatingHandleBar
+                            gesture.active = false
+                            publishBounds()
+                            val end = dragOffset.value ?: return@FloatingHandleBar
                             onMoved(
                                 if (slackX() > 0f) end.x / slackX() else 0.5f,
                                 if (slackY() > 0f) end.y / slackY() else 0.5f,
                             )
                         },
+                        onResizeStart = {
+                            gesture.active = true
+                            // The panel's own top-left is pinned for the whole
+                            // resize. Left on the fractions it would slide as
+                            // the slack shrank under it — the panel wandering
+                            // away from the finger, which read as the resize
+                            // being broken rather than as re-anchoring.
+                            dragOffset.value = currentOffset()
+                            gesture.widthDp = liveWidthDp.floatValue
+                            gesture.heightScale = liveHeightScale
+                            // The unscaled height is measured once, here. Read
+                            // per frame from the live panel it was a feedback
+                            // loop: the size it divides by is a frame behind
+                            // the scale it produced, so the grip accelerated
+                            // away from the finger and oscillated.
+                            gesture.baseHeightPx =
+                                if (liveHeightScale > 0f) panelSize.value.height / liveHeightScale else 0f
+                        },
                         onResizeBy = { delta ->
-                            liveWidthDp = (liveWidthDp + with(density) { delta.x.toDp().value })
-                                .coerceIn(FLOATING_MIN_WIDTH_DP, maxWidthDp.coerceAtLeast(FLOATING_MIN_WIDTH_DP))
-                            // Height resizes too: the drag is normalized by the
-                            // panel's unscaled height, so the grip tracks the
-                            // finger no matter how tall the content already is.
+                            gesture.widthDp = (gesture.widthDp + with(density) { delta.x.toDp().value })
+                                .coerceIn(FLOATING_MIN_WIDTH_DP, maxWidthDp)
                             // The grip sits on the panel's TOP bar, so dragging
                             // up (negative y) grows the panel — hence the minus.
-                            val baseHeightPx = if (liveHeightScale > 0f) panelSize.height / liveHeightScale else 0f
-                            if (baseHeightPx > 0f) {
-                                liveHeightScale = (liveHeightScale - delta.y / baseHeightPx)
+                            if (gesture.baseHeightPx > 0f) {
+                                gesture.heightScale = (gesture.heightScale - delta.y / gesture.baseHeightPx)
                                     .coerceIn(FLOATING_MIN_HEIGHT_SCALE, FLOATING_MAX_HEIGHT_SCALE)
                             }
+                            // Snapped before it reaches layout. The finger
+                            // moves a pixel at a time; re-measuring a whole
+                            // keyboard for a pixel is work nobody can see, and
+                            // the height step keeps its recompositions down to
+                            // one per visible change.
+                            liveWidthDp.floatValue =
+                                quantize(gesture.widthDp, FLOATING_WIDTH_STEP_DP)
+                                    .coerceIn(FLOATING_MIN_WIDTH_DP, maxWidthDp)
+                            liveHeightScale =
+                                quantize(gesture.heightScale, FLOATING_HEIGHT_STEP)
+                                    .coerceIn(FLOATING_MIN_HEIGHT_SCALE, FLOATING_MAX_HEIGHT_SCALE)
                         },
-                        onResizeEnd = { onResized(panelWidthDp.roundToInt(), liveHeightScale) },
+                        onResizeEnd = {
+                            gesture.active = false
+                            publishBounds()
+                            onResized(liveWidthDp.floatValue.roundToInt(), liveHeightScale)
+                            // The pin above is in px, so persist it too or the
+                            // panel jumps back to the old fractions the next
+                            // time they are applied.
+                            val end = dragOffset.value ?: return@FloatingHandleBar
+                            onMoved(
+                                if (slackX() > 0f) end.x / slackX() else 0.5f,
+                                if (slackY() > 0f) end.y / slackY() else 0.5f,
+                            )
+                        },
                     )
                     content(liveHeightScale)
                 }
@@ -1222,6 +1327,22 @@ private fun FloatingKeyboardFrame(
     }
 }
 
+/** Scratch state for one move/resize gesture. Deliberately not snapshot state. */
+private class FloatingGesture {
+    /** A finger is on the drag pill or the grip right now. */
+    var active = false
+    /** Latest measured panel bounds, published when the gesture ends. */
+    var bounds: IntRect? = null
+    /** Panel height at scale 1, measured once at the start of a resize. */
+    var baseHeightPx = 0f
+    /** Unsnapped width the finger has travelled to. */
+    var widthDp = 0f
+    /** Unsnapped height scale the finger has travelled to. */
+    var heightScale = 1f
+}
+
+private fun quantize(value: Float, step: Float): Float = (value / step).roundToInt() * step
+
 // The one-handed rail's share of the screen width. Kept small so the body
 // gets its full configured width; shrinks only if the width leaves less room.
 private const val ONE_HANDED_RAIL_WEIGHT = 0.16f
@@ -1229,29 +1350,65 @@ private const val FLOATING_MIN_WIDTH_DP = 240f
 private const val FLOATING_MIN_HEIGHT_SCALE = 0.6f
 private const val FLOATING_MAX_HEIGHT_SCALE = 1.6f
 
-/** Handle row on top of the floating panel: dock button, drag pill, resize grip. */
+// Resize granularity. A pixel-exact resize re-measures (width) or recomposes
+// (height) the whole keyboard for a change too small to see; these are the
+// coarsest steps that still read as continuous under a moving finger.
+private const val FLOATING_WIDTH_STEP_DP = 4f
+private const val FLOATING_HEIGHT_STEP = 0.02f
+
+/**
+ * Handle row on top of the floating panel: dock button, drag pill, resize grip.
+ *
+ * The two corner buttons are drawn as tool circles — same shape from the theme's
+ * tool radius, same [KbTheme.toolCircle] fill, same [KbTheme.toolbarIcon] glyph
+ * colour — because they sit directly above a keyboard full of them. Left on the
+ * bare Material palette they were the only two things on the panel that ignored
+ * the theme, and on anything but a plain grey board they read as leftovers from
+ * another app.
+ */
 @Composable
 private fun FloatingHandleBar(
     onDock: () -> Unit,
+    onDragStart: () -> Unit,
     onDragBy: (Offset) -> Unit,
     onDragEnd: () -> Unit,
+    onResizeStart: () -> Unit,
     onResizeBy: (Offset) -> Unit,
     onResizeEnd: () -> Unit,
 ) {
+    val kb = LocalKbTheme.current
+    val shape = kb.toolShape()
+    val buttonFill = if (kb.toolRadiusDp > 0) kb.toolCircle else Color.Transparent
+    // Same outline the tools on the bar wear, for the same reason the fill and
+    // the shape are shared: these two buttons sit above a row of them.
+    val buttonOutline = if (kb.toolBorder != null && kb.toolBorderWidthDp > 0f) {
+        Modifier.border(kb.toolBorderWidthDp.dp, kb.toolBorder, shape)
+    } else {
+        Modifier
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(30.dp),
+            .height(FloatingHandleBarHeight)
+            .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Docking returns the full-width keyboard, so a fullscreen glyph reads
         // right; the old down-arrow looked like a download button.
-        IconButton(onClick = onDock, modifier = Modifier.size(30.dp)) {
+        Box(
+            modifier = Modifier
+                .size(FloatingHandleButton)
+                .background(buttonFill, shape)
+                .then(buttonOutline)
+                .clip(shape)
+                .clickable(onClick = onDock),
+            contentAlignment = Alignment.Center,
+        ) {
             Icon(
                 Icons.Outlined.Fullscreen,
                 contentDescription = stringResource(R.string.ime_floating_dock_desc),
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(FloatingHandleGlyph),
+                tint = kb.toolbarIcon,
             )
         }
         Box(
@@ -1260,6 +1417,7 @@ private fun FloatingHandleBar(
                 .fillMaxHeight()
                 .pointerInput(Unit) {
                     detectDragGestures(
+                        onDragStart = { onDragStart() },
                         onDrag = { change, amount ->
                             change.consume()
                             onDragBy(amount)
@@ -1272,19 +1430,19 @@ private fun FloatingHandleBar(
         ) {
             Box(
                 modifier = Modifier
-                    .width(44.dp)
-                    .height(4.dp)
-                    .background(
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                        RoundedCornerShape(2.dp),
-                    ),
+                    .width(48.dp)
+                    .height(5.dp)
+                    .background(kb.toolbarIcon.copy(alpha = 0.35f), RoundedCornerShape(2.5.dp)),
             )
         }
         Box(
             modifier = Modifier
-                .size(30.dp)
+                .size(FloatingHandleButton)
+                .background(buttonFill, shape)
+                .then(buttonOutline)
                 .pointerInput(Unit) {
                     detectDragGestures(
+                        onDragStart = { onResizeStart() },
                         onDrag = { change, amount ->
                             change.consume()
                             onResizeBy(amount)
@@ -1298,14 +1456,14 @@ private fun FloatingHandleBar(
             // Classic grip lines instead of OpenInFull, whose diagonal
             // arrows read as a "go fullscreen" button rather than a
             // drag-to-resize handle.
-            val gripColor = MaterialTheme.colorScheme.onSurfaceVariant
+            val gripColor = kb.toolbarIcon
             val resizeDesc = stringResource(R.string.ime_floating_resize_desc)
             Canvas(
                 modifier = Modifier
-                    .size(14.dp)
+                    .size(FloatingHandleGlyph)
                     .semantics { contentDescription = resizeDesc },
             ) {
-                val stroke = 1.5.dp.toPx()
+                val stroke = 1.75.dp.toPx()
                 drawLine(
                     gripColor,
                     Offset(size.width * 0.15f, size.height),
@@ -1322,6 +1480,10 @@ private fun FloatingHandleBar(
         }
     }
 }
+
+private val FloatingHandleBarHeight = 38.dp
+private val FloatingHandleButton = 32.dp
+private val FloatingHandleGlyph = 19.dp
 
 /** Side rail shown in one-handed mode: swap sides or return to full width. */
 @Composable
@@ -5291,7 +5453,7 @@ private fun ToolboxGrid(
             key(tool ?: "box-ghost-${pageStart + slot}") {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(1f / columns)
+                        .toolboxCellWidth(columns)
                         // Every cell is the same size; whichever
                         // reported last feeds the slot math.
                         .onGloballyPositioned { drag.toolboxCellSize = it.size.toSize() },
@@ -5364,6 +5526,28 @@ private fun ToolboxGrid(
             }
         }
     }
+}
+
+/**
+ * A toolbox cell's share of the row: the grid width divided [columns] ways,
+ * rounded DOWN.
+ *
+ * `fillMaxWidth(1f / columns)` rounds to nearest, so for every width where the
+ * remainder crosses half a pixel each cell rounded up and the row overflowed by
+ * a pixel or two — and FlowRow answered by wrapping a column early. Fixed width
+ * that is invisible; live-resizing a floating keyboard it was the columns
+ * snapping between 4 and 3 and back for every few pixels of drag. Integer
+ * division cannot overflow the row, so the count only changes when the setting
+ * does.
+ */
+private fun Modifier.toolboxCellWidth(columns: Int): Modifier = layout { measurable, constraints ->
+    val width = if (constraints.hasBoundedWidth) {
+        (constraints.maxWidth / columns).coerceAtLeast(1)
+    } else {
+        constraints.maxWidth
+    }
+    val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+    layout(placeable.width, placeable.height) { placeable.place(0, 0) }
 }
 
 /** How tall a toolbox pill is. Half of it is the radius that makes the ends round. */
@@ -8329,7 +8513,7 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     // than a full stop) types its own mark from the key next to the spacebar,
     // with "." kept on the long press for numbers, file names and URLs. Only
     // where the layout has not already put the mark there itself — the fixed
-    // Bengali layouts carry দাঁড়ি on their own keys.
+    // Bengali layouts carry দাঁড়ি on their own keys.
     val fullStop = state.script.fullStop.takeIf { it != "." }
     // Optional Gboard-style emoji key: the letter layouts' comma key becomes
     // an emoji-panel key, with comma demoted to its long-press alternates.
