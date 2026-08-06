@@ -2520,7 +2520,7 @@ private fun importDecalImage(
     } else {
         source
     }
-    val file = File(themeImagesDir(context), "${themeId}_decal_${decalId}.img")
+    val file = File(themeImagesDir(context), "${themeId}_decal_$decalId.img")
     file.outputStream().use { out ->
         scaled.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
     }

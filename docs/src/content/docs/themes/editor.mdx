@@ -81,6 +81,34 @@ Slanted is the one shape that draws slightly outside its key. A parallelogram ke
 Shapes past the first four are new. A theme exported with one of them won't import into a version of the app that predates it: the importer drops a theme whose shape name it doesn't recognise rather than guessing. Stick to Rounded, Pill, Cut, or Squircle in a theme you plan to share widely.
 :::
 
+### Key textures
+
+Keys can wear an image instead of just a color. One picture for the letter keys is enough to theme the whole board; the modifier keys, the enter key, the space bar and the pressed state each take an optional image of their own, and fall back sensibly when you don't set one (space reuses the letter texture, pressed draws the press tint over it).
+
+- Each texture row picks an image from your gallery; it's stored downscaled to 512px, so a camera photo won't bloat the theme file.
+- **Crop / Stretch / Tile** decides how the image fits a key. Crop keeps its proportions, stretch fills the key exactly, tile repeats it at its natural size — the right choice for pixel-art.
+- **Texture opacity** blends the image over the key color underneath, which stays the base coat (and what high-contrast accessibility falls back to — textures don't draw there at all).
+
+Textures travel inside the theme file when you export it. An older app version imports the same file as a plain color theme and loses nothing else.
+
+### Single-key styles
+
+One key can carry its own colors: its face, its label, its border, and the popup bubble it shows. Add a letter (the style follows that letter onto every layout that has it) or one of the special keys (Enter, Space, Shift, Delete, Symbols…), then set any of the five colors; the rest keep following the theme.
+
+An armed or locked modifier still shows the accent/pressed face whatever color you gave it — state has to stay visible.
+
+### Stickers
+
+Up to six images laid over the keys, purely for decoration: typing goes straight through them. Transparent PNGs work best. Each sticker has position, size, rotation and opacity sliders, adjusted over a live miniature preview so what you drag is what the keyboard shows. Stickers travel with the exported theme the same way textures do.
+
+### Key press effect
+
+A small particle burst under every key press: **Stars**, **Hearts**, **Sparkle**, **Confetti**, or **Emoji** with a field for the emoji to throw (each one becomes its own particle kind). An **Intensity** slider scales how many particles a press throws. The effect never plays under reduce motion or power saving, and high-contrast accessibility drops it with the rest of the decoration.
+
+### Font and sound
+
+The theme can bring its own key font and key sound. Both are picked from what's on the device — the styles the app ships plus anything installed from the font and sound libraries — and referenced by name, never copied into the theme file. If someone imports your theme without that font or sound installed, their keyboard quietly uses their own global choice instead; publish the font and sound as their own add-ons and list them under the theme's `requires` in a [repository manifest](/development/addon-repos/repo-format/) so the install screen offers to fetch them together. The per-script faces still win over a theme font, so a Latin display face never blanks a Bengali board.
+
 ### Accent & popups
 
 - **Accent** — the shift-on tint, active-tool color, and buttons across the panels.
