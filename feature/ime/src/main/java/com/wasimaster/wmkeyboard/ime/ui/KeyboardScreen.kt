@@ -1897,14 +1897,23 @@ private fun TopBar(
         // everything left of it — the emoji icon included — slid across
         // before the handoff to the toolbar had even begun, and the icon
         // started its slide from a position it had already been shoved out of.
-        // Now the chevron leaves on the same frame the toolbar arrives — which
-        // is why the panel test is under `!showToolbar` rather than beside it.
-        // A panel opening decides the flip one dissolve before the toolbar is
-        // drawn, and dropping the chevron on the decision pulled 36dp out of a
-        // strip that was still on screen and fading.
+        // Now the chevron leaves on the same frame the toolbar arrives.
+        //
+        // Both halves of that are why the test is written against the surface
+        // being *drawn* and gated on [wantToolbar]. The bar decides its flip one
+        // dissolve before it draws it, and the chevron reads inputs that change
+        // with the decision — so on the plain "type into an empty bar" flip it
+        // used to appear the instant a candidate arrived, claim its 36dp out of
+        // a toolbar that was still on screen, and shove every tool right; the
+        // emoji then slid right, was handed to the strip, and slid back left
+        // past where it started. One decision, and the row moves once, when the
+        // surface it belongs to arrives.
         AnimatedVisibility(
             visible = !showToolbar ||
-                (state.panel == PanelMode.NONE && (hasSuggestions || suggestionsFirst)),
+                (
+                    wantToolbar && state.panel == PanelMode.NONE &&
+                        (hasSuggestions || suggestionsFirst)
+                    ),
             enter = fadeIn(tween(motionMs)),
             exit = ExitTransition.None,
         ) {
@@ -4586,8 +4595,11 @@ private fun RowScope.ToolbarRow(
                     // The width a pinned button actually gets, published for the
                     // strip's emoji shortcut to match (see [pinnedToolWidthPx]).
                     .onSizeChanged { drag.pinnedToolWidthPx = it.width }
-                    .graphicsLayer { alpha = contentAlpha() }
-                    .animatePlacement(enabled = motion, inRow = true) { drag.bodyCoords },
+                    .animatePlacement(enabled = motion, inRow = true) { drag.bodyCoords }
+                    // Under the slide, never over it: a fade renders offscreen
+                    // and clips to its own node, so a stationary fade around a
+                    // displaced icon cuts a slice off it. See the tool cells.
+                    .graphicsLayer { alpha = contentAlpha() },
                 longPressLabel = stringResource(R.string.ime_toolbox_desc),
                 wide = true,
             ) { onPanelChange(PanelMode.TOOLBOX) }
@@ -4606,12 +4618,18 @@ private fun RowScope.ToolbarRow(
                 // On an in-place flip the emoji slides and stays opaque while
                 // the rest fade (see [contentAlpha]); on a fresh mount ([fadeEmoji])
                 // nothing slides, so it fades in with them.
-                val fadedCell = if (tool == ToolbarTool.EMOJI && !fadeEmoji) {
-                    cell
-                } else {
-                    cell.graphicsLayer { alpha = contentAlpha() }
-                }
-                Box(fadedCell, contentAlignment = Alignment.Center) {
+                //
+                // The alpha rides the *icon*, not the cell around it. A
+                // graphicsLayer below full opacity renders to an offscreen
+                // buffer the size of its node, and that buffer clips — so with
+                // the fade on the cell, an icon that [animatePlacement] had
+                // displaced out of its cell (which happens whenever the bar
+                // reflows mid-fade: a chevron claiming or releasing its slot)
+                // was drawn with a slice missing and a hard vertical edge where
+                // the cell ended. On the icon's own node the buffer travels
+                // with it and there is nothing to clip.
+                val fadeThis = tool != ToolbarTool.EMOJI || fadeEmoji
+                Box(cell, contentAlignment = Alignment.Center) {
                     // Drag is always live: hold-and-drag reorders the bar
                     // (or unpins into an open toolbox); a hold that never
                     // moves opens the tool's settings page instead.
@@ -4656,6 +4674,15 @@ private fun RowScope.ToolbarRow(
                                             enabled = motion,
                                             inRow = true,
                                         ) { drag.bodyCoords }
+                                    },
+                                )
+                                // Inside the slide, so the fade's buffer travels
+                                // with the icon rather than clipping it.
+                                .then(
+                                    if (fadeThis) {
+                                        Modifier.graphicsLayer { alpha = contentAlpha() }
+                                    } else {
+                                        Modifier
                                     },
                                 ),
                             interactive = false,
