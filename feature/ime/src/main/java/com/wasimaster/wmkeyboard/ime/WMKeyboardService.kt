@@ -5575,7 +5575,12 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun patternGateOpen(typed: String): Boolean {
         if (!recentWordsValid) return true
-        if (snippetStore.couldStartPattern(typed[0])) return true
+        // There need not be a word in the buffer at all. The offer path asks
+        // this question on every field entry and after every commit, when
+        // nothing is composing, and a pattern that matches the words already in
+        // the field is still a match — so an empty buffer only skips its own
+        // half of the question rather than answering the whole of it.
+        if (typed.isNotEmpty() && snippetStore.couldStartPattern(typed[0])) return true
         return recentWords.any { snippetStore.couldStartPattern(it[0]) }
     }
 
