@@ -63,6 +63,7 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.hueShift
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
+import com.wasimaster.wmkeyboard.core.theme.keyShapeKindOrNull
 import kotlinx.coroutines.delay
 
 /**
@@ -105,6 +106,7 @@ data class KbTheme(
     val divider: Color,
     val keyRadiusDp: Int,
     val popupRadiusDp: Int,
+    val popupShapeKind: KeyShapeKind,
     val toolRadiusDp: Int,
     val toolWidthDp: Int,
     val animation: ThemeAnimation,
@@ -123,6 +125,12 @@ data class KbTheme(
 
 /** The resolved outline every key draws with. */
 fun KbTheme.keyShape() = keyShapeFor(keyShapeKind, keyRadiusDp)
+
+/**
+ * The resolved outline every popup surface draws with — the preview bubble, the
+ * long-press alternates, the language picker and the panel menus.
+ */
+fun KbTheme.popupShape() = keyShapeFor(popupShapeKind, popupRadiusDp)
 
 /** Added text and deleted text, for the AI tool's comparison view. */
 internal data class DiffColors(val added: Color, val deleted: Color)
@@ -323,7 +331,8 @@ private fun defaultKbTheme(
         secondaryText = scheme.onSurfaceVariant,
         divider = scheme.outlineVariant,
         keyRadiusDp = settings.keyCornerRadiusDp,
-        popupRadiusDp = 12,
+        popupRadiusDp = settings.popup.cornerRadiusDp,
+        popupShapeKind = settings.popup.shape,
         toolRadiusDp = settings.toolCircleRadiusDp,
         toolWidthDp = settings.toolbarBehavior.toolWidthDp,
         animation = ThemeAnimation.NONE,
@@ -384,7 +393,8 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         secondaryText = secondary,
         divider = keyText.copy(alpha = 0.25f),
         keyRadiusDp = spec.keyCornerRadiusDp ?: settings.keyCornerRadiusDp,
-        popupRadiusDp = spec.popupCornerRadiusDp ?: 12,
+        popupRadiusDp = spec.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
+        popupShapeKind = keyShapeKindOrNull(spec.popupShape) ?: settings.popup.shape,
         toolRadiusDp = spec.toolCircleRadiusDp ?: settings.toolCircleRadiusDp,
         toolWidthDp = spec.toolWidthDp ?: settings.toolbarBehavior.toolWidthDp,
         animation = spec.animation,
@@ -835,6 +845,7 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         divider = lerp(a.divider, b.divider, t),
         keyRadiusDp = lerpI(a.keyRadiusDp, b.keyRadiusDp, t),
         popupRadiusDp = lerpI(a.popupRadiusDp, b.popupRadiusDp, t),
+        popupShapeKind = if (past) b.popupShapeKind else a.popupShapeKind,
         toolRadiusDp = lerpI(a.toolRadiusDp, b.toolRadiusDp, t),
         // Width is measured, not painted — tweening it would re-measure the
         // toolbar every crossfade frame, which the top bar forbids (a width

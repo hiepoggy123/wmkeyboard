@@ -152,6 +152,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -3636,6 +3637,19 @@ private fun KeyPressSettings(
     val context = LocalContext.current
     // Lets the SYSTEM_* preview fire through the real platform key haptic.
     val view = LocalView.current
+    var popupShapePickerOpen by rememberSaveable { mutableStateOf(false) }
+    if (popupShapePickerOpen) {
+        KeyShapePickerDialog(
+            selected = settings.popup.shape,
+            radiusDp = settings.popup.cornerRadiusDp,
+            onPick = { kind ->
+                scope.launch { repository.setKeyPopupShape(kind) }
+                popupShapePickerOpen = false
+            },
+            onDismiss = { popupShapePickerOpen = false },
+            title = R.string.keypress_popup_shape_title,
+        )
+    }
     SettingsGroup(stringResource(R.string.keypress_haptics_group_title)) {
         item {
             ToggleSetting(
@@ -3848,6 +3862,27 @@ private fun KeyPressSettings(
                 info = stringResource(R.string.keypress_popup_height_info),
             ) { scope.launch { repository.setKeyPopupHeightDp(it.toInt()) } }
         }
+        // Shape and radius govern every popup surface, not only the preview
+        // bubble: the long-press alternates, the language picker and the panel
+        // menus all draw with them.
+        item {
+            NavRow(
+                R.string.keypress_popup_shape_title,
+                subtitle = stringResource(R.string.keypress_popup_shape_subtitle),
+                value = keyShapeName(settings.popup.shape),
+                onClick = { popupShapePickerOpen = true },
+            )
+        }
+        item {
+            SliderSetting(
+                R.string.keypress_popup_radius_title,
+                subtitle = stringResource(R.string.keypress_popup_radius_subtitle),
+                value = settings.popup.cornerRadiusDp.toFloat(),
+                range = 0f..40f,
+                display = { context.getString(R.string.keypress_value_dp, it.toInt()) },
+                info = stringResource(R.string.keypress_popup_radius_info),
+            ) { scope.launch { repository.setKeyPopupCornerRadiusDp(it.toInt()) } }
+        }
     }
 
     SettingsGroup(stringResource(R.string.keypress_timing_group_title)) {
@@ -3863,13 +3898,23 @@ private fun KeyPressSettings(
         }
         item {
             SliderSetting(
-                R.string.keypress_key_repeat_title,
-                subtitle = stringResource(R.string.keypress_key_repeat_subtitle),
-                value = settings.keyRepeatIntervalMs.toFloat(),
+                R.string.keypress_delete_repeat_title,
+                subtitle = stringResource(R.string.keypress_delete_repeat_subtitle),
+                value = settings.keyRepeat.deleteMs.toFloat(),
                 range = 20f..200f,
                 display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
-                info = stringResource(R.string.keypress_key_repeat_info),
-            ) { scope.launch { repository.setKeyRepeatIntervalMs(it.toInt()) } }
+                info = stringResource(R.string.keypress_delete_repeat_info),
+            ) { scope.launch { repository.setDeleteRepeatIntervalMs(it.toInt()) } }
+        }
+        item {
+            SliderSetting(
+                R.string.keypress_space_repeat_title,
+                subtitle = stringResource(R.string.keypress_space_repeat_subtitle),
+                value = settings.keyRepeat.spaceMs.toFloat(),
+                range = 20f..200f,
+                display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                info = stringResource(R.string.keypress_space_repeat_info),
+            ) { scope.launch { repository.setSpaceRepeatIntervalMs(it.toInt()) } }
         }
         item {
             SliderSetting(

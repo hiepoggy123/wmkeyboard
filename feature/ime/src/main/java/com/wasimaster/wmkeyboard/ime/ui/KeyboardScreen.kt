@@ -286,6 +286,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyPopupSettings
+import com.wasimaster.wmkeyboard.core.settings.KeyRepeatSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
@@ -4424,7 +4425,7 @@ private fun ToolCircle(
                 onDismissRequest = { showLabel = false },
             ) {
                 Surface(
-                    shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+                    shape = kb.popupShape(),
                     color = kb.popup,
                     shadowElevation = 6.dp,
                 ) {
@@ -7108,7 +7109,7 @@ private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKey
     val kb = LocalKbTheme.current
     val density = LocalDensity.current
     Surface(
-        shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+        shape = kb.popupShape(),
         color = kb.popup,
         shadowElevation = 6.dp,
     ) {
@@ -7870,7 +7871,7 @@ private fun KeyRows(
                     .onGloballyPositioned { pillSize = it.size },
                 color = theme.popup,
                 contentColor = theme.popupText,
-                shape = RoundedCornerShape(theme.popupRadiusDp.dp),
+                shape = theme.popupShape(),
                 shadowElevation = 4.dp,
             ) {
                 Text(
@@ -8528,6 +8529,43 @@ private fun rowScaledKeyHeight(baseKeyHeightDp: Int, scale: Float?): Int =
     }
 
 /**
+ * One key's tremor filter — the "ignore repeated presses" accessibility
+ * setting, which drops a second contact on the same key inside a window.
+ *
+ * The verdict is taken on the way down rather than at the commit, because
+ * everything a press costs is spent on the way down: the haptic, the click,
+ * and only then the character. Judging late left the filter buzzing and
+ * clicking for presses it went on to throw away, which is what it is there to
+ * stop happening.
+ *
+ * Plain fields, not Compose state: the pointer handlers read and write these
+ * outside composition, and nothing draws from them.
+ */
+private class KeyDebounceGate {
+    private var lastAcceptedAt = 0L
+    private var mutedUntil = 0L
+
+    /** Whether the press this gate judged last is allowed to type. */
+    var accepted = true
+        private set
+
+    /** Judges a contact. [debounceMs] of 0 or less turns the filter off. */
+    fun press(debounceMs: Int) {
+        val now = SystemClock.uptimeMillis()
+        accepted = debounceMs <= 0 || now - lastAcceptedAt >= debounceMs
+        if (accepted) lastAcceptedAt = now else mutedUntil = lastAcceptedAt + debounceMs
+    }
+
+    /**
+     * Whether feedback fired *now* belongs to a press that was kept. Time-based
+     * rather than latched to [accepted]: a dropped contact that the finger then
+     * holds becomes a deliberate long press or repeat run, and by the time
+     * those fire the window has passed, so they are heard.
+     */
+    fun audible(): Boolean = SystemClock.uptimeMillis() >= mutedUntil
+}
+
+/**
  * One key.
  *
  * Takes its resolved [KeyVisual] rather than the whole [KeyboardUiState] so a
@@ -8577,8 +8615,8 @@ private fun KeyButton(
     // popup above the spacebar while the finger is still down.
     var languagePreview by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val onKeyPress = LocalKeyPressFeedback.current
-    val onKeySound = LocalKeySound.current
+    val rawKeyPress = LocalKeyPressFeedback.current
+    val rawKeySound = LocalKeySound.current
     val onClipboardKey = LocalClipboardKeyAction.current
     val canDelete = LocalCanDelete.current
     val canForwardDelete = LocalCanForwardDelete.current
@@ -8616,15 +8654,21 @@ private fun KeyButton(
     // Tremor filter: drop a second contact on the same key that lands
     // within the debounce window. Scoped per key, so alternating keys
     // (typing "aa" vs "ab") are never affected — only a bouncing repeat is.
-    var lastAcceptedAt by remember { mutableLongStateOf(0L) }
-    val debounced: (Key) -> Unit = remember(onKey, settings.keyDebounceMs) {
-        { pressedKey ->
-            val now = SystemClock.uptimeMillis()
-            if (settings.keyDebounceMs <= 0 || now - lastAcceptedAt >= settings.keyDebounceMs) {
-                lastAcceptedAt = now
-                onKey(pressedKey)
-            }
-        }
+    val debounceMs = rememberUpdatedState(settings.keyDebounceMs)
+    val gate = remember { KeyDebounceGate() }
+    val debounced: (Key) -> Unit = remember(onKey, gate) {
+        { pressedKey -> if (gate.accepted) onKey(pressedKey) }
+    }
+    // The buzz and the click are spent on contact, before the key ever commits,
+    // so a discarded press has to be silenced there too — a filter that still
+    // buzzes for every dropped tap feels exactly like no filter at all. Only
+    // the press's own feedback is muted: the long-press cue and the repeat
+    // ticks under the same finger land past the window and ring normally.
+    val onKeyPress: () -> Unit = remember(rawKeyPress, gate) {
+        { if (gate.audible()) rawKeyPress() }
+    }
+    val onKeySound: () -> Unit = remember(rawKeySound, gate) {
+        { if (gate.audible()) rawKeySound() }
     }
 
     // Under an explore-by-touch service the accessibility framework owns the
@@ -8672,7 +8716,13 @@ private fun KeyButton(
                         contentDescription = label
                         role = Role.Button
                         if (semanticsDriven) {
-                            onClick(label = typeAction) { debounced(key); true }
+                            // No pointer went down here, so the activation has
+                            // to open the window itself.
+                            onClick(label = typeAction) {
+                                gate.press(debounceMs.value)
+                                debounced(key)
+                                true
+                            }
                         }
                     }
                 } else {
@@ -8682,12 +8732,17 @@ private fun KeyButton(
             .then(
                 if (semanticsDriven) Modifier
                 else Modifier.pointerInputKey(
-                    key, settings.longPressDelayMs, settings.keyRepeatIntervalMs,
+                    key, settings.longPressDelayMs, settings.keyRepeat,
                     spaceShortSwipe = settings.spaceShortSwipe,
                     spaceLongSwipe = settings.spaceLongSwipe,
                     enabledLayoutIds = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) },
                     currentLayoutId = layoutId,
                     setPressed = { down ->
+                        // Judged here rather than at the commit: every branch
+                        // below reports the contact before it spends anything
+                        // on it, which is the one point where a press can still
+                        // be dropped silently.
+                        if (down) gate.press(debounceMs.value)
                         pressed.value = down
                         announce(down)
                         if (down && previewWanted.value) {
@@ -8787,7 +8842,7 @@ private fun KeyButton(
                 onDismissRequest = { showAlternates = false },
             ) {
                 Surface(
-                    shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+                    shape = kb.popupShape(),
                     color = kb.popup,
                     shadowElevation = 8.dp,
                 ) {
@@ -8839,7 +8894,7 @@ private fun KeyButton(
                 properties = PreviewPopupProperties,
             ) {
                 Surface(
-                    shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+                    shape = kb.popupShape(),
                     color = kb.popup,
                     shadowElevation = 8.dp,
                 ) {
@@ -9045,7 +9100,7 @@ private fun LanguagePickerPopup(
         onDismissRequest = onDismiss,
     ) {
         Surface(
-            shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+            shape = kb.popupShape(),
             color = kb.popup,
             shadowElevation = 8.dp,
         ) {
@@ -9388,7 +9443,7 @@ private fun brailleRelease(key: Key): Key {
 private fun Modifier.pointerInputKey(
     key: Key,
     longPressDelayMs: Int,
-    repeatIntervalMs: Int,
+    keyRepeat: KeyRepeatSettings,
     spaceShortSwipe: SpaceSwipeAction,
     spaceLongSwipe: SpaceSwipeAction,
     enabledLayoutIds: List<String>,
@@ -9775,7 +9830,7 @@ private fun Modifier.pointerInputKey(
         // the shared press handler: tap, hold-to-repeat and word-swipe are
         // one state machine, so a drag can cleanly take over from the repeat
         // loop mid-press and the move events are consumed while it does.
-        Modifier.pointerInput(key, longPressDelayMs, repeatIntervalMs, hapticOnLongPress,
+        Modifier.pointerInput(key, longPressDelayMs, keyRepeat, hapticOnLongPress,
             hapticOnLongPressRelease, vibrateOnRepeat, vibrateOnDeleteSwipe) {
             val slopPx = 10.dp.toPx()
             // The first word costs a deliberate drag; later ones get cheaper,
@@ -9805,7 +9860,7 @@ private fun Modifier.pointerInputKey(
                     while (canDelete()) {
                         if (vibrateOnRepeat) onKeyPress() else onKeySound()
                         onKeyRepeat(key)
-                        delay(repeatIntervalMs.toLong())
+                        delay(keyRepeat.deleteMs.toLong())
                     }
                 }
                 while (true) {
@@ -9914,7 +9969,7 @@ private fun Modifier.pointerInputKey(
         // restarts when its keys change, so leaving them out would keep a
         // stale closure alive (e.g. release haptics still firing after the
         // toggle was turned off).
-        Modifier.pointerInput(key, spaceShortSwipe, spaceLongSwipe, longPressDelayMs, repeatIntervalMs,
+        Modifier.pointerInput(key, spaceShortSwipe, spaceLongSwipe, longPressDelayMs, keyRepeat,
             hapticOnLongPress, hapticOnLongPressRelease, vibrateOnSpace, vibrateOnRepeat) {
             // Raw per-pointer tracking rather than detectTapGestures, which
             // handles one gesture at a time per key: a second finger landing
@@ -9960,6 +10015,13 @@ private fun Modifier.pointerInputKey(
                                         key.action == KeyAction.ForwardDelete ||
                                         key.action == KeyAction.Space
                                     ) {
+                                        // Space and the two deletes each hold to
+                                        // a different purpose, so each has its
+                                        // own cadence.
+                                        val intervalMs = when (key.action) {
+                                            KeyAction.Space -> keyRepeat.spaceMs
+                                            else -> keyRepeat.deleteMs
+                                        }.toLong()
                                         // Held backspace stops once there is
                                         // nothing left to delete — no point
                                         // buzzing against an empty field. ⌦
@@ -9974,7 +10036,7 @@ private fun Modifier.pointerInputKey(
                                         ) {
                                             if (vibrateOnRepeat) onKeyPress() else onKeySound()
                                             onKeyRepeat(key)
-                                            delay(repeatIntervalMs.toLong())
+                                            delay(intervalMs)
                                         }
                                     } else if (key.clipboardAction != null) {
                                         // Clipboard shortcut replaces the alternates popup
@@ -10202,7 +10264,7 @@ private fun EmojiSearchField(
                     .size(18.dp)
                     .pointerInput(
                         state.settings.longPressDelayMs,
-                        state.settings.keyRepeatIntervalMs,
+                        state.settings.keyRepeat.deleteMs,
                         vibrateOnRepeat,
                     ) {
                         detectTapGestures(
@@ -10214,7 +10276,7 @@ private fun EmojiSearchField(
                                     while (canDeleteField()) {
                                         if (vibrateOnRepeat) feedback() else keySound()
                                         onSearchFieldDelete()
-                                        delay(state.settings.keyRepeatIntervalMs.toLong())
+                                        delay(state.settings.keyRepeat.deleteMs.toLong())
                                     }
                                 }
                                 tryAwaitRelease()
@@ -10847,7 +10909,7 @@ private fun EmojiBottomBar(
             1.5f,
             Modifier.pointerInput(
                 settings.longPressDelayMs,
-                settings.keyRepeatIntervalMs,
+                settings.keyRepeat.deleteMs,
                 settings.feedback.vibrateOnRepeat,
             ) {
                 detectTapGestures(
@@ -10862,7 +10924,7 @@ private fun EmojiBottomBar(
                             while (canDelete()) {
                                 if (settings.feedback.vibrateOnRepeat) feedback() else keySound()
                                 onKey(Key("⌫", action = KeyAction.Delete))
-                                delay(settings.keyRepeatIntervalMs.toLong())
+                                delay(settings.keyRepeat.deleteMs.toLong())
                             }
                         }
                         tryAwaitRelease()
@@ -11160,7 +11222,7 @@ private fun EmojiVariantPopup(
             // exactly as wide as its own label, and the empty space beside a
             // short one — most of the popup — did nothing.
             modifier = Modifier.widthIn(max = PopupActionWidth),
-            shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+            shape = kb.popupShape(),
             color = kb.popup,
             shadowElevation = 8.dp,
         ) {
@@ -11356,7 +11418,7 @@ private fun FavouritesReorderPopup(
             contentAlignment = Alignment.Center,
         ) {
             Surface(
-                shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+                shape = kb.popupShape(),
                 color = kb.popup,
                 shadowElevation = 8.dp,
                 modifier = Modifier
@@ -12155,7 +12217,7 @@ private fun ClipEntitySourcePopup(entity: ClipEntity, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
     ) {
         Surface(
-            shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+            shape = kb.popupShape(),
             color = kb.popup,
             shadowElevation = 6.dp,
         ) {
@@ -12281,7 +12343,7 @@ private fun ClipInfoPopup(
         onDismissRequest = onDismiss,
     ) {
         Surface(
-            shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+            shape = kb.popupShape(),
             color = kb.popup,
             shadowElevation = 6.dp,
         ) {

@@ -47,6 +47,7 @@ import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import android.util.Base64
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
+import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.PhotoAttribution
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
@@ -188,7 +189,7 @@ data class KeyPopupSettings(
      * a readable bubble instead of a single-frame flash. This is a comfort
      * floor: raise it for a slower, more deliberate feel.
      */
-    val minDurationMs: Int = 150,
+    val minDurationMs: Int = 140,
     /**
      * Hard ceiling on the bubble's on-screen life, measured from the press —
      * a stuck-bubble backstop, not a comfort knob. Normally the bubble clears
@@ -207,6 +208,37 @@ data class KeyPopupSettings(
      * character is noise at best and shoulder-surfable at worst.
      */
     val inNumericFields: Boolean = false,
+    /**
+     * Corner radius of every popup surface — the preview bubble, the long-press
+     * alternates, the language picker and the panel menus. Read by the [shape]
+     * kinds that follow a radius (rounded and cut); the rest size their corners
+     * off the popup itself. A theme may override it
+     * ([ThemeSpec.popupCornerRadiusDp]); this is the global it falls back to.
+     */
+    val cornerRadiusDp: Int = 12,
+    /**
+     * Outline every popup surface is drawn with. Shares the key shapes so a
+     * popup can be squared off, a squircle or a full circle without a second
+     * set of shape definitions; a theme may override it ([ThemeSpec.popupShape]).
+     */
+    val shape: KeyShapeKind = KeyShapeKind.ROUNDED,
+)
+
+/**
+ * Hold-to-repeat cadence, per key.
+ *
+ * Backspace and space are the only keys that repeat under a held finger, and
+ * they are held for opposite reasons: a fast backspace clears a line in one
+ * hold, while a fast spacebar runs away and has to be undone. So each keeps its
+ * own interval rather than sharing one "key repeat" slider.
+ *
+ * Nested to keep [KeyboardSettings]'s top-level field count under the JVM
+ * `copy$default` ceiling; the DataStore keys stay flat.
+ */
+data class KeyRepeatSettings(
+    /** Backspace and forward-delete, including the panel backspaces. */
+    val deleteMs: Int = 50,
+    val spaceMs: Int = 50,
 )
 
 /** Shrinks the keyboard toward one edge for thumb reach. */
@@ -1064,7 +1096,8 @@ data class KeyboardSettings(
     /** Suggestion-strip content options — quick-punctuation chips (see [SuggestionStripSettings]). */
     val suggestionStrip: SuggestionStripSettings = SuggestionStripSettings(),
     val longPressDelayMs: Int = 300,
-    val keyRepeatIntervalMs: Int = 50,
+    /** Hold-to-repeat cadence for delete and space; see [KeyRepeatSettings]. */
+    val keyRepeat: KeyRepeatSettings = KeyRepeatSettings(),
     /** Small corner label on each key showing its first long-press character. */
     val longPressHints: Boolean = true,
     /** Assorted layout & gesture behaviours (see [LayoutBehaviorSettings]). */
@@ -2541,6 +2574,8 @@ class SettingsRepository(private val context: Context) {
         private val KEY_POPUP_IN_NUMERIC = booleanPreferencesKey("key_popup_in_numeric_fields")
         private val POPUP_FONT_SCALE = floatPreferencesKey("popup_font_scale")
         private val KEY_POPUP_HEIGHT = intPreferencesKey("key_popup_height")
+        private val KEY_POPUP_RADIUS = intPreferencesKey("key_popup_radius")
+        private val KEY_POPUP_SHAPE = stringPreferencesKey("key_popup_shape")
         private val COLOR_VISION_FILTER = stringPreferencesKey("color_vision_filter")
         private val HIGH_CONTRAST_KEYS = booleanPreferencesKey("high_contrast_keys")
         private val KEY_OUTLINES = booleanPreferencesKey("key_outlines")
@@ -2720,7 +2755,11 @@ class SettingsRepository(private val context: Context) {
         private val OTP_EXPIRY_MINUTES = intPreferencesKey("otp_expiry_minutes")
         private val OTP_DISMISS_NOTIFICATION = booleanPreferencesKey("otp_dismiss_notification")
         private val LONG_PRESS_DELAY = intPreferencesKey("long_press_delay")
+        // The pre-split single interval. Still read, as the fallback for both
+        // keys below, so a cadence tuned before the split survives the upgrade.
         private val KEY_REPEAT_INTERVAL = intPreferencesKey("key_repeat_interval")
+        private val KEY_REPEAT_DELETE = intPreferencesKey("key_repeat_delete")
+        private val KEY_REPEAT_SPACE = intPreferencesKey("key_repeat_space")
         private val LONG_PRESS_HINTS = booleanPreferencesKey("long_press_hints")
         private val LONG_PRESS_A_SELECT_ALL = booleanPreferencesKey("long_press_a_select_all")
         private val LONG_PRESS_C_COPY = booleanPreferencesKey("long_press_c_copy")
@@ -3234,6 +3273,10 @@ class SettingsRepository(private val context: Context) {
                 inNumericFields = p[KEY_POPUP_IN_NUMERIC] ?: defaults.popup.inNumericFields,
                 fontScale = p[POPUP_FONT_SCALE] ?: defaults.popup.fontScale,
                 heightDp = p[KEY_POPUP_HEIGHT] ?: defaults.popup.heightDp,
+                cornerRadiusDp = p[KEY_POPUP_RADIUS] ?: defaults.popup.cornerRadiusDp,
+                shape = p[KEY_POPUP_SHAPE]
+                    ?.let { runCatching { KeyShapeKind.valueOf(it) }.getOrNull() }
+                    ?: defaults.popup.shape,
             ),
             colorVisionFilter = p[COLOR_VISION_FILTER]
                 ?.let { runCatching { ColorVisionFilter.valueOf(it) }.getOrNull() }
@@ -3402,7 +3445,12 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.suggestionStrip.spellingMapOffLangs,
             ),
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
-            keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
+            keyRepeat = KeyRepeatSettings(
+                deleteMs = p[KEY_REPEAT_DELETE] ?: p[KEY_REPEAT_INTERVAL]
+                    ?: defaults.keyRepeat.deleteMs,
+                spaceMs = p[KEY_REPEAT_SPACE] ?: p[KEY_REPEAT_INTERVAL]
+                    ?: defaults.keyRepeat.spaceMs,
+            ),
             longPressHints = p[LONG_PRESS_HINTS] ?: defaults.longPressHints,
             layoutBehavior = LayoutBehaviorSettings(
                 symbolsLongPressNumpad =
@@ -5396,6 +5444,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setKeyPopupInNumericFields(value: Boolean) =
         editPrefs { it[KEY_POPUP_IN_NUMERIC] = value }
 
+    suspend fun setKeyPopupCornerRadiusDp(value: Int) =
+        editPrefs { it[KEY_POPUP_RADIUS] = value.coerceIn(0, 40) }
+
+    suspend fun setKeyPopupShape(value: KeyShapeKind) =
+        editPrefs { it[KEY_POPUP_SHAPE] = value.name }
+
     suspend fun setPopupFontScale(value: Float) =
         editPrefs { it[POPUP_FONT_SCALE] = value.coerceIn(0.7f, 1.6f) }
 
@@ -5959,8 +6013,11 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLongPressDelayMs(value: Int) =
         editPrefs { it[LONG_PRESS_DELAY] = value.coerceIn(150, 700) }
 
-    suspend fun setKeyRepeatIntervalMs(value: Int) =
-        editPrefs { it[KEY_REPEAT_INTERVAL] = value.coerceIn(20, 200) }
+    suspend fun setDeleteRepeatIntervalMs(value: Int) =
+        editPrefs { it[KEY_REPEAT_DELETE] = value.coerceIn(20, 200) }
+
+    suspend fun setSpaceRepeatIntervalMs(value: Int) =
+        editPrefs { it[KEY_REPEAT_SPACE] = value.coerceIn(20, 200) }
 
     suspend fun setLongPressHints(value: Boolean) =
         editPrefs { it[LONG_PRESS_HINTS] = value }

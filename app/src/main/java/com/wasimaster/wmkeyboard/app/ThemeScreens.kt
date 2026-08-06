@@ -108,6 +108,7 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
+import com.wasimaster.wmkeyboard.core.theme.keyShapeKindOrNull
 import com.wasimaster.wmkeyboard.core.theme.reseeded
 import com.wasimaster.wmkeyboard.core.theme.themeFromSeed
 import com.wasimaster.wmkeyboard.core.theme.themeName
@@ -256,7 +257,7 @@ internal fun ModeThemePickerDialog(
 
 /** The name of a key shape, in the language of the device. */
 @Composable
-private fun keyShapeName(kind: KeyShapeKind): String = stringResource(
+internal fun keyShapeName(kind: KeyShapeKind): String = stringResource(
     when (kind) {
         KeyShapeKind.ROUNDED -> R.string.theme_key_shape_rounded_label
         KeyShapeKind.SHARP -> R.string.theme_key_shape_sharp_label
@@ -278,7 +279,7 @@ private fun keyShapeName(kind: KeyShapeKind): String = stringResource(
  * which two of the shapes follow.
  */
 @Composable
-private fun KeyShapeSwatch(kind: KeyShapeKind, radiusDp: Int, color: Color) {
+internal fun KeyShapeSwatch(kind: KeyShapeKind, radiusDp: Int, color: Color) {
     Box(
         modifier = Modifier
             .width(52.dp)
@@ -287,17 +288,21 @@ private fun KeyShapeSwatch(kind: KeyShapeKind, radiusDp: Int, color: Color) {
     )
 }
 
-/** Radio list of every key shape, each row with the shape drawn beside its name. */
+/**
+ * Radio list of every key shape, each row with the shape drawn beside its name.
+ * Shared by the key shape and the popup shape, hence the caller's [title].
+ */
 @Composable
-private fun KeyShapePickerDialog(
+internal fun KeyShapePickerDialog(
     selected: KeyShapeKind,
     radiusDp: Int,
     onPick: (KeyShapeKind) -> Unit,
     onDismiss: () -> Unit,
+    @StringRes title: Int = R.string.theme_key_shape_title,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.theme_key_shape_title)) },
+        title = { Text(stringResource(title)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 for (kind in KeyShapeKind.entries) {
@@ -911,6 +916,7 @@ fun ThemeEditorScreen(
     var cropOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var cropLandscapeOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var shapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    var popupShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var sourceDialogSlot by remember(theme.id) { mutableStateOf<BackgroundSlot?>(null) }
 
     // The photo rows appear only once the user has started using photos.
@@ -1240,6 +1246,18 @@ fun ThemeEditorScreen(
             onDismiss = { shapePickerOpen = false },
         )
     }
+    if (popupShapePickerOpen) {
+        KeyShapePickerDialog(
+            selected = keyShapeKindOrNull(theme.popupShape) ?: settings.popup.shape,
+            radiusDp = theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
+            onPick = { kind ->
+                update { t -> t.copy(popupShape = kind.name) }
+                popupShapePickerOpen = false
+            },
+            onDismiss = { popupShapePickerOpen = false },
+            title = R.string.theme_popup_shape_title,
+        )
+    }
 
     SettingsGroup(stringResource(R.string.theme_keys_section_title)) {
         item {
@@ -1430,13 +1448,15 @@ fun ThemeEditorScreen(
                                 if (enable) {
                                     t.copy(
                                         keyCornerRadiusDp = settings.keyCornerRadiusDp,
-                                        popupCornerRadiusDp = 12,
+                                        popupCornerRadiusDp = settings.popup.cornerRadiusDp,
+                                        popupShape = settings.popup.shape.name,
                                         toolCircleRadiusDp = settings.toolCircleRadiusDp,
                                     )
                                 } else {
                                     t.copy(
                                         keyCornerRadiusDp = null,
                                         popupCornerRadiusDp = null,
+                                        popupShape = null,
                                         toolCircleRadiusDp = null,
                                     )
                                 }
@@ -1457,10 +1477,30 @@ fun ThemeEditorScreen(
                 ) { update { t -> t.copy(keyCornerRadiusDp = it.toInt()) } }
             }
             item {
+                val popupRadiusDp = theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp
+                val popupShape = keyShapeKindOrNull(theme.popupShape) ?: settings.popup.shape
+                // Same row-plus-dialog shape picker the keys use: a popup can be
+                // squared off, a squircle or a full circle, and only the two
+                // radius-following shapes read the slider below.
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.theme_popup_shape_title)) },
+                    supportingContent = { Text(keyShapeName(popupShape)) },
+                    trailingContent = {
+                        KeyShapeSwatch(
+                            kind = popupShape,
+                            radiusDp = popupRadiusDp,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable { popupShapePickerOpen = true },
+                )
+            }
+            item {
                 SliderRow(
                     stringResource(R.string.theme_popup_radius_title),
-                    value = (theme.popupCornerRadiusDp ?: 12).toFloat(),
-                    range = 0f..24f,
+                    value = (theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp).toFloat(),
+                    range = 0f..40f,
                     display = { "${it.toInt()} dp" },
                 ) { update { t -> t.copy(popupCornerRadiusDp = it.toInt()) } }
             }

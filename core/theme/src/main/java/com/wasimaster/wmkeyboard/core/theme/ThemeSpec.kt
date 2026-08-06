@@ -66,6 +66,14 @@ enum class KeyShapeKind {
 }
 
 /**
+ * A [KeyShapeKind] by name, or null when this build has no such shape — for
+ * the shape fields that travel as strings so an unknown name costs the field
+ * rather than the whole theme.
+ */
+fun keyShapeKindOrNull(name: String?): KeyShapeKind? =
+    name?.let { wanted -> KeyShapeKind.entries.firstOrNull { it.name == wanted } }
+
+/**
  * Who took a background photo and where it came from, kept beside the image so
  * the credit survives an export, an import and going offline.
  *
@@ -169,6 +177,14 @@ data class ThemeSpec(
     val keyCornerRadiusDp: Int? = null,
     val popupCornerRadiusDp: Int? = null,
     val toolCircleRadiusDp: Int? = null,
+    /**
+     * Outline for every popup surface, as a [KeyShapeKind] name; null follows
+     * the global setting. A string rather than the enum for the reason spelled
+     * out above [PhotoAttribution]: a name from a later build that added a
+     * shape has to leave the rest of the theme intact. Read it through
+     * [keyShapeKindOrNull].
+     */
+    val popupShape: String? = null,
     // Layout/type overrides; null = follow the global appearance settings.
     // Primitives only — an enum here would drop the whole theme on older
     // builds (see the note above PhotoAttribution.provider).

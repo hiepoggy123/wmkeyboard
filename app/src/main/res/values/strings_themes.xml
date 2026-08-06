@@ -152,6 +152,7 @@
     <!-- "Appearance" is the name of another settings screen. -->
     <string name="theme_custom_radii_subtitle">Off: the theme follows the sliders in Appearance</string>
     <string name="theme_key_radius_title">Key corner radius</string>
+    <string name="theme_popup_shape_title">Popup shape</string>
     <string name="theme_popup_radius_title">Popup corner radius</string>
     <string name="theme_tool_circle_radius_title">Tool circle radius</string>
 

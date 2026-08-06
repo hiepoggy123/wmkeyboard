@@ -77,6 +77,14 @@
     <!-- "Popup on key" is the title of the setting keypress_popup_on_key_title. -->
     <string name="keypress_popup_height_info">This is the height of the character bubble. With \"Popup on key\" turned on, the keyboard measures it from the bottom of the key that you press. A bubble taller than the key goes above it and stays visible past your finger.</string>
 
+    <string name="keypress_popup_shape_title">Popup shape</string>
+    <string name="keypress_popup_shape_subtitle">Outline of every popup, from a square to a circle</string>
+    <string name="keypress_popup_shape_info">This is the outline of every popup that the keyboard draws: the character bubble, the alternate keys, the language list and the menus in the panels. Only the rounded and the cut shapes follow the corner radius below. The others size their corners from the popup itself.\n\nA theme can carry its own shape. When it does, the theme wins over this setting.</string>
+
+    <string name="keypress_popup_radius_title">Popup corner radius</string>
+    <string name="keypress_popup_radius_subtitle">How round the corners of a popup are</string>
+    <string name="keypress_popup_radius_info">This is the corner radius of every popup. A value of 0 gives square corners. A high value makes the corners fully round.\n\nOnly the rounded and the cut popup shapes use this value. A theme can carry its own radius, and it wins over this setting.</string>
+
     <!-- Key press settings screen, "Timing" group. -->
     <string name="keypress_timing_group_title">Timing</string>
 
@@ -84,9 +92,13 @@
     <string name="keypress_long_press_delay_subtitle">How long you hold a key before the alternate characters appear</string>
     <string name="keypress_long_press_delay_info">This is how long you hold a key before its alternate characters appear. The alternates are accents, digits and symbols. A lower value is faster, but the popup opens by accident more easily.</string>
 
-    <string name="keypress_key_repeat_title">Key repeat interval</string>
-    <string name="keypress_key_repeat_subtitle">How fast delete repeats while you hold it</string>
-    <string name="keypress_key_repeat_info">While you hold delete or space, the key repeats at this interval. Lower values delete faster.</string>
+    <string name="keypress_delete_repeat_title">Delete repeat interval</string>
+    <string name="keypress_delete_repeat_subtitle">How fast delete repeats while you hold it</string>
+    <string name="keypress_delete_repeat_info">While you hold delete, it repeats at this interval. Lower values delete faster.</string>
+
+    <string name="keypress_space_repeat_title">Space repeat interval</string>
+    <string name="keypress_space_repeat_subtitle">How fast space repeats while you hold it</string>
+    <string name="keypress_space_repeat_info">While you hold the space bar, it repeats at this interval. Space has its own value because a run of spaces is harder to correct than a run of deletes. Use a higher value here to make it slower.</string>
 
     <string name="keypress_caps_lock_title">Caps lock double press</string>
     <string name="keypress_caps_lock_subtitle">How fast a second press of shift turns on caps lock</string>
