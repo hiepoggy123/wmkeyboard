@@ -4,8 +4,16 @@ import com.wasimaster.wmkeyboard.core.prediction.Suggestion
 import kotlin.math.ln
 import kotlin.math.sqrt
 
-/** A sampled touch point of a gesture, in keyboard-view pixel coordinates. */
-data class GesturePoint(val x: Float, val y: Float)
+/**
+ * A sampled touch point of a gesture, in keyboard-view pixel coordinates.
+ *
+ * [t] is the sample's event time in uptime milliseconds. The shape scoring
+ * below ignores it — it is carried so the decoder can read the signals that
+ * only timing exposes (where the finger slowed to turn a corner, where it
+ * dwelled on a doubled letter). Defaults to 0 for callers that have no clock,
+ * which is every synthetic path in a test that does not care about timing.
+ */
+data class GesturePoint(val x: Float, val y: Float, val t: Long = 0L)
 
 /** Centre of one letter key, in the same coordinate space as [GesturePoint]. */
 data class KeyCenter(val char: Char, val x: Float, val y: Float)
@@ -151,10 +159,14 @@ class GestureDecoder(
             val next = path[index + 1]
             val segment = distance(current.x, current.y, next.x, next.y)
             if (accumulated + segment >= step && segment > 0f) {
-                val t = (step - accumulated) / segment
+                // `fraction`, not `t`: GesturePoint.t is the sample's clock,
+                // which is interpolated along with the coordinates so a
+                // resampled path keeps usable timing.
+                val fraction = (step - accumulated) / segment
                 val point = GesturePoint(
-                    current.x + t * (next.x - current.x),
-                    current.y + t * (next.y - current.y),
+                    current.x + fraction * (next.x - current.x),
+                    current.y + fraction * (next.y - current.y),
+                    current.t + ((next.t - current.t) * fraction).toLong(),
                 )
                 out.add(point)
                 current = point

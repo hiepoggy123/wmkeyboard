@@ -7283,7 +7283,7 @@ private fun KeyRows(
                     var wasOverSpace = false
                     var samples = 0
                     val trailPoints = ArrayList<TrailPoint>()
-                    seg.add(GesturePoint(down.position.x, down.position.y))
+                    seg.add(GesturePoint(down.position.x, down.position.y, down.uptimeMillis))
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -7316,7 +7316,13 @@ private fun KeyRows(
                                     seg = ArrayList()
                                 }
                             } else {
-                                seg.add(GesturePoint(change.position.x, change.position.y))
+                                seg.add(
+                                    GesturePoint(
+                                        change.position.x,
+                                        change.position.y,
+                                        change.uptimeMillis,
+                                    ),
+                                )
                             }
                             wasOverSpace = overSpace
                             trailPoints.add(TrailPoint(change.position, change.uptimeMillis))
