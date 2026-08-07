@@ -2804,6 +2804,14 @@ private fun TypingSettings(
                         info = stringResource(R.string.typing_space_glide_multiword_info),
                     ) { scope.launch { repository.setGestureSpaceMultiWord(it) } }
                 }
+                item {
+                    ToggleSetting(
+                        R.string.typing_space_after_glide_title,
+                        stringResource(R.string.typing_space_after_glide_subtitle),
+                        settings.gesture.autoSpaceAfterGlide,
+                        info = stringResource(R.string.typing_space_after_glide_info),
+                    ) { scope.launch { repository.setGestureAutoSpace(it) } }
+                }
             }
             item {
                 val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)

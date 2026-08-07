@@ -100,6 +100,7 @@ Full writeup: [Smart chips](/smart/chips/).
 | Gesture typing | Toggle | On | always |
 | Handwrite with swipes | Choice: Type words / Handwrite | Type words | <Flavor edition="full" /> and Gesture typing on |
 | Glide across spacebar | Toggle | On | Gesture typing on and swipe mode is Type words |
+| Space after a glided word | Toggle | On | Gesture typing on and swipe mode is Type words |
 | Swipe start distance | Slider, ×0.5–×4 | ×2.0 | Gesture typing on |
 | Cooldown after typing | Slider, 0–500 ms ("Off" at 0) | 160 ms | Gesture typing on and swipe mode is Type words |
 | Dot leeway after drawing | Slider, 0–1500 ms ("Off" at 0) | 700 ms | <Flavor edition="full" /> and swipe mode is Handwrite |
@@ -204,6 +205,7 @@ A **Reset to defaults** button at the bottom restores every letter and the short
 
 - **"Space after a suggestion" sits in the wrong-sounding group on purpose.** It reads like a Suggestions setting, but the app itself files it under Automatic corrections, alongside the other space-insertion rules (double-space period/tab, auto-space after punctuation) it shares logic with.
 - **Structured and secure fields gate autocorrect, suggestions, and the smart key-hit bias together, but smart chips use a related, separate check.** Autocorrect, suggestions, and the smart key-hit bias all share one check keyed on field kind: password fields and every keypad-style field (email, URL, number, phone, date, time, date-time) lose all three, regardless of how each toggle is set. Smart chips are gated by whether the app has asked to hide the suggestion strip instead, so with **Suggestions in every field** on (the default), a calc or currency chip can still appear in an email or URL field even though autocorrect and suggestions stay off there; number, phone, date, and password fields still block chips either way.
+- **Three separate settings each add a space, and none of them covers the others.** "Automatic space after punctuation" spaces what follows a mark, "Space after a suggestion" spaces a word tapped from the strip, and "Space after a glided word" spaces a word a swipe committed. All three treat that space as the keyboard's to take back, so punctuation typed next removes it and a space press is spent on it, but each has its own switch: turning one off leaves the other two alone.
 - **Two settings named "Swipe down to hide" are genuinely independent**: the spacebar one here under Gestures, and the toolbar one under [Appearance](/reference/settings/appearance/). Turning one on has no effect on the other.
 - **Handwrite with swipes only exists in the full edition**, since it needs the bundled ML Kit handwriting model; the lite edition's Gestures group goes straight from Gesture typing to Glide across spacebar.
 - **The Tool shortcuts list route isn't reachable by deep link.** Unlike Typing itself, it doesn't appear in the app's `wmkeyboard://settings/` allowlist, so getting there means opening Typing first and tapping through.

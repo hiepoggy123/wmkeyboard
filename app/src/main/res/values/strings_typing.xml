@@ -221,6 +221,10 @@
     <string name="typing_space_glide_multiword_subtitle">Swipe over the spacebar to continue with the next word</string>
     <string name="typing_space_glide_multiword_info">Keep your finger down. Glide a word, swipe across the spacebar, then glide the next word. Each crossing types the word and a space, so one stroke gives a full phrase. When this setting is off, a swipe across the spacebar makes one word.</string>
 
+    <string name="typing_space_after_glide_title">Space after a glided word</string>
+    <string name="typing_space_after_glide_subtitle">Add a space when you lift your finger at the end of a glide</string>
+    <string name="typing_space_after_glide_info">This setting is on by default. The keyboard types a space after a glided word, so the next word does not join it. You can glide the next word, or type it on the keys. Type . , ? ! ; : or a closing bracket next, and the keyboard removes the space first. A press on the spacebar counts as the space that is already there. Backspace takes back the glided word and its space together. The keyboard adds no space in a password, an email address, a web address, a number pad or a phone pad.</string>
+
     <string name="typing_swipe_start_distance_title">Swipe start distance</string>
     <string name="typing_swipe_start_distance_subtitle">How far to move before a glide starts. A low value is more sensitive</string>
     <string name="typing_swipe_start_distance_info">This is the finger movement that changes a press into a glide. It is a multiple of the system touch slop. A low value starts the glide sooner and is more sensitive, but a still press can start a glide. A high value needs a more deliberate swipe.</string>

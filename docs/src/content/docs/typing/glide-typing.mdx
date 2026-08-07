@@ -65,7 +65,19 @@ The moment you lift your finger, the best-scoring word commits to the field. The
   {/* shot: typing/glide-alternates */}
 </PhoneFrame>
 
-That tap-to-replace only works while your cursor is still sitting exactly where the glide left it: moving the caret away, or typing something else first, retires the alternates for that word. The same guard governs a plain backspace: press it right after a glide and it deletes the **whole swiped word** in one go rather than one character at a time, since a wrong swipe shouldn't cost a letter-by-letter cleanup.
+That tap-to-replace only works while your cursor is still sitting exactly where the glide left it: moving the caret away, or typing something else first, retires the alternates for that word. The same guard governs a plain backspace: press it right after a glide and it deletes the **whole swiped word** in one go rather than one character at a time, since a wrong swipe shouldn't cost a letter-by-letter cleanup. That takes the trailing space with it, so one press puts the cursor back exactly where the swipe found it.
+
+## The space after a glided word
+
+Lifting your finger commits the word *and* a space, so you can glide the next word or tap it out without the two running together. The space belongs to the keyboard rather than to you, which is what makes the next three things work:
+
+- **Punctuation takes it back.** Type `.` `,` `?` `!` `;` `:` straight after a glide, or a closing `)` `]` `}` `"`, and the space steps aside, so you get "hello." and not "hello .". Opening brackets keep it, because "hello (world)" is what you meant.
+- **A space press is spent on it.** Reaching for the spacebar out of habit doesn't leave a double gap; the press confirms the space that's already there. Press space *again* and you get the usual double-space full stop, exactly as if you'd typed the word out.
+- **Backspace still undoes the whole thing.** The word and its space come out together.
+
+A word glided back into the middle of a sentence, where a space already follows, doesn't get a second one. The space is skipped in structured fields too: passwords, email addresses, web addresses and number pads, the same set that turns off every other typing courtesy.
+
+Turn this off with **Space after a glided word** (see [Options](#options)) and a glided word commits bare. Words chained in one stroke are still spaced from each other either way; the setting only governs the space after the last one.
 
 ## Gliding a whole phrase
 
@@ -109,6 +121,7 @@ One more shift-related detail: only the **first** word of a multi-word glide hon
 |---|---|---|
 | Gesture typing | On | Master switch for glide typing. |
 | Glide across spacebar | On | Only shown while glide typing (not handwriting) is the active swipe mode. Turn off to treat a spacebar-crossing swipe as one word. |
+| Space after a glided word | On | Only shown while glide typing is the active swipe mode. A glided word is followed by a space; punctuation typed next takes it back. Turn off to commit the word bare. |
 | Swipe start distance | 2× | How far a touch has to travel, as a multiple of the system's touch slop, before it's read as the start of a glide rather than a tap. Range 0.5×–4×; lower is more sensitive but can mistake a stationary tap for a glide. |
 | Cooldown after typing | 160 ms | A brief window right after a tap where a glide needs to travel further before it takes over, so fast tapping doesn't misfire into an accidental swipe. Range 0–500 ms; 0 turns it off. |
 | Trail width | 10 dp | Thickness of the trail at the head (the tail tapers to about 30% of this). Range 2–24 dp. |

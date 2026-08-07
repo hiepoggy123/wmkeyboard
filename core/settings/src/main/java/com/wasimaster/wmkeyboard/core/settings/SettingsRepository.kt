@@ -2066,6 +2066,14 @@ data class GestureSettings(
      */
     val spaceGlideMultiWord: Boolean = true,
     /**
+     * A glided word is followed by a space, so the next word — glided or tapped
+     * — starts clean instead of running into it. On by default. The space is
+     * the keyboard's, not the user's: punctuation typed straight after takes it
+     * back ("hello." not "hello ."), and a space press right after is spent
+     * confirming it rather than doubling it.
+     */
+    val autoSpaceAfterGlide: Boolean = true,
+    /**
      * How far the finger must travel before a press turns into a glide, as a
      * multiple of the system touch slop. Lower is more sensitive (a glide
      * starts sooner); higher needs a more deliberate swipe before it takes over
@@ -2747,6 +2755,7 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
         private val LETTER_SWIPE_ACTION = stringPreferencesKey("letter_swipe_action")
         private val GESTURE_SPACE_MULTI_WORD = booleanPreferencesKey("gesture_space_multi_word")
+        private val GESTURE_AUTO_SPACE = booleanPreferencesKey("gesture_auto_space")
         private val GESTURE_START_THRESHOLD_SLOP = floatPreferencesKey("gesture_start_threshold_slop")
         private val GESTURE_POST_TYPE_COOLDOWN_MS = intPreferencesKey("gesture_post_type_cooldown_ms")
         private val GESTURE_HANDWRITE_DOT_COOLDOWN_MS = intPreferencesKey("gesture_handwrite_dot_cooldown_ms")
@@ -3444,6 +3453,7 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.letterSwipeAction,
             gesture = GestureSettings(
                 spaceGlideMultiWord = p[GESTURE_SPACE_MULTI_WORD] ?: defaults.gesture.spaceGlideMultiWord,
+                autoSpaceAfterGlide = p[GESTURE_AUTO_SPACE] ?: defaults.gesture.autoSpaceAfterGlide,
                 startThresholdSlop = p[GESTURE_START_THRESHOLD_SLOP] ?: defaults.gesture.startThresholdSlop,
                 postTypeCooldownMs = p[GESTURE_POST_TYPE_COOLDOWN_MS] ?: defaults.gesture.postTypeCooldownMs,
                 handwriteDotCooldownMs = p[GESTURE_HANDWRITE_DOT_COOLDOWN_MS] ?: defaults.gesture.handwriteDotCooldownMs,
@@ -5833,6 +5843,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureSpaceMultiWord(value: Boolean) =
         editPrefs { it[GESTURE_SPACE_MULTI_WORD] = value }
+
+    suspend fun setGestureAutoSpace(value: Boolean) =
+        editPrefs { it[GESTURE_AUTO_SPACE] = value }
 
     suspend fun setGestureStartThresholdSlop(value: Float) =
         editPrefs { it[GESTURE_START_THRESHOLD_SLOP] = value.coerceIn(0.5f, 4f) }
