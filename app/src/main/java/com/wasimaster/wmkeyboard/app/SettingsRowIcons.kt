@@ -120,6 +120,7 @@ import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoSizeSelectActual
 import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.Password
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.PhotoSizeSelectLarge
 import androidx.compose.material.icons.outlined.PhotoSizeSelectSmall
@@ -516,6 +517,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.tooldetail_clipboard_password_paste_title, Icons.Outlined.Password)
     put(R.string.tooldetail_clipboard_link_previews_title, Icons.Outlined.Link)
     put(R.string.tooldetail_clipboard_entities_title, Icons.Outlined.Tag)
+    put(R.string.tooldetail_clipboard_phone_formats_title, Icons.Outlined.Phone)
     put(R.string.tooldetail_clipboard_screenshots_title, Icons.Outlined.Screenshot)
     put(R.string.tooldetail_clipboard_track_source_title, Icons.Outlined.Apps)
     put(R.string.tooldetail_clipboard_storage_permission_title, Icons.Outlined.Folder)

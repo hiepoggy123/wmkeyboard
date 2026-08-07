@@ -259,6 +259,7 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipEntityKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
+import com.wasimaster.wmkeyboard.core.clipboard.PhoneFormats
 import com.wasimaster.wmkeyboard.core.otp.NotificationOtp
 import com.wasimaster.wmkeyboard.core.clipboard.matchesQuery
 import com.wasimaster.wmkeyboard.core.emoji.EmojiNames
@@ -12613,8 +12614,12 @@ private fun ClipboardPanelContent(
     }
     // Scanning every clip with three regexes is not free, so it happens once per
     // history change rather than on every recomposition of the panel.
+    val phoneFormats = state.settings.clipboard.phoneFormats
+    val phoneMasks = remember(phoneFormats) { PhoneFormats.parseAll(phoneFormats) }
     val allEntities = if (state.settings.clipboard.detectEntities) {
-        remember(state.clipboardItems) { ClipEntities.entitiesIn(state.clipboardItems) }
+        remember(state.clipboardItems, phoneMasks) {
+            ClipEntities.entitiesIn(state.clipboardItems, phoneMasks)
+        }
     } else {
         emptyList()
     }

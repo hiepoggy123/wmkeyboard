@@ -65,6 +65,10 @@ Turn on entity detection and the panel scans your recent clips for one-time code
 
 Detection is conservative on purpose: a 4-digit year is never mistaken for a code, a run of digits after a currency symbol or a `#` is never mistaken for a phone number, and Google's `G-123456` verification prefix is stripped so only the code itself pastes. The same detection also drives the ordinary paste chip on the suggestion strip: if your most recent copy is a message that *contains* a code rather than *being* one, the strip offers the code alone instead of the whole message.
 
+Phone numbers are the one fragment with no shape of its own, so they get an extra setting. Without it, anything with 7 to 15 digits counts, which is how an invoice total or a tracking number ends up wearing a phone chip. Open **Phone number formats** from the clipboard settings and give it a number you copy often: it turns that into a format like `+880 1XXX-XXXXXX`, keeps the dial code, and turns the rest into wildcards you can type digits back over to pin. After that, only numbers matching one of your formats become chips.
+
+The matching is deliberately forgiving about the things people vary and strict about the things they don't. Spaces, hyphens, brackets and dots are ignored on both sides, and the same format accepts the number with its country code, without it, or with a leading 0 in its place. What it won't accept is the wrong length, the wrong leading digit, or an explicit `+` naming a different country. There's a test field on the screen so you can paste a number in and see the answer before you trust it. Add as many formats as you like (one per country you deal with), and delete them all to go back to catching everything.
+
 This entity strip is a different mechanism from [Smart chips](/smart/chips/), which reacts to what you're currently typing rather than to what you've copied; the two happen to look similar (a dashed outline) but don't share any code.
 
 ## Passwords are handled deliberately

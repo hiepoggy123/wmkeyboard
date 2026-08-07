@@ -121,8 +121,16 @@ object ClipEntities {
     /**
      * Every fragment in [text], with [sourceId] stamped on each. Ranges never
      * overlap; the list is in detection order (URLs, codes, phone numbers).
+     *
+     * [phoneFormats] narrows the phone pass to the shapes the user says they
+     * copy (see [PhoneFormats]). An empty list keeps the shape-only rules,
+     * which is what everyone gets until they set a format.
      */
-    fun extract(text: String, sourceId: Long = 0L): List<ClipEntity> {
+    fun extract(
+        text: String,
+        sourceId: Long = 0L,
+        phoneFormats: List<PhoneMask> = emptyList(),
+    ): List<ClipEntity> {
         // Half-open [start, end) spans already spoken for by an earlier, more
         // certain kind.
         val claimed = ArrayList<Pair<Int, Int>>()
@@ -149,7 +157,7 @@ object ClipEntities {
         }
 
         for (match in PHONE.findAll(text)) {
-            if (isDiallable(match.value, text, match.range.first)) {
+            if (isDiallable(match.value, text, match.range.first, phoneFormats)) {
                 claim(ClipEntityKind.PHONE, match.value, match.range.first)
             }
         }
@@ -164,7 +172,10 @@ object ClipEntities {
      * already pastes it, and a chip for it would break the promise the section
      * header makes — chips are parts of entries, not entries.
      */
-    fun entitiesIn(items: List<ClipItem>): List<ClipEntity> {
+    fun entitiesIn(
+        items: List<ClipItem>,
+        phoneFormats: List<PhoneMask> = emptyList(),
+    ): List<ClipEntity> {
         val seen = HashSet<String>()
         val found = ArrayList<ClipEntity>()
         for (item in items.take(MAX_SCANNED_CLIPS)) {
@@ -174,7 +185,7 @@ object ClipEntities {
             if (item.sensitive) continue
             val text = item.text.take(MAX_SCANNED_CHARS)
             val whole = text.trim()
-            for (entity in extract(text, item.id)) {
+            for (entity in extract(text, item.id, phoneFormats)) {
                 if (entity.value == whole) continue
                 if (seen.add(entity.key)) found += entity
             }
@@ -248,16 +259,28 @@ object ClipEntities {
      * Whether a digit run reads as a number you would dial. Guards the two
      * impostors that share its shape: dates, and the long unpunctuated order or
      * account numbers that follow a `#`.
+     *
+     * With [phoneFormats] set, the user has said what their numbers look like,
+     * so the shape rules that stand in for that knowledge step aside and the
+     * masks decide the length. The impostor guards stay either way: a mask can
+     * only take numbers away, never add one back.
      */
-    private fun isDiallable(raw: String, text: String, start: Int): Boolean {
+    private fun isDiallable(
+        raw: String,
+        text: String,
+        start: Int,
+        phoneFormats: List<PhoneMask>,
+    ): Boolean {
         val digits = raw.count { it.isDigit() }
-        if (digits !in 7..15) return false
+        val floor = if (phoneFormats.isEmpty()) 7 else 4
+        if (digits !in floor..15) return false
         // Whole-match, not "contains": a date buried in a longer run of digits
         // is a coincidence, while a match that is the entire clip fragment is
         // the date itself.
         if (DATE.matches(raw.trim())) return false
         val previous = text.getOrNull(start - 1)
         if (previous == '#' || previous == '$' || previous == '£' || previous == '€') return false
+        if (phoneFormats.isNotEmpty()) return PhoneFormats.matches(raw, phoneFormats)
         val punctuated = raw.any { it in PHONE_SEPARATORS }
         // Unpunctuated and unprefixed: only lengths people actually dial.
         if (!punctuated && !raw.startsWith("+") && digits > 11) return false

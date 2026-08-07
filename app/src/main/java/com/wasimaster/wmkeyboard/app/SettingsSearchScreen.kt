@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Collections
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.material.icons.outlined.Wallpaper
@@ -240,6 +241,7 @@ internal val SettingsRouteIcons: Map<String, ImageVector> = mapOf(
     "dictionary" to Icons.AutoMirrored.Outlined.MenuBook,
     "customdictionaries" to Icons.AutoMirrored.Outlined.MenuBook,
     "blacklist" to Icons.Outlined.VisibilityOff,
+    "phoneformats" to Icons.Outlined.Phone,
     "hwshortcuts" to Icons.Outlined.Keyboard,
 )
 

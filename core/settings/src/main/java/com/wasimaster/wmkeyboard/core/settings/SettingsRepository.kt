@@ -16,6 +16,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.config.BuildConfig
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
+import com.wasimaster.wmkeyboard.core.clipboard.PhoneFormats
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
@@ -1936,6 +1937,13 @@ data class ClipboardSettings(
      */
     val detectEntities: Boolean = true,
     /**
+     * The phone-number shapes to keep, as masks (`+880 1XXX-XXXXXX`). Empty
+     * means every number-shaped run counts, which is the only thing the
+     * detector can do before it is told which country the user lives in, and
+     * also where its false positives come from. See `PhoneFormats`.
+     */
+    val phoneFormats: Set<String> = emptySet(),
+    /**
      * Let the clipboard panel take the whole keyboard, hiding the toolbar the
      * way the emoji and media panels can — the reclaimed rows go to more
      * history cards. On by default: the panel pays for the toolbar's row with
@@ -2864,6 +2872,7 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE =
             booleanPreferencesKey("clipboard_clear_after_password_paste")
         private val CLIPBOARD_DETECT_ENTITIES = booleanPreferencesKey("clipboard_detect_entities")
+        private val CLIPBOARD_PHONE_FORMATS = stringSetPreferencesKey("clipboard_phone_formats")
         private val CLIPBOARD_FULL_BLEED = booleanPreferencesKey("clipboard_full_bleed")
         private val OTP_CHIP_ENABLED = booleanPreferencesKey("otp_chip_enabled")
         private val OTP_NUMBER_FIELDS_ONLY = booleanPreferencesKey("otp_number_fields_only")
@@ -3523,6 +3532,7 @@ class SettingsRepository(private val context: Context) {
                 clearAfterPasswordPaste = p[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE]
                     ?: defaults.clipboard.clearAfterPasswordPaste,
                 detectEntities = p[CLIPBOARD_DETECT_ENTITIES] ?: defaults.clipboard.detectEntities,
+                phoneFormats = p[CLIPBOARD_PHONE_FORMATS] ?: defaults.clipboard.phoneFormats,
                 fullBleed = p[CLIPBOARD_FULL_BLEED] ?: defaults.clipboard.fullBleed,
             ),
             otp = OtpSettings(
@@ -6176,6 +6186,19 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardDetectEntities(value: Boolean) =
         editPrefs { it[CLIPBOARD_DETECT_ENTITIES] = value }
+
+    /**
+     * Adds a phone-number mask. Invalid masks are dropped here rather than at
+     * the detector, which has no way to tell the user about one.
+     */
+    suspend fun addClipboardPhoneFormat(mask: String) {
+        val normalized = PhoneFormats.canonical(mask) ?: return
+        editPrefs { it[CLIPBOARD_PHONE_FORMATS] = it[CLIPBOARD_PHONE_FORMATS].orEmpty() + normalized }
+    }
+
+    /** Deletes a phone-number mask. Deleting the last one detects every number again. */
+    suspend fun removeClipboardPhoneFormat(mask: String) =
+        editPrefs { it[CLIPBOARD_PHONE_FORMATS] = it[CLIPBOARD_PHONE_FORMATS].orEmpty() - mask }
 
     suspend fun setClipboardFullBleed(value: Boolean) =
         editPrefs { it[CLIPBOARD_FULL_BLEED] = value }

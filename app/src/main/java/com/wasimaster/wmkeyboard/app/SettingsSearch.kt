@@ -946,6 +946,17 @@ private fun Resources.sectionRows(): List<SettingsSearchEntry> {
             R.string.typing_blacklist_title, R.string.typing_blacklist_subtitle,
             R.string.home_typing_title, "blacklist", R.string.search_kw_blacklist,
         ),
+        // The Clipboard tool page has a row for this, but the row only opens
+        // this screen, so it is indexed once and points straight at it.
+        entry(
+            R.string.home_screen_phoneformats_title,
+            R.string.tooldetail_clipboard_phone_formats_subtitle,
+            screen = toolTitle(ToolbarTool.CLIPBOARD),
+            route = "phoneformats",
+            screenParent = R.string.home_tools_title,
+            weight = EntryWeight.SECTION,
+            keywords = R.string.search_kw_phoneformats,
+        ),
         under(
             R.string.typing_hw_shortcuts_list_title,
             R.string.typing_hw_shortcuts_list_subtitle,

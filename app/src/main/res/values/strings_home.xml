@@ -85,6 +85,7 @@
     <string name="home_screen_custom_dictionaries_title">Custom dictionaries</string>
     <string name="home_screen_emoji_keywords_title">Emoji keywords</string>
     <string name="home_screen_blacklist_title">Suggestion blacklist</string>
+    <string name="home_screen_phoneformats_title">Phone number formats</string>
     <string name="home_screen_hwshortcuts_title">Tool shortcuts list</string>
     <string name="home_screen_fonts_title">Keyboard font</string>
     <string name="home_screen_icons_title">Icons</string>

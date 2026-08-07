@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clipboard: the phone number formats the keyboard keeps. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <string name="phoneformats_info">The keyboard makes a chip for each phone number in your clips. Without a format, it keeps every number that has 7 to 15 digits, and some of them are not phone numbers. Add the format of the numbers that you copy, and the keyboard keeps only those. A number matches with or without its country code, and the spaces, hyphens and brackets do not matter.</string>
+    <string name="phoneformats_add_action">Add a format</string>
+    <string name="phoneformats_empty">There is no format. The keyboard keeps every number.</string>
+    <!-- %1$s is the format, for example +880 1XXX-XXXXXX. -->
+    <string name="phoneformats_delete_desc">Delete the format <xliff:g id="format" example="+880 1XXX-XXXXXX">%1$s</xliff:g></string>
+
+    <string name="phoneformats_test_title">Test a number</string>
+    <string name="phoneformats_test_field_label">Phone number</string>
+    <string name="phoneformats_test_match">The keyboard makes a chip for this number.</string>
+    <string name="phoneformats_test_no_match">The keyboard skips this number. It matches no format.</string>
+    <string name="phoneformats_test_all">There is no format, so the keyboard makes a chip for this number.</string>
+
+    <string name="phoneformats_add_title">Add a format</string>
+    <string name="phoneformats_add_body">Type a phone number that you copy often. The keyboard makes a format from it. You can also write a format yourself: X is any digit, and a digit that you type must match.</string>
+    <string name="phoneformats_field_label">Number or format</string>
+    <!-- %1$s is the format the keyboard made, for example +880 1XXX-XXXXXX. -->
+    <string name="phoneformats_preview">Format: <xliff:g id="format" example="+880 1XXX-XXXXXX">%1$s</xliff:g></string>
+    <string name="phoneformats_preview_none">This is not a phone number yet.</string>
+
+</resources>

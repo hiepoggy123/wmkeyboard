@@ -68,6 +68,7 @@ import com.wasimaster.wmkeyboard.app.updates.LocalAppUpdater
 import com.wasimaster.wmkeyboard.app.updates.UpdateCard
 import com.wasimaster.wmkeyboard.app.updates.rememberAppUpdater
 import com.wasimaster.wmkeyboard.core.addons.AddonType
+import com.wasimaster.wmkeyboard.core.clipboard.PhoneFormats
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.core.settings.AppSortOrder
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
@@ -96,6 +97,7 @@ import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Security
@@ -660,6 +662,15 @@ private fun SettingsNavGraph(
                 route = "blacklist",
             ) {
                 BlacklistSettings(repository, settings)
+            }
+        }
+        composable("phoneformats") {
+            SettingsScreen(
+                stringResource(R.string.home_screen_phoneformats_title),
+                { navController.popBackStack() },
+                route = "phoneformats",
+            ) {
+                PhoneFormatSettings(repository, settings)
             }
         }
         composable("hwshortcuts") {
@@ -5635,6 +5646,166 @@ private fun BlacklistSettings(repository: SettingsRepository, settings: Keyboard
     }
 }
 
+// ---- clipboard phone formats ----
+
+/**
+ * The phone-number shapes the clipboard detector keeps.
+ *
+ * With no format in the list every number-shaped run of digits becomes a chip,
+ * which is the only thing the detector can do before it knows where the user
+ * lives, and where its false positives come from: an invoice total and a
+ * tracking id have the same shape as a phone number. One format ends that.
+ *
+ * A format is a mask, and the user writes it by giving a number they copy
+ * often. The dial code stays literal and every other digit becomes an X, which
+ * they can type back over to pin a digit their numbers always have.
+ */
+@Composable
+private fun PhoneFormatSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val formats = remember(settings.clipboard.phoneFormats) {
+        settings.clipboard.phoneFormats.sorted()
+    }
+    val masks = remember(formats) { PhoneFormats.parseAll(formats) }
+    var showAdd by remember { mutableStateOf(false) }
+    var sample by remember { mutableStateOf("") }
+
+    Text(
+        stringResource(R.string.phoneformats_info),
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+    )
+    Button(
+        onClick = { showAdd = true },
+        modifier = Modifier.padding(horizontal = 16.dp),
+    ) { Text(stringResource(R.string.phoneformats_add_action)) }
+    Spacer(Modifier.height(12.dp))
+    if (formats.isEmpty()) {
+        CaptionText(stringResource(R.string.phoneformats_empty))
+    }
+    SettingsGroup {
+        for (format in formats) {
+            item {
+                WmRow(
+                    title = format,
+                    icon = Icons.Outlined.Phone,
+                    trailing = {
+                        IconButton(onClick = {
+                            scope.launch { repository.removeClipboardPhoneFormat(format) }
+                        }) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(
+                                    R.string.phoneformats_delete_desc,
+                                    format,
+                                ),
+                            )
+                        }
+                    },
+                )
+            }
+        }
+    }
+    // A format is a promise about numbers the user cannot see from here, so the
+    // screen lets them put one in and watch the answer.
+    Text(
+        stringResource(R.string.phoneformats_test_title),
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp),
+    )
+    OutlinedTextField(
+        value = sample,
+        onValueChange = { sample = it },
+        label = { Text(stringResource(R.string.phoneformats_test_field_label)) },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+    if (sample.isNotBlank()) {
+        val kept = PhoneFormats.matches(sample, masks)
+        Text(
+            stringResource(
+                when {
+                    masks.isEmpty() -> R.string.phoneformats_test_all
+                    kept -> R.string.phoneformats_test_match
+                    else -> R.string.phoneformats_test_no_match
+                },
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (kept || masks.isEmpty()) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                MaterialTheme.colorScheme.error
+            },
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
+    Spacer(Modifier.height(16.dp))
+
+    if (showAdd) {
+        var input by remember { mutableStateOf("") }
+        val mask = remember(input) { phoneMaskFrom(input) }
+        val previewFormat = stringResource(R.string.phoneformats_preview)
+        AlertDialog(
+            onDismissRequest = { showAdd = false },
+            title = { Text(stringResource(R.string.phoneformats_add_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.phoneformats_add_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = { input = it },
+                        label = { Text(stringResource(R.string.phoneformats_field_label)) },
+                        singleLine = true,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        if (mask != null) {
+                            previewFormat.format(mask)
+                        } else {
+                            stringResource(R.string.phoneformats_preview_none)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = mask != null,
+                    onClick = {
+                        val value = mask ?: return@TextButton
+                        scope.launch { repository.addClipboardPhoneFormat(value) }
+                        showAdd = false
+                    },
+                ) { Text(stringResource(CommonR.string.common_add)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAdd = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
+    }
+}
+
+/**
+ * The mask [raw] stands for, from one field that takes both spellings: a
+ * format if the user wrote one (it has an X in it), and otherwise a number to
+ * make a format out of. Null while the field holds neither yet.
+ */
+private fun phoneMaskFrom(raw: String): String? {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return null
+    val written = trimmed.any { it == 'X' || it == 'x' || it == '#' }
+    return if (written) PhoneFormats.canonical(trimmed) else PhoneFormats.fromExample(trimmed)
+}
+
 // ---- backup ----
 
 /** Human name for a bundle section, used in toggles and the import dialog. */
@@ -7578,6 +7749,28 @@ private fun ToolDetailSettings(
                         settings.clipboard.detectEntities,
                         info = stringResource(R.string.tooldetail_clipboard_entities_info),
                     ) { scope.launch { repository.setClipboardDetectEntities(it) } }
+                }
+                // The number chips are the ones that go wrong, because a phone
+                // number is the one fragment with no shape of its own. This row
+                // is where the user gives it one.
+                if (settings.clipboard.detectEntities) {
+                    item {
+                        val count = settings.clipboard.phoneFormats.size
+                        NavRow(
+                            R.string.tooldetail_clipboard_phone_formats_title,
+                            subtitle = if (count == 0) {
+                                stringResource(R.string.tooldetail_clipboard_phone_formats_subtitle)
+                            } else {
+                                pluralStringResource(
+                                    R.plurals.tooldetail_clipboard_phone_formats_count_subtitle,
+                                    count,
+                                    count,
+                                )
+                            },
+                            route = "phoneformats",
+                            onClick = { onNavigate("phoneformats") },
+                        )
+                    }
                 }
                 item {
                     ToggleSetting(

@@ -222,6 +222,8 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "dictionary" to Color(0xFF26A69A),
     "customdictionaries" to Color(0xFF26A69A),
     "blacklist" to Color(0xFFEF5350),
+    // Opened from the Clipboard tool page, so it keeps the Tools orange.
+    "phoneformats" to Color(0xFFFF7043),
     "hwshortcuts" to Color(0xFF5C6BC0),
     "emojikeywords" to Color(0xFFFFB300),
 )
