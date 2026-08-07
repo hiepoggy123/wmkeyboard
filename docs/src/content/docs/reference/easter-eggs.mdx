@@ -1,0 +1,52 @@
+---
+title: "Easter eggs"
+description: "Every hidden surprise in the keyboard, spoiled in one place: the birthday card, the secret mini game, the achievements, and the rest."
+sidebar:
+  order: 7
+---
+
+import SettingsPath from '@components/SettingsPath.astro';
+import Flavor from '@components/Flavor.astro';
+
+WM Keyboard hides a few small surprises. This page spoils all of them, so turn back now if you'd rather stumble into them yourself.
+
+None of them ever touch the text you're typing: every egg is a card, a caption, or a badge that sits *beside* your typing, never inside it. They all run entirely on the device, and none of them phones home about being found.
+
+## Celebrate your keyboard's birthday
+
+On the anniversary of the day you installed the app, the settings home screen grows a **Keyboard birthday** card under the "Your active keyboard" heading, telling you how many years it's been. The first time you open settings that day you also get a toast and a shower of confetti; the card then stays for the rest of the day and is gone by midnight, no dismissing needed.
+
+The date comes from Android's own record of when the app was installed, so a full uninstall and reinstall starts the count over. The confetti respects **Reduce motion** (<SettingsPath path="Accessibility" />): with it on, you get the card and the toast, and nothing moves.
+
+## Find the hidden mini game
+
+Tap the version row in <SettingsPath path="About" /> seven times — the same ritual Android's own developer options use. From the fourth tap a toast counts you down; the seventh opens **Keycap catcher**, a small arcade game. Keycaps rain from the top of the screen, you drag a spacebar-shaped paddle to catch them, and every catch speeds things up a little. Three missed keys ends the round. Your best score is remembered on the device — and nowhere else.
+
+## Read your password generator's mind
+
+Roughly one generation in five hundred, the [password generator](/tools/utilities/#generating-a-password) adds a second caption under its entropy estimate: *"correct horse battery staple" — xkcd 936 says length beats symbols*. It's a citation of the famous comic, not a suggestion — the quoted words are never, ever part of the generated output, and the generator itself is untouched.
+
+## Scan the inevitable QR code
+
+Sooner or later every QR scanner meets *that* link. When the [QR & barcode scanner](/tools/scanner/#scanning-qr-codes-and-barcodes) <Flavor edition="full" /> decodes a code that points at Rick Astley's "Never Gonna Give You Up" — in any of YouTube's usual link shapes — the result card adds a line above the payload: **🎵 Rickroll detected. Never gonna scan you up.** The code still scans, copies, and opens like any other; you just walk in warned.
+
+## Earn typing test achievements
+
+The [typing speed test](/tools/utilities/#testing-your-typing-speed) quietly hands out four badges:
+
+| Badge | How to earn it |
+| --- | --- |
+| **100 wpm club** | Finish a run at 100 words per minute or faster |
+| **Flawless run** | No wrong, extra, or missed characters in a full run (short runs don't count) |
+| **Quick brown fox** | Finish a quote that uses every letter of the alphabet |
+| **50 runs** | Finish fifty typing tests |
+
+Earned badges appear on the results screen, with a **New** accent the run that unlocks them, and the full list — locked ones included, so you know what to chase — lives in <SettingsPath path="Tools / Typing speed test / Achievements" />. **Clear records** on the same screen wipes the badges along with the bests and history.
+
+:::tip
+Badges survive app updates, but like everything else the keyboard stores, they don't survive uninstalling the app.
+:::
+
+## Send an SOS
+
+On the [Morse code layout](/languages/notation/#morse-code), key **S**, **O**, **S** as three consecutive letters and the suggestion strip briefly acknowledges: *··· −−− ··· received. Help is not on the way.* It shows once per keyboard session, waits its five seconds, and gets out of the way of the live sequence readout — the letters commit to your field exactly as typed either way.
