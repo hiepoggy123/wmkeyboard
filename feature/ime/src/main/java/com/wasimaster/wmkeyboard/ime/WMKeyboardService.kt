@@ -2572,9 +2572,16 @@ open class WMKeyboardService : InputMethodService() {
      * ComponentCallbacks registered there would leak one per construction — and
      * because its preference mapping deliberately touches no Context so it can
      * run off the main thread.
+     *
+     * Lazy, and it must stay lazy: a service is constructed before
+     * attachBaseContext runs, so a plain initialiser here reads `resources`
+     * through a ContextWrapper whose base is still null and takes the whole
+     * keyboard down with an NPE in <init> — the IME never starts at all. Every
+     * reader below runs after onCreate, so the first touch is always safe.
      */
-    private val deviceForm =
+    private val deviceForm by lazy {
         MutableStateFlow(DeviceForm.of(resources.configuration.smallestScreenWidthDp))
+    }
 
     /** Docking or undocking a hardware keyboard flips the toolbar-only view. */
     override fun onConfigurationChanged(newConfig: Configuration) {
