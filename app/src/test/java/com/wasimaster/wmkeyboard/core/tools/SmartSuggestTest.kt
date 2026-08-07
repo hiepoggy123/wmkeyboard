@@ -254,6 +254,23 @@ class SmartSuggestTest {
         assertEquals("1609 km", resort.result)
     }
 
+    @Test
+    fun unitResultsDegradeThroughTwoDecimalsToWholeUnits() {
+        assertEquals(
+            listOf("1.6093 km", "1.61 km", "~2 km"),
+            hit("1 mi")!!.tiers.map { it.result },
+        )
+    }
+
+    @Test
+    fun aSpelledOutUnitShrinksToItsSymbolBeforeDigits() {
+        val mid = hit("1 thousand miles")!!.tiers.first { it.query == "1 thousand mi" }
+        assertFalse("symbol tier comes before the digits tier", mid.lastResort)
+        // A symbol that is not shorter never replaces the typed unit:
+        // "30c" must not widen into "30 °C".
+        assertTrue(hit("30c")!!.tiers.none { it.query == "30 °C" })
+    }
+
     // ---- arithmetic ----
 
     @Test

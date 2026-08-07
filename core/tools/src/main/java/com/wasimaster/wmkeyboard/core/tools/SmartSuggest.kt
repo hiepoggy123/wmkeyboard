@@ -414,10 +414,11 @@ object SmartSuggest {
 
     /**
      * The display ladder for a unit chip, mirroring [currencyTiers]: the
-     * amount and unit as typed with the full result first, then a rounded
-     * result ("~" when the rounding moved it), and as a last resort the
-     * amount flattened to digits with the catalog symbol — "1 thousand
-     * miles" → "1000 mi".
+     * amount and unit as typed with the full result first, then the result
+     * rounds to two decimals and then to whole units ("~" when a rounding
+     * visibly moved the number), then a spelled-out unit shrinks to its
+     * symbol ("1 thousand miles" → "1 thousand mi"), and as a last resort
+     * the amount flattens to digits — "1000 mi".
      */
     private fun unitTiers(
         amount: Amount,
@@ -429,15 +430,27 @@ object SmartSuggest {
         converted: Double,
     ): List<ChipTier> {
         val toSymbol = fullResult.substringAfter(' ')
-        val rounded = kotlin.math.round(converted)
-        val tilde = if (kotlin.math.abs(converted - rounded) > 0.005 * kotlin.math.abs(converted)) "~" else ""
-        val roundText = "$tilde${CalcEngine.format(rounded, 0)} $toSymbol"
+        fun rounded(value: Double): String {
+            val tilde = if (kotlin.math.abs(converted - value) > 0.005 * kotlin.math.abs(converted)) "~" else ""
+            return "$tilde${CalcEngine.format(value, 2)} $toSymbol"
+        }
+        val twoText = rounded(kotlin.math.round(converted * 100) / 100)
+        val wholeText = rounded(kotlin.math.round(converted))
         val qTyped = "${amount.text}${if (spaced) " " else ""}$token"
+        // Swapping the typed unit for its symbol only helps when the symbol
+        // is actually shorter — "miles" → "mi", but never "c" → "°C".
+        val qMid = if (token.length > from.symbol.length) "${amount.text} ${from.symbol}" else qTyped
         val qCanon = "$digits ${from.symbol}"
         return buildList {
             add(ChipTier(qTyped, fullResult))
-            add(ChipTier(qTyped, roundText))
-            if (qCanon != qTyped) add(ChipTier(qCanon, roundText, lastResort = true))
+            add(ChipTier(qTyped, twoText))
+            add(ChipTier(qTyped, wholeText))
+            add(ChipTier(qMid, wholeText))
+            // The digits tier exists to flatten spelled-out amounts; a glued
+            // short form like "30c" is already narrower than "30 °C".
+            if (qCanon != qMid && qCanon.length < qMid.length) {
+                add(ChipTier(qCanon, wholeText, lastResort = true))
+            }
         }.distinct()
     }
 
