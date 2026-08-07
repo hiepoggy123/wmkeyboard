@@ -162,17 +162,32 @@ fun keyShapeFor(kind: KeyShapeKind, radiusDp: Int, bleedDp: Float = 0f): Shape =
 /**
  * A centred circle inscribed in the key — the round cap people picture on a
  * typewriter. The touch target stays the full key box; only the paint shrinks.
- * The wide keys (space, enter, a stretched shift) keep a stadium instead: a
- * lone circle in the middle of a spacebar reads as a hole, not a key.
+ *
+ * Only a box that is roughly square gets the circle. Anything much longer in
+ * either direction becomes a stadium that still covers the whole box: a lone
+ * circle in the middle of a spacebar reads as a hole rather than a key, and a
+ * tall box — the on-key preview bubble is a key wide and twice a key tall —
+ * would inscribe its circle around the *middle* and clip the label drawn near
+ * the top clean off.
  */
 private val CircleKeyShape: Shape = GenericShape { size, _ ->
-    if (size.width > size.height * 1.6f) {
-        addRoundRect(RoundRect(Rect(Offset.Zero, size), CornerRadius(size.height / 2f)))
+    val d = min(size.width, size.height)
+    if (circleBecomesStadium(size.width, size.height)) {
+        addRoundRect(RoundRect(Rect(Offset.Zero, size), CornerRadius(d / 2f)))
     } else {
-        val d = min(size.width, size.height)
         addOval(Rect(Offset((size.width - d) / 2f, (size.height - d) / 2f), Size(d, d)))
     }
 }
+
+/**
+ * Whether a box is too far from square for [KeyShapeKind.CIRCLE] to inscribe a
+ * circle in it — the rule [CircleKeyShape] draws by, out here where a test can
+ * reach it. It has to answer true for the tall boxes as well as the wide ones:
+ * an inscribed circle only covers the middle, so a tall one clips whatever is
+ * drawn at the top.
+ */
+fun circleBecomesStadium(width: Float, height: Float): Boolean =
+    max(width, height) > min(width, height) * 1.6f
 
 /** Round top, square bottom: a row of keys reads as a row of arches. */
 private val ArchKeyShape: Shape = RoundedCornerShape(

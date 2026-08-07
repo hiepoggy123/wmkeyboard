@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.theme
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -127,6 +128,17 @@ class ThemeSpecDecorationsTest {
         assertEquals(KeyShapeKind.ROUNDED, safeContainerKind(KeyShapeKind.CIRCLE))
         assertEquals(KeyShapeKind.ROUNDED, safeContainerKind(KeyShapeKind.SCALLOP))
         assertEquals(KeyShapeKind.ROUNDED, safeContainerKind(KeyShapeKind.HEXAGON))
+    }
+
+    @Test
+    fun `the circle shape only inscribes a circle in a roughly square box`() {
+        // A key is square enough to take the circle it is named for …
+        assertFalse(circleBecomesStadium(width = 40f, height = 48f))
+        // … a spacebar is not, and neither is the on-key preview bubble, which
+        // is one key wide and more than twice as tall. Inscribing there would
+        // centre the circle and clip the label drawn near the top.
+        assertTrue(circleBecomesStadium(width = 320f, height = 48f))
+        assertTrue(circleBecomesStadium(width = 44f, height = 110f))
     }
 
     @Test
