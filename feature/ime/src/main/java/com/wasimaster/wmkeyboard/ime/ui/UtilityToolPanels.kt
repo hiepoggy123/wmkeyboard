@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.annotation.StringRes
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -48,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.tools.CalcEngine
+import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.SymbolCatalog
 import androidx.compose.ui.graphics.Color
@@ -657,27 +660,39 @@ internal fun CurrencyPanel(
                 ToolPanelChip(stringResource(CommonR.string.common_retry)) { onRefresh() }
             }
             is CurrencyUi.Ready -> {
-                val codes = remember(currency.rates) {
-                    val all = currency.rates.rates.keys.sorted()
-                    CurrencyClient.popular.filter { it in currency.rates.rates } +
-                        all.filterNot { it in CurrencyClient.popular }
-                }
+                val sections = remember(currency.rates) { codeSections(currency.rates) }
+                val coinsShown = currency.rates.crypto.isNotEmpty()
+                // A saved pair can name a coin that has since been switched
+                // off, and a code the table no longer holds converts to
+                // nothing at all; fall back rather than show a blank panel.
+                val fromCode = inTableOr(from, currency.rates)
+                val toCode = inTableOr(to, currency.rates, avoid = fromCode)
                 CurrencyChipRow(
                     stringResource(R.string.ime_converter_from_label),
-                    codes,
-                    from,
-                ) { onPairChange(it, to) }
+                    sections,
+                    fromCode,
+                    coinsShown,
+                ) { onPairChange(it, toCode) }
                 CurrencyChipRow(
                     stringResource(R.string.ime_converter_to_label),
-                    codes,
-                    to,
-                ) { onPairChange(from, it) }
+                    sections,
+                    toCode,
+                    coinsShown,
+                ) { onPairChange(fromCode, it) }
                 val amount = amountText.toDoubleOrNull()
                 val converted = amount?.let {
-                    CurrencyClient.convert(it, from, to, currency.rates)
+                    CurrencyClient.convert(it, fromCode, toCode, currency.rates)
                 }
+                // Two decimals turn a fraction of a coin into "0", so a coin
+                // result keeps its digits unless the user asked for a count.
                 val resultText = converted?.let {
-                    CalcEngine.format(it, state.settings.currencyDecimals)
+                    val coinDecimals = state.settings.rateSources.cryptoDecimals
+                    when {
+                        !currency.rates.isCrypto(toCode) ->
+                            CalcEngine.format(it, state.settings.currencyDecimals)
+                        coinDecimals > 0 -> CalcEngine.format(it, coinDecimals)
+                        else -> CalcEngine.format(it, COIN_DECIMALS)
+                    }
                 }
                 Row(
                     modifier = Modifier
@@ -686,7 +701,7 @@ internal fun CurrencyPanel(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "$amountText $from",
+                        "$amountText $fromCode",
                         color = kb.modifierKeyText,
                         fontSize = 14.sp,
                         maxLines = 1,
@@ -694,7 +709,7 @@ internal fun CurrencyPanel(
                         textAlign = TextAlign.End,
                     )
                     IconButton(
-                        onClick = { onPairChange(to, from) },
+                        onClick = { onPairChange(toCode, fromCode) },
                         modifier = Modifier.size(30.dp),
                     ) {
                         Icon(
@@ -705,7 +720,7 @@ internal fun CurrencyPanel(
                         )
                     }
                     Text(
-                        if (resultText != null) "$resultText $to" else "",
+                        if (resultText != null) "$resultText $toCode" else "",
                         color = kb.accent,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -741,14 +756,63 @@ internal fun CurrencyPanel(
     }
 }
 
+/** Coin amounts keep enough places that a fraction of one never reads as zero. */
+private const val COIN_DECIMALS = 12
+
+/** One run of codes in the picker, under its own heading. */
+private data class CodeSection(@StringRes val label: Int, val codes: List<String>)
+
+/**
+ * The picker list: the pinned favourites, then the coins in catalogue
+ * order, then every other code alphabetically. With no coins in the table
+ * the two remaining sections read as one flat list, exactly as before.
+ */
+private fun codeSections(rates: CurrencyClient.Rates): List<CodeSection> {
+    val coins = rates.crypto
+    val popular = CurrencyClient.popular.filter { it in rates.rates }
+    val rest = rates.rates.keys
+        .filterNot { it in CurrencyClient.popular || it in coins }
+        .sorted()
+    return buildList {
+        add(CodeSection(R.string.ime_currency_section_popular, popular))
+        if (coins.isNotEmpty()) {
+            val ordered = CryptoCatalog.coins.map { it.code }.filter { it in coins } +
+                coins.filterNot { CryptoCatalog.isKnown(it) }.sorted()
+            add(CodeSection(R.string.ime_currency_section_crypto, ordered))
+        }
+        add(CodeSection(R.string.ime_currency_section_all, rest))
+    }
+}
+
+/** [code] if the table still carries it, else the first pinned code that it does. */
+private fun inTableOr(
+    code: String,
+    rates: CurrencyClient.Rates,
+    avoid: String? = null,
+): String {
+    if (rates.rates.containsKey(code) && code != avoid) return code
+    return CurrencyClient.popular.firstOrNull { it in rates.rates && it != avoid }
+        ?: rates.rates.keys.firstOrNull { it != avoid }
+        ?: code
+}
+
 @Composable
 private fun CurrencyChipRow(
     label: String,
-    codes: List<String>,
+    sections: List<CodeSection>,
     selected: String,
+    showHeadings: Boolean,
     onSelect: (String) -> Unit,
 ) {
     val kb = LocalKbTheme.current
+    val listState = rememberLazyListState()
+    // The coin section sits between the favourites and the long alphabetical
+    // tail, so without this the chip that is actually selected is usually
+    // scrolled off the row.
+    LaunchedEffect(selected, sections, showHeadings) {
+        val index = flatIndexOf(selected, sections, showHeadings)
+        if (index >= 0) listState.scrollToItem(index)
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -758,14 +822,43 @@ private fun CurrencyChipRow(
         Text(label, color = kb.secondaryText, fontSize = 10.sp, modifier = Modifier.width(34.dp))
         androidx.compose.foundation.lazy.LazyRow(
             modifier = Modifier.weight(1f),
+            state = listState,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            items(codes.size) { index ->
-                val code = codes[index]
-                ToolPanelChip(code, selected = code == selected) { onSelect(code) }
+            for (section in sections) {
+                if (showHeadings) {
+                    item {
+                        Text(
+                            stringResource(section.label),
+                            color = kb.secondaryText,
+                            fontSize = 9.sp,
+                        )
+                    }
+                }
+                items(section.codes.size) { index ->
+                    val code = section.codes[index]
+                    ToolPanelChip(code, selected = code == selected) { onSelect(code) }
+                }
             }
         }
     }
+}
+
+/** Where [selected] sits once the sections and their headings are laid end to end. */
+private fun flatIndexOf(
+    selected: String,
+    sections: List<CodeSection>,
+    showHeadings: Boolean,
+): Int {
+    var index = 0
+    for (section in sections) {
+        if (showHeadings) index++
+        val at = section.codes.indexOf(selected)
+        if (at >= 0) return index + at
+        index += section.codes.size
+    }
+    return -1
 }
 
 @Composable

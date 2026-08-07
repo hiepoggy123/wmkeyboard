@@ -34,7 +34,8 @@ any of this.
 | Image search | `api.search.brave.com` | your search query | same (submit only) |
 | Dictionary | `api.dictionaryapi.dev` | one English word: your selection, or the word at the cursor | on panel open, if "Look up the word at the cursor" is on (the default); also on manual search |
 | Wikipedia | `wikipedia.org` | your search text or an article title | only when you search or open an article, never on panel open |
-| Currency converter | `open.er-api.com`, falling back to `frankfurter.app` | nothing identifying: it fetches the whole rate table, converted locally | on panel open, or the first time a smart chip sees an amount; cached for hours, not fetched per conversion |
+| Currency converter | `open.er-api.com`, falling back to `frankfurter.app`; the source is yours to pick, and `cdn.jsdelivr.net` and `api.coinbase.com` are the other two | nothing identifying: it fetches the whole rate table, converted locally | on panel open, or the first time a smart chip sees an amount; cached for hours, not fetched per conversion |
+| Cryptocurrency prices | `api.coinbase.com`, falling back to `cdn.jsdelivr.net`; `api.coingecko.com` is the other choice | nothing identifying: it fetches prices for the coins you have turned on, converted locally | only when you type a coin amount or select a coin on the panel, never on a plain panel open; cached for a few minutes |
 | Weather | `api.open-meteo.com`, `geocoding-api.open-meteo.com` | the location you typed or searched, or nothing beyond a saved lat/long | on panel open, cached for a while; geocoding only fires while you're editing the location |
 | AI — cloud provider | Anthropic, OpenAI, or Gemini's own API | the text you ran the action on, plus a system prompt | only when you tap an action, never in the background |
 | AI — self-hosted (Ollama/LM Studio) | a server address you enter on your own network | same | same, over plain HTTP |
@@ -220,8 +221,12 @@ have no network code to disable in the first place.
   the tool shows a "needs an API key" state out of the box rather than
   silently trying a provider that isn't configured.
 - **Currency and weather cache their results** rather than fetching on every
-  open (currency for a few hours, weather for about fifteen minutes), so
-  most opens after the first don't touch the network at all.
+  open (currency for a few hours, coin prices for a few minutes, weather for
+  about fifteen minutes), so most opens after the first don't touch the
+  network at all.
+- **Coin prices are fetched lazily.** Cryptocurrency is on by default, but
+  the coin source is only asked when you actually type a coin amount or pick
+  a coin on the panel. If you never do, your keyboard never talks to it.
 - **Dictionary and Wikipedia never read your field the way Translate does.**
   Wikipedia and both search tools only ever send what you type into the
   panel's own search bar; Dictionary is the one exception, reading the

@@ -2,6 +2,8 @@ package com.wasimaster.wmkeyboard.core.tools
 
 import java.security.SecureRandom
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -252,6 +254,141 @@ class CurrencyClientTest {
         assertEquals("Euro", CurrencyClient.unitName("EUR"))
         // No known name → the code itself.
         assertEquals("XAF", CurrencyClient.unitName("XAF"))
+    }
+
+    @Test
+    fun parsesCoinbaseWhereEveryRateIsAString() {
+        val rates = CurrencyClient.parseCoinbase(
+            """{"data":{"currency":"USD","rates":{"BTC":"0.0000153999","EUR":"0.86"}}}""",
+        )
+        assertEquals(1.53999e-5, rates.getValue("BTC"), 1e-12)
+        assertEquals(0.86, rates.getValue("EUR"), 1e-9)
+    }
+
+    @Test
+    fun parsesCurrencyApiAndCapitalisesItsCodes() {
+        val rates = CurrencyClient.parseCurrencyApi(
+            """{"date":"2026-08-06","usd":{"btc":0.0000154,"bdt":123.99}}""",
+        )
+        assertEquals(123.99, rates.getValue("BDT"), 1e-9)
+        assertNotNull(rates["BTC"])
+    }
+
+    @Test
+    fun coinGeckoPricesAreInvertedIntoCoinsPerDollar() {
+        val rates = CurrencyClient.parseCoinGecko(
+            """{"bitcoin":{"usd":64988},"ethereum":{"usd":1914.5}}""",
+            mapOf("bitcoin" to "BTC", "ethereum" to "ETH"),
+        )
+        assertEquals(1.0 / 64988, rates.getValue("BTC"), 1e-12)
+        assertEquals(1.0 / 1914.5, rates.getValue("ETH"), 1e-12)
+    }
+
+    @Test
+    fun ratesThatAreNotUsableNumbersAreDropped() {
+        val rates = CurrencyClient.parseCoinbase(
+            """{"data":{"rates":{"BTC":"0.0001","DEAD":"0","BAD":"abc","NEG":"-2"}}}""",
+        )
+        assertEquals(setOf("BTC"), rates.keys)
+    }
+
+    @Test
+    fun mergingKeepsOnlyTheCoinsThatAreOn() {
+        val fiat = CurrencyClient.Rates("USD", mapOf("USD" to 1.0, "BDT" to 120.0))
+        val raw = mapOf("BTC" to 0.000015, "DOGE" to 14.0, "PEPE" to 1e6)
+        val merged = CurrencyClient.withCrypto(fiat, raw, setOf("BTC"))
+        assertEquals(setOf("BTC"), merged.crypto)
+        assertEquals(setOf("USD", "BDT", "BTC"), merged.rates.keys)
+        assertTrue(merged.isCrypto("BTC"))
+        assertFalse(merged.isCrypto("BDT"))
+    }
+
+    @Test
+    fun aCoinSourceCannotDisplaceTheCurrencyTable() {
+        // Coinbase and the currency-api quote EUR too, and their reading must
+        // not overwrite the fiat one the rest of the tool runs on.
+        val fiat = CurrencyClient.Rates("USD", mapOf("USD" to 1.0, "EUR" to 0.9))
+        val merged = CurrencyClient.withCrypto(fiat, mapOf("EUR" to 0.5, "BTC" to 0.000015), setOf("BTC", "EUR"))
+        assertEquals(0.9, merged.rates.getValue("EUR"), 1e-9)
+        assertEquals(setOf("BTC"), merged.crypto)
+    }
+
+    @Test
+    fun conversionCrossesBetweenCoinsAndCurrencies() {
+        val fiat = CurrencyClient.Rates("USD", mapOf("USD" to 1.0, "BDT" to 120.0))
+        val rates = CurrencyClient.withCrypto(fiat, mapOf("BTC" to 0.000015), setOf("BTC"))
+        assertEquals(8_000_000.0, CurrencyClient.convert(1.0, "BTC", "BDT", rates)!!, 1e-6)
+        assertEquals(1.5e-5, CurrencyClient.convert(1.0, "USD", "BTC", rates)!!, 1e-12)
+    }
+}
+
+class CryptoCatalogTest {
+
+    @Test
+    fun aliasesAreLowercaseUniqueAndShortEnoughToMatch() {
+        val seen = mutableSetOf<String>()
+        for (coin in CryptoCatalog.coins) {
+            for (alias in coin.aliases) {
+                assertEquals("$alias is not lower case", alias.lowercase(), alias)
+                // The currency scanner reads at most eight letters after an
+                // amount, so a longer alias could never match anything.
+                assertTrue("$alias is too long to ever match", alias.length in 2..8)
+                assertTrue("$alias is claimed twice", seen.add(alias))
+            }
+        }
+    }
+
+    @Test
+    fun namesResolveAlwaysAndBareTickersOnlyInCapitals() {
+        assertEquals("BTC" to 1.0, CryptoCatalog.resolve("bitcoin", emptySet()))
+        assertEquals("BTC" to 1.0, CryptoCatalog.resolve("btc", emptySet()))
+        assertEquals("LINK" to 1.0, CryptoCatalog.resolve("LINK", emptySet()))
+        assertNull(CryptoCatalog.resolve("link", emptySet()))
+        // 1e-8 of a bitcoin.
+        assertEquals("BTC" to 1e-8, CryptoCatalog.resolve("sats", emptySet()))
+    }
+
+    @Test
+    fun aCoinThatIsOffResolvesToNothing() {
+        assertNull(CryptoCatalog.resolve("bitcoin", setOf("ETH")))
+        assertNull(CryptoCatalog.resolve("DOGE", setOf("ETH")))
+    }
+
+    @Test
+    fun aTickerTheUserAddedResolvesInCapitals() {
+        assertEquals("PEPE" to 1.0, CryptoCatalog.resolve("PEPE", setOf("PEPE")))
+        assertNull(CryptoCatalog.resolve("pepe", setOf("PEPE")))
+    }
+}
+
+class MoneyFormatTest {
+
+    @Test
+    fun significantDigitsSurviveWhereFixedDecimalsWouldNot() {
+        assertEquals("0.0000154", MoneyFormat.significant(0.0000153999))
+        assertEquals("0.00", MoneyFormat.fixed(0.0000153999, 2))
+    }
+
+    @Test
+    fun trailingZerosAreDropped() {
+        assertEquals("1.5", MoneyFormat.significant(1.5))
+        assertEquals("2", MoneyFormat.significant(2.0))
+        assertEquals("0", MoneyFormat.significant(0.0))
+    }
+
+    @Test
+    fun anAmountTooSmallForTheDecimalCapKeepsItsDigits() {
+        val text = MoneyFormat.significant(1e-15)
+        assertNotEquals("0", text)
+        assertTrue(text.any { it in '1'..'9' })
+    }
+
+    @Test
+    fun coinAmountsFollowTheirOwnDecimalSetting() {
+        assertEquals("0.125", MoneyFormat.amount(0.125, isCrypto = true, fiatDecimals = 2, cryptoDecimals = 0))
+        assertEquals("0.1250", MoneyFormat.amount(0.125, isCrypto = true, fiatDecimals = 2, cryptoDecimals = 4))
+        // Fiat rounds to its own two places, half-to-even as it always has.
+        assertEquals("0.12", MoneyFormat.amount(0.125, isCrypto = false, fiatDecimals = 2, cryptoDecimals = 4))
     }
 }
 

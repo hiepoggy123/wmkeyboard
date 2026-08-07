@@ -243,6 +243,7 @@ import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.AiMarkdown
 import com.wasimaster.wmkeyboard.core.tools.AiPhase
 import com.wasimaster.wmkeyboard.core.tools.AiThinking
+import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.QrCodeGen
@@ -1569,6 +1570,7 @@ open class WMKeyboardService : InputMethodService() {
             // Recompute the hidden-emoji set only when the toggle or the font
             // behind it actually changes, not on every unrelated settings save.
             var hiddenEmojiKey: Triple<Boolean, EmojiFontChoice, String>? = null
+            var coinPickKey: Pair<Boolean, Set<String>>? = null
             // Power saving is folded in here rather than downstream for the same
             // reason as direct boot: it is a *view* of the settings, so the
             // renderer, the engine and the tools all see one already-reduced
@@ -1603,6 +1605,15 @@ open class WMKeyboardService : InputMethodService() {
                 if (hiddenEmojiKey != nextHiddenKey) {
                     hiddenEmojiKey = nextHiddenKey
                     recomputeHiddenEmoji(settings)
+                }
+                // Turning a coin on or off only changes which of the rates
+                // already in hand are used, so it re-merges rather than
+                // refetching.
+                val nextCoinKey =
+                    settings.rateSources.cryptoEnabled to settings.rateSources.cryptoTickers
+                if (coinPickKey != nextCoinKey) {
+                    coinPickKey = nextCoinKey
+                    remergeCurrencyRates()
                 }
                 clipboardStore.expiryMillis = settings.clipboard.expiryHours * 60L * 60 * 1000
                 clipboardStore.maxItems = settings.clipboard.maxItems
@@ -6805,7 +6816,7 @@ open class WMKeyboardService : InputMethodService() {
             if (hit != _uiState.value.smart) _uiState.update { it.copy(smart = hit) }
             // An amount was recognised but there are no rates to convert it
             // with: fetch them, and the collector below redraws the chip.
-            if (hit?.pending == true) refreshCurrencyRates()
+            if (hit?.pending == true) refreshCurrencyRates(wantCrypto = hit.pendingCrypto)
         }
     }
 
@@ -6821,6 +6832,10 @@ open class WMKeyboardService : InputMethodService() {
             currencyFrom = state.settings.currencyFrom,
             currencyTo = state.settings.currencyTo,
             currencyDecimals = state.settings.currencyDecimals,
+            cryptoEnabled = state.settings.rateSources.cryptoEnabled,
+            cryptoTickers = state.settings.rateSources.cryptoTickers,
+            cryptoDecimals = state.settings.rateSources.cryptoDecimals,
+            cryptoUnavailable = (state.currency as? CurrencyUi.Ready)?.cryptoFailed == true,
             unitLast = state.settings.unitConvertLast,
             enabledTools = usableTools(state.settings),
             keywordOverrides = state.settings.toolKeywords,
@@ -7802,7 +7817,9 @@ open class WMKeyboardService : InputMethodService() {
                 currentInputConnection?.let { commitComposing(it, autocorrect = false) }
                 scheduleGrammarCheck(immediate = true)
             }
-            PanelMode.CURRENCY -> refreshCurrencyRates()
+            // The coin table is only worth fetching when the pair the panel
+            // opens on actually holds a coin.
+            PanelMode.CURRENCY -> refreshCurrencyRates(wantCrypto = pairHasCoin())
             PanelMode.QR_GEN -> {
                 currentInputConnection?.let { commitComposing(it, autocorrect = false) }
                 // Seed the editable buffer with the field text as a convenience,
@@ -9230,30 +9247,76 @@ open class WMKeyboardService : InputMethodService() {
 
     private var currencyJob: Job? = null
 
-    /** Rates refresh at most every cache-TTL setting (they update daily upstream anyway). */
-    private fun refreshCurrencyRates(force: Boolean = false) {
-        val current = _uiState.value.currency
-        val ttlMs = _uiState.value.settings.currencyCacheHours * 60L * 60L * 1000L
-        if (!force && current is CurrencyUi.Ready &&
-            System.currentTimeMillis() - current.fetchedAtMs < ttlMs
-        ) {
-            return
-        }
+    /** The fiat table on its own, so coins can be re-merged without refetching it. */
+    private var fiatRates: CurrencyClient.Rates? = null
+
+    /** The coin table as the provider sent it, before the user's picks are applied. */
+    private var cryptoRaw: Map<String, Double> = emptyMap()
+
+    /**
+     * Rates refresh at most every cache-TTL setting (they update daily
+     * upstream anyway). Coins are a separate fetch on a separate, much
+     * shorter clock, and only when something actually needs them — a user
+     * who never types a ticker never touches the coin provider.
+     */
+    private fun refreshCurrencyRates(force: Boolean = false, wantCrypto: Boolean = false) {
+        val settings = _uiState.value.settings
+        val ready = _uiState.value.currency as? CurrencyUi.Ready
+        val now = System.currentTimeMillis()
+        val fiatTtlMs = settings.currencyCacheHours * 60L * 60L * 1000L
+        val sources = settings.rateSources
+        val cryptoTtlMs = sources.cryptoCacheMinutes * 60L * 1000L
+        val needFiat = force || ready == null || now - ready.fetchedAtMs >= fiatTtlMs
+        val needCrypto = sources.cryptoEnabled && (force || wantCrypto) &&
+            (force || ready == null || now - ready.cryptoFetchedAtMs >= cryptoTtlMs)
+        if (!needFiat && !needCrypto) return
         currencyJob?.cancel()
-        _uiState.update { it.copy(currency = CurrencyUi.Loading) }
+        // Only a fiat fetch with nothing cached blanks the panel: a coin
+        // refresh must never take a working rate table off the screen.
+        if (needFiat && ready == null) _uiState.update { it.copy(currency = CurrencyUi.Loading) }
         currencyJob = serviceScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching { CurrencyClient.fetchRates() }
+            val fiat = if (needFiat) {
+                withContext(Dispatchers.IO) {
+                    runCatching { CurrencyClient.fetchRates(sources.fiatProviders) }
+                }
+            } else {
+                null
             }
-            _uiState.update {
-                it.copy(
-                    currency = result.fold(
-                        onSuccess = { r -> CurrencyUi.Ready(r, System.currentTimeMillis()) },
-                        onFailure = {
-                            CurrencyUi.Error(getString(R.string.ime_service_currency_error))
-                        },
-                    ),
-                )
+            val coins = if (needCrypto) {
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        CurrencyClient.fetchCryptoRates(
+                            sources.cryptoProviders,
+                            CryptoCatalog.enabled(sources.cryptoTickers),
+                        )
+                    }
+                }
+            } else {
+                null
+            }
+            fiat?.getOrNull()?.let { fiatRates = it }
+            coins?.getOrNull()?.let { cryptoRaw = it }
+            val merged = mergedRates()
+            val stamp = System.currentTimeMillis()
+            _uiState.update { state ->
+                val previous = state.currency as? CurrencyUi.Ready
+                val next = if (merged == null) {
+                    CurrencyUi.Error(getString(R.string.ime_service_currency_error))
+                } else {
+                    CurrencyUi.Ready(
+                        rates = merged,
+                        // A failed fiat fetch keeps the old table and the old
+                        // clock, so the next open tries again rather than
+                        // dropping the panel back to an error.
+                        fetchedAtMs = if (fiat?.isSuccess == true) stamp else previous?.fetchedAtMs ?: stamp,
+                        // A failed coin fetch still stamps its clock: that is
+                        // the backoff that stops a dead source being asked
+                        // again on every keystroke.
+                        cryptoFetchedAtMs = if (coins != null) stamp else previous?.cryptoFetchedAtMs ?: 0L,
+                        cryptoFailed = coins?.isFailure == true,
+                    )
+                }
+                state.copy(currency = next)
             }
             // A "150 usd" chip may be sitting on the strip waiting for these
             // rates to arrive before it can show an amount.
@@ -9261,9 +9324,40 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /** The fiat table with the coins the user has turned on folded into it. */
+    private fun mergedRates(): CurrencyClient.Rates? {
+        val fiat = fiatRates ?: return null
+        val sources = _uiState.value.settings.rateSources
+        if (!sources.cryptoEnabled || cryptoRaw.isEmpty()) return fiat.copy(crypto = emptySet())
+        return CurrencyClient.withCrypto(fiat, cryptoRaw, sources.cryptoTickers)
+    }
+
+    /** Re-applies the coin picks to the cached tables, with no network at all. */
+    private fun remergeCurrencyRates() {
+        val merged = mergedRates() ?: return
+        _uiState.update { state ->
+            val ready = state.currency as? CurrencyUi.Ready ?: return@update state
+            if (ready.rates == merged) state else state.copy(currency = ready.copy(rates = merged))
+        }
+    }
+
     fun onCurrencyPairChange(from: String, to: String) {
         vibrate()
         serviceScope.launch { settingsRepository.setCurrencyPair(from, to) }
+        val sources = _uiState.value.settings.rateSources
+        if (sources.cryptoEnabled) {
+            val coins = CryptoCatalog.enabled(sources.cryptoTickers)
+            if (from in coins || to in coins) refreshCurrencyRates(wantCrypto = true)
+        }
+    }
+
+    /** True when either side of the saved pair is a coin. */
+    private fun pairHasCoin(): Boolean {
+        val settings = _uiState.value.settings
+        val sources = settings.rateSources
+        if (!sources.cryptoEnabled) return false
+        val coins = CryptoCatalog.enabled(sources.cryptoTickers)
+        return settings.currencyFrom in coins || settings.currencyTo in coins
     }
 
     // ---- QR generator tool ----

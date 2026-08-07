@@ -126,6 +126,7 @@
     <string name="about_service_translate_used">The translation tool</string>
     <string name="about_service_weather_used">The weather and the geocoding</string>
     <string name="about_service_currency_used">The currency conversion rates</string>
+    <string name="about_service_crypto_used">The cryptocurrency prices</string>
     <string name="about_service_dictionary_used">The word definitions</string>
     <string name="about_service_models_used">The downloads for the models that run on your device</string>
     <!-- Used by every bring-your-own-key AI provider row. -->

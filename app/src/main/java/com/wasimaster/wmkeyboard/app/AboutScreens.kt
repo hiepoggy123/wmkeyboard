@@ -403,6 +403,11 @@ private val serviceAttributions: List<Attribution> = listOf(
         "https://www.frankfurter.app/",
     ),
     Attribution(
+        "Coinbase, currency-api & CoinGecko", R.string.about_service_crypto_used, "",
+        "Provider terms", null,
+        "https://docs.cdp.coinbase.com/",
+    ),
+    Attribution(
         "Free Dictionary API", R.string.about_service_dictionary_used, "",
         "Provider terms", null,
         "https://dictionaryapi.dev/",

@@ -1,7 +1,6 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
-import java.text.DecimalFormat
 import java.util.Locale
 
 /**
@@ -70,6 +69,8 @@ object SmartSuggest {
         val prefill: ToolPrefill?,
         /** True while a currency conversion is waiting on exchange rates. */
         val pending: Boolean = false,
+        /** True when what is missing is the coin table rather than the fiat one. */
+        val pendingCrypto: Boolean = false,
         /** Width-tiered renderings of query → result; empty for keyword chips. */
         val tiers: List<ChipTier> = emptyList(),
     )
@@ -86,6 +87,13 @@ object SmartSuggest {
         val currencyFrom: String = "USD",
         val currencyTo: String = "BDT",
         val currencyDecimals: Int = 2,
+        val cryptoEnabled: Boolean = true,
+        /** The coins that are on; empty means the catalogue defaults. */
+        val cryptoTickers: Set<String> = emptySet(),
+        /** Decimal places for coin amounts; 0 means significant digits instead. */
+        val cryptoDecimals: Int = 0,
+        /** Set while the coin table cannot be fetched, so a coin chip gives up rather than spins. */
+        val cryptoUnavailable: Boolean = false,
         val unitLast: String = "",
         val enabledTools: Collection<ToolbarTool> = emptyList(),
         val keywordOverrides: String = "",
@@ -120,10 +128,7 @@ object SmartSuggest {
 
     private fun parseNumber(raw: String): Double? = raw.replace(",", "").toDoubleOrNull()
 
-    private fun money(value: Double, decimals: Int): String {
-        val pattern = if (decimals > 0) "#,##0." + "0".repeat(decimals) else "#,##0"
-        return DecimalFormat(pattern).format(value)
-    }
+    private fun money(value: Double, decimals: Int): String = MoneyFormat.fixed(value, decimals)
 
     // ---- amount phrases ----
 
@@ -221,30 +226,85 @@ object SmartSuggest {
             }
             return null
         }
-        val from = resolveCurrency(m.token, ctx.rates) ?: return null
-        // Converting a currency into itself says nothing; when the amount is
-        // already in the target, fall back to the pair's other side.
-        val to = if (from == ctx.currencyTo) ctx.currencyFrom else ctx.currencyTo
-        if (from == to) return null
+        val (from, scale) = resolveCurrency(m.token, ctx) ?: return null
+        // "100000 sats" is a thousandth of a bitcoin: the token carries its
+        // own scale, and everything downstream works in whole coins.
+        val amount = m.amount.value * scale
+        val to = targetCurrency(from, ctx) ?: return null
+        val fromCrypto = isCryptoCode(from, ctx)
+        val toCrypto = isCryptoCode(to, ctx)
 
-        val query = "${m.amount.text} $from"
-        val prefill = ToolPrefill.Currency(from, to, CalcEngine.format(m.amount.value, 4))
-        val rates = ctx.rates
-            ?: return SmartHit(
-                kind = Kind.CURRENCY, query = query, result = null, insert = null,
-                replaceSpan = m.span, tool = ToolbarTool.CURRENCY, prefill = prefill,
-                pending = true,
-            )
-        val converted = CurrencyClient.convert(m.amount.value, from, to, rates) ?: return null
+        // "100000 sats" must not read back as "100000 BTC", so a token that
+        // carries a scale of its own keeps its spelling on the chip.
+        val fromLabel = if (scale != 1.0) m.token else from
+        val query = "${m.amount.text} $fromLabel"
+        val prefill = ToolPrefill.Currency(from, to, prefillAmount(amount, fromCrypto))
+        fun pendingHit(onCoins: Boolean) = SmartHit(
+            kind = Kind.CURRENCY, query = query, result = null, insert = null,
+            replaceSpan = m.span, tool = ToolbarTool.CURRENCY, prefill = prefill,
+            pending = true, pendingCrypto = onCoins,
+        )
+
+        val rates = ctx.rates ?: return pendingHit(fromCrypto || toCrypto)
+        // A coin the table does not carry yet is worth waiting for — the
+        // fiat rates arriving first must not make the chip disappear. A coin
+        // source that is down gives up instead, so the chip never spins for
+        // good.
+        val missing = listOf(from, to).filterNot { rates.rates.containsKey(it) }
+        if (missing.isNotEmpty()) {
+            val coinsMissing = missing.any { isCryptoCode(it, ctx) }
+            return if (coinsMissing && !ctx.cryptoUnavailable) pendingHit(true) else null
+        }
+        val converted = CurrencyClient.convert(amount, from, to, rates) ?: return null
         // The result side is the user's local currency: show and insert its
-        // name ("Taka") rather than the ISO code ("BDT").
-        val result = "${money(converted, ctx.currencyDecimals)} ${CurrencyClient.unitName(to)}"
+        // name ("Taka") rather than the ISO code ("BDT"). Coins keep their
+        // ticker, since their names shorten badly.
+        val resultName = if (toCrypto) to else CurrencyClient.unitName(to)
+        val result = "${cryptoAware(converted, toCrypto, ctx)} $resultName"
         return SmartHit(
             kind = Kind.CURRENCY, query = query, result = result, insert = result,
             replaceSpan = m.span, tool = ToolbarTool.CURRENCY, prefill = prefill,
-            tiers = currencyTiers(m, from, to, converted, ctx.currencyDecimals),
+            tiers = if (toCrypto) {
+                cryptoTiers(m, fromLabel, to, converted, ctx)
+            } else {
+                currencyTiers(m, from, to, converted, ctx.currencyDecimals)
+            },
         )
     }
+
+    /**
+     * What an amount converts into: the saved pair's other side, unless that
+     * code has left the rate table — turning coins off or dropping a ticker
+     * would otherwise leave [Context.currencyTo] pointing at nothing and
+     * take every currency chip down with it.
+     */
+    private fun targetCurrency(from: String, ctx: Context): String? {
+        val saved = listOf(
+            if (from == ctx.currencyTo) ctx.currencyFrom else ctx.currencyTo,
+            if (from == ctx.currencyTo) ctx.currencyTo else ctx.currencyFrom,
+        )
+        saved.firstOrNull { it != from && inTable(it, ctx) }?.let { return it }
+        return CurrencyClient.popular.firstOrNull { it != from && inTable(it, ctx) }
+    }
+
+    /** With no rates yet every code is still a candidate; the chip pends either way. */
+    private fun inTable(code: String, ctx: Context): Boolean =
+        ctx.rates?.rates?.containsKey(code) ?: true
+
+    private fun isCryptoCode(code: String, ctx: Context): Boolean =
+        ctx.rates?.isCrypto(code) == true ||
+            (ctx.cryptoEnabled && code in CryptoCatalog.enabled(ctx.cryptoTickers))
+
+    private fun cryptoAware(value: Double, isCrypto: Boolean, ctx: Context): String =
+        MoneyFormat.amount(value, isCrypto, ctx.currencyDecimals, ctx.cryptoDecimals)
+
+    /**
+     * The amount the panel opens with. It goes into a text field that reads
+     * plain digits back, so it stays ungrouped; four decimals would round a
+     * fraction of a coin down to "0", so coins get room for twelve.
+     */
+    private fun prefillAmount(value: Double, isCrypto: Boolean): String =
+        CalcEngine.format(value, if (isCrypto) 12 else 4)
 
     /**
      * The display ladder for a currency chip. The widest tier echoes the
@@ -301,24 +361,62 @@ object SmartSuggest {
 
 
     /**
-     * A currency token → ISO code. Symbols and spelled-out names always
-     * match; bare three-letter codes match the well-known list in any case,
-     * and any other live code only when typed in capitals, so "150 all"
-     * stays English text while "150 ALL" is Albanian lek.
+     * The display ladder for a coin result. Rounding is useless here — a
+     * whole number of bitcoin is almost always zero — so each step drops a
+     * significant digit instead, and the ticker stays put because it is
+     * already as short as the name can get.
      */
-    private fun resolveCurrency(token: String, rates: CurrencyClient.Rates?): String? {
+    private fun cryptoTiers(
+        m: CurrencyMatch,
+        fromLabel: String,
+        to: String,
+        converted: Double,
+        ctx: Context,
+    ): List<ChipTier> {
+        val qTyped = when {
+            m.token.none(Char::isLetter) ->
+                if (m.tokenLeads) "${m.token}${m.amount.text}" else "${m.amount.text}${m.token}"
+            else -> "${m.amount.text} ${m.token}"
+        }
+        val qCode = "${m.amount.text} $fromLabel"
+        val qDigits = "${CalcEngine.format(m.amount.value, 4)} $fromLabel"
+        val amounts = if (ctx.cryptoDecimals > 0) {
+            listOf(MoneyFormat.fixed(converted, ctx.cryptoDecimals))
+        } else {
+            listOf(5, 4, 3).map { MoneyFormat.significant(converted, sig = it) }
+        }
+        return buildList {
+            for (text in amounts) add(ChipTier(qTyped, "$text $to"))
+            add(ChipTier(qCode, "${amounts.last()} $to"))
+            add(ChipTier(qDigits, "${amounts.last()} $to", lastResort = true))
+        }.distinct()
+    }
+
+    /**
+     * A currency token → the code it means and the scale one unit of it
+     * carries (1, or a hundred-millionth for "sats"). Symbols and
+     * spelled-out names always match; bare three-letter codes match the
+     * well-known list in any case, and any other live code only when typed
+     * in capitals, so "150 all" stays English text while "150 ALL" is
+     * Albanian lek. Coins go through the same rule in [CryptoCatalog].
+     */
+    private fun resolveCurrency(token: String, ctx: Context): Pair<String, Double>? {
         if (token.isEmpty()) return null
-        currencySymbols[token]?.let { return it }
+        val rates = ctx.rates
+        currencySymbols[token]?.let { return it to 1.0 }
         val lower = token.lowercase(Locale.ROOT)
-        currencyWords[lower]?.let { return it }
+        currencyWords[lower]?.let { return it to 1.0 }
+        if (ctx.cryptoEnabled) {
+            CryptoCatalog.resolve(token, ctx.cryptoTickers)?.let { return it }
+        }
         val upper = token.uppercase(Locale.ROOT)
         if (upper.length != 3) return null
         if (upper in CurrencyClient.names || upper in CurrencyClient.popular) {
             // "try" reads as the verb far more often than Turkish lira.
             if (lower == "try" && token != "TRY") return null
-            return upper
+            return upper to 1.0
         }
-        if (token == upper && rates?.rates?.containsKey(upper) == true) return upper
+        if (token == upper && rates?.rates?.containsKey(upper) == true) return upper to 1.0
         return null
     }
 
@@ -328,7 +426,7 @@ object SmartSuggest {
         "€" to "EUR", "£" to "GBP", "¥" to "JPY", "₹" to "INR", "₨" to "PKR",
         "৳" to "BDT", "₽" to "RUB", "₩" to "KRW", "₺" to "TRY", "₦" to "NGN",
         "₱" to "PHP", "฿" to "THB", "₫" to "VND", "₪" to "ILS", "₴" to "UAH",
-        "₸" to "KZT", "₭" to "LAK", "₮" to "MNT", "₡" to "CRC", "﷼" to "SAR",
+        "₸" to "KZT", "₭" to "LAK", "₮" to "MNT", "₡" to "CRC", "﷼" to "SAR", "₿" to "BTC",
         "₾" to "GEL", "₼" to "AZN", "៛" to "KHR", "₲" to "PYG", "₵" to "GHS",
         "zł" to "PLN", "Kč" to "CZK",
     )

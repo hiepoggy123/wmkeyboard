@@ -83,6 +83,8 @@ import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.core.settings.AppSortOrder
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
 import com.wasimaster.wmkeyboard.core.tools.CheatSheetLetter
+import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
+import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.DefaultLeader
 import com.wasimaster.wmkeyboard.core.tools.DefaultToolLetters
 import com.wasimaster.wmkeyboard.core.tools.KeyChord
@@ -9634,8 +9636,61 @@ private fun ToolDetailSettings(
                         info = stringResource(R.string.tooldetail_currency_refresh_info),
                     ) { scope.launch { repository.setCurrencyCacheHours(it.toInt()) } }
                 }
+                item {
+                    RateSourceSetting(
+                        title = R.string.tooldetail_currency_source_title,
+                        subtitle = stringResource(R.string.tooldetail_currency_source_subtitle),
+                        providers = settings.rateSources.fiatProviders,
+                        candidates = CurrencyClient.Provider.entries.filter { it.fiat },
+                    ) { scope.launch { repository.setFiatProviders(it) } }
+                }
             }
             CaptionText(stringResource(R.string.tooldetail_currency_info))
+            SettingsGroup(stringResource(R.string.tooldetail_crypto_group_title)) {
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_crypto_enable_title,
+                        stringResource(R.string.tooldetail_crypto_enable_subtitle),
+                        settings.rateSources.cryptoEnabled,
+                        info = stringResource(R.string.tooldetail_crypto_enable_info),
+                    ) { scope.launch { repository.setCryptoEnabled(it) } }
+                }
+                if (settings.rateSources.cryptoEnabled) {
+                    item {
+                        val auto = stringResource(R.string.tooldetail_crypto_decimals_auto)
+                        SliderSetting(
+                            R.string.tooldetail_crypto_decimals_title,
+                            subtitle = stringResource(R.string.tooldetail_crypto_decimals_subtitle),
+                            value = settings.rateSources.cryptoDecimals.toFloat(),
+                            range = 0f..12f,
+                            display = {
+                                if (it.toInt() == 0) auto else numberFormat.format(it.toInt())
+                            },
+                        ) { scope.launch { repository.setCryptoDecimals(it.toInt()) } }
+                    }
+                    item {
+                        SliderSetting(
+                            R.string.tooldetail_crypto_refresh_title,
+                            subtitle = stringResource(R.string.tooldetail_crypto_refresh_subtitle),
+                            value = settings.rateSources.cryptoCacheMinutes.toFloat(),
+                            range = 1f..60f,
+                            display = { minutesFormat.format(it.toInt()) },
+                        ) { scope.launch { repository.setCryptoCacheMinutes(it.toInt()) } }
+                    }
+                    item {
+                        RateSourceSetting(
+                            title = R.string.tooldetail_crypto_source_title,
+                            subtitle = stringResource(R.string.tooldetail_crypto_source_subtitle),
+                            providers = settings.rateSources.cryptoProviders,
+                            candidates = CurrencyClient.Provider.entries.filter { it.crypto },
+                        ) { scope.launch { repository.setCryptoProviders(it) } }
+                    }
+                    item { CryptoCoinPicker(repository, settings) }
+                }
+            }
+            if (settings.rateSources.cryptoEnabled) {
+                CaptionText(stringResource(R.string.tooldetail_crypto_info))
+            }
         }
         ToolbarTool.QR_GEN -> {
             val qrImageOption = stringResource(R.string.tooldetail_media_send_image_option)
@@ -9764,6 +9819,138 @@ private fun ToolDetailSettings(
             }
         }
         else -> {}
+    }
+}
+
+/** The display name of a rate provider. Ids are stored, names are shown. */
+@Composable
+private fun providerLabel(provider: CurrencyClient.Provider): String = stringResource(
+    when (provider) {
+        CurrencyClient.Provider.ER_API -> R.string.tooldetail_rate_source_er_api
+        CurrencyClient.Provider.FRANKFURTER -> R.string.tooldetail_rate_source_frankfurter
+        CurrencyClient.Provider.COINBASE -> R.string.tooldetail_rate_source_coinbase
+        CurrencyClient.Provider.CURRENCY_API -> R.string.tooldetail_rate_source_currency_api
+        CurrencyClient.Provider.COINGECKO -> R.string.tooldetail_rate_source_coingecko
+    },
+)
+
+/**
+ * Which source to fetch from, and whether the rest stand behind it. Both
+ * answers are one stored list: the head is the source that is tried and the
+ * tail is the fallback chain, so switching fallbacks off simply drops the
+ * tail.
+ */
+@Composable
+private fun RateSourceSetting(
+    @StringRes title: Int,
+    subtitle: String,
+    providers: List<String>,
+    candidates: List<CurrencyClient.Provider>,
+    onChange: (List<String>) -> Unit,
+) {
+    val primary = providers.firstNotNullOfOrNull { CurrencyClient.Provider.of(it) }
+        ?: candidates.first()
+    val fallback = providers.size > 1
+    fun write(head: CurrencyClient.Provider, withFallback: Boolean) {
+        val rest = if (withFallback) candidates.filter { it != head }.map { it.name } else emptyList()
+        onChange(listOf(head.name) + rest)
+    }
+    ChoiceSetting(
+        title = title,
+        subtitle = subtitle,
+        options = candidates.map { it to providerLabel(it) },
+        selected = primary,
+    ) { write(it, fallback) }
+    ToggleSetting(
+        R.string.tooldetail_rate_fallback_title,
+        stringResource(R.string.tooldetail_rate_fallback_subtitle),
+        fallback,
+    ) { write(primary, it) }
+}
+
+/**
+ * The coins the keyboard reads and offers. An empty stored set means the
+ * catalogue's defaults, so the last coin cannot be switched off — turning
+ * it off would silently bring all of them back.
+ */
+@Composable
+private fun CryptoCoinPicker(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val enabled = remember(settings.rateSources.cryptoTickers) {
+        CryptoCatalog.enabled(settings.rateSources.cryptoTickers)
+    }
+    val extra = remember(enabled) { enabled.filterNot { CryptoCatalog.isKnown(it) }.sorted() }
+    var showAdd by remember { mutableStateOf(false) }
+    fun save(next: Set<String>) {
+        if (next.isNotEmpty()) scope.launch { repository.setCryptoTickers(next) }
+    }
+
+    WmRow(
+        title = stringResource(R.string.tooldetail_crypto_coins_title),
+        subtitle = stringResource(R.string.tooldetail_crypto_coins_subtitle, enabled.size),
+        icon = SettingsRowIcons[R.string.tooldetail_crypto_coins_title],
+    )
+    FlowRow(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        for (coin in CryptoCatalog.coins) {
+            FilterChip(
+                selected = coin.code in enabled,
+                onClick = {
+                    save(if (coin.code in enabled) enabled - coin.code else enabled + coin.code)
+                },
+                label = { Text(coin.code, maxLines = 1) },
+            )
+        }
+        for (ticker in extra) {
+            FilterChip(
+                selected = true,
+                onClick = { save(enabled - ticker) },
+                label = { Text(ticker, maxLines = 1) },
+            )
+        }
+    }
+    Button(
+        onClick = { showAdd = true },
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    ) { Text(stringResource(R.string.tooldetail_crypto_add_action)) }
+
+    if (showAdd) {
+        var input by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAdd = false },
+            title = { Text(stringResource(R.string.tooldetail_crypto_add_title)) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = { input = it },
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.tooldetail_crypto_add_hint)) },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.tooldetail_crypto_add_info),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = input.isNotBlank(),
+                    onClick = {
+                        save(enabled + input.trim().uppercase().filter { it.isLetterOrDigit() })
+                        showAdd = false
+                    },
+                ) { Text(stringResource(CommonR.string.common_add)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAdd = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
     }
 }
 

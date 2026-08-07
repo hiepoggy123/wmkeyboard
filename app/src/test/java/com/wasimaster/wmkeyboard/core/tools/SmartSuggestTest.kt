@@ -126,6 +126,131 @@ class SmartSuggestTest {
         assertEquals(SmartSuggest.Kind.UNIT, hit("5 pounds")?.kind)
     }
 
+    // ---- cryptocurrency ----
+
+    private val coinRates = rates.copy(
+        rates = rates.rates + mapOf(
+            "BTC" to 0.000015, "ETH" to 0.0005, "DOGE" to 14.0, "USDT" to 1.0,
+            "AVAX" to 0.05, "LINK" to 0.08, "DOT" to 0.25,
+        ),
+        crypto = setOf("BTC", "ETH", "DOGE", "USDT", "AVAX", "LINK", "DOT"),
+    )
+
+    private val coinCtx = ctx.copy(
+        rates = coinRates,
+        calcEnabled = false,
+        unitsEnabled = false,
+        keywordsEnabled = false,
+    )
+
+    @Test
+    fun coinAmountsConvertIntoTheTargetCurrency() {
+        assertEquals("8,000,000.00 Taka", hit("1 btc", coinCtx)?.result)
+        assertEquals("4,000,000.00 Taka", hit("0.5 BTC", coinCtx)?.result)
+        assertEquals("16,000,000.00 Taka", hit("2 bitcoin", coinCtx)?.result)
+        assertEquals("857.14 Taka", hit("100 doge", coinCtx)?.result)
+    }
+
+    @Test
+    fun tickersLongerThanThreeLettersResolve() {
+        // The three-letter gate that fiat codes go through would have thrown
+        // both of these away.
+        assertEquals("1,200.00 Taka", hit("10 USDT", coinCtx)?.result)
+        assertEquals("2,400.00 Taka", hit("1 AVAX", coinCtx)?.result)
+    }
+
+    @Test
+    fun tickersThatAreAlsoWordsNeedCapitals() {
+        for (typed in listOf("3 link", "1 dot")) {
+            assertNull("\"$typed\" is a sentence, not a price", hit(typed, coinCtx))
+        }
+        assertEquals("4,500.00 Taka", hit("3 LINK", coinCtx)?.result)
+        assertEquals("480.00 Taka", hit("1 DOT", coinCtx)?.result)
+    }
+
+    @Test
+    fun tickersThatAreNoWordAtAllReadInLowerCase() {
+        for (typed in listOf("1 btc", "1 eth", "1 doge", "1 usdt")) {
+            assertNotNull("no hit for \"$typed\"", hit(typed, coinCtx))
+        }
+    }
+
+    @Test
+    fun satsAreAHundredMillionthOfABitcoin() {
+        val h = hit("100000 sats", coinCtx)
+        assertEquals("8,000.00 Taka", h?.result)
+        // The chip echoes what was typed, not 100,000 whole bitcoin.
+        assertEquals("100000 sats", h?.query)
+    }
+
+    @Test
+    fun aCoinPendsWhileOnlyTheCurrencyTableIsLoaded() {
+        // The regression this guards: fiat rates arriving used to make the
+        // coin chip disappear instead of waiting for the coin table.
+        val h = hit("1 btc")
+        assertEquals(SmartSuggest.Kind.CURRENCY, h?.kind)
+        assertTrue("should be waiting on the coin table", h!!.pending)
+        assertTrue("the caller has to know to fetch coins", h.pendingCrypto)
+        assertNull(h.result)
+    }
+
+    @Test
+    fun aCoinIsSilentWhenCoinsAreOffOrTheSourceIsDown() {
+        assertNull(hit("1 btc", coinCtx.copy(cryptoEnabled = false)))
+        // Rates are loaded but carry no coins and the source failed: give up
+        // rather than spin on every keystroke.
+        assertNull(hit("1 btc", ctx.copy(cryptoUnavailable = true)))
+    }
+
+    @Test
+    fun theUsersOwnTickerSetReplacesTheDefaults() {
+        val onlyBitcoin = coinCtx.copy(cryptoTickers = setOf("BTC"))
+        assertNotNull(hit("1 btc", onlyBitcoin))
+        assertNull(hit("100 doge", onlyBitcoin))
+    }
+
+    @Test
+    fun aCoinTargetKeepsItsTickerAndItsDigits() {
+        val toBitcoin = coinCtx.copy(currencyTo = "BTC")
+        val h = hit("1000000 bdt", toBitcoin)
+        // 1,000,000 BDT is 0.125 BTC — two decimals would have said "0.13",
+        // and a smaller amount would have said "0.00".
+        assertEquals("0.125 BTC", h?.result)
+        assertEquals("0.000015 BTC", hit("120 bdt", toBitcoin)?.result)
+    }
+
+    @Test
+    fun aCoinDecimalCountOverridesTheAutomaticDigits() {
+        val fixed = coinCtx.copy(currencyTo = "BTC", cryptoDecimals = 4)
+        assertEquals("0.1250 BTC", hit("1000000 bdt", fixed)?.result)
+    }
+
+    @Test
+    fun noCoinTierEverRoundsAwayToZero() {
+        val tiers = hit("120 bdt", coinCtx.copy(currencyTo = "BTC"))!!.tiers
+        assertTrue(tiers.isNotEmpty())
+        for (tier in tiers) {
+            assertFalse("\"${tier.result}\" says nothing", tier.result.startsWith("0 "))
+            assertFalse(tier.result.startsWith("~0 "))
+        }
+    }
+
+    @Test
+    fun aPairCodeThatLeftTheTableFallsBack() {
+        // Coins were switched off while the saved pair still names one; the
+        // chip converts into something else rather than dying.
+        val h = hit("150 usd", ctx.copy(currencyTo = "BTC"))
+        assertEquals("135.00 Euro", h?.result)
+    }
+
+    @Test
+    fun noCoinTickerCollidesWithAKnownCurrency() {
+        val fiat = CurrencyClient.names.keys + CurrencyClient.popular
+        for (code in CryptoCatalog.defaultCodes) {
+            assertFalse("$code is both a coin and a currency", code in fiat)
+        }
+    }
+
     // ---- display tiers ----
 
     @Test

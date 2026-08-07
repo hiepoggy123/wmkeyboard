@@ -534,6 +534,10 @@ sealed interface CurrencyUi {
     data class Ready(
         val rates: com.wasimaster.wmkeyboard.core.tools.CurrencyClient.Rates,
         val fetchedAtMs: Long,
+        /** Coins run on their own, much shorter clock than the fiat table. */
+        val cryptoFetchedAtMs: Long = 0L,
+        /** The last coin fetch failed, so coin chips give up rather than spin. */
+        val cryptoFailed: Boolean = false,
     ) : CurrencyUi
 }
 

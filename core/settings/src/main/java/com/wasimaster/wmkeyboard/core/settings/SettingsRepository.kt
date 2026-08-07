@@ -1397,6 +1397,8 @@ data class KeyboardSettings(
     val currencyDecimals: Int = 2,
     /** Hours exchange rates stay fresh before the panel refetches on open. */
     val currencyCacheHours: Int = 6,
+    /** Where rates come from, and how cryptocurrency is handled. */
+    val rateSources: RateSourceSettings = RateSourceSettings(),
     /** Pause after typing stops before the grammar tool re-lints the field. */
     val grammarDebounceMs: Int = 350,
     /**
@@ -2036,6 +2038,29 @@ data class PasswordGeneratorSettings(
     val ppSeparator: String = "-",
     val ppCapitalize: Boolean = false,
     val ppIncludeDigit: Boolean = false,
+)
+
+/**
+ * Where the currency tool gets its numbers. Grouped for the same reason as
+ * [PasswordGeneratorSettings]: [KeyboardSettings] is close to the argument
+ * ceiling, and these six belong to one feature.
+ *
+ * Both provider lists are ordered chains — the first entry is the source
+ * that is tried, the rest are fallbacks — so "also use the others" is a
+ * one-or-many list rather than a second setting. Ids are
+ * `CurrencyClient.Provider` names.
+ */
+data class RateSourceSettings(
+    val fiatProviders: List<String> = listOf("ER_API", "FRANKFURTER"),
+    /** Read coin amounts ("1 btc") and show coins in the converter. */
+    val cryptoEnabled: Boolean = true,
+    val cryptoProviders: List<String> = listOf("COINBASE", "CURRENCY_API"),
+    /** Coin prices move by the minute, unlike the daily fiat table. */
+    val cryptoCacheMinutes: Int = 5,
+    /** The coins that are on; empty means the catalogue's own default set. */
+    val cryptoTickers: Set<String> = emptySet(),
+    /** Decimal places on coin amounts, or 0 to keep significant digits instead. */
+    val cryptoDecimals: Int = 0,
 )
 
 data class CjkSettings(
@@ -3376,6 +3401,12 @@ class SettingsRepository(private val context: Context) {
         private val QR_SCAN_LINK_PREVIEWS = booleanPreferencesKey("qr_scan_link_previews")
         private val CURRENCY_DECIMALS = intPreferencesKey("currency_decimals")
         private val CURRENCY_CACHE_HOURS = intPreferencesKey("currency_cache_hours")
+        private val FIAT_PROVIDERS = stringPreferencesKey("fiat_rate_providers")
+        private val CRYPTO_ENABLED = booleanPreferencesKey("crypto_enabled")
+        private val CRYPTO_PROVIDERS = stringPreferencesKey("crypto_rate_providers")
+        private val CRYPTO_CACHE_MINUTES = intPreferencesKey("crypto_cache_minutes")
+        private val CRYPTO_TICKERS = stringSetPreferencesKey("crypto_tickers")
+        private val CRYPTO_DECIMALS = intPreferencesKey("crypto_decimals")
         private val GRAMMAR_DEBOUNCE_MS = intPreferencesKey("grammar_debounce_ms")
         private val UNIT_CONVERT_LAST = stringPreferencesKey("unit_convert_last")
         private val TOOLBOX_COLUMNS = intPreferencesKey("toolbox_columns")
@@ -4237,6 +4268,17 @@ class SettingsRepository(private val context: Context) {
             qrScanLinkPreviews = p[QR_SCAN_LINK_PREVIEWS] ?: defaults.qrScanLinkPreviews,
             currencyDecimals = p[CURRENCY_DECIMALS] ?: defaults.currencyDecimals,
             currencyCacheHours = p[CURRENCY_CACHE_HOURS] ?: defaults.currencyCacheHours,
+            rateSources = RateSourceSettings(
+                fiatProviders = p[FIAT_PROVIDERS]?.split('\n')?.filter { it.isNotEmpty() }
+                    ?: defaults.rateSources.fiatProviders,
+                cryptoEnabled = p[CRYPTO_ENABLED] ?: defaults.rateSources.cryptoEnabled,
+                cryptoProviders = p[CRYPTO_PROVIDERS]?.split('\n')?.filter { it.isNotEmpty() }
+                    ?: defaults.rateSources.cryptoProviders,
+                cryptoCacheMinutes = p[CRYPTO_CACHE_MINUTES]
+                    ?: defaults.rateSources.cryptoCacheMinutes,
+                cryptoTickers = p[CRYPTO_TICKERS] ?: defaults.rateSources.cryptoTickers,
+                cryptoDecimals = p[CRYPTO_DECIMALS] ?: defaults.rateSources.cryptoDecimals,
+            ),
             grammarDebounceMs = p[GRAMMAR_DEBOUNCE_MS] ?: defaults.grammarDebounceMs,
             unitConvertLast = p[UNIT_CONVERT_LAST] ?: defaults.unitConvertLast,
             toolboxColumns = p[TOOLBOX_COLUMNS] ?: defaults.toolboxColumns,
@@ -4724,6 +4766,51 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setCurrencyCacheHours(value: Int) =
         editPrefs { it[CURRENCY_CACHE_HOURS] = value.coerceIn(1, 48) }
+
+    suspend fun setCryptoEnabled(value: Boolean) =
+        editPrefs { it[CRYPTO_ENABLED] = value }
+
+    suspend fun setCryptoCacheMinutes(value: Int) =
+        editPrefs { it[CRYPTO_CACHE_MINUTES] = value.coerceIn(1, 60) }
+
+    /** 0 keeps significant digits instead of a fixed count. */
+    suspend fun setCryptoDecimals(value: Int) =
+        editPrefs { it[CRYPTO_DECIMALS] = value.coerceIn(0, 12) }
+
+    /**
+     * The rate sources to try, best first. An empty list would leave the
+     * tool with nowhere to fetch from, so it clears the setting and lets the
+     * defaults stand instead.
+     */
+    suspend fun setFiatProviders(value: List<String>) =
+        editPrefs { prefs -> writeProviders(prefs, FIAT_PROVIDERS, value) }
+
+    suspend fun setCryptoProviders(value: List<String>) =
+        editPrefs { prefs -> writeProviders(prefs, CRYPTO_PROVIDERS, value) }
+
+    private fun writeProviders(
+        prefs: MutablePreferences,
+        key: Preferences.Key<String>,
+        value: List<String>,
+    ) {
+        val cleaned = value.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        if (cleaned.isEmpty()) prefs.remove(key) else prefs[key] = cleaned.joinToString("\n")
+    }
+
+    /**
+     * Turn one coin on or off. An empty set means "the catalogue defaults",
+     * so switching the last coin off would silently turn them all back on —
+     * the caller has to keep at least one, and the panel's chip grid does.
+     */
+    suspend fun setCryptoTickers(value: Set<String>) =
+        editPrefs { prefs ->
+            val cleaned = value.mapNotNull(::normalizeTicker).toSet()
+            if (cleaned.isEmpty()) prefs.remove(CRYPTO_TICKERS) else prefs[CRYPTO_TICKERS] = cleaned
+        }
+
+    /** Tickers are letters and digits in capitals: "btc " becomes "BTC". */
+    private fun normalizeTicker(raw: String): String? =
+        raw.trim().uppercase().filter { it.isLetterOrDigit() }.take(12).ifEmpty { null }
 
     suspend fun setGrammarDebounceMs(value: Int) =
         editPrefs { it[GRAMMAR_DEBOUNCE_MS] = value.coerceIn(100, 1500) }

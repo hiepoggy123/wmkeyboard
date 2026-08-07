@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- ==================================================================
          Tool detail screen: one screen for each keyboard tool. The strings
          below are grouped by tool, in the same order as the screen builds
@@ -454,11 +454,43 @@
     <string name="tooldetail_currency_smart_subtitle">Offer the amount in %1$s when you type one in another currency</string>
     <string name="tooldetail_currency_smart_info">\"150 usd\", \"150usd\", \"150$\" and \"150 dollars\" all put the converted amount on the suggestion strip. The keyboard converts into the \"to\" currency of the pair below. If you type an amount that is already in that currency, it converts into the \"from\" one. The rate fetch starts when you type an amount, and nothing is requested before that.</string>
     <string name="tooldetail_currency_decimals_title">Decimal places</string>
-    <string name="tooldetail_currency_decimals_subtitle">Rounding of the converted amount</string>
+    <string name="tooldetail_currency_decimals_subtitle">Rounding of the converted amount. Coins have their own setting</string>
     <string name="tooldetail_currency_refresh_title">Refresh the rates every</string>
     <string name="tooldetail_currency_refresh_subtitle">How long a fetched exchange rate stays fresh</string>
     <string name="tooldetail_currency_refresh_info">The upstream rates update about one time each day. A value below 24 hours mostly changes how soon the keyboard tries a failed fetch again.</string>
     <string name="tooldetail_currency_info">Rates come from open.er-api.com, which has about 160 currencies and updates daily. frankfurter.app (European Central Bank) is the fallback. Both are free and need no API key. The keyboard remembers the from and to pair that you select on the panel.</string>
+
+    <!-- Cryptocurrency in the currency tool. -->
+    <string name="tooldetail_crypto_group_title">Cryptocurrency</string>
+    <string name="tooldetail_crypto_enable_title">Convert coins</string>
+    <string name="tooldetail_crypto_enable_subtitle">Read amounts like \"1 btc\" and show coins in the converter</string>
+    <string name="tooldetail_crypto_enable_info">\"1 btc\", \"0.5 ETH\", \"2 bitcoin\" and \"100000 sats\" put the amount in your currency on the suggestion strip. Tickers that are also ordinary words, such as DOT, LINK and NEAR, only count when you type them in capitals. Coin prices are fetched only when you type a coin amount or select a coin on the panel.</string>
+    <string name="tooldetail_crypto_decimals_title">Coin decimal places</string>
+    <string name="tooldetail_crypto_decimals_subtitle">Automatic keeps five meaningful digits, which fits both a whole coin and a fraction of one</string>
+    <string name="tooldetail_crypto_decimals_auto">Auto</string>
+    <string name="tooldetail_crypto_refresh_title">Refresh coin prices every</string>
+    <string name="tooldetail_crypto_refresh_subtitle">Coin prices move much faster than the daily currency table</string>
+    <string name="tooldetail_crypto_coins_title">Coins</string>
+    <!-- %1$d is how many coins are turned on. -->
+    <string name="tooldetail_crypto_coins_subtitle" tools:ignore="PluralsCandidate">%1$d on. Select the coins that the keyboard reads and offers</string>
+    <string name="tooldetail_crypto_add_action">Add a ticker</string>
+    <string name="tooldetail_crypto_add_title">Add a ticker</string>
+    <string name="tooldetail_crypto_add_hint">Ticker, for example PEPE</string>
+    <string name="tooldetail_crypto_add_info">Any ticker that your coin source quotes works. A ticker the source does not carry simply never converts.</string>
+    <!-- %1$s is the ticker. -->
+    <string name="tooldetail_crypto_remove_desc">Remove %1$s</string>
+    <string name="tooldetail_currency_source_title">Currency rates from</string>
+    <string name="tooldetail_currency_source_subtitle">Where the fiat exchange rates are fetched</string>
+    <string name="tooldetail_crypto_source_title">Coin prices from</string>
+    <string name="tooldetail_crypto_source_subtitle">Where the coin prices are fetched</string>
+    <string name="tooldetail_rate_fallback_title">Try the other sources</string>
+    <string name="tooldetail_rate_fallback_subtitle">Fall back to the remaining sources when the first one fails</string>
+    <string name="tooldetail_rate_source_er_api">ExchangeRate-API</string>
+    <string name="tooldetail_rate_source_frankfurter">Frankfurter</string>
+    <string name="tooldetail_rate_source_coinbase">Coinbase</string>
+    <string name="tooldetail_rate_source_currency_api">currency-api</string>
+    <string name="tooldetail_rate_source_coingecko">CoinGecko</string>
+    <string name="tooldetail_crypto_info">Coin prices come from Coinbase, with the jsDelivr currency-api as the fallback; CoinGecko is the other choice. All three are free and need no API key. Prices are indicative and are not advice to buy or sell anything.</string>
 
     <!-- QR code generator tool. -->
     <string name="tooldetail_qr_gen_size_title">Image size</string>

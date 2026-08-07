@@ -47,8 +47,10 @@ import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Collections
@@ -58,6 +60,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Contrast
+import androidx.compose.material.icons.outlined.CurrencyBitcoin
 import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.DataArray
 import androidx.compose.material.icons.outlined.DataObject
@@ -167,6 +170,7 @@ import androidx.compose.material.icons.outlined.TextFormat
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.Toll
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.Tune
@@ -636,6 +640,13 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.tooldetail_currency_smart_title, Icons.Outlined.CurrencyExchange)
     put(R.string.tooldetail_currency_decimals_title, Icons.Outlined.Numbers)
     put(R.string.tooldetail_currency_refresh_title, Icons.Outlined.Refresh)
+    put(R.string.tooldetail_currency_source_title, Icons.Outlined.Cloud)
+    put(R.string.tooldetail_crypto_enable_title, Icons.Outlined.CurrencyBitcoin)
+    put(R.string.tooldetail_crypto_decimals_title, Icons.Outlined.Numbers)
+    put(R.string.tooldetail_crypto_refresh_title, Icons.Outlined.Refresh)
+    put(R.string.tooldetail_crypto_source_title, Icons.Outlined.Cloud)
+    put(R.string.tooldetail_crypto_coins_title, Icons.Outlined.Toll)
+    put(R.string.tooldetail_rate_fallback_title, Icons.Outlined.CloudSync)
     put(R.string.tooldetail_qr_gen_size_title, Icons.Outlined.PhotoSizeSelectLarge)
     put(R.string.tooldetail_qr_gen_send_title, Icons.AutoMirrored.Outlined.Send)
     put(R.string.tooldetail_qr_gen_gallery_title, Icons.Outlined.PhotoLibrary)

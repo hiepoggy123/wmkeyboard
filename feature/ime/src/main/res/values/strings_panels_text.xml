@@ -142,6 +142,10 @@
     <string name="ime_currency_refresh_desc">Update the exchange rates</string>
     <!-- Inserts the converted amount at the cursor. -->
     <string name="ime_currency_insert_action">Insert</string>
+    <!-- Headings in the currency picker: the pinned codes, the coins, everything else. -->
+    <string name="ime_currency_section_popular">Common</string>
+    <string name="ime_currency_section_crypto">Crypto</string>
+    <string name="ime_currency_section_all">All</string>
 
     <!-- Compass tool panel. -->
     <string name="ime_compass_calibrating_progress">Calibrating…</string>

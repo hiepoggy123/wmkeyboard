@@ -54,6 +54,8 @@ The custom keypad (`7 8 9 ÷ ⌫`, `4 5 6 × (`, `1 2 3 − )`, `0 . % + =`) rep
 
 The currency picker pins 15 common codes to the front of the list: USD, EUR, BDT, GBP, INR, JPY, CNY, AUD, CAD, SGD, AED, SAR, MYR, TRY, PKR, before falling through to everything else the current rate table has, sorted alphabetically.
 
+**Cryptocurrency** rides in the same panel. With coins on (they are by default) the picker grows a **Crypto** section between the pinned codes and the alphabetical tail, and picking a coin on either side converts against it exactly like a currency. Coin prices come from `api.coinbase.com`, with the jsDelivr `currency-api` behind it and CoinGecko as the other choice, and they are only fetched when you actually pick a coin or type a coin amount. Coin results keep five meaningful digits instead of the two decimals a currency gets, since a fraction of a bitcoin at two decimals is just `0.00`.
+
 Both converters are also reachable inline: typing `1 ft` or `150 usd` on the strip offers a [smart chip](/smart/chips/) with the converted amount, and its gear icon opens the matching panel with the category/pair already set. That inline mechanism is covered on the smart chips page, not here.
 
 ### Options
@@ -67,6 +69,15 @@ Both converters are also reachable inline: typing `1 ft` or `150 usd` on the str
 - **Convert as you type** — on by default. The inline currency chip.
 - **Decimal places** — a slider from 0 to 6, defaulting to **2**.
 - **Refresh rates every** — a slider from 1 to 48 hours, defaulting to **6**. Upstream rates only update about once a day, so anything under 24 hours mostly changes how soon a *failed* fetch gets retried.
+- **Currency rates from** — which source to fetch fiat rates from: ExchangeRate-API (the default), Frankfurter, Coinbase, or the jsDelivr currency-api. **Try the other sources** underneath decides whether the rest stand behind it as fallbacks.
+
+<SettingsPath path="Tools / Currency converter / Cryptocurrency" />
+
+- **Convert coins** — on by default. Reads amounts like `1 btc` and shows the Crypto section on the panel.
+- **Coin decimal places** — a slider from Auto to 12, defaulting to **Auto**, which keeps five meaningful digits whatever the size of the number.
+- **Refresh coin prices every** — a slider from 1 to 60 minutes, defaulting to **5**.
+- **Coin prices from** — Coinbase (the default), the jsDelivr currency-api, or CoinGecko, with the same **Try the other sources** switch.
+- **Coins** — a chip for each of the 39 coins the keyboard knows, 20 of them on to begin with, plus **Add a ticker** for anything else your source quotes. At least one coin always stays on.
 
 [Power saving mode](/typing/power-saving/) doesn't touch either converter's own network fetch: its background-network toggle only forces off clipboard link previews, QR-scan link previews, and dictionary auto-lookup, not the currency panel opening or refreshing. See [network policy](/privacy/network/) for what leaves the device and when.
 
