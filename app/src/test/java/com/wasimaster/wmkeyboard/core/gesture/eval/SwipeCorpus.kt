@@ -1,8 +1,7 @@
 package com.wasimaster.wmkeyboard.core.gesture.eval
 
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
-import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
-import com.wasimaster.wmkeyboard.core.prediction.eval.QwertyGeometry
+import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.exp
@@ -42,7 +41,15 @@ import kotlin.random.Random
  * an upper bound on the real one, and should be treated as such until it is
  * checked on a device.
  */
-class SwipeCorpus(seed: Long = 42L, private val keyWidth: Float = KEY_WIDTH) {
+class SwipeCorpus(
+    seed: Long = 42L,
+    private val keyWidth: Float = KEY_WIDTH,
+    /**
+     * The layout being swiped on. Defaults to QWERTY so every caller that only
+     * ever measured English keeps measuring exactly what it did.
+     */
+    val grid: GlideGrid = GlideGrid.of(BuiltInLayouts.QWERTY),
+) {
 
     /** How badly the swipe is drawn. Each axis is independent, so a sweep can
      * vary one and hold the rest — see `SwipeNoiseSweepTest`. */
@@ -163,13 +170,16 @@ class SwipeCorpus(seed: Long = 42L, private val keyWidth: Float = KEY_WIDTH) {
 
     private class Pt(val x: Float, val y: Float)
 
-    /** Key centres of the word's letters in key widths, consecutive repeats collapsed. */
+    /**
+     * Key centres of the word's letters in key widths, consecutive repeats
+     * collapsed — a doubled letter is one key, visited once.
+     */
     private fun anchorsOf(word: String): List<Pt>? {
         val out = ArrayList<Pt>(word.length)
         var previous: Char? = null
         for (ch in word) {
             if (ch == previous) continue
-            val key = QwertyGeometry.keyFor(ch) ?: return null
+            val key = grid.centerOf(ch) ?: return null
             out.add(Pt(key.x, key.y))
             previous = ch
         }
@@ -378,9 +388,16 @@ class SwipeCorpus(seed: Long = 42L, private val keyWidth: Float = KEY_WIDTH) {
         return (sqrt(-2.0 * ln(u1)) * cos(2.0 * PI * u2)).toFloat()
     }
 
+    /**
+     * A word this grid can be asked to draw. The alphabet test is the grid's
+     * own rather than `'a'..'z'`: on Probhat a "letter" is as likely to be a
+     * vowel sign or the hasanta as a consonant, and on ЙЦУКЕН none of them are
+     * Latin at all.
+     */
     private fun usable(entry: Pair<String, Int>): Boolean {
         val word = entry.first
-        return word.length in MIN_WORD..MAX_WORD && word.all { it in 'a'..'z' }
+        return word.length in MIN_WORD..MAX_WORD &&
+            word.all { it.lowercaseChar() in grid.alphabet }
     }
 
     /** Cumulative-sum frequency-weighted sampling with binary search. */
@@ -449,7 +466,7 @@ class SwipeCorpus(seed: Long = 42L, private val keyWidth: Float = KEY_WIDTH) {
         private const val MIN_SAMPLES = 4
 
         /** The letter grid the corpus draws on, in the same pixel space as the paths. */
-        fun keyCenters(keyWidth: Float = KEY_WIDTH): List<KeyCenter> =
-            QwertyGeometry.keys.map { KeyCenter(it.char, it.x * keyWidth, it.y * keyWidth) }
+        fun keyCenters(keyWidth: Float = KEY_WIDTH): List<com.wasimaster.wmkeyboard.core.gesture.KeyCenter> =
+            GlideGrid.of(BuiltInLayouts.QWERTY).keyCenters(keyWidth)
     }
 }

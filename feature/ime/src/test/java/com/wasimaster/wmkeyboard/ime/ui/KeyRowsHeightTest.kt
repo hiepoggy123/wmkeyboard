@@ -6,6 +6,7 @@ import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
+import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.core.layout.expandForTablet
 import com.wasimaster.wmkeyboard.core.layout.tabletGridWidth
@@ -131,37 +132,53 @@ class KeyRowsHeightTest {
         )
     }
 
+    private fun layoutSetOf(id: LayoutSpec): LayoutSet = LayoutSet(
+        id.compile(LayoutLayer.LETTERS),
+        id.compile(LayoutLayer.SYMBOLS),
+        id.compile(LayoutLayer.SYMBOLS_SHIFTED),
+    )
+
     @Test
-    fun `the built-in latin layouts report a full alphabet`() {
+    fun `the built-in latin layouts spell the latin alphabet`() {
         for (id in listOf(BuiltInLayouts.QWERTY, BuiltInLayouts.AZERTY, BuiltInLayouts.DVORAK)) {
-            val set = LayoutSet(
-                id.compile(LayoutLayer.LETTERS),
-                id.compile(LayoutLayer.SYMBOLS),
-                id.compile(LayoutLayer.SYMBOLS_SHIFTED),
-            )
-            assertTrue("${id.id} should have a-z", set.lettersHaveFullAlphabet)
+            assertTrue("${id.id} should have a-z", layoutSetOf(id).letterAlphabet.containsAll(('a'..'z').toList()))
         }
     }
 
     @Test
-    fun `a partial grid does not claim a full alphabet`() {
+    fun `a partial grid reports only the characters it has`() {
         val partial = KeyboardLayout(
             name = "partial",
             rows = listOf(listOf(Key("a"), Key("b"), Key(" ", action = KeyAction.Space))),
         )
-        assertFalse(
-            "gesture typing has to switch itself off rather than guess",
-            LayoutSet(partial, partial, partial).lettersHaveFullAlphabet,
-        )
+        assertEquals(setOf('a', 'b'), LayoutSet(partial, partial, partial).letterAlphabet)
     }
 
     @Test
-    fun `the bengali layouts do not claim a latin alphabet`() {
-        val set = LayoutSet(
-            BuiltInLayouts.PROBHAT.compile(LayoutLayer.LETTERS),
-            BuiltInLayouts.PROBHAT.compile(LayoutLayer.SYMBOLS),
-            BuiltInLayouts.PROBHAT.compile(LayoutLayer.SYMBOLS_SHIFTED),
+    fun `probhat's alphabet includes the characters behind shift and long press`() {
+        val alphabet = layoutSetOf(BuiltInLayouts.PROBHAT).letterAlphabet
+        // ক is a base label, খ is its shifted form, ঞ is a long press on জ.
+        // All three have to be in reach: a swipe cannot say which character of
+        // a key it crossed, and dropping the shifted ones would put every
+        // aspirated Bengali consonant out of a glide's reach.
+        assertTrue("base ক missing", 'ক' in alphabet)
+        assertTrue("shifted খ missing", 'খ' in alphabet)
+        assertTrue("long-press ঞ missing", 'ঞ' in alphabet)
+        // The hasanta is a combining mark rather than a letter, and joins every
+        // Bengali conjunct — an alphabet without it spells almost nothing.
+        assertTrue("hasanta missing", '্' in alphabet)
+        assertFalse("latin has no business here", 'q' in alphabet)
+    }
+
+    @Test
+    fun `glide keys hand a key's other characters its measured centre`() {
+        val set = layoutSetOf(BuiltInLayouts.PROBHAT)
+        val keys = set.glideKeys { char -> if (char == 'ক') 5f to 7f else null }
+        val placed = keys.filter { it.x == 5f && it.y == 7f }.map { it.char }
+        assertEquals(
+            "the ক/খ key should contribute both of its characters at one centre",
+            listOf('ক', 'খ'),
+            placed,
         )
-        assertFalse(set.lettersHaveFullAlphabet)
     }
 }

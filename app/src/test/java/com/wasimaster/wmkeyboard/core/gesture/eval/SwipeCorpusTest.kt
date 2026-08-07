@@ -1,7 +1,7 @@
 package com.wasimaster.wmkeyboard.core.gesture.eval
 
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
-import com.wasimaster.wmkeyboard.core.prediction.eval.QwertyGeometry
+import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import kotlin.math.sqrt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -18,6 +18,14 @@ import org.junit.Test
 class SwipeCorpusTest {
 
     private val typical = SwipeCorpus.Noise.TYPICAL.profile
+
+    /**
+     * The same grid the corpus draws on. Sharing it is the point: these tests
+     * exist to catch the corpus and the decoder disagreeing about where keys
+     * are, and a second hand-maintained key table here would be one more thing
+     * that could drift instead of a check on drift.
+     */
+    private val grid = GlideGrid.of(BuiltInLayouts.QWERTY)
 
     private fun swipe(word: String, profile: SwipeCorpus.Profile = typical): List<GesturePoint> =
         SwipeCorpus(42L).swipe(word, profile) ?: error("corpus could not draw '$word'")
@@ -41,7 +49,7 @@ class SwipeCorpusTest {
         // on this, so it is worth asserting rather than assuming.
         val word = "gesture"
         val path = swipe(word)
-        val centres = word.toSet().mapNotNull { QwertyGeometry.keyFor(it) }
+        val centres = word.toSet().mapNotNull { grid.centerOf(it) }
 
         var nearSum = 0.0
         var nearCount = 0
@@ -92,7 +100,7 @@ class SwipeCorpusTest {
         val word = "planet"
         val path = swipe(word, SwipeCorpus.Noise.CLEAN.profile)
         val visited = path.map {
-            QwertyGeometry.nearestKey(it.x / SwipeCorpus.KEY_WIDTH, it.y / SwipeCorpus.KEY_WIDTH)
+            grid.nearestKey(it.x / SwipeCorpus.KEY_WIDTH, it.y / SwipeCorpus.KEY_WIDTH)
         }
         var at = 0
         for (key in visited) {
@@ -146,7 +154,7 @@ class SwipeCorpusTest {
      */
     private fun deviationFromIdeal(word: String, path: List<GesturePoint>): Float {
         val ideal = word.toCharArray().distinctConsecutive()
-            .mapNotNull { QwertyGeometry.keyFor(it) }
+            .mapNotNull { grid.centerOf(it) }
         return path.map { p ->
             val x = p.x / SwipeCorpus.KEY_WIDTH
             val y = p.y / SwipeCorpus.KEY_WIDTH

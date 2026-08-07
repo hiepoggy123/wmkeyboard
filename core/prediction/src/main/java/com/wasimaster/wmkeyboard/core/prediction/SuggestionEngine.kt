@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.core.prediction
 
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
+import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
 import com.wasimaster.wmkeyboard.core.gesture.GlideWorkspace
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
@@ -387,6 +388,18 @@ class SuggestionEngine(
 
     private val glideBeam = GlideBeam()
     private val glideWorkspace = ThreadLocal.withInitial { GlideWorkspace() }
+
+    /**
+     * Whether [alphabet] can spell enough of the language now being typed for a
+     * glide to mean anything. Only the dictionary tier is asked: the personal
+     * lexicon is small and can hold words from whatever the user typed last, so
+     * letting it vote would have a handful of leftover English words decide
+     * whether Bengali is glidable.
+     */
+    fun glideCoverage(alphabet: Set<Char>): Float = GlideCoverage.measure(
+        walkSources().filter { it.tier == FuzzyBeamSearch.Tier.DICTIONARY }.map { it.walker },
+        alphabet,
+    )
 
     /**
      * Decodes a glide stroke against exactly the word sources typing already

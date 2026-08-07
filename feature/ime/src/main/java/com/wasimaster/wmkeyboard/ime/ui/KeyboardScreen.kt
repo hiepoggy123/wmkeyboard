@@ -249,6 +249,7 @@ import androidx.compose.ui.semantics.semantics
 import coil3.compose.AsyncImage
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.ime.R
+import com.wasimaster.wmkeyboard.ime.keySpelling
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
 import kotlinx.coroutines.delay
@@ -7859,12 +7860,13 @@ private fun KeyRows(
     val gestureEnabled = !handwriteSwipe &&
         state.settings.gestureTyping &&
         state.layoutMode == LayoutMode.LETTERS &&
-        state.language.gestureLexicon &&
         state.panel == PanelMode.NONE &&
-        // A layout missing letters would still satisfy every check above, and
-        // the decoder scores against whatever centres it has — so it would
-        // return confident nonsense rather than nothing. Switch it off instead.
-        state.layouts.lettersHaveFullAlphabet
+        // Whether this language and layout can be glided at all — a word list
+        // exists, the layout types letters rather than converting them, and its
+        // keys cover enough of the language to decode honestly. Measured in the
+        // service against the live word sources, because two of those three
+        // questions need the dictionary to answer.
+        state.glideReady
 
     // Letter-key centres and width, captured from layout in this Box's space.
     // Keyed on the layout: the map is written by onGloballyPositioned per key,
@@ -8152,8 +8154,12 @@ private fun KeyRows(
                         ) {
                             isGesture = true
                             trail.begin()
-                            keyList = keyCenters.map { (char, center) ->
-                                KeyCenter(char, center.x, center.y)
+                            // Built once per stroke, from the layout rather than
+                            // the measured map alone: a key's shifted and
+                            // long-pressed characters have no centre of their
+                            // own and take the one their base label reported.
+                            keyList = state.layouts.glideKeys { char ->
+                                keyCenters[char]?.let { it.x to it.y }
                             }
                         }
                         if (isGesture) {
@@ -8707,9 +8713,12 @@ private fun RowScope.KeyCell(
     onBurst: ((Rect) -> Unit)? = null,
 ) {
     val key = visual.key
-    val letter = key.label.singleOrNull()?.takeIf {
-        key.action == KeyAction.Text && it.isLetter()
-    }
+    // The key's centre is reported under the first character it writes, which
+    // is the same character the glide grid anchors it by. Not `singleOrNull`:
+    // a Bengali nukta key (ড়, ঢ়, য়) writes two characters, and keying it by
+    // "exactly one" drops the key — and its shifted twin — off the grid.
+    val letter = key.label.takeIf { key.action == KeyAction.Text }
+        ?.let { keySpelling(it) }?.first()
     KeyButton(
         visual = visual,
         settings = settings,

@@ -4,6 +4,7 @@ import android.view.KeyEvent
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.otp.NotificationOtp
 import com.wasimaster.wmkeyboard.core.emoji.AnimatedEmoji
+import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
@@ -186,20 +187,80 @@ data class LayoutSet(
     ).coerceAtLeast(1)
 
     /**
-     * Whether every a-z key is present on the letter layer. The gesture decoder
-     * scores candidates against key centres, so a layout missing letters would
-     * produce confident nonsense rather than nothing.
+     * Every character the letter layer can produce: base labels, their shifted
+     * forms, and whatever the long presses hold.
+     *
+     * This used to be a yes/no "does it have all of a-z", which was the English
+     * question wearing a general name. The gesture decoder needs the alphabet
+     * itself, and it needs the shifted and long-pressed characters in it: a
+     * finger crossing Probhat's ক/খ key cannot say which it meant, and refusing
+     * the second one would make most aspirated Bengali words unglidable. What
+     * the old flag was really protecting against — a layout so sparse that
+     * decoding it returns confident nonsense — is now a coverage measurement
+     * against the language's own word list rather than a guess about a-z.
      */
-    val lettersHaveFullAlphabet: Boolean = ('a'..'z').all { char ->
-        letters.rows.any { row ->
-            row.any {
-                it.action == KeyAction.Text &&
-                    (it.output ?: it.label).singleOrNull()?.lowercaseChar() == char
+    val letterAlphabet: Set<Char> = buildSet {
+        for (row in letters.rows) {
+            for (key in row) {
+                if (key.action != KeyAction.Text) continue
+                fun take(spelling: String?) {
+                    val label = spelling ?: return
+                    addAll(keySpelling(label) ?: return)
+                    composedKeyChar(label)?.let { add(it) }
+                }
+                take(key.output ?: key.label)
+                take(key.shiftLabel)
+                for (alternate in key.longPress) take(alternate)
             }
         }
     }
 
+    /**
+     * The letter grid a glide is decoded against: one entry per character the
+     * layer can produce, at the centre of the key that produces it.
+     *
+     * [centerOf] resolves a key's base label to a measured centre, which is what
+     * the renderer reports — so a key's shifted character and its long-press
+     * alternates borrow that same centre here. That is the point: a finger
+     * crossing Probhat's ক/খ key, or QWERTZ's u/ü key, cannot say which
+     * character it meant, and offering only the base one would put most
+     * aspirated Bengali words out of reach of a swipe entirely.
+     *
+     * Base first, then shifted, then long presses. [GlideKeyMap] gives the first
+     * claim on a character to whichever entry arrives first, so a character that
+     * is one key's base label and another key's long-press alternate resolves to
+     * the key that actually shows it.
+     */
+    fun glideKeys(centerOf: (Char) -> Pair<Float, Float>?): List<KeyCenter> {
+        val out = ArrayList<KeyCenter>(letters.rows.sumOf { it.size } * 2)
+        fun emit(spelling: String?, x: Float, y: Float) {
+            val label = spelling ?: return
+            for (ch in keySpelling(label) ?: return) out.add(KeyCenter(ch, x, y))
+            composedKeyChar(label)?.let { out.add(KeyCenter(it, x, y)) }
+        }
+        for (pass in 0 until PASSES) {
+            for (row in letters.rows) {
+                for (key in row) {
+                    if (key.action != KeyAction.Text) continue
+                    val anchor = keySpelling(key.label)?.first() ?: continue
+                    val (x, y) = centerOf(anchor) ?: continue
+                    when (pass) {
+                        BASE_PASS -> emit(key.output ?: key.label, x, y)
+                        SHIFT_PASS -> emit(key.shiftLabel, x, y)
+                        else -> for (alternate in key.longPress) emit(alternate, x, y)
+                    }
+                }
+            }
+        }
+        return out
+    }
+
     companion object {
+        /** Base labels, then shifted, then long presses — see [glideKeys]. */
+        private const val BASE_PASS = 0
+        private const val SHIFT_PASS = 1
+        private const val PASSES = 3
+
         /** The shipped grids, for a state built before the first resolution. */
         val Default = LayoutSet(Layouts.QWERTY, Layouts.SYMBOLS, Layouts.SYMBOLS_SHIFTED)
     }
@@ -945,6 +1006,16 @@ data class KeyboardUiState(
     val smartReplyChips: List<android.view.View> = emptyList(),
     /** Best gesture-typing candidate mid-swipe, shown floating above the finger. */
     val glideWord: String? = null,
+    /**
+     * Whether the active language and layout can be glided: a word list to
+     * decode against, a layout that types letters rather than converting them,
+     * and keys covering enough of the language to decode honestly.
+     *
+     * Computed in the service rather than derived here, because two of the three
+     * questions need the live word sources to answer and one of them (coverage)
+     * is a measurement over the dictionary, not a property of the layout.
+     */
+    val glideReady: Boolean = false,
     val composingPreview: String = "",
     /**
      * Probability weight (0..1) of each letter being typed next, given the
@@ -1330,3 +1401,97 @@ sealed interface PluginPanelUi {
         val error: String? = null,
     ) : PluginPanelUi
 }
+
+/**
+ * The characters one press of a key writes, lowercased, or null when the key
+ * does not write a word character at all.
+ *
+ * Usually this is one character and the function is a formality. It is not a
+ * formality on the fixed Bengali layouts, where ড়, ঢ় and য় are stored the way
+ * Unicode also allows — a base letter followed by U+09BC NUKTA — so the key that
+ * writes য় writes *two* characters. Anything that indexes the grid per
+ * character has to know that, or the whole key vanishes from it: that is what
+ * put every word containing য (214 of Bengali's 1500 commonest, since the plain
+ * letter rides on that key's shift) out of a glide's reach.
+ *
+ * A trailing run of combining marks counts as part of the character; anything
+ * longer does not. The bound matters — a key whose label is a whole word, which
+ * a custom layout is free to have, must not scatter its letters across the grid
+ * and let the decoder spell them from one spot.
+ */
+fun keySpelling(label: String): List<Char>? {
+    if (label.isEmpty() || label.length > MAX_KEY_SPELLING) return null
+    if (!isLetterKeyChar(label[0])) return null
+    for (i in 1 until label.length) {
+        if (!isCombiningMark(label[i])) return null
+    }
+    return label.map { it.lowercaseChar() }
+}
+
+/**
+ * Whether a character spells part of a word.
+ *
+ * `isLetter` alone is the Latin answer. Most of Probhat's and Jatiya's keys
+ * carry Bengali vowel signs and the hasanta, which Unicode classes as combining
+ * marks rather than letters — so a letters-only test finds no word character on
+ * them at all, and every Bengali word containing one becomes unglidable, which
+ * is very nearly all of them.
+ */
+private fun isLetterKeyChar(ch: Char): Boolean = ch.isLetter() || isCombiningMark(ch)
+
+private fun isCombiningMark(ch: Char): Boolean = when (Character.getType(ch)) {
+    Character.NON_SPACING_MARK.toInt(),
+    Character.COMBINING_SPACING_MARK.toInt(),
+    -> true
+    else -> false
+}
+
+/**
+ * The single character [label] spells, when it is written as a base plus
+ * combining marks and Unicode also has one code point for the same letter — and
+ * null whenever it does not, which is nearly always.
+ *
+ * The Bengali letters ড় ঢ় য় have both spellings and both are in circulation:
+ * the shipped layouts write them decomposed, and the shipped Bengali word list
+ * writes most of its entries decomposed and about sixty of them composed. Rather
+ * than pick a winner and rewrite one side of that — a silent change to what the
+ * keyboard commits — the key answers to both, so a word stays reachable however
+ * its list happens to spell it.
+ *
+ * Normalisation cannot answer this. Those three letters are in Unicode's
+ * composition exclusion table, so NFC deliberately leaves them decomposed; it is
+ * very likely what decomposed the word list in the first place. The lookup runs
+ * the other way instead — over the code points around the base letter, asking
+ * which of them decomposes to exactly this — and is cached, since a layout has a
+ * handful of such keys and asks about each one repeatedly.
+ */
+fun composedKeyChar(label: String): Char? {
+    if (label.length < 2) return null
+    val cached = composedCache.getOrPut(label) { searchComposed(label) ?: NOT_COMPOSED }
+    return cached.takeIf { it != NOT_COMPOSED }
+}
+
+private val composedCache = java.util.concurrent.ConcurrentHashMap<String, Char>()
+
+/** Stands in for "looked, found nothing", so a miss is cached too. */
+private val NOT_COMPOSED: Char = 0.toChar()
+
+private fun searchComposed(label: String): Char? {
+    // The same 256-point plane as the base letter. Every script that has these
+    // duplicate-with-mark letters — Bengali, Devanagari, Gurmukhi, Oriya — puts
+    // them a short way above their own base letters, well inside this window,
+    // and scanning it is a few hundred comparisons done once per key.
+    val start = label[0].code and 0xFF00
+    for (cp in start until start + 0x100) {
+        val candidate = cp.toChar()
+        if (candidate == label[0]) continue
+        val decomposed = java.text.Normalizer.normalize(
+            candidate.toString(), java.text.Normalizer.Form.NFD,
+        )
+        if (decomposed == label) return candidate.lowercaseChar()
+    }
+    return null
+}
+
+/** A base character plus at most this many combining marks is still one key. */
+private const val MAX_KEY_SPELLING = 4

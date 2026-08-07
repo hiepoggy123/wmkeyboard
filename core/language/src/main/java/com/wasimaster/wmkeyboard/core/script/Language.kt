@@ -14,9 +14,10 @@ import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
  * under this language on the Languages screen.
  *
  * [bundledDictionary] is true only where the APK actually ships a word list
- * (English, Bengali). [gestureLexicon] is true only for English, whose glide
- * decoder is bound to the English lexicon; other languages type on the grid but
- * do not gesture until they gain a lexicon.
+ * (English, Bengali). Whether a language can be *glided* is deliberately not a
+ * flag here: it depends on which layout is showing and whether its keys spell
+ * the language, neither of which a language-level constant can know. The IME
+ * measures it — see `KeyboardUiState.glideReady`.
  */
 data class LanguageDef(
     val id: String,
@@ -26,7 +27,6 @@ data class LanguageDef(
     val localeTag: String,
     val layoutIds: List<String>,
     val bundledDictionary: Boolean = false,
-    val gestureLexicon: Boolean = false,
     /**
      * The digit glyphs this language draws and types when the numeral-system
      * setting is left on Auto. Defaults to Latin `0-9`; scripts with their own
@@ -41,7 +41,7 @@ data class LanguageDef(
 
 /**
  * Every language the keyboard offers — English and Bengali remain the two with
- * bundled dictionaries and gesture typing, but the registry now spans dozens of
+ * bundled dictionaries, but the registry now spans dozens of
  * languages picked from Settings → Languages. Lookups are plain map reads — the
  * exhaustive `when`s the old enums forced (`InputMode.language`, `forMode`,
  * `hintedMode`) collapse to these.
@@ -68,7 +68,6 @@ object LanguageRegistry {
                 BuiltInLayouts.HALMAK_ID,
             ),
             bundledDictionary = true,
-            gestureLexicon = true,
         ),
         LanguageDef(
             id = "bn",

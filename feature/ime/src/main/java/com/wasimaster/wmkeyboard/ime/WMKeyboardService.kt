@@ -97,6 +97,7 @@ import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundRole
 import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
+import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -894,6 +895,13 @@ open class WMKeyboardService : InputMethodService() {
     private val gestureGeneration = AtomicInteger(0)
 
     /**
+     * Bumped whenever the glide decoder's word sources change, so the
+     * readiness watcher re-measures coverage after a dictionary download
+     * lands — the language and layout it otherwise keys on did not move.
+     */
+    private val glideSourcesEpoch = AtomicInteger(0)
+
+    /**
      * One resolved letter grid per (key list, key width). Building it sorts the
      * characters and squares up a key-to-key distance table, which a swipe was
      * otherwise paying for on every preview event.
@@ -1457,6 +1465,7 @@ open class WMKeyboardService : InputMethodService() {
         // Parks on an empty channel until the first glide; costs nothing until
         // then, and saves a job launch per preview once a finger is down.
         startGesturePreviewConsumer()
+        startGlideReadinessWatcher()
         // A process that started on the lock screen never ran ML Kit's init
         // provider, and every ML Kit tool in it — handwriting, OCR, QR, doc
         // scan — stays broken until it is initialized by hand.
@@ -2181,6 +2190,9 @@ open class WMKeyboardService : InputMethodService() {
                 )
                 reranker = resolveReranker(_uiState.value.settings)
             }
+            // A new engine means new word sources; re-ask whether this
+            // language and layout can be glided.
+            glideSourcesEpoch.incrementAndGet()
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog, emojiShortcodes)
             emojiSuggester = EmojiSuggester(catalog, emojiTriggers, emojiShortcodes)
@@ -4813,7 +4825,11 @@ open class WMKeyboardService : InputMethodService() {
             state.panel == PanelMode.NONE &&
             !keyboardHandwriteActive(state) &&
             !state.secureField && !state.fieldNoSuggestions &&
-            state.allowsTypingIntelligence && state.language.gestureLexicon &&
+            // Was reading the old glide flag, which happened to be set on
+            // English and nothing else — nothing to do with resuming a word.
+            // Spelled out as English here to hold the shipped behaviour; what
+            // it should ask is whether this language has completions at all.
+            state.allowsTypingIntelligence && state.language.isEnglish &&
             !state.typingTestActive && !state.emojiSearchActive &&
             !state.dictionarySearchActive && !state.mediaSearchActive &&
             !state.clipboardSearchActive && !state.pluginTypingActive &&
@@ -7585,11 +7601,63 @@ open class WMKeyboardService : InputMethodService() {
         ).map { it.word }
     }
 
+    /**
+     * What decides whether the active language and layout can be glided. A
+     * value class rather than three fields so the watcher below is one
+     * `distinctUntilChanged` rather than a hand-rolled comparison that would
+     * quietly stop noticing a new input the day one gets added.
+     */
+    private data class GlideGate(
+        val languageId: String,
+        /** The layout turns keystrokes into something other than the letters
+         * pressed — Avro, Hangul, Vietnamese, every CJK method. A stroke over
+         * such a grid spells a reading, not a word. */
+        val converts: Boolean,
+        val alphabet: Set<Char>,
+        /** Bumped when the word sources change under us, so a finished
+         * dictionary download re-asks the coverage question. */
+        val sources: Int,
+    )
+
+    /**
+     * Keeps [KeyboardUiState.glideReady] in step with the language, the layout
+     * and the word lists.
+     *
+     * The three conditions it enforces replace two older ones that disagreed
+     * with each other: a `gestureLexicon` flag set on exactly one language, and
+     * an `isEnglish` check in each of the three gesture handlers. Neither was
+     * about anything real — glide works wherever there is a word list, a layout
+     * that types letters rather than converting them, and enough keys to spell
+     * the language.
+     */
+    private fun startGlideReadinessWatcher() {
+        serviceScope.launch {
+            _uiState
+                .map {
+                    GlideGate(
+                        languageId = it.language.id,
+                        converts = it.composer.isTransliterating || it.composer.isConversion,
+                        alphabet = it.layouts.letterAlphabet,
+                        sources = glideSourcesEpoch.get(),
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { gate ->
+                    val ready = !gate.converts && withContext(Dispatchers.Default) {
+                        val engine = suggestionEngine
+                        engine != null &&
+                            engine.glideCoverage(gate.alphabet) >= GlideCoverage.THRESHOLD
+                    }
+                    _uiState.update { if (it.glideReady == ready) it else it.copy(glideReady = ready) }
+                }
+        }
+    }
+
     /** Mid-swipe: show the current best candidates without committing. */
     fun onGesturePreview(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
         val state = _uiState.value
         if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
-        if (!state.language.isEnglish || state.typingTestActive) return
+        if (!state.glideReady || state.typingTestActive) return
         if (keys.isEmpty()) return
         gesturePreviews.trySend(
             GesturePreviewRequest(points, keys, keyWidthPx, gestureGeneration.get()),
@@ -7630,7 +7698,7 @@ open class WMKeyboardService : InputMethodService() {
         stopVoiceForManualInput()
         val state = _uiState.value
         if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
-        if (!state.language.isEnglish || state.typingTestActive) return
+        if (!state.glideReady || state.typingTestActive) return
         if (keys.isEmpty()) return
 
         val shiftAtGesture = state.shiftState
@@ -7716,7 +7784,7 @@ open class WMKeyboardService : InputMethodService() {
         stopVoiceForManualInput()
         val state = _uiState.value
         if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
-        if (!state.language.isEnglish || state.typingTestActive) return
+        if (!state.glideReady || state.typingTestActive) return
         if (keys.isEmpty() || segments.isEmpty()) return
 
         val shiftAtGesture = state.shiftState
@@ -14451,6 +14519,9 @@ open class WMKeyboardService : InputMethodService() {
             val secondaryIds = _uiState.value.settings.secondaryLanguages[lang.id].orEmpty()
             engine.secondaryDictionaries = secondaryIds.filter { it != "en" }
                 .mapNotNull { id -> customDictionaries[id]?.let { SecondaryDictionary(id, it) } }
+            // A download can be the thing that makes a language glidable, and
+            // neither the language nor the layout moved to say so.
+            glideSourcesEpoch.incrementAndGet()
         }
     }
 
