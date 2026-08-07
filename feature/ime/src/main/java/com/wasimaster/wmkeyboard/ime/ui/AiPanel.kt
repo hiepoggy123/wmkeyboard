@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -69,7 +69,9 @@ import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
 import com.wasimaster.wmkeyboard.core.tools.TextDiff
 import com.wasimaster.wmkeyboard.core.tools.visibleAiActions
 import com.wasimaster.wmkeyboard.ime.AiUi
+import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
 import kotlinx.coroutines.delay
 import com.wasimaster.wmkeyboard.common.R as CommonR
@@ -109,6 +111,28 @@ internal fun AiPanel(
         )
     }
 
+    val modelPicks = if (
+        settings.ai.panelModelPicker &&
+        (ai0 is AiUi.Idle || ai0 is AiUi.NeedSetup || ai0 is AiUi.NeedModel)
+    ) {
+        rememberModelPicks(state, onPickModel)
+    } else {
+        emptyList()
+    }
+    AiFocusTargets(
+        state = state,
+        actions = actions,
+        modelPicks = modelPicks,
+        onAction = onAction,
+        onRetry = onRetry,
+        onRunCustom = onRunCustom,
+        onToggleStripMarkdown = onToggleStripMarkdown,
+        onSetShowDiff = onSetShowDiff,
+        onReport = onReport,
+        onOpenToolSettings = onOpenToolSettings,
+    )
+    val focusedResult = state.focusedIndex(FocusRegion.RESULTS)
+
     // Height comes from the FullBleedTool wrapper — the panel replaces the
     // toolbar too, so it gets the key rows plus every hidden bar's height.
     Column(
@@ -116,10 +140,8 @@ internal fun AiPanel(
             .fillMaxSize()
             .padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
-        if (state.settings.ai.panelModelPicker &&
-            (ai0 is AiUi.Idle || ai0 is AiUi.NeedSetup || ai0 is AiUi.NeedModel)
-        ) {
-            ModelPickerRow(state, onPickModel)
+        if (modelPicks.isNotEmpty()) {
+            ModelPickerRow(modelPicks, state.focusedIndex(FocusRegion.CHIPS))
         }
         when (val ai = state.ai) {
             AiUi.NeedSetup -> Column(
@@ -140,7 +162,10 @@ internal fun AiPanel(
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
                 Spacer(Modifier.height(8.dp))
-                ToolPanelChip(stringResource(R.string.ime_ai_open_settings_action)) {
+                ToolPanelChip(
+                    stringResource(R.string.ime_ai_open_settings_action),
+                    modifier = Modifier.focusRing(focusedResult == 0),
+                ) {
                     onOpenToolSettings(ToolbarTool.AI)
                 }
             }
@@ -164,7 +189,10 @@ internal fun AiPanel(
                         modifier = Modifier.padding(horizontal = 24.dp),
                     )
                     Spacer(Modifier.height(8.dp))
-                    ToolPanelChip(stringResource(R.string.ime_ai_download_model_action)) {
+                    ToolPanelChip(
+                        stringResource(R.string.ime_ai_download_model_action),
+                        modifier = Modifier.focusRing(focusedResult == 0),
+                    ) {
                         onOpenToolSettings(ToolbarTool.AI)
                     }
                 }
@@ -173,7 +201,7 @@ internal fun AiPanel(
                 // A download started in the settings app keeps running while the
                 // user types, and until now the keyboard gave no sign of it.
                 rememberModelDownload()?.let { ModelDownloadProgress(it, wide = false) }
-                ActionChips(actions, onAction, enabled = state.aiHasText)
+                ActionChips(actions, onAction, enabled = state.aiHasText, focused = focusedResult)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     val provider = stringResource(state.settings.ai.provider.labelRes)
                     // An empty field has nothing to act on, so the chips are
@@ -243,6 +271,7 @@ internal fun AiPanel(
                         stringResource(R.string.ime_ai_run_action),
                         selected = !blank,
                         enabled = !blank,
+                        modifier = Modifier.focusRing(focusedResult == 0),
                     ) { onRunCustom() }
                     Spacer(Modifier.width(8.dp))
                     val provider = stringResource(state.settings.ai.provider.labelRes)
@@ -264,7 +293,7 @@ internal fun AiPanel(
                 }
             }
             is AiUi.Error -> Column(Modifier.fillMaxSize()) {
-                ActionChips(actions, onAction, enabled = state.aiHasText)
+                ActionChips(actions, onAction, enabled = state.aiHasText, focused = focusedResult)
                 Column(
                     Modifier.weight(1f).fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -278,7 +307,11 @@ internal fun AiPanel(
                         modifier = Modifier.padding(horizontal = 24.dp),
                     )
                     Spacer(Modifier.height(8.dp))
-                    ToolPanelChip(stringResource(CommonR.string.common_retry)) { onRetry() }
+                    // The ring's last RESULTS slot, after the action chips.
+                    ToolPanelChip(
+                        stringResource(CommonR.string.common_retry),
+                        modifier = Modifier.focusRing(focusedResult == actions.size),
+                    ) { onRetry() }
                 }
             }
             // Replace/Insert/retry live in the full-bleed header row (the
@@ -364,18 +397,26 @@ internal fun AiPanel(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // Indices mirror [AiFocusTargets]' CHIPS list: the diff
+                    // pair, then the checkbox, then Report.
+                    val focusedChip = state.focusedIndex(FocusRegion.CHIPS)
+                    val diffChips = state.settings.ai.diffView && ai.diffable && !ai.generating
+                    val markdownChipIndex = if (diffChips) 2 else 0
+                    val reportChipIndex = markdownChipIndex + (if (hasMarkdown) 1 else 0)
                     // A mode, not an attribute of the output, so a pair of
                     // chips rather than a checkbox. Hidden while streaming,
                     // where there is nothing finished to compare.
-                    if (state.settings.ai.diffView && ai.diffable && !ai.generating) {
+                    if (diffChips) {
                         ToolPanelChip(
                             stringResource(R.string.ime_ai_view_result),
                             selected = !ai.showDiff,
+                            modifier = Modifier.focusRing(focusedChip == 0),
                         ) { onSetShowDiff(false) }
                         Spacer(Modifier.width(4.dp))
                         ToolPanelChip(
                             stringResource(R.string.ime_ai_view_changes),
                             selected = ai.showDiff,
+                            modifier = Modifier.focusRing(focusedChip == 1),
                         ) { onSetShowDiff(true) }
                         Spacer(Modifier.width(6.dp))
                     }
@@ -384,6 +425,7 @@ internal fun AiPanel(
                             label = stringResource(R.string.ime_ai_strip_markdown_label),
                             checked = ai.stripMarkdown,
                             onToggle = onToggleStripMarkdown,
+                            focused = focusedChip == markdownChipIndex,
                         )
                     }
                     Spacer(Modifier.weight(1f))
@@ -394,7 +436,10 @@ internal fun AiPanel(
                     // is no silent upload. Hidden while still streaming: half
                     // a result is not the thing being complained about.
                     if (!ai.generating) {
-                        ToolPanelChip(stringResource(R.string.ime_ai_report_action)) { onReport() }
+                        ToolPanelChip(
+                            stringResource(R.string.ime_ai_report_action),
+                            modifier = Modifier.focusRing(focusedChip == reportChipIndex),
+                        ) { onReport() }
                     }
                 }
                 Row(
@@ -404,7 +449,7 @@ internal fun AiPanel(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    for (action in actions) {
+                    for ((index, action) in actions.withIndex()) {
                         ToolPanelChip(
                             aiActionLabel(action),
                             // By id, never by equality: the running spec is a
@@ -416,12 +461,80 @@ internal fun AiPanel(
                             // the result already on screen. An action that
                             // writes from nothing is the exception.
                             enabled = state.aiHasText || action.worksWithoutText,
+                            modifier = Modifier.focusRing(focusedResult == index),
                         ) { onAction(action) }
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * Single publisher for the ring's CHIPS and RESULTS regions — one owner per
+ * region whatever state the panel is in, so a state change can never leave a
+ * stale grid behind (the last SideEffect always describes what is on screen).
+ * The indices must mirror the drawing order in [AiPanel].
+ */
+@Composable
+private fun AiFocusTargets(
+    state: KeyboardUiState,
+    actions: List<AiActionSpec>,
+    modelPicks: List<ModelPick>,
+    onAction: (AiActionSpec) -> Unit,
+    onRetry: () -> Unit,
+    onRunCustom: () -> Unit,
+    onToggleStripMarkdown: () -> Unit,
+    onSetShowDiff: (Boolean) -> Unit,
+    onReport: () -> Unit,
+    onOpenToolSettings: (ToolbarTool) -> Unit,
+) {
+    val ai = state.ai
+    val chips: List<() -> Unit> = if (ai is AiUi.Ready) {
+        val hasMarkdown = remember(ai.result) { AiMarkdown.hasMarkdown(ai.result) }
+        buildList {
+            if (state.settings.ai.diffView && ai.diffable && !ai.generating) {
+                add { onSetShowDiff(false) }
+                add { onSetShowDiff(true) }
+            }
+            if (hasMarkdown) add(onToggleStripMarkdown)
+            if (!ai.generating) add(onReport)
+        }
+    } else {
+        modelPicks.map { it.onClick }
+    }
+    PanelFocusTarget(
+        panel = PanelMode.AI,
+        region = FocusRegion.CHIPS,
+        count = chips.size,
+        columns = chips.size.coerceAtLeast(1),
+    ) { index -> chips.getOrNull(index)?.invoke() }
+
+    // Mirrors the chips' own enabled logic, so Enter is never stronger than a tap.
+    val reRun: (AiActionSpec) -> Unit = { action ->
+        if (state.aiHasText || action.worksWithoutText) onAction(action)
+    }
+    val results: List<() -> Unit> = when (ai) {
+        AiUi.NeedSetup -> listOf { onOpenToolSettings(ToolbarTool.AI) }
+        // While a download runs the panel shows progress, not a chip.
+        AiUi.NeedModel -> if (rememberModelDownload() == null) {
+            listOf { onOpenToolSettings(ToolbarTool.AI) }
+        } else {
+            emptyList()
+        }
+        AiUi.Idle -> actions.map { { reRun(it) } }
+        is AiUi.CustomInput -> listOf { if (ai.instruction.isNotEmpty()) onRunCustom() }
+        // The chips on screen are the label of what is in flight, not an offer.
+        is AiUi.Loading -> emptyList()
+        is AiUi.Error -> actions.map { { reRun(it) } } + listOf(onRetry)
+        is AiUi.Ready -> actions.map { { reRun(it) } }
+    }
+    PanelFocusTarget(
+        panel = PanelMode.AI,
+        region = FocusRegion.RESULTS,
+        count = results.size,
+        columns = results.size.coerceAtLeast(1),
+    ) { index -> results.getOrNull(index)?.invoke() }
 }
 
 /** A model download in flight: its display name and how far it has got. */
@@ -501,12 +614,18 @@ private fun ModelDownloadProgress(download: ModelDownload, wide: Boolean) {
  * theme and eat far more vertical room than this row has to give.
  */
 @Composable
-private fun PanelCheckbox(label: String, checked: Boolean, onToggle: () -> Unit) {
+private fun PanelCheckbox(
+    label: String,
+    checked: Boolean,
+    onToggle: () -> Unit,
+    focused: Boolean = false,
+) {
     val kb = LocalKbTheme.current
     Row(
         modifier = Modifier
             .padding(top = 4.dp)
             .clip(RoundedCornerShape(8.dp))
+            .focusRing(focused)
             .clickable(onClick = onToggle)
             .padding(horizontal = 6.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -661,12 +780,17 @@ private class ModelPick(
  * — otherwise the one thing the user needs to see is the one thing off the
  * right edge.
  */
+/**
+ * The picker's entries, selected first, or an empty list when there is only
+ * one model to choose from (a picker with one choice is noise). Hoisted out
+ * of [ModelPickerRow] so [AiPanel] can publish the list as the focus ring's
+ * CHIPS region with the exact indices the row draws.
+ */
 @Composable
-private fun ModelPickerRow(
+private fun rememberModelPicks(
     state: KeyboardUiState,
     onPickModel: (AiProvider, String?) -> Unit,
-) {
-    val kb = LocalKbTheme.current
+): List<ModelPick> {
     val filesDir = LocalContext.current.filesDir
     val settings = state.settings
     // Cheap file stats; keyed on ai state so re-opening after a download or
@@ -680,7 +804,7 @@ private fun ModelPickerRow(
             }
     }
     val remote = AiClient.configuredRemoteProviders(settings.ai)
-    if (remote.size + localIds.size < 2) return
+    if (remote.size + localIds.size < 2) return emptyList()
 
     val selectedLocalId = settings.ai.localModelId
         .takeIf { id -> localIds.any { it.first == id } }
@@ -703,8 +827,12 @@ private fun ModelPickerRow(
     }
     // Stable sort: the selected entry moves to the front, everything else
     // keeps catalog order.
-    val ordered = picks.sortedByDescending { it.selected }
+    return picks.sortedByDescending { it.selected }
+}
 
+@Composable
+private fun ModelPickerRow(picks: List<ModelPick>, focused: Int?) {
+    val kb = LocalKbTheme.current
     // A LazyRow keyed by model identity so the just-picked chip animates to the
     // front instead of jumping there.
     LazyRow(
@@ -722,11 +850,13 @@ private fun ModelPickerRow(
                 modifier = Modifier.animateItem(),
             )
         }
-        items(ordered, key = { it.key }) { pick ->
+        itemsIndexed(picks, key = { _, pick -> pick.key }) { index, pick ->
             ToolPanelChip(
                 pick.label,
                 selected = pick.selected,
-                modifier = Modifier.animateItem(),
+                modifier = Modifier
+                    .animateItem()
+                    .focusRing(index == focused),
                 onClick = pick.onClick,
             )
         }
@@ -773,13 +903,14 @@ private fun ActionChips(
     onAction: (AiActionSpec) -> Unit,
     running: AiActionSpec? = null,
     enabled: Boolean = true,
+    focused: Int? = null,
 ) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        for (action in actions) {
+        for ((index, action) in actions.withIndex()) {
             val isRunning = running != null && action.id == running.id
             ToolPanelChip(
                 aiActionLabel(action),
@@ -787,6 +918,7 @@ private fun ActionChips(
                 // The running chip stays lit rather than dimming — it is the
                 // label of what is in flight, not an offer to press.
                 enabled = (enabled || action.worksWithoutText) && (running == null || isRunning),
+                modifier = Modifier.focusRing(index == focused),
             ) {
                 if (running == null) onAction(action)
             }

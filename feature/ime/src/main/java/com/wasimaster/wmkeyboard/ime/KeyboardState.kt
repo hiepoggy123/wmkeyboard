@@ -342,15 +342,27 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     // The candidate grid is a wall of choices and nothing else.
     PanelMode.CANDIDATES,
     -> listOf(FocusRegion.RESULTS)
-    // Panels the keyboard cannot drive: sensors, cameras, ink, button grids
-    // whose keys the field already receives.
+    // Header command chips first — Replace/Insert are what a keyboard user
+    // came back to the panel for — then the model row, then the action chips.
+    PanelMode.AI -> listOf(FocusRegion.ACTIONS, FocusRegion.CHIPS, FocusRegion.RESULTS)
+    // The query bar, the target-language chip, the picker's rows while it is
+    // open (zero rows closed, so Tab skips it), then Replace/Insert.
+    PanelMode.TRANSLATE -> listOf(
+        FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS, FocusRegion.ACTIONS,
+    )
+    // Panels the keyboard cannot drive: sensors, cameras, ink — and the
+    // TEXT_EDIT/NUMPAD button grids, whose keys a physical keyboard already
+    // sends to the field directly (ringing a d-pad that itself moves the
+    // caret would capture the very arrows it re-implements). GRAMMAR is
+    // deferred: it accompanies live field editing, where the first arrow
+    // press summoning a ring would steal the caret keys mid-sentence.
     PanelMode.NONE, PanelMode.TEXT_EDIT, PanelMode.COMPASS, PanelMode.LEVEL,
     PanelMode.MOON_PHASE, PanelMode.WEATHER, PanelMode.CALENDAR,
     PanelMode.SOUND_HAPTICS, PanelMode.NUMPAD, PanelMode.HANDWRITING,
-    PanelMode.CAMERA, PanelMode.TRANSLATE, PanelMode.OCR, PanelMode.QR_SCAN,
+    PanelMode.CAMERA, PanelMode.OCR, PanelMode.QR_SCAN,
     PanelMode.VOICE, PanelMode.GRAMMAR, PanelMode.CALCULATOR,
     PanelMode.UNIT_CONVERT, PanelMode.CURRENCY, PanelMode.QR_GEN,
-    PanelMode.PASSWORD_GEN, PanelMode.AI, PanelMode.TYPING_TEST,
+    PanelMode.PASSWORD_GEN, PanelMode.TYPING_TEST,
     PanelMode.MEDIA_CONTROL,
     // A plugin draws its own controls, so there is no fixed set of regions to
     // cycle. Hardware navigation inside a plugin panel is future work.

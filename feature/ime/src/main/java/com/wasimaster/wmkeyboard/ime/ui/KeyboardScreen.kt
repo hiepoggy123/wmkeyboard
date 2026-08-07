@@ -6464,11 +6464,19 @@ private fun KeyboardBody(
                     // than the media panels' default compact height.
                     compactHeight = 180.dp,
                     headerActions = {
+                        PanelFocusTarget(
+                            panel = PanelMode.TRANSLATE,
+                            region = FocusRegion.SEARCH,
+                            count = 1,
+                            columns = 1,
+                            onActivate = { onMediaQueryTap() },
+                        )
                         MediaHeaderSearchBar(
                             state = state,
                             placeholder = stringResource(R.string.ime_translate_hint),
                             activePlaceholder = stringResource(R.string.ime_translate_hint),
                             onQueryTap = onMediaQueryTap,
+                            focused = state.focusedIndex(FocusRegion.SEARCH) == 0,
                         )
                     },
                 ) {
@@ -6722,21 +6730,49 @@ private fun KeyboardBody(
                     compactHeight = 132.dp,
                     headerActions = {
                         val ai = state.ai
-                        if (ai is AiUi.Ready && !ai.generating) {
+                        val ready = ai is AiUi.Ready && !ai.generating
+                        // The ring's ACTIONS region: Replace/Insert/Retry when
+                        // there is a result, always the settings circle last.
+                        PanelFocusTarget(
+                            panel = PanelMode.AI,
+                            region = FocusRegion.ACTIONS,
+                            count = if (ready) 4 else 1,
+                            columns = if (ready) 4 else 1,
+                        ) { index ->
+                            when {
+                                !ready || index == 3 -> onOpenToolSettings(ToolbarTool.AI)
+                                index == 0 -> onAiReplace()
+                                index == 1 -> onAiInsert()
+                                index == 2 -> onAiRetry()
+                            }
+                        }
+                        val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
+                        if (ready) {
                             ToolPanelChip(
                                 stringResource(R.string.ime_ai_replace),
                                 selected = true,
+                                modifier = Modifier.focusRing(focusedAction == 0),
                             ) { onAiReplace() }
                             Spacer(Modifier.width(5.dp))
-                            ToolPanelChip(stringResource(R.string.ime_ai_insert)) { onAiInsert() }
+                            ToolPanelChip(
+                                stringResource(R.string.ime_ai_insert),
+                                modifier = Modifier.focusRing(focusedAction == 1),
+                            ) { onAiInsert() }
                             Spacer(Modifier.width(5.dp))
-                            ToolPanelChip("↻") { onAiRetry() }
+                            ToolPanelChip(
+                                "↻",
+                                modifier = Modifier.focusRing(focusedAction == 2),
+                            ) { onAiRetry() }
                             Spacer(Modifier.width(5.dp))
                         }
                         ToolCircle(
                             slot = IconSlots.forTool(ToolbarTool.SETTINGS),
                             description = stringResource(R.string.ime_ai_settings_desc),
                             active = false,
+                            modifier = Modifier.focusRing(
+                                focusedAction == if (ready) 3 else 0,
+                                CircleShape,
+                            ),
                         ) { onOpenToolSettings(ToolbarTool.AI) }
                     },
                 ) {

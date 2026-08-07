@@ -269,6 +269,7 @@ internal fun RowScope.MediaHeaderSearchBar(
     // wording; tools that aren't searching (e.g. translate) pass their own.
     // A default argument cannot hold a resource, hence the null.
     activePlaceholder: String? = null,
+    focused: Boolean = false,
 ) {
     val kb = LocalKbTheme.current
     val activeHint = activePlaceholder ?: stringResource(R.string.ime_media_search_active_hint)
@@ -280,6 +281,7 @@ internal fun RowScope.MediaHeaderSearchBar(
             .clip(shape)
             .background(kb.chip)
             .chipBorder(kb, shape)
+            .focusRing(focused, shape)
             .clickable { onQueryTap() }
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1288,6 +1290,44 @@ internal fun TranslatePanel(
     val translate = state.translate
     val target = state.settings.translateTargetLang
     var pickerOpen by remember { mutableStateOf(false) }
+    // The ring's regions. CHIPS is the one target-language chip; RESULTS is
+    // the picker's rows, published only while it is open (zero rows closed,
+    // so Tab skips it); ACTIONS is Replace/Insert, no-ops while there is
+    // nothing translated — mirroring the chips' own enabled state. Known
+    // v1 gap: Esc while the picker Popup is open closes the whole panel
+    // (the open flag is composable-local, invisible to the service);
+    // Enter on the CHIPS region reopens it cheaply.
+    PanelFocusTarget(
+        panel = PanelMode.TRANSLATE,
+        region = FocusRegion.CHIPS,
+        count = 1,
+        columns = 1,
+        onActivate = { pickerOpen = true },
+    )
+    val pickerLanguages = TranslateClient.languages
+    PanelFocusTarget(
+        panel = PanelMode.TRANSLATE,
+        region = FocusRegion.RESULTS,
+        count = if (pickerOpen) pickerLanguages.size else 0,
+        columns = 1,
+        onActivate = { index ->
+            pickerLanguages.getOrNull(index)?.let { (code, _) ->
+                pickerOpen = false
+                onTarget(code)
+            }
+        },
+    )
+    PanelFocusTarget(
+        panel = PanelMode.TRANSLATE,
+        region = FocusRegion.ACTIONS,
+        count = 2,
+        columns = 2,
+        onActivate = { index ->
+            if (translate.translated.isNotEmpty()) {
+                if (index == 0) onReplace() else onInsert()
+            }
+        },
+    )
     // The panel is its own translation window: the query types into the
     // header search bar (field text is never read). The FullBleedTool
     // wrapper collapses the panel while typing — the keys sit right below
@@ -1316,6 +1356,10 @@ internal fun TranslatePanel(
                         .clip(kb.chipShape())
                         .background(kb.chip)
                         .chipBorder(kb, kb.chipShape())
+                        .focusRing(
+                            state.focusedIndex(FocusRegion.CHIPS) == 0,
+                            kb.chipShape(),
+                        )
                         .clickable { pickerOpen = true }
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -1338,6 +1382,7 @@ internal fun TranslatePanel(
                 if (pickerOpen) {
                     TranslateLanguagePicker(
                         current = target,
+                        focused = state.focusedIndex(FocusRegion.RESULTS),
                         onPick = {
                             pickerOpen = false
                             onTarget(it)
@@ -1380,17 +1425,22 @@ internal fun TranslatePanel(
                 .padding(bottom = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
             TranslateAction(
                 label = stringResource(R.string.ime_translate_replace_action),
                 icon = Icons.Outlined.SwapVert,
                 enabled = translate.translated.isNotEmpty(),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRing(focusedAction == 0, kb.chipShape()),
             ) { onReplace() }
             TranslateAction(
                 label = stringResource(R.string.ime_insert_action),
                 icon = null,
                 enabled = translate.translated.isNotEmpty(),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRing(focusedAction == 1, kb.chipShape()),
             ) { onInsert() }
         }
         }
@@ -1441,8 +1491,10 @@ private fun TranslateLanguagePicker(
     current: String,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
+    focused: Int? = null,
 ) {
     val kb = LocalKbTheme.current
+    val scroll = rememberScrollState()
     Popup(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -1452,9 +1504,10 @@ private fun TranslateLanguagePicker(
                 .background(kb.popup)
                 .popupBorder(kb, kb.menuShape())
                 .padding(vertical = 4.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scroll),
         ) {
-            for ((code, name) in TranslateClient.languages) {
+            for ((index, entry) in TranslateClient.languages.withIndex()) {
+                val (code, name) = entry
                 Text(
                     name,
                     color = if (code == current) kb.accent else kb.popupText,
@@ -1462,10 +1515,20 @@ private fun TranslateLanguagePicker(
                     fontSize = 14.sp,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .focusRing(index == focused, RoundedCornerShape(0.dp))
                         .clickable { onPick(code) }
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
+        }
+        // Rows are one fixed height, so the ring's offset is index arithmetic.
+        ScrollFocusIntoView(focused) { index ->
+            val row = if (TranslateClient.languages.isEmpty()) {
+                0
+            } else {
+                scroll.maxValue / TranslateClient.languages.size + 1
+            }
+            scroll.animateScrollTo((index * row - row).coerceAtLeast(0))
         }
     }
 }

@@ -13179,11 +13179,29 @@ open class WMKeyboardService : InputMethodService() {
                 closeVoiceStrip()
                 true
             }
+            // Inner layers close before their panel, like the media sheet: a
+            // half-typed AI instruction backs out to the action list, and a
+            // focused plugin box gives the keys back, both leaving the panel up.
+            state.aiCustomInputActive -> {
+                dismissAiCustomInput()
+                true
+            }
+            state.pluginTypingActive -> {
+                onPluginInputFocus(null)
+                true
+            }
             state.panel != PanelMode.NONE -> {
                 onPanelChange(state.panel)
                 true
             }
             else -> false
+        }
+    }
+
+    /** Backs the AI panel's typed-instruction mode out to the action list. */
+    private fun dismissAiCustomInput() {
+        _uiState.update {
+            if (it.ai is AiUi.CustomInput) it.copy(ai = AiUi.Idle) else it
         }
     }
 
