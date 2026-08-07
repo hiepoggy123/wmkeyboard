@@ -45,6 +45,17 @@ import kotlin.math.sqrt
  * `FuzzyBeamSearch` makes for typing, with the alignment floor standing in for
  * the edit cost.
  *
+ * **One thing that was tried and did not work.** Weighting each sample by how
+ * deliberate the finger looked there — letters sit at velocity minima and
+ * curvature maxima, so those samples ought to be better evidence — was expected
+ * to be the largest single gain available and measured as a loss at every gain
+ * in both directions (top1 .9050 at zero, .8958 at +0.8, .8967 at -1.0). The
+ * likely reason is worth knowing before anyone tries it again: corner cutting is
+ * the dominant error in a real stroke, so the sample at a pivot is exactly the
+ * one systematically displaced *inside* the corner and away from the key it
+ * belongs to. Leaning on those samples leans on the error. The arc-length term
+ * already carries what the timing would have said about where letters fall.
+ *
  * Scores are in the same log space as the typing beam
  * (`logWeight + ln(1 + frequency) - cost`), so `FuzzyBeamSearch.WalkSource`
  * weights carry over unchanged and a caller can build one source list for both.
@@ -67,7 +78,7 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
          * Ceiling on one sample's location cost. Without it a single sample
          * flung off by a dropped touch report outweighs the whole alignment.
          */
-        val maxPointCost: Float = 9.0f,
+        val maxPointCost: Float = 12.0f,
         /**
          * Nats per key width of disagreement between how far the finger
          * travelled between two letters and how far apart their keys are. This
@@ -76,15 +87,38 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         val gapWeight: Float = 2.0f,
         /** How far, in samples, a placement may sit from where the arc length
          * says it should before the search stops considering it. */
-        val gapWindow: Float = 8f,
+        val gapWindow: Float = 14f,
         /** Nats per unit of alignment cost — the dial that trades shape against
          * the language model. */
         val shapeWeight: Double = 2.5,
-        /** Flat charge for a doubled letter, which the stroke cannot show. */
+        /** Flat charge for a doubled letter, which the stroke's shape cannot show. */
         val repeatCost: Float = 0.1f,
+        /**
+         * Extra charge for a doubled letter the finger did *not* pause on.
+         *
+         * A stroke draws `good` and `god` identically — the o is one key, visited
+         * once — so shape has nothing to say and frequency decides. Timing has
+         * one thing to say: a finger writing a letter twice tends to hesitate
+         * there. This charges the doubling only when that hesitation is absent,
+         * which leaves the dwelled case exactly as cheap as it was.
+         */
+        val dwellPenalty: Float = 0.4f,
+        /**
+         * How much the whole stroke's *shape* counts, once its size and position
+         * are taken out of it.
+         *
+         * The alignment scores where a stroke went in absolute terms, so it
+         * punishes a user whose swipes are systematically small or offset — and
+         * the noise sweep says that is the decoder's steepest axis by a distance
+         * (top-1 .964 to .508 as strokes shrink, against .940 to .820 for the
+         * corner cutting everyone worries about). This term asks a different
+         * question of the top few candidates: never mind where it was drawn, was
+         * it drawn in that shape? Zero switches it off.
+         */
+        val shapeChannel: Double = 45.0,
         /** How far the stroke's first/last sample may sit from the word's
          * first/last key, in key widths. */
-        val anchorRadius: Float = 1.3f,
+        val anchorRadius: Float = 1.6f,
         /** How close the stroke must pass to a key for that key's subtree to be
          * worth walking at all, in key widths. */
         val nearRadius: Float = 1.5f,
@@ -122,6 +156,7 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         if (!resample(path, keyWidth, ws)) return emptyList()
         ws.prepareKeys(keys.keyCount)
         buildCosts(keys, ws)
+        buildDwell(keys, ws)
         if (ws.arcStep <= 0f) return emptyList()
 
         val k = maxOf(limit * 2, RESULT_K)
@@ -139,9 +174,10 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
             floor = searchOne(src, keys, ws, k, results, floor)
         }
 
-        return results.values
-            .sortedWith(compareByDescending<Candidate> { it.score }.thenBy { it.word })
-            .take(limit)
+        val ranked = results.values.sortedWith(
+            compareByDescending<Candidate> { it.score }.thenBy { it.word }
+        )
+        return rescoreShape(ranked, keys, ws).take(limit)
     }
 
     // ---- the walk ----
@@ -217,7 +253,8 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
                     // Without the charge every doubled spelling would shadow
                     // its single one for free.
                     minCol = ws.floorCost[s]
-                    childExtra += tuning.repeatCost
+                    childExtra += tuning.repeatCost +
+                        tuning.dwellPenalty * (1f - ws.keyDwell[lastKey])
                 } else {
                     minCol = advance(
                         ws,
@@ -403,6 +440,196 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         anchorMask(ws.pathX[n - 1], ws.pathY[n - 1], keys, ws.endKey)
     }
 
+    /**
+     * Scores how long the finger lingered on each key.
+     *
+     * Because the path is resampled by arc length, a sample's timestamp gap is
+     * the reciprocal of speed with no differentiating required: a step that took
+     * much longer than the stroke's even pace is a step the finger was barely
+     * moving through. A key's score is the slowest moment anywhere near it, so a
+     * pause counts wherever in the key it happened.
+     *
+     * Zero throughout for a stroke with no clock, which is every synthetic path
+     * in a test that does not care about timing — and zero is the right answer
+     * there, since no-evidence and no-pause should charge the same.
+     */
+    private fun buildDwell(keys: GlideKeyMap, ws: GlideWorkspace) {
+        if (tuning.dwellPenalty <= 0f) return
+        val n = GlideWorkspace.SAMPLE_POINTS
+        val span = (ws.pathT[n - 1] - ws.pathT[0]).toFloat()
+        if (span <= 0f) return
+        val evenStep = span / (n - 1)
+        for (j in 1 until n) {
+            val step = (ws.pathT[j] - ws.pathT[j - 1]).toFloat()
+            val lingering = ((step / evenStep) - 1f) / DWELL_FULL
+            if (lingering <= 0f) continue
+            val score = if (lingering > 1f) 1f else lingering
+            for (k in 0 until keys.keyCount) {
+                val dx = ws.pathX[j] - keys.keyX[k]
+                val dy = ws.pathY[j] - keys.keyY[k]
+                if (dx * dx + dy * dy > DWELL_RADIUS_SQ) continue
+                if (score > ws.keyDwell[k]) ws.keyDwell[k] = score
+            }
+        }
+    }
+
+    // ---- shape channel ----
+
+    /**
+     * Reorders the finished candidates by how well each one's *shape* matches
+     * the stroke, with position and size normalised away.
+     *
+     * A rescore over the handful of words the search already emitted, rather
+     * than a term inside it: the normalisation needs a whole candidate to
+     * compute, and a per-state version would have no admissible bound and would
+     * cost a resample per trie edge. Here it costs a resample per candidate.
+     */
+    private fun rescoreShape(
+        ranked: List<Candidate>,
+        keys: GlideKeyMap,
+        ws: GlideWorkspace,
+    ): List<Candidate> {
+        val weight = tuning.shapeChannel
+        if (weight <= 0.0 || ranked.size < 2) return ranked
+        normalise(ws.pathX, ws.pathY, ws.drawnShapeX, ws.drawnShapeY)
+
+        val rescored = ArrayList<Candidate>(ranked.size)
+        for (candidate in ranked) {
+            val distance = shapeDistance(candidate.word, keys, ws)
+            rescored.add(
+                if (distance == null) {
+                    candidate
+                } else {
+                    Candidate(
+                        candidate.word,
+                        candidate.score - weight * distance,
+                        candidate.shapeCost,
+                        candidate.tier,
+                    )
+                }
+            )
+        }
+        return rescored.sortedWith(
+            compareByDescending<Candidate> { it.score }.thenBy { it.word }
+        )
+    }
+
+    /**
+     * Mean distance between the normalised stroke and [word]'s normalised ideal
+     * path, or null when the word cannot be drawn on this grid at all.
+     */
+    private fun shapeDistance(word: String, keys: GlideKeyMap, ws: GlideWorkspace): Double? {
+        var count = 0
+        var previous = -1
+        for (ch in word) {
+            val key = keys.keyIndex(ch)
+            if (key < 0) return null
+            // Consecutive letters on one key are one point of the path: the
+            // finger visited it once, however many letters it stood for.
+            if (key == previous) continue
+            if (count >= GlideWorkspace.MAX_IDEAL_POINTS) return null
+            ws.idealX[count] = keys.keyX[key]
+            ws.idealY[count] = keys.keyY[key]
+            count++
+            previous = key
+        }
+        if (count < 2) return null
+        resamplePolyline(ws.idealX, ws.idealY, count, ws.idealShapeX, ws.idealShapeY)
+        normalise(ws.idealShapeX, ws.idealShapeY, ws.idealShapeX, ws.idealShapeY)
+
+        var sum = 0.0
+        for (j in 0 until GlideWorkspace.SAMPLE_POINTS) {
+            val dx = ws.drawnShapeX[j] - ws.idealShapeX[j]
+            val dy = ws.drawnShapeY[j] - ws.idealShapeY[j]
+            sum += sqrt(dx * dx + dy * dy).toDouble()
+        }
+        return sum / GlideWorkspace.SAMPLE_POINTS
+    }
+
+    /**
+     * Centres a path on its own centroid and scales it to unit spread, so that
+     * comparing two paths compares their shapes and nothing else. In and out may
+     * be the same arrays.
+     */
+    private fun normalise(xs: FloatArray, ys: FloatArray, outX: FloatArray, outY: FloatArray) {
+        val n = GlideWorkspace.SAMPLE_POINTS
+        var cx = 0f
+        var cy = 0f
+        for (j in 0 until n) {
+            cx += xs[j]
+            cy += ys[j]
+        }
+        cx /= n
+        cy /= n
+        var spread = 0f
+        for (j in 0 until n) {
+            val dx = xs[j] - cx
+            val dy = ys[j] - cy
+            spread += dx * dx + dy * dy
+        }
+        val scale = sqrt(spread / n).takeIf { it > MIN_SHAPE_SPREAD } ?: 1f
+        for (j in 0 until n) {
+            outX[j] = (xs[j] - cx) / scale
+            outY[j] = (ys[j] - cy) / scale
+        }
+    }
+
+    /** Resamples a [count]-point polyline to [GlideWorkspace.SAMPLE_POINTS] by arc length. */
+    private fun resamplePolyline(
+        xs: FloatArray,
+        ys: FloatArray,
+        count: Int,
+        outX: FloatArray,
+        outY: FloatArray,
+    ) {
+        val n = GlideWorkspace.SAMPLE_POINTS
+        var total = 0f
+        for (i in 1 until count) {
+            val dx = xs[i] - xs[i - 1]
+            val dy = ys[i] - ys[i - 1]
+            total += sqrt(dx * dx + dy * dy)
+        }
+        if (total <= 0f) {
+            for (j in 0 until n) {
+                outX[j] = xs[0]
+                outY[j] = ys[0]
+            }
+            return
+        }
+        val step = total / (n - 1)
+        outX[0] = xs[0]
+        outY[0] = ys[0]
+        var out = 1
+        var index = 0
+        var cx = xs[0]
+        var cy = ys[0]
+        var accumulated = 0f
+        while (out < n - 1 && index < count - 1) {
+            val nx = xs[index + 1]
+            val ny = ys[index + 1]
+            val segment = sqrt((nx - cx) * (nx - cx) + (ny - cy) * (ny - cy))
+            if (accumulated + segment >= step && segment > 0f) {
+                val fraction = (step - accumulated) / segment
+                cx += fraction * (nx - cx)
+                cy += fraction * (ny - cy)
+                outX[out] = cx
+                outY[out] = cy
+                out++
+                accumulated = 0f
+            } else {
+                accumulated += segment
+                cx = nx
+                cy = ny
+                index++
+            }
+        }
+        while (out < n) {
+            outX[out] = xs[count - 1]
+            outY[out] = ys[count - 1]
+            out++
+        }
+    }
+
     private fun anchorMask(x: Float, y: Float, keys: GlideKeyMap, out: BooleanArray) {
         for (k in 0 until keys.keyCount) {
             val dx = x - keys.keyX[k]
@@ -449,6 +676,15 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         private const val MIN_SAMPLES = 3
         private const val MIN_WORD_LENGTH = 2
         private const val MAX_WORD_LENGTH = 24
+
+        /** Below this spread a path is a dot, and dividing by its size is noise. */
+        private const val MIN_SHAPE_SPREAD = 1e-4f
+
+        /** How many times the even pace a step must take to count as a full stop. */
+        private const val DWELL_FULL = 3.0f
+
+        /** How near a key a pause has to happen to count as a pause on it. */
+        private const val DWELL_RADIUS_SQ = 0.8f * 0.8f
 
         /** Runaway backstop; floor pruning ends healthy walks far earlier. */
         const val MAX_POPS = 2000

@@ -43,22 +43,22 @@ object GestureEvalBaseline {
      *     mrr      .9196 -> .9565      typical  .8760 -> .9300   (+5.4pt)
      *                                  sloppy   .7060 -> .8620  (+15.6pt)
      *
-     * The numbers below are lower than that and it is not a regression. When the
-     * harness learned to draw on non-Latin layouts it stopped carrying its own
+     * Two things moved those numbers afterwards. The harness stopped carrying a
      * hand-written QWERTY table and started deriving geometry from the shipped
-     * [com.wasimaster.wmkeyboard.core.layout.LayoutSpec], which staggers the
-     * bottom row by a shift key's width rather than by a guess. That is a
-     * different, and real, keyboard: overall .9295 -> .9265, clean down 1.6pt,
-     * sloppy up 2.8pt. The decoder did not change between the two runs.
+     * [com.wasimaster.wmkeyboard.core.layout.LayoutSpec], staggering the bottom
+     * row by a shift key's width rather than by a guess — a different and real
+     * keyboard, worth .9295 -> .9265 with the decoder untouched. Then the shape
+     * channel and dwell-gated doubling landed: .9265 -> .9460, and clean strokes
+     * from .9620 to .9860.
      */
     val ENGLISH = Floors(
-        top1 = 0.9265,
-        top3 = 0.9855,
-        mrr = 0.9551,
-        clean = 0.9560,
-        light = 0.9500,
-        typical = 0.9100,
-        sloppy = 0.8900,
+        top1 = 0.9460,
+        top3 = 0.9910,
+        mrr = 0.9678,
+        clean = 0.9860,
+        light = 0.9700,
+        typical = 0.9300,
+        sloppy = 0.8980,
     )
 
     /**
@@ -82,13 +82,13 @@ object GestureEvalBaseline {
      * consult, and top-1 would fall a long way below what is measured here.
      */
     val BENGALI = Floors(
-        top1 = 0.7385,
-        top3 = 0.8655,
-        mrr = 0.8034,
-        clean = 0.7740,
-        light = 0.7660,
-        typical = 0.7220,
-        sloppy = 0.6920,
+        top1 = 0.7810,
+        top3 = 0.8875,
+        mrr = 0.8363,
+        clean = 0.8080,
+        light = 0.8340,
+        typical = 0.7560,
+        sloppy = 0.7260,
     )
 
     /**
@@ -99,13 +99,13 @@ object GestureEvalBaseline {
      * arrangements.
      */
     val CYRILLIC = Floors(
-        top1 = 0.9355,
-        top3 = 0.9890,
-        mrr = 0.9617,
-        clean = 0.9580,
-        light = 0.9580,
-        typical = 0.9380,
-        sloppy = 0.8880,
+        top1 = 0.9545,
+        top3 = 0.9910,
+        mrr = 0.9728,
+        clean = 0.9820,
+        light = 0.9800,
+        typical = 0.9520,
+        sloppy = 0.9040,
     )
 
     /**
@@ -122,13 +122,13 @@ object GestureEvalBaseline {
      * never are. Avro is also the layout most Bengali typists actually use.
      */
     val AVRO = Floors(
-        top1 = 0.9120,
-        top3 = 0.9900,
-        mrr = 0.9494,
-        clean = 0.9440,
-        light = 0.9120,
-        typical = 0.9040,
-        sloppy = 0.8880,
+        top1 = 0.9430,
+        top3 = 0.9930,
+        mrr = 0.9674,
+        clean = 0.9820,
+        light = 0.9640,
+        typical = 0.9420,
+        sloppy = 0.8840,
     )
 
     /** Run-to-run drift is nil (the corpus is seeded), so this is small. */

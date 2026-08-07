@@ -59,6 +59,13 @@ class GlideWorkspace {
     /** `pointCost[i * keyCount + k]`, filled per decode by [GlideBeam]. */
     var pointCost = FloatArray(SAMPLE_POINTS * INITIAL_KEYS); private set
 
+    /**
+     * How long the finger lingered on each key, 0 (flew past) to 1 (stopped
+     * dead). The one thing a stroke's shape cannot say is whether a letter was
+     * written twice, and this is the only evidence there is.
+     */
+    var keyDwell = FloatArray(INITIAL_KEYS); private set
+
     /** Keys the drawn path passes close enough to be spelling. */
     var nearKey = BooleanArray(INITIAL_KEYS); private set
 
@@ -78,6 +85,21 @@ class GlideWorkspace {
      */
     val scratch = FloatArray(SAMPLE_POINTS)
 
+    /**
+     * The drawn stroke and a candidate's ideal path, each translated to its own
+     * centroid and scaled to its own size, for the shape rescore. Held here
+     * rather than allocated per candidate: the rescore runs over a handful of
+     * words on every preview event.
+     */
+    val drawnShapeX = FloatArray(SAMPLE_POINTS)
+    val drawnShapeY = FloatArray(SAMPLE_POINTS)
+    val idealShapeX = FloatArray(SAMPLE_POINTS)
+    val idealShapeY = FloatArray(SAMPLE_POINTS)
+
+    /** A candidate word's key centres, before resampling. */
+    val idealX = FloatArray(MAX_IDEAL_POINTS)
+    val idealY = FloatArray(MAX_IDEAL_POINTS)
+
     private val sb = StringBuilder(24)
 
     /** True once the state pool is full — the decode is running on a backstop. */
@@ -95,10 +117,12 @@ class GlideWorkspace {
             nearKey = BooleanArray(keyCount)
             startKey = BooleanArray(keyCount)
             endKey = BooleanArray(keyCount)
+            keyDwell = FloatArray(keyCount)
         } else {
             nearKey.fill(false, 0, keyCount)
             startKey.fill(false, 0, keyCount)
             endKey.fill(false, 0, keyCount)
+            keyDwell.fill(0f, 0, keyCount)
         }
         val needed = SAMPLE_POINTS * keyCount
         if (pointCost.size < needed) pointCost = FloatArray(needed)
@@ -236,6 +260,9 @@ class GlideWorkspace {
          * worse number.
          */
         const val MAX_STATES = 3072
+
+        /** Longest key sequence a candidate's ideal path can have. */
+        const val MAX_IDEAL_POINTS = 32
 
         private const val INITIAL = 256
         private const val INITIAL_KEYS = 48

@@ -7615,7 +7615,7 @@ open class WMKeyboardService : InputMethodService() {
         keyWidthPx: Float,
     ): List<String> {
         val engine = suggestionEngine ?: return emptyList()
-        return engine.glide(
+        val decoded = engine.glide(
             path = points,
             keys = keyMapFor(keys, keyWidthPx),
             keyWidth = keyWidthPx,
@@ -7623,6 +7623,24 @@ open class WMKeyboardService : InputMethodService() {
             previousWord2 = previousWord2,
             recentWords = recentWords.toList(),
         ).map { it.word }
+        return decoded.map { restoreApostrophe(it) ?: it }
+    }
+
+    /**
+     * "dont" swiped is "don't" committed, on the same terms as "dont" typed.
+     *
+     * The letters layer has no apostrophe key, so a contraction can only ever
+     * be *drawn* without one — which makes this less of a correction than a
+     * transcription. Deliberately applied here rather than inside the engine:
+     * the setting and the language check live at this level, and the offline
+     * harness decodes through the engine, where a word coming back spelled
+     * differently from the one the corpus drew would read as a miss.
+     */
+    private fun restoreApostrophe(word: String): String? {
+        val state = _uiState.value
+        if (!state.settings.autoApostrophe || !state.allowsTypingIntelligence) return null
+        if (!state.language.isEnglish) return null
+        return Apostrophes.fix(word)
     }
 
     /**

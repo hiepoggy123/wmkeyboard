@@ -64,6 +64,37 @@ class GlideBeamTest {
         return points
     }
 
+    /**
+     * The same stroke with the finger holding still on [letter]'s key, and a
+     * clock attached — a synthetic path has no timestamps at all, which reads
+     * as "never paused anywhere" and is the right default.
+     */
+    private fun pausedAt(path: List<GesturePoint>, letter: Char): List<GesturePoint> {
+        val key = centers.getValue(letter)
+        var nearest = 0
+        var best = Float.MAX_VALUE
+        path.forEachIndexed { i, p ->
+            val d = (p.x - key.x) * (p.x - key.x) + (p.y - key.y) * (p.y - key.y)
+            if (d < best) {
+                best = d
+                nearest = i
+            }
+        }
+        val out = ArrayList<GesturePoint>(path.size + HOLD_SAMPLES)
+        var clock = 0L
+        path.forEachIndexed { i, p ->
+            out.add(GesturePoint(p.x, p.y, clock))
+            clock += SAMPLE_MS
+            if (i == nearest) {
+                repeat(HOLD_SAMPLES) {
+                    out.add(GesturePoint(p.x, p.y, clock))
+                    clock += SAMPLE_MS
+                }
+            }
+        }
+        return out
+    }
+
     private fun CharArray.distinctConsecutive(): List<Char> {
         val out = ArrayList<Char>()
         for (c in this) if (out.lastOrNull() != c) out.add(c)
@@ -77,9 +108,19 @@ class GlideBeamTest {
 
     @Test
     fun `double letters need no repeat in the path`() {
-        // "good" traces g-o-d only.
+        // "good" traces g-o-d only, so both spellings must be on offer.
         val words = decode(gestureFor("god"))
-        assertTrue("expected good/god in $words", "good" in words || "god" in words)
+        assertTrue("expected both spellings in $words", "good" in words && "god" in words)
+    }
+
+    @Test
+    fun `a doubled letter needs the finger to have paused on it`() {
+        // The stroke is identical either way — the o is one key, crossed once —
+        // so the only thing that can separate "good" from "god" is whether the
+        // finger hesitated there. "good" is the commoner word by frequency, and
+        // that deliberately is not enough on its own.
+        assertEquals("god", decode(gestureFor("god")).first())
+        assertEquals("good", decode(pausedAt(gestureFor("god"), 'o')).first())
     }
 
     @Test
@@ -107,11 +148,11 @@ class GlideBeamTest {
     fun `a weighted personal source can outrank the dictionary`() {
         // The user tier is how a learned habit reaches the glide decoder, the
         // same way it reaches the typing beam.
-        val personal = sourcesOf(listOf("god" to 50)).map {
+        val personal = sourcesOf(listOf("good" to 50)).map {
             FuzzyBeamSearch.WalkSource(it.walker, 4.0, FuzzyBeamSearch.Tier.USER)
         }
-        assertEquals("good", decode(gestureFor("god")).first())
-        assertEquals("god", decode(gestureFor("god"), from = sources + personal).first())
+        assertEquals("god", decode(gestureFor("god")).first())
+        assertEquals("good", decode(gestureFor("god"), from = sources + personal).first())
     }
 
     @Test
@@ -186,5 +227,9 @@ class GlideBeamTest {
     private companion object {
         /** U+0995 BENGALI LETTER KA, the base of the synthetic second alphabet. */
         const val BENGALI_KA = 'ক'
+
+        /** A plausible digitizer interval, and a hold long enough to read as one. */
+        const val SAMPLE_MS = 8L
+        const val HOLD_SAMPLES = 30
     }
 }

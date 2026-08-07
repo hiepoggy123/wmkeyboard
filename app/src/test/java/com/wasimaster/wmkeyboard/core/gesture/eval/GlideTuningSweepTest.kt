@@ -68,8 +68,11 @@ class GlideTuningSweepTest {
         }
 
         val base = GlideBeam.Tuning()
-        axis("shapeWeight", listOf(0.4, 0.7, 1.0, 1.5, 2.0, 3.0, 5.0), cases, keys, sources) {
-            base.copy(shapeWeight = it)
+        axis("shapeChannel", listOf(20.0, 30.0, 45.0, 65.0, 90.0), cases, keys, sources) {
+            base.copy(shapeChannel = it)
+        }
+        axis("dwellPenalty", listOf(0.0f, 0.2f, 0.4f, 0.7f, 1.2f, 2.0f), cases, keys, sources) {
+            base.copy(dwellPenalty = it)
         }
         axis("gapWeight", listOf(0.5f, 1.0f, 2.0f, 3.0f, 4.0f, 6.0f), cases, keys, sources) {
             base.copy(gapWeight = it)
