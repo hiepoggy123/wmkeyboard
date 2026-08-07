@@ -350,6 +350,13 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.TRANSLATE -> listOf(
         FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS, FocusRegion.ACTIONS,
     )
+    // The keypads have no region on purpose: physical keys type straight into
+    // the expression or amount, which beats arrow-driving a 5×4 grid. The
+    // ring covers only what typing cannot reach.
+    PanelMode.CALCULATOR -> listOf(FocusRegion.CHIPS, FocusRegion.ACTIONS)
+    PanelMode.UNIT_CONVERT ->
+        listOf(FocusRegion.CATEGORIES, FocusRegion.CHIPS, FocusRegion.ACTIONS)
+    PanelMode.CURRENCY -> listOf(FocusRegion.CHIPS, FocusRegion.ACTIONS)
     // Panels the keyboard cannot drive: sensors, cameras, ink — and the
     // TEXT_EDIT/NUMPAD button grids, whose keys a physical keyboard already
     // sends to the field directly (ringing a d-pad that itself moves the
@@ -360,8 +367,7 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.MOON_PHASE, PanelMode.WEATHER, PanelMode.CALENDAR,
     PanelMode.SOUND_HAPTICS, PanelMode.NUMPAD, PanelMode.HANDWRITING,
     PanelMode.CAMERA, PanelMode.OCR, PanelMode.QR_SCAN,
-    PanelMode.VOICE, PanelMode.GRAMMAR, PanelMode.CALCULATOR,
-    PanelMode.UNIT_CONVERT, PanelMode.CURRENCY, PanelMode.QR_GEN,
+    PanelMode.VOICE, PanelMode.GRAMMAR, PanelMode.QR_GEN,
     PanelMode.PASSWORD_GEN, PanelMode.TYPING_TEST,
     PanelMode.MEDIA_CONTROL,
     // A plugin draws its own controls, so there is no fixed set of regions to
@@ -965,6 +971,17 @@ data class KeyboardUiState(
     val smart: SmartSuggest.SmartHit? = null,
     /** Input a chip loaded into the tool it is about to open; consumed once. */
     val toolPrefill: ToolPrefill? = null,
+    /**
+     * The calculator's live expression. Service state, not panel-local, so a
+     * physical keyboard can type into it through the same routing every other
+     * keyboard-owned buffer uses. Cleared when the panel closes.
+     */
+    val calcExpression: String = "",
+    /**
+     * The unit/currency converters' typed amount — one buffer, since the two
+     * panels never show together. Digits and one dot only; reset on close.
+     */
+    val converterValue: String = "1",
     val emojiCatalog: List<EmojiEntry> = emptyList(),
     /** RGI toned-sequence lookup; loaded once with the catalog. */
     val emojiVariants: EmojiVariantIndex = EmojiVariantIndex.empty(),
@@ -1205,6 +1222,14 @@ data class KeyboardUiState(
      */
     val typingTestActive: Boolean
         get() = panel == PanelMode.TYPING_TEST && typingTest.result == null
+
+    /** Keystrokes belong to the calculator's expression while its panel is up. */
+    val calcTypingActive: Boolean
+        get() = panel == PanelMode.CALCULATOR
+
+    /** Keystrokes belong to the converters' amount while either panel is up. */
+    val converterTypingActive: Boolean
+        get() = panel == PanelMode.UNIT_CONVERT || panel == PanelMode.CURRENCY
 
     /**
      * Whether keystrokes belong to the AI Custom-action instruction rather

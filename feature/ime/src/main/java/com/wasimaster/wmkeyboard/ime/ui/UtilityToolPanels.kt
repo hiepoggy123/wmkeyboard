@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
@@ -256,24 +257,38 @@ internal fun SymbolsPanel(
 // ---- calculator tool ----
 
 /**
+ * The calculator/converter panels' service callbacks, bundled into one
+ * [KeyboardScreen] parameter on purpose: its caller sits against the JVM's
+ * 64K method-size ceiling, where every added parameter costs bytecode.
+ */
+data class ConverterCallbacks(
+    /** The calculator expression changed — soft keypad edits route here. */
+    val onCalcEdit: (String) -> Unit = {},
+    val onCalcToggleDegrees: () -> Unit = {},
+    /** The converters' typed amount changed. */
+    val onConverterEdit: (String) -> Unit = {},
+    val onUnitSelection: (String) -> Unit = {},
+    val onCurrencyPairChange: (String, String) -> Unit = { _, _ -> },
+    val onCurrencyRefresh: () -> Unit = {},
+)
+
+/**
  * Scientific calculator in the tool viewbox. The result is evaluated live
  * as the expression grows; `=` collapses the expression to its result and
  * Insert types the result at the cursor.
+ *
+ * The expression lives on [KeyboardUiState.calcExpression], not in panel
+ * memory: a physical keyboard types into it through the service's buffer
+ * routing, and the chip prefill is seeded there by the service on open.
  */
 @Composable
 internal fun CalculatorPanel(
     state: KeyboardUiState,
     onInsert: (String) -> Unit,
-    onToggleDegrees: () -> Unit = {},
-    onPrefillConsumed: () -> Unit = {},
+    callbacks: ConverterCallbacks = ConverterCallbacks(),
 ) {
     val kb = LocalKbTheme.current
-    // Opened from a strip chip: start on what was typed rather than on the
-    // blank display, so the chip's answer is one keystroke from being
-    // edited. Read once — the service clears the prefill straight after.
-    val prefill = remember { state.toolPrefill as? ToolPrefill.Calc }
-    var expression by rememberSaveable { mutableStateOf(prefill?.expression.orEmpty()) }
-    LaunchedEffect(Unit) { if (prefill != null) onPrefillConsumed() }
+    val expression = state.calcExpression
     val degrees = state.settings.calcDegrees
     val precision = state.settings.calcPrecision
     val result = remember(expression, degrees, precision) {
@@ -282,8 +297,33 @@ internal fun CalculatorPanel(
     }
 
     fun append(text: String) {
-        expression += text
+        callbacks.onCalcEdit(expression + text)
     }
+
+    // The keypad has no focus region on purpose — physical keys type the
+    // expression directly. The ring covers the scientific row and Insert.
+    val sciTokens = listOf(
+        "sin(", "cos(", "tan(", "π", "e", "^", "√", "ln(", "log(", "abs(", "mod ",
+    )
+    PanelFocusTarget(
+        panel = PanelMode.CALCULATOR,
+        region = FocusRegion.CHIPS,
+        count = sciTokens.size + 2,
+        columns = sciTokens.size + 2,
+    ) { index ->
+        when {
+            index == 0 -> callbacks.onCalcEdit("")
+            index <= sciTokens.size -> sciTokens.getOrNull(index - 1)?.let(::append)
+            else -> callbacks.onCalcToggleDegrees()
+        }
+    }
+    PanelFocusTarget(
+        panel = PanelMode.CALCULATOR,
+        region = FocusRegion.ACTIONS,
+        count = if (result?.isSuccess == true) 1 else 0,
+        columns = 1,
+    ) { result?.getOrNull()?.let(onInsert) }
+    val focusedChip = state.focusedIndex(FocusRegion.CHIPS)
 
     Column(
         modifier = Modifier
@@ -336,12 +376,18 @@ internal fun CalculatorPanel(
             }
             if (result?.isSuccess == true) {
                 Spacer(Modifier.width(8.dp))
-                ToolPanelChip(stringResource(R.string.ime_calc_insert_action)) {
+                ToolPanelChip(
+                    stringResource(R.string.ime_calc_insert_action),
+                    modifier = Modifier.focusRing(
+                        state.focusedIndex(FocusRegion.ACTIONS) == 0,
+                    ),
+                ) {
                     onInsert(result.getOrThrow())
                 }
             }
         }
-        // Scientific row.
+        // Scientific row. Ring indices mirror the CHIPS publisher above:
+        // C, the tokens, then the trig-unit toggle.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -349,11 +395,14 @@ internal fun CalculatorPanel(
                 .padding(vertical = 3.dp),
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
-            ToolPanelChip("C") { expression = "" }
-            listOf(
-                "sin(", "cos(", "tan(", "π", "e", "^", "√", "ln(", "log(", "abs(", "mod ",
-            ).forEach { token ->
-                ToolPanelChip(token.trimEnd('(', ' ')) { append(token) }
+            ToolPanelChip("C", modifier = Modifier.focusRing(focusedChip == 0)) {
+                callbacks.onCalcEdit("")
+            }
+            sciTokens.forEachIndexed { index, token ->
+                ToolPanelChip(
+                    token.trimEnd('(', ' '),
+                    modifier = Modifier.focusRing(focusedChip == index + 1),
+                ) { append(token) }
             }
             // Tapping the chip flips the trig unit and persists it — the same
             // switch the tool's settings page carries, within reach of `sin(`.
@@ -362,7 +411,11 @@ internal fun CalculatorPanel(
             } else {
                 stringResource(R.string.ime_calc_radians_label)
             }
-            ToolPanelChip(trigUnit, selected = true) { onToggleDegrees() }
+            ToolPanelChip(
+                trigUnit,
+                selected = true,
+                modifier = Modifier.focusRing(focusedChip == sciTokens.size + 1),
+            ) { callbacks.onCalcToggleDegrees() }
         }
         // Keypad.
         val rows = listOf(
@@ -383,8 +436,8 @@ internal fun CalculatorPanel(
                             accent = label == "=",
                         ) {
                             when (label) {
-                                "⌫" -> expression = expression.dropLast(1)
-                                "=" -> result?.onSuccess { expression = it }
+                                "⌫" -> callbacks.onCalcEdit(expression.dropLast(1))
+                                "=" -> result?.onSuccess { callbacks.onCalcEdit(it) }
                                 else -> append(label)
                             }
                         }
@@ -444,9 +497,10 @@ private fun ConverterKeypad(
 internal fun UnitConverterPanel(
     state: KeyboardUiState,
     onInsert: (String) -> Unit,
-    onSelectionChange: (String) -> Unit = {},
+    callbacks: ConverterCallbacks = ConverterCallbacks(),
     onPrefillConsumed: () -> Unit = {},
 ) {
+    val onSelectionChange = callbacks.onUnitSelection
     val kb = LocalKbTheme.current
     // "Cat|from|to;Cat|from|to;…" — every category keeps its own unit pair,
     // and the last-used category leads the list (it's what the panel reopens
@@ -484,7 +538,9 @@ internal fun UnitConverterPanel(
     var toIndex by rememberSaveable(categoryIndex) {
         mutableIntStateOf(prefilledUnit { it.to } ?: savedUnit({ it.third }, 1))
     }
-    var value by rememberSaveable { mutableStateOf(prefill?.value ?: "1") }
+    // The amount lives on the service (physical keys type into it); the
+    // prefill's value is seeded there by onPanelChange, not here.
+    val value = state.converterValue
 
     val from = category.units.getOrElse(fromIndex) { category.units.first() }
     val to = category.units.getOrElse(toIndex) { category.units.last() }
@@ -499,6 +555,41 @@ internal fun UnitConverterPanel(
     val resultText = converted?.takeIf { !it.isNaN() && !it.isInfinite() }
         ?.let { CalcEngine.format(it, state.settings.calcPrecision) }
 
+    // Ring regions. From and to publish as one 2×n grid so Down/Up crosses
+    // between the rows; the keypad stays ring-free (physical digits type).
+    val unitCount = category.units.size
+    PanelFocusTarget(
+        panel = PanelMode.UNIT_CONVERT,
+        region = FocusRegion.CATEGORIES,
+        count = UnitConvert.categories.size,
+        columns = UnitConvert.categories.size,
+    ) { index -> if (index in UnitConvert.categories.indices) categoryIndex = index }
+    PanelFocusTarget(
+        panel = PanelMode.UNIT_CONVERT,
+        region = FocusRegion.CHIPS,
+        count = unitCount * 2,
+        columns = unitCount.coerceAtLeast(1),
+    ) { index ->
+        when {
+            index < unitCount -> fromIndex = index
+            index < unitCount * 2 -> toIndex = index - unitCount
+        }
+    }
+    PanelFocusTarget(
+        panel = PanelMode.UNIT_CONVERT,
+        region = FocusRegion.ACTIONS,
+        count = if (resultText != null) 2 else 1,
+        columns = 2,
+    ) { index ->
+        when (index) {
+            0 -> { val tmp = fromIndex; fromIndex = toIndex; toIndex = tmp }
+            1 -> resultText?.let(onInsert)
+        }
+    }
+    val focusedCategory = state.focusedIndex(FocusRegion.CATEGORIES)
+    val focusedChip = state.focusedIndex(FocusRegion.CHIPS)
+    val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -511,7 +602,11 @@ internal fun UnitConverterPanel(
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             UnitConvert.categories.forEachIndexed { index, cat ->
-                ToolPanelChip(stringResource(cat.nameRes), selected = index == categoryIndex) {
+                ToolPanelChip(
+                    stringResource(cat.nameRes),
+                    selected = index == categoryIndex,
+                    modifier = Modifier.focusRing(index == focusedCategory),
+                ) {
                     categoryIndex = index
                 }
             }
@@ -520,11 +615,13 @@ internal fun UnitConverterPanel(
             label = stringResource(R.string.ime_converter_from_label),
             units = category.units,
             selected = fromIndex,
+            focused = focusedChip?.takeIf { it < unitCount },
         ) { fromIndex = it }
         UnitChipRow(
             label = stringResource(R.string.ime_converter_to_label),
             units = category.units,
             selected = toIndex,
+            focused = focusedChip?.takeIf { it >= unitCount }?.minus(unitCount),
         ) { toIndex = it }
         Row(
             modifier = Modifier
@@ -543,7 +640,9 @@ internal fun UnitConverterPanel(
             )
             IconButton(
                 onClick = { val tmp = fromIndex; fromIndex = toIndex; toIndex = tmp },
-                modifier = Modifier.size(30.dp),
+                modifier = Modifier
+                    .size(30.dp)
+                    .focusRing(focusedAction == 0, CircleShape),
             ) {
                 Icon(
                     Icons.Outlined.SwapHoriz,
@@ -562,7 +661,10 @@ internal fun UnitConverterPanel(
                 modifier = Modifier.weight(1f),
             )
             if (resultText != null) {
-                ToolPanelChip(stringResource(R.string.ime_units_insert_action)) {
+                ToolPanelChip(
+                    stringResource(R.string.ime_units_insert_action),
+                    modifier = Modifier.focusRing(focusedAction == 1),
+                ) {
                     onInsert(resultText)
                 }
             }
@@ -571,7 +673,7 @@ internal fun UnitConverterPanel(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            onChange = { value = it },
+            onChange = callbacks.onConverterEdit,
             value = value,
         )
     }
@@ -582,6 +684,7 @@ private fun UnitChipRow(
     label: String,
     units: List<UnitConvert.ConvUnit>,
     selected: Int,
+    focused: Int? = null,
     onSelect: (Int) -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -599,7 +702,11 @@ private fun UnitChipRow(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             units.forEachIndexed { index, unit ->
-                ToolPanelChip(unit.symbol, selected = index == selected) { onSelect(index) }
+                ToolPanelChip(
+                    unit.symbol,
+                    selected = index == selected,
+                    modifier = Modifier.focusRing(index == focused),
+                ) { onSelect(index) }
             }
         }
     }
@@ -615,17 +722,19 @@ private fun UnitChipRow(
 @Composable
 internal fun CurrencyPanel(
     state: KeyboardUiState,
-    onPairChange: (String, String) -> Unit,
-    onRefresh: () -> Unit,
+    callbacks: ConverterCallbacks = ConverterCallbacks(),
     onInsert: (String) -> Unit,
     onPrefillConsumed: () -> Unit = {},
 ) {
     val kb = LocalKbTheme.current
-    // Opened from a "150 usd" chip: take its amount, and push its pair into
-    // settings (which is where the panel reads from/to) before the first
-    // conversion is drawn.
+    val onPairChange = callbacks.onCurrencyPairChange
+    val onRefresh = callbacks.onCurrencyRefresh
+    // Opened from a "150 usd" chip: push its pair into settings (which is
+    // where the panel reads from/to) before the first conversion is drawn.
+    // The amount half of the prefill is seeded onto the service's buffer by
+    // onPanelChange — physical keys type into it there.
     val prefill = remember { state.toolPrefill as? ToolPrefill.Currency }
-    var amountText by rememberSaveable { mutableStateOf(prefill?.amount ?: "1") }
+    val amountText = state.converterValue
     LaunchedEffect(Unit) {
         prefill?.let {
             if (it.from != state.settings.currencyFrom || it.to != state.settings.currencyTo) {
@@ -649,6 +758,14 @@ internal fun CurrencyPanel(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
+                // The only control on the error screen is Retry.
+                PanelFocusTarget(
+                    panel = PanelMode.CURRENCY,
+                    region = FocusRegion.ACTIONS,
+                    count = 1,
+                    columns = 1,
+                    onActivate = { onRefresh() },
+                )
                 Text(
                     currency.message,
                     color = kb.secondaryText,
@@ -657,7 +774,12 @@ internal fun CurrencyPanel(
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
                 Spacer(Modifier.height(8.dp))
-                ToolPanelChip(stringResource(CommonR.string.common_retry)) { onRefresh() }
+                ToolPanelChip(
+                    stringResource(CommonR.string.common_retry),
+                    modifier = Modifier.focusRing(
+                        state.focusedIndex(FocusRegion.ACTIONS) == 0,
+                    ),
+                ) { onRefresh() }
             }
             is CurrencyUi.Ready -> {
                 val sections = remember(currency.rates) { codeSections(currency.rates) }
@@ -667,17 +789,40 @@ internal fun CurrencyPanel(
                 // nothing at all; fall back rather than show a blank panel.
                 val fromCode = inTableOr(from, currency.rates)
                 val toCode = inTableOr(to, currency.rates, avoid = fromCode)
+                // From and to publish as one 2×n grid over the flattened code
+                // list, so Down crosses from the from-row into the to-row.
+                val flatCodes = remember(sections) { sections.flatMap { it.codes } }
+                val codeCount = flatCodes.size
+                PanelFocusTarget(
+                    panel = PanelMode.CURRENCY,
+                    region = FocusRegion.CHIPS,
+                    count = codeCount * 2,
+                    columns = codeCount.coerceAtLeast(1),
+                ) { index ->
+                    when {
+                        index < codeCount ->
+                            flatCodes.getOrNull(index)?.let { onPairChange(it, toCode) }
+                        else ->
+                            flatCodes.getOrNull(index - codeCount)
+                                ?.let { onPairChange(fromCode, it) }
+                    }
+                }
+                val focusedChip = state.focusedIndex(FocusRegion.CHIPS)
                 CurrencyChipRow(
                     stringResource(R.string.ime_converter_from_label),
                     sections,
                     fromCode,
                     coinsShown,
+                    focusedCode = focusedChip?.takeIf { it < codeCount }
+                        ?.let { flatCodes.getOrNull(it) },
                 ) { onPairChange(it, toCode) }
                 CurrencyChipRow(
                     stringResource(R.string.ime_converter_to_label),
                     sections,
                     toCode,
                     coinsShown,
+                    focusedCode = focusedChip?.takeIf { it >= codeCount }
+                        ?.let { flatCodes.getOrNull(it - codeCount) },
                 ) { onPairChange(fromCode, it) }
                 val amount = amountText.toDoubleOrNull()
                 val converted = amount?.let {
@@ -694,6 +839,22 @@ internal fun CurrencyPanel(
                         else -> CalcEngine.format(it, COIN_DECIMALS)
                     }
                 }
+                // Fixed three slots — swap, Insert, refresh — so the ring's
+                // index cannot shift when the result's validity flips; the
+                // Insert slot just no-ops while there is nothing to insert.
+                PanelFocusTarget(
+                    panel = PanelMode.CURRENCY,
+                    region = FocusRegion.ACTIONS,
+                    count = 3,
+                    columns = 3,
+                ) { index ->
+                    when (index) {
+                        0 -> onPairChange(toCode, fromCode)
+                        1 -> resultText?.let(onInsert)
+                        2 -> onRefresh()
+                    }
+                }
+                val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -710,7 +871,9 @@ internal fun CurrencyPanel(
                     )
                     IconButton(
                         onClick = { onPairChange(toCode, fromCode) },
-                        modifier = Modifier.size(30.dp),
+                        modifier = Modifier
+                            .size(30.dp)
+                            .focusRing(focusedAction == 0, CircleShape),
                     ) {
                         Icon(
                             Icons.Outlined.SwapHoriz,
@@ -729,11 +892,19 @@ internal fun CurrencyPanel(
                         modifier = Modifier.weight(1f),
                     )
                     if (resultText != null) {
-                        ToolPanelChip(stringResource(R.string.ime_currency_insert_action)) {
+                        ToolPanelChip(
+                            stringResource(R.string.ime_currency_insert_action),
+                            modifier = Modifier.focusRing(focusedAction == 1),
+                        ) {
                             onInsert(resultText)
                         }
                     }
-                    IconButton(onClick = onRefresh, modifier = Modifier.size(28.dp)) {
+                    IconButton(
+                        onClick = onRefresh,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .focusRing(focusedAction == 2, CircleShape),
+                    ) {
                         Icon(
                             Icons.Outlined.Refresh,
                             contentDescription = stringResource(
@@ -748,7 +919,7 @@ internal fun CurrencyPanel(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                    onChange = { amountText = it },
+                    onChange = callbacks.onConverterEdit,
                     value = amountText,
                 )
             }
@@ -802,6 +973,7 @@ private fun CurrencyChipRow(
     sections: List<CodeSection>,
     selected: String,
     showHeadings: Boolean,
+    focusedCode: String? = null,
     onSelect: (String) -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -811,6 +983,11 @@ private fun CurrencyChipRow(
     // scrolled off the row.
     LaunchedEffect(selected, sections, showHeadings) {
         val index = flatIndexOf(selected, sections, showHeadings)
+        if (index >= 0) listState.scrollToItem(index)
+    }
+    // Same again for the hardware ring, which walks the row chip by chip.
+    LaunchedEffect(focusedCode) {
+        val index = focusedCode?.let { flatIndexOf(it, sections, showHeadings) } ?: -1
         if (index >= 0) listState.scrollToItem(index)
     }
     Row(
@@ -838,7 +1015,11 @@ private fun CurrencyChipRow(
                 }
                 items(section.codes.size) { index ->
                     val code = section.codes[index]
-                    ToolPanelChip(code, selected = code == selected) { onSelect(code) }
+                    ToolPanelChip(
+                        code,
+                        selected = code == selected,
+                        modifier = Modifier.focusRing(code == focusedCode),
+                    ) { onSelect(code) }
                 }
             }
         }

@@ -252,7 +252,9 @@ import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.QrCodeGen
+import com.wasimaster.wmkeyboard.core.tools.CalcEngine
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
+import com.wasimaster.wmkeyboard.core.tools.ToolPrefill
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import com.wasimaster.wmkeyboard.core.tools.ToolHttpException
 import com.wasimaster.wmkeyboard.core.tools.CharState
@@ -2376,14 +2378,8 @@ open class WMKeyboardService : InputMethodService() {
                 onFancyStyleSelect = ::onFancyStyleSelect,
                 onModeSelect = ::onModeSelect,
                 onToolInsert = ::onToolTextInsert,
-                // Selection memory, not a user action — persist silently.
-                onUnitSelection = { selection ->
-                    serviceScope.launch { settingsRepository.setUnitConvertLast(selection) }
-                },
-                onCurrencyPairChange = ::onCurrencyPairChange,
-                onCurrencyRefresh = { refreshCurrencyRates(force = true) },
+                converter = converterCallbacks,
                 onPwSetting = ::onPwSetting,
-                onCalcDegreesToggle = ::onCalcDegreesToggle,
                 onTypingTestAction = ::onTypingTestAction,
                 onQrSend = ::onQrSend,
                 onAiAction = ::onAiAction,
@@ -3737,6 +3733,10 @@ open class WMKeyboardService : InputMethodService() {
             state.typingTestActive -> { typingTestType(text); true }
             state.aiCustomInputActive -> { aiCustomInputEdit { it + text }; true }
             state.pluginTypingActive -> { pluginInputEdit { it + text }; true }
+            // The calculator's display is a buffer too: a physical keyboard
+            // types the expression instead of arrow-driving the keypad.
+            state.calcTypingActive -> { calcEdit { it + mapCalcChars(text) }; true }
+            state.converterTypingActive -> { converterEdit { appendConverterDigits(it, text) }; true }
             else -> false
         }
         if (takenByKeyboardBuffer) {
@@ -4305,6 +4305,14 @@ open class WMKeyboardService : InputMethodService() {
             pluginInputEdit { it.dropLast(1) }
             return
         }
+        if (state.calcTypingActive) {
+            calcEdit { it.dropLast(1) }
+            return
+        }
+        if (state.converterTypingActive) {
+            converterEdit { it.dropLast(1) }
+            return
+        }
         if (state.emojiSearchActive) {
             if (state.emojiQuery.isNotEmpty()) {
                 updateQuery { it.copy(emojiQuery = it.emojiQuery.dropLast(1)) }
@@ -4535,6 +4543,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun onForwardDelete() {
         val state = _uiState.value
         if (state.typingTestActive || state.aiCustomInputActive || state.pluginTypingActive ||
+            state.calcTypingActive || state.converterTypingActive ||
             state.emojiSearchActive || state.dictionarySearchActive ||
             state.clipboardSearchActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch)
@@ -4581,6 +4590,7 @@ open class WMKeyboardService : InputMethodService() {
     fun canForwardDelete(): Boolean {
         val state = _uiState.value
         if (state.typingTestActive || state.aiCustomInputActive || state.pluginTypingActive ||
+            state.calcTypingActive || state.converterTypingActive ||
             state.emojiSearchActive || state.dictionarySearchActive ||
             state.clipboardSearchActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch)
@@ -4815,6 +4825,7 @@ open class WMKeyboardService : InputMethodService() {
         if (state.emojiSearchActive || state.dictionarySearchActive ||
             state.clipboardSearchActive || state.pluginTypingActive ||
             state.aiCustomInputActive || state.typingTestActive ||
+            state.calcTypingActive || state.converterTypingActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch) ||
             ((state.panel == PanelMode.HANDWRITING || keyboardHandwriteActive(state)) &&
                 state.handwriting.strokes.isNotEmpty())
@@ -4876,6 +4887,13 @@ open class WMKeyboardService : InputMethodService() {
             pluginInputEdit { it + " " }
             return
         }
+        // The calculator's `mod ` operator is spelled with a space; the
+        // converters' amount has no use for one, so the press is just spent.
+        if (_uiState.value.calcTypingActive) {
+            calcEdit { it + " " }
+            return
+        }
+        if (_uiState.value.converterTypingActive) return
         val ic = currentInputConnection ?: return
         val state = _uiState.value
         val now = System.currentTimeMillis()
@@ -5046,6 +5064,15 @@ open class WMKeyboardService : InputMethodService() {
             onDictionaryLookup(state.dictionaryQuery)
             return
         }
+        // Enter in the calculator is the `=` key. Only when no focus ring is
+        // up — [handlePanelNavKey] consumes Enter first while one is.
+        if (state.calcTypingActive) {
+            calcEvaluate()
+            return
+        }
+        // The converters convert live; Enter has nothing to run and must not
+        // reach the field behind the panel.
+        if (state.converterTypingActive) return
         // QR builds its content as you type; Enter adds a newline to the
         // buffer (WiFi/vCard payloads span lines) rather than searching.
         if (state.mediaSearchActive && state.panel == PanelMode.QR_GEN) {
@@ -7799,6 +7826,21 @@ open class WMKeyboardService : InputMethodService() {
                 mediaDownloadingId = null,
                 stickerPacks = stickerPackStore.packs(),
                 stickerPackId = null,
+                // The service owns these buffers now, so the seed happens here:
+                // the calculator consumes its chip prefill outright, while the
+                // converters take only the amount — the panel still reads the
+                // category and unit pair from the prefill it consumes itself.
+                calcExpression = if (next == PanelMode.CALCULATOR) {
+                    (it.toolPrefill as? ToolPrefill.Calc)?.expression.orEmpty()
+                } else {
+                    ""
+                },
+                converterValue = when (next) {
+                    PanelMode.UNIT_CONVERT -> (it.toolPrefill as? ToolPrefill.Units)?.value ?: "1"
+                    PanelMode.CURRENCY -> (it.toolPrefill as? ToolPrefill.Currency)?.amount ?: "1"
+                    else -> "1"
+                },
+                toolPrefill = if (next == PanelMode.CALCULATOR) null else it.toolPrefill,
                 mediaAction = null,
                 mediaCategories = emptyList(),
                 mediaCategory = restored.category,
@@ -9548,11 +9590,100 @@ open class WMKeyboardService : InputMethodService() {
 
     // ---- calculator tool ----
 
+    /**
+     * One stable bundle for the calculator/converter panels, built outside
+     * [ServiceKeyboardContent] — that method sits against the JVM's 64K
+     * size ceiling, and six inline lambdas at the call site put it over.
+     */
+    private val converterCallbacks by lazy {
+        com.wasimaster.wmkeyboard.ime.ui.ConverterCallbacks(
+            onCalcEdit = ::onCalcExpressionChange,
+            onCalcToggleDegrees = ::onCalcDegreesToggle,
+            onConverterEdit = ::onConverterValueChange,
+            // Selection memory, not a user action — persist silently.
+            onUnitSelection = { selection ->
+                serviceScope.launch { settingsRepository.setUnitConvertLast(selection) }
+            },
+            onCurrencyPairChange = ::onCurrencyPairChange,
+            onCurrencyRefresh = { refreshCurrencyRates(force = true) },
+        )
+    }
+
     /** The panel's deg/rad chip — same persisted setting as the tool's page. */
     fun onCalcDegreesToggle() {
         vibrate()
         val next = !_uiState.value.settings.calcDegrees
         serviceScope.launch { settingsRepository.setCalcDegrees(next) }
+    }
+
+    /**
+     * Edits to the calculator's expression, from the soft keypad and the
+     * physical keys alike. The ring is dropped on every edit, the same rule as
+     * [updateQuery]: the Insert chip appears and disappears with the result's
+     * validity, and a stale index would activate the wrong thing.
+     */
+    private fun calcEdit(transform: (String) -> String) {
+        _uiState.update {
+            it.copy(calcExpression = transform(it.calcExpression), panelFocus = null)
+        }
+    }
+
+    fun onCalcExpressionChange(value: String) {
+        calcEdit { value }
+    }
+
+    /**
+     * The calculator engine's spellings for the keys a physical keyboard has:
+     * ASCII operators arrive as the keypad's typographic ones. Everything else
+     * passes through — `sin(`, digits, brackets — and a genuinely wrong
+     * character surfaces in the display's own error line, where it can be seen
+     * and backspaced, rather than being silently eaten.
+     */
+    private fun mapCalcChars(text: String): String =
+        text.map { c ->
+            when (c) {
+                '*' -> '×'
+                '/' -> '÷'
+                '-' -> '−'
+                else -> c
+            }
+        }.joinToString("")
+
+    /** The converters accept digits and one dot, capped like their keypad. */
+    private fun appendConverterDigits(current: String, text: String): String {
+        var value = current
+        for (c in text) {
+            value = when {
+                c.isDigit() -> (value + c).take(CONVERTER_VALUE_MAX)
+                c == '.' && '.' !in value -> value + c
+                else -> value
+            }
+        }
+        return value
+    }
+
+    private fun converterEdit(transform: (String) -> String) {
+        _uiState.update {
+            it.copy(converterValue = transform(it.converterValue), panelFocus = null)
+        }
+    }
+
+    fun onConverterValueChange(value: String) {
+        converterEdit { value }
+    }
+
+    /** Enter in the calculator is the `=` key: collapse to the result. */
+    private fun calcEvaluate() {
+        val state = _uiState.value
+        val expression = state.calcExpression
+        if (expression.isBlank()) return
+        val result = runCatching {
+            CalcEngine.format(
+                CalcEngine.evaluate(expression, state.settings.calcDegrees),
+                state.settings.calcPrecision,
+            )
+        }
+        result.onSuccess { collapsed -> calcEdit { collapsed } }
     }
 
     // ---- plugins ----
@@ -12494,6 +12625,8 @@ open class WMKeyboardService : InputMethodService() {
             state.typingTestActive -> state.typingTest.current.isNotEmpty()
             state.aiCustomInputActive ->
                 (state.ai as? AiUi.CustomInput)?.instruction?.isNotEmpty() == true
+            state.calcTypingActive -> state.calcExpression.isNotEmpty()
+            state.converterTypingActive -> state.converterValue.isNotEmpty()
             state.emojiSearchActive -> state.emojiQuery.isNotEmpty()
             state.dictionarySearchActive -> state.dictionaryQuery.isNotEmpty()
             state.clipboardSearchActive -> state.clipboardQuery.isNotEmpty()
@@ -14057,7 +14190,8 @@ open class WMKeyboardService : InputMethodService() {
             (state.mediaSearchActive && state.panel.hasMediaSearch) ||
             state.dictionarySearchActive || state.clipboardSearchActive ||
             state.typingTestActive || state.pluginTypingActive ||
-            state.aiCustomInputActive
+            state.aiCustomInputActive ||
+            state.calcTypingActive || state.converterTypingActive
     }
 
     /**
@@ -14550,6 +14684,9 @@ open class WMKeyboardService : InputMethodService() {
 
         /** How long the dedicated language key's confirmation overlay stays up. */
         private const val LANGUAGE_HUD_FLASH_MS = 1200L
+
+        /** Cap on the converters' typed amount — mirrors their soft keypad. */
+        private const val CONVERTER_VALUE_MAX = 14
 
         /**
          * Packages that host input fields on behalf of other apps — in

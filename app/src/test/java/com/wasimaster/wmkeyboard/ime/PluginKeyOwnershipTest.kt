@@ -106,11 +106,31 @@ class PluginKeyOwnershipTest {
         val owners = listOf(
             "emojiSearchActive", "dictionarySearchActive", "clipboardSearchActive",
             "typingTestActive", "pluginTypingActive", "aiCustomInputActive",
+            "calcTypingActive", "converterTypingActive",
         )
         assertEquals(
             "buffers the soft keys feed but a physical keyboard cannot reach",
             emptyList<String>(),
             owners.filterNot { body.contains(it) },
+        )
+    }
+
+    /**
+     * The calculator/converter buffers joined the same scattered owner lists,
+     * and the same drift is possible: a delete guard that forgets them edits
+     * the field behind the panel.
+     */
+    @Test
+    fun `the service treats the calculator buffers as owning the keys too`() {
+        val conditions = ownerConditions(serviceSource)
+        assertTrue("no keystroke-owner conditions found in the service", conditions.size >= 3)
+        val missing = conditions.filterNot {
+            it.contains("calcTypingActive") && it.contains("converterTypingActive")
+        }
+        assertEquals(
+            "service conditions that hand the keys to the clipboard search but not to the calculator",
+            emptyList<String>(),
+            missing,
         )
     }
 
