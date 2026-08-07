@@ -88,6 +88,7 @@ import com.google.android.gms.tasks.Task
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.clipboard.LinkPreview
+import com.wasimaster.wmkeyboard.core.tools.EggLinks
 import com.wasimaster.wmkeyboard.core.tools.LinkPreviewClient
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -736,6 +737,19 @@ private fun QrScanContent(
                 verticalArrangement = Arrangement.Center,
             ) {
                 LinkPreviewCard(linkPreviews && url != null, preview)
+                // Easter egg: the one link every QR scanner eventually meets.
+                // Matched on the raw payload, not on `url` — ClipLinks.asUrl
+                // only accepts a bare URL and a rickroll deserves recognition
+                // even when it travels with company.
+                if (remember(code) { EggLinks.isRickroll(code.value) }) {
+                    Text(
+                        stringResource(R.string.ime_qr_rickroll_info),
+                        color = kb.secondaryText,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
                 Text(
                     code.value,
                     color = kb.suggestionText,

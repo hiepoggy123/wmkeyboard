@@ -87,6 +87,10 @@
         <item quantity="other">The text is too long for one QR code. It has %1$d characters.</item>
     </plurals>
 
+    <!-- QR code scanner result card. -->
+    <!-- Easter egg: shown when a scanned code turns out to be the famous Rick Astley video. -->
+    <string name="ime_qr_rickroll_info">🎵 Rickroll detected. Never gonna scan you up.</string>
+
     <!-- Typing speed tool panel: the run and the results. -->
     <string name="ime_typing_new_best_label">New best</string>
     <!-- Caption under the seconds that are left in a timed run. -->
