@@ -91,6 +91,29 @@ class PluginKeyOwnershipTest {
         )
     }
 
+    /**
+     * The hardware gate is a bare `return` expression, not an `if (` head, so
+     * the owner-condition net above never sees it — which is exactly how the
+     * AI custom-instruction box shipped typing its physical keys into the
+     * app's field. Held to the full list by name instead.
+     */
+    @Test
+    fun `physical keys reach every buffer the soft keys do`() {
+        val body = serviceSource
+            .substringAfter("private fun hardwareIntercepts(")
+            .substringBefore("\n    }")
+        assertTrue("hardwareIntercepts not found", body.contains("composingMode"))
+        val owners = listOf(
+            "emojiSearchActive", "dictionarySearchActive", "clipboardSearchActive",
+            "typingTestActive", "pluginTypingActive", "aiCustomInputActive",
+        )
+        assertEquals(
+            "buffers the soft keys feed but a physical keyboard cannot reach",
+            emptyList<String>(),
+            owners.filterNot { body.contains(it) },
+        )
+    }
+
     @Test
     fun `the key rows are drawn while a plugin box has the keys`() {
         assertTrue(

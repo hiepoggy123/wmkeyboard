@@ -13837,7 +13837,8 @@ open class WMKeyboardService : InputMethodService() {
         return composingMode || state.emojiSearchActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch) ||
             state.dictionarySearchActive || state.clipboardSearchActive ||
-            state.typingTestActive || state.pluginTypingActive
+            state.typingTestActive || state.pluginTypingActive ||
+            state.aiCustomInputActive
     }
 
     /**
