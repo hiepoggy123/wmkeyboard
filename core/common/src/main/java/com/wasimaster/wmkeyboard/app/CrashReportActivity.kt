@@ -68,6 +68,14 @@ class CrashReportActivity : Activity() {
         private const val SHARE_FILE = "wmkeyboard-crash.txt"
 
         /**
+         * How long the keyboard picker is given to appear before the settings
+         * screen is opened instead. Long enough that a slow device still gets
+         * to show it, short enough that a button which did nothing does not
+         * feel like a button which did nothing.
+         */
+        private const val PICKER_GRACE_MILLIS = 600L
+
+        /**
          * How much of the report a `mailto:` draft carries. Mail apps drop or
          * mangle very long bodies, and the top of the report — the build, the
          * device, the exception and its first frames — is the part that gets a
@@ -213,14 +221,49 @@ class CrashReportActivity : Activity() {
      * keyboard: whatever is typed next needs a different IME until this build
      * is fixed or restarted.
      *
-     * The picker is only granted to the window that currently has input focus,
-     * which this one does; where it cannot be reached at all the input-method
-     * settings screen is the fallback, since that one is always openable and
-     * gets to the same place in two taps.
+     * The picker is only granted to the window that owns the current input
+     * connection. This one never does — it is a bare activity in a separate
+     * process put up because the keyboard died — so the platform refuses the
+     * request. It refuses it *silently*: [InputMethodManager.showInputMethodPicker]
+     * returns nothing and throws nothing, it just logs and drops the call. So
+     * asking whether it worked is not possible; the answer has to be watched
+     * for instead. The picker is a system window, so showing it takes focus off
+     * this one — if focus was never lost, nothing was shown, and the
+     * input-method settings screen is opened instead. That one is always
+     * openable and reaches the same place in two taps.
+     *
+     * This used to read `if (runCatching { showInputMethodPicker() }.isSuccess)
+     * return`, which is true whenever the call does not throw — which is
+     * always. The fallback was unreachable and the button did nothing at all.
      */
     private fun switchKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-        if (imm != null && runCatching { imm.showInputMethodPicker() }.isSuccess) return
+        if (imm == null) {
+            openInputMethodSettings()
+            return
+        }
+        pickerTookFocus = false
+        runCatching { imm.showInputMethodPicker() }
+        window.decorView.postDelayed({
+            if (!isFinishing && !pickerTookFocus) openInputMethodSettings()
+        }, PICKER_GRACE_MILLIS)
+    }
+
+    /**
+     * Set as soon as this window loses focus after the picker is asked for,
+     * which is the only evidence available that it actually appeared. Watching
+     * for the loss rather than sampling focus at the deadline means a picker
+     * the user dismisses quickly still counts as shown.
+     */
+    private var pickerTookFocus = false
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus) pickerTookFocus = true
+    }
+
+    /** The always-available way to a working keyboard, two taps from here. */
+    private fun openInputMethodSettings() {
         val opened = runCatching {
             startActivity(
                 Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
