@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -81,6 +79,7 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 internal fun AiChatListScreen(
     onOpenChat: (Long) -> Unit,
     onNewChat: () -> Unit,
+    onAutoNew: () -> Unit,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -88,6 +87,14 @@ internal fun AiChatListScreen(
     val version by AiChatController.storeVersion.collectAsState()
     val conversations = remember(version) { store.items() }
     var confirmDelete by remember { mutableStateOf<AiChatConversation?>(null) }
+
+    // Nothing to list yet: skip the empty list and land in a chat directly.
+    // The caller replaces this screen in the back stack, and a chat only
+    // writes its conversation on the first send, so backing straight out
+    // leaves nothing behind.
+    LaunchedEffect(Unit) {
+        if (store.isEmpty()) onAutoNew()
+    }
 
     WmLazyScreen(
         title = stringResource(R.string.home_screen_ai_chat_title),
@@ -275,12 +282,15 @@ internal fun AiChatScreen(
             )
         },
     ) { padding ->
+        // No imePadding/navigationBarsPadding here: the activity is not
+        // edge-to-edge, so the window itself already resizes for the keyboard
+        // and insets the navigation bar — adding them again doubles the
+        // bottom padding by a whole keyboard and shoves the composer to the
+        // top of the screen.
         Column(
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
-                .imePadding()
-                .navigationBarsPadding(),
+                .fillMaxSize(),
         ) {
             if (localModels.isEmpty() && remoteProviders.isEmpty()) {
                 NoBackendState(onOpenAiSettings)

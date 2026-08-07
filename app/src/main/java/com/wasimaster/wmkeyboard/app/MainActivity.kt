@@ -1092,6 +1092,13 @@ private fun SettingsNavGraph(
             AiChatListScreen(
                 onOpenChat = { id -> navController.navigate("ai_chat/$id") },
                 onNewChat = { navController.navigate("ai_chat/new") },
+                // First-ever open: replace the empty list with the chat, so
+                // back leaves the feature instead of landing on a blank list.
+                onAutoNew = {
+                    navController.navigate("ai_chat/new") {
+                        popUpTo("ai_chat") { inclusive = true }
+                    }
+                },
                 onBack = { navController.popBackStack() },
             )
         }
