@@ -26,7 +26,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.core.net.toUri
 import androidx.compose.material.icons.outlined.Wallpaper
@@ -319,6 +321,47 @@ internal fun KeyShapeSwatch(kind: KeyShapeKind, radiusDp: Int, color: Color) {
 
 /** The keyboard's own horizontal key gap, which [KeyShapeSwatch] reproduces. */
 private const val KeySwatchGapDp = 2.5f
+
+/**
+ * Small square preview of a theme image file, for the editor's picker rows —
+ * a texture, a press-effect particle, a background. Falls back to the plain
+ * image glyph while there is nothing to show, so an unset row looks exactly
+ * as it always has.
+ */
+@Composable
+private fun ImageThumb(path: String?) {
+    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, path) {
+        value = withContext(Dispatchers.IO) {
+            path?.let { p ->
+                runCatching {
+                    val bounds = android.graphics.BitmapFactory.Options()
+                        .apply { inJustDecodeBounds = true }
+                    android.graphics.BitmapFactory.decodeFile(p, bounds)
+                    val sample = maxOf(1, maxOf(bounds.outWidth, bounds.outHeight) / THUMB_DECODE_PX)
+                    val opts = android.graphics.BitmapFactory.Options()
+                        .apply { inSampleSize = sample }
+                    android.graphics.BitmapFactory.decodeFile(p, opts)?.asImageBitmap()
+                }.getOrNull()
+            }
+        }
+    }
+    val bmp = bitmap
+    if (bmp != null) {
+        Image(
+            bitmap = bmp,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(8.dp)),
+        )
+    } else {
+        Icon(Icons.Outlined.Image, contentDescription = null)
+    }
+}
+
+/** Longest edge a picker-row thumbnail decodes to; the box is 40 dp. */
+private const val THUMB_DECODE_PX = 96
 
 /** What chips draw with when a theme sets no chip radius; mirrors the keyboard. */
 private const val DefaultChipRadiusDp = 12
@@ -1130,7 +1173,7 @@ fun ThemeEditorScreen(
                         ),
                     )
                 },
-                leadingContent = { Icon(Icons.Outlined.Image, contentDescription = null) },
+                leadingContent = { ImageThumb(theme.backgroundImage) },
                 trailingContent = {
                     val existingImage = theme.backgroundImage
                     if (existingImage != null) {
@@ -1231,7 +1274,7 @@ fun ThemeEditorScreen(
                         ),
                     )
                 },
-                leadingContent = { Icon(Icons.Outlined.Image, contentDescription = null) },
+                leadingContent = { ImageThumb(theme.backgroundImageLandscape) },
                 trailingContent = {
                     val existingLandscapeImage = theme.backgroundImageLandscape
                     if (existingLandscapeImage != null) {
@@ -1513,7 +1556,7 @@ fun ThemeEditorScreen(
                             ),
                         )
                     },
-                    leadingContent = { Icon(Icons.Outlined.Image, contentDescription = null) },
+                    leadingContent = { ImageThumb(path) },
                     trailingContent = {
                         if (path != null) {
                             IconButton(
@@ -2271,9 +2314,7 @@ fun ThemeEditorScreen(
                                 ),
                             )
                         },
-                        leadingContent = {
-                            Icon(Icons.Outlined.Image, contentDescription = null)
-                        },
+                        leadingContent = { ImageThumb(path) },
                         trailingContent = {
                             IconButton(
                                 onClick = {

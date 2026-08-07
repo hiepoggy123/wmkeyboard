@@ -29,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
@@ -216,6 +217,23 @@ fun KbTheme.toolShape() = keyShapeFor(toolShapeKind, toolRadiusDp)
  * drew before a theme could say otherwise.
  */
 fun KbTheme.chipShape() = keyShapeFor(chipShapeKind, chipRadiusDp)
+
+/**
+ * The popup outline a theme asked for, as a Surface border; null draws none.
+ * Every popup surface — the preview bubble, the long-press alternates, the
+ * language picker, the clip and emoji menus — wears the same one.
+ */
+fun KbTheme.popupSurfaceBorder(): BorderStroke? =
+    popupBorder?.takeIf { popupBorderWidthDp > 0f }
+        ?.let { BorderStroke(popupBorderWidthDp.dp, it) }
+
+/** [popupSurfaceBorder] as a modifier, for popup containers that are not Surfaces. */
+fun Modifier.popupBorder(kb: KbTheme, shape: Shape): Modifier =
+    if (kb.popupBorder != null && kb.popupBorderWidthDp > 0f) {
+        border(kb.popupBorderWidthDp.dp, kb.popupBorder, shape)
+    } else {
+        this
+    }
 
 /** The chip outline a theme asked for, or nothing — chips default to none. */
 fun Modifier.chipBorder(kb: KbTheme, shape: Shape): Modifier =

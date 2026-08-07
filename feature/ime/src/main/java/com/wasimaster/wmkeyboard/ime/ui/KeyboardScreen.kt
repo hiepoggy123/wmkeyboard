@@ -3225,13 +3225,16 @@ private fun SnippetOfferChip(
     // One line, so the newlines in a signature or a letter have to become
     // spaces; a snippet with any in it would otherwise show only its first.
     val preview = remember(offer.text) { offer.text.replace(WHITESPACE_RUN, " ").trim() }
+    // Accent-tinted like the smart chip — it is an offer, not a word — but the
+    // outline follows the theme's chip shape.
+    val chipShape = kb.chipShape()
     Row(
         modifier = modifier
             .fillMaxHeight()
             .padding(vertical = 5.dp)
-            .clip(RoundedCornerShape(50))
+            .clip(chipShape)
             .background(tint.copy(alpha = if (kb.dark) 0.20f else 0.11f))
-            .border(1.dp, tint.copy(alpha = 0.32f), RoundedCornerShape(50))
+            .border(1.dp, tint.copy(alpha = 0.32f), chipShape)
             .clickable {
                 feedback()
                 onAccept()
@@ -3262,7 +3265,9 @@ private fun SnippetOfferChip(
             }
             Text(
                 text = preview,
-                color = kb.keyText,
+                // Strip text, not key text: the chip sits on the board, and a
+                // theme may ink its keys against it.
+                color = kb.suggestionText,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
@@ -4772,6 +4777,7 @@ private fun ToolCircle(
                 Surface(
                     shape = kb.popupShape(),
                     color = kb.popup,
+                    border = kb.popupSurfaceBorder(),
                     shadowElevation = 6.dp,
                 ) {
                     Text(
@@ -7557,8 +7563,7 @@ private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKey
     Surface(
         shape = shape,
         color = preview.popupBackground ?: kb.popup,
-        border = kb.popupBorder?.takeIf { kb.popupBorderWidthDp > 0f }
-            ?.let { BorderStroke(kb.popupBorderWidthDp.dp, it) },
+        border = kb.popupSurfaceBorder(),
         shadowElevation = 6.dp,
     ) {
         Box(
@@ -9544,6 +9549,7 @@ private fun KeyButton(
                 Surface(
                     shape = kb.popupShape(),
                     color = kb.popup,
+                    border = kb.popupSurfaceBorder(),
                     shadowElevation = 8.dp,
                 ) {
                     Row(
@@ -9596,6 +9602,7 @@ private fun KeyButton(
                 Surface(
                     shape = kb.popupShape(),
                     color = kb.popup,
+                    border = kb.popupSurfaceBorder(),
                     shadowElevation = 8.dp,
                 ) {
                     Row(
@@ -9802,6 +9809,7 @@ private fun LanguagePickerPopup(
         Surface(
             shape = kb.popupShape(),
             color = kb.popup,
+            border = kb.popupSurfaceBorder(),
             shadowElevation = 8.dp,
         ) {
             Column(
@@ -11924,6 +11932,7 @@ private fun EmojiVariantPopup(
             modifier = Modifier.widthIn(max = PopupActionWidth),
             shape = kb.popupShape(),
             color = kb.popup,
+            border = kb.popupSurfaceBorder(),
             shadowElevation = 8.dp,
         ) {
             // Roomy by design: these rows are the only way to favourite or
@@ -12120,6 +12129,7 @@ private fun FavouritesReorderPopup(
             Surface(
                 shape = kb.popupShape(),
                 color = kb.popup,
+                border = kb.popupSurfaceBorder(),
                 shadowElevation = 8.dp,
                 modifier = Modifier
                     .padding(16.dp)
@@ -12931,6 +12941,7 @@ private fun ClipEntitySourcePopup(entity: ClipEntity, onDismiss: () -> Unit) {
         Surface(
             shape = kb.popupShape(),
             color = kb.popup,
+            border = kb.popupSurfaceBorder(),
             shadowElevation = 6.dp,
         ) {
             Column(
@@ -13057,6 +13068,7 @@ private fun ClipInfoPopup(
         Surface(
             shape = kb.popupShape(),
             color = kb.popup,
+            border = kb.popupSurfaceBorder(),
             shadowElevation = 6.dp,
         ) {
             Column(

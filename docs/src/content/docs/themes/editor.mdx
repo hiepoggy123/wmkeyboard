@@ -86,7 +86,7 @@ Shapes past the first four are new. A theme exported with one of them won't impo
 
 Keys can wear an image instead of just a color. One picture for the letter keys is enough to theme the whole board; the modifier keys, the enter key, the space bar, the pressed state and the key-preview popup each take an optional image of their own, and fall back sensibly when you don't set one (space reuses the letter texture, pressed draws the press tint over it; the popup draws color-only rather than borrowing a key's image).
 
-- Each texture row picks an image from your gallery; it's stored downscaled to 512px, so a camera photo won't bloat the theme file.
+- Each texture row picks an image from your gallery; it's stored downscaled to 512px, so a camera photo won't bloat the theme file. Rows that have an image show it as a small thumbnail, the same way the background and press-effect image rows do.
 - **Crop / Stretch / Tile** decides how the image fits a key. Crop keeps its proportions, stretch fills the key exactly, tile repeats it at its natural size — the right choice for pixel-art.
 - **Texture opacity** blends the image over the key color underneath, which stays the base coat (and what high-contrast accessibility falls back to — textures don't draw there at all).
 
@@ -119,7 +119,7 @@ For a theme you plan to share: Google Font ids (`google:Caveat`) resolve the sam
 - **Popup background** and **Popup text** — the bubble that appears above a key on press; both support Auto fallbacks (deriving from the board/key colors and Key text respectively). Popup background supports alpha.
 - **Popup shape** — the outline of every popup surface the keyboard draws: the character bubble, the long-press alternates, the language list, the panel menus. Same picker and same twelve shapes as Key shape, drawn at this theme's popup radius. Until you pick one, the theme follows <SettingsPath path="Key press / Popup shape" />.
 - **Popup placement** — whether the character bubble grows out of the pressed key (the stock style) or floats detached above it. **Default** leaves the choice to <SettingsPath path="Key press" />; the other two make it part of the theme, so a bubble-popup theme looks right on every phone it lands on.
-- **Popup outline** and its width row — a border around the bubble, off until you pick a color, exactly like the key border.
+- **Popup outline** and its width row — a border around the bubble, off until you pick a color, exactly like the key border. It draws on every popup surface the keyboard opens: the character bubble, the long-press alternates, the spacebar language picker, the clipboard and emoji menus, and the small pickers inside the tool panels.
 - The popup can also wear an image: the **Key preview popup** row under [Key textures](#key-textures) paints one inside the bubble, clipped to the popup shape, using the same Crop/Stretch/Tile mode and opacity as the key textures.
 
 ### Toolbar
@@ -136,7 +136,7 @@ For a theme you plan to share: Google Font ids (`google:Caveat`) resolve the sam
 
 ### Chips & buttons
 
-Chips are the small tappable surfaces inside the tool panels — style pickers, tab strips, converter controls, dictionary suggestions, search bars, the cards in the clipboard, snippet, weather and plugin lists, and the buttons and fields a [plugin](/tools/plugins/) draws. They take the card color above as their background, and this group styles the rest. The panels' own keypads (calculator, numpad, the converters, the handwriting and voice rails) are keys, not chips: they follow the theme's key shape and key border instead, so a circle-key theme gets circular calculator keys for free.
+Chips are the small tappable surfaces inside the tool panels — style pickers, tab strips, converter controls, dictionary suggestions, search bars, the cards in the clipboard, snippet, weather, calendar, grammar and plugin lists, and the buttons and fields a [plugin](/tools/plugins/) draws. They take the card color above as their background, and this group styles the rest. The panels' own keypads (calculator, numpad, the converters, the text-editing pad, the handwriting and voice rails) are keys, not chips: they follow the theme's key shape and key border instead, so a circle-key theme gets circular calculator keys for free.
 
 - **Chip text** and **Selected chip** / **Selected chip text** — the resting label, and the fill and label of the chip that's currently active. Auto derives all three from the theme (the selected fill follows the active tool circle).
 - **Chip outline** and its width row — a border around every chip, off until you pick a color.

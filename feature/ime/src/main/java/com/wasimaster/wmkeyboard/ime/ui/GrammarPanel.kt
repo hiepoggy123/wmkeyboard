@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Check
@@ -36,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -135,14 +135,16 @@ internal fun GrammarPanel(
             Box {
                 Row(
                     modifier = Modifier
-                        .background(kb.chip, RoundedCornerShape(14.dp))
+                        .clip(kb.chipShape())
+                        .background(kb.chip)
+                        .chipBorder(kb, kb.chipShape())
                         .clickable { pickerOpen = true }
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         stringResource(state.settings.grammarDialect.labelRes),
-                        color = kb.suggestionText,
+                        color = kb.chipText,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -190,7 +192,9 @@ internal fun GrammarPanel(
             if (fixable > 0) {
                 Row(
                     modifier = Modifier
-                        .background(kb.toolCircleActive, RoundedCornerShape(14.dp))
+                        .clip(kb.chipShape())
+                        .background(kb.chipActive)
+                        .chipBorder(kb, kb.chipShape())
                         .clickable { onFixAll() }
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -199,12 +203,12 @@ internal fun GrammarPanel(
                         Icons.Outlined.Done,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = kb.toolCircleActiveIcon,
+                        tint = kb.chipActiveText,
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
                         stringResource(R.string.ime_grammar_fix_all_action, fixable),
-                        color = kb.toolCircleActiveIcon,
+                        color = kb.chipActiveText,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -280,10 +284,13 @@ private fun GrammarLintCard(
     val kb = LocalKbTheme.current
     val category = categoryFor(lint.kind)
     val catColor = category.color(kb.dark)
+    val cardShape = kb.chipShape()
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(kb.chip, RoundedCornerShape(12.dp))
+            .clip(cardShape)
+            .background(kb.chip)
+            .chipBorder(kb, cardShape)
             // Tapping the card jumps the cursor to the issue in the field —
             // selecting the word for a swap, or parking at its end for a small
             // fix. The X and fix chips consume their own taps first.
@@ -370,12 +377,14 @@ private fun GrammarLintCard(
                             }
                             Text(
                                 fixLabel,
-                                color = kb.toolCircleActiveIcon,
+                                color = kb.chipActiveText,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
                                 modifier = Modifier
-                                    .background(kb.toolCircleActive, RoundedCornerShape(12.dp))
+                                    .clip(kb.chipShape())
+                                    .background(kb.chipActive)
+                                    .chipBorder(kb, kb.chipShape())
                                     .clickable { onFix(lint, fix) }
                                     .padding(horizontal = 10.dp, vertical = 4.dp),
                             )
@@ -407,7 +416,9 @@ private fun GrammarDialectPicker(
             modifier = Modifier
                 .widthIn(min = 160.dp, max = 220.dp)
                 .heightIn(max = 240.dp)
-                .background(kb.popup, RoundedCornerShape(12.dp))
+                .clip(kb.popupShape())
+                .background(kb.popup)
+                .popupBorder(kb, kb.popupShape())
                 .padding(vertical = 4.dp),
         ) {
             GrammarDialect.entries.forEach { dialect ->

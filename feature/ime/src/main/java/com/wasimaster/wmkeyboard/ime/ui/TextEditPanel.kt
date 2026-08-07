@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
@@ -210,13 +209,14 @@ private fun EditKey(
 ) {
     val kb = LocalKbTheme.current
     val scope = rememberCoroutineScope()
-    val shape = RoundedCornerShape(kb.keyRadiusDp.dp)
+    val shape = kb.keyShape()
     val background = if (active) kb.toolCircleActive else kb.modifierKey
     val content = if (active) kb.toolCircleActiveIcon else kb.modifierKeyText
     Box(
         modifier = modifier
             .clip(shape)
             .background(background, shape)
+            .panelKeyBorder(kb, shape)
             .pointerInput(repeatable, repeatIntervalMs) {
                 detectTapGestures(
                     onPress = {

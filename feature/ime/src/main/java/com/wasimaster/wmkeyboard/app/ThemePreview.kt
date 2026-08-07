@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.app
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -196,14 +197,16 @@ fun ThemePreview(
                     modifier = Modifier
                         .weight(5f)
                         .fillMaxHeight()
-                        .background(colorOf(theme.keyBackground), keyShape),
+                        .background(colorOf(theme.keyBackground), keyShape)
+                        .previewKeyBorder(theme, keyShape),
                 )
                 LetterKey(theme, keyShape, weight = 1f, dot = false)
                 Box(
                     modifier = Modifier
                         .weight(1.5f)
                         .fillMaxHeight()
-                        .background(colorOf(theme.enterKeyBackground), keyShape),
+                        .background(colorOf(theme.enterKeyBackground), keyShape)
+                        .previewKeyBorder(theme, keyShape),
                 )
             }
         }
@@ -291,7 +294,8 @@ private fun RowScope.LetterKey(
         modifier = Modifier
             .weight(weight)
             .fillMaxHeight()
-            .background(colorOf(theme.keyBackground), keyShape),
+            .background(colorOf(theme.keyBackground), keyShape)
+            .previewKeyBorder(theme, keyShape),
         contentAlignment = Alignment.Center,
     ) {
         texture?.let {
@@ -303,6 +307,15 @@ private fun RowScope.LetterKey(
                     .matchParentSize()
                     .clip(keyShape)
                     .alpha(theme.keyTextureOpacity),
+            )
+        }
+        // The key sheen, at phase 0 like the board gradient: without it the
+        // editor said "no" to a gradient the keyboard was already drawing.
+        theme.keyGradient?.let {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(it.brush(), keyShape),
             )
         }
         if (dot) {
@@ -326,8 +339,20 @@ private fun RowScope.ModifierKey(theme: ThemeSpec, keyShape: Shape, weight: Floa
         modifier = Modifier
             .weight(weight)
             .fillMaxHeight()
-            .background(colorOf(theme.modifierKeyBackground), keyShape),
+            .background(colorOf(theme.modifierKeyBackground), keyShape)
+            .previewKeyBorder(theme, keyShape),
     )
+}
+
+/**
+ * The theme's key border on a mock-up key. Drawn at a fixed hairline rather
+ * than the theme's width — the keys are a tenth of their real size, and a
+ * 2 dp border at this scale is a filled key.
+ */
+private fun Modifier.previewKeyBorder(theme: ThemeSpec, shape: Shape): Modifier {
+    val color = theme.keyBorderColor ?: return this
+    if (theme.keyBorderWidthDp <= 0f) return this
+    return border(0.7.dp, colorOf(color), shape)
 }
 
 private fun colorOf(argb: Long): Color = Color(argb.toInt())

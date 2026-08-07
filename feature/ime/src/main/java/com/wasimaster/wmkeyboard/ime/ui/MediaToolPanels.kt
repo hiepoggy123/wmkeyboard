@@ -400,11 +400,13 @@ private fun PanelNotice(
             Spacer(Modifier.height(10.dp))
             Text(
                 actionLabel,
-                color = kb.toolCircleActiveIcon,
+                color = kb.chipActiveText,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
-                    .background(kb.toolCircleActive, RoundedCornerShape(18.dp))
+                    .clip(kb.chipShape())
+                    .background(kb.chipActive)
+                    .chipBorder(kb, kb.chipShape())
                     .clickable { onAction() }
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             )
@@ -425,7 +427,9 @@ private fun MediaUnsupportedNotice(stickers: Boolean) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
-            .background(kb.toolCircle, RoundedCornerShape(10.dp))
+            .clip(kb.chipShape())
+            .background(kb.chip)
+            .chipBorder(kb, kb.chipShape())
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1382,7 +1386,9 @@ private fun TranslateLanguagePicker(
             modifier = Modifier
                 .widthIn(min = 180.dp, max = 240.dp)
                 .heightIn(max = 260.dp)
-                .background(kb.popup, RoundedCornerShape(12.dp))
+                .clip(kb.popupShape())
+                .background(kb.popup)
+                .popupBorder(kb, kb.popupShape())
                 .padding(vertical = 4.dp)
                 .verticalScroll(rememberScrollState()),
         ) {

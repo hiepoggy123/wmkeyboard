@@ -1016,8 +1016,9 @@ internal fun CalendarPanel(
                 if (shownYear != today.year || shownMonth != today.month) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(kb.chipShape())
                             .background(kb.chip)
+                            .chipBorder(kb, kb.chipShape())
                             .clickable {
                                 shownYear = today.year
                                 shownMonth = today.month
@@ -1094,7 +1095,7 @@ internal fun CalendarPanel(
                                         .fillMaxHeight()
                                         .padding(horizontal = 2.dp)
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(if (isSelected) kb.toolCircleActive else Color.Transparent)
+                                        .background(if (isSelected) kb.chipActive else Color.Transparent)
                                         .then(
                                             if (isToday && !isSelected) {
                                                 Modifier.border(1.dp, kb.accent, RoundedCornerShape(6.dp))
@@ -1106,7 +1107,7 @@ internal fun CalendarPanel(
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     val primary = when {
-                                        isSelected -> kb.toolCircleActiveIcon
+                                        isSelected -> kb.chipActiveText
                                         isToday -> kb.accent
                                         else -> kb.modifierKeyText
                                     }
@@ -1124,7 +1125,7 @@ internal fun CalendarPanel(
                                             )
                                             Text(
                                                 altDay,
-                                                color = if (isSelected) kb.toolCircleActiveIcon.copy(alpha = 0.7f)
+                                                color = if (isSelected) kb.chipActiveText.copy(alpha = 0.7f)
                                                     else kb.toolbarIcon,
                                                 fontSize = 8.sp,
                                                 maxLines = 1,
@@ -1265,8 +1266,9 @@ private fun CalendarDayEvents(
             Box(
                 modifier = Modifier
                     .padding(start = 8.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(kb.toolCircleActive)
+                    .clip(kb.chipShape())
+                    .background(kb.chipActive)
+                    .chipBorder(kb, kb.chipShape())
                     .clickable {
                         feedback()
                         onRequestPermission()
@@ -1275,7 +1277,7 @@ private fun CalendarDayEvents(
             ) {
                 Text(
                     stringResource(R.string.ime_calendar_allow_action),
-                    color = kb.toolCircleActiveIcon,
+                    color = kb.chipActiveText,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                 )
@@ -1332,7 +1334,7 @@ private fun CalendarDayEvents(
 private fun EventRow(event: DeviceCalendarEvent, timeFormat: SimpleDateFormat) {
     val kb = LocalKbTheme.current
     val color = if (event.color != 0) Color(event.color) else kb.accent
-    val shape = RoundedCornerShape(kb.toolRadiusDp.dp)
+    val shape = kb.chipShape()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1341,7 +1343,8 @@ private fun EventRow(event: DeviceCalendarEvent, timeFormat: SimpleDateFormat) {
             // would have nothing to fill.
             .height(IntrinsicSize.Min)
             .clip(shape)
-            .background(kb.chip, shape),
+            .background(kb.chip, shape)
+            .chipBorder(kb, shape),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
