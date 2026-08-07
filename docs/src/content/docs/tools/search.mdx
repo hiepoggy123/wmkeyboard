@@ -28,9 +28,9 @@ Both tools are powered by the Brave Search API. Typing routes into the panel's o
 {/* shot: tools/image-search-grid */}
 </PhoneFrame>
 
-Without a usable key, both panels show a message: "Web search needs an API key — Brave Search. Add one in the tool's settings." (image search reads the same, swapping in its own name), with a button that jumps straight to that tool's settings screen.
+Without a usable key, neither tool appears on the keyboard at all. There's no button to tap that opens a panel with nothing behind it: with no key, the two tools are off the toolbar, out of the toolbox, and out of the smart chips, and a hardware shortcut bound to either one does nothing. On the **Tools** screen they're still listed, with their switch greyed out and "Needs an API key. Press this row to add one." in place of the usual description. Paste a key on that screen and both come straight back.
 
-<PhoneFrame caption="The web search panel before a Brave API key is configured.">
+<PhoneFrame caption="The Tools screen before a Brave API key is configured: the switch is greyed out.">
 {/* shot: tools/search-needs-key */}
 </PhoneFrame>
 
@@ -40,7 +40,7 @@ Without a usable key, both panels show a message: "Web search needs an API key �
 
 Web search and image search are two separate tool screens (reached from **Tools / Web search** and **Tools / Image search**), but they share one identical settings block:
 
-- **Enabled** — on by default, like every tool. Turning it off removes that tool from both the toolbar and the toolbox.
+- **Enabled** — on by default, like every tool. Turning it off removes that tool from both the toolbar and the toolbox. The switch can't be pressed while there's no key: with nothing to search with, there's nothing to turn on.
 - **Icon colour** — only shown if [colorful tool icons](/reference/settings/tools/) are turned on globally.
 - **Brave API key** — blank by default. Paste a key from `api-dashboard.search.brave.com` to use your own quota; leave it blank and the app falls back to a key baked into the build, if this build ships one. The field saves as you type (no separate save button), and its supporting text reads "Using your key", "Blank — using the key built into this app", or the hint text, depending on which applies.
 - **SafeSearch** — on by default. Filters explicit results; web search maps this to Brave's "moderate" filter, while image search only offers strict/off, so the same toggle maps to "strict" there instead.
@@ -101,7 +101,7 @@ The settings page's caption: "Definitions come from the Free Dictionary API (dic
 
 ## Details & edge cases
 
-- **Only two of the four need a key.** Web search and image search need a Brave key (yours, or the one baked into this build) before they'll return anything. Wikipedia and Dictionary work out of the box against free, keyless public APIs.
+- **Only two of the four need a key.** Web search and image search need a Brave key (yours, or the one baked into this build) before they show up anywhere. Wikipedia and Dictionary work out of the box against free, keyless public APIs.
 - **Default hardware letters:** <KeyCap>W</KeyCap> for web search, <KeyCap>I</KeyCap> for image search, <KeyCap>D</KeyCap> for dictionary. Wikipedia has no letter of its own out of the box, so reach it through the toolbox (<KeyCap>T</KeyCap>), or [rebind a letter to it yourself](/reference/shortcuts/).
 - **Discoverable by typing.** Typing "search", "images", "wiki"/"wikipedia", or "define"/"dict" as the last word before your cursor offers a [smart chip](/smart/chips/) that opens the matching tool. The keyword list is editable per tool, and only shows while that tool is enabled.
 - **None of these four are edition-gated.** Full and lite behave identically across all four tools here.

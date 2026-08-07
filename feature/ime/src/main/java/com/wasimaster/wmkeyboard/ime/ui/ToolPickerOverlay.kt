@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
+import com.wasimaster.wmkeyboard.core.settings.usableTools
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -84,7 +85,7 @@ internal fun ToolPickerOverlay(
             CheatSheet(
                 rows = cheatSheetRows(
                     letters = config.toolByLetter,
-                    enabled = state.settings.enabledTools,
+                    enabled = usableTools(state.settings),
                     toolbarTools = visibleToolbarTools(state),
                     digitChord = config.toolbarDigitChord,
                     altSuggestionDigits =

@@ -277,6 +277,7 @@ import com.wasimaster.wmkeyboard.core.settings.DefaultKeyboardModes
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolbarTools
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
+import com.wasimaster.wmkeyboard.core.settings.isUsableTool
 import com.wasimaster.wmkeyboard.core.settings.ModeField
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.resolveSymbolSets
@@ -1859,6 +1860,7 @@ internal fun ToggleSetting(
     info: String? = null,
     switchKey: String? = null,
     icon: ImageVector? = SettingsRowIcons[title],
+    enabled: Boolean = true,
     onChange: (Boolean) -> Unit,
 ) = ToggleSetting(
     title = stringResource(title),
@@ -1868,6 +1870,7 @@ internal fun ToggleSetting(
     switchKey = switchKey,
     icon = icon,
     highlightKey = title,
+    enabled = enabled,
     onChange = onChange,
 )
 
@@ -1880,6 +1883,10 @@ internal fun ToggleSetting(
     switchKey: String? = null,
     icon: ImageVector? = null,
     @StringRes highlightKey: Int = 0,
+    // Off for a setting that cannot be turned on yet — the row still reads and
+    // still opens, it just has nothing to switch. The subtitle is where the
+    // caller says why.
+    enabled: Boolean = true,
     onChange: (Boolean) -> Unit,
 ) {
     HighlightableRow(title, highlightKey) {
@@ -1893,6 +1900,7 @@ internal fun ToggleSetting(
                     Switch(
                         checked = checked,
                         onCheckedChange = onChange,
+                        enabled = enabled,
                         // The same switch the row that opened this screen was
                         // showing, when the caller says so.
                         modifier = if (switchKey == null) Modifier
@@ -3164,7 +3172,11 @@ private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: 
                         leading = {
                             SlotIcon(IconSlots.forTool(tool), contentDescription = null)
                         },
-                        supporting = if (tool !in settings.enabledTools) {
+                        // A tool with no API key is off as far as the keyboard
+                        // is concerned, whatever the Tools screen last stored.
+                        supporting = if (
+                            tool !in settings.enabledTools || !isUsableTool(tool, settings)
+                        ) {
                             { CaptionText(stringResource(R.string.hardware_shortcuts_tool_off_subtitle)) }
                         } else null,
                         trailing = {
@@ -7407,9 +7419,17 @@ private fun ToolsSettings(
             for (tool in tools) {
                 item {
                     val paint = paints[tool]
+                    // A tool with no key cannot be switched on at all: the
+                    // keyboard would draw a button whose panel only apologises.
+                    // The row still opens, because the key field is inside it.
+                    val usable = isUsableTool(tool, settings)
                     WmRow(
                         title = stringResource(toolTitle(tool)),
-                        subtitle = stringResource(toolDescription(tool)),
+                        subtitle = if (usable) {
+                            stringResource(toolDescription(tool))
+                        } else {
+                            stringResource(R.string.tools_needs_key_subtitle)
+                        },
                         leading = {
                             SlotIcon(
                                 IconSlots.forTool(tool),
@@ -7436,10 +7456,11 @@ private fun ToolsSettings(
                                     )
                                 }
                                 Switch(
-                                    checked = tool in settings.enabledTools,
+                                    checked = usable && tool in settings.enabledTools,
                                     onCheckedChange = { enabled ->
                                         scope.launch { repository.setToolEnabled(tool, enabled) }
                                     },
+                                    enabled = usable,
                                     modifier = Modifier
                                         .wmSharedElement(takeOffKey("switch", toolRoute(tool))),
                                 )
@@ -7562,11 +7583,19 @@ private fun ToolDetailSettings(
     )
     SettingsGroup {
         item {
+            // The search tools need a key before they can be switched on; the
+            // field that takes one is further down this same screen.
+            val usable = isUsableTool(tool, settings)
             ToggleSetting(
                 CommonR.string.common_enable,
-                stringResource(R.string.tooldetail_enabled_subtitle),
-                tool in settings.enabledTools,
+                if (usable) {
+                    stringResource(R.string.tooldetail_enabled_subtitle)
+                } else {
+                    stringResource(R.string.tooldetail_enabled_needs_key_subtitle)
+                },
+                usable && tool in settings.enabledTools,
                 switchKey = landingKey("switch"),
+                enabled = usable,
             ) { scope.launch { repository.setToolEnabled(tool, it) } }
         }
         // Recolour just this tool's icon. Only meaningful while the global
@@ -11933,8 +11962,10 @@ private fun ModeEditor(
             }
             item {
                 ToolChips(
-                    tools = ToolbarTool.entries
-                        .filter { it in settings.enabledTools && isSupportedTool(it) },
+                    tools = ToolbarTool.entries.filter {
+                        it in settings.enabledTools && isSupportedTool(it) &&
+                            isUsableTool(it, settings)
+                    },
                     selected = pinned,
                 ) { tool ->
                     save(
@@ -11975,7 +12006,8 @@ private fun ModeEditor(
             item {
                 ToolChips(
                     tools = settings.toolboxOrder.filter {
-                        it in settings.enabledTools && isSupportedTool(it)
+                        it in settings.enabledTools && isSupportedTool(it) &&
+                            isUsableTool(it, settings)
                     },
                     selected = order,
                 ) { tool ->

@@ -171,6 +171,8 @@ import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.settings.applyMode
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
+import com.wasimaster.wmkeyboard.core.settings.isUsableTool
+import com.wasimaster.wmkeyboard.core.settings.usableTools
 import com.wasimaster.wmkeyboard.core.settings.resolveKeyboardMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetMatcher
@@ -209,6 +211,7 @@ import com.wasimaster.wmkeyboard.ime.ui.PanelFocusController
 import com.wasimaster.wmkeyboard.core.tools.DictionaryClient
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.grammar.GrammarChecker
+import com.wasimaster.wmkeyboard.core.grammar.GrammarEdit
 import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
 import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
@@ -6667,7 +6670,7 @@ open class WMKeyboardService : InputMethodService() {
             currencyTo = state.settings.currencyTo,
             currencyDecimals = state.settings.currencyDecimals,
             unitLast = state.settings.unitConvertLast,
-            enabledTools = state.settings.enabledTools,
+            enabledTools = usableTools(state.settings),
             keywordOverrides = state.settings.toolKeywords,
             caseSensitiveKeywords = state.settings.toolKeywordCase,
         )
@@ -7386,12 +7389,13 @@ open class WMKeyboardService : InputMethodService() {
      * their own (a toggle, a cursor move, the settings app).
      */
     fun onToolTap(tool: ToolbarTool) {
-        // The toolbar never renders an unsupported or disabled tool, but a
-        // shortcut can still name one — a stored binding outlives the tool being
-        // switched off, and a lite build ships fewer tools than the enum lists.
+        // The toolbar never renders an unsupported, disabled or unusable tool,
+        // but a shortcut can still name one — a stored binding outlives the tool
+        // being switched off, a lite build ships fewer tools than the enum
+        // lists, and the search tools lose their key the moment it is cleared.
         if (!isSupportedTool(tool)) return
         val settings = _uiState.value.settings
-        if (tool !in settings.enabledTools) return
+        if (tool !in settings.enabledTools || !isUsableTool(tool, settings)) return
         when (tool) {
             ToolbarTool.EMOJI -> onPanelChange(PanelMode.EMOJI)
             ToolbarTool.CLIPBOARD -> {
@@ -11131,16 +11135,34 @@ open class WMKeyboardService : InputMethodService() {
 
     // ---- translate tool ----
 
+    /**
+     * Where index 0 of the last [extractFieldText] result sits in the field,
+     * or null when that could not be worked out.
+     *
+     * Null is the stitched fallback below: the string starts an unknown
+     * distance into the field, so an offset into it maps onto nothing the
+     * InputConnection understands. Callers that address the field by offset
+     * (the grammar fixes) fall back to rewriting the whole field then.
+     */
+    private var fieldTextOrigin: Int? = null
+
     /** Everything in the focused field, for the grammar strip. */
     private fun extractFieldText(): String {
         val ic = currentInputConnection ?: return ""
         val extracted = runCatching {
-            ic.getExtractedText(ExtractedTextRequest(), 0)?.text?.toString()
+            ic.getExtractedText(ExtractedTextRequest(), 0)
         }.getOrNull()
-        if (extracted != null) return extracted
+        if (extracted?.text != null) {
+            // startOffset is where the editor began extracting. It is 0 for
+            // every editor that hands over the whole field, and -1 from the
+            // ones that don't track it — which is a "don't know", not a 0.
+            fieldTextOrigin = extracted.startOffset.takeIf { it >= 0 }
+            return extracted.text.toString()
+        }
         // Some editors don't implement extraction; stitch around the cursor.
         val before = ic.getTextBeforeCursor(TranslateClient.MAX_CHARS, 0)?.toString().orEmpty()
         val after = ic.getTextAfterCursor(TranslateClient.MAX_CHARS, 0)?.toString().orEmpty()
+        fieldTextOrigin = null
         return before + after
     }
 
@@ -11297,6 +11319,49 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * Applies [edits] to the focused field in place, touching only the spans
+     * they name and leaving the rest of the field exactly as the editor has
+     * it — every style span intact, nothing re-committed.
+     *
+     * This is what a grammar fix uses instead of [replaceFieldText]. Select-all
+     * plus commit is a rewrite of the whole note: in an editor that carries
+     * formatting (Google Keep, any rich-text field) it lands as one flat run of
+     * plain text, and even in a plain field it churns text the fix never
+     * touched. Selecting the span and committing over it is the minimal edit.
+     *
+     * [edits] must be back-to-front, which is what [GrammarChecker.editsAll]
+     * returns: every edit shifts the offsets after it, so working right to left
+     * keeps the remaining offsets valid.
+     *
+     * Returns false when the field's offsets cannot be addressed at all (see
+     * [fieldTextOrigin]), so the caller can fall back to the whole-field
+     * rewrite rather than splicing at the wrong place.
+     */
+    private fun replaceFieldSpans(edits: List<GrammarEdit>): Boolean {
+        val origin = fieldTextOrigin ?: return false
+        val ic = currentInputConnection ?: return false
+        if (edits.isEmpty()) return true
+        // See replaceFieldText: a live composing region would hijack the
+        // commitText away from the selection and splice at the cursor instead.
+        ic.finishComposingText()
+        composing = StringBuilder()
+        ic.beginBatchEdit()
+        for (edit in edits) {
+            ic.setSelection(origin + edit.start, origin + edit.end)
+            ic.commitText(edit.text, 1)
+        }
+        ic.endBatchEdit()
+        // The last edit applied is the leftmost one, so the caret ends at the
+        // first thing that changed. Mirror it into the cache, or a backspace
+        // before the editor echoes the new selection targets the old spot.
+        val last = edits.last()
+        val caret = origin + last.start + last.text.length
+        expectedSelStart = caret
+        expectedSelEnd = caret
+        return true
+    }
+
+    /**
      * Re-lints [text] directly, without the InputConnection round-trip.
      * Used right after a fix is applied: extracting the field again races the
      * batch edit (the editor may still report the old text, which matches
@@ -11336,9 +11401,13 @@ open class WMKeyboardService : InputMethodService() {
     fun onGrammarFix(lint: GrammarLint, fix: GrammarFix) {
         vibrate()
         val source = _uiState.value.grammar.sourceText
-        val fixed = GrammarChecker.apply(source, lint, fix)
+        val edit = GrammarChecker.edit(source, lint, fix) ?: return
+        val fixed = source.replaceRange(edit.start, edit.end, edit.text)
         if (fixed == source) return
-        replaceFieldText(fixed)
+        // The fix rewrites one span, so that is all the editor is asked to
+        // change; the whole-field rewrite is only for fields whose offsets we
+        // cannot address.
+        if (!replaceFieldSpans(listOf(edit))) replaceFieldText(fixed)
         relintAfterFix(fixed)
     }
 
@@ -11347,21 +11416,25 @@ open class WMKeyboardService : InputMethodService() {
      * A multi-word span (sentence-level lint) parks the cursor at its start; a
      * word that needs swapping gets selected ready to overtype; a small fix
      * (add punctuation, recase) parks the cursor at the word's end. Offsets are
-     * UTF-16 into [GrammarUi.sourceText] = the full field text base 0, so they
-     * map straight onto the InputConnection.
+     * UTF-16 into [GrammarUi.sourceText], which [fieldTextOrigin] shifts onto
+     * the field's own coordinates (a no-op for every editor that hands over the
+     * whole field, which is nearly all of them).
      */
     fun onGrammarFocus(lint: GrammarLint) {
         vibrate()
         val ic = currentInputConnection ?: return
         val source = _uiState.value.grammar.sourceText
-        val start = lint.start.coerceIn(0, source.length)
-        val end = lint.end.coerceIn(start, source.length)
-        val span = source.substring(start, end)
+        val from = lint.start.coerceIn(0, source.length)
+        val to = lint.end.coerceIn(from, source.length)
+        val span = source.substring(from, to)
         val hasReplacement = lint.suggestions.any { fix ->
             fix.kind == "replace" && !fix.text.isNullOrEmpty() &&
                 !fix.text.equals(span, ignoreCase = true)
         }
         val multiWord = span.trim().any { it.isWhitespace() }
+        val origin = fieldTextOrigin ?: 0
+        val start = origin + from
+        val end = origin + to
         // Mirror each placement into the cache too, so a backspace before
         // the editor echoes the new selection hits the right target.
         when {
@@ -11387,9 +11460,13 @@ open class WMKeyboardService : InputMethodService() {
     fun onGrammarFixAll() {
         vibrate()
         val source = _uiState.value.grammar.sourceText
-        val fixed = GrammarChecker.applyAll(source, _uiState.value.grammar.lints)
+        val edits = GrammarChecker.editsAll(source, _uiState.value.grammar.lints)
+        var fixed = source
+        for (edit in edits) fixed = fixed.replaceRange(edit.start, edit.end, edit.text)
         if (fixed == source) return
-        replaceFieldText(fixed)
+        // Back-to-front, in one batch edit: the untouched text between the
+        // issues is never re-committed, so it keeps its styling.
+        if (!replaceFieldSpans(edits)) replaceFieldText(fixed)
         relintAfterFix(fixed)
     }
 

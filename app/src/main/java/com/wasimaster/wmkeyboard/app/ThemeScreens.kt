@@ -324,10 +324,17 @@ internal fun KeyShapeSwatch(kind: KeyShapeKind, radiusDp: Int, color: Color) {
 private const val KeySwatchGapDp = 2.5f
 
 /**
- * Small square preview of a theme image file, for the editor's picker rows —
- * a texture, a press-effect particle, a background. Falls back to the plain
+ * Small preview of a theme image file, for the editor's picker rows — a
+ * texture, a press-effect particle, a background. Falls back to the plain
  * image glyph while there is nothing to show, so an unset row looks exactly
  * as it always has.
+ *
+ * The thumbnail keeps the picture's own shape. It used to be cropped square,
+ * which is the one thing a preview must not do here: a wallpaper picked for
+ * a phone screen is about half as wide as it is tall, and a centre crop threw
+ * away everything the choice was made on — two different photos of the same
+ * sky came back as the same blue square. It is fitted inside the 40 dp slot
+ * instead, so the row's layout never moves and nothing is cut off.
  */
 @Composable
 private fun ImageThumb(path: String?) {
@@ -348,20 +355,28 @@ private fun ImageThumb(path: String?) {
     }
     val bmp = bitmap
     if (bmp != null) {
-        Image(
-            bitmap = bmp,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(8.dp)),
-        )
+        // The slot stays 40 dp square whatever the picture is; the image takes
+        // as much of it as its own aspect allows, so the row beside it never
+        // shifts as a thumbnail loads.
+        Box(modifier = Modifier.size(THUMB_BOX_DP.dp), contentAlignment = Alignment.Center) {
+            Image(
+                bitmap = bmp,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .aspectRatio(bmp.width.toFloat() / bmp.height.coerceAtLeast(1))
+                    .clip(RoundedCornerShape(6.dp)),
+            )
+        }
     } else {
         Icon(Icons.Outlined.Image, contentDescription = null)
     }
 }
 
-/** Longest edge a picker-row thumbnail decodes to; the box is 40 dp. */
+/** The square slot a picker-row thumbnail is fitted into, in dp. */
+private const val THUMB_BOX_DP = 40
+
+/** Longest edge a picker-row thumbnail decodes to; the box is [THUMB_BOX_DP]. */
 private const val THUMB_DECODE_PX = 96
 
 /** What chips draw with when a theme sets no chip radius; mirrors the keyboard. */

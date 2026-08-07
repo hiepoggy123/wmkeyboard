@@ -8,6 +8,8 @@
 
     <!-- Shared by every tool: the on/off switch and the icon colour row. -->
     <string name="tooldetail_enabled_subtitle">Show this tool on the toolbar and in the toolbox</string>
+    <!-- Replaces the line above while the tool has no API key, when the switch cannot be pressed. -->
+    <string name="tooldetail_enabled_needs_key_subtitle">Add the API key below to turn this tool on</string>
     <string name="tooldetail_icon_colour_title">Icon colour</string>
     <!-- The two ends of the icon gradient, shown instead of the row above
          while "Gradient tool colors" is on. -->

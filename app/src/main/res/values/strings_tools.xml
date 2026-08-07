@@ -24,4 +24,7 @@
 
     <!-- Content description of the marker on a tool that has more than the on/off switch. -->
     <string name="tools_has_options_desc">This tool has more settings</string>
+
+    <!-- Shown in place of the description when a tool cannot run until an API key is given. The switch is off and cannot be pressed. -->
+    <string name="tools_needs_key_subtitle">Needs an API key. Press this row to add one.</string>
 </resources>

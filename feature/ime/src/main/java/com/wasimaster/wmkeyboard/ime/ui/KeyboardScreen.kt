@@ -306,6 +306,8 @@ import com.wasimaster.wmkeyboard.core.settings.ToolboxLayout
 import com.wasimaster.wmkeyboard.core.settings.ToolboxPageSizeRange
 import com.wasimaster.wmkeyboard.core.settings.ToolboxSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
+import com.wasimaster.wmkeyboard.core.settings.isUsableTool
+import com.wasimaster.wmkeyboard.core.settings.usableTools
 import com.wasimaster.wmkeyboard.core.settings.toolOpensScreen
 import com.wasimaster.wmkeyboard.core.settings.toolboxPage
 import com.wasimaster.wmkeyboard.core.settings.toolboxPageCount
@@ -4716,6 +4718,11 @@ private fun ToolCircle(
                     slot,
                     contentDescription = description,
                     modifier = Modifier
+                        // Not [ToolIconSize]: this box is 30 dp, not 38, because
+                        // the name underneath has to fit in the same toolbar
+                        // height. A 22 dp glyph lifted clear of the hint badge
+                        // would leave the box through the top. The name grew
+                        // instead — which is what is read here anyway.
                         .size(20.dp)
                         // Lifted, not shrunk, so the badge below has room inside
                         // a box whose size must not change (see [HintBadge]).
@@ -4755,7 +4762,7 @@ private fun ToolCircle(
             slot,
             contentDescription = description,
             modifier = Modifier
-                .size(20.dp)
+                .size(ToolIconSize)
                 // The icon steps up by half the badge's height so the badge sits
                 // under it rather than across it. The button's own 38 dp box is
                 // untouched, so nothing on the bar moves.
@@ -4817,11 +4824,23 @@ private fun GhostToolCircle(
         SlotIcon(
             IconSlots.forTool(tool),
             contentDescription = null,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(ToolIconSize),
             tint = kb.toolbarIcon.copy(alpha = 0.45f),
         )
     }
 }
+
+/**
+ * The glyph inside a tool button, on the bar and in the toolbox alike.
+ *
+ * It was 20 dp in a 38 dp button, which left the icon floating in a lot of
+ * empty circle: at a glance a toolbox page read as a field of identical
+ * bubbles, and picking one out meant looking at each in turn rather than
+ * seeing the shape. 22 dp still clears the button's edge — and the hint badge
+ * that overlays its bottom — while giving the glyph enough of the circle to
+ * be recognised on the way past.
+ */
+private val ToolIconSize = 22.dp
 
 /**
  * The toolbar itself: fixed toolbox launcher, then the user's tools —
@@ -5543,7 +5562,12 @@ private fun ToolboxGrid(
                         }
                         Text(
                             toolLabel(shown),
-                            fontSize = 11.sp,
+                            // The name is what the grid is actually read by —
+                            // the icons are close cousins of one another and
+                            // the words are not — so it carries the same
+                            // weight as a suggestion chip rather than the
+                            // caption size it used to have.
+                            fontSize = ToolLabelSize,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                 .copy(alpha = if (ghost) 0.5f else 1f),
                             textAlign = TextAlign.Center,
@@ -5579,6 +5603,9 @@ private fun Modifier.toolboxCellWidth(columns: Int): Modifier = layout { measura
     val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
     layout(placeable.width, placeable.height) { placeable.place(0, 0) }
 }
+
+/** The size of a tool's name under its icon in the toolbox grid. */
+private val ToolLabelSize = 12.5.sp
 
 /** How tall a toolbox pill is. Half of it is the radius that makes the ends round. */
 private val PillHeight = 44.dp
@@ -5675,13 +5702,13 @@ private fun ToolPill(
         SlotIcon(
             IconSlots.forTool(tool),
             contentDescription = null,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(ToolIconSize),
             tint = iconTint.copy(alpha = fade),
             brush = iconBrush,
         )
         Text(
             toolLabel(tool),
-            fontSize = 12.sp,
+            fontSize = ToolLabelSize,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             color = content.copy(alpha = if (ghost) 0.5f else 1f),
@@ -9046,13 +9073,17 @@ internal fun symbolRowVisible(state: KeyboardUiState): Boolean =
  */
 internal fun visibleToolbarTools(state: KeyboardUiState): List<ToolbarTool> =
     state.settings.toolbarTools
-        .filter { it in state.settings.enabledTools && isSupportedTool(it) }
+        .filter {
+            it in state.settings.enabledTools && isSupportedTool(it) &&
+                isUsableTool(it, state.settings)
+        }
         .let { if (toolbarReadsRtl(state)) it.reversed() else it }
 
 /** What the toolbox has to show: everything enabled that is not already pinned. */
 internal fun visibleToolboxTools(state: KeyboardUiState): List<ToolbarTool> =
     state.settings.toolboxOrder.filter {
-        it !in state.settings.toolbarTools && it in state.settings.enabledTools && isSupportedTool(it)
+        it !in state.settings.toolbarTools && it in state.settings.enabledTools &&
+            isSupportedTool(it) && isUsableTool(it, state.settings)
     }
 
 /** The symbol set the row is showing, resolved the way the row itself resolves it. */
@@ -9095,7 +9126,7 @@ internal fun keyboardHintPlan(state: KeyboardUiState): HintPlan {
     return buildHintPlan(
         toolbarTools = visibleToolbarTools(state),
         toolboxTools = if (state.panel == PanelMode.TOOLBOX) visibleToolboxTools(state) else emptyList(),
-        toolLetters = resolvedToolLetters(hw.toolByLetter, state.settings.enabledTools),
+        toolLetters = resolvedToolLetters(hw.toolByLetter, usableTools(state.settings)),
         symbolCells = symbols,
         emojiCells = emoji,
         suggestions = state.suggestions.size,

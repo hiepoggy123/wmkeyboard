@@ -35,6 +35,22 @@ data class GrammarFix(
         get() = if (kind == "remove") CommonR.string.common_delete else null
 }
 
+/**
+ * One fix expressed as the smallest splice that applies it: replace
+ * `[start, end)` of the checked text with [text].
+ *
+ * The point of the splice is what it does *not* touch. Applying a fix by
+ * rewriting the whole field works, but it also throws away every span the
+ * editor was carrying — bold, colour, a checklist item's own formatting in
+ * Google Keep — and re-commits text the user never asked to change. The
+ * caller splices the span alone, so the rest of the note is never rewritten
+ * and keeps whatever it was wearing.
+ *
+ * Offsets are UTF-16 into the *original* checked text, so a list of edits
+ * stays valid as long as it is applied back-to-front (see [editsAll]).
+ */
+data class GrammarEdit(val start: Int, val end: Int, val text: String)
+
 /** One grammar/style issue. [start]/[end] are UTF-16 indices into the checked text. */
 @Serializable
 data class GrammarLint(
@@ -89,18 +105,28 @@ object GrammarChecker {
         }
     }
 
-    /** [text] with one fix applied. */
-    fun apply(text: String, lint: GrammarLint, fix: GrammarFix): String {
-        if (lint.end > text.length) return text
+    /**
+     * One fix as the span it rewrites, or null when it cannot be applied to
+     * [text] at all. [apply] is this spliced in; callers that own an editor
+     * rather than a string take the edit instead, and change only that span.
+     */
+    fun edit(text: String, lint: GrammarLint, fix: GrammarFix): GrammarEdit? {
+        if (lint.end > text.length || lint.start > lint.end || lint.start < 0) return null
         return when (fix.kind) {
-            "replace" -> text.replaceRange(
+            "replace" -> GrammarEdit(
                 lint.start, lint.end,
                 trimOverlap(fix.text.orEmpty(), text, lint.start, lint.end),
             )
-            "remove" -> text.removeRange(lint.start, lint.end)
-            "insertAfter" -> text.substring(0, lint.end) + fix.text.orEmpty() + text.substring(lint.end)
-            else -> text
+            "remove" -> GrammarEdit(lint.start, lint.end, "")
+            "insertAfter" -> GrammarEdit(lint.end, lint.end, fix.text.orEmpty())
+            else -> null
         }
+    }
+
+    /** [text] with one fix applied. */
+    fun apply(text: String, lint: GrammarLint, fix: GrammarFix): String {
+        val edit = edit(text, lint, fix) ?: return text
+        return text.replaceRange(edit.start, edit.end, edit.text)
     }
 
     /**
@@ -121,18 +147,26 @@ object GrammarChecker {
     }
 
     /**
-     * [text] with every lint's first suggestion applied. Fixes are applied
-     * back-to-front so earlier spans stay valid; overlapping lints keep only
-     * the later one to avoid compounding edits inside an already-fixed span.
+     * Every lint's first suggestion as a splice into [text], ordered
+     * back-to-front so that applying them in order leaves each later edit's
+     * offsets untouched. Overlapping lints keep only the later one, so no
+     * edit lands inside a span another edit already rewrote.
      */
-    fun applyAll(text: String, lints: List<GrammarLint>): String {
-        var result = text
+    fun editsAll(text: String, lints: List<GrammarLint>): List<GrammarEdit> = buildList {
         var lastStart = Int.MAX_VALUE
         for (lint in lints.sortedByDescending { it.start }) {
             val fix = lint.suggestions.firstOrNull() ?: continue
-            if (lint.end > lastStart || lint.end > result.length) continue
-            result = apply(result, lint, fix)
+            if (lint.end > lastStart || lint.end > text.length) continue
+            add(edit(text, lint, fix) ?: continue)
             lastStart = lint.start
+        }
+    }
+
+    /** [text] with every lint's first suggestion applied. */
+    fun applyAll(text: String, lints: List<GrammarLint>): String {
+        var result = text
+        for (edit in editsAll(text, lints)) {
+            result = result.replaceRange(edit.start, edit.end, edit.text)
         }
         return result
     }

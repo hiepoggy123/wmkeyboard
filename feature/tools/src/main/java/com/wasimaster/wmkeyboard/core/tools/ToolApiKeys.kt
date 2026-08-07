@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.core.tools
 
 import com.wasimaster.wmkeyboard.config.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.hasSearchKey
 
 /**
  * Resolves the effective API key for each network tool: a key the user
@@ -36,9 +37,13 @@ object ToolApiKeys {
     fun brave(settings: KeyboardSettings): String =
         settings.braveApiKey.ifBlank { BuildConfig.BRAVE_API_KEY }
 
-    /** Whether the web/image search tools have a usable Brave key. */
-    fun hasSearchProvider(settings: KeyboardSettings): Boolean =
-        brave(settings).isNotBlank()
+    /**
+     * Whether the web/image search tools have a usable Brave key. Delegates to
+     * `hasSearchKey`, which is where the toolbar and the settings screens ask
+     * the same question — one answer, so a tool can never be on the bar while
+     * its panel says the key is missing.
+     */
+    fun hasSearchProvider(settings: KeyboardSettings): Boolean = hasSearchKey(settings)
 
     fun translate(settings: KeyboardSettings): String =
         settings.translateApiKey.ifBlank { BuildConfig.TRANSLATE_API_KEY }

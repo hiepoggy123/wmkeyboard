@@ -1244,8 +1244,12 @@ data class KeyboardSettings(
     val toolbarHeightDp: Int = 44,
     /** Draw each tool's name under its icon on the toolbar. */
     val toolbarLabels: Boolean = false,
-    /** Font size of those toolbar labels, in sp. */
-    val toolbarLabelSize: Int = 9,
+    /**
+     * Font size of those toolbar labels, in sp. 9 was small enough that the
+     * name under the icon had to be read rather than glanced at, which is the
+     * opposite of what turning labels on is for.
+     */
+    val toolbarLabelSize: Int = 10,
     val toolCircleRadiusDp: Int = 20,
     /**
      * Outline of that background. Shares the key shapes, the way the popups do;
