@@ -128,6 +128,50 @@ class NgramPackTest {
     }
 
     @Test
+    fun bothBengaliNuktaSpellingsFindTheSameRow() {
+        // The two spellings below render identically and differ only in their
+        // bytes, so the assertFalse is not ceremony: it is what catches an
+        // editor, a merge or a retyped literal having quietly folded them into
+        // one, which would leave every assertion here passing vacuously.
+        //
+        // য় is precomposed U+09DF, or the base letter plus U+09BC NUKTA. NFC
+        // keeps the decomposed pair, because U+09DF (with U+09DC and U+09DD)
+        // is on Unicode's composition-exclusion list, so NFC pulls it apart
+        // and never puts it back. The word lists and the Probhat and Jatiya
+        // layouts write it decomposed; AvroPhonetic commits it precomposed.
+        // A pack that answered only the spelling it was built from would go
+        // quiet for whichever half of Bengali typing it was not built from,
+        // and would look, on screen, exactly like a pack that had no such row.
+        val holdD = "হয়েছে"  // হয়েছে, decomposed
+        val holdP = "হয়েছে"        // হয়েছে, precomposed
+        val kora = "করা"                     // করা
+        val ebong = "এবং"                    // এবং
+        assertFalse("the two spellings must differ as strings", holdD == holdP)
+
+        // Built the way the data repo publishes it: decomposed throughout.
+        val p = NgramPack.of(compile("bengali.wmng") {
+            addBigram(kora, holdD, 96757)
+            addBigram(holdD, ebong, 5495)
+            addTrigram(kora, holdD, ebong, 1200)
+        })
+
+        // As a follower, which is how a candidate off the word list arrives.
+        assertEquals(p.bigramCount(kora, holdD), p.bigramCount(kora, holdP))
+        assertTrue(p.bigramCount(kora, holdP) > 0)
+        // As a head, which is how the last word Avro committed arrives.
+        assertEquals(listOf(ebong), p.nextWords(holdP, 5))
+        assertEquals(p.bigramCount(holdD, ebong), p.bigramCount(holdP, ebong))
+        assertTrue(p.bigramCount(holdP, ebong) > 0)
+        // And in the middle of a trigram context.
+        assertEquals(listOf(ebong), p.nextWordsAfter(kora, holdP, 5))
+        assertTrue(p.trigramCount(kora, holdP, ebong) > 0)
+
+        // The pack still answers in its own spelling, so what it hands back
+        // matches the word list the rest of the strip is drawing from.
+        assertEquals(listOf(holdD), p.nextWords(kora, 5))
+    }
+
+    @Test
     fun everyPairSurvivesAFuzzRoundTrip() {
         val random = Random(11)
         val vocabulary = (0 until 300).map { "v$it" }

@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.dictionaries
 
+import com.wasimaster.wmkeyboard.core.prediction.NgramKey
 import com.wasimaster.wmkeyboard.core.prediction.NgramPackBuilder
 import com.wasimaster.wmkeyboard.core.prediction.NgramPackCodec
 import java.io.File
@@ -158,7 +159,7 @@ object NgramPackDownloadManager {
                     val words = trimmed.substring(0, separator).trim().split(' ')
                     if (words.size != parts) continue
                     if (words.any { it.isEmpty() || it.length > MAX_WORD_LENGTH }) continue
-                    accept(words.map { it.lowercase() }, count)
+                    accept(words.map { NgramKey.of(it) }, count)
                     taken++
                 }
             }
