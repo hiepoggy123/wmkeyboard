@@ -1025,6 +1025,10 @@ private fun Resources.sectionRows(): List<SettingsSearchEntry> {
             R.string.home_about_title, "storage", R.string.search_kw_storage,
         ),
         under(
+            R.string.statistics_title, R.string.statistics_subtitle,
+            R.string.home_about_title, "statistics", R.string.search_kw_statistics,
+        ),
+        under(
             R.string.privacy_permissions_title, R.string.privacy_permissions_subtitle,
             R.string.home_privacy_title, "permissions", R.string.search_kw_permissions,
         ),

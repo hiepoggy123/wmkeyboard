@@ -73,6 +73,7 @@ import com.wasimaster.wmkeyboard.app.drive.driveAuthorizer
 import com.wasimaster.wmkeyboard.app.oauth.BackupOAuth
 import com.wasimaster.wmkeyboard.app.storage.StorageCategories
 import com.wasimaster.wmkeyboard.app.storage.StorageCategoryScreen
+import com.wasimaster.wmkeyboard.app.statistics.StatisticsScreen
 import com.wasimaster.wmkeyboard.app.storage.StorageScreen
 import com.wasimaster.wmkeyboard.app.storage.storageRoute
 import com.wasimaster.wmkeyboard.app.updates.LocalAppUpdater
@@ -1189,6 +1190,7 @@ private fun SettingsNavGraph(
                     onOpenLicenseText = { navController.navigate("license_text/$it") },
                     onOpenDebugLog = { navController.navigate("debug_log") },
                     onOpenStorage = { navController.navigate("storage") },
+                    onOpenStatistics = { navController.navigate("statistics") },
                     onOpenEggGame = { navController.navigate("egg_game") },
                 )
             }
@@ -1206,6 +1208,15 @@ private fun SettingsNavGraph(
                 route = "storage",
             ) {
                 StorageScreen(repository) { navController.navigate(storageRoute(it)) }
+            }
+        }
+        composable("statistics") {
+            SettingsScreen(
+                stringResource(R.string.statistics_title),
+                { navController.popBackStack() },
+                route = "statistics",
+            ) {
+                StatisticsScreen(repository, settings)
             }
         }
         composable("storage/{category}") { backStackEntry ->
@@ -9105,6 +9116,13 @@ private fun ToolDetailSettings(
                         ps.dropOnDeviceModels,
                         info = stringResource(R.string.tooldetail_power_drop_models_info),
                     ) { scope.launch { repository.setPowerSavingDropOnDeviceModels(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_power_drop_stats_title,
+                        stringResource(R.string.tooldetail_power_drop_stats_subtitle),
+                        ps.dropTypingStats,
+                    ) { scope.launch { repository.setPowerSavingDropTypingStats(it) } }
                 }
             }
             CaptionText(stringResource(R.string.tooldetail_power_info))

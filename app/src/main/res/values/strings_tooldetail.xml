@@ -259,6 +259,8 @@
     <string name="tooldetail_power_drop_models_title">On-device models</string>
     <string name="tooldetail_power_drop_models_subtitle">Use the system recognizer for voice typing, and glide a word instead of writing it</string>
     <string name="tooldetail_power_drop_models_info">Offline voice typing and handwriting both run a neural model on the processor, which is the most expensive work the keyboard does. Voice typing goes back to the system recognizer, and the letter swipe goes back to glide typing.</string>
+    <string name="tooldetail_power_drop_stats_title">Typing statistics</string>
+    <string name="tooldetail_power_drop_stats_subtitle">Stop counting your typing. Days spent saving power record nothing</string>
     <string name="tooldetail_power_info">Power saving is a view of your settings and never a rewrite of them. Everything that it turns off here comes back exactly as you had it the moment power saving ends.</string>
 
     <!-- Autocorrect tool. -->

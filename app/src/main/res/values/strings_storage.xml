@@ -72,6 +72,8 @@
 
     <string name="storage_learned_title">Learned words</string>
     <string name="storage_learned_subtitle">What the keyboard learned from your typing</string>
+    <string name="storage_typing_stats_title">Typing statistics</string>
+    <string name="storage_typing_stats_subtitle">Your daily typing counts, kept on your device only</string>
     <string name="storage_clipboard_title">Clipboard</string>
     <string name="storage_clipboard_subtitle">Your clip history, and the images in it</string>
     <string name="storage_snippets_title">Snippets</string>

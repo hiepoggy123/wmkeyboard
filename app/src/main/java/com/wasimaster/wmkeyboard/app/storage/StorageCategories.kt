@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.outlined.Spellcheck
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.TextFields
@@ -618,6 +619,24 @@ internal object StorageCategories {
                 // on every field it leaves, so the file alone is not enough:
                 // this is the counter it watches to know to re-read.
                 env.repository.bumpLexiconVersion()
+            },
+        ),
+        StorageCategory(
+            id = "typing_stats",
+            title = R.string.storage_typing_stats_title,
+            subtitle = R.string.storage_typing_stats_subtitle,
+            icon = Icons.Outlined.QueryStats,
+            accent = Color(0xFF9CCC65),
+            group = StorageGroup.PERSONAL,
+            danger = Danger.PERSONAL,
+            manageRoute = "statistics",
+            pathsOf = { listOf(File(it.files, "stats")) },
+            clearOf = { env ->
+                emptyOut(File(env.roots.files, "stats"))
+                // The keyboard holds the counters in memory and saves them on
+                // every field it leaves; this is the signal to re-read the
+                // emptied file instead of writing the old numbers back.
+                env.repository.bumpStatsVersion()
             },
         ),
         StorageCategory(

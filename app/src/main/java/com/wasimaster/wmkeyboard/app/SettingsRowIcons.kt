@@ -134,6 +134,7 @@ import androidx.compose.material.icons.outlined.PictureInPicture
 import androidx.compose.material.icons.outlined.Pin
 import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.material.icons.outlined.PieChart
+import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Public
@@ -214,6 +215,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.about_user_guide_title, Icons.AutoMirrored.Outlined.MenuBook)
     put(R.string.about_privacy_policy_title, Icons.Outlined.PrivacyTip)
     put(R.string.about_storage_title, Icons.Outlined.PieChart)
+    put(R.string.statistics_title, Icons.Outlined.QueryStats)
     put(R.string.about_diagnostics_title, Icons.AutoMirrored.Outlined.Article)
     put(R.string.about_dictionaries_title, Icons.AutoMirrored.Outlined.LibraryBooks)
     put(R.string.about_report_bug_title, Icons.Outlined.BugReport)
@@ -599,6 +601,8 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.tooldetail_power_drop_models_title, Icons.Outlined.Memory)
     put(R.string.tooldetail_power_drop_emoji_title, Icons.Outlined.EmojiEmotions)
     put(R.string.tooldetail_power_drop_glide_title, Icons.Outlined.Gesture)
+    put(R.string.tooldetail_power_drop_stats_title, Icons.Outlined.QueryStats)
+    put(R.string.statistics_toggle_title, Icons.Outlined.QueryStats)
     put(R.string.tooldetail_power_drop_popup_title, Icons.Outlined.Notifications)
     put(R.string.tooldetail_autocorrect_title, Icons.Outlined.Spellcheck)
     put(R.string.tooldetail_fancy_style_title, Icons.Outlined.TextFormat)

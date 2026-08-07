@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- The Statistics screen, opened from About. -->
+    <string name="statistics_title">Statistics</string>
+    <string name="statistics_subtitle">How much you type, day by day</string>
+
+    <string name="statistics_toggle_title">Count typing statistics</string>
+    <string name="statistics_toggle_subtitle">The keyboard counts characters, words and speed. It never saves what you type.</string>
+    <string name="statistics_toggle_info">The counts stay on your device. Nothing you type is saved, and nothing leaves your device. The keyboard pauses the count while incognito pauses learning.</string>
+
+    <!-- the all-time tiles -->
+
+    <string name="statistics_totals_section">All time</string>
+    <string name="statistics_chars_label">Characters</string>
+    <string name="statistics_words_label">Words</string>
+    <string name="statistics_speed_label">Average speed</string>
+    <string name="statistics_active_label">Time typing</string>
+    <string name="statistics_backspaces_label">Backspaces</string>
+    <!-- %1$d is a typing speed. wpm is short for words per minute: a unit
+         like km/h, so it stays lowercase and stays with the number. -->
+    <string name="statistics_wpm_value" tools:ignore="PluralsCandidate">%1$d wpm</string>
+    <!-- Placeholder on a tile before there is enough data to show a number. -->
+    <string name="statistics_value_none" translatable="false">—</string>
+    <!-- A duration. %1$d is a number of hours, %2$d a number of minutes. -->
+    <string name="statistics_duration_hours_minutes">%1$dh %2$dm</string>
+    <!-- A duration under one hour. %1$d is a number of minutes. -->
+    <string name="statistics_duration_minutes">%1$dm</string>
+
+    <!-- the charts -->
+
+    <string name="statistics_history_section">History</string>
+    <string name="statistics_period_day_label">Days</string>
+    <string name="statistics_period_week_label">Weeks</string>
+    <string name="statistics_period_month_label">Months</string>
+    <string name="statistics_chart_words_label">Words</string>
+    <string name="statistics_chart_chars_label">Characters</string>
+    <string name="statistics_chart_speed_label">Speed</string>
+    <!-- Heading of the hour-of-day chart: at which hours the user types most. -->
+    <string name="statistics_hours_section">When you type</string>
+    <!-- %1$s is an hour shown as a time, for example "21:00". -->
+    <string name="statistics_busiest_hour_label">Busiest hour: %1$s</string>
+    <!-- One row of the per-day/week/month breakdown under the chart.
+         %1$s is a number of words, %2$s a number of characters. -->
+    <string name="statistics_bucket_detail">%1$s words · %2$s characters</string>
+
+    <string name="statistics_empty_body">Nothing counted yet. Type somewhere, then come back.</string>
+    <string name="statistics_off_body">Statistics are off. Turn them on to start counting.</string>
+
+    <!-- deleting -->
+
+    <string name="statistics_delete_action">Delete all statistics</string>
+    <string name="statistics_delete_confirm_title">Delete all statistics?</string>
+    <string name="statistics_delete_confirm_body">This deletes every count and average. You cannot get them back.</string>
+</resources>

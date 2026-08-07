@@ -441,6 +441,7 @@ internal fun AboutSettings(
     onOpenLicenseText: (String) -> Unit,
     onOpenDebugLog: () -> Unit = {},
     onOpenStorage: () -> Unit = {},
+    onOpenStatistics: () -> Unit = {},
     onOpenEggGame: () -> Unit = {},
 ) {
     val uriHandler = LocalUriHandler.current
@@ -546,6 +547,14 @@ internal fun AboutSettings(
                 stringResource(R.string.about_storage_subtitle),
                 route = "storage",
                 onClick = onOpenStorage,
+            )
+        }
+        item {
+            NavRow(
+                R.string.statistics_title,
+                stringResource(R.string.statistics_subtitle),
+                route = "statistics",
+                onClick = onOpenStatistics,
             )
         }
         item {

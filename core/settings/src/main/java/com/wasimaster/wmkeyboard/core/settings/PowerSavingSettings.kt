@@ -114,6 +114,14 @@ data class PowerSavingSettings(
      * goes back to gesture-typing words. Both are heavy inference on the CPU.
      */
     val dropOnDeviceModels: Boolean = true,
+    /**
+     * Stop counting typing statistics. Off by default like [dropKeyPopup]:
+     * the counters are a few integer bumps per keystroke, so the saving is
+     * unmeasured and speculative, but someone squeezing the last percent out
+     * of a battery can give the statistics up here. Days spent saving simply
+     * record nothing — they never drag the speed averages down.
+     */
+    val dropTypingStats: Boolean = false,
 ) {
     /** Whether power saving should be in force given the device's [state]. */
     fun appliesTo(state: DevicePowerState): Boolean {
@@ -132,7 +140,8 @@ data class PowerSavingSettings(
     val dropsAnything: Boolean
         get() = dropHaptics || dropKeySound || dropAnimations || dropGlideTrail ||
             dropKeyPopup || dropGestureTyping || dropEmojiPrediction || dropSmartChips ||
-            dropBackgroundNetwork || dropScreenshotWatch || dropOnDeviceModels
+            dropBackgroundNetwork || dropScreenshotWatch || dropOnDeviceModels ||
+            dropTypingStats
 }
 
 /**
@@ -170,6 +179,7 @@ fun KeyboardSettings.underPowerSaving(): KeyboardSettings {
         ),
         qrScanLinkPreviews = if (ps.dropBackgroundNetwork) false else qrScanLinkPreviews,
         dictionaryAutoLookup = if (ps.dropBackgroundNetwork) false else dictionaryAutoLookup,
+        typingStatsEnabled = if (ps.dropTypingStats) false else typingStatsEnabled,
         whisper = if (ps.dropOnDeviceModels) whisper.copy(engine = "system") else whisper,
         letterSwipeAction = if (ps.dropOnDeviceModels &&
             letterSwipeAction == LetterSwipeAction.HANDWRITE

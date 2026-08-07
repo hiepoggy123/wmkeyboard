@@ -95,6 +95,15 @@ class PowerSavingSettingsTest {
     }
 
     @Test
+    fun `typing statistics stop only when the opt-in drop asks`() {
+        // Off by default: saving power must not silently stop the counters.
+        assertTrue(KeyboardSettings().underPowerSaving().typingStatsEnabled)
+        val opted = KeyboardSettings(powerSaving = PowerSavingSettings(dropTypingStats = true))
+        assertFalse(opted.underPowerSaving().typingStatsEnabled)
+        assertTrue("the stored setting is untouched", opted.typingStatsEnabled)
+    }
+
+    @Test
     fun `reduced motion the user chose survives power saving ending`() {
         // The view ORs into reduceMotion rather than setting it, so an
         // accessibility choice is never quietly turned off by the transform.

@@ -140,6 +140,7 @@
     <string name="search_kw_customdictionaries">word lists, import words, wordlist</string>
     <string name="search_kw_emojikeywords">shortcodes, emoji names, emoji search</string>
     <string name="search_kw_storage">space, cache, clear data, downloads, free up</string>
+    <string name="search_kw_statistics">stats, typing speed, wpm, counters, words typed, charts</string>
     <string name="search_kw_addons">repository, community, downloads, packs, install</string>
     <string name="search_kw_licenses">open source, attribution, credits</string>
     <string name="search_kw_diagnostics">logs, logcat, troubleshooting, crash, report</string>
