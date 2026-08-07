@@ -2786,6 +2786,17 @@ private fun TypingSettings(
                 ) { scope.launch { repository.setOtpDismissNotification(it) } }
             }
         }
+        // Outside the enabled block on purpose: this governs how *every* code
+        // is typed, including one pasted from the clipboard, which needs no
+        // notification access at all.
+        item {
+            ToggleSetting(
+                R.string.typing_otp_per_digit_title,
+                stringResource(R.string.typing_otp_per_digit_subtitle),
+                settings.otp.perDigitEntry,
+                info = stringResource(R.string.typing_otp_per_digit_info),
+            ) { scope.launch { repository.setOtpPerDigitEntry(it) } }
+        }
     }
 
     SettingsGroup(stringResource(R.string.typing_group_gestures_title)) {
@@ -8395,6 +8406,16 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_clipboard_suggest_recent_subtitle),
                         settings.clipboard.suggestRecent,
                     ) { scope.launch { repository.setClipboardSuggestRecent(it) } }
+                }
+                if (settings.clipboard.suggestRecent) {
+                    item {
+                        ToggleSetting(
+                            R.string.tooldetail_clipboard_suggest_codes_title,
+                            stringResource(R.string.tooldetail_clipboard_suggest_codes_subtitle),
+                            settings.clipboard.suggestCodesInCodeFields,
+                            info = stringResource(R.string.tooldetail_clipboard_suggest_codes_info),
+                        ) { scope.launch { repository.setClipboardSuggestCodesInCodeFields(it) } }
+                    }
                 }
                 item {
                     ToggleSetting(

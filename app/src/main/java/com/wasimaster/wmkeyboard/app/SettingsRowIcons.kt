@@ -521,6 +521,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.tooldetail_emoji_all_title, Icons.Outlined.EmojiEmotions)
     put(R.string.tooldetail_clipboard_history_title, Icons.Outlined.History)
     put(R.string.tooldetail_clipboard_suggest_recent_title, Icons.Outlined.ContentPaste)
+    put(R.string.tooldetail_clipboard_suggest_codes_title, Icons.Outlined.Password)
     put(R.string.tooldetail_clipboard_toast_title, Icons.Outlined.Notifications)
     put(R.string.tooldetail_clipboard_expiry_title, Icons.Outlined.Timer)
     put(R.string.tooldetail_clipboard_max_title, Icons.Outlined.Numbers)

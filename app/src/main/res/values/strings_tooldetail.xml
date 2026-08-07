@@ -64,6 +64,9 @@
     <string name="tooldetail_clipboard_history_subtitle">Save copied text so that you can paste it quickly</string>
     <string name="tooldetail_clipboard_suggest_recent_title">Suggest the last copy</string>
     <string name="tooldetail_clipboard_suggest_recent_subtitle">Show the last copied text as a chip on the suggestion strip. One press pastes it</string>
+    <string name="tooldetail_clipboard_suggest_codes_title">Suggest copied codes in code boxes</string>
+    <string name="tooldetail_clipboard_suggest_codes_subtitle">A copied one-time code is offered when a field asks for digits</string>
+    <string name="tooldetail_clipboard_suggest_codes_info">A copied code is treated as a secret, so it is normally kept off the suggestion strip: the chip stays in view while you type, and a code sitting above the keys of a message is a code on show. A code box is the exception, because the code is the only thing you are there to type. With this on, a code copied in the last few minutes is offered as a chip in fields that ask for digits, and nowhere else.</string>
     <string name="tooldetail_clipboard_toast_title">Pop-up when you copy</string>
     <string name="tooldetail_clipboard_toast_subtitle">Show a short \"Copied\" pop-up when you copy or cut text from the keyboard</string>
     <string name="tooldetail_clipboard_toast_info">This works for the copy actions of the keyboard: the A/C/V/X clipboard shortcuts and the copy button of the text editing panel. It works only for fields that give no copy feedback of their own. This setting is off by default.</string>

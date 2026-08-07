@@ -48,8 +48,14 @@ object ClipSensitivity {
         return isGeneratedSecret(token)
     }
 
-    /** `483920`, `G4K7QP` — a short all-caps/digit run with nothing around it. */
-    private fun isBareCode(token: String): Boolean {
+    /**
+     * `483920`, `G4K7QP` — a short all-caps/digit run with nothing around it.
+     *
+     * Public because the shape is also what decides how a clip is *typed*: a
+     * bare code goes into the field one character at a time, since the boxes
+     * that ask for one usually take one character each.
+     */
+    fun isBareCode(token: String): Boolean {
         if (!BARE_CODE.matches(token)) return false
         // Needs at least one digit: PLEASE and HTTPS are not codes, and a year
         // on its own is a date far more often than it is a passcode.

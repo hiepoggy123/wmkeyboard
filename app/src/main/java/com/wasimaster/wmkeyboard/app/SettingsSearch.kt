@@ -185,6 +185,7 @@ private fun Resources.typingRows(): List<SettingsSearchEntry> {
         row(R.string.typing_otp_number_fields_title, R.string.typing_otp_number_fields_subtitle),
         row(R.string.typing_otp_expiry_title, R.string.typing_otp_expiry_subtitle),
         row(R.string.typing_otp_dismiss_title, R.string.typing_otp_dismiss_subtitle),
+        row(R.string.typing_otp_per_digit_title, R.string.typing_otp_per_digit_subtitle),
         row(R.string.typing_glide_typing_title, R.string.typing_glide_typing_subtitle),
         // Full builds only: the handwriting recognizer is an ML Kit feature.
         if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) {
@@ -468,6 +469,11 @@ private fun Resources.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
         ToolbarTool.CLIPBOARD,
         R.string.tooldetail_clipboard_suggest_recent_title,
         R.string.tooldetail_clipboard_suggest_recent_subtitle,
+    ),
+    toolEntry(
+        ToolbarTool.CLIPBOARD,
+        R.string.tooldetail_clipboard_suggest_codes_title,
+        R.string.tooldetail_clipboard_suggest_codes_subtitle,
     ),
     toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_toast_title, R.string.tooldetail_clipboard_toast_subtitle),
     toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_expiry_title, R.string.tooldetail_clipboard_expiry_subtitle),

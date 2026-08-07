@@ -1558,6 +1558,20 @@ data class OtpSettings(
      * notification-access grant the capture does.
      */
     val dismissNotification: Boolean = false,
+    /**
+     * Type a code one character at a time rather than committing it whole.
+     *
+     * The box a code goes into is very often not one box: a row of single-
+     * character inputs, each of which takes one character and then moves the
+     * focus on by itself. A whole code committed at once lands entirely in the
+     * first of them, and everything past the first character is dropped.
+     * Typing character by character is what the boxes are built for, and it is
+     * indistinguishable from a whole commit in an ordinary single field.
+     *
+     * Governs every path that types a code: the notification chip, the
+     * clipboard code chip, and a code fragment lifted out of a clip.
+     */
+    val perDigitEntry: Boolean = true,
 )
 
 /**
@@ -2206,6 +2220,18 @@ data class ClipboardSettings(
      * strip (Gboard style), so a fresh copy is one tap from being pasted.
      */
     val suggestRecent: Boolean = true,
+    /**
+     * The one exception to "a secret never gets a strip chip": a copied
+     * one-time code *is* offered, and only in a field that asks for digits.
+     *
+     * The rule that hides sensitive clips exists because the chip sits in view
+     * above the keys while you type something else. In a code box there is
+     * nothing else being typed — the code is the entire reason the field has
+     * focus — so hiding it there only means the user copies a code and then
+     * has to open the clipboard panel to get at it. Any other field still
+     * hides it, so a password copied out of a manager never surfaces.
+     */
+    val suggestCodesInCodeFields: Boolean = true,
     /**
      * Show an abc / space / backspace control row at the bottom of the clipboard
      * panel, like the emoji panel's, so a quick paste needs no detour to the keys.
@@ -3168,6 +3194,8 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_LINK_PREVIEWS = booleanPreferencesKey("clipboard_link_previews")
         private val CLIPBOARD_TRACK_SOURCE = booleanPreferencesKey("clipboard_track_source")
         private val CLIPBOARD_SUGGEST_RECENT = booleanPreferencesKey("clipboard_suggest_recent")
+        private val CLIPBOARD_SUGGEST_CODES_IN_CODE_FIELDS =
+            booleanPreferencesKey("clipboard_suggest_codes_in_code_fields")
         private val PUNCTUATION_SUGGESTIONS = booleanPreferencesKey("punctuation_suggestions")
         private val CLIPBOARD_BOTTOM_ROW = booleanPreferencesKey("clipboard_bottom_row")
         private val CLIPBOARD_PINNED_LAST = booleanPreferencesKey("clipboard_pinned_last")
@@ -3182,6 +3210,7 @@ class SettingsRepository(private val context: Context) {
         private val OTP_NUMBER_FIELDS_ONLY = booleanPreferencesKey("otp_number_fields_only")
         private val OTP_EXPIRY_MINUTES = intPreferencesKey("otp_expiry_minutes")
         private val OTP_DISMISS_NOTIFICATION = booleanPreferencesKey("otp_dismiss_notification")
+        private val OTP_PER_DIGIT_ENTRY = booleanPreferencesKey("otp_per_digit_entry")
         private val AUTO_BACKUP_ENABLED = booleanPreferencesKey(SettingsBackup.AUTO_BACKUP_ENABLED)
         private val AUTO_BACKUP_FOLDER_URI =
             stringPreferencesKey(SettingsBackup.AUTO_BACKUP_FOLDER_URI)
@@ -3871,6 +3900,8 @@ class SettingsRepository(private val context: Context) {
                 linkPreviews = p[CLIPBOARD_LINK_PREVIEWS] ?: defaults.clipboard.linkPreviews,
                 trackSource = p[CLIPBOARD_TRACK_SOURCE] ?: defaults.clipboard.trackSource,
                 suggestRecent = p[CLIPBOARD_SUGGEST_RECENT] ?: defaults.clipboard.suggestRecent,
+                suggestCodesInCodeFields = p[CLIPBOARD_SUGGEST_CODES_IN_CODE_FIELDS]
+                    ?: defaults.clipboard.suggestCodesInCodeFields,
                 bottomRow = p[CLIPBOARD_BOTTOM_ROW] ?: defaults.clipboard.bottomRow,
                 pinnedLast = p[CLIPBOARD_PINNED_LAST] ?: defaults.clipboard.pinnedLast,
                 search = p[CLIPBOARD_SEARCH] ?: defaults.clipboard.search,
@@ -3887,6 +3918,7 @@ class SettingsRepository(private val context: Context) {
                 expiryMinutes = p[OTP_EXPIRY_MINUTES] ?: defaults.otp.expiryMinutes,
                 dismissNotification = p[OTP_DISMISS_NOTIFICATION]
                     ?: defaults.otp.dismissNotification,
+                perDigitEntry = p[OTP_PER_DIGIT_ENTRY] ?: defaults.otp.perDigitEntry,
             ),
             autoBackup = AutoBackupSettings(
                 enabled = p[AUTO_BACKUP_ENABLED] ?: defaults.autoBackup.enabled,
@@ -6604,6 +6636,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setClipboardSuggestRecent(value: Boolean) =
         editPrefs { it[CLIPBOARD_SUGGEST_RECENT] = value }
 
+    suspend fun setClipboardSuggestCodesInCodeFields(value: Boolean) =
+        editPrefs { it[CLIPBOARD_SUGGEST_CODES_IN_CODE_FIELDS] = value }
+
     suspend fun setPunctuationSuggestions(value: Boolean) =
         editPrefs { it[PUNCTUATION_SUGGESTIONS] = value }
 
@@ -6652,6 +6687,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setOtpDismissNotification(value: Boolean) =
         editPrefs { it[OTP_DISMISS_NOTIFICATION] = value }
+
+    suspend fun setOtpPerDigitEntry(value: Boolean) =
+        editPrefs { it[OTP_PER_DIGIT_ENTRY] = value }
 
     suspend fun setAutoBackupEnabled(value: Boolean) =
         editPrefs { it[AUTO_BACKUP_ENABLED] = value }

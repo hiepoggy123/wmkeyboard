@@ -68,6 +68,7 @@ import com.wasimaster.wmkeyboard.core.media.MediaMime
 import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
 import android.provider.DocumentsContract
 import android.provider.Settings
+import com.wasimaster.wmkeyboard.core.clipboard.ClipEntityKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.clipboard.ClipSensitivity
@@ -414,6 +415,21 @@ open class WMKeyboardService : InputMethodService() {
     private var clipboardSuggestionJob: Job? = null
     /** Expiry timer for the one-time-code chip (see [maybeShowOtpSuggestion]). */
     private var otpSuggestionJob: Job? = null
+
+    /**
+     * The character-by-character run that types a code (see
+     * [commitCodeToField]). Deliberately not one of the jobs a field restart
+     * cancels: the restarts *are* the run, one per box the focus moves to.
+     */
+    private var codeEntryJob: Job? = null
+
+    /**
+     * The clip whose code has already been typed, so
+     * [maybeShowCopiedCodeSuggestion] stops offering it. A spent code is done —
+     * and unlike the notification chip, which clears its bus, this offer is
+     * derived from clipboard history, which still holds the clip afterwards.
+     */
+    private var pastedCodeClipId: Long? = null
     private lateinit var snippetStore: SnippetStore
     private lateinit var aiHistoryStore: AiHistoryStore
     private lateinit var stickerPackStore: com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
@@ -1051,6 +1067,10 @@ open class WMKeyboardService : InputMethodService() {
             state.settings.clipboard.suggestRecent
         ) {
             showClipboardSuggestion(added)
+        } else if (added != null) {
+            // A code copied with the code box already focused — the case the
+            // rule above would otherwise leave with nothing on the strip.
+            maybeShowCopiedCodeSuggestion()
         }
         if (added?.kind == ClipKind.LINK) fetchLinkPreviews()
     }
@@ -2748,6 +2768,9 @@ open class WMKeyboardService : InputMethodService() {
         // A code captured before this field opened: offer it — or hide it —
         // for the field the keyboard just landed in.
         maybeShowOtpSuggestion()
+        // Same question for a code the user copied by hand: a code box is the
+        // one field where a sensitive clip is what you came to paste.
+        maybeShowCopiedCodeSuggestion()
         // Read the text already sitting around the caret now, on entry. A field
         // that comes back with its text and caret unchanged (returning to a
         // search bar after a search, re-opening a draft) never fires
@@ -3755,7 +3778,7 @@ open class WMKeyboardService : InputMethodService() {
                 return
             }
             invalidateExpectedSelection()
-            ic.commitText(text, 1)
+            commitTypedCharacter(ic, text)
             consumeShift()
             _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
             if (text.length == 1 && text[0] in SENTENCE_ENDERS) {
@@ -3883,7 +3906,7 @@ open class WMKeyboardService : InputMethodService() {
                     ic.deleteSurroundingText(1, 0)
                 }
             }
-            ic.commitText(text, 1)
+            commitTypedCharacter(ic, text)
             if (autoSpace) insertPunctuationSpace(ic)
             // Consume one-shot shift before evaluating auto-capitalize, so a
             // sentence ender can turn shift back on for the next sentence.
@@ -5346,6 +5369,68 @@ open class WMKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         commitComposing(ic, autocorrect = false)
         ic.commitText(text, 1)
+    }
+
+    /**
+     * Puts a single typed character into the field, as a real key event when it
+     * is an ASCII digit and as a commit for everything else.
+     *
+     * A committed character reaches a web page as an `input` event behind a
+     * `keydown` that carries no key at all (`keyCode` 229 — the code every
+     * browser uses for "the IME is composing"). Pages that police their own
+     * fields on `keydown` — one-character-per-box verification forms above all,
+     * which typically test the pressed key against `/[0-9]/` and cancel
+     * anything else — throw that event away, and the digit never lands: the
+     * user types and the box stays empty, with nothing on screen to say why.
+     * A key event carries the real key, so those handlers see a digit and let
+     * it through, and every ordinary editor treats it exactly like the commit
+     * it replaces.
+     *
+     * The same fix AOSP's own keyboard carries, for the same reason, and the
+     * reason digits are the only characters it applies to: `KEYCODE_0`..`_9`
+     * are the only ones whose key event is unambiguous on every layout.
+     */
+    private fun commitTypedCharacter(ic: InputConnection, text: String) {
+        val digit = text.singleOrNull()?.takeIf { it in '0'..'9' }
+        if (digit != null) {
+            sendDownUpKeyEvents(KeyEvent.KEYCODE_0 + (digit - '0'))
+        } else {
+            ic.commitText(text, 1)
+        }
+    }
+
+    /**
+     * Types a one-time code into the field, one character at a time when
+     * [OtpSettings.perDigitEntry] is on.
+     *
+     * The box a code goes into is very often a *row* of boxes, each holding one
+     * character and moving the focus on by itself once it has one. A code
+     * committed whole lands entirely in the first box, where all but the first
+     * character is discarded by its own length limit — the user sees one digit
+     * of six appear and the rest vanish. Typed character by character, each box
+     * gets the one character it wants and hands over to the next, which is what
+     * the form was built for; a plain single field sees the same code arrive,
+     * just over a few frames instead of one.
+     *
+     * The input connection is re-read on every character rather than captured
+     * once, because the focus moving between boxes is exactly what replaces it.
+     * The gap between characters is what gives the page's own focus handler
+     * time to run — without it every character races the same box.
+     */
+    private fun commitCodeToField(code: String) {
+        if (code.length <= 1 || !_uiState.value.settings.otp.perDigitEntry) {
+            commitToField(code)
+            return
+        }
+        currentInputConnection?.let { commitComposing(it, autocorrect = false) }
+        codeEntryJob?.cancel()
+        codeEntryJob = serviceScope.launch {
+            for (character in code) {
+                val ic = currentInputConnection ?: break
+                commitTypedCharacter(ic, character.toString())
+                delay(CODE_ENTRY_STEP_MS)
+            }
+        }
     }
 
     /**
@@ -12416,7 +12501,15 @@ open class WMKeyboardService : InputMethodService() {
                     Toast.LENGTH_SHORT,
                 ).show()
             }
-            else -> commitToField(item.text)
+            // A clip that is nothing but a code is pasted into a code box far
+            // more often than anywhere else, so it goes in character by
+            // character like the chips do.
+            else -> if (ClipSensitivity.isBareCode(item.text.trim())) {
+                pastedCodeClipId = item.id
+                commitCodeToField(item.text.trim())
+            } else {
+                commitToField(item.text)
+            }
         }
         // Whether tapped from the panel or the strip chip, the recent-copy chip
         // has served its purpose once something was pasted.
@@ -12436,7 +12529,13 @@ open class WMKeyboardService : InputMethodService() {
     fun onClipboardEntityTapped(entity: com.wasimaster.wmkeyboard.core.clipboard.ClipEntity) {
         if (!isClipboardAccessible()) return
         vibrate()
-        commitToField(entity.value)
+        // A code out of a clip goes in the same way a code off the chip does:
+        // character by character, for the boxes that take one each.
+        if (entity.kind == ClipEntityKind.OTP) {
+            commitCodeToField(entity.value)
+        } else {
+            commitToField(entity.value)
+        }
         clearClipboardSuggestion()
         clipboardStore.items().firstOrNull { it.id == entity.sourceId }
             ?.let(::purgeAfterPasswordPaste)
@@ -12520,6 +12619,48 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * Offers a *just-copied one-time code* as the paste chip, and only in a
+     * field that asks for digits.
+     *
+     * This is the single hole in the rule that a sensitive clip never becomes a
+     * strip chip — see [ClipboardSettings.suggestCodesInCodeFields] for why the
+     * rule bends exactly here and nowhere else. The gates are what keep it
+     * narrow: a code field, a code-shaped clip, and a copy fresh enough to
+     * still be the one the user is holding. Anything wider and this stops being
+     * a code chip and becomes a way for a copied password to appear over the
+     * keys in the middle of a message.
+     *
+     * Called on every field entry, and from the copy listener for a code copied
+     * while the code box already has the focus.
+     */
+    private fun maybeShowCopiedCodeSuggestion() {
+        val state = _uiState.value
+        val settings = state.settings
+        if (!settings.clipboard.suggestRecent || !settings.clipboard.suggestCodesInCodeFields) return
+        // The same field shape the notification chip reads as a code box, and
+        // deliberately no wider: a phone or date field asks for digits too, and
+        // neither is a reason to put a secret on the strip.
+        if (state.fieldKind != FieldKind.NUMBER) return
+        // An ordinary chip is already up: it is either this clip or a newer
+        // one, and either way it is the offer the user should see.
+        if (state.clipboardSuggestion != null) return
+        // Typing a code moves the focus from box to box, and every one of those
+        // is a field entry that lands back here. Without these two the chip the
+        // user just pressed climbs back onto the strip between digits, and
+        // again over the finished code.
+        if (codeEntryJob?.isActive == true) return
+        if (settings.incognito || state.fieldIncognito) return
+        if (!isClipboardAccessible()) return
+        val clip = clipboardStore.items()
+            .filter { it.kind.isTextual }
+            .maxByOrNull { it.timestamp } ?: return
+        if (clip.id == pastedCodeClipId) return
+        if (System.currentTimeMillis() - clip.timestamp > COPIED_CODE_MAX_AGE_MS) return
+        if (!ClipSensitivity.isBareCode(clip.text.trim())) return
+        showClipboardSuggestion(clip)
+    }
+
     /** Drops the recently-copied strip chip (pasted, dismissed, or feature off). */
     private fun clearClipboardSuggestion() {
         clipboardSuggestionJob?.cancel()
@@ -12531,6 +12672,9 @@ open class WMKeyboardService : InputMethodService() {
 
     /** The user swiped away the recently-copied strip chip. */
     fun onClipboardSuggestionDismiss() {
+        // A dismissed code chip must stay dismissed: the next field entry would
+        // otherwise put the same clip straight back on the strip.
+        _uiState.value.clipboardSuggestion?.let { pastedCodeClipId = it.id }
         clearClipboardSuggestion()
     }
 
@@ -12590,7 +12734,7 @@ open class WMKeyboardService : InputMethodService() {
     /** The code chip was tapped: type the code where the cursor is. */
     fun onOtpSuggestionTapped(otp: NotificationOtp) {
         vibrate()
-        commitToField(otp.code)
+        commitCodeToField(otp.code)
         if (_uiState.value.settings.otp.dismissNotification) {
             otp.notificationKey?.let(MediaNotificationListener::dismissNotification)
         }
@@ -14223,6 +14367,21 @@ open class WMKeyboardService : InputMethodService() {
          * the user can dismiss it outright at any point.
          */
         private const val CLIPBOARD_SUGGESTION_TIMEOUT_MS = 5L * 60 * 1000
+        /**
+         * Gap between the characters of a code typed into the field (see
+         * [commitCodeToField]). Long enough for a form to move the focus to its
+         * next box — that handler runs off the previous character's own input
+         * event — and short enough that a six-digit code is in the field
+         * before the user could have read it off the chip.
+         */
+        private const val CODE_ENTRY_STEP_MS = 40L
+        /**
+         * How recently a code must have been copied to be offered as a chip in
+         * a code field (see [maybeShowCopiedCodeSuggestion]). A code goes stale
+         * fast, and one copied yesterday resurfacing on a login screen is
+         * noise at best and the wrong code at worst.
+         */
+        private const val COPIED_CODE_MAX_AGE_MS = 5L * 60 * 1000
         /** Links fetched per panel open, so a history of links isn't a request storm. */
         private const val MAX_LINK_PREVIEWS = 8
 
