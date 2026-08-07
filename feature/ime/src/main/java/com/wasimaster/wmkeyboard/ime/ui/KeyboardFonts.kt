@@ -341,10 +341,24 @@ object KeyboardFonts {
         else -> installedFontFile(context, id)?.let { fileFamily(it) }
     }
 
-    /** The file behind an `installed:<id>` font id, if it is still there. */
+    /**
+     * The file behind an `installed:<id>` font id, if it is still there.
+     *
+     * What follows the prefix resolves as the store id first, then as an
+     * installed font's display name. The id is minted per device at install
+     * time, so a *distributed* theme has no way to know it — but an
+     * addon-installed font keeps its catalogue name on every device, which is
+     * what a theme's `fontId` can carry (`installed:Bloxat`) next to a
+     * `requires` on that font's addon; the sound player resolves
+     * `soundCustomId` the same way. Text faces only, so an emoji font that
+     * happens to share the name can never end up on the key labels.
+     */
     private fun installedFontFile(context: Context, id: String): File? {
         val storeId = FontStore.storeIdOf(id) ?: return null
-        return FontStore.get(context).existingFileFor(storeId)
+        val store = FontStore.get(context)
+        store.existingFileFor(storeId)?.let { return it }
+        val byName = store.textFonts().firstOrNull { it.name.equals(storeId, ignoreCase = true) }
+        return byName?.let { store.existingFileFor(it.id) }
     }
 
     /**

@@ -110,7 +110,7 @@ A small particle burst under every key press: **Stars**, **Hearts**, **Sparkle**
 
 The theme can bring its own key font and key sound. Both are picked from what's on the device — the styles the app ships plus anything installed from the font and sound libraries — and referenced by name, never copied into the theme file. If someone imports your theme without that font or sound installed, their keyboard quietly uses their own global choice instead; publish the font and sound as their own add-ons and list them under the theme's `requires` in a [repository manifest](/development/addon-repos/repo-format/) so the install screen offers to fetch them together. The per-script faces still win over a theme font, so a Latin display face never blanks a Bengali board.
 
-For a theme you plan to share: Google Font ids (`google:Caveat`) resolve the same on every device, and an installed sound can be named by its catalogue name ("Typewriter") — the ids the libraries mint locally differ per phone, so those two forms are the ones that travel.
+For a theme you plan to share: Google Font ids (`google:Caveat`) resolve the same on every device, and an installed sound or font can be named by its catalogue name — "Typewriter" for a sound, `installed:Bloxat` for a font — the ids the libraries mint locally differ per phone, so those forms are the ones that travel.
 
 ### Accent & popups
 
