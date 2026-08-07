@@ -17,7 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -48,7 +49,9 @@ import androidx.compose.ui.window.Popup
 import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
 import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
+import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
 
 /**
@@ -118,6 +121,32 @@ internal fun GrammarPanel(
     val grammar = state.grammar
     var pickerOpen by remember { mutableStateOf(false) }
     val fixable = grammar.lints.count { it.suggestions.isNotEmpty() }
+    // The ring's regions. Seed-only (panelFocusSeedOnly): while the panel is
+    // open the user is editing the field, so no arrow ever summons the ring —
+    // only opening the tool from the leader does. CHIPS is the header pair;
+    // RESULTS activates a card the way "Fix all" would fix it (its top
+    // suggestion), or jumps the caret to it when it has none.
+    PanelFocusTarget(
+        panel = PanelMode.GRAMMAR,
+        region = FocusRegion.CHIPS,
+        count = if (fixable > 0) 2 else 1,
+        columns = 2,
+    ) { index ->
+        if (index == 0) pickerOpen = true else onFixAll()
+    }
+    PanelFocusTarget(
+        panel = PanelMode.GRAMMAR,
+        region = FocusRegion.RESULTS,
+        count = grammar.lints.size,
+        columns = 1,
+    ) { index ->
+        grammar.lints.getOrNull(index)?.let { lint ->
+            val top = lint.suggestions.firstOrNull()
+            if (top != null) onFix(lint, top) else onFocus(lint)
+        }
+    }
+    val focusedChip = state.focusedIndex(FocusRegion.CHIPS)
+    val focusedLint = state.focusedIndex(FocusRegion.RESULTS)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -138,6 +167,7 @@ internal fun GrammarPanel(
                         .clip(kb.chipShape())
                         .background(kb.chip)
                         .chipBorder(kb, kb.chipShape())
+                        .focusRing(focusedChip == 0, kb.chipShape())
                         .clickable { pickerOpen = true }
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -195,6 +225,7 @@ internal fun GrammarPanel(
                         .clip(kb.chipShape())
                         .background(kb.chipActive)
                         .chipBorder(kb, kb.chipShape())
+                        .focusRing(focusedChip == 1, kb.chipShape())
                         .clickable { onFixAll() }
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -244,14 +275,22 @@ internal fun GrammarPanel(
                     fontSize = 13.sp,
                 )
             }
-            else -> LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                items(grammar.lints) { lint ->
-                    GrammarLintCard(lint, onFix, onDismiss, onFocus)
+            else -> {
+                val listState = rememberLazyListState()
+                ScrollFocusIntoView(focusedLint) { listState.animateScrollToItem(it) }
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    itemsIndexed(grammar.lints) { index, lint ->
+                        GrammarLintCard(
+                            lint, onFix, onDismiss, onFocus,
+                            focused = index == focusedLint,
+                        )
+                    }
                 }
             }
         }
@@ -280,6 +319,7 @@ private fun GrammarLintCard(
     onFix: (GrammarLint, GrammarFix) -> Unit,
     onDismiss: (GrammarLint) -> Unit,
     onFocus: (GrammarLint) -> Unit,
+    focused: Boolean = false,
 ) {
     val kb = LocalKbTheme.current
     val category = categoryFor(lint.kind)
@@ -291,6 +331,7 @@ private fun GrammarLintCard(
             .clip(cardShape)
             .background(kb.chip)
             .chipBorder(kb, cardShape)
+            .focusRing(focused, cardShape)
             // Tapping the card jumps the cursor to the issue in the field —
             // selecting the word for a swap, or parking at its end for a small
             // fix. The X and fix chips consume their own taps first.

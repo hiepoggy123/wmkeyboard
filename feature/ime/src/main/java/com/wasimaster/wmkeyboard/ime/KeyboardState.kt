@@ -364,19 +364,42 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.QR_GEN, PanelMode.TYPING_TEST -> listOf(FocusRegion.ACTIONS)
     PanelMode.PASSWORD_GEN ->
         listOf(FocusRegion.CHIPS, FocusRegion.ACTIONS, FocusRegion.RESULTS)
-    // Panels the keyboard cannot drive: sensors, cameras, ink — and the
-    // TEXT_EDIT/NUMPAD button grids, whose keys a physical keyboard already
-    // sends to the field directly (ringing a d-pad that itself moves the
-    // caret would capture the very arrows it re-implements). GRAMMAR is
-    // deferred: it accompanies live field editing, where the first arrow
-    // press summoning a ring would steal the caret keys mid-sentence.
+    // The dialect and Fix-all chips, then the lint cards. Seed-only (see
+    // [panelFocusSeedOnly]): the panel accompanies live field editing, so the
+    // arrows keep moving the caret until the ring is asked for.
+    PanelMode.GRAMMAR -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS)
+    // One button, which one depends on the state: refresh, retry, or settings.
+    PanelMode.WEATHER -> listOf(FocusRegion.ACTIONS)
+    // Month navigation, then the day grid (seven columns wide).
+    PanelMode.CALENDAR -> listOf(FocusRegion.ACTIONS, FocusRegion.RESULTS)
+    // The two master switches, then the style chips. Sliders stay touch-only:
+    // Enter means nothing on one, and the arrows are the ring's own keys.
+    PanelMode.SOUND_HAPTICS -> listOf(FocusRegion.ACTIONS, FocusRegion.CHIPS)
+    // Mic first, then whatever chips the state has (undo, language, model).
+    PanelMode.VOICE -> listOf(FocusRegion.ACTIONS)
+    // The confirm/result stages' buttons (Retake/Send, Scan again/Copy/
+    // Insert). The live viewfinders publish nothing: a ring over video helps
+    // nobody, and the shutter is a pointer affordance.
+    PanelMode.CAMERA, PanelMode.QR_SCAN -> listOf(FocusRegion.ACTIONS)
+    PanelMode.OCR -> listOf(FocusRegion.ACTIONS, FocusRegion.RESULTS)
+    // Panels with nothing to drive. The sensor trio has zero controls at all;
+    // TEXT_EDIT/NUMPAD duplicate keys a physical keyboard already sends to
+    // the field directly (ringing a d-pad that itself moves the caret would
+    // capture the very arrows it re-implements); HANDWRITING's canvas is
+    // pointer-only and its three rare chips are not worth a ring over ink.
     PanelMode.NONE, PanelMode.TEXT_EDIT, PanelMode.COMPASS, PanelMode.LEVEL,
-    PanelMode.MOON_PHASE, PanelMode.WEATHER, PanelMode.CALENDAR,
-    PanelMode.SOUND_HAPTICS, PanelMode.NUMPAD, PanelMode.HANDWRITING,
-    PanelMode.CAMERA, PanelMode.OCR, PanelMode.QR_SCAN,
-    PanelMode.VOICE, PanelMode.GRAMMAR,
+    PanelMode.MOON_PHASE, PanelMode.NUMPAD, PanelMode.HANDWRITING,
     -> emptyList()
 }
+
+/**
+ * Panels whose ring appears only when the panel was opened from the keyboard
+ * (the leader seeds it) — never summoned by a bare arrow press. The grammar
+ * panel sits over a field the user is actively editing, and the first arrow
+ * summoning a ring there would steal the caret keys mid-sentence. Tab stays
+ * the field's too, for the same reason.
+ */
+fun panelFocusSeedOnly(panel: PanelMode): Boolean = panel == PanelMode.GRAMMAR
 
 /**
  * The app-launcher panel's drill-down view: one app and the activities it

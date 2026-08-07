@@ -728,6 +728,20 @@ internal fun WeatherPanel(
     // window upward for it shoved the app's own content off screen.
     val height = keyRowsHeight(state)
     val kb = LocalKbTheme.current
+    // One ring slot; what it does follows the state, like the button it rings.
+    PanelFocusTarget(
+        panel = PanelMode.WEATHER,
+        region = FocusRegion.ACTIONS,
+        count = if (state.weather is WeatherUi.Loading) 0 else 1,
+        columns = 1,
+    ) {
+        when (state.weather) {
+            WeatherUi.NoLocation -> onOpenSettings()
+            WeatherUi.Error, is WeatherUi.Ready -> onRefresh()
+            WeatherUi.Loading -> Unit
+        }
+    }
+    val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -751,7 +765,10 @@ internal fun WeatherPanel(
                 ToolPanelKey(
                     description = openSettings,
                     label = openSettings,
-                    modifier = Modifier.height(40.dp).width(160.dp),
+                    modifier = Modifier
+                        .height(40.dp)
+                        .width(160.dp)
+                        .focusRing(focusedAction == 0),
                 ) { onOpenSettings() }
             }
             WeatherUi.Loading -> PanelMessage(stringResource(R.string.ime_weather_progress))
@@ -771,7 +788,10 @@ internal fun WeatherPanel(
                 ToolPanelKey(
                     description = retry,
                     label = retry,
-                    modifier = Modifier.height(40.dp).width(120.dp),
+                    modifier = Modifier
+                        .height(40.dp)
+                        .width(120.dp)
+                        .focusRing(focusedAction == 0),
                 ) { onRefresh() }
             }
             is WeatherUi.Ready -> {
@@ -814,7 +834,10 @@ internal fun WeatherPanel(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        IconButton(onClick = onRefresh) {
+                        IconButton(
+                            onClick = onRefresh,
+                            modifier = Modifier.focusRing(focusedAction == 0, CircleShape),
+                        ) {
                             Icon(
                                 Icons.Outlined.Refresh,
                                 contentDescription = stringResource(
@@ -968,6 +991,41 @@ internal fun CalendarPanel(
             .joinToString("  ·  ")
     }
 
+    // Ring regions — the month/selection state is all composable-local, which
+    // is exactly what the publish-up controller exists for. Three fixed
+    // ACTIONS slots (Today no-ops while already on the current month, rather
+    // than renumbering next); the day grid is seven columns, so Up/Down walk
+    // weeks the way the eye does.
+    PanelFocusTarget(
+        panel = PanelMode.CALENDAR,
+        region = FocusRegion.ACTIONS,
+        count = 3,
+        columns = 3,
+    ) { index ->
+        when (index) {
+            0 -> if (shownMonth == 1) { shownMonth = 12; shownYear-- } else shownMonth--
+            1 -> {
+                shownYear = today.year
+                shownMonth = today.month
+                selected = today
+            }
+            2 -> if (shownMonth == 12) { shownMonth = 1; shownYear++ } else shownMonth++
+        }
+    }
+    PanelFocusTarget(
+        panel = PanelMode.CALENDAR,
+        region = FocusRegion.RESULTS,
+        count = daysInMonth,
+        columns = 7,
+    ) { index ->
+        val day = index + 1
+        if (day in 1..daysInMonth) {
+            selected = CalendarSystems.SimpleDate(shownYear, shownMonth, day)
+        }
+    }
+    val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
+    val focusedDay = state.focusedIndex(FocusRegion.RESULTS)?.plus(1)
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val panelHeight = maxHeight
         Column(
@@ -984,7 +1042,9 @@ internal fun CalendarPanel(
                     onClick = {
                         if (shownMonth == 1) { shownMonth = 12; shownYear-- } else shownMonth--
                     },
-                    modifier = Modifier.size(30.dp),
+                    modifier = Modifier
+                        .size(30.dp)
+                        .focusRing(focusedAction == 0, CircleShape),
                 ) {
                     Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
                         contentDescription = stringResource(
@@ -1019,6 +1079,7 @@ internal fun CalendarPanel(
                             .clip(kb.chipShape())
                             .background(kb.chip)
                             .chipBorder(kb, kb.chipShape())
+                            .focusRing(focusedAction == 1, kb.chipShape())
                             .clickable {
                                 shownYear = today.year
                                 shownMonth = today.month
@@ -1037,7 +1098,9 @@ internal fun CalendarPanel(
                     onClick = {
                         if (shownMonth == 12) { shownMonth = 1; shownYear++ } else shownMonth++
                     },
-                    modifier = Modifier.size(30.dp),
+                    modifier = Modifier
+                        .size(30.dp)
+                        .focusRing(focusedAction == 2, CircleShape),
                 ) {
                     Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                         contentDescription = stringResource(R.string.ime_calendar_next_month_desc),
@@ -1101,6 +1164,7 @@ internal fun CalendarPanel(
                                                 Modifier.border(1.dp, kb.accent, RoundedCornerShape(6.dp))
                                             } else Modifier
                                         )
+                                        .focusRing(day == focusedDay, RoundedCornerShape(6.dp))
                                         .clickable {
                                             selected = CalendarSystems.SimpleDate(shownYear, shownMonth, day)
                                         },
@@ -1885,7 +1949,12 @@ private fun AutoThemePreview(auto: KbTheme) {
 
 /** Small selectable pill for the sound/haptic style rows. */
 @Composable
-private fun StyleChip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun StyleChip(
+    label: String,
+    selected: Boolean,
+    focused: Boolean = false,
+    onClick: () -> Unit,
+) {
     val kb = LocalKbTheme.current
     val shape = kb.chipShape()
     Box(
@@ -1893,6 +1962,7 @@ private fun StyleChip(label: String, selected: Boolean, onClick: () -> Unit) {
             .clip(shape)
             .background(if (selected) kb.chipActive else kb.chip)
             .chipBorder(kb, shape)
+            .focusRing(focused, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
@@ -1937,6 +2007,43 @@ internal fun SoundHapticsPanel(
         )
         onDispose { context.unregisterReceiver(receiver) }
     }
+    // Ring regions: the two master switches, then the visible style chips as
+    // one flat row (haptic styles first). The sliders stay touch-only —
+    // Enter means nothing on one, and the arrows are the ring's own keys.
+    PanelFocusTarget(
+        panel = PanelMode.SOUND_HAPTICS,
+        region = FocusRegion.ACTIONS,
+        count = 2,
+        columns = 2,
+    ) { index ->
+        if (index == 0) {
+            onAction(SoundHapticAction.Haptics(!settings.hapticFeedback))
+        } else {
+            onAction(SoundHapticAction.Sound(!settings.keySound))
+        }
+    }
+    val hapticChipCount = if (settings.hapticFeedback) HapticStyle.entries.size else 0
+    val soundStyles = KeySoundStyle.entries.filter {
+        it != KeySoundStyle.CUSTOM || settings.keySoundStyle == KeySoundStyle.CUSTOM
+    }
+    val soundChipCount = if (settings.keySound) soundStyles.size else 0
+    PanelFocusTarget(
+        panel = PanelMode.SOUND_HAPTICS,
+        region = FocusRegion.CHIPS,
+        count = hapticChipCount + soundChipCount,
+        columns = (hapticChipCount + soundChipCount).coerceAtLeast(1),
+    ) { index ->
+        when {
+            index < hapticChipCount ->
+                HapticStyle.entries.getOrNull(index)
+                    ?.let { onAction(SoundHapticAction.HapticStyleChange(it)) }
+            else ->
+                soundStyles.getOrNull(index - hapticChipCount)
+                    ?.let { onAction(SoundHapticAction.SoundStyleChange(it)) }
+        }
+    }
+    val focusedSwitch = state.focusedIndex(FocusRegion.ACTIONS)
+    val focusedChip = state.focusedIndex(FocusRegion.CHIPS)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1983,6 +2090,7 @@ internal fun SoundHapticsPanel(
             Switch(
                 checked = settings.hapticFeedback,
                 onCheckedChange = { onAction(SoundHapticAction.Haptics(it)) },
+                modifier = Modifier.focusRing(focusedSwitch == 0),
             )
         }
         if (settings.hapticFeedback) {
@@ -1990,10 +2098,11 @@ internal fun SoundHapticsPanel(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
             ) {
-                for (style in HapticStyle.entries) {
+                for ((index, style) in HapticStyle.entries.withIndex()) {
                     StyleChip(
                         label = stringResource(style.labelRes),
                         selected = settings.hapticStyle == style,
+                        focused = index == focusedChip,
                     ) { onAction(SoundHapticAction.HapticStyleChange(style)) }
                 }
             }
@@ -2051,6 +2160,7 @@ internal fun SoundHapticsPanel(
             Switch(
                 checked = settings.keySound,
                 onCheckedChange = { onAction(SoundHapticAction.Sound(it)) },
+                modifier = Modifier.focusRing(focusedSwitch == 1),
             )
         }
         if (settings.keySound) {
@@ -2058,11 +2168,9 @@ internal fun SoundHapticsPanel(
                 // CUSTOM names an installed file rather than a fixed style, and
                 // there is no file picker on the keyboard — so it only appears
                 // here when it is already the choice, to show what is selected
-                // and to let the user step off it.
-                val styles = KeySoundStyle.entries.filter {
-                    it != KeySoundStyle.CUSTOM || settings.keySoundStyle == KeySoundStyle.CUSTOM
-                }
-                for (style in styles) {
+                // and to let the user step off it. The chip list here must
+                // stay [soundStyles], which the CHIPS publisher indexes.
+                for ((index, style) in soundStyles.withIndex()) {
                     StyleChip(
                         label = when (style) {
                             KeySoundStyle.CLICK ->
@@ -2078,6 +2186,7 @@ internal fun SoundHapticsPanel(
                             KeySoundStyle.CUSTOM -> stringResource(CommonR.string.common_custom)
                         },
                         selected = settings.keySoundStyle == style,
+                        focused = focusedChip != null && focusedChip - hapticChipCount == index,
                     ) { onAction(SoundHapticAction.SoundStyleChange(style)) }
                 }
             }

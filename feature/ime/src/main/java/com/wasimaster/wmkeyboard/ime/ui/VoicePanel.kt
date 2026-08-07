@@ -61,7 +61,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.ime.EnterAction
+import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.VoiceModelState
 import com.wasimaster.wmkeyboard.ime.VoiceStatus
@@ -110,6 +112,44 @@ internal fun VoicePanel(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // The ring's ACTIONS list, in draw order: the mic (or the permission
+    // button), then the conditional Undo and language chips. The side rail
+    // stays out — its four keys are ones a physical keyboard already sends.
+    // Enter on the mic is the tap semantic (toggle), never hold-to-talk.
+    val languages = state.settings.enabledLanguages.ifEmpty { listOf(LanguageRegistry.byId("en")) }
+    val english = state.voice.languageTag.startsWith("en")
+    val languageChipVisible = languages.any { it.isEnglish } && languages.any { !it.isEnglish }
+    val undoVisible = voice.canUndo && hasPermission && !state.secureField &&
+        voice.status != VoiceStatus.LISTENING && voice.status != VoiceStatus.FINISHING &&
+        voice.status != VoiceStatus.TRANSCRIBING
+    val micUsable = !state.secureField && voice.status != VoiceStatus.UNAVAILABLE
+    fun switchVoiceLanguage() {
+        val other = if (english) {
+            languages.first { !it.isEnglish }
+        } else {
+            languages.firstOrNull { it.isEnglish } ?: LanguageRegistry.byId("en")
+        }
+        val layoutId = other.layoutIds.firstOrNull { it in state.settings.enabledLayoutIds }
+            ?: other.layoutIds.firstOrNull()
+        if (layoutId != null) onLayoutSelect(layoutId)
+    }
+    val ringEntries: List<() -> Unit> = buildList {
+        if (micUsable) {
+            if (hasPermission) add(onToggle) else add(onRequestPermission)
+        }
+        if (undoVisible) add { feedback(); onUndo() }
+        if (languageChipVisible) add { feedback(); switchVoiceLanguage() }
+    }
+    PanelFocusTarget(
+        panel = PanelMode.VOICE,
+        region = FocusRegion.ACTIONS,
+        count = ringEntries.size,
+        columns = ringEntries.size.coerceAtLeast(1),
+    ) { index -> ringEntries.getOrNull(index)?.invoke() }
+    val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
+    val undoRingIndex = if (micUsable) 1 else 0
+    val languageRingIndex = undoRingIndex + (if (undoVisible) 1 else 0)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -144,6 +184,7 @@ internal fun VoicePanel(
                             .clip(kb.chipShape())
                             .background(kb.chipActive)
                             .chipBorder(kb, kb.chipShape())
+                            .focusRing(focusedAction == 0, kb.chipShape())
                             .pointerInput(Unit) { detectTapGestures { onRequestPermission() } }
                             .padding(horizontal = 20.dp, vertical = 10.dp),
                     ) {
@@ -165,15 +206,14 @@ internal fun VoicePanel(
                     onToggleTranslate = onToggleTranslate,
                     onOpenVoiceSettings = onOpenVoiceSettings,
                     onUseSystemEngine = onUseSystemEngine,
+                    micFocused = focusedAction == 0,
                 )
             }
 
             // Language chip: shows the active recognition language, tap
             // switches between English and Bengali (the enabled input
             // modes decide what is available).
-            val languages = state.settings.enabledLanguages.ifEmpty { listOf(LanguageRegistry.byId("en")) }
-            val english = voice.languageTag.startsWith("en")
-            if (languages.any { it.isEnglish } && languages.any { !it.isEnglish }) {
+            if (languageChipVisible) {
                 Text(
                     text = if (english) "EN" else "বাং",
                     color = kb.secondaryText,
@@ -184,25 +224,19 @@ internal fun VoicePanel(
                         .padding(4.dp)
                         .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
                         .background(kb.chip)
+                        .focusRing(
+                            focusedAction == languageRingIndex,
+                            RoundedCornerShape(kb.toolRadiusDp.dp),
+                        )
                         .clickable {
                             feedback()
-                            val other = if (english) {
-                                languages.first { !it.isEnglish }
-                            } else {
-                                languages.firstOrNull { it.isEnglish } ?: LanguageRegistry.byId("en")
-                            }
-                            val layoutId = other.layoutIds.firstOrNull { it in state.settings.enabledLayoutIds }
-                                ?: other.layoutIds.firstOrNull()
-                            if (layoutId != null) onLayoutSelect(layoutId)
+                            switchVoiceLanguage()
                         }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 )
             }
 
             // Undo the last dictated utterance (whole, in one tap).
-            val undoVisible = voice.canUndo && hasPermission && !state.secureField &&
-                voice.status != VoiceStatus.LISTENING && voice.status != VoiceStatus.FINISHING &&
-                voice.status != VoiceStatus.TRANSCRIBING
             if (undoVisible) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -210,6 +244,10 @@ internal fun VoicePanel(
                         .align(Alignment.BottomStart)
                         .padding(4.dp)
                         .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                        .focusRing(
+                            focusedAction == undoRingIndex,
+                            RoundedCornerShape(kb.toolRadiusDp.dp),
+                        )
                         .clickable {
                             feedback()
                             onUndo()
@@ -288,6 +326,7 @@ private fun MicContent(
     onToggleTranslate: () -> Unit,
     onOpenVoiceSettings: () -> Unit,
     onUseSystemEngine: () -> Unit,
+    micFocused: Boolean = false,
 ) {
     val kb = LocalKbTheme.current
     val voice = state.voice
@@ -334,6 +373,7 @@ private fun MicContent(
                     .size(64.dp)
                     .clip(CircleShape)
                     .background(if (listening) kb.toolCircleActive else kb.modifierKey)
+                    .focusRing(micFocused, CircleShape)
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onPress = {

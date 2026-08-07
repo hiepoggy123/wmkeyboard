@@ -96,7 +96,9 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.wasimaster.wmkeyboard.core.util.runCancellable
+import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
 import java.util.concurrent.Executors
 import kotlin.coroutines.resume
@@ -149,6 +151,7 @@ internal fun OcrPanel(
     ) {
         if (hasPermission) {
             OcrContent(
+                state = state,
                 onInsert = onInsert,
                 onClose = onClose,
                 autoSelect = state.settings.ocrAutoSelectWords,
@@ -174,6 +177,7 @@ internal fun OcrPanel(
 
 @Composable
 private fun OcrContent(
+    state: KeyboardUiState,
     onInsert: (String) -> Unit,
     onClose: () -> Unit,
     autoSelect: Boolean,
@@ -289,6 +293,7 @@ private fun OcrContent(
         when (val current = stage) {
             is OcrStage.Done -> {
                 OcrResultView(
+                    state = state,
                     result = current.result,
                     autoSelect = autoSelect,
                     onInsert = onInsert,
@@ -391,6 +396,7 @@ private fun OcrContent(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun OcrResultView(
+    state: KeyboardUiState,
     result: OcrResult,
     autoSelect: Boolean,
     onInsert: (String) -> Unit,
@@ -410,6 +416,51 @@ private fun OcrResultView(
         .map { line -> line.filter { it.id in selected }.joinToString(" ") { it.text } }
         .filter { it.isNotEmpty() }
         .joinToString("\n")
+
+    fun copySelected() {
+        val text = selectedText()
+        if (text.isNotEmpty()) {
+            copyPlainText(context, text)
+            Toast.makeText(context, R.string.ime_scanner_copied_toast, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // The ring exists only on this frozen result — the viewfinder publishes
+    // nothing. Fixed ACTIONS slots (Scan again, select-all toggle, Copy,
+    // Insert; the last three no-op with no words), and the word chips as
+    // RESULTS in reading order.
+    val allWords = result.lines.flatten()
+    PanelFocusTarget(
+        panel = PanelMode.OCR,
+        region = FocusRegion.ACTIONS,
+        count = if (result.wordCount > 0) 4 else 1,
+        columns = 4,
+    ) { index ->
+        when (index) {
+            0 -> { feedback(); onRescan() }
+            1 -> {
+                feedback()
+                selected = if (selected.size == result.wordCount) emptySet()
+                else allWords.map { it.id }.toSet()
+            }
+            2 -> { feedback(); copySelected() }
+            3 -> selectedText().takeIf { it.isNotEmpty() }?.let(onInsert)
+        }
+    }
+    PanelFocusTarget(
+        panel = PanelMode.OCR,
+        region = FocusRegion.RESULTS,
+        count = allWords.size,
+        columns = allWords.size.coerceAtLeast(1),
+    ) { index ->
+        allWords.getOrNull(index)?.let { word ->
+            feedback()
+            selected = if (word.id in selected) selected - word.id else selected + word.id
+        }
+    }
+    val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
+    val focusedWord = state.focusedIndex(FocusRegion.RESULTS)
+        ?.let { allWords.getOrNull(it)?.id }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -431,6 +482,7 @@ private fun OcrResultView(
                 icon = Icons.Outlined.Refresh,
                 description = stringResource(R.string.ime_scanner_scan_again_action),
                 active = false,
+                focused = focusedAction == 0,
             ) {
                 feedback()
                 onRescan()
@@ -460,11 +512,12 @@ private fun OcrResultView(
                         stringResource(CommonR.string.common_select_all)
                     },
                     active = false,
+                    focused = focusedAction == 1,
                 ) {
                     feedback()
                     selected =
                         if (allSelected) emptySet()
-                        else result.lines.flatten().map { it.id }.toSet()
+                        else allWords.map { it.id }.toSet()
                 }
             }
         }
@@ -502,6 +555,7 @@ private fun OcrResultView(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (on) kb.toolCircleActive else kb.chip)
+                                    .focusRing(word.id == focusedWord)
                                     .pointerInput(word.id) {
                                         detectTapGestures {
                                             feedback()
@@ -525,22 +579,16 @@ private fun OcrResultView(
                     icon = Icons.Outlined.ContentCopy,
                     label = stringResource(CommonR.string.common_copy),
                     accent = false,
+                    focused = focusedAction == 2,
                 ) {
                     feedback()
-                    val text = selectedText()
-                    if (text.isNotEmpty()) {
-                        copyPlainText(context, text)
-                        Toast.makeText(
-                            context,
-                            R.string.ime_scanner_copied_toast,
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    }
+                    copySelected()
                 }
                 CaptureActionButton(
                     icon = Icons.AutoMirrored.Outlined.Send,
                     label = stringResource(R.string.ime_scanner_insert_action),
                     accent = true,
+                    focused = focusedAction == 3,
                 ) {
                     val text = selectedText()
                     if (text.isNotEmpty()) onInsert(text)
@@ -585,6 +633,7 @@ internal fun QrScanPanel(
     ) {
         if (hasPermission) {
             QrScanContent(
+                state = state,
                 onInsert = onInsert,
                 onOpenUrl = onOpenUrl,
                 haptics = state.settings.qrScanHaptics,
@@ -613,6 +662,7 @@ internal fun QrScanPanel(
 
 @Composable
 private fun QrScanContent(
+    state: KeyboardUiState,
     onInsert: (String) -> Unit,
     onOpenUrl: (String) -> Unit,
     haptics: Boolean,
@@ -729,6 +779,32 @@ private fun QrScanContent(
                     preview = withContext(Dispatchers.IO) { LinkPreviewClient.fetch(url) }
                 }
             }
+            // The ring lives on this result card only; the viewfinder below
+            // publishes nothing. Open leads when the code is a URL.
+            PanelFocusTarget(
+                panel = PanelMode.QR_SCAN,
+                region = FocusRegion.ACTIONS,
+                count = if (url != null) 4 else 3,
+                columns = 4,
+            ) { index ->
+                val slot = if (url != null) index else index + 1
+                when (slot) {
+                    0 -> url?.let { feedback(); onOpenUrl(it) }
+                    1 -> { feedback(); result = null }
+                    2 -> {
+                        feedback()
+                        copyPlainText(context, code.value)
+                        Toast.makeText(
+                            context,
+                            R.string.ime_scanner_copied_toast,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                    3 -> onInsert(code.value)
+                }
+            }
+            val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
+                ?.let { if (url != null) it else it + 1 }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -773,6 +849,7 @@ private fun QrScanContent(
                         icon = Icons.AutoMirrored.Outlined.OpenInNew,
                         label = stringResource(R.string.ime_scanner_qr_open_action),
                         accent = false,
+                        focused = focusedAction == 0,
                     ) {
                         feedback()
                         onOpenUrl(url)
@@ -791,6 +868,7 @@ private fun QrScanContent(
                         icon = Icons.Outlined.Refresh,
                         label = stringResource(R.string.ime_scanner_scan_again_action),
                         accent = false,
+                        focused = focusedAction == 1,
                     ) {
                         feedback()
                         result = null
@@ -799,6 +877,7 @@ private fun QrScanContent(
                         icon = Icons.Outlined.ContentCopy,
                         label = stringResource(CommonR.string.common_copy),
                         accent = false,
+                        focused = focusedAction == 2,
                     ) {
                         feedback()
                         copyPlainText(context, code.value)
@@ -812,6 +891,7 @@ private fun QrScanContent(
                         icon = Icons.AutoMirrored.Outlined.Send,
                         label = stringResource(R.string.ime_scanner_insert_action),
                         accent = true,
+                        focused = focusedAction == 3,
                     ) { onInsert(code.value) }
                 }
             }

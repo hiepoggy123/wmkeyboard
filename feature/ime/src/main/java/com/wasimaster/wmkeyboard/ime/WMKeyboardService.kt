@@ -264,6 +264,7 @@ import com.wasimaster.wmkeyboard.core.tools.TypingAchievements
 import com.wasimaster.wmkeyboard.core.tools.TypingBests
 import com.wasimaster.wmkeyboard.core.tools.TypingHistory
 import com.wasimaster.wmkeyboard.core.tools.TypingResult
+import com.wasimaster.wmkeyboard.core.tools.TypingStats
 import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
 import com.wasimaster.wmkeyboard.core.tools.WpmSample
 import com.wasimaster.wmkeyboard.core.tools.buildTypingPrompt
@@ -520,6 +521,11 @@ open class WMKeyboardService : InputMethodService() {
     /** Autocorrect's revert memory; swapped by attachPersonalStores and
      * handed to the engine (a memory-only default lives there until then). */
     private var correctionStats = CorrectionStats(null)
+
+    /** The typing counters behind About › Statistics; swapped by
+     * attachPersonalStores, [TypingStats.enabled] folds the settings toggle,
+     * incognito and power saving into the one gate the hooks check. */
+    private var typingStats = TypingStats(null)
 
     /**
      * The context reranker, built once the seed bigrams are loaded. Pure
@@ -1568,6 +1574,7 @@ open class WMKeyboardService : InputMethodService() {
 
         serviceScope.launch {
             var lexiconVersion = -1
+            var statsVersion = -1
             var customDictVersion = -1
             var emojiPackVersion = -1
             var emojiUsageVersion = -1
@@ -1710,6 +1717,14 @@ open class WMKeyboardService : InputMethodService() {
                     invalidateGestureLexicon()
                 }
                 lexiconVersion = settings.lexiconVersion
+                // Same contract for the typing counters: the Statistics
+                // screen's delete (and the Storage screen's) bumps the
+                // version so the in-memory copy here does not save the old
+                // numbers straight back over the emptied file.
+                if (statsVersion != -1 && settings.statsVersion != statsVersion) {
+                    withContext(Dispatchers.Default) { typingStats.reload() }
+                }
+                statsVersion = settings.statsVersion
                 baseSettings = settings
                 val mode = resolveKeyboardMode(
                     settings.keyboardModes, currentPackage, currentModeFields, manualModeId,
@@ -1908,6 +1923,12 @@ open class WMKeyboardService : InputMethodService() {
         CjkLearning.store = CjkUserHistory(store("learning/cjk_history.json"))
         languageMixConfidence = LanguageMixConfidence(store("learning/language_mix.json"))
         emojiUsage = EmojiUsage(store("learning/emoji_usage.json"))
+        // Under stats/, not learning/: "Delete learned words" must not take
+        // the typing statistics with it. The enabled gate re-arms on the next
+        // settings emission.
+        typingStats = TypingStats(store(TypingStats.FILE_PATH)).also {
+            it.enabled = typingStats.enabled
+        }
         clipboardStore = ClipboardStore(
             store("clipboard/history.json"),
             imagesDir = store("clipboard/images"),
@@ -3105,6 +3126,7 @@ open class WMKeyboardService : InputMethodService() {
         CjkLearning.store?.save()
         languageMixConfidence.save()
         emojiUsage.save()
+        typingStats.save()
         if (_uiState.value.settings.flashlightAutoOff && _uiState.value.torchOn) {
             setTorch(false)
         }
@@ -3135,6 +3157,7 @@ open class WMKeyboardService : InputMethodService() {
         correctionStats.save()
         CjkLearning.store?.save()
         emojiUsage.save()
+        typingStats.save()
         clipboardStore.save()
         voiceEngine.cancel()
         whisperRecorder?.let { rec -> whisperRecorder = null; runCatching { rec.stop() } }
@@ -3772,6 +3795,9 @@ open class WMKeyboardService : InputMethodService() {
         }
 
         val ic = currentInputConnection ?: return
+        // Past every keyboard-buffer and search intercept: this keystroke's
+        // text is going to the field, so it is typing worth counting.
+        recordStat { onTyped(text, System.currentTimeMillis(), SystemClock.uptimeMillis()) }
         // Fancy Text: swap plain letters for the styled glyphs at the last
         // moment — after every keyboard-buffer and search intercept above
         // (those want plain, searchable letters) and before the field sees
@@ -4354,6 +4380,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun deleteFromField() {
         val state = _uiState.value
         val ic = currentInputConnection ?: return
+        recordStat { onBackspace(System.currentTimeMillis(), SystemClock.uptimeMillis()) }
         // Deleting with an active selection removes the selected text only.
         if (hasSelection(ic)) {
             dropComposingForSelectionEdit(ic)
@@ -4834,6 +4861,8 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
         val ic = currentInputConnection ?: return
+        // One swipe, one event — however many characters it takes with it.
+        recordStat { onBackspace(System.currentTimeMillis(), SystemClock.uptimeMillis()) }
         if (hasSelection(ic)) {
             dropComposingForSelectionEdit(ic)
             invalidateExpectedSelection()
@@ -4925,6 +4954,7 @@ open class WMKeyboardService : InputMethodService() {
             dropComposingForSelectionEdit(ic)
             invalidateExpectedSelection()
             ic.commitText(" ", 1)
+            recordStat { onSeparator(now, SystemClock.uptimeMillis()) }
             lastSpaceTime = 0
             maybeAutoCapitalize()
             return
@@ -5029,6 +5059,9 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         ic.commitText(" ", 1)
+        // The one plain-space landing: the confirm-a-space-already-there and
+        // double-space returns above add no character worth counting.
+        recordStat { onSeparator(now, SystemClock.uptimeMillis()) }
         if (batched) ic.endBatchEdit()
         lastSpaceTime = now
         maybeAutoCapitalize()
@@ -5086,6 +5119,9 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
         val ic = currentInputConnection ?: return
+        // Whether this ends up a newline or an editor action, it ends the
+        // word the same way a space does.
+        recordStat { onSeparator(System.currentTimeMillis(), SystemClock.uptimeMillis()) }
         commitComposing(ic, autocorrect = false, expandPatterns = true)
         // Same as the spacebar: a newline typed at a caret parked inside an
         // expansion would break the text the snippet just inserted.
@@ -6444,6 +6480,22 @@ open class WMKeyboardService : InputMethodService() {
                 state.allowsTypingIntelligence
         }
 
+    /**
+     * Re-derives the statistics gate, then forwards one event to the
+     * counters. The gate is computed at the hook rather than subscribed
+     * because [KeyboardUiState.incognitoOn] can flip per field, between
+     * settings emissions; power saving needs no mention here because the
+     * reduced settings object already has [KeyboardSettings.typingStatsEnabled]
+     * switched off. The [TypingStats.enabled] setter itself keeps a paused
+     * stretch out of the active-time sums.
+     */
+    private inline fun recordStat(block: TypingStats.() -> Unit) {
+        val state = _uiState.value
+        typingStats.enabled = state.settings.typingStatsEnabled &&
+            !(state.incognitoOn && state.settings.incognitoPausesLearning)
+        typingStats.block()
+    }
+
     private fun learn(word: String, reinforcement: Int = 1) {
         // The pattern gate follows what went into the field, not what the
         // lexicon was allowed to keep, so it is fed on both paths.
@@ -7355,6 +7407,9 @@ open class WMKeyboardService : InputMethodService() {
         // capitalizes the word the user is about to pick, matching the chip.
         val committed = displayCaseForShift(suggestion, _uiState.value.shiftState)
         ic.commitText(committed + tail, 1)
+        // Whole words landed without being typed out; this also disarms the
+        // half-typed word so the next separator cannot count it again.
+        recordStat { onWordsCommitted(suggestion.split(' ').size, System.currentTimeMillis()) }
         // A one-shot shift is spent by the pick, the same as by a typed letter.
         consumeShift()
         // Deliberately picked from the strip — a stronger signal than a
@@ -7530,6 +7585,7 @@ open class WMKeyboardService : InputMethodService() {
                 ic.commitText(" ", 1)
             }
             ic.commitText(word, 1)
+            recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
             learn(word)
             lastGestureWord = word
             commitGestureSpace(ic, state)
@@ -7621,6 +7677,7 @@ open class WMKeyboardService : InputMethodService() {
                     ic.commitText(" ", 1)
                 }
                 ic.commitText(word, 1)
+                recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
                 learn(word)
                 lastGestureWord = word
                 armRevertGuard()
@@ -13992,7 +14049,11 @@ open class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         val current = state.panelFocus
         if (current == null) {
-            // The first arrow press summons the ring rather than moving it.
+            // The first arrow press summons the ring rather than moving it —
+            // except in the panels that ride along with live field editing,
+            // where the arrows must keep moving the caret and only a
+            // keyboard-open seeds a ring.
+            if (panelFocusSeedOnly(state.panel)) return false
             val region = preferredFocusRegion() ?: return false
             _uiState.update { it.copy(panelFocus = PanelFocus(region, 0)) }
             return true

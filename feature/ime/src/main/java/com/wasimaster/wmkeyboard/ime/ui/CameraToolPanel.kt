@@ -89,7 +89,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.wasimaster.wmkeyboard.core.util.runCancellable
+import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -443,6 +445,24 @@ private fun CameraContent(
                 feedback = feedback,
                 onClose = onClose,
             )
+            // The ring exists only on this frozen still — the live viewfinder
+            // below publishes nothing, so the count drops to zero on Retake.
+            PanelFocusTarget(
+                panel = PanelMode.CAMERA,
+                region = FocusRegion.ACTIONS,
+                count = 2,
+                columns = 2,
+            ) { index ->
+                if (index == 0) {
+                    feedback()
+                    scope.launch(Dispatchers.IO) { captured.file.delete() }
+                    pending = null
+                } else {
+                    pending = null
+                    onSend(captured.file)
+                }
+            }
+            val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -454,6 +474,7 @@ private fun CameraContent(
                     icon = Icons.Outlined.Refresh,
                     label = stringResource(R.string.ime_camera_retake_action),
                     accent = false,
+                    focused = focusedAction == 0,
                 ) {
                     feedback()
                     scope.launch(Dispatchers.IO) { captured.file.delete() }
@@ -463,6 +484,7 @@ private fun CameraContent(
                     icon = Icons.AutoMirrored.Outlined.Send,
                     label = stringResource(R.string.ime_camera_send_action),
                     accent = true,
+                    focused = focusedAction == 1,
                 ) {
                     // Send's vibration comes from the service handler.
                     pending = null
@@ -657,13 +679,15 @@ internal fun CameraChipButton(
     description: String,
     active: Boolean,
     label: String? = null,
+    focused: Boolean = false,
     onClick: () -> Unit,
 ) {
     Box(
         modifier = Modifier
             .size(40.dp)
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.35f)),
+            .background(Color.Black.copy(alpha = 0.35f))
+            .focusRing(focused, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         IconButton(onClick = onClick, modifier = Modifier.fillMaxSize()) {
@@ -688,6 +712,7 @@ internal fun CaptureActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     accent: Boolean,
+    focused: Boolean = false,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -695,6 +720,7 @@ internal fun CaptureActionButton(
         modifier = Modifier
             .clip(RoundedCornerShape(22.dp))
             .background(if (accent) kb.accent else Color.Black.copy(alpha = 0.45f))
+            .focusRing(focused, RoundedCornerShape(22.dp))
             .pointerInput(Unit) { detectTapGestures { onClick() } }
             .padding(horizontal = 18.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
