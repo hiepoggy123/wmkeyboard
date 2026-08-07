@@ -217,7 +217,7 @@
     <!-- Dialog shown when an addon lists other addons it was designed with.
          %1$s is the addon's name. -->
     <string name="addon_requires_title">%1$s uses other add-ons</string>
-    <string name="addon_requires_body">This add-on was made together with the add-ons below. You can install them all, or install only this one — it also works alone.</string>
+    <string name="addon_requires_body">This add-on was made together with the add-ons below. You can install them all, or install only this one. It also works alone.</string>
     <string name="addon_requires_all_action">Download all</string>
     <string name="addon_requires_skip_action">Only this one</string>
 

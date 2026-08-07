@@ -53,7 +53,7 @@
 
     <string name="typing_timing_signal_title">Typing rhythm</string>
     <string name="typing_timing_signal_subtitle">Let your typing speed sway autocorrect</string>
-    <string name="typing_timing_signal_info">The keyboard measures how fast you type each word. When you type in a fast burst, typos are likely, so autocorrect fires more eagerly. When you type slowly and deliberately — an unusual name, a word from another language — autocorrect holds back. The slider sets how strongly the rhythm sways the decision. Zero turns the signal off.</string>
+    <string name="typing_timing_signal_info">The keyboard measures how fast you type each word. When you type in a fast burst, typos are likely, so autocorrect fires more eagerly. When you type slowly and deliberately, for an unusual name or a word from another language, autocorrect holds back. The slider sets how strongly the rhythm sways the decision. Zero turns the signal off.</string>
 
     <string name="typing_register_priors_title">Adapt to app tone</string>
     <string name="typing_register_priors_subtitle">Casual words rank higher in chats, lower in email</string>
@@ -193,7 +193,7 @@
     <!-- ==== Typing settings: one-time codes ==== -->
     <string name="typing_group_otp_title">One-time codes</string>
     <string name="typing_otp_chip_title">Codes from notifications</string>
-    <string name="typing_otp_chip_subtitle">When a verification code arrives in a notification, offer it above the keys — one press types it</string>
+    <string name="typing_otp_chip_subtitle">When a verification code arrives in a notification, offer it above the keys. One press types it</string>
     <string name="typing_otp_chip_info">The keyboard watches incoming notifications for a one-time code. When it finds one, a chip with the code and the name of the app that sent it appears above the keys. Press the chip to type the code. This needs notification access. The keyboard reads notifications on your device only, keeps the code in memory only, and sends nothing anywhere. Turn this off and the keyboard stops reading notifications at once.</string>
     <string name="typing_otp_access_title">Allow notification access</string>
     <string name="typing_otp_access_subtitle">The chip cannot see codes arrive yet. Press to open the system switch</string>

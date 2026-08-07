@@ -142,7 +142,7 @@
     <string name="theme_popup_placement_float_label">Floating</string>
     <string name="theme_popup_border_title">Popup outline</string>
     <string name="theme_chips_section_title">Chips and buttons</string>
-    <string name="theme_chips_section_body">Chips are the small buttons in the tool panels — style pickers, converters, plugin buttons. Their background color is the card color above.</string>
+    <string name="theme_chips_section_body">Chips are the small buttons in the tool panels: style pickers, converters, plugin buttons. Their background color is the card color above.</string>
     <string name="theme_chip_text_title">Chip text</string>
     <string name="theme_chip_active_title">Selected chip</string>
     <string name="theme_chip_active_text_title">Selected chip text</string>
@@ -152,7 +152,7 @@
     <string name="theme_menu_shape_title">Menu shape</string>
     <string name="theme_card_shape_title">Card shape</string>
     <string name="theme_shape_auto_safe_label">Automatic (safe)</string>
-    <string name="theme_shape_auto_safe_value">Automatic — %1$s</string>
+    <string name="theme_shape_auto_safe_value">Automatic (%1$s)</string>
 
     <!-- Theme editor: toolbar. -->
     <string name="theme_toolbar_section_title">Toolbar</string>
@@ -215,14 +215,14 @@
 
     <!-- Theme editor: key textures. -->
     <string name="theme_texture_section_title">Key textures</string>
-    <string name="theme_texture_section_body">An image drawn on the keys, clipped to the key shape, over the key color. One image for the letter keys is enough — the other keys reuse it unless you give them their own.</string>
+    <string name="theme_texture_section_body">An image drawn on the keys, clipped to the key shape, over the key color. One image for the letter keys is enough. The other keys reuse it unless you give them their own.</string>
     <string name="theme_texture_normal_title">Letter keys</string>
     <string name="theme_texture_modifier_title">Modifier keys</string>
     <string name="theme_texture_enter_title">Enter key</string>
     <string name="theme_texture_space_title">Space bar</string>
     <string name="theme_texture_pressed_title">Pressed keys</string>
     <string name="theme_texture_popup_title">Key preview popup</string>
-    <string name="theme_texture_set_label">Image set — tap to replace</string>
+    <string name="theme_texture_set_label">Image set, tap to replace</string>
     <string name="theme_texture_unset_label">Tap to pick an image</string>
     <string name="theme_texture_scale_crop_label">Crop</string>
     <string name="theme_texture_scale_stretch_label">Stretch</string>
@@ -231,7 +231,7 @@
 
     <!-- Theme editor: per-key styles. -->
     <string name="theme_key_override_section_title">Single-key styles</string>
-    <string name="theme_key_override_section_body">Give one key its own colors — its face, its label, its border, and its popup. A letter keeps its style on every layout that has it.</string>
+    <string name="theme_key_override_section_body">Give one key its own colors: its face, its label, its border, and its popup. A letter keeps its style on every layout that has it.</string>
     <string name="theme_key_override_add_action">Add a key</string>
     <string name="theme_key_override_add_body">Type a letter, or choose one of the special keys.</string>
     <string name="theme_key_override_letter_label">Letter</string>

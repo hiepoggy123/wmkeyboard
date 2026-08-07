@@ -550,7 +550,7 @@ internal fun UnitConverterPanel(
                 )
             }
             Text(
-                if (resultText != null) "$resultText ${to.symbol}" else "—",
+                if (resultText != null) "$resultText ${to.symbol}" else "",
                 color = kb.accent,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -705,7 +705,7 @@ internal fun CurrencyPanel(
                         )
                     }
                     Text(
-                        if (resultText != null) "$resultText $to" else "—",
+                        if (resultText != null) "$resultText $to" else "",
                         color = kb.accent,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,

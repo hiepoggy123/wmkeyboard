@@ -10280,7 +10280,7 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         val sent = Support.email(
             this,
-            "WM Keyboard — AI generation report",
+            "WM Keyboard: AI generation report",
             Support.aiGenerationReport(
                 action = aiActionLabel(ai.action),
                 provider = getString(state.settings.ai.provider.labelRes),
@@ -10958,7 +10958,7 @@ open class WMKeyboardService : InputMethodService() {
         val kind = if (state.panel == PanelMode.STICKER) "sticker" else "GIF"
         val sent = Support.email(
             this,
-            "WM Keyboard — $kind report",
+            "WM Keyboard: $kind report",
             Support.mediaReport(
                 kind = kind,
                 provider = getString(GifSources.displayNameRes(item.source)),

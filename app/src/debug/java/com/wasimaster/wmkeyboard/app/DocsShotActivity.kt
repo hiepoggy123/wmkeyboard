@@ -167,7 +167,7 @@ private fun ChatScreen() {
     val items = remember {
         mutableStateListOf<ChatItem>(
             ChatItem.Msg("Hey! Trip photos are up, take a look when you can.", mine = false),
-            ChatItem.Msg("Just saw them — the lake one is amazing.", mine = true),
+            ChatItem.Msg("Just saw them. The lake one is amazing.", mine = true),
             ChatItem.Msg("Right? Same spot as last year.", mine = false),
         )
     }

@@ -300,7 +300,7 @@ class CrashReportActivity : Activity() {
         val body = if (report.length <= EMAIL_BODY_LIMIT) {
             report
         } else {
-            report.take(EMAIL_BODY_LIMIT) + "\n… (truncated — use Share for the full report)"
+            report.take(EMAIL_BODY_LIMIT) + "\n… (truncated, use Share for the full report)"
         }
         if (!Support.email(this, "WM Keyboard crash report", body)) {
             toast(getString(R.string.common_crash_email_error))

@@ -126,7 +126,7 @@ object Support {
         appendLine()
         appendLine("---- $kind ----")
         appendLine("provider: $provider")
-        appendLine("search: ${query.ifBlank { "(trending — no search term)" }}")
+        appendLine("search: ${query.ifBlank { "(trending, no search term)" }}")
         appendLine("id: $id")
         appendLine("url: $url")
         appendLine(environment())

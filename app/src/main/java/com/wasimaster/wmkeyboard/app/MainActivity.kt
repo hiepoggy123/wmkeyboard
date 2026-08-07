@@ -3170,7 +3170,7 @@ private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: 
                         trailing = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    letter?.toString() ?: "—",
+                                    letter?.toString() ?: stringResource(CommonR.string.common_none),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = if (letter == null) {
                                         MaterialTheme.colorScheme.onSurfaceVariant
