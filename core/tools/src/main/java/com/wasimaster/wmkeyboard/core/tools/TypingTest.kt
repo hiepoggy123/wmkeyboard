@@ -327,6 +327,56 @@ object TypingBests {
 }
 
 /**
+ * The typing test's achievement badges, stored as one comma-list preference
+ * ("wpm100,perfect"). Unlocks only ever accumulate — a badge once earned
+ * stays earned, so the set only grows and needs no per-run bookkeeping.
+ */
+object TypingAchievements {
+
+    const val WPM_100 = "wpm100"
+    const val PERFECT = "perfect"
+    const val PANGRAM = "pangram"
+    const val TESTS_50 = "tests50"
+
+    /** Every badge there is, in display order. */
+    val ALL = listOf(WPM_100, PERFECT, PANGRAM, TESTS_50)
+
+    /** A flawless run shorter than this is luck, not typing. */
+    const val PERFECT_MIN_CHARS = 30
+
+    /** How many finished runs the persistence badge asks for. */
+    const val TESTS_GOAL = 50
+
+    fun decode(raw: String): Set<String> =
+        raw.split(',').filter { it in ALL }.toSet()
+
+    fun encode(ids: Set<String>): String =
+        ALL.filter { it in ids }.joinToString(",")
+
+    /**
+     * The badges [result] earns. [testsCompleted] counts this run;
+     * [isPangram] says whether the run's prompt covered the whole alphabet —
+     * the caller knows the prompt, this object only knows the score.
+     */
+    fun evaluate(result: TypingResult, testsCompleted: Int, isPangram: Boolean): Set<String> {
+        val earned = mutableSetOf<String>()
+        if (result.wpm >= 100.0) earned += WPM_100
+        val flawless = result.incorrectChars == 0 && result.extraChars == 0 &&
+            result.missedChars == 0 && result.correctChars >= PERFECT_MIN_CHARS
+        if (flawless) earned += PERFECT
+        if (isPangram && result.mode == TypingTestMode.QUOTE) earned += PANGRAM
+        if (testsCompleted >= TESTS_GOAL) earned += TESTS_50
+        return earned
+    }
+
+    /** True when [text] uses every letter a to z — the pangram badge's gate. */
+    fun isPangram(text: String): Boolean {
+        val letters = text.lowercase()
+        return ('a'..'z').all { it in letters }
+    }
+}
+
+/**
  * The last few results, newest last, as a comma list of WPM values. Feeds
  * the little trend bar on the results screen.
  */

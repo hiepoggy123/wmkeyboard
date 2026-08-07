@@ -125,6 +125,18 @@
     <!-- Starts one more run with the same settings. -->
     <string name="ime_typing_again_action">Again</string>
     <string name="ime_typing_insert_score_action">Insert score</string>
+    <!-- Heading of the achievements row on the results screen. -->
+    <string name="ime_typing_achievements_label">Achievements</string>
+    <!-- Badge on an achievement that this run unlocked. -->
+    <string name="ime_typing_achievement_new_label">New</string>
+    <!-- Achievement names. Each is a short badge on the results screen. -->
+    <string name="ime_typing_achievement_wpm100_label">100 wpm club</string>
+    <!-- Unlocked by a run with no wrong, extra or missed characters. -->
+    <string name="ime_typing_achievement_perfect_label">Flawless run</string>
+    <!-- Unlocked by finishing a quote that uses every letter of the alphabet. -->
+    <string name="ime_typing_achievement_pangram_label">Quick brown fox</string>
+    <!-- Unlocked by finishing 50 runs. -->
+    <string name="ime_typing_achievement_tests50_label">50 runs</string>
 
     <!-- Symbols tool panel. -->
     <!-- Chip for the symbols the user selected most recently. -->

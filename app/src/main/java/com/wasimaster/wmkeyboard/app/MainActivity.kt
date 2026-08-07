@@ -99,6 +99,7 @@ import com.wasimaster.wmkeyboard.core.tools.formatChord
 import com.wasimaster.wmkeyboard.core.tools.formatLeader
 import com.wasimaster.wmkeyboard.core.tools.parseLeader
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
@@ -263,6 +264,7 @@ import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.MediaCategoryCache
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
+import com.wasimaster.wmkeyboard.core.tools.TypingAchievements
 import com.wasimaster.wmkeyboard.core.tools.TypingBests
 import com.wasimaster.wmkeyboard.core.tools.TypingHistory
 import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
@@ -10123,6 +10125,56 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
                 ) {
                     scope.launch { repository.clearTypingStats() }
                 }
+            }
+        }
+    }
+
+    // The full badge list, locked ones greyed — the keyboard's results screen
+    // only shows what is already earned; this is where the goals are visible.
+    val unlockedBadges = remember(settings.typingTestAchievements) {
+        TypingAchievements.decode(settings.typingTestAchievements)
+    }
+    SettingsGroup(stringResource(R.string.toolai_typing_achievements_title)) {
+        for (id in TypingAchievements.ALL) {
+            item {
+                val unlocked = id in unlockedBadges
+                val (title, subtitle) = when (id) {
+                    TypingAchievements.WPM_100 ->
+                        R.string.toolai_typing_achievement_wpm100_title to
+                            R.string.toolai_typing_achievement_wpm100_subtitle
+                    TypingAchievements.PERFECT ->
+                        R.string.toolai_typing_achievement_perfect_title to
+                            R.string.toolai_typing_achievement_perfect_subtitle
+                    TypingAchievements.PANGRAM ->
+                        R.string.toolai_typing_achievement_pangram_title to
+                            R.string.toolai_typing_achievement_pangram_subtitle
+                    else ->
+                        R.string.toolai_typing_achievement_tests50_title to
+                            R.string.toolai_typing_achievement_tests50_subtitle
+                }
+                WmRow(
+                    title = stringResource(title),
+                    subtitle = stringResource(subtitle),
+                    trailing = {
+                        if (unlocked) {
+                            Icon(
+                                Icons.Outlined.CheckCircle,
+                                contentDescription = stringResource(
+                                    R.string.toolai_typing_achievement_unlocked_desc,
+                                ),
+                                tint = ActiveGreen,
+                            )
+                        } else {
+                            Icon(
+                                Icons.Outlined.Lock,
+                                contentDescription = stringResource(
+                                    R.string.toolai_typing_achievement_locked_desc,
+                                ),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            )
+                        }
+                    },
+                )
             }
         }
     }

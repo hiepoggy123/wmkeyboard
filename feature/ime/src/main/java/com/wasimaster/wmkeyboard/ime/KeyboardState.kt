@@ -690,6 +690,8 @@ data class TypingTestUi(
     val result: TypingResult? = null,
     /** Set when the finished run beat the stored best for its config. */
     val personalBest: Boolean = false,
+    /** Achievement badges this run unlocked for the first time. */
+    val earnedAchievements: Set<String> = emptySet(),
 ) {
     val running: Boolean get() = startedAtMs != null && result == null
     /** Index of the word the caret is in. */

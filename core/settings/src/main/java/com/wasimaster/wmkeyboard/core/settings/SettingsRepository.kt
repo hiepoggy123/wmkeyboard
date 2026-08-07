@@ -63,6 +63,7 @@ import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.mergeLegacyAiPrompts
 import com.wasimaster.wmkeyboard.core.tools.DefaultToolLetters
+import com.wasimaster.wmkeyboard.core.tools.TypingAchievements
 import com.wasimaster.wmkeyboard.core.tools.decodeToolLetters
 import com.wasimaster.wmkeyboard.core.tools.encodeToolLetters
 import com.wasimaster.wmkeyboard.core.tools.formatLeader
@@ -1519,6 +1520,8 @@ data class KeyboardSettings(
     /** Recent WPM scores, oldest first, encoded by [TypingHistory]. */
     val typingTestHistory: String = "",
     val typingTestsCompleted: Int = 0,
+    /** Unlocked achievement badges, encoded by [TypingAchievements]. */
+    val typingTestAchievements: String = "",
     /** Side length of the QR image the generator inserts. */
     val qrSizePx: Int = 1024,
     val qrEcc: QrEccLevel = QrEccLevel.M,
@@ -3483,6 +3486,7 @@ class SettingsRepository(private val context: Context) {
         private val TT_BESTS = stringPreferencesKey("tt_bests")
         private val TT_HISTORY = stringPreferencesKey("tt_history")
         private val TT_COMPLETED = intPreferencesKey("tt_completed")
+        private val TT_ACHIEVEMENTS = stringPreferencesKey("tt_achievements")
         private val QR_SIZE_PX = intPreferencesKey("qr_size_px")
         private val QR_ECC = stringPreferencesKey("qr_ecc")
         private val AI_PROVIDER = stringPreferencesKey("ai_provider")
@@ -4367,6 +4371,7 @@ class SettingsRepository(private val context: Context) {
             typingTestBests = p[TT_BESTS] ?: defaults.typingTestBests,
             typingTestHistory = p[TT_HISTORY] ?: defaults.typingTestHistory,
             typingTestsCompleted = p[TT_COMPLETED] ?: defaults.typingTestsCompleted,
+            typingTestAchievements = p[TT_ACHIEVEMENTS] ?: defaults.typingTestAchievements,
             qrSizePx = p[QR_SIZE_PX] ?: defaults.qrSizePx,
             qrEcc = p[QR_ECC]?.let { runCatching { QrEccLevel.valueOf(it) }.getOrNull() }
                 ?: defaults.qrEcc,
@@ -7373,22 +7378,28 @@ class SettingsRepository(private val context: Context) {
 
     /**
      * Files a finished run: appends it to the history, bumps the counter,
-     * and stores a new personal best when [bests] is non-null (the caller
-     * has already checked whether the record fell).
+     * stores a new personal best when [bests] is non-null (the caller has
+     * already checked whether the record fell), and folds the run's newly
+     * earned achievement badges into the unlocked set.
      */
-    suspend fun recordTypingResult(history: String, bests: String?) =
+    suspend fun recordTypingResult(history: String, bests: String?, achievements: Set<String> = emptySet()) =
         editPrefs { p ->
             p[TT_HISTORY] = history
             if (bests != null) p[TT_BESTS] = bests
             p[TT_COMPLETED] = (p[TT_COMPLETED] ?: 0) + 1
+            if (achievements.isNotEmpty()) {
+                val unlocked = TypingAchievements.decode(p[TT_ACHIEVEMENTS].orEmpty())
+                p[TT_ACHIEVEMENTS] = TypingAchievements.encode(unlocked + achievements)
+            }
         }
 
-    /** Wipes the personal bests and the score history. */
+    /** Wipes the personal bests, the score history and the badges. */
     suspend fun clearTypingStats() =
         editPrefs {
             it[TT_BESTS] = ""
             it[TT_HISTORY] = ""
             it[TT_COMPLETED] = 0
+            it[TT_ACHIEVEMENTS] = ""
         }
 
     suspend fun setQrSizePx(value: Int) =

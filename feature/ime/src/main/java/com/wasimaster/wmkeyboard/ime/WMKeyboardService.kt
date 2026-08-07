@@ -253,6 +253,7 @@ import com.wasimaster.wmkeyboard.core.tools.ToolHttpException
 import com.wasimaster.wmkeyboard.core.tools.CharState
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
 import com.wasimaster.wmkeyboard.core.tools.TypedWord
+import com.wasimaster.wmkeyboard.core.tools.TypingAchievements
 import com.wasimaster.wmkeyboard.core.tools.TypingBests
 import com.wasimaster.wmkeyboard.core.tools.TypingHistory
 import com.wasimaster.wmkeyboard.core.tools.TypingResult
@@ -9956,13 +9957,28 @@ open class WMKeyboardService : InputMethodService() {
             configKey = configKey,
         )
         val improved = TypingBests.improve(settings.typingTestBests, configKey, result.wpm)
+        // Badges the run earns; only the never-before-seen ones get the "New"
+        // accent on the results screen. The prompt text decides the pangram.
+        val earned = TypingAchievements.evaluate(
+            result,
+            testsCompleted = settings.typingTestsCompleted + 1,
+            isPangram = TypingAchievements.isPangram(test.words.joinToString(" ")),
+        )
+        val newBadges = earned - TypingAchievements.decode(settings.typingTestAchievements)
         _uiState.update {
-            it.copy(typingTest = it.typingTest.copy(result = result, personalBest = improved != null))
+            it.copy(
+                typingTest = it.typingTest.copy(
+                    result = result,
+                    personalBest = improved != null,
+                    earnedAchievements = newBadges,
+                ),
+            )
         }
         serviceScope.launch {
             settingsRepository.recordTypingResult(
                 history = TypingHistory.append(settings.typingTestHistory, result.wpm),
                 bests = improved?.let { TypingBests.encode(it) },
+                achievements = earned,
             )
         }
     }

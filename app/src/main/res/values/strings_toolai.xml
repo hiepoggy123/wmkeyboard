@@ -40,7 +40,21 @@
     <!-- Heading of one saved record. %1$s is how many words that test asked for. -->
     <string name="toolai_typing_best_words_label">%1$s words</string>
     <string name="toolai_typing_clear_records_title">Clear records</string>
-    <string name="toolai_typing_clear_records_subtitle">Deletes every best score and the run history</string>
+    <string name="toolai_typing_clear_records_subtitle">Deletes every best score, the run history and the badges</string>
+
+    <string name="toolai_typing_achievements_title">Achievements</string>
+    <!-- The four badges the test hands out, each with the way to earn it. -->
+    <string name="toolai_typing_achievement_wpm100_title">100 wpm club</string>
+    <string name="toolai_typing_achievement_wpm100_subtitle">Finish a run at 100 words per minute or faster</string>
+    <string name="toolai_typing_achievement_perfect_title">Flawless run</string>
+    <string name="toolai_typing_achievement_perfect_subtitle">No wrong, extra or missed characters in a full run</string>
+    <string name="toolai_typing_achievement_pangram_title">Quick brown fox</string>
+    <string name="toolai_typing_achievement_pangram_subtitle">Finish a quote that uses every letter of the alphabet</string>
+    <string name="toolai_typing_achievement_tests50_title">50 runs</string>
+    <string name="toolai_typing_achievement_tests50_subtitle">Finish fifty typing tests</string>
+    <!-- Screen reader state of one badge row. -->
+    <string name="toolai_typing_achievement_unlocked_desc">Unlocked</string>
+    <string name="toolai_typing_achievement_locked_desc">Locked</string>
     <string name="toolai_typing_info">The test runs on the keyboard. It measures the layout, the key sizes and the gestures that you type with. The text that you type during a test does not go to the text field. The scores stay on your device.</string>
 
     <!-- ================================================================== -->

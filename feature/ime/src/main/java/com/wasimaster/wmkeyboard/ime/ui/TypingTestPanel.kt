@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -61,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.tools.CharState
+import com.wasimaster.wmkeyboard.core.tools.TypingAchievements
 import com.wasimaster.wmkeyboard.core.tools.TypingBests
 import com.wasimaster.wmkeyboard.core.tools.TypingHistory
 import com.wasimaster.wmkeyboard.core.tools.TypingResult
@@ -489,6 +491,55 @@ private fun TypingResultView(
             fontSize = 11.sp,
         )
 
+        // Unlocked achievement badges — the stored set plus whatever this run
+        // just earned (the store write is async, so the union covers the gap).
+        // Newly earned ones borrow the "New best" badge's accent treatment.
+        val earnedNow = state.typingTest.earnedAchievements
+        val unlocked = remember(settings.typingTestAchievements, earnedNow) {
+            TypingAchievements.decode(settings.typingTestAchievements) + earnedNow
+        }
+        if (unlocked.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.ime_typing_achievements_label),
+                color = kb.secondaryText,
+                fontSize = 10.sp,
+            )
+            Spacer(Modifier.height(3.dp))
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                for (id in TypingAchievements.ALL) {
+                    if (id !in unlocked) continue
+                    val isNew = id in earnedNow
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isNew) kb.accent.copy(alpha = 0.18f) else kb.chip)
+                            .padding(horizontal = 9.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stringResource(achievementLabelRes(id)),
+                            color = if (isNew) kb.accent else kb.chipText,
+                            fontSize = 11.sp,
+                            fontWeight = if (isNew) FontWeight.SemiBold else FontWeight.Normal,
+                        )
+                        if (isNew) {
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                stringResource(R.string.ime_typing_achievement_new_label),
+                                color = kb.accent,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Two samples is the minimum that makes a line rather than a dot.
         if (result.samples.size >= 2) {
             Spacer(Modifier.height(8.dp))
@@ -539,6 +590,15 @@ private fun TypingResultView(
         TypingConfigRow(settings, onAction, compact = false)
         Spacer(Modifier.height(6.dp))
     }
+}
+
+/** The badge label for one achievement id. */
+@StringRes
+private fun achievementLabelRes(id: String): Int = when (id) {
+    TypingAchievements.WPM_100 -> R.string.ime_typing_achievement_wpm100_label
+    TypingAchievements.PERFECT -> R.string.ime_typing_achievement_perfect_label
+    TypingAchievements.PANGRAM -> R.string.ime_typing_achievement_pangram_label
+    else -> R.string.ime_typing_achievement_tests50_label
 }
 
 @Composable
