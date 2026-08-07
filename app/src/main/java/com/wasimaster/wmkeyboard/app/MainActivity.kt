@@ -1081,7 +1081,16 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = "privacy",
             ) {
-                PrivacySettings(repository, settings)
+                PrivacySettings(repository, settings) { navController.navigate(it) }
+            }
+        }
+        composable("permissions") {
+            SettingsScreen(
+                stringResource(R.string.privacy_permissions_title),
+                { navController.popBackStack() },
+                route = "permissions",
+            ) {
+                PermissionsSettings()
             }
         }
         composable("rows") {
@@ -1768,7 +1777,7 @@ private fun hasImagesPermission(context: Context): Boolean =
  * Whether the user granted Usage Access — a special permission, so it is an
  * app-op rather than a runtime grant. Mirrors the IME's own check.
  */
-private fun hasUsageAccess(context: Context): Boolean {
+internal fun hasUsageAccess(context: Context): Boolean {
     val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
         ?: return false
     val mode = runCatching {
@@ -10905,9 +10914,25 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
 private val AUTO_INCOGNITO_INFO = R.string.privacy_auto_incognito_info
 
 @Composable
-private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun PrivacySettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    // An unnamed group has no SectionHeader to hold it off the top bar, so the
+    // breathing room a named group gets for free is spelled out here.
+    Spacer(Modifier.height(12.dp))
+    SettingsGroup {
+        item {
+            NavRow(
+                R.string.privacy_permissions_title,
+                stringResource(R.string.privacy_permissions_subtitle),
+                route = "permissions",
+            ) { onNavigate("permissions") }
+        }
+    }
     SettingsGroup(stringResource(R.string.privacy_learning_group_title)) {
         item {
             ToggleSetting(

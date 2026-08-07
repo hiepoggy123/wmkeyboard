@@ -5,6 +5,7 @@
 
   * the handwriting model manager (one row per language ML Kit can recognise),
   * the weather location picker (shared with the onboarding tool setup),
+  * the permissions screen (every permission the app can hold),
   * the snippet manager.
 -->
 <resources>
@@ -94,6 +95,64 @@
 
     <!-- Caption at the end of the Privacy screen. -->
     <string name="privacy_on_device_info">Typing works fully on this device. The word lists, prediction, autocorrect, transliteration and emoji search are part of the app, and none of them needs a network connection. The app has no telemetry and no analytics. Only a tool uses the network, and only at the moment that you press it: translate, weather, web search, image search, GIFs, stickers, dictionary lookup and the AI tools. You can turn off each one of them on the Tools screen.</string>
+
+    <!-- ================================================================== -->
+    <!-- Permissions: every permission the app can hold, in one place.      -->
+    <!-- ================================================================== -->
+
+    <string name="privacy_permissions_title">Permissions</string>
+    <string name="privacy_permissions_subtitle">See what the keyboard can reach, and give or take back a permission</string>
+
+    <string name="privacy_permissions_intro_info">The keyboard works without all of these permissions. Each one unlocks one optional feature. Press a row to give the permission. Press a granted row to open the system settings, where you can take it back.</string>
+
+    <string name="privacy_permissions_runtime_group_title">Permissions</string>
+    <string name="privacy_permissions_special_group_title">Special access</string>
+    <string name="privacy_permissions_install_group_title">Included with the app</string>
+
+    <!-- State of one permission, shown at the right edge of its row. -->
+    <string name="privacy_permissions_status_granted">Granted</string>
+    <string name="privacy_permissions_status_not_granted">Not granted</string>
+    <!-- Android gives these permissions to the app when you install it. -->
+    <string name="privacy_permissions_status_install">Automatic</string>
+
+    <string name="privacy_permissions_mic_title">Microphone</string>
+    <string name="privacy_permissions_mic_subtitle">Dictate text with the voice input tool</string>
+
+    <string name="privacy_permissions_camera_title">Camera</string>
+    <string name="privacy_permissions_camera_subtitle">Take a photo with the camera tool and send it into the chat</string>
+
+    <string name="privacy_permissions_contacts_title">Contacts</string>
+    <string name="privacy_permissions_contacts_subtitle">Suggest the names and the email addresses of your contacts while you type</string>
+
+    <string name="privacy_permissions_calendar_title">Calendar</string>
+    <string name="privacy_permissions_calendar_subtitle">The calendar tool lists the events of your day</string>
+
+    <string name="privacy_permissions_images_title">Photos and images</string>
+    <string name="privacy_permissions_images_subtitle">Show your new screenshots in the clipboard</string>
+
+    <string name="privacy_permissions_storage_title">Storage</string>
+    <string name="privacy_permissions_storage_subtitle">Save images from the keyboard to your gallery</string>
+
+    <string name="privacy_permissions_notifications_title">Notification access</string>
+    <string name="privacy_permissions_notifications_subtitle">Media controls on the keyboard, and one-time codes from your notifications</string>
+
+    <string name="privacy_permissions_usage_title">Usage access</string>
+    <string name="privacy_permissions_usage_subtitle">Show which app a clipboard entry was copied from</string>
+
+    <string name="privacy_permissions_accessibility_title">Accessibility service</string>
+    <string name="privacy_permissions_accessibility_subtitle">Keep the keyboard gestures while TalkBack is on</string>
+
+    <string name="privacy_permissions_internet_title">Internet</string>
+    <string name="privacy_permissions_internet_subtitle">Only the network tools use it: translate, weather, search, GIFs, stickers, dictionary and the AI tools</string>
+
+    <string name="privacy_permissions_network_state_title">Network state</string>
+    <string name="privacy_permissions_network_state_subtitle">The model downloads first check that the connection is not metered</string>
+
+    <string name="privacy_permissions_vibrate_title">Vibration</string>
+    <string name="privacy_permissions_vibrate_subtitle">Haptic feedback when you press a key</string>
+
+    <!-- Caption at the end of the Permissions screen. -->
+    <string name="privacy_permissions_footer_info">Android gives the permissions in the last group to every app at the install. An app cannot ask for them, and cannot give them back. You can take every other permission back at any time in the system settings. The feature that uses it then stops, and the rest of the keyboard keeps working.</string>
 
     <!-- ================================================================== -->
     <!-- Snippets: the reference card, the list and the import and export.  -->

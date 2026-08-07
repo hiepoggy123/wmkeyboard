@@ -768,6 +768,10 @@ private fun Resources.otherRows(): List<SettingsSearchEntry> {
     )
     fun privacy(@StringRes title: Int, @StringRes subtitle: Int) =
         entry(title, subtitle, R.string.home_privacy_title, "privacy")
+    fun permission(@StringRes title: Int, @StringRes subtitle: Int) = entry(
+        title, subtitle, R.string.privacy_permissions_title, "permissions",
+        screenParent = R.string.home_privacy_title,
+    )
     fun mode(@StringRes title: Int, @StringRes subtitle: Int = 0) =
         entry(title, subtitle, R.string.home_screen_mode_edit_title, "modes")
     fun access(@StringRes title: Int, @StringRes subtitle: Int = 0) =
@@ -821,6 +825,24 @@ private fun Resources.otherRows(): List<SettingsSearchEntry> {
         privacy(R.string.privacy_incognito_title, R.string.privacy_incognito_subtitle),
         privacy(R.string.privacy_auto_incognito_title, R.string.privacy_auto_incognito_subtitle),
         privacy(R.string.privacy_backup_title, R.string.privacy_backup_subtitle),
+        // The Permissions screen's rows. The version-gated Storage row is left
+        // out: on most devices a result would land on a screen without it.
+        permission(R.string.privacy_permissions_mic_title, R.string.privacy_permissions_mic_subtitle),
+        permission(R.string.privacy_permissions_camera_title, R.string.privacy_permissions_camera_subtitle),
+        permission(R.string.privacy_permissions_contacts_title, R.string.privacy_permissions_contacts_subtitle),
+        permission(R.string.privacy_permissions_calendar_title, R.string.privacy_permissions_calendar_subtitle),
+        permission(R.string.privacy_permissions_images_title, R.string.privacy_permissions_images_subtitle),
+        permission(
+            R.string.privacy_permissions_notifications_title,
+            R.string.privacy_permissions_notifications_subtitle,
+        ),
+        permission(R.string.privacy_permissions_usage_title, R.string.privacy_permissions_usage_subtitle),
+        permission(
+            R.string.privacy_permissions_accessibility_title,
+            R.string.privacy_permissions_accessibility_subtitle,
+        ),
+        permission(R.string.privacy_permissions_internet_title, R.string.privacy_permissions_internet_subtitle),
+        permission(R.string.privacy_permissions_vibrate_title, R.string.privacy_permissions_vibrate_subtitle),
         entry(R.string.rows_symbol_row_title, R.string.rows_symbol_row_subtitle, R.string.home_rows_title, "rows"),
         entry(R.string.modes_drag_edits_title, R.string.modes_drag_edits_subtitle, R.string.home_modes_title, "modes"),
         mode(R.string.modes_name_label, R.string.modes_name_hint),
@@ -995,6 +1017,10 @@ private fun Resources.sectionRows(): List<SettingsSearchEntry> {
         under(
             R.string.about_storage_title, R.string.about_storage_subtitle,
             R.string.home_about_title, "storage", R.string.search_kw_storage,
+        ),
+        under(
+            R.string.privacy_permissions_title, R.string.privacy_permissions_subtitle,
+            R.string.home_privacy_title, "permissions", R.string.search_kw_permissions,
         ),
     )
 }

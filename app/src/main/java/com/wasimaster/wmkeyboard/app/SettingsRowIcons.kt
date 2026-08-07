@@ -61,6 +61,7 @@ import androidx.compose.material.icons.outlined.Contrast
 import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.DataArray
 import androidx.compose.material.icons.outlined.DataObject
+import androidx.compose.material.icons.outlined.DataUsage
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Dialpad
@@ -122,6 +123,7 @@ import androidx.compose.material.icons.outlined.PhotoSizeSelectActual
 import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.PhotoSizeSelectLarge
 import androidx.compose.material.icons.outlined.PhotoSizeSelectSmall
@@ -429,6 +431,21 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.privacy_incognito_title, Icons.Outlined.VisibilityOff)
     put(R.string.privacy_auto_incognito_title, Icons.Outlined.Public)
     put(R.string.privacy_backup_title, Icons.Outlined.CloudUpload)
+
+    // ---- Privacy: permissions ----
+    put(R.string.privacy_permissions_title, Icons.Outlined.Key)
+    put(R.string.privacy_permissions_mic_title, Icons.Outlined.MicNone)
+    put(R.string.privacy_permissions_camera_title, Icons.Outlined.PhotoCamera)
+    put(R.string.privacy_permissions_contacts_title, Icons.Outlined.Contacts)
+    put(R.string.privacy_permissions_calendar_title, Icons.Outlined.CalendarMonth)
+    put(R.string.privacy_permissions_images_title, Icons.Outlined.PhotoLibrary)
+    put(R.string.privacy_permissions_storage_title, Icons.Outlined.Folder)
+    put(R.string.privacy_permissions_notifications_title, Icons.Outlined.Notifications)
+    put(R.string.privacy_permissions_usage_title, Icons.Outlined.DataUsage)
+    put(R.string.privacy_permissions_accessibility_title, Icons.Outlined.Accessibility)
+    put(R.string.privacy_permissions_internet_title, Icons.Outlined.Public)
+    put(R.string.privacy_permissions_network_state_title, Icons.Outlined.SignalCellularAlt)
+    put(R.string.privacy_permissions_vibrate_title, Icons.Outlined.Vibration)
 
     // ---- Diagnostics ----
     put(R.string.shell_debug_log_system_title, Icons.Outlined.Terminal)
