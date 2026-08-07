@@ -67,6 +67,9 @@
     <!-- Inserts the generated password at the cursor. -->
     <string name="ime_password_insert_action">Insert</string>
     <string name="ime_password_copied_toast">Copied to the clipboard</string>
+    <!-- Easter egg: a rare extra caption under the entropy line. The quoted words are the
+         famous xkcd 936 example passphrase, left untranslated on purpose — it is a citation. -->
+    <string name="ime_password_egg_info">"correct horse battery staple" — xkcd 936 says length beats symbols</string>
 
     <!-- QR code generator tool panel. -->
     <string name="ime_qr_content_hint">Type the QR code text on the keys below…</string>

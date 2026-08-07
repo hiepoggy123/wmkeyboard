@@ -56,6 +56,7 @@ import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PwSettingAction
 import com.wasimaster.wmkeyboard.ime.R
 import java.security.SecureRandom
+import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -187,6 +188,20 @@ internal fun PasswordPanel(
                 .align(Alignment.End)
                 .padding(bottom = 2.dp),
         )
+        // Easter egg: one generation in five hundred also cites xkcd 936. A
+        // caption beside the result, never an input to it — the roll is keyed
+        // on the generated value but the value itself is untouched.
+        val showXkcd = remember(generated) { generated.isNotEmpty() && Random.nextInt(500) == 0 }
+        if (showXkcd) {
+            Text(
+                stringResource(R.string.ime_password_egg_info),
+                color = kb.secondaryText,
+                fontSize = 11.sp,
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .padding(bottom = 2.dp),
+            )
+        }
         Column(
             modifier = Modifier
                 .weight(1f)
