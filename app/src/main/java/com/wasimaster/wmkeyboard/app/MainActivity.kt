@@ -2919,6 +2919,14 @@ private fun TypingSettings(
                 }
                 item {
                     ToggleSetting(
+                        R.string.typing_glide_picker_title,
+                        stringResource(R.string.typing_glide_picker_subtitle),
+                        settings.gesture.ambiguityPicker,
+                        info = stringResource(R.string.typing_glide_picker_info),
+                    ) { scope.launch { repository.setGestureAmbiguityPicker(it) } }
+                }
+                item {
+                    ToggleSetting(
                         R.string.typing_space_after_glide_title,
                         stringResource(R.string.typing_space_after_glide_subtitle),
                         settings.gesture.autoSpaceAfterGlide,

@@ -7608,13 +7608,20 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /** A decoded stroke: the words it could be, and whether it is a close call. */
+    private class GlideReading(val words: List<String>, val ambiguous: Boolean) {
+        companion object {
+            val NONE = GlideReading(emptyList(), false)
+        }
+    }
+
     /** Decodes one stroke against the active language's word sources. */
     private fun glideDecode(
         points: List<GesturePoint>,
         keys: List<KeyCenter>,
         keyWidthPx: Float,
-    ): List<String> {
-        val engine = suggestionEngine ?: return emptyList()
+    ): GlideReading {
+        val engine = suggestionEngine ?: return GlideReading.NONE
         val decoded = engine.glide(
             path = points,
             keys = keyMapFor(keys, keyWidthPx),
@@ -7622,8 +7629,13 @@ open class WMKeyboardService : InputMethodService() {
             previousWord = previousWord,
             previousWord2 = previousWord2,
             recentWords = recentWords.toList(),
-        ).map { it.word }
-        return decoded.map { restoreApostrophe(it) ?: it }
+        )
+        if (decoded.isEmpty()) return GlideReading.NONE
+        return GlideReading(
+            words = decoded.map { restoreApostrophe(it.word) ?: it.word },
+            ambiguous = _uiState.value.settings.gesture.ambiguityPicker &&
+                engine.glideIsAmbiguous(decoded),
+        )
     }
 
     /**
@@ -7725,17 +7737,28 @@ open class WMKeyboardService : InputMethodService() {
         serviceScope.launch {
             for (request in gesturePreviews) {
                 if (request.generation != gestureGeneration.get()) continue
-                val candidates = withContext(Dispatchers.Default) {
+                val reading = withContext(Dispatchers.Default) {
                     // Same sources as the final decode, so the previewed word
                     // never differs from the one that commits on finger-up.
                     glideDecode(request.points, request.keys, request.keyWidthPx)
                 }
-                if (candidates.isEmpty()) continue
+                if (reading.words.isEmpty()) continue
                 // Re-checked after the decode: the finger may have lifted and
                 // the word committed while this was running.
                 if (request.generation != gestureGeneration.get()) continue
                 _uiState.update {
-                    it.copy(suggestions = candidates, glideWord = candidates.first())
+                    it.copy(
+                        suggestions = reading.words,
+                        glideWord = reading.words.first(),
+                        // Only while the stroke is still in doubt: publishing
+                        // choices for a confident decode would arm the picker
+                        // for a stroke that has nothing to ask.
+                        glideChoices = if (reading.ambiguous) {
+                            reading.words.take(GLIDE_CHOICES)
+                        } else {
+                            emptyList()
+                        },
+                    )
                 }
             }
         }
@@ -7745,7 +7768,18 @@ open class WMKeyboardService : InputMethodService() {
      * Decodes a swipe drawn over the letter keys and commits the best word.
      * Alternates go to the suggestion bar; tapping one replaces the word.
      */
-    fun onGesture(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
+    fun onGesture(
+        points: List<GesturePoint>,
+        keys: List<KeyCenter>,
+        keyWidthPx: Float,
+        /**
+         * The word the user picked out of the ambiguity picker, if they did.
+         * Committed in place of the decoder's own first choice, and otherwise
+         * treated identically — it is still learned, still spaced, still
+         * revertible, and its alternates still reach the strip.
+         */
+        chosen: String? = null,
+    ) {
         stopVoiceForManualInput()
         val state = _uiState.value
         if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
@@ -7757,11 +7791,11 @@ open class WMKeyboardService : InputMethodService() {
         gestureGeneration.incrementAndGet()
         suggestionJob?.cancel()
         gestureJob?.cancel()
-        _uiState.update { it.copy(glideWord = null) }
+        _uiState.update { it.copy(glideWord = null, glideChoices = emptyList()) }
         gestureJob = serviceScope.launch {
             val candidates = withContext(Dispatchers.Default) {
                 glideDecode(points, keys, keyWidthPx)
-            }
+            }.words
             // Debug builds only: typed content must never be logged in release.
             if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
                 android.util.Log.d(
@@ -7773,10 +7807,11 @@ open class WMKeyboardService : InputMethodService() {
             val ic = currentInputConnection ?: return@launch
 
             commitComposing(ic, autocorrect = false)
+            val picked = chosen?.takeIf { it in candidates } ?: candidates.first()
             val word = when (shiftAtGesture) {
-                ShiftState.CAPS_LOCK -> candidates.first().uppercase()
-                ShiftState.ON -> candidates.first().replaceFirstChar { it.uppercase() }
-                ShiftState.OFF -> candidates.first()
+                ShiftState.CAPS_LOCK -> picked.uppercase()
+                ShiftState.ON -> picked.replaceFirstChar { it.uppercase() }
+                ShiftState.OFF -> picked
             }
             // Auto-space between consecutive swiped words.
             val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
@@ -7843,7 +7878,7 @@ open class WMKeyboardService : InputMethodService() {
         gestureGeneration.incrementAndGet()
         suggestionJob?.cancel()
         gestureJob?.cancel()
-        _uiState.update { it.copy(glideWord = null) }
+        _uiState.update { it.copy(glideWord = null, glideChoices = emptyList()) }
         gestureJob = serviceScope.launch {
             val ic = currentInputConnection ?: return@launch
             // Flush any composing text before the first glided word.
@@ -7856,7 +7891,7 @@ open class WMKeyboardService : InputMethodService() {
                 // the one before it as context.
                 val candidates = withContext(Dispatchers.Default) {
                     glideDecode(segment, keys, keyWidthPx)
-                }
+                }.words
                 if (candidates.isEmpty()) return@forEachIndexed
                 val word = if (index == 0) {
                     when (shiftAtGesture) {
@@ -15043,6 +15078,14 @@ open class WMKeyboardService : InputMethodService() {
          * always see the word a match would have to start on.
          */
         private const val RECENT_WORDS = 8
+
+        /**
+         * How many words the ambiguity picker offers. Three fits under a
+         * fingertip without the targets becoming too small to land on, and a
+         * swipe that is choosing between more than three things is a swipe
+         * nobody is going to resolve by looking at a list.
+         */
+        private const val GLIDE_CHOICES = 3
 
         /**
          * Longest snippet expansion that arms backspace-to-restore.

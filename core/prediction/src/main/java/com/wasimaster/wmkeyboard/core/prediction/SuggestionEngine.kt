@@ -479,6 +479,23 @@ class SuggestionEngine(
      * decoder's guess, so reordering guesses costs nothing that was ever
      * certain.
      */
+    /**
+     * Whether a decoded stroke is a close enough call to be worth asking about.
+     *
+     * The measure is the gap between the best candidate and the runner-up, in
+     * the same log units everything else is scored in — so it reads directly as
+     * a likelihood ratio, and a gap of [AMBIGUOUS_MARGIN] means the two words
+     * are within about a factor of three of each other. Below that, calling it
+     * for the leader is a coin toss dressed up as a decision.
+     *
+     * Deliberately not a function of the shape cost. A stroke can be drawn
+     * beautifully and still be ambiguous — ক and খ are the same stroke however
+     * carefully it is made — and a scruffy stroke with only one word anywhere
+     * near it is not ambiguous at all.
+     */
+    fun glideIsAmbiguous(decoded: List<GlideBeam.Candidate>): Boolean =
+        decoded.size >= 2 && decoded[0].score - decoded[1].score < AMBIGUOUS_MARGIN
+
     private fun rerankGlide(
         decoded: List<GlideBeam.Candidate>,
         previousWord: String?,
@@ -798,6 +815,12 @@ class SuggestionEngine(
          * guess, which is exactly the case a context model is there to fix.
          */
         private const val GLIDE_RERANK_POOL = 8
+
+        /**
+         * How far ahead the best candidate has to be before a swipe commits it
+         * without asking, in nats. About a factor of three.
+         */
+        private const val AMBIGUOUS_MARGIN = 1.1
 
         /**
          * How deep the fuzzy walk ranks for the suggest path. The post-walk

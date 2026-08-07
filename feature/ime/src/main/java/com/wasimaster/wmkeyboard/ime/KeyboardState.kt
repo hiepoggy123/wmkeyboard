@@ -1007,6 +1007,13 @@ data class KeyboardUiState(
     /** Best gesture-typing candidate mid-swipe, shown floating above the finger. */
     val glideWord: String? = null,
     /**
+     * The words a mid-swipe decode is choosing between, best first, when it is
+     * close enough to be worth asking about — and empty when it is not, which
+     * is the ordinary case. Holding the finger still while this is populated
+     * puts them under the fingertip to pick from.
+     */
+    val glideChoices: List<String> = emptyList(),
+    /**
      * Whether the active language and layout can be glided: a word list to
      * decode against, a layout that types letters rather than converting them,
      * and keys covering enough of the language to decode honestly.

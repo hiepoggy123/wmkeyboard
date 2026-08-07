@@ -2478,6 +2478,21 @@ data class GestureSettings(
      */
     val spaceGlideMultiWord: Boolean = true,
     /**
+     * When a swipe is genuinely ambiguous, ask instead of committing.
+     *
+     * Some strokes have no right answer: on a fixed Bengali layout ক and খ share
+     * a key, so a word and its aspirated twin are drawn identically, and on any
+     * layout a hurried stroke can fit two words equally well. Committing the
+     * likelier one and leaving the user to notice is the worst of the options.
+     *
+     * With this on, a stroke whose best candidate barely leads its runner-up
+     * puts the top few words under the fingertip: hold still without lifting and
+     * they appear, slide onto one and lift to take it. Lifting without choosing
+     * commits the leader as before, and the same words stay on the suggestion
+     * strip either way, so nothing is lost by ignoring it.
+     */
+    val ambiguityPicker: Boolean = true,
+    /**
      * A glided word is followed by a space, so the next word — glided or tapped
      * — starts clean instead of running into it. On by default. The space is
      * the keyboard's, not the user's: punctuation typed straight after takes it
@@ -3187,6 +3202,7 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
         private val LETTER_SWIPE_ACTION = stringPreferencesKey("letter_swipe_action")
         private val GESTURE_SPACE_MULTI_WORD = booleanPreferencesKey("gesture_space_multi_word")
+        private val GESTURE_AMBIGUITY_PICKER = booleanPreferencesKey("gesture_ambiguity_picker")
         private val GESTURE_AUTO_SPACE = booleanPreferencesKey("gesture_auto_space")
         private val GESTURE_START_THRESHOLD_SLOP = floatPreferencesKey("gesture_start_threshold_slop")
         private val GESTURE_POST_TYPE_COOLDOWN_MS = intPreferencesKey("gesture_post_type_cooldown_ms")
@@ -3947,6 +3963,7 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.letterSwipeAction,
             gesture = GestureSettings(
                 spaceGlideMultiWord = p[GESTURE_SPACE_MULTI_WORD] ?: defaults.gesture.spaceGlideMultiWord,
+                ambiguityPicker = p[GESTURE_AMBIGUITY_PICKER] ?: defaults.gesture.ambiguityPicker,
                 autoSpaceAfterGlide = p[GESTURE_AUTO_SPACE] ?: defaults.gesture.autoSpaceAfterGlide,
                 startThresholdSlop = p[GESTURE_START_THRESHOLD_SLOP] ?: defaults.gesture.startThresholdSlop,
                 postTypeCooldownMs = p[GESTURE_POST_TYPE_COOLDOWN_MS] ?: defaults.gesture.postTypeCooldownMs,
@@ -6538,6 +6555,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureSpaceMultiWord(value: Boolean) =
         editPrefs { it[GESTURE_SPACE_MULTI_WORD] = value }
+
+    suspend fun setGestureAmbiguityPicker(value: Boolean) =
+        editPrefs { it[GESTURE_AMBIGUITY_PICKER] = value }
 
     suspend fun setGestureAutoSpace(value: Boolean) =
         editPrefs { it[GESTURE_AUTO_SPACE] = value }
