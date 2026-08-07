@@ -1938,10 +1938,11 @@ data class ClipboardSettings(
     /**
      * Let the clipboard panel take the whole keyboard, hiding the toolbar the
      * way the emoji and media panels can — the reclaimed rows go to more
-     * history cards. Off by default: the panel is usually a quick paste stop,
-     * and losing the toolbar costs more than two extra cards are worth.
+     * history cards. On by default: the panel pays for the toolbar's row with
+     * its own back header, and picking the right clip is easier the more of
+     * them are on screen at once. Turning it off keeps the toolbar in reach.
      */
-    val fullBleed: Boolean = false,
+    val fullBleed: Boolean = true,
 )
 
 /**

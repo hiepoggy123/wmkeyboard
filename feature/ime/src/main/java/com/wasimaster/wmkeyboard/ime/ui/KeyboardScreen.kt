@@ -5744,7 +5744,7 @@ private val FullBleedPanels = setOf(
     PanelMode.UNIT_CONVERT, PanelMode.CALENDAR, PanelMode.AI,
     PanelMode.TRANSLATE, PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH,
     PanelMode.DICTIONARY, PanelMode.SYMBOLS, PanelMode.MEDIA_CONTROL,
-    PanelMode.APP_LAUNCHER, PanelMode.THEMES,
+    PanelMode.APP_LAUNCHER, PanelMode.THEMES, PanelMode.SNIPPETS,
 )
 
 /**
@@ -6191,10 +6191,27 @@ private fun KeyboardBody(
                         onClose = { onPanelChange(PanelMode.CLIPBOARD) },
                     )
                 }
-                PanelMode.SNIPPETS -> SnippetsPanel(
-                    state, onSnippet,
-                    onOpenSettings = { onOpenToolSettings(ToolbarTool.SNIPPETS) },
-                )
+                // The snippet cards are two columns of wrapped text, so the
+                // rows the toolbar gives up are worth a whole extra pair of
+                // them. The editor lives in settings, so the header's action
+                // slot carries the gear the panel used to draw itself.
+                PanelMode.SNIPPETS -> FullBleedTool(
+                    state, stringResource(R.string.ime_tool_snippets),
+                    onClose = { onPanelChange(PanelMode.SNIPPETS) },
+                    headerActions = {
+                        ToolCircle(
+                            slot = IconSlots.forTool(ToolbarTool.SETTINGS),
+                            description = stringResource(R.string.ime_snippets_settings_desc),
+                            active = false,
+                            onClick = { onOpenToolSettings(ToolbarTool.SNIPPETS) },
+                        )
+                    },
+                ) {
+                    SnippetsPanel(
+                        state, onSnippet,
+                        onOpenSettings = { onOpenToolSettings(ToolbarTool.SNIPPETS) },
+                    )
+                }
                 PanelMode.TEXT_EDIT -> TextEditPanel(state, onTextEdit)
                 PanelMode.TOOLBOX -> ToolboxPanel(state, onToolTap, onToolboxHintDismiss, drag)
                 // Regular panels (toolbar stays visible): the sensors read
@@ -12347,12 +12364,8 @@ private fun SnippetsPanel(
     onSnippet: (Snippet) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    val height = keyRowsHeight(state)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(height),
-    ) {
+    // Inside a [FullBleedTool], which owns the height — fill what it gives.
+    Column(modifier = Modifier.fillMaxSize()) {
         if (state.snippets.isEmpty()) {
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -12373,25 +12386,16 @@ private fun SnippetsPanel(
             }
             return@Column
         }
-        Row(
+        // The gear rides in the full-bleed header now, so this is only the
+        // reminder that a snippet's text can carry variables.
+        Text(
+            stringResource(R.string.ime_snippets_variables),
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                stringResource(R.string.ime_snippets_variables),
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
-            ToolCircle(
-                slot = IconSlots.forTool(ToolbarTool.SETTINGS),
-                description = stringResource(R.string.ime_snippets_settings_desc),
-                active = false,
-                onClick = onOpenSettings,
-            )
-        }
+                .padding(start = 20.dp, end = 8.dp, bottom = 4.dp),
+        )
         PanelFocusTarget(
             panel = PanelMode.SNIPPETS,
             count = state.snippets.size,
