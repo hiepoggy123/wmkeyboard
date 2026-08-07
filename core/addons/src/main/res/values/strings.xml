@@ -28,6 +28,8 @@
     <string name="core_addons_type_font_label">Fonts</string>
     <string name="core_addons_type_emoji_font_label">Emoji fonts</string>
     <string name="core_addons_type_sound_label">Sounds</string>
+    <!-- A sound pack holds many recordings of one keyboard. -->
+    <string name="core_addons_type_sound_pack_label">Sound packs</string>
     <string name="core_addons_type_plugin_label">Plugins</string>
     <!-- The kind shown for an add-on this version of the app does not know. -->
     <string name="core_addons_type_unknown_label">Other</string>
@@ -48,6 +50,8 @@
     <string name="core_addons_type_emoji_font_singular_label">Emoji font</string>
     <!-- The sound the keyboard plays when you press a key. -->
     <string name="core_addons_type_sound_singular_label">Key sound</string>
+    <!-- The name for one sound pack. -->
+    <string name="core_addons_type_sound_pack_singular_label">Sound pack</string>
     <string name="core_addons_type_plugin_singular_label">Plugin</string>
     <!-- The name for one add-on of a kind this version of the app does not know. -->
     <string name="core_addons_type_unknown_singular_label">Add-on</string>

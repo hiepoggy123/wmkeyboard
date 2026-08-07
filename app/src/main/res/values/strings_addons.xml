@@ -158,6 +158,15 @@
         <item quantity="other">%1$d stickers</item>
     </plurals>
     <string name="addon_preview_play_sound_title">Play the sound</string>
+    <!-- How many different recordings a sound pack holds. %1$d is the count. -->
+    <plurals name="addon_preview_pack_variant_count">
+        <item quantity="one">%1$d recording</item>
+        <item quantity="other">%1$d recordings, one picked for each key press</item>
+    </plurals>
+    <!-- %1$d is the number of the recording in the pack, starting at 1. -->
+    <string name="addon_preview_play_variant_title">Play recording %1$d</string>
+    <!-- %1$s lists the key roles, for example "space, enter". -->
+    <string name="addon_preview_pack_roles_caption">Separate sounds for: %1$s</string>
     <!-- How many words a word list holds. %1$d is the count. -->
     <plurals name="addon_preview_word_count">
         <item quantity="one">%1$d word</item>
@@ -210,6 +219,8 @@
     <string name="addon_use_target_icons_label">Icons</string>
     <string name="addon_use_target_font_label">Fonts</string>
     <string name="addon_use_target_sound_label">Key press</string>
+    <!-- Where a sound pack is chosen: the same Key press screen. -->
+    <string name="addon_use_target_sound_pack_label">Key press</string>
     <!-- Button that opens another screen. %1$s is the name of that screen,
          for example Plugins. -->
     <string name="addon_open_screen_action">Open %1$s</string>

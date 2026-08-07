@@ -95,6 +95,8 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiUsage
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
+import com.wasimaster.wmkeyboard.core.feedback.KeySoundRole
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
 import com.wasimaster.wmkeyboard.core.gesture.GestureDecoder
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -1490,6 +1492,14 @@ open class WMKeyboardService : InputMethodService() {
             // fall back to the system effects on their own.
             runCatching {
                 KeySoundPlayer.warmUp(this@WMKeyboardService)
+                // A pack is up to sixty-four samples; without decoding them
+                // here the first several keystrokes after the IME opens fall
+                // back to the system click, which reads as the pack not
+                // working rather than as the pool still catching up.
+                val sound = _uiState.value.settings
+                if (sound.keySoundStyle == com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.PACK) {
+                    KeySoundPlayer.preload(this@WMKeyboardService, sound.keySoundCustom.packId)
+                }
                 HapticPlayer.warmUp(this@WMKeyboardService)
             }
         }
@@ -1947,6 +1957,7 @@ open class WMKeyboardService : InputMethodService() {
         com.wasimaster.wmkeyboard.core.icons.IconPackStore.attach(this)
         com.wasimaster.wmkeyboard.core.fonts.FontStore.attach(this)
         com.wasimaster.wmkeyboard.core.feedback.SoundStore.attach(this)
+        com.wasimaster.wmkeyboard.core.feedback.SoundPackStore.attach(this)
         com.wasimaster.wmkeyboard.core.addons.AddonStore.attach(this)
         stickerPackStore = com.wasimaster.wmkeyboard.core.stickers.StickerPackStore.get(this)
     }
@@ -2276,7 +2287,7 @@ open class WMKeyboardService : InputMethodService() {
                 onKey = ::onKey,
                 onKeyPressed = ::vibrate,
                 onHaptic = ::vibrateOnly,
-                onKeySound = { playKeySound() },
+                onKeySound = { role -> playKeySound(role = role) },
                 onText = ::onText,
                 onGesture = ::onGesture,
                 onGesturePreview = ::onGesturePreview,
@@ -14553,10 +14564,10 @@ open class WMKeyboardService : InputMethodService() {
         doVibrate()
     }
 
-    private fun vibrate() {
+    private fun vibrate(role: KeySoundRole = KeySoundRole.DEFAULT) {
         // Key sound rides along with every feedback point; it has no
         // interference problem, so it skips the haptic coalescing below.
-        playKeySound()
+        playKeySound(role = role)
         vibrateOnly()
     }
 
@@ -14588,15 +14599,25 @@ open class WMKeyboardService : InputMethodService() {
         style: com.wasimaster.wmkeyboard.core.settings.KeySoundStyle? = null,
         volume: Float? = null,
         force: Boolean = false,
+        role: KeySoundRole = KeySoundRole.DEFAULT,
     ) {
         val settings = _uiState.value.settings
         if (!force && !settings.keySound) return
         val theme = themeKeySound(settings)
+        val resolved = style ?: theme?.first ?: settings.keySoundStyle
+        // Custom and Pack read their id from different fields, and a theme
+        // carrying a sound names whichever kind it chose in the same slot.
+        val id = theme?.second ?: if (resolved == com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.PACK) {
+            settings.keySoundCustom.packId
+        } else {
+            settings.keySoundCustom.customId
+        }
         KeySoundPlayer.play(
             this,
-            style ?: theme?.first ?: settings.keySoundStyle,
+            resolved,
             volume ?: settings.keySoundVolume,
-            theme?.second ?: settings.keySoundCustom.customId,
+            id,
+            role,
         )
     }
 

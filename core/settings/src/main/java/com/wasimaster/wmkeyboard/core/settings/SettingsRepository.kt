@@ -403,7 +403,7 @@ enum class GifSourceMode { TABS, MIX }
  * [com.wasimaster.wmkeyboard.core.feedback.SoundStore], named by
  * [KeySoundSettings.customId].
  */
-enum class KeySoundStyle { CLICK, STANDARD, POP, THOCK, CHIME, CUSTOM }
+enum class KeySoundStyle { CLICK, STANDARD, POP, THOCK, CHIME, CUSTOM, PACK }
 
 /**
  * The installed key sound in use.
@@ -416,6 +416,15 @@ enum class KeySoundStyle { CLICK, STANDARD, POP, THOCK, CHIME, CUSTOM }
 data class KeySoundSettings(
     /** [com.wasimaster.wmkeyboard.core.feedback.SoundStore] id, blank if none. */
     val customId: String = "",
+    /**
+     * [com.wasimaster.wmkeyboard.core.feedback.SoundPackStore] id, blank if
+     * none — the pack [KeySoundStyle.PACK] plays.
+     *
+     * Kept beside [customId] rather than replacing it: the two styles remember
+     * their own selection, so switching Custom -> Pack -> Custom does not lose
+     * the sound the user had picked.
+     */
+    val packId: String = "",
 )
 
 /**
@@ -3409,6 +3418,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_SOUND_STYLE = stringPreferencesKey("key_sound_style")
         private val KEY_SOUND_VOLUME = floatPreferencesKey("key_sound_volume")
         private val KEY_SOUND_CUSTOM_ID = stringPreferencesKey("key_sound_custom_id")
+        private val KEY_SOUND_PACK_ID = stringPreferencesKey("key_sound_pack_id")
         private val LEVEL_SHOW_ANGLES = booleanPreferencesKey("level_show_angles")
         private val REDO_USES_CTRL_Y = booleanPreferencesKey("redo_uses_ctrl_y")
         private val MOON_SOUTHERN = booleanPreferencesKey("moon_southern_hemisphere")
@@ -3863,6 +3873,7 @@ class SettingsRepository(private val context: Context) {
             keySoundVolume = p[KEY_SOUND_VOLUME] ?: defaults.keySoundVolume,
             keySoundCustom = KeySoundSettings(
                 customId = p[KEY_SOUND_CUSTOM_ID] ?: defaults.keySoundCustom.customId,
+                packId = p[KEY_SOUND_PACK_ID] ?: defaults.keySoundCustom.packId,
             ),
             popup = popupFromPrefs(p, defaults),
             colorVisionFilter = p[COLOR_VISION_FILTER]
@@ -4651,6 +4662,17 @@ class SettingsRepository(private val context: Context) {
         editPrefs {
             it[KEY_SOUND_CUSTOM_ID] = value
             if (value.isNotBlank()) it[KEY_SOUND_STYLE] = KeySoundStyle.CUSTOM.name
+        }
+
+    /**
+     * Picks an installed sound pack and switches the style to
+     * [KeySoundStyle.PACK] in one write, for the same reason
+     * [setKeySoundCustomId] does.
+     */
+    suspend fun setKeySoundPackId(value: String) =
+        editPrefs {
+            it[KEY_SOUND_PACK_ID] = value
+            if (value.isNotBlank()) it[KEY_SOUND_STYLE] = KeySoundStyle.PACK.name
         }
 
     suspend fun setLevelShowAngles(value: Boolean) =
@@ -6201,6 +6223,16 @@ class SettingsRepository(private val context: Context) {
             if (it[KEY_SOUND_CUSTOM_ID] != soundId) return@editPrefs
             it[KEY_SOUND_CUSTOM_ID] = ""
             if (it[KEY_SOUND_STYLE] == KeySoundStyle.CUSTOM.name) {
+                it[KEY_SOUND_STYLE] = KeySoundStyle.CLICK.name
+            }
+        }
+
+    /** [forgetKeySound] for a deleted sound pack. */
+    suspend fun forgetKeySoundPack(packId: String) =
+        editPrefs {
+            if (it[KEY_SOUND_PACK_ID] != packId) return@editPrefs
+            it[KEY_SOUND_PACK_ID] = ""
+            if (it[KEY_SOUND_STYLE] == KeySoundStyle.PACK.name) {
                 it[KEY_SOUND_STYLE] = KeySoundStyle.CLICK.name
             }
         }

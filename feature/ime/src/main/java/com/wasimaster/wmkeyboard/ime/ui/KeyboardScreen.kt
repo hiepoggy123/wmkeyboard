@@ -357,6 +357,7 @@ import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.core.layout.FlickDirection
 import com.wasimaster.wmkeyboard.core.layout.Key
+import com.wasimaster.wmkeyboard.core.feedback.KeySoundRole
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
@@ -399,6 +400,24 @@ internal val LocalHapticFeedback = staticCompositionLocalOf<() -> Unit> { {} }
  * keeps the click sound while dropping just the buzz.
  */
 internal val LocalKeySound = staticCompositionLocalOf<() -> Unit> { {} }
+
+/**
+ * [LocalKeyPressFeedback] and [LocalKeySound] again, told *which* key.
+ *
+ * A sound pack can carry a separate set of recordings per [KeySoundRole], so
+ * the key grid — and only the key grid — needs to say what it just pressed.
+ * Everything else that fires key feedback (panel buttons, the suggestion strip,
+ * the toolbar) is not a key on the board and goes on using the two role-less
+ * locals above, which this file provides bound to [KeySoundRole.DEFAULT].
+ *
+ * Two more locals rather than changing the type of the existing two: those have
+ * thirty-odd call sites across the panels, none of which have a [Key] in scope
+ * or any business inventing one.
+ */
+internal val LocalKeyRoleFeedback = staticCompositionLocalOf<(KeySoundRole) -> Unit> { {} }
+
+/** [LocalKeySound] told which key; see [LocalKeyRoleFeedback]. */
+internal val LocalKeyRoleSound = staticCompositionLocalOf<(KeySoundRole) -> Unit> { {} }
 
 /**
  * Sink for the A/C/V/X clipboard long-press shortcuts, provided once at the
@@ -631,9 +650,13 @@ fun KeyboardScreen(
      */
     panelFocus: PanelFocusController = remember { PanelFocusController() },
     onKey: (Key) -> Unit,
-    onKeyPressed: () -> Unit = {},
-    onHaptic: () -> Unit = onKeyPressed,
-    onKeySound: () -> Unit = {},
+    // Role-carrying, so a sound pack can play a different recording for the
+    // spacebar. The parameter *count* is load-bearing: this argument list
+    // already compiles to a method at the JVM's 64K ceiling, so these two grow
+    // a type rather than growing the list. See [LocalKeyRoleFeedback].
+    onKeyPressed: (KeySoundRole) -> Unit = {},
+    onHaptic: () -> Unit = { onKeyPressed(KeySoundRole.DEFAULT) },
+    onKeySound: (KeySoundRole) -> Unit = {},
     onText: (String) -> Unit = {},
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
@@ -859,9 +882,13 @@ fun KeyboardScreen(
     val body: @Composable ColumnScope.(KeyboardUiState) -> Unit = { bodyState ->
         CompositionLocalProvider(
             LocalIconSet provides iconSet,
-            LocalKeyPressFeedback provides onKeyPressed,
+            LocalKeyPressFeedback provides remember(onKeyPressed) {
+                { onKeyPressed(KeySoundRole.DEFAULT) }
+            },
             LocalHapticFeedback provides onHaptic,
-            LocalKeySound provides onKeySound,
+            LocalKeySound provides remember(onKeySound) { { onKeySound(KeySoundRole.DEFAULT) } },
+            LocalKeyRoleFeedback provides onKeyPressed,
+            LocalKeyRoleSound provides onKeySound,
             LocalClipboardKeyAction provides onClipboardKey,
             LocalCanDelete provides canDelete,
             LocalCanDeleteField provides canDeleteField,
@@ -9414,8 +9441,10 @@ private fun KeyButton(
     // popup above the spacebar while the finger is still down.
     var languagePreview by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val rawKeyPress = LocalKeyPressFeedback.current
-    val rawKeySound = LocalKeySound.current
+    // The role-carrying locals, because this is the key grid: a sound pack may
+    // have recorded the spacebar separately from the letters.
+    val rawKeyPress = LocalKeyRoleFeedback.current
+    val rawKeySound = LocalKeyRoleSound.current
     val onClipboardKey = LocalClipboardKeyAction.current
     val canDelete = LocalCanDelete.current
     val canForwardDelete = LocalCanForwardDelete.current
@@ -9476,11 +9505,18 @@ private fun KeyButton(
     // buzzes for every dropped tap feels exactly like no filter at all. Only
     // the press's own feedback is muted: the long-press cue and the repeat
     // ticks under the same finger land past the window and ring normally.
-    val onKeyPress: () -> Unit = remember(rawKeyPress, gate) {
-        { if (gate.audible()) rawKeyPress() }
+    //
+    // The role is bound once, here, rather than threaded further down: the
+    // spacebar's swipe handler and the delete key's repeat tick both take these
+    // lambdas as plain `() -> Unit` parameters, so binding at the top means the
+    // held-repeat on backspace is already a delete-role sound with nothing else
+    // to change.
+    val soundRole = key.keySoundRole()
+    val onKeyPress: () -> Unit = remember(rawKeyPress, gate, soundRole) {
+        { if (gate.audible()) rawKeyPress(soundRole) }
     }
-    val onKeySound: () -> Unit = remember(rawKeySound, gate) {
-        { if (gate.audible()) rawKeySound() }
+    val onKeySound: () -> Unit = remember(rawKeySound, gate, soundRole) {
+        { if (gate.audible()) rawKeySound(soundRole) }
     }
 
     // Under an explore-by-touch service the accessibility framework owns the

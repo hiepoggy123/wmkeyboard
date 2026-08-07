@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.addons
 
 import android.content.Context
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
 import com.wasimaster.wmkeyboard.core.feedback.SoundStore
 import com.wasimaster.wmkeyboard.core.fonts.FontStore
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
@@ -61,6 +62,7 @@ object AddonReconciler {
                 AddonType.Font, AddonType.EmojiFont ->
                     FontStore.get(app).font(record.localRef) != null
                 AddonType.Sound -> SoundStore.get(app).sound(record.localRef) != null
+                AddonType.SoundPack -> SoundPackStore.get(app).pack(record.localRef) != null
                 AddonType.Plugin -> PluginStore.get(app).plugin(record.localRef) != null
                 // A record this build can't interpret is left alone rather than
                 // deleted: it may well belong to a type a newer build installed.

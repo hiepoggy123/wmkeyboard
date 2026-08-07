@@ -29,6 +29,7 @@
     <string name="faddons_apply_icon_pack_question">Use its icons on the keyboard now?</string>
     <string name="faddons_apply_emoji_font_question">Draw emoji with it now?</string>
     <string name="faddons_apply_sound_question">Use it as your key sound now?</string>
+    <string name="faddons_apply_sound_pack_question">Use this sound pack for your keys now?</string>
     <string name="faddons_apply_layout_question">Turn it on so you can type with it?</string>
     <string name="faddons_apply_plugin_question">Turn it on so it shows in the plugins panel?</string>
 
@@ -92,6 +93,9 @@
 
     <string name="faddons_install_error_too_many_fonts">You have reached the maximum number of installed fonts.</string>
     <string name="faddons_install_error_too_many_sounds">You have reached the maximum number of installed key sounds.</string>
+    <string name="faddons_install_error_too_many_sound_packs">You have reached the maximum number of installed sound packs.</string>
+    <string name="faddons_install_error_not_a_sound_pack">This file is not a sound pack.</string>
+    <string name="faddons_install_error_sound_pack_read">The app cannot read this sound pack.</string>
 
     <!-- ================================================================== -->
     <!-- The preview panel on an add-on page, when the downloaded payload    -->
@@ -102,6 +106,7 @@
     <string name="faddons_preview_error_not_keyword_pack">That file is not an emoji keyword pack.</string>
     <string name="faddons_preview_error_not_snippet_pack">That file is not a snippet pack.</string>
     <string name="faddons_preview_error_stickers_unreadable">The app could not read the sticker images.</string>
+    <string name="faddons_preview_error_sound_pack_unreadable">The app could not read the sounds in this pack.</string>
 
     <!-- ================================================================== -->
     <!-- The download stopped before the importer saw the file.             -->

@@ -11,6 +11,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.sin
+import kotlin.random.Random
 
 /**
  * Plays the key-press sound. Click and Standard come from the device's system
@@ -19,6 +20,8 @@ import kotlin.math.sin
  * spacebar, delete and return system effects to the same audio file, which
  * made the three styles indistinguishable. Custom is a file the user installed,
  * from an addon repository or their own storage, played through the same pool.
+ * Pack is a [SoundPackStore] pack: many recordings, one picked per keystroke,
+ * optionally a different set per [KeySoundRole].
  * Lives outside the IME service so the settings app and the sound & haptics
  * tool can preview the sound being adjusted.
  */
@@ -56,6 +59,24 @@ object KeySoundPlayer {
      */
     private val customIds = mutableMapOf<String, Int>()
 
+    /**
+     * The one sound pack currently decoded into the pool.
+     *
+     * One, not a map: a pack is up to sixty-four samples, and keeping the
+     * previous selection resident so a user who switched away might switch back
+     * is memory spent on a guess. Switching packs unloads the old one.
+     */
+    private var loadedPack: LoadedPack? = null
+
+    private class LoadedPack(
+        val packId: String,
+        /** Sample name -> pool id. */
+        val samples: Map<String, Int>,
+        val manifest: SoundPackManifest,
+        /** Last variant played per role, so no role ever repeats itself. */
+        val lastIndex: IntArray = IntArray(KeySoundRole.entries.size) { -1 },
+    )
+
     /** Builds the pool and starts decoding so the first key press isn't late. */
     fun warmUp(context: Context) {
         // Outside the lock, and first. This runs on a worker at IME start while
@@ -81,25 +102,67 @@ object KeySoundPlayer {
      * Rate-limited [play] for settings UIs: sounds the values being edited
      * (not yet necessarily persisted), at most once per [PREVIEW_GAP_MS].
      */
-    fun preview(context: Context, style: KeySoundStyle, volume: Float, customId: String = "") {
+    fun preview(
+        context: Context,
+        style: KeySoundStyle,
+        volume: Float,
+        customId: String = "",
+        role: KeySoundRole = KeySoundRole.DEFAULT,
+    ) {
         val now = SystemClock.uptimeMillis()
         if (now - lastPreviewAt < PREVIEW_GAP_MS) return
         lastPreviewAt = now
-        play(context, style, volume, customId)
+        play(context, style, volume, customId, role)
+    }
+
+    /**
+     * Decodes a pack's samples ahead of the first press.
+     *
+     * Worth its own entry point because a pack is many files: without this the
+     * first several keystrokes after the IME starts fall back to the system
+     * click while the pool catches up, which reads as the pack not working.
+     * Safe to call with a blank or unknown id, and cheap to call repeatedly —
+     * a pack already resident is left alone.
+     */
+    fun preload(context: Context, packId: String) {
+        if (packId.isBlank()) return
+        synchronized(this) { residentPack(context, packId) }
     }
 
     /**
      * [customId] is the [SoundStore] id to play when [style] is
-     * [KeySoundStyle.CUSTOM], and ignored otherwise. A custom sound that has
-     * been deleted, or is still decoding, falls back to a system effect rather
-     * than to silence — a keystroke that makes no sound reads as a missed
-     * keystroke.
+     * [KeySoundStyle.CUSTOM] and the [SoundPackStore] id when it is
+     * [KeySoundStyle.PACK]; it is ignored otherwise. A sound that has been
+     * deleted, or is still decoding, falls back to a system effect rather than
+     * to silence — a keystroke that makes no sound reads as a missed keystroke.
+     *
+     * [role] only means anything for [KeySoundStyle.PACK], and only for a pack
+     * that filled that role; everything else plays one sound for every key.
      */
-    fun play(context: Context, style: KeySoundStyle, volume: Float, customId: String = "") {
+    fun play(
+        context: Context,
+        style: KeySoundStyle,
+        volume: Float,
+        customId: String = "",
+        role: KeySoundRole = KeySoundRole.DEFAULT,
+    ) {
         val vol = volume.coerceIn(0.05f, 1f)
         when (style) {
             KeySoundStyle.CLICK -> systemFx(context, AudioManager.FX_KEY_CLICK, vol)
             KeySoundStyle.STANDARD -> systemFx(context, AudioManager.FX_KEYPRESS_STANDARD, vol)
+            KeySoundStyle.PACK -> {
+                // Resolved and played under the lock: picking the variant reads
+                // and writes the pack's per-role cursor, so two fingers landing
+                // together must not both read the same "last played" value and
+                // both avoid it.
+                val shot = synchronized(this) { packShot(context, customId, role) }
+                if (shot != null) {
+                    val packVol = vol * shot.second
+                    pool?.play(shot.first, packVol, packVol, 1, 0, 1f)
+                } else {
+                    systemFx(context, AudioManager.FX_KEY_CLICK, vol)
+                }
+            }
             KeySoundStyle.CUSTOM -> {
                 val id = synchronized(this) { customSampleId(context, customId) }
                 if (id != null) {
@@ -150,6 +213,96 @@ object KeySoundPlayer {
         val p = ensurePool(context)
         customIds[key] = p.load(file.path, 1)
         return null
+    }
+
+    /**
+     * The pool id and gain for one keystroke of a pack, or null to fall back.
+     *
+     * Null covers three cases that all sound the same to the user and are all
+     * temporary: the pack is not installed, it is still decoding, or the role's
+     * chosen variant failed to load. Only ever called under this object's
+     * monitor.
+     */
+    private fun packShot(context: Context, packId: String, role: KeySoundRole): Pair<Int, Float>? {
+        val pack = residentPack(context, packId) ?: return null
+        val names = pack.manifest.pressFor(role)
+        if (names.isEmpty()) return null
+
+        val slot = role.ordinal
+        val index = nextVariant(names.size, pack.lastIndex[slot])
+        pack.lastIndex[slot] = index
+
+        val sampleId = pack.samples[names[index]] ?: return null
+        if (sampleId !in loadedIds) return null
+        return sampleId to pack.manifest.gainFor(role)
+    }
+
+    /**
+     * A variant index that is never [last].
+     *
+     * Monkeytype picks uniformly across the whole list, which on a three-variant
+     * set repeats the previous sample about a third of the time — and a repeat
+     * is precisely what having variants is supposed to prevent. Drawing from the
+     * other `n - 1` instead is still uniform among them and costs one integer
+     * per role.
+     */
+    private fun nextVariant(size: Int, last: Int): Int {
+        if (size <= 1) return 0
+        if (last !in 0 until size) return Random.nextInt(size)
+        val drawn = Random.nextInt(size - 1)
+        return if (drawn >= last) drawn + 1 else drawn
+    }
+
+    /**
+     * The requested pack, decoded into the pool, loading it on first use.
+     *
+     * Returns the pack as soon as its samples are *queued*: the caller checks
+     * [loadedIds] for the one variant it actually wants, so a pack whose first
+     * three samples are ready plays them while the rest are still decoding.
+     */
+    private fun residentPack(context: Context, packId: String): LoadedPack? {
+        if (packId.isBlank()) return null
+        val store = SoundPackStore.get(context)
+        // Resolved to the store id before anything is cached, so forgetPack
+        // (which speaks store ids) still evicts a name-resolved pack. A theme
+        // or a repository can only know the pack's catalogue name, never the
+        // id minted on this device at install time.
+        val resolved = store.resolve(packId) ?: return null
+        loadedPack?.let { if (it.packId == resolved) return it }
+
+        val manifest = store.manifestFor(resolved) ?: return null
+        val p = ensurePool(context)
+        unloadPack()
+
+        val samples = HashMap<String, Int>()
+        val wanted = buildSet {
+            addAll(manifest.press)
+            KeySoundRole.entries.forEach { addAll(manifest.pressFor(it)) }
+        }
+        for (name in wanted) {
+            val file = store.sampleFile(resolved, name) ?: continue
+            samples[name] = p.load(file.path, 1)
+        }
+        if (samples.isEmpty()) return null
+        return LoadedPack(resolved, samples, manifest).also { loadedPack = it }
+    }
+
+    /** Releases the resident pack's samples. Caller holds the monitor. */
+    private fun unloadPack() {
+        loadedPack?.samples?.values?.forEach { sampleId ->
+            pool?.unload(sampleId)
+            loadedIds.remove(sampleId)
+        }
+        loadedPack = null
+    }
+
+    /**
+     * Drops a pack the user deleted or replaced, for the same reason
+     * [forgetCustom] exists: the pool's copy outlives the files.
+     */
+    @Synchronized
+    fun forgetPack(packId: String) {
+        if (loadedPack?.packId == packId) unloadPack()
     }
 
     /**

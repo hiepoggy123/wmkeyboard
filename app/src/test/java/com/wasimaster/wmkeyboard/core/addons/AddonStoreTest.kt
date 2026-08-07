@@ -86,28 +86,61 @@ class AddonStoreTest {
     // ---- seeding -------------------------------------------------------
 
     @Test
-    fun `seeding adds the sample repository once`() {
+    fun `seeding adds every bundled repository once`() {
         val dir = File(temp.root, "addons")
         val s = store(dir)
         s.seedIfNeeded()
         s.seedIfNeeded()
-        assertEquals(1, s.repos().size)
-        assertTrue(s.repos().single().seeded)
+        assertEquals(AddonStore.SEED_URLS.size, s.repos().size)
+        assertTrue(s.repos().all { it.seeded })
     }
 
     @Test
-    fun `removing the seeded repository sticks`() {
+    fun `removing a seeded repository sticks`() {
         // Helpfully re-adding it on the next launch reads as the app ignoring
         // the user, which is why the marker is a file rather than a check for
         // the repository's presence.
         val dir = File(temp.root, "addons")
         val first = store(dir)
         first.seedIfNeeded()
-        first.removeRepo(first.repos().single().manifestUrl)
+        first.repos().forEach { first.removeRepo(it.manifestUrl) }
 
         val second = AddonStore(dir)
         second.seedIfNeeded()
-        assertTrue("the seed came back after being removed", second.repos().isEmpty())
+        assertTrue("a seed came back after being removed", second.repos().isEmpty())
+    }
+
+    @Test
+    fun `a repository added to the seed list reaches an install that already seeded`() {
+        // The reason the marker lists URLs rather than holding one "done" flag:
+        // without this, only new installs would ever see a newly bundled
+        // repository.
+        val dir = File(temp.root, "addons").apply { mkdirs() }
+        File(dir, ".seeded").writeText(AddonStore.SEED_URLS.first())
+
+        val s = store(dir)
+        s.seedIfNeeded()
+
+        val urls = s.repos().map { it.url }
+        assertEquals(AddonStore.SEED_URLS.drop(1), urls)
+    }
+
+    @Test
+    fun `the pre-URL marker counts as the first repository having been offered`() {
+        // Builds before the list wrote a bare timestamp. Reading that as "all
+        // seeding done" would have hidden every later addition; reading it as
+        // "nothing done" would have re-added a repository the user removed.
+        val dir = File(temp.root, "addons").apply { mkdirs() }
+        File(dir, ".seeded").writeText("1750000000000")
+
+        val s = store(dir)
+        s.seedIfNeeded()
+
+        assertTrue(
+            "the original seed came back",
+            s.repos().none { it.url == AddonStore.SEED_URL },
+        )
+        assertEquals(AddonStore.SEED_URLS.size - 1, s.repos().size)
     }
 
     // ---- installs ------------------------------------------------------

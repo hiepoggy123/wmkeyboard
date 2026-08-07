@@ -45,10 +45,11 @@ fun KeyboardSettings.restrictedToDirectBoot(): KeyboardSettings {
         keyFontId = "default",
         scriptFontIds = emptyMap(),
         emojiFont = EmojiFontChoice.SYSTEM,
-        // An installed key sound is a file under filesDir too. Unlike the fonts
-        // there is no per-glyph fallback to hide it — the style would simply
-        // make no sound — so it drops back to the system click.
-        keySoundStyle = if (keySoundStyle == KeySoundStyle.CUSTOM) {
+        // An installed key sound is a file under filesDir too, and a sound pack
+        // is a whole directory of them. Unlike the fonts there is no per-glyph
+        // fallback to hide it — the style would simply make no sound — so both
+        // drop back to the system click.
+        keySoundStyle = if (keySoundStyle == KeySoundStyle.CUSTOM || keySoundStyle == KeySoundStyle.PACK) {
             KeySoundStyle.CLICK
         } else {
             keySoundStyle

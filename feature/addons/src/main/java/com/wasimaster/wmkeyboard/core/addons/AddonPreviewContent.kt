@@ -5,6 +5,7 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginManifestResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginPermission
 import com.wasimaster.wmkeyboard.core.snippets.SnippetFile
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackFile
 import java.io.File
 import java.util.zip.GZIPInputStream
 import java.util.zip.ZipInputStream
@@ -73,6 +74,21 @@ sealed interface AddonPreviewContent {
     /** A playable copy of the key sound. */
     data class Sound(val file: File) : AddonPreviewContent
 
+    /**
+     * A sound pack's variants, extracted so each can be played on its own.
+     *
+     * The question a pack raises is not "what does it sound like?" but "how
+     * much does it vary?" — that is the whole reason to take a pack over a
+     * single sound — so the preview hands back every variant rather than one
+     * representative, and names the roles it fills.
+     */
+    data class SoundPack(
+        val name: String,
+        val variants: List<File>,
+        val totalVariants: Int,
+        val roles: List<String>,
+    ) : AddonPreviewContent
+
     /** Sticker images extracted beside the archive, ready to be shown. */
     data class Stickers(
         val images: List<File>,
@@ -125,6 +141,9 @@ object AddonPreviewReader {
 
     private const val MAX_STICKER_IMAGES = 24
 
+    /** Enough variants to hear the variation; nobody taps a ninth. */
+    private const val MAX_PACK_VARIANTS = 8
+
     /** Per-image ceiling while unpacking, so a hostile archive can't fill the cache. */
     private const val MAX_IMAGE_BYTES = 4L * 1024 * 1024
 
@@ -133,6 +152,7 @@ object AddonPreviewReader {
         AddonType.Dictionary -> readDictionary(entry, payload)
         AddonType.EmojiKeywords -> readEmojiKeywords(entry, payload)
         AddonType.Sound -> AddonPreviewContent.Sound(payload)
+        AddonType.SoundPack -> readSoundPack(payload)
         AddonType.Stickers -> readStickers(payload)
         AddonType.Plugin -> readPlugin(payload)
         else -> AddonPreviewContent.Unreadable(
@@ -262,6 +282,62 @@ object AddonPreviewReader {
      * import follows — so a `../` inside the archive writes nowhere but the
      * preview directory.
      */
+    /**
+     * Extracts a pack's default key-down variants beside the payload.
+     *
+     * Reads the manifest first and pulls only the files it names, in its order,
+     * so what the preview plays is what the keyboard would play — not whatever
+     * happened to be in the archive.
+     */
+    private fun readSoundPack(payload: File): AddonPreviewContent {
+        val manifest = runCatching {
+            payload.inputStream().use { SoundPackFile.readManifest(it) }
+        }.getOrNull() ?: return AddonPreviewContent.Unreadable(
+            AddonText.of(R.string.faddons_preview_error_sound_pack_unreadable),
+        )
+
+        val wanted = manifest.press.take(MAX_PACK_VARIANTS)
+        // Match on the bare file name: the manifest addresses samples by path
+        // and the archive lists them by entry name, and neither is ever joined
+        // onto a directory here — the target below is named by this function.
+        val byTail = wanted.withIndex().associate { (index, path) ->
+            path.substringAfterLast('/').substringAfterLast('\\') to index
+        }
+        val found = arrayOfNulls<File>(wanted.size)
+        val outDir = File(payload.parentFile, payload.nameWithoutExtension + "_pack")
+        outDir.mkdirs()
+
+        val ok = runCatching {
+            ZipInputStream(payload.inputStream().buffered()).use { zip ->
+                while (true) {
+                    val zipEntry = zip.nextEntry ?: break
+                    val tail = zipEntry.name.substringAfterLast('/')
+                    val index = byTail[tail]
+                    if (zipEntry.isDirectory || index == null || found[index] != null) {
+                        zip.closeEntry()
+                        continue
+                    }
+                    val target = File(outDir, "variant_$index.snd")
+                    if (copyBounded(zip, target)) found[index] = target else target.delete()
+                    zip.closeEntry()
+                }
+            }
+        }.isSuccess
+
+        val variants = found.filterNotNull()
+        if (!ok || variants.isEmpty()) {
+            return AddonPreviewContent.Unreadable(
+                AddonText.of(R.string.faddons_preview_error_sound_pack_unreadable),
+            )
+        }
+        return AddonPreviewContent.SoundPack(
+            name = manifest.name,
+            variants = variants,
+            totalVariants = manifest.press.size,
+            roles = manifest.filledRoles().map { it.serialName },
+        )
+    }
+
     private fun readStickers(payload: File): AddonPreviewContent {
         val outDir = File(payload.parentFile, payload.nameWithoutExtension + "_stickers")
         outDir.mkdirs()

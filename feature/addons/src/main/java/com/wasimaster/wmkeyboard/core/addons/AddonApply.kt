@@ -48,6 +48,7 @@ object AddonApply {
         AddonType.IconPack -> R.string.faddons_apply_icon_pack_question
         AddonType.EmojiFont -> R.string.faddons_apply_emoji_font_question
         AddonType.Sound -> R.string.faddons_apply_sound_question
+        AddonType.SoundPack -> R.string.faddons_apply_sound_pack_question
         AddonType.Layout -> R.string.faddons_apply_layout_question
         AddonType.Plugin -> R.string.faddons_apply_plugin_question
         // A text font goes in one of several pickers and guessing wrong is
@@ -64,6 +65,7 @@ object AddonApply {
     fun confirmLabelRes(type: AddonType): Int = when (type) {
         AddonType.Layout, AddonType.Plugin -> CommonR.string.common_enable
         AddonType.Theme, AddonType.IconPack, AddonType.EmojiFont, AddonType.Sound,
+        AddonType.SoundPack,
         AddonType.Font, AddonType.Dictionary, AddonType.EmojiKeywords,
         AddonType.Snippets, AddonType.Stickers, AddonType.Unknown,
         -> R.string.faddons_apply_switch_action
@@ -91,6 +93,9 @@ object AddonApply {
             AddonType.Sound ->
                 settings.keySoundStyle == KeySoundStyle.CUSTOM &&
                     settings.keySoundCustom.customId == ref
+            AddonType.SoundPack ->
+                settings.keySoundStyle == KeySoundStyle.PACK &&
+                    settings.keySoundCustom.packId == ref
             AddonType.Layout -> ref in settings.enabledLayoutIds
             // Plugin returned above without reading settings, and the rest were
             // filtered out by the questionRes() guard: they have no slot to be
@@ -118,6 +123,7 @@ object AddonApply {
             // effect — see setInstalledEmojiFont and setKeySoundCustomId.
             AddonType.EmojiFont -> repository.setInstalledEmojiFont(ref)
             AddonType.Sound -> repository.setKeySoundCustomId(ref)
+            AddonType.SoundPack -> repository.setKeySoundPackId(ref)
             AddonType.Layout -> {
                 val current = repository.settings.first().enabledLayoutIds
                 if (ref !in current) repository.setEnabledLayoutIds((current + ref).distinct())

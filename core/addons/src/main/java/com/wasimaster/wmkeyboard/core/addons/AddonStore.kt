@@ -140,8 +140,23 @@ class AddonStore(private var baseDir: File?) {
         /** Generous, but a list this long is a mistake rather than a use case. */
         const val MAX_REPOS = 30
 
-        /** The repository the app ships pre-added, removable and sticky once removed. */
+        /** The first repository the app shipped pre-added. Kept for the legacy marker. */
         const val SEED_URL = "https://github.com/wasi-master/wmkeyboard-addon-repository"
+
+        /**
+         * The repositories the app ships pre-added, each removable and sticky
+         * once removed.
+         *
+         * Order is the order they appear in on a fresh install. Appending to
+         * this list is how a new default repository ships: [seedIfNeeded] tracks
+         * the ones it has already offered *per URL*, so an existing install
+         * picks up the addition on its next launch without the ones the user
+         * already removed coming back with it.
+         */
+        val SEED_URLS = listOf(
+            SEED_URL,
+            "https://github.com/wasi-master/wmkeyboard-monkeytype-sounds",
+        )
 
         private const val REPOS_FILE = "repos.json"
         private const val INSTALLED_FILE = "installed.json"
@@ -206,21 +221,48 @@ class AddonStore(private var baseDir: File?) {
     }
 
     /**
-     * Adds the bundled sample repository the first time this runs, so the
+     * Adds each repository in [SEED_URLS] the first time it is offered, so the
      * Addons screen has something in it before the user has found a repository
-     * to paste. Recorded with a marker file rather than by checking whether the
-     * repository is present, so removing it is permanent.
+     * to paste.
+     *
+     * The marker file records **which URLs** have been offered, not merely that
+     * seeding has happened once. Both halves of that matter:
+     *
+     * - Per URL, so appending to [SEED_URLS] reaches installs that already
+     *   seeded. A single "done" flag would mean only new installs ever saw a
+     *   newly shipped default repository.
+     * - By marker rather than by checking whether the repository is present, so
+     *   removing one is permanent. Helpfully re-adding it on the next launch
+     *   reads as the app ignoring the user.
+     *
+     * The marker written by builds before this held a timestamp. That is read
+     * as "the original [SEED_URL] has been offered" and nothing else, which is
+     * exactly what was true.
      */
     @Synchronized
     fun seedIfNeeded(now: Long = System.currentTimeMillis()) {
         val dir = baseDir ?: return
         val marker = File(dir, SEEDED_MARKER)
-        if (marker.exists()) return
+        val offered = if (marker.exists()) {
+            val lines = runCatching { marker.readLines() }.getOrDefault(emptyList())
+            val urls = lines.map { it.trim() }.filter { it.startsWith("https://") }
+            if (urls.isEmpty()) listOf(SEED_URL) else urls
+        } else {
+            emptyList()
+        }
+
+        val fresh = SEED_URLS.filter { it !in offered }
+        if (fresh.isEmpty()) return
+
+        // Written before the adds, not after: a crash between the two would
+        // otherwise re-offer a repository on every launch forever. Losing one
+        // seed to a crash costs the user a paste; the other way round costs
+        // them a repository they cannot get rid of.
         runCatching {
             dir.mkdirs()
-            marker.writeText(now.toString())
+            marker.writeText((offered + fresh).joinToString("\n"))
         }
-        addRepo(SEED_URL, now = now, seeded = true)
+        for (url in fresh) addRepo(url, now = now, seeded = true)
     }
 
     // ---- installed addons ----------------------------------------------

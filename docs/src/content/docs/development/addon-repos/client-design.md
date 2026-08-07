@@ -3,7 +3,7 @@ title: "Addon Repositories — Client Handling Design"
 description: "How the app fetches, verifies and installs addons from a repository."
 sidebar:
   label: "Client design"
-  order: 3
+  order: 4
 ---
 
 How the app should fetch, resolve, validate and install addons from a repository.

@@ -2023,8 +2023,15 @@ internal fun SoundHapticsPanel(
         }
     }
     val hapticChipCount = if (settings.hapticFeedback) HapticStyle.entries.size else 0
+    // Custom and Pack both name something the user installed rather than a
+    // fixed style, and neither has a picker on the keyboard — so each appears
+    // here only when it is already the choice, to show what is selected and to
+    // let the user step off it.
     val soundStyles = KeySoundStyle.entries.filter {
-        it != KeySoundStyle.CUSTOM || settings.keySoundStyle == KeySoundStyle.CUSTOM
+        when (it) {
+            KeySoundStyle.CUSTOM, KeySoundStyle.PACK -> settings.keySoundStyle == it
+            else -> true
+        }
     }
     val soundChipCount = if (settings.keySound) soundStyles.size else 0
     PanelFocusTarget(
@@ -2184,6 +2191,8 @@ internal fun SoundHapticsPanel(
                             KeySoundStyle.CHIME ->
                                 stringResource(R.string.ime_sound_style_chime_label)
                             KeySoundStyle.CUSTOM -> stringResource(CommonR.string.common_custom)
+                            KeySoundStyle.PACK ->
+                                stringResource(R.string.ime_sound_style_pack_label)
                         },
                         selected = settings.keySoundStyle == style,
                         focused = focusedChip != null && focusedChip - hapticChipCount == index,

@@ -7,6 +7,9 @@ import com.wasimaster.wmkeyboard.addons.feature.R
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.feedback.SoundFile
 import com.wasimaster.wmkeyboard.core.feedback.SoundImportResult
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackFile
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackImportResult
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
 import com.wasimaster.wmkeyboard.core.feedback.SoundStore
 import com.wasimaster.wmkeyboard.core.fonts.FontFile
 import com.wasimaster.wmkeyboard.core.fonts.FontImportResult
@@ -164,6 +167,7 @@ object AddonInstaller {
             AddonType.Font -> installFont(context, entry, payload, emoji = false)
             AddonType.EmojiFont -> installFont(context, entry, payload, emoji = true)
             AddonType.Sound -> installSound(context, entry, payload)
+            AddonType.SoundPack -> installSoundPack(context, entry, payload)
             AddonType.Plugin -> installPlugin(context, payload)
             AddonType.Unknown ->
                 Outcome.Rejected(AddonText.of(R.string.faddons_install_error_unknown_type))
@@ -188,6 +192,7 @@ object AddonInstaller {
             AddonType.Font -> uninstallFont(context, record.localRef)
             AddonType.EmojiFont -> uninstallEmojiFont(context, record.localRef)
             AddonType.Sound -> uninstallSound(context, record.localRef)
+            AddonType.SoundPack -> uninstallSoundPack(context, record.localRef)
             // Deletes the plugin's whole directory: script, stored data and log.
             AddonType.Plugin -> PluginStore.get(context).delete(record.localRef)
             AddonType.Unknown -> Unit
@@ -211,7 +216,7 @@ object AddonInstaller {
             // defaulted so a new type has to decide.
             AddonType.Theme, AddonType.Layout, AddonType.Snippets,
             AddonType.Stickers, AddonType.IconPack, AddonType.Font,
-            AddonType.EmojiFont, AddonType.Sound, AddonType.Plugin,
+            AddonType.EmojiFont, AddonType.Sound, AddonType.SoundPack, AddonType.Plugin,
             AddonType.Unknown,
             -> Unit
         }
@@ -504,6 +509,13 @@ object AddonInstaller {
         KeySoundPlayer.forgetCustom(soundId)
     }
 
+    private suspend fun uninstallSoundPack(context: Context, packId: String) {
+        SoundPackStore.get(context).delete(packId)
+        SettingsRepository(context).forgetKeySoundPack(packId)
+        // Same reason as a single sound: the pool's samples outlive the files.
+        KeySoundPlayer.forgetPack(packId)
+    }
+
     private suspend fun uninstallFont(context: Context, fontId: String) {
         FontStore.get(context).delete(fontId)
         // A text face can be selected in three places — English, Bengali, and
@@ -542,6 +554,40 @@ object AddonInstaller {
             // An empty messageArg means the line takes no argument.
             is SoundImportResult.Failed -> Outcome.Rejected(
                 AddonText.Resource(result.messageRes, arg1 = result.messageArg.ifEmpty { null }),
+            )
+        }
+    }
+
+    /**
+     * Installs a `.wmsoundpack`: many recordings of one keyboard, played one
+     * per keystroke.
+     *
+     * Silent until chosen, exactly like a single sound — [AddonApply] asks.
+     */
+    private fun installSoundPack(context: Context, entry: AddonEntry, payload: File): Outcome {
+        val store = SoundPackStore.get(context)
+        val result = payload.inputStream().use {
+            SoundPackFile.import(
+                input = it,
+                store = store,
+                fallbackName = entry.name.ifBlank { entry.id },
+                version = entry.version,
+            )
+        }
+        return when (result) {
+            is SoundPackImportResult.Imported -> Outcome.Installed(result.pack.id)
+            SoundPackImportResult.NotASoundPack -> Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_not_a_sound_pack),
+            )
+            SoundPackImportResult.TooManyPacks -> Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_too_many_sound_packs),
+            )
+            // An empty messageArg means the line takes no argument.
+            is SoundPackImportResult.Rejected -> Outcome.Rejected(
+                AddonText.Resource(result.messageRes, arg1 = result.messageArg.ifEmpty { null }),
+            )
+            SoundPackImportResult.Failed -> Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_sound_pack_read),
             )
         }
     }

@@ -13,7 +13,7 @@ import { FileTree, Steps } from '@astrojs/starlight/components';
 
 Version 1 · status: **implemented** — shipping in WM Keyboard
 
-WM Keyboard can install extra **themes, layouts, dictionaries, snippet packs, sticker packs, icon packs, fonts, emoji fonts and key sounds** from the web. Anyone can publish these by putting a small **manifest** and the addon files in a public Git repository (GitHub, GitLab, a raw host — anything that serves files over `https`). Users add a repository by pasting its URL into the app.
+WM Keyboard can install extra **themes, layouts, dictionaries, snippet packs, sticker packs, icon packs, fonts, emoji fonts, key sounds and sound packs** from the web. Anyone can publish these by putting a small **manifest** and the addon files in a public Git repository (GitHub, GitLab, a raw host — anything that serves files over `https`). Users add a repository by pasting its URL into the app.
 
 A repository is nothing more than an **index over files the app already knows how to import** — the addon files are the same formats the app produces when you export a theme/layout/etc. from the app itself. There is no packaging, signing or build step.
 
@@ -114,7 +114,7 @@ Unknown fields are ignored, so future versions can add fields without breaking o
 | Field | Req | Notes |
 |---|---|---|
 | `id` | ✔ | Unique within the repo. |
-| `type` | ✔ | `theme` \| `layout` \| `dictionary` \| `emoji_keywords` \| `snippets` \| `stickers` \| `icon_pack` \| `font` \| `emoji_font` \| `sound` \| `plugin`. |
+| `type` | ✔ | `theme` \| `layout` \| `dictionary` \| `emoji_keywords` \| `snippets` \| `stickers` \| `icon_pack` \| `font` \| `emoji_font` \| `sound` \| `sound_pack` \| `plugin`. |
 | `name` | ✔ | Display name. |
 | `version` | ✔ | **Semver** string. Bump it to offer an update. |
 | `path` | ✔ | Payload location — relative to the manifest, or an absolute `https` URL (§4). |
@@ -213,6 +213,7 @@ file into your repo.
 | `font` | `*.ttf`, `*.otf` | Standard TrueType or OpenType font file used for keyboard key labels and text typography. Declare `langIds` when the face only covers some scripts. |
 | `emoji_font` | `*.ttf`, `*.otf` | A font whose glyphs are emoji — Twemoji, OpenMoji and the like. Same file format as `font`, kept a separate type because it is chosen in a different place (Emoji settings, not the key-label pickers) and because a colour emoji font on the key labels is not a choice anyone makes on purpose. Colour builds (`COLR`/`CBDT`) draw in colour on Android 8+; a monochrome outline build takes the keyboard's text colour. There is exactly one emoji slot, and the app offers to fill it once the font is installed. |
 | `sound` | `*.mp3` | A single short key-press sound. Keep it under ~300 ms and a few tens of KB: it is loaded into a `SoundPool` and replayed on every keystroke. |
+| `sound_pack` | `*.wmsoundpack` | ZIP archive containing a `pack.json` envelope (`"format":"wmkeyboard-sound-pack"`, `"version":1`) and the recordings under `sounds/`. Many recordings of one keyboard, one picked per key press, optionally with a separate set for the spacebar and the other key roles. Set `minAppVersion`: older builds have no way to install this type. See [Sound packs](/development/addon-repos/sound-packs/). |
 | `plugin` | `*.wmplugin` | ZIP archive containing a `plugin.json` manifest (`"format":"wmkeyboard-plugin"`) and a Lua script. **The only payload that is code rather than data** — see [Plugins](#plugins). |
 
 ### Plugins

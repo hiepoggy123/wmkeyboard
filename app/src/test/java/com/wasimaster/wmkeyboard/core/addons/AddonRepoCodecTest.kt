@@ -127,6 +127,10 @@ class AddonRepoCodecTest {
                 // the words this language calls them by is the whole question.
                 AddonType.EmojiKeywords,
                 AddonType.Sound,
+                // A pack's variants, each playable on its own: how much it
+                // varies is the question a pack raises, and one Play button
+                // cannot answer it.
+                AddonType.SoundPack,
                 AddonType.Stickers,
                 // A plugin previews for a different reason -- not "is this any
                 // good" but "should I let this run at all", which is why the

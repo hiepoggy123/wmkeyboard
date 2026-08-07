@@ -90,6 +90,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
 import com.wasimaster.wmkeyboard.core.feedback.SoundStore
 import com.wasimaster.wmkeyboard.core.fonts.FontStore
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
@@ -2571,9 +2572,18 @@ private fun themeSoundLabel(theme: ThemeSpec): String {
     val style = theme.soundStyle?.let { name ->
         KeySoundStyle.entries.firstOrNull { it.name == name }
     } ?: return stringResource(R.string.theme_follow_settings_label)
+    // A theme names its sound in one field whichever kind it picked, so both
+    // styles resolve the same id against their own store.
     if (style == KeySoundStyle.CUSTOM) {
         val name = remember(theme.soundCustomId) {
             SoundStore.get(context).sounds()
+                .firstOrNull { it.id == theme.soundCustomId }?.name
+        }
+        if (name != null) return name
+    }
+    if (style == KeySoundStyle.PACK) {
+        val name = remember(theme.soundCustomId) {
+            SoundPackStore.get(context).packs()
                 .firstOrNull { it.id == theme.soundCustomId }?.name
         }
         if (name != null) return name
@@ -2589,6 +2599,7 @@ private fun keySoundStyleLabelRes(style: KeySoundStyle): Int = when (style) {
     KeySoundStyle.THOCK -> R.string.hardware_sound_style_thock_label
     KeySoundStyle.CHIME -> R.string.hardware_sound_style_chime_label
     KeySoundStyle.CUSTOM -> CommonR.string.common_custom
+    KeySoundStyle.PACK -> R.string.hardware_sound_pack_style_label
 }
 
 /**

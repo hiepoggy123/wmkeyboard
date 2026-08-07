@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.Gavel
 import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Mood
 import androidx.compose.material.icons.outlined.MoreVert
@@ -204,6 +205,7 @@ private val AddonType.icon
         AddonType.Font -> Icons.Outlined.TextFields
         AddonType.EmojiFont -> Icons.Outlined.Mood
         AddonType.Sound -> Icons.Outlined.GraphicEq
+        AddonType.SoundPack -> Icons.Outlined.LibraryMusic
         AddonType.Plugin -> Icons.Outlined.Code
         AddonType.Unknown -> Icons.Outlined.Extension
     }
@@ -227,6 +229,10 @@ private val AddonType.seed: Color
         AddonType.Font -> Color(0xFF6366F1)
         AddonType.EmojiFont -> Color(0xFFEAB308)
         AddonType.Sound -> Color(0xFFEF4444)
+        // A near neighbour of Sound's red rather than a new hue: the two
+        // are the same choice made at two sizes, and the cards should read
+        // as siblings.
+        AddonType.SoundPack -> Color(0xFFF97316)
         AddonType.Plugin -> Color(0xFF06B6D4)
         AddonType.Unknown -> Color(0xFF6B7280)
     }
@@ -1302,6 +1308,7 @@ private val AddonType.settingsRoute: String
         AddonType.Font -> "fonts"
         AddonType.EmojiFont -> "emoji"
         AddonType.Sound -> "keypress"
+        AddonType.SoundPack -> "keypress"
         AddonType.Plugin -> "plugins"
         AddonType.Unknown -> "home"
     }
@@ -1332,6 +1339,7 @@ private val AddonType.settingsAnchor: Int
         AddonType.Font -> R.string.fonts_installed_header
         AddonType.EmojiFont -> R.string.langemoji_emoji_font_title
         AddonType.Sound -> R.string.hardware_sound_style_title
+        AddonType.SoundPack -> R.string.hardware_sound_pack_title
         // The master switch, not the installed list: someone sent here has
         // almost always come from "plugins are off".
         AddonType.Plugin -> R.string.plugins_allow_title
@@ -1387,6 +1395,7 @@ private val AddonType.useLabelRes: Int
         AddonType.Font -> R.string.addon_use_target_font_label
         AddonType.EmojiFont -> ImeR.string.ime_tool_emoji
         AddonType.Sound -> R.string.addon_use_target_sound_label
+        AddonType.SoundPack -> R.string.addon_use_target_sound_pack_label
         AddonType.Plugin -> ImeR.string.ime_tool_plugins
         AddonType.Unknown -> CommonR.string.common_settings
     }
@@ -2191,6 +2200,40 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
                     leading = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
                     onClick = { AddonSoundPreview.play(shown.file) },
                 )
+            }
+        }
+
+        is AddonPreviewContent.SoundPack -> SettingsGroup(previewTitle) {
+            item {
+                CaptionText(
+                    pluralStringResource(
+                        R.plurals.addon_preview_pack_variant_count,
+                        shown.totalVariants,
+                        shown.totalVariants,
+                    ),
+                )
+            }
+            // One row per variant rather than one Play button: hearing the
+            // difference between them is the only way to judge a pack, and a
+            // single button that plays a random one makes that a guessing game.
+            for ((index, variant) in shown.variants.withIndex()) {
+                item {
+                    WmRow(
+                        title = stringResource(R.string.addon_preview_play_variant_title, index + 1),
+                        leading = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
+                        onClick = { AddonSoundPreview.play(variant) },
+                    )
+                }
+            }
+            if (shown.roles.isNotEmpty()) {
+                item {
+                    CaptionText(
+                        stringResource(
+                            R.string.addon_preview_pack_roles_caption,
+                            shown.roles.joinToString(", "),
+                        ),
+                    )
+                }
             }
         }
 

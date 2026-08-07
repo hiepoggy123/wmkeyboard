@@ -144,6 +144,7 @@ enum class AddonType {
     @SerialName("font") Font,
     @SerialName("emoji_font") EmojiFont,
     @SerialName("sound") Sound,
+    @SerialName("sound_pack") SoundPack,
     @SerialName("plugin") Plugin,
     @SerialName("unknown") Unknown,
     ;
@@ -162,6 +163,7 @@ enum class AddonType {
             Font -> R.string.core_addons_type_font_label
             EmojiFont -> R.string.core_addons_type_emoji_font_label
             Sound -> R.string.core_addons_type_sound_label
+            SoundPack -> R.string.core_addons_type_sound_pack_label
             Plugin -> R.string.core_addons_type_plugin_label
             Unknown -> R.string.core_addons_type_unknown_label
         }
@@ -186,6 +188,7 @@ enum class AddonType {
             Font -> R.string.core_addons_type_font_singular_label
             EmojiFont -> R.string.core_addons_type_emoji_font_singular_label
             Sound -> R.string.core_addons_type_sound_singular_label
+            SoundPack -> R.string.core_addons_type_sound_pack_singular_label
             Plugin -> R.string.core_addons_type_plugin_singular_label
             Unknown -> R.string.core_addons_type_unknown_singular_label
         }
@@ -211,6 +214,9 @@ enum class AddonType {
             // so it runs several times the size of a text face.
             Font, EmojiFont -> 32L * 1024 * 1024
             Sound -> 4L * 1024 * 1024
+            // A pack is many recordings of one keyboard, each of which
+            // the importer caps at the same 4 MB a lone sound gets.
+            SoundPack -> 16L * 1024 * 1024
             // A plugin is a manifest and a Lua file. Anything approaching this
             // is not a keyboard panel tool.
             Plugin -> 1L * 1024 * 1024
@@ -231,7 +237,7 @@ enum class AddonType {
      */
     val previewable: Boolean
         get() = when (this) {
-            Snippets, Dictionary, EmojiKeywords, Sound, Stickers, Plugin -> true
+            Snippets, Dictionary, EmojiKeywords, Sound, SoundPack, Stickers, Plugin -> true
             else -> false
         }
 

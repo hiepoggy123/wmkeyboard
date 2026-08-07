@@ -63,6 +63,8 @@
     <string name="hardware_sound_key_subtitle">Play a sound on every key press</string>
 
     <string name="hardware_sound_style_title">Sound style</string>
+    <!-- Section that chooses which installed sound pack the keys play. -->
+    <string name="hardware_sound_pack_title">Sound pack</string>
     <string name="hardware_sound_style_info">Click and Standard come from the system sound pack of your device. They match the stock keyboard. Click is the classic key tick. Standard is the softer key press of the Android Open Source Project.\n\nPop, Thock and Chime are the sounds of WMKeyboard. Pop is a soft bubble pop. Thock is a deep mechanical bottom out. Chime is a small bell. These three sound the same on every device.\n\nCustom plays a sound file. Select Custom to see the sounds you installed from Add-ons, and to import your own MP3 file.</string>
 
     <!-- The six key sound styles. Names of sounds, so keep them short. -->
@@ -71,6 +73,8 @@
     <string name="hardware_sound_style_pop_label">Pop</string>
     <string name="hardware_sound_style_thock_label">Thock</string>
     <string name="hardware_sound_style_chime_label">Chime</string>
+    <!-- The style that plays an installed sound pack. -->
+    <string name="hardware_sound_pack_style_label">Sound pack</string>
 
     <string name="hardware_sound_volume_title">Sound volume</string>
     <string name="hardware_sound_volume_subtitle">Relative to the media volume of your device</string>
@@ -89,6 +93,27 @@
     <plurals name="hardware_sound_limit_error">
         <item quantity="one">You already have %1$d sound. Delete one first.</item>
         <item quantity="other">You already have %1$d sounds. Delete one first.</item>
+    </plurals>
+
+    <!-- ================================================================== -->
+    <!-- Sound packs: many recordings of one keyboard, one per key press.   -->
+    <!-- ================================================================== -->
+
+    <string name="hardware_sound_pack_empty">You have no installed sound packs. Install packs from Add-ons, or import a .wmsoundpack file.</string>
+    <string name="hardware_sound_pack_import_action">Import a sound pack (.wmsoundpack)</string>
+    <!-- %1$d is how many recordings the pack holds. -->
+    <plurals name="hardware_sound_pack_variants">
+        <item quantity="one">%1$d recording</item>
+        <item quantity="other">%1$d recordings</item>
+    </plurals>
+    <!-- %1$d is the number of recordings. %2$s lists the key roles, for example "space, enter". -->
+    <string name="hardware_sound_pack_variants_and_roles">%1$d recordings &#8226; separate sounds for %2$s</string>
+    <string name="hardware_sound_pack_not_a_pack_error">This file is not a sound pack.</string>
+    <string name="hardware_sound_pack_read_error">The app cannot read this sound pack.</string>
+    <!-- %1$d is the largest number of packs the app keeps, for example 20. -->
+    <plurals name="hardware_sound_pack_limit_error">
+        <item quantity="one">You already have %1$d sound pack. Delete one first.</item>
+        <item quantity="other">You already have %1$d sound packs. Delete one first.</item>
     </plurals>
 
 </resources>

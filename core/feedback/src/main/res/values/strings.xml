@@ -33,4 +33,15 @@
     <string name="core_feedback_sound_import_save_error">The app cannot save the sound.</string>
     <string name="core_feedback_sound_import_read_error">The app cannot read the sound.</string>
 
+    <!-- ================================================================== -->
+    <!-- Sound pack import: the archive is a pack, but not one the app takes.-->
+    <!-- A pack holds many recordings of one keyboard; see SoundPack.kt.     -->
+    <!-- ================================================================== -->
+
+    <!-- %1$s is the size limit in megabytes, for example 16. -->
+    <string name="core_feedback_pack_reject_too_large">A sound pack must be smaller than %1$s MB.</string>
+    <!-- %1$s is the format version the pack asks for, for example 2. -->
+    <string name="core_feedback_pack_reject_newer_format">This pack needs sound pack format %1$s. Update the app.</string>
+    <string name="core_feedback_pack_reject_no_samples">This pack holds no sounds the app can play.</string>
+
 </resources>

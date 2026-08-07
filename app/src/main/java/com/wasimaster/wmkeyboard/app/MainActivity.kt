@@ -342,6 +342,9 @@ import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.feedback.SoundFile
 import com.wasimaster.wmkeyboard.core.feedback.SoundImportResult
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackFile
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackImportResult
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
 import com.wasimaster.wmkeyboard.core.feedback.SoundStore
 import com.wasimaster.wmkeyboard.core.fonts.FontFile
 import com.wasimaster.wmkeyboard.core.fonts.FontImportResult
@@ -3684,6 +3687,8 @@ private fun KeySoundGroup(
                                             KeySoundStyle.CHIME ->
                                                 R.string.hardware_sound_style_chime_label
                                             KeySoundStyle.CUSTOM -> CommonR.string.common_custom
+                                            KeySoundStyle.PACK ->
+                                                R.string.hardware_sound_pack_style_label
                                         },
                                     ),
                                     maxLines = 1,
@@ -3699,6 +3704,9 @@ private fun KeySoundGroup(
         // has no effect until the style changes too.
         if (settings.keySoundStyle == KeySoundStyle.CUSTOM) {
             item { InstalledSoundSection(repository, settings, onNavigate) }
+        }
+        if (settings.keySoundStyle == KeySoundStyle.PACK) {
+            item { InstalledSoundPackSection(repository, settings, onNavigate) }
         }
         item {
             SliderSetting(
@@ -3844,6 +3852,158 @@ private fun InstalledSoundSection(
             onClick = { importLauncher.launch(SoundFile.IMPORT_MIME_TYPES) },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         ) { Text(stringResource(R.string.hardware_sound_import_action)) }
+    }
+}
+
+/**
+ * The installed sound packs, and the import button.
+ *
+ * A pack differs from a single sound in the one way worth showing on the row:
+ * how many recordings it holds, and which key roles it recorded separately.
+ * Tapping one plays a variant, so tapping twice actually demonstrates the
+ * variation rather than repeating itself.
+ *
+ * There is no file-picker mime type worth narrowing to — a `.wmsoundpack` is a
+ * ZIP, and providers report a custom extension as `application/octet-stream` as
+ * often as not — so the importer's own list is used and the real check is the
+ * manifest inside.
+ */
+@Composable
+private fun InstalledSoundPackSection(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val store = remember { SoundPackStore.get(context) }
+    val revision by store.revision.collectAsStateWithLifecycle()
+    val packs = remember(revision) { store.packs() }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri).use {
+                        SoundPackFile.import(it, store, fallbackName = fontFileLabel(context, uri))
+                    }
+                }.getOrElse { SoundPackImportResult.Failed }
+            }
+            when (result) {
+                is SoundPackImportResult.Imported -> {
+                    repository.setKeySoundPackId(result.pack.id)
+                    KeySoundPlayer.preview(
+                        context, KeySoundStyle.PACK, settings.keySoundVolume, result.pack.id,
+                    )
+                }
+                SoundPackImportResult.NotASoundPack ->
+                    message = context.getString(R.string.hardware_sound_pack_not_a_pack_error)
+                SoundPackImportResult.TooManyPacks ->
+                    message = context.resources.getQuantityString(
+                        R.plurals.hardware_sound_pack_limit_error,
+                        SoundPackStore.MAX_PACKS,
+                        SoundPackStore.MAX_PACKS,
+                    )
+                // The refusal carries at most one argument, and "" means none.
+                is SoundPackImportResult.Rejected -> message = if (result.messageArg.isEmpty()) {
+                    context.getString(result.messageRes)
+                } else {
+                    context.getString(result.messageRes, result.messageArg)
+                }
+                SoundPackImportResult.Failed ->
+                    message = context.getString(R.string.hardware_sound_pack_read_error)
+            }
+        }
+    }
+
+    message?.let { text ->
+        AlertDialog(
+            onDismissRequest = { message = null },
+            text = { Text(text) },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
+        )
+    }
+
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        if (packs.isEmpty()) {
+            CaptionText(stringResource(R.string.hardware_sound_pack_empty))
+        }
+        for (pack in packs) {
+            val selected = settings.keySoundStyle == KeySoundStyle.PACK &&
+                settings.keySoundCustom.packId == pack.id
+            HighlightableItem(pack.id) {
+                WmRow(
+                    title = pack.name,
+                    supporting = {
+                        val roles = pack.roles
+                        Text(
+                            if (roles.isEmpty()) {
+                                pluralStringResource(
+                                    R.plurals.hardware_sound_pack_variants,
+                                    pack.variantCount,
+                                    pack.variantCount,
+                                )
+                            } else {
+                                stringResource(
+                                    R.string.hardware_sound_pack_variants_and_roles,
+                                    pack.variantCount,
+                                    roles.joinToString(", "),
+                                )
+                            },
+                        )
+                    },
+                    trailing = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (selected) {
+                                Icon(
+                                    Icons.Outlined.Check,
+                                    contentDescription = stringResource(
+                                        R.string.hardware_sound_selected_desc,
+                                    ),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            IconButton(onClick = {
+                                scope.launch {
+                                    if (selected) repository.setKeySoundStyle(KeySoundStyle.CLICK)
+                                    withContext(Dispatchers.IO) { store.delete(pack.id) }
+                                    // The pool keeps its decoded samples
+                                    // independently of the files.
+                                    KeySoundPlayer.forgetPack(pack.id)
+                                }
+                            }) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = stringResource(
+                                        R.string.hardware_sound_delete_desc,
+                                        pack.name,
+                                    ),
+                                )
+                            }
+                        }
+                    },
+                    onClick = {
+                        scope.launch { repository.setKeySoundPackId(pack.id) }
+                        KeySoundPlayer.preview(
+                            context, KeySoundStyle.PACK, settings.keySoundVolume, pack.id,
+                        )
+                    },
+                )
+            }
+        }
+        AddonStoreRow(AddonType.SoundPack, onNavigate)
+        OutlinedButton(
+            onClick = { importLauncher.launch(SoundPackFile.IMPORT_MIME_TYPES) },
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        ) { Text(stringResource(R.string.hardware_sound_pack_import_action)) }
     }
 }
 
