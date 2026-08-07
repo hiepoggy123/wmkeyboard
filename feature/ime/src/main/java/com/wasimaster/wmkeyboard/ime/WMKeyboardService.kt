@@ -98,6 +98,7 @@ import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundRole
 import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
 import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
+import com.wasimaster.wmkeyboard.core.gesture.RomanizedIndex
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -900,6 +901,13 @@ open class WMKeyboardService : InputMethodService() {
      * lands — the language and layout it otherwise keys on did not move.
      */
     private val glideSourcesEpoch = AtomicInteger(0)
+
+    /**
+     * How a swipe over a phonetic layout is read: Latin keys in, Bengali out.
+     * Built with the Bengali dictionaries and handed to the engine only while
+     * such a layout is showing — see [startGlideReadinessWatcher].
+     */
+    private var romanizedGlide: RomanizedIndex = RomanizedIndex.EMPTY
 
     /**
      * One resolved letter grid per (key list, key width). Building it sorts the
@@ -2189,6 +2197,22 @@ open class WMKeyboardService : InputMethodService() {
                     ngramPack = { suggestionEngine?.ngramPack ?: NgramPack.EMPTY },
                 )
                 reranker = resolveReranker(_uiState.value.settings)
+            }
+            // Avro's grid is Latin and its output is Bengali, so a swipe over
+            // it needs the romanized vocabulary rather than the Bengali one.
+            // Empty when neither source is present — the spelling map is a
+            // setting the user can turn off, and the romanized word list is a
+            // download they may not have — in which case Avro simply does not
+            // glide rather than guessing.
+            romanizedGlide = withContext(Dispatchers.Default) {
+                RomanizedIndex.bengali(
+                    spellings = loanwords,
+                    phonetic = suggestionEngine?.bengaliIndex ?: buildBengaliIndex(),
+                    downloadedRomanized = customTries["bn_rom"] ?: PackedTrie.EMPTY,
+                    nativeFrequency = { word ->
+                        suggestionEngine?.bengaliIndex?.frequencyOf(word) ?: 0
+                    },
+                )
             }
             // A new engine means new word sources; re-ask whether this
             // language and layout can be glided.
@@ -7613,6 +7637,9 @@ open class WMKeyboardService : InputMethodService() {
          * pressed — Avro, Hangul, Vietnamese, every CJK method. A stroke over
          * such a grid spells a reading, not a word. */
         val converts: Boolean,
+        /** Avro: it converts, but into a script the keyboard has a romanization
+         * for, so the reading a stroke spells can be turned back into words. */
+        val phonetic: Boolean,
         val alphabet: Set<Char>,
         /** Bumped when the word sources change under us, so a finished
          * dictionary download re-asks the coverage question. */
@@ -7637,16 +7664,22 @@ open class WMKeyboardService : InputMethodService() {
                     GlideGate(
                         languageId = it.language.id,
                         converts = it.composer.isTransliterating || it.composer.isConversion,
+                        phonetic = it.composer.isBengaliPhonetic,
                         alphabet = it.layouts.letterAlphabet,
                         sources = glideSourcesEpoch.get(),
                     )
                 }
                 .distinctUntilChanged()
                 .collect { gate ->
-                    val ready = !gate.converts && withContext(Dispatchers.Default) {
-                        val engine = suggestionEngine
-                        engine != null &&
-                            engine.glideCoverage(gate.alphabet) >= GlideCoverage.THRESHOLD
+                    // Handed over before coverage is asked, because on a
+                    // phonetic layout coverage is a question about the
+                    // romanization rather than about the Bengali word list.
+                    val engine = suggestionEngine
+                    engine?.glideRomanization =
+                        if (gate.phonetic) romanizedGlide else RomanizedIndex.EMPTY
+                    val allowed = gate.phonetic || !gate.converts
+                    val ready = allowed && engine != null && withContext(Dispatchers.Default) {
+                        engine.glideCoverage(gate.alphabet) >= GlideCoverage.THRESHOLD
                     }
                     _uiState.update { if (it.glideReady == ready) it else it.copy(glideReady = ready) }
                 }
@@ -14519,6 +14552,14 @@ open class WMKeyboardService : InputMethodService() {
             val secondaryIds = _uiState.value.settings.secondaryLanguages[lang.id].orEmpty()
             engine.secondaryDictionaries = secondaryIds.filter { it != "en" }
                 .mapNotNull { id -> customDictionaries[id]?.let { SecondaryDictionary(id, it) } }
+            // A romanized-Bengali download is what turns Avro from unglidable
+            // into glidable, so the romanization is rebuilt alongside.
+            romanizedGlide = RomanizedIndex.bengali(
+                spellings = engine.spellingMap,
+                phonetic = engine.bengaliIndex,
+                downloadedRomanized = customDictionaries["bn_rom"] ?: PackedTrie.EMPTY,
+                nativeFrequency = engine.bengaliIndex::frequencyOf,
+            )
             // A download can be the thing that makes a language glidable, and
             // neither the language nor the layout moved to say so.
             glideSourcesEpoch.incrementAndGet()

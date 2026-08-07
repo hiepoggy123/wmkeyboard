@@ -8,12 +8,15 @@ import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
 import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
 import com.wasimaster.wmkeyboard.core.gesture.GlideWorkspace
+import com.wasimaster.wmkeyboard.core.gesture.RomanizedIndex
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
+import com.wasimaster.wmkeyboard.core.prediction.BengaliSpellingMap
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
 import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.eval.EvalMetrics
 import com.wasimaster.wmkeyboard.core.prediction.eval.SuggestMetrics
+import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import java.io.File
 import java.util.Locale
 import org.junit.Assert.assertTrue
@@ -24,7 +27,7 @@ import org.junit.Test
  * shipped word lists against a reproducible synthetic swipe corpus, and asserts
  * the headline metrics never regress past [GestureEvalBaseline].
  *
- * Three subjects, chosen so a regression has somewhere to show:
+ * Four subjects, chosen so a regression has somewhere to show:
  *
  *  - **English on QWERTY** — the case with the longest history, and the one the
  *    decoder's weights were swept against.
@@ -35,6 +38,9 @@ import org.junit.Test
  *  - **A Cyrillic control** — a twelve-column grid with a synthetic lexicon,
  *    touching no per-language machinery whatsoever. It answers "is this a
  *    decoder problem or a Bengali problem" without anyone having to guess.
+ *  - **Bengali on Avro** — a Latin grid whose output is Bengali, measured the
+ *    whole way: the corpus traces a romanization and the case counts only if
+ *    the Bengali word that comes back is the one that spelling means.
  *
  * Prints a metric table to stdout and writes a diffable JSON artifact to
  * `build/reports/gestureeval/metrics.json`.
@@ -65,8 +71,18 @@ class GestureEvalTest {
     private class Subject(
         val name: String,
         val grid: GlideGrid,
+        /** What the corpus draws: the spellings a finger traces on this grid. */
         val entries: List<Pair<String, Int>>,
         val floors: GestureEvalBaseline.Floors,
+        /**
+         * What a decoded spelling means, when the grid's alphabet and the
+         * language's are not the same one. Null everywhere but Avro, where the
+         * corpus draws a romanization and the decoder must answer in Bengali —
+         * so the case's expected answer is the Bengali word, not the spelling
+         * that was traced.
+         */
+        val romanization: RomanizedIndex? = null,
+        val expected: (String) -> String = { it },
     )
 
     private fun load(name: String): List<Pair<String, Int>> {
@@ -110,6 +126,7 @@ class GestureEvalTest {
                 "ru/jcuken", GlideGrid.of(BuiltInLayouts.RUSSIAN), cyrillicControl(english),
                 GestureEvalBaseline.CYRILLIC,
             ),
+            avro(),
         )
 
         val report = StringBuilder()
@@ -119,11 +136,54 @@ class GestureEvalTest {
         writeReport(report.toString())
     }
 
+    /**
+     * Avro: a QWERTY grid whose output is Bengali.
+     *
+     * The corpus draws the curated romanized spellings — "amake", "bhalo",
+     * "tmr" — and a case counts as decoded only when the *Bengali* the decoder
+     * answers with is the Bengali that spelling stands for. That is the whole
+     * path end to end: Latin stroke in, Bengali word out.
+     *
+     * Built from the shipped assets rather than a fixture, so a change to either
+     * spelling list shows up here.
+     */
+    private fun avro(): Subject {
+        val bengali = load("bn.txt")
+        val phonetic = BengaliPhoneticIndex(bengali)
+        val spellings = asset("en_bn.tsv").use { en ->
+            asset("bn_rom.tsv").use { rom -> BengaliSpellingMap.load(en, rom) }
+        }
+        val romanization = RomanizedIndex.bengali(
+            spellings = spellings,
+            phonetic = phonetic,
+            nativeFrequency = phonetic::frequencyOf,
+        )
+        // Only spellings that resolve, and weighted by the Bengali behind them,
+        // so the corpus draws the words people actually reach for.
+        val entries = spellings.spellings.mapNotNull { spelling ->
+            val form = spellings.lookup(spelling).firstOrNull() ?: return@mapNotNull null
+            if (spelling.length < 3 || !spelling.all { it in 'a'..'z' }) return@mapNotNull null
+            spelling to phonetic.frequencyOf(form).coerceAtLeast(1)
+        }
+        val meaning = spellings.spellings.associateWith { spellings.lookup(it).first() }
+        return Subject(
+            "bn/avro", GlideGrid.of(BuiltInLayouts.AVRO), entries,
+            GestureEvalBaseline.AVRO,
+            romanization = romanization,
+            expected = { meaning.getValue(it) },
+        )
+    }
+
+    private fun asset(name: String) =
+        listOf(File("src/main/assets/dictionaries/$name"), File("app/src/main/assets/dictionaries/$name"))
+            .first { it.exists() }
+            .inputStream()
+
     private fun measure(subject: Subject, report: StringBuilder) {
         val trie = Trie().apply {
             subject.entries.forEach { (word, frequency) -> insert(word, frequency) }
         }
-        val sources = trie.walkers().map {
+        val sources = subject.romanization?.walkSources() ?: trie.walkers().map {
             FuzzyBeamSearch.WalkSource(it, 0.0, FuzzyBeamSearch.Tier.DICTIONARY)
         }
         val keys = GlideKeyMap.of(
@@ -139,11 +199,13 @@ class GestureEvalTest {
         for (noise in SwipeCorpus.Noise.entries) {
             var empty = 0
             val ranks = corpus.generate(subject.entries, noise, CASES_PER_LEVEL).map { case ->
-                val decoded = beam.decode(
+                val raw = beam.decode(
                     case.path, keys, SwipeCorpus.KEY_WIDTH, sources, workspace, RANK_DEPTH,
                 )
+                val decoded = subject.romanization?.resolve(raw) ?: raw
                 if (decoded.isEmpty()) empty++
-                val at = decoded.indexOfFirst { it.word.equals(case.intended, ignoreCase = true) }
+                val want = subject.expected(case.intended)
+                val at = decoded.indexOfFirst { it.word.equals(want, ignoreCase = true) }
                 if (at >= 0) at + 1 else null
             }
             byNoise[noise] = EvalMetrics.suggest(ranks)
@@ -156,7 +218,10 @@ class GestureEvalTest {
         // for this language at all, so the harness reports and asserts it: a
         // score for a grid production would switch off is a score nobody can
         // reach.
-        val coverage = GlideCoverage.measure(trie.walkers(), subject.grid.alphabet)
+        val coverage = GlideCoverage.measure(
+            subject.romanization?.walkSources()?.map { it.walker } ?: trie.walkers(),
+            subject.grid.alphabet,
+        )
         printTable(subject, byNoise, emptyRate, overall, coverage)
         appendJson(report, subject, byNoise, emptyRate, overall, coverage)
 

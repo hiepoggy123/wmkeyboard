@@ -41,6 +41,10 @@ class BengaliSpellingMap private constructor(
 
     val size: Int get() = byWord.size
 
+    /** Every spelling this map knows, in file order — the curated romanized
+     * vocabulary, which is also what a glide over Avro is decoded against. */
+    val spellings: Set<String> get() = byWord.keys
+
     companion object {
         /** Empty map, used as the default when no asset is supplied (tests). */
         val EMPTY = BengaliSpellingMap(emptyMap())

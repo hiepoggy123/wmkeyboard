@@ -5,6 +5,7 @@ import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
 import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
 import com.wasimaster.wmkeyboard.core.gesture.GlideWorkspace
+import com.wasimaster.wmkeyboard.core.gesture.RomanizedIndex
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import kotlin.math.ln
@@ -390,16 +391,38 @@ class SuggestionEngine(
     private val glideWorkspace = ThreadLocal.withInitial { GlideWorkspace() }
 
     /**
+     * The romanization a glide is decoded through, when the layout's keys and
+     * its output are different alphabets — Avro, where the grid is QWERTY and
+     * the text is Bengali. [RomanizedIndex.EMPTY] everywhere else, which is the
+     * ordinary case of decoding the language's own word lists directly.
+     */
+    @Volatile
+    var glideRomanization: RomanizedIndex = RomanizedIndex.EMPTY
+
+    /** The curated Bengali spelling map this engine was built with, so the IME
+     * can rebuild the romanization without reloading the assets behind it. */
+    val spellingMap: BengaliSpellingMap get() = spellings
+
+    /**
      * Whether [alphabet] can spell enough of the language now being typed for a
      * glide to mean anything. Only the dictionary tier is asked: the personal
      * lexicon is small and can hold words from whatever the user typed last, so
      * letting it vote would have a handful of leftover English words decide
      * whether Bengali is glidable.
      */
-    fun glideCoverage(alphabet: Set<Char>): Float = GlideCoverage.measure(
-        walkSources().filter { it.tier == FuzzyBeamSearch.Tier.DICTIONARY }.map { it.walker },
-        alphabet,
-    )
+    fun glideCoverage(alphabet: Set<Char>): Float {
+        val romanization = glideRomanization
+        // Through the romanization when there is one: on Avro the question is
+        // whether the Latin grid spells the *romanized* vocabulary, and asking
+        // it of the Bengali word list would answer zero and switch off a layout
+        // that decodes perfectly well.
+        val sources = if (romanization.isEmpty) {
+            walkSources().filter { it.tier == FuzzyBeamSearch.Tier.DICTIONARY }
+        } else {
+            romanization.walkSources()
+        }
+        return GlideCoverage.measure(sources.map { it.walker }, alphabet)
+    }
 
     /**
      * Decodes a glide stroke against exactly the word sources typing already
@@ -427,16 +450,22 @@ class SuggestionEngine(
         previousWord2: String? = null,
         recentWords: List<String> = emptyList(),
     ): List<GlideBeam.Candidate> {
+        val romanization = glideRomanization
         val decoded = glideBeam.decode(
             path = path,
             keys = keys,
             keyWidth = keyWidth,
-            sources = walkSources(),
+            sources = if (romanization.isEmpty) walkSources() else romanization.walkSources(),
             ws = glideWorkspace.get(),
             limit = maxOf(limit, GLIDE_RERANK_POOL),
-        ).filterNot { suppressed(it.word) }
-        if (decoded.isEmpty()) return decoded
-        return rerankGlide(decoded, previousWord, previousWord2, recentWords).take(limit)
+        )
+        // On a phonetic layout the stroke spelled a romanization; the words it
+        // stands for are what the rest of this — the blacklist, the reranker,
+        // the caller — should ever see.
+        val words = if (romanization.isEmpty) decoded else romanization.resolve(decoded)
+        val kept = words.filterNot { suppressed(it.word) }
+        if (kept.isEmpty()) return kept
+        return rerankGlide(kept, previousWord, previousWord2, recentWords).take(limit)
     }
 
     /**

@@ -108,6 +108,29 @@ object GestureEvalBaseline {
         sloppy = 0.8880,
     )
 
+    /**
+     * Avro: a QWERTY grid, a romanized stroke, a Bengali answer.
+     *
+     * Two different things have to go right: the stroke has to decode to the
+     * right romanized spelling, and that spelling has to stand for the right
+     * Bengali. Only the first is the decoder's problem.
+     *
+     * It nonetheless scores ~17pt above Bengali on a fixed layout, and the
+     * reason is worth keeping in mind before anyone tries to close that gap the
+     * other way round: a romanization is written in an alphabet where no two
+     * letters share a key, so the shapes are unambiguous in a way Probhat's ক/খ
+     * never are. Avro is also the layout most Bengali typists actually use.
+     */
+    val AVRO = Floors(
+        top1 = 0.9120,
+        top3 = 0.9900,
+        mrr = 0.9494,
+        clean = 0.9440,
+        light = 0.9120,
+        typical = 0.9040,
+        sloppy = 0.8880,
+    )
+
     /** Run-to-run drift is nil (the corpus is seeded), so this is small. */
     const val TOLERANCE = 0.01
 }
