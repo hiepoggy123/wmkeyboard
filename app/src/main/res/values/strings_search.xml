@@ -144,5 +144,7 @@
     <string name="search_kw_addons">repository, community, downloads, packs, install</string>
     <string name="search_kw_licenses">open source, attribution, credits</string>
     <string name="search_kw_diagnostics">logs, logcat, troubleshooting, crash, report</string>
+    <!-- The About row that replays the first-run wizard. -->
+    <string name="search_kw_replay_onboarding">onboarding, wizard, first run, setup, tour, welcome, tutorial</string>
     <string name="search_kw_hwshortcuts">physical keyboard, leader key, hotkeys</string>
 </resources>

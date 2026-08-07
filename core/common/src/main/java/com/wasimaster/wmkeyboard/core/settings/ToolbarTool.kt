@@ -196,6 +196,15 @@ val RecommendedTools: Set<ToolbarTool> = setOf(
     ToolbarTool.MEDIA_CONTROL,
 )
 
+/**
+ * The onboarding starting selection for the "keep it simple" persona: just the
+ * essentials, everything else stays off until asked for.
+ */
+val MinimalTools: Set<ToolbarTool> = setOf(
+    ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.VOICE,
+    ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.SETTINGS,
+)
+
 
 /**
  * Colour-vision correction applied to the whole resolved keyboard palette.

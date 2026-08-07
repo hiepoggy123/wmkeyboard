@@ -36,23 +36,31 @@ Core typing (the spelling dictionaries, transliteration, emoji search, predictio
 
 The first time you open the app, it drops you into a short setup wizard instead of the Home screen. Every choice you make writes straight to settings, so backing up, skipping ahead, or tapping **Skip** in the top corner never loses anything, and everything here can be changed again later.
 
+The wizard tailors itself to a short quiz on its second page, so not everyone sees every step. The full list:
+
 <Steps>
 
 1. **Welcome** — the setup card from above, embedded in the wizard's first page. Enabling and selecting WM Keyboard here advances the wizard automatically, so you don't need to tap Next after coming back from system settings.
 
-2. **Your languages** — your currently enabled languages, each with its layouts individually switchable, then a short **Suggested for you** list, then a search box for the other 350-odd. The suggestions come from your phone's own language settings and region; see [Suggested languages](/languages/overview/#suggested-languages) for exactly what's read. Adding a language during setup enables its first layout only; add its other layouts later from Settings.
+2. **Make it yours** — three quick questions: how many languages you type in, whether you want a simple or a fully loaded keyboard, and how private it should be. Every answer's subtitle spells out exactly what picking it changes, answers apply those defaults on the spot, and the rest of the wizard trims itself to match. Answering is optional; skipping the quiz takes the middle path.
 
-3. **Look & feel** — theme mode (Auto/Light/Dark/AMOLED), a Material You colors toggle, a keyboard theme picker, an emoji-row mode choice, and a symbol row toggle.
+3. **Your languages** *(hidden if you answered "just one" language and only one is enabled)* — your currently enabled languages, each with its layouts individually switchable, then a short **Suggested for you** list, then a search box for the other 350-odd. The suggestions come from your phone's own language settings and region; see [Suggested languages](/languages/overview/#suggested-languages) for exactly what's read. Adding a language during setup enables its first layout only; add its other layouts later from Settings.
 
-4. **Emoji font** *(only if your phone's emoji font can't draw everything, or if the phone ships an emoji set of its own)* — pick which emoji you want to see, with a live preview of each option, plus a toggle to hide emoji your device would otherwise show as blank boxes (that one only when there are any) and a pointer to importing a full emoji font later. Samsung phones get this step even though nothing is missing on them: everything draws, but it draws in Samsung's set rather than the images most other phones show.
+4. **Look & feel** — theme mode (Auto/Light/Dark/AMOLED), a Material You colors toggle, a keyboard theme picker, an emoji-row mode choice, and a symbol row toggle.
 
-5. **Typing feedback** — haptics, key sounds, and the key popup bubble.
+5. **Emoji font** *(only if your phone's emoji font can't draw everything, or if the phone ships an emoji set of its own)* — pick which emoji you want to see, with a live preview of each option, plus a toggle to hide emoji your device would otherwise show as blank boxes (that one only when there are any) and a pointer to importing a full emoji font later. Samsung phones get this step even though nothing is missing on them: everything draws, but it draws in Samsung's set rather than the images most other phones show.
 
-6. **Spacebar & keys** — a single choice for both spacebar-swipe directions (short and long), a toggle to replace the <KeyCap>🌐</KeyCap> key with an emoji key, and a number row toggle.
+6. **Typing feedback** *(skipped for "keep it simple" answers)* — haptics, key sounds, and the key popup bubble.
 
-7. **Your tools** — every toolbar tool, each with its own switch, plus quick "Recommended" and "Everything" buttons.
+7. **Spacebar & keys** *(skipped for "keep it simple" answers)* — a single choice for both spacebar-swipe directions (short and long) with a "Recommended" badge that follows your quiz answer, a toggle to replace the <KeyCap>🌐</KeyCap> key with an emoji key, and a number row toggle.
 
-8. **Tool setup** *(only if Calendar, Weather, or Compass is enabled)* — first-run choices for whichever of those you kept: alternate calendars, a saved place and temperature unit, or a qibla toggle.
+8. **Worth knowing about** — a short tour of the features most keyboards don't have: smart chips, tool hotwords, the toolbox, photo backgrounds, clipboard history and more. Most cards have a switch right on them; the rest say where the feature lives.
+
+9. **Your tools** *(only for "show me everything" answers)* — every toolbar tool, each with its own switch, plus quick "Recommended" and "Everything" buttons.
+
+10. **Tool setup** *(only for "show me everything" answers with Calendar, Weather, or Compass enabled)* — first-run choices for whichever of those you kept: alternate calendars, a saved place and temperature unit, or a qibla toggle.
+
+11. **Try your keyboard** — a live text field so the keyboard appears in the theme you just picked, plus two or three "try this" prompts drawn from what you enabled (type `12*8=` for a smart chip, type a tool's name for its hotword chip, open the toolbox).
 
 </Steps>
 
@@ -83,10 +91,13 @@ If WM Keyboard's languages should show up individually in Android's own switcher
 
 See [Privacy at a glance](/privacy/overview/) and the [Privacy settings reference](/reference/settings/privacy/) for the rest of that screen.
 
+## Running it again
+
+The wizard isn't a one-shot: <SettingsPath path="About / Run setup again" /> replays it whenever you like. A replay never rewrites your settings on its own — the quiz remembers your old answers and only changes what you actually tap — and the Welcome page stays out of the way if the keyboard is already enabled and selected. Finishing a replay drops you back on the About screen.
+
 ## Details & edge cases
 
-- The wizard's own gesture choice labels one option "Cursor + language (recommended)" (quick swipe moves the cursor, hold-then-swipe switches language), but a fresh install actually ships with the *other* combination, "Language + cursor" (quick swipe switches language, hold-then-swipe moves the cursor), until you complete the wizard or change it yourself under `Typing / Gestures`.
 - Whether the wizard appears is separate from whether the keyboard is enabled: it's driven purely by a "have you finished onboarding" flag, not by checking Android's input-method state. If you enable and select WM Keyboard entirely from system Settings without ever opening the app, the wizard still appears on first launch. Its Welcome page will just already show the "done" state and let you move straight past it.
-- Every tool is enabled by default before you ever see the wizard. The Tools page narrows that down to a smaller recommended set the first time you visit it, but only if you reach that page; skipping the wizard earlier leaves every tool switched on.
+- Skipping the wizard early still lands a sane tool set: finishing (or skipping) over the untouched everything-enabled default replaces it with the recommended set, or the smaller essential set if you answered "keep it simple" first.
 - On a Lite build, the Tools page doesn't offer handwriting, OCR, QR/barcode scanning, document scanning, or grammar checking as options at all, since those features aren't built into that edition. See [Full vs Lite](/start/editions/).
 - Installing over an existing WM Keyboard install (same signing key) keeps the wizard from running again: `onboardingDone` is a regular setting, so it carries over like any other. A clean reinstall or a new phone without a settings backup will show it again. See [Installation](/start/installation/) for what does and doesn't carry over.

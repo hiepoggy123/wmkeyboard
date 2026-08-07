@@ -443,6 +443,7 @@ internal fun AboutSettings(
     onOpenStorage: () -> Unit = {},
     onOpenStatistics: () -> Unit = {},
     onOpenEggGame: () -> Unit = {},
+    onReplayOnboarding: () -> Unit = {},
 ) {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
@@ -563,6 +564,15 @@ internal fun AboutSettings(
                 stringResource(R.string.about_diagnostics_subtitle),
                 route = "debug_log",
                 onClick = onOpenDebugLog,
+            )
+        }
+        item {
+            // The wizard's only way back in once it has been finished. A
+            // replay never rewrites settings, so the row can promise that.
+            NavRow(
+                R.string.about_replay_onboarding_title,
+                stringResource(R.string.about_replay_onboarding_subtitle),
+                onClick = onReplayOnboarding,
             )
         }
     }

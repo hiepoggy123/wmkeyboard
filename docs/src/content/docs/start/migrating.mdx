@@ -108,7 +108,7 @@ See the [Privacy settings reference](/reference/settings/privacy/) for the rest 
 
 ## Details & edge cases
 
-- There's no in-app way to replay the setup wizard once `onboardingDone` is set. Reopening the app just goes to the Home screen. Reinstalling over an existing install (same signing key) keeps that flag too, so only a clean reinstall or a fresh phone without a settings backup shows the wizard again.
+- The setup wizard can be replayed any time from **About / Run setup again**; a replay never rewrites settings on its own. Reopening the app otherwise just goes to the Home screen: reinstalling over an existing install (same signing key) keeps the `onboardingDone` flag, so only a clean reinstall or a fresh phone without a settings backup shows the wizard unasked.
 - **Backup & restore** can move your learned-word dictionary between two phones that are both already running WM Keyboard, but it's WM-Keyboard-to-WM-Keyboard only (not an import path from another app), and the dictionary section is left out of an export unless you turn it on explicitly.
 - Custom dictionaries and the personal dictionary are two separate features that both feed suggestions: personal dictionary is for words you've typed or added one at a time, custom dictionaries are for bulk lists layered on top of (or standing in for) a language's bundled dictionary.
 - On a <Flavor edition="lite" /> build, tools that need on-device ML (handwriting, OCR, QR/barcode and document scanning, grammar checking, offline Whisper dictation, and the on-device AI model) simply don't appear as options; there's nothing to disable because they're not built into that edition at all.

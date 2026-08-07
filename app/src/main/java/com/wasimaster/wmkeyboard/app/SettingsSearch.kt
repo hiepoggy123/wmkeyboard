@@ -884,6 +884,10 @@ private fun Resources.otherRows(): List<SettingsSearchEntry> {
             R.string.about_diagnostics_title, R.string.about_diagnostics_subtitle,
             R.string.home_about_title, "debug_log", keywords = R.string.search_kw_diagnostics,
         ),
+        entry(
+            R.string.about_replay_onboarding_title, R.string.about_replay_onboarding_subtitle,
+            R.string.home_about_title, "about", keywords = R.string.search_kw_replay_onboarding,
+        ),
         debug(R.string.shell_debug_log_share_title, R.string.shell_debug_log_share_subtitle),
         debug(R.string.shell_debug_log_copy_title, R.string.shell_debug_log_copy_subtitle),
         debug(R.string.shell_debug_log_system_title, R.string.shell_debug_log_system_subtitle),

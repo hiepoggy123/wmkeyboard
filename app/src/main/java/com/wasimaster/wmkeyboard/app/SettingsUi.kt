@@ -160,14 +160,16 @@ internal fun WmIconTile(
     accent: Color,
     modifier: Modifier = Modifier,
     brush: Brush? = null,
+    size: Dp = WmIconTileSize,
+    radius: Dp = IconTileRadius,
     content: @Composable () -> Unit,
 ) {
     val dark = isSystemInDarkTheme()
     val wash = if (dark) 0.24f else 0.15f
     Box(
         modifier = modifier
-            .size(IconTileSize)
-            .clip(RoundedCornerShape(IconTileRadius))
+            .size(size)
+            .clip(RoundedCornerShape(radius))
             .then(
                 if (brush != null) Modifier.background(brush, alpha = wash)
                 else Modifier.background(accent.copy(alpha = wash)),

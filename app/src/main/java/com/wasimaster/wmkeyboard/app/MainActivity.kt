@@ -598,8 +598,15 @@ private fun SettingsNavGraph(
                 repository = repository,
                 settings = settings,
                 onFinished = {
-                    navController.navigate("home") {
-                        popUpTo("onboarding") { inclusive = true }
+                    // A replay was navigated to from inside the app (About);
+                    // pop back there. A first run has no back stack to return
+                    // to and lands on home.
+                    if (navController.previousBackStackEntry != null) {
+                        navController.popBackStack()
+                    } else {
+                        navController.navigate("home") {
+                            popUpTo("onboarding") { inclusive = true }
+                        }
                     }
                 },
             )
@@ -1192,6 +1199,7 @@ private fun SettingsNavGraph(
                     onOpenStorage = { navController.navigate("storage") },
                     onOpenStatistics = { navController.navigate("statistics") },
                     onOpenEggGame = { navController.navigate("egg_game") },
+                    onReplayOnboarding = { navController.navigate("onboarding") },
                 )
             }
         }

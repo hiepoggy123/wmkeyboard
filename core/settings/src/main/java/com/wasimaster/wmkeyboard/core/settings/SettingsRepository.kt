@@ -895,12 +895,13 @@ data class KeyboardSettings(
      * Online photo backgrounds and the rotating background; see
      * [PhotoBackgroundSettings].
      *
-     * Grouped rather than flat, and the margin is now exact: this class has 244
+     * Grouped rather than flat, and the margin is now gone: this class has 245
      * fields, none of them `Long` or `Double`, which is
-     * `1 + 244 + ceil(244/32) + 1 = 254` of the JVM's 255 argument slots for the
-     * generated `copy$default`. **Exactly one more top-level field fits.** The
-     * sixteen settings this feature needed would have gone eleven past it, so
-     * they live in their own class while their DataStore keys stay flat.
+     * `1 + 245 + ceil(245/32) + 1 = 255` of the JVM's 255 argument slots for the
+     * generated `copy$default`. **No more top-level fields fit** (the last slot
+     * went to [KeyboardSettings.onboarding]). The sixteen settings this feature
+     * needed would have gone past the ceiling, so they live in their own class
+     * while their DataStore keys stay flat; every new setting must do the same.
      */
     val photoBackground: PhotoBackgroundSettings = PhotoBackgroundSettings(),
     val keyHeightDp: Int = 48,
@@ -1181,6 +1182,15 @@ data class KeyboardSettings(
     /** Per-app language/subtype memory (see [PerAppLanguageSettings]). */
     val perAppLanguage: PerAppLanguageSettings = PerAppLanguageSettings(),
     val onboardingDone: Boolean = false,
+    /**
+     * Persona answers from the onboarding quiz (see [OnboardingSettings]).
+     *
+     * This took the last free constructor slot (see the note on
+     * [photoBackground]): the class now fills all 255 `copy$default` argument
+     * slots. No further top-level field fits; new settings must join an
+     * existing nested holder.
+     */
+    val onboarding: OnboardingSettings = OnboardingSettings(),
     /**
      * Language ids whose conjunct clusters backspace as one unit. Per language,
      * not global: someone who types both Bengali and Hindi may well want whole
@@ -2180,6 +2190,31 @@ data class PerAppLanguageSettings(
     val enabled: Boolean = false,
     /** Package name → last explicitly-selected layout id. */
     val layoutByPackage: Map<String, String> = emptyMap(),
+)
+
+/** How many languages the user said they type in during onboarding. */
+enum class PersonaLanguages { UNSET, ONE, MANY }
+
+/** How much keyboard the user asked for during onboarding. */
+enum class PersonaDepth { UNSET, MINIMAL, BALANCED, POWER }
+
+/** How private the user asked the keyboard to be during onboarding. */
+enum class PersonaPrivacy { UNSET, STANDARD, STRICT }
+
+/**
+ * Onboarding state that outlives the wizard, grouped into its own object (see
+ * [CameraSettings] for why). DataStore keys stay flat.
+ *
+ * The persona answers gate which wizard pages show (on first run and on
+ * replay) and order the discovery cards. UNSET means the question was never
+ * answered; the wizard treats it as the middle path. Any future
+ * onboarding-related field belongs here, never on [KeyboardSettings] directly:
+ * the outer class has no free constructor slots left.
+ */
+data class OnboardingSettings(
+    val personaLanguages: PersonaLanguages = PersonaLanguages.UNSET,
+    val personaDepth: PersonaDepth = PersonaDepth.UNSET,
+    val personaPrivacy: PersonaPrivacy = PersonaPrivacy.UNSET,
 )
 
 /**
@@ -3207,6 +3242,10 @@ class SettingsRepository(private val context: Context) {
         private val PER_APP_LANGUAGE_ENABLED = booleanPreferencesKey("per_app_language_enabled")
         private val PER_APP_LAYOUT_MAP = stringPreferencesKey("per_app_layout_map")
         private val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
+        private val ONBOARDING_PERSONA_LANGUAGES =
+            stringPreferencesKey("onboarding_persona_languages")
+        private val ONBOARDING_PERSONA_DEPTH = stringPreferencesKey("onboarding_persona_depth")
+        private val ONBOARDING_PERSONA_PRIVACY = stringPreferencesKey("onboarding_persona_privacy")
         private val CONJUNCT_BACKSPACE_LANGUAGES = stringPreferencesKey("conjunct_backspace_languages")
 
         /**
@@ -3931,6 +3970,17 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.perAppLanguage.layoutByPackage,
             ),
             onboardingDone = p[ONBOARDING_DONE] ?: defaults.onboardingDone,
+            onboarding = OnboardingSettings(
+                personaLanguages = p[ONBOARDING_PERSONA_LANGUAGES]
+                    ?.let { runCatching { PersonaLanguages.valueOf(it) }.getOrNull() }
+                    ?: defaults.onboarding.personaLanguages,
+                personaDepth = p[ONBOARDING_PERSONA_DEPTH]
+                    ?.let { runCatching { PersonaDepth.valueOf(it) }.getOrNull() }
+                    ?: defaults.onboarding.personaDepth,
+                personaPrivacy = p[ONBOARDING_PERSONA_PRIVACY]
+                    ?.let { runCatching { PersonaPrivacy.valueOf(it) }.getOrNull() }
+                    ?: defaults.onboarding.personaPrivacy,
+            ),
             conjunctBackspaceLanguages = conjunctLanguagesFromPrefs(p, layoutSelection.enabledLanguages),
             cjk = CjkSettings(
                 pinyinFuzzy = p[PINYIN_FUZZY] ?: defaults.cjk.pinyinFuzzy,
@@ -6651,6 +6701,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setOnboardingDone(value: Boolean) =
         editPrefs { it[ONBOARDING_DONE] = value }
+
+    suspend fun setPersonaLanguages(value: PersonaLanguages) =
+        editPrefs { it[ONBOARDING_PERSONA_LANGUAGES] = value.name }
+
+    suspend fun setPersonaDepth(value: PersonaDepth) =
+        editPrefs { it[ONBOARDING_PERSONA_DEPTH] = value.name }
+
+    suspend fun setPersonaPrivacy(value: PersonaPrivacy) =
+        editPrefs { it[ONBOARDING_PERSONA_PRIVACY] = value.name }
 
     /** Turns cluster-aware backspace on or off for one language. */
     suspend fun setConjunctBackspace(languageId: String, value: Boolean) =

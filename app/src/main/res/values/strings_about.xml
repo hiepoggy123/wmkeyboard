@@ -24,6 +24,8 @@
     <string name="about_source_title">Source code</string>
     <string name="about_diagnostics_title">Diagnostics</string>
     <string name="about_diagnostics_subtitle">A record of what the keyboard did. Read it, or send it with a bug report</string>
+    <string name="about_replay_onboarding_title">Run setup again</string>
+    <string name="about_replay_onboarding_subtitle">Walk through the first-run choices again. Your settings stay as they are</string>
     <string name="about_free_software_body">WM Keyboard is free software. You can use it, change it and give it to other people. You must keep the copyright notice and the licence text with it.</string>
 
     <!-- About screen: the Feedback group. -->

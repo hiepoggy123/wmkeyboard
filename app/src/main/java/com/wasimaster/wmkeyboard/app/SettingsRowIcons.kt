@@ -145,6 +145,7 @@ import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Reorder
 import androidx.compose.material.icons.outlined.Repeat
+import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.RoundedCorner
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.School
@@ -217,6 +218,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.about_storage_title, Icons.Outlined.PieChart)
     put(R.string.statistics_title, Icons.Outlined.QueryStats)
     put(R.string.about_diagnostics_title, Icons.AutoMirrored.Outlined.Article)
+    put(R.string.about_replay_onboarding_title, Icons.Outlined.Replay)
     put(R.string.about_dictionaries_title, Icons.AutoMirrored.Outlined.LibraryBooks)
     put(R.string.about_report_bug_title, Icons.Outlined.BugReport)
     put(R.string.about_email_developer_title, Icons.Outlined.Email)
