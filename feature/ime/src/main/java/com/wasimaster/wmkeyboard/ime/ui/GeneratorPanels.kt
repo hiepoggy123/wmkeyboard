@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -52,7 +53,9 @@ import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.tools.PasswordGen
 import com.wasimaster.wmkeyboard.core.tools.QrCodeGen
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.PwSettingAction
 import com.wasimaster.wmkeyboard.ime.R
 import java.security.SecureRandom
@@ -131,6 +134,58 @@ internal fun PasswordPanel(
     // not composable, so it cannot resolve a string itself.
     val copiedMessage = stringResource(R.string.ime_password_copied_toast)
 
+    fun copyGenerated() {
+        if (generated.isEmpty()) return
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Password", generated))
+        Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
+    }
+
+    // Ring regions: the result card's regenerate/copy/insert, then the
+    // flattened option list (steppers count as two slots each). The header
+    // tabs publish CHIPS from the KeyboardScreen header block.
+    PanelFocusTarget(
+        panel = PanelMode.PASSWORD_GEN,
+        region = FocusRegion.ACTIONS,
+        count = 3,
+        columns = 3,
+    ) { index ->
+        when (index) {
+            0 -> regenerateKey++
+            1 -> copyGenerated()
+            2 -> if (generated.isNotEmpty()) onInsert(generated)
+        }
+    }
+    val pg = settings.passwordGenerator
+    val optionEntries: List<() -> Unit> = if (!passphraseMode) {
+        listOf(
+            { onSetting(PwSettingAction.Length(pg.pwLength - 1)) },
+            { onSetting(PwSettingAction.Length(pg.pwLength + 1)) },
+            { onSetting(PwSettingAction.Upper(!pg.pwUppercase)) },
+            { onSetting(PwSettingAction.Digits(!pg.pwDigits)) },
+            { onSetting(PwSettingAction.Symbols(!pg.pwSymbols)) },
+            { onSetting(PwSettingAction.ExcludeAmbiguous(!pg.pwExcludeAmbiguous)) },
+        )
+    } else {
+        val separators = listOf("-", ".", "_", " ", "")
+        val next = separators[(separators.indexOf(pg.ppSeparator) + 1).mod(separators.size)]
+        listOf(
+            { onSetting(PwSettingAction.Words(pg.ppWordCount - 1)) },
+            { onSetting(PwSettingAction.Words(pg.ppWordCount + 1)) },
+            { onSetting(PwSettingAction.Separator(next)) },
+            { onSetting(PwSettingAction.Capitalize(!pg.ppCapitalize)) },
+            { onSetting(PwSettingAction.IncludeDigit(!pg.ppIncludeDigit)) },
+        )
+    }
+    PanelFocusTarget(
+        panel = PanelMode.PASSWORD_GEN,
+        region = FocusRegion.RESULTS,
+        count = optionEntries.size,
+        columns = optionEntries.size,
+    ) { index -> optionEntries.getOrNull(index)?.invoke() }
+    val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
+    val focusedOption = state.focusedIndex(FocusRegion.RESULTS)
+
     // The Password/Passphrase tabs live in the FullBleedTool header next to
     // the back button; the body starts at the generated result.
     Column(
@@ -158,7 +213,12 @@ internal fun PasswordPanel(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = { regenerateKey++ }, modifier = Modifier.size(30.dp)) {
+            IconButton(
+                onClick = { regenerateKey++ },
+                modifier = Modifier
+                    .size(30.dp)
+                    .focusRing(focusedAction == 0, CircleShape),
+            ) {
                 Icon(
                     Icons.Outlined.Refresh,
                     contentDescription = stringResource(R.string.ime_password_regenerate_desc),
@@ -167,16 +227,15 @@ internal fun PasswordPanel(
                 )
             }
             Spacer(Modifier.width(4.dp))
-            ToolPanelChip(stringResource(CommonR.string.common_copy)) {
-                if (generated.isNotEmpty()) {
-                    val clipboard =
-                        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Password", generated))
-                    Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
-                }
-            }
+            ToolPanelChip(
+                stringResource(CommonR.string.common_copy),
+                modifier = Modifier.focusRing(focusedAction == 1),
+            ) { copyGenerated() }
             Spacer(Modifier.width(4.dp))
-            ToolPanelChip(stringResource(R.string.ime_password_insert_action)) {
+            ToolPanelChip(
+                stringResource(R.string.ime_password_insert_action),
+                modifier = Modifier.focusRing(focusedAction == 2),
+            ) {
                 if (generated.isNotEmpty()) onInsert(generated)
             }
         }
@@ -208,28 +267,45 @@ internal fun PasswordPanel(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
+            // Ring indices mirror [optionEntries]: the stepper's − and + are
+            // slots 0 and 1, then the chips in drawing order.
             if (!passphraseMode) {
                 StepperRow(
                     label = stringResource(R.string.ime_password_length_label),
                     value = settings.passwordGenerator.pwLength,
+                    focusedMinus = focusedOption == 0,
+                    focusedPlus = focusedOption == 1,
                     onChange = { onSetting(PwSettingAction.Length(it)) },
                 )
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    ToolPanelChip("A–Z", selected = settings.passwordGenerator.pwUppercase) {
+                    ToolPanelChip(
+                        "A–Z",
+                        selected = settings.passwordGenerator.pwUppercase,
+                        modifier = Modifier.focusRing(focusedOption == 2),
+                    ) {
                         onSetting(PwSettingAction.Upper(!settings.passwordGenerator.pwUppercase))
                     }
-                    ToolPanelChip("0–9", selected = settings.passwordGenerator.pwDigits) {
+                    ToolPanelChip(
+                        "0–9",
+                        selected = settings.passwordGenerator.pwDigits,
+                        modifier = Modifier.focusRing(focusedOption == 3),
+                    ) {
                         onSetting(PwSettingAction.Digits(!settings.passwordGenerator.pwDigits))
                     }
-                    ToolPanelChip("#!&", selected = settings.passwordGenerator.pwSymbols) {
+                    ToolPanelChip(
+                        "#!&",
+                        selected = settings.passwordGenerator.pwSymbols,
+                        modifier = Modifier.focusRing(focusedOption == 4),
+                    ) {
                         onSetting(PwSettingAction.Symbols(!settings.passwordGenerator.pwSymbols))
                     }
                     ToolPanelChip(
                         stringResource(R.string.ime_password_exclude_ambiguous_label),
                         selected = settings.passwordGenerator.pwExcludeAmbiguous,
+                        modifier = Modifier.focusRing(focusedOption == 5),
                     ) {
                         onSetting(PwSettingAction.ExcludeAmbiguous(!settings.passwordGenerator.pwExcludeAmbiguous))
                     }
@@ -238,6 +314,8 @@ internal fun PasswordPanel(
                 StepperRow(
                     label = stringResource(R.string.ime_password_words_label),
                     value = settings.passwordGenerator.ppWordCount,
+                    focusedMinus = focusedOption == 0,
+                    focusedPlus = focusedOption == 1,
                     onChange = { onSetting(PwSettingAction.Words(it)) },
                 )
                 Row(
@@ -256,16 +334,19 @@ internal fun PasswordPanel(
                     }
                     ToolPanelChip(
                         stringResource(R.string.ime_password_separator_label, separatorName),
+                        modifier = Modifier.focusRing(focusedOption == 2),
                     ) { onSetting(PwSettingAction.Separator(next)) }
                     ToolPanelChip(
                         stringResource(R.string.ime_password_capitalize_label),
                         selected = settings.passwordGenerator.ppCapitalize,
+                        modifier = Modifier.focusRing(focusedOption == 3),
                     ) {
                         onSetting(PwSettingAction.Capitalize(!settings.passwordGenerator.ppCapitalize))
                     }
                     ToolPanelChip(
                         stringResource(R.string.ime_password_add_digit_label),
                         selected = settings.passwordGenerator.ppIncludeDigit,
+                        modifier = Modifier.focusRing(focusedOption == 4),
                     ) {
                         onSetting(PwSettingAction.IncludeDigit(!settings.passwordGenerator.ppIncludeDigit))
                     }
@@ -276,11 +357,17 @@ internal fun PasswordPanel(
 }
 
 @Composable
-private fun StepperRow(label: String, value: Int, onChange: (Int) -> Unit) {
+private fun StepperRow(
+    label: String,
+    value: Int,
+    focusedMinus: Boolean = false,
+    focusedPlus: Boolean = false,
+    onChange: (Int) -> Unit,
+) {
     val kb = LocalKbTheme.current
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, color = kb.secondaryText, fontSize = 12.sp, modifier = Modifier.width(52.dp))
-        ToolPanelChip("−") { onChange(value - 1) }
+        ToolPanelChip("−", modifier = Modifier.focusRing(focusedMinus)) { onChange(value - 1) }
         Text(
             "$value",
             color = kb.modifierKeyText,
@@ -289,7 +376,7 @@ private fun StepperRow(label: String, value: Int, onChange: (Int) -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier.width(36.dp),
         )
-        ToolPanelChip("+") { onChange(value + 1) }
+        ToolPanelChip("+", modifier = Modifier.focusRing(focusedPlus)) { onChange(value + 1) }
     }
 }
 
@@ -313,6 +400,13 @@ internal fun QrGeneratorPanel(
     val bitmap = remember(content, state.settings.qrEcc) {
         QrCodeGen.bitmap(content, sizePx = 384, ecc = state.settings.qrEcc.name)
     }
+    // Typing already reaches the content buffer; the ring only needs Send.
+    PanelFocusTarget(
+        panel = PanelMode.QR_GEN,
+        region = FocusRegion.ACTIONS,
+        count = if (bitmap != null) 1 else 0,
+        columns = 1,
+    ) { if (bitmap != null) onSend() }
 
     Column(
         modifier = Modifier
@@ -383,7 +477,12 @@ internal fun QrGeneratorPanel(
                         .padding(start = 12.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    ToolPanelChip(stringResource(R.string.ime_qr_send_action)) { onSend() }
+                    ToolPanelChip(
+                        stringResource(R.string.ime_qr_send_action),
+                        modifier = Modifier.focusRing(
+                            state.focusedIndex(FocusRegion.ACTIONS) == 0,
+                        ),
+                    ) { onSend() }
                     Spacer(Modifier.height(4.dp))
                     Text(
                         pluralStringResource(

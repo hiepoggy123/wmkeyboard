@@ -44,7 +44,9 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginLabelStyle
 import com.wasimaster.wmkeyboard.core.plugins.PluginWidget
 import com.wasimaster.wmkeyboard.core.plugins.resolve
 import com.wasimaster.wmkeyboard.core.util.runCancellable
+import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.PluginPanelUi
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.plugins.R as PluginsR
@@ -77,7 +79,7 @@ internal fun PluginPanel(
     onManage: () -> Unit,
 ) {
     when (val panel = state.plugins) {
-        is PluginPanelUi.List -> PluginList(panel, onOpenPlugin, onManage)
+        is PluginPanelUi.List -> PluginList(state, panel, onOpenPlugin, onManage)
         is PluginPanelUi.Running -> RunningPlugin(
             state = state,
             panel = panel,
@@ -92,11 +94,23 @@ internal fun PluginPanel(
 
 @Composable
 private fun PluginList(
+    state: KeyboardUiState,
     panel: PluginPanelUi.List,
     onOpenPlugin: (String) -> Unit,
     onManage: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
+    // The ring walks the cards and ends on Manage.
+    PanelFocusTarget(
+        panel = PanelMode.PLUGINS,
+        region = FocusRegion.RESULTS,
+        count = panel.plugins.size + 1,
+        columns = 1,
+    ) { index ->
+        val plugin = panel.plugins.getOrNull(index)
+        if (plugin != null) onOpenPlugin(plugin.id) else onManage()
+    }
+    val focused = state.focusedIndex(FocusRegion.RESULTS)
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -129,18 +143,26 @@ private fun PluginList(
                     fontSize = 12.sp,
                 )
             }
-            ToolPanelChip(label = stringResource(R.string.ime_plugin_manage_action), onClick = onManage)
+            ToolPanelChip(
+                label = stringResource(R.string.ime_plugin_manage_action),
+                modifier = Modifier.focusRing(focused == panel.plugins.size),
+                onClick = onManage,
+            )
         } else {
-            for (plugin in panel.plugins) {
-                PluginRow(plugin) { onOpenPlugin(plugin.id) }
+            for ((index, plugin) in panel.plugins.withIndex()) {
+                PluginRow(plugin, focused = index == focused) { onOpenPlugin(plugin.id) }
             }
-            ToolPanelChip(label = stringResource(R.string.ime_plugin_manage_action), onClick = onManage)
+            ToolPanelChip(
+                label = stringResource(R.string.ime_plugin_manage_action),
+                modifier = Modifier.focusRing(focused == panel.plugins.size),
+                onClick = onManage,
+            )
         }
     }
 }
 
 @Composable
-private fun PluginRow(plugin: InstalledPlugin, onClick: () -> Unit) {
+private fun PluginRow(plugin: InstalledPlugin, focused: Boolean = false, onClick: () -> Unit) {
     val kb = LocalKbTheme.current
     val shape = kb.cardShape()
     Column(
@@ -149,6 +171,7 @@ private fun PluginRow(plugin: InstalledPlugin, onClick: () -> Unit) {
             .clip(shape)
             .background(kb.chip)
             .chipBorder(kb, shape)
+            .focusRing(focused, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
@@ -173,6 +196,28 @@ private fun PluginRow(plugin: InstalledPlugin, onClick: () -> Unit) {
     }
 }
 
+/**
+ * The running view's interactive leaves in render order, for the focus ring.
+ * Tabs are skipped on purpose: which page is showing lives in composable-local
+ * saved state a pure walk cannot see, so ringing into a hidden page would
+ * activate controls that are not on screen. Ring coverage inside tabbed
+ * plugins is future work; everything else is reachable.
+ */
+private fun interactiveLeaves(widgets: List<PluginWidget>): List<PluginWidget> = buildList {
+    fun walk(list: List<PluginWidget>) {
+        for (widget in list) {
+            when (widget) {
+                is PluginWidget.Column -> walk(widget.children)
+                is PluginWidget.Row -> walk(widget.children)
+                is PluginWidget.Button -> if (widget.enabled) add(widget)
+                is PluginWidget.Toggle, is PluginWidget.Input -> add(widget)
+                else -> Unit
+            }
+        }
+    }
+    walk(widgets)
+}
+
 @Composable
 private fun RunningPlugin(
     state: KeyboardUiState,
@@ -184,6 +229,23 @@ private fun RunningPlugin(
     onPaste: (String) -> Unit,
 ) {
     val kb = LocalKbTheme.current
+    val leaves = interactiveLeaves(panel.ui.root)
+    PanelFocusTarget(
+        panel = PanelMode.PLUGINS,
+        region = FocusRegion.RESULTS,
+        count = leaves.size,
+        columns = 1,
+    ) { index ->
+        when (val leaf = leaves.getOrNull(index)) {
+            is PluginWidget.Button -> onEvent(PluginEvent.Click(leaf.id))
+            is PluginWidget.Toggle -> onEvent(PluginEvent.ToggleChanged(leaf.id, !leaf.checked))
+            // Focusing an input flips pluginTypingActive, so the next
+            // keystrokes take the existing safe path into the box.
+            is PluginWidget.Input -> onInputFocus(leaf.id)
+            else -> Unit
+        }
+    }
+    val ringed = state.focusedIndex(FocusRegion.RESULTS)?.let { leaves.getOrNull(it) }
     Column(modifier = Modifier.fillMaxSize()) {
         if (panel.busy) {
             LinearProgressIndicator(
@@ -226,6 +288,7 @@ private fun RunningPlugin(
                 onToolInsert = onToolInsert,
                 onCopy = onCopy,
                 onPaste = onPaste,
+                ringed = ringed,
             )
         }
     }
@@ -240,9 +303,10 @@ private fun WidgetList(
     onToolInsert: (String) -> Unit,
     onCopy: (String) -> Unit,
     onPaste: (String) -> Unit,
+    ringed: PluginWidget? = null,
 ) {
     for (widget in widgets) {
-        PluginWidgetView(widget, state, onEvent, onInputFocus, onToolInsert, onCopy, onPaste)
+        PluginWidgetView(widget, state, onEvent, onInputFocus, onToolInsert, onCopy, onPaste, ringed)
     }
 }
 
@@ -255,6 +319,7 @@ private fun PluginWidgetView(
     onToolInsert: (String) -> Unit,
     onCopy: (String) -> Unit,
     onPaste: (String) -> Unit,
+    ringed: PluginWidget? = null,
 ) {
     val kb = LocalKbTheme.current
     when (widget) {
@@ -262,7 +327,10 @@ private fun PluginWidgetView(
             verticalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            WidgetList(widget.children, state, onEvent, onInputFocus, onToolInsert, onCopy, onPaste)
+            WidgetList(
+                widget.children, state, onEvent, onInputFocus, onToolInsert, onCopy, onPaste,
+                ringed,
+            )
         }
 
         is PluginWidget.Row -> Row(
@@ -274,6 +342,7 @@ private fun PluginWidgetView(
                 Box(modifier = Modifier.weight(1f)) {
                     PluginWidgetView(
                         child, state, onEvent, onInputFocus, onToolInsert, onCopy, onPaste,
+                        ringed,
                     )
                 }
             }
@@ -300,12 +369,15 @@ private fun PluginWidgetView(
             label = widget.text,
             selected = widget.primary,
             enabled = widget.enabled,
+            modifier = Modifier.focusRing(widget === ringed),
             onClick = { onEvent(PluginEvent.Click(widget.id)) },
         )
 
         is PluginWidget.Toggle -> Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRing(widget === ringed),
         ) {
             Text(
                 widget.label,
@@ -320,13 +392,15 @@ private fun PluginWidgetView(
             )
         }
 
-        is PluginWidget.Input -> InputWidget(
-            widget = widget,
-            value = state.pluginInputs[widget.id].orEmpty(),
-            focused = state.pluginFocusedInput == widget.id,
-            onFocus = { onInputFocus(widget.id) },
-            onPaste = { onPaste(widget.id) },
-        )
+        is PluginWidget.Input -> Box(Modifier.focusRing(widget === ringed)) {
+            InputWidget(
+                widget = widget,
+                value = state.pluginInputs[widget.id].orEmpty(),
+                focused = state.pluginFocusedInput == widget.id,
+                onFocus = { onInputFocus(widget.id) },
+                onPaste = { onPaste(widget.id) },
+            )
+        }
 
         is PluginWidget.Spacer -> Spacer(modifier = Modifier.height(widget.height.dp))
 

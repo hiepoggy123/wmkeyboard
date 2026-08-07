@@ -57,7 +57,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.wasimaster.wmkeyboard.core.media.MediaSnapshot
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
+import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
 import kotlinx.coroutines.delay
 
@@ -108,15 +110,38 @@ internal fun MediaControlPanel(
         contentAlignment = Alignment.Center,
     ) {
         val track = state.mediaControl
+        // The ring's one region: the grant button, or the transport. The seek
+        // bar stays touch-only. Activation honors canPrev/canNext, so Enter
+        // is never stronger than a tap on a dimmed button.
+        PanelFocusTarget(
+            panel = PanelMode.MEDIA_CONTROL,
+            region = FocusRegion.RESULTS,
+            count = when {
+                !hasAccess -> 1
+                track == null -> 0
+                else -> 3
+            },
+            columns = 3,
+        ) { index ->
+            val t = state.mediaControl
+            when {
+                !hasAccess -> onRequestAccess()
+                t == null -> Unit
+                index == 0 -> if (t.canPrev) onPrevious()
+                index == 1 -> onPlayPause()
+                index == 2 -> if (t.canNext) onNext()
+            }
+        }
+        val focused = state.focusedIndex(FocusRegion.RESULTS)
         when {
-            !hasAccess -> AccessPrompt(kb, onRequestAccess)
+            !hasAccess -> AccessPrompt(kb, onRequestAccess, focused == 0)
             track == null -> Notice(
                 kb,
                 Icons.Outlined.MusicNote,
                 stringResource(R.string.ime_media_control_empty_title),
                 stringResource(R.string.ime_media_control_empty_body),
             )
-            else -> NowPlaying(kb, track, onPlayPause, onNext, onPrevious, onSeek)
+            else -> NowPlaying(kb, track, onPlayPause, onNext, onPrevious, onSeek, focused)
         }
     }
 }
@@ -129,6 +154,7 @@ private fun NowPlaying(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onSeek: (Long) -> Unit,
+    focused: Int? = null,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
     // The art is square, so on a full-bleed (tall) panel taking the whole
@@ -225,7 +251,8 @@ private fun NowPlaying(
                 MediaButton(
                     kb, Icons.Outlined.SkipPrevious,
                     stringResource(R.string.ime_media_control_previous_desc),
-                    size = 44.dp, enabled = track.canPrev, onClick = onPrevious,
+                    size = 44.dp, enabled = track.canPrev, focused = focused == 0,
+                    onClick = onPrevious,
                 )
                 MediaButton(
                     kb,
@@ -235,12 +262,13 @@ private fun NowPlaying(
                     } else {
                         stringResource(R.string.ime_media_control_play_desc)
                     },
-                    size = 56.dp, accent = true, onClick = onPlayPause,
+                    size = 56.dp, accent = true, focused = focused == 1, onClick = onPlayPause,
                 )
                 MediaButton(
                     kb, Icons.Outlined.SkipNext,
                     stringResource(R.string.ime_media_control_next_desc),
-                    size = 44.dp, enabled = track.canNext, onClick = onNext,
+                    size = 44.dp, enabled = track.canNext, focused = focused == 2,
+                    onClick = onNext,
                 )
             }
         }
@@ -310,6 +338,7 @@ private fun MediaButton(
     size: androidx.compose.ui.unit.Dp,
     accent: Boolean = false,
     enabled: Boolean = true,
+    focused: Boolean = false,
     onClick: () -> Unit,
 ) {
     Box(
@@ -317,6 +346,7 @@ private fun MediaButton(
             .size(size)
             .clip(CircleShape)
             .background(if (accent) kb.accent else kb.toolCircle)
+            .focusRing(focused, CircleShape)
             .alpha(if (enabled) 1f else 0.35f)
             .clickable(enabled = enabled) { onClick() },
         contentAlignment = Alignment.Center,
@@ -331,7 +361,7 @@ private fun MediaButton(
 }
 
 @Composable
-private fun AccessPrompt(kb: KbTheme, onRequestAccess: () -> Unit) {
+private fun AccessPrompt(kb: KbTheme, onRequestAccess: () -> Unit, focused: Boolean = false) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -355,6 +385,7 @@ private fun AccessPrompt(kb: KbTheme, onRequestAccess: () -> Unit) {
             modifier = Modifier
                 .clip(RoundedCornerShape(kb.keyRadiusDp.dp))
                 .background(kb.accent)
+                .focusRing(focused, RoundedCornerShape(kb.keyRadiusDp.dp))
                 .clickable { onRequestAccess() }
                 .padding(horizontal = 20.dp, vertical = 10.dp),
         ) {

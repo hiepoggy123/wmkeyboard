@@ -6666,10 +6666,21 @@ private fun KeyboardBody(
                     showBack = false,
                     headerActions = {
                         val passphraseMode = state.settings.passwordGenerator.pwPassphraseMode
+                        // The ring's CHIPS region: the two mode tabs.
+                        PanelFocusTarget(
+                            panel = PanelMode.PASSWORD_GEN,
+                            region = FocusRegion.CHIPS,
+                            count = 2,
+                            columns = 2,
+                        ) { index ->
+                            onPwSetting(PwSettingAction.PassphraseMode(index == 1))
+                        }
+                        val focusedTab = state.focusedIndex(FocusRegion.CHIPS)
                         Spacer(Modifier.width(4.dp))
                         ToolPanelChip(
                             stringResource(R.string.ime_tool_password_gen),
                             selected = !passphraseMode,
+                            modifier = Modifier.focusRing(focusedTab == 0),
                         ) {
                             onPwSetting(PwSettingAction.PassphraseMode(false))
                         }
@@ -6677,6 +6688,7 @@ private fun KeyboardBody(
                         ToolPanelChip(
                             stringResource(R.string.ime_password_tab_passphrase),
                             selected = passphraseMode,
+                            modifier = Modifier.focusRing(focusedTab == 1),
                         ) {
                             onPwSetting(PwSettingAction.PassphraseMode(true))
                         }
@@ -6702,7 +6714,22 @@ private fun KeyboardBody(
                                 modifier = Modifier.padding(end = 8.dp),
                             )
                         }
-                        ToolPanelChip(stringResource(R.string.ime_typing_test_restart)) {
+                        // Only on the results screen: during a run the keys
+                        // *are* the test, and an arrow summoning a ring there
+                        // would score as a miss.
+                        PanelFocusTarget(
+                            panel = PanelMode.TYPING_TEST,
+                            region = FocusRegion.ACTIONS,
+                            count = if (state.typingTest.result != null) 1 else 0,
+                            columns = 1,
+                        ) { onTypingTestAction(TypingTestAction.Restart) }
+                        ToolPanelChip(
+                            stringResource(R.string.ime_typing_test_restart),
+                            modifier = Modifier.focusRing(
+                                state.focusedIndex(FocusRegion.ACTIONS) == 0 &&
+                                    state.typingTest.result != null,
+                            ),
+                        ) {
                             onTypingTestAction(TypingTestAction.Restart)
                         }
                     },

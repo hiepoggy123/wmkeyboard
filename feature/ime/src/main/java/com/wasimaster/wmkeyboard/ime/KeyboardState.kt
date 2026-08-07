@@ -357,6 +357,13 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.UNIT_CONVERT ->
         listOf(FocusRegion.CATEGORIES, FocusRegion.CHIPS, FocusRegion.ACTIONS)
     PanelMode.CURRENCY -> listOf(FocusRegion.CHIPS, FocusRegion.ACTIONS)
+    // The transport (or the grant button); typing already reaches QR's buffer,
+    // so its ring only needs Send. The typing test's ACTIONS is the results
+    // screen's Restart — during a run the keys are the test.
+    PanelMode.MEDIA_CONTROL, PanelMode.PLUGINS -> listOf(FocusRegion.RESULTS)
+    PanelMode.QR_GEN, PanelMode.TYPING_TEST -> listOf(FocusRegion.ACTIONS)
+    PanelMode.PASSWORD_GEN ->
+        listOf(FocusRegion.CHIPS, FocusRegion.ACTIONS, FocusRegion.RESULTS)
     // Panels the keyboard cannot drive: sensors, cameras, ink — and the
     // TEXT_EDIT/NUMPAD button grids, whose keys a physical keyboard already
     // sends to the field directly (ringing a d-pad that itself moves the
@@ -367,12 +374,7 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.MOON_PHASE, PanelMode.WEATHER, PanelMode.CALENDAR,
     PanelMode.SOUND_HAPTICS, PanelMode.NUMPAD, PanelMode.HANDWRITING,
     PanelMode.CAMERA, PanelMode.OCR, PanelMode.QR_SCAN,
-    PanelMode.VOICE, PanelMode.GRAMMAR, PanelMode.QR_GEN,
-    PanelMode.PASSWORD_GEN, PanelMode.TYPING_TEST,
-    PanelMode.MEDIA_CONTROL,
-    // A plugin draws its own controls, so there is no fixed set of regions to
-    // cycle. Hardware navigation inside a plugin panel is future work.
-    PanelMode.PLUGINS,
+    PanelMode.VOICE, PanelMode.GRAMMAR,
     -> emptyList()
 }
 
