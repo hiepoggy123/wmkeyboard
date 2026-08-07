@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Switch
@@ -140,17 +139,19 @@ private fun PluginList(
 @Composable
 private fun PluginRow(plugin: InstalledPlugin, onClick: () -> Unit) {
     val kb = LocalKbTheme.current
+    val shape = kb.chipShape()
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(shape)
             .background(kb.chip)
+            .chipBorder(kb, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Text(
             plugin.name,
-            color = kb.keyText,
+            color = kb.chipText,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
@@ -358,17 +359,19 @@ private fun OutputWidget(
     onCopy: (String) -> Unit,
 ) {
     val kb = LocalKbTheme.current
+    val shape = kb.chipShape()
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(shape)
             .background(kb.chip)
+            .chipBorder(kb, shape)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
             widget.text,
-            color = kb.keyText,
+            color = kb.chipText,
             fontSize = 13.sp,
             fontFamily = if (widget.mono) FontFamily.Monospace else FontFamily.Default,
         )
@@ -434,16 +437,19 @@ private fun InputWidget(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
+            val fieldShape = kb.chipShape()
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(fieldShape)
                     .background(kb.chip)
                     .then(
                         if (focused) {
-                            Modifier.border(1.dp, kb.accent, RoundedCornerShape(10.dp))
+                            // Focus wins over the theme's chip outline: the
+                            // accent ring is what says "keys go here now".
+                            Modifier.border(1.dp, kb.accent, fieldShape)
                         } else {
-                            Modifier
+                            Modifier.chipBorder(kb, fieldShape)
                         },
                     )
                     .clickable(onClick = onFocus)
@@ -451,7 +457,7 @@ private fun InputWidget(
             ) {
                 Text(
                     value.ifEmpty { widget.placeholder },
-                    color = if (value.isEmpty()) kb.secondaryText else kb.keyText,
+                    color = if (value.isEmpty()) kb.secondaryText else kb.chipText,
                     fontSize = 13.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,

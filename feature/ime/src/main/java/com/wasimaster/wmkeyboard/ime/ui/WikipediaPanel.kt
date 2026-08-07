@@ -77,12 +77,14 @@ internal fun WikipediaPanel(
             .fillMaxWidth()
             .height(height),
     ) {
+        val fieldShape = kb.chipShape()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 4.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(fieldShape)
                 .background(kb.chip)
+                .chipBorder(kb, fieldShape)
                 .clickable { onQueryTap() }
                 .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -102,7 +104,7 @@ internal fun WikipediaPanel(
                     stringResource(R.string.ime_wiki_search_hint)
                 },
                 active = state.mediaSearchActive,
-                textColor = kb.modifierKeyText,
+                textColor = kb.chipText,
                 placeholderColor = kb.toolbarIcon,
                 fontSize = 14.sp,
                 modifier = Modifier.weight(1f),

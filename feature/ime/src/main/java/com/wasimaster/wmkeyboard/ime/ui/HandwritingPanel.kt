@@ -193,8 +193,9 @@ internal fun HandwritingPanel(
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(4.dp)
-                        .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                        .clip(kb.chipShape())
                         .background(kb.chip)
+                        .chipBorder(kb, kb.chipShape())
                         .clickable {
                             feedback()
                             val next = distinctTags[
@@ -393,13 +394,14 @@ private fun HwRailKey(
 ) {
     val kb = LocalKbTheme.current
     val scope = rememberCoroutineScope()
-    val shape = RoundedCornerShape(kb.keyRadiusDp.dp)
+    val shape = kb.keyShape()
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(2.dp)
             .clip(shape)
             .background(kb.modifierKey, shape)
+            .panelKeyBorder(kb, shape)
             .pointerInput(repeatable) {
                 detectTapGestures(
                     onPress = {

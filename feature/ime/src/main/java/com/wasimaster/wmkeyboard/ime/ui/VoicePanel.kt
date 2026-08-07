@@ -141,14 +141,15 @@ internal fun VoicePanel(
                     Spacer(Modifier.height(10.dp))
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(kb.keyRadiusDp.dp))
-                            .background(kb.toolCircleActive)
+                            .clip(kb.chipShape())
+                            .background(kb.chipActive)
+                            .chipBorder(kb, kb.chipShape())
                             .pointerInput(Unit) { detectTapGestures { onRequestPermission() } }
                             .padding(horizontal = 20.dp, vertical = 10.dp),
                     ) {
                         Text(
                             stringResource(R.string.ime_voice_permission_action),
-                            color = kb.toolCircleActiveIcon,
+                            color = kb.chipActiveText,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                         )
@@ -426,12 +427,14 @@ private fun MicContent(
                 }
             } else {
                 val translate = state.settings.whisper.translate
+                val toggleShape = kb.chipShape()
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
-                        .background(if (translate) kb.toolCircleActive else kb.chip)
+                        .clip(toggleShape)
+                        .background(if (translate) kb.chipActive else kb.chip)
+                        .chipBorder(kb, toggleShape)
                         .clickable { onToggleTranslate() }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 ) {
@@ -439,7 +442,7 @@ private fun MicContent(
                         Icons.Outlined.Translate,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = if (translate) kb.toolCircleActiveIcon else kb.secondaryText,
+                        tint = if (translate) kb.chipActiveText else kb.secondaryText,
                     )
                     Text(
                         if (translate) {
@@ -447,7 +450,7 @@ private fun MicContent(
                         } else {
                             stringResource(R.string.ime_voice_translate_label)
                         },
-                        color = if (translate) kb.toolCircleActiveIcon else kb.secondaryText,
+                        color = if (translate) kb.chipActiveText else kb.secondaryText,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(start = 5.dp),
                     )
@@ -746,13 +749,14 @@ private fun VoiceRailKey(
 ) {
     val kb = LocalKbTheme.current
     val scope = rememberCoroutineScope()
-    val shape = RoundedCornerShape(kb.keyRadiusDp.dp)
+    val shape = kb.keyShape()
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(2.dp)
             .clip(shape)
             .background(kb.modifierKey, shape)
+            .panelKeyBorder(kb, shape)
             .pointerInput(repeatable) {
                 detectTapGestures(
                     onPress = {

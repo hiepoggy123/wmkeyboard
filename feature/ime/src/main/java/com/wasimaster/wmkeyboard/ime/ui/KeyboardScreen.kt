@@ -3631,17 +3631,16 @@ private fun FancyStyleStrip(
             ) {
                 lazyRowItems(FancyStyles.all) { style ->
                     val selected = style.id == active.id
+                    val kb = LocalKbTheme.current
+                    val chipShape = kb.chipShape()
                     Text(
                         text = style.sample,
                         modifier = Modifier
                             .padding(horizontal = 2.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(
-                                if (selected) {
-                                    MaterialTheme.colorScheme.secondaryContainer
-                                } else {
-                                    Color.Transparent
-                                },
+                            .clip(chipShape)
+                            .background(if (selected) kb.chipActive else Color.Transparent)
+                            .then(
+                                if (selected) Modifier.chipBorder(kb, chipShape) else Modifier,
                             )
                             .clickable { onStyleSelect(style.id) }
                             .padding(horizontal = 8.dp, vertical = 8.dp)
@@ -3649,7 +3648,7 @@ private fun FancyStyleStrip(
                             // the plain name instead.
                             .semantics { contentDescription = style.name },
                         fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = if (selected) kb.chipActiveText else kb.suggestionText,
                         maxLines = 1,
                     )
                 }
@@ -12403,9 +12402,11 @@ private fun SnippetsPanel(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             itemsIndexed(state.snippets, key = { _, snippet -> snippet.id }) { index, snippet ->
+                val kb = LocalKbTheme.current
+                val cardShape = kb.chipShape()
                 Column(
                     modifier = Modifier
-                        .focusRing(index == focused, RoundedCornerShape(12.dp))
+                        .focusRing(index == focused, cardShape)
                         .animateItem(
                             fadeInSpec = tween(160),
                             placementSpec = spring(
@@ -12414,7 +12415,9 @@ private fun SnippetsPanel(
                             ),
                             fadeOutSpec = tween(140),
                         )
-                        .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
+                        .clip(cardShape)
+                        .background(kb.chip)
+                        .chipBorder(kb, cardShape)
                         .clickable { onSnippet(snippet) }
                         .padding(10.dp),
                 ) {
@@ -12519,9 +12522,13 @@ private fun ClipboardSearchField(
     modifier: Modifier = Modifier,
 ) {
     val active = state.clipboardSearchActive
+    val kb = LocalKbTheme.current
+    val fieldShape = kb.chipShape()
     Row(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(20.dp))
+            .clip(fieldShape)
+            .background(kb.chip)
+            .chipBorder(kb, fieldShape)
             .clickable { onToggle() }
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -12698,10 +12705,14 @@ private fun ClipboardPanelContent(
                 ),
             ) {
                 var showInfo by remember { mutableStateOf(false) }
+                val kb = LocalKbTheme.current
+                val cardShape = kb.chipShape()
                 Column(
                     modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
-                        .focusRing(index == focused, RoundedCornerShape(12.dp))
+                        .clip(cardShape)
+                        .background(kb.chip)
+                        .chipBorder(kb, cardShape)
+                        .focusRing(index == focused, cardShape)
                         .pointerInput(item.id) {
                             detectTapGestures(
                                 onTap = { onClipboardItem(item) },

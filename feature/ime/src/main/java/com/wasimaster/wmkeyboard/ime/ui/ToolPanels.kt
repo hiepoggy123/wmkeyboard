@@ -169,7 +169,7 @@ private fun ToolPanelKey(
 ) {
     val kb = LocalKbTheme.current
     val scope = rememberCoroutineScope()
-    val shape = RoundedCornerShape(kb.keyRadiusDp.dp)
+    val shape = kb.keyShape()
     // Pressed tint, since these keys sit outside the main grid's press
     // machinery — without it a held numpad digit gives no sign it landed.
     var pressed by remember { mutableStateOf(false) }
@@ -177,6 +177,7 @@ private fun ToolPanelKey(
         modifier = modifier
             .clip(shape)
             .background(if (pressed) kb.pressedKey else kb.modifierKey, shape)
+            .panelKeyBorder(kb, shape)
             .pointerInput(repeatable) {
                 detectTapGestures(
                     onPress = {
@@ -694,17 +695,19 @@ private fun WeatherStat(
     modifier: Modifier = Modifier,
 ) {
     val kb = LocalKbTheme.current
+    val shape = kb.chipShape()
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(shape)
             .background(kb.chip)
+            .chipBorder(kb, shape)
             .padding(horizontal = 6.dp, vertical = 6.dp),
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = kb.toolbarIcon)
         Text(
             value,
-            color = kb.modifierKeyText,
+            color = kb.chipText,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
@@ -1589,6 +1592,7 @@ private fun ThemesTabChips(
         modifier = modifier.padding(horizontal = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        val shape = kb.chipShape()
         listOf(
             R.string.ime_themes_tab_themes,
             R.string.ime_themes_tab_icons,
@@ -1596,7 +1600,7 @@ private fun ThemesTabChips(
             val active = (index == 1) == iconsTab
             Text(
                 stringResource(labelRes),
-                color = if (active) kb.toolCircleActiveIcon else kb.suggestionText,
+                color = if (active) kb.chipActiveText else kb.chipText,
                 fontSize = 12.sp,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                 textAlign = TextAlign.Center,
@@ -1604,11 +1608,10 @@ private fun ThemesTabChips(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .weight(1f)
-                    .background(
-                        if (active) kb.toolCircleActive else kb.chip,
-                        RoundedCornerShape(12.dp),
-                    )
-                    .focusRing(index == focused, RoundedCornerShape(12.dp))
+                    .clip(shape)
+                    .background(if (active) kb.chipActive else kb.chip)
+                    .chipBorder(kb, shape)
+                    .focusRing(index == focused, shape)
                     .clickable { onSelect(index == 1) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
             )
@@ -1923,11 +1926,15 @@ internal fun SoundHapticsPanel(
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         if (settings.keySound && ringerMode != AudioManager.RINGER_MODE_NORMAL) {
+            // A warning, so the error tint stays — but it sits in a chip's
+            // clothes: the theme's chip shape and, when set, its outline.
+            val warnShape = kb.chipShape()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(warnShape)
                     .background(MaterialTheme.colorScheme.errorContainer)
+                    .chipBorder(kb, warnShape)
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

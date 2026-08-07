@@ -107,11 +107,15 @@ private fun KeypadButton(
 ) {
     val kb = LocalKbTheme.current
     val feedback = LocalKeyPressFeedback.current
+    // These are keys, so they dress like the key grid: the theme's key
+    // shape and border, not the chip pair the panel buttons wear.
+    val shape = kb.keyShape()
     Box(
         modifier = modifier
             .padding(2.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(shape)
             .background(if (accent) kb.toolCircleActive else kb.key)
+            .panelKeyBorder(kb, shape)
             .clickable { feedback(); onClick() },
         contentAlignment = Alignment.Center,
     ) {
@@ -284,18 +288,20 @@ internal fun CalculatorPanel(
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         // Display: expression, live result, insert.
+        val displayShape = kb.chipShape()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(displayShape)
                 .background(kb.chip)
+                .chipBorder(kb, displayShape)
                 .padding(horizontal = 10.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
                     expression.ifEmpty { "0" },
-                    color = kb.modifierKeyText,
+                    color = kb.chipText,
                     fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

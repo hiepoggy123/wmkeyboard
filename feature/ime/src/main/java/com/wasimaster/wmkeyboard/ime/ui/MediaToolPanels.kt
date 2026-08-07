@@ -273,11 +273,14 @@ internal fun RowScope.MediaHeaderSearchBar(
 ) {
     val kb = LocalKbTheme.current
     val activeHint = activePlaceholder ?: stringResource(R.string.ime_media_search_active_hint)
+    val shape = kb.chipShape()
     Row(
         modifier = Modifier
             .weight(1f)
             .padding(start = 6.dp, end = 4.dp)
-            .background(kb.chip, RoundedCornerShape(18.dp))
+            .clip(shape)
+            .background(kb.chip)
+            .chipBorder(kb, shape)
             .clickable { onQueryTap() }
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -329,11 +332,14 @@ private fun MediaSearchBar(
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val shape = kb.chipShape()
         Row(
             modifier = Modifier
                 .weight(1f)
-                .background(kb.chip, RoundedCornerShape(20.dp))
-                .focusRing(focused, RoundedCornerShape(20.dp))
+                .clip(shape)
+                .background(kb.chip)
+                .chipBorder(kb, shape)
+                .focusRing(focused, shape)
                 .clickable { onQueryTap() }
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -722,11 +728,12 @@ private fun GifSourceChips(
             .padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        val shape = kb.chipShape()
         chips.forEachIndexed { index, chip ->
             val active = index == selectedIndex
             Text(
                 stringResource(chip.labelRes),
-                color = if (active) kb.toolCircleActiveIcon else kb.suggestionText,
+                color = if (active) kb.chipActiveText else kb.chipText,
                 fontSize = 12.sp,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                 textAlign = TextAlign.Center,
@@ -734,8 +741,10 @@ private fun GifSourceChips(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .weight(1f)
-                    .background(if (active) kb.toolCircleActive else kb.chip, RoundedCornerShape(12.dp))
-                    .focusRing(index == focused, RoundedCornerShape(12.dp))
+                    .clip(shape)
+                    .background(if (active) kb.chipActive else kb.chip)
+                    .chipBorder(kb, shape)
+                    .focusRing(index == focused, shape)
                     .clickable { onSelect(chip.source) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
             )
@@ -770,18 +779,18 @@ private fun GifCategoryChips(
             // Trending carries the blank term, so it is the active chip
             // exactly when no category is.
             val active = category.term == selected.orEmpty()
+            val shape = kb.chipShape()
             Text(
                 categoryLabel(category),
-                color = if (active) kb.toolCircleActiveIcon else kb.suggestionText,
+                color = if (active) kb.chipActiveText else kb.chipText,
                 fontSize = 11.sp,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
                 modifier = Modifier
-                    .background(
-                        if (active) kb.toolCircleActive else kb.chip,
-                        RoundedCornerShape(10.dp),
-                    )
-                    .focusRing(index == focused, RoundedCornerShape(10.dp))
+                    .clip(shape)
+                    .background(if (active) kb.chipActive else kb.chip)
+                    .chipBorder(kb, shape)
+                    .focusRing(index == focused, shape)
                     .clickable { onSelect(category.term) }
                     .padding(horizontal = 10.dp, vertical = 3.dp),
             )
@@ -811,16 +820,19 @@ private fun StickerPackChips(
     ) {
         val allLabel = stringResource(R.string.ime_sticker_pack_all_label)
         val entries = listOf<Pair<String?, String>>(null to allLabel) + packs.map { it.id to it.name }
+        val shape = kb.chipShape()
         for ((id, label) in entries) {
             val active = id == selected
             Text(
                 label,
-                color = if (active) kb.toolCircleActiveIcon else kb.suggestionText,
+                color = if (active) kb.chipActiveText else kb.chipText,
                 fontSize = 11.sp,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
                 modifier = Modifier
-                    .background(if (active) kb.toolCircleActive else kb.chip, RoundedCornerShape(10.dp))
+                    .clip(shape)
+                    .background(if (active) kb.chipActive else kb.chip)
+                    .chipBorder(kb, shape)
                     .clickable { onSelect(id) }
                     .padding(horizontal = 10.dp, vertical = 3.dp),
             )
@@ -1235,14 +1247,16 @@ internal fun TranslatePanel(
             Box {
                 Row(
                     modifier = Modifier
-                        .background(kb.chip, RoundedCornerShape(14.dp))
+                        .clip(kb.chipShape())
+                        .background(kb.chip)
+                        .chipBorder(kb, kb.chipShape())
                         .clickable { pickerOpen = true }
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         TranslateClient.languageName(target),
-                        color = kb.suggestionText,
+                        color = kb.chipText,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -1326,9 +1340,12 @@ private fun TranslateAction(
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
+    val shape = kb.chipShape()
     Row(
         modifier = modifier
-            .background(if (enabled) kb.toolCircleActive else kb.chip, RoundedCornerShape(16.dp))
+            .clip(shape)
+            .background(if (enabled) kb.chipActive else kb.chip)
+            .chipBorder(kb, shape)
             .clickable(enabled = enabled) { onClick() }
             .padding(vertical = 7.dp),
         horizontalArrangement = Arrangement.Center,
@@ -1339,13 +1356,13 @@ private fun TranslateAction(
                 icon,
                 contentDescription = null,
                 modifier = Modifier.size(15.dp),
-                tint = if (enabled) kb.toolCircleActiveIcon else kb.secondaryText,
+                tint = if (enabled) kb.chipActiveText else kb.secondaryText,
             )
             Spacer(Modifier.width(5.dp))
         }
         Text(
             label,
-            color = if (enabled) kb.toolCircleActiveIcon else kb.secondaryText,
+            color = if (enabled) kb.chipActiveText else kb.secondaryText,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,

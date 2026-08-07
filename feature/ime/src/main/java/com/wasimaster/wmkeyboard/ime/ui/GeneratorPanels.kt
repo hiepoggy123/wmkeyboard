@@ -137,18 +137,20 @@ internal fun PasswordPanel(
             .fillMaxSize()
             .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
+        val cardShape = kb.chipShape()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(cardShape)
                 .background(kb.chip)
+                .chipBorder(kb, cardShape)
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 generated.ifEmpty { "…" },
-                color = kb.modifierKeyText,
+                color = kb.chipText,
                 fontSize = 15.sp,
                 fontFamily = FontFamily.Monospace,
                 maxLines = 2,

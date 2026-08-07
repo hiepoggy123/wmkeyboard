@@ -225,6 +225,17 @@ fun Modifier.chipBorder(kb: KbTheme, shape: Shape): Modifier =
         this
     }
 
+/**
+ * The key outline a theme asked for, or nothing — so the panel keypads
+ * (calculator, numpad, the handwriting and voice rails) match the key grid.
+ */
+fun Modifier.panelKeyBorder(kb: KbTheme, shape: Shape): Modifier =
+    if (kb.keyBorder != null && kb.keyBorderWidthDp > 0f) {
+        border(kb.keyBorderWidthDp.dp, kb.keyBorder, shape)
+    } else {
+        this
+    }
+
 /** Added text and deleted text, for the AI tool's comparison view. */
 internal data class DiffColors(val added: Color, val deleted: Color)
 
