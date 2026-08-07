@@ -5587,8 +5587,13 @@ private fun ToolboxGrid(
                 Box(
                     modifier = Modifier
                         .toolboxCellWidth(columns)
-                        // Every cell is the same size; whichever
-                        // reported last feeds the slot math.
+                        // Every cell is the same size, so whichever reported
+                        // last feeds the slot math. That is an invariant the
+                        // tap and drop maths depend on, not an observation:
+                        // width is fixed by toolboxCellWidth and height by the
+                        // label's fixed line count. Anything put in a cell that
+                        // can change its height breaks hit testing for every
+                        // row below it.
                         .onGloballyPositioned { drag.toolboxCellSize = it.size.toSize() },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -5655,6 +5660,18 @@ private fun ToolboxGrid(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                 .copy(alpha = if (ghost) 0.5f else 1f),
                             textAlign = TextAlign.Center,
+                            // Always two lines, never one and never three, so
+                            // every cell is the same height. The grid's tap and
+                            // drop maths divide a touch by one cell size to get
+                            // a slot, which is only true of a uniform grid: when
+                            // a long name wrapped and a short one did not, rows
+                            // differed in height, the error accumulated downwards
+                            // and a tap landed on the tool below — further out
+                            // the further down you were, until the index ran off
+                            // the end and the last tools stopped opening at all.
+                            minLines = 2,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
                                 .padding(top = 4.dp, start = 2.dp, end = 2.dp)
                                 .fillMaxWidth(),
