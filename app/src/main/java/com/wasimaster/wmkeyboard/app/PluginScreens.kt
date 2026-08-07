@@ -123,16 +123,22 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
 
                             else -> stringResource(R.string.plugins_row_version, plugin.version)
                         }
-                        WmRow(
-                            title = plugin.name,
-                            subtitle = subtitle,
-                            trailing = {
-                                Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
-                            },
-                            // The arrow promises a tap opens it. It used to sit
-                            // above a separate "Manage" button and do nothing.
-                            onClick = { onNavigate("plugin/${plugin.id}") },
-                        )
+                        HighlightableItem(plugin.id) {
+                            WmRow(
+                                title = plugin.name,
+                                subtitle = subtitle,
+                                trailing = {
+                                    Icon(
+                                        Icons.AutoMirrored.Outlined.ArrowForward,
+                                        contentDescription = null,
+                                    )
+                                },
+                                // The arrow promises a tap opens it. It used to
+                                // sit above a separate "Manage" button and do
+                                // nothing.
+                                onClick = { onNavigate("plugin/${plugin.id}") },
+                            )
+                        }
                     }
                 }
             }

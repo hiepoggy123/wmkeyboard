@@ -360,6 +360,17 @@ internal fun AddonStoreGroup(type: AddonType, onNavigate: (String) -> Unit) {
     SettingsGroup { item { AddonStoreRow(type, onNavigate) } }
 }
 
+/** [ReturnAnchor] key for the Addons screen — its repositories and its installs. */
+private const val ADDONS_ANCHOR = "addons"
+
+/**
+ * [ReturnAnchor] key for one repository's catalogue.
+ *
+ * Per repository, not one for the store: two catalogues can be open on the back
+ * stack at once, and an id from one of them means nothing in the other.
+ */
+private fun repoAnchorKey(manifestUrl: String) = "addon-repo:$manifestUrl"
+
 // ---- repository list -------------------------------------------------
 
 /**
@@ -389,6 +400,12 @@ internal fun AddonsScreen(
     var showAdd by remember { mutableStateOf(prefillUrl.isNotBlank()) }
     var refreshing by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+
+    // The row this screen was last left from, so coming back from a repository
+    // or an addon lands on it. A repository is named by its manifest URL and an
+    // installed addon by its "repoId/addonId" key, so one anchor serves both
+    // lists without them ever being able to answer for each other.
+    val returnTo = remember { ReturnAnchor.take(ADDONS_ANCHOR) }
 
     // Seed the sample repository the first time this screen is opened rather
     // than at startup: it costs nothing until someone actually looks for
@@ -505,7 +522,11 @@ internal fun AddonsScreen(
 
     SettingsGroup(if (repos.isEmpty()) null else stringResource(R.string.addon_repos_section_title)) {
         for (ref in repos) {
-            item { RepositoryRow(ref, store, typeFilter, onNavigate) }
+            item {
+                ScrollAnchor(ref.manifestUrl == returnTo) {
+                    RepositoryRow(ref, store, typeFilter, onNavigate)
+                }
+            }
         }
     }
 
@@ -529,48 +550,51 @@ internal fun AddonsScreen(
                     // tagged here — it is the heading's own word, and this row
                     // spends it inside a longer line.
                     val page = addonFlightRoute(url, key.substringAfterLast('/'))
-                    WmRow(
-                        title = record.name.ifBlank { key },
-                        titleContent = {
-                            Text(
-                                record.name.ifBlank { key },
-                                modifier = Modifier.wmSharedBounds(takeOffKey("name", page)),
-                            )
-                        },
-                        // The type becomes the page's heading and the version
-                        // its line of numbers, so they travel as their own
-                        // words rather than inside one sentence.
-                        supporting = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                    ScrollAnchor(key == returnTo) {
+                        WmRow(
+                            title = record.name.ifBlank { key },
+                            titleContent = {
                                 Text(
-                                    stringResource(record.type.singularLabelRes),
-                                    modifier = Modifier.wmSharedBounds(takeOffKey("title", page)),
+                                    record.name.ifBlank { key },
+                                    modifier = Modifier.wmSharedBounds(takeOffKey("name", page)),
                                 )
-                                if (record.version.isNotBlank()) {
-                                    Text(" · ")
+                            },
+                            // The type becomes the page's heading and the version
+                            // its line of numbers, so they travel as their own
+                            // words rather than inside one sentence.
+                            supporting = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        addonMetaLine(record.version, null, ""),
-                                        modifier = Modifier
-                                            .wmSharedBounds(takeOffKey("meta", page)),
+                                        stringResource(record.type.singularLabelRes),
+                                        modifier = Modifier.wmSharedBounds(takeOffKey("title", page)),
                                     )
+                                    if (record.version.isNotBlank()) {
+                                        Text(" · ")
+                                        Text(
+                                            addonMetaLine(record.version, null, ""),
+                                            modifier = Modifier
+                                                .wmSharedBounds(takeOffKey("meta", page)),
+                                        )
+                                    }
+                                    if (record.repoName.isNotBlank()) {
+                                        Text(" · ${record.repoName}", maxLines = 1)
+                                    }
                                 }
-                                if (record.repoName.isNotBlank()) {
-                                    Text(" · ${record.repoName}", maxLines = 1)
-                                }
-                            }
-                        },
-                        leading = {
-                            Icon(
-                                record.type.icon,
-                                contentDescription = null,
-                                tint = tintFor(record.type),
-                                modifier = Modifier.wmSharedElement(takeOffKey("icon", page)),
-                            )
-                        },
-                        onClick = takeOffClick {
-                            onNavigate(addonDetailRoute(url, key.substringAfterLast('/')))
-                        },
-                    )
+                            },
+                            leading = {
+                                Icon(
+                                    record.type.icon,
+                                    contentDescription = null,
+                                    tint = tintFor(record.type),
+                                    modifier = Modifier.wmSharedElement(takeOffKey("icon", page)),
+                                )
+                            },
+                            onClick = takeOffClick {
+                                ReturnAnchor.arm(ADDONS_ANCHOR, key)
+                                onNavigate(addonDetailRoute(url, key.substringAfterLast('/')))
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -851,7 +875,10 @@ private fun RepositoryRow(
             }
         },
         enabled = manifest != null,
-        onClick = { onNavigate(addonRepoRoute(ref.manifestUrl, typeFilter)) },
+        onClick = {
+            ReturnAnchor.arm(ADDONS_ANCHOR, ref.manifestUrl)
+            onNavigate(addonRepoRoute(ref.manifestUrl, typeFilter))
+        },
     )
 }
 
@@ -943,6 +970,10 @@ internal fun AddonRepoScreen(
         typeFilterName.takeIf { it.isNotEmpty() }
             ?.let { name -> AddonType.entries.firstOrNull { it.name == name } }
     }
+    // The card an addon's page was opened from. Saved scroll state alone does
+    // not survive this trip: a card grows when its screenshot decodes, so the
+    // restored offset is clamped against a catalogue that is still short.
+    val returnTo = remember(manifestUrl) { ReturnAnchor.take(repoAnchorKey(manifestUrl)) }
 
     if (ref == null || manifest == null) {
         CaptionText(stringResource(R.string.addon_repo_read_error))
@@ -1022,13 +1053,16 @@ internal fun AddonRepoScreen(
             Row(modifier = Modifier.padding(horizontal = 12.dp)) {
                 for (entry in row) {
                     Box(modifier = Modifier.weight(1f)) {
-                        AddonCard(
-                            entry,
-                            manifest.repo,
-                            manifestUrl,
-                            onInstall = { request(entry) },
-                        ) {
-                            onNavigate(addonDetailRoute(manifestUrl, entry.id))
+                        ScrollAnchor(entry.id == returnTo) {
+                            AddonCard(
+                                entry,
+                                manifest.repo,
+                                manifestUrl,
+                                onInstall = { request(entry) },
+                            ) {
+                                ReturnAnchor.arm(repoAnchorKey(manifestUrl), entry.id)
+                                onNavigate(addonDetailRoute(manifestUrl, entry.id))
+                            }
                         }
                     }
                 }
@@ -1305,13 +1339,31 @@ private val AddonType.settingsAnchor: Int
     }
 
 /**
- * Opens the screen that owns this type, scrolled to the control that picks one.
+ * Opens the screen that owns this type, scrolled to the addon itself.
+ *
+ * [localRef] is the handle the install produced — a custom theme or layout id, a
+ * pack or font id, a word list's path. The owning screen lists its things under
+ * exactly those ids, so it is what puts the user in front of the one they just
+ * installed rather than at the top of a list of thirty. A snippet pack installs
+ * several at once and hands over all of their ids.
+ *
+ * Blank for an addon that isn't installed yet (the Use button only appears once
+ * it is) and for a record written before the type recorded a handle, and then
+ * the type's section anchor is all there is — still the right screen, still the
+ * right section, just not the right row.
  *
  * The anchor is armed before navigating because the destination's rows read it
  * during their first composition — the same order the search screen uses.
  */
-private fun AddonType.openSettings(onNavigate: (String) -> Unit) {
-    settingsAnchor.takeIf { it != 0 }?.let(SettingsHighlight::request)
+private fun AddonType.openSettings(onNavigate: (String) -> Unit, localRef: String = "") {
+    val anchor = settingsAnchor
+    // Snippets are stored as one comma-joined list of the ids the import added.
+    val keys = if (this == AddonType.Snippets) {
+        localRef.split(',').map { it.trim() }
+    } else {
+        listOf(localRef)
+    }
+    SettingsHighlight.requestItems(keys, anchor)
     onNavigate(settingsRoute)
 }
 
@@ -1720,7 +1772,7 @@ private fun InstalledAddonDetail(
         }
     }
     OutlinedButton(
-        onClick = { record.type.openSettings(onNavigate) },
+        onClick = { record.type.openSettings(onNavigate, record.localRef) },
         modifier = Modifier.padding(horizontal = 16.dp),
     ) {
         Icon(
@@ -1818,10 +1870,13 @@ private fun AddonActions(
                 if (installed || updatable) UninstallButton(onUninstall)
             }
             // Installing puts the file on the device; for most types choosing it
-            // is a second step on another screen. This is the way there.
+            // is a second step on another screen. This is the way there — and
+            // the install record is what names the thing to stand in front of
+            // once the screen opens.
             if (installed || updatable) {
+                val localRef = store.installed(entry.key(repo.id))?.localRef.orEmpty()
                 OutlinedButton(
-                    onClick = { entry.type.openSettings(onNavigate) },
+                    onClick = { entry.type.openSettings(onNavigate, localRef) },
                     modifier = Modifier.padding(horizontal = 16.dp),
                 ) {
                     Icon(

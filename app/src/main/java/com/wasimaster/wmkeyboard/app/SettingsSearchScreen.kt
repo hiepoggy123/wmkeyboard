@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.Gavel
 import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
@@ -110,7 +111,24 @@ internal object SettingsHighlight {
         private set
 
     /**
-     * Bumped on every [request].
+     * The list entries to flash, named by whatever id the screen holding them
+     * uses — a theme or layout id, a pack id, a dictionary file path.
+     *
+     * A resource id cannot name one of these: they are the user's own things,
+     * and no two installations have the same set. A row's title cannot either,
+     * because two installed addons may well share a name. So an addon's Use
+     * button hands over the local handle its install produced
+     * ([com.wasimaster.wmkeyboard.core.addons.InstalledAddon.localRef]) and the
+     * owning screen matches on it.
+     *
+     * A set, not one id: a snippet pack installs several snippets at once and
+     * all of them are what the user just downloaded.
+     */
+    var targetItems: Set<String> by mutableStateOf(emptySet())
+        private set
+
+    /**
+     * Bumped on every request.
      *
      * A screen being torn down clears any highlight it is leaving behind, so
      * that one which found no matching row doesn't flash something unrelated
@@ -122,19 +140,84 @@ internal object SettingsHighlight {
     var serial: Int by mutableIntStateOf(0)
         private set
 
+    /**
+     * False until one of the flashing rows has scrolled itself into view.
+     *
+     * Several rows can match one request, and every one of them asking to be
+     * brought into view would leave whichever was placed last on screen. The
+     * first to claim it wins, which in a top-to-bottom composition is the
+     * topmost — where the eye already is.
+     */
+    private var scrollClaimed = false
+
     fun request(@StringRes titleRes: Int) {
         target = titleRes
+        targetItems = emptySet()
+        scrollClaimed = false
         serial++
     }
 
+    /**
+     * Flashes the entries named by [keys], falling back to the row [titleRes]
+     * names when the screen turns out not to list any of them.
+     */
+    fun requestItems(keys: Collection<String>, @StringRes titleRes: Int = 0) {
+        target = titleRes
+        targetItems = keys.filter { it.isNotBlank() }.toSet()
+        scrollClaimed = false
+        serial++
+    }
+
+    /** True for the one row that gets to scroll itself into view. */
+    fun claimScroll(): Boolean {
+        if (scrollClaimed) return false
+        scrollClaimed = true
+        return true
+    }
+
+    /** True once some row has scrolled itself into view for this request. */
+    fun scrollTaken(): Boolean = scrollClaimed
+
     fun clear() {
         target = 0
+        targetItems = emptySet()
     }
 
     /** Clears only if nothing new was requested since [serialAtEntry]. */
     fun clearIfUnchanged(serialAtEntry: Int) {
-        if (serial == serialAtEntry) target = 0
+        if (serial == serialAtEntry) clear()
     }
+}
+
+/**
+ * Where a list screen should be standing the next time it is composed, armed by
+ * the screen itself on its way out.
+ *
+ * Navigation keeps a route's saveable state while it sits on the back stack, so
+ * coming back from an addon's page or a language's page *usually* restores the
+ * scroll position on its own. It stops being reliable the moment the content
+ * measures shorter on the first frame than it did on the last — a catalogue
+ * whose cards grow as their screenshots decode is exactly that shape, and a
+ * scroll offset past the end of a half-built page is clamped to what fits.
+ * Naming the entry instead of an offset survives it.
+ *
+ * Not [SettingsHighlight]: coming back to where you were is not the same event
+ * as being sent somewhere, and it must not flash. It is also keyed by route, so
+ * an anchor left by one screen can never be consumed by another.
+ *
+ * A plain map rather than Compose state — the only reader is a `remember` at
+ * screen entry, and nothing re-reads it as it changes.
+ */
+internal object ReturnAnchor {
+    private val pending = HashMap<String, String>()
+
+    /** Called as the screen navigates away, naming the entry being opened. */
+    fun arm(route: String, key: String) {
+        if (key.isNotBlank()) pending[route] = key
+    }
+
+    /** Reads [route]'s anchor and forgets it, so it is used exactly once. */
+    fun take(route: String): String? = pending.remove(route)
 }
 
 /**
@@ -157,6 +240,12 @@ internal object SettingsHighlight {
 internal fun HighlightableRow(
     title: String?,
     @StringRes highlightKey: Int = 0,
+    /**
+     * True for a whole section rather than one row. A group and a row inside it
+     * can both answer to the same name, and then the row is the better answer —
+     * see [HighlightFrame].
+     */
+    coarse: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val target = SettingsHighlight.target
@@ -166,6 +255,89 @@ internal fun HighlightableRow(
         title == null -> false
         else -> title == stringResource(target)
     }
+    HighlightFrame(
+        requested = requested,
+        rank = if (coarse) HighlightRank.SECTION else HighlightRank.ROW,
+        content = content,
+    )
+}
+
+/**
+ * How precisely a wrapper names what the user asked for. The narrowest match on
+ * screen is the one that scrolls and pulses; see [HighlightFrame].
+ */
+private enum class HighlightRank(val settleMillis: Long) {
+    /** One entry of a list, matched on the screen's own id for it. */
+    ITEM(80),
+
+    /** One row, matched by name. */
+    ROW(200),
+
+    /** A whole named section. */
+    SECTION(320),
+}
+
+/**
+ * [HighlightableRow] for one entry of a list the user owns — an installed theme,
+ * layout, pack or word list — matched on the screen's own id for it rather than
+ * on a string resource.
+ *
+ * This is the other half of an addon's Use button: the section anchor lands the
+ * user on the right screen, and this puts them in front of the thing they just
+ * installed, which on a screen listing thirty fonts is the whole of the answer.
+ */
+@Composable
+internal fun HighlightableItem(key: String, content: @Composable () -> Unit) {
+    HighlightFrame(
+        requested = key.isNotEmpty() && key in SettingsHighlight.targetItems,
+        rank = HighlightRank.ITEM,
+        content = content,
+    )
+}
+
+/**
+ * Scrolls its content into view once, without flashing it.
+ *
+ * For "you were already here": the current selection in a picker, the entry a
+ * screen was opened from. A pulse says *this is the thing you asked for*, and
+ * spending it every time a dialog opens on its own default would leave it
+ * meaning nothing when a search result or an addon actually needs it.
+ */
+@Composable
+internal fun ScrollAnchor(active: Boolean, content: @Composable () -> Unit) {
+    val requester = remember { BringIntoViewRequester() }
+    LaunchedEffect(active) {
+        if (!active) return@LaunchedEffect
+        // One frame's grace so the row has been placed before we scroll to it.
+        delay(80)
+        requester.bringIntoView()
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .bringIntoViewRequester(requester),
+    ) {
+        content()
+    }
+}
+
+/**
+ * The scroll-and-pulse itself, shared by the highlight wrappers.
+ *
+ * One request routinely matches at more than one size: an addon names both the
+ * section that owns its kind and the entry it installed, and a group can carry
+ * the same name as a row inside it. The narrowest match is the right answer —
+ * landing on the font you installed beats landing on the words "Installed
+ * fonts" — so each rank waits a little longer than the one below it and stands
+ * down once something narrower has taken the screen. Flashing all of them would
+ * pulse twice and scroll to whichever happened to be placed last.
+ */
+@Composable
+private fun HighlightFrame(
+    requested: Boolean,
+    rank: HighlightRank,
+    content: @Composable () -> Unit,
+) {
     var flashing by remember { mutableStateOf(false) }
     val requester = remember { BringIntoViewRequester() }
     val color by animateColorAsState(
@@ -175,10 +347,18 @@ internal fun HighlightableRow(
         label = "settingHighlight",
     )
     LaunchedEffect(requested) {
-        if (!requested) return@LaunchedEffect
-        // One frame's grace so the row has been placed before we scroll to it.
-        delay(80)
-        requester.bringIntoView()
+        // Also the path out of a flash that the *first* matching row ended by
+        // clearing the request: without it this one would keep its tint for as
+        // long as the screen lives.
+        if (!requested) {
+            flashing = false
+            return@LaunchedEffect
+        }
+        // A frame's grace so the row has been placed before we scroll to it,
+        // plus however long this rank owes the narrower ones.
+        delay(rank.settleMillis)
+        if (rank != HighlightRank.ITEM && SettingsHighlight.scrollTaken()) return@LaunchedEffect
+        if (SettingsHighlight.claimScroll()) requester.bringIntoView()
         flashing = true
         delay(1400)
         flashing = false
@@ -235,6 +415,7 @@ internal val SettingsRouteIcons: Map<String, ImageVector> = mapOf(
     "addons" to Icons.Outlined.Extension,
     "accessibility" to Icons.Outlined.Accessibility,
     "privacy" to Icons.Outlined.Security,
+    "permissions" to Icons.Outlined.Key,
     "backup" to Icons.Outlined.Save,
     "about" to Icons.Outlined.Info,
     "storage" to Icons.Outlined.PieChart,

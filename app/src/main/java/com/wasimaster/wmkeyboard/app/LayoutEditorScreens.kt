@@ -131,6 +131,9 @@ import kotlinx.coroutines.launch
  * gives about 17dp per key. A full-width row with a one-line shape summary
  * carries more than a shrunken grid would.
  */
+/** [ReturnAnchor] key for the key-layouts list. */
+private const val KEYMAPS_ANCHOR = "keymaps"
+
 @Composable
 internal fun KeyLayoutsScreen(
     repository: SettingsRepository,
@@ -197,6 +200,11 @@ internal fun KeyLayoutsScreen(
         }
     }
 
+    // The layout the editor was last opened on. A grid takes a while to build,
+    // and coming out of one to hunt for it again in a list of every layout you
+    // have made and every shipped one you have on is the sort of small tax that
+    // makes an editor tiring to use.
+    val returnTo = remember { ReturnAnchor.take(KEYMAPS_ANCHOR) }
     val layouts = resolveLayouts(settings.customLayouts)
     val customIds = settings.customLayouts.map { it.id }.toSet()
     // "Shipped" is both the compiled built-ins and the JSON asset layouts.
@@ -229,12 +237,18 @@ internal fun KeyLayoutsScreen(
      * someone ends up unable to type well enough to undo it. Custom layouts go
      * live only from their toggle under Languages, and only once they validate.
      */
+    /** Opens the editor, and remembers the row to come back to. */
+    fun openEditor(id: String) {
+        ReturnAnchor.arm(KEYMAPS_ANCHOR, id)
+        onNavigate("keymap_edit/$id")
+    }
+
     fun duplicateAndEdit(base: LayoutSpec) {
         scope.launch {
             val id = "custom_${System.currentTimeMillis()}"
             val name = context.getString(R.string.layout_editor_duplicate_name_format, base.name)
             repository.upsertCustomLayout(base.copy(id = id, name = name))
-            onNavigate("keymap_edit/$id")
+            openEditor(id)
         }
     }
 
@@ -265,18 +279,20 @@ internal fun KeyLayoutsScreen(
         }
         for (layout in customs) {
             item {
-                LayoutRow(
-                    layout = layout,
-                    enabled = layout.id in settings.enabledLayoutIds,
-                    onEdit = { onNavigate("keymap_edit/${layout.id}") },
-                    onExport = {
-                        pendingExport = layout
-                        exportLauncher.launch(LayoutFile.fileName(layout))
-                    },
-                    onDuplicate = { duplicateAndEdit(layout) },
-                    onDelete = { confirmDelete = layout },
-                    deleteIsReset = false,
-                )
+                ScrollAnchor(layout.id == returnTo) {
+                    LayoutRow(
+                        layout = layout,
+                        enabled = layout.id in settings.enabledLayoutIds,
+                        onEdit = { openEditor(layout.id) },
+                        onExport = {
+                            pendingExport = layout
+                            exportLauncher.launch(LayoutFile.fileName(layout))
+                        },
+                        onDuplicate = { duplicateAndEdit(layout) },
+                        onDelete = { confirmDelete = layout },
+                        deleteIsReset = false,
+                    )
+                }
             }
         }
     }
@@ -301,25 +317,27 @@ internal fun KeyLayoutsScreen(
         SettingsGroup(stringResource(R.string.layout_editor_built_in_title)) {
             for (layout in builtIns) {
                 item {
-                    LayoutRow(
-                        layout = layout,
-                        enabled = layout.id in settings.enabledLayoutIds,
-                        onEdit = { onNavigate("keymap_edit/${layout.id}") },
-                        onExport = {
-                            pendingExport = layout
-                            exportLauncher.launch(LayoutFile.fileName(layout))
-                        },
-                        onDuplicate = { duplicateAndEdit(layout) },
-                        // An edited built-in is stored as an override under the same
-                        // id, so removing it restores the shipped grid rather than
-                        // deleting anything — hence Reset, not Delete.
-                        onDelete = if (layout.id in customIds) {
-                            { confirmDelete = layout }
-                        } else {
-                            null
-                        },
-                        deleteIsReset = true,
-                    )
+                    ScrollAnchor(layout.id == returnTo) {
+                        LayoutRow(
+                            layout = layout,
+                            enabled = layout.id in settings.enabledLayoutIds,
+                            onEdit = { openEditor(layout.id) },
+                            onExport = {
+                                pendingExport = layout
+                                exportLauncher.launch(LayoutFile.fileName(layout))
+                            },
+                            onDuplicate = { duplicateAndEdit(layout) },
+                            // An edited built-in is stored as an override under the same
+                            // id, so removing it restores the shipped grid rather than
+                            // deleting anything — hence Reset, not Delete.
+                            onDelete = if (layout.id in customIds) {
+                                { confirmDelete = layout }
+                            } else {
+                                null
+                            },
+                            deleteIsReset = true,
+                        )
+                    }
                 }
             }
         }

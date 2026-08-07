@@ -197,16 +197,18 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
         }
         for (pack in packs) {
             item {
-                StickerPackRow(
-                    pack = pack,
-                    fileFor = { store.fileFor(pack.id, it) },
-                    onOpen = { onNavigate("sticker_pack/${pack.id}") },
-                    onExport = {
-                        pendingExport = pack
-                        exportLauncher.launch(StickerPackFile.fileName(pack))
-                    },
-                    onDelete = { confirmDelete = pack },
-                )
+                HighlightableItem(pack.id) {
+                    StickerPackRow(
+                        pack = pack,
+                        fileFor = { store.fileFor(pack.id, it) },
+                        onOpen = { onNavigate("sticker_pack/${pack.id}") },
+                        onExport = {
+                            pendingExport = pack
+                            exportLauncher.launch(StickerPackFile.fileName(pack))
+                        },
+                        onDelete = { confirmDelete = pack },
+                    )
+                }
             }
         }
     }

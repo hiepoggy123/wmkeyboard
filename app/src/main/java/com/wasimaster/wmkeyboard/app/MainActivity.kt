@@ -3728,46 +3728,48 @@ private fun InstalledSoundSection(
         for (sound in sounds) {
             val selected = settings.keySoundStyle == KeySoundStyle.CUSTOM &&
                 settings.keySoundCustom.customId == sound.id
-            WmRow(
-                title = sound.name,
-                supporting = sound.author.takeIf { it.isNotBlank() }?.let { { Text(it) } },
-                trailing = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (selected) {
-                            Icon(
-                                Icons.Outlined.Check,
-                                contentDescription = stringResource(
-                                    R.string.hardware_sound_selected_desc,
-                                ),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                        IconButton(onClick = {
-                            scope.launch {
-                                if (selected) repository.setKeySoundStyle(KeySoundStyle.CLICK)
-                                withContext(Dispatchers.IO) { store.delete(sound.id) }
-                                // The pool keeps its decoded copy independently
-                                // of the file, so it has to be told too.
-                                KeySoundPlayer.forgetCustom(sound.id)
+            HighlightableItem(sound.id) {
+                WmRow(
+                    title = sound.name,
+                    supporting = sound.author.takeIf { it.isNotBlank() }?.let { { Text(it) } },
+                    trailing = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (selected) {
+                                Icon(
+                                    Icons.Outlined.Check,
+                                    contentDescription = stringResource(
+                                        R.string.hardware_sound_selected_desc,
+                                    ),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
                             }
-                        }) {
-                            Icon(
-                                Icons.Outlined.Delete,
-                                contentDescription = stringResource(
-                                    R.string.hardware_sound_delete_desc,
-                                    sound.name,
-                                ),
-                            )
+                            IconButton(onClick = {
+                                scope.launch {
+                                    if (selected) repository.setKeySoundStyle(KeySoundStyle.CLICK)
+                                    withContext(Dispatchers.IO) { store.delete(sound.id) }
+                                    // The pool keeps its decoded copy independently
+                                    // of the file, so it has to be told too.
+                                    KeySoundPlayer.forgetCustom(sound.id)
+                                }
+                            }) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = stringResource(
+                                        R.string.hardware_sound_delete_desc,
+                                        sound.name,
+                                    ),
+                                )
+                            }
                         }
-                    }
-                },
-                onClick = {
-                    scope.launch { repository.setKeySoundCustomId(sound.id) }
-                    KeySoundPlayer.preview(
-                        context, KeySoundStyle.CUSTOM, settings.keySoundVolume, sound.id,
-                    )
-                },
-            )
+                    },
+                    onClick = {
+                        scope.launch { repository.setKeySoundCustomId(sound.id) }
+                        KeySoundPlayer.preview(
+                            context, KeySoundStyle.CUSTOM, settings.keySoundVolume, sound.id,
+                        )
+                    },
+                )
+            }
         }
         // Beside the file importer: the store is the other way to get a sound,
         // and it is the one that works when the user has no file to import.
@@ -4986,6 +4988,9 @@ private fun layoutOneHandedSideLabelRes(side: OneHandedSide): Int = when (side) 
 
 // ---- languages ----
 
+/** [ReturnAnchor] key for the Languages screen's "Your languages" list. */
+private const val LANGUAGES_ANCHOR = "languages"
+
 @Composable
 private fun LanguageSettings(
     repository: SettingsRepository,
@@ -4997,6 +5002,10 @@ private fun LanguageSettings(
     // Same prompt the add-language list shows, so the shortlist below cannot be
     // the one path that downloads a language's data without asking.
     val dataPrompt = rememberLanguageDataPrompt()
+    // The language this screen was last left from. Someone who went into Bangla
+    // to fetch its dictionary comes back to Bangla, not to the top of a list of
+    // eleven languages they then have to find it in again.
+    val returnTo = remember { ReturnAnchor.take(LANGUAGES_ANCHOR) }
     CaptionText(stringResource(R.string.langemoji_lang_intro_body))
     // "Your languages" is the enabled set (deduped, in switch order); each opens
     // its detail. Adding one is a search over the whole registry.
@@ -5006,11 +5015,16 @@ private fun LanguageSettings(
                 val names = settings.enabledLayoutIds
                     .filter { resolveLayout(settings.customLayouts, it).language().id == language.id }
                     .joinToString { resolveLayout(settings.customLayouts, it).name }
-                NavRow(
-                    language.displayName,
-                    subtitle = names.ifBlank { null },
-                    route = "language/${language.id}",
-                ) { onNavigate("language/${language.id}") }
+                ScrollAnchor(language.id == returnTo) {
+                    NavRow(
+                        language.displayName,
+                        subtitle = names.ifBlank { null },
+                        route = "language/${language.id}",
+                    ) {
+                        ReturnAnchor.arm(LANGUAGES_ANCHOR, language.id)
+                        onNavigate("language/${language.id}")
+                    }
+                }
             }
         }
         item {
@@ -5038,6 +5052,9 @@ private fun LanguageSettings(
                     ) {
                         dataPrompt.ask(suggestion.language) {
                             addLanguage(scope, repository, settings, suggestion.language)
+                            // It is about to be one of "your languages", and
+                            // coming back is where the user will look for it.
+                            ReturnAnchor.arm(LANGUAGES_ANCHOR, suggestion.language.id)
                             onNavigate("language/${suggestion.language.id}")
                         }
                     }
@@ -5103,23 +5120,30 @@ private fun LanguageSettings(
     SettingsGroup(stringResource(R.string.langemoji_lang_your_layouts_title)) {
         for (layout in customs) {
             item {
-                ToggleSetting(
-                    layout.name,
-                    stringResource(
-                        R.string.langemoji_lang_custom_layout_subtitle,
-                        baseModeTitle(layout),
-                    ),
-                    layout.id in settings.enabledLayoutIds,
-                ) { enable ->
-                    fun write() {
-                        scope.launch {
-                            val next =
-                                if (enable) settings.enabledLayoutIds + layout.id
-                                else settings.enabledLayoutIds - layout.id
-                            if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
+                // An installed layout arrives switched off and this switch is
+                // what finishes the install, so its addon's Use button lands
+                // here — on the layout's own row, not on the group.
+                HighlightableItem(layout.id) {
+                    ToggleSetting(
+                        layout.name,
+                        stringResource(
+                            R.string.langemoji_lang_custom_layout_subtitle,
+                            baseModeTitle(layout),
+                        ),
+                        layout.id in settings.enabledLayoutIds,
+                    ) { enable ->
+                        fun write() {
+                            scope.launch {
+                                val next =
+                                    if (enable) settings.enabledLayoutIds + layout.id
+                                    else settings.enabledLayoutIds - layout.id
+                                if (next.isNotEmpty()) {
+                                    repository.setEnabledLayoutIds(next.distinct())
+                                }
+                            }
                         }
+                        if (enable) enableGate(layout.id) { write() } else write()
                     }
-                    if (enable) enableGate(layout.id) { write() } else write()
                 }
             }
         }
@@ -7096,36 +7120,40 @@ private fun CustomDictionarySettings(
         SettingsGroup(language.englishName) {
             for (entry in entries) {
                 item {
-                    WmRow(
-                        title = entry.file.nameWithoutExtension,
-                        subtitle = pluralStringResource(
-                            R.plurals.customdict_word_count,
-                            entry.words,
-                            entry.words,
-                        ),
-                        trailing = {
-                            IconButton(
-                                enabled = !busy,
-                                onClick = {
-                                    scope.launch {
-                                        withContext(Dispatchers.IO) {
-                                            CustomDictionaries.remove(entry.file)
+                    // A downloaded word list is recorded by its path, which is
+                    // what an addon's Use button hands over.
+                    HighlightableItem(entry.file.absolutePath) {
+                        WmRow(
+                            title = entry.file.nameWithoutExtension,
+                            subtitle = pluralStringResource(
+                                R.plurals.customdict_word_count,
+                                entry.words,
+                                entry.words,
+                            ),
+                            trailing = {
+                                IconButton(
+                                    enabled = !busy,
+                                    onClick = {
+                                        scope.launch {
+                                            withContext(Dispatchers.IO) {
+                                                CustomDictionaries.remove(entry.file)
+                                            }
+                                            refresh()
+                                            repository.bumpCustomDictVersion()
                                         }
-                                        refresh()
-                                        repository.bumpCustomDictVersion()
-                                    }
-                                },
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Delete,
-                                    contentDescription = stringResource(
-                                        R.string.customdict_delete_list_desc,
-                                        entry.file.nameWithoutExtension,
-                                    ),
-                                )
-                            }
-                        },
-                    )
+                                    },
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Delete,
+                                        contentDescription = stringResource(
+                                            R.string.customdict_delete_list_desc,
+                                            entry.file.nameWithoutExtension,
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
             }
             item {
@@ -7373,36 +7401,38 @@ private fun EmojiKeywordSettings(
             }
             for (entry in entries) {
                 item {
-                    WmRow(
-                        title = entry.file.nameWithoutExtension,
-                        subtitle = pluralStringResource(
-                            R.plurals.customdict_emoji_count,
-                            entry.emoji,
-                            entry.emoji,
-                        ),
-                        trailing = {
-                            IconButton(
-                                enabled = !busy,
-                                onClick = {
-                                    scope.launch {
-                                        withContext(Dispatchers.IO) {
-                                            EmojiKeywordPacks.remove(entry.file)
+                    HighlightableItem(entry.file.absolutePath) {
+                        WmRow(
+                            title = entry.file.nameWithoutExtension,
+                            subtitle = pluralStringResource(
+                                R.plurals.customdict_emoji_count,
+                                entry.emoji,
+                                entry.emoji,
+                            ),
+                            trailing = {
+                                IconButton(
+                                    enabled = !busy,
+                                    onClick = {
+                                        scope.launch {
+                                            withContext(Dispatchers.IO) {
+                                                EmojiKeywordPacks.remove(entry.file)
+                                            }
+                                            refresh()
+                                            repository.bumpEmojiKeywordPackVersion()
                                         }
-                                        refresh()
-                                        repository.bumpEmojiKeywordPackVersion()
-                                    }
-                                },
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Delete,
-                                    contentDescription = stringResource(
-                                        R.string.customdict_delete_pack_desc,
-                                        entry.file.nameWithoutExtension,
-                                    ),
-                                )
-                            }
-                        },
-                    )
+                                    },
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Delete,
+                                        contentDescription = stringResource(
+                                            R.string.customdict_delete_pack_desc,
+                                            entry.file.nameWithoutExtension,
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
             }
             item {
@@ -7721,13 +7751,17 @@ private fun FontPickerSection(
             for (font in relevant) {
                 item {
                     val id = FontStore.fontIdFor(font.id)
-                    FontChoiceRow(
-                        label = font.name,
-                        family = remember(id) { KeyboardFonts.family(context, id) },
-                        sample = sample,
-                        selected = selectedId == id,
-                        onDelete = onDeleteInstalled?.let { delete -> { delete(font) } },
-                    ) { onSelect(id) }
+                    // Matched on the library id, not the prefixed settings one:
+                    // an install records the font exactly as the store knows it.
+                    HighlightableItem(font.id) {
+                        FontChoiceRow(
+                            label = font.name,
+                            family = remember(id) { KeyboardFonts.family(context, id) },
+                            sample = sample,
+                            selected = selectedId == id,
+                            onDelete = onDeleteInstalled?.let { delete -> { delete(font) } },
+                        ) { onSelect(id) }
+                    }
                 }
             }
         }
@@ -11197,80 +11231,84 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
     SettingsGroup {
         for (snippet in snippets) {
             item {
-                WmRow(
-                    title = snippet.label,
-                    supporting = {
-                        Column {
-                            Text(snippet.text, maxLines = 2)
-                            val preview = SnippetStore.expandWithCursor(
-                                snippet.text,
-                                context = SNIPPET_PREVIEW_CONTEXT,
-                            ).text
-                            if (snippet.text != preview) {
-                                Text(
-                                    stringResource(
-                                        R.string.privacy_snippets_inserts_as_label,
-                                        preview,
-                                    ),
-                                    maxLines = 2,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
+                // Snippet ids are numbers; an install records the batch it
+                // added as one comma-joined list of them.
+                HighlightableItem(snippet.id.toString()) {
+                    WmRow(
+                        title = snippet.label,
+                        supporting = {
+                            Column {
+                                Text(snippet.text, maxLines = 2)
+                                val preview = SnippetStore.expandWithCursor(
+                                    snippet.text,
+                                    context = SNIPPET_PREVIEW_CONTEXT,
+                                ).text
+                                if (snippet.text != preview) {
+                                    Text(
+                                        stringResource(
+                                            R.string.privacy_snippets_inserts_as_label,
+                                            preview,
+                                        ),
+                                        maxLines = 2,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                                val trigger = snippet.trigger
+                                val pattern = snippet.triggerPattern
+                                // Which of the two lines a trigger gets is only
+                                // about wording: one asks first, the other rewrites
+                                // what you typed, and the row has to say which.
+                                if (trigger != null) {
+                                    Text(
+                                        stringResource(
+                                            if (snippet.confirm) {
+                                                R.string.privacy_snippets_trigger_asks_label
+                                            } else {
+                                                R.string.privacy_snippets_trigger_label
+                                            },
+                                            trigger,
+                                        ),
+                                        maxLines = 1,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                } else if (pattern != null) {
+                                    Text(
+                                        stringResource(
+                                            if (snippet.confirm) {
+                                                R.string.privacy_snippets_pattern_asks_label
+                                            } else {
+                                                R.string.privacy_snippets_pattern_label
+                                            },
+                                            pattern,
+                                        ),
+                                        maxLines = 1,
+                                        fontFamily = FontFamily.Monospace,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
-                            val trigger = snippet.trigger
-                            val pattern = snippet.triggerPattern
-                            // Which of the two lines a trigger gets is only
-                            // about wording: one asks first, the other rewrites
-                            // what you typed, and the row has to say which.
-                            if (trigger != null) {
-                                Text(
-                                    stringResource(
-                                        if (snippet.confirm) {
-                                            R.string.privacy_snippets_trigger_asks_label
-                                        } else {
-                                            R.string.privacy_snippets_trigger_label
-                                        },
-                                        trigger,
-                                    ),
-                                    maxLines = 1,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            } else if (pattern != null) {
-                                Text(
-                                    stringResource(
-                                        if (snippet.confirm) {
-                                            R.string.privacy_snippets_pattern_asks_label
-                                        } else {
-                                            R.string.privacy_snippets_pattern_label
-                                        },
-                                        pattern,
-                                    ),
-                                    maxLines = 1,
-                                    fontFamily = FontFamily.Monospace,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                        },
+                        trailing = {
+                            Row {
+                                IconButton(onClick = { editing = snippet }) {
+                                    Icon(
+                                        Icons.Outlined.Edit,
+                                        contentDescription = stringResource(CommonR.string.common_edit),
+                                    )
+                                }
+                                IconButton(onClick = { mutate { it.remove(snippet.id) } }) {
+                                    Icon(
+                                        Icons.Outlined.Delete,
+                                        contentDescription = stringResource(CommonR.string.common_delete),
+                                    )
+                                }
                             }
-                        }
-                    },
-                    trailing = {
-                        Row {
-                            IconButton(onClick = { editing = snippet }) {
-                                Icon(
-                                    Icons.Outlined.Edit,
-                                    contentDescription = stringResource(CommonR.string.common_edit),
-                                )
-                            }
-                            IconButton(onClick = { mutate { it.remove(snippet.id) } }) {
-                                Icon(
-                                    Icons.Outlined.Delete,
-                                    contentDescription = stringResource(CommonR.string.common_delete),
-                                )
-                            }
-                        }
-                    },
-                )
+                        },
+                    )
+                }
             }
         }
     }

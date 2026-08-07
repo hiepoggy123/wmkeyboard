@@ -210,16 +210,21 @@ private fun ThemePickerDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 for ((id, name) in options) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onPick(id) }
-                            .padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = id == selectedId, onClick = { onPick(id) })
-                        Spacer(Modifier.width(8.dp))
-                        Text(name)
+                    // Opens on the theme it is already set to. The list is every
+                    // built-in plus every theme the user made, so the row that
+                    // is on is routinely well below the fold.
+                    ScrollAnchor(id == selectedId) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(id) }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = id == selectedId, onClick = { onPick(id) })
+                            Spacer(Modifier.width(8.dp))
+                            Text(name)
+                        }
                     }
                 }
             }
@@ -255,16 +260,18 @@ internal fun ModeThemePickerDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 for ((id, name) in options) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onPick(id) }
-                            .padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = id == selectedId, onClick = { onPick(id) })
-                        Spacer(Modifier.width(8.dp))
-                        Text(name)
+                    ScrollAnchor(id == selectedId) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(id) }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = id == selectedId, onClick = { onPick(id) })
+                            Spacer(Modifier.width(8.dp))
+                            Text(name)
+                        }
                     }
                 }
             }
@@ -420,28 +427,30 @@ internal fun KeyShapePickerDialog(
                 }
                 for (kind in KeyShapeKind.entries) {
                     val picked = kind == selected
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onPick(kind) }
-                            .padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = picked, onClick = { onPick(kind) })
-                        Spacer(Modifier.width(8.dp))
-                        Text(keyShapeName(kind), modifier = Modifier.weight(1f))
-                        Spacer(Modifier.width(8.dp))
-                        KeyShapeSwatch(
-                            kind = kind,
-                            radiusDp = radiusDp,
-                            // The picked shape carries the accent, so the row
-                            // that is on reads at a glance from the swatches.
-                            color = if (picked) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        )
+                    ScrollAnchor(picked) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(kind) }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = picked, onClick = { onPick(kind) })
+                            Spacer(Modifier.width(8.dp))
+                            Text(keyShapeName(kind), modifier = Modifier.weight(1f))
+                            Spacer(Modifier.width(8.dp))
+                            KeyShapeSwatch(
+                                kind = kind,
+                                radiusDp = radiusDp,
+                                // The picked shape carries the accent, so the row
+                                // that is on reads at a glance from the swatches.
+                                color = if (picked) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -757,20 +766,24 @@ fun ThemesScreen(
         Row(modifier = Modifier.padding(horizontal = 12.dp)) {
             for (theme in rowThemes) {
                 Box(modifier = Modifier.weight(1f)) {
-                    ThemeCard(
-                        theme = theme,
-                        selected = settings.keyboardThemeId == theme.id,
-                        onSelect = { scope.launch { repository.setKeyboardThemeId(theme.id) } },
-                        onEdit = { onEditTheme(theme.id) },
-                        onExport = { export(theme) },
-                        onDelete = {
-                            scope.launch {
-                                theme.backgroundImage?.let { File(it).delete() }
-                                theme.backgroundImageLandscape?.let { File(it).delete() }
-                                repository.deleteCustomTheme(theme.id)
-                            }
-                        },
-                    )
+                    // Downloaded themes are custom themes, so this is where an
+                    // addon's Use button lands — on the card, not on the header.
+                    HighlightableItem(theme.id) {
+                        ThemeCard(
+                            theme = theme,
+                            selected = settings.keyboardThemeId == theme.id,
+                            onSelect = { scope.launch { repository.setKeyboardThemeId(theme.id) } },
+                            onEdit = { onEditTheme(theme.id) },
+                            onExport = { export(theme) },
+                            onDelete = {
+                                scope.launch {
+                                    theme.backgroundImage?.let { File(it).delete() }
+                                    theme.backgroundImageLandscape?.let { File(it).delete() }
+                                    repository.deleteCustomTheme(theme.id)
+                                }
+                            },
+                        )
+                    }
                 }
             }
             if (rowThemes.size == 1) Spacer(Modifier.weight(1f))
@@ -2634,25 +2647,30 @@ private fun ThemeFontChoiceRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-    ) {
-        Text(
-            label,
-            fontFamily = family,
-            fontSize = 17.sp,
-            modifier = Modifier.weight(1f),
-        )
-        if (selected) {
-            Icon(
-                Icons.Outlined.Check,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+    // Both lists this row builds — every installed and Google face, every sound
+    // style plus every imported clip — are longer than the dialog, so the row
+    // that is on brings the dialog to it.
+    ScrollAnchor(selected) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 10.dp),
+        ) {
+            Text(
+                label,
+                fontFamily = family,
+                fontSize = 17.sp,
+                modifier = Modifier.weight(1f),
             )
+            if (selected) {
+                Icon(
+                    Icons.Outlined.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }

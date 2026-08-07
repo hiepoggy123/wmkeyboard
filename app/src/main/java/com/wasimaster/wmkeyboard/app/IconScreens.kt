@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
@@ -33,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -220,25 +222,27 @@ internal fun IconsScreen(
                 }
                 val exportDesc = stringResource(R.string.plugins_icons_pack_export_desc, pack.name)
                 val deleteDesc = stringResource(R.string.plugins_icons_pack_delete_desc, pack.name)
-                PackRow(
-                    name = pack.name,
-                    supporting = countText + authorText + versionText,
-                    selected = settings.icons.activePackId == pack.id,
-                    onClick = { scope.launch { repository.setIconPack(pack.id) } },
-                    trailing = {
-                        Row {
-                            IconButton(onClick = {
-                                pendingExport = pack
-                                exportLauncher.launch(IconPackFile.fileName(pack))
-                            }) {
-                                Icon(Icons.Outlined.FileUpload, contentDescription = exportDesc)
+                HighlightableItem(pack.id) {
+                    PackRow(
+                        name = pack.name,
+                        supporting = countText + authorText + versionText,
+                        selected = settings.icons.activePackId == pack.id,
+                        onClick = { scope.launch { repository.setIconPack(pack.id) } },
+                        trailing = {
+                            Row {
+                                IconButton(onClick = {
+                                    pendingExport = pack
+                                    exportLauncher.launch(IconPackFile.fileName(pack))
+                                }) {
+                                    Icon(Icons.Outlined.FileUpload, contentDescription = exportDesc)
+                                }
+                                IconButton(onClick = { confirmDelete = pack }) {
+                                    Icon(Icons.Outlined.Delete, contentDescription = deleteDesc)
+                                }
                             }
-                            IconButton(onClick = { confirmDelete = pack }) {
-                                Icon(Icons.Outlined.Delete, contentDescription = deleteDesc)
-                            }
-                        }
-                    },
-                )
+                        },
+                    )
+                }
             }
         }
     }
@@ -521,7 +525,16 @@ private fun IconPickerDialog(
                         ),
                     )
                 } else {
+                    val gridState = rememberLazyGridState()
+                    // Opens on the glyph this slot already carries. The catalogue
+                    // runs to hundreds of icons in a 280dp window, so a slot that
+                    // has been changed once is otherwise a scrolling hunt.
+                    LaunchedEffect(shown) {
+                        val index = shown.indexOf(selected)
+                        if (index >= 0) gridState.scrollToItem(index)
+                    }
                     LazyVerticalGrid(
+                        state = gridState,
                         columns = GridCells.Adaptive(52.dp),
                         modifier = Modifier.heightIn(max = 280.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),

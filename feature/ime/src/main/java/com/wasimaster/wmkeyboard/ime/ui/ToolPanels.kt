@@ -1550,6 +1550,17 @@ private fun ThemesPanelBody(
         val focused = state.focusedIndex()
         val gridState = rememberLazyGridState()
         ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
+        // Opened on the theme you are wearing. The shortlist runs past what
+        // fits as soon as there are a few custom themes, and a grid that always
+        // starts at "Auto" hides the one card the panel is really about — the
+        // live one, which is also what someone switching away starts from.
+        // Placed, not animated: this is where the panel opens, not a move.
+        LaunchedEffect(Unit) {
+            val index = themes.indexOfFirst { it.id == selectedId }
+            // Index 0 is the leading Auto card, so a theme sits one past its own
+            // position, exactly as the focus target above counts them.
+            if (index >= 0) gridState.scrollToItem(index + 1)
+        }
         LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Fixed(2),
@@ -1652,6 +1663,12 @@ private fun IconPacksGrid(
     // draw built-in glyphs for the frame or two the parse takes.
     val previews = remember(revision) { mutableStateMapOf<String, IconSet>() }
     val selected = state.settings.icons.activePackId
+    // The active pack, for the same reason the themes half opens on the live
+    // theme. Index 0 is the built-in card, which is where an empty id belongs.
+    LaunchedEffect(Unit) {
+        val index = packs.indexOfFirst { it.id == selected }
+        if (index >= 0) gridState.scrollToItem(index + 1)
+    }
     LazyVerticalGrid(
         state = gridState,
         columns = GridCells.Fixed(2),
