@@ -1,0 +1,249 @@
+package com.wasimaster.wmkeyboard.core.gesture
+
+/**
+ * Pooled state store, alignment columns and index heap for [GlideBeam].
+ *
+ * One instance per decoding thread. Everything a decode needs is allocated on
+ * first use and reused forever after, so a swipe costs no garbage beyond the
+ * words it emits — the same contract `BeamWorkspace` holds for the typing beam,
+ * and it matters more here: a preview decodes several times per stroke.
+ *
+ * The one thing this workspace has that `BeamWorkspace` does not is [cols], the
+ * dynamic-programming columns. Each state owns [SAMPLE_POINTS] floats recording,
+ * for every position along the drawn path, the best cost of having spelled this
+ * state's prefix by that position. That is what makes the search exact rather
+ * than greedy, and it is also why [MAX_STATES] exists: a column is 192 bytes, so
+ * an unbounded frontier would be megabytes per decode rather than a fixed
+ * [CAPACITY_BYTES_NOTE].
+ */
+class GlideWorkspace {
+
+    var node = IntArray(INITIAL); private set
+    var parent = IntArray(INITIAL); private set
+    var viaLabel = CharArray(INITIAL); private set
+
+    /** Key index the last consumed character sits on; -1 at the root. */
+    var lastKey = IntArray(INITIAL); private set
+
+    /** Characters spelled so far, repeats included. */
+    var length = ShortArray(INITIAL); private set
+
+    /** Cost accumulated outside the alignment: doubled letters, for now. */
+    var extra = FloatArray(INITIAL); private set
+
+    /** Best (lowest) value in this state's column — the admissible remainder. */
+    var floorCost = FloatArray(INITIAL); private set
+
+    var bound = DoubleArray(INITIAL); private set
+
+    /** [SAMPLE_POINTS] alignment costs per state, laid end to end. */
+    var cols = FloatArray(INITIAL * SAMPLE_POINTS); private set
+
+    private var size = 0
+    private var heap = IntArray(INITIAL)
+    var heapSize = 0; private set
+
+    /** Resampled path: key-width coordinates and the sample clock. */
+    val pathX = FloatArray(SAMPLE_POINTS)
+    val pathY = FloatArray(SAMPLE_POINTS)
+    val pathT = LongArray(SAMPLE_POINTS)
+
+    /**
+     * Arc length between consecutive samples, in key widths. Because the
+     * resampling is by arc length this single number converts a gap in sample
+     * indices into a distance the finger actually travelled, which is the whole
+     * basis of the decoder's second cost term.
+     */
+    var arcStep = 0f
+
+    /** `pointCost[i * keyCount + k]`, filled per decode by [GlideBeam]. */
+    var pointCost = FloatArray(SAMPLE_POINTS * INITIAL_KEYS); private set
+
+    /** Keys the drawn path passes close enough to be spelling. */
+    var nearKey = BooleanArray(INITIAL_KEYS); private set
+
+    /** Keys close enough to the stroke's first sample to start a word. */
+    var startKey = BooleanArray(INITIAL_KEYS); private set
+
+    /** Keys close enough to the stroke's last sample to end one. */
+    var endKey = BooleanArray(INITIAL_KEYS); private set
+
+    val children = com.wasimaster.wmkeyboard.core.prediction.ChildBuffer()
+
+    /**
+     * Where a candidate column is built before anyone knows whether it is worth
+     * keeping. The bound that decides that is read off the column itself, so
+     * the alternative would be allocating a state to hold a column we then
+     * throw away — which at this state count is most of them.
+     */
+    val scratch = FloatArray(SAMPLE_POINTS)
+
+    private val sb = StringBuilder(24)
+
+    /** True once the state pool is full — the decode is running on a backstop. */
+    var saturated = false; private set
+
+    fun reset() {
+        size = 0
+        heapSize = 0
+        saturated = false
+    }
+
+    /** Grows the per-key scratch to cover a grid of [keyCount] keys. */
+    fun prepareKeys(keyCount: Int) {
+        if (nearKey.size < keyCount) {
+            nearKey = BooleanArray(keyCount)
+            startKey = BooleanArray(keyCount)
+            endKey = BooleanArray(keyCount)
+        } else {
+            nearKey.fill(false, 0, keyCount)
+            startKey.fill(false, 0, keyCount)
+            endKey.fill(false, 0, keyCount)
+        }
+        val needed = SAMPLE_POINTS * keyCount
+        if (pointCost.size < needed) pointCost = FloatArray(needed)
+    }
+
+    /**
+     * Appends a state and schedules it for expansion, returning its id — or -1
+     * when the pool is full, which the caller treats as "do not explore this".
+     */
+    @Suppress("LongParameterList")
+    fun push(
+        node: Int,
+        parent: Int,
+        viaLabel: Char,
+        lastKey: Int,
+        length: Int,
+        extra: Float,
+        floorCost: Float,
+        bound: Double,
+    ): Int {
+        if (size >= MAX_STATES) {
+            saturated = true
+            return -1
+        }
+        ensure(size + 1)
+        val id = size++
+        this.node[id] = node
+        this.parent[id] = parent
+        this.viaLabel[id] = viaLabel
+        this.lastKey[id] = lastKey
+        this.length[id] = length.toShort()
+        this.extra[id] = extra
+        this.floorCost[id] = floorCost
+        this.bound[id] = bound
+        heapPush(id)
+        return id
+    }
+
+    /** Start of state [id]'s column within [cols]. */
+    fun columnOf(id: Int): Int = id * SAMPLE_POINTS
+
+    /** Commits [scratch] as state [id]'s column. */
+    fun storeScratch(id: Int) {
+        System.arraycopy(scratch, 0, cols, id * SAMPLE_POINTS, SAMPLE_POINTS)
+    }
+
+    /** Copies one state's column onto another — a repeated letter reuses it. */
+    fun copyColumn(from: Int, to: Int) {
+        System.arraycopy(cols, from * SAMPLE_POINTS, cols, to * SAMPLE_POINTS, SAMPLE_POINTS)
+    }
+
+    fun popBest(): Int {
+        val top = heap[0]
+        heapSize--
+        if (heapSize > 0) {
+            heap[0] = heap[heapSize]
+            siftDown(0)
+        }
+        return top
+    }
+
+    /** Rebuilds the word for state [s] from its parent chain. */
+    fun materialize(s: Int): String {
+        sb.setLength(0)
+        var cur = s
+        while (cur >= 0) {
+            val label = viaLabel[cur]
+            if (label != NO_LABEL) sb.append(label)
+            cur = parent[cur]
+        }
+        sb.reverse()
+        return sb.toString()
+    }
+
+    private fun ensure(needed: Int) {
+        if (node.size >= needed) return
+        var capacity = node.size
+        while (capacity < needed) capacity *= 2
+        capacity = minOf(capacity, MAX_STATES)
+        node = node.copyOf(capacity)
+        parent = parent.copyOf(capacity)
+        viaLabel = viaLabel.copyOf(capacity)
+        lastKey = lastKey.copyOf(capacity)
+        length = length.copyOf(capacity)
+        extra = extra.copyOf(capacity)
+        floorCost = floorCost.copyOf(capacity)
+        bound = bound.copyOf(capacity)
+        cols = cols.copyOf(capacity * SAMPLE_POINTS)
+    }
+
+    private fun heapPush(id: Int) {
+        if (heapSize == heap.size) heap = heap.copyOf(heap.size * 2)
+        heap[heapSize] = id
+        var i = heapSize++
+        while (i > 0) {
+            val up = (i - 1) ushr 1
+            if (bound[heap[up]] >= bound[heap[i]]) break
+            val tmp = heap[up]
+            heap[up] = heap[i]
+            heap[i] = tmp
+            i = up
+        }
+    }
+
+    private fun siftDown(start: Int) {
+        var i = start
+        while (true) {
+            val left = i * 2 + 1
+            if (left >= heapSize) break
+            val right = left + 1
+            var best = left
+            if (right < heapSize && bound[heap[right]] > bound[heap[left]]) best = right
+            if (bound[heap[i]] >= bound[heap[best]]) break
+            val tmp = heap[i]
+            heap[i] = heap[best]
+            heap[best] = tmp
+            i = best
+        }
+    }
+
+    companion object {
+        /**
+         * Path samples the drawn stroke is resampled to. The alignment is
+         * O(SAMPLE_POINTS) per trie edge and a column is 4 bytes a sample, so
+         * this is the decoder's one real size dial.
+         */
+        const val SAMPLE_POINTS = 48
+
+        /**
+         * Frontier cap, worth ~590 KB of columns once the pool has grown into
+         * it (MAX_STATES × SAMPLE_POINTS × 4 bytes). Best-first order means the
+         * states that matter are expanded first, so hitting this is a backstop
+         * rather than a bound anyone should reach; [saturated] records when it
+         * happened so the harness can see it rather than reading a quietly
+         * worse number.
+         */
+        const val MAX_STATES = 3072
+
+        private const val INITIAL = 256
+        private const val INITIAL_KEYS = 48
+
+        /** Stands in for "unreachable" in a column without overflowing on add. */
+        const val UNREACHABLE = Float.MAX_VALUE / 4f
+
+        /** Sentinel for the root, which consumed no trie edge. */
+        val NO_LABEL: Char = 0.toChar()
+    }
+}

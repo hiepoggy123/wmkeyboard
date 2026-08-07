@@ -97,7 +97,7 @@ import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundRole
 import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
-import com.wasimaster.wmkeyboard.core.gesture.GestureDecoder
+import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
@@ -832,17 +832,6 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var pendingDeadKey: Char? = null
 
-    /** English word list used by the gesture decoder (bundled dictionary). */
-    private var gestureLexicon: List<Pair<String, Int>> = emptyList()
-
-    /**
-     * `gestureLexicon` merged with the user's weighted personal words, cached so
-     * a live swipe (many preview events) doesn't rebuild a ~17k-entry list per
-     * event. Invalidated whenever either input changes (see
-     * [invalidateGestureLexicon]).
-     */
-    private var cachedGestureLexicon: List<Pair<String, Int>>? = null
-
     /** Word lists the user imported, one trie per language (empty when none). */
     private var customDictionaries: Map<String, WordSource> = emptyMap()
 
@@ -905,12 +894,13 @@ open class WMKeyboardService : InputMethodService() {
     private val gestureGeneration = AtomicInteger(0)
 
     /**
-     * One decoder per (grid, key width). Constructing it re-indexes the key
-     * centres, which a swipe was paying for on every preview event.
+     * One resolved letter grid per (key list, key width). Building it sorts the
+     * characters and squares up a key-to-key distance table, which a swipe was
+     * otherwise paying for on every preview event.
      */
-    private var cachedDecoder: GestureDecoder? = null
-    private var cachedDecoderKeys: List<KeyCenter> = emptyList()
-    private var cachedDecoderWidth = 0f
+    private var cachedKeyMap: GlideKeyMap? = null
+    private var cachedKeyMapKeys: List<KeyCenter> = emptyList()
+    private var cachedKeyMapWidth = 0f
 
     // ---- network tool state (translate, gif/sticker, web/image search) ----
     private var translateJob: Job? = null
@@ -1736,7 +1726,6 @@ open class WMKeyboardService : InputMethodService() {
                         emojiUsage.reload()
                         languageMixConfidence.reload()
                     }
-                    invalidateGestureLexicon()
                 }
                 lexiconVersion = settings.lexiconVersion
                 // Same contract for the typing counters: the Statistics
@@ -2111,8 +2100,6 @@ open class WMKeyboardService : InputMethodService() {
                 }.getOrDefault(SeedBigrams.EMPTY)
                 Triple(lw, v, seeds)
             }
-            gestureLexicon = englishEntries
-            invalidateGestureLexicon()
             // Personal-dictionary shortcut expansions (A28): one content query,
             // off the main thread, refreshed each time the dictionaries reload.
             userDictShortcuts = withContext(Dispatchers.Default) {
@@ -4606,7 +4593,6 @@ open class WMKeyboardService : InputMethodService() {
                     !state.secureField
                 ) {
                     userLexicon.addWord(revert.original, boost = 5)
-                    invalidateGestureLexicon()
                 }
                 previousWord = revert.original.lowercase().trim { !it.isLetter() }.ifEmpty { null }
                 invalidateRecentWords()
@@ -4774,12 +4760,6 @@ open class WMKeyboardService : InputMethodService() {
         WordContext.completedWordBefore(text, SENTENCE_ENDERS)
 
     /** Sets both context words from the text before the caret. */
-    /** Follower counts of the current previous word, as the gesture
-     * decoder's context prior. The sentence-start sentinel works too — it
-     * boosts the user's learned sentence openers after a full stop. */
-    private fun gestureContextBoosts(): Map<String, Int> =
-        previousWord?.let { userLexicon.followerCounts(it) }.orEmpty()
-
     private fun setContextFrom(text: CharSequence?) {
         val (prev1, prev2) = WordContext.lastTwoWords(text, SENTENCE_ENDERS)
         previousWord = prev1
@@ -6650,9 +6630,6 @@ open class WMKeyboardService : InputMethodService() {
             previous = cleaned
             lastLearned = cleaned
         }
-        // A new/reinforced personal word changes the gesture decoder's merged
-        // lexicon; drop the cache so the next swipe picks it up.
-        if (lastLearned != null) invalidateGestureLexicon()
         previousWord2 = beforePrevious
         previousWord = lastLearned
     }
@@ -7573,42 +7550,39 @@ open class WMKeyboardService : InputMethodService() {
     // ---- gesture typing ----
 
     /**
-     * The gesture decoder's word list: bundled English plus the user's weighted
-     * personal words. Cached because it only changes when a word is learned or
-     * the settings app edits the lexicon, whereas a single swipe queries it many
-     * times (one preview event per few pointer samples).
+     * The letter grid for this layout, rebuilt only when the grid itself
+     * changes. The UI hands the same key list back for every preview within a
+     * stroke, so the equality check below is an identity check in the common
+     * case.
      */
     @Synchronized
-    private fun gestureDecodeLexicon(): List<Pair<String, Int>> {
-        cachedGestureLexicon?.let { return it }
-        val personal = userLexicon.allWords().map { (word, count) -> word to count * 500 }
-        val combined = gestureLexicon + personal
-        cachedGestureLexicon = combined
-        return combined
-    }
-
-    /** Drop the merged-lexicon cache after a learn or a lexicon reload. */
-    @Synchronized
-    private fun invalidateGestureLexicon() {
-        cachedGestureLexicon = null
-    }
-
-    /**
-     * The decoder for this grid, rebuilt only when the grid itself changes.
-     * The UI hands the same key list back for every preview within a stroke, so
-     * the equality check below is an identity check in the common case.
-     */
-    @Synchronized
-    private fun decoderFor(keys: List<KeyCenter>, keyWidthPx: Float): GestureDecoder {
-        val cached = cachedDecoder
-        if (cached != null && cachedDecoderWidth == keyWidthPx && cachedDecoderKeys == keys) {
+    private fun keyMapFor(keys: List<KeyCenter>, keyWidthPx: Float): GlideKeyMap {
+        val cached = cachedKeyMap
+        if (cached != null && cachedKeyMapWidth == keyWidthPx && cachedKeyMapKeys == keys) {
             return cached
         }
-        return GestureDecoder(keys, keyWidthPx).also {
-            cachedDecoder = it
-            cachedDecoderKeys = keys
-            cachedDecoderWidth = keyWidthPx
+        return GlideKeyMap.of(keys, keyWidthPx).also {
+            cachedKeyMap = it
+            cachedKeyMapKeys = keys
+            cachedKeyMapWidth = keyWidthPx
         }
+    }
+
+    /** Decodes one stroke against the active language's word sources. */
+    private fun glideDecode(
+        points: List<GesturePoint>,
+        keys: List<KeyCenter>,
+        keyWidthPx: Float,
+    ): List<String> {
+        val engine = suggestionEngine ?: return emptyList()
+        return engine.glide(
+            path = points,
+            keys = keyMapFor(keys, keyWidthPx),
+            keyWidth = keyWidthPx,
+            previousWord = previousWord,
+            previousWord2 = previousWord2,
+            recentWords = recentWords.toList(),
+        ).map { it.word }
     }
 
     /** Mid-swipe: show the current best candidates without committing. */
@@ -7616,8 +7590,7 @@ open class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
         if (!state.language.isEnglish || state.typingTestActive) return
-        val lexicon = gestureLexicon
-        if (lexicon.isEmpty() || keys.isEmpty()) return
+        if (keys.isEmpty()) return
         gesturePreviews.trySend(
             GesturePreviewRequest(points, keys, keyWidthPx, gestureGeneration.get()),
         )
@@ -7634,23 +7607,16 @@ open class WMKeyboardService : InputMethodService() {
             for (request in gesturePreviews) {
                 if (request.generation != gestureGeneration.get()) continue
                 val candidates = withContext(Dispatchers.Default) {
-                    // Same lexicon as the final decode, so the previewed word
+                    // Same sources as the final decode, so the previewed word
                     // never differs from the one that commits on finger-up.
-                    decoderFor(request.keys, request.keyWidthPx).decode(
-                        request.points,
-                        gestureDecodeLexicon(),
-                        contextBoosts = gestureContextBoosts(),
-                    )
+                    glideDecode(request.points, request.keys, request.keyWidthPx)
                 }
                 if (candidates.isEmpty()) continue
                 // Re-checked after the decode: the finger may have lifted and
                 // the word committed while this was running.
                 if (request.generation != gestureGeneration.get()) continue
                 _uiState.update {
-                    it.copy(
-                        suggestions = candidates.map { candidate -> candidate.word },
-                        glideWord = candidates.first().word,
-                    )
+                    it.copy(suggestions = candidates, glideWord = candidates.first())
                 }
             }
         }
@@ -7665,8 +7631,7 @@ open class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
         if (!state.language.isEnglish || state.typingTestActive) return
-        val lexicon = gestureLexicon
-        if (lexicon.isEmpty() || keys.isEmpty()) return
+        if (keys.isEmpty()) return
 
         val shiftAtGesture = state.shiftState
         // Retires every preview from this stroke, in flight or queued.
@@ -7676,14 +7641,13 @@ open class WMKeyboardService : InputMethodService() {
         _uiState.update { it.copy(glideWord = null) }
         gestureJob = serviceScope.launch {
             val candidates = withContext(Dispatchers.Default) {
-                decoderFor(keys, keyWidthPx)
-                    .decode(points, gestureDecodeLexicon(), contextBoosts = gestureContextBoosts())
+                glideDecode(points, keys, keyWidthPx)
             }
             // Debug builds only: typed content must never be logged in release.
             if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
                 android.util.Log.d(
                     "WMKeyboard",
-                    "gesture shift=$shiftAtGesture candidates=${candidates.map { it.word }}",
+                    "gesture shift=$shiftAtGesture candidates=$candidates",
                 )
             }
             if (candidates.isEmpty()) return@launch
@@ -7691,9 +7655,9 @@ open class WMKeyboardService : InputMethodService() {
 
             commitComposing(ic, autocorrect = false)
             val word = when (shiftAtGesture) {
-                ShiftState.CAPS_LOCK -> candidates.first().word.uppercase()
-                ShiftState.ON -> candidates.first().word.replaceFirstChar { it.uppercase() }
-                ShiftState.OFF -> candidates.first().word
+                ShiftState.CAPS_LOCK -> candidates.first().uppercase()
+                ShiftState.ON -> candidates.first().replaceFirstChar { it.uppercase() }
+                ShiftState.OFF -> candidates.first()
             }
             // Auto-space between consecutive swiped words.
             val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
@@ -7707,9 +7671,7 @@ open class WMKeyboardService : InputMethodService() {
             commitGestureSpace(ic, state)
             armRevertGuard()
             consumeShift()
-            _uiState.update {
-                it.copy(suggestions = candidates.map { candidate -> candidate.word })
-            }
+            _uiState.update { it.copy(suggestions = candidates) }
         }
     }
 
@@ -7755,8 +7717,7 @@ open class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
         if (!state.language.isEnglish || state.typingTestActive) return
-        val lexicon = gestureLexicon
-        if (lexicon.isEmpty() || keys.isEmpty() || segments.isEmpty()) return
+        if (keys.isEmpty() || segments.isEmpty()) return
 
         val shiftAtGesture = state.shiftState
         // Retires every preview from this stroke, in flight or queued.
@@ -7765,27 +7726,27 @@ open class WMKeyboardService : InputMethodService() {
         gestureJob?.cancel()
         _uiState.update { it.copy(glideWord = null) }
         gestureJob = serviceScope.launch {
-            val decoder = decoderFor(keys, keyWidthPx)
-            val lex = gestureDecodeLexicon()
             val ic = currentInputConnection ?: return@launch
             // Flush any composing text before the first glided word.
             commitComposing(ic, autocorrect = false)
             var lastWords: List<String> = emptyList()
             var committedAny = false
             segments.forEachIndexed { index, segment ->
-                val boosts = gestureContextBoosts()
+                // Decoded inside the loop, not before it: each word is committed
+                // and learned as it lands, so the next segment is decoded with
+                // the one before it as context.
                 val candidates = withContext(Dispatchers.Default) {
-                    decoder.decode(segment, lex, contextBoosts = boosts)
+                    glideDecode(segment, keys, keyWidthPx)
                 }
                 if (candidates.isEmpty()) return@forEachIndexed
                 val word = if (index == 0) {
                     when (shiftAtGesture) {
-                        ShiftState.CAPS_LOCK -> candidates.first().word.uppercase()
-                        ShiftState.ON -> candidates.first().word.replaceFirstChar { it.uppercase() }
-                        ShiftState.OFF -> candidates.first().word
+                        ShiftState.CAPS_LOCK -> candidates.first().uppercase()
+                        ShiftState.ON -> candidates.first().replaceFirstChar { it.uppercase() }
+                        ShiftState.OFF -> candidates.first()
                     }
                 } else {
-                    candidates.first().word
+                    candidates.first()
                 }
                 // Auto-space between consecutive words.
                 val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
@@ -7797,7 +7758,7 @@ open class WMKeyboardService : InputMethodService() {
                 learn(word)
                 lastGestureWord = word
                 armRevertGuard()
-                lastWords = candidates.map { it.word }
+                lastWords = candidates
                 committedAny = true
             }
             if (committedAny) {
@@ -14479,8 +14440,6 @@ open class WMKeyboardService : InputMethodService() {
         loadedDictToken = token
         val english = openLanguageDictionary("en")
         val bengali = if (loadedBengali) openLanguageDictionary("bn") else null
-        gestureLexicon = english?.entries().orEmpty()
-        invalidateGestureLexicon()
         bengaliAssetEntries = bengali?.entries().orEmpty()
         customDictionaries = loadCustomDictionaries()
         suggestionEngine?.let { engine ->

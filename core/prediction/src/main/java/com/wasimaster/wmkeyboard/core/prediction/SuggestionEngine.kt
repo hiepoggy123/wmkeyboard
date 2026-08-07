@@ -1,5 +1,9 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
+import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
+import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
+import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
+import com.wasimaster.wmkeyboard.core.gesture.GlideWorkspace
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import kotlin.math.ln
@@ -381,6 +385,74 @@ class SuggestionEngine(
     private val beam = FuzzyBeamSearch()
     private val beamWorkspace = ThreadLocal.withInitial { BeamWorkspace() }
 
+    private val glideBeam = GlideBeam()
+    private val glideWorkspace = ThreadLocal.withInitial { GlideWorkspace() }
+
+    /**
+     * Decodes a glide stroke against exactly the word sources typing already
+     * uses — bundled, imported, secondaries and the personal lexicon, at the
+     * same weights.
+     *
+     * Glide used to run off its own flat English word list, which is why a
+     * learned word reached the strip immediately but the swipe decoder only
+     * after a cache rebuild, and why nothing but English could be glided at all.
+     * Sharing [walkSources] retires both problems: whatever the user can type,
+     * they can now swipe, in whatever language and script the sources hold.
+     *
+     * The result then goes through the same [reranker] the strip uses, so a
+     * swipe gets the full context model — trigrams, the downloaded corpus pack,
+     * seed pairs and recency — where it previously had only the user lexicon's
+     * follower counts for the immediately preceding word.
+     */
+    @Suppress("LongParameterList")
+    fun glide(
+        path: List<GesturePoint>,
+        keys: GlideKeyMap,
+        keyWidth: Float,
+        limit: Int = 4,
+        previousWord: String? = null,
+        previousWord2: String? = null,
+        recentWords: List<String> = emptyList(),
+    ): List<GlideBeam.Candidate> {
+        val decoded = glideBeam.decode(
+            path = path,
+            keys = keys,
+            keyWidth = keyWidth,
+            sources = walkSources(),
+            ws = glideWorkspace.get(),
+            limit = maxOf(limit, GLIDE_RERANK_POOL),
+        ).filterNot { suppressed(it.word) }
+        if (decoded.isEmpty()) return decoded
+        return rerankGlide(decoded, previousWord, previousWord2, recentWords).take(limit)
+    }
+
+    /**
+     * Reorders a decoded stroke's candidates by context, defended the way
+     * [suggest] defends its own rerank: only words the decoder actually
+     * produced may appear, and anything the model does not mention keeps its
+     * decoded order behind those it does.
+     *
+     * Autocorrect-style caution does not apply here — a glide has no "what the
+     * user literally typed" to preserve. Every candidate is already the
+     * decoder's guess, so reordering guesses costs nothing that was ever
+     * certain.
+     */
+    private fun rerankGlide(
+        decoded: List<GlideBeam.Candidate>,
+        previousWord: String?,
+        previousWord2: String?,
+        recentWords: List<String>,
+    ): List<GlideBeam.Candidate> {
+        if (reranker === CandidateReranker.NONE || decoded.size < 2) return decoded
+        val pool = decoded.map { it.word }
+        val reordered = reranker.rerank(
+            RerankContext(composing = "", previousWord, recentWords, previousWord2), pool,
+        ) ?: return decoded
+        val byWord = decoded.associateBy { it.word }
+        val moved = reordered.mapNotNull(byWord::get)
+        return moved + decoded.filterNot { it.word in reordered }
+    }
+
     /**
      * The last walk's ranked result and everything it depended on. One
      * keystroke asks the same question twice — [suggest] builds the strip,
@@ -676,6 +748,14 @@ class SuggestionEngine(
 
         /** How many ranked candidates a reranker may reorder. */
         private const val RERANK_POOL = 8
+
+        /**
+         * How deep a glide decodes before reranking. Deeper than the four
+         * candidates the strip shows, so context has something to reorder —
+         * a swipe's right answer is regularly the decoder's second or third
+         * guess, which is exactly the case a context model is there to fix.
+         */
+        private const val GLIDE_RERANK_POOL = 8
 
         /**
          * How deep the fuzzy walk ranks for the suggest path. The post-walk

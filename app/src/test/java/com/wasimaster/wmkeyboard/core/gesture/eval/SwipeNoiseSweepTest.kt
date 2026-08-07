@@ -4,7 +4,12 @@
 
 package com.wasimaster.wmkeyboard.core.gesture.eval
 
-import com.wasimaster.wmkeyboard.core.gesture.GestureDecoder
+import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
+import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
+import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
+import com.wasimaster.wmkeyboard.core.gesture.GlideWorkspace
+import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
+import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import java.io.File
 import java.util.Locale
@@ -53,7 +58,15 @@ class SwipeNoiseSweepTest {
     @Test
     fun noiseAxesDegradeGracefully() {
         val entries = realEntries()
-        val decoder = GestureDecoder(SwipeCorpus.keyCenters(), SwipeCorpus.KEY_WIDTH)
+        val trie = Trie().apply { entries.forEach { (word, frequency) -> insert(word, frequency) } }
+        val decoder = BeamProbe(
+            GlideBeam(),
+            GlideWorkspace(),
+            GlideKeyMap.of(SwipeCorpus.keyCenters(), SwipeCorpus.KEY_WIDTH),
+            trie.walkers().map {
+                FuzzyBeamSearch.WalkSource(it, 0.0, FuzzyBeamSearch.Tier.DICTIONARY)
+            },
+        )
         val base = SwipeCorpus.Noise.TYPICAL.profile
 
         println("=== glide noise sweep (seed=$SEED, $CASES/point, others at TYPICAL) ===")
@@ -75,9 +88,23 @@ class SwipeNoiseSweepTest {
 
     private class Point(val value: Float, val top1: Double, val empty: Double)
 
+    /**
+     * The decoder with everything the sweep never varies already bound, so a
+     * sweep row reads as one call with one axis in it.
+     */
+    private class BeamProbe(
+        private val beam: GlideBeam,
+        private val workspace: GlideWorkspace,
+        private val keys: GlideKeyMap,
+        private val sources: List<FuzzyBeamSearch.WalkSource>,
+    ) {
+        fun decode(path: List<GesturePoint>, limit: Int): List<GlideBeam.Candidate> =
+            beam.decode(path, keys, SwipeCorpus.KEY_WIDTH, sources, workspace, limit)
+    }
+
     private fun sweep(
         entries: List<Pair<String, Int>>,
-        decoder: GestureDecoder,
+        decoder: BeamProbe,
         axis: String,
         steps: List<Float>,
         profileAt: (Float) -> SwipeCorpus.Profile,
@@ -89,7 +116,7 @@ class SwipeNoiseSweepTest {
             var hits = 0
             var empty = 0
             for (case in corpus.generate(entries, profileAt(value), CASES)) {
-                val decoded = decoder.decode(case.path, entries, limit = RANK_DEPTH)
+                val decoded = decoder.decode(case.path, RANK_DEPTH)
                 if (decoded.isEmpty()) empty++
                 if (decoded.firstOrNull()?.word.equals(case.intended, ignoreCase = true)) hits++
             }

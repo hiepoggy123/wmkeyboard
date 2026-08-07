@@ -4,8 +4,12 @@
 
 package com.wasimaster.wmkeyboard.core.gesture.eval
 
-import com.wasimaster.wmkeyboard.core.gesture.GestureDecoder
+import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
+import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
+import com.wasimaster.wmkeyboard.core.gesture.GlideWorkspace
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
+import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
+import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.eval.EvalMetrics
 import com.wasimaster.wmkeyboard.core.prediction.eval.SuggestMetrics
 import java.io.File
@@ -48,7 +52,13 @@ class GestureEvalTest {
     @Test
     fun qualityDoesNotRegress() {
         val entries = realEntries()
-        val decoder = GestureDecoder(SwipeCorpus.keyCenters(), SwipeCorpus.KEY_WIDTH)
+        val trie = Trie().apply { entries.forEach { (word, frequency) -> insert(word, frequency) } }
+        val sources = trie.walkers().map {
+            FuzzyBeamSearch.WalkSource(it, 0.0, FuzzyBeamSearch.Tier.DICTIONARY)
+        }
+        val keys = GlideKeyMap.of(SwipeCorpus.keyCenters(), SwipeCorpus.KEY_WIDTH)
+        val beam = GlideBeam()
+        val workspace = GlideWorkspace()
         val corpus = SwipeCorpus(SEED)
 
         val byNoise = LinkedHashMap<SwipeCorpus.Noise, SuggestMetrics>()
@@ -57,7 +67,9 @@ class GestureEvalTest {
         for (noise in SwipeCorpus.Noise.entries) {
             var empty = 0
             val ranks = corpus.generate(entries, noise, CASES_PER_LEVEL).map { case ->
-                val decoded = decoder.decode(case.path, entries, limit = RANK_DEPTH)
+                val decoded = beam.decode(
+                    case.path, keys, SwipeCorpus.KEY_WIDTH, sources, workspace, RANK_DEPTH,
+                )
                 if (decoded.isEmpty()) empty++
                 val at = decoded.indexOfFirst { it.word.equals(case.intended, ignoreCase = true) }
                 if (at >= 0) at + 1 else null

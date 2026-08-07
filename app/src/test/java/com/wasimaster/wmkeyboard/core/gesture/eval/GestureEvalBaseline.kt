@@ -15,15 +15,25 @@ package com.wasimaster.wmkeyboard.core.gesture.eval
  */
 object GestureEvalBaseline {
 
-    /** Baseline 2026-08-06: the SHARK²-lite `GestureDecoder`, before any rework. */
-    const val TOP1 = 0.8710
-    const val TOP3 = 0.9655
-    const val MRR = 0.9196
+    /**
+     * 2026-08-07, the `GlideBeam` trie lattice. The numbers it replaced, from
+     * the SHARK²-lite `GestureDecoder` it retired, are kept alongside because
+     * the shape of the change matters more than the totals: the gain grows with
+     * how badly the swipe was drawn, which is the right way round.
+     *
+     *     overall  .8710 -> .9295      clean    .9640 -> .9720   (+0.8pt)
+     *     top3     .9655 -> .9825      light    .9380 -> .9540   (+1.6pt)
+     *     mrr      .9196 -> .9565      typical  .8760 -> .9300   (+5.4pt)
+     *                                  sloppy   .7060 -> .8620  (+15.6pt)
+     */
+    const val TOP1 = 0.9295
+    const val TOP3 = 0.9825
+    const val MRR = 0.9565
 
-    const val CLEAN_TOP1 = 0.9640
-    const val LIGHT_TOP1 = 0.9380
-    const val TYPICAL_TOP1 = 0.8760
-    const val SLOPPY_TOP1 = 0.7060
+    const val CLEAN_TOP1 = 0.9720
+    const val LIGHT_TOP1 = 0.9540
+    const val TYPICAL_TOP1 = 0.9300
+    const val SLOPPY_TOP1 = 0.8620
 
     /** Run-to-run drift is nil (the corpus is seeded), so this is small. */
     const val TOLERANCE = 0.01
