@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -224,6 +225,7 @@ internal val SettingsRouteIcons: Map<String, ImageVector> = mapOf(
     "rows" to Icons.Outlined.ViewAgenda,
     "ai_actions" to Icons.Outlined.AutoAwesome,
     "ai_history" to Icons.Outlined.History,
+    "ai_chat" to Icons.AutoMirrored.Outlined.Chat,
     "modes" to Icons.Outlined.Tune,
     "emoji" to Icons.Outlined.EmojiEmotions,
     "emojikeywords" to Icons.Outlined.EmojiEmotions,

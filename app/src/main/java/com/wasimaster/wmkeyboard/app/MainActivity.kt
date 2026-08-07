@@ -1087,6 +1087,22 @@ private fun SettingsNavGraph(
                 AiHistoryScreen(repository, settings)
             }
         }
+        composable("ai_chat") {
+            AiChatListScreen(
+                onOpenChat = { id -> navController.navigate("ai_chat/$id") },
+                onNewChat = { navController.navigate("ai_chat/new") },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("ai_chat/{conversationId}") { backStackEntry ->
+            val raw = backStackEntry.arguments?.getString("conversationId").orEmpty()
+            AiChatScreen(
+                settings = settings,
+                conversationId = raw.toLongOrNull() ?: -1L,
+                onBack = { navController.popBackStack() },
+                onOpenAiSettings = { navController.navigate("tool/${ToolbarTool.AI.name}") },
+            )
+        }
         composable("ai_action_edit/{actionId}") { backStackEntry ->
             val actionId = backStackEntry.arguments?.getString("actionId").orEmpty()
             SettingsScreen(
@@ -9421,6 +9437,16 @@ private fun AiToolSettings(
                     settings.ai.diffOpensFirst,
                 ) { scope.launch { repository.setAiDiffOpensFirst(it) } }
             }
+        }
+    }
+    SettingsGroup(stringResource(R.string.toolai_ai_chat_group_title)) {
+        item {
+            NavRow(
+                title = R.string.toolai_ai_chat_nav_title,
+                subtitle = stringResource(R.string.toolai_ai_chat_nav_subtitle),
+                route = "ai_chat",
+                onClick = { onNavigate("ai_chat") },
+            )
         }
     }
     SettingsGroup(stringResource(R.string.toolai_ai_actions_group_title)) {

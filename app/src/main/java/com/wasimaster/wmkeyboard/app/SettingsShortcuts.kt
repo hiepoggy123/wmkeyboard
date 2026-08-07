@@ -35,7 +35,8 @@ object SettingsShortcuts {
      * destinations in `SettingsNavHost` by [SettingsShortcutsTest], which reads
      * both and fails when a shortcut names a screen that does not exist.
      */
-    val Routes: Set<String> = setOf("typing", "appearance", "themes", "languages", "tools", "search")
+    val Routes: Set<String> =
+        setOf("typing", "appearance", "themes", "languages", "tools", "search", "ai_chat")
 
     /** Convenience for the intent's data. */
     fun routeFor(uri: Uri?): String? = routeFor(uri?.toString())

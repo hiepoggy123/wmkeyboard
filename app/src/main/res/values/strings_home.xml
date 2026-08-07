@@ -103,6 +103,7 @@
     <string name="home_screen_symbol_set_edit_title">Edit symbol set</string>
     <string name="home_screen_ai_actions_title">AI actions</string>
     <string name="home_screen_ai_history_title">AI history</string>
+    <string name="home_screen_ai_chat_title">AI chat</string>
     <string name="home_screen_ai_action_edit_title">Edit AI action</string>
     <string name="home_screen_mode_edit_title">Edit mode</string>
     <string name="home_screen_debug_log_title">Diagnostics</string>

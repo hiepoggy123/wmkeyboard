@@ -82,6 +82,19 @@ object AiPrompts {
             "Write that text." + OUTPUT_ONLY
 
     /**
+     * System prompt for the chat screen. A conversation, not a transform: the
+     * user's messages are genuine directives typed on their own keyboard, so
+     * like [generatePrompt] this carries no [GUARD] and no [OUTPUT_ONLY] —
+     * explanations and follow-up questions are the product here, not noise.
+     * Kept short on purpose: small on-device models spend context on every
+     * word of this.
+     */
+    fun chatPrompt(): String =
+        "You are a helpful assistant in a mobile keyboard app, chatting with " +
+            "the user. Answer clearly and keep answers as short as the " +
+            "question allows. Use plain text without markdown formatting."
+
+    /**
      * Takes a whole stored prompt back apart into its task and its output-only
      * flag, or null when it was not built by [systemPrompt].
      *

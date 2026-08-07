@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.Backspace
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.FormatTextdirectionRToL
 import androidx.compose.material.icons.automirrored.outlined.KeyboardReturn
 import androidx.compose.material.icons.automirrored.outlined.KeyboardTab
@@ -624,6 +625,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.toolai_ai_actions_title, Icons.Outlined.AutoAwesome)
     put(R.string.toolai_ai_diff_title, Icons.Outlined.Difference)
     put(R.string.toolai_ai_diff_first_title, Icons.Outlined.Difference)
+    put(R.string.toolai_ai_chat_nav_title, Icons.AutoMirrored.Outlined.Chat)
     put(R.string.toolai_ai_history_title, Icons.Outlined.History)
     put(R.string.toolai_ai_history_nav_title, Icons.Outlined.History)
     put(R.string.toolai_ai_history_max_title, Icons.Outlined.Numbers)

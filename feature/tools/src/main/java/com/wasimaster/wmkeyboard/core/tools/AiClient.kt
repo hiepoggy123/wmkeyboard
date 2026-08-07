@@ -35,6 +35,11 @@ object AiClient {
         val baseUrl: String,
     )
 
+    /** One prior message of a multi-turn chat, oldest first. */
+    data class ChatTurn(val role: ChatRole, val text: String)
+
+    enum class ChatRole { USER, ASSISTANT }
+
     /**
      * One finished response.
      *
@@ -256,21 +261,71 @@ object AiClient {
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
         isActive: () -> Boolean = { true },
-    ): Completion = when (config.provider) {
-        AiProvider.ANTHROPIC ->
-            anthropicStream(config, system, user, maxTokens, onPhase, onPartial, isActive)
-        AiProvider.GEMINI ->
-            geminiStream(config, system, user, maxTokens, onPhase, onPartial, isActive)
-        AiProvider.OLLAMA ->
-            ollamaStream(config, system, user, maxTokens, onPhase, onPartial, isActive)
-        AiProvider.OPENAI, AiProvider.LM_STUDIO, AiProvider.XAI,
-        AiProvider.DEEPSEEK, AiProvider.OPENAI_COMPATIBLE,
-        -> openAiCompatibleStream(
-            openAiCompatibleUrl(config),
-            config, system, user, maxTokens, onPhase, onPartial, isActive,
-        )
-        AiProvider.ON_DEVICE ->
-            error("On-device models run locally, not over HTTP")
+    ): Completion = completeStreaming(
+        config, system, listOf(ChatTurn(ChatRole.USER, user)),
+        maxTokens, onPhase, onPartial, isActive,
+    )
+
+    /**
+     * The multi-turn form: [turns] is the whole conversation oldest first,
+     * ending with the user message to answer. Assistant turns should already
+     * be think-stripped — resending reasoning wastes the window and some
+     * services echo it back.
+     */
+    fun completeStreaming(
+        config: Config,
+        system: String,
+        turns: List<ChatTurn>,
+        maxTokens: Int?,
+        onPhase: (AiPhase) -> Unit,
+        onPartial: (String) -> Unit,
+        isActive: () -> Boolean = { true },
+    ): Completion {
+        val chat = normalizedTurns(turns)
+        require(chat.isNotEmpty()) { "No user message to answer" }
+        return when (config.provider) {
+            AiProvider.ANTHROPIC ->
+                anthropicStream(config, system, chat, maxTokens, onPhase, onPartial, isActive)
+            AiProvider.GEMINI ->
+                geminiStream(config, system, chat, maxTokens, onPhase, onPartial, isActive)
+            AiProvider.OLLAMA ->
+                ollamaStream(config, system, chat, maxTokens, onPhase, onPartial, isActive)
+            AiProvider.OPENAI, AiProvider.LM_STUDIO, AiProvider.XAI,
+            AiProvider.DEEPSEEK, AiProvider.OPENAI_COMPATIBLE,
+            -> openAiCompatibleStream(
+                openAiCompatibleUrl(config),
+                config, system, chat, maxTokens, onPhase, onPartial, isActive,
+            )
+            AiProvider.ON_DEVICE ->
+                error("On-device models run locally, not over HTTP")
+        }
+    }
+
+    /**
+     * Puts a conversation into the shape every provider accepts: no blank
+     * messages, no leading assistant turn, and no two same-role messages in a
+     * row (a failed turn that was dropped leaves its user messages adjacent).
+     * Anthropic rejects all three outright; the rest merely tolerate them.
+     */
+    internal fun normalizedTurns(turns: List<ChatTurn>): List<ChatTurn> {
+        val result = ArrayList<ChatTurn>(turns.size)
+        for (turn in turns) {
+            val text = turn.text.trim()
+            if (text.isEmpty()) continue
+            if (result.isEmpty() && turn.role == ChatRole.ASSISTANT) continue
+            val last = result.lastOrNull()
+            if (last != null && last.role == turn.role) {
+                result[result.lastIndex] = last.copy(text = last.text + "\n\n" + text)
+            } else {
+                result.add(ChatTurn(turn.role, text))
+            }
+        }
+        // A conversation must end on the user message being answered; a
+        // trailing assistant turn would ask the model to continue itself.
+        while (result.isNotEmpty() && result.last().role == ChatRole.ASSISTANT) {
+            result.removeAt(result.lastIndex)
+        }
+        return result
     }
 
     internal fun parseAnthropic(body: String): String =
@@ -449,7 +504,7 @@ object AiClient {
     private fun anthropicStream(
         config: Config,
         system: String,
-        user: String,
+        turns: List<ChatTurn>,
         maxTokens: Int?,
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
@@ -459,38 +514,47 @@ object AiClient {
         // "let the service decide" has to become a number here.
         val asked = maxTokens ?: ANTHROPIC_PROVIDER_MAXIMUM
         return try {
-            anthropicStreamOnce(config, system, user, asked, onPhase, onPartial, isActive)
+            anthropicStreamOnce(config, system, turns, asked, onPhase, onPartial, isActive)
         } catch (e: ToolHttpException) {
             // Asking for more output than the chosen model allows is a hard 400
             // rather than a clamp, and the error names the real ceiling. Retry
             // at that number: nothing has streamed yet, because the status is
             // read before the first byte of the body.
             val ceiling = anthropicModelCeiling(e)?.takeIf { it < asked } ?: throw e
-            anthropicStreamOnce(config, system, user, ceiling, onPhase, onPartial, isActive)
+            anthropicStreamOnce(config, system, turns, ceiling, onPhase, onPartial, isActive)
         }
     }
+
+    internal fun anthropicBody(
+        config: Config,
+        system: String,
+        turns: List<ChatTurn>,
+        maxTokens: Int,
+    ): String = buildJsonObject {
+        put("model", config.model)
+        put("max_tokens", maxTokens)
+        put("system", system)
+        put("stream", true)
+        put("messages", buildJsonArray {
+            for (turn in turns) {
+                add(buildJsonObject {
+                    put("role", if (turn.role == ChatRole.USER) "user" else "assistant")
+                    put("content", turn.text)
+                })
+            }
+        })
+    }.toString()
 
     private fun anthropicStreamOnce(
         config: Config,
         system: String,
-        user: String,
+        turns: List<ChatTurn>,
         maxTokens: Int,
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
     ): Completion {
-        val body = buildJsonObject {
-            put("model", config.model)
-            put("max_tokens", maxTokens)
-            put("system", system)
-            put("stream", true)
-            put("messages", buildJsonArray {
-                add(buildJsonObject {
-                    put("role", "user")
-                    put("content", user)
-                })
-            })
-        }.toString()
+        val body = anthropicBody(config, system, turns, maxTokens)
         return runStream(
             url = "https://api.anthropic.com/v1/messages",
             body = body,
@@ -530,28 +594,40 @@ object AiClient {
         }
     }
 
+    internal fun openAiCompatibleBody(
+        config: Config,
+        system: String,
+        turns: List<ChatTurn>,
+        maxTokens: Int?,
+    ): String = buildJsonObject {
+        if (config.model.isNotBlank()) put("model", config.model)
+        // Left out entirely for "provider maximum": every OpenAI-shaped
+        // service then applies its own default, which is what the user asked
+        // for. Sending a huge number instead would be rejected by some.
+        if (maxTokens != null) put("max_tokens", maxTokens)
+        put("stream", true)
+        put("messages", buildJsonArray {
+            add(buildJsonObject { put("role", "system"); put("content", system) })
+            for (turn in turns) {
+                add(buildJsonObject {
+                    put("role", if (turn.role == ChatRole.USER) "user" else "assistant")
+                    put("content", turn.text)
+                })
+            }
+        })
+    }.toString()
+
     private fun openAiCompatibleStream(
         url: String,
         config: Config,
         system: String,
-        user: String,
+        turns: List<ChatTurn>,
         maxTokens: Int?,
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
     ): Completion {
-        val body = buildJsonObject {
-            if (config.model.isNotBlank()) put("model", config.model)
-            // Left out entirely for "provider maximum": every OpenAI-shaped
-            // service then applies its own default, which is what the user asked
-            // for. Sending a huge number instead would be rejected by some.
-            if (maxTokens != null) put("max_tokens", maxTokens)
-            put("stream", true)
-            put("messages", buildJsonArray {
-                add(buildJsonObject { put("role", "system"); put("content", system) })
-                add(buildJsonObject { put("role", "user"); put("content", user) })
-            })
-        }.toString()
+        val body = openAiCompatibleBody(config, system, turns, maxTokens)
         val headers = if (config.apiKey.isNotBlank()) {
             mapOf("Authorization" to "Bearer ${config.apiKey}")
         } else {
@@ -588,32 +664,41 @@ object AiClient {
         if (choice?.text("finish_reason") == "length") buffer.markTruncated()
     }
 
+    internal fun geminiBody(
+        system: String,
+        turns: List<ChatTurn>,
+        maxTokens: Int?,
+    ): String = buildJsonObject {
+        putJsonObject("system_instruction") {
+            put("parts", buildJsonArray { add(buildJsonObject { put("text", system) }) })
+        }
+        put("contents", buildJsonArray {
+            for (turn in turns) {
+                add(buildJsonObject {
+                    // Gemini's name for the assistant role is "model".
+                    put("role", if (turn.role == ChatRole.USER) "user" else "model")
+                    put("parts", buildJsonArray { add(buildJsonObject { put("text", turn.text) }) })
+                })
+            }
+        })
+        // Left out entirely for "provider maximum", so Gemini writes up to
+        // the model's own output limit. This is the setting that used to cut
+        // a long answer off in the middle with nothing to say so.
+        if (maxTokens != null) {
+            putJsonObject("generationConfig") { put("maxOutputTokens", maxTokens) }
+        }
+    }.toString()
+
     private fun geminiStream(
         config: Config,
         system: String,
-        user: String,
+        turns: List<ChatTurn>,
         maxTokens: Int?,
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
     ): Completion {
-        val body = buildJsonObject {
-            putJsonObject("system_instruction") {
-                put("parts", buildJsonArray { add(buildJsonObject { put("text", system) }) })
-            }
-            put("contents", buildJsonArray {
-                add(buildJsonObject {
-                    put("role", "user")
-                    put("parts", buildJsonArray { add(buildJsonObject { put("text", user) }) })
-                })
-            })
-            // Left out entirely for "provider maximum", so Gemini writes up to
-            // the model's own output limit. This is the setting that used to cut
-            // a long answer off in the middle with nothing to say so.
-            if (maxTokens != null) {
-                putJsonObject("generationConfig") { put("maxOutputTokens", maxTokens) }
-            }
-        }.toString()
+        val body = geminiBody(system, turns, maxTokens)
         return runStream(
             url = "https://generativelanguage.googleapis.com/v1beta/models/" +
                 "${config.model}:streamGenerateContent?alt=sse",
@@ -666,30 +751,42 @@ object AiClient {
         }.trim()
     }
 
+    internal fun ollamaBody(
+        config: Config,
+        system: String,
+        turns: List<ChatTurn>,
+        maxTokens: Int?,
+    ): String = buildJsonObject {
+        put("model", config.model)
+        put("stream", true)
+        // Ollama spells the ceiling num_predict, and it sits under options
+        // rather than at the top level. Left out for "provider maximum",
+        // which is what this request always did before the setting reached
+        // it at all.
+        if (maxTokens != null) {
+            putJsonObject("options") { put("num_predict", maxTokens) }
+        }
+        put("messages", buildJsonArray {
+            add(buildJsonObject { put("role", "system"); put("content", system) })
+            for (turn in turns) {
+                add(buildJsonObject {
+                    put("role", if (turn.role == ChatRole.USER) "user" else "assistant")
+                    put("content", turn.text)
+                })
+            }
+        })
+    }.toString()
+
     private fun ollamaStream(
         config: Config,
         system: String,
-        user: String,
+        turns: List<ChatTurn>,
         maxTokens: Int?,
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
     ): Completion {
-        val body = buildJsonObject {
-            put("model", config.model)
-            put("stream", true)
-            // Ollama spells the ceiling num_predict, and it sits under options
-            // rather than at the top level. Left out for "provider maximum",
-            // which is what this request always did before the setting reached
-            // it at all.
-            if (maxTokens != null) {
-                putJsonObject("options") { put("num_predict", maxTokens) }
-            }
-            put("messages", buildJsonArray {
-                add(buildJsonObject { put("role", "system"); put("content", system) })
-                add(buildJsonObject { put("role", "user"); put("content", user) })
-            })
-        }.toString()
+        val body = ollamaBody(config, system, turns, maxTokens)
         return runStream(
             url = "${config.baseUrl.trimEnd('/')}/api/chat",
             body = body,

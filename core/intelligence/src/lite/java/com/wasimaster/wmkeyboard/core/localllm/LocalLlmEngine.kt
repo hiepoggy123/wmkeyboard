@@ -25,5 +25,30 @@ object LocalLlmEngine {
         onPartial: ((String) -> Unit)? = null,
     ): String = error("On-device AI is not available in the lite build")
 
+    @Suppress("UNUSED_PARAMETER")
+    fun chatSession(
+        context: Context,
+        modelFile: File,
+        backend: LocalLlmBackend,
+        contextTokens: Int,
+        system: String,
+    ): ChatSession = error("On-device AI is not available in the lite build")
+
+    /** Mirror of the full-flavor session so shared callers compile. */
+    class ChatSession private constructor() {
+
+        @Suppress("UNUSED_PARAMETER")
+        fun sendMessage(user: String, onPartial: ((String) -> Unit)? = null): String =
+            error("On-device AI is not available in the lite build")
+
+        @Suppress("UNUSED_PARAMETER")
+        fun seed(transcript: List<ChatReplay.Turn>) = Unit
+
+        @Suppress("UNUSED_PARAMETER")
+        fun recordStoppedTurn(user: String, fullAnswer: String) = Unit
+
+        fun close() = Unit
+    }
+
     fun release() = Unit
 }

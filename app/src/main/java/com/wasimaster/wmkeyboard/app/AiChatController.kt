@@ -1,0 +1,425 @@
+package com.wasimaster.wmkeyboard.app
+
+import android.content.Context
+import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.aichat.AiChatMessage
+import com.wasimaster.wmkeyboard.core.aichat.AiChatStore
+import com.wasimaster.wmkeyboard.core.localllm.ChatReplay
+import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
+import com.wasimaster.wmkeyboard.core.localllm.LocalLlmEngine
+import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
+import com.wasimaster.wmkeyboard.core.settings.AiProvider
+import com.wasimaster.wmkeyboard.core.settings.AiSettings
+import com.wasimaster.wmkeyboard.core.tools.AiClient
+import com.wasimaster.wmkeyboard.core.tools.AiPhase
+import com.wasimaster.wmkeyboard.core.tools.AiPrompts
+import com.wasimaster.wmkeyboard.core.tools.AiThinking
+import com.wasimaster.wmkeyboard.core.tools.ToolHttp
+import com.wasimaster.wmkeyboard.core.tools.ToolHttpException
+import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+
+/**
+ * Drives the AI chat screen's generations. An object with its own scope, like
+ * LocalLlmDownloadManager, so a running answer survives every navigation and
+ * the screen only ever renders state: the saved transcript from [store] plus
+ * the one live [run].
+ *
+ * The same stale-sequence pattern as the keyboard's AI panel: an on-device
+ * generation is a blocking native call that outlives any cancellation, so a
+ * bumped [runSeq] — not a cancelled job — is what retires it, and late
+ * callbacks are dropped by comparing their captured sequence.
+ */
+object AiChatController {
+
+    /** The model the chat screen sends to: a provider, or one local model. */
+    data class ModelChoice(val provider: AiProvider, val localModelId: String = "") {
+        val key: String
+            get() = if (provider == AiProvider.ON_DEVICE) {
+                AiChatStore.ON_DEVICE_KEY_PREFIX + localModelId
+            } else {
+                provider.name
+            }
+    }
+
+    /** One in-flight generation, as the screen renders it. */
+    data class ChatRun(
+        val conversationId: Long,
+        val seq: Int,
+        /** The user message being answered. */
+        val userText: String,
+        /** Raw accumulated response, think block included. */
+        val partial: String = "",
+        val phase: AiPhase = AiPhase.PREPARING,
+        /** Model streams reasoning with no opening tag (Qwen3 style). */
+        val implicitThink: Boolean = false,
+        val choice: ModelChoice,
+    )
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val _run = MutableStateFlow<ChatRun?>(null)
+    val run: StateFlow<ChatRun?> = _run
+
+    /** Bumped after every store mutation so the screen re-reads [store]. */
+    private val _storeVersion = MutableStateFlow(0L)
+    val storeVersion: StateFlow<Long> = _storeVersion
+
+    private var storeInstance: AiChatStore? = null
+    private var runSeq = 0
+    private var job: Job? = null
+
+    // The one live on-device session and the inputs it was built for. A new
+    // conversation, model or backend closes it and opens another; the session
+    // itself survives engine eviction by replaying its transcript.
+    private var session: LocalLlmEngine.ChatSession? = null
+    private var sessionKey: String? = null
+
+    @Synchronized
+    fun store(context: Context): AiChatStore = storeInstance ?: AiChatStore(
+        File(context.applicationContext.filesDir, AiChatStore.FILE_PATH),
+    ).also { storeInstance = it }
+
+    private fun touchStore() {
+        _storeVersion.value++
+    }
+
+    val isGenerating: Boolean get() = _run.value != null
+
+    /** Ids of local models that are on disk right now, catalog order. */
+    fun downloadedLocalModels(context: Context): List<String> {
+        if (!BuildConfig.ENABLE_LOCAL_LLM) return emptyList()
+        val filesDir = context.applicationContext.filesDir
+        val catalog = LocalLlmCatalog.models
+            .filter { LocalLlmStore.isDownloaded(filesDir, it) }
+            .map { it.id }
+        val custom = LocalLlmStore.customModels(filesDir)
+            .map { LocalLlmStore.CUSTOM_PREFIX + it.name }
+        return catalog + custom
+    }
+
+    /**
+     * Sends one user message in [conversationId] and streams the answer.
+     * No-op while a generation is already running — the screen disables Send.
+     */
+    fun send(
+        context: Context,
+        settings: AiSettings,
+        conversationId: Long,
+        choice: ModelChoice,
+        text: String,
+    ) {
+        if (isGenerating) return
+        val appContext = context.applicationContext
+        val store = store(appContext)
+        val user = text.trim()
+        if (user.isEmpty()) return
+
+        val now = System.currentTimeMillis()
+        store.appendMessage(
+            conversationId,
+            AiChatMessage(role = AiChatMessage.ROLE_USER, content = user, timestamp = now),
+        ) ?: return
+        store.setLastModelKey(choice.key)
+        store.save()
+        touchStore()
+        launchGeneration(appContext, settings, conversationId, choice, user)
+    }
+
+    /**
+     * Reruns the user message whose answer failed. The failed bubble makes
+     * way — the message it answers is already in the transcript, so unlike
+     * [send] nothing is appended before generating.
+     */
+    fun retry(
+        context: Context,
+        settings: AiSettings,
+        conversationId: Long,
+        choice: ModelChoice,
+        userText: String,
+    ) {
+        if (isGenerating) return
+        val appContext = context.applicationContext
+        val store = store(appContext)
+        store.dropLastFailedMessage(conversationId)
+        store.save()
+        touchStore()
+        launchGeneration(appContext, settings, conversationId, choice, userText)
+    }
+
+    fun deleteConversation(context: Context, conversationId: Long) {
+        val store = store(context.applicationContext)
+        closeSessionFor(conversationId)
+        store.delete(conversationId)
+        store.save()
+        touchStore()
+    }
+
+    private fun launchGeneration(
+        appContext: Context,
+        settings: AiSettings,
+        conversationId: Long,
+        choice: ModelChoice,
+        user: String,
+    ) {
+        val seq = ++runSeq
+        val implicitThink =
+            choice.provider == AiProvider.ON_DEVICE && isReasoningModel(choice.localModelId)
+        _run.value = ChatRun(
+            conversationId = conversationId,
+            seq = seq,
+            userText = user,
+            implicitThink = implicitThink,
+            choice = choice,
+        )
+
+        job = scope.launch {
+            val result = runCatching {
+                if (choice.provider == AiProvider.ON_DEVICE) {
+                    runOnDevice(appContext, settings, conversationId, choice, user, seq)
+                } else {
+                    runRemote(appContext, settings, conversationId, choice, user, seq)
+                }
+            }
+            finishRun(appContext, conversationId, choice, user, seq, result)
+        }
+    }
+
+    /**
+     * Retires the current generation. The remote stream drops its socket via
+     * `isActive`; the on-device one runs to completion in the background —
+     * a blocking native call cannot be interrupted — and [finishRun] then
+     * mirrors its full text into the session so a later replay matches what
+     * the model remembers. Either way the transcript keeps the partial,
+     * marked stopped.
+     */
+    fun stop(context: Context) {
+        val current = _run.value ?: return
+        runSeq++
+        val store = store(context.applicationContext)
+        store.appendMessage(
+            current.conversationId,
+            AiChatMessage(
+                role = AiChatMessage.ROLE_ASSISTANT,
+                content = AiThinking.split(current.partial, current.implicitThink).output.trim(),
+                timestamp = System.currentTimeMillis(),
+                provider = current.choice.provider.name,
+                model = modelName(current.choice),
+                stopped = true,
+            ),
+        )
+        store.save()
+        touchStore()
+        _run.value = null
+    }
+
+    /** Called when the chat screen for [conversationId] goes away for good. */
+    fun closeSessionFor(conversationId: Long) {
+        synchronized(this) {
+            if (sessionKey?.startsWith("$conversationId|") == true) {
+                session?.close()
+                session = null
+                sessionKey = null
+            }
+        }
+    }
+
+    private fun runOnDevice(
+        context: Context,
+        settings: AiSettings,
+        conversationId: Long,
+        choice: ModelChoice,
+        user: String,
+        seq: Int,
+    ): String {
+        val modelFile = LocalLlmStore.selectedModelFile(context.filesDir, choice.localModelId)
+            ?: throw java.io.IOException(
+                context.getString(R.string.toolai_ai_chat_error_no_model),
+            )
+        val chat = obtainSession(context, settings, conversationId, choice, modelFile)
+        var lastPartialAt = 0L
+        return chat.sendMessage(user) { partial ->
+            val now = System.currentTimeMillis()
+            if (seq != runSeq || now - lastPartialAt < AI_PARTIAL_INTERVAL_MS) return@sendMessage
+            lastPartialAt = now
+            postPartial(seq, partial)
+        }
+    }
+
+    /**
+     * The live session for this conversation and model, replacing one built
+     * for anything else. A replaced or resumed session is seeded with the
+     * saved transcript so the model keeps the context.
+     */
+    private fun obtainSession(
+        context: Context,
+        settings: AiSettings,
+        conversationId: Long,
+        choice: ModelChoice,
+        modelFile: File,
+    ): LocalLlmEngine.ChatSession = synchronized(this) {
+        val key = "$conversationId|${modelFile.path}|${settings.localBackend}|" +
+            settings.localContextTokens
+        session?.takeIf { sessionKey == key }?.let { return it }
+        session?.close()
+        val fresh = LocalLlmEngine.chatSession(
+            context,
+            modelFile,
+            settings.localBackend,
+            settings.localContextTokens,
+            AiPrompts.chatPrompt(),
+        )
+        fresh.seed(transcriptOf(context, conversationId))
+        session = fresh
+        sessionKey = key
+        fresh
+    }
+
+    /**
+     * The saved conversation as replay turns: failed turns dropped, and the
+     * trailing user message too — that is the message about to be *sent*, so
+     * seeding it as well would put it in front of the model twice.
+     */
+    private fun transcriptOf(context: Context, conversationId: Long): List<ChatReplay.Turn> {
+        val messages = store(context).get(conversationId)?.messages.orEmpty()
+            .filter { !it.failed }
+        val settled = if (messages.lastOrNull()?.role == AiChatMessage.ROLE_USER) {
+            messages.dropLast(1)
+        } else {
+            messages
+        }
+        return settled.map {
+            ChatReplay.Turn(fromUser = it.role == AiChatMessage.ROLE_USER, text = it.content)
+        }
+    }
+
+    private fun runRemote(
+        context: Context,
+        settings: AiSettings,
+        conversationId: Long,
+        choice: ModelChoice,
+        user: String,
+        seq: Int,
+    ): String {
+        // The picker's provider stands in for the settings one, so chatting
+        // with a different model never rewrites the keyboard's own selection.
+        val chosen = settings.copy(provider = choice.provider)
+        val config = AiClient.config(chosen)
+        val turns = store(context).get(conversationId)?.messages.orEmpty()
+            .filter { !it.failed }
+            .map {
+                AiClient.ChatTurn(
+                    if (it.role == AiChatMessage.ROLE_USER) {
+                        AiClient.ChatRole.USER
+                    } else {
+                        AiClient.ChatRole.ASSISTANT
+                    },
+                    it.content,
+                )
+            }
+        var lastPartialAt = 0L
+        val completion = AiClient.completeStreaming(
+            config = config,
+            system = AiPrompts.chatPrompt(),
+            turns = turns,
+            maxTokens = AiClient.effectiveMaxTokens(chosen),
+            onPhase = { phase ->
+                if (seq == runSeq) _run.value = _run.value
+                    ?.takeIf { it.seq == seq }?.copy(phase = phase)
+            },
+            onPartial = { partial ->
+                val now = System.currentTimeMillis()
+                if (seq == runSeq && now - lastPartialAt >= AI_PARTIAL_INTERVAL_MS) {
+                    lastPartialAt = now
+                    postPartial(seq, partial)
+                }
+            },
+            isActive = { seq == runSeq },
+        )
+        return completion.text
+    }
+
+    private fun postPartial(seq: Int, partial: String) {
+        _run.value = _run.value?.takeIf { it.seq == seq && seq == runSeq }?.copy(partial = partial)
+    }
+
+    /**
+     * Lands the finished (or failed) generation in the store — unless the run
+     * was retired by Stop, in which case only the on-device session's replay
+     * mirror still wants the full answer.
+     */
+    private fun finishRun(
+        context: Context,
+        conversationId: Long,
+        choice: ModelChoice,
+        user: String,
+        seq: Int,
+        result: Result<String>,
+    ) {
+        val raw = result.getOrNull()
+        if (seq != runSeq) {
+            // Retired by Stop (or a newer send). The native call still ran to
+            // its end; keep the session's mirror faithful to the KV cache.
+            if (raw != null && choice.provider == AiProvider.ON_DEVICE) {
+                synchronized(this) { session }
+                    ?.takeIf { sessionKey?.startsWith("$conversationId|") == true }
+                    ?.recordStoppedTurn(user, raw)
+            }
+            return
+        }
+        val store = store(context)
+        val implicitThink =
+            choice.provider == AiProvider.ON_DEVICE && isReasoningModel(choice.localModelId)
+        val message = if (raw != null) {
+            val stripped = AiThinking.split(raw, implicitThink).output.trim()
+                .ifBlank { raw.trim() }
+            AiChatMessage(
+                role = AiChatMessage.ROLE_ASSISTANT,
+                content = stripped,
+                timestamp = System.currentTimeMillis(),
+                provider = choice.provider.name,
+                model = modelName(choice),
+            )
+        } else {
+            val failure = result.exceptionOrNull()
+            AiChatMessage(
+                role = AiChatMessage.ROLE_ASSISTANT,
+                content = "",
+                timestamp = System.currentTimeMillis(),
+                provider = choice.provider.name,
+                model = modelName(choice),
+                error = errorText(context, failure),
+            )
+        }
+        store.appendMessage(conversationId, message)
+        store.save()
+        touchStore()
+        if (_run.value?.seq == seq) _run.value = null
+    }
+
+    private fun errorText(context: Context, t: Throwable?): String = when {
+        t is ToolHttpException -> ToolHttp.friendlyMessage(context, t)
+        t?.message?.isNotBlank() == true -> t.message!!
+        else -> context.getString(R.string.toolai_ai_chat_error_generic)
+    }
+
+    private fun modelName(choice: ModelChoice): String =
+        if (choice.provider == AiProvider.ON_DEVICE) choice.localModelId else ""
+
+    /** Same sniff as the keyboard: catalog flag, else the model's name. */
+    private fun isReasoningModel(modelId: String?): Boolean {
+        if (modelId.isNullOrEmpty()) return false
+        LocalLlmCatalog.byId(modelId)?.let { return it.reasoning }
+        val name = modelId.removePrefix(LocalLlmStore.CUSTOM_PREFIX).lowercase()
+        return "qwen3" in name || "deepseek" in name
+    }
+
+    private const val AI_PARTIAL_INTERVAL_MS = 120L
+}

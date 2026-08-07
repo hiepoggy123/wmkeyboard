@@ -51,14 +51,14 @@
     </shortcut>
     <shortcut
         android:enabled="true"
-        android:icon="@drawable/ic_shortcut_typing"
-        android:shortcutId="typing"
-        android:shortcutLongLabel="@string/shortcut_typing_long"
-        android:shortcutShortLabel="@string/shortcut_typing_short"
+        android:icon="@drawable/ic_shortcut_ai_chat"
+        android:shortcutId="ai_chat"
+        android:shortcutLongLabel="@string/shortcut_ai_chat_long"
+        android:shortcutShortLabel="@string/shortcut_ai_chat_short"
         tools:targetApi="25">
         <intent
             android:action="android.intent.action.VIEW"
-            android:data="wmkeyboard://settings/typing"
+            android:data="wmkeyboard://settings/ai_chat"
             android:targetClass="com.wasimaster.wmkeyboard.app.MainActivity"
             android:targetPackage="com.wasimaster.wmkeyboard" />
     </shortcut>

@@ -129,6 +129,33 @@
     <string name="toolai_ai_diff_first_title">Open a result on the changes</string>
     <string name="toolai_ai_diff_first_subtitle">The panel starts on the changes instead of the plain result</string>
 
+    <!--
+      The chat screen: a full conversation with the model that the user set up
+      in the AI tool, in the settings app rather than on the keyboard.
+    -->
+    <string name="toolai_ai_chat_group_title">Chat</string>
+    <string name="toolai_ai_chat_nav_title">Chat with the model</string>
+    <string name="toolai_ai_chat_nav_subtitle">Have a conversation with a model that you downloaded or set up</string>
+    <string name="toolai_ai_chat_new">New chat</string>
+    <string name="toolai_ai_chat_untitled">New chat</string>
+    <string name="toolai_ai_chat_list_empty">No chats yet. Start one and it appears here.</string>
+    <string name="toolai_ai_chat_empty_hint">Send a message to start the chat. The conversation stays on your device.</string>
+    <string name="toolai_ai_chat_composer_hint">Message</string>
+    <string name="toolai_ai_chat_send">Send</string>
+    <string name="toolai_ai_chat_stop">Stop</string>
+    <string name="toolai_ai_chat_stopped">Stopped</string>
+    <string name="toolai_ai_chat_retry">Retry</string>
+    <!-- Progress caption while a reasoning model thinks before it answers. -->
+    <string name="toolai_ai_chat_thinking">Reasoning…</string>
+    <string name="toolai_ai_chat_delete_title">Delete this chat?</string>
+    <!-- %1$s is the name of the conversation. -->
+    <string name="toolai_ai_chat_delete_body">This deletes "%1$s". You cannot undo this.</string>
+    <string name="toolai_ai_chat_no_backend_title">Nothing to chat with yet</string>
+    <string name="toolai_ai_chat_no_backend_body">Download an on-device model or set up a provider in the AI tool settings.</string>
+    <string name="toolai_ai_chat_setup_button">Open the AI tool settings</string>
+    <string name="toolai_ai_chat_error_no_model">The selected model is not on your device any more. Pick another model.</string>
+    <string name="toolai_ai_chat_error_generic">The model did not answer. Try again.</string>
+
     <string name="toolai_ai_history_group_title">History</string>
     <string name="toolai_ai_history_title">Keep a history of the results</string>
     <string name="toolai_ai_history_subtitle">The keyboard keeps what you send and what the model answers. The records stay on your device. Nothing is kept from a password field or in incognito.</string>
