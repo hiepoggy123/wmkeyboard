@@ -59,6 +59,7 @@ class KlipyClientTest {
         assertEquals("image/gif", item.mime)
         assertEquals(2f, item.aspectRatio)
         assertEquals(GifSource.KLIPY, item.source)
+        assertEquals("cat", item.title)
     }
 
     @Test
@@ -128,7 +129,7 @@ class GiphyClientTest {
     fun `results parse preview, original and aspect ratio`() {
         val body = """
             {"data":[
-                {"id":"abc","images":{
+                {"id":"abc","title":"Funny Cat GIF","images":{
                     "fixed_width_small":{"url":"https://g/small.gif","width":"200","height":"100"},
                     "original":{"url":"https://g/full.gif","width":"400","height":"200"}
                 }},
@@ -144,6 +145,7 @@ class GiphyClientTest {
         assertEquals("image/gif", item.mime)
         assertEquals(2f, item.aspectRatio)
         assertEquals(GifSource.GIPHY, item.source)
+        assertEquals("Funny Cat GIF", item.title)
     }
 
     @Test
@@ -281,6 +283,43 @@ class GifSourcesTest {
     @Test
     fun `interleave of empty lists is empty`() {
         assertTrue(GifSources.interleave(listOf(emptyList(), emptyList())).isEmpty())
+    }
+
+    private fun ratioItem(id: String, ratio: Float) =
+        GifItem(id, "p", "f", "image/gif", ratio, GifSource.KLIPY)
+
+    @Test
+    fun `squarish items pack three to a row`() {
+        val items = (1..7).map { ratioItem("i$it", 1f) }
+        val rows = GifSources.rows(items)
+        assertEquals(listOf(3, 3, 1), rows.map { it.size })
+    }
+
+    @Test
+    fun `wide items pack two to a row`() {
+        val items = (1..4).map { ratioItem("w$it", 1.8f) }
+        assertEquals(listOf(2, 2), GifSources.rows(items).map { it.size })
+    }
+
+    @Test
+    fun `a wide item does not join an already loaded row`() {
+        // 1.3 + 1.3 = 2.6, under target; adding 2.4 would blow past the max,
+        // so the wide one opens the next row instead of flattening this one.
+        val rows = GifSources.rows(
+            listOf(ratioItem("a", 1.3f), ratioItem("b", 1.3f), ratioItem("c", 2.4f)),
+        )
+        assertEquals(listOf(2, 1), rows.map { it.size })
+    }
+
+    @Test
+    fun `degenerate ratios are clamped for the cell`() {
+        assertEquals(2.6f, GifSources.cellRatio(ratioItem("banner", 10f)))
+        assertEquals(0.5f, GifSources.cellRatio(ratioItem("strip", 0.05f)))
+    }
+
+    @Test
+    fun `rows of an empty list are empty`() {
+        assertTrue(GifSources.rows(emptyList()).isEmpty())
     }
 }
 

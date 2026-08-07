@@ -107,6 +107,7 @@ object GiphyClient {
                 mime = "image/gif",
                 aspectRatio = preview.aspectRatio,
                 source = GifSource.GIPHY,
+                title = result.text("title").orEmpty(),
             )
         }
     }

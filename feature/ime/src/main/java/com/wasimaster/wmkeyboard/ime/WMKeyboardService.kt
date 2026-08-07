@@ -865,6 +865,33 @@ open class WMKeyboardService : InputMethodService() {
     /** Fetch of the GIF/sticker category row; see [refreshMediaCategories]. */
     private var mediaCategoryJob: Job? = null
 
+    /**
+     * The last search each media panel was showing, kept across panel closes
+     * and field switches so reopening the GIF or sticker tool lands back on
+     * it rather than on trending. In-memory on purpose: a query is session
+     * ephemera, not a setting. See [stashMediaSearch].
+     */
+    private data class MediaSearchMemory(val query: String = "", val category: String? = null)
+    private var savedGifSearch = MediaSearchMemory()
+    private var savedStickerSearch = MediaSearchMemory()
+
+    /** Saves [state]'s query for whichever media panel it is showing. */
+    private fun stashMediaSearch(state: KeyboardUiState) {
+        val memory = MediaSearchMemory(state.mediaQuery, state.mediaCategory)
+        when (state.panel) {
+            PanelMode.GIF -> savedGifSearch = memory
+            PanelMode.STICKER -> savedStickerSearch = memory
+            else -> {}
+        }
+    }
+
+    /** The stashed search to restore when [panel] opens. */
+    private fun savedMediaSearch(panel: PanelMode): MediaSearchMemory = when (panel) {
+        PanelMode.GIF -> savedGifSearch
+        PanelMode.STICKER -> savedStickerSearch
+        else -> MediaSearchMemory()
+    }
+
     /** The in-flight fetch of an animated emoji preview; one at a time. */
     private var animatedEmojiJob: Job? = null
     private var webSearchJob: Job? = null
@@ -2612,6 +2639,9 @@ open class WMKeyboardService : InputMethodService() {
         val fieldSpec = activeLayoutSpec(current)
         val deviceLocked = isDeviceLocked()
         val clipboardAccessible = userUnlocked && !deviceLocked
+        // A field switch closes any open panel below; a GIF/sticker search
+        // that was up survives it for the next open.
+        stashMediaSearch(_uiState.value)
         _uiState.update {
             it.copy(
                 settings = base?.applyMode(activeMode) ?: it.settings,
@@ -7493,9 +7523,12 @@ open class WMKeyboardService : InputMethodService() {
             clipboardStore.reload()
             fetchLinkPreviews()
         }
+        // Whatever the GIF/sticker panel was showing survives it closing.
+        stashMediaSearch(_uiState.value)
         _uiState.update {
             val closing = it.panel == panel
             val next = if (closing) PanelMode.NONE else panel
+            val restored = savedMediaSearch(next)
             it.copy(
                 panel = next,
                 // The strip is hidden behind the panel; a stale chip would
@@ -7516,11 +7549,13 @@ open class WMKeyboardService : InputMethodService() {
                 dictionarySearchActive = false,
                 clipboardSearchActive = false,
                 clipboardQuery = "",
-                mediaQuery = "",
+                // GIF/sticker reopen on their last search; everything else
+                // starts blank.
+                mediaQuery = restored.query,
                 // Web/image search and translate open straight into their
                 // search box (there is nothing to show yet); gif/sticker
-                // open on trending. Wikipedia keeps a previous
-                // article/results if it has one.
+                // open on their previous search, or trending. Wikipedia
+                // keeps a previous article/results if it has one.
                 mediaSearchActive = next == PanelMode.WEB_SEARCH || next == PanelMode.IMAGE_SEARCH ||
                     next == PanelMode.TRANSLATE || next == PanelMode.QR_GEN ||
                     (next == PanelMode.WIKIPEDIA && it.wiki !is WikiUi.Article && it.wiki !is WikiUi.SearchResults),
@@ -7529,7 +7564,7 @@ open class WMKeyboardService : InputMethodService() {
                 stickerPackId = null,
                 mediaAction = null,
                 mediaCategories = emptyList(),
-                mediaCategory = null,
+                mediaCategory = restored.category,
                 translate = TranslateUi(),
                 grammar = GrammarUi(available = grammarAvailable || grammarProbePending()),
                 // Leaving the Plugins panel must hand the keys straight back to
@@ -7561,7 +7596,7 @@ open class WMKeyboardService : InputMethodService() {
             PanelMode.WEATHER -> refreshWeather()
             PanelMode.DICTIONARY -> openDictionary()
             PanelMode.GIF, PanelMode.STICKER -> {
-                refreshMedia(query = "")
+                refreshMedia(_uiState.value.mediaQuery.trim())
                 refreshMediaCategories()
             }
             PanelMode.WEB_SEARCH -> _uiState.update {
@@ -10589,7 +10624,16 @@ open class WMKeyboardService : InputMethodService() {
                             ?: getString(R.string.ime_service_media_fetch_error),
                     )
                 } else {
-                    MediaUi.Ready(GifSources.interleave(successes), query)
+                    val merged = GifSources.interleave(successes)
+                    // The limit is per fetch: in mixed mode each provider
+                    // returns up to the limit, so cap the merged grid back
+                    // down to it. The user's own packs are never truncated.
+                    val limited = if (targets == listOf(GifSource.LOCAL)) {
+                        merged
+                    } else {
+                        merged.take(settings.gifResultLimit)
+                    }
+                    MediaUi.Ready(limited, query)
                 },
             )
         }
@@ -10602,10 +10646,14 @@ open class WMKeyboardService : InputMethodService() {
         sticker: Boolean,
         settings: com.wasimaster.wmkeyboard.core.settings.KeyboardSettings,
     ): List<GifItem> = when (source) {
-        GifSource.KLIPY ->
-            KlipyClient.search(query, ToolApiKeys.klipy(settings), sticker, settings.gifContentFilter)
-        GifSource.GIPHY ->
-            GiphyClient.search(query, ToolApiKeys.giphy(settings), sticker, settings.gifContentFilter)
+        GifSource.KLIPY -> KlipyClient.search(
+            query, ToolApiKeys.klipy(settings), sticker, settings.gifContentFilter,
+            limit = settings.gifResultLimit,
+        )
+        GifSource.GIPHY -> GiphyClient.search(
+            query, ToolApiKeys.giphy(settings), sticker, settings.gifContentFilter,
+            limit = settings.gifResultLimit,
+        )
         GifSource.LOCAL ->
             stickerPackStore.searchAsGifItems(query, _uiState.value.stickerPackId)
     }

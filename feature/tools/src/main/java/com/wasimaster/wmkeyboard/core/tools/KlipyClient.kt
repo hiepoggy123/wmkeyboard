@@ -131,6 +131,7 @@ object KlipyClient {
                 mime = if (full.url.substringAfterLast('.').startsWith("webp")) "image/webp" else "image/gif",
                 aspectRatio = preview.aspectRatio,
                 source = GifSource.KLIPY,
+                title = result.text("title") ?: result.text("slug").orEmpty(),
             )
         }
     }

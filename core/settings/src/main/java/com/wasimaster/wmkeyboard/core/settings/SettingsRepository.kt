@@ -1421,6 +1421,8 @@ data class KeyboardSettings(
     val gifContentFilter: GifContentFilter = GifContentFilter.MEDIUM,
     /** Tabs per provider vs one evenly-mixed grid, when several have keys. */
     val gifSourceMode: GifSourceMode = GifSourceMode.TABS,
+    /** GIF/sticker results per search or trending fetch (local packs exempt). */
+    val gifResultLimit: Int = 24,
     /** SafeSearch for the web and image search tools. */
     val searchSafe: Boolean = true,
     /** Results per web/image search (the API caps a page at 10). */
@@ -3022,6 +3024,7 @@ class SettingsRepository(private val context: Context) {
         private val GIPHY_API_KEY = stringPreferencesKey("giphy_api_key")
         private val GIF_SOURCE_MODE = stringPreferencesKey("gif_source_mode")
         private val GIF_CONTENT_FILTER = stringPreferencesKey("gif_content_filter")
+        private val GIF_RESULT_LIMIT = intPreferencesKey("gif_result_limit")
         private val SEARCH_SAFE = booleanPreferencesKey("search_safe")
         private val SEARCH_RESULT_COUNT = intPreferencesKey("search_result_count")
         private val WIKI_LANGUAGE = stringPreferencesKey("wiki_language")
@@ -3831,6 +3834,7 @@ class SettingsRepository(private val context: Context) {
             gifContentFilter = p[GIF_CONTENT_FILTER]
                 ?.let { runCatching { GifContentFilter.valueOf(it) }.getOrNull() }
                 ?: defaults.gifContentFilter,
+            gifResultLimit = p[GIF_RESULT_LIMIT] ?: defaults.gifResultLimit,
             searchSafe = p[SEARCH_SAFE] ?: defaults.searchSafe,
             searchResultCount = p[SEARCH_RESULT_COUNT] ?: defaults.searchResultCount,
             wikiLanguage = p[WIKI_LANGUAGE] ?: defaults.wikiLanguage,
@@ -6391,6 +6395,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSearchSafe(value: Boolean) =
         editPrefs { it[SEARCH_SAFE] = value }
+
+    suspend fun setGifResultLimit(value: Int) =
+        editPrefs { it[GIF_RESULT_LIMIT] = value.coerceIn(6, 48) }
 
     suspend fun setSearchResultCount(value: Int) =
         editPrefs { it[SEARCH_RESULT_COUNT] = value.coerceIn(1, 10) }

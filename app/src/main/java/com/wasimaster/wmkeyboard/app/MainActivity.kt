@@ -8543,6 +8543,17 @@ private fun ToolDetailSettings(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             ) { filter -> scope.launch { repository.setGifContentFilter(filter) } }
             CaptionText(stringResource(R.string.tooldetail_media_filter_info))
+            SettingsGroup(stringResource(R.string.tooldetail_media_limit_group)) {
+                item {
+                    SliderSetting(
+                        R.string.tooldetail_media_limit_title,
+                        subtitle = stringResource(R.string.tooldetail_media_limit_subtitle),
+                        value = settings.gifResultLimit.toFloat(),
+                        range = 6f..48f,
+                        display = { numberFormat.format(it.roundToInt()) },
+                    ) { scope.launch { repository.setGifResultLimit(it.roundToInt()) } }
+                }
+            }
         }
         ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH -> {
             SettingsGroup(stringResource(R.string.tooldetail_search_group)) {

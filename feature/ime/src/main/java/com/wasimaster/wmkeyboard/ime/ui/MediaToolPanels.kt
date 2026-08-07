@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,10 +27,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -885,6 +884,21 @@ private fun MediaActionSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(vertical = 6.dp),
         ) {
+            // The item's name first — long-press is also the only way to
+            // find out what a result is called.
+            if (item.title.isNotBlank()) {
+                Text(
+                    item.title,
+                    color = kb.secondaryText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 10.dp),
+                )
+            }
             val local = item.source == GifSource.LOCAL
             if (stickers) {
                 if (local) {
@@ -936,56 +950,104 @@ private fun GifGrid(
     focused: Int? = null,
 ) {
     val loader = rememberMediaImageLoader()
-    val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
+    // Justified rows instead of a fixed grid: each row shares one height and
+    // every preview keeps its own aspect ratio, so nothing is cropped. Wide
+    // GIFs pair up into rows of two; squarish ones sit three across.
+    val rows = remember(items) { GifSources.rows(items) }
+    // First flat index of each row, for mapping the focus ring to a row.
+    val rowStarts = remember(rows) {
+        var start = 0
+        rows.map { row -> start.also { start += row.size } }
+    }
     PanelFocusTarget(
         panel = panel,
         count = items.size,
         columns = 3,
         onActivate = { index -> items.getOrNull(index)?.let(onSelect) },
     )
-    ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
-    LazyVerticalGrid(
-        state = gridState,
-        columns = GridCells.Fixed(3),
+    ScrollFocusIntoView(focused) { index ->
+        val rowIndex = rowStarts.indexOfLast { it <= index }.coerceAtLeast(0)
+        listState.animateScrollToItem(rowIndex)
+    }
+    LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
+        itemsIndexed(rows, key = { _, row -> row.first().id }) { rowIndex, row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                row.forEachIndexed { indexInRow, item ->
+                    val ratio = GifSources.cellRatio(item)
+                    GifCell(
+                        item = item,
+                        loader = loader,
+                        downloadingId = downloadingId,
+                        focused = rowStarts[rowIndex] + indexInRow == focused,
+                        onSelect = onSelect,
+                        onLongPress = onLongPress,
+                        modifier = Modifier
+                            .weight(ratio)
+                            .aspectRatio(ratio),
+                    )
+                }
+                // Weights hand a sparse row the full width, which would blow
+                // its height up; pad thin rows out to the target instead.
+                val sum = row.fold(0f) { acc, item -> acc + GifSources.cellRatio(item) }
+                if (sum < GifSources.TARGET_ROW_RATIO) {
+                    Spacer(Modifier.weight(GifSources.TARGET_ROW_RATIO - sum))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GifCell(
+    item: GifItem,
+    loader: ImageLoader,
+    downloadingId: String?,
+    focused: Boolean,
+    onSelect: (GifItem) -> Unit,
+    onLongPress: ((GifItem) -> Unit)?,
+    modifier: Modifier,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(LocalKbTheme.current.chip)
+            .focusRing(focused, RoundedCornerShape(8.dp))
+            .combinedClickable(
+                enabled = downloadingId == null,
+                onClick = { onSelect(item) },
+                onLongClick = onLongPress?.let { { it(item) } },
+            ),
+    ) {
+        AsyncImage(
+            model = item.previewUrl,
+            contentDescription = item.title.ifBlank { stringResource(R.string.ime_gif_item_desc) },
+            imageLoader = loader,
+            modifier = Modifier.matchParentSize(),
+            // Fit, not Crop: the cell already has the preview's shape, so
+            // this only letterboxes the few whose ratio the cell clamped.
+            contentScale = ContentScale.Fit,
+        )
+        if (downloadingId == item.id) {
             Box(
                 modifier = Modifier
-                    .height(86.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(LocalKbTheme.current.chip)
-                    .focusRing(index == focused, RoundedCornerShape(8.dp))
-                    .combinedClickable(
-                        enabled = downloadingId == null,
-                        onClick = { onSelect(item) },
-                        onLongClick = onLongPress?.let { { it(item) } },
-                    ),
+                    .matchParentSize()
+                    .background(Color.Black.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center,
             ) {
-                AsyncImage(
-                    model = item.previewUrl,
-                    contentDescription = stringResource(R.string.ime_gif_item_desc),
-                    imageLoader = loader,
-                    modifier = Modifier.matchParentSize(),
-                    contentScale = ContentScale.Crop,
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.5.dp,
+                    color = Color.White,
                 )
-                if (downloadingId == item.id) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(Color.Black.copy(alpha = 0.45f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.5.dp,
-                            color = Color.White,
-                        )
-                    }
-                }
             }
         }
     }

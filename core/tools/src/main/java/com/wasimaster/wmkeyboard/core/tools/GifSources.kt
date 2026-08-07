@@ -26,6 +26,8 @@ data class GifItem(
     /** width/height of the preview, for grid cell sizing. */
     val aspectRatio: Float,
     val source: GifSource,
+    /** Provider's name for the item, or a local sticker's — may be blank. */
+    val title: String = "",
 )
 
 /** One chip in the source row, with the label it shows. */
@@ -81,6 +83,54 @@ object GifSources {
         // Mixed mode: any provider means the "Online" chip is the active one.
         return chips.indexOfFirst { it.source != GifSource.LOCAL }.coerceAtLeast(0)
     }
+
+    /**
+     * A cell's shape in the picker grid. Clamped so one degenerate banner or
+     * filmstrip cannot flatten its whole row (or stretch it off the panel);
+     * the preview letterboxes inside the clamped cell instead of cropping.
+     */
+    fun cellRatio(item: GifItem): Float = item.aspectRatio.coerceIn(MIN_CELL_RATIO, MAX_CELL_RATIO)
+
+    /**
+     * Splits picker results into justified rows: every item in a row shares
+     * one height, widths follow each item's own aspect ratio, and nothing is
+     * cropped. Rows aim for three items and close early once they carry
+     * [TARGET_ROW_RATIO] worth of width, so a pair of wide GIFs makes a row
+     * of two rather than squeezing a cropped third in.
+     *
+     * A row never opens with an item that would push it past [MAX_ROW_RATIO]:
+     * heights are `width / ratio-sum`, and an unbounded sum is a row of
+     * thumbnails too short to read.
+     */
+    fun rows(items: List<GifItem>): List<List<GifItem>> {
+        val rows = ArrayList<List<GifItem>>()
+        var row = ArrayList<GifItem>()
+        var sum = 0f
+        for (item in items) {
+            val ratio = cellRatio(item)
+            if (row.isNotEmpty() && (row.size == MAX_ROW_ITEMS || sum + ratio > MAX_ROW_RATIO)) {
+                rows += row
+                row = ArrayList()
+                sum = 0f
+            }
+            row += item
+            sum += ratio
+            if (sum >= TARGET_ROW_RATIO) {
+                rows += row
+                row = ArrayList()
+                sum = 0f
+            }
+        }
+        if (row.isNotEmpty()) rows += row
+        return rows
+    }
+
+    /** How much ratio-width a row wants; also the floor rows are padded to. */
+    const val TARGET_ROW_RATIO = 3.2f
+    private const val MAX_ROW_RATIO = 4.6f
+    private const val MAX_ROW_ITEMS = 3
+    private const val MIN_CELL_RATIO = 0.5f
+    private const val MAX_CELL_RATIO = 2.6f
 
     /**
      * Round-robin merge for "mixed" mode: one item from each provider in

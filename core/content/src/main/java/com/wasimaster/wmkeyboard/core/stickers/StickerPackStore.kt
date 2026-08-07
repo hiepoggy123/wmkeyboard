@@ -273,6 +273,7 @@ class StickerPackStore(private var baseDir: File?) {
                     mime = sticker.mime,
                     aspectRatio = sticker.aspectRatio,
                     source = GifSource.LOCAL,
+                    title = sticker.name.ifBlank { pack.name },
                 )
             }
         }

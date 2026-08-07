@@ -343,6 +343,9 @@
     <string name="tooldetail_media_filter_medium">Med</string>
     <string name="tooldetail_media_filter_high">High</string>
     <string name="tooldetail_media_filter_info">High hides the most and Off hides nothing. This maps to the rating of Klipy and GIPHY, where High is G and Off is R.</string>
+    <string name="tooldetail_media_limit_group">Results</string>
+    <string name="tooldetail_media_limit_title">Results for each search</string>
+    <string name="tooldetail_media_limit_subtitle">How many items one search or the trending view loads. Your own sticker packs always show fully.</string>
 
     <!-- Web search and image search tools. -->
     <string name="tooldetail_search_group">Brave Search</string>
