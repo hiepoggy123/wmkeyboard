@@ -35,7 +35,7 @@ class NgramPackEntry(
 
 /**
  * Every language with a published n-gram pack. Small on purpose: entries are
- * added as the data repo grows them (currently English and romanized
+ * added as the data repo grows them (currently English, Bengali and romanized
  * Bengali).
  */
 object NgramPackCatalog {
@@ -47,6 +47,20 @@ object NgramPackCatalog {
             bigramStem = "en_bigrams",
             trigramStem = "en_trigrams",
             approxGzBytes = 1_100_000,
+        ),
+        // Bengali script, for all three of its layouts. The words are spelled
+        // the way `bn_full` spells them, which is NFC — and NFC leaves a nukta
+        // decomposed (য + U+09BC), because U+09DF and its two siblings are
+        // Unicode composition exclusions. Probhat and Jatiya type it that way
+        // too. Avro does not: it commits the precomposed U+09DF, so a word it
+        // transliterated will miss these pairs until the context word is
+        // normalized on the way in.
+        NgramPackEntry(
+            languageId = "bn",
+            repoCode = "bn",
+            bigramStem = "bn_bigrams",
+            trigramStem = "bn_trigrams",
+            approxGzBytes = 1_820_000,
         ),
         // Banglish: bn_rom is its own first-class language (Latin script,
         // plain QWERTY, transliterated wordlist), so its romanized pairs

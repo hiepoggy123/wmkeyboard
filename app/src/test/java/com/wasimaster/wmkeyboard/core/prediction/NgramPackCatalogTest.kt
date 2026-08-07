@@ -3,7 +3,7 @@ package com.wasimaster.wmkeyboard.core.prediction
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackCatalog
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -37,8 +37,21 @@ class NgramPackCatalogTest {
     @Test
     fun romanizedBengaliIsItsOwnPackNotAvros() {
         assertTrue(NgramPackCatalog.forLanguage("bn_rom") != null)
-        // Script-Bengali has no romanized pack: its typing is Bengali script
-        // and the romanized keys could never match.
-        assertNull(NgramPackCatalog.forLanguage("bn"))
+        // Script-Bengali has a pack of its own, and the blunder to pin is it
+        // being pointed at the romanized files: those keys are Latin and could
+        // never match a word typed in Bengali script.
+        val bengali = NgramPackCatalog.forLanguage("bn")
+        assertNotNull(bengali)
+        assertEquals("bn_bigrams", bengali!!.bigramStem)
+        assertEquals("bn_trigrams", bengali.trigramStem)
+    }
+
+    @Test
+    fun everyEntryHasItsOwnFiles() {
+        // Two languages sharing a stem means one of them is reading the
+        // other's pairs; bn and bn_rom share the repo directory, so the stems
+        // are the only thing keeping them apart.
+        val stems = NgramPackCatalog.entries.flatMap { listOf(it.bigramStem, it.trigramStem) }
+        assertEquals(stems.size, stems.distinct().size)
     }
 }
