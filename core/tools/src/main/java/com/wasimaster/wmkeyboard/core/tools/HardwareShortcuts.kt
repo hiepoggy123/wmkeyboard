@@ -546,6 +546,7 @@ fun cheatSheetRows(
     toolbarTools: List<ToolbarTool> = emptyList(),
     digitChord: Boolean = false,
     altSuggestionDigits: Boolean = false,
+    languageSwitchChord: Boolean = false,
 ): List<CheatRow> = buildList {
     fun digit(slot: Int): String {
         val key = ToolbarHintDigits[slot].toString()
@@ -583,6 +584,15 @@ fun cheatSheetRows(
             group = CheatGroup.ACTIONS,
         ),
     )
+    if (languageSwitchChord) {
+        add(
+            CheatRow(
+                CtrlHintPrefix + "Space",
+                labelRes = R.string.core_tools_shortcut_cheat_language_switch,
+                group = CheatGroup.ACTIONS,
+            ),
+        )
+    }
     add(
         CheatRow(
             CheatSheetLetter.toString(),

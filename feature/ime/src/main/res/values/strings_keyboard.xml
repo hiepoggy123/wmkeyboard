@@ -337,6 +337,11 @@
     <!-- Content description of the button that closes the list of keys. -->
     <string name="ime_tool_picker_close_desc">Close the list of keys</string>
 
+    <!-- The list a physical keyboard's language switch shows. Heading of the
+         list, and the content description of the button that closes it. -->
+    <string name="ime_language_switch_title">Input language</string>
+    <string name="ime_language_switch_close_desc">Close the language list</string>
+
     <!-- The chip the suggestion strip shows for a tool. %1$s is a tool name. -->
     <string name="ime_smart_open_tool">Open %1$s</string>
 

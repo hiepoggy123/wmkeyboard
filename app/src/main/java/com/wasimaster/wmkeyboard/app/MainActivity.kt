@@ -3200,6 +3200,14 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
+                R.string.typing_hw_lang_chord_title,
+                stringResource(R.string.typing_hw_lang_chord_subtitle),
+                hw.languageSwitchChord,
+                info = stringResource(R.string.typing_hw_lang_chord_info),
+            ) { scope.launch { repository.setHwLanguageSwitchChord(it) } }
+        }
+        item {
+            ToggleSetting(
                 R.string.typing_hw_auto_show_title,
                 stringResource(R.string.typing_hw_auto_show_subtitle),
                 hw.autoShowUi,

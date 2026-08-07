@@ -328,6 +328,9 @@
     <string name="typing_hw_mac_title">macOS shortcuts</string>
     <string name="typing_hw_mac_subtitle">Command and Option behave as they do on a Mac</string>
     <string name="typing_hw_mac_info">For a keyboard made for a Mac. Command is the key next to the space bar.\n\nCommand+C, Command+V, Command+X and Command+A copy, paste, cut and select all. Command+Z is undo and Command+Shift+Z is redo. Command+Left and Command+Right go to the start and the end of the line. Option+Left and Option+Right move one word. Option+Backspace deletes one word, and Command+Backspace deletes to the start of the line. Hold Shift with a move to select.\n\nCtrl keeps its usual behaviour, and every other Command shortcut goes to the app. Some devices keep a small number of Command shortcuts for the system, and those do not reach the keyboard.</string>
+    <string name="typing_hw_lang_chord_title">Ctrl+Space changes the language</string>
+    <string name="typing_hw_lang_chord_subtitle">Hold Ctrl to browse the language list, release to switch</string>
+    <string name="typing_hw_lang_chord_info">Ctrl+Space goes to the next language and Ctrl+Shift+Space to the one before. Keep Ctrl held and press Space again to step through the list on screen — the keyboard switches when Ctrl comes back up. Esc cancels.\n\nOff by default because many apps use Ctrl+Space themselves, for example code editors use it to show completions. With this on, the keyboard takes the shortcut while you type.\n\nIf the shortcut key that opens tools is also set to Ctrl+Space, the language switch wins. A keyboard with its own language key does not need this setting: that key always works.</string>
 
     <string name="typing_hw_shortcuts_list_title">Tool shortcuts list</string>
     <string name="typing_hw_shortcuts_list_subtitle">Which letter opens which tool</string>

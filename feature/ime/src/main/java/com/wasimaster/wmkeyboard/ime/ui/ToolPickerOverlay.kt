@@ -90,6 +90,7 @@ internal fun ToolPickerOverlay(
                     digitChord = config.toolbarDigitChord,
                     altSuggestionDigits =
                         config.suggestionHotkeys == SuggestionHotkeyMode.ALT_DIGIT,
+                    languageSwitchChord = config.languageSwitchChord,
                 ),
                 leader = leader,
                 onClose = onClose,

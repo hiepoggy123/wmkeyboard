@@ -309,4 +309,16 @@ class HardwareShortcutsTest {
         assertTrue(rows.any { it.trigger == ToolboxLetter.toString() })
         assertTrue(rows.any { it.trigger == CheatSheetLetter.toString() })
     }
+
+    @Test
+    fun `the language chord row appears only when the chord is on`() {
+        val off = cheatSheetRows(DefaultToolLetters, enabled = setOf(ToolbarTool.EMOJI))
+        val on = cheatSheetRows(
+            DefaultToolLetters,
+            enabled = setOf(ToolbarTool.EMOJI),
+            languageSwitchChord = true,
+        )
+        assertTrue(off.none { it.trigger.endsWith("Space") })
+        assertTrue(on.any { it.trigger.endsWith("Space") })
+    }
 }

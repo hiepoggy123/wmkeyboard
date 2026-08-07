@@ -141,6 +141,7 @@
     <!-- Opens the toolbox, which lists every tool. -->
     <string name="core_tools_shortcut_cheat_all_tools">All tools</string>
     <string name="core_tools_shortcut_cheat_select_suggestion">Select a suggestion</string>
+    <string name="core_tools_shortcut_cheat_language_switch">Change the language</string>
     <!--
       Hold Shift with a key to reach the second tier: the symbol and emoji rows,
       or the tools in the toolbox that have no letter of their own.

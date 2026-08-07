@@ -751,6 +751,15 @@ data class HardwareKeyboardSettings(
      */
     val macShortcuts: Boolean = false,
     /**
+     * Ctrl+Space cycles the input language forward, Ctrl+Shift+Space backward;
+     * holding Ctrl browses the list and releasing commits. Off by default —
+     * apps own Ctrl+Space (it is autocomplete in nearly every IDE and
+     * terminal, which is why it sits in `ReservedChords`), so claiming it is
+     * an explicit trade the user makes. The dedicated language-switch keycode
+     * needs no toggle and always works.
+     */
+    val languageSwitchChord: Boolean = false,
+    /**
      * Badges spell their modifier out — `Ctrl+1`, `Shift+Q` — instead of using
      * the `⌃` and `⇧` glyphs. On by default: those glyphs are a Mac keycap
      * convention, and a keyboard that does not print them makes the badge a
@@ -3167,6 +3176,7 @@ class SettingsRepository(private val context: Context) {
             booleanPreferencesKey("hw_suggestion_hints_always")
         private val HW_TOOLBAR_DIGIT_CHORD = booleanPreferencesKey("hw_toolbar_digit_chord")
         private val HW_MAC_SHORTCUTS = booleanPreferencesKey("hw_mac_shortcuts")
+        private val HW_LANGUAGE_SWITCH_CHORD = booleanPreferencesKey("hw_language_switch_chord")
         private val HW_HINT_MODIFIER_WORDS = booleanPreferencesKey("hw_hint_modifier_words")
         private val HW_AUTO_SHOW_UI = booleanPreferencesKey("hw_auto_show_ui")
         private val HW_LEADER = stringPreferencesKey("hw_leader")
@@ -3879,6 +3889,8 @@ class SettingsRepository(private val context: Context) {
                 toolbarDigitChord = p[HW_TOOLBAR_DIGIT_CHORD]
                     ?: defaults.hardwareKeyboard.toolbarDigitChord,
                 macShortcuts = p[HW_MAC_SHORTCUTS] ?: defaults.hardwareKeyboard.macShortcuts,
+                languageSwitchChord = p[HW_LANGUAGE_SWITCH_CHORD]
+                    ?: defaults.hardwareKeyboard.languageSwitchChord,
                 hintModifierWords = p[HW_HINT_MODIFIER_WORDS]
                     ?: defaults.hardwareKeyboard.hintModifierWords,
                 autoShowUi = p[HW_AUTO_SHOW_UI] ?: defaults.hardwareKeyboard.autoShowUi,
@@ -6537,6 +6549,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHwMacShortcuts(value: Boolean) =
         editPrefs { it[HW_MAC_SHORTCUTS] = value }
+
+    suspend fun setHwLanguageSwitchChord(value: Boolean) =
+        editPrefs { it[HW_LANGUAGE_SWITCH_CHORD] = value }
 
     suspend fun setHwHintModifierWords(value: Boolean) =
         editPrefs { it[HW_HINT_MODIFIER_WORDS] = value }

@@ -292,6 +292,22 @@ data class PanelFocus(val region: FocusRegion, val index: Int)
 data class ToolPickerState(val armedAt: Long, val cheatSheet: Boolean = false)
 
 /**
+ * A hardware language switch in progress. [browsing] true means Ctrl is still
+ * held and releasing it commits the highlighted layout; false means the switch
+ * already happened and the overlay is only flashing confirmation.
+ *
+ * [layoutIds] is a snapshot of the enabled cycle at session start, so a
+ * settings emission mid-browse cannot reshuffle the candidates under the
+ * user's fingers.
+ */
+data class LanguageSwitchState(
+    val layoutIds: List<String>,
+    val candidate: Int,
+    val browsing: Boolean,
+    val shownAt: Long,
+)
+
+/**
  * Tab order for a panel: the regions it actually has, results last so the ring
  * starts where the content is. Exhaustive on purpose — a new [PanelMode] is a
  * compile error here rather than a panel that silently cannot be navigated.
@@ -801,6 +817,12 @@ data class KeyboardUiState(
      * picker must not survive the field it was armed in.
      */
     val toolPicker: ToolPickerState? = null,
+    /**
+     * A hardware language switch in progress, or null. Session state for the
+     * same reason as [toolPicker]: a browse must not survive the field it
+     * started in.
+     */
+    val languageSwitch: LanguageSwitchState? = null,
     /**
      * Where the hardware focus ring is inside the open panel, or null for touch
      * mode. Stays null until the user presses the leader, an arrow or Tab, so

@@ -194,8 +194,12 @@ import com.wasimaster.wmkeyboard.core.tools.HintAction
 import com.wasimaster.wmkeyboard.core.tools.LeaderTrigger
 import com.wasimaster.wmkeyboard.core.tools.MacAction
 import com.wasimaster.wmkeyboard.core.tools.MacBinding
+import com.wasimaster.wmkeyboard.core.tools.TapModifier
 import com.wasimaster.wmkeyboard.core.tools.ToolbarHintDigits
 import com.wasimaster.wmkeyboard.core.tools.ToolboxLetter
+import com.wasimaster.wmkeyboard.core.tools.languageCycleStart
+import com.wasimaster.wmkeyboard.core.tools.languageCycleStep
+import com.wasimaster.wmkeyboard.core.tools.languageSwitchDelta
 import com.wasimaster.wmkeyboard.core.tools.macBindingFor
 import com.wasimaster.wmkeyboard.core.tools.matches
 import com.wasimaster.wmkeyboard.core.tools.parseLeader
@@ -2400,7 +2404,7 @@ open class WMKeyboardService : InputMethodService() {
                 onPluginCopy = ::onPluginCopy,
                 launcher = launcherCallbacks,
                 onDismissInlineSuggestions = ::onDismissInlineSuggestions,
-                onPickerDismiss = ::disarmToolPicker,
+                onPickerDismiss = ::dismissHardwareOverlay,
                 onSmartAccept = ::onSmartSuggestionTapped,
                 onSmartOpen = ::onSmartSuggestionOpen,
                 onSnippetOfferAccept = ::onSnippetOfferAccept,
@@ -13212,6 +13216,14 @@ open class WMKeyboardService : InputMethodService() {
         // never sees half a physical keypress. Checked before the BACK/volume
         // handling, which never registers its keys here.
         if (consumedHardwareKeys.remove(keyCode)) return true
+        // Releasing Ctrl lands a language browse on the highlighted layout.
+        // Never consumed: the app saw the bare Ctrl DOWN, and eating half a
+        // modifier press breaks its meta-state tracking.
+        if (keyCode in TapModifier.CTRL.keyCodes &&
+            _uiState.value.languageSwitch?.browsing == true
+        ) {
+            commitLanguageBrowse()
+        }
         // A double-tap leader completes on the *release* of its second tap, so
         // that the letter after it arrives with no modifier held. Never consumed:
         // a lone Ctrl means nothing on its own, and eating it would break the
@@ -13266,6 +13278,8 @@ open class WMKeyboardService : InputMethodService() {
         consumedHardwareKeys.clear()
         leaderDetector?.reset()
         if (_uiState.value.toolPicker != null) disarmToolPicker()
+        // A browse whose Ctrl-up went to another window can never commit.
+        if (_uiState.value.languageSwitch != null) cancelLanguageBrowse()
         releaseForcedInputView()
     }
 
@@ -13328,6 +13342,9 @@ open class WMKeyboardService : InputMethodService() {
         if (KeyEvent.isModifierKey(keyCode)) return false
 
         expireToolPicker()
+        // Before the leader block: Ctrl is held for the whole of a browse, so a
+        // chord-style leader could otherwise fire in the middle of one.
+        handleLanguageSwitchKey(event)?.let { return it }
         if (config.shortcutsEnabled) {
             if (leaderTrigger().let { it is LeaderTrigger.Chord && it.chord.matches(keyCode, event.metaState) }) {
                 if (_uiState.value.toolPicker != null) disarmToolPicker() else armToolPicker()
@@ -13573,6 +13590,16 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * The close button shared by the hardware overlays (the shortcut legend
+     * and the language list — never up at once). One callback into the UI
+     * because [ServiceKeyboardContent] sits against the JVM's 64K method-size
+     * ceiling, where each extra [KeyboardScreen] parameter costs bytecode.
+     */
+    private fun dismissHardwareOverlay() {
+        if (_uiState.value.languageSwitch != null) cancelLanguageBrowse() else disarmToolPicker()
+    }
+
     private fun disarmToolPicker() {
         _uiState.update { if (it.toolPicker == null) it else it.copy(toolPicker = null) }
         // Nothing was opened, so the view forced up for the hint is owed back.
@@ -13591,6 +13618,144 @@ open class WMKeyboardService : InputMethodService() {
         if (picker.cheatSheet) return
         val timeout = hardwareShortcutSettings().pickerTimeoutMs.toLong()
         if (SystemClock.uptimeMillis() - picker.armedAt > timeout) disarmToolPicker()
+    }
+
+    // ---- physical keyboard: switching the input language ----
+
+    /**
+     * The hardware language switch. Ctrl+Space starts an Alt-Tab-style browse:
+     * further taps step through the enabled layouts while Ctrl stays held, and
+     * the release commits — so [onLayoutSelected], which writes DataStore and
+     * mirrors the subtype to the OS, runs exactly once however far the user
+     * steps. A quick tap-and-release is just a one-step browse. The dedicated
+     * language key has no modifier to anchor a browse on, so it commits at
+     * once and only flashes the overlay.
+     *
+     * Returns true/false when the key was a language key (consumed or not),
+     * null to keep dispatching. The double-tap leader needs no guarding here:
+     * the Space between the two Ctrl events resets [DoubleTapDetector], which
+     * insists on two taps and *nothing else*.
+     */
+    private fun handleLanguageSwitchKey(event: KeyEvent): Boolean? {
+        val keyCode = event.keyCode
+        val session = _uiState.value.languageSwitch
+
+        if (session?.browsing == true) {
+            // A Ctrl-up this service never saw (focus steal) leaves a browse
+            // with no way to commit; a key arriving without Ctrl is its trace.
+            if (event.metaState and KeyEvent.META_CTRL_ON == 0) {
+                cancelLanguageBrowse()
+                return null
+            }
+            languageSwitchDelta(keyCode, event.metaState)?.let { delta ->
+                stepLanguageBrowse(delta)
+                return consumeHardwareKey(keyCode)
+            }
+            if (keyCode == KeyEvent.KEYCODE_ESCAPE) {
+                cancelLanguageBrowse()
+                return consumeHardwareKey(keyCode)
+            }
+            // Any other chord (Ctrl+C…) abandons the browse and stays the app's.
+            cancelLanguageBrowse()
+            return null
+        }
+
+        // The dedicated key is claimed bare and unconditionally — no app wants
+        // it. With fewer than two layouts it falls through, so the framework's
+        // own next-IME rotation still means something on a one-language setup.
+        if (keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH &&
+            event.metaState and
+            (KeyEvent.META_CTRL_ON or KeyEvent.META_ALT_ON or KeyEvent.META_META_ON) == 0
+        ) {
+            return if (cycleLanguageWithHud()) consumeHardwareKey(keyCode) else null
+        }
+
+        if (hardwareShortcutSettings().languageSwitchChord) {
+            languageSwitchDelta(keyCode, event.metaState)?.let { delta ->
+                // One layout enabled: the chord stays the app's (IDE autocomplete).
+                return if (startLanguageBrowse(delta)) consumeHardwareKey(keyCode) else null
+            }
+        }
+        return null
+    }
+
+    private fun startLanguageBrowse(delta: Int): Boolean {
+        val state = _uiState.value
+        val ids = state.settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+        val candidate = languageCycleStart(ids, state.layoutId, delta) ?: return false
+        disarmToolPicker()
+        vibrate()
+        _uiState.update {
+            it.copy(
+                languageSwitch = LanguageSwitchState(
+                    layoutIds = ids,
+                    candidate = candidate,
+                    browsing = true,
+                    shownAt = SystemClock.uptimeMillis(),
+                ),
+            )
+        }
+        ensureInputViewShown()
+        return true
+    }
+
+    private fun stepLanguageBrowse(delta: Int) {
+        vibrate()
+        _uiState.update { s ->
+            val session = s.languageSwitch ?: return@update s
+            s.copy(
+                languageSwitch = session.copy(
+                    candidate = languageCycleStep(session.candidate, delta, session.layoutIds.size),
+                ),
+            )
+        }
+    }
+
+    /** Ctrl came back up: the highlighted layout becomes the input language. */
+    private fun commitLanguageBrowse() {
+        val session = _uiState.value.languageSwitch ?: return
+        val target = session.layoutIds.getOrNull(session.candidate)
+        _uiState.update { it.copy(languageSwitch = null) }
+        if (target != null && target != _uiState.value.layoutId) onLayoutSelected(target)
+        if (_uiState.value.panel == PanelMode.NONE) releaseForcedInputView()
+    }
+
+    private fun cancelLanguageBrowse() {
+        _uiState.update { if (it.languageSwitch == null) it else it.copy(languageSwitch = null) }
+        if (_uiState.value.panel == PanelMode.NONE) releaseForcedInputView()
+    }
+
+    /**
+     * The dedicated key's immediate switch: commit now, keep the overlay up
+     * briefly so the user sees where they landed. [armToolPicker]'s dismissal
+     * pattern — the coroutine only clears the session it started.
+     */
+    private fun cycleLanguageWithHud(): Boolean {
+        val state = _uiState.value
+        val ids = state.settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+        val candidate = languageCycleStart(ids, state.layoutId, 1) ?: return false
+        vibrate()
+        onLayoutSelected(ids[candidate])
+        val shownAt = SystemClock.uptimeMillis()
+        _uiState.update {
+            it.copy(
+                languageSwitch = LanguageSwitchState(
+                    layoutIds = ids,
+                    candidate = candidate,
+                    browsing = false,
+                    shownAt = shownAt,
+                ),
+            )
+        }
+        ensureInputViewShown()
+        serviceScope.launch {
+            delay(LANGUAGE_HUD_FLASH_MS)
+            val session = _uiState.value.languageSwitch
+            if (session != null && !session.browsing && session.shownAt == shownAt) {
+                cancelLanguageBrowse()
+            }
+        }
+        return true
     }
 
     /** Opens a tool from the keyboard, then puts the ring on its first item. */
@@ -14328,6 +14493,9 @@ open class WMKeyboardService : InputMethodService() {
     companion object {
         /** Minimum spacing between haptic clicks so rapid presses stay distinct. */
         private const val MIN_HAPTIC_GAP_MS = 45L
+
+        /** How long the dedicated language key's confirmation overlay stays up. */
+        private const val LANGUAGE_HUD_FLASH_MS = 1200L
 
         /**
          * Packages that host input fields on behalf of other apps — in
