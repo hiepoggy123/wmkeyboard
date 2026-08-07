@@ -145,6 +145,29 @@ class TextDiffTest {
     }
 
     @Test
+    fun `a replaced word does not strike the space beside it`() {
+        val diff = TextDiff.diff("the quick fox", "the rapid fox")
+        val deleted = diff.spans.first { it.op == TextDiff.Op.DELETE }
+        val added = diff.spans.first { it.op == TextDiff.Op.ADD }
+        // The space after the word is in both texts, so it belongs to neither
+        // the strike-through nor the underline.
+        assertEquals("quick", deleted.text)
+        assertEquals("rapid", added.text)
+        assertEquals("the quick fox", rebuildSource(diff))
+        assertEquals("the rapid fox", rebuildResult(diff))
+    }
+
+    @Test
+    fun `a replacement that really changes the spacing keeps it marked`() {
+        // The model joined two words: the space is gone from the result, so it
+        // has to stay inside the deletion.
+        val diff = TextDiff.diff("web site here", "website here")
+        assertEquals("web site here", rebuildSource(diff))
+        assertEquals("website here", rebuildResult(diff))
+        assertTrue(diff.spans.any { it.op == TextDiff.Op.DELETE && it.text.contains(" ") })
+    }
+
+    @Test
     fun `a deleted paragraph break is its own visible span`() {
         val diff = TextDiff.diff("one\n\ntwo", "one\ntwo")
         val changed = diff.spans.filter { it.op != TextDiff.Op.KEEP }

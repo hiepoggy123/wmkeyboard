@@ -156,7 +156,7 @@ object TextDiff {
         if (suffix.isNotEmpty()) spans += Span(Op.KEEP, suffix)
 
         return Result(
-            spans = coalesce(spans),
+            spans = coalesce(factorSharedSpace(spans)),
             granularity = granularity,
             added = ops.count { it == Op.ADD },
             deleted = ops.count { it == Op.DELETE },
@@ -199,6 +199,63 @@ object TextDiff {
             }
         }
         return out
+    }
+
+    /**
+     * Pulls the whitespace a replacement did not actually change out of its
+     * two spans and into a KEEP of its own.
+     *
+     * A word token carries the space after it (see [wordTokens]), so swapping
+     * "quick" for "rapid" produced spans that ran "quick " → "rapid " and drew
+     * the strike and the underline straight through a space that is in both
+     * texts. Only a DELETE immediately followed by an ADD is treated this way:
+     * in a plain deletion the space really is gone from the result, and moving
+     * it would leave the panel showing two spaces where the model left one.
+     *
+     * The reassembly property holds because the whitespace moved is present on
+     * both sides — everything that is not ADD still rebuilds the source, and
+     * everything that is not DELETE still rebuilds the result.
+     */
+    private fun factorSharedSpace(spans: List<Span>): List<Span> {
+        val out = ArrayList<Span>(spans.size)
+        var index = 0
+        while (index < spans.size) {
+            val span = spans[index]
+            val next = spans.getOrNull(index + 1)
+            if (span.op != Op.DELETE || next?.op != Op.ADD) {
+                out += span
+                index++
+                continue
+            }
+            var deleted = span.text
+            var added = next.text
+            val lead = sharedSpaceAffix(deleted, added, leading = true)
+            deleted = deleted.substring(lead.length)
+            added = added.substring(lead.length)
+            val tail = sharedSpaceAffix(deleted, added, leading = false)
+            deleted = deleted.dropLast(tail.length)
+            added = added.dropLast(tail.length)
+            if (lead.isNotEmpty()) out += Span(Op.KEEP, lead)
+            if (deleted.isNotEmpty()) out += Span(Op.DELETE, deleted)
+            if (added.isNotEmpty()) out += Span(Op.ADD, added)
+            if (tail.isNotEmpty()) out += Span(Op.KEEP, tail)
+            index += 2
+        }
+        return out
+    }
+
+    /** The longest all-whitespace prefix (or suffix) both strings share. */
+    private fun sharedSpaceAffix(a: String, b: String, leading: Boolean): String {
+        val limit = minOf(a.length, b.length)
+        var length = 0
+        while (length < limit) {
+            val ca = if (leading) a[length] else a[a.length - 1 - length]
+            val cb = if (leading) b[length] else b[b.length - 1 - length]
+            if (ca != cb || !ca.isWhitespace()) break
+            length++
+        }
+        if (length == 0) return ""
+        return if (leading) a.substring(0, length) else a.substring(a.length - length)
     }
 
     /** Merges neighbouring spans with the same op, so styling stays cheap. */
