@@ -10,10 +10,12 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.config.BuildConfig
+import com.wasimaster.wmkeyboard.core.settings.sink.S3Sink
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
 import com.wasimaster.wmkeyboard.core.clipboard.PhoneFormats
@@ -1522,6 +1524,8 @@ data class KeyboardSettings(
     val ai: AiSettings = AiSettings(),
     /** The one-time-code chip fed by the notification listener — see [OtpSettings]. */
     val otp: OtpSettings = OtpSettings(),
+    /** The backup that writes itself to a folder — see [AutoBackupSettings]. */
+    val autoBackup: AutoBackupSettings = AutoBackupSettings(),
 )
 
 /**
@@ -1555,6 +1559,291 @@ data class OtpSettings(
      */
     val dismissNotification: Boolean = false,
 )
+
+/**
+ * Where an automatic backup goes.
+ *
+ * Three destinations, none of them a server of ours. That is the whole shape of
+ * this feature: the app writes a file somewhere the user already has, and never
+ * holds a copy.
+ */
+enum class BackupDestination(
+    /** Stable on disk. Never store an enum's [name] and hope. */
+    val id: String,
+) {
+    /**
+     * A folder picked through the Storage Access Framework. Reaches anything
+     * with a `DocumentsProvider`, needs no account of any kind, and works on a
+     * device with no Google Play services at all. The default, and the one to
+     * suggest first.
+     */
+    FOLDER("folder"),
+
+    /** A WebDAV server: Nextcloud, ownCloud, or anything else that speaks it. */
+    WEBDAV("webdav"),
+
+    /**
+     * The app's own hidden folder in the user's Google Drive.
+     *
+     * Only reachable on a build with Google Play services compiled in, and only
+     * after the user authorizes it. [FOLDER] already reaches Drive through the
+     * Drive app's own provider; this exists for the case where that app is not
+     * installed, and to put the backups somewhere the user cannot delete by
+     * tidying up a folder.
+     */
+    DRIVE("drive"),
+
+    /**
+     * A bucket on anything that speaks the S3 API: AWS itself, MinIO on a
+     * machine at home, Cloudflare R2, Backblaze B2, Wasabi, Garage.
+     *
+     * One protocol reaching all of them, with no account of ours and no OAuth
+     * dance — the credentials are a key pair the user already has.
+     */
+    S3("s3"),
+
+    /** The app's own folder in the user's Dropbox, via the App Folder scope. */
+    DROPBOX("dropbox"),
+
+    /** The app's own folder in the user's OneDrive, via `Files.ReadWrite.AppFolder`. */
+    ONEDRIVE("onedrive"),
+
+    /**
+     * An FTP server, with TLS unless the user insists otherwise.
+     *
+     * The oldest option here and the one with the fewest guarantees, kept
+     * because a lot of home NAS boxes and cheap web hosts offer nothing else.
+     */
+    FTP("ftp"),
+}
+
+/**
+ * A bucket on an S3-compatible service.
+ *
+ * Grouped rather than flat inside [AutoBackupSettings] to keep each
+ * destination's settings readable next to each other; the DataStore keys stay
+ * flat as always.
+ */
+data class S3Config(
+    /**
+     * The service endpoint, for example `https://s3.eu-west-1.amazonaws.com`,
+     * `https://<account>.r2.cloudflarestorage.com`, or a MinIO address on the
+     * local network. Empty means AWS, derived from [region].
+     */
+    val endpoint: String = "",
+    /** Signing region. `us-east-1` is what R2 and most MinIO setups expect. */
+    val region: String = "us-east-1",
+    val bucket: String = "",
+    /** Optional key prefix, so backups can live in a folder inside the bucket. */
+    val prefix: String = "",
+    val accessKeyId: String = "",
+    /** In [SettingsBackup.SECRET_KEYS]. */
+    val secretAccessKey: String = "",
+    /**
+     * Whether to address the bucket as a path (`endpoint/bucket/key`) rather
+     * than as a subdomain (`bucket.endpoint/key`).
+     *
+     * Virtual-hosted style is what AWS prefers and what R2 requires; path style
+     * is what MinIO does out of the box and what an IP address must use, since
+     * a bucket name cannot be prepended to one.
+     */
+    val pathStyle: Boolean = false,
+)
+
+/** An FTP server. */
+data class FtpConfig(
+    val host: String = "",
+    val port: Int = 21,
+    val user: String = "",
+    /** In [SettingsBackup.SECRET_KEYS]. */
+    val password: String = "",
+    /** Directory to write into, relative to wherever the login lands. */
+    val path: String = "",
+    /**
+     * Whether to negotiate TLS with `AUTH TLS` before logging in.
+     *
+     * On by default and worth leaving on: plain FTP sends the password as text
+     * on the wire, exactly like WebDAV over http, which this app refuses
+     * outright. FTP is allowed to be turned down to plain only because for some
+     * old NAS boxes it is that or nothing, and the screen says what it costs.
+     */
+    val secure: Boolean = true,
+)
+
+/**
+ * The backup that takes itself: the same bundle the Backup screen exports, put
+ * where the user chose, on a schedule.
+ *
+ * Nothing here reaches a server of ours, which is why this exists in this shape
+ * and not as an account. See [BackupDestination] for the three places it can go.
+ *
+ * Grouped (see [CameraSettings] for why); DataStore keys stay flat.
+ *
+ * Inert until the chosen destination is actually usable. There is no default
+ * destination, because every candidate is somewhere the user did not ask to
+ * have their keyboard's contents put.
+ */
+data class AutoBackupSettings(
+
+    /** Master switch. Does nothing on its own; a destination has to work too. */
+    val enabled: Boolean = false,
+
+    /** Which of the three destinations the backups go to. */
+    val destination: BackupDestination = BackupDestination.FOLDER,
+
+    /**
+     * The WebDAV collection to write into, for example
+     * `https://cloud.example.com/remote.php/dav/files/me/keyboard-backups`.
+     *
+     * Travels in an export: it is the user's choice and it means the same thing
+     * on their next phone. [webDavPassword] does not.
+     */
+    val webDavUrl: String = "",
+
+    val webDavUser: String = "",
+
+    /**
+     * Named in [SettingsBackup.SECRET_KEYS], so it stays out of exports and out
+     * of device-protected storage. Server credentials, in the clear, for the
+     * same reason [passphrase] is: an unattended upload has nobody to type them.
+     */
+    val webDavPassword: String = "",
+
+    /** See [S3Config]. */
+    val s3: S3Config = S3Config(),
+
+    /** See [FtpConfig]. */
+    val ftp: FtpConfig = FtpConfig(),
+
+    /**
+     * The Dropbox refresh token, or empty.
+     *
+     * A refresh token rather than an access token: the short-lived one expires
+     * in four hours, and a backup that runs once a day would never have a live
+     * one. In [SettingsBackup.SECRET_KEYS].
+     */
+    val dropboxRefreshToken: String = "",
+
+    /** The OneDrive refresh token, same reasoning. In [SettingsBackup.SECRET_KEYS]. */
+    val oneDriveRefreshToken: String = "",
+
+    /**
+     * A persisted tree URI, as a string, or empty.
+     *
+     * Not a path. What makes the folder writable is the grant attached to this
+     * URI, and the grant can go away without the string changing, so every use
+     * of it re-checks. Never travels in an exported bundle: see
+     * [SettingsBackup.TRANSIENT_KEYS].
+     */
+    val folderUri: String = "",
+
+    /** Wall-clock hours between runs. */
+    val intervalHours: Int = 24,
+
+    /** How many generations survive rotation. The newest is never one of them. */
+    val keep: Int = 5,
+
+    /**
+     * Which parts of the bundle go in, as [ConfigBackup.Section] ids.
+     *
+     * Also drives the manual export on the Backup screen, which until this
+     * existed forgot the choice every time the screen closed.
+     */
+    val sections: Set<String> = DEFAULT_SECTIONS,
+
+    /**
+     * Whether API keys ride along. Off, and worth leaving off: a bundle with
+     * this on is a file that has to be treated like a password.
+     */
+    val includeSecrets: Boolean = false,
+
+    /** Whether the file is encrypted under [passphrase]. See [BackupCrypto]. */
+    val encrypt: Boolean = false,
+
+    /**
+     * The passphrase, stored in the clear.
+     *
+     * It has to be: a backup that runs with nobody watching has nobody to type
+     * it. So this protects the file where it lands — in a synced folder, in
+     * somebody's copy of that folder — and not against a person holding an
+     * unlocked device. The settings screen says exactly that.
+     *
+     * Named in [SettingsBackup.SECRET_KEYS], so it never reaches
+     * device-protected storage and never leaves in an export by default.
+     */
+    val passphrase: String = "",
+
+    /**
+     * The per-install KDF salt, base64, made when the passphrase is first set.
+     *
+     * Only used to *write* new files; a file carries its own salt in its
+     * header, so losing this never makes an existing backup unreadable.
+     */
+    val kdfSalt: String = "",
+
+    /** When the last run finished, or 0. Never travels: another device's clock. */
+    val lastRunAtMs: Long = 0,
+
+    /**
+     * The name of the [com.wasimaster.wmkeyboard.core.settings.sink.SinkError]
+     * the last run stopped on, or empty.
+     *
+     * Kept because the failure this feature actually has is the silent one: a
+     * grant dies, backups stop, and nothing anywhere says so until the phone
+     * the backups were for is gone.
+     */
+    val lastError: String = "",
+) {
+    companion object {
+
+        /**
+         * The same split the Backup screen's switches defaulted to: the parts
+         * that describe a set-up keyboard, without the two personal ones
+         * (typed words, copied text) or the two bulky ones (sticker and icon
+         * images). Turning those on is a decision the user makes in front of a
+         * warning, not one made for them here.
+         */
+        val DEFAULT_SECTIONS: Set<String> = setOf(
+            ConfigBackup.Section.SETTINGS.id,
+            ConfigBackup.Section.THEMES.id,
+            ConfigBackup.Section.SNIPPETS.id,
+            ConfigBackup.Section.WORDLISTS.id,
+            ConfigBackup.Section.ADDONS.id,
+            ConfigBackup.Section.EMOJI.id,
+        )
+    }
+}
+
+/** [AutoBackupSettings.sections] as the sections themselves. */
+val AutoBackupSettings.sectionSet: Set<ConfigBackup.Section>
+    get() = ConfigBackup.Section.entries.filterTo(LinkedHashSet()) { it.id in sections }
+
+/**
+ * Whether the chosen destination has everything it needs to be tried.
+ *
+ * Not whether it will work: a folder grant can be revoked and a password can be
+ * wrong, and only the sink can find that out. This is the cheaper question of
+ * whether there is any point asking, and it is what gates both the scheduler
+ * and the switch on the screen.
+ *
+ * Google Drive needs nothing stored, because what it needs is an authorization
+ * held by Play services rather than anything of ours.
+ */
+val AutoBackupSettings.destinationConfigured: Boolean
+    get() = when (destination) {
+        BackupDestination.FOLDER -> folderUri.isNotEmpty()
+        BackupDestination.WEBDAV -> webDavUrl.isNotEmpty() && webDavUser.isNotEmpty()
+        BackupDestination.DRIVE -> true
+        BackupDestination.S3 ->
+            s3.bucket.isNotEmpty() &&
+                s3.accessKeyId.isNotEmpty() &&
+                s3.secretAccessKey.isNotEmpty()
+        // The token is the whole configuration: it is what the sign-in produced
+        // and the only thing either service needs from us.
+        BackupDestination.DROPBOX -> dropboxRefreshToken.isNotEmpty()
+        BackupDestination.ONEDRIVE -> oneDriveRefreshToken.isNotEmpty()
+        BackupDestination.FTP -> ftp.host.isNotEmpty() && ftp.user.isNotEmpty()
+    }
 
 /**
  * AI-tool settings, grouped rather than flat because [KeyboardSettings] sits against
@@ -2893,6 +3182,46 @@ class SettingsRepository(private val context: Context) {
         private val OTP_NUMBER_FIELDS_ONLY = booleanPreferencesKey("otp_number_fields_only")
         private val OTP_EXPIRY_MINUTES = intPreferencesKey("otp_expiry_minutes")
         private val OTP_DISMISS_NOTIFICATION = booleanPreferencesKey("otp_dismiss_notification")
+        private val AUTO_BACKUP_ENABLED = booleanPreferencesKey(SettingsBackup.AUTO_BACKUP_ENABLED)
+        private val AUTO_BACKUP_FOLDER_URI =
+            stringPreferencesKey(SettingsBackup.AUTO_BACKUP_FOLDER_URI)
+        private val AUTO_BACKUP_INTERVAL_HOURS = intPreferencesKey("auto_backup_interval_hours")
+        private val AUTO_BACKUP_KEEP = intPreferencesKey("auto_backup_keep")
+        private val AUTO_BACKUP_SECTIONS = stringSetPreferencesKey("auto_backup_sections")
+        private val AUTO_BACKUP_INCLUDE_SECRETS =
+            booleanPreferencesKey("auto_backup_include_secrets")
+        private val AUTO_BACKUP_ENCRYPT = booleanPreferencesKey("auto_backup_encrypt")
+        private val AUTO_BACKUP_PASSPHRASE =
+            stringPreferencesKey(SettingsBackup.AUTO_BACKUP_PASSPHRASE)
+        private val AUTO_BACKUP_KDF_SALT = stringPreferencesKey(SettingsBackup.AUTO_BACKUP_KDF_SALT)
+        private val AUTO_BACKUP_LAST_RUN_AT =
+            longPreferencesKey(SettingsBackup.AUTO_BACKUP_LAST_RUN_AT)
+        private val AUTO_BACKUP_LAST_ERROR =
+            stringPreferencesKey(SettingsBackup.AUTO_BACKUP_LAST_ERROR)
+        private val AUTO_BACKUP_DESTINATION = stringPreferencesKey("auto_backup_destination")
+        private val AUTO_BACKUP_WEBDAV_URL = stringPreferencesKey("auto_backup_webdav_url")
+        private val AUTO_BACKUP_WEBDAV_USER = stringPreferencesKey("auto_backup_webdav_user")
+        private val AUTO_BACKUP_WEBDAV_PASSWORD =
+            stringPreferencesKey(SettingsBackup.AUTO_BACKUP_WEBDAV_PASSWORD)
+        private val AUTO_BACKUP_S3_ENDPOINT = stringPreferencesKey("auto_backup_s3_endpoint")
+        private val AUTO_BACKUP_S3_REGION = stringPreferencesKey("auto_backup_s3_region")
+        private val AUTO_BACKUP_S3_BUCKET = stringPreferencesKey("auto_backup_s3_bucket")
+        private val AUTO_BACKUP_S3_PREFIX = stringPreferencesKey("auto_backup_s3_prefix")
+        private val AUTO_BACKUP_S3_KEY_ID = stringPreferencesKey("auto_backup_s3_key_id")
+        private val AUTO_BACKUP_S3_SECRET =
+            stringPreferencesKey(SettingsBackup.AUTO_BACKUP_S3_SECRET)
+        private val AUTO_BACKUP_S3_PATH_STYLE = booleanPreferencesKey("auto_backup_s3_path_style")
+        private val AUTO_BACKUP_FTP_HOST = stringPreferencesKey("auto_backup_ftp_host")
+        private val AUTO_BACKUP_FTP_PORT = intPreferencesKey("auto_backup_ftp_port")
+        private val AUTO_BACKUP_FTP_USER = stringPreferencesKey("auto_backup_ftp_user")
+        private val AUTO_BACKUP_FTP_PASSWORD =
+            stringPreferencesKey(SettingsBackup.AUTO_BACKUP_FTP_PASSWORD)
+        private val AUTO_BACKUP_FTP_PATH = stringPreferencesKey("auto_backup_ftp_path")
+        private val AUTO_BACKUP_FTP_SECURE = booleanPreferencesKey("auto_backup_ftp_secure")
+        private val AUTO_BACKUP_DROPBOX_TOKEN =
+            stringPreferencesKey(SettingsBackup.AUTO_BACKUP_DROPBOX_TOKEN)
+        private val AUTO_BACKUP_ONEDRIVE_TOKEN =
+            stringPreferencesKey(SettingsBackup.AUTO_BACKUP_ONEDRIVE_TOKEN)
         private val LONG_PRESS_DELAY = intPreferencesKey("long_press_delay")
         // The pre-split single interval. Still read, as the fallback for both
         // keys below, so a cadence tuned before the split survives the upgrade.
@@ -3558,6 +3887,53 @@ class SettingsRepository(private val context: Context) {
                 expiryMinutes = p[OTP_EXPIRY_MINUTES] ?: defaults.otp.expiryMinutes,
                 dismissNotification = p[OTP_DISMISS_NOTIFICATION]
                     ?: defaults.otp.dismissNotification,
+            ),
+            autoBackup = AutoBackupSettings(
+                enabled = p[AUTO_BACKUP_ENABLED] ?: defaults.autoBackup.enabled,
+                destination = p[AUTO_BACKUP_DESTINATION]
+                    ?.let { id -> BackupDestination.entries.firstOrNull { it.id == id } }
+                    ?: defaults.autoBackup.destination,
+                webDavUrl = p[AUTO_BACKUP_WEBDAV_URL] ?: defaults.autoBackup.webDavUrl,
+                webDavUser = p[AUTO_BACKUP_WEBDAV_USER] ?: defaults.autoBackup.webDavUser,
+                webDavPassword = p[AUTO_BACKUP_WEBDAV_PASSWORD]
+                    ?: defaults.autoBackup.webDavPassword,
+                s3 = S3Config(
+                    endpoint = p[AUTO_BACKUP_S3_ENDPOINT] ?: defaults.autoBackup.s3.endpoint,
+                    region = p[AUTO_BACKUP_S3_REGION] ?: defaults.autoBackup.s3.region,
+                    bucket = p[AUTO_BACKUP_S3_BUCKET] ?: defaults.autoBackup.s3.bucket,
+                    prefix = p[AUTO_BACKUP_S3_PREFIX] ?: defaults.autoBackup.s3.prefix,
+                    accessKeyId = p[AUTO_BACKUP_S3_KEY_ID] ?: defaults.autoBackup.s3.accessKeyId,
+                    secretAccessKey = p[AUTO_BACKUP_S3_SECRET]
+                        ?: defaults.autoBackup.s3.secretAccessKey,
+                    pathStyle = p[AUTO_BACKUP_S3_PATH_STYLE] ?: defaults.autoBackup.s3.pathStyle,
+                ),
+                ftp = FtpConfig(
+                    host = p[AUTO_BACKUP_FTP_HOST] ?: defaults.autoBackup.ftp.host,
+                    port = p[AUTO_BACKUP_FTP_PORT] ?: defaults.autoBackup.ftp.port,
+                    user = p[AUTO_BACKUP_FTP_USER] ?: defaults.autoBackup.ftp.user,
+                    password = p[AUTO_BACKUP_FTP_PASSWORD] ?: defaults.autoBackup.ftp.password,
+                    path = p[AUTO_BACKUP_FTP_PATH] ?: defaults.autoBackup.ftp.path,
+                    secure = p[AUTO_BACKUP_FTP_SECURE] ?: defaults.autoBackup.ftp.secure,
+                ),
+                dropboxRefreshToken = p[AUTO_BACKUP_DROPBOX_TOKEN]
+                    ?: defaults.autoBackup.dropboxRefreshToken,
+                oneDriveRefreshToken = p[AUTO_BACKUP_ONEDRIVE_TOKEN]
+                    ?: defaults.autoBackup.oneDriveRefreshToken,
+                folderUri = p[AUTO_BACKUP_FOLDER_URI] ?: defaults.autoBackup.folderUri,
+                intervalHours = p[AUTO_BACKUP_INTERVAL_HOURS]
+                    ?: defaults.autoBackup.intervalHours,
+                keep = p[AUTO_BACKUP_KEEP] ?: defaults.autoBackup.keep,
+                // Absent means never chosen, so the defaults stand. An empty
+                // set is a choice — every section turned off — and round-trips
+                // as one, because the setter writes the key either way.
+                sections = p[AUTO_BACKUP_SECTIONS] ?: defaults.autoBackup.sections,
+                includeSecrets = p[AUTO_BACKUP_INCLUDE_SECRETS]
+                    ?: defaults.autoBackup.includeSecrets,
+                encrypt = p[AUTO_BACKUP_ENCRYPT] ?: defaults.autoBackup.encrypt,
+                passphrase = p[AUTO_BACKUP_PASSPHRASE] ?: defaults.autoBackup.passphrase,
+                kdfSalt = p[AUTO_BACKUP_KDF_SALT] ?: defaults.autoBackup.kdfSalt,
+                lastRunAtMs = p[AUTO_BACKUP_LAST_RUN_AT] ?: defaults.autoBackup.lastRunAtMs,
+                lastError = p[AUTO_BACKUP_LAST_ERROR] ?: defaults.autoBackup.lastError,
             ),
             suggestionStrip = SuggestionStripSettings(
                 punctuation = p[PUNCTUATION_SUGGESTIONS] ?: defaults.suggestionStrip.punctuation,
@@ -5309,6 +5685,39 @@ class SettingsRepository(private val context: Context) {
     }.getOrDefault(false)
 
     /**
+     * Roughly how large the image-carrying sections of [sections] would make a
+     * bundle, without building one.
+     *
+     * Three of the sections embed whole files as base64, and nothing caps how
+     * many bytes that is: sticker packs are capped by count, not size, and
+     * imported word lists are not capped at all. [exportConfig] holds the
+     * result as a single string, so a large enough collection is an
+     * out-of-memory kill rather than a slow export — and the automatic backup
+     * runs inside the keyboard's own process, where that takes the keyboard
+     * down with it.
+     *
+     * So the automatic path asks first and drops those sections when the answer
+     * is too big. Base64 is four bytes out for every three in; the JSON around
+     * it is noise by comparison.
+     */
+    fun embeddedByteEstimate(sections: Set<ConfigBackup.Section>): Long {
+        fun bytesUnder(dir: File): Long =
+            if (!dir.isDirectory) 0L else dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+
+        var onDisk = 0L
+        if (ConfigBackup.Section.STICKERS in sections) {
+            onDisk += bytesUnder(File(context.filesDir, StickerPackStore.DIR_NAME))
+        }
+        if (ConfigBackup.Section.ICONS in sections) {
+            onDisk += bytesUnder(File(context.filesDir, IconPackStore.DIR_NAME))
+        }
+        if (ConfigBackup.Section.WORDLISTS in sections) {
+            onDisk += bytesUnder(CustomDictionaries.root(context.filesDir))
+        }
+        return onDisk * 4 / 3
+    }
+
+    /**
      * Builds a full-config bundle from the chosen [sections]. A section whose
      * store is empty or absent is simply left out of the file.
      */
@@ -5322,7 +5731,11 @@ class SettingsRepository(private val context: Context) {
         val out = LinkedHashMap<ConfigBackup.Section, JsonElement>()
         if (ConfigBackup.Section.SETTINGS in sections) {
             out[ConfigBackup.Section.SETTINGS] =
-                SettingsBackup.encodeSettings(prefs, includeSecrets, exclude = SettingsBackup.THEME_KEYS)
+                SettingsBackup.encodeSettings(
+                    prefs,
+                    includeSecrets,
+                    exclude = SettingsBackup.THEME_KEYS + SettingsBackup.TRANSIENT_KEYS,
+                )
         }
         if (ConfigBackup.Section.THEMES in sections) {
             prefs[CUSTOM_THEMES]?.takeIf { it.isNotBlank() }?.let { raw ->
@@ -5440,7 +5853,11 @@ class SettingsRepository(private val context: Context) {
         }
 
         (parsed.sections[ConfigBackup.Section.THEMES] as? JsonArray)?.let { array ->
-            val themes = runCatching { ThemeCodec.decodeList(array.toString()) }.getOrNull()
+            val decoded = runCatching { ThemeCodec.decodeList(array.toString()) }.getOrNull()
+            // Not `decoded` directly: a non-empty array that decodes to nothing
+            // is a parse failure, and taking it at face value would replace
+            // every custom theme with nothing and report success.
+            val themes = ConfigBackup.decodedList(decoded, array.size)
             if (themes != null) {
                 // Rebuild any embedded background images onto local storage and
                 // strip the base64 before persisting the themes.
@@ -6235,6 +6652,124 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setOtpDismissNotification(value: Boolean) =
         editPrefs { it[OTP_DISMISS_NOTIFICATION] = value }
+
+    suspend fun setAutoBackupEnabled(value: Boolean) =
+        editPrefs { it[AUTO_BACKUP_ENABLED] = value }
+
+    /**
+     * Points the automatic backup at a folder, or clears it.
+     *
+     * Taking the persistable grant is the caller's job — it has the picker
+     * result and this does not.
+     */
+    suspend fun setAutoBackupFolderUri(value: String) = editPrefs {
+        it[AUTO_BACKUP_FOLDER_URI] = value
+        // A new destination has no history here, and the old failure was about
+        // the old folder.
+        it[AUTO_BACKUP_LAST_ERROR] = ""
+        it[AUTO_BACKUP_LAST_RUN_AT] = 0L
+    }
+
+    /** Switches destination, and forgets the old one's run record with it. */
+    suspend fun setAutoBackupDestination(value: BackupDestination) = editPrefs {
+        it[AUTO_BACKUP_DESTINATION] = value.id
+        it[AUTO_BACKUP_LAST_ERROR] = ""
+        it[AUTO_BACKUP_LAST_RUN_AT] = 0L
+    }
+
+    /**
+     * Sets the WebDAV collection to upload into.
+     *
+     * A trailing slash is added because every path below is joined onto this,
+     * and a server handed a doubled or missing slash answers 404 rather than
+     * anything useful.
+     */
+    suspend fun setAutoBackupWebDavUrl(value: String) = editPrefs {
+        val trimmed = value.trim()
+        it[AUTO_BACKUP_WEBDAV_URL] =
+            if (trimmed.isEmpty() || trimmed.endsWith("/")) trimmed else "$trimmed/"
+        it[AUTO_BACKUP_LAST_ERROR] = ""
+    }
+
+    suspend fun setAutoBackupWebDavUser(value: String) =
+        editPrefs { it[AUTO_BACKUP_WEBDAV_USER] = value.trim() }
+
+    suspend fun setAutoBackupWebDavPassword(value: String) =
+        editPrefs { it[AUTO_BACKUP_WEBDAV_PASSWORD] = value }
+
+    /** Replaces the whole S3 configuration; the screen edits it as one thing. */
+    suspend fun setAutoBackupS3(value: S3Config) = editPrefs {
+        it[AUTO_BACKUP_S3_ENDPOINT] = value.endpoint.trim()
+        it[AUTO_BACKUP_S3_REGION] = S3Sink.normalizeRegion(value.region)
+        it[AUTO_BACKUP_S3_BUCKET] = value.bucket.trim()
+        it[AUTO_BACKUP_S3_PREFIX] = value.prefix.trim().trim('/')
+        it[AUTO_BACKUP_S3_KEY_ID] = value.accessKeyId.trim()
+        it[AUTO_BACKUP_S3_SECRET] = value.secretAccessKey
+        it[AUTO_BACKUP_S3_PATH_STYLE] = value.pathStyle
+        it[AUTO_BACKUP_LAST_ERROR] = ""
+    }
+
+    /** Replaces the whole FTP configuration. */
+    suspend fun setAutoBackupFtp(value: FtpConfig) = editPrefs {
+        it[AUTO_BACKUP_FTP_HOST] = value.host.trim()
+        it[AUTO_BACKUP_FTP_PORT] = value.port.coerceIn(1, 65535)
+        it[AUTO_BACKUP_FTP_USER] = value.user.trim()
+        it[AUTO_BACKUP_FTP_PASSWORD] = value.password
+        it[AUTO_BACKUP_FTP_PATH] = value.path.trim().trim('/')
+        it[AUTO_BACKUP_FTP_SECURE] = value.secure
+        it[AUTO_BACKUP_LAST_ERROR] = ""
+    }
+
+    /** Stores or clears the Dropbox grant. Empty means signed out. */
+    suspend fun setAutoBackupDropboxToken(value: String) = editPrefs {
+        it[AUTO_BACKUP_DROPBOX_TOKEN] = value
+        it[AUTO_BACKUP_LAST_ERROR] = ""
+    }
+
+    /** Stores or clears the OneDrive grant. Empty means signed out. */
+    suspend fun setAutoBackupOneDriveToken(value: String) = editPrefs {
+        it[AUTO_BACKUP_ONEDRIVE_TOKEN] = value
+        it[AUTO_BACKUP_LAST_ERROR] = ""
+    }
+
+    suspend fun setAutoBackupIntervalHours(value: Int) =
+        editPrefs { it[AUTO_BACKUP_INTERVAL_HOURS] = value.coerceIn(1, 24 * 30) }
+
+    suspend fun setAutoBackupKeep(value: Int) =
+        editPrefs { it[AUTO_BACKUP_KEEP] = value.coerceIn(1, 50) }
+
+    /** Writes the key even when [value] is empty: an empty set is a choice. */
+    suspend fun setAutoBackupSections(value: Set<ConfigBackup.Section>) =
+        editPrefs { prefs -> prefs[AUTO_BACKUP_SECTIONS] = value.mapTo(HashSet()) { it.id } }
+
+    suspend fun setAutoBackupIncludeSecrets(value: Boolean) =
+        editPrefs { it[AUTO_BACKUP_INCLUDE_SECRETS] = value }
+
+    suspend fun setAutoBackupEncrypt(value: Boolean) =
+        editPrefs { it[AUTO_BACKUP_ENCRYPT] = value }
+
+    /**
+     * Sets or clears the passphrase, minting a salt the first time.
+     *
+     * The salt is per install and only ever used to write new files — every
+     * file carries its own in its header — so replacing it cannot make an
+     * existing backup unreadable.
+     */
+    suspend fun setAutoBackupPassphrase(value: String) = editPrefs { prefs ->
+        prefs[AUTO_BACKUP_PASSPHRASE] = value
+        if (value.isEmpty()) {
+            prefs[AUTO_BACKUP_KDF_SALT] = ""
+        } else if (prefs[AUTO_BACKUP_KDF_SALT].isNullOrEmpty()) {
+            prefs[AUTO_BACKUP_KDF_SALT] =
+                Base64.encodeToString(BackupCrypto.newSalt(), Base64.NO_WRAP)
+        }
+    }
+
+    /** Records the outcome of a run. [error] is a `SinkError` name, or empty. */
+    suspend fun setAutoBackupOutcome(ranAtMs: Long, error: String) = editPrefs {
+        if (error.isEmpty()) it[AUTO_BACKUP_LAST_RUN_AT] = ranAtMs
+        it[AUTO_BACKUP_LAST_ERROR] = error
+    }
 
     suspend fun setLongPressDelayMs(value: Int) =
         editPrefs { it[LONG_PRESS_DELAY] = value.coerceIn(150, 700) }

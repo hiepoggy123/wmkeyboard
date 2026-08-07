@@ -1,7 +1,10 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.app.Application
+import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.app.drive.installDriveAuth
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
+import com.wasimaster.wmkeyboard.core.settings.sink.BackupClients
 
 /**
  * Exists for one reason: to install the crash handler before anything else in
@@ -29,5 +32,17 @@ class WMApplication : Application() {
         // report, forever. See CrashReportActivity.
         if (DebugLog.isCrashProcess()) return
         DebugLog.attach(this)
+        // Publishes the Drive token provider, if this build has one at all, so
+        // the backup job can find it. Here rather than in the activity or the
+        // keyboard because either of those may be what started the process, and
+        // the job runs in whichever one is alive. A no-op on a build without
+        // Play services compiled in.
+        installDriveAuth(this)
+        // The Dropbox and OneDrive client ids, which live in BuildConfig and
+        // so cannot be read from the library module that needs them.
+        BackupClients.install(
+            dropbox = BuildConfig.DROPBOX_APP_KEY,
+            oneDrive = BuildConfig.ONEDRIVE_CLIENT_ID,
+        )
     }
 }

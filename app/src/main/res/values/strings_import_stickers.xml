@@ -42,6 +42,15 @@
     <string name="import_backup_settings_failed">The app could not apply the settings. Your settings did not change.</string>
     <string name="import_not_a_backup">That file is not a WM Keyboard backup.</string>
 
+    <!-- ==== A backup that a passphrase protects. ==== -->
+
+    <string name="import_encrypted_title">Open backup?</string>
+    <string name="import_encrypted_body">A passphrase protects this backup. The app cannot show you what is inside until you open it. After it opens, the app asks you again before it changes anything.</string>
+    <string name="import_encrypted_label">Passphrase</string>
+    <!-- The app cannot tell these two apart: a file that fails its check is
+         either the wrong passphrase or a damaged file, so the message says both. -->
+    <string name="import_encrypted_failed">The app could not open the backup. The passphrase is wrong, or the file is damaged. Nothing on your device changed.</string>
+
     <!-- ==== The older settings-only backup file. ==== -->
 
     <string name="import_settings_title">Import settings?</string>

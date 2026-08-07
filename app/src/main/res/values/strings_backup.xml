@@ -208,4 +208,107 @@
     </plurals>
     <string name="backup_restore_rolled_back">The app could not apply that backup. Your settings did not change.</string>
 
+
+    <!-- ==== The backup that runs without being asked. ==== -->
+
+    <string name="backup_auto_group_title">Automatic backup</string>
+    <string name="backup_auto_folder_title">Folder</string>
+    <string name="backup_auto_folder_subtitle">Where to put the backups. Choose a folder in a cloud app to keep copies off the device.</string>
+    <string name="backup_auto_folder_none">Not set</string>
+    <string name="backup_auto_folder_denied">The app cannot write to that folder. Choose another one.</string>
+    <string name="backup_auto_enabled_title">Back up automatically</string>
+    <string name="backup_auto_enabled_subtitle">The app writes a backup while your device charges.</string>
+    <string name="backup_auto_enabled_needs_folder">Choose a folder first.</string>
+    <string name="backup_auto_interval_title">How often</string>
+    <string name="backup_auto_interval_6">6 hours</string>
+    <string name="backup_auto_interval_12">12 hours</string>
+    <string name="backup_auto_interval_24">1 day</string>
+    <string name="backup_auto_interval_week">1 week</string>
+    <string name="backup_auto_keep_title">Backups to keep</string>
+    <string name="backup_auto_keep_subtitle">The app deletes the oldest backup when there are more than this. It keeps the newest one always.</string>
+    <string name="backup_auto_encrypt_title">Protect with a passphrase</string>
+    <string name="backup_auto_encrypt_subtitle">The app encrypts each backup. You need the passphrase to restore one.</string>
+    <string name="backup_auto_encrypt_info">The app stores the passphrase on this device, because an automatic backup has nobody to type it. This protects the backup file where it goes, for example in a cloud folder. It does not protect it from a person who holds your unlocked device. Write the passphrase down: without it, a backup cannot be restored.</string>
+    <string name="backup_auto_passphrase_label">Passphrase</string>
+    <string name="backup_auto_passphrase_show">Show the passphrase</string>
+    <string name="backup_auto_passphrase_hide">Hide the passphrase</string>
+    <string name="backup_auto_personal_warning">This backup holds words that you typed, or text that you copied, and no passphrase protects it. The app writes it to your folder on a timer. Turn on a passphrase, or turn off the dictionary and the clipboard above.</string>
+    <string name="backup_auto_now_action">Back up now</string>
+    <string name="backup_auto_running">Backing up…</string>
+    <!-- %1$s is the name of the file that the app wrote. -->
+    <string name="backup_auto_done">The app wrote %1$s.</string>
+    <!-- %1$s is the file name. %2$s is a list of the parts that the app left
+         out because the backup was too large, for example "stickers, icons". -->
+    <string name="backup_auto_done_skipped">The app wrote %1$s. It left out %2$s, because the backup was too large.</string>
+    <string name="backup_auto_locked">The app cannot back up while the device is locked. Unlock it and try again.</string>
+    <string name="backup_auto_skipped">There is nothing to back up. Choose at least one part above.</string>
+    <!-- %1$s is a relative time, for example "2 hours ago". -->
+    <string name="backup_auto_last_run">Last backup: %1$s</string>
+    <string name="backup_auto_never">The app has not made an automatic backup yet.</string>
+    <string name="backup_auto_error_permission">The app can no longer write to your backup folder. Choose the folder again.</string>
+    <string name="backup_auto_error_target">The app cannot find your backup folder. It may be deleted, or the card may be out.</string>
+    <string name="backup_auto_error_space">There is not enough space for a backup.</string>
+    <string name="backup_auto_error_io">The last backup did not finish. The app tries again later.</string>
+
+    <!-- ==== Where the automatic backup goes. ==== -->
+
+    <string name="backup_auto_dest_title">Where to put backups</string>
+    <string name="backup_auto_dest_subtitle">None of these send anything to a WM Keyboard server.</string>
+    <string name="backup_auto_dest_folder">Folder</string>
+    <string name="backup_auto_dest_webdav">WebDAV</string>
+    <string name="backup_auto_dest_drive">Google Drive</string>
+
+    <string name="backup_auto_webdav_url_label">Server address</string>
+    <string name="backup_auto_webdav_url_hint">The full address of the folder to write into, for example https://cloud.example.com/remote.php/dav/files/me/backups</string>
+    <string name="backup_auto_webdav_user_label">User name</string>
+    <string name="backup_auto_webdav_password_label">Password</string>
+    <string name="backup_auto_webdav_password_hint">If your server can make app passwords, use one here instead of your account password.</string>
+    <string name="backup_auto_webdav_needs_https">This address is not https. The app sends your user name and password with every upload, and on a plain http address anyone on the network can read them, so the app does not use it.</string>
+
+    <string name="backup_auto_drive_title">Google Drive</string>
+    <string name="backup_auto_drive_checking">Checking…</string>
+    <string name="backup_auto_drive_authorized">The app can write to its folder in your Drive.</string>
+    <string name="backup_auto_drive_not_authorized">The app needs your permission first.</string>
+    <string name="backup_auto_drive_authorize">Allow access to Drive</string>
+    <string name="backup_auto_drive_info">The app writes to a hidden folder of its own in your Drive. It cannot see your other files, and the folder does not show up beside your documents. To take this permission back, go to your Google account and open the list of apps with account access. Your Drive app can also show this folder: choose the folder in "Folder" above instead if you want to see the files.</string>
+
+    <!-- ==== The other four destinations. ==== -->
+
+    <string name="backup_auto_dest_s3">S3</string>
+    <string name="backup_auto_dest_ftp">FTP</string>
+    <string name="backup_auto_dest_dropbox">Dropbox</string>
+    <string name="backup_auto_dest_onedrive">OneDrive</string>
+
+    <string name="backup_auto_s3_endpoint_label">Endpoint</string>
+    <string name="backup_auto_s3_endpoint_hint">Leave this empty for Amazon S3. For other services, put their address here, for example https://your-account.r2.cloudflarestorage.com or the address of your own MinIO server.</string>
+    <string name="backup_auto_s3_bucket_label">Bucket</string>
+    <string name="backup_auto_s3_region_label">Region</string>
+    <string name="backup_auto_s3_region_hint">Use us-east-1 if your service does not have regions.</string>
+    <string name="backup_auto_s3_prefix_label">Folder in the bucket</string>
+    <string name="backup_auto_s3_prefix_hint">Leave this empty to put backups at the top of the bucket.</string>
+    <string name="backup_auto_s3_key_label">Access key ID</string>
+    <string name="backup_auto_s3_secret_label">Secret access key</string>
+    <string name="backup_auto_s3_path_style_title">Put the bucket in the path</string>
+    <string name="backup_auto_s3_path_style_subtitle">Turn this on for MinIO, and for any address that is an IP address. Leave it off for Amazon S3 and Cloudflare R2.</string>
+    <string name="backup_auto_s3_cleartext">This endpoint is not https. The app signs every request with your secret key, and on a plain http address anyone on the network can read what is sent.</string>
+
+    <string name="backup_auto_ftp_host_label">Server</string>
+    <string name="backup_auto_ftp_port_label">Port</string>
+    <string name="backup_auto_ftp_user_label">User name</string>
+    <string name="backup_auto_ftp_password_label">Password</string>
+    <string name="backup_auto_ftp_path_label">Directory</string>
+    <string name="backup_auto_ftp_path_hint">Leave this empty to use the directory you land in after you sign in.</string>
+    <string name="backup_auto_ftp_secure_title">Use TLS</string>
+    <string name="backup_auto_ftp_secure_subtitle">Encrypts the connection before the app signs in. Leave this on unless your server cannot do it.</string>
+    <string name="backup_auto_ftp_cleartext">Without TLS, your password and your backup both cross the network as plain text that anyone in between can read. Turn on a passphrase below if you must leave this off.</string>
+
+    <string name="backup_auto_oauth_signed_in">Signed in.</string>
+    <string name="backup_auto_oauth_signed_out">Not signed in yet.</string>
+    <string name="backup_auto_oauth_sign_in">Sign in</string>
+    <string name="backup_auto_oauth_sign_out">Sign out</string>
+    <string name="backup_auto_oauth_cancelled">Sign in stopped. Nothing changed.</string>
+    <string name="backup_auto_oauth_failed">The app could not finish signing in. Try again.</string>
+    <string name="backup_auto_oauth_no_browser">The app could not open a browser to sign in.</string>
+    <string name="backup_auto_dropbox_info">The app gets a folder of its own inside your Dropbox and can see nothing else. You can find the folder under Apps, and you can delete it. To take this permission back, open the connected apps list in your Dropbox account.</string>
+    <string name="backup_auto_onedrive_info">The app gets a folder of its own inside your OneDrive and can see nothing else. You can find the folder under Apps. To take this permission back, open the list of apps in your Microsoft account.</string>
 </resources>

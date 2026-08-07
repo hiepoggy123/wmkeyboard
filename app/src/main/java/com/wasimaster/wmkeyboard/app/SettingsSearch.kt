@@ -776,6 +776,20 @@ private fun Resources.otherRows(): List<SettingsSearchEntry> {
         // Every switch that says what a backup holds. Each is named after the
         // feature it copies, never after the feature itself, which is why they
         // all weigh MIRROR: the search for "themes" wants the theme screen.
+        backup(R.string.backup_auto_dest_title, R.string.backup_auto_dest_subtitle),
+        backup(R.string.backup_auto_folder_title, R.string.backup_auto_folder_subtitle),
+        backup(R.string.backup_auto_webdav_url_label, R.string.backup_auto_dest_subtitle),
+        backup(R.string.backup_auto_drive_title, R.string.backup_auto_dest_subtitle),
+        backup(R.string.backup_auto_s3_bucket_label, R.string.backup_auto_s3_endpoint_hint),
+        backup(R.string.backup_auto_s3_path_style_title, R.string.backup_auto_s3_path_style_subtitle),
+        backup(R.string.backup_auto_ftp_host_label, R.string.backup_auto_ftp_path_hint),
+        backup(R.string.backup_auto_ftp_secure_title, R.string.backup_auto_ftp_secure_subtitle),
+        backup(R.string.backup_auto_dest_dropbox, R.string.backup_auto_dropbox_info),
+        backup(R.string.backup_auto_dest_onedrive, R.string.backup_auto_onedrive_info),
+        backup(R.string.backup_auto_enabled_title, R.string.backup_auto_enabled_subtitle),
+        backup(R.string.backup_auto_interval_title, R.string.backup_auto_enabled_subtitle),
+        backup(R.string.backup_auto_keep_title, R.string.backup_auto_keep_subtitle),
+        backup(R.string.backup_auto_encrypt_title, R.string.backup_auto_encrypt_subtitle),
         backup(R.string.backup_section_settings_label, R.string.backup_include_settings_subtitle),
         backup(R.string.backup_include_secrets_title, R.string.backup_include_secrets_subtitle),
         backup(R.string.backup_section_themes_label, R.string.backup_include_themes_subtitle),

@@ -41,6 +41,17 @@ fun flag(propertyName: String, envName: String): Boolean =
 val playStoreChannel = flag("wmkb.enablePlayStore", "WMKB_ENABLE_PLAY_STORE")
 val updateChannelSourceDir = if (playStoreChannel) "src/play/java" else "src/noplay/java"
 
+// Whether Google Play services may be compiled in. Separate from the store
+// channel above, and deliberately: a sideloaded build on an ordinary phone
+// should still be able to reach Drive, while an F-Droid build must not carry
+// the library at all. Same shape as the channel seam — `src/gms/java` supplies
+// the real Drive authorizer, `src/nogms/java` declares the same entry point and
+// reports the destination unavailable. The only thing behind it is getting an
+// OAuth token; the Drive REST calls themselves are ordinary HTTP in
+// :core:settings and compile everywhere.
+val gmsChannel = flag("wmkb.enableGms", "WMKB_ENABLE_GMS")
+val gmsSourceDir = if (gmsChannel) "src/gms/java" else "src/nogms/java"
+
 android {
     namespace = "com.wasimaster.wmkeyboard"
     compileSdk {
@@ -68,6 +79,12 @@ android {
         buildConfigField("String", "PEXELS_API_KEY", "\"${apiKey("wmkb.pexelsApiKey", "WMKB_PEXELS_API_KEY")}\"")
         buildConfigField("Boolean", "ENABLE_PLAY_STORE", "${flag("wmkb.enablePlayStore", "WMKB_ENABLE_PLAY_STORE")}")
         buildConfigField("Boolean", "ENABLE_FDROID", "${flag("wmkb.enableFdroid", "WMKB_ENABLE_FDROID")}")
+        buildConfigField("Boolean", "ENABLE_GMS", "$gmsChannel")
+        // OAuth client ids for the Dropbox and OneDrive backup destinations.
+        // Not secrets: the sign-in uses PKCE so no client secret ships. A
+        // build without them simply leaves those two destinations out.
+        buildConfigField("String", "DROPBOX_APP_KEY", "\"${apiKey("wmkb.dropboxAppKey", "WMKB_DROPBOX_APP_KEY")}\"")
+        buildConfigField("String", "ONEDRIVE_CLIENT_ID", "\"${apiKey("wmkb.oneDriveClientId", "WMKB_ONEDRIVE_CLIENT_ID")}\"")
         // Diagnostic builds only — see the same field in :core:config, which is
         // the copy DebugLog reads. Mirrored here for the app-package screens.
         buildConfigField("Boolean", "ENABLE_CRASH_SCREEN", "${flag("wmkb.enableCrashScreen", "WMKB_ENABLE_CRASH_SCREEN")}")
@@ -258,6 +275,8 @@ androidComponents {
         // orthogonal to full/lite, and a second dimension would double every
         // variant and every Gradle task name in the project for one file.
         variant.sources.kotlin?.addStaticSourceDirectory(updateChannelSourceDir)
+        // Same reasoning, same mechanism, for the Drive authorizer.
+        variant.sources.kotlin?.addStaticSourceDirectory(gmsSourceDir)
     }
 }
 
@@ -332,6 +351,7 @@ detekt {
             // Only the channel this build compiles: the other directory names
             // Play Core types that are not on any classpath here.
             updateChannelSourceDir,
+            gmsSourceDir,
             "src/test/java",
             "src/testFull/java",
             "src/androidTest/java",
@@ -407,14 +427,14 @@ fun registerTypeResolvedDetekt(
 registerTypeResolvedDetekt(
     taskName = "detektFullDebug",
     description = "Runs detekt with type resolution over the fullDebug variant's sources.",
-    sourceDirs = listOf("src/main/java", "src/full/java", updateChannelSourceDir),
+    sourceDirs = listOf("src/main/java", "src/full/java", updateChannelSourceDir, gmsSourceDir),
     compileTaskName = "compileFullDebugKotlin",
 )
 
 registerTypeResolvedDetekt(
     taskName = "detektLiteDebug",
     description = "Runs detekt with type resolution over the liteDebug variant's sources.",
-    sourceDirs = listOf("src/main/java", "src/lite/java", updateChannelSourceDir),
+    sourceDirs = listOf("src/main/java", "src/lite/java", updateChannelSourceDir, gmsSourceDir),
     compileTaskName = "compileLiteDebugKotlin",
 )
 
@@ -508,6 +528,11 @@ dependencies {
     // Google binary is linked into an F-Droid or direct-download APK.
     if (playStoreChannel) {
         implementation(libs.play.app.update)
+    }
+    // Only for the Drive backup destination's OAuth token. The Drive calls
+    // themselves are plain HTTP and need nothing from Google.
+    if (gmsChannel) {
+        implementation(libs.play.services.auth)
     }
 
     debugImplementation(libs.androidx.compose.ui.tooling)

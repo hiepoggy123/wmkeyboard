@@ -26,6 +26,10 @@ mlkitSubjectSegmentation = "16.0.0-beta1"
 camerax = "1.4.2"
 # 3.5.x ships Kotlin 2.4 metadata, unreadable by this project's Kotlin 2.2.
 coil = "3.2.0"
+# Already in the APK as Coil's network engine; declared here so the WebDAV
+# backup sink can use it directly. HttpURLConnection cannot: it validates the
+# request method against a fixed list and rejects PROPFIND and MOVE outright.
+okhttp = "4.12.0"
 zxing = "3.5.3"
 litertlm = "0.14.0"
 # 2.x splits into litert + litert-api sharing one namespace, which AGP's
@@ -48,6 +52,7 @@ luaj = "3.0.1"
 # deliberately absent: its whole contribution is a suspend wrapper around one
 # Task, and it drags androidx.fragment into an app that has no fragments.
 playAppUpdate = "2.1.0"
+playServicesAuth = "21.3.0"
 # Static analysis. detekt 2.x is still alpha; 1.23.8 is the last stable line and
 # parses this project's Kotlin fine (no context receivers / `when` guards here).
 detekt = "1.23.8"
@@ -95,11 +100,15 @@ mlkit-subject-segmentation = { group = "com.google.android.gms", name = "play-se
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-gif = { group = "io.coil-kt.coil3", name = "coil-gif", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
 litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
 luaj-jse = { group = "org.luaj", name = "luaj-jse", version.ref = "luaj" }
 play-app-update = { group = "com.google.android.play", name = "app-update", version.ref = "playAppUpdate" }
+# Only the AuthorizationClient half is used, to get an OAuth token for the
+# Drive backup destination. Behind the wmkb.enableGms seam; never on F-Droid.
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 

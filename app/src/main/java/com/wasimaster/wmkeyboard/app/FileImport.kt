@@ -10,8 +10,10 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -25,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wasimaster.wmkeyboard.R
@@ -40,6 +44,7 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginImportResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginManifestResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.plugins.resolve
+import com.wasimaster.wmkeyboard.core.settings.BackupCrypto
 import com.wasimaster.wmkeyboard.core.settings.ConfigBackup
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
@@ -54,6 +59,7 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
+import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.content.R as ContentR
 import com.wasimaster.wmkeyboard.icons.R as IconsR
 import kotlinx.coroutines.Dispatchers
@@ -90,6 +96,7 @@ object WMFileTypes {
         LayoutFile.FILE_EXTENSION,
         SettingsBackup.FILE_EXTENSION,
         ConfigBackup.FILE_EXTENSION,
+        ConfigBackup.ENCRYPTED_FILE_EXTENSION,
         StickerPackFile.FILE_EXTENSION,
         IconPackFile.FILE_EXTENSION,
         SnippetFile.FILE_EXTENSION,
@@ -116,6 +123,14 @@ object WMFileTypes {
          */
         data object Stickers : Opened
         data object Icons : Opened
+
+        /**
+         * An encrypted config bundle. Nothing but the header has been read: the
+         * contents cannot be known until there is a passphrase to try, so the
+         * importer re-opens [uri] once it has one. Deliberately carries no
+         * bytes, for the same reason [Stickers] and [Icons] do not.
+         */
+        data object EncryptedConfig : Opened
 
         /**
          * A `.wmplugin`. Only the manifest is read here — importing re-opens the
@@ -149,6 +164,10 @@ object WMFileTypes {
             }
         }.getOrNull() ?: return Opened.Unreadable
         if (head.contentEquals(ZIP_MAGIC)) return identifyArchive(context, uri)
+        // Before the text read below, which on a large encrypted bundle would
+        // decode megabytes of ciphertext as UTF-8 to produce a string that
+        // could never match anything.
+        if (BackupCrypto.looksEncrypted(head)) return Opened.EncryptedConfig
 
         val text = runCatching {
             context.contentResolver.requireInputStream(uri).use { it.readBytes().decodeToString() }
@@ -289,7 +308,17 @@ private data class ImportProposal(
     val repairs: List<String> = emptyList(),
     @StringRes val confirmLabelRes: Int = CommonR.string.common_import,
     val apply: (suspend () -> String)? = null,
-)
+    /**
+     * Set instead of [apply] by a file that cannot be read until the user says
+     * something. The dialog draws a passphrase field and hands over what was
+     * typed. Separate from [apply] rather than a parameter on it, so that the
+     * eight formats which need no such thing say nothing about it.
+     */
+    val applyWithPassphrase: (suspend (String) -> String)? = null,
+) {
+    /** Whether there is anything to press Import for. */
+    val actionable: Boolean get() = apply != null || applyWithPassphrase != null
+}
 
 /** The proposal's heading, resolved against the screen's resources. */
 @Composable
@@ -359,6 +388,8 @@ private fun ImportFileDialog(
     }
 
     val proposal = rememberProposal(state, repository, context, uri)
+    var passphrase by remember { mutableStateOf("") }
+    val needsPassphrase = proposal.applyWithPassphrase != null
     AlertDialog(
         onDismissRequest = onClose,
         title = { Text(proposalTitle(proposal)) },
@@ -370,21 +401,45 @@ private fun ImportFileDialog(
                     Text(stringResource(R.string.import_repairs_title), fontWeight = FontWeight.Medium)
                     for (line in proposal.repairs) Text("• $line")
                 }
+                if (needsPassphrase) {
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = passphrase,
+                        onValueChange = { passphrase = it },
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.import_encrypted_label)) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        // A password field, so this keyboard does not learn the
+                        // passphrase into the dictionary that the backup carries.
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    )
+                }
             }
         },
         confirmButton = {
             val apply = proposal.apply
-            if (apply == null) {
-                TextButton(onClick = onClose) { Text(stringResource(CommonR.string.common_ok)) }
-            } else {
-                TextButton(onClick = {
+            val applyWithPassphrase = proposal.applyWithPassphrase
+            when {
+                applyWithPassphrase != null -> TextButton(
+                    enabled = passphrase.isNotEmpty(),
+                    onClick = {
+                        working = true
+                        scope.launch { message = applyWithPassphrase(passphrase); working = false }
+                    },
+                ) { Text(stringResource(proposal.confirmLabelRes)) }
+
+                apply != null -> TextButton(onClick = {
                     working = true
                     scope.launch { message = apply(); working = false }
                 }) { Text(stringResource(proposal.confirmLabelRes)) }
+
+                else -> TextButton(onClick = onClose) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
             }
         },
         dismissButton = {
-            if (proposal.apply != null) {
+            if (proposal.actionable) {
                 TextButton(onClick = onClose) { Text(stringResource(CommonR.string.common_cancel)) }
             }
         },
@@ -494,6 +549,45 @@ private fun rememberProposal(
                 },
             )
         }
+
+        WMFileTypes.Opened.EncryptedConfig -> ImportProposal(
+            titleRes = R.string.import_encrypted_title,
+            body = context.getString(R.string.import_encrypted_body),
+            // Nothing can be said about what is inside until it opens, so the
+            // usual "this file contains…" summary is not available here. The
+            // ordinary confirmation appears afterwards, on the decrypted text.
+            applyWithPassphrase = { entered ->
+                val decrypted = withContext(Dispatchers.IO) {
+                    runCancellable {
+                        context.contentResolver.requireInputStream(uri).use {
+                            BackupCrypto.decrypt(it, entered.toCharArray())
+                        }
+                    }.getOrNull()
+                }
+                when (decrypted) {
+                    is BackupCrypto.DecryptResult.Ok ->
+                        when (val result = repository.importConfig(decrypted.text)) {
+                            is SettingsRepository.ConfigImportResult.Applied ->
+                                if (result.restored.isEmpty()) {
+                                    context.getString(R.string.import_backup_nothing)
+                                } else {
+                                    context.getString(
+                                        R.string.import_backup_restored,
+                                        result.restored.joinToString {
+                                            sectionLabelLowercase(context, it)
+                                        },
+                                    )
+                                }
+                            SettingsRepository.ConfigImportResult.NotABackup ->
+                                context.getString(R.string.import_not_a_backup)
+                        }
+                    // The tag cannot tell a wrong passphrase from a damaged
+                    // file, and pretending otherwise would be a lie in one of
+                    // the two cases. Say both.
+                    else -> context.getString(R.string.import_encrypted_failed)
+                }
+            },
+        )
 
         is WMFileTypes.Opened.Settings -> ImportProposal(
             titleRes = R.string.import_settings_title,

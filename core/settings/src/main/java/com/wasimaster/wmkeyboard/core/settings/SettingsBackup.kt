@@ -50,6 +50,35 @@ object SettingsBackup {
     const val MIME_TYPE = "application/json"
 
     /**
+     * The automatic backup's passphrase key name, shared with
+     * [SettingsRepository] so the two cannot drift apart.
+     */
+    const val AUTO_BACKUP_PASSPHRASE = "auto_backup_passphrase"
+
+    /** The WebDAV server password. A credential, so it follows the same rules. */
+    const val AUTO_BACKUP_WEBDAV_PASSWORD = "auto_backup_webdav_password"
+
+    /** S3 secret access key. */
+    const val AUTO_BACKUP_S3_SECRET = "auto_backup_s3_secret"
+
+    /** FTP account password. */
+    const val AUTO_BACKUP_FTP_PASSWORD = "auto_backup_ftp_password"
+
+    /**
+     * The two OAuth refresh tokens. A refresh token is a standing grant on the
+     * user's account until they revoke it, so it is a credential in every
+     * sense that matters here.
+     */
+    const val AUTO_BACKUP_DROPBOX_TOKEN = "auto_backup_dropbox_token"
+    const val AUTO_BACKUP_ONEDRIVE_TOKEN = "auto_backup_onedrive_token"
+
+    const val AUTO_BACKUP_ENABLED = "auto_backup_enabled"
+    const val AUTO_BACKUP_FOLDER_URI = "auto_backup_folder_uri"
+    const val AUTO_BACKUP_KDF_SALT = "auto_backup_kdf_salt"
+    const val AUTO_BACKUP_LAST_RUN_AT = "auto_backup_last_run_at"
+    const val AUTO_BACKUP_LAST_ERROR = "auto_backup_last_error"
+
+    /**
      * Credentials, kept out of an export unless explicitly asked for. A
      * settings file is the kind of thing people mail to themselves or drop
      * in a shared folder, and these grant real spend on the user's account.
@@ -59,6 +88,12 @@ object SettingsBackup {
      * user's own encryption. Add new credentials here and both follow.
      */
     val SECRET_KEYS = setOf(
+        AUTO_BACKUP_PASSPHRASE,
+        AUTO_BACKUP_WEBDAV_PASSWORD,
+        AUTO_BACKUP_S3_SECRET,
+        AUTO_BACKUP_FTP_PASSWORD,
+        AUTO_BACKUP_DROPBOX_TOKEN,
+        AUTO_BACKUP_ONEDRIVE_TOKEN,
         "translate_api_key",
         "klipy_api_key",
         "brave_api_key",
@@ -82,6 +117,32 @@ object SettingsBackup {
      * leaves them in, unchanged.
      */
     val THEME_KEYS = setOf("custom_themes")
+
+    /**
+     * Settings that describe *this install* rather than the user's choices, and
+     * so must not travel in a bundle.
+     *
+     * [encodeSettings] walks the whole preference map on purpose, so a new
+     * setting is backed up the day it lands. That is right for nearly
+     * everything and wrong for these. Restore a bundle onto a new phone and
+     * without this the automatic backup comes back switched on, pointing at a
+     * folder URI whose grant belongs to a device that is not this one, carrying
+     * a last-run time from another clock. It then fails every run, silently,
+     * while the user believes they are covered. The one failure mode this
+     * feature must not have is the quiet one.
+     *
+     * The user's actual preferences — the interval, how many to keep, which
+     * sections, whether to encrypt — are not here, and do travel.
+     */
+    val TRANSIENT_KEYS = setOf(
+        AUTO_BACKUP_ENABLED,
+        AUTO_BACKUP_FOLDER_URI,
+        // Per install, and only ever used to write new files: every file
+        // carries the salt it was made with, so dropping this loses nothing.
+        AUTO_BACKUP_KDF_SALT,
+        AUTO_BACKUP_LAST_RUN_AT,
+        AUTO_BACKUP_LAST_ERROR,
+    )
 
     private val json = Json { prettyPrint = true }
     private val parser = Json { ignoreUnknownKeys = true }
@@ -109,7 +170,7 @@ object SettingsBackup {
             put("version", VERSION)
             put("appVersion", appVersion)
             put("appVersionName", appVersionName)
-            put("settings", encodeSettings(prefs, includeSecrets))
+            put("settings", encodeSettings(prefs, includeSecrets, exclude = TRANSIENT_KEYS))
         }
         return json.encodeToString(JsonObject.serializer(), root)
     }

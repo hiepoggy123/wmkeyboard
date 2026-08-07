@@ -32,6 +32,18 @@ object ConfigBackup {
     const val FILE_EXTENSION = "wmconfig.json"
     const val MIME_TYPE = "application/json"
 
+    /**
+     * The same bundle, encrypted under a passphrase by
+     * [com.wasimaster.wmkeyboard.core.settings.BackupCrypto].
+     *
+     * A separate extension rather than a flag inside the JSON, because the
+     * whole file is ciphertext: there is no JSON left to put a flag in. The
+     * MIME type is deliberately not `application/json` — a provider handed a
+     * `.enc` name with a JSON type will helpfully append `.json` to it.
+     */
+    const val ENCRYPTED_FILE_EXTENSION = "wmconfig.enc"
+    const val ENCRYPTED_MIME_TYPE = "application/octet-stream"
+
     /** A selectable part of the bundle. [id] is its JSON key, stable on disk. */
     enum class Section(val id: String) {
         SETTINGS("settings"),
@@ -88,6 +100,23 @@ object ConfigBackup {
         return json.encodeToString(JsonObject.serializer(), root)
     }
 
+    /**
+     * A list section's decoded contents, or null when the decode plainly failed.
+     *
+     * Codecs in this app answer an empty list for every kind of failure alike —
+     * malformed JSON, a field a newer app added and made required, a file that
+     * arrived truncated. An empty list is also a legitimate answer, so the two
+     * can only be told apart by looking at what went in: nothing decoded out of
+     * something is a failure, and it must not be mistaken for a section that
+     * says "the user has none of these".
+     *
+     * It matters because these sections restore by replacing. Read the failure
+     * as an empty list and the restore reports success while deleting
+     * everything the section was supposed to be carrying.
+     */
+    fun <T> decodedList(decoded: List<T>?, encodedSize: Int): List<T>? =
+        decoded?.takeIf { it.isNotEmpty() || encodedSize == 0 }
+
     /** A decoded bundle: which sections it carried and their raw payloads. */
     data class Parsed(
         val appVersion: Int,
@@ -96,10 +125,20 @@ object ConfigBackup {
         fun has(section: Section): Boolean = section in sections
     }
 
-    /** Parses [text], or null when it is not a full-config bundle. */
+    /**
+     * Parses [text], or null when it is not a full-config bundle this app can
+     * read.
+     *
+     * A bundle whose [VERSION] is newer than ours is refused rather than
+     * half-applied. Most sections restore by replacing what is there, and only
+     * the settings section can roll itself back, so there is no safe way to
+     * discover halfway through that the file was not meant for us.
+     */
     fun decode(text: String): Parsed? {
         val root = runCatching { parser.parseToJsonElement(text).jsonObject }.getOrNull() ?: return null
         if ((root["format"] as? JsonPrimitive)?.contentOrNull != FORMAT) return null
+        val version = (root["version"] as? JsonPrimitive)?.intOrNull ?: VERSION
+        if (version > VERSION) return null
         val sectionsObj = runCatching { root.getValue("sections").jsonObject }.getOrNull() ?: return null
         val sections = LinkedHashMap<Section, JsonElement>()
         for ((id, element) in sectionsObj) {

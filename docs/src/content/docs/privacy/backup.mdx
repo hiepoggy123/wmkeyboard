@@ -46,8 +46,8 @@ downloaded again if you lose it.
 
 Tap **Export backup** to write a `wmkeyboard-backup-<date>-<time>.wmconfig.json`
 file through Android's own save dialog: it goes wherever you choose, not to
-any WM Keyboard server. Nothing in the file selection persists between visits
-to this screen: reopen it later and every switch is back to its default.
+any WM Keyboard server. What you pick here is remembered, and it is the same
+list the automatic backup uses, so changing it changes both.
 
 :::note[Addon repositories, not addons]
 The addon repositories section is just the list of repository addresses
@@ -115,6 +115,47 @@ This redaction is specific to the file you export yourself. It doesn't apply
 to Android's own backup below: turning that on does copy your saved API keys
 along with everything else, because the whole settings store travels as one
 piece there.
+
+## Automatic backup
+
+Exporting by hand only helps if you remember to do it. **Automatic backup**
+writes the same file for you, on a schedule, while your device charges. You
+pick where it goes:
+
+| Destination | What it needs | Works without Google |
+|---|---|---|
+| **Folder** | A folder you pick, anywhere with a files app behind it: your device, an SD card, Drive, Dropbox, Nextcloud, OneDrive | Yes |
+| **WebDAV** | The address of a Nextcloud, ownCloud or other WebDAV folder, and a login | Yes |
+| **S3** | A bucket on Amazon S3, MinIO, Cloudflare R2, Backblaze B2 or anything else that speaks S3, and an access key pair | Yes |
+| **FTP** | An FTP server, a login, and TLS unless you turn it off | Yes |
+| **Google Drive** | A one-time permission. The app gets a hidden folder of its own and can see nothing else | No, needs Play services |
+| **Dropbox** | Signing in. The app gets a folder of its own under Apps | Yes |
+| **OneDrive** | Signing in. The app gets a folder of its own under Apps | Yes |
+
+None of these send anything to a WM Keyboard server. There is no account with
+us and nothing of yours passes through anything we run.
+
+**The app keeps a few backups and deletes the oldest.** You choose how many. It
+never deletes the newest one, and it never deletes an older backup until the
+new one has been written, read back and checked. A backup that fails halfway
+costs you the new copy and never an old one.
+
+**Backups can carry a passphrase.** The file is then encrypted, and you need
+the passphrase to restore it. The app stores the passphrase on your device,
+because a backup that runs while you are asleep has nobody to type it. So this
+protects the file where it lands, for example in a cloud folder, and not
+against a person holding your unlocked device. Write it down: without it, a
+backup cannot be restored.
+
+**Some destinations send your password with every upload.** WebDAV over plain
+`http` is refused for that reason, and so is an S3 endpoint on plain `http`.
+FTP without TLS is allowed, because some older servers offer nothing else, and
+the screen says plainly what it costs. Turn on a passphrase if you use it.
+
+**Nothing is backed up while your device is locked.** The parts that matter
+most, like your learned words, live in storage that only exists once you have
+unlocked the device after a restart. A backup taken before then would be nearly
+empty, and rotating that in would push out a real one, so the app waits.
 
 ## Android's own backup
 
@@ -206,7 +247,10 @@ an Android backup still moves fine as a file you export by hand.
   not just the color settings.
 - **A failed write leaves nothing behind.** If the app can't write to the
   file you chose, you get "Could not write that file" rather than a
-  half-written export.
+  half-written export. An automatic backup goes further: it writes the file
+  locally, reads it back and parses it, and only copies it to your folder if
+  that worked. Nothing older is deleted until the new one is safely there, so
+  a backup that fails halfway costs you the new copy and never an old one.
 - **Backups don't cover installed addons directly.** What travels in the
   Addons section is the repository list, not the addon files themselves;
   those are already accounted for in Themes, Icon packs, and the rest. See

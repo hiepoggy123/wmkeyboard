@@ -161,6 +161,7 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginText
 import com.wasimaster.wmkeyboard.core.plugins.RenderedUi
 import com.wasimaster.wmkeyboard.core.plugins.inputIds
 import com.wasimaster.wmkeyboard.core.plugins.resolve
+import com.wasimaster.wmkeyboard.core.settings.AutoBackupScheduler
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.restrictedToDirectBoot
@@ -1499,6 +1500,16 @@ open class WMKeyboardService : InputMethodService() {
         // Tops up an upgraded install's stored mode list with modes added
         // since it was first seeded. No-op once it has run.
         if (userUnlocked) serviceScope.launch { settingsRepository.seedNewDefaultModes() }
+
+        // The automatic backup's job is not persisted across reboots, so
+        // something has to put it back, and the keyboard starts long before the
+        // settings app does. Leaves an already-correct job alone, which matters:
+        // rescheduling restarts the period, and this runs often.
+        if (userUnlocked) {
+            serviceScope.launch {
+                AutoBackupScheduler.sync(this@WMKeyboardService, settingsRepository.settings.first().autoBackup)
+            }
+        }
 
         powerSaver.start()
 

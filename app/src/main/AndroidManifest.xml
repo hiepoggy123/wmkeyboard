@@ -209,6 +209,10 @@
                 <data android:pathPattern=".*\\..*\\.wmconfig\\.json" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmconfig\\.json" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.wmconfig\\.json" />
+                <data android:pathPattern=".*\\.wmconfig\\.enc" />
+                <data android:pathPattern=".*\\..*\\.wmconfig\\.enc" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmconfig\\.enc" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmconfig\\.enc" />
                 <data android:pathPattern=".*\\.wmstickers" />
                 <data android:pathPattern=".*\\..*\\.wmstickers" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmstickers" />
@@ -248,6 +252,10 @@
                 <data android:pathPattern=".*\\..*\\.wmconfig\\.json" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmconfig\\.json" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.wmconfig\\.json" />
+                <data android:pathPattern=".*\\.wmconfig\\.enc" />
+                <data android:pathPattern=".*\\..*\\.wmconfig\\.enc" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmconfig\\.enc" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmconfig\\.enc" />
                 <data android:pathPattern=".*\\.wmstickers" />
                 <data android:pathPattern=".*\\..*\\.wmstickers" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmstickers" />
@@ -448,6 +456,38 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!-- Catches the Dropbox and OneDrive sign-in redirect and finishes at
+             once; the settings screen is what reacts. A custom scheme rather
+             than an https App Link because there is no domain to verify and
+             nothing to host. It carries only an authorization code, which is
+             useless without the PKCE verifier that never left the device.
+             singleTask so a redirect reaches the existing instance. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.oauth.OAuthRedirectActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="wmkeyboard" android:host="oauth" />
+            </intent-filter>
+        </activity>
+
+        <!-- Runs the automatic backup. Scheduled by AutoBackupScheduler, which
+             names this class as a string because it lives in :app and the
+             scheduler lives in :core:settings; AutoBackupSchedulerTest reads
+             this file to check the two still agree. Not persisted across
+             reboots, so the app needs no RECEIVE_BOOT_COMPLETED: whoever starts
+             first afterwards schedules it again, and that is the keyboard. -->
+        <service
+            android:name="com.wasimaster.wmkeyboard.app.AutoBackupJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
     </application>
 
 </manifest>
