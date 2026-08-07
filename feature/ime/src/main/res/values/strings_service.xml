@@ -92,7 +92,7 @@
     <!-- %1$s is the name of the action, for example Rewrite. -->
     <string name="ime_ai_progress_on_device">%1$s on your device… The first run also loads the model.</string>
     <!-- %1$s is the name of the action, for example Rewrite. -->
-    <string name="ime_ai_progress_waiting">%1$s… The keyboard waits for the first words.</string>
+    <string name="ime_ai_progress_waiting">%1$s… Waiting for the first words.</string>
     <!-- %1$s is the name of the action, for example Rewrite. -->
     <string name="ime_ai_progress_running">%1$s…</string>
     <!-- %1$d is the number of seconds since the request started. -->

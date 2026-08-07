@@ -206,12 +206,14 @@ internal fun AiPanel(
             // header chevron is the way back out.
             is AiUi.CustomInput -> Column(Modifier.fillMaxSize()) {
                 val blank = ai.instruction.isEmpty()
+                val inputShape = kb.cardShape()
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(inputShape)
                         .background(kb.chip)
+                        .chipBorder(kb, inputShape)
                         .padding(horizontal = 10.dp, vertical = 8.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
@@ -224,7 +226,7 @@ internal fun AiPanel(
                             state.aiHasText -> stringResource(R.string.ime_ai_custom_hint_text)
                             else -> stringResource(R.string.ime_ai_custom_hint_empty)
                         },
-                        color = if (blank) kb.secondaryText else kb.modifierKeyText,
+                        color = if (blank) kb.secondaryText else kb.chipText,
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
                     )
@@ -318,12 +320,14 @@ internal fun AiPanel(
                     }
                 }
                 val diffColors = remember(kb) { kb.diffColors() }
+                val resultShape = kb.cardShape()
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(resultShape)
                         .background(kb.chip)
+                        .chipBorder(kb, resultShape)
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                         .verticalScroll(resultScroll),
                 ) {
@@ -334,9 +338,9 @@ internal fun AiPanel(
                         } else {
                             // Dim via alpha, not the theme's secondary color —
                             // some themes draw secondary text in the same white.
-                            grayThinking(shown, kb.modifierKeyText.copy(alpha = 0.45f))
+                            grayThinking(shown, kb.chipText.copy(alpha = 0.45f))
                         },
-                        color = kb.modifierKeyText,
+                        color = kb.chipText,
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
                     )
@@ -511,14 +515,14 @@ private fun PanelCheckbox(label: String, checked: Boolean, onToggle: () -> Unit)
             modifier = Modifier
                 .size(14.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(if (checked) kb.toolCircleActive else kb.chip),
+                .background(if (checked) kb.chipActive else kb.chip),
             contentAlignment = Alignment.Center,
         ) {
             if (checked) {
                 Icon(
                     Icons.Outlined.Check,
                     contentDescription = null,
-                    tint = kb.toolCircleActiveIcon,
+                    tint = kb.chipActiveText,
                     modifier = Modifier.size(11.dp),
                 )
             }
