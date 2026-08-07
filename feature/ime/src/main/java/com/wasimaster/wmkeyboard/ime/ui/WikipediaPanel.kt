@@ -77,7 +77,7 @@ internal fun WikipediaPanel(
             .fillMaxWidth()
             .height(height),
     ) {
-        val fieldShape = kb.chipShape()
+        val fieldShape = kb.cardShape()
         Row(
             modifier = Modifier
                 .fillMaxWidth()

@@ -139,7 +139,7 @@ private fun PluginList(
 @Composable
 private fun PluginRow(plugin: InstalledPlugin, onClick: () -> Unit) {
     val kb = LocalKbTheme.current
-    val shape = kb.chipShape()
+    val shape = kb.cardShape()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -359,7 +359,7 @@ private fun OutputWidget(
     onCopy: (String) -> Unit,
 ) {
     val kb = LocalKbTheme.current
-    val shape = kb.chipShape()
+    val shape = kb.cardShape()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -437,7 +437,7 @@ private fun InputWidget(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            val fieldShape = kb.chipShape()
+            val fieldShape = kb.cardShape()
             Box(
                 modifier = Modifier
                     .weight(1f)

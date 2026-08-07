@@ -9825,7 +9825,7 @@ private fun LanguagePickerPopup(
         onDismissRequest = onDismiss,
     ) {
         Surface(
-            shape = kb.popupShape(),
+            shape = kb.menuShape(),
             color = kb.popup,
             border = kb.popupSurfaceBorder(),
             shadowElevation = 8.dp,
@@ -12145,7 +12145,7 @@ private fun FavouritesReorderPopup(
             contentAlignment = Alignment.Center,
         ) {
             Surface(
-                shape = kb.popupShape(),
+                shape = kb.menuShape(),
                 color = kb.popup,
                 border = kb.popupSurfaceBorder(),
                 shadowElevation = 8.dp,
@@ -12418,7 +12418,7 @@ private fun SnippetsPanel(
         ) {
             itemsIndexed(state.snippets, key = { _, snippet -> snippet.id }) { index, snippet ->
                 val kb = LocalKbTheme.current
-                val cardShape = kb.chipShape()
+                val cardShape = kb.cardShape()
                 Column(
                     modifier = Modifier
                         .focusRing(index == focused, cardShape)
@@ -12538,7 +12538,7 @@ private fun ClipboardSearchField(
 ) {
     val active = state.clipboardSearchActive
     val kb = LocalKbTheme.current
-    val fieldShape = kb.chipShape()
+    val fieldShape = kb.cardShape()
     Row(
         modifier = modifier
             .clip(fieldShape)
@@ -12725,7 +12725,7 @@ private fun ClipboardPanelContent(
             ) {
                 var showInfo by remember { mutableStateOf(false) }
                 val kb = LocalKbTheme.current
-                val cardShape = kb.chipShape()
+                val cardShape = kb.cardShape()
                 Column(
                     modifier = Modifier
                         .clip(cardShape)
@@ -12948,7 +12948,7 @@ private fun ClipEntitySourcePopup(entity: ClipEntity, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
     ) {
         Surface(
-            shape = kb.popupShape(),
+            shape = kb.menuShape(),
             color = kb.popup,
             border = kb.popupSurfaceBorder(),
             shadowElevation = 6.dp,
@@ -13075,7 +13075,7 @@ private fun ClipInfoPopup(
         onDismissRequest = onDismiss,
     ) {
         Surface(
-            shape = kb.popupShape(),
+            shape = kb.menuShape(),
             color = kb.popup,
             border = kb.popupSurfaceBorder(),
             shadowElevation = 6.dp,

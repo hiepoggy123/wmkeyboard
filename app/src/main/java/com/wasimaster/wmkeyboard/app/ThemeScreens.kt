@@ -128,6 +128,7 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import com.wasimaster.wmkeyboard.core.theme.keyShapeKindOrNull
+import com.wasimaster.wmkeyboard.core.theme.safeContainerKind
 import com.wasimaster.wmkeyboard.core.theme.reseeded
 import com.wasimaster.wmkeyboard.core.theme.themeFromSeed
 import com.wasimaster.wmkeyboard.core.theme.themeName
@@ -372,17 +373,36 @@ private const val DefaultChipRadiusDp = 12
  */
 @Composable
 internal fun KeyShapePickerDialog(
-    selected: KeyShapeKind,
+    selected: KeyShapeKind?,
     radiusDp: Int,
     onPick: (KeyShapeKind) -> Unit,
     onDismiss: () -> Unit,
     @StringRes title: Int = R.string.theme_key_shape_title,
+    // The menu and card shapes may be left on "Automatic", which derives a
+    // safe shape instead of naming one; those pickers pass a reset handler.
+    onAuto: (() -> Unit)? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(title)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                if (onAuto != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onAuto() }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = selected == null, onClick = { onAuto() })
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.theme_shape_auto_safe_label),
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
                 for (kind in KeyShapeKind.entries) {
                     val picked = kind == selected
                     Row(
@@ -1027,6 +1047,8 @@ fun ThemeEditorScreen(
     var shapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var popupShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var chipShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    var menuShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    var cardShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var toolShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var sourceDialogSlot by remember(theme.id) { mutableStateOf<BackgroundSlot?>(null) }
 
@@ -1419,6 +1441,38 @@ fun ThemeEditorScreen(
             },
             onDismiss = { chipShapePickerOpen = false },
             title = R.string.theme_chip_shape_title,
+        )
+    }
+    if (menuShapePickerOpen) {
+        KeyShapePickerDialog(
+            selected = keyShapeKindOrNull(theme.menuShape),
+            radiusDp = theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
+            onPick = { kind ->
+                update { t -> t.copy(menuShape = kind.name) }
+                menuShapePickerOpen = false
+            },
+            onDismiss = { menuShapePickerOpen = false },
+            title = R.string.theme_menu_shape_title,
+            onAuto = {
+                update { t -> t.copy(menuShape = null) }
+                menuShapePickerOpen = false
+            },
+        )
+    }
+    if (cardShapePickerOpen) {
+        KeyShapePickerDialog(
+            selected = keyShapeKindOrNull(theme.cardShape),
+            radiusDp = theme.chipCornerRadiusDp ?: DefaultChipRadiusDp,
+            onPick = { kind ->
+                update { t -> t.copy(cardShape = kind.name) }
+                cardShapePickerOpen = false
+            },
+            onDismiss = { cardShapePickerOpen = false },
+            title = R.string.theme_card_shape_title,
+            onAuto = {
+                update { t -> t.copy(cardShape = null) }
+                cardShapePickerOpen = false
+            },
         )
     }
 
@@ -1838,6 +1892,39 @@ fun ThemeEditorScreen(
                 ) { update { t -> t.copy(popupBorderWidthDp = (it * 10).toInt() / 10f) } }
             }
         }
+        item {
+            // The list menus (language picker, clipboard and emoji menus)
+            // derive a safe shape from the popup shape unless named here — a
+            // slanted bubble is charming, a slanted menu clips its rows.
+            val menuShape = keyShapeKindOrNull(theme.menuShape)
+            val effective = menuShape ?: safeContainerKind(
+                keyShapeKindOrNull(theme.popupShape) ?: settings.popup.shape,
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_menu_shape_title)) },
+                supportingContent = {
+                    Text(
+                        if (menuShape == null) {
+                            stringResource(
+                                R.string.theme_shape_auto_safe_value,
+                                keyShapeName(effective),
+                            )
+                        } else {
+                            keyShapeName(menuShape)
+                        },
+                    )
+                },
+                trailingContent = {
+                    KeyShapeSwatch(
+                        kind = effective,
+                        radiusDp = theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                colors = transparentListColors(),
+                modifier = Modifier.clickable { menuShapePickerOpen = true },
+            )
+        }
     }
 
     SettingsGroup(stringResource(R.string.theme_toolbar_section_title)) {
@@ -1991,6 +2078,38 @@ fun ThemeEditorScreen(
                     display = { "${it.toInt()} dp" },
                 ) { update { t -> t.copy(chipCornerRadiusDp = it.toInt()) } }
             }
+        }
+        item {
+            // The panel cards and search bars, under the same safety rule as
+            // the menu shape: derived from the chip shape unless named.
+            val cardShape = keyShapeKindOrNull(theme.cardShape)
+            val effective = cardShape ?: safeContainerKind(
+                keyShapeKindOrNull(theme.chipShape) ?: KeyShapeKind.ROUNDED,
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_card_shape_title)) },
+                supportingContent = {
+                    Text(
+                        if (cardShape == null) {
+                            stringResource(
+                                R.string.theme_shape_auto_safe_value,
+                                keyShapeName(effective),
+                            )
+                        } else {
+                            keyShapeName(cardShape)
+                        },
+                    )
+                },
+                trailingContent = {
+                    KeyShapeSwatch(
+                        kind = effective,
+                        radiusDp = theme.chipCornerRadiusDp ?: DefaultChipRadiusDp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                colors = transparentListColors(),
+                modifier = Modifier.clickable { cardShapePickerOpen = true },
+            )
         }
     }
 

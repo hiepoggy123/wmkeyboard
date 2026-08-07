@@ -76,6 +76,7 @@ import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import com.wasimaster.wmkeyboard.core.theme.keyShapeKindOrNull
 import com.wasimaster.wmkeyboard.core.theme.keyTextureScaleOrDefault
 import com.wasimaster.wmkeyboard.core.theme.popupOnKeyOrNull
+import com.wasimaster.wmkeyboard.core.theme.safeContainerKind
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import java.io.File
@@ -168,12 +169,16 @@ data class KbTheme(
     val keyRadiusDp: Int,
     val popupRadiusDp: Int,
     val popupShapeKind: KeyShapeKind,
+    /** Shape of the list-menu popups; a safe derivative of the popup shape. */
+    val menuShapeKind: KeyShapeKind,
     /** Height of the key-preview bubble; a theme may override the setting. */
     val popupHeightDp: Int,
     val toolRadiusDp: Int,
     val toolShapeKind: KeyShapeKind,
     val chipRadiusDp: Int,
     val chipShapeKind: KeyShapeKind,
+    /** Shape of the panel cards and search bars; a safe derivative of the chip shape. */
+    val cardShapeKind: KeyShapeKind,
     val toolWidthDp: Int,
     val animation: ThemeAnimation,
     val animationSpeed: Float,
@@ -217,6 +222,20 @@ fun KbTheme.toolShape() = keyShapeFor(toolShapeKind, toolRadiusDp)
  * drew before a theme could say otherwise.
  */
 fun KbTheme.chipShape() = keyShapeFor(chipShapeKind, chipRadiusDp)
+
+/**
+ * The resolved outline of the list-menu popups — the language picker, the
+ * clipboard and emoji menus. Unless the theme names one, it is the popup
+ * shape passed through [safeContainerKind], so a slanted or circular bubble
+ * never turns a menu unreadable.
+ */
+fun KbTheme.menuShape() = keyShapeFor(menuShapeKind, popupRadiusDp)
+
+/**
+ * The resolved outline of the panel cards and search bars, derived from the
+ * chip shape under the same safety rule as [menuShape].
+ */
+fun KbTheme.cardShape() = keyShapeFor(cardShapeKind, chipRadiusDp)
 
 /**
  * The popup outline a theme asked for, as a Surface border; null draws none.
@@ -483,11 +502,13 @@ private fun defaultKbTheme(
         keyRadiusDp = settings.keyCornerRadiusDp,
         popupRadiusDp = settings.popup.cornerRadiusDp,
         popupShapeKind = settings.popup.shape,
+        menuShapeKind = safeContainerKind(settings.popup.shape),
         popupHeightDp = settings.popup.heightDp,
         toolRadiusDp = settings.toolCircleRadiusDp,
         toolShapeKind = settings.toolShape,
         chipRadiusDp = DEFAULT_CHIP_RADIUS_DP,
         chipShapeKind = KeyShapeKind.ROUNDED,
+        cardShapeKind = KeyShapeKind.ROUNDED,
         toolWidthDp = settings.toolbarBehavior.toolWidthDp,
         animation = ThemeAnimation.NONE,
         animationSpeed = 1f,
@@ -586,11 +607,15 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         keyRadiusDp = spec.keyCornerRadiusDp ?: settings.keyCornerRadiusDp,
         popupRadiusDp = spec.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
         popupShapeKind = keyShapeKindOrNull(spec.popupShape) ?: settings.popup.shape,
+        menuShapeKind = keyShapeKindOrNull(spec.menuShape)
+            ?: safeContainerKind(keyShapeKindOrNull(spec.popupShape) ?: settings.popup.shape),
         popupHeightDp = spec.popupHeightDp ?: settings.popup.heightDp,
         toolRadiusDp = spec.toolCircleRadiusDp ?: settings.toolCircleRadiusDp,
         toolShapeKind = keyShapeKindOrNull(spec.toolShape) ?: settings.toolShape,
         chipRadiusDp = spec.chipCornerRadiusDp ?: DEFAULT_CHIP_RADIUS_DP,
         chipShapeKind = keyShapeKindOrNull(spec.chipShape) ?: KeyShapeKind.ROUNDED,
+        cardShapeKind = keyShapeKindOrNull(spec.cardShape)
+            ?: safeContainerKind(keyShapeKindOrNull(spec.chipShape) ?: KeyShapeKind.ROUNDED),
         toolWidthDp = spec.toolWidthDp ?: settings.toolbarBehavior.toolWidthDp,
         animation = spec.animation,
         animationSpeed = spec.animationSpeed,
@@ -1112,11 +1137,13 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         keyRadiusDp = lerpI(a.keyRadiusDp, b.keyRadiusDp, t),
         popupRadiusDp = lerpI(a.popupRadiusDp, b.popupRadiusDp, t),
         popupShapeKind = if (past) b.popupShapeKind else a.popupShapeKind,
+        menuShapeKind = if (past) b.menuShapeKind else a.menuShapeKind,
         popupHeightDp = lerpI(a.popupHeightDp, b.popupHeightDp, t),
         toolRadiusDp = lerpI(a.toolRadiusDp, b.toolRadiusDp, t),
         toolShapeKind = if (past) b.toolShapeKind else a.toolShapeKind,
         chipRadiusDp = lerpI(a.chipRadiusDp, b.chipRadiusDp, t),
         chipShapeKind = if (past) b.chipShapeKind else a.chipShapeKind,
+        cardShapeKind = if (past) b.cardShapeKind else a.cardShapeKind,
         // Width is measured, not painted — tweening it would re-measure the
         // toolbar every crossfade frame, which the top bar forbids (a width
         // animation restarts every icon's placement spring). Snap at midpoint.

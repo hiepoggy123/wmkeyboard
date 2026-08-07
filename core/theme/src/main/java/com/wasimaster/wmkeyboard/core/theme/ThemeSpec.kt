@@ -75,6 +75,18 @@ fun keyShapeKindOrNull(name: String?): KeyShapeKind? =
     name?.let { wanted -> KeyShapeKind.entries.firstOrNull { it.name == wanted } }
 
 /**
+ * The shape a container (list-menu popup, panel card) may safely inherit from
+ * a decorative key, chip or popup shape: the four plain outlines pass
+ * through, everything else falls back to rounded. A hexagon or a scallop on
+ * a surface full of text clips its own content; a theme that truly wants one
+ * says so through [ThemeSpec.menuShape] or [ThemeSpec.cardShape].
+ */
+fun safeContainerKind(kind: KeyShapeKind): KeyShapeKind = when (kind) {
+    KeyShapeKind.ROUNDED, KeyShapeKind.SHARP, KeyShapeKind.CUT, KeyShapeKind.SQUIRCLE -> kind
+    else -> KeyShapeKind.ROUNDED
+}
+
+/**
  * Who took a background photo and where it came from, kept beside the image so
  * the credit survives an export, an import and going offline.
  *
@@ -217,6 +229,14 @@ data class ThemeSpec(
      * bytes travel in [assets] under `"popupTexture"`.
      */
     val popupTexture: String? = null,
+    /**
+     * Shape of the list-menu popups — the language picker, the clipboard and
+     * emoji menus — as a [KeyShapeKind] name. Null derives a safe shape from
+     * [popupShape]: the plain outlines pass through, the decorative ones fall
+     * back to rounded, because a slanted character bubble is charming while a
+     * slanted menu clips its own rows. Set it only to overrule that judgement.
+     */
+    val menuShape: String? = null,
     // Toolbar
     val toolbarIcon: Long? = null,
     val toolCircleBackground: Long? = null,
@@ -249,6 +269,14 @@ data class ThemeSpec(
     val chipShape: String? = null,
     /** Chip corner radius for the rounded and cut shapes; null keeps 12. */
     val chipCornerRadiusDp: Int? = null,
+    /**
+     * Shape of the panel cards and search bars — clipboard and snippet cards,
+     * plugin rows, the converters' displays — as a [KeyShapeKind] name. Null
+     * derives a safe shape from [chipShape] under the same rule as
+     * [menuShape]: a scalloped chip is a sticker, a scalloped card eats its
+     * own first line.
+     */
+    val cardShape: String? = null,
     // Radii overrides; null = follow the global appearance sliders
     val keyCornerRadiusDp: Int? = null,
     val popupCornerRadiusDp: Int? = null,

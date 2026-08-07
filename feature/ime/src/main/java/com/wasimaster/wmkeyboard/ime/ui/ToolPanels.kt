@@ -695,7 +695,7 @@ private fun WeatherStat(
     modifier: Modifier = Modifier,
 ) {
     val kb = LocalKbTheme.current
-    val shape = kb.chipShape()
+    val shape = kb.cardShape()
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
@@ -1334,7 +1334,7 @@ private fun CalendarDayEvents(
 private fun EventRow(event: DeviceCalendarEvent, timeFormat: SimpleDateFormat) {
     val kb = LocalKbTheme.current
     val color = if (event.color != 0) Color(event.color) else kb.accent
-    val shape = kb.chipShape()
+    val shape = kb.cardShape()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1931,7 +1931,7 @@ internal fun SoundHapticsPanel(
         if (settings.keySound && ringerMode != AudioManager.RINGER_MODE_NORMAL) {
             // A warning, so the error tint stays — but it sits in a chip's
             // clothes: the theme's chip shape and, when set, its outline.
-            val warnShape = kb.chipShape()
+            val warnShape = kb.cardShape()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

@@ -273,7 +273,7 @@ internal fun RowScope.MediaHeaderSearchBar(
 ) {
     val kb = LocalKbTheme.current
     val activeHint = activePlaceholder ?: stringResource(R.string.ime_media_search_active_hint)
-    val shape = kb.chipShape()
+    val shape = kb.cardShape()
     Row(
         modifier = Modifier
             .weight(1f)
@@ -332,7 +332,7 @@ private fun MediaSearchBar(
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val shape = kb.chipShape()
+        val shape = kb.cardShape()
         Row(
             modifier = Modifier
                 .weight(1f)
@@ -427,9 +427,9 @@ private fun MediaUnsupportedNotice(stickers: Boolean) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clip(kb.chipShape())
+            .clip(kb.cardShape())
             .background(kb.chip)
-            .chipBorder(kb, kb.chipShape())
+            .chipBorder(kb, kb.cardShape())
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1386,9 +1386,9 @@ private fun TranslateLanguagePicker(
             modifier = Modifier
                 .widthIn(min = 180.dp, max = 240.dp)
                 .heightIn(max = 260.dp)
-                .clip(kb.popupShape())
+                .clip(kb.menuShape())
                 .background(kb.popup)
-                .popupBorder(kb, kb.popupShape())
+                .popupBorder(kb, kb.menuShape())
                 .padding(vertical = 4.dp)
                 .verticalScroll(rememberScrollState()),
         ) {

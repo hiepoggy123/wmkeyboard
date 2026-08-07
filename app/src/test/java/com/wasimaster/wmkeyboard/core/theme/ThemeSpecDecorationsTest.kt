@@ -48,6 +48,8 @@ class ThemeSpecDecorationsTest {
         chipBorderWidthDp = 1f,
         chipShape = "SHARP",
         chipCornerRadiusDp = 0,
+        menuShape = "CUT",
+        cardShape = "SQUIRCLE",
         assets = mapOf("keyTexture" to "aGVsbG8="),
     )
 
@@ -111,6 +113,20 @@ class ThemeSpecDecorationsTest {
     fun `circle is a known key shape and unknown chip shapes cost the field`() {
         assertEquals(KeyShapeKind.CIRCLE, keyShapeKindOrNull("CIRCLE"))
         assertNull(keyShapeKindOrNull("DODECAHEDRON"))
+    }
+
+    @Test
+    fun `menus and cards only inherit the plain outlines`() {
+        // Plain outlines pass through …
+        assertEquals(KeyShapeKind.SHARP, safeContainerKind(KeyShapeKind.SHARP))
+        assertEquals(KeyShapeKind.CUT, safeContainerKind(KeyShapeKind.CUT))
+        assertEquals(KeyShapeKind.SQUIRCLE, safeContainerKind(KeyShapeKind.SQUIRCLE))
+        // … the decorative ones fall back to rounded rather than clipping
+        // a menu's own rows.
+        assertEquals(KeyShapeKind.ROUNDED, safeContainerKind(KeyShapeKind.SLANT))
+        assertEquals(KeyShapeKind.ROUNDED, safeContainerKind(KeyShapeKind.CIRCLE))
+        assertEquals(KeyShapeKind.ROUNDED, safeContainerKind(KeyShapeKind.SCALLOP))
+        assertEquals(KeyShapeKind.ROUNDED, safeContainerKind(KeyShapeKind.HEXAGON))
     }
 
     @Test

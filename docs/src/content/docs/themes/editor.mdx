@@ -121,6 +121,7 @@ For a theme you plan to share: Google Font ids (`google:Caveat`) resolve the sam
 - **Popup placement** — whether the character bubble grows out of the pressed key (the stock style) or floats detached above it. **Default** leaves the choice to <SettingsPath path="Key press" />; the other two make it part of the theme, so a bubble-popup theme looks right on every phone it lands on.
 - **Popup outline** and its width row — a border around the bubble, off until you pick a color, exactly like the key border. It draws on every popup surface the keyboard opens: the character bubble, the long-press alternates, the spacebar language picker, the clipboard and emoji menus, and the small pickers inside the tool panels.
 - The popup can also wear an image: the **Key preview popup** row under [Key textures](#key-textures) paints one inside the bubble, clipped to the popup shape, using the same Crop/Stretch/Tile mode and opacity as the key textures.
+- **Menu shape** — the list menus (the spacebar language picker, the clipboard and emoji menus) don't blindly follow the popup shape. On **Automatic** they take a safe derivative: the plain outlines (Rounded, Square, Cut, Squircle) pass through, the decorative ones fall back to Rounded — a slanted character bubble is charming, a slanted menu clips its own rows. Pick a shape here only to overrule that judgement.
 
 ### Toolbar
 
@@ -141,6 +142,7 @@ Chips are the small tappable surfaces inside the tool panels — style pickers, 
 - **Chip text** and **Selected chip** / **Selected chip text** — the resting label, and the fill and label of the chip that's currently active. Auto derives all three from the theme (the selected fill follows the active tool circle).
 - **Chip outline** and its width row — a border around every chip, off until you pick a color.
 - **Chip shape** and **Chip corner radius** — the same twelve-shape picker as everywhere else. The default is the 12dp soft rectangle chips have always drawn.
+- **Card shape** — the bigger surfaces (clipboard and snippet cards, plugin rows, search bars, the converters' displays) follow the chip shape only through the same safety rule as the menu shape: plain outlines pass through, decorative ones fall back to Rounded, and an explicit pick here overrules it.
 
 Any row left on Auto shows an "Auto" label under its name instead of a fixed value. Once you've overridden it, that row's color picker gains an **Auto** button (next to Apply) that clears the override and puts it back on Auto.
 

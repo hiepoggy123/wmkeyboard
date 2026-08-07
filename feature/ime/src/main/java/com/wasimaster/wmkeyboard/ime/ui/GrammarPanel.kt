@@ -284,7 +284,7 @@ private fun GrammarLintCard(
     val kb = LocalKbTheme.current
     val category = categoryFor(lint.kind)
     val catColor = category.color(kb.dark)
-    val cardShape = kb.chipShape()
+    val cardShape = kb.cardShape()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -416,9 +416,9 @@ private fun GrammarDialectPicker(
             modifier = Modifier
                 .widthIn(min = 160.dp, max = 220.dp)
                 .heightIn(max = 240.dp)
-                .clip(kb.popupShape())
+                .clip(kb.menuShape())
                 .background(kb.popup)
-                .popupBorder(kb, kb.popupShape())
+                .popupBorder(kb, kb.menuShape())
                 .padding(vertical = 4.dp),
         ) {
             GrammarDialect.entries.forEach { dialect ->

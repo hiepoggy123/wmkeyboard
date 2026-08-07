@@ -149,6 +149,10 @@
     <string name="theme_chip_border_title">Chip outline</string>
     <string name="theme_chip_shape_title">Chip shape</string>
     <string name="theme_chip_radius_title">Chip corner radius</string>
+    <string name="theme_menu_shape_title">Menu shape</string>
+    <string name="theme_card_shape_title">Card shape</string>
+    <string name="theme_shape_auto_safe_label">Automatic (safe)</string>
+    <string name="theme_shape_auto_safe_value">Automatic — %1$s</string>
 
     <!-- Theme editor: toolbar. -->
     <string name="theme_toolbar_section_title">Toolbar</string>

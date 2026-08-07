@@ -137,7 +137,7 @@ internal fun PasswordPanel(
             .fillMaxSize()
             .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
-        val cardShape = kb.chipShape()
+        val cardShape = kb.cardShape()
         Row(
             modifier = Modifier
                 .fillMaxWidth()

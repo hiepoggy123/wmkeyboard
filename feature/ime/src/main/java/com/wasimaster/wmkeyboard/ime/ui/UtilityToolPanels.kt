@@ -288,7 +288,7 @@ internal fun CalculatorPanel(
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         // Display: expression, live result, insert.
-        val displayShape = kb.chipShape()
+        val displayShape = kb.cardShape()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
