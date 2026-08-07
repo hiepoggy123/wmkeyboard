@@ -895,13 +895,13 @@ data class KeyboardSettings(
      * Online photo backgrounds and the rotating background; see
      * [PhotoBackgroundSettings].
      *
-     * Grouped rather than flat, and the margin is now gone: this class has 245
-     * fields, none of them `Long` or `Double`, which is
-     * `1 + 245 + ceil(245/32) + 1 = 255` of the JVM's 255 argument slots for the
-     * generated `copy$default`. **No more top-level fields fit** (the last slot
-     * went to [KeyboardSettings.onboarding]). The sixteen settings this feature
-     * needed would have gone past the ceiling, so they live in their own class
-     * while their DataStore keys stay flat; every new setting must do the same.
+     * Grouped rather than flat because of the ceiling: with N fields (none
+     * `Long` or `Double`) the generated `copy$default` takes
+     * `1 + N + ceil(N/32) + 1` of the JVM's 255 argument slots, capping N at
+     * 245. As of 2026-08-08 the class has 236 fields (246 slots, nine fields of
+     * headroom) — but that number goes stale, so recount before adding a flat
+     * field, prefer nesting regardless, and trust `testFullDebugUnitTest` over
+     * a green compile: an oversized class only fails at class load.
      */
     val photoBackground: PhotoBackgroundSettings = PhotoBackgroundSettings(),
     val keyHeightDp: Int = 48,
@@ -1182,14 +1182,7 @@ data class KeyboardSettings(
     /** Per-app language/subtype memory (see [PerAppLanguageSettings]). */
     val perAppLanguage: PerAppLanguageSettings = PerAppLanguageSettings(),
     val onboardingDone: Boolean = false,
-    /**
-     * Persona answers from the onboarding quiz (see [OnboardingSettings]).
-     *
-     * This took the last free constructor slot (see the note on
-     * [photoBackground]): the class now fills all 255 `copy$default` argument
-     * slots. No further top-level field fits; new settings must join an
-     * existing nested holder.
-     */
+    /** Persona answers from the onboarding quiz (see [OnboardingSettings]). */
     val onboarding: OnboardingSettings = OnboardingSettings(),
     /**
      * Language ids whose conjunct clusters backspace as one unit. Per language,
@@ -2207,9 +2200,10 @@ enum class PersonaPrivacy { UNSET, STANDARD, STRICT }
  *
  * The persona answers gate which wizard pages show (on first run and on
  * replay) and order the discovery cards. UNSET means the question was never
- * answered; the wizard treats it as the middle path. Any future
- * onboarding-related field belongs here, never on [KeyboardSettings] directly:
- * the outer class has no free constructor slots left.
+ * answered; the wizard treats it as the middle path. Future onboarding-related
+ * fields belong here rather than on [KeyboardSettings], whose constructor
+ * sits near the `copy$default` slot ceiling (see the note on
+ * [KeyboardSettings.photoBackground]).
  */
 data class OnboardingSettings(
     val personaLanguages: PersonaLanguages = PersonaLanguages.UNSET,
