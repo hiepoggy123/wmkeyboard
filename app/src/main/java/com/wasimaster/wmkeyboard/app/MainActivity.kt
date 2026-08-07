@@ -13,6 +13,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -1186,8 +1187,15 @@ private fun SettingsNavGraph(
                     onOpenLicenseText = { navController.navigate("license_text/$it") },
                     onOpenDebugLog = { navController.navigate("debug_log") },
                     onOpenStorage = { navController.navigate("storage") },
+                    onOpenEggGame = { navController.navigate("egg_game") },
                 )
             }
+        }
+        composable("egg_game") {
+            // The screen behind seven taps on the version row. Deliberately
+            // absent from the search index and the launcher shortcuts — a
+            // secret that can be searched for is a menu entry.
+            KeycapCatcherScreen(anim = this) { navController.popBackStack() }
         }
         composable("storage") {
             SettingsScreen(
@@ -1260,160 +1268,187 @@ private fun AnimatedVisibilityScope.HomeScreen(
 ) {
     val context = LocalContext.current
     val setup = rememberKeyboardSetup(context)
+    // The install-anniversary easter egg. The card stays up all day; the toast
+    // and the confetti fire once per year, whoever opens the screen first.
+    val anniversaryYears = rememberAnniversaryYears(context)
+    var confetti by remember { mutableStateOf(false) }
+    val birthdayToast = stringResource(R.string.egg_anniversary_toast)
+    LaunchedEffect(anniversaryYears) {
+        if (anniversaryYears != null && AnniversaryEgg.claimCelebration(context)) {
+            Toast.makeText(context, birthdayToast, Toast.LENGTH_LONG).show()
+            // Confetti is unsolicited ambient motion, so reduce motion turns it
+            // off and keeps the card and the toast, which hold still.
+            if (!settings.reduceMotion) confetti = true
+        }
+    }
     // The one screen whose heading is the app's own name rather than a place
     // inside it, so it is centred rather than hung off the bar's left edge.
     // Once there is nothing to set up, the card saying so would be a whole
     // card spent on good news — it becomes a line under the heading instead.
-    WmScreen(
-        title = stringResource(R.string.app_name),
-        route = "home",
-        centerTitle = true,
-        subtitle = if (setup.ready) stringResource(R.string.home_active_subtitle) else null,
-        subtitleIcon = if (setup.ready) Icons.Outlined.CheckCircle else null,
-        subtitleIconTint = ActiveGreen,
-        badge = { AppIconBadge() },
-        badgeInBar = true,
-        anim = this,
-        actions = {
-            IconButton(onClick = { onNavigate("search") }) {
-                Icon(
-                    Icons.Outlined.Search,
-                    contentDescription = stringResource(R.string.home_search_desc),
-                )
+    Box {
+        WmScreen(
+            title = stringResource(R.string.app_name),
+            route = "home",
+            centerTitle = true,
+            subtitle = if (setup.ready) stringResource(R.string.home_active_subtitle) else null,
+            subtitleIcon = if (setup.ready) Icons.Outlined.CheckCircle else null,
+            subtitleIconTint = ActiveGreen,
+            badge = { AppIconBadge() },
+            badgeInBar = true,
+            anim = this@HomeScreen,
+            actions = {
+                IconButton(onClick = { onNavigate("search") }) {
+                    Icon(
+                        Icons.Outlined.Search,
+                        contentDescription = stringResource(R.string.home_search_desc),
+                    )
+                }
+            },
+        ) {
+            if (!setup.ready) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SetupCard(context, setup = setup)
+                }
+                Spacer(Modifier.height(8.dp))
             }
-        },
-    ) {
-        if (!setup.ready) {
+            // Directly under the "Your active keyboard" heading area, above the
+            // update card: a birthday outranks being one version behind, one day
+            // a year.
+            if (anniversaryYears != null) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    AnniversaryCard(anniversaryYears)
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+            // Below the setup card on purpose: a keyboard that is not switched on
+            // yet has a more pressing problem than being one version behind. Draws
+            // nothing at all unless Play is offering something.
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SetupCard(context, setup = setup)
+                UpdateCard()
             }
-            Spacer(Modifier.height(8.dp))
+            SettingsGroup(stringResource(R.string.home_group_typing_title)) {
+                item {
+                    HomeItem(
+                        "typing", Icons.Outlined.Keyboard,
+                        stringResource(R.string.home_typing_title),
+                        stringResource(R.string.home_typing_subtitle), onNavigate,
+                    )
+                }
+                item {
+                    HomeItem(
+                        "keypress", Icons.Outlined.TouchApp,
+                        stringResource(R.string.home_keypress_title),
+                        stringResource(R.string.home_keypress_subtitle), onNavigate,
+                    )
+                }
+                item {
+                    // Named from what is actually enabled, not a fixed pair — the
+                    // enabled set now starts from the phone's own languages, so
+                    // there is no one right answer to hard-code here.
+                    HomeItem(
+                        "languages", Icons.Outlined.Language,
+                        stringResource(R.string.home_languages_title),
+                        enabledLanguagesSummary(settings), onNavigate,
+                    )
+                }
+            }
+            SettingsGroup(stringResource(R.string.home_group_keyboard_title)) {
+                item {
+                    HomeItem(
+                        "appearance", Icons.Outlined.Palette,
+                        stringResource(R.string.home_appearance_title),
+                        stringResource(R.string.home_appearance_subtitle), onNavigate,
+                    )
+                }
+                item {
+                    HomeItem(
+                        "layout", Icons.Outlined.AspectRatio,
+                        stringResource(R.string.home_layout_title),
+                        stringResource(R.string.home_layout_subtitle), onNavigate,
+                    )
+                }
+                item {
+                    HomeItem(
+                        "keymaps", Icons.Outlined.GridOn,
+                        stringResource(R.string.home_keymaps_title),
+                        stringResource(R.string.home_keymaps_subtitle), onNavigate,
+                    )
+                }
+                item {
+                    HomeItem(
+                        "rows", Icons.Outlined.ViewAgenda,
+                        stringResource(R.string.home_rows_title),
+                        stringResource(R.string.home_rows_subtitle), onNavigate,
+                    )
+                }
+                item {
+                    HomeItem(
+                        "modes", Icons.Outlined.Tune,
+                        stringResource(R.string.home_modes_title),
+                        stringResource(R.string.home_modes_subtitle), onNavigate,
+                    )
+                }
+            }
+            SettingsGroup(stringResource(R.string.home_group_features_title)) {
+                item {
+                    HomeItem(
+                        "emoji", Icons.Outlined.EmojiEmotions,
+                        stringResource(R.string.home_emoji_title),
+                        stringResource(R.string.home_emoji_subtitle), onNavigate,
+                    )
+                }
+                item {
+                    HomeItem(
+                        "tools", Icons.Outlined.Widgets,
+                        stringResource(R.string.home_tools_title),
+                        stringResource(R.string.home_tools_subtitle), onNavigate,
+                    )
+                }
+                item {
+                    HomeItem(
+                        "addons", Icons.Outlined.Extension,
+                        stringResource(R.string.home_addons_title),
+                        stringResource(R.string.home_addons_subtitle), onNavigate,
+                    )
+                }
+            }
+            SettingsGroup(stringResource(R.string.home_group_accessibility_title)) {
+                item {
+                    HomeItem(
+                        "accessibility", Icons.Outlined.Accessibility,
+                        stringResource(R.string.home_accessibility_title),
+                        stringResource(R.string.home_accessibility_subtitle), onNavigate,
+                    )
+                }
+            }
+            SettingsGroup(stringResource(R.string.home_group_data_title)) {
+                item {
+                    HomeItem(
+                        "privacy", Icons.Outlined.Security,
+                        stringResource(R.string.home_privacy_title),
+                        stringResource(R.string.home_privacy_subtitle), onNavigate,
+                    )
+                }
+                item {
+                    HomeItem(
+                        "backup", Icons.Outlined.Save,
+                        stringResource(R.string.home_backup_title),
+                        stringResource(R.string.home_backup_subtitle), onNavigate,
+                    )
+                }
+            }
+            SettingsGroup(stringResource(R.string.home_group_about_title)) {
+                item {
+                    HomeItem(
+                        "about", Icons.Outlined.Info,
+                        stringResource(R.string.home_about_title),
+                        stringResource(R.string.home_about_subtitle), onNavigate,
+                    )
+                }
+            }
         }
-        // Below the setup card on purpose: a keyboard that is not switched on
-        // yet has a more pressing problem than being one version behind. Draws
-        // nothing at all unless Play is offering something.
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            UpdateCard()
-        }
-        SettingsGroup(stringResource(R.string.home_group_typing_title)) {
-            item {
-                HomeItem(
-                    "typing", Icons.Outlined.Keyboard,
-                    stringResource(R.string.home_typing_title),
-                    stringResource(R.string.home_typing_subtitle), onNavigate,
-                )
-            }
-            item {
-                HomeItem(
-                    "keypress", Icons.Outlined.TouchApp,
-                    stringResource(R.string.home_keypress_title),
-                    stringResource(R.string.home_keypress_subtitle), onNavigate,
-                )
-            }
-            item {
-                // Named from what is actually enabled, not a fixed pair — the
-                // enabled set now starts from the phone's own languages, so
-                // there is no one right answer to hard-code here.
-                HomeItem(
-                    "languages", Icons.Outlined.Language,
-                    stringResource(R.string.home_languages_title),
-                    enabledLanguagesSummary(settings), onNavigate,
-                )
-            }
-        }
-        SettingsGroup(stringResource(R.string.home_group_keyboard_title)) {
-            item {
-                HomeItem(
-                    "appearance", Icons.Outlined.Palette,
-                    stringResource(R.string.home_appearance_title),
-                    stringResource(R.string.home_appearance_subtitle), onNavigate,
-                )
-            }
-            item {
-                HomeItem(
-                    "layout", Icons.Outlined.AspectRatio,
-                    stringResource(R.string.home_layout_title),
-                    stringResource(R.string.home_layout_subtitle), onNavigate,
-                )
-            }
-            item {
-                HomeItem(
-                    "keymaps", Icons.Outlined.GridOn,
-                    stringResource(R.string.home_keymaps_title),
-                    stringResource(R.string.home_keymaps_subtitle), onNavigate,
-                )
-            }
-            item {
-                HomeItem(
-                    "rows", Icons.Outlined.ViewAgenda,
-                    stringResource(R.string.home_rows_title),
-                    stringResource(R.string.home_rows_subtitle), onNavigate,
-                )
-            }
-            item {
-                HomeItem(
-                    "modes", Icons.Outlined.Tune,
-                    stringResource(R.string.home_modes_title),
-                    stringResource(R.string.home_modes_subtitle), onNavigate,
-                )
-            }
-        }
-        SettingsGroup(stringResource(R.string.home_group_features_title)) {
-            item {
-                HomeItem(
-                    "emoji", Icons.Outlined.EmojiEmotions,
-                    stringResource(R.string.home_emoji_title),
-                    stringResource(R.string.home_emoji_subtitle), onNavigate,
-                )
-            }
-            item {
-                HomeItem(
-                    "tools", Icons.Outlined.Widgets,
-                    stringResource(R.string.home_tools_title),
-                    stringResource(R.string.home_tools_subtitle), onNavigate,
-                )
-            }
-            item {
-                HomeItem(
-                    "addons", Icons.Outlined.Extension,
-                    stringResource(R.string.home_addons_title),
-                    stringResource(R.string.home_addons_subtitle), onNavigate,
-                )
-            }
-        }
-        SettingsGroup(stringResource(R.string.home_group_accessibility_title)) {
-            item {
-                HomeItem(
-                    "accessibility", Icons.Outlined.Accessibility,
-                    stringResource(R.string.home_accessibility_title),
-                    stringResource(R.string.home_accessibility_subtitle), onNavigate,
-                )
-            }
-        }
-        SettingsGroup(stringResource(R.string.home_group_data_title)) {
-            item {
-                HomeItem(
-                    "privacy", Icons.Outlined.Security,
-                    stringResource(R.string.home_privacy_title),
-                    stringResource(R.string.home_privacy_subtitle), onNavigate,
-                )
-            }
-            item {
-                HomeItem(
-                    "backup", Icons.Outlined.Save,
-                    stringResource(R.string.home_backup_title),
-                    stringResource(R.string.home_backup_subtitle), onNavigate,
-                )
-            }
-        }
-        SettingsGroup(stringResource(R.string.home_group_about_title)) {
-            item {
-                HomeItem(
-                    "about", Icons.Outlined.Info,
-                    stringResource(R.string.home_about_title),
-                    stringResource(R.string.home_about_subtitle), onNavigate,
-                )
-            }
+        if (confetti) {
+            ConfettiOverlay(Modifier.matchParentSize(), onFinished = { confetti = false })
         }
     }
 }

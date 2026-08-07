@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -440,6 +441,7 @@ internal fun AboutSettings(
     onOpenLicenseText: (String) -> Unit,
     onOpenDebugLog: () -> Unit = {},
     onOpenStorage: () -> Unit = {},
+    onOpenEggGame: () -> Unit = {},
 ) {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
@@ -484,6 +486,12 @@ internal fun AboutSettings(
         }
     }
 
+    // The version row's Android-style secret: seven taps open the keycap
+    // catcher. The counter never leaves this screen, and the row keeps
+    // looking like the inert fact it is the other 6 taps.
+    var versionTaps by remember { mutableIntStateOf(0) }
+    var versionTapToast by remember { mutableStateOf<Toast?>(null) }
+
     SettingsGroup(stringResource(R.string.about_app_title)) {
         item {
             NavRow(
@@ -496,7 +504,27 @@ internal fun AboutSettings(
                     BuildConfig.VERSION_CODE,
                 ),
                 value = BuildConfig.VERSION_NAME,
-            ) {}
+            ) {
+                versionTaps++
+                when {
+                    versionTaps >= 7 -> {
+                        versionTaps = 0
+                        versionTapToast?.cancel()
+                        onOpenEggGame()
+                    }
+                    versionTaps >= 4 -> {
+                        val left = 7 - versionTaps
+                        versionTapToast?.cancel()
+                        versionTapToast = Toast.makeText(
+                            context,
+                            context.resources.getQuantityString(
+                                R.plurals.egg_version_taps_body, left, left,
+                            ),
+                            Toast.LENGTH_SHORT,
+                        ).also { it.show() }
+                    }
+                }
+            }
         }
         item {
             // The licence identifier and the copyright line travel verbatim.

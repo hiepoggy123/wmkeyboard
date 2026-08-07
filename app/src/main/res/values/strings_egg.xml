@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the easter eggs that live in the settings app: the install
+  anniversary card on the home screen and the hidden keycap-catcher game
+  behind the version row. The keyboard-side eggs keep their strings in
+  :feature:ime like everything else drawn on the keyboard.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ===================================================================
+         Install anniversary.
+         =================================================================== -->
+    <!-- Title of the card shown on the home screen on the install date's anniversary. -->
+    <string name="egg_anniversary_card_title">Keyboard birthday 🎂</string>
+    <!-- Body of the anniversary card. %1$d is the number of whole years since install. -->
+    <plurals name="egg_anniversary_card_body">
+        <item quantity="one">Installed <xliff:g id="years" example="1">%1$d</xliff:g> year ago today. Thanks for typing along.</item>
+        <item quantity="other">Installed <xliff:g id="years" example="3">%1$d</xliff:g> years ago today. Thanks for typing along.</item>
+    </plurals>
+    <!-- Toast shown once per year when the anniversary is first seen. -->
+    <string name="egg_anniversary_toast">Happy keyboard birthday! 🎉</string>
+
+    <!-- ===================================================================
+         The keycap catcher behind the version row.
+         =================================================================== -->
+    <!-- Countdown toast while tapping the version row. %1$d taps are still needed. -->
+    <plurals name="egg_version_taps_body">
+        <item quantity="one">You are <xliff:g id="taps" example="1">%1$d</xliff:g> tap away from something.</item>
+        <item quantity="other">You are <xliff:g id="taps" example="3">%1$d</xliff:g> taps away from something.</item>
+    </plurals>
+    <!-- Heading of the hidden mini game screen. -->
+    <string name="egg_game_title">Keycap catcher</string>
+    <!-- Score line during play. %1$d is the current score. -->
+    <string name="egg_game_score_label">Score: <xliff:g id="score" example="12">%1$d</xliff:g></string>
+    <!-- Best-score line. %1$d is the highest score reached so far. -->
+    <string name="egg_game_best_label">Best: <xliff:g id="score" example="34">%1$d</xliff:g></string>
+    <!-- Screen reader name for the remaining-lives indicator. %1$d lives are left. -->
+    <string name="egg_game_lives_desc">Lives left: <xliff:g id="lives" example="2">%1$d</xliff:g></string>
+    <!-- Shown over the play area when the third keycap has been missed. -->
+    <string name="egg_game_over_title">Game over</string>
+    <!-- Button under the game-over score that starts a fresh round. -->
+    <string name="egg_game_play_again_action">Play again</string>
+    <!-- One-line instruction shown before the first keycap falls. -->
+    <string name="egg_game_hint">Drag the spacebar. Catch the falling keys.</string>
+
+</resources>
