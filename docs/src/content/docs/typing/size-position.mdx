@@ -59,6 +59,33 @@ Tap a shape's row to expand its editor:
 
 Key spacing, side padding, bottom row height, and everything in [one-handed, split and floating](#one-handed-mode) below are global instead: they apply the same regardless of which screen shape you're on.
 
+## On a tablet
+
+A tablet gets a wider keyboard automatically, and you don't have to set anything up for it. The screen's smallest dimension decides which one you get, the same measurement per-screen sizing uses:
+
+- under 600dp is a phone, and nothing below applies;
+- 600dp to 767dp is a small tablet, which is also where an unfolded foldable lands;
+- 768dp and up is a large tablet.
+
+On either tablet size the letter rows gain a column on each side, which fills the width with keys instead of stretching the letters across it, and leaves the alphabet sitting in the middle where two hands reach it:
+
+- <KeyCap>Tab</KeyCap> and <KeyCap>\\</KeyCap> flank the top letter row;
+- <KeyCap>Caps</KeyCap> and <KeyCap>Enter</KeyCap> flank the home row, so Enter is under your right little finger rather than at the bottom corner;
+- the number row gains a <KeyCap>`</KeyCap> and takes over <KeyCap>Backspace</KeyCap>, which frees the shift row's right end for a second <KeyCap>Shift</KeyCap>;
+- the comma moves up beside the letters, and a real emoji key appears next to <KeyCap>?123</KeyCap>.
+
+A large tablet gets three more: <KeyCap>←</KeyCap> and <KeyCap>→</KeyCap> next to the spacebar, a second <KeyCap>?123</KeyCap> at the right end so you don't have to reach back across ten inches for it, and the period joins the comma up on the letter rows. A small tablet keeps the period on the bottom row, because a 7-inch tablet is still held and still thumb-typed.
+
+Three settings also start from different defaults on a tablet, and only until you touch them:
+
+- the <SettingsPath path="Layout & size / Number row / Number row" /> is on;
+- key height starts at 44dp (large) or 46dp (small) instead of 48dp, and number row height at 38dp or 40dp instead of 42dp, so six rows on a tablet take a smaller share of the screen than five do on a phone;
+- the toolbar starts with seven pinned tools (large) or five (small) instead of three.
+
+Change any of them and your value sticks on every device, tablet included. Turn the number row off on a tablet and it stays off.
+
+The extra keys are added to whatever layout you're using, so all the shipped languages get them, and so does anything you build in the [layout editor](/languages/custom-layouts/). Layouts that aren't ordinary alphabetic grids are left alone: the Japanese flick pads, braille, morse, the Chinese shape and phonetic pads, and a handful of scripts whose grids have no shift key. If you'd rather a particular layout was left alone too, the editor has an **Add tablet keys automatically** switch for it.
+
 ## One-handed mode
 
 <SettingsPath path="Layout & size / One-handed, split & floating / One-handed mode" />
