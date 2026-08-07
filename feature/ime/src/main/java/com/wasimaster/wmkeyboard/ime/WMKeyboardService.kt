@@ -7060,6 +7060,7 @@ open class WMKeyboardService : InputMethodService() {
             cryptoDecimals = state.settings.rateSources.cryptoDecimals,
             cryptoUnavailable = (state.currency as? CurrencyUi.Ready)?.cryptoFailed == true,
             unitLast = state.settings.unitConvertLast,
+            compoundUnits = state.settings.compoundUnits,
             enabledTools = usableTools(state.settings),
             keywordOverrides = state.settings.toolKeywords,
             caseSensitiveKeywords = state.settings.toolKeywordCase,

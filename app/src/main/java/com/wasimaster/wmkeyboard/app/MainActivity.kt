@@ -8155,7 +8155,7 @@ private fun toolHasOptions(tool: ToolbarTool): Boolean = tool !in ToolsWithoutOp
 /** Asked once per row on a screen of sixty, so it is not built per call. */
 private val ToolsWithoutOptions: Set<ToolbarTool> =
     setOf(
-        ToolbarTool.UNIT_CONVERT, ToolbarTool.SETTINGS,
+        ToolbarTool.SETTINGS,
         // Quick toggles/panels, not tools with settings of their own —
         // their options all live elsewhere (Appearance, Typing).
         ToolbarTool.THEMES, ToolbarTool.SOUND_HAPTICS, ToolbarTool.ONE_HANDED,
@@ -9838,6 +9838,14 @@ private fun ToolDetailSettings(
                         settings.smartUnits,
                         info = stringResource(R.string.tooldetail_units_smart_info),
                     ) { scope.launch { repository.setSmartUnits(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_units_compound_title,
+                        stringResource(R.string.tooldetail_units_compound_subtitle),
+                        settings.compoundUnits,
+                        info = stringResource(R.string.tooldetail_units_compound_info),
+                    ) { scope.launch { repository.setCompoundUnits(it) } }
                 }
             }
             CaptionText(stringResource(R.string.tooldetail_units_info))

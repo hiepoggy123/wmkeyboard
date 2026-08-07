@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.tools.CalcEngine
+import com.wasimaster.wmkeyboard.core.tools.CompoundUnits
 import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.SymbolCatalog
@@ -552,8 +553,22 @@ internal fun UnitConverterPanel(
     }
     val amount = value.toDoubleOrNull()
     val converted = amount?.let { UnitConvert.convert(it, from, to) }
-    val resultText = converted?.takeIf { !it.isNaN() && !it.isInfinite() }
-        ?.let { CalcEngine.format(it, state.settings.calcPrecision) }
+    val finite = converted?.takeIf { !it.isNaN() && !it.isInfinite() }
+    // A length in feet reads as feet and inches unless the setting says
+    // otherwise. A compound reading is inserted whole — "3 ft 3.37 in" means
+    // nothing without its two units — where a plain result still inserts the
+    // bare number, which is what a field being converted into wants.
+    val compound = finite?.takeIf { state.settings.compoundUnits }?.let {
+        CompoundUnits.format(
+            it,
+            to.symbol,
+            CompoundUnits.Style.SYMBOL,
+            state.settings.calcPrecision.coerceAtMost(2),
+        )
+    }
+    val plainText = finite?.let { CalcEngine.format(it, state.settings.calcPrecision) }
+    val resultText = compound ?: plainText?.let { "$it ${to.symbol}" }
+    val insertText = compound ?: plainText
 
     // Ring regions. From and to publish as one 2×n grid so Down/Up crosses
     // between the rows; the keypad stays ring-free (physical digits type).
@@ -583,7 +598,7 @@ internal fun UnitConverterPanel(
     ) { index ->
         when (index) {
             0 -> { val tmp = fromIndex; fromIndex = toIndex; toIndex = tmp }
-            1 -> resultText?.let(onInsert)
+            1 -> insertText?.let(onInsert)
         }
     }
     val focusedCategory = state.focusedIndex(FocusRegion.CATEGORIES)
@@ -652,7 +667,7 @@ internal fun UnitConverterPanel(
                 )
             }
             Text(
-                if (resultText != null) "$resultText ${to.symbol}" else "",
+                resultText.orEmpty(),
                 color = kb.accent,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -665,7 +680,7 @@ internal fun UnitConverterPanel(
                     stringResource(R.string.ime_units_insert_action),
                     modifier = Modifier.focusRing(focusedAction == 1),
                 ) {
-                    onInsert(resultText)
+                    insertText?.let(onInsert)
                 }
             }
         }

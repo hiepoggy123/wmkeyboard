@@ -95,6 +95,11 @@ object SmartSuggest {
         /** Set while the coin table cannot be fetched, so a coin chip gives up rather than spins. */
         val cryptoUnavailable: Boolean = false,
         val unitLast: String = "",
+        /**
+         * Read a length in feet as feet and inches — "3 ft 3.37 in" rather
+         * than "3.2808399 ft". See [CompoundUnits].
+         */
+        val compoundUnits: Boolean = true,
         val enabledTools: Collection<ToolbarTool> = emptyList(),
         val keywordOverrides: String = "",
         /** Tools whose keywords must match the typed capitals exactly. */
@@ -490,7 +495,15 @@ object SmartSuggest {
         if (converted.isNaN() || converted.isInfinite()) return null
         val digits = CalcEngine.format(amount.value, ctx.precision)
         val resultValue = CalcEngine.format(converted, ctx.precision)
-        val result = "$resultValue ${to.symbol}"
+        // A unit the user spelled out is answered in words ("1 meter" →
+        // "3 feet 3.37 inches"); one written as a symbol gets symbols back.
+        val style = if (token.lowercase(Locale.ROOT) == from.symbol.lowercase(Locale.ROOT)) {
+            CompoundUnits.Style.SYMBOL
+        } else {
+            CompoundUnits.Style.WORD
+        }
+        val compound = compoundResult(converted, to.symbol, style, ctx)
+        val result = compound ?: "$resultValue ${to.symbol}"
         return SmartHit(
             kind = Kind.UNIT,
             query = "$digits ${from.symbol}",
@@ -506,9 +519,29 @@ object SmartSuggest {
                 to = to.symbol,
                 value = digits,
             ),
-            tiers = unitTiers(amount, token, spaced, digits, from, result, converted),
+            tiers = unitTiers(amount, token, spaced, digits, from, to, result, converted, style, ctx),
         )
     }
+
+    /**
+     * How many decimals a compound minor gets. Hundredths of an inch is
+     * already past what a measurement means, so the setting only ever takes
+     * the number down.
+     */
+    private const val COMPOUND_MINOR_DECIMALS = 2
+
+    /**
+     * The compound reading of a result, or null when it has none — the unit
+     * does not take one, or the user turned them off.
+     */
+    private fun compoundResult(
+        converted: Double,
+        toSymbol: String,
+        style: CompoundUnits.Style,
+        ctx: Context,
+        decimals: Int = ctx.precision.coerceAtMost(COMPOUND_MINOR_DECIMALS),
+    ): String? =
+        if (ctx.compoundUnits) CompoundUnits.format(converted, toSymbol, style, decimals) else null
 
     /**
      * The display ladder for a unit chip, mirroring [currencyTiers]: the
@@ -524,31 +557,57 @@ object SmartSuggest {
         spaced: Boolean,
         digits: String,
         from: UnitConvert.ConvUnit,
+        to: UnitConvert.ConvUnit,
         fullResult: String,
         converted: Double,
+        style: CompoundUnits.Style,
+        ctx: Context,
     ): List<ChipTier> {
-        val toSymbol = fullResult.substringAfter(' ')
-        fun rounded(value: Double): String {
-            val tilde = if (kotlin.math.abs(converted - value) > 0.005 * kotlin.math.abs(converted)) "~" else ""
-            return "$tilde${CalcEngine.format(value, 2)} $toSymbol"
-        }
-        val twoText = rounded(kotlin.math.round(converted * 100) / 100)
-        val wholeText = rounded(kotlin.math.round(converted))
+        /** "~" once a rounding has visibly moved the number. */
+        fun tilde(shown: Double): String =
+            if (kotlin.math.abs(converted - shown) > 0.005 * kotlin.math.abs(converted)) "~" else ""
         val qTyped = "${amount.text}${if (spaced) " " else ""}$token"
         // Swapping the typed unit for its symbol only helps when the symbol
         // is actually shorter — "miles" → "mi", but never "c" → "°C".
         val qMid = if (token.length > from.symbol.length) "${amount.text} ${from.symbol}" else qTyped
         val qCanon = "$digits ${from.symbol}"
+        // The digits tier exists to flatten spelled-out amounts; a glued
+        // short form like "30c" is already narrower than "30 °C".
+        val digitsTierFits = qCanon != qMid && qCanon.length < qMid.length
+
+        val minorDecimals = ctx.precision.coerceAtMost(COMPOUND_MINOR_DECIMALS)
+        fun compound(form: CompoundUnits.Style, decimals: Int): String? =
+            compoundResult(converted, to.symbol, form, ctx, decimals)
+                ?.let { tilde(CompoundUnits.snap(converted, to.symbol, decimals)) + it }
+
+        // A compound result gives up its two halves in a different order than
+        // a plain one: the spelled-out names go first, then the hundredths of
+        // the minor, and only then the names give way to ' and ", which say
+        // feet and inches to everyone and cost four characters less.
+        compound(style, minorDecimals)?.let { full ->
+            val symbols = compound(CompoundUnits.Style.SYMBOL, minorDecimals)
+            val whole = compound(CompoundUnits.Style.SYMBOL, 0)
+            val prime = compound(CompoundUnits.Style.PRIME, 0)
+            return buildList {
+                add(ChipTier(qTyped, full))
+                symbols?.let { add(ChipTier(qTyped, it)) }
+                whole?.let { add(ChipTier(qTyped, it)) }
+                whole?.let { add(ChipTier(qMid, it)) }
+                prime?.let { add(ChipTier(qMid, it)) }
+                if (digitsTierFits) prime?.let { add(ChipTier(qCanon, it, lastResort = true)) }
+            }.distinct()
+        }
+
+        fun rounded(value: Double): String =
+            "${tilde(value)}${CalcEngine.format(value, 2)} ${to.symbol}"
+        val twoText = rounded(kotlin.math.round(converted * 100) / 100)
+        val wholeText = rounded(kotlin.math.round(converted))
         return buildList {
             add(ChipTier(qTyped, fullResult))
             add(ChipTier(qTyped, twoText))
             add(ChipTier(qTyped, wholeText))
             add(ChipTier(qMid, wholeText))
-            // The digits tier exists to flatten spelled-out amounts; a glued
-            // short form like "30c" is already narrower than "30 °C".
-            if (qCanon != qMid && qCanon.length < qMid.length) {
-                add(ChipTier(qCanon, wholeText, lastResort = true))
-            }
+            if (digitsTierFits) add(ChipTier(qCanon, wholeText, lastResort = true))
         }.distinct()
     }
 

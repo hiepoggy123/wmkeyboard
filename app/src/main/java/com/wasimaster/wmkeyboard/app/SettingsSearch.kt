@@ -689,6 +689,11 @@ private fun Resources.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.CALCULATOR, R.string.tooldetail_calc_degrees_title, R.string.tooldetail_calc_degrees_subtitle),
     toolEntry(ToolbarTool.CALCULATOR, R.string.tooldetail_calc_precision_title, R.string.tooldetail_calc_precision_subtitle),
     toolEntry(ToolbarTool.UNIT_CONVERT, R.string.tooldetail_units_smart_title, R.string.tooldetail_units_smart_subtitle),
+    toolEntry(
+        ToolbarTool.UNIT_CONVERT,
+        R.string.tooldetail_units_compound_title,
+        R.string.tooldetail_units_compound_subtitle,
+    ),
     toolEntry(ToolbarTool.CURRENCY, R.string.tooldetail_currency_smart_title),
     toolEntry(ToolbarTool.CURRENCY, R.string.tooldetail_currency_decimals_title, R.string.tooldetail_currency_decimals_subtitle),
     toolEntry(ToolbarTool.CURRENCY, R.string.tooldetail_currency_refresh_title, R.string.tooldetail_currency_refresh_subtitle),

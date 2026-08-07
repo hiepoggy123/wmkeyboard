@@ -907,7 +907,7 @@ data class KeyboardSettings(
      * Grouped rather than flat because of the ceiling: with N fields (none
      * `Long` or `Double`) the generated `copy$default` takes
      * `1 + N + ceil(N/32) + 1` of the JVM's 255 argument slots, capping N at
-     * 245. As of 2026-08-08 the class has 236 fields (246 slots, nine fields of
+     * 245. As of 2026-08-08 the class has 237 fields (247 slots, eight fields of
      * headroom) — but that number goes stale, so recount before adding a flat
      * field, prefer nesting regardless, and trust `testFullDebugUnitTest` over
      * a green compile: an oversized class only fails at class load.
@@ -1430,6 +1430,13 @@ data class KeyboardSettings(
      * category first ("Length|m|ft;Mass|kg|lb"). Restored on open.
      */
     val unitConvertLast: String = "",
+    /**
+     * Read a length in feet as feet and inches — "3 ft 3.37 in" rather than
+     * "3.2808399 ft" — in the converter and on the smart chip. Off gives the
+     * plain decimal back. See
+     * [com.wasimaster.wmkeyboard.core.tools.CompoundUnits].
+     */
+    val compoundUnits: Boolean = true,
     /** Tools per row in the toolbox grid. */
     val toolboxColumns: Int = 4,
     /** ISO 639-1 code the translate tool translates into (source is auto-detected). */
@@ -3502,6 +3509,7 @@ class SettingsRepository(private val context: Context) {
         private val CRYPTO_DECIMALS = intPreferencesKey("crypto_decimals")
         private val GRAMMAR_DEBOUNCE_MS = intPreferencesKey("grammar_debounce_ms")
         private val UNIT_CONVERT_LAST = stringPreferencesKey("unit_convert_last")
+        private val COMPOUND_UNITS = booleanPreferencesKey("compound_units")
         private val TOOLBOX_COLUMNS = intPreferencesKey("toolbox_columns")
         private val TOOLBOX_LAYOUT = stringPreferencesKey("toolbox_layout")
         private val TOOLBOX_PILL_COLUMNS = intPreferencesKey("toolbox_pill_columns")
@@ -4398,6 +4406,7 @@ class SettingsRepository(private val context: Context) {
             ),
             grammarDebounceMs = p[GRAMMAR_DEBOUNCE_MS] ?: defaults.grammarDebounceMs,
             unitConvertLast = p[UNIT_CONVERT_LAST] ?: defaults.unitConvertLast,
+            compoundUnits = p[COMPOUND_UNITS] ?: defaults.compoundUnits,
             toolboxColumns = p[TOOLBOX_COLUMNS] ?: defaults.toolboxColumns,
             translateTargetLang = p[TRANSLATE_TARGET_LANG] ?: defaults.translateTargetLang,
             grammarDialect = p[GRAMMAR_DIALECT]
@@ -4948,6 +4957,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setUnitConvertLast(value: String) =
         editPrefs { it[UNIT_CONVERT_LAST] = value }
+
+    suspend fun setCompoundUnits(value: Boolean) =
+        editPrefs { it[COMPOUND_UNITS] = value }
 
     suspend fun setDictionaryAutoLookup(value: Boolean) =
         editPrefs { it[DICTIONARY_AUTO_LOOKUP] = value }

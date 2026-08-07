@@ -448,6 +448,9 @@
     <string name="tooldetail_units_smart_title">Convert as you type</string>
     <string name="tooldetail_units_smart_subtitle">Offer the conversion on the suggestion strip when you type a measurement</string>
     <string name="tooldetail_units_smart_info">If you type \"1 ft\" or \"1ft\", the keyboard puts the same length in metres on the suggestion strip. The button on the chip opens the converter on that category, with the pair and the amount already filled in. The unit that it converts into is the one that you paired it with last here. One-letter abbreviations count only when you write them against the number, so \"30c\" counts and \"30 c\" does not. Ordinary sentences stay untouched. This needs \"Smart chips\" on, under Typing.</string>
+    <string name="tooldetail_units_compound_title">Feet and inches</string>
+    <string name="tooldetail_units_compound_subtitle">Show a length in feet as feet and inches, not as a decimal</string>
+    <string name="tooldetail_units_compound_info">1 metre reads as \"3 ft 3.37 in\" instead of \"3.2808399 ft\". The chip writes the units the way that you did: \"1m\" answers with \"3 ft 3.37 in\" and \"1 meter\" answers with \"3 feet 3.37 inches\". Where there is no room for either, it falls back to \"3\'3\"\". Turn this off for the plain decimal.</string>
     <string name="tooldetail_units_info">There are 14 categories: length, mass, temperature, area, volume, speed, time, data, energy, power, pressure, angle, frequency and fuel economy. All conversions run on your device. The result precision follows the calculator setting. The panel opens again on the category and the units that you used last.</string>
 
     <!-- Currency converter tool. -->

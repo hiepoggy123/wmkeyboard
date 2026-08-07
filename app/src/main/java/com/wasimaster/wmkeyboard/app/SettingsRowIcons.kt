@@ -645,6 +645,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.tooldetail_calc_degrees_title, Icons.Outlined.Architecture)
     put(R.string.tooldetail_calc_precision_title, Icons.Outlined.Numbers)
     put(R.string.tooldetail_units_smart_title, Icons.Outlined.Straighten)
+    put(R.string.tooldetail_units_compound_title, Icons.Outlined.Height)
     put(R.string.tooldetail_currency_smart_title, Icons.Outlined.CurrencyExchange)
     put(R.string.tooldetail_currency_decimals_title, Icons.Outlined.Numbers)
     put(R.string.tooldetail_currency_refresh_title, Icons.Outlined.Refresh)

@@ -329,7 +329,7 @@ class SmartSuggestTest {
     @Test
     fun theLastUsedPairWinsOverTheBuiltInPartner() {
         val h = hit("1 km", ctx.copy(unitLast = "Length|km|ft"))
-        assertEquals("Length|km|ft", "3280.8399 ft", h?.result)
+        assertEquals("Length|km|ft", "3280 ft 10.08 in", h?.result)
     }
 
     @Test
@@ -359,7 +359,7 @@ class SmartSuggestTest {
     @Test
     fun theMagnitudeLettersStayOutOfUnits() {
         // "5m" is five metres, never five million of anything.
-        assertEquals("16.4042 ft", hit("5m")?.result)
+        assertEquals("16 ft 4.85 in", hit("5m")?.result)
     }
 
     @Test
@@ -384,6 +384,43 @@ class SmartSuggestTest {
         assertEquals(
             listOf("1.6093 km", "1.61 km", "~2 km"),
             hit("1 mi")!!.tiers.map { it.result },
+        )
+    }
+
+    @Test
+    fun feetComeBackWithTheirInches() {
+        // A metre is 3 ft 3.37 in to anybody who measures in feet; the plain
+        // decimal is a number, not a length.
+        assertEquals("3 ft 3.37 in", hit("1m")?.result)
+        assertEquals("3 ft 3.37 in", hit("1 m")?.result)
+        // The chip inserts what it shows, units and all.
+        assertEquals("3 ft 3.37 in", hit("1m")?.insert)
+        // Off, it is the decimal it always was.
+        assertEquals("3.2808 ft", hit("1m", ctx.copy(compoundUnits = false))?.result)
+    }
+
+    @Test
+    fun aSpelledOutUnitIsAnsweredInWords() {
+        assertEquals("3 feet 3.37 inches", hit("1 meter")?.result)
+        assertEquals("3 feet 3.37 inches", hit("1 metre")?.result)
+        // A symbol asked the question, so a symbol answers it.
+        assertEquals("3 ft 3.37 in", hit("1m")?.result)
+    }
+
+    @Test
+    fun compoundResultsDegradeThroughSymbolsToPrimes() {
+        assertEquals(
+            listOf("3 ft 3.37 in", "~3 ft 3 in", "~3'3\""),
+            hit("1m")!!.tiers.map { it.result },
+        )
+        // Spelled out, the names go first and are the first thing given up.
+        assertEquals(
+            listOf("3 feet 3.37 inches", "3 ft 3.37 in", "~3 ft 3 in", "~3 ft 3 in", "~3'3\""),
+            hit("1 meter")!!.tiers.map { it.result },
+        )
+        assertEquals(
+            listOf("1 meter", "1 meter", "1 meter", "1 m", "1 m"),
+            hit("1 meter")!!.tiers.map { it.query },
         )
     }
 
