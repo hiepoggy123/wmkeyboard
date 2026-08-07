@@ -103,6 +103,9 @@
     <!-- Screen reader text for the chip that offers a snippet the user marked
          "ask first". %1$s is the name that the user gave the snippet. -->
     <string name="ime_snippet_offer_desc">Insert the snippet %1$s</string>
+    <!-- Easter egg: shown in the strip when S, O and S are keyed in a row on the
+         morse layout. The dots and dashes at the start are morse for SOS. -->
+    <string name="ime_morse_sos_egg_info">··· −−− ··· received. Help is not on the way.</string>
 
     <!-- The Modes panel: which keyboard mode is active. -->
     <string name="ime_modes_empty">No modes yet. Create one in Settings → Modes.</string>

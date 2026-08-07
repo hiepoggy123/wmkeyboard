@@ -840,6 +840,8 @@ data class KeyboardUiState(
      * nothing is pending or the morse layout is not active.
      */
     val morsePending: String = "",
+    /** True for a few seconds after the morse layout decodes S, O, S in a row. */
+    val morseSosEgg: Boolean = false,
     /**
      * Chips from the system autofill service, already inflated by *its*
      * process — the keyboard only hosts them. Views rather than data because

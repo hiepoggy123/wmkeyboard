@@ -410,6 +410,9 @@ open class WMKeyboardService : InputMethodService() {
     /** Pending morse sequence; the commit pause is [morseJob]. */
     private val morse = MorseInput()
     private var morseJob: Job? = null
+    /** The SOS easter egg fires once per service lifetime; this is the once. */
+    private var morseSosEggShown = false
+    private var morseSosEggJob: Job? = null
 
     /** In-flight link-metadata fetch; one at a time (see [fetchLinkPreviews]). */
     private var linkPreviewJob: Job? = null
@@ -3632,6 +3635,18 @@ open class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         val cased = if (state.shiftState != ShiftState.OFF) decoded.uppercase() else decoded
         processTypedText(cased, applyDeadKeys = false)
+        // Easter egg: three letters spelling SOS light a short-lived note in
+        // the strip, once per service lifetime. Purely additive — the decoded
+        // letter above is already committed either way.
+        if (morse.recordDecoded(decoded) && !morseSosEggShown) {
+            morseSosEggShown = true
+            _uiState.update { it.copy(morseSosEgg = true) }
+            morseSosEggJob?.cancel()
+            morseSosEggJob = serviceScope.launch {
+                delay(MORSE_SOS_EGG_MS)
+                _uiState.update { it.copy(morseSosEgg = false) }
+            }
+        }
     }
 
     /**
@@ -3644,9 +3659,17 @@ open class WMKeyboardService : InputMethodService() {
         brailleGrade1.reset()
         morseJob?.cancel()
         morseJob = null
-        if (morse.isPending) {
-            morse.reset()
+        // reset() also drops the SOS watch window: letters keyed into two
+        // different fields are not one distress call.
+        val hadPending = morse.isPending
+        morse.reset()
+        if (hadPending) {
             _uiState.update { it.copy(morsePending = "") }
+        }
+        morseSosEggJob?.cancel()
+        morseSosEggJob = null
+        if (_uiState.value.morseSosEgg) {
+            _uiState.update { it.copy(morseSosEgg = false) }
         }
     }
 
@@ -14448,6 +14471,9 @@ open class WMKeyboardService : InputMethodService() {
          * like waiting for the keyboard.
          */
         private const val MORSE_COMMIT_MS = 750L
+
+        /** How long the SOS easter-egg note stays on the strip. */
+        private const val MORSE_SOS_EGG_MS = 5000L
 
         /**
          * Quick-insert punctuation offered in the tail of the suggestion strip

@@ -80,4 +80,49 @@ class MorseCodeTest {
         input.signal(dash = true)
         assertEquals("·−", input.display)
     }
+
+    @Test
+    fun `three decoded letters spelling sos trip the watch`() {
+        val input = MorseInput()
+        assertFalse(input.recordDecoded("s"))
+        assertFalse(input.recordDecoded("o"))
+        assertTrue(input.recordDecoded("s"))
+    }
+
+    @Test
+    fun `the watch is a rolling window not a state machine`() {
+        val input = MorseInput()
+        // "ssos" still ends in an SOS.
+        assertFalse(input.recordDecoded("s"))
+        assertFalse(input.recordDecoded("s"))
+        assertFalse(input.recordDecoded("o"))
+        assertTrue(input.recordDecoded("s"))
+    }
+
+    @Test
+    fun `letters in between break the sequence`() {
+        val input = MorseInput()
+        input.recordDecoded("s")
+        input.recordDecoded("o")
+        input.recordDecoded("5")
+        assertFalse(input.recordDecoded("s"))
+    }
+
+    @Test
+    fun `reset clears the watch window`() {
+        val input = MorseInput()
+        input.recordDecoded("s")
+        input.recordDecoded("o")
+        input.reset()
+        assertFalse(input.recordDecoded("s"))
+    }
+
+    @Test
+    fun `a long run of letters keeps only the tail`() {
+        val input = MorseInput()
+        "abcdefghij".forEach { input.recordDecoded(it.toString()) }
+        input.recordDecoded("s")
+        input.recordDecoded("o")
+        assertTrue(input.recordDecoded("s"))
+    }
 }

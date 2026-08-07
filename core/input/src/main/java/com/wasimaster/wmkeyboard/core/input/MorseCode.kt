@@ -13,6 +13,9 @@ class MorseInput {
 
     private val pending = StringBuilder()
 
+    /** The last few decoded letters, for [recordDecoded]'s SOS watch. */
+    private val recent = StringBuilder()
+
     val isPending: Boolean get() = pending.isNotEmpty()
 
     /** The sequence as typed, e.g. "·−−" rendered with display glyphs. */
@@ -44,6 +47,24 @@ class MorseInput {
 
     fun reset() {
         pending.setLength(0)
+        recent.setLength(0)
+    }
+
+    /**
+     * Files one decoded letter and reports whether the last three now spell
+     * "sos" — the easter egg's cue. A rolling window rather than a state
+     * machine: "ssos" still ends in an SOS, and that is the one that counts.
+     * [reset] clears the window too, so a field change breaks the sequence.
+     */
+    fun recordDecoded(letter: String): Boolean {
+        recent.append(letter)
+        val over = recent.length - RECENT_LIMIT
+        if (over > 0) recent.delete(0, over)
+        return recent.endsWith("sos")
+    }
+
+    private companion object {
+        const val RECENT_LIMIT = 8
     }
 }
 

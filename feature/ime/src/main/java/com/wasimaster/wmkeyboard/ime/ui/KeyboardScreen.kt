@@ -1721,7 +1721,9 @@ private fun TopBar(
         state.snippetOffer != null ||
         // A morse sequence being tapped out counts as strip content: the
         // toolbar taking the row would hide the one live view of the chord.
-        state.morsePending.isNotEmpty() ||
+        // Its SOS easter-egg note counts the same way, or the toolbar would
+        // cover the joke in the exact pause it appears in.
+        state.morsePending.isNotEmpty() || state.morseSosEgg ||
         // Inline chips count too, in both lanes. Neither arrives while the user
         // is typing — a login field has no word candidates and a smart reply
         // comes before you have written anything — so without this the toolbar
@@ -2253,6 +2255,27 @@ private fun TopBar(
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 18.sp,
+                    )
+                }
+                return@Row
+            }
+            // Easter egg: S, O, S was just keyed. Below the live readout on
+            // purpose — feedback for the letter being tapped outranks a joke —
+            // so it shows in the pauses and retires by itself after a few
+            // seconds.
+            if (state.morseSosEgg) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.ime_morse_sos_egg_info),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 return@Row
