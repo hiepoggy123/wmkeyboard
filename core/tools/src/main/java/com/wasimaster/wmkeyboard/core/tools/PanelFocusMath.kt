@@ -39,3 +39,19 @@ fun FocusGrid.step(from: Int, dx: Int, dy: Int): Int? {
     if (dy > 0 && start / cols < lastRow) return count - 1
     return null
 }
+
+/**
+ * Where PageUp/PageDown lands: [rows] rows at a time in the [dy] direction,
+ * keeping the column, clamping into the grid ([step]'s ragged-row philosophy —
+ * a page down past the end lands on the last row's nearest item, not nowhere).
+ * Null when nothing moves, so the caller can hand the key back.
+ */
+fun FocusGrid.page(from: Int, dy: Int, rows: Int = 4): Int? {
+    if (count <= 0 || dy == 0) return null
+    val cols = columns.coerceAtLeast(1)
+    val start = from.coerceIn(0, count - 1)
+    val lastRow = (count - 1) / cols
+    val row = (start / cols + dy * rows).coerceIn(0, lastRow)
+    val target = (row * cols + start % cols).coerceAtMost(count - 1)
+    return target.takeIf { it != start }
+}

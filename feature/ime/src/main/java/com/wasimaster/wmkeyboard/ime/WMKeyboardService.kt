@@ -210,6 +210,7 @@ import com.wasimaster.wmkeyboard.ime.ui.keyboardHintPlan
 import com.wasimaster.wmkeyboard.ime.ui.suggestionDisplayOrder
 import com.wasimaster.wmkeyboard.ime.ui.visibleEmojiBarItems
 import com.wasimaster.wmkeyboard.ime.ui.visibleToolbarTools
+import com.wasimaster.wmkeyboard.core.tools.page
 import com.wasimaster.wmkeyboard.core.tools.step
 import com.wasimaster.wmkeyboard.core.util.PlayServices
 import com.wasimaster.wmkeyboard.core.util.runCancellable
@@ -13424,8 +13425,43 @@ open class WMKeyboardService : InputMethodService() {
                     consumeHardwareKey(keyCode)
                 }
             }
+            // Like Tab: before a ring exists these are still the field's own
+            // cursor and scroll keys, and an IME that eats them is broken.
+            KeyEvent.KEYCODE_MOVE_HOME, KeyEvent.KEYCODE_MOVE_END -> {
+                if (state.panelFocus == null) false
+                else {
+                    movePanelFocusEdge(toEnd = keyCode == KeyEvent.KEYCODE_MOVE_END) &&
+                        consumeHardwareKey(keyCode)
+                }
+            }
+            KeyEvent.KEYCODE_PAGE_UP, KeyEvent.KEYCODE_PAGE_DOWN -> {
+                if (state.panelFocus == null) false
+                else {
+                    movePanelFocusPage(if (keyCode == KeyEvent.KEYCODE_PAGE_UP) -1 else 1) &&
+                        consumeHardwareKey(keyCode)
+                }
+            }
             else -> false
         }
+    }
+
+    /** Home/End inside the ring's region: first or last item. */
+    private fun movePanelFocusEdge(toEnd: Boolean): Boolean {
+        val current = _uiState.value.panelFocus ?: return false
+        val grid = panelFocus.grid(current.region)
+        if (grid.count <= 0) return false
+        val target = if (toEnd) grid.count - 1 else 0
+        if (target == current.index) return false
+        _uiState.update { it.copy(panelFocus = current.copy(index = target)) }
+        return true
+    }
+
+    /** PageUp/PageDown inside the ring's region: several rows at a time. */
+    private fun movePanelFocusPage(dy: Int): Boolean {
+        val current = _uiState.value.panelFocus ?: return false
+        val target = panelFocus.grid(current.region).page(current.index, dy) ?: return false
+        _uiState.update { it.copy(panelFocus = current.copy(index = target)) }
+        return true
     }
 
     /**

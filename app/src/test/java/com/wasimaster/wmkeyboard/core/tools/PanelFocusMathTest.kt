@@ -89,4 +89,47 @@ class PanelFocusMathTest {
         val grid = FocusGrid(count = 4, columns = 2)
         assertNull(grid.step(1, dx = 0, dy = 0))
     }
+
+    // ------------------------------------------------------------- page ----
+
+    @Test
+    fun `a page keeps the column`() {
+        // 8 rows of 3.
+        val grid = FocusGrid(count = 24, columns = 3)
+        assertEquals(13, grid.page(1, dy = 1))
+        assertEquals(1, grid.page(13, dy = -1))
+    }
+
+    @Test
+    fun `a page past the end clamps to the last row`() {
+        val grid = FocusGrid(count = 24, columns = 3)
+        assertEquals(22, grid.page(13, dy = 1))
+        assertEquals(0, grid.page(3, dy = -1))
+    }
+
+    @Test
+    fun `a page into a ragged last row clamps to the last item`() {
+        // 7 rows of 3 plus one: index 21 is alone on the last row.
+        val grid = FocusGrid(count = 22, columns = 3)
+        assertEquals(21, grid.page(14, dy = 1))
+    }
+
+    @Test
+    fun `a page at the extremes goes nowhere`() {
+        val grid = FocusGrid(count = 24, columns = 3)
+        assertNull(grid.page(22, dy = 1))
+        assertNull(grid.page(1, dy = -1))
+    }
+
+    @Test
+    fun `an empty grid never pages`() {
+        assertNull(FocusGrid(count = 0, columns = 3).page(0, dy = 1))
+    }
+
+    @Test
+    fun `a one-column list pages by whole rows`() {
+        val grid = FocusGrid(count = 10, columns = 1)
+        assertEquals(4, grid.page(0, dy = 1))
+        assertEquals(9, grid.page(6, dy = 1))
+    }
 }

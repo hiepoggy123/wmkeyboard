@@ -275,6 +275,14 @@ enum class FocusRegion {
 
     /** The grid or list of results. */
     RESULTS,
+
+    /**
+     * Command chips that act on the panel's current content — Replace, Insert,
+     * Retry, Send, swap, refresh. Their own region rather than a [CHIPS] row
+     * because activation is keyed by region, and because they usually live at
+     * the panel's opposite edge from the chips that scope it.
+     */
+    ACTIONS,
 }
 
 /**
