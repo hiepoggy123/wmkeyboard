@@ -101,7 +101,7 @@ class DemoPluginsTest {
             val permissions = if (name == "todo-list") listOf("storage") else emptyList()
             val ui = load(name, permissions).render()
             assertTrue("$name rendered nothing", ui.root.isNotEmpty())
-            assertEquals("$name needed repairs: ${ui.repairs}", emptyList<String>(), ui.repairs)
+            assertEquals("$name needed repairs: ${ui.repairs}", emptyList<PluginText>(), ui.repairs)
         }
     }
 

@@ -19,6 +19,7 @@ sealed interface PluginWidget {
 
     /** Top-level only. The host owns which page is showing. */
     data class Tabs(val id: String, val pages: List<Page>) : PluginWidget {
+        /** An empty [title] means the panel names the tab after its position. */
         data class Page(val title: String, val children: List<PluginWidget>)
     }
 
@@ -76,7 +77,7 @@ sealed interface PluginWidget {
  */
 data class RenderedUi(
     val root: List<PluginWidget>,
-    val repairs: List<String> = emptyList(),
+    val repairs: List<PluginText> = emptyList(),
 ) {
     companion object {
         val EMPTY = RenderedUi(emptyList())

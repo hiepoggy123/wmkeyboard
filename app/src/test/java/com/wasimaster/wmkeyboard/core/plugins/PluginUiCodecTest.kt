@@ -1,11 +1,20 @@
 package com.wasimaster.wmkeyboard.core.plugins
 
+import com.wasimaster.wmkeyboard.plugins.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PluginUiCodecTest {
+
+    /**
+     * True when one of the repairs is [res]. The assertions name the resource
+     * rather than the English, so rewording a message does not fail a test that
+     * is about what the codec dropped.
+     */
+    private fun List<PluginText>.reports(res: Int): Boolean =
+        any { it is PluginText.Resource && it.textRes == res }
 
     /** Runs a render body through the real prelude and the real sandbox. */
     private fun render(body: String): RenderedUi {
@@ -113,7 +122,9 @@ class PluginUiCodecTest {
         val ui = render("""return ui.column { { type = "webview", url = "http://evil" } }""")
         val column = ui.root.single() as PluginWidget.Column
         assertTrue(column.children.isEmpty())
-        assertTrue(ui.repairs.single().contains("webview"))
+        val repair = ui.repairs.single() as PluginText.Resource
+        assertEquals(R.string.core_plugins_ui_repair_unknown_type, repair.textRes)
+        assertEquals("webview", repair.arg1)
     }
 
     @Test
@@ -131,7 +142,10 @@ class PluginUiCodecTest {
             return node
             """.trimIndent(),
         )
-        assertTrue(ui.repairs.any { it.contains("deeply") || it.contains("widgets") })
+        assertTrue(
+            ui.repairs.reports(R.string.core_plugins_ui_repair_too_deep) ||
+                ui.repairs.reports(R.string.core_plugins_ui_repair_too_many_widgets),
+        )
     }
 
     @Test
@@ -145,7 +159,7 @@ class PluginUiCodecTest {
         )
         val column = ui.root.single() as PluginWidget.Column
         assertTrue(column.children.size < PluginUiCodec.MAX_NODES)
-        assertTrue(ui.repairs.any { it.contains("widgets") })
+        assertTrue(ui.repairs.reports(R.string.core_plugins_ui_repair_too_many_widgets))
     }
 
     @Test
@@ -153,7 +167,7 @@ class PluginUiCodecTest {
         val ui = render("""return ui.label { text = ("x"):rep(100000) }""")
         val label = ui.root.single() as PluginWidget.Label
         assertEquals(PluginUiCodec.MAX_TEXT, label.text.length)
-        assertTrue(ui.repairs.any { it.contains("shortened") })
+        assertTrue(ui.repairs.reports(R.string.core_plugins_ui_repair_text_shortened))
     }
 
     @Test
@@ -181,14 +195,14 @@ class PluginUiCodecTest {
         )
         val tabs = ui.root.single() as PluginWidget.Tabs
         assertEquals(PluginUiCodec.MAX_TABS, tabs.pages.size)
-        assertTrue(ui.repairs.any { it.contains("tabs") })
+        assertTrue(ui.repairs.reports(R.string.core_plugins_ui_repair_too_many_tabs))
     }
 
     @Test
     fun `a tab strip with no pages is dropped`() {
         val ui = render("""return ui.tabs { id = "empty" }""")
         assertTrue(ui.root.isEmpty())
-        assertTrue(ui.repairs.any { it.contains("pages") })
+        assertTrue(ui.repairs.reports(R.string.core_plugins_ui_repair_tabs_no_pages))
     }
 
     @Test

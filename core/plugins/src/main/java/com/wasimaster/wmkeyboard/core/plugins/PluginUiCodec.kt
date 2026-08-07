@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.plugins
 
+import com.wasimaster.wmkeyboard.plugins.R
 import org.luaj.vm2.LuaTable
 import org.luaj.vm2.LuaValue
 
@@ -45,11 +46,11 @@ object PluginUiCodec {
     }
 
     private class Walk {
-        val repairs = ArrayList<String>()
+        val repairs = ArrayList<PluginText>()
         var nodes = 0
         var totalText = 0
 
-        fun repair(message: String) {
+        fun repair(message: PluginText) {
             if (repairs.size < MAX_REPAIRS && message !in repairs) repairs.add(message)
         }
 
@@ -71,7 +72,7 @@ object PluginUiCodec {
                 if (child.istable()) {
                     widget(child.checktable(), depth)?.let { out.add(it) }
                 } else if (!child.isnil()) {
-                    repair("A widget list contained something that isn't a widget.")
+                    repair(PluginText.of(R.string.core_plugins_ui_repair_not_a_widget))
                 }
                 i++
             }
@@ -81,11 +82,11 @@ object PluginUiCodec {
         @Suppress("CyclomaticComplexMethod", "ReturnCount")
         fun widget(table: LuaTable, depth: Int): PluginWidget? {
             if (depth > MAX_DEPTH) {
-                repair("Some widgets were nested too deeply to draw.")
+                repair(PluginText.of(R.string.core_plugins_ui_repair_too_deep))
                 return null
             }
             if (++nodes > MAX_NODES) {
-                repair("This plugin asked for more than $MAX_NODES widgets; the rest were dropped.")
+                repair(PluginText.of(R.string.core_plugins_ui_repair_too_many_widgets, MAX_NODES))
                 return null
             }
             return when (val type = table.get("type").optjstring("")) {
@@ -129,9 +130,9 @@ object PluginUiCodec {
                 else -> {
                     repair(
                         if (type.isEmpty()) {
-                            "A widget didn't say what kind it is."
+                            PluginText.of(R.string.core_plugins_ui_repair_no_type)
                         } else {
-                            "This build doesn't know the widget type “${type.take(24)}”."
+                            PluginText.of(R.string.core_plugins_ui_repair_unknown_type, type.take(24))
                         },
                     )
                     null
@@ -142,7 +143,7 @@ object PluginUiCodec {
         private fun tabs(table: LuaTable, depth: Int): PluginWidget? {
             val pagesValue = table.get("pages")
             if (!pagesValue.istable()) {
-                repair("A tab strip had no pages.")
+                repair(PluginText.of(R.string.core_plugins_ui_repair_tabs_no_pages))
                 return null
             }
             val pagesTable = pagesValue.checktable()
@@ -154,7 +155,10 @@ object PluginUiCodec {
                     val pageTable = page.checktable()
                     pages.add(
                         PluginWidget.Tabs.Page(
-                            title = text(pageTable, "title").ifEmpty { "Tab ${pages.size + 1}" },
+                            // Left empty when the plugin gave no title: the
+                            // panel names the tab after its position, in the
+                            // language the user reads.
+                            title = text(pageTable, "title"),
                             children = children(pageTable.get("children"), depth + 1),
                         ),
                     )
@@ -162,10 +166,10 @@ object PluginUiCodec {
                 i++
             }
             if (pagesTable.length() > MAX_TABS) {
-                repair("Only the first $MAX_TABS tabs are shown.")
+                repair(PluginText.of(R.string.core_plugins_ui_repair_too_many_tabs, MAX_TABS))
             }
             if (pages.isEmpty()) {
-                repair("A tab strip had no pages.")
+                repair(PluginText.of(R.string.core_plugins_ui_repair_tabs_no_pages))
                 return null
             }
             return PluginWidget.Tabs(id(table), pages)
@@ -195,12 +199,12 @@ object PluginUiCodec {
             }
             val remaining = (MAX_TOTAL_TEXT - totalText).coerceAtLeast(0)
             if (remaining == 0) {
-                repair("This plugin asked to draw too much text; some was left out.")
+                repair(PluginText.of(R.string.core_plugins_ui_repair_text_budget))
                 return ""
             }
             val capped = value.take(minOf(MAX_TEXT, remaining))
             if (capped.length < value.length) {
-                repair("Some text was too long to draw and was shortened.")
+                repair(PluginText.of(R.string.core_plugins_ui_repair_text_shortened))
             }
             totalText += capped.length
             return capped

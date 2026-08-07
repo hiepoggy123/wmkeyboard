@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -41,10 +42,12 @@ import com.wasimaster.wmkeyboard.core.plugins.InstalledPlugin
 import com.wasimaster.wmkeyboard.core.plugins.PluginEvent
 import com.wasimaster.wmkeyboard.core.plugins.PluginLabelStyle
 import com.wasimaster.wmkeyboard.core.plugins.PluginWidget
+import com.wasimaster.wmkeyboard.core.plugins.resolve
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PluginPanelUi
 import com.wasimaster.wmkeyboard.ime.R
+import com.wasimaster.wmkeyboard.plugins.R as PluginsR
 import kotlinx.coroutines.delay
 
 /**
@@ -199,9 +202,10 @@ private fun RunningPlugin(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
             )
         }
+        val context = LocalContext.current
         for (line in panel.ui.repairs) {
             Text(
-                line,
+                line.resolve(context),
                 color = kb.secondaryText,
                 fontSize = 10.sp,
                 modifier = Modifier.padding(horizontal = 12.dp),
@@ -490,7 +494,9 @@ private fun TabsWidget(
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             widget.pages.forEachIndexed { i, page ->
                 ToolPanelChip(
-                    label = page.title,
+                    label = page.title.ifEmpty {
+                        stringResource(PluginsR.string.core_plugins_ui_tab_default_title, i + 1)
+                    },
                     selected = i == index,
                     onClick = {
                         selected = i
