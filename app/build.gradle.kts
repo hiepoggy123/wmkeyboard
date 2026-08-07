@@ -64,8 +64,10 @@ android {
         applicationId = "com.wasimaster.wmkeyboard"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.2.0"
+        // Both from gradle.properties so :core:config stamps the same numbers on
+        // crash reports as the manifest carries. Never hardcode them here again.
+        versionCode = providers.gradleProperty("wmkb.versionCode").get().toInt()
+        versionName = providers.gradleProperty("wmkb.versionName").get()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

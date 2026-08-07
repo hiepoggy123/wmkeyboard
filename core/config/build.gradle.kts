@@ -33,8 +33,12 @@ android {
     }
     defaultConfig {
         minSdk = 24
-        buildConfigField("int", "VERSION_CODE", "1")
-        buildConfigField("String", "VERSION_NAME", "\"1.0\"")
+        // A library module gets no version from the app, so these have to be
+        // stated. They come from gradle.properties, the same place :app reads,
+        // because DebugLog stamps them on every crash report: hardcoded copies
+        // drifted and reported "1.0 (1)" for every build ever shipped.
+        buildConfigField("int", "VERSION_CODE", providers.gradleProperty("wmkb.versionCode").get())
+        buildConfigField("String", "VERSION_NAME", "\"${providers.gradleProperty("wmkb.versionName").get()}\"")
         buildConfigField("String", "KLIPY_API_KEY", "\"${apiKey("wmkb.klipyApiKey", "WMKB_KLIPY_API_KEY")}\"")
         buildConfigField("String", "GIPHY_API_KEY", "\"${apiKey("wmkb.giphyApiKey", "WMKB_GIPHY_API_KEY")}\"")
         buildConfigField("String", "BRAVE_API_KEY", "\"${apiKey("wmkb.braveApiKey", "WMKB_BRAVE_API_KEY")}\"")
