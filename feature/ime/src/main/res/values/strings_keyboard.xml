@@ -10,6 +10,13 @@
     <string name="ime_key_shift">Shift</string>
     <string name="ime_key_shift_on">Shift on</string>
     <string name="ime_key_caps_lock_on">Caps lock on</string>
+    <string name="ime_key_caps_lock">Caps lock</string>
+    <string name="ime_key_tab">Tab</string>
+    <string name="ime_key_arrow_left">Left</string>
+    <string name="ime_key_arrow_right">Right</string>
+    <string name="ime_key_arrow_up">Up</string>
+    <string name="ime_key_arrow_down">Down</string>
+    <string name="ime_key_escape">Escape</string>
     <string name="ime_key_language_switch">Switch language</string>
     <string name="ime_key_emoji">Emoji</string>
     <!-- Fallback name for a key that has no label of its own. -->

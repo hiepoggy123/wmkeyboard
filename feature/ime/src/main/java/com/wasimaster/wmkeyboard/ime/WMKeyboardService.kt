@@ -173,6 +173,10 @@ import com.wasimaster.wmkeyboard.core.settings.underPowerSaving
 import com.wasimaster.wmkeyboard.core.power.PowerSaver
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
+import com.wasimaster.wmkeyboard.core.layout.expandForTablet
+import com.wasimaster.wmkeyboard.core.layout.tabletGridWidth
+import com.wasimaster.wmkeyboard.core.settings.DeviceForm
+import com.wasimaster.wmkeyboard.core.settings.applyDeviceForm
 import com.wasimaster.wmkeyboard.core.settings.applyMode
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.isUsableTool
@@ -1609,19 +1613,27 @@ open class WMKeyboardService : InputMethodService() {
                 settingsRepository.settings,
                 powerSaver.state,
                 settingsRepository.photoRotationStates,
-            ) { stored, power, rotation ->
+                deviceForm,
+            ) { stored, power, rotation, form ->
                 // Published rather than folded into the settings object: the
                 // rotating photo is laid over a theme where it is drawn, not
                 // written into the theme the user saved.
                 PhotoBackgroundManager.publishRotationStates(rotation)
-                stored to power
-            }.collect { (stored, power) ->
+                Triple(stored, power, form)
+            }.collect { (stored, power, form) ->
+                // Screen size first, because these are *defaults* — the least
+                // specific thing in the chain, and every overlay below is
+                // entitled to beat them. It also has to precede direct boot: a
+                // tablet's wider default toolbar includes credential-backed
+                // tools, and re-pinning them after that filter would put them
+                // back on a lock screen that cannot read their data.
+                val formed = stored.applyDeviceForm(form)
                 // Direct boot: everything backed by credential-encrypted
                 // storage is switched off once, here, so that nothing below —
                 // nor anything reading the ui state afterwards — has to know
                 // why the fonts, contacts and half the tools are missing.
                 val unlockedSettings =
-                    if (userUnlocked) stored else stored.restrictedToDirectBoot()
+                    if (userUnlocked) formed else formed.restrictedToDirectBoot()
                 val saving = unlockedSettings.powerSaving.appliesTo(power)
                 val settings =
                     if (saving) unlockedSettings.underPowerSaving() else unlockedSettings
@@ -1743,9 +1755,14 @@ open class WMKeyboardService : InputMethodService() {
                 // settings emissions — otherwise saving any unrelated setting
                 // would drop the field back to a layout it cannot accept.
                 val activeSpec = activeLayoutSpec(settings)
+                // Hoisted so the grid is expanded against the same digit-row
+                // answer the renderer will draw with. They must agree: on a
+                // tablet the digit row is where backspace goes, and a
+                // disagreement means the keyboard has none at all.
+                val modeSettings = settings.applyMode(mode)
                 _uiState.update {
                     it.copy(
-                        settings = settings.applyMode(mode),
+                        settings = modeSettings,
                         // The settings above are already reduced, so this is
                         // only for the indicator and the tool's lit state —
                         // nothing gates on it.
@@ -1755,7 +1772,12 @@ open class WMKeyboardService : InputMethodService() {
                         composer = composerFor(activeSpec.script(), activeSpec.composerType()),
                         layoutId = activeSpec.id,
                         layoutName = activeSpec.name,
-                        layouts = resolveLayoutSet(activeSpec, it.fieldKind),
+                        layouts = resolveLayoutSet(
+                            activeSpec,
+                            it.fieldKind,
+                            form,
+                            modeSettings.numberRow,
+                        ),
                         activeModeId = mode?.id,
                     )
                 }
@@ -2518,10 +2540,28 @@ open class WMKeyboardService : InputMethodService() {
         return super.onEvaluateInputViewShown()
     }
 
+    /**
+     * The screen size the keyboard is drawing on, as a flow so it can join the
+     * settings pipeline rather than being read at each use site.
+     *
+     * Lives here rather than in [SettingsRepository] because the repository is
+     * constructed ad hoc in a dozen places with no shared lifecycle — a
+     * ComponentCallbacks registered there would leak one per construction — and
+     * because its preference mapping deliberately touches no Context so it can
+     * run off the main thread.
+     */
+    private val deviceForm =
+        MutableStateFlow(DeviceForm.of(resources.configuration.smallestScreenWidthDp))
+
     /** Docking or undocking a hardware keyboard flips the toolbar-only view. */
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         refreshHardwareKeyboardState()
+        // Folding, unfolding, or moving to another display. Rotation never
+        // reaches here in a way that matters: smallestScreenWidthDp is the
+        // smaller dimension either way up, which is the whole point of reading
+        // it rather than the current width.
+        deviceForm.value = DeviceForm.of(newConfig.smallestScreenWidthDp)
     }
 
     /** Push the current hardware-keyboard presence into the UI state. */
@@ -2738,9 +2778,13 @@ open class WMKeyboardService : InputMethodService() {
         // A field switch closes any open panel below; a GIF/sticker search
         // that was up survives it for the next open.
         stashMediaSearch(_uiState.value)
+        // Hoisted out of the copy below so the grid expands against the same
+        // digit-row answer the renderer draws with — on a tablet that row is
+        // where backspace lives.
+        val modeSettings = base?.applyMode(activeMode) ?: _uiState.value.settings
         _uiState.update {
             it.copy(
-                settings = base?.applyMode(activeMode) ?: it.settings,
+                settings = modeSettings,
                 language = fieldSpec.language(),
                 script = fieldSpec.script(),
                 composer = composerFor(fieldSpec.script(), fieldSpec.composerType()),
@@ -2750,7 +2794,12 @@ open class WMKeyboardService : InputMethodService() {
                 modifiers = Modifiers.None,
                 layoutId = fieldSpec.id,
                 layoutName = fieldSpec.name,
-                layouts = resolveLayoutSet(fieldSpec, fieldKind),
+                layouts = resolveLayoutSet(
+                    fieldSpec,
+                    fieldKind,
+                    deviceForm.value,
+                    modeSettings.numberRow,
+                ),
                 activeModeId = activeMode?.id,
                 activeSymbolSetId = null,
                 // Harmless reset: the strip persists the pick on tap, so the
@@ -3336,6 +3385,7 @@ open class WMKeyboardService : InputMethodService() {
         when (key.action) {
             KeyAction.Text -> onTextKey(key)
             KeyAction.Shift -> onShift()
+            KeyAction.CapsLock -> onCapsLock()
             KeyAction.Delete -> onDelete()
             KeyAction.ForwardDelete -> onForwardDelete()
             KeyAction.Space -> onSpace()
@@ -4240,6 +4290,23 @@ open class WMKeyboardService : InputMethodService() {
                 // Shift+Enter's newline override keys off.
                 shiftPressedByUser = next != ShiftState.OFF,
             )
+        }
+    }
+
+    /**
+     * The dedicated ⇪ key: caps lock on or off, nothing in between.
+     *
+     * Deliberately not [onShift] with the double-tap pre-armed. This key exists
+     * only on grids wide enough to also carry a real shift key, so the two split
+     * the job — shift arms for one letter, this one sticks — and routing it
+     * through the tap-timing path would make a single press mean ON, which is the
+     * other key's answer.
+     */
+    private fun onCapsLock() {
+        _uiState.update {
+            val next =
+                if (it.shiftState == ShiftState.CAPS_LOCK) ShiftState.OFF else ShiftState.CAPS_LOCK
+            it.copy(shiftState = next, shiftPressedByUser = next != ShiftState.OFF)
         }
     }
 
@@ -5268,12 +5335,28 @@ open class WMKeyboardService : InputMethodService() {
      * short-circuits on identity, and the settings flow hands back the same
      * instance until something actually changes.
      */
-    private fun resolveLayoutSet(spec: LayoutSpec, fieldKind: FieldKind): LayoutSet {
-        val key = spec.id to fieldKind
+    private fun resolveLayoutSet(
+        spec: LayoutSpec,
+        fieldKind: FieldKind,
+        form: DeviceForm,
+        numberRowShown: Boolean,
+    ): LayoutSet {
+        val key = LayoutSetKey(spec.id, fieldKind, form, numberRowShown)
         layoutSetCache[key]?.let { (cached, set) -> if (cached == spec) return set }
         val safe = spec.repair().spec
+        val letters = safe.compile(LayoutLayer.LETTERS)
+        // Only the letters layer widens. The symbols and Fn layers have no shift
+        // key and so decline on their own, and the numeric keypads must never be
+        // stretched to twelve columns — a four-column PIN pad at that width is
+        // not a keypad any more.
+        val expand = form.isTablet && safe.tabletExpand
+        val gridWidth = if (expand) tabletGridWidth(letters, form) else null
         val set = LayoutSet(
-            letters = safe.compile(LayoutLayer.LETTERS),
+            letters = if (gridWidth != null) {
+                letters.expandForTablet(form, numberRowShown)
+            } else {
+                letters
+            },
             symbols = safe.compile(LayoutLayer.SYMBOLS),
             symbolsShifted = safe.compile(LayoutLayer.SYMBOLS_SHIFTED),
             // Only when the layout actually defines one: compile() falls back
@@ -5288,12 +5371,28 @@ open class WMKeyboardService : InputMethodService() {
                     ?.let { put(LayoutMode.SYMBOLS_SHIFTED, it) }
                 safe.numberRowFor(LayoutLayer.FN)?.let { put(LayoutMode.FN, it) }
             },
+            gridWidth = gridWidth,
         )
         layoutSetCache[key] = spec to set
         return set
     }
 
-    private val layoutSetCache = HashMap<Pair<String, FieldKind>, Pair<LayoutSpec, LayoutSet>>()
+    /**
+     * What a cached [LayoutSet] was resolved *for*.
+     *
+     * The screen form and the digit-row setting are part of the key, not just the
+     * id and the field: both reshape the grid, and keyed without them an unfold
+     * would keep serving the phone layout for as long as the process lived —
+     * a bug that survives a green test run because nothing else re-resolves.
+     */
+    private data class LayoutSetKey(
+        val layoutId: String,
+        val fieldKind: FieldKind,
+        val form: DeviceForm,
+        val numberRowShown: Boolean,
+    )
+
+    private val layoutSetCache = HashMap<LayoutSetKey, Pair<LayoutSpec, LayoutSet>>()
 
     private fun switchLanguage() {
         val state = _uiState.value
@@ -5322,7 +5421,12 @@ open class WMKeyboardService : InputMethodService() {
                 composer = composerFor(spec.script(), spec.composerType()),
                 layoutId = spec.id,
                 layoutName = spec.name,
-                layouts = resolveLayoutSet(spec, it.fieldKind),
+                layouts = resolveLayoutSet(
+                    spec,
+                    it.fieldKind,
+                    deviceForm.value,
+                    it.settings.numberRow,
+                ),
                 layoutMode = LayoutMode.LETTERS,
             )
         }

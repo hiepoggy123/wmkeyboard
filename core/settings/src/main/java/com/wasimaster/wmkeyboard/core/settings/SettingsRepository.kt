@@ -2712,6 +2712,26 @@ data class LayoutBehaviorSettings(
      * case where the user wants to stay.
      */
     val symbolsReturnChars: String = "",
+    /**
+     * The user has never touched the number-row toggle, so [applyDeviceForm] is
+     * free to pick a default for the screen they are on.
+     *
+     * Derived from the *presence* of the DataStore key rather than its value,
+     * which is the only durable record of "never chose" — every other read
+     * collapses a missing key into the default with `?:` and loses it. Without
+     * this a tablet user could not turn the digit row off: the overlay would put
+     * it straight back, and the toggle would look broken.
+     *
+     * Not persisted itself. See [numberRowUntouched]'s use in `DeviceFormDefaults`.
+     */
+    val numberRowUntouched: Boolean = true,
+    /**
+     * The same, for the key-height slider — and for the number-row height, which
+     * sits beside it: moving either one is a clear enough signal that the user is
+     * sizing the board by hand that a second flag would only ever disagree with
+     * this one at the wrong moment.
+     */
+    val keyHeightUntouched: Boolean = true,
 ) {
     /** The characters that spring the symbols layer back, with the default applied. */
     fun symbolsReturnCharSet(): String =
@@ -4168,6 +4188,11 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.layoutBehavior.symbolsReturnToLetters,
                 symbolsReturnChars = p[SYMBOLS_RETURN_CHARS]
                     ?: defaults.layoutBehavior.symbolsReturnChars,
+                // Derived from whether the key is *there*, not from its value —
+                // see the fields' own docs. This is the only place that
+                // information survives; every other read collapses it with `?:`.
+                numberRowUntouched = p[NUMBER_ROW] == null,
+                keyHeightUntouched = p[KEY_HEIGHT] == null,
             ),
             rawClipboardShortcuts = p[RAW_CLIPBOARD_SHORTCUTS] ?: defaults.rawClipboardShortcuts,
             longPressLetterActions = LongPressLetterActions(

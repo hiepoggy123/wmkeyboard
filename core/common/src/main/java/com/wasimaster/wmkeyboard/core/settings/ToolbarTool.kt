@@ -183,6 +183,31 @@ val DefaultToolbarTools: List<ToolbarTool> =
     listOf(ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SETTINGS)
 
 /**
+ * What a tablet pins instead, because three tools spread across a twelve-inch
+ * bar is mostly empty space.
+ *
+ * Applied by `applyDeviceForm` only while the pinned set is still exactly
+ * [DefaultToolbarTools] — the free test for "the user has never rearranged
+ * this". Its one false positive is someone who deliberately dragged their bar
+ * back to precisely the shipped three, who then gets their screen's default;
+ * that also keeps "Reset pinned tools" honest, since reset writes the default
+ * and this immediately re-expands it.
+ *
+ * Every entry is in [RecommendedTools], so no onboarding persona leaves one
+ * pinned but disabled — `visibleToolbarTools` would silently drop it.
+ */
+val SmallTabletToolbarTools: List<ToolbarTool> = listOf(
+    ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.CLIPBOARD,
+    ToolbarTool.VOICE, ToolbarTool.SETTINGS,
+)
+
+/** …and two more again on a board wide enough to hold them. */
+val LargeTabletToolbarTools: List<ToolbarTool> = listOf(
+    ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.CLIPBOARD, ToolbarTool.VOICE,
+    ToolbarTool.TRANSLATE, ToolbarTool.TEXT_EDIT, ToolbarTool.SETTINGS,
+)
+
+/**
  * The onboarding wizard's starting selection: the everyday tools most people
  * actually use, leaving the specialty ones (sensors, scanners, generators)
  * off until asked for. Only a default — the wizard page and the Tools

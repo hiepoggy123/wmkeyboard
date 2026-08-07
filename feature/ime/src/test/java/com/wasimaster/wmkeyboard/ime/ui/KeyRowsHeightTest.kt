@@ -7,6 +7,9 @@ import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.compile
+import com.wasimaster.wmkeyboard.core.layout.expandForTablet
+import com.wasimaster.wmkeyboard.core.layout.tabletGridWidth
+import com.wasimaster.wmkeyboard.core.settings.DeviceForm
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutSet
@@ -42,6 +45,37 @@ class KeyRowsHeightTest {
         val set = LayoutSet.Default
         assertEquals(4, set.rowSpan)
         assertEquals(expected(4), keyRowsHeight(state(set)))
+    }
+
+    /**
+     * The direct pin on the constraint the tablet expansion rests on.
+     *
+     * [keyRowsHeight] and [LayoutSet.rowSpan] size the IME window from layer row
+     * *counts*, and neither sees the expansion — which is fine only because the
+     * expansion never changes a row count. A transform that added a row would
+     * draw a keyboard taller than the window measured for it, and the host app
+     * would reflow behind it mid-sentence.
+     */
+    @Test
+    fun `the tablet grid measures exactly as tall as the phone grid`() {
+        val phone = LayoutSet.Default
+        val expanded = BuiltInLayouts.QWERTY.compile(LayoutLayer.LETTERS)
+            .expandForTablet(DeviceForm.LARGE_TABLET, numberRowShown = true)
+        val tablet = LayoutSet(
+            letters = expanded,
+            symbols = phone.symbols,
+            symbolsShifted = phone.symbolsShifted,
+            gridWidth = tabletGridWidth(phone.letters, DeviceForm.LARGE_TABLET),
+        )
+
+        // The grid really did widen — otherwise this test proves nothing.
+        assertTrue(expanded.rows.first().size > phone.letters.rows.first().size)
+        assertEquals(phone.rowSpan, tablet.rowSpan)
+        assertEquals(keyRowsHeight(state(phone)), keyRowsHeight(state(tablet)))
+        assertEquals(
+            keyRowsHeight(state(phone, numberRow = true)),
+            keyRowsHeight(state(tablet, numberRow = true)),
+        )
     }
 
     @Test

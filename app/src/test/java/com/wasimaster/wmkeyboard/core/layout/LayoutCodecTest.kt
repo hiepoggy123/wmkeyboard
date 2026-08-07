@@ -28,6 +28,44 @@ class LayoutCodecTest {
         assertEquals(original, LayoutCodec.decode(LayoutCodec.encode(original)))
     }
 
+    /**
+     * A file written before `tabletExpand` existed has to mean "yes". Every one
+     * of the 354 shipped assets and every stored custom layout is such a file, so
+     * the other default would silently opt the whole corpus out of the tablet
+     * grid at once, with nothing to show for it but a keyboard that never widens.
+     */
+    @Test
+    fun `a layout written before tabletExpand existed opts in`() {
+        val old = """
+            {"id":"custom_old","name":"Old","langId":"en","version":2,
+             "layers":{"letters":{"rows":[[{"label":"a"}]]}}}
+        """.trimIndent()
+        val decoded = LayoutCodec.decode(old)
+        assertNotNull(decoded)
+        assertTrue("an old file must default to opted in", decoded!!.tabletExpand)
+    }
+
+    /**
+     * …and adding the field must not have bumped the format version, which would
+     * rewrite the effective version of every asset and custom layout on read for
+     * no migration.
+     */
+    @Test
+    fun `adding tabletExpand did not bump the format version`() {
+        assertEquals(2, CurrentLayoutSpecVersion)
+        val old = """
+            {"id":"custom_old","name":"Old","langId":"en","version":2,
+             "layers":{"letters":{"rows":[[{"label":"a"}]]}}}
+        """.trimIndent()
+        assertEquals(2, LayoutCodec.decode(old)!!.version)
+    }
+
+    @Test
+    fun `round trips an opted-out layout`() {
+        val original = spec(listOf(Key("a"))).copy(tabletExpand = false)
+        assertEquals(original, LayoutCodec.decode(LayoutCodec.encode(original)))
+    }
+
     @Test
     fun `round trips flick keys and the kana-variant action`() {
         val original = spec(

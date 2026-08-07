@@ -152,6 +152,19 @@ data class LayoutSet(
      * entries take the digits the layer has always shown.
      */
     val numberRows: Map<LayoutMode, List<Key>> = emptyMap(),
+    /**
+     * The column count these grids were laid out against, when the tablet
+     * expansion widened them; null on a phone and on any layout that declined it.
+     *
+     * Carried here rather than recomputed at draw time for two reasons. It is the
+     * *declared* grid width, so every layer is drawn on the letters layer's pitch
+     * — without it, the expanded letters layer would be twelve columns and the
+     * untouched symbols layer ten, and every key would visibly resize on the way
+     * into `?123`. And it doubles as the renderer's "the expansion is live"
+     * signal, which is what keeps [DeviceForm] out of [KeyboardUiState] and out
+     * of the per-keystroke equality walk.
+     */
+    val gridWidth: Float? = null,
 ) {
     /**
      * Rows the key grid reserves.

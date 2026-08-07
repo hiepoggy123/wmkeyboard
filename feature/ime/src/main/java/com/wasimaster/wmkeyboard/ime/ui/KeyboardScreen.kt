@@ -363,7 +363,9 @@ import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.fallbackLabel
+import com.wasimaster.wmkeyboard.core.layout.expandNumberRowForTablet
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
+import com.wasimaster.wmkeyboard.core.layout.roleIn
 import com.wasimaster.wmkeyboard.core.layout.sidePadFor
 import com.wasimaster.wmkeyboard.core.layout.Layouts
 import kotlinx.coroutines.Dispatchers
@@ -583,6 +585,13 @@ private fun spokenLabel(key: Key, state: KeyboardUiState): SpokenLabel = when (k
         ShiftState.ON -> SpokenLabel(R.string.ime_key_shift_on)
         ShiftState.OFF -> SpokenLabel(R.string.ime_key_shift)
     }
+    KeyAction.CapsLock -> SpokenLabel(
+        if (state.shiftState == ShiftState.CAPS_LOCK) {
+            R.string.ime_key_caps_lock_on
+        } else {
+            R.string.ime_key_caps_lock
+        },
+    )
     KeyAction.LanguageSwitch -> SpokenLabel(R.string.ime_key_language_switch)
     KeyAction.Emoji -> SpokenLabel(R.string.ime_key_emoji)
     is KeyAction.Mod -> {
@@ -597,13 +606,35 @@ private fun spokenLabel(key: Key, state: KeyboardUiState): SpokenLabel = when (k
             ModifierState.OFF -> SpokenLabel(nameRes)
         }
     }
-    is KeyAction.SendKey ->
-        if (key.label.isBlank()) SpokenLabel(R.string.ime_key_generic) else SpokenLabel(text = key.label)
+    // The six the action picker offers by name get spoken names: their labels are
+    // bare glyphs (⇥, ←, →) that TalkBack reads as symbol noise or skips outright,
+    // and the tablet grid puts three of them on screen at once.
+    is KeyAction.SendKey -> sendKeyNames[(key.action as KeyAction.SendKey).keyCode]
+        ?.let { SpokenLabel(it) }
+        ?: if (key.label.isBlank()) {
+            SpokenLabel(R.string.ime_key_generic)
+        } else {
+            SpokenLabel(text = key.label)
+        }
     else -> {
         val label = displayLabel(key, state)
         punctuationNames[label]?.let { SpokenLabel(it) } ?: SpokenLabel(text = label)
     }
 }
+
+/**
+ * Spoken names for the key codes a layout can bind by name. Keyed on the raw
+ * code rather than `KeyEvent.KEYCODE_*` to match [KeyAction.fallbackLabel],
+ * which draws the glyphs these name.
+ */
+private val sendKeyNames = mapOf(
+    61 to R.string.ime_key_tab,
+    111 to R.string.ime_key_escape,
+    19 to R.string.ime_key_arrow_up,
+    20 to R.string.ime_key_arrow_down,
+    21 to R.string.ime_key_arrow_left,
+    22 to R.string.ime_key_arrow_right,
+)
 
 private val punctuationNames = mapOf(
     "." to R.string.ime_punct_period,
@@ -7396,13 +7427,20 @@ internal fun keyVisual(key: Key, state: KeyboardUiState, palette: KeyPalette): K
                 ShiftState.ON -> IconSlots.KEY_SHIFT_ON
                 ShiftState.OFF -> IconSlots.KEY_SHIFT
             }
+            // Always the lock glyph, lit when the lock is on: the key's face says
+            // what it does, not what state the board happens to be in.
+            action == KeyAction.CapsLock -> IconSlots.KEY_SHIFT_LOCK
             // CUSTOM is the one enter action with no slot: the app supplied its
             // own wording, so there is no icon to replace.
             action == KeyAction.Enter ->
                 IconDefaults.enterActionSlot(state.effectiveEnterAction) ?: IconSlots.KEY_ENTER
             else -> null
         },
-        iconActive = action == KeyAction.Shift && state.shiftState != ShiftState.OFF,
+        iconActive = when (action) {
+            KeyAction.Shift -> state.shiftState != ShiftState.OFF
+            KeyAction.CapsLock -> state.shiftState == ShiftState.CAPS_LOCK
+            else -> false
+        },
         enterLabel = state.enterActionLabel?.takeIf {
             action == KeyAction.Enter && state.effectiveEnterAction == EnterAction.CUSTOM
         },
@@ -7852,7 +7890,15 @@ private fun KeyRows(
     //
     // A layout can arrive with no rows at all — the editor allows deleting them
     // and an imported file is untrusted — so gridWeightOf returns 0 for empty.
-    val gridWeight = gridWeightOf(layout.rows).takeIf { it > 0f } ?: 10f
+    //
+    // On a tablet the width is *declared* rather than inferred: the expansion
+    // widens the letters layer and leaves the symbols layers alone, so inferring
+    // per layer would give letters twelve columns and symbols ten and visibly
+    // resize every key on the way into ?123. Declaring it also makes `keyWidth`
+    // below — the glide decoder's distance normaliser — the real drawn column
+    // width on every layer rather than an approximation of the current one.
+    val gridWeight = state.layouts.gridWidth
+        ?: gridWeightOf(layout.rows).takeIf { it > 0f } ?: 10f
     // One key's width, for the gesture decoder's distance normalisation.
     // Derived from the grid rather than recorded by whichever letter key
     // happened to measure last, which made decoding depend on where a wide key
@@ -8354,8 +8400,22 @@ private fun KeyRows(
                 // when the option is on — the symbol fill row while shift is held
                 // on the letters layer.
                 val shiftSymbols = state.settings.layoutBehavior.numberRowShiftSymbols
-                remember(kind, authored, state.layoutMode, state.shiftState, shiftSymbols) {
-                    authored ?: when {
+                // On an expanded tablet grid this row also carries backspace,
+                // which the body gave up to make room for the mirrored shift —
+                // so the two answers have to come from the same condition, or
+                // the keyboard has no backspace on it anywhere. Never over a
+                // numeric field: that path keeps the four-column keypad, so
+                // nothing was given up and a stray ⌫ would just be litter.
+                val tabletRow = state.layouts.gridWidth != null && !numericPadActive(state)
+                remember(
+                    kind,
+                    authored,
+                    state.layoutMode,
+                    state.shiftState,
+                    shiftSymbols,
+                    tabletRow,
+                ) {
+                    val base = authored ?: when {
                         // A keypad already leads with digits, so the row
                         // carries what the pad lacks rather than a second set
                         // of the same numbers.
@@ -8377,6 +8437,7 @@ private fun KeyRows(
                         // their fraction and superscript long-presses here too.
                         else -> Layouts.SYMBOLS.rows.first()
                     }
+                    if (tabletRow) base.expandNumberRowForTablet() else base
                 }
             } else {
                 null
@@ -8826,11 +8887,18 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     // where the layout has not already put the mark there itself — the fixed
     // Bengali layouts carry দাঁড়ি on their own keys.
     val fullStop = state.script.fullStop.takeIf { it != "." }
+    // Both emoji-key preferences exist because a phone's bottom row has no spare
+    // slot, so one of the keys already there has to give it up. An expanded
+    // tablet grid has a real emoji key of its own, and applying either here would
+    // draw a second one — and `globeAsEmoji`, which ships on, would take language
+    // switching off the board entirely to do it.
+    val tabletGrid = state.layouts.gridWidth != null
     // Optional Gboard-style emoji key: the letter layouts' comma key becomes
     // an emoji-panel key, with comma demoted to its long-press alternates.
-    val commaAsEmoji = state.settings.commaAsEmoji && state.layoutMode == LayoutMode.LETTERS
+    val commaAsEmoji = state.settings.commaAsEmoji && !tabletGrid &&
+        state.layoutMode == LayoutMode.LETTERS
     // 🌐 → emoji key: language switching lives on spacebar swipes instead.
-    val globeAsEmoji = state.settings.globeAsEmoji
+    val globeAsEmoji = state.settings.globeAsEmoji && !tabletGrid
     // The two keys either side of the spacebar trade places, so whichever one
     // is the emoji key sits in the outer slot and the comma next to the space.
     // Not scoped to the letter layers: the row would otherwise reshuffle on the
@@ -8970,24 +9038,6 @@ private fun swapCommaAndGlobe(
         it[comma] = it[globe]
         it[globe] = held
     }
-}
-
-/**
- * What a key means to field adaptation: its explicit tag, or the old label match
- * as a fallback.
- *
- * The fallback stays rather than being dropped so layouts written before roles
- * existed — and anything imported from a build that predates them — keep their
- * email and URI adaptation instead of silently losing it. It remains scoped to
- * the bottom row for the reason it always was: Dvorak's *top* row has real "."
- * and "," letter keys, which must not be rewritten into an @ key.
- */
-internal fun Key.roleIn(rowIndex: Int, lastRow: Int): KeyRole? = when {
-    role != null -> role
-    action != KeyAction.Text || rowIndex != lastRow -> null
-    label == "," -> KeyRole.Comma
-    label == "." -> KeyRole.Period
-    else -> null
 }
 
 /**
@@ -10067,6 +10117,11 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
         // [spokenLabel] already words it the way this key wants read out.
         KeyAction.Shift -> SlotIcon(
             visual.iconSlot ?: IconSlots.KEY_SHIFT,
+            contentDescription = visual.spoken.resolved(),
+            tint = if (visual.iconActive) MaterialTheme.colorScheme.primary else contentColor,
+        )
+        KeyAction.CapsLock -> SlotIcon(
+            visual.iconSlot ?: IconSlots.KEY_SHIFT_LOCK,
             contentDescription = visual.spoken.resolved(),
             tint = if (visual.iconActive) MaterialTheme.colorScheme.primary else contentColor,
         )

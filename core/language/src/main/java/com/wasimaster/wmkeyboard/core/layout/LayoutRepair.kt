@@ -99,17 +99,22 @@ data class LayoutFinding(
  */
 data class RepairedLayout(val spec: LayoutSpec, val repairNotes: List<LayoutMessage>)
 
+// Public rather than private because they are the shape contract every grid has
+// to satisfy, not an implementation detail of the repair pass: the tablet
+// expansion mints keys and must stay inside them, and its corpus test asserts
+// against these names so a cap that moves moves the test with it.
+
 /** Widest a single key may be, in grid units — wider than the whole 10-column grid. */
-private const val MaxKeyWidth = 12f
+const val MaxKeyWidth = 12f
 
 /** Widest a row may total before every key in it is scaled down to fit. */
-private const val MaxRowWidth = 40f
+const val MaxRowWidth = 40f
 
 /** Below roughly 2 mm per key on a phone, a row stops being tappable. */
-private const val MaxKeysPerRow = 24
+const val MaxKeysPerRow = 24
 
 /** Taller than any phone shows without eating the whole screen. */
-private const val MaxRowsPerLayer = 8
+const val MaxRowsPerLayer = 8
 
 /**
  * Everything wrong with this layout, worst first. Pure — it never rewrites the

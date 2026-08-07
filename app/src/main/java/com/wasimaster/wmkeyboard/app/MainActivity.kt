@@ -182,6 +182,8 @@ import com.wasimaster.wmkeyboard.core.ui.toolAccentColorArgb
 import com.wasimaster.wmkeyboard.core.ui.toolAccentEndColorArgb
 import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
 import androidx.compose.ui.platform.LocalConfiguration
+import com.wasimaster.wmkeyboard.core.settings.DeviceForm
+import com.wasimaster.wmkeyboard.core.settings.applyDeviceForm
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -423,6 +425,11 @@ class MainActivity : ComponentActivity() {
             // frame beats flashing onboarding at users who finished it.
             val settings by repository.settings
                 .collectAsStateWithLifecycle(null as KeyboardSettings?)
+            // The same device-form defaults the keyboard applies, or the two
+            // disagree: on a tablet the number-row toggle would read off while
+            // the keyboard drew the row, and the one tap that fixed the display
+            // would write the value it already had and look like a dead switch.
+            val deviceForm = DeviceForm.of(LocalConfiguration.current.smallestScreenWidthDp)
             val pending by pendingNav.collectAsStateWithLifecycle()
             // Play In-App Updates, bound to this activity's lifecycle and its
             // result launcher. In a non-Play build this is a stub that reports
@@ -431,7 +438,7 @@ class MainActivity : ComponentActivity() {
             // on About are far apart in the tree and must not disagree about
             // the same download.
             val updater = rememberAppUpdater()
-            settings?.let { loaded ->
+            settings?.applyDeviceForm(deviceForm)?.let { loaded ->
                 AppTheme(loaded) {
                     CompositionLocalProvider(LocalAppUpdater provides updater) {
                         SettingsNavHost(

@@ -57,6 +57,19 @@ class AssetLayoutsTest {
         }
     }
 
+    /**
+     * None of the shipped files carries the field, so all of them get the
+     * default. Pinned because flipping that default would opt 354 layouts out of
+     * the tablet grid in one edit, and nothing else would notice.
+     */
+    @Test
+    fun `every asset layout opts in to tablet expansion`() {
+        for (file in layoutFiles) {
+            val layout = LayoutFile.decode(file.readText())!!.layout
+            assertTrue("${file.name} opted out of tablet expansion", layout.tabletExpand)
+        }
+    }
+
     @Test
     fun `every asset layout names a known language`() {
         for (file in layoutFiles) {

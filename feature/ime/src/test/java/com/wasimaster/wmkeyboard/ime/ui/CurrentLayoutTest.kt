@@ -7,6 +7,10 @@ import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.compile
+import com.wasimaster.wmkeyboard.core.layout.expandForTablet
+import com.wasimaster.wmkeyboard.core.layout.roleIn
+import com.wasimaster.wmkeyboard.core.layout.tabletGridWidth
+import com.wasimaster.wmkeyboard.core.settings.DeviceForm
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
@@ -60,6 +64,67 @@ class CurrentLayoutTest {
     /** Settings with every default-on bottom-row rewrite turned off. */
     private fun plain(): KeyboardSettings =
         KeyboardSettings(globeAsEmoji = false, swapCommaAndGlobe = false)
+
+    /** The same layout set, widened the way the service widens it on a tablet. */
+    private fun tabletState(
+        settings: KeyboardSettings = KeyboardSettings(),
+        fieldKind: FieldKind = FieldKind.TEXT,
+    ): KeyboardUiState {
+        val spec = BuiltInLayouts.QWERTY
+        val letters = spec.compile(LayoutLayer.LETTERS)
+        return KeyboardUiState(
+            settings = settings,
+            fieldKind = fieldKind,
+            layouts = LayoutSet(
+                letters = letters.expandForTablet(DeviceForm.LARGE_TABLET, numberRowShown = true),
+                symbols = spec.compile(LayoutLayer.SYMBOLS),
+                symbolsShifted = spec.compile(LayoutLayer.SYMBOLS_SHIFTED),
+                gridWidth = tabletGridWidth(letters, DeviceForm.LARGE_TABLET),
+            ),
+        )
+    }
+
+    /**
+     * `commaAsEmoji` and `globeAsEmoji` exist because a phone's bottom row has no
+     * spare slot, so an existing key has to give one up. The tablet grid has a
+     * real emoji key already; applying either here would draw a second one, and
+     * `globeAsEmoji` — which ships **on** — would take language switching off the
+     * board entirely to do it.
+     */
+    @Test
+    fun `a tablet grid has exactly one emoji key however the preferences are set`() {
+        for (comma in listOf(true, false)) {
+            for (globe in listOf(true, false)) {
+                val s = tabletState(
+                    KeyboardSettings(commaAsEmoji = comma, globeAsEmoji = globe),
+                )
+                val keys = currentLayout(s).keys()
+                assertEquals(
+                    "commaAsEmoji=$comma globeAsEmoji=$globe",
+                    1,
+                    keys.count { it.action == KeyAction.Emoji },
+                )
+                assertEquals(
+                    "language switching must survive: commaAsEmoji=$comma globeAsEmoji=$globe",
+                    1,
+                    keys.count { it.action == KeyAction.LanguageSwitch },
+                )
+            }
+        }
+    }
+
+    /**
+     * The relocated comma carries an explicit [KeyRole.Comma] rather than
+     * relying on `roleIn`'s positional fallback, which only fires on the bottom
+     * row. Without the stamp an email field on a tablet would keep its comma and
+     * never get its @ key — the exact failure this whole test class exists for.
+     */
+    @Test
+    fun `an email field on a tablet still gets its at key`() {
+        val keys = currentLayout(tabletState(fieldKind = FieldKind.EMAIL)).keys()
+        assertTrue("no @ key on the tablet grid", keys.any { it.label == "@" })
+        assertTrue("the comma survived as itself", keys.none { it.label == "," })
+    }
 
     /**
      * The swap trades the two keys either side of the spacebar, which is what

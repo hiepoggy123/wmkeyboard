@@ -206,6 +206,11 @@
     <!-- Name of the key that types capital letters. -->
     <string name="layout_editor_action_shift_title">Shift</string>
     <string name="layout_editor_action_shift_detail">Press for one capital letter. Press two times for caps lock</string>
+    <string name="layout_editor_tablet_expand_title">Add tablet keys automatically</string>
+    <string name="layout_editor_tablet_expand_subtitle">On a tablet, add tab, backslash, caps lock, a second shift and the arrow keys around this layout</string>
+    <string name="layout_editor_tablet_expand_subtitle_na">This layout is not one the tablet keys can be added to, so this setting has no effect on it</string>
+    <string name="layout_editor_action_caps_lock_title">Caps lock</string>
+    <string name="layout_editor_action_caps_lock_detail">Turns caps lock on and off with one press. For wide layouts that also have a shift key</string>
     <!-- Name of the key that deletes the character before the cursor. -->
     <string name="layout_editor_action_delete_title">Delete</string>
     <string name="layout_editor_action_delete_detail">Backspace. It repeats while you hold it</string>

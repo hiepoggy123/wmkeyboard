@@ -64,6 +64,7 @@ import androidx.compose.material.icons.outlined.CurrencyBitcoin
 import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.DataArray
 import androidx.compose.material.icons.outlined.DataObject
+import androidx.compose.material.icons.outlined.TabletAndroid
 import androidx.compose.material.icons.outlined.DataUsage
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Description
@@ -407,6 +408,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.layout_editor_action_row_title, Icons.AutoMirrored.Outlined.KeyboardReturn)
     put(R.string.layout_editor_role_title, Icons.Outlined.Tune)
     put(R.string.layout_editor_show_shift_title, Icons.Outlined.KeyboardCapslock)
+    put(R.string.layout_editor_tablet_expand_title, Icons.Outlined.TabletAndroid)
     put(R.string.layout_editor_json_title, Icons.Outlined.DataObject)
 
     // ---- Keyboard modes / rows ----

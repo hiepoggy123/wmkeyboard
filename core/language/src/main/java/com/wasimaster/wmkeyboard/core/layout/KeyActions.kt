@@ -44,6 +44,18 @@ sealed interface KeyAction {
 
     @Serializable @SerialName("shift") data object Shift : KeyAction
 
+    /**
+     * ⇪ — toggles caps lock outright, with no armed-for-one-letter middle step.
+     *
+     * Separate from [Shift] rather than a flag on it because a wide grid has room
+     * for both keys at once, and they are then two different promises: the shift
+     * key next to `z` still latches for one letter, while this one is the sticky
+     * one you press before typing a word in capitals. Reusing [Shift] here would
+     * also draw a second identical shift icon and single-tap to ON, which is not
+     * what a key labelled ⇪ says it does.
+     */
+    @Serializable @SerialName("caps_lock") data object CapsLock : KeyAction
+
     @Serializable @SerialName("delete") data object Delete : KeyAction
 
     /**
@@ -203,9 +215,9 @@ sealed interface KeyAction {
  * `?123` and `ABC` this way, and a layout file is a document people hand-edit
  * and swap between devices with different languages.
  *
- * Actions the keyboard draws from an icon slot — shift, delete, forward delete,
- * enter, the globe, emoji — never reach here; their branches run first. The
- * entries below are the ones that fall through to a text label.
+ * Actions the keyboard draws from an icon slot — shift, caps lock, delete,
+ * forward delete, enter, the globe, emoji — never reach here; their branches run
+ * first. The entries below are the ones that fall through to a text label.
  */
 fun KeyAction.fallbackLabel(): String = when (this) {
     KeyAction.Space -> " "
@@ -243,8 +255,9 @@ fun KeyAction.fallbackLabel(): String = when (this) {
     // Text keys have nothing to fall back to: a blank one is a blank key, which
     // `repair` deletes rather than draws. The icon-slot actions are listed so
     // this stays exhaustive and a new action cannot be added without deciding.
-    KeyAction.Text, KeyAction.Shift, KeyAction.Delete, KeyAction.ForwardDelete,
-    KeyAction.Enter, KeyAction.LanguageSwitch, KeyAction.Emoji,
+    KeyAction.Text, KeyAction.Shift, KeyAction.CapsLock, KeyAction.Delete,
+    KeyAction.ForwardDelete, KeyAction.Enter, KeyAction.LanguageSwitch,
+    KeyAction.Emoji,
     -> ""
 }
 
@@ -285,6 +298,28 @@ enum class KeyRole {
 
     /** The secondary-punctuation slot; becomes @ in EMAIL, / in URI, or the emoji key. */
     Comma,
+}
+
+/**
+ * What a key means to field adaptation: its explicit tag, or the old label match
+ * as a fallback.
+ *
+ * The fallback stays rather than being dropped so layouts written before roles
+ * existed — and anything imported from a build that predates them — keep their
+ * email and URI adaptation instead of silently losing it. It remains scoped to
+ * the bottom row for the reason it always was: Dvorak's *top* row has real "."
+ * and "," letter keys, which must not be rewritten into an @ key.
+ *
+ * Lives here rather than beside the rendering code that reads it because it is a
+ * property of the layout model, and because the tablet expansion in this module
+ * has to locate the same two slots before it moves them.
+ */
+fun Key.roleIn(rowIndex: Int, lastRow: Int): KeyRole? = when {
+    role != null -> role
+    action != KeyAction.Text || rowIndex != lastRow -> null
+    label == "," -> KeyRole.Comma
+    label == "." -> KeyRole.Period
+    else -> null
 }
 
 /**

@@ -109,6 +109,25 @@ data class LayoutSpec(
      * [com.wasimaster.wmkeyboard.core.prediction.KeyProximity.forLayout].
      */
     val proximityRows: List<String>? = null,
+    /**
+     * Let the tablet expansion widen this layout's grid on a big screen — adding
+     * Tab, backslash, caps lock, a mirrored shift, arrows and the rest around the
+     * alphabet. See [com.wasimaster.wmkeyboard.core.layout.expandForTablet].
+     *
+     * True by default, and it has to be: the expansion is automatic, and a file
+     * written before this field existed decodes without it, so any other default
+     * would silently opt out all 354 shipped layouts at once.
+     *
+     * Off is for a grid the transform cannot help but would still accept — one
+     * already laid out wide by hand, or a deliberately minimal board. The gate in
+     * `TabletExpansion` already declines the arrangements it plainly cannot
+     * handle; this is the author's override for the rest.
+     *
+     * No format-version bump: a new field carrying a default changes no stored
+     * shape and needs no migration, and bumping would rewrite the effective
+     * version of every asset and custom layout on read for nothing.
+     */
+    val tabletExpand: Boolean = true,
     /** Format revision, bumped by [LayoutCodec] migrations. */
     val version: Int = CurrentLayoutSpecVersion,
 ) {

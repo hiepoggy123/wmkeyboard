@@ -40,10 +40,12 @@ fun KeyboardSettings.activeThemeSpec(darkSlot: Boolean): ThemeSpec? {
  * working without knowing themes can reshape the board. Null fields fall
  * through to the user's globals.
  *
- * Ordering contract (see the call site in KeyboardScreen): mode overlays run
- * first in the service, this runs second, and [resolvedFor] runs last — a
- * per-screen sizing override is the most explicit user intent and beats the
- * theme, while the theme beats the plain globals.
+ * Ordering contract (see the call sites in the service and KeyboardScreen):
+ * [applyDeviceForm] runs first, then mode overlays, then this, and [resolvedFor]
+ * runs last. Each step is more specific than the one before — a per-screen sizing
+ * override is the most explicit user intent and beats the theme, the theme beats
+ * the plain globals, and the device-form defaults are only what this screen size
+ * would have shipped with, so everything beats them.
  *
  * Never touches [KeyboardSettings.keyboardThemeId], [KeyboardSettings.autoTheme]
  * or [KeyboardSettings.customThemes]: theme selection feeds this overlay, so

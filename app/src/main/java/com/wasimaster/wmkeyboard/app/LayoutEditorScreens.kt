@@ -29,6 +29,8 @@ import kotlin.math.roundToInt
 import androidx.compose.material3.Button
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
 import com.wasimaster.wmkeyboard.core.layout.repair
+import com.wasimaster.wmkeyboard.core.layout.tabletGridWidth
+import com.wasimaster.wmkeyboard.core.settings.DeviceForm
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.outlined.FileOpen
@@ -745,6 +747,14 @@ internal fun KeyLayoutEditorScreen(
     val rows = compiled.rows
     val rowHeights = compiled.rowHeights
     val selectedKey = selection?.let { rows.getOrNull(it.row)?.getOrNull(it.col) }
+    // Whether the tablet expansion would actually do anything here, so its
+    // toggle can say so. Asked of the letters layer on the widest form — the
+    // gate is a property of the layout, not of whichever layer is on screen —
+    // and only to word a subtitle, never to gate the toggle: a layout that the
+    // transform declines today should still keep the author's answer on file.
+    val tabletExpandApplies = remember(layout) {
+        tabletGridWidth(layout.compile(LayoutLayer.LETTERS), DeviceForm.LARGE_TABLET) != null
+    }
 
     SectionHeaderPublic(layout.name)
 
@@ -926,6 +936,22 @@ internal fun KeyLayoutEditorScreen(
                 stringResource(R.string.layout_editor_show_shift_subtitle),
                 showShift,
             ) { showShift = it }
+        }
+        item {
+            // Layout-wide, like the JSON row below it, rather than layer-scoped
+            // like everything above — and `edit`, not `editCoalesced`, because
+            // one deliberate flip deserves one undo step.
+            ToggleSetting(
+                R.string.layout_editor_tablet_expand_title,
+                stringResource(
+                    if (tabletExpandApplies) {
+                        R.string.layout_editor_tablet_expand_subtitle
+                    } else {
+                        R.string.layout_editor_tablet_expand_subtitle_na
+                    },
+                ),
+                layout.tabletExpand,
+            ) { on -> edit { it.copy(tabletExpand = on) } }
         }
         item {
             NavRow(
@@ -1440,6 +1466,12 @@ internal val KeyActionCatalog: List<KeyActionOption> = listOf(
         R.string.layout_editor_action_group_typing,
         R.string.layout_editor_action_shift_detail,
         { KeyAction.Shift }, { it == KeyAction.Shift },
+    ),
+    KeyActionOption(
+        R.string.layout_editor_action_caps_lock_title,
+        R.string.layout_editor_action_group_typing,
+        R.string.layout_editor_action_caps_lock_detail,
+        { KeyAction.CapsLock }, { it == KeyAction.CapsLock },
     ),
     KeyActionOption(
         R.string.layout_editor_action_delete_title,
