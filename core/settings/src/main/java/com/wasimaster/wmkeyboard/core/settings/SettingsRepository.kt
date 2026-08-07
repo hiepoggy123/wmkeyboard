@@ -752,13 +752,15 @@ data class HardwareKeyboardSettings(
     val macShortcuts: Boolean = false,
     /**
      * Ctrl+Space cycles the input language forward, Ctrl+Shift+Space backward;
-     * holding Ctrl browses the list and releasing commits. Off by default —
-     * apps own Ctrl+Space (it is autocomplete in nearly every IDE and
-     * terminal, which is why it sits in `ReservedChords`), so claiming it is
-     * an explicit trade the user makes. The dedicated language-switch keycode
-     * needs no toggle and always works.
+     * holding Ctrl browses the list and releasing commits. On by default:
+     * switching language is core to a multilingual keyboard, and the chord is
+     * the established convention (ChromeOS, Windows). The cost is real but
+     * narrow — code editors use Ctrl+Space for completions (it sits in
+     * `ReservedChords` for that reason) — so the toggle stays for the people
+     * it bites. The dedicated language-switch keycode needs no toggle and
+     * always works.
      */
-    val languageSwitchChord: Boolean = false,
+    val languageSwitchChord: Boolean = true,
     /**
      * Badges spell their modifier out — `Ctrl+1`, `Shift+Q` — instead of using
      * the `⌃` and `⇧` glyphs. On by default: those glyphs are a Mac keycap
@@ -1531,6 +1533,19 @@ data class KeyboardSettings(
     val typingTestsCompleted: Int = 0,
     /** Unlocked achievement badges, encoded by [TypingAchievements]. */
     val typingTestAchievements: String = "",
+    /**
+     * Count typing statistics — characters, words, backspaces and active
+     * time, per day — for the About › Statistics screen. Aggregate numbers
+     * only; nothing typed is ever stored. Turning this off stops counting
+     * but keeps what was already recorded.
+     */
+    val typingStatsEnabled: Boolean = true,
+    /**
+     * Bumped by the settings app whenever it deletes the statistics file, so
+     * the IME (which keeps the counters in memory) reloads instead of saving
+     * the old numbers straight back. Same contract as [lexiconVersion].
+     */
+    val statsVersion: Int = 0,
     /** Side length of the QR image the generator inserts. */
     val qrSizePx: Int = 1024,
     val qrEcc: QrEccLevel = QrEccLevel.M,
@@ -3166,6 +3181,8 @@ class SettingsRepository(private val context: Context) {
             booleanPreferencesKey("power_saving_drop_screenshot_watch")
         private val PS_DROP_ON_DEVICE_MODELS =
             booleanPreferencesKey("power_saving_drop_on_device_models")
+        private val PS_DROP_TYPING_STATS =
+            booleanPreferencesKey("power_saving_drop_typing_stats")
         private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
         private val HARDWARE_KEYBOARD_INPUT = booleanPreferencesKey("hardware_keyboard_input")
         private val HW_SHORTCUTS_ENABLED = booleanPreferencesKey("hw_shortcuts_enabled")
@@ -3497,6 +3514,8 @@ class SettingsRepository(private val context: Context) {
         private val TT_HISTORY = stringPreferencesKey("tt_history")
         private val TT_COMPLETED = intPreferencesKey("tt_completed")
         private val TT_ACHIEVEMENTS = stringPreferencesKey("tt_achievements")
+        private val TYPING_STATS_ENABLED = booleanPreferencesKey("typing_stats_enabled")
+        private val STATS_VERSION = intPreferencesKey("stats_version")
         private val QR_SIZE_PX = intPreferencesKey("qr_size_px")
         private val QR_ECC = stringPreferencesKey("qr_ecc")
         private val AI_PROVIDER = stringPreferencesKey("ai_provider")
@@ -4270,6 +4289,8 @@ class SettingsRepository(private val context: Context) {
                     p[PS_DROP_SCREENSHOT_WATCH] ?: defaults.powerSaving.dropScreenshotWatch,
                 dropOnDeviceModels =
                     p[PS_DROP_ON_DEVICE_MODELS] ?: defaults.powerSaving.dropOnDeviceModels,
+                dropTypingStats =
+                    p[PS_DROP_TYPING_STATS] ?: defaults.powerSaving.dropTypingStats,
             ),
             numpadCalculatorLayout = p[NUMPAD_CALCULATOR_LAYOUT]
                 ?: p[NUMPAD_PHONE_LAYOUT]?.not()
@@ -4384,6 +4405,8 @@ class SettingsRepository(private val context: Context) {
             typingTestHistory = p[TT_HISTORY] ?: defaults.typingTestHistory,
             typingTestsCompleted = p[TT_COMPLETED] ?: defaults.typingTestsCompleted,
             typingTestAchievements = p[TT_ACHIEVEMENTS] ?: defaults.typingTestAchievements,
+            typingStatsEnabled = p[TYPING_STATS_ENABLED] ?: defaults.typingStatsEnabled,
+            statsVersion = p[STATS_VERSION] ?: defaults.statsVersion,
             qrSizePx = p[QR_SIZE_PX] ?: defaults.qrSizePx,
             qrEcc = p[QR_ECC]?.let { runCatching { QrEccLevel.valueOf(it) }.getOrNull() }
                 ?: defaults.qrEcc,
@@ -6047,6 +6070,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun bumpCustomDictVersion() =
         editPrefs { it[CUSTOM_DICT_VERSION] = (it[CUSTOM_DICT_VERSION] ?: 0) + 1 }
 
+    suspend fun setTypingStatsEnabled(value: Boolean) =
+        editPrefs { it[TYPING_STATS_ENABLED] = value }
+
+    suspend fun bumpStatsVersion() =
+        editPrefs { it[STATS_VERSION] = (it[STATS_VERSION] ?: 0) + 1 }
+
     suspend fun setAutoDownloadLanguageData(value: Boolean) =
         editPrefs { it[AUTO_DOWNLOAD_LANGUAGE_DATA] = value }
 
@@ -6502,6 +6531,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setPowerSavingDropOnDeviceModels(value: Boolean) =
         editPrefs { it[PS_DROP_ON_DEVICE_MODELS] = value }
+
+    suspend fun setPowerSavingDropTypingStats(value: Boolean) =
+        editPrefs { it[PS_DROP_TYPING_STATS] = value }
 
     /**
      * Picks [value] as [langId]'s numeral system. [NumeralSystem.AUTO] drops the
