@@ -112,6 +112,34 @@ class NgramReranker(
         const val WEIGHT_PACK_BIGRAM = 0.45
         const val CAP_PACK_BIGRAM = 1.2
         const val WEIGHT_SEED_BIGRAM = 0.4
+
+        /**
+         * Exactly one rank, and that makes the seed term a deliberate no-op
+         * on its own — worth stating plainly, because the value reads like a
+         * tuning constant and behaves like a switch that is off.
+         *
+         * To pass the candidate above it, evidence must strictly exceed the
+         * rank gap; a term pinned at exactly [RANK_STEP] only ties it, and
+         * the stable sort then keeps the engine's order. Seed counts are
+         * large enough (median ~78 on the bundled list) that this term sits
+         * at its cap essentially always. So bundled bigrams can never flip a
+         * pair by themselves — only agreement with another signal can, which
+         * is the invariant `NgramRerankerTest` pins.
+         *
+         * Measured cost of that choice, on cold users who have learned no
+         * pairs of their own (`RerankGainTest`, `GlideRerankOracleTest`):
+         * typing top1 +0.0000, glide top1 +0.0000. Raising this to anything
+         * in 1.2..1.9 buys +6.7pt typing / +3.5pt glide and costs -2.2pt on
+         * correctly-typed neighbours of a primed word (`RerankHarmTest`).
+         * The trade is roughly 3:1 in favour and the loss is a demotion to
+         * slot 2, never a silent replacement — `shouldAutocorrect` reads the
+         * raw walk, not this order. It is still a product call, not a tuning
+         * one, so the conservative value stands until someone takes it.
+         *
+         * The weight, not this cap, is the real switch: below ~0.25 the term
+         * cannot clear one rank at any cap, and at or above it the term
+         * clears one rank at every cap in 1.2..1.9. There is no knee between.
+         */
         const val CAP_SEED = 1.0
         const val WEIGHT_RECENCY = 0.3
         const val PACK_COUNT_SCALE = 50

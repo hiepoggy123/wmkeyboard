@@ -138,6 +138,13 @@ class RerankGainTest {
         assertTrue("cold rerank regressed", coldRerank >= coldBase)
         assertTrue("warm rerank regressed", warmRerank >= warmBase)
         assertTrue("no measurable warm gain", warmRerank > warmBase)
+        // No cold-gain gate on purpose. Every case here IS a bundled seed
+        // pair, so the seed term has evidence on all of them and still moves
+        // nothing: it is capped at exactly one rank, which cannot break a
+        // one-rank tie (see NgramReranker.CAP_SEED). The cold number is
+        // therefore expected to print +0.0000 today. Assert it only if that
+        // cap is ever raised — asserting it now would gate the suite on a
+        // product decision nobody has taken.
     }
 
     /** Every (prev, next) the seed list knows. */
