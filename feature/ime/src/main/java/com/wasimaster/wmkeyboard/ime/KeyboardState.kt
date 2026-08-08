@@ -1220,6 +1220,16 @@ data class KeyboardUiState(
     val mediaSearchActive: Boolean = false,
     /** Id of the GIF/sticker/image currently downloading for insert, for a cell spinner. */
     val mediaDownloadingId: String? = null,
+    /**
+     * How far that download has got, 0f..1f, or null while it can't be known —
+     * before the first byte, and for any server that doesn't declare a size.
+     * Null is what keeps the cell on its indeterminate spinner instead of a
+     * ring stuck at nothing.
+     *
+     * Published in whole percents so a fast GIF costs a couple of dozen
+     * recompositions of one cell, not one per 8 KB buffer.
+     */
+    val mediaDownloadProgress: Float? = null,
     /** Selected provider chip on the GIF/sticker panel (tabs mode). */
     val mediaSource: com.wasimaster.wmkeyboard.core.tools.GifSource =
         com.wasimaster.wmkeyboard.core.tools.GifSource.KLIPY,

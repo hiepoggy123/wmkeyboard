@@ -12281,6 +12281,8 @@ internal data class AnimatedEmojiOffer(
     val file: File?,
     val loading: Boolean,
     val sending: Boolean,
+    /** How far the GIF has come down, or null while that isn't known yet. */
+    val progress: Float? = null,
 )
 
 /**
@@ -12291,10 +12293,12 @@ internal data class AnimatedEmojiOffer(
 internal fun KeyboardUiState.animatedEmojiOffer(emoji: String): AnimatedEmojiOffer? {
     if (!settings.emoji.animated || !acceptsRichMedia) return null
     val key = animatedEmoji.keyFor(emoji) ?: return null
+    val sending = mediaDownloadingId == key
     return AnimatedEmojiOffer(
         file = animatedEmojiFile,
         loading = animatedEmojiLoading,
-        sending = mediaDownloadingId == key,
+        sending = sending,
+        progress = mediaDownloadProgress.takeIf { sending },
     )
 }
 
@@ -12350,6 +12354,7 @@ private fun ColumnScope.AnimatedEmojiOffer(offer: AnimatedEmojiOffer, onSend: ()
         label = stringResource(R.string.ime_emoji_send_animated),
         caption = stringResource(R.string.ime_emoji_animated_credit),
         busy = offer.sending,
+        progress = offer.progress,
         onClick = onSend,
     )
 }
@@ -12360,6 +12365,10 @@ private fun ColumnScope.AnimatedEmojiOffer(offer: AnimatedEmojiOffer, onSend: ()
  * which is what the send rows do while their file is being fetched or drawn —
  * the popup stays open through a send, so it has to show that something is
  * happening.
+ *
+ * [progress] fills that spinner in when there is a download behind it and its
+ * size is known; a row that draws its file locally has nothing to count, and
+ * keeps turning instead.
  */
 @Composable
 private fun PopupAction(
@@ -12367,6 +12376,7 @@ private fun PopupAction(
     label: String,
     caption: String? = null,
     busy: Boolean = false,
+    progress: Float? = null,
     onClick: () -> Unit,
 ) {
     Row(
@@ -12376,7 +12386,18 @@ private fun PopupAction(
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (busy) {
+        if (busy && progress != null) {
+            val fraction by animateFloatAsState(
+                targetValue = progress,
+                animationSpec = tween(durationMillis = 120, easing = LinearEasing),
+                label = "animatedEmojiSendProgress",
+            )
+            CircularProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier.size(22.dp),
+                strokeWidth = 2.5.dp,
+            )
+        } else if (busy) {
             CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
         } else {
             Icon(

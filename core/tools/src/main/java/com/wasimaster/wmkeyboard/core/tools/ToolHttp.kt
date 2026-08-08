@@ -211,8 +211,20 @@ object ToolHttp {
      * Streams a URL into [target] (creating parent dirs); deletes the partial file on
      * failure. [maxBytes] aborts the transfer once exceeded rather than trusting a
      * (possibly absent or false) Content-Length header.
+     *
+     * [onProgress] is called on this thread as bytes arrive, with the bytes written
+     * so far and the expected total — which is -1 whenever the server didn't say
+     * (no Content-Length, or a compressed transfer, where the header describes the
+     * wire bytes and not the file). Callers show an indeterminate spinner for -1
+     * rather than inventing a total.
      */
-    fun download(url: String, target: File, timeoutMs: Int = 20_000, maxBytes: Long = Long.MAX_VALUE) {
+    fun download(
+        url: String,
+        target: File,
+        timeoutMs: Int = 20_000,
+        maxBytes: Long = Long.MAX_VALUE,
+        onProgress: ((Long, Long) -> Unit)? = null,
+    ) {
         target.parentFile?.mkdirs()
         val connection = URL(url).openConnection() as HttpURLConnection
         try {
@@ -222,6 +234,15 @@ object ToolHttp {
             connection.instanceFollowRedirects = true
             val status = connection.responseCode
             if (status !in 200..299) throw httpFailure(status, null)
+            // Only trustworthy for an identity transfer: with gzip or chunked
+            // encoding the header counts wire bytes, so a percentage from it
+            // would run past 100 or stall short of it.
+            val expected = if (connection.contentEncoding == null) {
+                connection.contentLengthLong.takeIf { it > 0L } ?: -1L
+            } else {
+                -1L
+            }
+            onProgress?.invoke(0L, expected)
             connection.inputStream.use { input ->
                 target.outputStream().use { output ->
                     val buffer = ByteArray(8192)
@@ -234,6 +255,7 @@ object ToolHttp {
                             throw ToolHttpException(R.string.core_tools_error_file_too_large)
                         }
                         output.write(buffer, 0, read)
+                        onProgress?.invoke(total, expected)
                     }
                 }
             }

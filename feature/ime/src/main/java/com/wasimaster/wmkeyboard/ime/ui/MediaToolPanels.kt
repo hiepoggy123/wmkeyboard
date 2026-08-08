@@ -2,6 +2,9 @@ package com.wasimaster.wmkeyboard.ime.ui
 
 import android.content.Context
 import android.os.Build
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -10,6 +13,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -657,6 +661,7 @@ internal fun GifPanel(
                             GifGrid(
                                 items = ui.items,
                                 downloadingId = state.mediaDownloadingId,
+                                progress = state.mediaDownloadProgress,
                                 onSelect = onSelect,
                                 onLongPress = onLongPress,
                                 panel = state.panel,
@@ -946,6 +951,7 @@ private fun MediaActionRow(label: String, onClick: () -> Unit) {
 private fun GifGrid(
     items: List<GifItem>,
     downloadingId: String?,
+    progress: Float?,
     onSelect: (GifItem) -> Unit,
     onLongPress: ((GifItem) -> Unit)? = null,
     panel: PanelMode = PanelMode.GIF,
@@ -989,6 +995,7 @@ private fun GifGrid(
                         item = item,
                         loader = loader,
                         downloadingId = downloadingId,
+                        progress = progress,
                         focused = rowStarts[rowIndex] + indexInRow == focused,
                         onSelect = onSelect,
                         onLongPress = onLongPress,
@@ -1013,6 +1020,7 @@ private fun GifCell(
     item: GifItem,
     loader: ImageLoader,
     downloadingId: String?,
+    progress: Float?,
     focused: Boolean,
     onSelect: (GifItem) -> Unit,
     onLongPress: ((GifItem) -> Unit)?,
@@ -1038,19 +1046,46 @@ private fun GifCell(
             // this only letterboxes the few whose ratio the cell clamped.
             contentScale = ContentScale.Fit,
         )
-        if (downloadingId == item.id) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(Color.Black.copy(alpha = 0.45f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.5.dp,
-                    color = Color.White,
-                )
-            }
+        if (downloadingId == item.id) MediaDownloadOverlay(progress)
+    }
+}
+
+/**
+ * What a media cell wears while its file comes down: the preview dimmed, and
+ * over it how far the transfer has got.
+ *
+ * [progress] is null until the first bytes arrive, and stays null for a server
+ * that declared no size — those keep the indeterminate spinner, because a ring
+ * frozen at zero says less than one that turns. The fill is animated between
+ * the whole percents the service publishes so it sweeps rather than steps.
+ */
+@Composable
+internal fun BoxScope.MediaDownloadOverlay(progress: Float?) {
+    val fraction by animateFloatAsState(
+        targetValue = progress ?: 0f,
+        animationSpec = tween(durationMillis = 120, easing = LinearEasing),
+        label = "mediaDownloadProgress",
+    )
+    Box(
+        modifier = Modifier
+            .matchParentSize()
+            .background(Color.Black.copy(alpha = 0.45f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (progress == null) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                strokeWidth = 2.5.dp,
+                color = Color.White,
+            )
+        } else {
+            CircularProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier.size(22.dp),
+                strokeWidth = 2.5.dp,
+                color = Color.White,
+                trackColor = Color.White.copy(alpha = 0.3f),
+            )
         }
     }
 }
@@ -1188,6 +1223,7 @@ internal fun ImageSearchPanel(
                     ImageGrid(
                         results = ui.results,
                         downloadingId = state.mediaDownloadingId,
+                        progress = state.mediaDownloadProgress,
                         onResult = onResult,
                         onResultLink = onResultLink,
                         focused = state.focusedIndex(),
@@ -1202,6 +1238,7 @@ internal fun ImageSearchPanel(
 private fun ImageGrid(
     results: List<ImageResult>,
     downloadingId: String?,
+    progress: Float?,
     onResult: (ImageResult) -> Unit,
     onResultLink: (ImageResult) -> Unit,
     focused: Int? = null,
@@ -1251,20 +1288,7 @@ private fun ImageGrid(
                     modifier = Modifier.matchParentSize(),
                     contentScale = ContentScale.Crop,
                 )
-                if (downloadingId == result.imageUrl) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(Color.Black.copy(alpha = 0.45f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.5.dp,
-                            color = Color.White,
-                        )
-                    }
-                }
+                if (downloadingId == result.imageUrl) MediaDownloadOverlay(progress)
             }
         }
     }

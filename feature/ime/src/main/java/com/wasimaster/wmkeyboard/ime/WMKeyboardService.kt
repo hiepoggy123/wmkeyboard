@@ -2850,6 +2850,7 @@ open class WMKeyboardService : InputMethodService() {
                 mediaSearchActive = false,
                 mediaQuery = "",
                 mediaDownloadingId = null,
+                mediaDownloadProgress = null,
                 launcherDetail = null,
                 // A run belongs to the field it was started over; moving to
                 // another one abandons it rather than resuming half-typed.
@@ -8154,6 +8155,7 @@ open class WMKeyboardService : InputMethodService() {
                     next == PanelMode.TRANSLATE || next == PanelMode.QR_GEN ||
                     (next == PanelMode.WIKIPEDIA && it.wiki !is WikiUi.Article && it.wiki !is WikiUi.SearchResults),
                 mediaDownloadingId = null,
+                mediaDownloadProgress = null,
                 stickerPacks = stickerPackStore.packs(),
                 stickerPackId = null,
                 // The service owns these buffers now, so the seed happens here:
@@ -11717,10 +11719,12 @@ open class WMKeyboardService : InputMethodService() {
             copyImageFileToClipboard(file)
             return
         }
-        _uiState.update { it.copy(mediaDownloadingId = item.id) }
+        startMediaDownload(item.id)
         mediaInsertJob = serviceScope.launch {
-            val file = withContext(Dispatchers.IO) { downloadMediaFile(item.fullUrl, item.mime) }
-            _uiState.update { it.copy(mediaDownloadingId = null) }
+            val file = withContext(Dispatchers.IO) {
+                downloadMediaFile(item.fullUrl, item.mime, trackProgress = true)
+            }
+            endMediaDownload()
             if (file == null) {
                 Toast.makeText(
                     this@WMKeyboardService,
@@ -11796,7 +11800,8 @@ open class WMKeyboardService : InputMethodService() {
     fun onStickerSaveToPack(item: GifItem, packId: String?) {
         if (_uiState.value.mediaDownloadingId != null) return
         vibrate()
-        _uiState.update { it.copy(mediaAction = null, mediaDownloadingId = item.id) }
+        _uiState.update { it.copy(mediaAction = null) }
+        startMediaDownload(item.id)
         mediaInsertJob = serviceScope.launch {
             val result = withContext(Dispatchers.IO) {
                 val target = packId
@@ -11811,6 +11816,7 @@ open class WMKeyboardService : InputMethodService() {
                         item.fullUrl,
                         temp,
                         maxBytes = StickerImage.MAX_SOURCE_BYTES,
+                        onProgress = ::publishMediaProgress,
                     )
                     temp.readBytes().also { temp.delete() }
                 }.getOrNull() ?: return@withContext null
@@ -11821,9 +11827,8 @@ open class WMKeyboardService : InputMethodService() {
                     StickerImage.Result.NotAnImage -> StickerAddResult.WriteFailed
                 }
             }
-            _uiState.update {
-                it.copy(mediaDownloadingId = null, stickerPacks = stickerPackStore.packs())
-            }
+            endMediaDownload()
+            _uiState.update { it.copy(stickerPacks = stickerPackStore.packs()) }
             val message = when (result) {
                 is StickerAddResult.Added ->
                     getString(R.string.ime_service_sticker_saved_toast)
@@ -11883,10 +11888,12 @@ open class WMKeyboardService : InputMethodService() {
     ) {
         if (_uiState.value.mediaDownloadingId != null) return
         vibrate()
-        _uiState.update { it.copy(mediaDownloadingId = id) }
+        startMediaDownload(id)
         mediaInsertJob = serviceScope.launch {
-            val file = withContext(Dispatchers.IO) { downloadMediaFile(url, mime) }
-            _uiState.update { it.copy(mediaDownloadingId = null) }
+            val file = withContext(Dispatchers.IO) {
+                downloadMediaFile(url, mime, trackProgress = true)
+            }
+            endMediaDownload()
             if (file == null) {
                 Toast.makeText(
                     this@WMKeyboardService,
@@ -11905,15 +11912,66 @@ open class WMKeyboardService : InputMethodService() {
      *
      * The cache name is stable per URL, so picking the same result twice
      * (insert, then copy) skips the second download.
+     *
+     * [trackProgress] publishes how far the transfer has got for the cell the
+     * user tapped; it belongs to whoever also published [KeyboardUiState.mediaDownloadingId],
+     * so the preview fetches that spin on their own flags leave it off.
      */
-    private fun downloadMediaFile(url: String, mime: String): File? = runCatching {
+    private fun downloadMediaFile(
+        url: String,
+        mime: String,
+        trackProgress: Boolean = false,
+    ): File? = runCatching {
         val extension = MediaMime.extension(mime)
         val dir = File(cacheDir, "media").apply { mkdirs() }
         pruneMediaCache(dir)
         val target = File(dir, "media_${url.hashCode().toUInt()}.$extension")
-        if (!target.exists() || target.length() == 0L) ToolHttp.download(url, target)
+        if (!target.exists() || target.length() == 0L) {
+            ToolHttp.download(
+                url,
+                target,
+                onProgress = if (trackProgress) ::publishMediaProgress else null,
+            )
+        }
         target
     }.getOrNull()
+
+    /**
+     * The last whole percent published for the running media download, so the
+     * ~200 buffer reads of a 1.5 MB GIF turn into at most 100 state updates
+     * instead of one per 8 KB.
+     */
+    private var mediaDownloadPercent = -1
+
+    /**
+     * Publishes download progress for the spinning cell. Called from the
+     * download thread; [MutableStateFlow.update] is what makes that safe.
+     *
+     * A server that declared no size gets null rather than a made-up fraction —
+     * the cell then keeps the indeterminate spinner it had before.
+     */
+    private fun publishMediaProgress(read: Long, expected: Long) {
+        if (expected <= 0L) return
+        val percent = (read * 100L / expected).coerceIn(0L, 100L).toInt()
+        if (percent == mediaDownloadPercent) return
+        mediaDownloadPercent = percent
+        _uiState.update { it.copy(mediaDownloadProgress = percent / 100f) }
+    }
+
+    /**
+     * Marks the start of a media download for [id]: the cell spins from here,
+     * with no progress until the first bytes say how far there is to go.
+     */
+    private fun startMediaDownload(id: String) {
+        mediaDownloadPercent = -1
+        _uiState.update { it.copy(mediaDownloadingId = id, mediaDownloadProgress = null) }
+    }
+
+    /** The download ended, one way or another: the cell stops spinning. */
+    private fun endMediaDownload() {
+        mediaDownloadPercent = -1
+        _uiState.update { it.copy(mediaDownloadingId = null, mediaDownloadProgress = null) }
+    }
 
     /** Keeps the media cache bounded (newest ~30 files). */
     private fun pruneMediaCache(dir: File) {
@@ -12792,7 +12850,7 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         emojiUsage.record(emoji)
         emojiHistoryStale = true
-        _uiState.update { it.copy(mediaDownloadingId = emojiStickerJobId(emoji)) }
+        startMediaDownload(emojiStickerJobId(emoji))
         mediaInsertJob = serviceScope.launch {
             // Off the main thread as far as the provider call, which can be a
             // download the very first time Noto is asked for on a device.
@@ -12802,7 +12860,7 @@ open class WMKeyboardService : InputMethodService() {
                 state.settings.emojiFontInstalled.installedId,
             )
             val file = withContext(Dispatchers.Default) { renderEmojiSticker(emoji, typeface) }
-            _uiState.update { it.copy(mediaDownloadingId = null) }
+            endMediaDownload()
             if (file == null) {
                 Toast.makeText(
                     this@WMKeyboardService,
