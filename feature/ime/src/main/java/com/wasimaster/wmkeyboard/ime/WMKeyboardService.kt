@@ -3899,8 +3899,13 @@ open class WMKeyboardService : InputMethodService() {
         // contextualForm is the identity for every composer except the
         // cluster-shaping (fixed Indic) ones, so only they are worth the
         // synchronous getTextBeforeCursor round-trip on the keypress path.
+        // A non-empty buffer already *is* the text in front of the caret — a
+        // resume mirrors the field's word into it and updateComposingText writes
+        // it back verbatim — so while one is open the round-trip is skipped and
+        // the answer comes from the buffer instead.
         if (state.composer.isClusterShaping) {
-            text = fixedLayoutContextualVowel(text, ic.getTextBeforeCursor(1, 0)?.lastOrNull())
+            val previous = composing.lastOrNull() ?: ic.getTextBeforeCursor(1, 0)?.lastOrNull()
+            text = fixedLayoutContextualVowel(text, previous)
         }
 
         // Typing over a selection replaces it and puts the cursor after the
@@ -3946,12 +3951,21 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
 
+        // A cluster-shaping layout composes only what a resume put in the buffer
+        // (see composingMode below), and what continues *that* word is not always
+        // a single letter: a Bengali vowel key becomes a kar — a combining mark,
+        // which no letter test accepts — after a consonant, and the য়-glide form
+        // it takes after another vowel is two characters. Both belong to the word
+        // being composed, so both have to extend the buffer rather than break it
+        // and commit the resumed word after a single keypress.
+        val clusterContinuation = state.composer.isClusterShaping && composing.isNotEmpty() &&
+            text.isNotEmpty() && text.all { isComposingWordChar(it) }
         // VNI spells Vietnamese tones/marks with digits, so a digit typed *while a
         // syllable is composing* feeds the buffer (the transducer eats it) instead
         // of committing. A digit on an empty buffer is a literal digit as usual —
         // except for a composer whose whole alphabet is digits (T9 pinyin), where
         // that rule would make the first key of every word commit as a number.
-        val isWordChar = text.length == 1 && (
+        val singleWordChar = text.length == 1 && (
             text[0].isLetter() || text[0] == '\'' ||
                 state.composer.buffersChar(text[0]) ||
                 (
@@ -3971,6 +3985,7 @@ open class WMKeyboardService : InputMethodService() {
                         state.allowsTypingIntelligence
                     )
             )
+        val isWordChar = singleWordChar || clusterContinuation
         // Avro is a transliterating input method: its composing must run even
         // in password fields and with the strip off, or the roman keys commit
         // untransliterated and no Bengali is produced. English composing only
@@ -3980,7 +3995,15 @@ open class WMKeyboardService : InputMethodService() {
         // half of them are astral pairs that would fail isWordChar anyway —
         // forcing every style down the direct-commit branch keeps the BMP
         // styles (small caps, fullwidth) consistent with the astral ones.
-        val composingMode = fancyStyle == null && !state.composer.isClusterShaping && (
+        //
+        // A cluster-shaping layout (Probhat, Jatiya, fixed Devanagari…) types
+        // its script straight into the field, so it does not compose *words* —
+        // but it does have to keep composing one that a caret landing on it
+        // re-armed ([restartSuggestionsAtCursor]), or the resume buys a single
+        // keypress and drops the region again. So: never starts a buffer, always
+        // continues the one it was handed, and the next word boundary ends it.
+        val composingMode = fancyStyle == null &&
+            (!state.composer.isClusterShaping || composing.isNotEmpty()) && (
             state.composer.isTransliterating ||
                 (state.allowsTypingIntelligence && state.settings.suggestions)
             )
@@ -4561,8 +4584,19 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         if (composing.isNotEmpty()) {
-            composing.deleteCharAt(composing.length - 1)
-            composingTouch.removeLastOrNull()
+            // The buffer is the field's own text, so a backspace has to take the
+            // same thing off it that the branch below would take off the field —
+            // for a cluster-shaping layout, a whole conjunct rather than one code
+            // unit, which would shed a base and leave its hasant dangling. Gated
+            // on the same per-language setting for the same reason: whichever way
+            // the user set backspace, it must not change under a resumed word.
+            val length = if (state.language.id in state.settings.conjunctBackspaceLanguages) {
+                state.composer.deleteLength(composing).coerceIn(1, composing.length)
+            } else {
+                1
+            }
+            composing.setLength(composing.length - length)
+            repeat(length) { composingTouch.removeLastOrNull() }
             updateComposingText(ic)
             refreshSuggestions()
         } else {
@@ -4825,8 +4859,12 @@ open class WMKeyboardService : InputMethodService() {
      *
      * Any language whose composing buffer is the field's own text and that has
      * something to complete from — see [composingResumable], which is where the
-     * transliterating and cluster-shaping layouts drop out. [newSelStart] is the
-     * caret offset the field just reported, used to place the composing region.
+     * transliterating layouts drop out. The cluster-shaping ones (Probhat,
+     * Jatiya, fixed Devanagari…) are in: they do not compose while typing, but a
+     * word handed to them here is their own script and they keep composing it
+     * until the next boundary (see [processTypedText]'s `composingMode`).
+     * [newSelStart] is the caret offset the field just reported, used to place
+     * the composing region.
      */
     private fun restartSuggestionsAtCursor(ic: InputConnection, newSelStart: Int) {
         val state = _uiState.value
@@ -4877,13 +4915,11 @@ open class WMKeyboardService : InputMethodService() {
             val before = ic.getTextBeforeCursor(64, 0)
             beforeText = before
             val after = ic.getTextAfterCursor(1, 0)
-            // A caret at a word's end: a word char behind it, nothing word-like
-            // ahead (end of text, or a separator — not the middle of a token).
-            val caretAtWordEnd = before != null && before.isNotEmpty() &&
-                isComposingWordChar(before.last()) &&
-                (after.isNullOrEmpty() || !after[0].isLetterOrDigit())
-            if (caretAtWordEnd) {
-                val word = before.toString().takeLastWhile { isComposingWordChar(it) }
+            // The word the caret is parked at the end of, or null — see
+            // [resumableWordAt], which is also where "what counts as part of a
+            // word" lives now that the answer is not "a letter".
+            val word = resumableWordAt(before, after)
+            if (word != null && before != null) {
                 // Mark the existing word as composing without disturbing it,
                 // then mirror it into the buffer so a keystroke extends it
                 // and a backspace shortens it. previousWord comes from the
@@ -4896,7 +4932,7 @@ open class WMKeyboardService : InputMethodService() {
                 // And only if newSelStart is still the live caret: the word was
                 // read at the *current* cursor, so pairing it with a stale echo
                 // offset puts the region over the wrong span (see caretStillAt).
-                if (word.isNotEmpty() && caretStillAt(ic, newSelStart) &&
+                if (caretStillAt(ic, newSelStart) &&
                     ic.setComposingRegion(newSelStart - word.length, newSelStart)
                 ) {
                     composing = StringBuilder(word)
@@ -4922,9 +4958,6 @@ open class WMKeyboardService : InputMethodService() {
         }
         refreshSuggestions()
     }
-
-    /** Characters that live in the composing buffer — see [onKey]'s isWordChar. */
-    private fun isComposingWordChar(c: Char): Boolean = c.isLetter() || c == '\''
 
     /**
      * Whether [reportedSelStart] is still where the editor's caret actually
@@ -14482,7 +14515,7 @@ open class WMKeyboardService : InputMethodService() {
      * — a field that composes taps composes hardware keys the same way.
      */
     private fun hardwareIntercepts(state: KeyboardUiState): Boolean {
-        val composingMode = !state.composer.isClusterShaping &&
+        val composingMode = (!state.composer.isClusterShaping || composing.isNotEmpty()) &&
             (
                 state.composer.isTransliterating ||
                     (state.allowsTypingIntelligence && state.settings.suggestions)
