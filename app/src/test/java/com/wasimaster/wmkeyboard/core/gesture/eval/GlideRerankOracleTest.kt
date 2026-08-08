@@ -242,11 +242,10 @@ class GlideRerankOracleTest {
         )
         assertTrue("cold glide rerank regressed", coldRerank >= coldBase)
         assertTrue("warm glide rerank regressed", warmRerank >= warmBase)
-        // The cold number prints +0.0000 today and that is current behaviour,
-        // not a corpus artefact: every case is a bundled seed pair, so the
-        // seed term has evidence on all of them and is capped at exactly one
-        // rank, which cannot break a one-rank tie. See NgramReranker.CAP_SEED
-        // for the measured cost of that cap and the trade behind it.
+        // Same gate as the typing harness: every case is a bundled seed pair,
+        // so a flat cold gain means the seed term is being consulted and
+        // ignored rather than being absent.
+        assertTrue("no measurable cold glide gain", coldRerank > coldBase)
     }
 
     /** 1-based rank of [intended] in what the strip would show, or null. */

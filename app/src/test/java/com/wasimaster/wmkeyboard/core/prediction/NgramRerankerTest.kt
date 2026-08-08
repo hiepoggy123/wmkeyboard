@@ -61,28 +61,45 @@ class NgramRerankerTest {
     }
 
     @Test
-    fun weakEvidenceAloneNeverOutranksTypedEvidence() {
-        // The incoming order encodes edit costs and touch likelihoods; a
-        // population prior or a recency hit is capped at (or under) one rank
-        // step, so alone neither may flip the list — only agreement can.
+    fun aStrongPopulationPriorBreaksANearTie() {
+        // A well-attested bundled pair may take the slot above it, and this
+        // is the term's whole job: it is the only context a user who has
+        // learned nothing yet has. Capped at CAP_SEED, so it wins the tie by
+        // half a rank and could not take two slots however common the pair.
         val seeds = SeedBigrams.load(
             "hello world 500\nhello work 20\n".byteInputStream()
         )
         val r = reranker(seeds = seeds)
         val seedOnly = r.rerank(context(prev = "hello"), listOf("words", "world"))
-        assertEquals(listOf("words", "world"), seedOnly)
-        val r2 = reranker()
-        val recencyOnly = r2.rerank(
+        assertEquals(listOf("world", "words"), seedOnly)
+    }
+
+    @Test
+    fun aPriorCannotVaultTwoPlaces() {
+        // The ceiling that makes the flip above safe: however common the
+        // bundled pair, it climbs one slot, never past a candidate the walk
+        // ranked clearly higher. "world" is last of three and stays behind
+        // the runner-up.
+        val seeds = SeedBigrams.load(
+            "hello world 99999\n".byteInputStream()
+        )
+        val r = reranker(seeds = seeds)
+        val out = r.rerank(context(prev = "hello"), listOf("words", "work", "world"))
+        assertEquals(listOf("words", "world", "work"), out)
+    }
+
+    @Test
+    fun recencyAloneNeverOutranksTypedEvidence() {
+        // The weakest signal keeps the old contract. A word being recently
+        // committed is a topical hint, not evidence about this position, and
+        // WEIGHT_RECENCY stays well under one rank step so it can only ever
+        // break ties in agreement with something else.
+        val r = reranker()
+        val recencyOnly = r.rerank(
             context(prev = "hello", recent = listOf("world")),
             listOf("words", "world"),
         )
         assertEquals(listOf("words", "world"), recencyOnly)
-        // Two independent sources agreeing is what earns the flip.
-        val both = r.rerank(
-            context(prev = "hello", recent = listOf("world")),
-            listOf("words", "world"),
-        )
-        assertEquals(listOf("world", "words"), both)
     }
 
     @Test

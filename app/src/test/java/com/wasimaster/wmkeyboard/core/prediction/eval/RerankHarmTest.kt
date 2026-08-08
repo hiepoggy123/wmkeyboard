@@ -134,14 +134,20 @@ class RerankHarmTest {
                 "${pct(base)} -> ${pct(reranked)} (${pct(reranked - base)}), n=${cases.size}"
         )
 
-        // The gate. The prior is allowed to cost something — it buys more than
-        // it costs, which is the whole point of the trade — but a
-        // correctly-typed word losing the strip's first slot is the failure
-        // users notice, so the loss is bounded well under the gain the
-        // matching RerankGainTest measures.
+        // The gate, and the accepted price of raising NgramReranker.CAP_SEED:
+        // the prior costs -2.2pt here to buy +6.7pt on the matching
+        // RerankGainTest, roughly 3:1. The headroom above that measured
+        // figure is deliberately thin — this number moving is the signal that
+        // a weight change made the prior pushier than the trade allowed for,
+        // and it should be re-argued rather than absorbed.
+        //
+        // Worth keeping in view when weighing the two: a loss here means the
+        // typed word fell to the strip's second slot, not that it was
+        // replaced. `shouldAutocorrect` reads the raw walk ranking and never
+        // this order, and it exits early on any in-dictionary word.
         assertTrue(
             "seed prior buries correctly-typed words too often: ${pct(base - reranked)}",
-            base - reranked < 0.02,
+            base - reranked < 0.03,
         )
     }
 

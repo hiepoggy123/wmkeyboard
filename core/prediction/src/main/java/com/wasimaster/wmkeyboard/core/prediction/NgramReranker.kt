@@ -114,33 +114,34 @@ class NgramReranker(
         const val WEIGHT_SEED_BIGRAM = 0.4
 
         /**
-         * Exactly one rank, and that makes the seed term a deliberate no-op
-         * on its own — worth stating plainly, because the value reads like a
-         * tuning constant and behaves like a switch that is off.
+         * One and a half ranks, and the half is the whole point.
          *
-         * To pass the candidate above it, evidence must strictly exceed the
-         * rank gap; a term pinned at exactly [RANK_STEP] only ties it, and
-         * the stable sort then keeps the engine's order. Seed counts are
-         * large enough (median ~78 on the bundled list) that this term sits
-         * at its cap essentially always. So bundled bigrams can never flip a
-         * pair by themselves — only agreement with another signal can, which
-         * is the invariant `NgramRerankerTest` pins.
+         * This was 1.0 — exactly [RANK_STEP] — which made the bundled seed
+         * term a no-op on its own rather than the "may flip a near-tie" it
+         * was documented as. To pass the candidate above it, evidence must
+         * strictly exceed the rank gap; a term pinned at exactly one rank
+         * only ties it, and the stable sort then keeps the engine's order.
+         * Seed counts are large enough (median ~78 on the bundled list) that
+         * this term sits at its cap essentially always, so the tie was not an
+         * edge case — it was every case, and cold users got nothing at all
+         * from the bundled bigrams.
          *
-         * Measured cost of that choice, on cold users who have learned no
-         * pairs of their own (`RerankGainTest`, `GlideRerankOracleTest`):
-         * typing top1 +0.0000, glide top1 +0.0000. Raising this to anything
-         * in 1.2..1.9 buys +6.7pt typing / +3.5pt glide and costs -2.2pt on
-         * correctly-typed neighbours of a primed word (`RerankHarmTest`).
-         * The trade is roughly 3:1 in favour and the loss is a demotion to
-         * slot 2, never a silent replacement — `shouldAutocorrect` reads the
-         * raw walk, not this order. It is still a product call, not a tuning
-         * one, so the conservative value stands until someone takes it.
+         * Measured, cold (`RerankGainTest`, `GlideRerankOracleTest` against
+         * `RerankHarmTest`): +6.7pt typing top1 and +3.5pt glide top1, for
+         * -2.2pt on correctly-typed words that happen to sit one edit from a
+         * primed follower. Roughly 3:1, and the two sides are not equally
+         * costly — the loss is a demotion to the strip's second slot, never a
+         * silent replacement, because `shouldAutocorrect` reads the raw walk
+         * ranking and never this order.
          *
          * The weight, not this cap, is the real switch: below ~0.25 the term
          * cannot clear one rank at any cap, and at or above it the term
-         * clears one rank at every cap in 1.2..1.9. There is no knee between.
+         * clears one rank at every cap in 1.2..1.9, with no knee between. The
+         * cap's remaining job is the ceiling it always had — 1.5 still cannot
+         * vault two places, so a population prior can break a tie and never
+         * bury a candidate the walk ranked clearly higher.
          */
-        const val CAP_SEED = 1.0
+        const val CAP_SEED = 1.5
         const val WEIGHT_RECENCY = 0.3
         const val PACK_COUNT_SCALE = 50
 
