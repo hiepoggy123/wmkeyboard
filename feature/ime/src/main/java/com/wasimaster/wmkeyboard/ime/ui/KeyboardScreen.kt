@@ -3163,7 +3163,11 @@ private fun ClipboardSuggestionChip(
             }
             Text(
                 text = textToDisplay,
-                color = kb.keyText,
+                // suggestionText, not keyText: this chip sits on the strip,
+                // over the board. A theme whose keys invert the board — dark
+                // letters on cream caps over a near-black board — draws the
+                // key colour invisible here.
+                color = kb.suggestionText,
                 fontSize = 13.sp,
                 fontWeight = if (otp != null) FontWeight.Medium else FontWeight.Normal,
                 maxLines = 1,
@@ -3254,14 +3258,16 @@ private fun OtpSuggestionChip(
             )
             Text(
                 text = otp.code,
-                color = kb.keyText,
+                // On the board, so the board's text colour — see the same
+                // note in [ClipboardSuggestionChip].
+                color = kb.suggestionText,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
             )
             Text(
                 text = otp.sourceApp,
-                color = kb.keyText.copy(alpha = 0.6f),
+                color = kb.suggestionText.copy(alpha = 0.6f),
                 fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

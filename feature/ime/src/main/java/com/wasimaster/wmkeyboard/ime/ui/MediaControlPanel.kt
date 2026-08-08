@@ -205,7 +205,9 @@ private fun NowPlaying(
             val unknownTitle = stringResource(R.string.ime_media_control_unknown_title)
             Text(
                 track.title.ifBlank { unknownTitle },
-                color = kb.keyText,
+                // The title is on the board, not on a key: a theme whose keys
+                // invert the board draws keyText invisible here.
+                color = kb.suggestionText,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
