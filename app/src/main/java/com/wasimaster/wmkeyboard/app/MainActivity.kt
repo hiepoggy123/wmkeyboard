@@ -6174,6 +6174,7 @@ internal fun sectionLabelRes(section: ConfigBackup.Section): Int = when (section
     ConfigBackup.Section.WORDLISTS -> R.string.backup_section_wordlists_label
     ConfigBackup.Section.ADDONS -> R.string.backup_section_addons_label
     ConfigBackup.Section.EMOJI -> R.string.backup_section_emoji_label
+    ConfigBackup.Section.STATISTICS -> R.string.backup_section_statistics_label
 }
 
 internal fun sectionLabel(context: Context, section: ConfigBackup.Section): String =
@@ -6197,6 +6198,7 @@ internal fun sectionLabelLowercase(context: Context, section: ConfigBackup.Secti
             ConfigBackup.Section.WORDLISTS -> R.string.backup_section_wordlists_label_lowercase
             ConfigBackup.Section.ADDONS -> R.string.backup_section_addons_label_lowercase
             ConfigBackup.Section.EMOJI -> R.string.backup_section_emoji_label_lowercase
+            ConfigBackup.Section.STATISTICS -> R.string.backup_section_statistics_label_lowercase
         },
     )
 
@@ -6212,6 +6214,7 @@ private fun sectionCountPlural(section: ConfigBackup.Section): Int = when (secti
     ConfigBackup.Section.WORDLISTS -> R.plurals.backup_section_wordlists_count
     ConfigBackup.Section.ADDONS -> R.plurals.backup_section_addons_count
     ConfigBackup.Section.EMOJI -> R.plurals.backup_section_emoji_count
+    ConfigBackup.Section.STATISTICS -> R.plurals.backup_section_statistics_count
 }
 
 /** "3 themes", "1 snippet": the count line shown per section on import. */
@@ -7043,6 +7046,13 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                 stringResource(R.string.backup_include_emoji_subtitle),
                 ConfigBackup.Section.EMOJI in sections,
             ) { setSection(ConfigBackup.Section.EMOJI, it) }
+        }
+        item {
+            ToggleSetting(
+                R.string.backup_section_statistics_label,
+                stringResource(R.string.backup_include_statistics_subtitle),
+                ConfigBackup.Section.STATISTICS in sections,
+            ) { setSection(ConfigBackup.Section.STATISTICS, it) }
         }
     }
 

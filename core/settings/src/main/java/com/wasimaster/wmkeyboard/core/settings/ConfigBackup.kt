@@ -70,6 +70,13 @@ object ConfigBackup {
          * silently lose.
          */
         ADDONS("addons"),
+
+        /**
+         * The typing counts behind the Statistics screen. Like [EMOJI],
+         * nothing here can be rebuilt: a new phone starts at zero and the
+         * old totals are gone unless they travelled in a bundle.
+         */
+        STATISTICS("statistics"),
     }
 
     private val json = Json { prettyPrint = true }

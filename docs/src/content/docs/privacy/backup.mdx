@@ -35,14 +35,16 @@ is its own switch:
 | Custom word lists | On | Word lists you imported for any language |
 | Addon repositories | On | The repository addresses you added, so a restore can reinstall from them |
 | Emoji history | On | Your recent emoji, your favourites and the skin tone you last picked for each |
+| Typing statistics | On | Your daily typing counts and your all-time speed |
 
 Sticker packs and icon packs default off only because their images make the
 file large, not because there's anything private about them: turn them on
 and a restore on another phone gets working packs, not empty shells. The
 personal ones (dictionary, clipboard) default off because they're your typing
-history rather than configuration. Emoji history is personal too but defaults
-on: it's a few hundred bytes, and it's the one thing in the list that can't be
-downloaded again if you lose it.
+history rather than configuration. Emoji history and typing statistics are
+personal too but default on: both are small, and neither can be downloaded
+again if you lose it. The statistics are counts only, never anything you
+typed.
 
 Tap **Export backup** to write a `wmkeyboard-backup-<date>-<time>.wmconfig.json`
 file through Android's own save dialog: it goes wherever you choose, not to

@@ -37,6 +37,7 @@ The **Include in export** group is eleven independent toggles, top to bottom:
 | Custom word lists | Word lists you imported for any language | On |
 | Addon repositories | The addon sources you added, so you can reinstall from them | On |
 | Emoji history | Your recent emoji, your favourites and the skin tone of each one | On |
+| Typing statistics | Your daily typing counts and your all-time speed | On |
 
 :::note[These switches are saved]
 They used to be local to the screen, and they're stored settings now, because the automatic backup has to know what to put in a file when you aren't there to tell it. One list drives both: what you tick here is what a hand-made export contains and what an automatic backup contains.
@@ -81,6 +82,7 @@ Confirming a current-format import applies each section independently and merges
 | Custom word lists | **Replaces** — same clear-and-rebuild |
 | Addon repositories | **Merges** — incoming repository addresses are added to your existing list; a duplicate address is skipped, not overwritten |
 | Emoji history | **Replaces** — recents, use counts, favourites and per-emoji skin tones all come from the file |
+| Typing statistics | **Replaces** — the day-by-day counts and the all-time totals both come from the file |
 
 Settings import is rollback-safe: after writing, the keyboard re-reads its own settings to confirm they still parse, and undoes the write if they don't. The other sections in the same file still apply even when settings roll back. After a confirmed import you see either "Restored `<sections>`." (a lowercase, comma-separated list of what changed) or "Nothing to restore from that file.", with "\n\nThe settings couldn't be applied and were left unchanged." appended if the settings portion rolled back. A confirmed legacy import instead reports "Restored `<N>` settings.", or "That backup could not be applied — your settings are unchanged." if it rolled back.
 

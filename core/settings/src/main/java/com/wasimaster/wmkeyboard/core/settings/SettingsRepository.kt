@@ -61,6 +61,7 @@ import com.wasimaster.wmkeyboard.core.tools.AiActionCodec
 import com.wasimaster.wmkeyboard.core.tools.AiActionSpec
 import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
+import com.wasimaster.wmkeyboard.core.tools.TypingStats
 import com.wasimaster.wmkeyboard.core.tools.mergeLegacyAiPrompts
 import com.wasimaster.wmkeyboard.core.tools.DefaultToolLetters
 import com.wasimaster.wmkeyboard.core.tools.TypingAchievements
@@ -1872,6 +1873,7 @@ data class AutoBackupSettings(
             ConfigBackup.Section.WORDLISTS.id,
             ConfigBackup.Section.ADDONS.id,
             ConfigBackup.Section.EMOJI.id,
+            ConfigBackup.Section.STATISTICS.id,
         )
     }
 }
@@ -6050,6 +6052,9 @@ class SettingsRepository(private val context: Context) {
         if (ConfigBackup.Section.EMOJI in sections) {
             readStore("learning/emoji_usage.json")?.let { out[ConfigBackup.Section.EMOJI] = it }
         }
+        if (ConfigBackup.Section.STATISTICS in sections) {
+            readStore(TypingStats.FILE_PATH)?.let { out[ConfigBackup.Section.STATISTICS] = it }
+        }
         if (ConfigBackup.Section.ADDONS in sections) {
             // The repository list only. Cached manifests are re-fetched, and
             // the installed-addon records point at local ids that mean nothing
@@ -6077,6 +6082,9 @@ class SettingsRepository(private val context: Context) {
                     // Recents rather than every key in the file: it is the part
                     // of the emoji history a user would recognise as "mine".
                     ConfigBackup.Section.EMOJI -> element.jsonObject["recents"]?.jsonArray?.size ?: 0
+                    // Days recorded: the lifetime totals ride along with them.
+                    ConfigBackup.Section.STATISTICS ->
+                        element.jsonObject["days"]?.jsonObject?.size ?: 0
                 }
             }.getOrDefault(0)
             counts[section] = count
@@ -6178,6 +6186,14 @@ class SettingsRepository(private val context: Context) {
             if (writeStore("learning/emoji_usage.json", obj)) {
                 restored.add(ConfigBackup.Section.EMOJI)
                 bumpEmojiUsageVersion()
+            }
+        }
+        (parsed.sections[ConfigBackup.Section.STATISTICS] as? JsonObject)?.let { obj ->
+            if (writeStore(TypingStats.FILE_PATH, obj)) {
+                restored.add(ConfigBackup.Section.STATISTICS)
+                // The keyboard holds the counters in memory; without this it
+                // saves its own numbers over the ones just restored.
+                bumpStatsVersion()
             }
         }
 
