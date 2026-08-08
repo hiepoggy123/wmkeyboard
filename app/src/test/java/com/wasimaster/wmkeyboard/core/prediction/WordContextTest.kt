@@ -85,4 +85,43 @@ class WordContextTest {
         assertEquals(listOf("the", "when"), offers)
         assertFalse(offers.any { WordContext.isSentinel(it) })
     }
+
+    @Test fun aCombiningMarkIsPartOfTheWordNotABoundary() {
+        // হয়েছে is হ য ় ে ছ ে — it *ends* in a vowel sign, and two of its six
+        // characters are combining marks. Asking Char.isLetter() where a word
+        // ends therefore truncates it: this used to hand back a bare ছ, so
+        // every Bengali bigram was keyed on a single consonant and the corpus
+        // pack could never match anything. Devanagari, Tamil, Thai, Arabic and
+        // Hebrew all spell words this way too.
+        assertEquals("হয়েছে", before("হয়েছে "))
+        assertEquals("করা", before("করা "))
+        assertEquals("কিয়া", before("কিয়া, "))
+        assertEquals("किया", before("किया "))       // Devanagari matra
+        assertEquals("ก่อน", before("ก่อน "))          // Thai tone mark
+
+        // Still inside the word while the mark is the last thing typed.
+        assertNull(before("হয়েছে"))
+        assertNull(before("किया"))
+    }
+
+    @Test fun contextIsReadInTheStoresOwnSpelling() {
+        // Field text is whatever some keyboard or paste left there, so both
+        // spellings of য় turn up. They must key the same word — see WordKey.
+        // These two lines look identical and differ only in their bytes, and
+        // tools fold the precomposed one into the decomposed one given half a
+        // chance — which is exactly what happened while this test was being
+        // written, and what the assertFalse caught. Keep the assertion: without
+        // it a fold leaves every check below passing against itself.
+        val decomposed = "হয়েছে"
+        val precomposed = "হয়েছে"
+        assertFalse("the two spellings must differ as strings", decomposed == precomposed)
+        assertEquals(decomposed, before("$precomposed "))
+        assertEquals(before("$decomposed "), before("$precomposed "))
+    }
+
+    @Test fun bothContextWordsSurviveCombiningMarks() {
+        val (prev1, prev2) = WordContext.lastTwoWords("করা হয়েছে ", enders)
+        assertEquals("হয়েছে", prev1)
+        assertEquals("করা", prev2)
+    }
 }

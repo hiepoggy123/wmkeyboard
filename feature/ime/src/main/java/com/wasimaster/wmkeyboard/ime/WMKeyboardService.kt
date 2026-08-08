@@ -4637,7 +4637,8 @@ open class WMKeyboardService : InputMethodService() {
                 ) {
                     userLexicon.addWord(revert.original, boost = 5)
                 }
-                previousWord = revert.original.lowercase().trim { !it.isLetter() }.ifEmpty { null }
+                previousWord = revert.original.trim { !WordContext.isWordChar(it) }
+                    .lowercase().ifEmpty { null }
                 invalidateRecentWords()
             }
             RevertibleCommit.Kind.SNIPPET -> {
@@ -6652,7 +6653,9 @@ open class WMKeyboardService : InputMethodService() {
         var beforePrevious = previousWord2
         var lastLearned: String? = null
         for (part in word.split(' ')) {
-            val cleaned = part.trim { !it.isLetter() }
+            // Combining marks are part of the word, not a boundary: trimming
+            // on isLetter alone learns Bengali হয়েছে as হয়েছ. See WordContext.
+            val cleaned = part.trim { !WordContext.isWordChar(it) }
             if (cleaned.isEmpty()) continue
             // Tagged with the active language so a habit learned under one
             // language can be damped when it crowds another's strip.

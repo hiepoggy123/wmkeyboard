@@ -21,28 +21,49 @@ object WordContext {
     val SENTENCE_START: String = SENTINEL_CHAR + "s"
 
     /**
+     * True for a character that belongs to the word around it.
+     *
+     * `Char.isLetter()` on its own answers this only for the scripts that
+     * spell a word out of letters alone. Bengali হয়েছে ends in U+09C7 VOWEL
+     * SIGN E, a combining mark, so a letters-only boundary reads that word as
+     * having ended three characters earlier: `trim { !it.isLetter() }` hands
+     * back হয়েছ and `takeLastWhile { it.isLetter() }` hands back a bare ছ. The
+     * same holds for Devanagari matras, Tamil and Thai vowel signs, Arabic
+     * harakat and Hebrew niqqud. A combining mark never separates two words —
+     * it is part of what the letter before it spells.
+     */
+    fun isWordChar(c: Char): Boolean = c.isLetter() || when (c.category) {
+        CharCategory.NON_SPACING_MARK,
+        CharCategory.COMBINING_SPACING_MARK,
+        CharCategory.ENCLOSING_MARK,
+        -> true
+        else -> false
+    }
+
+    /**
      * The completed word ending [text], for next-word context:
      *  - null while still inside a word (or for empty text);
      *  - [SENTENCE_START] when a sentence ender lies between the last word
      *    and the caret ("Hello. " — the next word starts a sentence and
      *    "hello" is not its context). Known limitation, accepted: "Dr. "
      *    reads as a sentence start too;
-     *  - otherwise the last word, lowercased ("Hello, " -> "hello").
+     *  - otherwise the last word, in the one spelling every store keys on
+     *    ("Hello, " -> "hello"). See [WordKey]: the text here is read back out
+     *    of the field, so it can hold anything any keyboard or paste put there.
      */
     fun completedWordBefore(text: CharSequence?, enders: CharArray): String? {
         if (text.isNullOrEmpty()) return null
-        if (text.last().isLetterOrDigit()) return null
-        // The run of non-letters between the last word and the caret.
+        if (isWordChar(text.last()) || text.last().isDigit()) return null
+        // The run of separators between the last word and the caret.
         var i = text.length - 1
-        while (i >= 0 && !text[i].isLetter()) {
+        while (i >= 0 && !isWordChar(text[i])) {
             if (text[i] in enders) return SENTENCE_START
             i--
         }
         val word = text.toString()
-            .trim { !it.isLetter() }
-            .takeLastWhile { it.isLetter() }
-            .lowercase()
-        return word.ifEmpty { null }
+            .trim { !isWordChar(it) }
+            .takeLastWhile { isWordChar(it) }
+        return WordKey.of(word).ifEmpty { null }
     }
 
     /** True for the sentinel (or anything in its reserved control plane). */
@@ -61,8 +82,8 @@ object WordContext {
         // same question of what remains.
         val s = text.toString()
         var end = s.length
-        while (end > 0 && !s[end - 1].isLetter()) end--
-        while (end > 0 && s[end - 1].isLetter()) end--
+        while (end > 0 && !isWordChar(s[end - 1])) end--
+        while (end > 0 && isWordChar(s[end - 1])) end--
         val prev2 = completedWordBefore(s.substring(0, end), enders)
         return prev1 to prev2?.takeUnless { isSentinel(it) }
     }

@@ -96,7 +96,7 @@ class UserLexicon(private val storageFile: File?) {
      */
     @Synchronized
     fun learnWord(word: String, count: Int = 1, langId: String = "") {
-        val key = word.lowercase()
+        val key = WordKey.of(word)
         if (key.length < 2 || key.length > MAX_WORD_LENGTH || count <= 0) return
         val before = words[key] ?: 0
         val merged = (before.toLong() + count).coerceAtMost(MAX_COUNT.toLong()).toInt()
@@ -119,7 +119,7 @@ class UserLexicon(private val storageFile: File?) {
      * (settings-app additions, legacy files) — untagged means "any language".
      */
     @Synchronized
-    fun languageOf(word: String): String? = wordLangs[word.lowercase()]
+    fun languageOf(word: String): String? = wordLangs[WordKey.of(word)]
 
     /**
      * User-added dictionary entry: weighted like a word typed [boost]
@@ -128,7 +128,7 @@ class UserLexicon(private val storageFile: File?) {
      */
     @Synchronized
     fun addWord(word: String, boost: Int = 200) {
-        val key = word.trim().lowercase()
+        val key = WordKey.of(word.trim())
         if (key.isEmpty() || key.length > MAX_WORD_LENGTH) return
         val before = words[key] ?: 0
         val merged = (before.toLong() + boost).coerceAtMost(MAX_COUNT.toLong()).toInt()
@@ -162,8 +162,8 @@ class UserLexicon(private val storageFile: File?) {
 
     @Synchronized
     fun learnBigram(previous: String, next: String) {
-        val prev = previous.lowercase()
-        val nxt = next.lowercase()
+        val prev = WordKey.of(previous)
+        val nxt = WordKey.of(next)
         if (prev.isEmpty() || nxt.isEmpty()) return
         if (prev.length > MAX_WORD_LENGTH || nxt.length > MAX_WORD_LENGTH) return
         bigrams.getOrPut(prev) { Followers() }.bump(nxt)
@@ -172,13 +172,13 @@ class UserLexicon(private val storageFile: File?) {
 
     @Synchronized
     fun nextWords(previous: String, limit: Int): List<String> =
-        bigrams[previous]?.ordered()?.take(limit).orEmpty()
+        bigrams[WordKey.of(previous)]?.ordered()?.take(limit).orEmpty()
 
     @Synchronized
     fun learnTrigram(prev2: String, prev1: String, next: String) {
-        val a = prev2.lowercase()
-        val b = prev1.lowercase()
-        val c = next.lowercase()
+        val a = WordKey.of(prev2)
+        val b = WordKey.of(prev1)
+        val c = WordKey.of(next)
         if (a.isEmpty() || b.isEmpty() || c.isEmpty()) return
         if (a.length > MAX_WORD_LENGTH || b.length > MAX_WORD_LENGTH ||
             c.length > MAX_WORD_LENGTH
@@ -193,24 +193,24 @@ class UserLexicon(private val storageFile: File?) {
      * specific than [nextWords]; callers consult this first and fall back. */
     @Synchronized
     fun nextWordsAfter(prev2: String, prev1: String, limit: Int): List<String> =
-        trigrams[trigramKey(prev2.lowercase(), prev1.lowercase())]
+        trigrams[trigramKey(WordKey.of(prev2), WordKey.of(prev1))]
             ?.ordered()?.take(limit).orEmpty()
 
     /** Learned count of ((prev2, prev1) -> next), 0 when never seen. */
     @Synchronized
     fun trigramCount(prev2: String, prev1: String, next: String): Int =
-        trigrams[trigramKey(prev2.lowercase(), prev1.lowercase())]
-            ?.counts?.get(next.lowercase()) ?: 0
+        trigrams[trigramKey(WordKey.of(prev2), WordKey.of(prev1))]
+            ?.counts?.get(WordKey.of(next)) ?: 0
 
     /** Learned count of the pair (previous -> next), 0 when never seen. */
     @Synchronized
     fun bigramCount(previous: String, next: String): Int =
-        bigrams[previous.lowercase()]?.counts?.get(next.lowercase()) ?: 0
+        bigrams[WordKey.of(previous)]?.counts?.get(WordKey.of(next)) ?: 0
 
     /** Defensive copy of a word's follower counts (capped at MAX_FOLLOWERS). */
     @Synchronized
     fun followerCounts(previous: String): Map<String, Int> =
-        bigrams[previous.lowercase()]?.counts?.let(::HashMap).orEmpty()
+        bigrams[WordKey.of(previous)]?.counts?.let(::HashMap).orEmpty()
 
     @Synchronized
     fun complete(prefix: String, limit: Int): List<Suggestion> = trie.complete(prefix, limit)
@@ -225,10 +225,10 @@ class UserLexicon(private val storageFile: File?) {
     fun walkers(): List<TrieWalker> = trie.walkers()
 
     @Synchronized
-    fun contains(word: String): Boolean = trie.contains(word)
+    fun contains(word: String): Boolean = trie.contains(WordKey.of(word))
 
     @Synchronized
-    fun frequencyOf(word: String): Int = trie.frequencyOf(word)
+    fun frequencyOf(word: String): Int = trie.frequencyOf(WordKey.of(word))
 
     /** Snapshot of all learned words with their counts. */
     @Synchronized
@@ -236,7 +236,7 @@ class UserLexicon(private val storageFile: File?) {
 
     @Synchronized
     fun forget(word: String) {
-        val key = word.lowercase()
+        val key = WordKey.of(word)
         words.remove(key)
         wordGen.remove(key)
         wordLangs.remove(key)
