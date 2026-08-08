@@ -49,6 +49,11 @@ import com.wasimaster.wmkeyboard.core.settings.PersonaLanguages
  * hints below the field point at the wow moments the wizard just enabled (a
  * calculation chip, a tool hotword), not at things the keys already show.
  * Nothing typed here is stored anywhere.
+ *
+ * Everything on this page is packed against the top — a one-line header, a
+ * two-line field, then the hints. The keyboard takes the bottom half of the
+ * screen the moment this page opens, and a page that put anything below the
+ * fold here would be hiding the very prompts it is asking the user to try.
  */
 @Composable
 internal fun TryPage(settings: KeyboardSettings) {
@@ -77,10 +82,10 @@ internal fun TryPage(settings: KeyboardSettings) {
         value = text,
         onValueChange = { text = it },
         placeholder = { Text(stringResource(R.string.onboarding_try_field_hint)) },
-        minLines = 3,
+        minLines = 2,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 4.dp)
             .focusRequester(focusRequester),
     )
     AnimatedVisibility(

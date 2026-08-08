@@ -6,15 +6,10 @@
 
     <!-- Onboarding, welcome page. -->
     <string name="onboarding_welcome_title">Welcome to WM Keyboard</string>
-    <!-- %1$d is the number of languages the app has built in. -->
-    <plurals name="onboarding_welcome_subtitle">
-        <item quantity="one">WM Keyboard works offline and types in many languages. It has %1$d language built in, with phonetic and native layouts, glide typing and themes. First, set it as your keyboard.</item>
-        <item quantity="other">WM Keyboard works offline and types in many languages. It has %1$d languages built in, with phonetic and native layouts, glide typing and themes. First, set it as your keyboard.</item>
-    </plurals>
-    <string name="onboarding_welcome_body">The next steps set up the choices that differ for each person: languages, look, feel and gestures. You can change all of them later in settings.</string>
+    <string name="onboarding_welcome_subtitle">Two steps and you are typing.</string>
     <!-- Shown under the setup card while the keyboard is not yet turned on and
          selected. The Next button waits for both. -->
-    <string name="onboarding_welcome_required">Turn WM Keyboard on and select it to continue. Press Skip at the top of the screen to set it up later.</string>
+    <string name="onboarding_welcome_required">Press Skip at the top to do this later.</string>
 
     <!-- Onboarding, languages page. -->
     <string name="onboarding_languages_title">Your languages</string>
@@ -25,6 +20,9 @@
     </plurals>
     <string name="onboarding_language_suggested_title">Suggested for you</string>
     <string name="onboarding_language_suggested_info">These come from the language settings and the region of your device. The app does not read what you type, and no data leaves your device.</string>
+    <!-- Says that adding a language here starts its download, because the
+         wizard adds languages without asking the download question. -->
+    <string name="onboarding_language_auto_download_info">The keyboard downloads the word list and the prediction data for each language you add here. The download runs in the background over your current connection. You can delete the data later in Settings, then Languages.</string>
     <string name="onboarding_language_add_title">Add a language</string>
     <string name="onboarding_language_search_hint">Search languages</string>
     <!-- Screen reader label for the button that adds a language. %1$s is the English name of the language. -->
@@ -44,30 +42,15 @@
 
     <!-- Onboarding, look and feel page. -->
     <string name="onboarding_look_title">Look and feel</string>
-    <string name="onboarding_look_subtitle">Select how the keyboard and the app look. AMOLED is fully black for OLED screens. Material You takes its colors from your wallpaper.</string>
+    <string name="onboarding_look_subtitle">Select how the keyboard looks. AMOLED is fully black for OLED screens.</string>
     <!-- App theme choices. "Auto" follows the light or dark mode of the device. -->
     <string name="onboarding_theme_mode_auto">Auto</string>
     <string name="onboarding_theme_mode_light">Light</string>
     <string name="onboarding_theme_mode_dark">Dark</string>
     <string name="onboarding_theme_mode_amoled" translatable="false">AMOLED</string>
-    <string name="onboarding_dynamic_color_title">Material You colors</string>
-    <string name="onboarding_dynamic_color_subtitle">The keyboard takes its colors from your wallpaper. Android 12 and later only</string>
     <string name="onboarding_keyboard_theme_title">Keyboard theme</string>
     <!-- Name of the Android colour system. It is a brand name. -->
     <string name="onboarding_keyboard_theme_material_you_label" translatable="false">Material You</string>
-    <string name="onboarding_keyboard_theme_info">You can find custom colors, background images, import and export in Appearance, then Keyboard themes.</string>
-    <string name="onboarding_rows_title">Rows above the keys</string>
-    <string name="onboarding_rows_body">The toolbar always shows. It holds the suggestions, the tools and the toolbox. You select whether to show the emoji row and the symbol row. You can change their order and their content later in Rows and bars.</string>
-    <string name="onboarding_emoji_row_label">Emoji row</string>
-    <!-- The emoji row appears only after you press a button on the toolbar. -->
-    <string name="onboarding_emoji_row_button">Button</string>
-    <!-- The emoji row is always there, as a row of its own. -->
-    <string name="onboarding_emoji_row_always">Own row</string>
-    <string name="onboarding_symbol_row_title">Symbol row</string>
-    <string name="onboarding_symbol_row_subtitle">One press for special characters and snippets, such as @gmail.com, https:// and brackets</string>
-    <!-- Says that keyboard modes override the two row settings above for some
-         apps and some input fields. -->
-    <string name="onboarding_rows_modes_info">Modes change these two rows by themselves. The emoji row turns on in chat apps. The symbol row turns on in email, web and code fields. Both rows turn off in password fields. The modes are in Settings, then Modes.</string>
 
     <!-- Onboarding, emoji page. It appears when the font of the device cannot
          draw some emoji, and on the devices that draw emoji in the set of the
@@ -82,6 +65,9 @@
     <!-- Shown in place of the count above, on a device that draws every emoji
          but draws them in the set of the manufacturer. -->
     <string name="onboarding_emoji_own_set_body">Your device draws every emoji, but it uses the set of the manufacturer. These are not the images that most other devices show. Select the emoji you want to see.</string>
+    <!-- Labels of the two rows that draw the same emoji in each font. -->
+    <string name="onboarding_emoji_compare_device">On your device</string>
+    <string name="onboarding_emoji_compare_google">With Google emoji</string>
     <string name="onboarding_emoji_hide_title">Hide the emoji your device cannot draw</string>
     <string name="onboarding_emoji_hide_subtitle">The emoji panel, the search and the suggestions leave out the empty boxes</string>
     <string name="onboarding_emoji_font_info">To see all of the emoji, use a complete emoji font. Select \"Google\" (Noto Color Emoji), or import an emoji font file such as Twemoji or OpenMoji. Both are in Emoji, then Emoji font. WM Keyboard uses the emoji font of your device and includes no font of its own. You can change all of this later in Settings, then Emoji.</string>
@@ -94,8 +80,6 @@
     <string name="onboarding_feedback_subtitle">Some people want a signal for each key press. Other people want silence. The strength, the duration and the popups are in Typing settings.</string>
     <string name="onboarding_haptics_title">Key press haptics</string>
     <string name="onboarding_haptics_subtitle">The device vibrates on each key press</string>
-    <string name="onboarding_haptic_style_label">Haptic style</string>
-    <string name="onboarding_haptic_style_hint">Press one to feel it.</string>
     <string name="onboarding_key_sound_title">Key press sound</string>
     <string name="onboarding_key_sound_subtitle">The device makes a click sound on each key press</string>
     <string name="onboarding_key_popup_title">Key popup</string>
@@ -149,26 +133,26 @@
     <!-- Onboarding, persona quiz page. Each option's subtitle states exactly
          what picking it changes, so nobody picks blind. -->
     <string name="onboarding_persona_title">Make it yours</string>
-    <string name="onboarding_persona_subtitle">Three quick questions shape the rest of the setup. Answering is optional, and every choice can be changed later in settings.</string>
+    <string name="onboarding_persona_subtitle">Three quick questions. All of them optional.</string>
     <string name="onboarding_persona_q_languages">How many languages do you type in?</string>
     <string name="onboarding_persona_lang_one_title">Just one</string>
-    <string name="onboarding_persona_lang_one_subtitle">Spacebar swipes move the text cursor. The 🌐 key becomes an emoji key.</string>
+    <string name="onboarding_persona_lang_one_subtitle">Spacebar swipes move the cursor.</string>
     <string name="onboarding_persona_lang_many_title">Two or more</string>
-    <string name="onboarding_persona_lang_many_subtitle">Spacebar swipes switch language. The language pages stay in this setup.</string>
+    <string name="onboarding_persona_lang_many_subtitle">Spacebar swipes change the language.</string>
     <!-- Shown under the question once "Two or more" is picked. -->
-    <string name="onboarding_persona_many_notice">Short and long spacebar swipes now both switch language. You can give one of them back to the cursor on the gestures page, or later in Typing settings.</string>
+    <string name="onboarding_persona_many_notice">Both spacebar swipes now change the language. You can give one back to the cursor on the next pages.</string>
     <string name="onboarding_persona_q_depth">What kind of keyboard do you want?</string>
     <string name="onboarding_persona_depth_minimal_title">Keep it simple</string>
-    <string name="onboarding_persona_depth_minimal_subtitle">Starts with 6 essential tools and skips the fine-tuning pages.</string>
+    <string name="onboarding_persona_depth_minimal_subtitle">6 tools, fewer setup pages.</string>
     <string name="onboarding_persona_depth_balanced_title">A good middle</string>
-    <string name="onboarding_persona_depth_balanced_subtitle">Starts with the recommended tool set and the standard setup pages.</string>
+    <string name="onboarding_persona_depth_balanced_subtitle">The tools most people use.</string>
     <string name="onboarding_persona_depth_power_title">Show me everything</string>
-    <string name="onboarding_persona_depth_power_subtitle">All setup pages, plus a page to pick from every tool.</string>
+    <string name="onboarding_persona_depth_power_subtitle">All pages, and every tool to pick from.</string>
     <string name="onboarding_persona_q_privacy">How private should it be?</string>
     <string name="onboarding_persona_privacy_standard_title">Standard</string>
-    <string name="onboarding_persona_privacy_standard_subtitle">Typing stays on your device. The keyboard learns your words to improve suggestions.</string>
+    <string name="onboarding_persona_privacy_standard_subtitle">Learns your words. Nothing leaves the device.</string>
     <string name="onboarding_persona_privacy_strict_title">Extra strict</string>
-    <string name="onboarding_persona_privacy_strict_subtitle">No learning from typing. No clipboard history. No typing statistics.</string>
+    <string name="onboarding_persona_privacy_strict_subtitle">No learning, no clipboard history, no statistics.</string>
 
     <!-- Onboarding, discover page: the features people would not guess at. -->
     <string name="onboarding_discover_title">Worth knowing about</string>

@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,10 +24,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.OnboardingSettings
 import com.wasimaster.wmkeyboard.core.settings.PersonaDepth
 import com.wasimaster.wmkeyboard.core.settings.PersonaLanguages
 import com.wasimaster.wmkeyboard.core.settings.PersonaPrivacy
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
+import com.wasimaster.wmkeyboard.core.util.PlayServices
 import kotlinx.coroutines.launch
 
 /**
@@ -44,6 +48,13 @@ internal fun PersonaPage(
 ) {
     val scope = rememberCoroutineScope()
     val persona = settings.onboarding
+    // Recomputed from the answers as a whole after each one, since the depth
+    // answer picks the set and the privacy answer adds to it — see
+    // [starterTools]. Held here so both call sites read the same device facts.
+    val playServices = remember { PlayServices.available }
+    val applyTools: suspend (OnboardingSettings) -> Unit = { next ->
+        starterTools(next, playServices, ::isSupportedTool)?.let { repository.setEnabledTools(it) }
+    }
 
     OnboardingSectionTitle(stringResource(R.string.onboarding_persona_q_languages))
     PersonaOption(
@@ -97,9 +108,9 @@ internal fun PersonaPage(
             scope.launch {
                 repository.setPersonaDepth(depth)
                 if (!replay) {
-                    applyPresets(repository, presetsFor(depth))
+                    applyTools(persona.copy(personaDepth = depth))
                     // The answer just landed a tool set; the tools page must
-                    // not seed the recommended set over it.
+                    // not seed its own over it.
                     onToolsSeeded()
                 }
             }
@@ -112,7 +123,12 @@ internal fun PersonaPage(
         subtitle = stringResource(R.string.onboarding_persona_privacy_standard_subtitle),
         selected = persona.personaPrivacy == PersonaPrivacy.STANDARD,
     ) {
-        scope.launch { repository.setPersonaPrivacy(PersonaPrivacy.STANDARD) }
+        scope.launch {
+            repository.setPersonaPrivacy(PersonaPrivacy.STANDARD)
+            // Answered after "extra strict" and then changed back: the set
+            // still has incognito in it, so recompute rather than leave it.
+            if (!replay) applyTools(persona.copy(personaPrivacy = PersonaPrivacy.STANDARD))
+        }
     }
     PersonaOption(
         title = stringResource(R.string.onboarding_persona_privacy_strict_title),
@@ -121,7 +137,10 @@ internal fun PersonaPage(
     ) {
         scope.launch {
             repository.setPersonaPrivacy(PersonaPrivacy.STRICT)
-            if (!replay) applyPresets(repository, presetsFor(PersonaPrivacy.STRICT))
+            if (!replay) {
+                applyPresets(repository, presetsFor(PersonaPrivacy.STRICT))
+                applyTools(persona.copy(personaPrivacy = PersonaPrivacy.STRICT))
+            }
         }
     }
     Spacer(Modifier.height(8.dp))
@@ -135,7 +154,6 @@ private suspend fun applyPresets(repository: SettingsRepository, writes: List<Pr
             repository.setSpaceLongSwipe(write.long)
         }
         is PresetWrite.GlobeAsEmoji -> repository.setGlobeAsEmoji(write.value)
-        is PresetWrite.Tools -> repository.setEnabledTools(write.tools)
         is PresetWrite.LearnFromTyping -> repository.setLearnFromTyping(write.value)
         is PresetWrite.ClipboardHistory -> repository.setClipboardHistory(write.value)
         is PresetWrite.TypingStats -> repository.setTypingStatsEnabled(write.value)

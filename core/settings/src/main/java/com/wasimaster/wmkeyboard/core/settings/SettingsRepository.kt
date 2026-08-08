@@ -1022,7 +1022,13 @@ data class KeyboardSettings(
      * it drops the unintended second contact of a bouncing tap.
      */
     val keyDebounceMs: Int = 0,
-    val numberRow: Boolean = false,
+    /**
+     * The digit row above the letters. On by default: typing a number without
+     * it costs a trip through the symbols layer, and every phone screen made
+     * this decade has the height for a sixth row. Turning it off is one switch
+     * on the wizard's gestures page and in Typing settings.
+     */
+    val numberRow: Boolean = true,
     /**
      * Sizing overrides per screen shape (landscape, unfolded, both). The
      * plain sizing fields above are the portrait values; anything a variant

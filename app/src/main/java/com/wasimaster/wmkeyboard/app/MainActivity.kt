@@ -11004,6 +11004,7 @@ internal fun AltCalendarSetting(
     title: String,
     subtitle: String,
     selected: AltCalendar,
+    icon: ImageVector? = null,
     onChange: (AltCalendar) -> Unit,
 ) {
     var dialogOpen by remember { mutableStateOf(false) }
@@ -11013,6 +11014,7 @@ internal fun AltCalendarSetting(
         title,
         subtitle = subtitle,
         value = stringResource(selected.labelRes).substringBefore(" ·"),
+        icon = icon,
         onClick = { dialogOpen = true },
     )
     if (dialogOpen) {

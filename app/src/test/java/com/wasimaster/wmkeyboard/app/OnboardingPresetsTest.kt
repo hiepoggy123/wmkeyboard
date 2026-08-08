@@ -1,13 +1,16 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.core.settings.DefaultToolOrder
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.MinimalTools
 import com.wasimaster.wmkeyboard.core.settings.OnboardingSettings
 import com.wasimaster.wmkeyboard.core.settings.PersonaDepth
 import com.wasimaster.wmkeyboard.core.settings.PersonaLanguages
 import com.wasimaster.wmkeyboard.core.settings.PersonaPrivacy
+import com.wasimaster.wmkeyboard.core.settings.PowerTools
 import com.wasimaster.wmkeyboard.core.settings.RecommendedTools
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
+import com.wasimaster.wmkeyboard.core.settings.ToolTopUps
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -40,19 +43,55 @@ class OnboardingPresetsTest {
 
     @Test
     fun `depth answers land their tool sets`() {
-        assertEquals(
-            listOf(PresetWrite.Tools(MinimalTools)),
-            presetsFor(PersonaDepth.MINIMAL),
-        )
-        assertEquals(
-            listOf(PresetWrite.Tools(RecommendedTools)),
-            presetsFor(PersonaDepth.BALANCED),
-        )
-        assertEquals(
-            listOf(PresetWrite.Tools(RecommendedTools)),
-            presetsFor(PersonaDepth.POWER),
-        )
+        assertEquals(MinimalTools, tools(PersonaDepth.MINIMAL))
+        assertEquals(RecommendedTools, tools(PersonaDepth.BALANCED))
+        assertEquals(PowerTools, tools(PersonaDepth.POWER))
+        assertNull(tools(PersonaDepth.UNSET))
     }
+
+    @Test
+    fun `strict privacy adds incognito to whichever set it is`() {
+        for (depth in listOf(PersonaDepth.MINIMAL, PersonaDepth.BALANCED, PersonaDepth.POWER)) {
+            assertTrue(
+                ToolbarTool.INCOGNITO in
+                    tools(depth, privacy = PersonaPrivacy.STRICT).orEmpty(),
+            )
+            assertTrue(ToolbarTool.INCOGNITO !in tools(depth).orEmpty())
+        }
+    }
+
+    @Test
+    fun `a set short of an unsupported tool is topped back up`() {
+        val short = tools(PersonaDepth.BALANCED) { it != ToolbarTool.HANDWRITING }.orEmpty()
+        assertTrue(ToolbarTool.HANDWRITING !in short)
+        assertTrue(short.containsAll(ToolTopUps))
+        // Same on a device with no Google services, even where everything is
+        // otherwise supported.
+        val gmsFree = starterTools(
+            OnboardingSettings(personaDepth = PersonaDepth.BALANCED),
+            playServices = false,
+        ) { true }.orEmpty()
+        assertTrue(gmsFree.containsAll(ToolTopUps))
+    }
+
+    @Test
+    fun `the toolbox order starts with the starter sets`() {
+        assertEquals(PowerTools.toList(), DefaultToolOrder.take(PowerTools.size))
+        assertEquals(MinimalTools.toList(), DefaultToolOrder.take(MinimalTools.size))
+        // Nothing is dropped by the rewrite: every tool still has a place.
+        assertEquals(ToolbarTool.entries.toSet(), DefaultToolOrder.toSet())
+        assertEquals(ToolbarTool.entries.size, DefaultToolOrder.size)
+    }
+
+    private fun tools(
+        depth: PersonaDepth,
+        privacy: PersonaPrivacy = PersonaPrivacy.UNSET,
+        isSupported: (ToolbarTool) -> Boolean = { true },
+    ): Set<ToolbarTool>? = starterTools(
+        OnboardingSettings(personaDepth = depth, personaPrivacy = privacy),
+        playServices = true,
+        isSupported = isSupported,
+    )
 
     @Test
     fun `strict privacy turns off learning history and statistics`() {
@@ -71,7 +110,6 @@ class OnboardingPresetsTest {
         assertTrue(presetsFor(PersonaPrivacy.STANDARD).isEmpty())
         assertTrue(presetsFor(PersonaPrivacy.UNSET).isEmpty())
         assertTrue(presetsFor(PersonaLanguages.UNSET).isEmpty())
-        assertTrue(presetsFor(PersonaDepth.UNSET).isEmpty())
     }
 
     @Test
@@ -97,10 +135,10 @@ class OnboardingPresetsTest {
     @Test
     fun `finishing over the untouched all-on default lands the persona's set`() {
         val allOn = KeyboardSettings(enabledTools = ToolbarTool.entries.toList())
-        assertEquals(RecommendedTools, toolsAfterFinish(allOn))
+        assertEquals(RecommendedTools, afterFinish(allOn))
         assertEquals(
             MinimalTools,
-            toolsAfterFinish(
+            afterFinish(
                 allOn.copy(onboarding = OnboardingSettings(personaDepth = PersonaDepth.MINIMAL)),
             ),
         )
@@ -108,6 +146,9 @@ class OnboardingPresetsTest {
 
     @Test
     fun `a touched tool selection is never overwritten on finish`() {
-        assertNull(toolsAfterFinish(KeyboardSettings(enabledTools = listOf(ToolbarTool.EMOJI))))
+        assertNull(afterFinish(KeyboardSettings(enabledTools = listOf(ToolbarTool.EMOJI))))
     }
+
+    private fun afterFinish(settings: KeyboardSettings): Set<ToolbarTool>? =
+        toolsAfterFinish(settings, playServices = true) { true }
 }

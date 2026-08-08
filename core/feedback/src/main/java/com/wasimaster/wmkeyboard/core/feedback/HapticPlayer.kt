@@ -51,6 +51,33 @@ object HapticPlayer {
     }
 
     /**
+     * The style to start a device on: the platform's own key haptic where the
+     * motor can actually play it, and a heavy click where it cannot.
+     *
+     * [HapticStyle.SYSTEM_KEY] is the better answer wherever it works — it is
+     * the effect the phone's own keyboard uses, tuned per device by the
+     * vendor. It falls through to the predefined `EFFECT_CLICK` family, so a
+     * device that reports those as unsupported plays nothing recognisable as a
+     * key press through the system route; there [HapticStyle.HEAVY_CLICK] at
+     * least drives the coil hard enough to be felt.
+     *
+     * Support is only knowable from API 30, where `areAllEffectsSupported`
+     * exists. Below it the predefined effects are still the best guess, and an
+     * older device is also the one most likely to have a mushy motor — so the
+     * cut-off doubles as the version check.
+     */
+    fun bestSupportedStyle(context: Context): HapticStyle {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return HapticStyle.HEAVY_CLICK
+        val vibrator = vibratorFor(context)
+        if (!vibrator.hasVibrator()) return HapticStyle.SYSTEM_KEY
+        val supported = vibrator.areAllEffectsSupported(
+            VibrationEffect.EFFECT_CLICK,
+            VibrationEffect.EFFECT_HEAVY_CLICK,
+        ) == Vibrator.VIBRATION_EFFECT_SUPPORT_YES
+        return if (supported) HapticStyle.SYSTEM_KEY else HapticStyle.HEAVY_CLICK
+    }
+
+    /**
      * Rate-limited [play] for settings UIs: fires the motor with the values
      * being edited (not yet necessarily persisted), at most once per
      * [PREVIEW_GAP_MS].

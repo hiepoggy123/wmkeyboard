@@ -1,13 +1,13 @@
 package com.wasimaster.wmkeyboard.app
 
-import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.view.inputmethod.InputMethodManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -60,18 +60,22 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiRenderCheck
+import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.script.DeviceLocales
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.LanguageSuggestions
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
+import com.wasimaster.wmkeyboard.core.util.PlayServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -103,12 +107,14 @@ internal fun OnboardingScreen(
     // Read once at entry too, so the welcome page doesn't pop in and out of
     // the page list while a replaying user flips the keyboard elsewhere.
     val replayImeReady = remember { imeEnabled(context) && imeSelected(context) }
-    // How many catalog emoji this phone's own font can't draw; null while the
-    // count is still running.
-    val missingEmoji = rememberUnrenderableEmojiCount()
-    val pages = remember(missingEmoji, settings.enabledTools, settings.onboarding, settings.enabledLanguages.size) {
+    // Which catalog emoji this phone's own font can't draw; null while the
+    // scan is still running.
+    val missingEmoji = rememberUnrenderableEmoji()
+    val pages = remember(
+        missingEmoji, settings.enabledTools, settings.onboarding, settings.enabledLanguages.size,
+    ) {
         onboardingPages(
-            missingEmoji = missingEmoji,
+            missingEmoji = missingEmoji?.size,
             samsungEmoji = shipsOwnEmojiSet(),
             persona = settings.onboarding,
             enabledTools = settings.enabledTools,
@@ -121,8 +127,6 @@ internal fun OnboardingScreen(
     val index = resolvePageIndex(pages, current)
     val page = pages[index]
     val onLastPage = index == pages.lastIndex
-    // Which way the last page turn went, for the slide direction.
-    var lastIndex by rememberSaveable { mutableStateOf(index) }
     // Whether the tools page (or the persona quiz on its behalf) has applied
     // its recommended starting selection. Hoisted here so leaving and
     // revisiting the page can't re-apply it over the user's choices.
@@ -137,14 +141,19 @@ internal fun OnboardingScreen(
     // wants to set the keyboard up later. A replay that starts past Welcome
     // already checked.
     var keyboardReady by remember { mutableStateOf(replay && replayImeReady) }
-    if (!replay) SeedLanguagesFromDevice(repository, settings)
+    if (!replay) {
+        SeedLanguagesFromDevice(repository, settings)
+        SeedHapticStyleFromDevice(repository)
+    }
     val accent = OnboardingPageAccents.getValue(page)
+    val playServices = remember { PlayServices.available }
     val finish: () -> Unit = {
-        finishOnboarding(scope, repository, settings, replay)
+        finishOnboarding(scope, repository, settings, replay, playServices)
         onFinished()
     }
+    // Which way the turn went is read off the transition itself
+    // (initialState vs targetState), so the move is only the page change.
     val goTo: (Int) -> Unit = { target ->
-        lastIndex = index
         current = pages[target.coerceIn(0, pages.lastIndex)]
     }
 
@@ -162,13 +171,15 @@ internal fun OnboardingScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 OnboardingProgress(
+                    pages = pages,
                     index = index,
-                    count = pages.size,
                     accent = accent,
                     reduceMotion = settings.reduceMotion,
                 )
                 Spacer(Modifier.weight(1f))
-                if (!replay) {
+                // No Skip on the last page: the only thing left to skip there
+                // is the Finish button next to it.
+                if (!replay && !onLastPage) {
                     TextButton(onClick = finish) {
                         Text(stringResource(CommonR.string.common_skip))
                     }
@@ -188,12 +199,18 @@ internal fun OnboardingScreen(
                         val spec = tween<androidx.compose.ui.unit.IntOffset>(
                             NavTransitionMs, easing = NavTransitionEasing,
                         )
+                        // Both pages travel a full width, and the outgoing one
+                        // fades as it goes. The old parallax (a third of a
+                        // width out) left the two stacked on top of each other
+                        // for most of the turn, which read as a bug rather than
+                        // as depth.
+                        val fade = tween<Float>(NavTransitionMs / 2, easing = NavTransitionEasing)
                         if (forward) {
-                            slideInHorizontally(spec) { it } togetherWith
-                                slideOutHorizontally(spec) { -it / 3 }
+                            (slideInHorizontally(spec) { it } + fadeIn(fade)) togetherWith
+                                (slideOutHorizontally(spec) { -it } + fadeOut(fade))
                         } else {
-                            slideInHorizontally(spec) { -it / 3 } togetherWith
-                                slideOutHorizontally(spec) { it }
+                            (slideInHorizontally(spec) { -it } + fadeIn(fade)) togetherWith
+                                (slideOutHorizontally(spec) { it } + fadeOut(fade))
                         }
                     }
                 },
@@ -231,7 +248,7 @@ internal fun OnboardingScreen(
                         OnboardingPage.LANGUAGES -> LanguagesPage(repository, settings)
                         OnboardingPage.LOOK -> LookPage(repository, settings)
                         OnboardingPage.EMOJI ->
-                            EmojiPage(repository, settings, missingEmoji ?: 0)
+                            EmojiPage(repository, settings, missingEmoji.orEmpty())
                         OnboardingPage.FEEDBACK -> FeedbackPage(repository, settings)
                         OnboardingPage.GESTURES -> GesturesPage(repository, settings)
                         OnboardingPage.DISCOVER -> DiscoverPage(repository, settings)
@@ -283,20 +300,30 @@ private fun finishOnboarding(
     repository: SettingsRepository,
     settings: KeyboardSettings,
     replay: Boolean,
+    playServices: Boolean,
 ) {
     scope.launch {
         if (!replay) {
-            toolsAfterFinish(settings)?.let { repository.setEnabledTools(it) }
+            toolsAfterFinish(settings, playServices, ::isSupportedTool)?.let {
+                repository.setEnabledTools(it)
+            }
             repository.setOnboardingDone(true)
         }
     }
 }
 
-/** The wizard's progress: one pill per page, the current one stretched and tinted. */
+/**
+ * The wizard's progress: a dot per page, with the current one grown into an
+ * accent pill that carries that page's own icon.
+ *
+ * The icon rather than a bare stretched pill because every page already has
+ * one on its hero — the same glyph in the progress row says *which* step this
+ * is, not only how many are left, and it costs no extra width to say it.
+ */
 @Composable
 private fun OnboardingProgress(
+    pages: List<OnboardingPage>,
     index: Int,
-    count: Int,
     accent: androidx.compose.ui.graphics.Color,
     reduceMotion: Boolean,
 ) {
@@ -304,42 +331,90 @@ private fun OnboardingProgress(
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        repeat(count) { i ->
-            val width by animateDpAsState(
-                targetValue = if (i == index) 24.dp else 8.dp,
+        pages.forEachIndexed { i, page ->
+            val current = i == index
+            val size by animateDpAsState(
+                targetValue = if (current) ProgressPillSize else ProgressDotSize,
                 animationSpec = if (reduceMotion) snap() else tween(NavTransitionMs),
                 label = "progressPill",
             )
             Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(width = width, height = 8.dp)
+                    .size(size)
                     .background(
                         when {
-                            i == index -> accent
+                            current -> accent
                             i < index -> accent.copy(alpha = 0.45f)
                             else -> MaterialTheme.colorScheme.surfaceVariant
                         },
                         CircleShape,
                     ),
-            )
+            ) {
+                if (current) {
+                    Icon(
+                        heroIcon(page),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
         }
     }
 }
 
-private val HeroTileSize: Dp = 56.dp
+/** The progress row's two sizes: a plain dot, and the pill holding an icon. */
+private val ProgressDotSize: Dp = 8.dp
+private val ProgressPillSize: Dp = 22.dp
 
-/** The page's header: an accent icon tile, the title, and one line of intent. */
+private val HeroTileSize: Dp = 56.dp
+private val CompactHeroTileSize: Dp = 40.dp
+
+/**
+ * The page's header: an accent icon tile, the title, and one line of intent.
+ *
+ * Two pages take a different shape. The welcome page centres its tile next to
+ * the title on one line — it is the app's front door, and a left-aligned
+ * column of three things reads as the first of many forms. The try page keeps
+ * its header to a single short line, because the keyboard is about to cover
+ * the bottom half of the screen and the text field has to be above it.
+ */
 @Composable
 private fun OnboardingHero(page: OnboardingPage) {
-    val accent = OnboardingPageAccents.getValue(page)
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
-        WmIconTile(accent, size = HeroTileSize, radius = 18.dp) {
-            Icon(
-                heroIcon(page),
-                contentDescription = null,
-                modifier = Modifier.size(30.dp),
+    if (page == OnboardingPage.WELCOME || page == OnboardingPage.TRY) {
+        val welcome = page == OnboardingPage.WELCOME
+        Column(
+            horizontalAlignment = if (welcome) Alignment.CenterHorizontally else Alignment.Start,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = if (welcome) 24.dp else 12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                HeroTile(
+                    page,
+                    size = if (welcome) HeroTileSize else CompactHeroTileSize,
+                    glyph = if (welcome) 30.dp else 22.dp,
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    heroTitle(page),
+                    style = if (welcome) MaterialTheme.typography.headlineMedium
+                    else MaterialTheme.typography.titleLarge,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                heroSubtitle(page),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = if (welcome) TextAlign.Center else TextAlign.Start,
             )
         }
+        return
+    }
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
+        HeroTile(page, size = HeroTileSize, glyph = 30.dp)
         Spacer(Modifier.height(12.dp))
         Text(heroTitle(page), style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(4.dp))
@@ -348,6 +423,14 @@ private fun OnboardingHero(page: OnboardingPage) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/** The hero's accent tile, at whichever of the two sizes the page uses. */
+@Composable
+private fun HeroTile(page: OnboardingPage, size: Dp, glyph: Dp) {
+    WmIconTile(OnboardingPageAccents.getValue(page), size = size, radius = size / 3) {
+        Icon(heroIcon(page), contentDescription = null, modifier = Modifier.size(glyph))
     }
 }
 
@@ -384,11 +467,6 @@ private fun heroTitle(page: OnboardingPage): String = stringResource(
 
 @Composable
 private fun heroSubtitle(page: OnboardingPage): String = when (page) {
-    OnboardingPage.WELCOME -> pluralStringResource(
-        R.plurals.onboarding_welcome_subtitle,
-        LanguageRegistry.all.size,
-        LanguageRegistry.all.size,
-    )
     OnboardingPage.LANGUAGES -> pluralStringResource(
         R.plurals.onboarding_languages_subtitle,
         LanguageRegistry.all.size,
@@ -396,6 +474,7 @@ private fun heroSubtitle(page: OnboardingPage): String = when (page) {
     )
     else -> stringResource(
         when (page) {
+            OnboardingPage.WELCOME -> R.string.onboarding_welcome_subtitle
             OnboardingPage.PERSONA -> R.string.onboarding_persona_subtitle
             OnboardingPage.LOOK -> R.string.onboarding_look_subtitle
             OnboardingPage.EMOJI -> R.string.onboarding_emoji_subtitle
@@ -453,22 +532,51 @@ private fun shipsOwnEmojiSet(): Boolean =
     Build.MANUFACTURER.equals("samsung", ignoreCase = true)
 
 /**
- * Counts the catalog emoji this phone's own emoji font can't draw. Runs off the
- * main thread; null until the count lands.
+ * The catalog emoji this phone's own emoji font can't draw. Runs off the main
+ * thread; null until the scan lands.
+ *
+ * Saved across configuration changes rather than merely remembered: the page
+ * list is gated on this, so a rotation that dropped it back to null took the
+ * emoji page out from under the user and slid the whole wizard back a step.
  */
 @Composable
-private fun rememberUnrenderableEmojiCount(): Int? {
+private fun rememberUnrenderableEmoji(): List<String>? {
     val context = LocalContext.current
-    var count by remember { mutableStateOf<Int?>(null) }
+    // Held as a plain List, but always *stored* as an ArrayList: the saveable
+    // registry only accepts what a Bundle can carry.
+    var missing by rememberSaveable { mutableStateOf<List<String>?>(null) }
     LaunchedEffect(Unit) {
-        count = withContext(Dispatchers.Default) {
+        if (missing != null) return@LaunchedEffect
+        missing = withContext(Dispatchers.Default) {
             val catalog = runCatching {
                 context.assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }
             }.getOrDefault(emptyList())
-            EmojiRenderCheck.unrenderable(catalog.map { it.emoji }, null).size
+            // Catalog order, so the sample the page shows is a spread of the
+            // newest faces rather than a hash-ordered jumble.
+            val unrenderable = EmojiRenderCheck.unrenderable(catalog.map { it.emoji }, null)
+            ArrayList(catalog.map { it.emoji }.filter { it in unrenderable })
         }
     }
-    return count
+    return missing
+}
+
+/**
+ * Picks the haptic style this device can actually play, once, at the top of a
+ * first run — so nobody has to be asked which of five buzzes they want before
+ * they have typed a key.
+ *
+ * Only ever on a fresh run (the caller gates it), where no stored answer can
+ * exist to overwrite; the full list stays under Typing → Sound and haptics.
+ */
+@Composable
+private fun SeedHapticStyleFromDevice(repository: SettingsRepository) {
+    val context = LocalContext.current
+    var seeded by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (seeded) return@LaunchedEffect
+        seeded = true
+        repository.setHapticStyle(HapticPlayer.bestSupportedStyle(context))
+    }
 }
 
 /**
@@ -481,14 +589,16 @@ private const val ENABLE_WATCH_MS = 5 * 60 * 1000L
 /** How often that watch reads the enabled keyboard list. */
 private const val ENABLE_POLL_MS = 500L
 
-/** Time for the wizard's window to come back before the picker opens over it. */
-private const val PICKER_DELAY_MS = 700L
-
 /**
  * Brings the wizard back to the front the moment the keyboard is turned on in
- * the system settings, then opens the keyboard picker so the switch happens in
- * the same breath. Both halves are the point: a keyboard that is turned on but
- * never selected does nothing, and the system settings give no way back.
+ * the system settings. The system settings give no way back, and a keyboard
+ * that is turned on but never selected does nothing — so the wizard returns
+ * and the setup card's own "Switch keyboard" button is the next thing under
+ * the user's thumb.
+ *
+ * It stops there rather than opening the keyboard picker itself. A system
+ * dialog appearing over an app nobody tapped anything in reads as a hijack —
+ * and it covers the words that explain what the dialog is for.
  *
  * The poll here is deliberately not [rememberKeyboardSetup]'s. That one reads
  * through recomposition, which Compose stops while the activity is not started
@@ -517,12 +627,6 @@ internal fun ReturnAfterEnabling(watching: Boolean, onDone: () -> Unit) {
                     Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK,
                 ),
             )
-            delay(PICKER_DELAY_MS)
-            if (!imeSelected(context)) {
-                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
-                    as InputMethodManager
-                imm.showInputMethodPicker()
-            }
         }
         // Last, so re-keying this effect cancels nothing that still matters.
         onDone()

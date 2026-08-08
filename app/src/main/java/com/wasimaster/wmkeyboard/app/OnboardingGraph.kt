@@ -9,8 +9,10 @@ import com.wasimaster.wmkeyboard.core.settings.OnboardingSettings
 import com.wasimaster.wmkeyboard.core.settings.PersonaDepth
 import com.wasimaster.wmkeyboard.core.settings.PersonaLanguages
 import com.wasimaster.wmkeyboard.core.settings.PersonaPrivacy
+import com.wasimaster.wmkeyboard.core.settings.PowerTools
 import com.wasimaster.wmkeyboard.core.settings.RecommendedTools
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
+import com.wasimaster.wmkeyboard.core.settings.ToolTopUps
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 
 /**
@@ -150,7 +152,6 @@ internal fun recommendedSpacebarChoice(persona: OnboardingSettings): SpacebarCho
 internal sealed interface PresetWrite {
     data class SpaceSwipes(val short: SpaceSwipeAction, val long: SpaceSwipeAction) : PresetWrite
     data class GlobeAsEmoji(val value: Boolean) : PresetWrite
-    data class Tools(val tools: Set<ToolbarTool>) : PresetWrite
     data class LearnFromTyping(val value: Boolean) : PresetWrite
     data class ClipboardHistory(val value: Boolean) : PresetWrite
     data class TypingStats(val value: Boolean) : PresetWrite
@@ -175,14 +176,44 @@ internal fun presetsFor(answer: PersonaLanguages): List<PresetWrite> = when (ans
 }
 
 /**
- * The tool set a depth answer lands. POWER seeds the recommended set too: the
- * full tools page follows for fine-tuning, and starting it from
- * everything-enabled would bury the choice under seventy switches.
+ * The tool set a persona lands, or null while the depth question is still
+ * unanswered and there is nothing to seed.
+ *
+ * Derived from the whole persona rather than from the depth answer alone,
+ * because two of the three answers move it: depth picks the set, and strict
+ * privacy adds incognito to whichever set that is. Recomputing from the
+ * combined answers on every change is what makes the pair order-independent —
+ * an additive write would be undone by a later `setEnabledTools`.
+ *
+ * [isSupported] drops what this build or device cannot run, and the set is
+ * topped up when that (or a device without Google services) shortens it — see
+ * [ToolTopUps].
  */
-internal fun presetsFor(answer: PersonaDepth): List<PresetWrite> = when (answer) {
-    PersonaDepth.MINIMAL -> listOf(PresetWrite.Tools(MinimalTools))
-    PersonaDepth.BALANCED, PersonaDepth.POWER -> listOf(PresetWrite.Tools(RecommendedTools))
-    PersonaDepth.UNSET -> emptyList()
+internal fun starterTools(
+    persona: OnboardingSettings,
+    playServices: Boolean,
+    isSupported: (ToolbarTool) -> Boolean,
+): Set<ToolbarTool>? {
+    val base = when (persona.personaDepth) {
+        PersonaDepth.MINIMAL -> MinimalTools
+        PersonaDepth.BALANCED -> RecommendedTools
+        PersonaDepth.POWER -> PowerTools
+        PersonaDepth.UNSET -> return null
+    }
+    val supported = base.filterTo(LinkedHashSet(), isSupported)
+    val topped =
+        if (supported.size < base.size || !playServices) {
+            supported + ToolTopUps.filter(isSupported)
+        } else {
+            supported
+        }
+    // The persona that reaches for incognito is the one that asked for strict
+    // privacy; it is the one tool that belongs in every set for that answer.
+    return if (persona.personaPrivacy == PersonaPrivacy.STRICT) {
+        topped + ToolbarTool.INCOGNITO
+    } else {
+        topped
+    }
 }
 
 /**
@@ -205,11 +236,17 @@ internal fun presetsFor(answer: PersonaPrivacy): List<PresetWrite> = when (answe
  * 70+ tools enabled, because only the tools page applied the starter set; now
  * finishing over the untouched everything-on default lands the persona's set
  * no matter which page the wizard closed from.
+ *
+ * An unanswered quiz gets the middle set, which is also the page order's
+ * assumption everywhere else.
  */
-internal fun toolsAfterFinish(settings: KeyboardSettings): Set<ToolbarTool>? {
+internal fun toolsAfterFinish(
+    settings: KeyboardSettings,
+    playServices: Boolean,
+    isSupported: (ToolbarTool) -> Boolean,
+): Set<ToolbarTool>? {
     if (settings.enabledTools.toSet() != ToolbarTool.entries.toSet()) return null
-    return when (settings.onboarding.personaDepth) {
-        PersonaDepth.MINIMAL -> MinimalTools
-        else -> RecommendedTools
-    }
+    val persona = settings.onboarding.takeIf { it.personaDepth != PersonaDepth.UNSET }
+        ?: settings.onboarding.copy(personaDepth = PersonaDepth.BALANCED)
+    return starterTools(persona, playServices, isSupported)
 }

@@ -121,28 +121,67 @@ fun isSupportedTool(tool: ToolbarTool): Boolean = when {
 
 
 /**
- * Toolbox order until the user rearranges it: what most people reach for
- * most often comes first (expressive media, then everyday text helpers,
- * then keyboard tweaks, then the specialty and novelty tools). A tool
- * missing from the ranked list still shows — appended at the end — so
- * forgetting to rank a new tool is cosmetic, never a disappearance.
+ * The onboarding starting selection for the "keep it simple" persona: what a
+ * keyboard is expected to have plus the two that sell this one, and nothing
+ * else until it is asked for.
+ *
+ * Every set here is ordered, and the order is load-bearing — [RankedToolOrder]
+ * is built from it, so the toolbox reads in the sequence the wizard turned
+ * these on. They are declared above that list rather than beside the other
+ * defaults because top-level initialisation runs in file order.
  */
-private val RankedToolOrder: List<ToolbarTool> = listOf(
+val MinimalTools: Set<ToolbarTool> = setOf(
     ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.STICKER, ToolbarTool.CLIPBOARD,
-    ToolbarTool.VOICE, ToolbarTool.TRANSLATE, ToolbarTool.SNIPPETS, ToolbarTool.TEXT_EDIT,
+    ToolbarTool.VOICE, ToolbarTool.AI, ToolbarTool.GRAMMAR, ToolbarTool.SETTINGS,
+)
+
+/**
+ * The middle persona's set, and the wizard's "Recommended" button: the
+ * everyday tools most people actually use, leaving the specialty ones
+ * (sensors, scanners, generators) off until asked for.
+ */
+val RecommendedTools: Set<ToolbarTool> = MinimalTools + setOf(
+    ToolbarTool.THEMES, ToolbarTool.DICTIONARY, ToolbarTool.FANCY, ToolbarTool.TRANSLATE,
+    ToolbarTool.AUTOCORRECT, ToolbarTool.SNIPPETS, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT,
+    ToolbarTool.TEXT_EDIT, ToolbarTool.HANDWRITING, ToolbarTool.OCR,
     ToolbarTool.UNDO, ToolbarTool.REDO,
-    ToolbarTool.SETTINGS, ToolbarTool.THEMES,
-    ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH, ToolbarTool.DICTIONARY, ToolbarTool.CALCULATOR,
-    ToolbarTool.MEDIA_CONTROL, ToolbarTool.APP_LAUNCHER,
-    ToolbarTool.AI, ToolbarTool.GRAMMAR, ToolbarTool.PLUGINS, ToolbarTool.TYPING_TEST,
-    ToolbarTool.NUMPAD, ToolbarTool.ONE_HANDED,
-    ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.INCOGNITO, ToolbarTool.AUTOCORRECT,
-    ToolbarTool.FANCY, ToolbarTool.SOUND_HAPTICS, ToolbarTool.POWER_SAVING,
-    ToolbarTool.MODES, ToolbarTool.OCR, ToolbarTool.QR_SCAN,
-    ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA, ToolbarTool.HANDWRITING,
-    ToolbarTool.SYMBOLS, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY, ToolbarTool.PASSWORD_GEN,
-    ToolbarTool.WIKIPEDIA, ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.FLASHLIGHT,
-    ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
+)
+
+/**
+ * What "show me everything" starts with. Not the whole enum — the tools page
+ * that follows that answer exists precisely so the rest can be picked by hand
+ * — but everything with an everyday use, so a power user finds their keypad,
+ * their converters and their calendar already on.
+ */
+val PowerTools: Set<ToolbarTool> = RecommendedTools + setOf(
+    ToolbarTool.WIKIPEDIA, ToolbarTool.POWER_SAVING, ToolbarTool.MODES, ToolbarTool.NUMPAD,
+    ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY,
+    ToolbarTool.PASSWORD_GEN, ToolbarTool.CALENDAR, ToolbarTool.WEATHER,
+    ToolbarTool.MEDIA_CONTROL, ToolbarTool.APP_LAUNCHER, ToolbarTool.HIDE_KEYBOARD,
+)
+
+/**
+ * What a starter set gains when part of it cannot run on this device.
+ *
+ * Handwriting and text scanning are the pair that goes missing — the lite
+ * build ships neither, and the document scanner beside them needs Google
+ * services — and a "recommended" set that quietly arrives two tools short is
+ * a worse set rather than a smaller one. Both stand-ins run anywhere: an
+ * offline reference lookup, and the battery saver.
+ */
+val ToolTopUps: Set<ToolbarTool> = setOf(ToolbarTool.WIKIPEDIA, ToolbarTool.POWER_SAVING)
+
+/**
+ * Everything no starter set turns on, in the order it lands after them:
+ * the other searches, the developer-ish tools, then the scanners, the camera
+ * and the sensors.
+ */
+private val RestOfToolOrder: List<ToolbarTool> = listOf(
+    ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH,
+    ToolbarTool.TYPING_TEST, ToolbarTool.PLUGINS,
+    ToolbarTool.FLOATING, ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS,
+    ToolbarTool.QR_SCAN, ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA,
+    ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     // The one-tap cursor moves last: useful, but they would otherwise push
     // every other tool a full row down in the toolbox.
     ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
@@ -150,8 +189,16 @@ private val RankedToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END, ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
     ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE,
-    ToolbarTool.HIDE_KEYBOARD,
 )
+
+/**
+ * Toolbox order until the user rearranges it: the starter sets first, in their
+ * own order — the tools a new install actually has are the ones its first page
+ * shows — then everything setup left off. A tool missing from the ranked list
+ * still shows, appended at the end, so forgetting to rank a new tool is
+ * cosmetic rather than a disappearance.
+ */
+private val RankedToolOrder: List<ToolbarTool> = (PowerTools + RestOfToolOrder).toList()
 
 val DefaultToolOrder: List<ToolbarTool> =
     RankedToolOrder + (ToolbarTool.entries - RankedToolOrder.toSet())
@@ -194,7 +241,10 @@ val DefaultToolbarTools: List<ToolbarTool> =
  * and this immediately re-expands it.
  *
  * Every entry is in [RecommendedTools], so no onboarding persona leaves one
- * pinned but disabled — `visibleToolbarTools` would silently drop it.
+ * pinned but disabled — `visibleToolbarTools` would silently drop it. The
+ * five here are in [MinimalTools] too; the large-tablet pair below adds
+ * Translate and Text edit, which "keep it simple" does not turn on, so that
+ * persona on a large tablet pins five of seven.
  */
 val SmallTabletToolbarTools: List<ToolbarTool> = listOf(
     ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.CLIPBOARD,
@@ -206,30 +256,6 @@ val LargeTabletToolbarTools: List<ToolbarTool> = listOf(
     ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.CLIPBOARD, ToolbarTool.VOICE,
     ToolbarTool.TRANSLATE, ToolbarTool.TEXT_EDIT, ToolbarTool.SETTINGS,
 )
-
-/**
- * The onboarding wizard's starting selection: the everyday tools most people
- * actually use, leaving the specialty ones (sensors, scanners, generators)
- * off until asked for. Only a default — the wizard page and the Tools
- * settings both toggle from here.
- */
-val RecommendedTools: Set<ToolbarTool> = setOf(
-    ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.STICKER, ToolbarTool.CLIPBOARD,
-    ToolbarTool.VOICE, ToolbarTool.TRANSLATE, ToolbarTool.SNIPPETS, ToolbarTool.TEXT_EDIT,
-    ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.SETTINGS, ToolbarTool.THEMES,
-    ToolbarTool.WEB_SEARCH, ToolbarTool.DICTIONARY, ToolbarTool.CALCULATOR, ToolbarTool.ONE_HANDED,
-    ToolbarTool.MEDIA_CONTROL,
-)
-
-/**
- * The onboarding starting selection for the "keep it simple" persona: just the
- * essentials, everything else stays off until asked for.
- */
-val MinimalTools: Set<ToolbarTool> = setOf(
-    ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.VOICE,
-    ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.SETTINGS,
-)
-
 
 /**
  * Colour-vision correction applied to the whole resolved keyboard palette.

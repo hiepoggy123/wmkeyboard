@@ -2,11 +2,17 @@ package com.wasimaster.wmkeyboard.app
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.TextSnippet
@@ -21,21 +27,25 @@ import androidx.compose.material.icons.outlined.TextFormat
 import androidx.compose.material.icons.outlined.ToggleOn
 import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.material.icons.outlined.Widgets
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.OnboardingSettings
 import com.wasimaster.wmkeyboard.core.settings.PersonaDepth
@@ -257,13 +267,19 @@ internal fun discoverFeatures(
 }
 
 /**
- * The feature tour. Cards either flip a feature on the spot or, for the ones
- * with nothing to flip mid-wizard, say where to find them later; nothing here
- * navigates away, because there is nowhere to come back to mid-setup.
+ * The feature tour, two cards to a row, each one showing the feature rather
+ * than only describing it. Cards either flip a feature on the spot or, for the
+ * ones with nothing to flip mid-wizard, say where to find them later; nothing
+ * here navigates away, because there is nowhere to come back to mid-setup.
+ *
+ * A grid rather than a column of list rows: this is the only page of the
+ * wizard that is a shop window, and eleven full-width rows read as a settings
+ * screen — which is exactly the thing nobody scrolls to the bottom of.
  */
 @Composable
 internal fun DiscoverPage(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val features = remember(settings.onboarding) {
         discoverFeatures(
             persona = settings.onboarding,
@@ -271,55 +287,102 @@ internal fun DiscoverPage(repository: SettingsRepository, settings: KeyboardSett
             isToolSupported = ::isSupportedTool,
         )
     }
-    for (feature in features) {
-        DiscoverCard(feature, settings) { on ->
-            feature.setOn?.let { write -> scope.launch { write(repository, on) } }
+    // The one card here that needs a grant the app cannot give itself. Asked
+    // as the switch goes on, disclosure first, and never when the grant is
+    // already there.
+    val codesAccess = rememberDisclosedSpecialAccess(SpecialAccess.NOTIFICATION_CODES)
+    val onToggle: (DiscoverFeature, Boolean) -> Unit = { feature, on ->
+        feature.setOn?.let { write -> scope.launch { write(repository, on) } }
+        if (feature.id == OTP_FEATURE_ID && on && !hasNotificationAccess(context)) codesAccess()
+    }
+    // Rows of two, built by hand: the wizard scrolls its pages in a plain
+    // Column, so a lazy grid inside one would nest two vertical scrolls.
+    for (pair in features.chunked(2)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+                .padding(horizontal = 16.dp, vertical = 5.dp),
+        ) {
+            for (feature in pair) {
+                DiscoverCard(
+                    feature,
+                    settings,
+                    modifier = Modifier.weight(1f),
+                    onToggle = { on -> onToggle(feature, on) },
+                )
+            }
+            // Keeps a lone last card at half width instead of letting it
+            // stretch across the row and read as a different kind of thing.
+            if (pair.size == 1) Spacer(Modifier.weight(1f))
         }
     }
     Spacer(Modifier.height(8.dp))
 }
 
+/** The discover card whose switch needs notification access. */
+private const val OTP_FEATURE_ID = "otp"
+
 @Composable
 private fun DiscoverCard(
     feature: DiscoverFeature,
     settings: KeyboardSettings,
+    modifier: Modifier = Modifier,
     onToggle: (Boolean) -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 5.dp)
+        modifier = modifier
+            .fillMaxHeight()
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLow),
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(10.dp),
     ) {
-        ListItem(
-            leadingContent = { WmIconTile(feature.icon, feature.accent) },
-            headlineContent = { Text(stringResource(feature.title)) },
-            supportingContent = {
-                Column {
-                    Text(stringResource(feature.pitch))
-                    if (feature.hint != 0) {
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            stringResource(feature.hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-            },
-            trailingContent = when (feature.kind) {
-                DiscoverKind.TOGGLE -> {
-                    {
-                        Switch(
-                            checked = feature.isOn(settings),
-                            onCheckedChange = onToggle,
-                        )
-                    }
-                }
-                DiscoverKind.EXPLORE -> null
-            },
-            colors = transparentListColors(),
+        DiscoverPreview(
+            id = feature.id,
+            accent = feature.accent,
+            animate = !settings.reduceMotion,
         )
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                feature.icon,
+                contentDescription = null,
+                tint = feature.accent,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                stringResource(feature.title),
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            stringResource(feature.pitch),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (feature.hint != 0) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(feature.hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        // The switch is pushed to the bottom edge, so the two cards in a row
+        // line their controls up however far apart their text runs.
+        Spacer(Modifier.weight(1f))
+        if (feature.kind == DiscoverKind.TOGGLE) {
+            Spacer(Modifier.height(4.dp))
+            Switch(
+                checked = feature.isOn(settings),
+                onCheckedChange = onToggle,
+                modifier = Modifier.align(Alignment.End),
+            )
+        }
     }
 }
