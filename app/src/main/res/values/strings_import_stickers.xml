@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources xmlns:tools="http://schemas.android.com/tools"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
     <!-- ==== The "open with" dialog: a keyboard file opened from a file
          manager, a chat app or a downloads notification. ==== -->
@@ -108,6 +109,37 @@
 
     <string name="import_icons_title">Import icon pack?</string>
     <string name="import_icons_body">The app installs the pack and turns it on. Its icons replace the built-in icons. The app keeps the icons that you set.</string>
+
+    <!-- ==== FlorisBoard theme files (.flex). The dialog says how much of the
+         file the app could use, because a FlorisBoard theme describes more
+         parts of a keyboard than this app can draw. ==== -->
+
+    <string name="import_floris_title">Theme from FlorisBoard</string>
+    <!-- %1$d is the number of style rules the app used. %2$d is the number of
+         style rules in the file. Not a plural: the word "rules" agrees with the
+         second number, which is always more than one when this line is shown. -->
+    <string name="import_floris_body" tools:ignore="PluralsCandidate">The app can use %1$d of the %2$d style rules in this file. FlorisBoard themes set parts of a keyboard that this app draws in a different way. The app saves the theme but does not turn it on, so that you can look at it first. To change the parts that did not come across, open the theme in the theme editor.</string>
+    <!-- %1$s is who made the theme. %2$s is the licence, such as "Apache-2.0". -->
+    <string name="import_floris_credit">Made by <xliff:g id="author" example="Someone">%1$s</xliff:g>. Licence: <xliff:g id="license" example="Apache-2.0">%2$s</xliff:g>.</string>
+    <string name="import_floris_credit_unknown">Not stated</string>
+    <!-- %1$d is the number of themes, and picks the wording. -->
+    <plurals name="import_floris_done">
+        <item quantity="one">The app saved %1$d theme. Open Themes to look at it.</item>
+        <item quantity="other">The app saved %1$d themes. Open Themes to look at them.</item>
+    </plurals>
+    <string name="import_floris_old_title">Theme is for an older FlorisBoard</string>
+    <string name="import_floris_old_body">This theme is written for FlorisBoard 0.4. That style format is not the same as the one in FlorisBoard 0.5 and later, so the app cannot read it. A theme that this app read only in part would give you colours that your file never set.</string>
+    <string name="import_floris_unreadable_body">The app cannot read this FlorisBoard file. It may be damaged, or it may be a language pack or a keyboard extension instead of a theme.</string>
+
+    <!-- Lines in the "what the app changed" list of a FlorisBoard import. -->
+    <string name="import_floris_dropped_old">Part of the file uses the older FlorisBoard style format.</string>
+    <string name="import_floris_dropped_elevation">Key shadows are not set. This app draws keys without a shadow.</string>
+    <string name="import_floris_dropped_corners">Keys have one corner size. The file sets a different size for each corner.</string>
+    <string name="import_floris_dropped_spacing">Space around single parts is not set. This app sets the key gap for the whole keyboard.</string>
+    <string name="import_floris_dropped_font">The font is not included. A font is a separate add-on in this app.</string>
+    <string name="import_floris_dropped_dynamic">Colours that follow the system wallpaper are not set. Turn on Material You in Themes for the same effect.</string>
+    <string name="import_floris_dropped_unknown">Some parts of the file name keyboard elements that this app does not have.</string>
+    <string name="import_floris_dropped_contrast">A key text colour was too close to the key colour to read. The app chose a colour that you can read.</string>
 
     <!-- ==== A file the keyboard does not know, or cannot open. ==== -->
 

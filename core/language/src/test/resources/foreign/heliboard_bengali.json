@@ -1,0 +1,17 @@
+// Hand-written fixture. Bengali, with the nukta letters written the way a
+// foreign file usually carries them: base letter plus U+09BC, which NFC will
+// not join and which this keyboard's cluster rules do not recognise.
+// Escapes rather than glyphs so the two spellings stay tellable apart.
+[
+  [
+    { "$": "text_key", "code": 2453, "label": "ক" },
+    { "$": "text_key", "code": 2454, "label": "খ" },
+    { "$": "multi_text_key", "codePoints": [ 2479, 2492 ], "label": "\u09AF\u09BC" },
+    { "$": "text_key", "label": "\u09A1\u09BC" }
+  ],
+  [
+    { "$": "text_key", "code": 2455, "label": "গ" },
+    { "$": "text_key", "code": -10043, "label": "time" },
+    { "$": "text_key", "code": -10020, "label": "play" }
+  ]
+]

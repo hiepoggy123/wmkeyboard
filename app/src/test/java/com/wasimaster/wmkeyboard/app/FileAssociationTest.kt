@@ -54,15 +54,29 @@ class FileAssociationTest {
     }
 
     @Test
-    fun `no pattern claims a file extension that is not ours`() {
+    fun `no pattern claims a general file extension`() {
         // The whole point of the compound extensions: opening someone else's
         // .json must not offer this app.
+        //
+        // One extension here is deliberately not ours. A `.flex` is a
+        // FlorisBoard theme, which this app converts, and claiming it is how
+        // someone moving over opens the file they already have. It is safe to
+        // claim for the same reason the others are: it names one format
+        // precisely, rather than a container half the device writes.
+        // FlorisBoard's own filter still matches, so with both installed the
+        // user is asked which app should open it.
         for (pattern in patterns) {
+            val extension = extensionOf(pattern)
             assertTrue(
                 "pattern $pattern claims files that are not WMKeyboard's",
-                extensionOf(pattern).startsWith("wm"),
+                extension.startsWith("wm") || extension in FOREIGN_EXTENSIONS,
             )
         }
+    }
+
+    private companion object {
+        /** Other apps' formats this one deliberately reads. */
+        val FOREIGN_EXTENSIONS = setOf("flex")
     }
 
     @Test

@@ -1,0 +1,13 @@
+// Hand-written fixture in HeliBoard's simple layout format.
+// One key per line, press-and-hold letters after it, blank line ends a row.
+q 1 [
+w 2 ]
+e 3 é è ê
+
+a
+s
+d
+
+z
+x
+c

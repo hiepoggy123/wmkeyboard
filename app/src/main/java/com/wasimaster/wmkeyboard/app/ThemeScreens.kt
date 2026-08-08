@@ -143,6 +143,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.max
 import kotlin.math.roundToInt
+import androidx.compose.material.icons.outlined.SwapHoriz
+import com.wasimaster.wmkeyboard.core.theme.FlexResult
+import com.wasimaster.wmkeyboard.core.theme.FlexTheme
 
 // ---- shared helpers ----
 
@@ -545,24 +548,74 @@ fun ThemesScreen(
             }
         }
     }
+    // Whatever the last import had to say, shown in a dialog. A theme file
+    // carries no format tag, so a file that is not one decodes to an
+    // all-defaults theme or to nothing at all — either way the user has to be
+    // told, or picking the wrong file looks like the button doing nothing.
+    var message by remember { mutableStateOf<String?>(null) }
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
-        if (uri != null) {
-            scope.launch(Dispatchers.IO) {
-                runCancellable {
-                    val text = context.contentResolver.requireInputStream(uri)
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri)
                         .use { it.readBytes().decodeToString() }
-                    val parsed = ThemeCodec.decode(text) ?: return@runCancellable
-                    val id = "custom_${System.currentTimeMillis()}"
-                    // Set the fresh id first so the extracted image filenames key
-                    // off it and stay unique against existing themes.
-                    repository.upsertCustomTheme(
-                        parsed.copy(id = id).withExtractedImages(themeImagesDir(context))
-                    )
-                    repository.setKeyboardThemeId(id)
+                }.getOrNull()
+            }
+            val parsed = text?.let { ThemeCodec.decode(it) }
+            if (parsed == null) {
+                message = context.getString(R.string.theme_import_wrong_file_error)
+                return@launch
+            }
+            val id = "custom_${System.currentTimeMillis()}"
+            // Set the fresh id first so the extracted image filenames key
+            // off it and stay unique against existing themes.
+            val stored = withContext(Dispatchers.IO) {
+                parsed.copy(id = id).withExtractedImages(themeImagesDir(context))
+            }
+            repository.upsertCustomTheme(stored)
+            repository.setKeyboardThemeId(id)
+            message = context.getString(R.string.theme_import_done_message, stored.name)
+        }
+    }
+    val florisLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri).use { FlexTheme.read(it) }
+                }.getOrElse { FlexResult.Unreadable }
+            }
+            if (result !is FlexResult.Converted) {
+                message = context.getString(
+                    when (result) {
+                        FlexResult.SnyggV1 -> R.string.import_floris_old_body
+                        else -> R.string.import_floris_unreadable_body
+                    },
+                )
+                return@launch
+            }
+            val dir = withContext(Dispatchers.IO) { themeImagesDir(context) }
+            val stored = withContext(Dispatchers.IO) {
+                result.themes.mapIndexed { index, converted ->
+                    // A day and night pair need distinct ids: the extracted
+                    // image file names are keyed on the id, so a shared one
+                    // would have the second theme overwrite the first's images.
+                    converted.stored("custom_${System.currentTimeMillis()}_$index", dir)
                 }
             }
+            for (theme in stored) repository.upsertCustomTheme(theme)
+            // Saved, not switched to. A converted theme is exactly the thing
+            // worth looking at before it becomes the keyboard.
+            message = context.resources.getQuantityString(
+                R.plurals.import_floris_done,
+                stored.size,
+                stored.size,
+            )
         }
     }
     fun export(theme: ThemeSpec) {
@@ -753,6 +806,12 @@ fun ThemesScreen(
             Spacer(Modifier.width(6.dp))
             Text(stringResource(CommonR.string.common_import))
         }
+        Spacer(Modifier.width(8.dp))
+        OutlinedButton(onClick = { florisLauncher.launch(FlexTheme.IMPORT_MIME_TYPES) }) {
+            Icon(Icons.Outlined.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.theme_import_floris_action))
+        }
     }
     Spacer(Modifier.height(8.dp))
 
@@ -820,6 +879,18 @@ fun ThemesScreen(
     // app ships with is standing.
     AddonStoreGroup(AddonType.Theme, onNavigate)
     Spacer(Modifier.height(24.dp))
+
+    message?.let { text ->
+        AlertDialog(
+            onDismissRequest = { message = null },
+            text = { Text(text) },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
+        )
+    }
 }
 
 @Composable

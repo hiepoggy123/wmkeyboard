@@ -28,6 +28,7 @@ WM Keyboard writes several file formats: themes, layouts, snippet packs, sticker
 | `.wmsettings.json` | A settings-only backup (legacy) | No export path anymore; still accepted on import |
 | `.wmdict` | A compiled binary dictionary | Never exported; internal to the app, see [below](#wmdict-the-one-format-you-never-touch) |
 | `.txt` word lists, `.tsv` emoji keywords | Custom dictionaries and keyword packs | Import-only; not produced by the app |
+| `.flex` | A FlorisBoard theme extension | Another keyboard's format, read and converted — see [Importing from other keyboards](/reference/importing-other-keyboards/) |
 
 Every format except `.wmdict` is registered as a file association, so tapping any of these in a file manager, downloads app, or chat attachment opens WM Keyboard's import dialog directly. See [Opening a file](#opening-a-file).
 
@@ -37,7 +38,7 @@ A tap on any recognized file (from a file manager, a browser download, or a chat
 
 Behind that dialog, the app has to figure out what kind of file it's looking at:
 
-- If the file starts with a ZIP signature, the app opens it as an archive and scans up to 400 entries (capped at 64 KB of manifest content) for a `pack.json` or `plugin.json`. The `format` tag inside tells sticker packs, icon packs, and plugins apart: they can't be told apart by file structure alone, since sticker and icon packs both use a `pack.json` manifest.
+- If the file starts with a ZIP signature, the app opens it as an archive and scans up to 400 entries (capped at 64 KB of manifest content) for a `pack.json`, `plugin.json`, or `extension.json`. The `format` tag inside tells sticker packs, icon packs, and plugins apart: they can't be told apart by file structure alone, since sticker and icon packs both use a `pack.json` manifest. An `extension.json` tagged as a FlorisBoard theme is converted rather than installed — see [Importing from other keyboards](/reference/importing-other-keyboards/).
 - Otherwise, the app reads the file as text and tries each tagged format's decoder in order: full config backup, then legacy settings backup, then layout, then snippets, stopping at the first one whose `format` field matches.
 - A theme file has no `format` tag at all (every `ThemeSpec` field has a default, so *any* JSON object decodes successfully as an all-defaults theme). The `.wmtheme.json` extension on the file name is the only signal that a file was meant to be a theme, so it's checked last and only by name.
 

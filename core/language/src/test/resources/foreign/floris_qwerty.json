@@ -1,0 +1,23 @@
+// Hand-written fixture in the FlorisBoard/HeliBoard key-data format.
+// Small on purpose: one key of every shape the converter has to handle.
+[
+  [
+    { "$": "auto_text_key", "code": 113, "label": "q", "popup": { "relevant": [ { "code": 49, "label": "1" } ] } },
+    { "$": "auto_text_key", "code": 119, "label": "w" },
+    { "$": "text_key", "code": 101, "label": "e", "popup": { "main": { "code": 233, "label": "é" }, "relevant": [ { "label": "è" } ] } },
+    { "$": "text_key", "code": 114, "label": "r", "groupId": 1 }
+  ],
+  [
+    { "$": "text_key", "code": -11, "label": "shift", "width": 0.15 },
+    { "$": "text_key", "code": 97, "label": "a" },
+    { "$": "multi_text_key", "codePoints": [ 116, 104 ], "label": "th" },
+    { "$": "text_key", "code": -7, "label": "delete", "width": 0.15 }
+  ],
+  [
+    { "$": "text_key", "code": -202, "label": "?123", "width": 0.15 },
+    { "$": "text_key", "code": -233, "label": "voice" },
+    { "$": "text_key", "code": 32, "label": "space", "width": -1 },
+    { "$": "text_key", "code": -10014, "width": 0.1 },
+    { "$": "text_key", "code": 10, "label": "enter", "width": 0.15 },
+  ]
+]

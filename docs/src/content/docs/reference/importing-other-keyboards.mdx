@@ -1,0 +1,92 @@
+---
+title: "Importing from other keyboards"
+description: "Bring layouts and themes over from FlorisBoard and HeliBoard: what converts, what doesn't, and why."
+sidebar:
+  order: 5
+---
+
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+
+Switching keyboards usually means leaving your layouts and themes behind. WM Keyboard reads FlorisBoard and HeliBoard files directly and converts them into its own, so the grid you built and the theme you picked come with you.
+
+Conversion is honest about being lossy. Every import ends on a confirm dialog that lists what changed and what could not be carried, and nothing is written until you accept it.
+
+## What can be imported
+
+| File | From | Opens as |
+|---|---|---|
+| `.json` layout | FlorisBoard, HeliBoard | A custom layout |
+| `.txt` layout | HeliBoard | A custom layout |
+| `.flex` theme | FlorisBoard 0.5 and later | One or two themes |
+
+HeliBoard's JSON layouts use FlorisBoard's format, so one reader handles both.
+
+## Layouts
+
+<SettingsPath>Layouts → Import from another keyboard</SettingsPath>
+
+Pick the file and the app reads it, then asks you two things before it saves anything.
+
+### It asks for the language
+
+Neither format records one. In FlorisBoard and HeliBoard a layout is a grid and the language comes from the keyboard's own settings, so the file itself cannot say whether a Cyrillic grid is Russian or Ukrainian.
+
+That matters more here than it sounds. The language picks the dictionary, the autocorrect, the script rules, dictation, and how the shift key behaves. The app guesses from the letters on the keys and shows you the guess, and you can change it before you import. There is no silent default.
+
+### It adds the bottom row
+
+A foreign layout file holds the letters and nothing else: the keyboard that reads it draws its own delete, space and enter keys, and its own symbols and number layers. So the app supplies those, and the imported layout uses WM Keyboard's built-in symbols and number grids.
+
+### Keys that cannot come across
+
+Some keys in those formats do things WM Keyboard reaches another way — voice input, the clipboard panel, the settings screen, the suggestion-bar toggles. Those are tools here rather than keys, so they are removed and the dialog names the codes it removed. A key that looked right and quietly did nothing would be worse.
+
+A handful of keys convert to the closest match rather than an exact one, and the dialog counts those too. Delete-word becomes a plain delete; the second symbols page folds onto the symbols key.
+
+### Letters are rewritten to one spelling
+
+Some letters can be written two ways in Unicode: a base letter plus a mark, or a single character that means the same thing. Bengali, Devanagari, Gurmukhi and Oriya all have letters like this. WM Keyboard's cluster shaping and its backspace rules use the single-character spelling, so the app rewrites the other one on the way in. Without it a key looks correct and then deletes half a letter at a time.
+
+## Themes
+
+<SettingsPath>Themes → FlorisBoard</SettingsPath>
+
+A `.flex` file is FlorisBoard's theme package. Pick one and the app converts every theme inside it. You can also open a `.flex` straight from a file manager.
+
+A FlorisBoard theme that holds both a day and a night version becomes **two** themes, named for which is which, so you can put them under <SettingsPath>Themes → Auto theme</SettingsPath> as a pair.
+
+**Converted themes are saved but not turned on.** They go into your themes list for you to look at first, and the theme editor is where you finish the parts that did not carry over.
+
+### How much comes across
+
+The dialog puts a number on it: *"The app can use 34 of the 52 style rules in this file."*
+
+Colours mostly land. The board, the keys, the pressed key, the enter key, borders, popups, the suggestion text, and per-key colours all have somewhere to go. FlorisBoard styles a much larger set of keyboard parts than this app draws, so the rest is reported rather than approximated:
+
+- **Key shadows.** This app draws keys without one.
+- **Per-corner radii.** Keys here have a single corner size.
+- **Spacing on single elements.** The key gap is set for the whole keyboard.
+- **Fonts.** A font is a separate add-on here, so a theme cannot carry one. The dialog says so, and you can install the font yourself.
+- **Wallpaper-following colours.** Turn on Material You in <SettingsPath>Themes</SettingsPath> for the same effect.
+- **Elements this keyboard does not have.** FlorisBoard's suggestion bar is built from more parts than this one.
+
+If a key's text colour would be unreadable on its key colour, the app drops the imported colour and picks a readable one. That happens when a colour comes from a rule that meant a different part of the keyboard, and a theme whose keys cannot be read is the one thing the editor cannot fix for you.
+
+### FlorisBoard 0.4 themes
+
+FlorisBoard changed its style format in 0.5, and the two are not compatible. A 0.4 theme is refused with a message rather than read in part, because a partly-read theme gives you colours your file never set and no way to tell which ones.
+
+## Details & edge cases
+
+- **Nothing is decided by the file extension.** A file is read and then judged. A layout renamed `.wmtheme.json` is refused rather than imported as an empty theme.
+- **Opening a `.flex` from a file manager** works because the app registers that extension. If FlorisBoard is installed too, Android asks which app should open it.
+- **Layout files are not auto-detected from a file manager.** They carry no marker that identifies them, so they go through <SettingsPath>Layouts → Import from another keyboard</SettingsPath>, where you have already said what the file is.
+- **Add-on repositories stay native.** Repository payloads are always WM Keyboard's own formats; conversion applies to files you pick yourself.
+- **Nothing is sent anywhere.** Conversion runs on the phone. There is no upload and no server.
+
+## Licences
+
+WM Keyboard reads these formats from their published descriptions. No code from either project is used: FlorisBoard is Apache-2.0 and HeliBoard is GPL-3.0, while WM Keyboard is MIT.
+
+A converted theme keeps the author and licence its file records, and both are shown on the import dialog. If you publish a converted theme in an [add-on repository](/development/addon-repos/repo-format/), keep them with it.

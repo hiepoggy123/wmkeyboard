@@ -126,6 +126,39 @@
     <string name="core_lang_repair_row_scaled">A row in the <xliff:g id="layer" example="letters">%1$s</xliff:g> layer was %2$s units wide. The app made the keys smaller so that the row fits.</string>
 
     <!-- ================================================================== -->
+    <!-- Lines the converter writes when a layout from a different keyboard  -->
+    <!-- is opened. Shown in the same list as the repair lines above.        -->
+    <!-- ================================================================== -->
+
+    <!-- %1$d is the number of keys, and picks the wording. %2$s is the list of
+         key codes the file used for them, such as "-233, -301". -->
+    <plurals name="core_lang_foreign_keys_dropped">
+        <item quantity="one">The app removed %1$d key. This keyboard has no key that does the same thing (code <xliff:g id="codes" example="-233">%2$s</xliff:g>).</item>
+        <item quantity="other">The app removed %1$d keys. This keyboard has no keys that do the same thing (codes <xliff:g id="codes" example="-233, -301">%2$s</xliff:g>).</item>
+    </plurals>
+
+    <!-- %1$d is the number of keys, and picks the wording. -->
+    <plurals name="core_lang_foreign_keys_approximated">
+        <item quantity="one">The app changed %1$d key to the closest key it has.</item>
+        <item quantity="other">The app changed %1$d keys to the closest keys it has.</item>
+    </plurals>
+
+    <!-- %1$d is the number of keys, and picks the wording. "Press and hold"
+         letters are the alternates that show above a key. -->
+    <plurals name="core_lang_foreign_popups_missing">
+        <item quantity="one">%1$d key has no press-and-hold letters. The file keeps them in a second file that you did not open.</item>
+        <item quantity="other">%1$d keys have no press-and-hold letters. The file keeps them in a second file that you did not open.</item>
+    </plurals>
+
+    <!-- %1$d is the number of keys, and picks the wording. -->
+    <plurals name="core_lang_foreign_letters_normalized">
+        <item quantity="one">The app changed %1$d letter to the form that this keyboard writes.</item>
+        <item quantity="other">The app changed %1$d letters to the form that this keyboard writes.</item>
+    </plurals>
+
+    <string name="core_lang_foreign_widths_scaled">The other keyboard measures key widths differently. The app changed the widths to fit this grid.</string>
+
+    <!-- ================================================================== -->
     <!-- Numerals. Settings > Languages > a language > Numerals picks which  -->
     <!-- digits a language draws; Settings > Layout and size > Numerals      -->
     <!-- picks where those digits are also typed.                            -->

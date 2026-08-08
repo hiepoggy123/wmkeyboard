@@ -43,9 +43,16 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.addons.AddonType
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.SwapHoriz
+import com.wasimaster.wmkeyboard.core.layout.ConvertedLayout
+import com.wasimaster.wmkeyboard.core.layout.ForeignLayouts
+import com.wasimaster.wmkeyboard.core.layout.ForeignSource
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import com.wasimaster.wmkeyboard.core.layout.LayoutMessage
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.background
@@ -136,6 +143,90 @@ import kotlinx.coroutines.launch
 /** [ReturnAnchor] key for the key-layouts list. */
 private const val KEYMAPS_ANCHOR = "keymaps"
 
+/**
+ * What the "import from another keyboard" picker offers.
+ *
+ * Wider than the native layout picker's list because these files are somebody
+ * else's: HeliBoard writes `.txt` and `.json`, and providers report both as
+ * anything from `text/plain` to `application/octet-stream`. Nothing is decided
+ * from the MIME type — the converter reads the file and says whether it is one.
+ */
+private val FOREIGN_LAYOUT_MIME_TYPES =
+    arrayOf("application/json", "text/plain", "application/octet-stream")
+
+/** Largest foreign layout worth reading. The whole file is decoded as one string. */
+private const val MAX_FOREIGN_LAYOUT_BYTES = 4 * 1024 * 1024
+
+/**
+ * Reads at most [max] bytes. A declared length is never trusted; the count comes
+ * from what was actually read, the same way the archive importers do it.
+ */
+private fun java.io.InputStream.readBytes(max: Int): ByteArray {
+    val out = ByteArray(max)
+    var filled = 0
+    val buffer = ByteArray(8 * 1024)
+    while (filled < max) {
+        val n = read(buffer, 0, minOf(buffer.size, max - filled))
+        if (n <= 0) break
+        System.arraycopy(buffer, 0, out, filled, n)
+        filled += n
+    }
+    return out.copyOf(filled)
+}
+
+/**
+ * Picks the language a converted layout types in.
+ *
+ * Its own dialog rather than a list inside the confirmation: the registry holds
+ * over three hundred languages, so this needs a search field, and the search
+ * field needs the room. Seeded from the character-set guess, which the caller
+ * has already put in front of the user as a guess.
+ */
+@Composable
+private fun ForeignLanguageDialog(
+    selected: String,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    // Remembered on the query: this recomposes on every letter typed, and
+    // re-running the filter over the whole registry per keystroke is what makes
+    // a search field feel heavy.
+    val results = remember(query) { searchLanguages(query.trim().lowercase()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.layout_editor_foreign_language_title)) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.layout_editor_foreign_language_search)) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
+                    items(results, key = { it.id }) { language ->
+                        WmRow(
+                            title = language.displayName,
+                            trailing = if (language.id == selected) {
+                                { Icon(Icons.Outlined.Check, contentDescription = null) }
+                            } else {
+                                null
+                            },
+                            onClick = { onPick(language.id) },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+}
+
 @Composable
 internal fun KeyLayoutsScreen(
     repository: SettingsRepository,
@@ -147,6 +238,14 @@ internal fun KeyLayoutsScreen(
     var confirmDelete by remember { mutableStateOf<LayoutSpec?>(null) }
     var confirmImport by remember { mutableStateOf<ImportedLayout?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
+
+    // A layout converted from another keyboard, waiting on a language. Neither
+    // FlorisBoard nor HeliBoard states one in a layout file, and a layout stored
+    // without one is silently read back as English — with an English dictionary
+    // and Latin shift behaviour on, say, a Georgian grid.
+    var confirmForeign by remember { mutableStateOf<ConvertedLayout?>(null) }
+    var foreignLangId by remember { mutableStateOf("") }
+    var pickingLanguage by remember { mutableStateOf(false) }
 
     // CreateDocument cannot carry a payload, so the layout waiting to be written
     // is parked here between launching the picker and its result.
@@ -199,6 +298,38 @@ internal fun KeyLayoutsScreen(
             // Read first, ask, then write. Importing a layout is not something
             // to discover you have done — and it never activates it either.
             confirmImport = parsed
+        }
+    }
+
+    val foreignLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val name = WMFileTypes.displayName(context, uri)
+            val converted = withContext(Dispatchers.IO) {
+                runCatching {
+                    // Capped, unlike the native import: this file was written by
+                    // another app and picked by extension, so it can be anything
+                    // the picker let through. The cap matches what an add-on
+                    // repository will download for a layout, and no real grid is
+                    // within two orders of magnitude of it.
+                    val bytes = context.contentResolver.requireInputStream(uri).use { input ->
+                        input.readBytes(MAX_FOREIGN_LAYOUT_BYTES + 1)
+                    }
+                    if (bytes.size > MAX_FOREIGN_LAYOUT_BYTES) {
+                        null
+                    } else {
+                        ForeignLayouts.convert(bytes.decodeToString(), name)
+                    }
+                }.getOrNull()
+            }
+            if (converted == null) {
+                message = context.getString(R.string.layout_editor_foreign_wrong_file_error)
+                return@launch
+            }
+            foreignLangId = converted.guessedLangId
+            confirmForeign = converted
         }
     }
 
@@ -310,6 +441,14 @@ internal fun KeyLayoutsScreen(
                 },
             )
         }
+        item {
+            WmRow(
+                title = stringResource(R.string.layout_editor_foreign_title),
+                subtitle = stringResource(R.string.layout_editor_foreign_subtitle),
+                leading = { Icon(Icons.Outlined.SwapHoriz, contentDescription = null) },
+                onClick = { foreignLauncher.launch(FOREIGN_LAYOUT_MIME_TYPES) },
+            )
+        }
     }
 
     val builtIns = layouts.filter {
@@ -393,6 +532,83 @@ internal fun KeyLayoutsScreen(
                     Text(stringResource(CommonR.string.common_cancel))
                 }
             },
+        )
+    }
+
+    confirmForeign?.let { converted ->
+        AlertDialog(
+            onDismissRequest = { confirmForeign = null },
+            title = {
+                Text(stringResource(R.string.layout_editor_foreign_confirm_title, converted.layout.name))
+            },
+            text = {
+                Column {
+                    Text(
+                        stringResource(
+                            when (converted.source) {
+                                ForeignSource.FLORIS_JSON -> R.string.layout_editor_foreign_from_json
+                                ForeignSource.HELIBOARD_TEXT -> R.string.layout_editor_foreign_from_text
+                            },
+                        ),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    // The language is a step rather than a guess applied
+                    // silently: it decides the dictionary, the autocorrect, the
+                    // script rules, dictation and how shift behaves, and no
+                    // foreign layout file states one.
+                    WmRow(
+                        title = stringResource(R.string.layout_editor_foreign_language_title),
+                        subtitle = LanguageRegistry.byId(foreignLangId).displayName,
+                        onClick = { pickingLanguage = true },
+                    )
+                    if (converted.notes.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stringResource(R.string.layout_editor_import_changes_title),
+                            fontWeight = FontWeight.Medium,
+                        )
+                        for (note in converted.notes) {
+                            Text(
+                                stringResource(
+                                    R.string.layout_editor_repair_note,
+                                    note.format(context.resources),
+                                ),
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val id = "custom_${System.currentTimeMillis()}"
+                    val name = converted.layout.name
+                    val langId = foreignLangId
+                    scope.launch {
+                        // withLanguage is the only supported way out of a
+                        // conversion, for the reason its own comment gives.
+                        repository.upsertCustomLayout(converted.withLanguage(langId).copy(id = id))
+                        message =
+                            context.getString(R.string.layout_editor_import_done_message, name)
+                    }
+                    confirmForeign = null
+                }) { Text(stringResource(CommonR.string.common_import)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmForeign = null }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
+    }
+
+    if (pickingLanguage) {
+        ForeignLanguageDialog(
+            selected = foreignLangId,
+            onPick = {
+                foreignLangId = it
+                pickingLanguage = false
+            },
+            onDismiss = { pickingLanguage = false },
         )
     }
 

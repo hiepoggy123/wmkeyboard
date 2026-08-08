@@ -49,4 +49,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
+
+    // The .flex converter and the snygg mapper are pure JVM on purpose, so they
+    // are tested here rather than from :app — which could not see their
+    // internals anyway.
+    testImplementation(libs.junit)
 }

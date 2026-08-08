@@ -58,6 +58,20 @@
     <string name="layout_editor_export_error">The app could not write that file.</string>
     <string name="layout_editor_import_wrong_file_error">That file is not a WM Keyboard layout.</string>
 
+    <!-- Layouts made for a different keyboard app. The app reads the file and
+         writes a layout of its own from it. -->
+    <string name="layout_editor_foreign_title">Import from another keyboard</string>
+    <string name="layout_editor_foreign_subtitle">Read a layout file from FlorisBoard or HeliBoard</string>
+    <string name="layout_editor_foreign_wrong_file_error">The app cannot read that file as a layout. FlorisBoard and HeliBoard layouts are .json or .txt files. To import a FlorisBoard theme (.flex), go to Themes.</string>
+    <!-- %1$s is the name of the layout the app made from the file. -->
+    <string name="layout_editor_foreign_confirm_title">Import <xliff:g id="layout_name" example="my grid">%1$s</xliff:g>?</string>
+    <string name="layout_editor_foreign_from_json">The app read this file as a FlorisBoard or HeliBoard layout. The other keyboard draws its own bottom row, so the app adds the delete, space and enter keys.</string>
+    <string name="layout_editor_foreign_from_text">The app read this file as a HeliBoard text layout. That format holds letters only, so the app adds the delete, space and enter keys.</string>
+    <!-- The language a converted layout types in. The file does not say, so the
+         app makes a guess from the letters on the keys. -->
+    <string name="layout_editor_foreign_language_title">Language</string>
+    <string name="layout_editor_foreign_language_search">Search languages</string>
+
     <!-- ===================================================================
          Key layout editor: the grid of keys, one layer at a time.
          =================================================================== -->

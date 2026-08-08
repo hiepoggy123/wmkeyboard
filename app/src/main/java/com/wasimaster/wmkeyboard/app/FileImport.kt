@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.util.Base64
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.PluralsRes
@@ -55,6 +56,10 @@ import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.stickers.StickerImportResult
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackFile
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
+import com.wasimaster.wmkeyboard.core.theme.ConvertedTheme
+import com.wasimaster.wmkeyboard.core.theme.FlexResult
+import com.wasimaster.wmkeyboard.core.theme.FlexTheme
+import com.wasimaster.wmkeyboard.core.theme.FlexUnsupported
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
@@ -101,6 +106,11 @@ object WMFileTypes {
         IconPackFile.FILE_EXTENSION,
         SnippetFile.FILE_EXTENSION,
         PluginFile.FILE_EXTENSION,
+        // The one extension here that is not ours. A `.flex` is FlorisBoard's
+        // theme file, and claiming it is the point: someone moving over opens
+        // the file they already have. FlorisBoard's own filter is unaffected —
+        // with both installed the user is asked which app to open it with.
+        FlexTheme.FILE_EXTENSION,
     )
 
     /** First four bytes of every ZIP local file header. */
@@ -123,6 +133,16 @@ object WMFileTypes {
          */
         data object Stickers : Opened
         data object Icons : Opened
+
+        /**
+         * A FlorisBoard `.flex` theme extension, already converted.
+         *
+         * Its own case rather than a [Theme], and it carries the whole
+         * [FlexResult] rather than only the themes: the dialog has to be able to
+         * say that this came from another keyboard, how much of it survived, and
+         * what did not. A converted theme must never be presented as one of ours.
+         */
+        data class FlorisTheme(val result: FlexResult) : Opened
 
         /**
          * An encrypted config bundle. Nothing but the header has been read: the
@@ -173,6 +193,20 @@ object WMFileTypes {
             context.contentResolver.requireInputStream(uri).use { it.readBytes().decodeToString() }
         }.getOrNull() ?: return Opened.Unreadable
 
+        return textKindFor(text, name)
+    }
+
+    /**
+     * Which text format [text] holds, from its format tag — or, for the one
+     * format that has none, from [name].
+     *
+     * Split out of [identify] so the decision is testable without a
+     * `ContentResolver`. The ordering *is* the safety property here, and the
+     * cases worth pinning are the negative ones: a foreign keyboard's layout
+     * file carries no tag of ours, so it has to come back [Opened.Unrecognized]
+     * rather than falling into the theme branch below.
+     */
+    internal fun textKindFor(text: String, name: String): Opened {
         // Tagged formats first, and in the order a tag can only mean one thing.
         ConfigBackup.decode(text)?.let { return Opened.Config(text, it) }
         SettingsBackup.decode(text)?.let { return Opened.Settings(text, it) }
@@ -181,6 +215,9 @@ object WMFileTypes {
         // A theme has no tag and every field has a default, so decoding any JSON
         // object at all succeeds and yields an all-defaults theme. The file name
         // is the only evidence there is that this one was meant to be a theme.
+        // Nothing untagged may be added after this line: the name check is what
+        // stops the branch claiming every JSON file, and a second untagged
+        // format would have nothing left to be told apart by.
         if (name.endsWith(".${ThemeCodec.FILE_EXTENSION}", ignoreCase = true)) {
             ThemeCodec.decode(text)?.let { return Opened.Theme(it) }
         }
@@ -220,13 +257,38 @@ object WMFileTypes {
             }
         }.getOrNull() ?: return Opened.Unrecognized
 
-        return when {
-            manifest.contains("\"${IconPackFile.FORMAT}\"") -> Opened.Icons
-            manifest.contains("\"${StickerPackFile.FORMAT}\"") -> Opened.Stickers
-            manifest.contains("\"${PluginFile.FORMAT}\"") -> Opened.Plugin
-            else -> Opened.Unrecognized
+        // Converting reads the whole archive, so it happens only once the
+        // manifest has said the archive is worth reading.
+        if (isFlexManifest(manifest)) {
+            val result = runCatching {
+                context.contentResolver.requireInputStream(uri).use { FlexTheme.read(it) }
+            }.getOrElse { FlexResult.Unreadable }
+            return Opened.FlorisTheme(result)
         }
+        return archiveKindFor(manifest)
     }
+
+    /**
+     * Which archive format a manifest claims. Split out of [identifyArchive] for
+     * the same reason [textKindFor] is: the tag match is the whole decision, and
+     * it is worth a test that presence of a manifest *name* is never enough.
+     */
+    internal fun archiveKindFor(manifest: String): Opened = when {
+        manifest.contains("\"${IconPackFile.FORMAT}\"") -> Opened.Icons
+        manifest.contains("\"${StickerPackFile.FORMAT}\"") -> Opened.Stickers
+        manifest.contains("\"${PluginFile.FORMAT}\"") -> Opened.Plugin
+        else -> Opened.Unrecognized
+    }
+
+    /**
+     * Whether a manifest is a FlorisBoard theme extension's.
+     *
+     * The tag, never the file name: `extension.json` is a name plenty of things
+     * use, and FlorisBoard has other extension kinds — language packs, keyboard
+     * extensions — that carry the same manifest and nothing this app can read.
+     */
+    internal fun isFlexManifest(manifest: String): Boolean =
+        manifest.contains("\"${FlexTheme.FORMAT}\"")
 
     /**
      * Entries to look at before giving up on finding the manifest. Matches the
@@ -245,7 +307,8 @@ object WMFileTypes {
      * manifest differently so that a `.wmplugin` is recognisable without
      * reading any Lua.
      */
-    private val ARCHIVE_MANIFESTS = setOf(StickerPackFile.MANIFEST, PluginFile.MANIFEST)
+    private val ARCHIVE_MANIFESTS =
+        setOf(StickerPackFile.MANIFEST, PluginFile.MANIFEST, FlexTheme.MANIFEST)
 
     /** The provider's display name for [uri], or its last path segment. */
     fun displayName(context: android.content.Context, uri: Uri): String {
@@ -481,6 +544,8 @@ private fun rememberProposal(
                 },
             )
         }
+
+        is WMFileTypes.Opened.FlorisTheme -> florisProposal(state.result, repository, context)
 
         is WMFileTypes.Opened.Layout -> ImportProposal(
             titleRes = R.string.import_name_title,
@@ -741,6 +806,113 @@ private fun rememberProposal(
             apply = null,
         )
     }
+}
+
+/**
+ * The confirmation for a FlorisBoard theme extension.
+ *
+ * Worded as a conversion throughout, and never as an ordinary theme import. The
+ * user's file describes a keyboard this app is not, so the dialog leads with the
+ * count of style rules that had somewhere to go and lists what did not, rather
+ * than showing a theme name and implying the file came across whole.
+ *
+ * The themes are saved but not switched to. A native theme import activates
+ * immediately because there is nothing to check; a converted one is exactly the
+ * thing worth looking at before it becomes the keyboard, and the theme editor is
+ * where the parts that could not be carried get finished.
+ */
+private fun florisProposal(
+    result: FlexResult,
+    repository: SettingsRepository,
+    context: android.content.Context,
+): ImportProposal = when (result) {
+    is FlexResult.Converted -> ImportProposal(
+        titleRes = R.string.import_floris_title,
+        body = buildString {
+            append(
+                context.getString(
+                    R.string.import_floris_body,
+                    result.mappedRuleCount,
+                    result.ruleCount,
+                ),
+            )
+            val credit = result.authors.joinToString().takeIf { it.isNotBlank() }
+            if (credit != null || result.license.isNotBlank()) {
+                append("\n\n")
+                append(
+                    context.getString(
+                        R.string.import_floris_credit,
+                        credit ?: context.getString(R.string.import_floris_credit_unknown),
+                        result.license.ifBlank { context.getString(R.string.import_floris_credit_unknown) },
+                    ),
+                )
+            }
+        },
+        repairs = result.dropped.map { context.getString(florisDroppedRes(it)) },
+        apply = {
+            val dir = withContext(Dispatchers.IO) {
+                File(context.filesDir, "theme_images").apply { mkdirs() }
+            }
+            val stored = withContext(Dispatchers.IO) {
+                result.themes.mapIndexed { index, converted ->
+                    // One id per theme, and distinct: a day and night pair would
+                    // otherwise write their images over each other, since the
+                    // extracted file names are keyed on the id.
+                    converted.stored("custom_${System.currentTimeMillis()}_$index", dir)
+                }
+            }
+            for (theme in stored) repository.upsertCustomTheme(theme)
+            context.resources.getQuantityString(
+                R.plurals.import_floris_done,
+                stored.size,
+                stored.size,
+            )
+        },
+    )
+
+    FlexResult.SnyggV1 -> ImportProposal(
+        titleRes = R.string.import_floris_old_title,
+        body = context.getString(R.string.import_floris_old_body),
+        apply = null,
+    )
+
+    FlexResult.NotAFlex, FlexResult.Unreadable -> ImportProposal(
+        titleRes = R.string.import_unrecognized_title,
+        body = context.getString(R.string.import_floris_unreadable_body),
+        apply = null,
+    )
+}
+
+/**
+ * A converted theme as one this app can store: image bytes base64'd into the
+ * fields the theme format carries them in, then written out to app-private
+ * storage by the same call a native theme import uses.
+ *
+ * The base64 hop looks redundant next to writing the bytes straight to disk, and
+ * is not: `withExtractedImages` owns the file naming and the rule that a theme
+ * may only ever point inside our own storage. Going around it would mean a
+ * second place that decides where a theme's images live.
+ */
+internal fun ConvertedTheme.stored(id: String, dir: File): ThemeSpec {
+    fun encode(bytes: ByteArray) = Base64.encodeToString(bytes, Base64.NO_WRAP)
+    return theme.copy(
+        id = id,
+        backgroundImageBase64 = images[FlexTheme.IMAGE_BACKGROUND]?.let(::encode),
+        assets = images.filterKeys { it != FlexTheme.IMAGE_BACKGROUND }
+            .mapValues { (_, bytes) -> encode(bytes) },
+    ).withExtractedImages(dir)
+}
+
+@StringRes
+private fun florisDroppedRes(dropped: FlexUnsupported): Int = when (dropped) {
+    FlexUnsupported.SNYGG_V1 -> R.string.import_floris_dropped_old
+    FlexUnsupported.ELEVATION -> R.string.import_floris_dropped_elevation
+    FlexUnsupported.PER_CORNER_RADIUS -> R.string.import_floris_dropped_corners
+    FlexUnsupported.PER_ELEMENT_SPACING -> R.string.import_floris_dropped_spacing
+    FlexUnsupported.FONT -> R.string.import_floris_dropped_font
+    FlexUnsupported.DYNAMIC_COLOR -> R.string.import_floris_dropped_dynamic
+    FlexUnsupported.UNKNOWN_ELEMENT -> R.string.import_floris_dropped_unknown
+    FlexUnsupported.LOW_CONTRAST_FALLBACK -> R.string.import_floris_dropped_contrast
 }
 
 /**

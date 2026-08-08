@@ -229,6 +229,10 @@
                 <data android:pathPattern=".*\\..*\\.wmplugin" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmplugin" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.wmplugin" />
+                <data android:pathPattern=".*\\.flex" />
+                <data android:pathPattern=".*\\..*\\.flex" />
+                <data android:pathPattern=".*\\..*\\..*\\.flex" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.flex" />
             </intent-filter>
 
             <intent-filter android:label="@string/import_file_label">
@@ -272,6 +276,10 @@
                 <data android:pathPattern=".*\\..*\\.wmplugin" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmplugin" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.wmplugin" />
+                <data android:pathPattern=".*\\.flex" />
+                <data android:pathPattern=".*\\..*\\.flex" />
+                <data android:pathPattern=".*\\..*\\..*\\.flex" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.flex" />
             </intent-filter>
         </activity>
 

@@ -52,6 +52,13 @@
     <string name="theme_duplicate_name"><xliff:g id="theme_name" example="Midnight">%1$s</xliff:g> copy</string>
     <!-- Name the app gives to a theme when the user clears the name field. -->
     <string name="theme_untitled_name">Untitled</string>
+    <!-- Button that reads a FlorisBoard theme file (.flex). Keep it short: it
+         sits beside Create theme and Import. -->
+    <string name="theme_import_floris_action">FlorisBoard</string>
+    <!-- Shown when the file the user selected is not a theme file. -->
+    <string name="theme_import_wrong_file_error">That file is not a WM Keyboard theme.</string>
+    <!-- Shown after a theme is imported. %1$s is the name of the theme. -->
+    <string name="theme_import_done_message">The app imported <xliff:g id="theme_name" example="Midnight">%1$s</xliff:g>.</string>
     <string name="theme_custom_section_title">Your themes</string>
     <string name="theme_builtin_section_title">Built-in</string>
     <string name="theme_builtin_section_body">Press a theme to use it. The pencil icon makes a copy that you can edit.</string>
