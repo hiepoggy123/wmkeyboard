@@ -629,6 +629,24 @@ class SuggestionEngine(
         return sources
     }
 
+    /**
+     * Whether anything at all could complete a word in the language now being
+     * typed: a bundled list that participates, an imported one, a secondary
+     * language's, or words the user has learned.
+     *
+     * Asked by the IME before it re-arms a word the caret landed on as the
+     * composing region — an underline that no source can ever complete is worse
+     * than leaving the text alone. Built on exactly the sources [walkSources]
+     * walks, so it can never promise completions the walk would not produce:
+     * every language ships the same empty imported trie until a download lands,
+     * and a source with no words is not a source.
+     *
+     * A walker's root bound is the emptiness test the fuzzy walk itself uses —
+     * a subtree whose best frequency is zero holds nothing the beam would keep.
+     */
+    val hasWordSources: Boolean
+        get() = walkSources().any { it.walker.maxSubtree(it.walker.root) > 0 }
+
     /** Best frequency for a word across the primary and secondary lists. */
     private fun dictionaryFrequencyOf(word: String): Int = maxOf(
         activeDictionary.frequencyOf(word),

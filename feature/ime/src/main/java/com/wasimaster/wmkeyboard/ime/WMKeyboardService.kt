@@ -4823,10 +4823,10 @@ open class WMKeyboardService : InputMethodService() {
      * preceding-word context is re-derived — a caret mid-word or after a
      * separator has no word to resume, so it predicts the next one (or clears).
      *
-     * Latin-script layouts only: Avro's composing is the roman source of a
-     * Bengali field that can't be reversed back into it, and the fixed-Bengali
-     * layouts keep no composing buffer to resume. [newSelStart] is the caret
-     * offset the field just reported, used to place the composing region.
+     * Any language whose composing buffer is the field's own text and that has
+     * something to complete from — see [composingResumable], which is where the
+     * transliterating and cluster-shaping layouts drop out. [newSelStart] is the
+     * caret offset the field just reported, used to place the composing region.
      */
     private fun restartSuggestionsAtCursor(ic: InputConnection, newSelStart: Int) {
         val state = _uiState.value
@@ -4857,17 +4857,16 @@ open class WMKeyboardService : InputMethodService() {
             state.panel == PanelMode.NONE &&
             !keyboardHandwriteActive(state) &&
             !state.secureField && !state.fieldNoSuggestions &&
-            // Was reading the old glide flag, which happened to be set on
-            // English and nothing else — nothing to do with resuming a word.
-            // Spelled out as English here to hold the shipped behaviour; what
-            // it should ask is whether this language has completions at all.
-            state.allowsTypingIntelligence && state.language.isEnglish &&
+            state.allowsTypingIntelligence &&
             !state.typingTestActive && !state.emojiSearchActive &&
             !state.dictionarySearchActive && !state.mediaSearchActive &&
             !state.clipboardSearchActive && !state.pluginTypingActive &&
             state.voice.status != VoiceStatus.LISTENING &&
             state.voice.status != VoiceStatus.FINISHING &&
-            state.voice.status != VoiceStatus.TRANSCRIBING
+            state.voice.status != VoiceStatus.TRANSCRIBING &&
+            // Last, so the one term that asks the engine anything is only
+            // reached once the screen and the field have already said yes.
+            composingResumable(state.composer, suggestionEngine?.hasWordSources == true)
 
         // Held outside the block so the fall-through below can reuse it rather
         // than asking the editor for the same 64 characters again — that read

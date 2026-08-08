@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.prediction
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -651,5 +652,63 @@ class SuggestionEngineTest {
 
     @Test fun `two digits mean deliberate input`() {
         assertNull(digitEngine().shouldAutocorrect("h3lp4"))
+    }
+
+    // ---- word sources ----
+    // The IME asks this before re-arming a word the caret landed on as the
+    // composing region; a language it answers false for gets no underline.
+
+    private fun bengaliEngine(lexicon: UserLexicon = UserLexicon(null)): SuggestionEngine =
+        SuggestionEngine(
+            // What Bengali really has: no bundled list of its own (the bundled
+            // list is English, and englishSources is off for every other
+            // language) and the empty imported trie until a download lands.
+            Trie().apply { insert("the", 100) },
+            BengaliPhoneticIndex(emptyList()),
+            lexicon,
+        ).apply {
+            englishSources = false
+            primaryLanguageId = "bn"
+        }
+
+    @Test fun `the bundled list is a word source for english`() {
+        assertTrue(engine().hasWordSources)
+    }
+
+    @Test fun `a language with no list and nothing learned has no word source`() {
+        assertFalse(bengaliEngine().hasWordSources)
+    }
+
+    @Test fun `a downloaded list is a word source`() {
+        val e = bengaliEngine().apply {
+            customDictionary = Trie().apply {
+                insert("বাংলা", 1)
+                insert("বাংলাদেশ", 1)
+            }
+        }
+        assertTrue(e.hasWordSources)
+    }
+
+    @Test fun `a learned word alone is a word source`() {
+        val lexicon = UserLexicon(null).apply { learnWord("বাংলা", count = 1, langId = "bn") }
+        assertTrue(bengaliEngine(lexicon).hasWordSources)
+    }
+
+    @Test fun `english as a secondary is a word source for the primary`() {
+        assertTrue(bengaliEngine().apply { englishAsSecondary = true }.hasWordSources)
+    }
+
+    @Test fun `a secondary language's list is a word source`() {
+        val spanish = Trie().apply { insert("gato", 1) }
+        val e = bengaliEngine().apply {
+            secondaryDictionaries = listOf(SecondaryDictionary("es", spanish))
+        }
+        assertTrue(e.hasWordSources)
+    }
+
+    @Test fun `an empty imported list is not a word source`() {
+        // Every language starts from the same empty trie, so presence of the
+        // field cannot stand in for presence of words.
+        assertFalse(bengaliEngine().apply { customDictionary = Trie() }.hasWordSources)
     }
 }
