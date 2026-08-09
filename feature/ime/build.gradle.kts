@@ -1,8 +1,29 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.library)
     id("wmkeyboard.detekt")
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+}
+
+// Same channel flag :app reads (see the flag() helper there): a Play-store
+// build resolves it true, every other channel false. Here it swaps the two
+// bundled ML Kit artifacts for their unbundled play-services twins — a Play
+// install implies GMS, so the models can come from Play services instead of
+// shipping ~18 MB per ABI in the AAB. Sideload and F-Droid builds keep the
+// bundled artifacts (or none, for lite) so scanners never depend on GMS there.
+// Both variants expose the identical com.google.mlkit.vision.* API, so no
+// source changes ride on this flag.
+val playStoreChannel = run {
+    val localProperties = Properties().apply {
+        val file = rootProject.file("local.properties")
+        if (file.exists()) file.inputStream().use { load(it) }
+    }
+    (providers.gradleProperty("wmkb.enablePlayStore").orNull
+        ?: localProperties.getProperty("wmkb.enablePlayStore")
+        ?: System.getenv("WMKB_ENABLE_PLAY_STORE")
+        ?: "false").toBoolean()
 }
 
 android {
@@ -89,8 +110,13 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
     implementation(libs.coil.network.okhttp)
-    "fullImplementation"(libs.mlkit.text.recognition)
-    "fullImplementation"(libs.mlkit.barcode.scanning)
+    if (playStoreChannel) {
+        "fullImplementation"(libs.mlkit.text.recognition.unbundled)
+        "fullImplementation"(libs.mlkit.barcode.scanning.unbundled)
+    } else {
+        "fullImplementation"(libs.mlkit.text.recognition)
+        "fullImplementation"(libs.mlkit.barcode.scanning)
+    }
     "fullImplementation"(libs.mlkit.document.scanner)
 
     testImplementation(libs.junit)

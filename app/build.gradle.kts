@@ -52,6 +52,15 @@ val updateChannelSourceDir = if (playStoreChannel) "src/play/java" else "src/nop
 val gmsChannel = flag("wmkb.enableGms", "WMKB_ENABLE_GMS")
 val gmsSourceDir = if (gmsChannel) "src/gms/java" else "src/nogms/java"
 
+// Sideload packaging. With `-Pwmkb.splitApks=true`, assemble<Variant> emits one
+// APK per ABI plus a universal fallback instead of a single fat APK — the
+// arm64 artifact is roughly half the universal's size, which is what most
+// GitHub-release downloaders want. Off by default so day-to-day builds and the
+// AAB pipeline (Play does its own ABI splitting) are untouched. When it is on,
+// the ndk.abiFilters lines below step aside: AGP treats abiFilters and ABI
+// splits as conflicting ways of saying the same thing.
+val splitApks = flag("wmkb.splitApks", "WMKB_SPLIT_APKS")
+
 android {
     namespace = "com.wasimaster.wmkeyboard"
     compileSdk {
@@ -133,12 +142,12 @@ android {
     buildTypes {
         debug {
             ndk {
-                abiFilters += setOf("arm64-v8a")
+                if (!splitApks) abiFilters += setOf("arm64-v8a")
             }
         }
         release {
             ndk {
-                abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86_64")
+                if (!splitApks) abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86_64")
                 debugSymbolLevel = "FULL"
             }
             // No debug-key fallback. A debug-signed "release" build looks
@@ -157,6 +166,16 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+        }
+    }
+    // See the splitApks flag at the top of this file. Splits shape APK
+    // assembly only — bundle<Variant> ignores this block entirely.
+    splits {
+        abi {
+            isEnable = splitApks
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
         }
     }
     compileOptions {

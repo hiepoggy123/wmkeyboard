@@ -113,6 +113,19 @@
         android:theme="@style/Theme.WMKeyboard">
 
         <!--
+             Play-channel builds use the unbundled ML Kit artifacts (see
+             :feature:ime), whose models Play services downloads on demand.
+             This line asks Play to fetch the OCR and barcode models at
+             install time instead, so the scanner tools work on first open.
+             Harmless everywhere else: the bundled artifacts in sideload
+             builds carry their models and nothing reads this entry, and lite
+             builds ship no ML Kit at all.
+        -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr,barcode" />
+
+        <!--
              singleTop so a second deep link reaches the running instance
              through onNewIntent instead of stacking another copy of the
              settings app on top of the first.
