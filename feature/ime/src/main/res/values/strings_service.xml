@@ -142,7 +142,7 @@
     <string name="ime_service_flashlight_missing_toast">Your device has no flashlight</string>
     <string name="ime_service_already_in_settings_toast">You are already in the settings</string>
     <!-- Shown the first time a tool order is saved for one keyboard mode. %1$s is the name of the mode. -->
-    <string name="ime_service_mode_tool_order_toast">The keyboard saved the tool order for the %1$s mode. Other apps keep their own order.</string>
+    <string name="ime_service_mode_tool_order_toast">The keyboard saved the tool order only for the %1$s mode. Other apps keep their own order.</string>
 
     <!-- Tools: search, articles, exchange rates, QR codes. -->
     <string name="ime_service_search_error">The search did not work</string>
