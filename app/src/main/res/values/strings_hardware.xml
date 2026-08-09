@@ -108,6 +108,10 @@
     </plurals>
     <!-- %1$d is the number of recordings. %2$s lists the key roles, for example "space, enter". -->
     <string name="hardware_sound_pack_variants_and_roles">%1$d recordings &#8226; separate sounds for %2$s</string>
+    <!-- %1$s is the recordings line above, for example "10 recordings". -->
+    <string name="hardware_sound_pack_with_release">%1$s &#8226; keys sound on the way up</string>
+    <string name="hardware_sound_pack_release_title">Key release sound</string>
+    <string name="hardware_sound_pack_release_subtitle">Play the second sound when you lift your finger, the way a mechanical keyboard clicks twice.</string>
     <string name="hardware_sound_pack_not_a_pack_error">This file is not a sound pack.</string>
     <string name="hardware_sound_pack_read_error">The app cannot read this sound pack.</string>
     <!-- %1$d is the largest number of packs the app keeps, for example 20. -->

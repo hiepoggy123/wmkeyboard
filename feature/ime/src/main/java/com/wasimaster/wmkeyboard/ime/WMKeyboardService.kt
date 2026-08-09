@@ -94,6 +94,7 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiTriggers
 import com.wasimaster.wmkeyboard.core.emoji.EmojiUsage
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
+import com.wasimaster.wmkeyboard.core.feedback.KeySoundPhase
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundRole
 import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
@@ -2332,7 +2333,7 @@ open class WMKeyboardService : InputMethodService() {
                 onKey = ::onKey,
                 onKeyPressed = ::vibrate,
                 onHaptic = ::vibrateOnly,
-                onKeySound = { role -> playKeySound(role = role) },
+                onKeySound = { role, phase -> playKeySound(role = role, phase = phase) },
                 onText = ::onText,
                 onGesture = ::onGesture,
                 onGesturePreview = ::onGesturePreview,
@@ -14929,9 +14930,14 @@ open class WMKeyboardService : InputMethodService() {
         volume: Float? = null,
         force: Boolean = false,
         role: KeySoundRole = KeySoundRole.DEFAULT,
+        phase: KeySoundPhase = KeySoundPhase.PRESS,
     ) {
         val settings = _uiState.value.settings
         if (!force && !settings.keySound) return
+        // The key-up half is a preference of its own, and the cheapest place to
+        // honour it is before anything is resolved: every key on the board asks
+        // this question twice as often as it asks the press one.
+        if (phase == KeySoundPhase.RELEASE && !settings.keySoundCustom.playRelease) return
         val theme = themeKeySound(settings)
         val resolved = style ?: theme?.first ?: settings.keySoundStyle
         // Custom and Pack read their id from different fields, and a theme
@@ -14947,6 +14953,7 @@ open class WMKeyboardService : InputMethodService() {
             volume ?: settings.keySoundVolume,
             id,
             role,
+            phase,
         )
     }
 

@@ -4,6 +4,8 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.SoundPool
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import java.io.File
@@ -21,7 +23,7 @@ import kotlin.random.Random
  * made the three styles indistinguishable. Custom is a file the user installed,
  * from an addon repository or their own storage, played through the same pool.
  * Pack is a [SoundPackStore] pack: many recordings, one picked per keystroke,
- * optionally a different set per [KeySoundRole].
+ * optionally a different set per [KeySoundRole] and per [KeySoundPhase].
  * Lives outside the IME service so the settings app and the sound & haptics
  * tool can preview the sound being adjusted.
  */
@@ -29,6 +31,17 @@ object KeySoundPlayer {
 
     /** Minimum spacing between previews so slider drags don't machine-gun. */
     private const val PREVIEW_GAP_MS = 150L
+
+    /**
+     * How long a previewed keystroke is held down for.
+     *
+     * A preview is a tap nobody performed, so the gap between its two halves
+     * has to be invented. 110 ms is around the middle of a real one: fast
+     * typists sit near 70 ms and a deliberate press runs past 150, and either
+     * end reads as wrong — shorter and the two clicks smear into one, longer
+     * and the pack sounds sluggish next to how it will actually feel.
+     */
+    private const val PREVIEW_STROKE_MS = 110L
 
     private const val SAMPLE_RATE = 44100
 
@@ -73,8 +86,15 @@ object KeySoundPlayer {
         /** Sample name -> pool id. */
         val samples: Map<String, Int>,
         val manifest: SoundPackManifest,
-        /** Last variant played per role, so no role ever repeats itself. */
-        val lastIndex: IntArray = IntArray(KeySoundRole.entries.size) { -1 },
+        /**
+         * Last variant played per role and phase, so no role ever repeats
+         * itself. Press and release keep separate cursors: they are separate
+         * lists, and a shared one would make "which release did I last play?"
+         * depend on how many letters were typed in between.
+         */
+        val lastIndex: Array<IntArray> = Array(KeySoundPhase.entries.size) {
+            IntArray(KeySoundRole.entries.size) { -1 }
+        },
     )
 
     /** Builds the pool and starts decoding so the first key press isn't late. */
@@ -116,6 +136,36 @@ object KeySoundPlayer {
     }
 
     /**
+     * [preview] of a whole keystroke: the press now, the release a held
+     * moment later.
+     *
+     * For the places where the user is choosing a *pack* rather than nudging a
+     * volume. A pack that recorded the switch coming back up is only half
+     * itself on the way down, and a picker that plays half of it is picking on
+     * the wrong evidence. Costs nothing for a pack without release samples —
+     * [play] finds none and stays quiet.
+     */
+    fun previewStroke(
+        context: Context,
+        style: KeySoundStyle,
+        volume: Float,
+        customId: String = "",
+        role: KeySoundRole = KeySoundRole.DEFAULT,
+    ) {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastPreviewAt < PREVIEW_GAP_MS) return
+        lastPreviewAt = now
+        play(context, style, volume, customId, role, KeySoundPhase.PRESS)
+        strokeHandler.postDelayed(
+            { play(context, style, volume, customId, role, KeySoundPhase.RELEASE) },
+            PREVIEW_STROKE_MS,
+        )
+    }
+
+    /** Only ever used to time [previewStroke]'s second half. */
+    private val strokeHandler by lazy { Handler(Looper.getMainLooper()) }
+
+    /**
      * Decodes a pack's samples ahead of the first press.
      *
      * Worth its own entry point because a pack is many files: without this the
@@ -138,6 +188,12 @@ object KeySoundPlayer {
      *
      * [role] only means anything for [KeySoundStyle.PACK], and only for a pack
      * that filled that role; everything else plays one sound for every key.
+     *
+     * [phase] likewise. [KeySoundPhase.RELEASE] is the one call that may end in
+     * silence on purpose: only a pack can have recorded a key coming back up,
+     * and most have not, so a release with nothing behind it returns without
+     * the system-click fallback a press would get. Falling back there would
+     * give every style on the list a second click it never had.
      */
     fun play(
         context: Context,
@@ -145,8 +201,16 @@ object KeySoundPlayer {
         volume: Float,
         customId: String = "",
         role: KeySoundRole = KeySoundRole.DEFAULT,
+        phase: KeySoundPhase = KeySoundPhase.PRESS,
     ) {
         val vol = volume.coerceIn(0.05f, 1f)
+        if (phase == KeySoundPhase.RELEASE) {
+            if (style != KeySoundStyle.PACK) return
+            val shot = synchronized(this) { packShot(context, customId, role, phase) } ?: return
+            val packVol = vol * shot.second
+            pool?.play(shot.first, packVol, packVol, 1, 0, 1f)
+            return
+        }
         when (style) {
             KeySoundStyle.CLICK -> systemFx(context, AudioManager.FX_KEY_CLICK, vol)
             KeySoundStyle.STANDARD -> systemFx(context, AudioManager.FX_KEYPRESS_STANDARD, vol)
@@ -155,7 +219,7 @@ object KeySoundPlayer {
                 // and writes the pack's per-role cursor, so two fingers landing
                 // together must not both read the same "last played" value and
                 // both avoid it.
-                val shot = synchronized(this) { packShot(context, customId, role) }
+                val shot = synchronized(this) { packShot(context, customId, role, phase) }
                 if (shot != null) {
                     val packVol = vol * shot.second
                     pool?.play(shot.first, packVol, packVol, 1, 0, 1f)
@@ -223,14 +287,20 @@ object KeySoundPlayer {
      * chosen variant failed to load. Only ever called under this object's
      * monitor.
      */
-    private fun packShot(context: Context, packId: String, role: KeySoundRole): Pair<Int, Float>? {
+    private fun packShot(
+        context: Context,
+        packId: String,
+        role: KeySoundRole,
+        phase: KeySoundPhase,
+    ): Pair<Int, Float>? {
         val pack = residentPack(context, packId) ?: return null
-        val names = pack.manifest.pressFor(role)
+        val names = pack.manifest.samplesFor(role, phase)
         if (names.isEmpty()) return null
 
+        val cursor = pack.lastIndex[phase.ordinal]
         val slot = role.ordinal
-        val index = nextVariant(names.size, pack.lastIndex[slot])
-        pack.lastIndex[slot] = index
+        val index = nextVariant(names.size, cursor[slot])
+        cursor[slot] = index
 
         val sampleId = pack.samples[names[index]] ?: return null
         if (sampleId !in loadedIds) return null
@@ -277,7 +347,10 @@ object KeySoundPlayer {
         val samples = HashMap<String, Int>()
         val wanted = buildSet {
             addAll(manifest.press)
-            KeySoundRole.entries.forEach { addAll(manifest.pressFor(it)) }
+            addAll(manifest.release)
+            KeySoundRole.entries.forEach { role ->
+                KeySoundPhase.entries.forEach { phase -> addAll(manifest.samplesFor(role, phase)) }
+            }
         }
         for (name in wanted) {
             val file = store.sampleFile(resolved, name) ?: continue
@@ -332,7 +405,12 @@ object KeySoundPlayer {
     private fun ensurePool(context: Context): SoundPool {
         pool?.let { return it }
         val p = SoundPool.Builder()
-            .setMaxStreams(4)
+            // Eight rather than four: a pack with release samples puts two
+            // sounds in the air per keystroke, and the release of the key
+            // before last is still ringing while the next one goes down. At
+            // four, a fast run on a long-tailed pack starts cutting its own
+            // oldest stream — audible as keys that stop finishing.
+            .setMaxStreams(8)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)

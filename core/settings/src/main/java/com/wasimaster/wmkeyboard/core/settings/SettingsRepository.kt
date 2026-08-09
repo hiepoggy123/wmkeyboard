@@ -426,6 +426,16 @@ data class KeySoundSettings(
      * the sound the user had picked.
      */
     val packId: String = "",
+    /**
+     * Whether a key also sounds when it comes back up.
+     *
+     * Only a sound pack can have recorded that half — see
+     * [com.wasimaster.wmkeyboard.core.feedback.KeySoundPhase] — so for every
+     * other style this is inert. On by default: a pack that went to the trouble
+     * of recording the switch returning should sound like the board it came
+     * from, and the packs that did not are unaffected either way.
+     */
+    val playRelease: Boolean = true,
 )
 
 /**
@@ -1364,8 +1374,8 @@ data class KeyboardSettings(
     val handwritingCommitDelayMs: Int = 700,
     /** Insert a space between consecutively handwritten words. */
     val handwritingAutoSpace: Boolean = true,
-    /** Voice tool dictates into a compact bar over the keys, not a panel. */
-    val voiceStripMode: Boolean = false,
+    /** Voice tool surface and collapsed-bar state, grouped (see [VoiceBarSettings]). */
+    val voiceBar: VoiceBarSettings = VoiceBarSettings(),
     /** Keep listening after each dictated sentence. */
     val voiceContinuous: Boolean = true,
     /** Saying "comma" / "দাঁড়ি" types the mark instead of the word. */
@@ -2148,6 +2158,39 @@ data class CameraSettings(
      */
     val fullFrame: Boolean = false,
 )
+
+/**
+ * Which surface the voice tool opens, and where the collapsed bar sits,
+ * grouped into their own object (see [CameraSettings] for why the top-level
+ * class can't take more flat fields). DataStore keys stay flat.
+ *
+ * [active] is persisted state, not preference: the collapsed bar keeps the
+ * keyboard's place on every new field until the user restores the keyboard,
+ * and that has to survive the IME process being killed between fields.
+ */
+data class VoiceBarSettings(
+    /** What the voice tool opens: the full panel, the strip over the keys, or the collapsed bar. */
+    val mode: String = MODE_PANEL,
+    /** The collapsed bar stands in for the keyboard until the keyboard is restored. */
+    val active: Boolean = false,
+    /** The bar stands upright against a screen edge instead of lying along the bottom. */
+    val vertical: Boolean = false,
+    /** Where the horizontal bar rests: [SNAP_LEFT], [SNAP_CENTER] or [SNAP_RIGHT]. */
+    val snap: Int = SNAP_CENTER,
+    /** The vertical bar docks on the right screen edge (false = left). */
+    val rightEdge: Boolean = true,
+    /** The vertical bar's position along its edge, as a fraction of the travel. */
+    val yBias: Float = 0.5f,
+) {
+    companion object {
+        const val MODE_PANEL = "panel"
+        const val MODE_STRIP = "strip"
+        const val MODE_BAR = "bar"
+        const val SNAP_LEFT = 0
+        const val SNAP_CENTER = 1
+        const val SNAP_RIGHT = 2
+    }
+}
 
 /**
  * Offline Whisper dictation settings, grouped into their own object (see
@@ -3470,6 +3513,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_SOUND_VOLUME = floatPreferencesKey("key_sound_volume")
         private val KEY_SOUND_CUSTOM_ID = stringPreferencesKey("key_sound_custom_id")
         private val KEY_SOUND_PACK_ID = stringPreferencesKey("key_sound_pack_id")
+        private val KEY_SOUND_RELEASE = booleanPreferencesKey("key_sound_release")
         private val LEVEL_SHOW_ANGLES = booleanPreferencesKey("level_show_angles")
         private val REDO_USES_CTRL_Y = booleanPreferencesKey("redo_uses_ctrl_y")
         private val MOON_SOUTHERN = booleanPreferencesKey("moon_southern_hemisphere")
@@ -3488,7 +3532,15 @@ class SettingsRepository(private val context: Context) {
         private val HANDWRITING_STYLUS_ONLY = booleanPreferencesKey("handwriting_stylus_only")
         private val HANDWRITING_COMMIT_DELAY = intPreferencesKey("handwriting_commit_delay")
         private val HANDWRITING_AUTO_SPACE = booleanPreferencesKey("handwriting_auto_space")
+        // Legacy boolean the three-way voice_ui_mode replaced; still read as
+        // the fallback so an existing strip-mode choice survives the update.
         private val VOICE_STRIP_MODE = booleanPreferencesKey("voice_strip_mode")
+        private val VOICE_UI_MODE = stringPreferencesKey("voice_ui_mode")
+        private val VOICE_BAR_ACTIVE = booleanPreferencesKey("voice_bar_active")
+        private val VOICE_BAR_VERTICAL = booleanPreferencesKey("voice_bar_vertical")
+        private val VOICE_BAR_SNAP = intPreferencesKey("voice_bar_snap")
+        private val VOICE_BAR_EDGE_RIGHT = booleanPreferencesKey("voice_bar_edge_right")
+        private val VOICE_BAR_Y_BIAS = floatPreferencesKey("voice_bar_y_bias")
         private val VOICE_CONTINUOUS = booleanPreferencesKey("voice_continuous")
         private val VOICE_SPOKEN_PUNCTUATION = booleanPreferencesKey("voice_spoken_punctuation")
         private val VOICE_ENGINE = stringPreferencesKey("voice_engine")
@@ -3926,6 +3978,7 @@ class SettingsRepository(private val context: Context) {
             keySoundCustom = KeySoundSettings(
                 customId = p[KEY_SOUND_CUSTOM_ID] ?: defaults.keySoundCustom.customId,
                 packId = p[KEY_SOUND_PACK_ID] ?: defaults.keySoundCustom.packId,
+                playRelease = p[KEY_SOUND_RELEASE] ?: defaults.keySoundCustom.playRelease,
             ),
             popup = popupFromPrefs(p, defaults),
             colorVisionFilter = p[COLOR_VISION_FILTER]
@@ -4340,7 +4393,18 @@ class SettingsRepository(private val context: Context) {
             handwritingCommitDelayMs = p[HANDWRITING_COMMIT_DELAY]
                 ?: defaults.handwritingCommitDelayMs,
             handwritingAutoSpace = p[HANDWRITING_AUTO_SPACE] ?: defaults.handwritingAutoSpace,
-            voiceStripMode = p[VOICE_STRIP_MODE] ?: defaults.voiceStripMode,
+            voiceBar = VoiceBarSettings(
+                mode = p[VOICE_UI_MODE] ?: if (p[VOICE_STRIP_MODE] == true) {
+                    VoiceBarSettings.MODE_STRIP
+                } else {
+                    defaults.voiceBar.mode
+                },
+                active = p[VOICE_BAR_ACTIVE] ?: defaults.voiceBar.active,
+                vertical = p[VOICE_BAR_VERTICAL] ?: defaults.voiceBar.vertical,
+                snap = p[VOICE_BAR_SNAP] ?: defaults.voiceBar.snap,
+                rightEdge = p[VOICE_BAR_EDGE_RIGHT] ?: defaults.voiceBar.rightEdge,
+                yBias = p[VOICE_BAR_Y_BIAS] ?: defaults.voiceBar.yBias,
+            ),
             voiceContinuous = p[VOICE_CONTINUOUS] ?: defaults.voiceContinuous,
             voiceSpokenPunctuation = p[VOICE_SPOKEN_PUNCTUATION]
                 ?: defaults.voiceSpokenPunctuation,
@@ -4734,6 +4798,9 @@ class SettingsRepository(private val context: Context) {
             if (value.isNotBlank()) it[KEY_SOUND_STYLE] = KeySoundStyle.PACK.name
         }
 
+    suspend fun setKeySoundPlayRelease(value: Boolean) =
+        editPrefs { it[KEY_SOUND_RELEASE] = value }
+
     suspend fun setLevelShowAngles(value: Boolean) =
         editPrefs { it[LEVEL_SHOW_ANGLES] = value }
 
@@ -4820,8 +4887,24 @@ class SettingsRepository(private val context: Context) {
     suspend fun setHandwritingAutoSpace(value: Boolean) =
         editPrefs { it[HANDWRITING_AUTO_SPACE] = value }
 
-    suspend fun setVoiceStripMode(value: Boolean) =
-        editPrefs { it[VOICE_STRIP_MODE] = value }
+    suspend fun setVoiceUiMode(value: String) =
+        editPrefs { it[VOICE_UI_MODE] = value }
+
+    suspend fun setVoiceBarActive(value: Boolean) =
+        editPrefs { it[VOICE_BAR_ACTIVE] = value }
+
+    suspend fun setVoiceBarVertical(value: Boolean) =
+        editPrefs { it[VOICE_BAR_VERTICAL] = value }
+
+    suspend fun setVoiceBarSnap(value: Int) =
+        editPrefs { it[VOICE_BAR_SNAP] = value }
+
+    /** The vertical bar settled after a drag: which edge, and how far along it. */
+    suspend fun setVoiceBarEdge(rightEdge: Boolean, yBias: Float) =
+        editPrefs {
+            it[VOICE_BAR_EDGE_RIGHT] = rightEdge
+            it[VOICE_BAR_Y_BIAS] = yBias.coerceIn(0f, 1f)
+        }
 
     suspend fun setVoiceContinuous(value: Boolean) =
         editPrefs { it[VOICE_CONTINUOUS] = value }

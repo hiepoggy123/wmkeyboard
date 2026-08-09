@@ -40,6 +40,21 @@ enum class KeySoundRole(val serialName: String) {
     }
 }
 
+/**
+ * Which half of a keystroke a sound belongs to.
+ *
+ * A mechanical keyboard makes two noises per key: the switch actuating under
+ * the finger and the stem returning when it lifts. A pack that recorded both
+ * fills [RELEASE] as well as [PRESS] and the keyboard plays each at the moment
+ * it happens, so holding a key really does hold the sound open.
+ *
+ * [RELEASE] is optional everywhere, and an empty release list means silence
+ * rather than a fallback: most sounds worth typing on — a beep, a pop, an
+ * interface click — are one event, and inventing a second one for them would
+ * double every keystroke.
+ */
+enum class KeySoundPhase { PRESS, RELEASE }
+
 /** One role's samples. Every field is optional and falls back to the pack's default. */
 @Serializable
 data class SoundPackRoleSpec(
@@ -82,6 +97,21 @@ data class SoundPackManifest(
     /** The samples [role] should play on key-up. Empty is normal and means silence. */
     fun releaseFor(role: KeySoundRole): List<String> =
         roles[role.serialName]?.release?.takeIf { it.isNotEmpty() } ?: release
+
+    /** The samples [role] plays for one half of a keystroke. */
+    fun samplesFor(role: KeySoundRole, phase: KeySoundPhase): List<String> = when (phase) {
+        KeySoundPhase.PRESS -> pressFor(role)
+        KeySoundPhase.RELEASE -> releaseFor(role)
+    }
+
+    /**
+     * Whether any key on the board would make a sound when it comes back up.
+     *
+     * Asked of a role that fills only `press` too, because that role still
+     * falls back to the pack's top-level `release`.
+     */
+    fun hasRelease(): Boolean =
+        release.isNotEmpty() || roles.values.any { it.release.isNotEmpty() }
 
     /**
      * [role]'s volume multiplier.
@@ -291,6 +321,7 @@ object SoundPackFile {
                 variantCount = press.size,
                 sampleCount = bytes.size,
                 roles = normalised.filledRoles().map { it.serialName },
+                hasRelease = normalised.hasRelease(),
                 addedAt = now,
             ),
         ) ?: run {

@@ -3722,6 +3722,7 @@ private fun KeySoundGroup(
         }
         if (settings.keySoundStyle == KeySoundStyle.PACK) {
             item { InstalledSoundPackSection(repository, settings, onNavigate) }
+            item { KeyReleaseSoundToggle(repository, settings) }
         }
         item {
             SliderSetting(
@@ -3911,7 +3912,7 @@ private fun InstalledSoundPackSection(
             when (result) {
                 is SoundPackImportResult.Imported -> {
                     repository.setKeySoundPackId(result.pack.id)
-                    KeySoundPlayer.preview(
+                    KeySoundPlayer.previewStroke(
                         context, KeySoundStyle.PACK, settings.keySoundVolume, result.pack.id,
                     )
                 }
@@ -3959,19 +3960,30 @@ private fun InstalledSoundPackSection(
                     title = pack.name,
                     supporting = {
                         val roles = pack.roles
+                        val counts = if (roles.isEmpty()) {
+                            pluralStringResource(
+                                R.plurals.hardware_sound_pack_variants,
+                                pack.variantCount,
+                                pack.variantCount,
+                            )
+                        } else {
+                            stringResource(
+                                R.string.hardware_sound_pack_variants_and_roles,
+                                pack.variantCount,
+                                roles.joinToString(", "),
+                            )
+                        }
+                        // Appended rather than given its own line: it is one
+                        // more fact about the pack, and the row already has a
+                        // subtitle that reads as a list.
                         Text(
-                            if (roles.isEmpty()) {
-                                pluralStringResource(
-                                    R.plurals.hardware_sound_pack_variants,
-                                    pack.variantCount,
-                                    pack.variantCount,
+                            if (pack.hasRelease == true) {
+                                stringResource(
+                                    R.string.hardware_sound_pack_with_release,
+                                    counts,
                                 )
                             } else {
-                                stringResource(
-                                    R.string.hardware_sound_pack_variants_and_roles,
-                                    pack.variantCount,
-                                    roles.joinToString(", "),
-                                )
+                                counts
                             },
                         )
                     },
@@ -4007,7 +4019,10 @@ private fun InstalledSoundPackSection(
                     },
                     onClick = {
                         scope.launch { repository.setKeySoundPackId(pack.id) }
-                        KeySoundPlayer.preview(
+                        // The whole keystroke, not just the way down: a pack
+                        // that recorded the switch returning is being judged on
+                        // both halves, and half of it is a different pack.
+                        KeySoundPlayer.previewStroke(
                             context, KeySoundStyle.PACK, settings.keySoundVolume, pack.id,
                         )
                     },
@@ -4019,6 +4034,48 @@ private fun InstalledSoundPackSection(
             onClick = { importLauncher.launch(SoundPackFile.IMPORT_MIME_TYPES) },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         ) { Text(stringResource(R.string.hardware_sound_pack_import_action)) }
+    }
+}
+
+/**
+ * "Play the key coming back up", for packs that recorded it.
+ *
+ * Draws nothing at all when the selected pack has no key-up recordings, which
+ * is most of them: a switch the user can flip and hear no difference from is
+ * worse than an absent one — it reads as the feature being broken rather than
+ * as the pack not having it. The toggle appearing *is* how a pack announces it
+ * has both halves.
+ */
+@Composable
+private fun KeyReleaseSoundToggle(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val store = remember { SoundPackStore.get(context) }
+    val revision by store.revision.collectAsStateWithLifecycle()
+    val packId = settings.keySoundCustom.packId
+    val hasRelease = remember(revision, packId) {
+        store.resolve(packId)?.let { store.pack(it)?.hasRelease } == true
+    }
+    if (!hasRelease) return
+    ToggleSetting(
+        R.string.hardware_sound_pack_release_title,
+        stringResource(R.string.hardware_sound_pack_release_subtitle),
+        settings.keySoundCustom.playRelease,
+    ) { on ->
+        scope.launch { repository.setKeySoundPlayRelease(on) }
+        // Turning it on previews the whole keystroke, which is the only way to
+        // hear what the switch just bought; turning it off previews the press
+        // alone, so the difference is the thing demonstrated either way.
+        if (on) {
+            KeySoundPlayer.previewStroke(
+                context, KeySoundStyle.PACK, settings.keySoundVolume, packId,
+            )
+        } else {
+            KeySoundPlayer.preview(context, KeySoundStyle.PACK, settings.keySoundVolume, packId)
+        }
     }
 }
 

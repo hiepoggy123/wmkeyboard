@@ -22,6 +22,16 @@ data class InstalledSoundPack(
     val sampleCount: Int = 0,
     /** Serial names of the roles this pack overrides; empty is the common case. */
     val roles: List<String> = emptyList(),
+    /**
+     * Whether the pack also sounds on key-up.
+     *
+     * Nullable, and null means "written before this field existed" rather than
+     * "no": the packs a user already had were installed with their `release`
+     * lists intact and play them fine, so the flag is backfilled from their
+     * manifests on the next load ([SoundPackStore.reload]) instead of quietly
+     * telling the UI they are press-only.
+     */
+    val hasRelease: Boolean? = null,
     val addedAt: Long = 0L,
 )
 
@@ -255,7 +265,26 @@ class SoundPackStore(private var baseDir: File?) {
             }.isSuccess
         }
         reconcile(dir, sweepUnknown = readable)
+        backfillRelease()
         _revision.value++
+    }
+
+    /**
+     * Fills in [InstalledSoundPack.hasRelease] for records written before the
+     * field existed, by reading the one thing that knows: the pack's own
+     * manifest. Costs a small JSON read per pack, once, and then the answer is
+     * in `packs.json` for good.
+     */
+    private fun backfillRelease() {
+        if (packs.none { it.hasRelease == null }) return
+        var changed = false
+        for (index in packs.indices) {
+            val pack = packs[index]
+            if (pack.hasRelease != null) continue
+            packs[index] = pack.copy(hasRelease = manifestFor(pack.id)?.hasRelease() ?: false)
+            changed = true
+        }
+        if (changed) save()
     }
 
     /**

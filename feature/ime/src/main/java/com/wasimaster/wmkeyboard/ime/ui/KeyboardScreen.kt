@@ -358,6 +358,7 @@ import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.core.layout.FlickDirection
 import com.wasimaster.wmkeyboard.core.layout.Key
+import com.wasimaster.wmkeyboard.core.feedback.KeySoundPhase
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundRole
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
@@ -419,8 +420,16 @@ internal val LocalKeySound = staticCompositionLocalOf<() -> Unit> { {} }
  */
 internal val LocalKeyRoleFeedback = staticCompositionLocalOf<(KeySoundRole) -> Unit> { {} }
 
-/** [LocalKeySound] told which key; see [LocalKeyRoleFeedback]. */
-internal val LocalKeyRoleSound = staticCompositionLocalOf<(KeySoundRole) -> Unit> { {} }
+/**
+ * [LocalKeySound] told which key, and which half of the keystroke; see
+ * [LocalKeyRoleFeedback].
+ *
+ * The phase is here rather than on [LocalKeyRoleFeedback] because only the
+ * sound has two halves: a key coming back up on a mechanical board makes a
+ * noise, and does not buzz.
+ */
+internal val LocalKeyRoleSound =
+    staticCompositionLocalOf<(KeySoundRole, KeySoundPhase) -> Unit> { { _, _ -> } }
 
 /**
  * Sink for the A/C/V/X clipboard long-press shortcuts, provided once at the
@@ -688,7 +697,7 @@ fun KeyboardScreen(
     // a type rather than growing the list. See [LocalKeyRoleFeedback].
     onKeyPressed: (KeySoundRole) -> Unit = {},
     onHaptic: () -> Unit = { onKeyPressed(KeySoundRole.DEFAULT) },
-    onKeySound: (KeySoundRole) -> Unit = {},
+    onKeySound: (KeySoundRole, KeySoundPhase) -> Unit = { _, _ -> },
     onText: (String) -> Unit = {},
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float, String?) -> Unit =
         { _, _, _, _ -> },
@@ -919,7 +928,9 @@ fun KeyboardScreen(
                 { onKeyPressed(KeySoundRole.DEFAULT) }
             },
             LocalHapticFeedback provides onHaptic,
-            LocalKeySound provides remember(onKeySound) { { onKeySound(KeySoundRole.DEFAULT) } },
+            LocalKeySound provides remember(onKeySound) {
+                { onKeySound(KeySoundRole.DEFAULT, KeySoundPhase.PRESS) }
+            },
             LocalKeyRoleFeedback provides onKeyPressed,
             LocalKeyRoleSound provides onKeySound,
             LocalClipboardKeyAction provides onClipboardKey,
@@ -9842,7 +9853,15 @@ private fun KeyButton(
         { if (gate.audible()) rawKeyPress(soundRole) }
     }
     val onKeySound: () -> Unit = remember(rawKeySound, gate, soundRole) {
-        { if (gate.audible()) rawKeySound(soundRole) }
+        { if (gate.audible()) rawKeySound(soundRole, KeySoundPhase.PRESS) }
+    }
+    // The finger leaving. Gated on the same window as the press, and for a
+    // sharper reason: a contact the tremor filter dropped is a bounce, and a
+    // bounce lifts again within a millisecond or two — still inside the window.
+    // Ungated, that lift would play a key coming back up that was never heard
+    // going down, which is the one artefact the filter exists to prevent.
+    val onKeyRelease: () -> Unit = remember(rawKeySound, gate, soundRole) {
+        { if (gate.audible()) rawKeySound(soundRole, KeySoundPhase.RELEASE) }
     }
 
     // Under an explore-by-touch service the accessibility framework owns the
@@ -9950,6 +9969,7 @@ private fun KeyButton(
                     },
                     onKeyPress = onKeyPress,
                     onKeySound = onKeySound,
+                    onKeyRelease = onKeyRelease,
                     vibrateOnSpace = settings.feedback.vibrateOnSpace,
                     vibrateOnDeleteSwipe = settings.feedback.vibrateOnDeleteSwipe,
                     vibrateOnRepeat = settings.feedback.vibrateOnRepeat,
@@ -10672,6 +10692,15 @@ private fun Modifier.pointerInputKey(
     setPressed: (Boolean) -> Unit,
     onKeyPress: () -> Unit,
     onKeySound: () -> Unit,
+    /**
+     * The key coming back up, once per finger that lifts off it.
+     *
+     * Not folded into [setPressed], which is the *visual* press and so fires
+     * only when the last finger leaves: a burst double-tap that lands a second
+     * finger before the first lifts really is two keystrokes, and owes two
+     * sounds at each end. Silent unless the sound in use recorded a key-up.
+     */
+    onKeyRelease: () -> Unit,
     vibrateOnSpace: Boolean,
     vibrateOnDeleteSwipe: Boolean,
     vibrateOnRepeat: Boolean,
@@ -11015,6 +11044,7 @@ private fun Modifier.pointerInputKey(
                 }
                 holdJob?.cancel()
                 setPressed(false)
+                onKeyRelease()
                 setLanguagePreview(null)
                 when {
                     // A swipe-down already dismissed the keyboard: the finger
@@ -11116,6 +11146,7 @@ private fun Modifier.pointerInputKey(
                 }
                 repeat.cancel()
                 setPressed(false)
+                onKeyRelease()
                 when {
                     // The swipe already did the deleting.
                     swiping -> Unit
@@ -11174,6 +11205,7 @@ private fun Modifier.pointerInputKey(
                 }
                 longJob?.cancel()
                 setPressed(false)
+                onKeyRelease()
                 setFlickDirection(null)
                 val chosen = dir?.let { key.flick[it] }
                 when {
@@ -11297,6 +11329,7 @@ private fun Modifier.pointerInputKey(
                                 press.job?.cancel()
                                 presses.remove(change.id)
                                 if (presses.isEmpty()) setPressed(false)
+                                onKeyRelease()
                                 // The chord engine counted this finger on the way
                                 // down; a stolen pointer still has to count as a
                                 // lift or the engine waits forever for it.
@@ -11309,6 +11342,7 @@ private fun Modifier.pointerInputKey(
                                 press.job?.cancel()
                                 presses.remove(change.id)
                                 if (presses.isEmpty()) setPressed(false)
+                                onKeyRelease()
                                 if (key.action is KeyAction.BrailleDot) {
                                     // No bounds test: the dot was gathered on the
                                     // press, so the lift only closes the chord —

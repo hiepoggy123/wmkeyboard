@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.feedback
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -104,6 +106,104 @@ class SoundPackFileTest {
             assertEquals("$role", 3, names.size)
             for (name in names) assertNotNull("$role/$name", s.sampleFile(pack.id, name))
         }
+        // A synthesized interface click is one event; there is no key-up.
+        assertFalse(manifest.hasRelease())
+        assertEquals(false, pack.hasRelease)
+    }
+
+    @Test
+    fun `a pack cut into key-down and key-up imports both halves`() {
+        // packs/nk-creams.wmsoundpack from the same repository — one of the
+        // twelve sets whose recordings hold the switch coming back up, cut in
+        // two at import time by its tooling. The other fixture only proves the
+        // press half of the format still agrees across the boundary.
+        val s = store()
+        val result = import(s, fixtureBytes("nk-creams.wmsoundpack"))
+        assertTrue("$result", result is SoundPackImportResult.Imported)
+        val pack = (result as SoundPackImportResult.Imported).pack
+
+        assertEquals(6, pack.variantCount)
+        assertEquals(true, pack.hasRelease)
+        // Six of each, stored as twelve distinct samples: no key-up is the
+        // same file as a key-down.
+        assertEquals(12, pack.sampleCount)
+
+        val manifest = checkNotNull(s.manifestFor(pack.id))
+        assertTrue(manifest.hasRelease())
+        for (role in KeySoundRole.entries) {
+            // The pack fills no roles, so every role falls back to both of the
+            // pack's own lists rather than to the press one twice.
+            val down = manifest.samplesFor(role, KeySoundPhase.PRESS)
+            val up = manifest.samplesFor(role, KeySoundPhase.RELEASE)
+            assertEquals("$role", 6, down.size)
+            assertEquals("$role", 6, up.size)
+            assertTrue("$role", down.none { it in up })
+            for (name in down + up) assertNotNull("$role/$name", s.sampleFile(pack.id, name))
+        }
+    }
+
+    @Test
+    fun `a role that names only a press keeps the pack's key-up`() {
+        val s = store()
+        val result = import(
+            s,
+            pack(
+                """
+                {"format":"wmkeyboard-sound-pack","version":1,"id":"split","name":"Split",
+                 "press":["sounds/1.wav"],"release":["sounds/1-up.wav"],
+                 "roles":{"space":{"press":["sounds/space.wav"]}}}
+                """.trimIndent(),
+                mapOf(
+                    "sounds/1.wav" to wav(),
+                    "sounds/1-up.wav" to wav(32),
+                    "sounds/space.wav" to wav(),
+                ),
+            ),
+        )
+        val pack = (result as SoundPackImportResult.Imported).pack
+        val manifest = checkNotNull(s.manifestFor(pack.id))
+        // The spacebar brought its own way down and nothing else, so it keeps
+        // the board's key-up. Fallback is per field, not per role.
+        assertEquals(
+            manifest.pressFor(KeySoundRole.SPACE),
+            manifest.samplesFor(KeySoundRole.SPACE, KeySoundPhase.PRESS),
+        )
+        assertNotEquals(
+            manifest.pressFor(KeySoundRole.DEFAULT),
+            manifest.pressFor(KeySoundRole.SPACE),
+        )
+        assertEquals(
+            manifest.releaseFor(KeySoundRole.DEFAULT),
+            manifest.releaseFor(KeySoundRole.SPACE),
+        )
+        assertEquals(true, pack.hasRelease)
+    }
+
+    @Test
+    fun `a record written before hasRelease existed is backfilled from its manifest`() {
+        val dir = File(temp.root, "soundpacks")
+        val first = store(dir)
+        val pack = (
+            import(first, fixtureBytes("nk-creams.wmsoundpack"))
+                as SoundPackImportResult.Imported
+            ).pack
+        assertEquals(true, pack.hasRelease)
+
+        // Rewrite packs.json the way a build that predates the field wrote it:
+        // the record is there, the field is not. Edited as text rather than
+        // through the store, because the store has no way to express "absent".
+        val index = File(dir, "packs.json")
+        val aged = index.readText().replace(""""hasRelease":true,""", "")
+        assertTrue("the field should have been in the file", aged != index.readText())
+        index.writeText(aged)
+
+        // A fresh store over the same directory answers it from the pack's own
+        // manifest rather than reporting a pack with key-up samples as one
+        // without — those packs were installed with their release lists intact
+        // and have been playing them all along.
+        assertEquals(true, SoundPackStore(dir).pack(pack.id)?.hasRelease)
+        // And the answer is written back, so it is read once and not again.
+        assertTrue(index.readText().contains(""""hasRelease":true"""))
     }
 
     // ---- accepting -----------------------------------------------------
