@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -522,6 +524,7 @@ private fun TimeOfDayPickerDialog(
 
 // ---- theme gallery ----
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ThemesScreen(
     repository: SettingsRepository,
@@ -787,7 +790,11 @@ fun ThemesScreen(
         CaptionText(stringResource(R.string.theme_gallery_auto_on_body))
     }
     val newThemeName = stringResource(R.string.theme_new_default_name)
-    Row(modifier = Modifier.padding(horizontal = 16.dp)) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Button(onClick = {
             scope.launch {
                 val id = "custom_${System.currentTimeMillis()}"
@@ -802,13 +809,11 @@ fun ThemesScreen(
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.theme_create_action))
         }
-        Spacer(Modifier.width(8.dp))
         OutlinedButton(onClick = { importLauncher.launch(ThemeCodec.IMPORT_MIME_TYPES) }) {
             Icon(Icons.Outlined.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text(stringResource(CommonR.string.common_import))
         }
-        Spacer(Modifier.width(8.dp))
         OutlinedButton(onClick = { florisLauncher.launch(FlexTheme.IMPORT_MIME_TYPES) }) {
             Icon(Icons.Outlined.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
