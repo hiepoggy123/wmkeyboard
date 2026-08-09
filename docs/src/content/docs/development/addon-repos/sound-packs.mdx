@@ -1,6 +1,6 @@
 ---
 title: Sound packs
-description: The .wmsoundpack format — many recordings of one keyboard, one played per key press, with optional per-key-role sounds.
+description: The .wmsoundpack format — many recordings of one keyboard, one played per key press and one when you lift, with optional per-key-role sounds.
 sidebar:
   order: 3
 ---
@@ -13,8 +13,9 @@ A **sound pack** is a key-press sound with more than one recording in it.
 A plain key sound addon (`type: "sound"`) is one audio file, and for a
 synthesized blip that's exactly right. It can't express what a recording of a
 real keyboard sounds like, though. A real board never makes the same noise
-twice, and a <KeyCap>Space</KeyCap> bar with stabilizers under it doesn't sound
-like a letter key. A pack carries both of those.
+twice, a <KeyCap>Space</KeyCap> bar with stabilizers under it doesn't sound like
+a letter key, and a mechanical switch makes a second, quieter noise when your
+finger comes off it. A pack carries all three.
 
 If you just want to install one, see
 [Sound &amp; vibration](/typing/feedback/#sound-packs). This page is for
@@ -61,7 +62,7 @@ inside the manifest has anywhere to go.
   "gain": 1.0,
 
   "press": ["sounds/1.wav", "sounds/2.wav", "sounds/3.wav"],
-  "release": [],
+  "release": ["sounds/1-up.wav", "sounds/2-up.wav", "sounds/3-up.wav"],
 
   "roles": {
     "space":    { "press": ["sounds/space-1.wav"] },
@@ -83,11 +84,49 @@ inside the manifest has anywhere to go.
 | `packVersion` | | Semver, informational. The addon entry's `version` is what drives updates. |
 | `description` | | |
 | `gain` | | `0.0`–`1.0`, default `1.0`. See [Gain is a cut](#gain-is-a-cut). |
-| `release` | | Key-**up** recordings. Validated and preserved, **not yet played**. |
+| `release` | | Key-**up** recordings, played when the finger lifts. See [Key-down and key-up](#key-down-and-key-up). |
 | `roles` | | Per-key-role overrides, below. |
 
 Unknown top-level fields are ignored, so a later version can add one without
 breaking today's app.
+
+## Key-down and key-up
+
+A keystroke has two halves, and a mechanical keyboard makes a noise at both: the
+switch actuating under the finger, and the stem returning when it comes off.
+`press` is the first, `release` is the second, and the keyboard plays each at the
+moment it happens. Hold a key down and the second sound waits for you.
+
+An empty `release` means **silence on key-up**, not a fallback to `press`. Most
+sounds worth typing on are one event — a beep, a pop, an interface click — and
+inventing a second one for them would double every keystroke. So a pack with no
+`release` behaves exactly as packs did before the field was played.
+
+Roles and the split are independent. A role can fill `press`, `release`, both or
+neither, and each field falls back to the pack's top-level list **on its own**,
+so a `space` role that names only `press` still plays the pack's default key-up.
+
+The two lists are drawn from independently: `press[3]` and `release[3]` are not
+a pair and are never treated as one, so the lists can be different lengths.
+
+The user can turn key-up sounds off in
+<SettingsPath path="Key press / Key press sound / Key release sound" />, which appears only
+once a pack that has them is selected. A switch that does nothing visible is
+worse than no switch — it reads as the feature being broken rather than as the
+pack not having it.
+
+### Recording them
+
+Record the two halves as separate files. If you are cutting them out of
+recordings that hold both — which is what
+[the monkeytype packs](#a-worked-example) needed — cut at the quietest point
+between the two events rather than at a fixed delay: the gap varies by tens of
+milliseconds between recordings of the same switch, and a fixed cut clips the
+key-up's attack on the fast ones.
+
+Don't normalize the halves separately. A key-up is genuinely quieter than its
+key-down — a tenth to a half the level on real switches — and levelling them to
+match makes typing sound like two keyboards.
 
 ## Roles
 
@@ -120,8 +159,9 @@ Every `press` and `release` is a list, and one entry is picked per keystroke.
 
 The pick is uniform random with one rule on top: **the same variant never plays
 twice in a row** while the list has more than one entry. Each role tracks its own
-last-played index, so alternating between the spacebar and letters never makes
-either repeat.
+last-played index, per half, so alternating between the spacebar and letters
+never makes either repeat, and a run of key-ups doesn't depend on how many
+letters were typed between them.
 
 That rule is a deliberate difference from
 [monkeytype](https://monkeytype.com), whose own player picks uniformly across
@@ -132,7 +172,7 @@ third of the time, and a repeat is the exact thing variants exist to prevent.
 
 | Limit | Value | Why |
 | --- | --: | --- |
-| Audio files per pack | 64 | Every file is decoded into the `SoundPool` when the pack is selected. |
+| Audio files per pack | 64 | Every file is decoded into the `SoundPool` when the pack is selected. Key-up recordings count toward it. |
 | Variants per list | 32 | |
 | Bytes per audio file | 4 MB | Same ceiling a single-sound addon gets. |
 | Unzipped bytes per pack | 16 MB | Counted while extracting, not read from the ZIP header, so a zip bomb stops mid-stream. |
@@ -211,9 +251,9 @@ that installs without the keyboard making its noise reads as an install that did
 nothing.
 
 The detail page offers a **Preview** before installing, which extracts up to
-eight variants and gives each its own Play row. One button that played a random
-variant would turn "how much does this vary?" into a guessing game, and that
-question is the whole reason to pick a pack over a single sound.
+eight variants of each half and gives every one its own Play row. One button that
+played a random variant would turn "how much does this vary?" into a guessing
+game, and that question is the whole reason to pick a pack over a single sound.
 
 ## A worked example
 
@@ -222,11 +262,17 @@ is a complete repository of 26 packs built from monkeytype's sound files, with
 the importer, validator and preview generator that produced them. It's a
 reasonable thing to fork.
 
+It's also a worked example of the key-up cut: monkeytype plays one file per key
+press, so its switch recordings hold the return in the same file 100–200 ms
+behind the press, and the importer finds that boundary and cuts there. Which
+sets get cut is written down by hand, because a detector can't tell a key coming
+back up from the second half of a punch — *Fist Fight* trips it on all eight
+recordings and is deliberately left whole.
+
 ## Known gaps
 
-- **`release` isn't played.** The field is specified, validated and preserved so
-  packs recorded with key-up samples don't have to be re-cut later, but the
-  keyboard's feedback hook fires on pointer-down only.
 - **No per-key mapping.** Mechvibes-style packs address individual key codes.
   Roles cover the case that's actually audible on a phone, the spacebar, without
   asking anyone to record 104 keys for a keyboard that has about 30.
+- **Key-up is a sound-pack feature only.** The single-file `sound` addon type and
+  the built-in styles have one sound each, and there's no second file to play.

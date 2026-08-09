@@ -71,7 +71,7 @@ Four more toggles, visible only while Key press haptics is on, let you keep the 
 | Thock | Built into WM Keyboard: a deep mechanical bottom-out, identical on every device |
 | Chime | Built into WM Keyboard: a small bell ring, identical on every device |
 | Custom | A single sound file you've installed (see [Installing more key sounds](#installing-more-key-sounds)) |
-| Sound pack | An installed pack of many recordings, one picked per key press (see [Sound packs](#sound-packs)) |
+| Sound pack | An installed pack of many recordings, one picked per key press and, on some packs, another when you lift (see [Sound packs](#sound-packs)) |
 
 Click and Standard come from the device's own system sound pack, so they vary phone to phone the same way the stock keyboard's clicks do. Pop, Thock and Chime are synthesized in-app and sound the same on every device.
 
@@ -99,17 +99,25 @@ Why it exists: a single file can't sound like a real keyboard, because a real ke
 
 The same recording never plays twice in a row, which is a small but audible difference from how [monkeytype](https://monkeytype.com) does it. Monkeytype picks uniformly across the whole list, so on a three-recording set roughly every third keystroke repeats the previous one, which is exactly what the recordings are there to avoid.
 
+### Key release sound
+
+A mechanical keyboard makes two noises per key: the switch going down, and the stem coming back up when your finger leaves. Packs recorded from real switches carry both, and the keyboard plays each when it happens — so holding a key holds the second sound too, instead of firing it on a timer.
+
+Packs that have it say so on their row ("10 recordings • keys sound on the way up"), and a **Key release sound** switch appears under the list to turn it off. The switch is hidden for packs without key-up recordings, because there'd be nothing for it to do. Every other sound style is one sound per press and is unaffected either way.
+
+Tapping a pack in the list plays a whole keystroke — press, a short hold, release — rather than just the way down, since half a pack is a different pack.
+
 ### Separate sounds per key
 
 A pack can also carry different recordings for different kinds of key: the <KeyCap>Space</KeyCap> bar, <KeyCap>Enter</KeyCap>, <KeyCap>⌫</KeyCap>, and the modifier row (<KeyCap>Shift</KeyCap>, <KeyCap>?123</KeyCap>, the globe and so on). On a real board those genuinely do sound different, mostly because of the stabilizers under the longer keys.
 
-Most packs don't fill those slots and don't need to. When a pack does, its row says so: "10 recordings • separate sounds for space, enter". A slot a pack leaves empty falls back to the pack's main recordings, so nothing ever goes silent.
+Most packs don't fill those slots and don't need to. When a pack does, its row says so: "10 recordings • separate sounds for space, enter". A slot a pack leaves empty falls back to the pack's main recordings, so nothing ever goes silent. This is independent of the key-up recordings above — a spacebar recorded on its own still uses the pack's ordinary key-up sound unless it brought its own.
 
 ### Where packs come from
 
-Same two routes as single sounds: import a `.wmsoundpack` file here, or install one from an addon repository. The [Monkeytype Key Sounds](https://github.com/wasi-master/wmkeyboard-monkeytype-sounds) repository ships pre-added and carries 26 packs built from monkeytype's own sound files, including recordings of Cherry MX, Kailh, Akko, Tealios and Razer switches.
+Same two routes as single sounds: import a `.wmsoundpack` file here, or install one from an addon repository. The [Monkeytype Key Sounds](https://github.com/wasi-master/wmkeyboard-monkeytype-sounds) repository ships pre-added and carries 26 packs built from monkeytype's own sound files, including recordings of Cherry MX, Kailh, Akko, Tealios and Razer switches. Twelve of those — the mechanical switch sets, the typewriter and the two boards — have their key-up sounds cut out of the recordings, so they behave like the keyboards they came from.
 
-Before installing, an addon's page offers a **Preview** that plays each recording in the pack separately, so you can hear how much it actually varies rather than guessing from one sample.
+Before installing, an addon's page offers a **Preview** that plays each recording in the pack separately, key-downs and key-ups on their own rows, so you can hear how much it actually varies rather than guessing from one sample.
 
 If a pack goes missing while it's selected, the key press falls back to the system click rather than going quiet, exactly as a missing single sound does.
 
