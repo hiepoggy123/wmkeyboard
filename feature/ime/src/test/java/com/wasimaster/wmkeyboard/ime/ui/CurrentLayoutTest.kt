@@ -52,8 +52,10 @@ class CurrentLayoutTest {
 
     /**
      * With every adaptation off the grid is handed back as-is rather than
-     * rebuilt. The clipboard shortcuts ship off by default; globe-as-emoji and
-     * the comma/globe swap ship *on*, so both are switched off to get here.
+     * rebuilt. The clipboard shortcuts ship off by default; globe-as-emoji,
+     * the comma/globe swap and the number row ship *on*, so all three are
+     * switched off to get here — the number row because it strips the digits
+     * from the top-row letters' long press, which is a rewrite too.
      */
     @Test
     fun `a plain text field with no adaptations returns the layout untouched`() {
@@ -61,9 +63,9 @@ class CurrentLayoutTest {
         assertEquals(s.layouts.letters, currentLayout(s))
     }
 
-    /** Settings with every default-on bottom-row rewrite turned off. */
+    /** Settings with every default-on layout rewrite turned off. */
     private fun plain(): KeyboardSettings =
-        KeyboardSettings(globeAsEmoji = false, swapCommaAndGlobe = false)
+        KeyboardSettings(globeAsEmoji = false, swapCommaAndGlobe = false, numberRow = false)
 
     /** The same layout set, widened the way the service widens it on a tablet. */
     private fun tabletState(

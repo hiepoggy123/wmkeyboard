@@ -109,7 +109,8 @@ private val MediaSearchHeight = 132.dp
  * chips, the row itself and one whole row of results. Below this the row would
  * be taking the last of the grid, and a browsing aid that hides what it browses
  * is worse than no aid. A three-row layout at the default key height falls
- * under it; a four-row layout clears it.
+ * under it; a four-row layout clears it, as does a three-row layout with the
+ * number row (which ships on) adding its height.
  */
 private val MediaCategoryMinPanelHeight = 190.dp
 

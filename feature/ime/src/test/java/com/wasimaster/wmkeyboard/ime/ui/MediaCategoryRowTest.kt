@@ -36,7 +36,10 @@ class MediaCategoryRowTest {
         category: String? = null,
         searchActive: Boolean = false,
     ) = KeyboardUiState(
-        settings = KeyboardSettings(),
+        // The number row (default on) adds its own height, which would lift
+        // even the three-row grid over the floor; pinned off so the fixtures
+        // measure just their key rows.
+        settings = KeyboardSettings(numberRow = false),
         layouts = set,
         panel = PanelMode.GIF,
         mediaCategories = categories,
