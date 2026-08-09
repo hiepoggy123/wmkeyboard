@@ -114,17 +114,23 @@ internal fun EmojiFontDownloadRow(
 ) {
     val context = LocalContext.current
     val status by EmojiFontDownload.state.collectAsStateWithLifecycle()
+    val published by EmojiFontDownload.published.collectAsStateWithLifecycle()
+    // Asked once per process, and quietly: not knowing is the normal offline
+    // answer and must not turn into an error on a screen nobody opened for it.
+    LaunchedEffect(Unit) { EmojiFontDownload.checkPublished() }
     // Fires once per install rather than on every recomposition that sees the
     // finished state.
     LaunchedEffect(status) {
         val done = status as? EmojiFontDownload.Status.Installed ?: return@LaunchedEffect
         onInstalled(done.fontId)
     }
-    // Already holding it: the row has nothing left to offer.
+    // The copy already in the library, if it is this font, and whether the
+    // repository has since published a different build of it.
     val installed = remember(installedId, status) {
-        FontStore.get(context).font(installedId)?.name == EmojiFontCatalog.NOTO_NAME
+        FontStore.get(context).emojiFonts().firstOrNull(EmojiFontCatalog::isNoto)
     }
-    if (installed && status !is EmojiFontDownload.Status.Failed) return
+    val update = installed != null && published != null && published?.version != installed.version
+    if (installed != null && !update && status !is EmojiFontDownload.Status.Failed) return
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -133,15 +139,26 @@ internal fun EmojiFontDownloadRow(
             .padding(12.dp),
     ) {
         Text(
-            stringResource(R.string.langemoji_emoji_font_latest_title),
+            stringResource(
+                if (update) R.string.langemoji_emoji_font_update_title
+                else R.string.langemoji_emoji_font_latest_title,
+            ),
             style = MaterialTheme.typography.titleSmall,
         )
         Spacer(Modifier.height(2.dp))
         Text(
-            stringResource(
-                R.string.langemoji_emoji_font_latest_subtitle,
-                formatBytes(EmojiFontCatalog.NOTO_APPROX_BYTES),
-            ),
+            if (update) {
+                stringResource(
+                    R.string.langemoji_emoji_font_update_subtitle,
+                    published?.version.orEmpty(),
+                    formatBytes(published?.sizeBytes ?: EmojiFontCatalog.NOTO_APPROX_BYTES),
+                )
+            } else {
+                stringResource(
+                    R.string.langemoji_emoji_font_latest_subtitle,
+                    formatBytes(published?.sizeBytes ?: EmojiFontCatalog.NOTO_APPROX_BYTES),
+                )
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -165,7 +182,12 @@ internal fun EmojiFontDownloadRow(
                 }
             }
             else -> Button(onClick = { EmojiFontDownload.start(context) }) {
-                Text(stringResource(R.string.langemoji_emoji_font_latest_action))
+                Text(
+                    stringResource(
+                        if (update) R.string.langemoji_emoji_font_update_action
+                        else R.string.langemoji_emoji_font_latest_action,
+                    ),
+                )
             }
         }
     }

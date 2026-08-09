@@ -151,6 +151,12 @@
     <!-- %1$s is the download size, such as "10 MB". -->
     <string name="langemoji_emoji_font_latest_subtitle">Downloads the current Noto Color Emoji, with the newest emoji in it. About <xliff:g id="size" example="10 MB">%1$s</xliff:g>. The \"Google\" option above can only use the version that your device already has.</string>
     <string name="langemoji_emoji_font_latest_action">Download</string>
+    <!-- Shown in place of the offer above when the emoji font is installed and
+         a newer build of it has since been published. -->
+    <string name="langemoji_emoji_font_update_title">New emoji are available</string>
+    <!-- %1$s is the new version, such as "2.051". %2$s is the download size. -->
+    <string name="langemoji_emoji_font_update_subtitle">Version <xliff:g id="version" example="2.051">%1$s</xliff:g> of Noto Color Emoji is out, with emoji that your copy does not have. About <xliff:g id="size" example="10 MB">%2$s</xliff:g>.</string>
+    <string name="langemoji_emoji_font_update_action">Update</string>
     <string name="langemoji_emoji_font_missing_error">You did not import an emoji font. The keyboard uses the system font until you import one.</string>
     <string name="langemoji_emoji_font_replace_action">Replace emoji font file</string>
     <string name="langemoji_emoji_font_import_action">Import emoji font file</string>
