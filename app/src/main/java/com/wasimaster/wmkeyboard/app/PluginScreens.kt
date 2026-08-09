@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Delete
@@ -20,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,14 +76,23 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
             // match key the addon screen and the search index hold, so it stays
             // an English literal; only the drawn title is a resource.
             HighlightableRow("Allow plugins") {
+                val title = stringResource(R.string.plugins_allow_title)
                 WmRow(
-                    title = stringResource(R.string.plugins_allow_title),
+                    title = title,
                     subtitle = stringResource(R.string.plugins_allow_subtitle),
                     trailing = {
-                        Switch(
-                            checked = enabled,
-                            onCheckedChange = { store.setSubsystemEnabled(it) },
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Hand-built rather than a ToggleSetting, because
+                            // this row is matched by the English literal above
+                            // and ToggleSetting would key the highlight on the
+                            // drawn title instead. The reset control is the one
+                            // thing it would otherwise have brought with it.
+                            ResetSetting(title, enabled) { store.setSubsystemEnabled(false) }
+                            Switch(
+                                checked = enabled,
+                                onCheckedChange = { store.setSubsystemEnabled(it) },
+                            )
+                        }
                     },
                 )
             }

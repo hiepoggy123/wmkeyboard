@@ -196,6 +196,7 @@ internal fun UpdateSettings() {
                 R.string.update_row_prompts_title,
                 stringResource(R.string.update_row_prompts_subtitle),
                 checked = autoPrompt.value,
+                default = UpdatePrefs.DEFAULT_AUTO_PROMPT,
                 onChange = {
                     autoPrompt.value = it
                     updater.autoPrompt = it

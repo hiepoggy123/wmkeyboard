@@ -32,7 +32,7 @@ internal class UpdatePrefs(context: Context) {
      * arriving uninvited.
      */
     var autoPrompt: Boolean
-        get() = prefs.getBoolean(KEY_AUTO_PROMPT, true)
+        get() = prefs.getBoolean(KEY_AUTO_PROMPT, DEFAULT_AUTO_PROMPT)
         set(value) = prefs.edit { putBoolean(KEY_AUTO_PROMPT, value) }
 
     /** True while [versionCode] is inside the window opened by [snooze]. */
@@ -53,10 +53,17 @@ internal class UpdatePrefs(context: Context) {
         }
     }
 
-    private companion object {
-        const val FILE_NAME = "app_updates"
-        const val KEY_AUTO_PROMPT = "auto_prompt"
-        const val KEY_SNOOZED_VERSION = "snoozed_version"
-        const val KEY_SNOOZED_AT = "snoozed_at"
+    internal companion object {
+        /**
+         * What [autoPrompt] is worth before anyone touches it. Named rather
+         * than inlined into the getter because the settings row reads it too,
+         * for the reset control that puts the switch back.
+         */
+        const val DEFAULT_AUTO_PROMPT = true
+
+        private const val FILE_NAME = "app_updates"
+        private const val KEY_AUTO_PROMPT = "auto_prompt"
+        private const val KEY_SNOOZED_VERSION = "snoozed_version"
+        private const val KEY_SNOOZED_AT = "snoozed_at"
     }
 }
