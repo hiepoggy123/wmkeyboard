@@ -27,7 +27,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Keyboard
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.SpaceBar
 import androidx.compose.material.icons.outlined.Translate
@@ -135,14 +134,12 @@ internal fun VoicePanel(
             ?: other.layoutIds.firstOrNull()
         if (layoutId != null) onLayoutSelect(layoutId)
     }
-    val collapseVisible = !state.secureField
     val ringEntries: List<() -> Unit> = buildList {
         if (micUsable) {
             if (hasPermission) add(onToggle) else add(onRequestPermission)
         }
         if (undoVisible) add { feedback(); onUndo() }
         if (languageChipVisible) add { feedback(); switchVoiceLanguage() }
-        if (collapseVisible) add { feedback(); onRailKey(VoiceBarAction.Collapse) }
     }
     PanelFocusTarget(
         panel = PanelMode.VOICE,
@@ -153,7 +150,6 @@ internal fun VoicePanel(
     val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
     val undoRingIndex = if (micUsable) 1 else 0
     val languageRingIndex = undoRingIndex + (if (undoVisible) 1 else 0)
-    val collapseRingIndex = languageRingIndex + (if (languageChipVisible) 1 else 0)
 
     Row(
         modifier = Modifier
@@ -238,30 +234,6 @@ internal fun VoicePanel(
                             switchVoiceLanguage()
                         }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
-                )
-            }
-
-            // Gboard's minimize: the keyboard collapses to the floating bar
-            // and this session keeps dictating there.
-            if (collapseVisible) {
-                Icon(
-                    Icons.Outlined.KeyboardDoubleArrowDown,
-                    contentDescription = stringResource(R.string.ime_voice_bar_minimize_desc),
-                    tint = kb.toolbarIcon,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp)
-                        .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
-                        .focusRing(
-                            focusedAction == collapseRingIndex,
-                            RoundedCornerShape(kb.toolRadiusDp.dp),
-                        )
-                        .clickable {
-                            feedback()
-                            onRailKey(VoiceBarAction.Collapse)
-                        }
-                        .padding(6.dp)
-                        .size(22.dp),
                 )
             }
 
@@ -636,7 +608,6 @@ internal fun VoiceStripBar(
     onUndo: () -> Unit,
     onRequestPermission: () -> Unit,
     onOpenVoiceSettings: () -> Unit,
-    onCollapse: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -768,20 +739,6 @@ internal fun VoiceStripBar(
                         feedback()
                         onUndo()
                     }
-                    .padding(6.dp)
-                    .size(20.dp),
-            )
-        }
-        // Gboard's minimize: the keyboard collapses to the floating bar and
-        // this session keeps dictating there.
-        if (!state.secureField) {
-            Icon(
-                Icons.Outlined.KeyboardDoubleArrowDown,
-                contentDescription = stringResource(R.string.ime_voice_bar_minimize_desc),
-                tint = kb.toolbarIcon,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
-                    .clickable { onCollapse() }
                     .padding(6.dp)
                     .size(20.dp),
             )

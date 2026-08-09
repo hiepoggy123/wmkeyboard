@@ -344,7 +344,6 @@ import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.SymbolCatalog
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
-import androidx.compose.runtime.derivedStateOf
 import com.wasimaster.wmkeyboard.ime.PwSettingAction
 import com.wasimaster.wmkeyboard.ime.TypingTestAction
 import com.wasimaster.wmkeyboard.ime.VoiceBarAction
@@ -1115,105 +1114,56 @@ fun KeyboardScreen(
 
     val rotationStates by PhotoBackgroundManager.rotationStates.collectAsState()
     KeyboardThemeProvider(settings = state.settings, rotationStates = rotationStates) {
-        // The collapsed voice bar and its transitions. The keyboard slides
-        // down off the screen revealing the bar in place (Gboard's minimize),
-        // and back up over it on restore. While the bar owns the window the
-        // root spans the screen and the service's touchable region shrinks to
-        // the bar; both chrome kinds ride the same slide because the wrapper
-        // translates whichever one is composed.
-        val kb = LocalKbTheme.current
-        val barShown = voiceBarTakesWindow(state)
-        val collapse = remember { Animatable(if (barShown) 1f else 0f) }
-        LaunchedEffect(barShown, kb.reduceMotion) {
-            val target = if (barShown) 1f else 0f
-            if (kb.reduceMotion) collapse.snapTo(target)
-            else collapse.animateTo(target, tween(VoiceBarCollapseMs))
+        // The collapsed voice bar takes the whole window over: no keyboard, no
+        // strips, just the pill. It outranks floating mode because it is the
+        // temporary state — restoring the keyboard lands back in whichever
+        // chrome the settings ask for.
+        if (voiceBarTakesWindow(state)) {
+            VoiceBarLayer(
+                state = state,
+                onToggle = onVoiceToggle,
+                onUndo = onVoiceUndo,
+                onRequestPermission = onVoicePermissionRequest,
+                onOpenVoiceSettings = onOpenVoiceSettings,
+                onRestoreKeyboard = { onToolTap(ToolbarTool.VOICE) },
+                onAction = onVoiceRailKey,
+                onLayoutSelect = onLayoutSelect,
+            )
+            return@KeyboardThemeProvider
         }
-        // Composition gates cross only at the ends of the animation; the
-        // per-frame value is read in draw scope, so the slide costs redraws,
-        // not recompositions.
-        val keyboardComposed by remember { derivedStateOf { collapse.value < 1f } }
-        val pillComposed by remember { derivedStateOf { collapse.value > 0f } }
-        Box(
-            modifier = if (barShown) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            if (pillComposed) {
-                if (barShown) {
-                    VoiceBarLayer(
-                        state = state,
-                        onToggle = onVoiceToggle,
-                        onUndo = onVoiceUndo,
-                        onRequestPermission = onVoicePermissionRequest,
-                        onOpenVoiceSettings = onOpenVoiceSettings,
-                        onAction = onVoiceRailKey,
-                        onLayoutSelect = onLayoutSelect,
-                        onPanelChange = onPanelChange,
-                        progress = { collapse.value },
+        if (state.settings.floatingKeyboard) {
+            // Floating mode: the compose root spans the whole IME window with
+            // no background; the service restricts the touchable region to
+            // the panel so everything else falls through to the app behind.
+            FloatingKeyboardFrame(
+                state = state,
+                onDock = { onFloatingChange(false) },
+                onMoved = onFloatingMoved,
+                onResized = onFloatingResized,
+                onBounds = onFloatingBounds,
+                content = { heightScale ->
+                    // Key height carries the whole layout (panels included),
+                    // so scaling it scales the keyboard's height.
+                    val scaled = if (heightScale == 1f) state else state.copy(
+                        settings = state.settings.copy(
+                            keyHeightDp = (state.settings.keyHeightDp * heightScale).roundToInt(),
+                            numberRowHeightDp = (state.settings.numberRowHeightDp * heightScale).roundToInt(),
+                        ),
                     )
-                } else {
-                    // Restore in flight: the window is the keyboard's again,
-                    // so only a passive copy of the pill sits under the
-                    // keyboard sliding back over it.
-                    VoiceBarEcho(state = state, progress = { collapse.value })
-                }
-            }
-            if (keyboardComposed) {
-                // The chrome's own height is the slide distance, captured at
-                // layout time and read only at draw time.
-                val chromeHeight = remember { mutableIntStateOf(0) }
-                Box(
-                    modifier = Modifier
-                        .onSizeChanged { chromeHeight.intValue = it.height }
-                        .graphicsLayer {
-                            translationY = chromeHeight.intValue * collapse.value
-                        },
-                ) {
-                    if (state.settings.floatingKeyboard) {
-                        // Floating mode: the compose root spans the whole IME
-                        // window with no background; the service restricts the
-                        // touchable region to the panel so everything else
-                        // falls through to the app behind.
-                        FloatingKeyboardFrame(
-                            state = state,
-                            onDock = { onFloatingChange(false) },
-                            onMoved = onFloatingMoved,
-                            onResized = onFloatingResized,
-                            onBounds = onFloatingBounds,
-                            content = { heightScale ->
-                                // Key height carries the whole layout (panels
-                                // included), so scaling it scales the
-                                // keyboard's height.
-                                val scaled = if (heightScale == 1f) state else state.copy(
-                                    settings = state.settings.copy(
-                                        keyHeightDp =
-                                            (state.settings.keyHeightDp * heightScale).roundToInt(),
-                                        numberRowHeightDp =
-                                            (state.settings.numberRowHeightDp * heightScale)
-                                                .roundToInt(),
-                                    ),
-                                )
-                                movableBody(scaled)
-                            },
-                        )
-                    } else {
-                        DockedKeyboardFrame(
-                            state = state,
-                            landscape =
-                                configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
-                            onOneHanded = onOneHanded,
-                            onOneHandedSide = onOneHandedSide,
-                            body = movableBody,
-                        )
-                    }
-                }
-            }
+                    movableBody(scaled)
+                },
+            )
+            return@KeyboardThemeProvider
         }
+        DockedKeyboardFrame(
+            state = state,
+            landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+            onOneHanded = onOneHanded,
+            onOneHandedSide = onOneHandedSide,
+            body = movableBody,
+        )
     }
 }
-
-/** The keyboard's slide off (and back onto) the screen around the voice bar. */
-private const val VoiceBarCollapseMs = 280
 
 /**
  * Docked chrome: the board background plus the width, alignment and
@@ -1313,11 +1263,10 @@ private fun DockedKeyboardFrame(
 }
 
 /**
- * The collapsed voice bar owns the window right now. The panel and secure
- * checks are belt-and-braces: the service closes the bar when a panel opens
- * and resets it on every new field, but the render must never show a bar over
- * a panel or a password box even mid-transition. The service's insets check
- * mirrors this predicate — keep the two in step.
+ * The collapsed voice bar owns the window right now. A panel forced open (a
+ * hardware shortcut can do this) or a password field puts the keyboard back
+ * without disarming the bar. The service's insets check mirrors this
+ * predicate — keep the two in step.
  */
 private fun voiceBarTakesWindow(state: KeyboardUiState): Boolean =
     state.voice.bar && state.panel == PanelMode.NONE && !state.secureField
@@ -1859,8 +1808,6 @@ private fun TopBar(
     onVoiceUndo: () -> Unit = {},
     onVoicePermissionRequest: () -> Unit = {},
     onOpenVoiceSettings: () -> Unit = {},
-    /** The strip's minimize button: collapse the keyboard to the voice bar. */
-    onVoiceCollapse: () -> Unit = {},
     onDismissInlineSuggestions: () -> Unit = {},
     onSmartAccept: () -> Unit = {},
     onSmartOpen: () -> Unit = {},
@@ -2188,7 +2135,6 @@ private fun TopBar(
                 onUndo = onVoiceUndo,
                 onRequestPermission = onVoicePermissionRequest,
                 onOpenVoiceSettings = onOpenVoiceSettings,
-                onCollapse = onVoiceCollapse,
                 // The tool tap toggles the strip, so it also closes it.
                 onClose = { onToolTap(ToolbarTool.VOICE) },
                 modifier = Modifier.weight(1f),
@@ -6334,7 +6280,6 @@ private fun KeyboardBody(
                             onVoiceUndo = onVoiceUndo,
                             onVoicePermissionRequest = onVoicePermissionRequest,
                             onOpenVoiceSettings = onOpenVoiceSettings,
-                            onVoiceCollapse = { onVoiceRailKey(VoiceBarAction.Collapse) },
                             onDismissInlineSuggestions = onDismissInlineSuggestions,
                             onSmartAccept = onSmartAccept,
                             onSmartOpen = onSmartOpen,
