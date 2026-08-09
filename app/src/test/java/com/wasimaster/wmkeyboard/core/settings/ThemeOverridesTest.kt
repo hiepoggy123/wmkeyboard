@@ -42,6 +42,32 @@ class ThemeOverridesTest {
     }
 
     @Test
+    fun `a selected variant of a custom family is the active spec`() {
+        val night = wide.copy(id = "wide_v0", name = "Wide night")
+        val family = wide.copy(variants = listOf(night))
+        val settings = KeyboardSettings(keyboardThemeId = "wide_v0", customThemes = listOf(family))
+        assertEquals("Wide night", settings.activeThemeSpec(darkSlot = false)?.name)
+    }
+
+    @Test
+    fun `a selected built-in variant is the active spec`() {
+        // Glacier moved inside the Snow family; a selection from before the
+        // grouping must keep resolving.
+        val settings = KeyboardSettings(keyboardThemeId = "builtin_glacier")
+        assertEquals("builtin_glacier", settings.activeThemeSpec(darkSlot = false)?.id)
+    }
+
+    @Test
+    fun `the default panel shortlist names themes that exist`() {
+        val flattened = com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
+            .flatMap { listOf(it) + it.variants }
+            .map { it.id }
+        for (id in DefaultThemesPanelBuiltIns) {
+            assertEquals("$id is not a built-in", true, id in flattened)
+        }
+    }
+
+    @Test
     fun `auto-theme picks the slot's id, not the selected one`() {
         val settings = KeyboardSettings(
             keyboardThemeId = "wide",

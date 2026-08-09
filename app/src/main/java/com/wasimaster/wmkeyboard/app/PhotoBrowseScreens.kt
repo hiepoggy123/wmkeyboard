@@ -57,6 +57,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.theme.flattenedThemes
 import com.wasimaster.wmkeyboard.core.tools.PhotoColor
 import com.wasimaster.wmkeyboard.core.tools.PhotoFailure
 import com.wasimaster.wmkeyboard.core.tools.PhotoItem
@@ -171,7 +172,7 @@ fun PhotoBrowseScreen(
         onBack = { onNavigate(BACK_ROUTE) },
         route = PHOTO_BROWSE_ROUTE,
         subtitle = themeId.takeIf { it.isNotBlank() }?.let { id ->
-            settings.customThemes.find { it.id == id }?.name
+            settings.customThemes.flattenedThemes().find { it.id == id }?.name
         },
         subtitleInBar = true,
         actions = {

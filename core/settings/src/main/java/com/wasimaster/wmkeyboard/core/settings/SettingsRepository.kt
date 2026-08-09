@@ -55,6 +55,9 @@ import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.PhotoAttribution
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.theme.findThemeFamily
+import com.wasimaster.wmkeyboard.core.theme.replacingMember
+import com.wasimaster.wmkeyboard.core.theme.selfAndVariants
 import com.wasimaster.wmkeyboard.core.theme.withEmbeddedImages
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
 import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryStore
@@ -1211,6 +1214,8 @@ data class KeyboardSettings(
     val onboardingDone: Boolean = false,
     /** Persona answers from the onboarding quiz (see [OnboardingSettings]). */
     val onboarding: OnboardingSettings = OnboardingSettings(),
+    /** Settings-app screen preferences (see [AppUiSettings]). */
+    val appUi: AppUiSettings = AppUiSettings(),
     /**
      * Language ids whose conjunct clusters backspace as one unit. Per language,
      * not global: someone who types both Bengali and Hindi may well want whole
@@ -2293,6 +2298,36 @@ data class OnboardingSettings(
     val personaDepth: PersonaDepth = PersonaDepth.UNSET,
     val personaPrivacy: PersonaPrivacy = PersonaPrivacy.UNSET,
 )
+
+/**
+ * How the theme gallery lays out a theme family. [AUTO] follows the
+ * onboarding persona and is the default, so the choice made in the wizard
+ * shapes the gallery without the wizard writing anything here.
+ */
+enum class ThemeGalleryStyle { AUTO, GROUPED, FLAT }
+
+/**
+ * Preferences about the settings app's own screens — nothing here reaches
+ * the keyboard. Grouped for the ceiling reason on
+ * [KeyboardSettings.photoBackground]; future settings-app-UI fields belong
+ * here rather than on [KeyboardSettings] directly.
+ */
+data class AppUiSettings(
+    val themeGalleryStyle: ThemeGalleryStyle = ThemeGalleryStyle.AUTO,
+)
+
+/**
+ * Whether the theme gallery groups families into one card with a swatch per
+ * look, or lists every look as its own card. AUTO resolves from the persona
+ * quiz at read time — "keep it simple" gets the flat list, everyone else
+ * (including a user who never answered) gets the grouped cards — so existing
+ * installs pick their side retroactively and an explicit choice still wins.
+ */
+fun KeyboardSettings.themeGalleryGrouped(): Boolean = when (appUi.themeGalleryStyle) {
+    ThemeGalleryStyle.GROUPED -> true
+    ThemeGalleryStyle.FLAT -> false
+    ThemeGalleryStyle.AUTO -> onboarding.personaDepth != PersonaDepth.MINIMAL
+}
 
 /**
  * What clipboard history does with a clip that holds a secret.
@@ -3386,6 +3421,7 @@ class SettingsRepository(private val context: Context) {
             stringPreferencesKey("onboarding_persona_languages")
         private val ONBOARDING_PERSONA_DEPTH = stringPreferencesKey("onboarding_persona_depth")
         private val ONBOARDING_PERSONA_PRIVACY = stringPreferencesKey("onboarding_persona_privacy")
+        private val THEME_GALLERY_STYLE = stringPreferencesKey("theme_gallery_style")
         private val CONJUNCT_BACKSPACE_LANGUAGES = stringPreferencesKey("conjunct_backspace_languages")
 
         /**
@@ -4137,6 +4173,11 @@ class SettingsRepository(private val context: Context) {
                 personaPrivacy = p[ONBOARDING_PERSONA_PRIVACY]
                     ?.let { runCatching { PersonaPrivacy.valueOf(it) }.getOrNull() }
                     ?: defaults.onboarding.personaPrivacy,
+            ),
+            appUi = AppUiSettings(
+                themeGalleryStyle = p[THEME_GALLERY_STYLE]
+                    ?.let { runCatching { ThemeGalleryStyle.valueOf(it) }.getOrNull() }
+                    ?: defaults.appUi.themeGalleryStyle,
             ),
             conjunctBackspaceLanguages = conjunctLanguagesFromPrefs(p, layoutSelection.enabledLanguages),
             cjk = CjkSettings(
@@ -5423,20 +5464,53 @@ class SettingsRepository(private val context: Context) {
         editPrefs { prefs ->
             val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }.orEmpty()
             prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(current.filter { it.id != id })
-            if (prefs[KEYBOARD_THEME_ID] == id) prefs[KEYBOARD_THEME_ID] = DEFAULT_THEME_ID
-            // Drop the theme's rotation entry in the same write, so a later
-            // theme reusing the id cannot inherit a stranger's photo. The file
-            // itself is left for the sweep, which knows what else refers to it.
-            prefs[PHOTO_ROTATION_STATE]?.let { stored ->
-                val states = RotationStateCodec.decode(stored)
-                if (id in states) {
-                    prefs[PHOTO_ROTATION_STATE] = RotationStateCodec.encode(states - id)
-                }
-            }
-            prefs[PHOTO_ROTATE_SCOPE_THEMES]?.let { selected ->
-                if (id in selected) prefs[PHOTO_ROTATE_SCOPE_THEMES] = selected - id
+            // A family takes every member's bookkeeping with it: selection and
+            // the rotation entries can all point at a variant, not the parent.
+            val removedIds = current.find { it.id == id }
+                ?.selfAndVariants()?.map { it.id }
+                ?: listOf(id)
+            prefs.cleanupThemeIdRefs(removedIds, fallbackThemeId = DEFAULT_THEME_ID)
+        }
+
+    /**
+     * Deletes one variant of a custom family. Selection falls back to the
+     * family's parent rather than to the default theme: the user removed one
+     * look, not the theme.
+     */
+    suspend fun deleteCustomThemeVariant(parentId: String, variantId: String) =
+        editPrefs { prefs ->
+            val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }.orEmpty()
+            val parent = current.find { it.id == parentId } ?: return@editPrefs
+            val next = parent.copy(variants = parent.variants.filter { it.id != variantId })
+            prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(current.filter { it.id != parentId } + next)
+            prefs.cleanupThemeIdRefs(listOf(variantId), fallbackThemeId = parentId)
+        }
+
+    /**
+     * The per-id bookkeeping a removed theme leaves behind, cleared in the
+     * same write that removed it. Selection falls back to [fallbackThemeId];
+     * the rotation entry goes so a later theme reusing an id cannot inherit a
+     * stranger's photo. Image files are left for the sweep, which knows what
+     * else refers to them.
+     */
+    private fun MutablePreferences.cleanupThemeIdRefs(
+        ids: Collection<String>,
+        fallbackThemeId: String,
+    ) {
+        val idSet = ids.toSet()
+        if (this[KEYBOARD_THEME_ID] in idSet) this[KEYBOARD_THEME_ID] = fallbackThemeId
+        this[PHOTO_ROTATION_STATE]?.let { stored ->
+            val states = RotationStateCodec.decode(stored)
+            if (states.keys.any { it in idSet }) {
+                this[PHOTO_ROTATION_STATE] = RotationStateCodec.encode(states - idSet)
             }
         }
+        this[PHOTO_ROTATE_SCOPE_THEMES]?.let { selected ->
+            if (selected.any { it in idSet }) {
+                this[PHOTO_ROTATE_SCOPE_THEMES] = selected - idSet
+            }
+        }
+    }
 
     // ---- Online photo backgrounds -------------------------------------
 
@@ -5458,7 +5532,10 @@ class SettingsRepository(private val context: Context) {
         var replaced: String? = null
         editPrefs { prefs ->
             val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }.orEmpty()
-            val theme = current.find { it.id == themeId } ?: return@editPrefs
+            // The id can name a variant; the write goes back through the
+            // family that carries it.
+            val family = current.findThemeFamily(themeId) ?: return@editPrefs
+            val theme = family.selfAndVariants().find { it.id == themeId } ?: return@editPrefs
             replaced = if (landscape) theme.backgroundImageLandscape else theme.backgroundImage
             val next = if (landscape) {
                 theme.copy(backgroundImageLandscape = path, backgroundPhotoLandscape = credit)
@@ -5475,7 +5552,9 @@ class SettingsRepository(private val context: Context) {
                     modifierKeyBackground = theme.modifierKeyBackground.softenedForPhoto(),
                 )
             }
-            prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(current.filter { it.id != themeId } + next)
+            val nextFamily = family.replacingMember(themeId) { next }
+            prefs[CUSTOM_THEMES] =
+                ThemeCodec.encodeList(current.filter { it.id != family.id } + nextFamily)
         }
         return replaced?.takeIf { it != path }
     }
@@ -5488,7 +5567,8 @@ class SettingsRepository(private val context: Context) {
         var removed: String? = null
         editPrefs { prefs ->
             val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }.orEmpty()
-            val theme = current.find { it.id == themeId } ?: return@editPrefs
+            val family = current.findThemeFamily(themeId) ?: return@editPrefs
+            val theme = family.selfAndVariants().find { it.id == themeId } ?: return@editPrefs
             removed = if (landscape) theme.backgroundImageLandscape else theme.backgroundImage
             val next = if (landscape) {
                 theme.copy(backgroundImageLandscape = null, backgroundPhotoLandscape = null)
@@ -5503,7 +5583,9 @@ class SettingsRepository(private val context: Context) {
                     },
                 )
             }
-            prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(current.filter { it.id != themeId } + next)
+            val nextFamily = family.replacingMember(themeId) { next }
+            prefs[CUSTOM_THEMES] =
+                ThemeCodec.encodeList(current.filter { it.id != family.id } + nextFamily)
         }
         return removed
     }
@@ -7008,6 +7090,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setPersonaPrivacy(value: PersonaPrivacy) =
         editPrefs { it[ONBOARDING_PERSONA_PRIVACY] = value.name }
+
+    suspend fun setThemeGalleryStyle(value: ThemeGalleryStyle) =
+        editPrefs { it[THEME_GALLERY_STYLE] = value.name }
 
     /** Turns cluster-aware backspace on or off for one language. */
     suspend fun setConjunctBackspace(languageId: String, value: Boolean) =

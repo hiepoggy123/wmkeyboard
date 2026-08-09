@@ -63,6 +63,9 @@ import com.wasimaster.wmkeyboard.core.settings.RotationScope
 import com.wasimaster.wmkeyboard.core.settings.RotationSourceKind
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
+import com.wasimaster.wmkeyboard.core.theme.findThemeFamily
+import com.wasimaster.wmkeyboard.core.theme.flattenedThemes
+import com.wasimaster.wmkeyboard.core.theme.replacingMember
 import com.wasimaster.wmkeyboard.core.theme.reseeded
 import com.wasimaster.wmkeyboard.core.theme.themeName
 import com.wasimaster.wmkeyboard.core.tools.PhotoBackgroundManager
@@ -404,8 +407,9 @@ fun PhotoRotationScreen(
             // Built-in themes are offered as well as the user's own: the
             // rotating photo is laid over a theme as it is drawn, so a
             // built-in can carry one even though it cannot store an image.
-            options = (settings.customThemes.map { it.id to it.name } +
-                BuiltInThemes.map { it.id to themeName(it) })
+            // Families flatten — each variant is its own scope target.
+            options = (settings.customThemes.flattenedThemes().map { it.id to it.name } +
+                BuiltInThemes.flattenedThemes().map { it.id to themeName(it) })
                 .sortedBy { it.second.lowercase() },
             selected = photos.scopeThemeIds,
             onDismiss = { scopeThemesOpen = false },
@@ -449,7 +453,7 @@ fun PhotoLibraryScreen(
         onBack = onBack,
         route = PHOTO_LIBRARY_ROUTE,
         subtitle = themeId.takeIf { it.isNotBlank() }?.let { id ->
-            settings.customThemes.find { it.id == id }?.name
+            settings.customThemes.flattenedThemes().find { it.id == id }?.name
         },
         subtitleInBar = true,
     ) { padding ->
@@ -540,9 +544,13 @@ fun PhotoLibraryScreen(
                         onSeed = {
                             val target = themeId.takeIf { it.isNotBlank() } ?: settings.keyboardThemeId
                             scope.launch {
-                                settings.customThemes.find { it.id == target }?.let { current ->
+                                // The target can be a variant; the write goes
+                                // back through the family that carries it.
+                                settings.customThemes.findThemeFamily(target)?.let { family ->
                                     repository.upsertCustomTheme(
-                                        current.reseeded(entry.seedColor, current.dark),
+                                        family.replacingMember(target) {
+                                            it.reseeded(entry.seedColor, it.dark)
+                                        },
                                     )
                                 }
                             }

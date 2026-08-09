@@ -403,6 +403,24 @@ data class ThemeSpec(
      * the whole thing and a slot it doesn't know costs that slot alone.
      */
     val assets: Map<String, String> = emptyMap(),
+    /**
+     * The family's display name, when this theme heads one (see [variants]).
+     * Null on every variant and on themes with no variants; built-in families
+     * are named through [builtInThemeFamilyNameRes] instead, so their label
+     * translates.
+     */
+    val familyName: String? = null,
+    /**
+     * Alternate looks of this theme — colorways, a light half, a gradient
+     * dress. Each variant is a complete spec with its own globally-unique id
+     * (selection, pins and auto-theme slots all address variants directly),
+     * and the theme carrying them is itself the first, representative look.
+     * One level deep: a variant's own variants are never read, and every path
+     * that builds one strips them. An older build drops this key and imports
+     * the base theme alone, which is the point of nesting over a container
+     * format.
+     */
+    val variants: List<ThemeSpec> = emptyList(),
 )
 
 /**
@@ -450,6 +468,9 @@ data class DecalSpec(
 
 /** The most decals a theme may carry; past a handful they are just occlusion. */
 const val MAX_DECALS = 6
+
+/** The most looks one theme may carry; the editor's Add stops here. */
+const val MAX_THEME_VARIANTS = 12
 
 /** A key-press particle burst's kind. Never serialized — travels as a string. */
 enum class KeyEffectKind { STARS, HEARTS, SPARKLE, CONFETTI, EMOJI, CUSTOM_IMAGE }
@@ -578,6 +599,9 @@ fun ThemeSpec.withEmbeddedImages(): ThemeSpec {
         decals = decals.map { it.copy(image = null) },
         keyEffectImages = emptyList(),
         assets = embedded,
+        // Each variant embeds its own images; the nested-variant strip keeps
+        // the one-level contract even for hand-edited files.
+        variants = variants.map { it.withEmbeddedImages().copy(variants = emptyList()) },
     )
 }
 
@@ -649,8 +673,75 @@ fun ThemeSpec.withExtractedImages(dir: File): ThemeSpec {
             extracted.ifEmpty { keyEffectImages }
         },
         assets = emptyMap(),
+        // Variant filenames key off each variant's own id, which is globally
+        // unique, so a family extracts without collisions.
+        variants = variants.map { it.withExtractedImages(dir) },
     )
 }
+
+// ---- theme families ----
+
+/** This theme and its [ThemeSpec.variants], the theme itself first. */
+fun ThemeSpec.selfAndVariants(): List<ThemeSpec> = listOf(this) + variants
+
+/**
+ * Every theme in the list, with each family's variants laid out flat after
+ * their parent — the shape every "list all themes" surface wants.
+ */
+fun List<ThemeSpec>.flattenedThemes(): List<ThemeSpec> = flatMap { it.selfAndVariants() }
+
+/**
+ * The list entry that is, or carries, the theme with this [id] — the family a
+ * variant belongs to, or the theme itself when it heads one (or none).
+ */
+fun List<ThemeSpec>.findThemeFamily(id: String): ThemeSpec? =
+    firstOrNull { family -> family.id == id || family.variants.any { it.id == id } }
+
+/**
+ * The stored spec behind a theme id, variants included — customs first, then
+ * built-ins, the same precedence `activeThemeSpec` has always had.
+ */
+fun findThemeSpec(id: String, customThemes: List<ThemeSpec>): ThemeSpec? =
+    customThemes.flattenedThemes().find { it.id == id }
+        ?: BuiltInThemes.flattenedThemes().find { it.id == id }
+
+/**
+ * A copy with the theme's id replaced by [baseId] and every variant reminted
+ * off it, for import paths and duplication: extracted image filenames key off
+ * ids, so ids from another device (or a built-in) must never survive into the
+ * custom store. Also enforces the one-level contract by stripping any
+ * variants-of-variants a hand-edited file might carry.
+ */
+fun ThemeSpec.withFreshIds(baseId: String): ThemeSpec = copy(
+    id = baseId,
+    variants = variants.mapIndexed { index, variant ->
+        variant.copy(id = "${baseId}_v$index", variants = emptyList())
+    },
+)
+
+/**
+ * A copy of the family with the member (itself or one of its variants) whose
+ * id is [id] passed through [transform] — the single write shape for editing
+ * one look of a family in place.
+ */
+fun ThemeSpec.replacingMember(id: String, transform: (ThemeSpec) -> ThemeSpec): ThemeSpec =
+    if (this.id == id) {
+        transform(this)
+    } else {
+        copy(variants = variants.map { if (it.id == id) transform(it) else it })
+    }
+
+/**
+ * One family out of several sibling themes — what a multi-theme import (a
+ * FlorisBoard extension, say) becomes. The first theme heads it; the rest are
+ * its variants, stripped to one level. [familyName] only sticks when there is
+ * a family to name — a single theme keeps its own name and no group label.
+ */
+fun groupAsFamily(themes: List<ThemeSpec>, familyName: String?): ThemeSpec =
+    themes.first().copy(
+        familyName = familyName?.takeIf { it.isNotBlank() && themes.size > 1 },
+        variants = themes.drop(1).map { it.copy(variants = emptyList()) },
+    )
 
 private fun Color.argb(): Long = toArgb().toLong() and 0xFFFFFFFFL
 
@@ -764,49 +855,29 @@ fun themeFromSeed(id: String, name: String, seed: Long, dark: Boolean): ThemeSpe
 }
 
 /**
- * Built-in gallery themes. Users can't edit these in place — the editor
- * duplicates one into a custom theme instead — so ids stay stable.
+ * The Ocean family's other looks: the flat colorways first, then the gradient
+ * cousins that share their seeds (Deep sea = Ocean's, Sunset drift = Sunset's,
+ * Aurora = Forest's). Every id predates the family grouping and stays stable.
  *
- * [PaletteThemes] (ports of well-known editor colour schemes) are appended
- * rather than inlined: they are transcriptions of external palettes with
- * their own attribution rules, so they live in their own file.
+ * Gradient themes' keys are translucent so the gradient shows through; their
+ * flattened (opaque) versions still contrast with the key text, which matters
+ * because panel surfaces flatten alpha (see schemeFor).
  */
-val BuiltInThemes: List<ThemeSpec> = listOf(
-    themeFromSeed("builtin_ocean", "Ocean", 0xFF3B82C4, dark = true),
+private val OceanVariants: List<ThemeSpec> = listOf(
     themeFromSeed("builtin_forest", "Forest", 0xFF3E8E5A, dark = true),
     themeFromSeed("builtin_sunset", "Sunset", 0xFFE07B39, dark = true),
     themeFromSeed("builtin_berry", "Berry", 0xFFB84A8E, dark = true),
     themeFromSeed("builtin_crimson", "Crimson", 0xFFCE4257, dark = true),
     themeFromSeed("builtin_slate", "Slate", 0xFF7A8699, dark = true),
-    // Pitch black: AMOLED-friendly, near-black keys on true black.
-    themeFromSeed("builtin_pitch", "Pitch black", 0xFF4C8DF6, dark = true).copy(
-        boardBackground = 0xFF000000,
-        keyBackground = 0xFF1A1C21,
-        modifierKeyBackground = 0xFF101216,
-        toolCircleBackground = 0xFF1E2025,
-        chipBackground = 0xFF15171B,
-        popupBackground = 0xFF24262C,
-    ),
-    themeFromSeed("builtin_snow", "Snow", 0xFF5B7DB1, dark = false),
-    themeFromSeed("builtin_mint", "Mint", 0xFF4FA98F, dark = false),
-    themeFromSeed("builtin_rose", "Rose", 0xFFC96A85, dark = false),
-    themeFromSeed("builtin_sand", "Sand", 0xFFA98052, dark = false),
-    // Gradient themes. Keys are translucent so the gradient shows through;
-    // their flattened (opaque) versions still contrast with the key text, which
-    // matters because panel surfaces flatten alpha (see schemeFor).
-    themeFromSeed("builtin_nebula", "Nebula", 0xFF8E5AC8, dark = true).copy(
+    themeFromSeed("builtin_deep_sea", "Deep sea", 0xFF3B82C4, dark = true).copy(
         boardGradient = GradientSpec(
-            listOf(0xFF2A1758, 0xFF15306B, 0xFF0B1B3A), GradientType.LINEAR, 135f,
+            listOf(0xFF0E2A4A, 0xFF071523), GradientType.RADIAL, 0f,
         ),
-        keyBackground = 0x59453076,
-        modifierKeyBackground = 0x40311F5C,
-        keyText = 0xFFF2ECFF,
-        enterKeyBackground = 0xFF8E5AC8,
-        enterKeyText = 0xFFF6F0FF,
-        accent = 0xFFB79CFF,
-        popupBackground = 0xFF352759,
-        toolCircleBackground = 0x59453076,
-        chipBackground = 0x40311F5C,
+        keyBackground = 0x591E4568,
+        modifierKeyBackground = 0x4014304A,
+        popupBackground = 0xFF1B3C5C,
+        toolCircleBackground = 0x591E4568,
+        chipBackground = 0x4014304A,
     ),
     themeFromSeed("builtin_sunset_drift", "Sunset drift", 0xFFE07B39, dark = true).copy(
         boardGradient = GradientSpec(
@@ -836,20 +907,63 @@ val BuiltInThemes: List<ThemeSpec> = listOf(
         animation = ThemeAnimation.HUE_CYCLE,
         animationSpeed = 0.6f,
     ),
-    themeFromSeed("builtin_deep_sea", "Deep sea", 0xFF3B82C4, dark = true).copy(
-        boardGradient = GradientSpec(
-            listOf(0xFF0E2A4A, 0xFF071523), GradientType.RADIAL, 0f,
-        ),
-        keyBackground = 0x591E4568,
-        modifierKeyBackground = 0x4014304A,
-        popupBackground = 0xFF1B3C5C,
-        toolCircleBackground = 0x591E4568,
-        chipBackground = 0x4014304A,
-    ),
+)
+
+/** The Snow family's other looks; Glacier is Snow's gradient cousin. */
+private val SnowVariants: List<ThemeSpec> = listOf(
+    themeFromSeed("builtin_mint", "Mint", 0xFF4FA98F, dark = false),
+    themeFromSeed("builtin_rose", "Rose", 0xFFC96A85, dark = false),
+    themeFromSeed("builtin_sand", "Sand", 0xFFA98052, dark = false),
     themeFromSeed("builtin_glacier", "Glacier", 0xFF5B7DB1, dark = false).copy(
         boardGradient = GradientSpec(
             listOf(0xFFDDE9F7, 0xFFEAF3EE, 0xFFF6EEE7), GradientType.LINEAR, 20f,
         ),
+    ),
+)
+
+/**
+ * Built-in gallery themes. Users can't edit these in place — the editor
+ * duplicates one into a custom theme instead — so ids stay stable.
+ *
+ * The ten seed-only colorways and the four gradient cousins are grouped into
+ * two families (Ocean, Snow) rather than listed flat: they were always one
+ * design in different colors. Their ids are unchanged, so a selection, pin or
+ * auto-theme slot from before the grouping still resolves — through the
+ * variant search in `findThemeSpec`.
+ *
+ * [PaletteThemes] (ports of well-known editor colour schemes) are appended
+ * rather than inlined: they are transcriptions of external palettes with
+ * their own attribution rules, so they live in their own file.
+ */
+val BuiltInThemes: List<ThemeSpec> = listOf(
+    themeFromSeed("builtin_ocean", "Ocean", 0xFF3B82C4, dark = true).copy(
+        variants = OceanVariants,
+    ),
+    // Pitch black: AMOLED-friendly, near-black keys on true black.
+    themeFromSeed("builtin_pitch", "Pitch black", 0xFF4C8DF6, dark = true).copy(
+        boardBackground = 0xFF000000,
+        keyBackground = 0xFF1A1C21,
+        modifierKeyBackground = 0xFF101216,
+        toolCircleBackground = 0xFF1E2025,
+        chipBackground = 0xFF15171B,
+        popupBackground = 0xFF24262C,
+    ),
+    themeFromSeed("builtin_snow", "Snow", 0xFF5B7DB1, dark = false).copy(
+        variants = SnowVariants,
+    ),
+    themeFromSeed("builtin_nebula", "Nebula", 0xFF8E5AC8, dark = true).copy(
+        boardGradient = GradientSpec(
+            listOf(0xFF2A1758, 0xFF15306B, 0xFF0B1B3A), GradientType.LINEAR, 135f,
+        ),
+        keyBackground = 0x59453076,
+        modifierKeyBackground = 0x40311F5C,
+        keyText = 0xFFF2ECFF,
+        enterKeyBackground = 0xFF8E5AC8,
+        enterKeyText = 0xFFF6F0FF,
+        accent = 0xFFB79CFF,
+        popupBackground = 0xFF352759,
+        toolCircleBackground = 0x59453076,
+        chipBackground = 0x40311F5C,
     ),
     // Shape showcases: pill keys with a soft radial glow, cut-corner steel.
     themeFromSeed("builtin_bubble", "Bubble", 0xFF00897B, dark = true).copy(
@@ -909,6 +1023,43 @@ private val BuiltInThemeNameRes: Map<String, Int> = mapOf(
  */
 @StringRes
 fun builtInThemeNameRes(id: String): Int? = BuiltInThemeNameRes[id]
+
+/**
+ * The family label of every built-in theme that heads one, keyed by the
+ * parent's id — the counterpart of [ThemeSpec.familyName], which only custom
+ * themes carry, so a built-in family's label can translate.
+ */
+private val BuiltInThemeFamilyNameRes: Map<String, Int> = mapOf(
+    "builtin_ocean" to R.string.core_theme_family_ocean_label,
+    "builtin_snow" to R.string.core_theme_family_snow_label,
+) + PaletteThemeFamilyNameRes
+
+/**
+ * The family-label resource of the built-in family headed by [parentId], or
+ * null for variants, customs and built-ins with no variants.
+ */
+@StringRes
+fun builtInThemeFamilyNameRes(parentId: String): Int? = BuiltInThemeFamilyNameRes[parentId]
+
+/**
+ * The label of the family headed by [parent]: a built-in family's translated
+ * name, a custom family's typed [ThemeSpec.familyName], or — when neither
+ * exists — the parent's own name, which is what a family that was never named
+ * should read as.
+ */
+@Composable
+fun themeFamilyName(parent: ThemeSpec): String {
+    val nameRes = builtInThemeFamilyNameRes(parent.id)
+    if (nameRes != null) return stringResource(nameRes)
+    return parent.familyName ?: themeName(parent)
+}
+
+/** [themeFamilyName] for code that has a [Context] and is not a composable. */
+fun themeFamilyName(context: Context, parent: ThemeSpec): String {
+    val nameRes = builtInThemeFamilyNameRes(parent.id)
+    if (nameRes != null) return context.getString(nameRes)
+    return parent.familyName ?: themeName(context, parent)
+}
 
 /**
  * The name to show for [theme]. A built-in theme gets its translated name. A

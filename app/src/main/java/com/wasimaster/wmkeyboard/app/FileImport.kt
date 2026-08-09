@@ -62,7 +62,10 @@ import com.wasimaster.wmkeyboard.core.theme.FlexTheme
 import com.wasimaster.wmkeyboard.core.theme.FlexUnsupported
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.theme.groupAsFamily
+import com.wasimaster.wmkeyboard.core.theme.themeFamilyName
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
+import com.wasimaster.wmkeyboard.core.theme.withFreshIds
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.content.R as ContentR
@@ -531,10 +534,11 @@ private fun rememberProposal(
                 body = context.getString(R.string.import_theme_body),
                 apply = {
                     val id = "custom_${System.currentTimeMillis()}"
-                    // Fresh id first, so extracted image filenames key off it and
-                    // stay unique against the themes already saved.
+                    // Fresh ids first — the theme's and every variant's — so
+                    // extracted image filenames key off them and stay unique
+                    // against the themes already saved.
                     repository.upsertCustomTheme(
-                        state.theme.copy(id = id)
+                        state.theme.withFreshIds(id)
                             .withExtractedImages(
                                 File(context.filesDir, "theme_images").apply { mkdirs() },
                             ),
@@ -853,20 +857,32 @@ private fun florisProposal(
             val dir = withContext(Dispatchers.IO) {
                 File(context.filesDir, "theme_images").apply { mkdirs() }
             }
+            val base = "custom_${System.currentTimeMillis()}"
             val stored = withContext(Dispatchers.IO) {
                 result.themes.mapIndexed { index, converted ->
                     // One id per theme, and distinct: a day and night pair would
                     // otherwise write their images over each other, since the
                     // extracted file names are keyed on the id.
-                    converted.stored("custom_${System.currentTimeMillis()}_$index", dir)
+                    converted.stored(if (index == 0) base else "${base}_v$index", dir)
                 }
             }
-            for (theme in stored) repository.upsertCustomTheme(theme)
-            context.resources.getQuantityString(
-                R.plurals.import_floris_done,
-                stored.size,
-                stored.size,
-            )
+            // One entry, not N: an extension's themes are the looks of one
+            // theme, named after the extension itself.
+            val entry = groupAsFamily(stored, result.title)
+            repository.upsertCustomTheme(entry)
+            if (stored.size >= 2) {
+                context.getString(
+                    R.string.import_floris_done_family,
+                    themeFamilyName(context, entry),
+                    stored.size,
+                )
+            } else {
+                context.resources.getQuantityString(
+                    R.plurals.import_floris_done,
+                    stored.size,
+                    stored.size,
+                )
+            }
         },
     )
 

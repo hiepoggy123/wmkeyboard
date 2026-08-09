@@ -44,8 +44,11 @@ import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.softenedForPhoto
 import com.wasimaster.wmkeyboard.core.theme.Readability
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.theme.findThemeFamily
 import com.wasimaster.wmkeyboard.core.theme.readabilityOver
+import com.wasimaster.wmkeyboard.core.theme.replacingMember
 import com.wasimaster.wmkeyboard.core.theme.reseeded
+import com.wasimaster.wmkeyboard.core.theme.selfAndVariants
 import com.wasimaster.wmkeyboard.core.theme.withAlphaFraction
 import com.wasimaster.wmkeyboard.core.tools.PhotoApplyStatus
 import com.wasimaster.wmkeyboard.core.tools.PhotoBackgroundManager
@@ -80,7 +83,10 @@ fun PhotoDetailScreen(
     val scope = rememberCoroutineScope()
     val status by PhotoBackgroundManager.status.collectAsState()
 
-    val theme = settings.customThemes.find { it.id == themeId }
+    // The id can name a variant. The member spec drives the preview; writes
+    // and the undo snapshot go through the family entry that stores it.
+    val themeFamily = settings.customThemes.findThemeFamily(themeId)
+    val theme = themeFamily?.selfAndVariants()?.find { it.id == themeId }
     var chosenSlot by remember { mutableStateOf(slot) }
     var applied by remember { mutableStateOf(false) }
     var measurements by remember { mutableStateOf<PhotoMeasurements?>(null) }
@@ -191,7 +197,7 @@ fun PhotoDetailScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        undoSpec = theme
+                        undoSpec = themeFamily
                         val key = ToolApiKeys.unsplash(settings)
                         val pexels = ToolApiKeys.pexels(settings)
                         val apiKey = if (photo.source.name == "UNSPLASH") key else pexels
@@ -256,12 +262,14 @@ fun PhotoDetailScreen(
                     icon = Icons.Outlined.Palette,
                     onClick = {
                         scope.launch {
-                            val current = settings.customThemes.find { it.id == themeId }
+                            val current = settings.customThemes.findThemeFamily(themeId)
                             if (current != null) {
                                 // Kept so the whole-theme rewrite below stays
                                 // undoable: reseeding replaces every colour.
                                 undoSpec = current
-                                repository.upsertCustomTheme(current.reseeded(seed, current.dark))
+                                repository.upsertCustomTheme(
+                                    current.replacingMember(themeId) { it.reseeded(seed, it.dark) },
+                                )
                             }
                         }
                     },

@@ -1,8 +1,8 @@
 package com.wasimaster.wmkeyboard.core.settings
 
-import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.theme.findThemeSpec
 
 /**
  * The theme id the keyboard is actually showing right now. Auto-theme, when
@@ -30,7 +30,7 @@ fun KeyboardSettings.effectiveThemeId(darkSlot: Boolean): String =
 fun KeyboardSettings.activeThemeSpec(darkSlot: Boolean): ThemeSpec? {
     val id = effectiveThemeId(darkSlot)
     if (id == DEFAULT_THEME_ID) return null
-    return customThemes.find { it.id == id } ?: BuiltInThemes.find { it.id == id }
+    return findThemeSpec(id, customThemes)
 }
 
 /**

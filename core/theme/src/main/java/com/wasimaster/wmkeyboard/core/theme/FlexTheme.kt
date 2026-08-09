@@ -123,6 +123,7 @@ object FlexTheme {
                 authors = (meta?.get("maintainers") as? JsonArray)
                     ?.mapNotNull { (it as? JsonPrimitive)?.content }
                     .orEmpty(),
+                title = meta?.string("title").orEmpty(),
             )
         }
     }
@@ -254,6 +255,11 @@ sealed interface FlexResult {
         /** Carried through from the extension so it can be shown, not dropped. */
         val license: String,
         val authors: List<String>,
+        /**
+         * The extension's own title, for naming the family a multi-theme
+         * extension becomes. Blank when the manifest has none.
+         */
+        val title: String = "",
     ) : FlexResult
 
     /** A ZIP, but not a theme extension. */

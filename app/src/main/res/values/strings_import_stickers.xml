@@ -127,6 +127,9 @@
         <item quantity="one">The app saved %1$d theme. Open Themes to look at it.</item>
         <item quantity="other">The app saved %1$d themes. Open Themes to look at them.</item>
     </plurals>
+    <!-- Shown when a file with more than one theme becomes one theme with
+         several looks. %1$s is the theme's name, %2$d how many looks it has. -->
+    <string name="import_floris_done_family">The app saved <xliff:g id="theme_name" example="Dusk">%1$s</xliff:g> with <xliff:g id="count" example="2">%2$d</xliff:g> looks. Open Themes to look at it.</string>
     <string name="import_floris_old_title">Theme is for an older FlorisBoard</string>
     <string name="import_floris_old_body">This theme is written for FlorisBoard 0.4. That style format is not the same as the one in FlorisBoard 0.5 and later, so the app cannot read it. A theme that this app read only in part would give you colours that your file never set.</string>
     <string name="import_floris_unreadable_body">The app cannot read this FlorisBoard file. It may be damaged, or it may be a language pack or a keyboard extension instead of a theme.</string>

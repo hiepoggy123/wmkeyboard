@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -48,8 +49,10 @@ import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -66,6 +69,7 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -77,6 +81,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
@@ -107,7 +113,9 @@ import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.SidePadScaleRange
+import com.wasimaster.wmkeyboard.core.settings.ThemeGalleryStyle
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
+import com.wasimaster.wmkeyboard.core.settings.themeGalleryGrouped
 import com.wasimaster.wmkeyboard.core.settings.PoolEntry
 import com.wasimaster.wmkeyboard.core.settings.softenedForPhoto
 import com.wasimaster.wmkeyboard.core.tools.PhotoBackgroundManager
@@ -124,6 +132,7 @@ import com.wasimaster.wmkeyboard.core.theme.keyEffectKindOrNull
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.MAX_DECALS
 import com.wasimaster.wmkeyboard.core.theme.MAX_EFFECT_IMAGES
+import com.wasimaster.wmkeyboard.core.theme.MAX_THEME_VARIANTS
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.keyTextureScaleOrDefault
 import com.wasimaster.wmkeyboard.core.theme.SeedSwatches
@@ -134,9 +143,16 @@ import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import com.wasimaster.wmkeyboard.core.theme.keyShapeKindOrNull
 import com.wasimaster.wmkeyboard.core.theme.safeContainerKind
+import com.wasimaster.wmkeyboard.core.theme.findThemeFamily
+import com.wasimaster.wmkeyboard.core.theme.flattenedThemes
+import com.wasimaster.wmkeyboard.core.theme.groupAsFamily
+import com.wasimaster.wmkeyboard.core.theme.replacingMember
 import com.wasimaster.wmkeyboard.core.theme.reseeded
+import com.wasimaster.wmkeyboard.core.theme.selfAndVariants
+import com.wasimaster.wmkeyboard.core.theme.themeFamilyName
 import com.wasimaster.wmkeyboard.core.theme.themeFromSeed
 import com.wasimaster.wmkeyboard.core.theme.themeName
+import com.wasimaster.wmkeyboard.core.theme.withFreshIds
 import com.wasimaster.wmkeyboard.core.theme.withEmbeddedImages
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
@@ -191,9 +207,61 @@ internal fun themeDisplayName(settings: KeyboardSettings, id: String): String {
     val builtInName = builtInThemeNameRes(id)?.let { stringResource(it) }
     return when (id) {
         DEFAULT_THEME_ID -> defaultName
-        else -> settings.customThemes.find { it.id == id }?.name
+        else -> settings.customThemes.flattenedThemes().find { it.id == id }?.name
             ?: builtInName
             ?: defaultName
+    }
+}
+
+/** One row of the theme pickers: a family heading or a selectable theme. */
+private sealed interface ThemePickerRow {
+    data class Header(val label: String) : ThemePickerRow
+    data class Choice(val id: String, val name: String) : ThemePickerRow
+}
+
+/**
+ * The selectable themes, in gallery order: the default row, then built-ins,
+ * then the user's themes sorted by name. A family contributes a heading and
+ * one row per look, so the radio list stays flat to tap while reading grouped.
+ */
+@Composable
+private fun themePickerRows(settings: KeyboardSettings): List<ThemePickerRow> {
+    val rows = mutableListOf<ThemePickerRow>()
+    rows += ThemePickerRow.Choice(DEFAULT_THEME_ID, stringResource(R.string.theme_default_name))
+    val entries = BuiltInThemes + settings.customThemes.sortedBy { it.name.lowercase() }
+    for (entry in entries) {
+        if (entry.variants.isEmpty()) {
+            rows += ThemePickerRow.Choice(entry.id, themeName(entry))
+        } else {
+            rows += ThemePickerRow.Header(themeFamilyName(entry))
+            entry.selfAndVariants().forEach { rows += ThemePickerRow.Choice(it.id, themeName(it)) }
+        }
+    }
+    return rows
+}
+
+@Composable
+private fun ThemePickerHeading(label: String) {
+    Text(
+        label,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
+    )
+}
+
+@Composable
+private fun ThemePickerChoiceRow(name: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(Modifier.width(8.dp))
+        Text(name)
     }
 }
 
@@ -206,32 +274,24 @@ private fun ThemePickerDialog(
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val defaultName = stringResource(R.string.theme_default_name)
-    val options = buildList {
-        add(DEFAULT_THEME_ID to defaultName)
-        BuiltInThemes.forEach { add(it.id to themeName(it)) }
-        settings.customThemes.sortedBy { it.name.lowercase() }.forEach { add(it.id to it.name) }
-    }
+    val rows = themePickerRows(settings)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                for ((id, name) in options) {
-                    // Opens on the theme it is already set to. The list is every
-                    // built-in plus every theme the user made, so the row that
-                    // is on is routinely well below the fold.
-                    ScrollAnchor(id == selectedId) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onPick(id) }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = id == selectedId, onClick = { onPick(id) })
-                            Spacer(Modifier.width(8.dp))
-                            Text(name)
+                for (row in rows) {
+                    when (row) {
+                        is ThemePickerRow.Header -> ThemePickerHeading(row.label)
+                        // Opens on the theme it is already set to. The list is
+                        // every built-in plus every theme the user made, so the
+                        // row that is on is routinely well below the fold.
+                        is ThemePickerRow.Choice -> ScrollAnchor(row.id == selectedId) {
+                            ThemePickerChoiceRow(
+                                name = row.name,
+                                selected = row.id == selectedId,
+                                onClick = { onPick(row.id) },
+                            )
                         }
                     }
                 }
@@ -255,30 +315,28 @@ internal fun ModeThemePickerDialog(
     onDismiss: () -> Unit,
 ) {
     val inheritLabel = stringResource(R.string.theme_mode_inherit_label)
-    val defaultName = stringResource(R.string.theme_default_name)
-    val options = buildList<Pair<String?, String>> {
-        add(null to inheritLabel)
-        add(DEFAULT_THEME_ID to defaultName)
-        BuiltInThemes.forEach { add(it.id to themeName(it)) }
-        settings.customThemes.sortedBy { it.name.lowercase() }.forEach { add(it.id to it.name) }
-    }
+    val rows = themePickerRows(settings)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.theme_mode_picker_title)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                for ((id, name) in options) {
-                    ScrollAnchor(id == selectedId) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onPick(id) }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = id == selectedId, onClick = { onPick(id) })
-                            Spacer(Modifier.width(8.dp))
-                            Text(name)
+                ScrollAnchor(selectedId == null) {
+                    ThemePickerChoiceRow(
+                        name = inheritLabel,
+                        selected = selectedId == null,
+                        onClick = { onPick(null) },
+                    )
+                }
+                for (row in rows) {
+                    when (row) {
+                        is ThemePickerRow.Header -> ThemePickerHeading(row.label)
+                        is ThemePickerRow.Choice -> ScrollAnchor(row.id == selectedId) {
+                            ThemePickerChoiceRow(
+                                name = row.name,
+                                selected = row.id == selectedId,
+                                onClick = { onPick(row.id) },
+                            )
                         }
                     }
                 }
@@ -575,10 +633,11 @@ fun ThemesScreen(
                 return@launch
             }
             val id = "custom_${System.currentTimeMillis()}"
-            // Set the fresh id first so the extracted image filenames key
-            // off it and stay unique against existing themes.
+            // Set the fresh ids first — the parent's and every variant's — so
+            // the extracted image filenames key off them and stay unique
+            // against existing themes.
             val stored = withContext(Dispatchers.IO) {
-                parsed.copy(id = id).withExtractedImages(themeImagesDir(context))
+                parsed.withFreshIds(id).withExtractedImages(themeImagesDir(context))
             }
             repository.upsertCustomTheme(stored)
             repository.setKeyboardThemeId(id)
@@ -605,22 +664,34 @@ fun ThemesScreen(
                 return@launch
             }
             val dir = withContext(Dispatchers.IO) { themeImagesDir(context) }
+            val base = "custom_${System.currentTimeMillis()}"
             val stored = withContext(Dispatchers.IO) {
                 result.themes.mapIndexed { index, converted ->
                     // A day and night pair need distinct ids: the extracted
                     // image file names are keyed on the id, so a shared one
                     // would have the second theme overwrite the first's images.
-                    converted.stored("custom_${System.currentTimeMillis()}_$index", dir)
+                    converted.stored(if (index == 0) base else "${base}_v$index", dir)
                 }
             }
-            for (theme in stored) repository.upsertCustomTheme(theme)
+            // One entry, not N: an extension's themes are the looks of one
+            // theme, named after the extension itself.
+            val entry = groupAsFamily(stored, result.title)
+            repository.upsertCustomTheme(entry)
             // Saved, not switched to. A converted theme is exactly the thing
             // worth looking at before it becomes the keyboard.
-            message = context.resources.getQuantityString(
-                R.plurals.import_floris_done,
-                stored.size,
-                stored.size,
-            )
+            message = if (stored.size >= 2) {
+                context.getString(
+                    R.string.import_floris_done_family,
+                    themeFamilyName(context, entry),
+                    stored.size,
+                )
+            } else {
+                context.resources.getQuantityString(
+                    R.plurals.import_floris_done,
+                    stored.size,
+                    stored.size,
+                )
+            }
         }
     }
     fun export(theme: ThemeSpec) {
@@ -631,7 +702,12 @@ fun ThemesScreen(
         scope.launch {
             val id = "custom_${System.currentTimeMillis()}"
             val copyName = context.getString(R.string.theme_duplicate_name, base.name)
-            repository.upsertCustomTheme(base.copy(id = id, name = copyName))
+            // The copy is of one look, never of the family: carrying the
+            // variants over would smuggle built-in (or another device's) ids
+            // into the custom store, where they must never exist.
+            repository.upsertCustomTheme(
+                base.copy(id = id, name = copyName, variants = emptyList(), familyName = null),
+            )
             repository.setKeyboardThemeId(id)
             onEditTheme(id)
         }
@@ -789,6 +865,18 @@ fun ThemesScreen(
     if (auto.enabled) {
         CaptionText(stringResource(R.string.theme_gallery_auto_on_body))
     }
+    val grouped = settings.themeGalleryGrouped()
+    CaptionText(
+        stringResource(
+            if (grouped) R.string.theme_gallery_style_grouped_body
+            else R.string.theme_gallery_style_flat_body,
+        ),
+    )
+    ChoiceControl(
+        options = ThemeGalleryStyle.entries.map { it to stringResource(themeGalleryStyleLabelRes(it)) },
+        selected = settings.appUi.themeGalleryStyle,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    ) { style -> scope.launch { repository.setThemeGalleryStyle(style) } }
     val newThemeName = stringResource(R.string.theme_new_default_name)
     FlowRow(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -827,27 +915,73 @@ fun ThemesScreen(
         selected = settings.keyboardThemeId == DEFAULT_THEME_ID,
         onSelect = { scope.launch { repository.setKeyboardThemeId(DEFAULT_THEME_ID) } },
     )
+    // Which look each family's card is showing, when the user tapped a dot.
+    // Falls back to the selected member, then the parent, in the card logic.
+    val shownVariant = remember { mutableStateMapOf<String, String>() }
     val customs = settings.customThemes.sortedBy { it.name.lowercase() }
-    if (customs.isNotEmpty()) SectionHeaderPublic(stringResource(R.string.theme_custom_section_title))
-    for (rowThemes in customs.chunked(2)) {
+    val customEntries = if (grouped) customs else customs.flattenedThemes()
+    if (customEntries.isNotEmpty()) {
+        SectionHeaderPublic(stringResource(R.string.theme_custom_section_title))
+    }
+    for (rowThemes in customEntries.chunked(2)) {
         Row(modifier = Modifier.padding(horizontal = 12.dp)) {
-            for (theme in rowThemes) {
+            for (entry in rowThemes) {
                 Box(modifier = Modifier.weight(1f)) {
+                    val members = if (grouped) entry.selfAndVariants() else listOf(entry)
+                    val isFamily = members.size > 1
+                    val shownId = if (isFamily) {
+                        shownVariant[entry.id]
+                            ?: members.find { it.id == settings.keyboardThemeId }?.id
+                            ?: entry.id
+                    } else {
+                        entry.id
+                    }
+                    val shown = members.find { it.id == shownId } ?: entry
                     // Downloaded themes are custom themes, so this is where an
                     // addon's Use button lands — on the card, not on the header.
-                    HighlightableItem(theme.id) {
+                    // A family card answers for every id it holds.
+                    HighlightableItem(members.map { it.id }) {
                         ThemeCard(
-                            theme = theme,
-                            selected = settings.keyboardThemeId == theme.id,
-                            onSelect = { scope.launch { repository.setKeyboardThemeId(theme.id) } },
-                            onEdit = { onEditTheme(theme.id) },
-                            onExport = { export(theme) },
+                            theme = shown,
+                            selected = members.any { it.id == settings.keyboardThemeId },
+                            onSelect = { scope.launch { repository.setKeyboardThemeId(shown.id) } },
+                            onEdit = { onEditTheme(shown.id) },
+                            onExport = {
+                                // A family card exports the family; a flat card
+                                // exports the one look it shows.
+                                export(
+                                    if (grouped) entry
+                                    else entry.copy(variants = emptyList(), familyName = null),
+                                )
+                            },
                             onDelete = {
                                 scope.launch {
-                                    theme.backgroundImage?.let { File(it).delete() }
-                                    theme.backgroundImageLandscape?.let { File(it).delete() }
-                                    repository.deleteCustomTheme(theme.id)
+                                    val parent = settings.customThemes.findThemeFamily(entry.id)
+                                    if (parent != null && parent.id != entry.id) {
+                                        // One look of a family. Its image files
+                                        // stay for the sweep: a look made with
+                                        // "Add look" shares them with siblings.
+                                        repository.deleteCustomThemeVariant(parent.id, entry.id)
+                                    } else {
+                                        (parent?.selfAndVariants() ?: listOf(entry)).forEach { m ->
+                                            m.backgroundImage?.let { File(it).delete() }
+                                            m.backgroundImageLandscape?.let { File(it).delete() }
+                                        }
+                                        repository.deleteCustomTheme(entry.id)
+                                    }
                                 }
+                            },
+                            title = if (isFamily) themeFamilyName(entry) else null,
+                            subtitle = if (isFamily) themeName(shown) else null,
+                            swatches = if (isFamily) {
+                                {
+                                    VariantSwatchRow(entry, shownId) { variant ->
+                                        shownVariant[entry.id] = variant.id
+                                        scope.launch { repository.setKeyboardThemeId(variant.id) }
+                                    }
+                                }
+                            } else {
+                                null
                             },
                         )
                     }
@@ -860,21 +994,51 @@ fun ThemesScreen(
     CaptionText(stringResource(R.string.theme_builtin_section_body))
     CaptionText(stringResource(R.string.theme_panel_pin_body))
     val panelBuiltIns = settings.toolbarBehavior.themesPanelBuiltIns ?: DefaultThemesPanelBuiltIns
-    for (rowThemes in BuiltInThemes.chunked(2)) {
+    val builtinEntries = if (grouped) BuiltInThemes else BuiltInThemes.flattenedThemes()
+    for (rowThemes in builtinEntries.chunked(2)) {
         Row(modifier = Modifier.padding(horizontal = 12.dp)) {
-            for (theme in rowThemes) {
+            for (entry in rowThemes) {
                 Box(modifier = Modifier.weight(1f)) {
-                    val pinned = theme.id in panelBuiltIns
+                    val members = if (grouped) entry.selfAndVariants() else listOf(entry)
+                    val isFamily = members.size > 1
+                    val shownId = if (isFamily) {
+                        shownVariant[entry.id]
+                            ?: members.find { it.id == settings.keyboardThemeId }?.id
+                            ?: entry.id
+                    } else {
+                        entry.id
+                    }
+                    val shown = members.find { it.id == shownId } ?: entry
+                    val pinned = shown.id in panelBuiltIns
                     ThemeCard(
-                        theme = theme,
-                        selected = settings.keyboardThemeId == theme.id,
-                        onSelect = { scope.launch { repository.setKeyboardThemeId(theme.id) } },
-                        onEdit = { duplicateAndEdit(theme) },
-                        onExport = { export(theme) },
+                        theme = shown,
+                        selected = members.any { it.id == settings.keyboardThemeId },
+                        onSelect = { scope.launch { repository.setKeyboardThemeId(shown.id) } },
+                        onEdit = { duplicateAndEdit(shown) },
+                        onExport = {
+                            export(
+                                if (grouped) entry
+                                else entry.copy(variants = emptyList(), familyName = null),
+                            )
+                        },
                         onDelete = null,
+                        title = if (isFamily) themeFamilyName(entry) else null,
+                        subtitle = if (isFamily) themeName(shown) else null,
+                        // The pin is per look, not per family: the keyboard
+                        // panel lists looks, so the toggle names what shows.
                         panelShown = pinned,
                         onTogglePanel = {
-                            scope.launch { repository.setThemesPanelBuiltIn(theme.id, !pinned) }
+                            scope.launch { repository.setThemesPanelBuiltIn(shown.id, !pinned) }
+                        },
+                        swatches = if (isFamily) {
+                            {
+                                VariantSwatchRow(entry, shownId) { variant ->
+                                    shownVariant[entry.id] = variant.id
+                                    scope.launch { repository.setKeyboardThemeId(variant.id) }
+                                }
+                            }
+                        } else {
+                            null
                         },
                     )
                 }
@@ -897,6 +1061,55 @@ fun ThemesScreen(
                 }
             },
         )
+    }
+}
+
+/** The label of one [ThemeGalleryStyle] choice. */
+private fun themeGalleryStyleLabelRes(style: ThemeGalleryStyle): Int = when (style) {
+    ThemeGalleryStyle.AUTO -> R.string.theme_gallery_style_auto_label
+    ThemeGalleryStyle.GROUPED -> R.string.theme_gallery_style_grouped_label
+    ThemeGalleryStyle.FLAT -> R.string.theme_gallery_style_flat_label
+}
+
+/**
+ * One dot per look of a family, in the family's own colors. Tapping a dot
+ * both turns the card's preview to that look and applies it — the card is the
+ * whole picker, with no second level to open.
+ */
+@Composable
+private fun VariantSwatchRow(
+    family: ThemeSpec,
+    shownId: String,
+    onPick: (ThemeSpec) -> Unit,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.padding(start = 4.dp, top = 6.dp),
+    ) {
+        family.selfAndVariants().forEach { variant ->
+            val shown = variant.id == shownId
+            val label = themeName(variant)
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .border(
+                        width = if (shown) 2.dp else 1.dp,
+                        color = if (shown) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.outlineVariant
+                        },
+                        shape = CircleShape,
+                    )
+                    .semantics { contentDescription = label }
+                    .clickable { onPick(variant) }
+                    .padding(4.dp)
+                    .clip(CircleShape)
+                    .background(Color(variant.accent)),
+            )
+        }
     }
 }
 
@@ -943,11 +1156,15 @@ private fun ThemeCard(
     /** Whether this theme sits on the keyboard Themes tool's shortlist; null hides the toggle. */
     panelShown: Boolean? = null,
     onTogglePanel: (() -> Unit)? = null,
+    /** Replaces the theme's own name as the card title — the family's label. */
+    title: String? = null,
+    /** A family card's dot row, under the preview; null on single-look cards. */
+    swatches: (@Composable () -> Unit)? = null,
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
     // A built-in theme draws its translated name; a theme the user made keeps
     // the name the user typed.
-    val displayName = themeName(theme)
+    val displayName = title ?: themeName(theme)
     Column(
         modifier = Modifier
             .padding(4.dp)
@@ -963,6 +1180,7 @@ private fun ThemeCard(
             .padding(6.dp),
     ) {
         ThemePreview(theme)
+        swatches?.invoke()
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -1078,8 +1296,10 @@ fun ThemeEditorScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val theme = settings.customThemes.find { it.id == themeId }
-    if (theme == null) {
+    // The route id can name a variant; the editor opens on that look, inside
+    // the family entry that stores it.
+    val family = settings.customThemes.findThemeFamily(themeId)
+    if (family == null) {
         Text(
             stringResource(R.string.theme_editor_missing_body),
             modifier = Modifier.padding(16.dp),
@@ -1087,8 +1307,14 @@ fun ThemeEditorScreen(
         )
         return
     }
+    // Which look is open. Survives process death; a look deleted meanwhile
+    // falls back to the family itself.
+    var editingId by rememberSaveable(family.id) { mutableStateOf(themeId) }
+    val theme = family.selfAndVariants().find { it.id == editingId } ?: family
+    // Every write goes through the family entry: editing a look must never
+    // promote it to a top-level theme of its own.
     fun update(transform: (ThemeSpec) -> ThemeSpec) {
-        scope.launch { repository.upsertCustomTheme(transform(theme)) }
+        scope.launch { repository.upsertCustomTheme(family.replacingMember(theme.id, transform)) }
     }
 
     val imagePicker = rememberLauncherForActivityResult(
@@ -1106,13 +1332,15 @@ fun ThemeEditorScreen(
                     // see-through so the image shows, and the keys stop
                     // covering all of it. The user raises either back.
                     repository.upsertCustomTheme(
-                        theme.copy(
-                            backgroundImage = file.absolutePath,
-                            backgroundPhoto = null,
-                            boardBackground = theme.boardBackground and 0x00FFFFFFL,
-                            keyBackground = theme.keyBackground.softenedForPhoto(),
-                            modifierKeyBackground = theme.modifierKeyBackground.softenedForPhoto(),
-                        )
+                        family.replacingMember(theme.id) {
+                            theme.copy(
+                                backgroundImage = file.absolutePath,
+                                backgroundPhoto = null,
+                                boardBackground = theme.boardBackground and 0x00FFFFFFL,
+                                keyBackground = theme.keyBackground.softenedForPhoto(),
+                                modifierKeyBackground = theme.modifierKeyBackground.softenedForPhoto(),
+                            )
+                        },
                     )
                     // A photo the user picked is worth keeping: it can then go
                     // on another theme, or into the rotation, without being
@@ -1139,10 +1367,12 @@ fun ThemeEditorScreen(
                     }
                     theme.backgroundImageLandscape?.let { File(it).delete() }
                     repository.upsertCustomTheme(
-                        theme.copy(
-                            backgroundImageLandscape = file.absolutePath,
-                            backgroundPhotoLandscape = null,
-                        ),
+                        family.replacingMember(theme.id) {
+                            theme.copy(
+                                backgroundImageLandscape = file.absolutePath,
+                                backgroundPhotoLandscape = null,
+                            )
+                        },
                     )
                     PhotoBackgroundManager.addToCollection(context, file)
                 }
@@ -1212,6 +1442,128 @@ fun ThemeEditorScreen(
 
     val untitledName = stringResource(R.string.theme_untitled_name)
     val offLabel = stringResource(CommonR.string.common_off)
+
+    // The theme's looks: a chip per member, an add chip, and — when a
+    // variant is open — a way to delete it. Everything below the row edits
+    // the open look alone.
+    var confirmDeleteVariant by remember(theme.id) { mutableStateOf(false) }
+    SettingsGroup(stringResource(R.string.theme_variant_section_title)) {
+        item {
+            Row(
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                family.selfAndVariants().forEach { member ->
+                    FilterChip(
+                        selected = member.id == theme.id,
+                        onClick = { editingId = member.id },
+                        label = { Text(member.name.ifBlank { untitledName }) },
+                    )
+                }
+                AssistChip(
+                    onClick = {
+                        scope.launch {
+                            if (family.variants.size < MAX_THEME_VARIANTS) {
+                                val vid = "${family.id}_v${System.currentTimeMillis()}"
+                                // A copy of the open look. Image paths are
+                                // shared, not copied: the sweep keeps a file
+                                // as long as any member points at it.
+                                val fresh = theme.copy(
+                                    id = vid,
+                                    name = context.getString(
+                                        R.string.theme_duplicate_name,
+                                        theme.name,
+                                    ),
+                                    variants = emptyList(),
+                                    familyName = null,
+                                )
+                                repository.upsertCustomTheme(
+                                    family.copy(variants = family.variants + fresh),
+                                )
+                                editingId = vid
+                            }
+                        }
+                    },
+                    enabled = family.variants.size < MAX_THEME_VARIANTS,
+                    label = { Text(stringResource(R.string.theme_variant_add_action)) },
+                    leadingIcon = {
+                        Icon(Icons.Outlined.Add, contentDescription = null, Modifier.size(16.dp))
+                    },
+                )
+                if (theme.id != family.id) {
+                    IconButton(
+                        onClick = { confirmDeleteVariant = true },
+                        modifier = Modifier.size(34.dp),
+                    ) {
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = stringResource(R.string.theme_variant_delete_action),
+                            modifier = Modifier.size(17.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+        if (family.variants.isNotEmpty()) {
+            item {
+                // Same local-echo pattern as the name field below: the field
+                // is the source of truth while the user types.
+                var familyNameText by rememberSaveable(family.id) {
+                    mutableStateOf(family.familyName.orEmpty())
+                }
+                OutlinedTextField(
+                    value = familyNameText,
+                    onValueChange = { text ->
+                        familyNameText = text
+                        scope.launch {
+                            repository.upsertCustomTheme(
+                                family.copy(familyName = text.ifBlank { null }),
+                            )
+                        }
+                    },
+                    label = { Text(stringResource(R.string.theme_family_name_label)) },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+        }
+    }
+    if (confirmDeleteVariant) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteVariant = false },
+            title = { Text(stringResource(R.string.theme_variant_delete_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.theme_variant_delete_message,
+                        theme.name.ifBlank { untitledName },
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDeleteVariant = false
+                    val doomedId = theme.id
+                    editingId = family.id
+                    scope.launch { repository.deleteCustomThemeVariant(family.id, doomedId) }
+                }) {
+                    Text(stringResource(CommonR.string.common_delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteVariant = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
+    }
+
     var name by rememberSaveable(theme.id) { mutableStateOf(theme.name) }
     OutlinedTextField(
         value = name,
@@ -1480,7 +1832,9 @@ fun ThemeEditorScreen(
             onCropped = { newPath ->
                 scope.launch {
                     File(cropSource).delete()
-                    repository.upsertCustomTheme(theme.copy(backgroundImage = newPath))
+                    repository.upsertCustomTheme(
+                        family.replacingMember(theme.id) { theme.copy(backgroundImage = newPath) },
+                    )
                 }
                 cropOpen = false
             },
@@ -1494,7 +1848,11 @@ fun ThemeEditorScreen(
             onCropped = { newPath ->
                 scope.launch {
                     File(cropLandscapeSource).delete()
-                    repository.upsertCustomTheme(theme.copy(backgroundImageLandscape = newPath))
+                    repository.upsertCustomTheme(
+                        family.replacingMember(theme.id) {
+                            theme.copy(backgroundImageLandscape = newPath)
+                        },
+                    )
                 }
                 cropLandscapeOpen = false
             },
@@ -1693,7 +2051,9 @@ fun ThemeEditorScreen(
                     val path = importKeyTexture(context, theme.id, slot, uri)
                     if (path != null) {
                         slot.pathIn(theme)?.let { File(it).delete() }
-                        repository.upsertCustomTheme(slot.withPath(theme, path))
+                        repository.upsertCustomTheme(
+                            family.replacingMember(theme.id) { slot.withPath(theme, path) },
+                        )
                     }
                 }
             }
@@ -1843,9 +2203,11 @@ fun ThemeEditorScreen(
                     val path = importDecalImage(context, theme.id, decalId, uri)
                     if (path != null) {
                         repository.upsertCustomTheme(
-                            theme.copy(
-                                decals = theme.decals + DecalSpec(id = decalId, image = path),
-                            ),
+                            family.replacingMember(theme.id) {
+                                theme.copy(
+                                    decals = theme.decals + DecalSpec(id = decalId, image = path),
+                                )
+                            },
                         )
                         decalEditorId = decalId
                     }
@@ -2471,10 +2833,12 @@ fun ThemeEditorScreen(
                     val path = importEffectImage(context, theme.id, uri)
                     if (path != null) {
                         repository.upsertCustomTheme(
-                            theme.copy(
-                                keyEffectImages =
-                                    (theme.keyEffectImages + path).take(MAX_EFFECT_IMAGES),
-                            ),
+                            family.replacingMember(theme.id) {
+                                theme.copy(
+                                    keyEffectImages =
+                                        (theme.keyEffectImages + path).take(MAX_EFFECT_IMAGES),
+                                )
+                            },
                         )
                     }
                 }

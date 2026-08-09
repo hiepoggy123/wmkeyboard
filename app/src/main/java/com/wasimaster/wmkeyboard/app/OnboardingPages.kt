@@ -95,6 +95,7 @@ import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
+import com.wasimaster.wmkeyboard.core.theme.flattenedThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.util.PlayServices
@@ -513,7 +514,7 @@ private fun AutoThemeChooser(repository: SettingsRepository, settings: KeyboardS
     }
     CaptionText(stringResource(R.string.onboarding_keyboard_theme_auto_info))
     ThemeChoiceList(
-        themes = remember(darkTab) { BuiltInThemes.filter { it.dark == darkTab } },
+        themes = remember(darkTab) { BuiltInThemes.flattenedThemes().filter { it.dark == darkTab } },
         selectedId = if (darkTab) darkId else lightId,
         onSelect = { id ->
             scope.launch {
@@ -530,7 +531,9 @@ private fun AutoThemeChooser(repository: SettingsRepository, settings: KeyboardS
  * from the Material scheme.
  */
 private fun String.inHalf(dark: Boolean): String =
-    takeIf { BuiltInThemes.find { theme -> theme.id == this }?.dark == dark } ?: DEFAULT_THEME_ID
+    takeIf {
+        BuiltInThemes.flattenedThemes().find { theme -> theme.id == this }?.dark == dark
+    } ?: DEFAULT_THEME_ID
 
 /**
  * The themes on offer, two to a row.
@@ -605,9 +608,9 @@ private const val ThemePreviewAspect = 1.7f
  * dark: its own pitch-black theme is in that half.
  */
 internal fun themesForMode(mode: ThemeMode): List<ThemeSpec> = when (mode) {
-    ThemeMode.SYSTEM -> BuiltInThemes
-    ThemeMode.LIGHT -> BuiltInThemes.filter { !it.dark }
-    ThemeMode.DARK, ThemeMode.AMOLED -> BuiltInThemes.filter { it.dark }
+    ThemeMode.SYSTEM -> BuiltInThemes.flattenedThemes()
+    ThemeMode.LIGHT -> BuiltInThemes.flattenedThemes().filter { !it.dark }
+    ThemeMode.DARK, ThemeMode.AMOLED -> BuiltInThemes.flattenedThemes().filter { it.dark }
 }
 
 /** Light / dark / AMOLED, as a segmented row with a glyph on each choice. */

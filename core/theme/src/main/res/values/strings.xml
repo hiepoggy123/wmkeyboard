@@ -82,9 +82,24 @@
     <string name="core_theme_builtin_solarized_light_label" translatable="false">Solarized Light</string>
     <string name="core_theme_builtin_catppuccin_mocha_label" translatable="false">Catppuccin Mocha</string>
     <string name="core_theme_builtin_catppuccin_latte_label" translatable="false">Catppuccin Latte</string>
+    <string name="core_theme_builtin_catppuccin_frappe_label" translatable="false">Catppuccin Frappé</string>
+    <string name="core_theme_builtin_catppuccin_macchiato_label" translatable="false">Catppuccin Macchiato</string>
     <string name="core_theme_builtin_tokyo_night_label" translatable="false">Tokyo Night</string>
 
     <!-- Our own palette: neon pink and cyan on near black. -->
     <string name="core_theme_builtin_cyberpunk_label">Cyberpunk</string>
+
+    <!-- ================================================================== -->
+    <!-- Labels of the built-in theme families. A family is one theme with  -->
+    <!-- more than one look; the label names the group, not one look.       -->
+    <!-- ================================================================== -->
+
+    <!-- The family of the dark colour themes (Ocean, Forest, Sunset, ...). -->
+    <string name="core_theme_family_ocean_label">Nightfall</string>
+    <!-- The family of the light colour themes (Snow, Mint, Rose, Sand, ...). -->
+    <string name="core_theme_family_snow_label">Pastel</string>
+    <!-- The names of these two families are project names. Keep in English. -->
+    <string name="core_theme_family_solarized_label" translatable="false">Solarized</string>
+    <string name="core_theme_family_catppuccin_label" translatable="false">Catppuccin</string>
 
 </resources>

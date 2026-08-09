@@ -28,6 +28,118 @@ import com.wasimaster.wmkeyboard.theme.R
  * is; nothing here claims endorsement by those projects. "Cyberpunk" is our
  * own palette with no upstream, so it carries no attribution.
  */
+// ---- Solarized light --------------------------------------------------
+// Same palette inverted the way Solarized itself inverts: base3 board,
+// base2 key "highlights", base01 text. Same outline trick, same reason as
+// Solarized Dark, which heads the family this is a variant of.
+private val SolarizedLight = ThemeSpec(
+    id = "builtin_solarized_light",
+    name = "Solarized Light",
+    dark = false,
+    boardBackground = 0xFFFDF6E3, // base3
+    keyBackground = 0xFFEEE8D5, // base2
+    keyText = 0xFF586E75, // base01
+    modifierKeyBackground = 0xFFE4DCC4, // base2 darkened (not in spec)
+    modifierKeyText = 0xFF657B83, // base00
+    enterKeyBackground = 0xFF268BD2, // blue
+    enterKeyText = 0xFFFDF6E3,
+    // base2 pulled 40% toward base1; base1 itself drops the base01 label
+    // to 2:1, the mirror of the same problem in Solarized Dark.
+    pressedKeyBackground = 0xFFC9CBC0,
+    keyBorderColor = 0x8093A1A1, // base1 at 50%
+    keyBorderWidthDp = 1f,
+    accent = 0xFF268BD2,
+    gestureTrailColor = 0xFF2AA198,
+    popupBackground = 0xFFFDF6E3,
+    popupText = 0xFF586E75,
+    toolbarIcon = 0xFF657B83, // base00
+    toolCircleBackground = 0xFFEEE8D5,
+    // Blue rather than base1: an icon on base1 lands at 2.7:1 whichever
+    // colour it takes, while white on blue reads at 3.7:1.
+    toolCircleActiveBackground = 0xFF268BD2,
+    chipBackground = 0xFFEEE8D5,
+    suggestionText = 0xFF586E75,
+)
+
+// ---- Catppuccin Latte -------------------------------------------------
+// The light flavour, same ramp read the other way: base is the lightest
+// surface so it takes the keys, then mantle and crust step down. Board is
+// crust rather than mantle so the key faces actually separate from it —
+// base-on-mantle is 1.08:1, which is a flat grey slab at arm's length.
+private val CatppuccinLatte = ThemeSpec(
+    id = "builtin_catppuccin_latte",
+    name = "Catppuccin Latte",
+    dark = false,
+    boardBackground = 0xFFDCE0E8, // crust
+    keyBackground = 0xFFEFF1F5, // base
+    keyText = 0xFF4C4F69, // text
+    modifierKeyBackground = 0xFFE6E9EF, // mantle
+    modifierKeyText = 0xFF5C5F77, // subtext1
+    enterKeyBackground = 0xFF8839EF, // mauve
+    enterKeyText = 0xFFEFF1F5,
+    pressedKeyBackground = 0xFFCCD0DA, // surface0
+    accent = 0xFF8839EF, // mauve
+    gestureTrailColor = 0xFFEA76CB, // pink
+    popupBackground = 0xFFEFF1F5,
+    popupText = 0xFF4C4F69,
+    toolbarIcon = 0xFF6C6F85, // subtext0
+    toolCircleBackground = 0xFFEFF1F5,
+    toolCircleActiveBackground = 0xFFCCD0DA, // surface0
+    chipBackground = 0xFFE6E9EF, // mantle
+    suggestionText = 0xFF4C4F69,
+)
+
+// ---- Catppuccin Frappé ------------------------------------------------
+// The softest dark flavour; same role mapping as Mocha, hexes from the same
+// `palette.json`.
+private val CatppuccinFrappe = ThemeSpec(
+    id = "builtin_catppuccin_frappe",
+    name = "Catppuccin Frappé",
+    dark = true,
+    boardBackground = 0xFF303446, // base
+    keyBackground = 0xFF414559, // surface0
+    keyText = 0xFFC6D0F5, // text
+    modifierKeyBackground = 0xFF292C3C, // mantle
+    modifierKeyText = 0xFFB5BFE2, // subtext1
+    enterKeyBackground = 0xFFCA9EE6, // mauve
+    enterKeyText = 0xFF232634, // crust
+    pressedKeyBackground = 0xFF51576D, // surface1
+    accent = 0xFFCA9EE6, // mauve
+    gestureTrailColor = 0xFFF4B8E4, // pink
+    popupBackground = 0xFF51576D, // surface1
+    popupText = 0xFFC6D0F5,
+    toolbarIcon = 0xFFA5ADCE, // subtext0
+    toolCircleBackground = 0xFF414559,
+    toolCircleActiveBackground = 0xFF626880, // surface2
+    chipBackground = 0xFF292C3C,
+    suggestionText = 0xFFC6D0F5,
+)
+
+// ---- Catppuccin Macchiato ---------------------------------------------
+// Sits between Frappé and Mocha; same role mapping, same `palette.json`.
+private val CatppuccinMacchiato = ThemeSpec(
+    id = "builtin_catppuccin_macchiato",
+    name = "Catppuccin Macchiato",
+    dark = true,
+    boardBackground = 0xFF24273A, // base
+    keyBackground = 0xFF363A4F, // surface0
+    keyText = 0xFFCAD3F5, // text
+    modifierKeyBackground = 0xFF1E2030, // mantle
+    modifierKeyText = 0xFFB8C0E0, // subtext1
+    enterKeyBackground = 0xFFC6A0F6, // mauve
+    enterKeyText = 0xFF181926, // crust
+    pressedKeyBackground = 0xFF494D64, // surface1
+    accent = 0xFFC6A0F6, // mauve
+    gestureTrailColor = 0xFFF5BDE6, // pink
+    popupBackground = 0xFF494D64, // surface1
+    popupText = 0xFFCAD3F5,
+    toolbarIcon = 0xFFA5ADCB, // subtext0
+    toolCircleBackground = 0xFF363A4F,
+    toolCircleActiveBackground = 0xFF5B6078, // surface2
+    chipBackground = 0xFF1E2030,
+    suggestionText = 0xFFCAD3F5,
+)
+
 val PaletteThemes: List<ThemeSpec> = listOf(
 
     // ---- Dracula ------------------------------------------------------
@@ -119,38 +231,9 @@ val PaletteThemes: List<ThemeSpec> = listOf(
         toolCircleActiveBackground = 0xFF586E75,
         chipBackground = 0xFF073642,
         suggestionText = 0xFF93A1A1,
-    ),
-
-    // ---- Solarized light ----------------------------------------------
-    // Same palette inverted the way Solarized itself inverts: base3 board,
-    // base2 key "highlights", base01 text. Same outline trick, same reason.
-    ThemeSpec(
-        id = "builtin_solarized_light",
-        name = "Solarized Light",
-        dark = false,
-        boardBackground = 0xFFFDF6E3, // base3
-        keyBackground = 0xFFEEE8D5, // base2
-        keyText = 0xFF586E75, // base01
-        modifierKeyBackground = 0xFFE4DCC4, // base2 darkened (not in spec)
-        modifierKeyText = 0xFF657B83, // base00
-        enterKeyBackground = 0xFF268BD2, // blue
-        enterKeyText = 0xFFFDF6E3,
-        // base2 pulled 40% toward base1; base1 itself drops the base01 label
-        // to 2:1, the mirror of the same problem in Solarized Dark.
-        pressedKeyBackground = 0xFFC9CBC0,
-        keyBorderColor = 0x8093A1A1, // base1 at 50%
-        keyBorderWidthDp = 1f,
-        accent = 0xFF268BD2,
-        gestureTrailColor = 0xFF2AA198,
-        popupBackground = 0xFFFDF6E3,
-        popupText = 0xFF586E75,
-        toolbarIcon = 0xFF657B83, // base00
-        toolCircleBackground = 0xFFEEE8D5,
-        // Blue rather than base1: an icon on base1 lands at 2.7:1 whichever
-        // colour it takes, while white on blue reads at 3.7:1.
-        toolCircleActiveBackground = 0xFF268BD2,
-        chipBackground = 0xFFEEE8D5,
-        suggestionText = 0xFF586E75,
+        // The light half is the same palette read the other way; it heads
+        // nothing and travels as this family's one variant.
+        variants = listOf(SolarizedLight),
     ),
 
     // ---- Catppuccin Mocha ---------------------------------------------
@@ -178,34 +261,9 @@ val PaletteThemes: List<ThemeSpec> = listOf(
         toolCircleActiveBackground = 0xFF585B70, // surface2
         chipBackground = 0xFF181825,
         suggestionText = 0xFFCDD6F4,
-    ),
-
-    // ---- Catppuccin Latte ---------------------------------------------
-    // The light flavour, same ramp read the other way: base is the lightest
-    // surface so it takes the keys, then mantle and crust step down. Board is
-    // crust rather than mantle so the key faces actually separate from it —
-    // base-on-mantle is 1.08:1, which is a flat grey slab at arm's length.
-    ThemeSpec(
-        id = "builtin_catppuccin_latte",
-        name = "Catppuccin Latte",
-        dark = false,
-        boardBackground = 0xFFDCE0E8, // crust
-        keyBackground = 0xFFEFF1F5, // base
-        keyText = 0xFF4C4F69, // text
-        modifierKeyBackground = 0xFFE6E9EF, // mantle
-        modifierKeyText = 0xFF5C5F77, // subtext1
-        enterKeyBackground = 0xFF8839EF, // mauve
-        enterKeyText = 0xFFEFF1F5,
-        pressedKeyBackground = 0xFFCCD0DA, // surface0
-        accent = 0xFF8839EF, // mauve
-        gestureTrailColor = 0xFFEA76CB, // pink
-        popupBackground = 0xFFEFF1F5,
-        popupText = 0xFF4C4F69,
-        toolbarIcon = 0xFF6C6F85, // subtext0
-        toolCircleBackground = 0xFFEFF1F5,
-        toolCircleActiveBackground = 0xFFCCD0DA, // surface0
-        chipBackground = 0xFFE6E9EF, // mantle
-        suggestionText = 0xFF4C4F69,
+        // All four upstream flavours, one family: Mocha heads it, then the
+        // others in the palette's own order.
+        variants = listOf(CatppuccinLatte, CatppuccinFrappe, CatppuccinMacchiato),
     ),
 
     // ---- Tokyo Night --------------------------------------------------
@@ -296,6 +354,18 @@ internal val PaletteThemeNameRes: Map<String, Int> = mapOf(
     "builtin_solarized_light" to R.string.core_theme_builtin_solarized_light_label,
     "builtin_catppuccin_mocha" to R.string.core_theme_builtin_catppuccin_mocha_label,
     "builtin_catppuccin_latte" to R.string.core_theme_builtin_catppuccin_latte_label,
+    "builtin_catppuccin_frappe" to R.string.core_theme_builtin_catppuccin_frappe_label,
+    "builtin_catppuccin_macchiato" to R.string.core_theme_builtin_catppuccin_macchiato_label,
     "builtin_tokyo_night" to R.string.core_theme_builtin_tokyo_night_label,
     "builtin_cyberpunk" to R.string.core_theme_builtin_cyberpunk_label,
+)
+
+/**
+ * The family labels of the two palette families, keyed by the parent's id.
+ * [builtInThemeFamilyNameRes] reads this table; the labels are the upstream
+ * projects' names, so they are not translatable, same as the theme names.
+ */
+internal val PaletteThemeFamilyNameRes: Map<String, Int> = mapOf(
+    "builtin_solarized_dark" to R.string.core_theme_family_solarized_label,
+    "builtin_catppuccin_mocha" to R.string.core_theme_family_catppuccin_label,
 )

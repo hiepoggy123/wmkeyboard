@@ -33,6 +33,7 @@ import com.wasimaster.wmkeyboard.core.stickers.StickerPackFile
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
+import com.wasimaster.wmkeyboard.core.theme.withFreshIds
 import java.io.File
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
@@ -277,8 +278,9 @@ object AddonInstaller {
         // withExtractedImages writes any base64-embedded background out to
         // app-private storage and rewrites the path, which is also what drops
         // any absolute path the file arrived with — a theme must never point
-        // at a file outside our own storage.
-        val stored = theme.copy(id = id).withExtractedImages(themeImagesDir(context))
+        // at a file outside our own storage. withFreshIds remints the
+        // variants' ids too, for the same reason the parent's changes.
+        val stored = theme.withFreshIds(id).withExtractedImages(themeImagesDir(context))
         SettingsRepository(context).upsertCustomTheme(stored)
         // Added to the gallery, not worn: browsing a repository must not repaint
         // the keyboard behind the user's back. AddonApply offers the switch.

@@ -43,6 +43,15 @@
     <!-- Themes screen: the gallery of themes. -->
     <string name="theme_gallery_section_title">Themes</string>
     <string name="theme_gallery_auto_on_body">Auto theme is on, so this selection does nothing. Turn it off above to select one theme yourself.</string>
+    <!-- How the gallery shows a theme that has more than one look. Auto
+         follows the answer from the setup questions. -->
+    <string name="theme_gallery_style_auto_label">Auto</string>
+    <string name="theme_gallery_style_grouped_label">Grouped</string>
+    <string name="theme_gallery_style_flat_label">Separate</string>
+    <!-- Caption over the choice when the gallery groups the looks. -->
+    <string name="theme_gallery_style_grouped_body">A theme with more than one look shows as one card. Press a dot on the card to use that look.</string>
+    <!-- Caption over the choice when every look is its own card. -->
+    <string name="theme_gallery_style_flat_body">Every look of every theme shows as its own card.</string>
     <string name="theme_create_action">Create theme</string>
     <!-- Name the app gives to a theme the user has just created. The user can
          change it in the theme editor. -->
@@ -62,6 +71,17 @@
     <string name="theme_custom_section_title">Your themes</string>
     <string name="theme_builtin_section_title">Built-in</string>
     <string name="theme_builtin_section_body">Press a theme to use it. The pencil icon makes a copy that you can edit.</string>
+
+    <!-- Theme editor: the looks (variations) of one theme. -->
+    <string name="theme_variant_section_title">Looks</string>
+    <string name="theme_variant_add_action">Add look</string>
+    <!-- Content description of the button that deletes the open look. -->
+    <string name="theme_variant_delete_action">Delete this look</string>
+    <string name="theme_variant_delete_title">Delete look?</string>
+    <!-- %1$s is the name of the look. -->
+    <string name="theme_variant_delete_message">This deletes the look <xliff:g id="variant_name" example="Night">%1$s</xliff:g> from this theme. The other looks stay.</string>
+    <!-- Field for the name of the whole group of looks, shown on the card. -->
+    <string name="theme_family_name_label">Group name</string>
 
     <!-- Theme cards in the gallery. -->
     <string name="theme_default_card_subtitle">Material You, follows light and dark</string>

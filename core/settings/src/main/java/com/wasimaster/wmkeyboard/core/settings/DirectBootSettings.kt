@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.settings
 
+import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+
 /**
  * The settings as they apply during direct boot — before the user has unlocked
  * the device for the first time since it booted.
@@ -28,14 +30,7 @@ fun KeyboardSettings.restrictedToDirectBoot(): KeyboardSettings {
         // no image behind them — instead of the loader failing per frame. The
         // photographer's credit goes with it: naming whose photo this is while
         // the photo is not on screen would simply be untrue.
-        customThemes = customThemes.map {
-            it.copy(
-                backgroundImage = null,
-                backgroundImageLandscape = null,
-                backgroundPhoto = null,
-                backgroundPhotoLandscape = null,
-            )
-        },
+        customThemes = customThemes.map { it.strippedForDirectBoot() },
         // The rotation pool is under filesDir as well, so there is nothing to
         // rotate to. Turning it off here means nothing downstream has to ask.
         photoBackground = photoBackground.copy(rotateEnabled = false),
@@ -90,3 +85,16 @@ fun KeyboardSettings.restrictedToDirectBoot(): KeyboardSettings {
         otp = otp.copy(enabled = false),
     )
 }
+
+/**
+ * The image-path strip [restrictedToDirectBoot] applies to a custom theme,
+ * recursing into the theme's variants — their images live in the same
+ * credential-encrypted directory.
+ */
+private fun ThemeSpec.strippedForDirectBoot(): ThemeSpec = copy(
+    backgroundImage = null,
+    backgroundImageLandscape = null,
+    backgroundPhoto = null,
+    backgroundPhotoLandscape = null,
+    variants = variants.map { it.strippedForDirectBoot() },
+)

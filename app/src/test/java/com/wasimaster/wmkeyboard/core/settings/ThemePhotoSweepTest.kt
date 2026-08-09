@@ -96,6 +96,34 @@ class ThemePhotoSweepTest {
     }
 
     @Test
+    fun `a variant's image counts as a reference`() {
+        // Variants hold their own images; a sweep that only saw parents would
+        // take a variant's photo after a day.
+        val plan = themePhotoSweepPlan(
+            themes = listOf(
+                theme("a").copy(variants = listOf(theme("a_v0", image = "night.img"))),
+            ),
+            rotationStates = emptyMap(),
+            imagesOnDisk = listOf(SweptFile("night.img", old)),
+            poolFileNames = emptySet(),
+            nowMs = now,
+        )
+        assertTrue(plan.deleteImages.isEmpty())
+    }
+
+    @Test
+    fun `a variant's rotation entry is not forgotten`() {
+        val plan = themePhotoSweepPlan(
+            themes = listOf(theme("a").copy(variants = listOf(theme("a_v0")))),
+            rotationStates = mapOf("a_v0" to RotationState(), "gone" to RotationState()),
+            imagesOnDisk = emptyList(),
+            poolFileNames = emptySet(),
+            nowMs = now,
+        )
+        assertEquals(listOf("gone"), plan.dropRotationStates)
+    }
+
+    @Test
     fun `a tidy install sweeps nothing`() {
         val plan = themePhotoSweepPlan(
             themes = listOf(theme("a", image = "a.img")),

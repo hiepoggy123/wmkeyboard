@@ -197,6 +197,9 @@ class FlexThemeTest {
         assertEquals(2, result.themes.size)
         assertEquals(listOf(false, true), result.themes.map { it.theme.dark })
         assertEquals(listOf("Dusk (light)", "Dusk (dark)"), result.themes.map { it.theme.name })
+        // The extension's own title travels out, so the pair can become one
+        // family named after the extension rather than after its first look.
+        assertEquals("Dusk", result.title)
     }
 
     @Test

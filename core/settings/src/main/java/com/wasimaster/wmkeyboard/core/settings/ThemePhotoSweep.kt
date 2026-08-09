@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.settings
 
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.theme.flattenedThemes
 
 /** One file on disk, as much of it as the sweep needs to decide. */
 data class SweptFile(val name: String, val lastModified: Long)
@@ -30,8 +31,12 @@ fun themePhotoSweepPlan(
     nowMs: Long,
     minAgeMs: Long = SWEEP_MIN_AGE_MS,
 ): SweepPlan {
+    // Variants hold their own images and rotation states, so the whole
+    // families are walked flat — a sweep that only saw parents would take a
+    // variant's photo after a day.
+    val allThemes = themes.flattenedThemes()
     val referenced = buildSet {
-        themes.forEach { theme ->
+        allThemes.forEach { theme ->
             theme.backgroundImage?.let { add(it.substringAfterLast('/')) }
             theme.backgroundImageLandscape?.let { add(it.substringAfterLast('/')) }
             // Key textures live in the same directory; a sweep that does not
@@ -52,7 +57,7 @@ fun themePhotoSweepPlan(
         }
         addAll(poolFileNames)
     }
-    val liveThemeIds = themes.mapTo(HashSet()) { it.id }
+    val liveThemeIds = allThemes.mapTo(HashSet()) { it.id }
     return SweepPlan(
         deleteImages = imagesOnDisk
             .filter { it.name !in referenced && nowMs - it.lastModified >= minAgeMs }

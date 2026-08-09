@@ -297,6 +297,20 @@ internal fun HighlightableItem(key: String, content: @Composable () -> Unit) {
 }
 
 /**
+ * [HighlightableItem] for a card that stands for several ids at once — a theme
+ * family's card answers for every variant in it, so a deep link naming a
+ * variant still lands somewhere visible.
+ */
+@Composable
+internal fun HighlightableItem(keys: List<String>, content: @Composable () -> Unit) {
+    HighlightFrame(
+        requested = keys.any { it.isNotEmpty() && it in SettingsHighlight.targetItems },
+        rank = HighlightRank.ITEM,
+        content = content,
+    )
+}
+
+/**
  * Scrolls its content into view once, without flashing it.
  *
  * For "you were already here": the current selection in a picker, the entry a

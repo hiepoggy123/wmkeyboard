@@ -115,6 +115,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.app.ThemePreview
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
+import com.wasimaster.wmkeyboard.core.theme.flattenedThemes
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
@@ -1503,8 +1504,11 @@ internal fun ThemesPanel(
     // was taken off the list — a live theme with no card reads as a bug.
     val shortlist = state.settings.toolbarBehavior.themesPanelBuiltIns
         ?: DefaultThemesPanelBuiltIns
-    val themes = BuiltInThemes.filter { it.id in shortlist || it.id == selectedId } +
-        state.settings.customThemes
+    // Families flatten: the pinned set names variants directly, and every
+    // custom variant is a card of its own — this panel has no room for dots.
+    val themes = BuiltInThemes.flattenedThemes()
+        .filter { it.id in shortlist || it.id == selectedId } +
+        state.settings.customThemes.flattenedThemes()
     val context = LocalContext.current
     val packStore = remember(context) { IconPackStore.get(context) }
     val packRevision by packStore.revision.collectAsState()

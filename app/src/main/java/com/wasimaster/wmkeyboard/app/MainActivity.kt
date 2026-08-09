@@ -4600,9 +4600,10 @@ private fun AppearanceSettings(
     }
     SettingsGroup(stringResource(R.string.appearance_style_section_title)) {
         item {
-            val selected = settings.customThemes.find { it.id == settings.keyboardThemeId }
-                ?: com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
-                    .find { it.id == settings.keyboardThemeId }
+            val selected = com.wasimaster.wmkeyboard.core.theme.findThemeSpec(
+                settings.keyboardThemeId,
+                settings.customThemes,
+            )
             NavRow(
                 R.string.appearance_themes_title,
                 stringResource(R.string.appearance_themes_subtitle),
