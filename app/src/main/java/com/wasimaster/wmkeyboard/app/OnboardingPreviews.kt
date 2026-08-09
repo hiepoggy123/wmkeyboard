@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -61,7 +62,7 @@ private val MiniKeyHeight: Dp = 22.dp
 private val MiniKeyGap: Dp = 3.dp
 
 /** Size of a key's letter. Set against a matching line height — see [MiniKeyLabel]. */
-private val MiniKeyFontSize: TextUnit = 9.sp
+private val MiniKeyFontSize: TextUnit = 13.5.sp
 
 /** How many rows of a real layout the layout-picker miniature draws. */
 private const val MINI_LAYOUT_ROWS = 4
@@ -119,12 +120,18 @@ internal fun MiniKeyboardPreview(
     modifier: Modifier = Modifier,
 ) {
     MiniBoard(modifier) {
+        // The digit row's height is held whether or not the digits are there.
+        // Without it, flipping the switch under this preview resized the
+        // preview, which moved everything below it and left the user scrolling
+        // back down to see what their own tap had done.
         if (numberRow) {
             MiniRow(highlighted = highlight == MiniKeyHighlight.NUMBER_ROW) {
                 for (digit in "1234567890") {
                     MiniKey(digit.toString(), Modifier.weight(1f))
                 }
             }
+        } else {
+            Spacer(Modifier.height(MiniKeyHeight))
         }
         for ((index, row) in MiniQwertyRows.withIndex()) {
             MiniRow {
@@ -284,7 +291,8 @@ internal fun DiscoverPreview(
             "hotwords" -> ChipScene("translate", "⇱", accent, animate)
             "otp" -> ChipScene("code", "482 913", accent, animate)
             "toolbox" -> GridScene(accent)
-            "clipboard", "snippets" -> StackScene(accent, animate)
+            "clipboard" -> ClipboardScene(accent, animate)
+            "snippets" -> SnippetScene(accent, animate)
             "photos", "modes" -> WallpaperScene(accent)
             "whisper" -> WaveScene(accent, animate)
             "fancy" -> FancyScene(accent, animate)
@@ -334,20 +342,69 @@ private fun GridScene(accent: Color) {
     }
 }
 
-/** A stack of saved things: clipboard entries, snippet cards. */
+/**
+ * The clipboard: a stack of things you copied, with the newest one holding the
+ * chip the keyboard pulled out of it.
+ *
+ * The card the user is being sold is not "a list exists" — it is that a copied
+ * message becomes a tappable code — so the code is what the picture shows.
+ */
 @Composable
-private fun StackScene(accent: Color, animate: Boolean) {
+private fun ClipboardScene(accent: Color, animate: Boolean) {
     val pulse = pulseAlpha(animate)
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        repeat(3) { row ->
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .alpha(pulse)
+                .clip(RoundedCornerShape(6.dp))
+                .background(accent)
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+        ) {
+            Text("2FA 8391", fontSize = 10.sp, color = Color.White, maxLines = 1)
+        }
+        // The older entries, receding.
+        repeat(2) { row ->
             Box(
                 modifier = Modifier
-                    .alpha(if (row == 0) pulse else 1f)
-                    .width((72 - row * 12).dp)
-                    .height(10.dp)
+                    .width((78 - row * 20).dp)
+                    .height(9.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(accent.copy(alpha = 0.55f - row * 0.12f)),
+                    .background(accent.copy(alpha = 0.4f - row * 0.15f)),
             )
+        }
+    }
+}
+
+/**
+ * Pattern snippets: a short trigger on the left, the block of text it turns
+ * into on the right. The arrow is the whole feature.
+ */
+@Composable
+private fun SnippetScene(accent: Color, animate: Boolean) {
+    val pulse = pulseAlpha(animate)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(accent.copy(alpha = 0.35f))
+                .padding(horizontal = 7.dp, vertical = 3.dp),
+        ) {
+            Text("/addr", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+        }
+        Text("→", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+            modifier = Modifier.alpha(pulse),
+        ) {
+            TextLine(width = 50.dp, color = accent, alpha = 1f)
+            TextLine(width = 42.dp, color = accent, alpha = 1f)
+            TextLine(width = 34.dp, color = accent, alpha = 1f)
         }
     }
 }

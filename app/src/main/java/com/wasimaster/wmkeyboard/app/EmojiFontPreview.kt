@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.graphics.Paint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -85,15 +86,29 @@ private const val MISSING_SAMPLE = 7
  *
  * A count of missing emoji is a claim; two rows of the same faces is the
  * evidence for it, and it makes the choice under it obvious without a
- * paragraph explaining what an emoji font is. The Google row comes from the
- * downloadable-font provider, so the caller only draws this where that
- * provider exists.
+ * paragraph explaining what an emoji font is.
+ *
+ * The second row is only honest if Google's font actually draws those faces,
+ * and twice it might not: the provider can fail to hand the font over at all
+ * (no Play services, no network, a device that has never fetched it), and the
+ * version it hands over can be old enough to be missing the same new emoji the
+ * phone is. Either way the row would have been a second set of boxes — the
+ * exact screenshot this guard exists for. So the sample is the intersection:
+ * emoji this phone cannot draw *and* the fetched Noto can, and with nothing in
+ * that intersection the whole comparison stays away.
  */
 @Composable
 internal fun MissingEmojiComparison(missing: List<String>, modifier: Modifier = Modifier) {
-    val sample = remember(missing) { missing.take(MISSING_SAMPLE) }
-    if (sample.isEmpty()) return
     val context = LocalContext.current
+    val sample by produceState(emptyList<String>(), missing) {
+        value = withContext(Dispatchers.Default) {
+            val noto = KeyboardFonts.emojiTypeface(context, EmojiFontChoice.NOTO)
+                ?: return@withContext emptyList()
+            val paint = Paint().apply { typeface = noto }
+            missing.filter { paint.hasGlyph(it) }.take(MISSING_SAMPLE)
+        }
+    }
+    if (sample.isEmpty()) return
     val noto = remember { KeyboardFonts.emojiFamily(context, EmojiFontChoice.NOTO) }
     Column(
         modifier = modifier

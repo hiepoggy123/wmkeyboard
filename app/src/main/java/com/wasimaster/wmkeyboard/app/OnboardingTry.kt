@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.PersonaLanguages
+import kotlinx.coroutines.delay
 
 /**
  * The last page: a real text field, so the keyboard that was just set up
@@ -74,7 +75,13 @@ internal fun TryPage(settings: KeyboardSettings) {
     }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    // Focused only once the page has finished sliding in. Asking for focus
+    // during the turn set three things moving at once — the page sliding
+    // across, the window shrinking around the keyboard, and Compose scrolling
+    // the newly focused field into view — and the field visibly shot to the
+    // top and settled back. Waiting for the slide leaves only the keyboard.
     LaunchedEffect(Unit) {
+        delay(NavTransitionMs.toLong())
         focusRequester.requestFocus()
         keyboard?.show()
     }

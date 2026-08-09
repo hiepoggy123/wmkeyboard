@@ -25,14 +25,29 @@ class OnboardingGraphTest {
     )
 
     @Test
-    fun `fresh run with unanswered quiz takes the middle path`() {
+    fun `fresh run with unanswered quiz takes the short path`() {
         assertEquals(
             listOf(
                 OnboardingPage.WELCOME, OnboardingPage.PERSONA, OnboardingPage.LANGUAGES,
-                OnboardingPage.LOOK, OnboardingPage.FEEDBACK, OnboardingPage.GESTURES,
-                OnboardingPage.DISCOVER, OnboardingPage.TRY,
+                OnboardingPage.LOOK, OnboardingPage.DISCOVER, OnboardingPage.TRY,
             ),
             pages(),
+        )
+    }
+
+    @Test
+    fun `answering the depth question only ever adds pages`() {
+        val unanswered = pages()
+        for (depth in PersonaDepth.entries) {
+            val answered = pages(persona = OnboardingSettings(personaDepth = depth))
+            assertTrue(
+                "$depth dropped a page the unanswered quiz shows",
+                answered.containsAll(unanswered),
+            )
+        }
+        assertTrue(
+            pages(persona = OnboardingSettings(personaDepth = PersonaDepth.BALANCED)).size >
+                unanswered.size,
         )
     }
 

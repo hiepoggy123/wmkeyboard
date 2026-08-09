@@ -3,16 +3,19 @@ package com.wasimaster.wmkeyboard.app
 import android.content.Intent
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -57,6 +60,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -179,6 +183,7 @@ internal fun OnboardingScreen(
                     accent = accent,
                     reduceMotion = settings.reduceMotion,
                     modifier = Modifier.weight(1f),
+                    onGoTo = goTo,
                 )
                 // No Skip on the last page: the only thing left to skip there
                 // is the Finish button next to it.
@@ -335,49 +340,100 @@ private fun OnboardingProgress(
     accent: androidx.compose.ui.graphics.Color,
     reduceMotion: Boolean,
     modifier: Modifier = Modifier,
+    onGoTo: (Int) -> Unit,
 ) {
     BoxWithConstraints(modifier = modifier) {
         // The current step is drawn a size up, so budget for one of those and
-        // plain cells for the rest.
-        val cell = ((maxWidth - ProgressGap * (pages.size - 1) - ProgressGrowth) / pages.size)
+        // plain cells for the rest. Every cell carries a trailing gap, the
+        // last one included, so the gap is counted once per cell.
+        val cell = ((maxWidth - ProgressGap * pages.size - ProgressGrowth) / pages.size)
             .coerceIn(ProgressMinCell, ProgressMaxCell)
         Row(
-            horizontalArrangement = Arrangement.spacedBy(ProgressGap),
+            // Each cell carries its own trailing gap rather than the row
+            // spacing them: a step that is animating out has to be able to
+            // take its gap with it as it collapses.
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            pages.forEachIndexed { i, page ->
-                val current = i == index
-                val size by animateDpAsState(
-                    targetValue = if (current) cell + ProgressGrowth else cell,
-                    animationSpec = if (reduceMotion) snap() else tween(NavTransitionMs),
-                    label = "progressCell",
-                )
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(size)
-                        .background(
-                            when {
-                                current -> accent
-                                i < index -> accent.copy(alpha = 0.25f)
-                                else -> MaterialTheme.colorScheme.surfaceVariant
-                            },
-                            CircleShape,
-                        ),
+            // Walked over every page there is, not only the live ones, so a
+            // page the quiz has just earned can animate in beside its
+            // neighbours instead of appearing under them. AnimatedVisibility
+            // keeps a departing step composed while it collapses, which is
+            // what makes the row slide rather than jump.
+            for (page in OnboardingPage.entries) {
+                val at = pages.indexOf(page)
+                AnimatedVisibility(
+                    visible = at >= 0,
+                    enter = if (reduceMotion) fadeIn(snap()) else fadeIn() + expandHorizontally(),
+                    exit = if (reduceMotion) fadeOut(snap()) else fadeOut() + shrinkHorizontally(),
                 ) {
-                    Icon(
-                        heroIcon(page),
-                        contentDescription = null,
-                        tint = when {
-                            current -> MaterialTheme.colorScheme.surface
-                            i < index -> accent
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    ProgressCell(
+                        page = page,
+                        // A page mid-exit has no index of its own any more;
+                        // hold it at "still to come" while it collapses.
+                        state = when {
+                            at < 0 -> ProgressState.AHEAD
+                            at == index -> ProgressState.CURRENT
+                            at < index -> ProgressState.DONE
+                            else -> ProgressState.AHEAD
                         },
-                        modifier = Modifier.size(size * ProgressGlyphShare),
+                        cell = cell,
+                        accent = accent,
+                        reduceMotion = reduceMotion,
+                        onClick = { if (at >= 0) onGoTo(at) },
                     )
                 }
             }
         }
+    }
+}
+
+/** Where a step sits relative to the one on screen. */
+private enum class ProgressState { DONE, CURRENT, AHEAD }
+
+@Composable
+private fun ProgressCell(
+    page: OnboardingPage,
+    state: ProgressState,
+    cell: Dp,
+    accent: androidx.compose.ui.graphics.Color,
+    reduceMotion: Boolean,
+    onClick: () -> Unit,
+) {
+    val current = state == ProgressState.CURRENT
+    val size by animateDpAsState(
+        targetValue = if (current) cell + ProgressGrowth else cell,
+        animationSpec = if (reduceMotion) snap() else tween(NavTransitionMs),
+        label = "progressCell",
+    )
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .padding(end = ProgressGap)
+            .size(size)
+            .clip(CircleShape)
+            .background(
+                when (state) {
+                    ProgressState.CURRENT -> accent
+                    ProgressState.DONE -> accent.copy(alpha = 0.25f)
+                    ProgressState.AHEAD -> MaterialTheme.colorScheme.surfaceVariant
+                },
+            )
+            // Every step is a shortcut to itself. The wizard writes each answer
+            // as it is made, so there is nothing to lose by jumping — and
+            // someone who wants to change one thing should not have to walk
+            // back through the pages between.
+            .clickable(onClick = onClick),
+    ) {
+        Icon(
+            heroIcon(page),
+            contentDescription = heroTitle(page),
+            tint = when (state) {
+                ProgressState.CURRENT -> MaterialTheme.colorScheme.surface
+                ProgressState.DONE -> accent
+                ProgressState.AHEAD -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.size(size * ProgressGlyphShare),
+        )
     }
 }
 

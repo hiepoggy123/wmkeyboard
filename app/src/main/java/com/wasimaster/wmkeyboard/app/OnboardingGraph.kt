@@ -32,13 +32,17 @@ internal val ToolSetupTools = setOf(
 /**
  * The wizard's live page list.
  *
- * The persona answers trim it: someone who asked for a simple keyboard is not
- * walked through haptic styles and swipe slots, and the full tool list only
- * exists for the person who asked to see everything. An unanswered quiz
- * (UNSET) takes the middle path. The emoji page has nothing to say on a phone
- * whose font already draws the whole catalog (and is held back until the count
- * lands, so it never flashes in and out). On a replay the welcome page only
- * appears when the keyboard actually needs setting up again.
+ * The persona answers *grow* it. An unanswered quiz is the short path — the
+ * same one "keep it simple" gets — because the progress row at the top is the
+ * first thing anyone sees, and eleven steps on a screen where nothing has been
+ * asked yet is the whole wizard reading as a chore. Answering "a good middle"
+ * or "show me everything" adds the pages that answer earns, which the progress
+ * row animates in.
+ *
+ * The emoji page has nothing to say on a phone whose font already draws the
+ * whole catalog (and is held back until the count lands, so it never flashes in
+ * and out). On a replay the welcome page only appears when the keyboard
+ * actually needs setting up again.
  */
 internal fun onboardingPages(
     missingEmoji: Int?,
@@ -55,7 +59,8 @@ internal fun onboardingPages(
             persona.personaLanguages != PersonaLanguages.ONE || enabledLanguageCount > 1
         OnboardingPage.EMOJI -> (missingEmoji ?: 0) > 0 || samsungEmoji
         OnboardingPage.FEEDBACK, OnboardingPage.GESTURES ->
-            persona.personaDepth != PersonaDepth.MINIMAL
+            persona.personaDepth == PersonaDepth.BALANCED ||
+                persona.personaDepth == PersonaDepth.POWER
         OnboardingPage.TOOLS -> persona.personaDepth == PersonaDepth.POWER
         OnboardingPage.TOOL_SETUP ->
             persona.personaDepth == PersonaDepth.POWER &&

@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
@@ -72,11 +73,12 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
+import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.fonts.FontStore
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -531,9 +533,13 @@ private fun String.inHalf(dark: Boolean): String =
     takeIf { BuiltInThemes.find { theme -> theme.id == this }?.dark == dark } ?: DEFAULT_THEME_ID
 
 /**
- * The themes on offer, stacked. Vertical rather than the side-scrolling strip
- * this replaced: a row that runs off the edge hides most of what it holds, and
- * a setup page has the height to spare.
+ * The themes on offer, two to a row.
+ *
+ * A grid rather than the side-scrolling strip this replaced (which hid most of
+ * what it held past the right edge) and rather than a single column (which
+ * made twelve themes a very long page for a preview 100 dp wide). Built by
+ * hand from chunks, because the wizard scrolls its pages in a plain Column and
+ * a lazy grid inside one would nest two vertical scrolls.
  */
 @Composable
 private fun ThemeChoiceList(
@@ -541,39 +547,56 @@ private fun ThemeChoiceList(
     selectedId: String,
     onSelect: (String) -> Unit,
 ) {
-    OnboardingThemeRow(
-        name = stringResource(R.string.onboarding_keyboard_theme_material_you_label),
-        selected = selectedId == DEFAULT_THEME_ID,
-        onSelect = { onSelect(DEFAULT_THEME_ID) },
-    ) {
-        Box(
+    // The default sits in the same grid as the rest, as its first cell.
+    val cells = remember(themes) { listOf<ThemeSpec?>(null) + themes }
+    for (pair in cells.chunked(2)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(ThemeRowPreviewHeight)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-            contentAlignment = Alignment.Center,
+                .padding(horizontal = 16.dp, vertical = 5.dp),
         ) {
-            Text(
-                stringResource(CommonR.string.common_default),
-                style = MaterialTheme.typography.labelMedium,
-            )
-        }
-    }
-    for (theme in themes) {
-        OnboardingThemeRow(
-            name = theme.name,
-            selected = selectedId == theme.id,
-            onSelect = { onSelect(theme.id) },
-        ) {
-            ThemePreview(theme, modifier = Modifier.fillMaxWidth())
+            for (theme in pair) {
+                OnboardingThemeCard(
+                    name = theme?.name
+                        ?: stringResource(R.string.onboarding_keyboard_theme_material_you_label),
+                    selected = selectedId == (theme?.id ?: DEFAULT_THEME_ID),
+                    onSelect = { onSelect(theme?.id ?: DEFAULT_THEME_ID) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    if (theme == null) {
+                        // The stand-in for "no theme spec at all" takes the
+                        // same shape a real preview would, so the first cell
+                        // of the grid is the same size as its neighbour.
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(ThemePreviewAspect)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                stringResource(CommonR.string.common_default),
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        }
+                    } else {
+                        ThemePreview(theme, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            }
+            // An odd count leaves a gap rather than a double-width card.
+            if (pair.size == 1) Spacer(Modifier.weight(1f))
         }
     }
 }
 
-/** Width of the miniature on a theme row, and the height its stand-in draws at. */
-private val ThemeRowPreviewWidth: Dp = 104.dp
-private val ThemeRowPreviewHeight: Dp = 74.dp
+/**
+ * Shape of a theme miniature, copied from `ThemePreview`'s own portrait
+ * aspect so the default cell matches the real ones exactly.
+ */
+private const val ThemePreviewAspect = 1.7f
 
 /**
  * The built-in themes worth offering under [mode]. Auto shows all of them —
@@ -669,23 +692,20 @@ internal fun OnboardingNotice(text: String) {
 }
 
 /**
- * One theme on the stack: its miniature, its name, and a radio saying whether
- * it is the one. The radio rather than the border alone because a stacked list
- * reads as a list of options, and in the auto tabs there are two of these
- * lists, each with its own answer.
+ * One theme in the grid: its miniature, its name, and a radio saying whether
+ * it is the one. The radio as well as the border because the auto tabs hold
+ * two of these grids, each with its own separate answer.
  */
 @Composable
-private fun OnboardingThemeRow(
+private fun OnboardingThemeCard(
     name: String,
     selected: Boolean,
     onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+    Column(
+        modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .border(
                 if (selected) 2.dp else 1.dp,
@@ -698,19 +718,27 @@ private fun OnboardingThemeRow(
                 else MaterialTheme.colorScheme.surfaceContainerLow,
             )
             .clickable(onClick = onSelect)
-            .padding(10.dp),
+            .padding(8.dp),
     ) {
-        Box(modifier = Modifier.width(ThemeRowPreviewWidth)) { content() }
-        Spacer(Modifier.width(12.dp))
-        Text(
-            name,
-            style = MaterialTheme.typography.titleSmall,
-            maxLines = 2,
-            modifier = Modifier.weight(1f),
-        )
-        // The row is the click target; a second one on the radio would
-        // double-toggle under TalkBack.
-        RadioButton(selected = selected, onClick = null)
+        content()
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                name,
+                style = MaterialTheme.typography.labelLarge,
+                // Always two lines tall, so the two cards of a row end level
+                // whether or not a name wraps — cheaper and safer than
+                // measuring the row's intrinsic height around an aspect-ratio
+                // child.
+                minLines = 2,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            // The card is the click target; a second one on the radio would
+            // double-toggle under TalkBack.
+            RadioButton(selected = selected, onClick = null)
+        }
     }
 }
 
@@ -848,7 +876,20 @@ internal fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSett
         trailingContent = {
             Switch(
                 checked = settings.keySound,
-                onCheckedChange = { scope.launch { repository.setKeySound(it) } },
+                onCheckedChange = { enable ->
+                    scope.launch { repository.setKeySound(enable) }
+                    // Same bargain as the haptics switch above: turning it on
+                    // plays the sound it just turned on, so nobody has to leave
+                    // setup and type somewhere to find out what they chose.
+                    if (enable) {
+                        KeySoundPlayer.previewStroke(
+                            context,
+                            settings.keySoundStyle,
+                            settings.keySoundVolume,
+                            settings.keySoundCustom.customId,
+                        )
+                    }
+                },
             )
         },
     )
