@@ -51,10 +51,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -305,6 +307,70 @@ internal fun rememberScreenSettled(): Boolean {
         settled = true
     }
     return settled
+}
+
+// ---- deferred group reveal ----
+
+/**
+ * Rows a screen composes before its entrance has settled — enough to fill a
+ * tall phone window, and no more. See [ScreenReveal].
+ */
+private const val EagerRowBudget = 12
+
+/**
+ * The ledger behind [rememberGroupRevealed]: which groups compose during the
+ * entrance, and the queue the rest wait in.
+ *
+ * [WmScreen] scrolls a `Column`, so a screen with seventy rows composes all
+ * seventy before it can draw one — inside its own opening animation, which is
+ * exactly when the frame budget is already spent, and on a slow phone that is
+ * most of what "the settings are laggy" is. [rememberScreenSettled] alone
+ * moves the wait behind the entrance but then pays it in one piece; this
+ * spreads it out as well, letting one group in per frame so the late rows
+ * never pile into a single long frame either.
+ *
+ * Groups claim eagerly, in composition order, until the budget is spent; the
+ * rest take a place in the queue. Anything composing after the screen has
+ * settled — a group behind a toggle flipped later — goes straight through.
+ */
+internal class ScreenReveal {
+    /** Rows claimed by the groups composing during the entrance. */
+    var claimedRows = 0
+
+    /** How many groups are waiting; a joining group takes the next place. */
+    var deferredCount = 0
+
+    /** Set once the entrance lands, before the wave starts advancing. */
+    var isSettled = false
+
+    /** How many queued groups have been let in, advanced one per frame. */
+    var wave by mutableIntStateOf(0)
+}
+
+/** Published by [WmScreen] around its column; null anywhere else. */
+internal val LocalScreenReveal = compositionLocalOf<ScreenReveal?> { null }
+
+/**
+ * Whether a group of [rowCount] rows should compose yet. True everywhere
+ * outside a [WmScreen] body, and inside one from the frame the screen's
+ * entrance can spare it. A group asks once — the answer's only moving part is
+ * the wave, so a deferred group recomposes exactly when it is let in and a
+ * revealed one never recomposes for the wave again.
+ */
+@Composable
+internal fun rememberGroupRevealed(rowCount: Int): Boolean {
+    val reveal = LocalScreenReveal.current ?: return true
+    val queuePlace = remember {
+        when {
+            reveal.isSettled -> null
+            reveal.claimedRows < EagerRowBudget -> {
+                reveal.claimedRows += rowCount
+                null
+            }
+            else -> reveal.deferredCount++
+        }
+    }
+    return queuePlace == null || reveal.wave > queuePlace
 }
 
 /**
@@ -1177,16 +1243,37 @@ internal fun WmScreen(
         actions = actions,
     ) { padding ->
         val scrollLock = rememberFlightScrollLock()
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .nestedScroll(scrollLock)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Top,
-        ) {
-            content()
-            Spacer(Modifier.height(24.dp))
+        val scrollState = rememberScrollState()
+        // A screen coming back off the back stack restores its scroll offset,
+        // and ScrollState clamps that offset to whatever is actually there —
+        // so deferring rows on the way back would throw the user's place away.
+        // Deferral is for fresh opens, which always start at the top.
+        val reveal = remember {
+            ScreenReveal().apply { if (scrollState.value > 0) isSettled = true }
+        }
+        val settled = rememberScreenSettled()
+        LaunchedEffect(settled) {
+            if (!settled) return@LaunchedEffect
+            // Anything asking from here on composes straight away; the queue
+            // built during the entrance is drained one group per frame.
+            reveal.isSettled = true
+            while (reveal.wave < reveal.deferredCount) {
+                withFrameNanos { }
+                reveal.wave++
+            }
+        }
+        CompositionLocalProvider(LocalScreenReveal provides reveal) {
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .nestedScroll(scrollLock)
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.Top,
+            ) {
+                content()
+                Spacer(Modifier.height(24.dp))
+            }
         }
     }
 }

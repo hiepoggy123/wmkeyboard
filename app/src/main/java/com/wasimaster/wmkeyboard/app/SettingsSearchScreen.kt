@@ -70,6 +70,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -88,7 +89,9 @@ import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /**
  * The setting the user picked out of search, remembered just long enough for
@@ -403,45 +406,58 @@ private fun HighlightFrame(
  * Tool routes are absent on purpose: those draw the tool's own icon, which
  * the user can replace with an icon pack.
  */
-internal val SettingsRouteIcons: Map<String, ImageVector> = mapOf(
-    "typing" to Icons.Outlined.Keyboard,
-    "keypress" to Icons.Outlined.TouchApp,
-    "languages" to Icons.Outlined.Language,
-    "appearance" to Icons.Outlined.Palette,
-    "themes" to Icons.Outlined.Palette,
-    "photos" to Icons.Outlined.Wallpaper,
-    "photo_browse" to Icons.Outlined.PhotoLibrary,
-    "photo_library" to Icons.Outlined.Collections,
-    "photo_rotation" to Icons.Outlined.Autorenew,
-    "fonts" to Icons.Outlined.TextFields,
-    "icons" to Icons.Outlined.Image,
-    "layout" to Icons.Outlined.AspectRatio,
-    "keymaps" to Icons.Outlined.GridOn,
-    "rows" to Icons.Outlined.ViewAgenda,
-    "ai_actions" to Icons.Outlined.AutoAwesome,
-    "ai_history" to Icons.Outlined.History,
-    "ai_chat" to Icons.AutoMirrored.Outlined.Chat,
-    "modes" to Icons.Outlined.Tune,
-    "emoji" to Icons.Outlined.EmojiEmotions,
-    "emojikeywords" to Icons.Outlined.EmojiEmotions,
-    "tools" to Icons.Outlined.Widgets,
-    "sticker_packs" to Icons.AutoMirrored.Outlined.StickyNote2,
-    "plugins" to Icons.Outlined.Extension,
-    "addons" to Icons.Outlined.Extension,
-    "accessibility" to Icons.Outlined.Accessibility,
-    "privacy" to Icons.Outlined.Security,
-    "permissions" to Icons.Outlined.Key,
-    "backup" to Icons.Outlined.Save,
-    "about" to Icons.Outlined.Info,
-    "storage" to Icons.Outlined.PieChart,
-    "statistics" to Icons.Outlined.QueryStats,
-    "licenses" to Icons.Outlined.Gavel,
-    "debug_log" to Icons.AutoMirrored.Outlined.Article,
-    "dictionary" to Icons.AutoMirrored.Outlined.MenuBook,
-    "customdictionaries" to Icons.AutoMirrored.Outlined.MenuBook,
-    "blacklist" to Icons.Outlined.VisibilityOff,
-    "phoneformats" to Icons.Outlined.Phone,
-    "hwshortcuts" to Icons.Outlined.Keyboard,
+internal object SettingsRouteIcons {
+    // Builders rather than built vectors, for the same reason as
+    // [SettingsRowIcons]: this table used to materialise every glyph in it
+    // the first time any row in this file composed.
+    private val map: Map<String, () -> ImageVector> = mapOf(
+        "typing" to { Icons.Outlined.Keyboard },
+        "keypress" to { Icons.Outlined.TouchApp },
+        "languages" to { Icons.Outlined.Language },
+        "appearance" to { Icons.Outlined.Palette },
+        "themes" to { Icons.Outlined.Palette },
+        "photos" to { Icons.Outlined.Wallpaper },
+        "photo_browse" to { Icons.Outlined.PhotoLibrary },
+        "photo_library" to { Icons.Outlined.Collections },
+        "photo_rotation" to { Icons.Outlined.Autorenew },
+        "fonts" to { Icons.Outlined.TextFields },
+        "icons" to { Icons.Outlined.Image },
+        "layout" to { Icons.Outlined.AspectRatio },
+        "keymaps" to { Icons.Outlined.GridOn },
+        "rows" to { Icons.Outlined.ViewAgenda },
+        "ai_actions" to { Icons.Outlined.AutoAwesome },
+        "ai_history" to { Icons.Outlined.History },
+        "ai_chat" to { Icons.AutoMirrored.Outlined.Chat },
+        "modes" to { Icons.Outlined.Tune },
+        "emoji" to { Icons.Outlined.EmojiEmotions },
+        "emojikeywords" to { Icons.Outlined.EmojiEmotions },
+        "tools" to { Icons.Outlined.Widgets },
+        "sticker_packs" to { Icons.AutoMirrored.Outlined.StickyNote2 },
+        "plugins" to { Icons.Outlined.Extension },
+        "addons" to { Icons.Outlined.Extension },
+        "accessibility" to { Icons.Outlined.Accessibility },
+        "privacy" to { Icons.Outlined.Security },
+        "permissions" to { Icons.Outlined.Key },
+        "backup" to { Icons.Outlined.Save },
+        "about" to { Icons.Outlined.Info },
+        "storage" to { Icons.Outlined.PieChart },
+        "statistics" to { Icons.Outlined.QueryStats },
+        "licenses" to { Icons.Outlined.Gavel },
+        "debug_log" to { Icons.AutoMirrored.Outlined.Article },
+        "dictionary" to { Icons.AutoMirrored.Outlined.MenuBook },
+        "customdictionaries" to { Icons.AutoMirrored.Outlined.MenuBook },
+        "blacklist" to { Icons.Outlined.VisibilityOff },
+        "phoneformats" to { Icons.Outlined.Phone },
+        "hwshortcuts" to { Icons.Outlined.Keyboard },
+    )
+
+    operator fun get(route: String): ImageVector? = map[route]?.invoke()
+}
+
+/** The index and the vocabulary the matcher reads, built together off-main. */
+private class SettingsSearchCorpus(
+    val index: List<SettingsSearchEntry>,
+    val vocabulary: SettingsSearchVocabulary,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -454,12 +470,22 @@ internal fun SettingsSearchScreen(
     var query by remember { mutableStateOf("") }
     // Built once per context: every entry resolves its own three strings, so
     // rebuilding it on each keystroke would read ~1000 resources a character.
+    // Off the main thread as well — those reads used to run during this
+    // screen's first composition, which is the middle of its opening
+    // animation. Results are empty for the frame or two the build takes,
+    // which is less time than reaching for the first key.
     val context = LocalContext.current
-    val index = remember(context) { settingsSearchIndex(context.resources) }
-    // The same reason: the word groups are one resource array and one string,
-    // and they turn into a map that every keystroke reads.
-    val vocabulary = remember(context) { settingsSearchVocabulary(context.resources) }
-    val results = remember(query, index, vocabulary) { searchSettings(query, index, vocabulary) }
+    val corpus by produceState<SettingsSearchCorpus?>(null, context) {
+        value = withContext(Dispatchers.Default) {
+            SettingsSearchCorpus(
+                settingsSearchIndex(context.resources),
+                settingsSearchVocabulary(context.resources),
+            )
+        }
+    }
+    val results = remember(query, corpus) {
+        corpus?.let { searchSettings(query, it.index, it.vocabulary) }.orEmpty()
+    }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { focusRequester.requestFocus() }

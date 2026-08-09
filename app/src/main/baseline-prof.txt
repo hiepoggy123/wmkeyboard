@@ -19,10 +19,12 @@
 # grow the installed .odex and the install itself, which is a poor trade on a
 # device short of storage — the same devices the `lite` flavor exists for. What
 # is listed is the keyboard runtime and the modules it loads to draw a key and
-# answer a keystroke. The settings app's screens, and the tool subsystems that
-# only wake when their tool is opened (ML Kit, Whisper, the local LLM, the
-# grammar checker, plugins, addons), are left out on purpose: they are not on
-# the path between tapping a text field and seeing a letter.
+# answer a keystroke, plus (since 2026-08-09) the settings app's own package:
+# its screens are scrolled Columns that compose every row on open, and doing
+# that interpreted is what made a page take seconds to appear on a low-end
+# phone. The tool subsystems that only wake when their tool is opened (ML Kit,
+# Whisper, the local LLM, the grammar checker, plugins, addons) stay out: they
+# are on neither the keystroke path nor the screen-open path.
 
 # --- The keyboard itself: service, input handling, and the Compose renderer ---
 HSPLcom/wasimaster/wmkeyboard/ime/**->**(**)**
@@ -85,3 +87,12 @@ HSPLcom/wasimaster/wmkeyboard/core/accessibility/**->**(**)**
 Lcom/wasimaster/wmkeyboard/core/accessibility/**
 HSPLcom/wasimaster/wmkeyboard/config/**->**(**)**
 Lcom/wasimaster/wmkeyboard/config/**
+
+# --- The settings app: every screen, the house chrome, search and rows -------
+# Not on the keystroke path, but "open a page, wait three seconds" is what an
+# interpreted first run of these screens felt like on a cheap phone. The
+# package wildcard is what catches the compiled Compose lambdas too
+# (MainActivityKt$*, ComposableSingletons$*), which is where the row bodies
+# actually live.
+HSPLcom/wasimaster/wmkeyboard/app/**->**(**)**
+Lcom/wasimaster/wmkeyboard/app/**

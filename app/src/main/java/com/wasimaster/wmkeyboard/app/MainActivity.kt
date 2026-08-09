@@ -390,6 +390,9 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var repository: SettingsRepository
 
+    /** True once [AssetLayouts] has parsed; the first frame waits for it. */
+    private val assetLayoutsReady = MutableStateFlow(false)
+
     /**
      * Where the intent that started (or re-entered) this activity wants to go.
      *
@@ -414,10 +417,16 @@ class MainActivity : ComponentActivity() {
         // before the first screen composes.
         PlayServices.prime(applicationContext)
         repository = SettingsRepository(applicationContext)
-        // The JSON asset layouts back the tail of the language list; load them
-        // before the first settings emission so an enabled asset layout resolves
-        // to its real language here (a few small files, parsed once).
-        AssetLayouts.load(applicationContext.assets)
+        // The JSON asset layouts back the tail of the language list; the first
+        // screen waits for them (below) so an enabled asset layout resolves to
+        // its real language. Parsed off the main thread: this is ~350 files
+        // and blocking here held the whole cold start — the window couldn't
+        // even animate open — for as long as a slow phone took to parse them.
+        // Off it, the parse runs alongside DataStore's own first read.
+        lifecycleScope.launch(Dispatchers.Default) {
+            AssetLayouts.load(applicationContext.assets)
+            assetLayoutsReady.value = true
+        }
         // Modes added since this install was first seeded — the settings
         // screen should list them even if the keyboard has not run yet.
         lifecycleScope.launch { repository.seedNewDefaultModes() }
@@ -427,6 +436,11 @@ class MainActivity : ComponentActivity() {
             // frame beats flashing onboarding at users who finished it.
             val settings by repository.settings
                 .collectAsStateWithLifecycle(null as KeyboardSettings?)
+            // Same wait for the asset layouts, or the language screens compose
+            // against a half-loaded shipped set and never hear that it filled
+            // in — AssetLayouts.generation is a plain counter, not state.
+            val layoutsReady by assetLayoutsReady.collectAsStateWithLifecycle()
+            if (!layoutsReady) return@setContent
             // The same device-form defaults the keyboard applies, or the two
             // disagree: on a tablet the number-row toggle would read off while
             // the keyboard drew the row, and the one tap that fixed the display
@@ -1787,6 +1801,9 @@ internal fun SettingsGroup(
     // while their feature's toggle is on).
     val scope = SettingsGroupScope().apply(builder)
     if (scope.items.isEmpty()) return
+    // Below the fold while the screen is still animating in: come back for
+    // the rows once the entrance can spare them — see [rememberGroupRevealed].
+    if (!rememberGroupRevealed(scope.items.size)) return
     // A named group is a scroll target in its own right. Some things the user
     // arrives at from search — or from an addon's Use button — are a whole
     // section rather than one row: "Icon pack", "Your packs", "Installed
@@ -8524,11 +8541,10 @@ private fun ToolsSettings(
     val optionsDesc = stringResource(R.string.tools_has_options_desc)
     // Only the group titles need a composition; the grouping itself is fixed.
     val allGroups = ToolGroups.map { (title, tools) -> stringResource(title) to tools }
-    // Everything below the first group waits for the opening animation. The
-    // screen is a scrolling Column, so without this it has to compose and
-    // measure every row before it can show the first one.
-    val settled = rememberScreenSettled()
-    for ((groupTitle, tools) in allGroups.take(if (settled) allGroups.size else 1)) {
+    // Composing the sixty rows is deferred and staggered by SettingsGroup
+    // itself now — see [rememberGroupRevealed] — so the screen no longer
+    // needs its own gate on the opening animation.
+    for ((groupTitle, tools) in allGroups) {
         SettingsGroup(groupTitle) {
             for (tool in tools) {
                 item {
