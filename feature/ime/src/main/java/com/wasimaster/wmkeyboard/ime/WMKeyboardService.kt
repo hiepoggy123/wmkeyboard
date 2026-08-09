@@ -2415,7 +2415,7 @@ open class WMKeyboardService : InputMethodService() {
                 onOneHandedSide = ::onOneHandedSideChange,
                 onFloatingChange = ::onFloatingChange,
                 onFloatingMoved = ::onFloatingMoved,
-                onFloatingResized = ::onFloatingResized,
+                onSizingAction = ::onSizingAction,
                 onFloatingBounds = ::onFloatingBounds,
                 onToolbarToolsChange = ::onToolbarToolsChange,
                 onToolboxOrderChange = ::onToolboxOrderChange,
@@ -2542,8 +2542,28 @@ open class WMKeyboardService : InputMethodService() {
         serviceScope.launch { settingsRepository.setFloatingPosition(xFraction, yFraction) }
     }
 
-    fun onFloatingResized(widthDp: Int, heightScale: Float) {
-        serviceScope.launch { settingsRepository.setFloatingSize(widthDp, heightScale) }
+    /**
+     * Every geometry change the UI hands back: the floating grip and the
+     * inline resize tool share this slot (see [SizingAction] for why one slot).
+     */
+    fun onSizingAction(action: SizingAction) {
+        when (action) {
+            is SizingAction.Floating -> serviceScope.launch {
+                settingsRepository.setFloatingSize(action.widthDp, action.heightScale)
+            }
+            is SizingAction.ResizeCommit -> {
+                serviceScope.launch {
+                    settingsRepository.setVariantSizing(
+                        variant = action.variant,
+                        keyHeightDp = action.keyHeightDp,
+                        numberRowHeightDp = action.numberRowHeightDp,
+                        bottomPaddingDp = action.bottomPaddingDp,
+                    )
+                }
+                _uiState.update { it.copy(resize = false) }
+            }
+            SizingAction.ResizeCancel -> _uiState.update { it.copy(resize = false) }
+        }
     }
 
     /**
@@ -2659,6 +2679,12 @@ open class WMKeyboardService : InputMethodService() {
         // smaller dimension either way up, which is the whole point of reading
         // it rather than the current width.
         deviceForm.value = DeviceForm.of(newConfig.smallestScreenWidthDp)
+        // Any configuration change can swap the ScreenVariant out from under
+        // an open resize session, and its preview would then belong to the
+        // wrong variant. Drop the session; nothing was persisted.
+        if (_uiState.value.resize) {
+            _uiState.update { it.copy(resize = false) }
+        }
     }
 
     /** Push the current hardware-keyboard presence into the UI state. */
@@ -3255,6 +3281,11 @@ open class WMKeyboardService : InputMethodService() {
         // Latches die with the keyboard, locked ones included.
         clearModifiers()
         resetHardwareKeyState()
+        // An open resize session dies with the view, unsaved by design: Done
+        // is the only path that persists.
+        if (_uiState.value.resize) {
+            _uiState.update { it.copy(resize = false) }
+        }
         // The keyboard is leaving the screen, so any plugin drawn on it stops
         // here too -- along with the routing that was sending keys to its box.
         stopPlugins()
@@ -8121,6 +8152,7 @@ open class WMKeyboardService : InputMethodService() {
             )
             ToolbarTool.SPLIT -> onToggleSplit()
             ToolbarTool.FLOATING -> onFloatingChange(!settings.floatingKeyboard)
+            ToolbarTool.RESIZE -> onResizeToggle()
             ToolbarTool.FLASHLIGHT -> onFlashlightToggle()
             ToolbarTool.COMPASS -> onPanelChange(PanelMode.COMPASS)
             ToolbarTool.LEVEL -> onPanelChange(PanelMode.LEVEL)
@@ -9743,6 +9775,40 @@ open class WMKeyboardService : InputMethodService() {
             Toast.LENGTH_SHORT,
         ).show()
         serviceScope.launch { settingsRepository.setPowerSavingManual(next) }
+    }
+
+    /**
+     * Enters or leaves the inline resize mode. A second tap while the mode is
+     * open is a cancel — the hardware shortcut path can re-trigger the tool,
+     * and "tap again to leave without saving" is the least surprising reading.
+     */
+    fun onResizeToggle() {
+        vibrate()
+        if (_uiState.value.resize) {
+            onSizingAction(SizingAction.ResizeCancel)
+            return
+        }
+        val settings = _uiState.value.settings
+        if (settings.floatingKeyboard) {
+            // Floating has its own drag-to-resize grip; the inline handles are
+            // laid out against the docked frame and mean nothing here.
+            Toast.makeText(
+                this,
+                getString(R.string.ime_service_resize_floating_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        if (voiceBarShowing()) return
+        if (settings.oneHandedMode != OneHandedMode.OFF) onOneHandedChange(OneHandedMode.OFF)
+        // Through the full close path, not a bare `panel = NONE`: a panel
+        // leaves media searches, focus rings and edit buffers behind it.
+        if (_uiState.value.panel != PanelMode.NONE) {
+            onPanelChange(PanelMode.NONE, haptic = false)
+        }
+        _uiState.update {
+            it.copy(resize = true, toolPicker = null, languageSwitch = null)
+        }
     }
 
     fun onAutocorrectToggle() {

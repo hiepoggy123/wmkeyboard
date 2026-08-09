@@ -997,6 +997,7 @@ object SmartSuggest {
         ToolbarTool.LEVEL to listOf("level"),
         ToolbarTool.THEMES to listOf("theme", "themes"),
         ToolbarTool.MODES to listOf("modes"),
+        ToolbarTool.RESIZE to listOf("resize"),
         ToolbarTool.NUMPAD to listOf("numpad"),
         ToolbarTool.CAMERA to listOf("camera"),
         ToolbarTool.TEXT_EDIT to listOf("edit"),

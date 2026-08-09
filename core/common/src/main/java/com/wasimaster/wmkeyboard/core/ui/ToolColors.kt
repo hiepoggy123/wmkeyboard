@@ -73,6 +73,7 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.ONE_HANDED -> Color(0xFF78909C)
     ToolbarTool.SPLIT -> Color(0xFF78909C)
     ToolbarTool.FLOATING -> Color(0xFF78909C)
+    ToolbarTool.RESIZE -> Color(0xFF78909C)
     ToolbarTool.INCOGNITO -> Color(0xFF607D8B)
     ToolbarTool.POWER_SAVING -> Color(0xFF66BB6A)
     ToolbarTool.SETTINGS -> Color(0xFF90A4AE)

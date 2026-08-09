@@ -154,6 +154,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalConfiguration
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
+import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.sizingValuesFor
 import com.wasimaster.wmkeyboard.core.settings.activeThemeSpec
 import com.wasimaster.wmkeyboard.core.settings.applyThemeOverrides
 import com.wasimaster.wmkeyboard.core.settings.resolvedFor
@@ -349,6 +351,7 @@ import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.ime.PwSettingAction
 import com.wasimaster.wmkeyboard.ime.TypingTestAction
 import com.wasimaster.wmkeyboard.ime.VoiceBarAction
+import com.wasimaster.wmkeyboard.ime.SizingAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
@@ -772,7 +775,7 @@ fun KeyboardScreen(
     onOneHandedSide: (Boolean, OneHandedSide) -> Unit = { _, _ -> },
     onFloatingChange: (Boolean) -> Unit = {},
     onFloatingMoved: (Float, Float) -> Unit = { _, _ -> },
-    onFloatingResized: (Int, Float) -> Unit = { _, _ -> },
+    onSizingAction: (SizingAction) -> Unit = {},
     onFloatingBounds: (IntRect) -> Unit = {},
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit = {},
     onToolboxOrderChange: (List<ToolbarTool>) -> Unit = {},
@@ -919,7 +922,44 @@ fun KeyboardScreen(
     val settings = remember(rawState.settings, variant, activeSpec) {
         rawState.settings.applyThemeOverrides(activeSpec).resolvedFor(variant)
     }
-    val state = remember(rawState, settings) { rawState.copy(settings = settings) }
+    // The inline resize tool's live preview. Stored-space values, folded in
+    // AFTER the resolve so a drag previews exactly what Done would persist;
+    // null (resting, and every non-resize frame) short-circuits to the same
+    // `settings` instance, so the block above keeps its skipping behaviour.
+    val resizePreview = remember { mutableStateOf<ResizeValues?>(null) }
+    LaunchedEffect(rawState.resize) { if (!rawState.resize) resizePreview.value = null }
+    val preview = if (rawState.resize) resizePreview.value else null
+    val previewScale = if (preview == null) 1f else {
+        rawState.settings.sizingOverrides[variant]?.keyboardScale ?: 1f
+    }
+    val shown = remember(settings, preview, previewScale) {
+        if (preview == null) settings else settings.copy(
+            keyHeightDp = (preview.keyHeightDp * previewScale).roundToInt(),
+            numberRowHeightDp = (preview.numberRowHeightDp * previewScale).roundToInt(),
+            bottomPaddingDp = preview.bottomPaddingDp,
+        )
+    }
+    val state = remember(rawState, shown) { rawState.copy(settings = shown) }
+    val resizeSession = if (!rawState.resize) null else {
+        remember(rawState.settings, variant, resizePreview) {
+            val values = rawState.settings.sizingValuesFor(variant)
+            val entry = ResizeValues(
+                keyHeightDp = values.keyHeightDp ?: rawState.settings.keyHeightDp,
+                numberRowHeightDp = values.numberRowHeightDp
+                    ?: rawState.settings.numberRowHeightDp,
+                bottomPaddingDp = values.bottomPaddingDp ?: rawState.settings.bottomPaddingDp,
+            )
+            ResizeSession(
+                entry = entry,
+                keyboardScale = values.keyboardScale ?: 1f,
+                maxBottomPaddingDp = SettingsRepository.MAX_BOTTOM_PADDING_DP,
+                preview = resizePreview,
+                onCommit = { result ->
+                    onSizingAction(resizeCommitAction(variant, entry, result))
+                },
+            )
+        }
+    }
 
     // Resolved off the main thread, so the first frame or two after a cold
     // start draw the built-in icons and a pack swaps in behind them.
@@ -1181,7 +1221,9 @@ fun KeyboardScreen(
                             state = state,
                             onDock = { onFloatingChange(false) },
                             onMoved = onFloatingMoved,
-                            onResized = onFloatingResized,
+                            onResized = { widthDp, heightScale ->
+                                onSizingAction(SizingAction.Floating(widthDp, heightScale))
+                            },
                             onBounds = onFloatingBounds,
                             content = { heightScale ->
                                 // Key height carries the whole layout (panels
@@ -1205,6 +1247,7 @@ fun KeyboardScreen(
                                 configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
                             onOneHanded = onOneHanded,
                             onOneHandedSide = onOneHandedSide,
+                            resize = resizeSession,
                             body = movableBody,
                         )
                     }
@@ -1228,6 +1271,7 @@ private fun DockedKeyboardFrame(
     landscape: Boolean,
     onOneHanded: (OneHandedMode) -> Unit,
     onOneHandedSide: (Boolean, OneHandedSide) -> Unit,
+    resize: ResizeSession? = null,
     body: @Composable ColumnScope.(KeyboardUiState) -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -1261,20 +1305,14 @@ private fun DockedKeyboardFrame(
                 // on top of the width setting, narrowing the keys toward the
                 // centre for thumb reach; it rides on the same slack/centering
                 // machinery below.
-                val sidePad = state.settings.layoutBehavior.sidePadScale.coerceIn(0f, 0.3f)
-                val widthFraction =
-                    (state.settings.keyboardWidthPercent / 100f * (1f - 2f * sidePad))
-                        .coerceAtLeast(0.2f)
-                val slack = 1f - widthFraction
-                val leftSlack = when (state.settings.keyboardAlignment) {
-                    KeyboardAlignment.LEFT -> 0f
-                    KeyboardAlignment.CENTER -> slack / 2f
-                    KeyboardAlignment.RIGHT -> slack
+                val arrangement = dockedWidthArrangement(state.settings)
+                if (arrangement.leftSlack > 0.001f) {
+                    Spacer(modifier = Modifier.weight(arrangement.leftSlack))
                 }
-                if (leftSlack > 0.001f) Spacer(modifier = Modifier.weight(leftSlack))
-                Column(modifier = Modifier.weight(widthFraction)) { body(state) }
-                val rightSlack = slack - leftSlack
-                if (rightSlack > 0.001f) Spacer(modifier = Modifier.weight(rightSlack))
+                Column(modifier = Modifier.weight(arrangement.widthFraction)) { body(state) }
+                if (arrangement.rightSlack > 0.001f) {
+                    Spacer(modifier = Modifier.weight(arrangement.rightSlack))
+                }
             } else {
                 // One-handed: dock to the live side with this orientation's
                 // width and height scale. The weights sum to 1 so the body
@@ -1311,7 +1349,36 @@ private fun DockedKeyboardFrame(
                 }
             }
         }
+        // Last in the Box, so the chrome floats over the dimmed keyboard.
+        // The service turns one-handed mode off before entering the resize
+        // mode, so the overlay only ever mirrors the plain docked arrangement.
+        if (resize != null) ResizeOverlay(session = resize, state = state)
     }
+}
+
+/**
+ * How the docked keyboard's width settings become Row weights: the keyboard
+ * takes [widthFraction] of the window with [leftSlack]/[rightSlack] of empty
+ * space around it. Shared with [ResizeOverlay] so the resize outline hugs
+ * exactly the rectangle the keys are laid out in.
+ */
+internal class DockedWidthArrangement(
+    val widthFraction: Float,
+    val leftSlack: Float,
+    val rightSlack: Float,
+)
+
+internal fun dockedWidthArrangement(settings: KeyboardSettings): DockedWidthArrangement {
+    val sidePad = settings.layoutBehavior.sidePadScale.coerceIn(0f, 0.3f)
+    val widthFraction =
+        (settings.keyboardWidthPercent / 100f * (1f - 2f * sidePad)).coerceAtLeast(0.2f)
+    val slack = 1f - widthFraction
+    val leftSlack = when (settings.keyboardAlignment) {
+        KeyboardAlignment.LEFT -> 0f
+        KeyboardAlignment.CENTER -> slack / 2f
+        KeyboardAlignment.RIGHT -> slack
+    }
+    return DockedWidthArrangement(widthFraction, leftSlack, slack - leftSlack)
 }
 
 /**
@@ -4092,6 +4159,7 @@ internal fun toolLabelRes(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.ONE_HANDED -> R.string.ime_tool_one_handed
     ToolbarTool.SPLIT -> R.string.ime_tool_split
     ToolbarTool.FLOATING -> R.string.ime_tool_floating
+    ToolbarTool.RESIZE -> R.string.ime_tool_resize
     ToolbarTool.SETTINGS -> R.string.ime_tool_settings
     ToolbarTool.FLASHLIGHT -> R.string.ime_tool_flashlight
     ToolbarTool.COMPASS -> R.string.ime_tool_compass
@@ -4161,6 +4229,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.ONE_HANDED -> state.settings.oneHandedMode != OneHandedMode.OFF
     ToolbarTool.SPLIT -> state.settings.splitKeyboard
     ToolbarTool.FLOATING -> state.settings.floatingKeyboard
+    ToolbarTool.RESIZE -> state.resize
     ToolbarTool.SETTINGS -> false
     ToolbarTool.FLASHLIGHT -> state.torchOn
     ToolbarTool.COMPASS -> state.panel == PanelMode.COMPASS

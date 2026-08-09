@@ -24,6 +24,7 @@ import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.tools.AiPhase
@@ -616,6 +617,32 @@ sealed interface VoiceBarAction {
     data class Bounds(val left: Int, val top: Int, val right: Int, val bottom: Int) : VoiceBarAction
 }
 
+/**
+ * Every keyboard-geometry change the UI asks of the service, multiplexed over
+ * the one sizing slot for the same 64K reason as [VoiceBarAction]: the slot
+ * used to be `onFloatingResized(widthDp, heightScale)`, and the inline resize
+ * tool grew this type rather than the parameter list.
+ */
+sealed interface SizingAction {
+    /** The floating keyboard's resize grip settled (was onFloatingResized). */
+    data class Floating(val widthDp: Int, val heightScale: Float) : SizingAction
+
+    /**
+     * The inline resize tool's Done: stored-space values for [variant]. A null
+     * field means "unchanged since the tool opened" and must not be written —
+     * an untouched key height keeps the tablet defaults alive.
+     */
+    data class ResizeCommit(
+        val variant: ScreenVariant,
+        val keyHeightDp: Int?,
+        val numberRowHeightDp: Int?,
+        val bottomPaddingDp: Int?,
+    ) : SizingAction
+
+    /** Leave the inline resize tool without persisting anything. */
+    data object ResizeCancel : SizingAction
+}
+
 /** One change made from the password generator panel (all persisted). */
 sealed interface PwSettingAction {
     data class PassphraseMode(val on: Boolean) : PwSettingAction
@@ -1015,6 +1042,12 @@ data class KeyboardUiState(
      * started in.
      */
     val languageSwitch: LanguageSwitchState? = null,
+    /**
+     * The inline resize tool is open over the docked keyboard. Session state
+     * like [toolPicker]: nothing persists until Done, so an abandoned session
+     * (field change, rotation) leaves the stored sizing exactly as it was.
+     */
+    val resize: Boolean = false,
     /**
      * Where the hardware focus ring is inside the open panel, or null for touch
      * mode. Stays null until the user presses the leader, an arrow or Tab, so

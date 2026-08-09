@@ -5056,7 +5056,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 R.string.layout_bottom_padding_title,
                 subtitle = stringResource(R.string.layout_bottom_padding_subtitle),
                 value = settings.bottomPaddingDp.toFloat(),
-                range = 0f..40f,
+                range = 0f..SettingsRepository.MAX_BOTTOM_PADDING_DP.toFloat(),
                 display = { dpFormat.format(it.toInt()) },
                 info = stringResource(R.string.layout_bottom_padding_info),
             ) { scope.launch { repository.setBottomPaddingDp(it.toInt()) } }
@@ -5146,7 +5146,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     SliderSetting(
                         R.string.layout_bottom_padding_title,
                         value = (values.bottomPaddingDp ?: settings.bottomPaddingDp).toFloat(),
-                        range = 0f..40f,
+                        range = 0f..SettingsRepository.MAX_BOTTOM_PADDING_DP.toFloat(),
                         display = { dpFormat.format(it.toInt()) },
                     ) { scope.launch { repository.setVariantBottomPaddingDp(variant, it.toInt()) } }
                 }
@@ -8316,6 +8316,9 @@ private val ToolsWithoutOptions: Set<ToolbarTool> =
         // Just an enable toggle — the transport lives on the keyboard panel,
         // there is nothing to configure here.
         ToolbarTool.MEDIA_CONTROL,
+        // Everything it changes is a Layout slider; the tool is only the
+        // in-place way to drag them.
+        ToolbarTool.RESIZE,
     )
 
 /**
@@ -8337,6 +8340,7 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.ONE_HANDED -> R.string.fonts_tool_one_handed_title
     ToolbarTool.SPLIT -> R.string.fonts_tool_split_title
     ToolbarTool.FLOATING -> R.string.fonts_tool_floating_title
+    ToolbarTool.RESIZE -> ImeR.string.ime_tool_resize
     ToolbarTool.SETTINGS -> R.string.fonts_tool_settings_title
     ToolbarTool.FLASHLIGHT -> ImeR.string.ime_tool_flashlight
     ToolbarTool.COMPASS -> ImeR.string.ime_tool_compass
@@ -8404,6 +8408,7 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.ONE_HANDED -> R.string.fonts_tool_one_handed_desc
     ToolbarTool.SPLIT -> R.string.fonts_tool_split_desc
     ToolbarTool.FLOATING -> R.string.fonts_tool_floating_desc
+    ToolbarTool.RESIZE -> R.string.fonts_tool_resize_desc
     ToolbarTool.SETTINGS -> R.string.fonts_tool_settings_desc
     ToolbarTool.FLASHLIGHT -> R.string.fonts_tool_flashlight_desc
     ToolbarTool.COMPASS -> R.string.fonts_tool_compass_desc
@@ -8625,6 +8630,7 @@ private val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
     add(
         R.string.tools_group_modes_title to listOf(
             ToolbarTool.MODES, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
+            ToolbarTool.RESIZE,
         ),
     )
     add(R.string.tools_group_cursor_title to (CursorTools + ToolbarTool.HIDE_KEYBOARD))

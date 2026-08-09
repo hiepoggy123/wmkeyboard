@@ -3442,6 +3442,11 @@ class SettingsRepository(private val context: Context) {
         const val ONE_HANDED_WIDTH_MAX = 85
         const val ONE_HANDED_HEIGHT_SCALE_MIN = 60
         const val ONE_HANDED_HEIGHT_SCALE_MAX = 100
+        // Docked sizing limits, shared by the sliders and the inline resize
+        // tool so a drag can never store what a slider could not.
+        const val KEY_HEIGHT_MIN_DP = 32
+        const val KEY_HEIGHT_MAX_DP = 100
+        const val MAX_BOTTOM_PADDING_DP = 160
         // Per-orientation one-handed geometry. `portrait` = false suffix keeps
         // the two orientations in step by construction.
         private fun oneHandedWidthKey(landscape: Boolean) =
@@ -5687,10 +5692,10 @@ class SettingsRepository(private val context: Context) {
         }
 
     suspend fun setKeyHeightDp(value: Int) =
-        editPrefs { it[KEY_HEIGHT] = value.coerceIn(32, 100) }
+        editPrefs { it[KEY_HEIGHT] = value.coerceIn(KEY_HEIGHT_MIN_DP, KEY_HEIGHT_MAX_DP) }
 
     suspend fun setNumberRowHeightDp(value: Int) =
-        editPrefs { it[NUMBER_ROW_HEIGHT] = value.coerceIn(32, 100) }
+        editPrefs { it[NUMBER_ROW_HEIGHT] = value.coerceIn(KEY_HEIGHT_MIN_DP, KEY_HEIGHT_MAX_DP) }
 
     suspend fun setSplitKeyboard(value: Boolean) =
         editPrefs { it[SPLIT_KEYBOARD] = value }
@@ -5733,7 +5738,10 @@ class SettingsRepository(private val context: Context) {
         )
 
     suspend fun setVariantBottomPaddingDp(variant: ScreenVariant, value: Int?) =
-        editVariant(variant, BOTTOM_PADDING, bottomPaddingKey(variant), value?.coerceIn(0, 40))
+        editVariant(
+            variant, BOTTOM_PADDING, bottomPaddingKey(variant),
+            value?.coerceIn(0, MAX_BOTTOM_PADDING_DP),
+        )
 
     suspend fun setVariantWidthPercent(variant: ScreenVariant, value: Int?) =
         editVariant(
@@ -5756,6 +5764,35 @@ class SettingsRepository(private val context: Context) {
         editPrefs {
             val v = value?.coerceIn(0.5f, 1.5f)
             if (v == null) it.remove(keyboardScaleKey(variant)) else it[keyboardScaleKey(variant)] = v
+        }
+    }
+
+    /**
+     * One inline-resize commit: only the supplied fields, in a single edit.
+     *
+     * A null field means "the user did not change this" and writes nothing —
+     * deliberately, not as a convenience: an untouched key height must leave
+     * [KEY_HEIGHT] absent so `keyHeightUntouched` keeps steering the tablet
+     * defaults. Never clears an existing override (pass through
+     * [setVariantKeyHeightDp] and friends to do that).
+     */
+    suspend fun setVariantSizing(
+        variant: ScreenVariant,
+        keyHeightDp: Int?,
+        numberRowHeightDp: Int?,
+        bottomPaddingDp: Int?,
+    ) = editPrefs { prefs ->
+        keyHeightDp?.let {
+            val key = if (variant.isOverride) keyHeightKey(variant) else KEY_HEIGHT
+            prefs[key] = it.coerceIn(KEY_HEIGHT_MIN_DP, KEY_HEIGHT_MAX_DP)
+        }
+        numberRowHeightDp?.let {
+            val key = if (variant.isOverride) numberRowHeightKey(variant) else NUMBER_ROW_HEIGHT
+            prefs[key] = it.coerceIn(KEY_HEIGHT_MIN_DP, KEY_HEIGHT_MAX_DP)
+        }
+        bottomPaddingDp?.let {
+            val key = if (variant.isOverride) bottomPaddingKey(variant) else BOTTOM_PADDING
+            prefs[key] = it.coerceIn(0, MAX_BOTTOM_PADDING_DP)
         }
     }
 
@@ -5790,7 +5827,7 @@ class SettingsRepository(private val context: Context) {
         editPrefs { it[KEYBOARD_ALIGNMENT] = value.name }
 
     suspend fun setBottomPaddingDp(value: Int) =
-        editPrefs { it[BOTTOM_PADDING] = value.coerceIn(0, 40) }
+        editPrefs { it[BOTTOM_PADDING] = value.coerceIn(0, MAX_BOTTOM_PADDING_DP) }
 
     suspend fun setKeyCornerRadiusDp(value: Int) =
         editPrefs { it[KEY_CORNER_RADIUS] = value.coerceIn(0, 28) }

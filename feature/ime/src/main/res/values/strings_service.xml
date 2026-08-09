@@ -130,6 +130,7 @@
     <string name="ime_service_incognito_on_toast">Incognito is on. The keyboard does not learn what you type.</string>
     <string name="ime_service_incognito_off_toast">Incognito is off</string>
     <string name="ime_service_power_saving_on_toast">Power saving is on</string>
+    <string name="ime_service_resize_floating_toast">Dock the keyboard to resize it</string>
     <string name="ime_service_power_saving_on_empty_toast">Power saving is on. No feature is set to stop yet.</string>
     <string name="ime_service_power_saving_still_on_toast">Power saving stays on. The battery trigger is on.</string>
     <string name="ime_service_power_saving_off_toast">Power saving is off</string>
