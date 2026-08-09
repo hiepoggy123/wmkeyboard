@@ -268,17 +268,27 @@ object KeyboardFonts {
 
     /**
      * The [FontFamily] a [scriptId] wants, honouring the user's per-script pick
-     * ([selectedId]: a `google:<Name>` id, an imported-file id, or [DEFAULT_ID])
-     * and otherwise the script's automatic Noto face. Null for the scripts that
-     * follow the user's own font choice (Latin/Cyrillic/Greek). Used by the
-     * keyboard theme to pick a face per active script.
+     * ([selectedId]: a `google:<Name>` id, an imported-file id, or [DEFAULT_ID]),
+     * then the active theme's face for this script ([themeScriptId], from
+     * `ThemeSpec.scriptFontIds`), and otherwise the script's automatic Noto
+     * face. Null for the scripts that follow the user's own font choice
+     * (Latin/Cyrillic/Greek). Used by the keyboard theme to pick a face per
+     * active script.
+     *
+     * The theme sits *between* the two: a pixel theme should still look like
+     * itself on a Bengali board, but not by overruling a font the user picked
+     * for that script by hand. A [themeScriptId] the device has no font for
+     * resolves to null and drops through to the Noto face rather than blanking
+     * the keys — the font is its own addon and may never have been installed.
      */
     fun scriptFamily(
         context: Context,
         scriptId: ScriptId,
         selectedId: String = DEFAULT_ID,
+        themeScriptId: String? = null,
     ): FontFamily? {
         if (selectedId != DEFAULT_ID) family(context, selectedId)?.let { return it }
+        if (themeScriptId != null) family(context, themeScriptId)?.let { return it }
         return scriptGoogleFonts[scriptId]?.let { googleFamily(it) }
     }
 

@@ -745,10 +745,10 @@ private fun RequiresAwareInstall(
                             store = store,
                             manifestUrl = manifestUrl,
                             repo = repo,
-                            // Dependencies first: the addon that asked for them
-                            // is the one whose "use it?" question should be the
-                            // one left standing at the end of the batch.
-                            entries = missing + entry,
+                            // Dependencies first, and silently: only the addon
+                            // that asked for them gets to ask the user anything.
+                            dependencies = missing,
+                            entry = entry,
                             appVersionCode = BuildConfig.VERSION_CODE,
                         )
                     },

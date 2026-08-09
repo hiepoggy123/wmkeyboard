@@ -94,6 +94,8 @@ import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
 import com.wasimaster.wmkeyboard.core.feedback.SoundStore
 import com.wasimaster.wmkeyboard.core.fonts.FontStore
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.util.PlayServices
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.R
@@ -2588,6 +2590,9 @@ fun ThemeEditorScreen(
 
     var fontPickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     var soundPickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    var scriptPickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    /** `ScriptId.name` of the per-script font row being edited, if any. */
+    var scriptFontPicker by rememberSaveable(theme.id) { mutableStateOf<String?>(null) }
     SettingsGroup(stringResource(R.string.theme_font_sound_section_title)) {
         item { CaptionText(stringResource(R.string.theme_font_sound_section_body)) }
         item {
@@ -2600,6 +2605,39 @@ fun ThemeEditorScreen(
                     )
                 },
                 modifier = Modifier.clickable { fontPickerOpen = true },
+                colors = transparentListColors(),
+            )
+        }
+        // A theme's own font loses to every non-Latin script's automatic face,
+        // so a display theme needs a matching face named per script or it simply
+        // stops applying the moment the board switches to Bengali. Only the
+        // scripts the theme has an answer for are listed; the rest keep Noto.
+        for (script in KeyboardFonts.scriptFontChoices) {
+            val key = script.script.name
+            val fontId = theme.scriptFontIds[key] ?: continue
+            item {
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            stringResource(
+                                R.string.theme_script_font_title,
+                                stringResource(script.labelRes),
+                            ),
+                        )
+                    },
+                    supportingContent = { Text(KeyboardFonts.displayName(context, fontId, "")) },
+                    modifier = Modifier.clickable { scriptFontPicker = key },
+                    colors = transparentListColors(),
+                )
+            }
+        }
+        item {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.theme_script_font_add_title)) },
+                supportingContent = {
+                    Text(stringResource(R.string.theme_script_font_add_body))
+                },
+                modifier = Modifier.clickable { scriptPickerOpen = true },
                 colors = transparentListColors(),
             )
         }
@@ -2620,6 +2658,38 @@ fun ThemeEditorScreen(
                 update { t -> t.copy(fontId = id) }
             },
             onDismiss = { fontPickerOpen = false },
+        )
+    }
+    if (scriptPickerOpen) {
+        ThemeScriptPickerDialog(
+            taken = theme.scriptFontIds.keys,
+            onPick = { script ->
+                scriptPickerOpen = false
+                scriptFontPicker = script
+            },
+            onDismiss = { scriptPickerOpen = false },
+        )
+    }
+    scriptFontPicker?.let { script ->
+        val choices = KeyboardFonts.scriptFontChoices.firstOrNull { it.script.name == script }
+        val label = choices?.let { stringResource(it.labelRes) }.orEmpty()
+        ThemeFontPickerDialog(
+            script = choices?.script,
+            title = stringResource(R.string.theme_script_font_title, label),
+            // Clearing this entry is what "follow the script's own font" means:
+            // an absent key is the script keeping its automatic Noto face, which
+            // is also what an uninstalled font id degrades to.
+            defaultLabel = stringResource(R.string.theme_script_font_default_label),
+            current = theme.scriptFontIds[script],
+            onPick = { id ->
+                scriptFontPicker = null
+                update { t ->
+                    val next = t.scriptFontIds.toMutableMap()
+                    if (id == null) next.remove(script) else next[script] = id
+                    t.copy(scriptFontIds = next.toMap())
+                }
+            },
+            onDismiss = { scriptFontPicker = null },
         )
     }
     if (soundPickerOpen) {
@@ -2683,18 +2753,37 @@ private fun ThemeFontPickerDialog(
     current: String?,
     onPick: (String?) -> Unit,
     onDismiss: () -> Unit,
+    title: String = stringResource(R.string.theme_font_title),
+    defaultLabel: String = stringResource(R.string.theme_follow_settings_label),
+    /**
+     * The script this font is being picked for, when it is a per-script row.
+     * Narrows both lists to faces that carry the script's glyphs — the whole
+     * point of the row is a font that draws it, and the Latin display faces are
+     * exactly what it is being picked to escape.
+     */
+    script: ScriptId? = null,
 ) {
     val context = LocalContext.current
-    val installed = remember { FontStore.get(context).textFonts() }
-    val googleNames =
-        if (PlayServices.hasFontProvider(context)) KeyboardFonts.googleFonts else emptyList()
+    // A font that declares no languages makes no claim and stays offered, the
+    // same rule the Fonts screen's pickers use.
+    val installed = remember(script) {
+        FontStore.get(context).textFonts().filter { font ->
+            script == null || font.langIds.isEmpty() ||
+                font.langIds.any { LanguageRegistry.byId(it).script == script }
+        }
+    }
+    val googleNames = when {
+        !PlayServices.hasFontProvider(context) -> emptyList()
+        script == null -> KeyboardFonts.googleFonts
+        else -> KeyboardFonts.scriptFontChoices(script)?.fonts.orEmpty()
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.theme_font_title)) },
+        title = { Text(title) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 ThemeFontChoiceRow(
-                    label = stringResource(R.string.theme_follow_settings_label),
+                    label = defaultLabel,
                     family = null,
                     selected = current == null,
                 ) { onPick(null) }
@@ -2713,6 +2802,42 @@ private fun ThemeFontPickerDialog(
                         family = remember(id) { KeyboardFonts.family(context, id) },
                         selected = current == id,
                     ) { onPick(id) }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+}
+
+/**
+ * Picks which script the next per-script font row is for. Offers the scripts the
+ * font system has a curated picker for — the ones with a name to show and more
+ * than one face to choose between — minus the ones this theme has already
+ * answered, since editing those is what their own row is for.
+ */
+@Composable
+private fun ThemeScriptPickerDialog(
+    taken: Set<String>,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val available = KeyboardFonts.scriptFontChoices.filter { it.script.name !in taken }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.theme_script_font_add_title)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                if (available.isEmpty()) {
+                    Text(stringResource(R.string.theme_script_font_all_set_body))
+                }
+                for (choices in available) {
+                    ThemeFontChoiceRow(
+                        label = stringResource(choices.labelRes),
+                        family = null,
+                        selected = false,
+                    ) { onPick(choices.script.name) }
                 }
             }
         },

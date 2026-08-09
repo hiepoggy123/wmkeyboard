@@ -286,26 +286,38 @@ object AddonDownloadManager {
     }
 
     /**
-     * Installs [entries] one after another under the single-install lock — the
-     * "download all" answer to a theme whose [AddonEntry.requires] names its
-     * font and sound. A failed entry (offline mid-batch, a rejected payload)
-     * moves on to the next: the addons are soft dependencies, and the theme at
-     * the end of the list still installs and falls back. Cancelling stops the
-     * whole batch.
+     * Installs [entry] together with the [dependencies] its [AddonEntry.requires]
+     * named, one after another under the single-install lock. A failed one
+     * (offline mid-batch, a rejected payload) moves on to the next: the
+     * dependencies are soft, and [entry] still installs and falls back.
+     * Cancelling stops the whole batch.
+     *
+     * Only [entry] gets to ask its "use it?" question. The user tapped Install on
+     * one thing; the sound and the font came along because that thing said it was
+     * designed with them, and asking "switch your key sound to Blip?" on the way
+     * to installing a theme turns one decision into three — the last of which
+     * arrives after they have already answered the same question about the theme
+     * that wanted it. Answering yes to the theme is what puts the theme's sound
+     * and fonts on the board, through the theme's own spec.
      */
     fun installAll(
         context: Context,
         store: AddonStore,
         manifestUrl: String,
         repo: AddonRepoInfo,
-        entries: List<AddonEntry>,
+        dependencies: List<AddonEntry>,
+        entry: AddonEntry,
         appVersionCode: Int,
     ) {
-        if (isBusy || entries.isEmpty()) return
+        if (isBusy) return
         activeJob = scope.launch {
-            entries.forEach { entry ->
-                performInstall(context, store, manifestUrl, repo, entry, appVersionCode)
+            dependencies.forEach { dependency ->
+                performInstall(
+                    context, store, manifestUrl, repo, dependency, appVersionCode,
+                    askToApply = false,
+                )
             }
+            performInstall(context, store, manifestUrl, repo, entry, appVersionCode)
         }
     }
 
@@ -316,6 +328,12 @@ object AddonDownloadManager {
         repo: AddonRepoInfo,
         entry: AddonEntry,
         appVersionCode: Int,
+        /**
+         * Whether a fresh install of a type with a slot may raise its
+         * [pendingApply] question. False for the dependencies of another addon;
+         * see [installAll].
+         */
+        askToApply: Boolean = true,
     ) {
         val key = entry.key(repo.id)
 
@@ -413,7 +431,7 @@ object AddonDownloadManager {
                             // never revoked — and saying no would look like the
                             // update had uninstalled their theme.
                             wasActive -> AddonApply.apply(appContext, record)
-                            questionRes != null && previous == null ->
+                            askToApply && questionRes != null && previous == null ->
                                 _pendingApply.value = PendingApply(key, record, questionRes)
                         }
                         set(key, AddonStatus.Installed(entry.version))

@@ -326,9 +326,33 @@ data class ThemeSpec(
      * setting rather than erroring: fonts travel as their own addon, listed as
      * a dependency of the theme in a repo, never embedded in the theme file.
      * Per-script faces still win over this, so a display face never blanks a
-     * non-Latin board.
+     * non-Latin board — [scriptFontIds] is how a theme keeps its look on those
+     * boards anyway.
      */
     val fontId: String? = null,
+    /**
+     * Per-script key fonts, keyed by `ScriptId.name` (`BENGALI`, `ARABIC`, …)
+     * with the same font ids [fontId] takes.
+     *
+     * [fontId] deliberately loses to a script's automatic Noto face, because a
+     * Latin-only display font draws a Bengali board as empty boxes. That is the
+     * right default and the wrong answer for a *pixel* theme: the theme is not
+     * asking for the wrong glyphs, it is asking for a face that matches, and
+     * one file rarely covers every script. So a theme names one font per script
+     * it has an answer for, and every other script keeps its Noto face.
+     *
+     * Sits above the script's automatic face and below the user's own per-script
+     * pick — the user chose that font deliberately and a theme does not get to
+     * overrule it. A font id the device has nothing for resolves to null and
+     * falls through as if it were absent, exactly like [fontId]: the fonts are
+     * separate addons listed in the theme's `requires`, and skipping them still
+     * leaves a working theme.
+     *
+     * A map rather than fields per script, and string keys rather than the enum,
+     * for the reason above [PhotoAttribution]: an unknown script name costs its
+     * entry, not the theme.
+     */
+    val scriptFontIds: Map<String, String> = emptyMap(),
     /**
      * Key sound, as a KeySoundStyle name. A string rather than the enum for
      * the reason spelled out above [PhotoAttribution]; an unknown name costs

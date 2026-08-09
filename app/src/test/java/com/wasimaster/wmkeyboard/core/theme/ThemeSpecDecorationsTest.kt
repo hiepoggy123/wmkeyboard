@@ -20,6 +20,7 @@ class ThemeSpecDecorationsTest {
         id = "custom_1",
         name = "Decorated",
         fontId = "google:Pacifico",
+        scriptFontIds = mapOf("BENGALI" to "installed:Sohanur Minecraft", "ARABIC" to "google:Cairo"),
         soundStyle = "THOCK",
         soundCustomId = "snd1",
         backgroundAnimated = true,
@@ -70,6 +71,7 @@ class ThemeSpecDecorationsTest {
         assertNotNull(decoded)
         decoded!!
         assertNull(decoded.fontId)
+        assertTrue(decoded.scriptFontIds.isEmpty())
         assertNull(decoded.soundStyle)
         assertEquals(false, decoded.backgroundAnimated)
         assertNull(decoded.keyTexture)
@@ -92,6 +94,24 @@ class ThemeSpecDecorationsTest {
         assertNotNull(decoded)
         assertEquals("google:Pacifico", decoded?.fontId)
         assertEquals(2, decoded?.keyOverrides?.size)
+    }
+
+    /**
+     * A theme names one font per script it has an answer for, so a script this
+     * build has never heard of has to cost its own entry and nothing else — the
+     * same contract every other name in the spec keeps.
+     */
+    @Test
+    fun `a script font for an unknown script costs its entry and not the theme`() {
+        val json = ThemeCodec.encode(decorated())
+            .replace(""""ARABIC":"google:Cairo"""", """"LINEAR_B":"google:Cairo"""")
+        val decoded = ThemeCodec.decode(json)
+        assertNotNull(decoded)
+        assertEquals(
+            "installed:Sohanur Minecraft",
+            decoded?.scriptFontIds?.get("BENGALI"),
+        )
+        assertNull(decoded?.scriptFontIds?.get("ARABIC"))
     }
 
     @Test

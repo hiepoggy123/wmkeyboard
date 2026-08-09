@@ -915,12 +915,20 @@ fun KeyboardThemeProvider(
     // theme's display face, and an id the device has no font for (the font is
     // its own addon, which the user may not have installed) resolves to null
     // in KeyboardFonts.family and falls through to the global setting.
+    // A theme may also name a face per script, which does beat the automatic
+    // Noto one — a pixel theme with a pixel Bengali font asked for those glyphs,
+    // it is not a Latin-only display face about to blank the board. The user's
+    // own per-script pick still wins over both.
     val themeFontId = remember(settings, darkSlot) {
         settings.activeThemeSpec(darkSlot)?.fontId
+    }
+    val themeScriptFontId = remember(settings, darkSlot, scriptId) {
+        settings.activeThemeSpec(darkSlot)?.scriptFontIds?.get(scriptId.name)
     }
     val keyFontFamily = remember(
         scriptId,
         themeFontId,
+        themeScriptFontId,
         settings.keyFontId,
         settings.scriptFontIds,
         settings.customFontName,
@@ -930,6 +938,7 @@ fun KeyboardThemeProvider(
             context,
             scriptId,
             settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
+            themeScriptFontId,
         ) ?: themeFontId?.let { KeyboardFonts.family(context, it) }
             ?: KeyboardFonts.family(context, settings.keyFontId)
     }
