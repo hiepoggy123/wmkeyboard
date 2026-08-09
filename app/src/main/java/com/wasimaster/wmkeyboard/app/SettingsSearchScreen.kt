@@ -452,6 +452,9 @@ internal object SettingsRouteIcons {
     )
 
     operator fun get(route: String): ImageVector? = map[route]?.invoke()
+
+    // Membership without materialising the glyph, for the index test's sweep.
+    operator fun contains(route: String): Boolean = route in map
 }
 
 /** The index and the vocabulary the matcher reads, built together off-main. */

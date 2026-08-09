@@ -103,7 +103,10 @@ object LocalLlmEngine {
         backend: LocalLlmBackend,
         contextTokens: Int,
         system: String,
-    ): ChatSession = ChatSession(context, modelFile, backend, contextTokens, system)
+    ): ChatSession =
+        // The session outlives any screen (a static controller holds it), so
+        // never let it hold the caller's Activity.
+        ChatSession(context.applicationContext, modelFile, backend, contextTokens, system)
 
     /**
      * One live chat. All methods that touch the native runtime take the same

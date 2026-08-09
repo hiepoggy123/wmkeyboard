@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
@@ -79,6 +80,9 @@ object AiChatController {
     // The one live on-device session and the inputs it was built for. A new
     // conversation, model or backend closes it and opens another; the session
     // itself survives engine eviction by replaying its transcript.
+    // The session's context is the application one — chatSession() rebinds —
+    // so this static hold keeps no Activity alive.
+    @SuppressLint("StaticFieldLeak")
     private var session: LocalLlmEngine.ChatSession? = null
     private var sessionKey: String? = null
 
@@ -404,10 +408,13 @@ object AiChatController {
         if (_run.value?.seq == seq) _run.value = null
     }
 
-    private fun errorText(context: Context, t: Throwable?): String = when {
-        t is ToolHttpException -> ToolHttp.friendlyMessage(context, t)
-        t?.message?.isNotBlank() == true -> t.message!!
-        else -> context.getString(R.string.toolai_ai_chat_error_generic)
+    private fun errorText(context: Context, t: Throwable?): String {
+        val message = t?.message
+        return when {
+            t is ToolHttpException -> ToolHttp.friendlyMessage(context, t)
+            !message.isNullOrBlank() -> message
+            else -> context.getString(R.string.toolai_ai_chat_error_generic)
+        }
     }
 
     private fun modelName(choice: ModelChoice): String =

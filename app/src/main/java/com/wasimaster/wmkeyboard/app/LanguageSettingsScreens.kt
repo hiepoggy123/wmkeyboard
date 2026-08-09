@@ -309,8 +309,8 @@ internal fun AddLanguageScreen(
                     context,
                     context.getString(
                         R.string.languages_auto_pair_toast,
-                        LanguageRegistry.byId(a)?.englishName ?: a,
-                        LanguageRegistry.byId(b)?.englishName ?: b,
+                        LanguageRegistry.byId(a).englishName,
+                        LanguageRegistry.byId(b).englishName,
                     ),
                     Toast.LENGTH_LONG,
                 ).show()

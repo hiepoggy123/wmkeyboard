@@ -99,7 +99,7 @@ object CryptoCatalog {
 
     /** The codes in play: the user's own set, or the defaults while it is empty. */
     fun enabled(tickers: Set<String>): Set<String> =
-        if (tickers.isEmpty()) defaultCodes else tickers
+        tickers.ifEmpty { defaultCodes }
 
     /** CoinGecko asks for coin ids rather than tickers. */
     fun geckoIds(codes: Set<String>): List<String> =

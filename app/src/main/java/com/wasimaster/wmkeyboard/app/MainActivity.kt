@@ -4045,16 +4045,17 @@ private fun InstalledSoundPackSection(
                     title = pack.name,
                     supporting = {
                         val roles = pack.roles
+                        val variants = pluralStringResource(
+                            R.plurals.hardware_sound_pack_variants,
+                            pack.variantCount,
+                            pack.variantCount,
+                        )
                         val counts = if (roles.isEmpty()) {
-                            pluralStringResource(
-                                R.plurals.hardware_sound_pack_variants,
-                                pack.variantCount,
-                                pack.variantCount,
-                            )
+                            variants
                         } else {
                             stringResource(
                                 R.string.hardware_sound_pack_variants_and_roles,
-                                pack.variantCount,
+                                variants,
                                 roles.joinToString(", "),
                             )
                         }

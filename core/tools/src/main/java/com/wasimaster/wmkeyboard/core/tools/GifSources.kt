@@ -104,24 +104,24 @@ object GifSources {
      */
     fun rows(items: List<GifItem>): List<List<GifItem>> {
         val rows = ArrayList<List<GifItem>>()
-        var row = ArrayList<GifItem>()
+        val row = ArrayList<GifItem>()
         var sum = 0f
         for (item in items) {
             val ratio = cellRatio(item)
             if (row.isNotEmpty() && (row.size == MAX_ROW_ITEMS || sum + ratio > MAX_ROW_RATIO)) {
-                rows += row
-                row = ArrayList()
+                rows += row.toList()
+                row.clear()
                 sum = 0f
             }
             row += item
             sum += ratio
             if (sum >= TARGET_ROW_RATIO) {
-                rows += row
-                row = ArrayList()
+                rows += row.toList()
+                row.clear()
                 sum = 0f
             }
         }
-        if (row.isNotEmpty()) rows += row
+        if (row.isNotEmpty()) rows += row.toList()
         return rows
     }
 

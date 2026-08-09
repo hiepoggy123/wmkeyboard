@@ -7,9 +7,7 @@ import org.junit.Test
 
 class RomanizedPairingTest {
 
-    private fun lang(id: String) = requireNotNull(LanguageRegistry.byId(id)) {
-        "registry must know $id"
-    }
+    private fun lang(id: String) = LanguageRegistry.byId(id)
 
     @Test fun `romanized ids are the marker, not the locale tag`() {
         assertTrue(lang("bn_rom").isRomanized)

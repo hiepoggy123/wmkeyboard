@@ -89,13 +89,13 @@
     <string name="core_plugins_ui_repair_not_a_widget">A widget list contained something that is not a widget.</string>
     <string name="core_plugins_ui_repair_too_deep">Some widgets were nested too deeply to draw.</string>
     <!-- %1$d is the largest number of widgets one screen can have. -->
-    <string name="core_plugins_ui_repair_too_many_widgets">This plugin asked for more than %1$d widgets. The app dropped the rest.</string>
+    <string name="core_plugins_ui_repair_too_many_widgets" tools:ignore="PluralsCandidate">This plugin asked for more than %1$d widgets. The app dropped the rest.</string>
     <string name="core_plugins_ui_repair_no_type">A widget did not say what kind it is.</string>
     <!-- %1$s is the name of the widget type, which the plugin author wrote. -->
     <string name="core_plugins_ui_repair_unknown_type">This build does not know the widget type “%1$s”.</string>
     <string name="core_plugins_ui_repair_tabs_no_pages">A tab strip had no pages.</string>
     <!-- %1$d is the largest number of tabs one tab strip can have. -->
-    <string name="core_plugins_ui_repair_too_many_tabs">Only the first %1$d tabs are shown.</string>
+    <string name="core_plugins_ui_repair_too_many_tabs" tools:ignore="PluralsCandidate">Only the first %1$d tabs are shown.</string>
     <string name="core_plugins_ui_repair_text_budget">This plugin asked to draw too much text. The app left some out.</string>
     <string name="core_plugins_ui_repair_text_shortened">Some text was too long to draw. The app shortened it.</string>
 

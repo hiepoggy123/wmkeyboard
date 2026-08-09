@@ -246,7 +246,7 @@ class AddonStore(private var baseDir: File?) {
         val offered = if (marker.exists()) {
             val lines = runCatching { marker.readLines() }.getOrDefault(emptyList())
             val urls = lines.map { it.trim() }.filter { it.startsWith("https://") }
-            if (urls.isEmpty()) listOf(SEED_URL) else urls
+            urls.ifEmpty { listOf(SEED_URL) }
         } else {
             emptyList()
         }

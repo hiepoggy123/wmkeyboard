@@ -142,7 +142,7 @@ object EmojiFontDownload {
                 connection.instanceFollowRedirects = true
                 connection.setRequestProperty("User-Agent", USER_AGENT)
                 if (connection.responseCode != HttpURLConnection.HTTP_OK) return@runCatching null
-                connection.inputStream.use { it.readNBytes(MAX_MANIFEST_BYTES) }
+                connection.inputStream.use { it.readBoundedBytes(MAX_MANIFEST_BYTES) }
                     .toString(Charsets.UTF_8)
             } finally {
                 connection.disconnect()
@@ -254,6 +254,22 @@ object EmojiFontDownload {
             }
             return count
         }
+    }
+
+    /**
+     * Reads at most [limit] bytes. Android has no `InputStream.readNBytes`
+     * before API 33 and this app runs back to 24, so the bound is applied by
+     * hand — the manifest read must not trust the server for its size.
+     */
+    private fun InputStream.readBoundedBytes(limit: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(16 * 1024)
+        while (out.size() < limit) {
+            val n = read(buffer, 0, minOf(buffer.size, limit - out.size()))
+            if (n <= 0) break
+            out.write(buffer, 0, n)
+        }
+        return out.toByteArray()
     }
 
     private const val CONNECT_TIMEOUT_MS = 15_000

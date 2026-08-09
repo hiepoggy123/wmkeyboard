@@ -21,7 +21,7 @@ class DeviceFormTest {
     }
 
     @Test fun onlyPhoneIsNotATablet() {
-        assertTrue(DeviceForm.entries.filter { it.isTablet }.size == 2)
+        assertTrue(DeviceForm.entries.count { it.isTablet } == 2)
         assertTrue(!DeviceForm.PHONE.isTablet)
     }
 

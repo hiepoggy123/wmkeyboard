@@ -21,7 +21,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -1181,7 +1180,7 @@ fun KeyboardScreen(
                 )
             }
         }
-        val chromeHeight = remember { mutableStateOf(0) }
+        val chromeHeight = remember { mutableIntStateOf(0) }
         Box(contentAlignment = Alignment.BottomCenter) {
             if (barTarget) {
                 VoiceBarLayer(
@@ -1205,11 +1204,11 @@ fun KeyboardScreen(
             if (!barTarget || collapse.value < 1f) {
                 Box(
                     modifier = Modifier
-                        .onSizeChanged { chromeHeight.value = it.height }
+                        .onSizeChanged { chromeHeight.intValue = it.height }
                         // Draw-phase read: the slide costs redraws, never a
                         // recomposition per frame.
                         .graphicsLayer {
-                            translationY = collapse.value * chromeHeight.value
+                            translationY = collapse.value * chromeHeight.intValue
                         },
                 ) {
                     if (state.settings.floatingKeyboard) {
