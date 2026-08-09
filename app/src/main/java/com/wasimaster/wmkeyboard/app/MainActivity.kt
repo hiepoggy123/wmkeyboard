@@ -9760,8 +9760,6 @@ private fun ToolDetailSettings(
                                 stringResource(R.string.tooldetail_voice_ui_panel),
                             com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_STRIP to
                                 stringResource(R.string.tooldetail_voice_ui_strip),
-                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_BAR to
-                                stringResource(R.string.tooldetail_voice_ui_bar),
                         ),
                         selected = settings.voiceBar.mode,
                     ) { scope.launch { repository.setVoiceUiMode(it) } }

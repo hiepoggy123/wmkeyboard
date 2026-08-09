@@ -394,10 +394,9 @@
     <string name="tooldetail_voice_dictation_group">Voice typing</string>
     <string name="tooldetail_voice_ui_title">Voice typing view</string>
     <string name="tooldetail_voice_ui_subtitle">What the microphone button opens</string>
-    <string name="tooldetail_voice_ui_info">The panel gives large controls and status in the space of the keyboard. The compact bar speaks over the keys, so you can correct words as they land. The collapsed bar hides the whole keyboard behind a small pill, so you see the app while you speak. It stays until you bring the keyboard back, and you can drag it along the screen edge.</string>
+    <string name="tooldetail_voice_ui_info">The panel gives large controls and status in the space of the keyboard. The compact bar speaks over the keys, so you can correct words as they land. Both have a minimize button that hides the whole keyboard behind a small floating bar while you speak, and the bar has a keyboard button to bring it back.</string>
     <string name="tooldetail_voice_ui_panel">Full panel</string>
     <string name="tooldetail_voice_ui_strip">Compact bar over the keys</string>
-    <string name="tooldetail_voice_ui_bar">Collapsed bar, keyboard hidden</string>
     <string name="tooldetail_voice_continuous_title">Keep listening</string>
     <string name="tooldetail_voice_continuous_subtitle">Start the next sentence automatically after each one goes into the field</string>
     <string name="tooldetail_voice_punctuation_title">Spoken punctuation</string>
