@@ -2186,6 +2186,7 @@ data class VoiceBarSettings(
     companion object {
         const val MODE_PANEL = "panel"
         const val MODE_STRIP = "strip"
+        const val MODE_BAR = "bar"
         const val SNAP_LEFT = 0
         const val SNAP_CENTER = 1
         const val SNAP_RIGHT = 2
@@ -3563,6 +3564,7 @@ class SettingsRepository(private val context: Context) {
         // the fallback so an existing strip-mode choice survives the update.
         private val VOICE_STRIP_MODE = booleanPreferencesKey("voice_strip_mode")
         private val VOICE_UI_MODE = stringPreferencesKey("voice_ui_mode")
+        private val VOICE_BAR_ACTIVE = booleanPreferencesKey("voice_bar_active")
         private val VOICE_BAR_VERTICAL = booleanPreferencesKey("voice_bar_vertical")
         private val VOICE_BAR_SNAP = intPreferencesKey("voice_bar_snap")
         private val VOICE_BAR_EDGE_RIGHT = booleanPreferencesKey("voice_bar_edge_right")
@@ -4425,16 +4427,12 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.handwritingCommitDelayMs,
             handwritingAutoSpace = p[HANDWRITING_AUTO_SPACE] ?: defaults.handwritingAutoSpace,
             voiceBar = VoiceBarSettings(
-                // takeIf drops values a since-removed build wrote (e.g. "bar").
-                mode = p[VOICE_UI_MODE]
-                    ?.takeIf {
-                        it == VoiceBarSettings.MODE_PANEL || it == VoiceBarSettings.MODE_STRIP
-                    }
-                    ?: if (p[VOICE_STRIP_MODE] == true) {
-                        VoiceBarSettings.MODE_STRIP
-                    } else {
-                        defaults.voiceBar.mode
-                    },
+                mode = p[VOICE_UI_MODE] ?: if (p[VOICE_STRIP_MODE] == true) {
+                    VoiceBarSettings.MODE_STRIP
+                } else {
+                    defaults.voiceBar.mode
+                },
+                active = p[VOICE_BAR_ACTIVE] ?: defaults.voiceBar.active,
                 vertical = p[VOICE_BAR_VERTICAL] ?: defaults.voiceBar.vertical,
                 snap = p[VOICE_BAR_SNAP] ?: defaults.voiceBar.snap,
                 rightEdge = p[VOICE_BAR_EDGE_RIGHT] ?: defaults.voiceBar.rightEdge,
@@ -4924,6 +4922,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setVoiceUiMode(value: String) =
         editPrefs { it[VOICE_UI_MODE] = value }
+
+    suspend fun setVoiceBarActive(value: Boolean) =
+        editPrefs { it[VOICE_BAR_ACTIVE] = value }
 
     suspend fun setVoiceBarVertical(value: Boolean) =
         editPrefs { it[VOICE_BAR_VERTICAL] = value }
