@@ -808,6 +808,13 @@ internal fun EmojiPage(
         installedId = settings.emojiFontInstalled.installedId,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     )
+    // The way out of the whole problem, on the one page where the problem has
+    // just been demonstrated: fetch a current emoji font and select it.
+    EmojiFontDownloadRow(
+        installedId = settings.emojiFontInstalled.installedId,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        onInstalled = { fontId -> scope.launch { repository.setInstalledEmojiFont(fontId) } },
+    )
     if (missingCount > 0) {
         ListItem(
             headlineContent = { Text(stringResource(R.string.onboarding_emoji_hide_title)) },

@@ -80,6 +80,10 @@
     <string name="core_content_font_error_too_large" tools:ignore="PluralsCandidate">A font must be smaller than <xliff:g id="limit" example="32">%1$d</xliff:g> MB.</string>
     <string name="core_content_font_error_save">The app cannot save the font.</string>
     <string name="core_content_font_error_read">The app cannot read the font.</string>
+    <!-- The download of the emoji font failed: no network, or the file is not
+         where the app expected it. -->
+    <string name="core_content_font_error_download">The app cannot download the font. Check your connection and try again.</string>
+    <string name="core_content_font_error_too_many">The font library is full. Delete a font and try again.</string>
 
     <!-- ================================================================== -->
     <!-- Sticker pack import.                                               -->

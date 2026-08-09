@@ -144,6 +144,13 @@
     <string name="langemoji_emoji_font_noto_label">Google</string>
     <!-- An emoji font that the user installed from Addons. -->
     <string name="langemoji_emoji_font_installed_label">Installed</string>
+    <!-- Offers a direct download of the current Noto Color Emoji, because the
+         "Google" choice above can only ask the system font provider, which
+         serves an older build on many devices. -->
+    <string name="langemoji_emoji_font_latest_title">Get the newest emoji</string>
+    <!-- %1$s is the download size, such as "10 MB". -->
+    <string name="langemoji_emoji_font_latest_subtitle">Downloads the current Noto Color Emoji, with the newest emoji in it. About <xliff:g id="size" example="10 MB">%1$s</xliff:g>. The \"Google\" option above can only use the version that your device already has.</string>
+    <string name="langemoji_emoji_font_latest_action">Download</string>
     <string name="langemoji_emoji_font_missing_error">You did not import an emoji font. The keyboard uses the system font until you import one.</string>
     <string name="langemoji_emoji_font_replace_action">Replace emoji font file</string>
     <string name="langemoji_emoji_font_import_action">Import emoji font file</string>

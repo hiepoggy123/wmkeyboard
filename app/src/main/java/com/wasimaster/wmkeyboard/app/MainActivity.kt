@@ -5827,6 +5827,16 @@ private fun EmojiSettings(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 refresh = fontRefresh,
             )
+            // The direct fetch of a current Noto, next to the choice it fixes:
+            // "Google" above can only ask the system font provider, which
+            // serves the build it has rather than the newest one.
+            EmojiFontDownloadRow(
+                installedId = settings.emojiFontInstalled.installedId,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) { fontId ->
+                scope.launch { repository.setInstalledEmojiFont(fontId) }
+                fontRefresh++
+            }
             if (settings.emojiFont == EmojiFontChoice.INSTALLED) {
                 InstalledEmojiFontList(repository, settings)
             }

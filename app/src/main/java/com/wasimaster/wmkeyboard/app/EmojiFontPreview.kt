@@ -13,9 +13,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -26,8 +29,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
+import com.wasimaster.wmkeyboard.core.fonts.EmojiFontCatalog
+import com.wasimaster.wmkeyboard.core.fonts.EmojiFontDownload
+import com.wasimaster.wmkeyboard.core.fonts.FontStore
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +91,85 @@ internal fun EmojiFontPreviewRow(
 
 /** How many of the missing faces the comparison shows. */
 private const val MISSING_SAMPLE = 7
+
+/**
+ * The one-tap route to a current emoji font.
+ *
+ * The "Google" choice above it asks the Play services font provider for "Noto
+ * Color Emoji", and a downloadable font is requested by family name — there is
+ * no version in that request. The provider answers with whatever build it has,
+ * which on a phone with a recent system emoji font is the older of the two, so
+ * that choice cannot be relied on for new emoji. This row fetches the current
+ * file instead and installs it into the font library, which is the same slot
+ * an emoji-font add-on lands in — the same file is published there too, for
+ * anyone who would rather browse the catalogue.
+ *
+ * [onInstalled] receives the store id, and points the setting at it.
+ */
+@Composable
+internal fun EmojiFontDownloadRow(
+    installedId: String,
+    modifier: Modifier = Modifier,
+    onInstalled: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val status by EmojiFontDownload.state.collectAsStateWithLifecycle()
+    // Fires once per install rather than on every recomposition that sees the
+    // finished state.
+    LaunchedEffect(status) {
+        val done = status as? EmojiFontDownload.Status.Installed ?: return@LaunchedEffect
+        onInstalled(done.fontId)
+    }
+    // Already holding it: the row has nothing left to offer.
+    val installed = remember(installedId, status) {
+        FontStore.get(context).font(installedId)?.name == EmojiFontCatalog.NOTO_NAME
+    }
+    if (installed && status !is EmojiFontDownload.Status.Failed) return
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(12.dp),
+    ) {
+        Text(
+            stringResource(R.string.langemoji_emoji_font_latest_title),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            stringResource(
+                R.string.langemoji_emoji_font_latest_subtitle,
+                formatBytes(EmojiFontCatalog.NOTO_APPROX_BYTES),
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        when (val state = status) {
+            is EmojiFontDownload.Status.Downloading -> {
+                val fraction = if (state.total > 0) {
+                    (state.bytes.toFloat() / state.total).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
+                LinearProgressIndicator(
+                    progress = { fraction },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            is EmojiFontDownload.Status.Failed -> {
+                CaptionText(stringResource(state.messageRes), error = true)
+                Button(onClick = { EmojiFontDownload.start(context) }) {
+                    Text(stringResource(CommonR.string.common_retry))
+                }
+            }
+            else -> Button(onClick = { EmojiFontDownload.start(context) }) {
+                Text(stringResource(R.string.langemoji_emoji_font_latest_action))
+            }
+        }
+    }
+}
 
 /**
  * The same emoji drawn twice: in the phone's own font, where they are empty
