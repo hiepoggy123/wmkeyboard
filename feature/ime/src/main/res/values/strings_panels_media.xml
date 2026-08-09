@@ -66,6 +66,18 @@
     <string name="ime_voice_strip_undo_desc">Undo voice typing</string>
     <string name="ime_voice_strip_close_desc">Stop voice typing</string>
 
+    <!-- Collapsed voice bar: the small pill that takes the keyboard's place
+         while the user dictates. One short line only. -->
+    <string name="ime_voice_bar_speak_now">Speak now</string>
+    <string name="ime_voice_bar_paused">Paused</string>
+    <string name="ime_voice_bar_restore_desc">Show the keyboard</string>
+    <string name="ime_voice_bar_menu_desc">More voice typing options</string>
+    <string name="ime_voice_bar_menu_back_desc">Back</string>
+    <!-- Menu action: dock the bar upright against a screen edge. -->
+    <string name="ime_voice_bar_vertical_desc">Stand the bar upright</string>
+    <!-- Menu action: lay the upright bar back along the bottom edge. -->
+    <string name="ime_voice_bar_horizontal_desc">Lay the bar flat</string>
+
     <!-- Handwriting panel. -->
     <string name="ime_handwriting_checking_progress">Checking the handwriting model…</string>
     <!-- %1$s is the name of a language, for example "English". -->

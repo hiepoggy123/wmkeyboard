@@ -65,6 +65,7 @@ import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
+import com.wasimaster.wmkeyboard.ime.VoiceBarAction
 import com.wasimaster.wmkeyboard.ime.VoiceModelState
 import com.wasimaster.wmkeyboard.ime.VoiceStatus
 import com.wasimaster.wmkeyboard.core.layout.Key
@@ -90,7 +91,7 @@ internal fun VoicePanel(
     onToggleTranslate: () -> Unit,
     onOpenVoiceSettings: () -> Unit,
     onUseSystemEngine: () -> Unit,
-    onRailKey: (Key) -> Unit,
+    onRailKey: (VoiceBarAction) -> Unit,
     onLayoutSelect: (String) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -283,7 +284,7 @@ internal fun VoicePanel(
                 modifier = Modifier.weight(1f),
             ) {
                 feedback()
-                onRailKey(Key("⌫", action = KeyAction.Delete))
+                onRailKey(VoiceBarAction.RailKey(Key("⌫", action = KeyAction.Delete)))
             }
             VoiceRailKey(
                 description = stringResource(R.string.ime_rail_space_desc),
@@ -291,7 +292,7 @@ internal fun VoicePanel(
                 modifier = Modifier.weight(1f),
             ) {
                 feedback()
-                onRailKey(Key(" ", action = KeyAction.Space))
+                onRailKey(VoiceBarAction.RailKey(Key(" ", action = KeyAction.Space)))
             }
             // Same icon the enter key on the key rows would show for this
             // field — a search box gets a magnifier here too, so the rail is
@@ -303,7 +304,7 @@ internal fun VoicePanel(
                 modifier = Modifier.weight(1f),
             ) {
                 feedback()
-                onRailKey(Key("⏎", action = KeyAction.Enter))
+                onRailKey(VoiceBarAction.RailKey(Key("⏎", action = KeyAction.Enter)))
             }
             VoiceRailKey(
                 description = stringResource(R.string.ime_rail_back_desc),

@@ -24,6 +24,7 @@ import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.tools.AiPhase
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
@@ -535,6 +536,13 @@ data class VoiceUi(
     val errorMessage: String? = null,
     /** Dictation runs in the compact bar over the keys instead of the panel. */
     val strip: Boolean = false,
+    /**
+     * The collapsed voice bar has the keyboard's place (Gboard style). Mirrors
+     * the persisted [com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.active]
+     * so opening and closing take effect this frame, not a DataStore round trip
+     * later; the settings collector re-syncs it from the stored value.
+     */
+    val bar: Boolean = false,
     /** A just-dictated utterance is still at the cursor; the undo chip shows. */
     val canUndo: Boolean = false,
     /** Offline-model chip on the panel (download for offline dictation). */
@@ -548,6 +556,42 @@ data class VoiceUi(
     /** Offline Whisper is selected but no model is downloaded — panel prompts to get one. */
     val whisperNeedsModel: Boolean = false,
 )
+
+/** The persisted settings say the collapsed voice bar should be up. */
+fun VoiceBarSettings.armed(): Boolean = mode == VoiceBarSettings.MODE_BAR && active
+
+/**
+ * [VoiceUi.bar] following the persisted flag — applied only when the stored
+ * value changed ([sync]), so a stale emission cannot undo a live toggle.
+ */
+fun VoiceUi.withBarSynced(sync: Boolean, armed: Boolean): VoiceUi =
+    if (!sync || bar == armed) this else copy(bar = armed)
+
+/**
+ * Everything the voice surfaces ask of the service beyond the dedicated
+ * callbacks, multiplexed over the one `onVoiceRailKey` slot: KeyboardScreen's
+ * caller sits against the JVM's 64K method-size ceiling, so a new command
+ * grows this type rather than the parameter list.
+ */
+sealed interface VoiceBarAction {
+    /** A rail/bar key press routed through the dictation-safe path. */
+    data class RailKey(val key: Key) : VoiceBarAction
+
+    /** The collapsed bar should stand upright against a screen edge. */
+    data class SetVertical(val vertical: Boolean) : VoiceBarAction
+
+    /** The horizontal bar settled on a resting place after a drag. */
+    data class SetSnap(val snap: Int) : VoiceBarAction
+
+    /** The vertical bar settled after a drag: which edge, how far along it. */
+    data class SetEdge(val rightEdge: Boolean, val yBias: Float) : VoiceBarAction
+
+    /**
+     * The collapsed bar's on-screen rectangle in window coordinates — the
+     * service's touchable region, so touches beside the bar reach the app.
+     */
+    data class Bounds(val left: Int, val top: Int, val right: Int, val bottom: Int) : VoiceBarAction
+}
 
 /** One change made from the password generator panel (all persisted). */
 sealed interface PwSettingAction {

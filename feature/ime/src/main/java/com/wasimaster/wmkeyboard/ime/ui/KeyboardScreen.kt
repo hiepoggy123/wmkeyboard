@@ -346,6 +346,7 @@ import com.wasimaster.wmkeyboard.core.tools.SymbolCatalog
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.ime.PwSettingAction
 import com.wasimaster.wmkeyboard.ime.TypingTestAction
+import com.wasimaster.wmkeyboard.ime.VoiceBarAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
@@ -788,7 +789,8 @@ fun KeyboardScreen(
     onWhisperTranslateToggle: () -> Unit = {},
     onOpenVoiceSettings: () -> Unit = {},
     onVoiceUseSystemEngine: () -> Unit = {},
-    onVoiceRailKey: (Key) -> Unit = {},
+    /** Rail keys plus the collapsed bar's commands — one slot, see [VoiceBarAction]. */
+    onVoiceRailKey: (VoiceBarAction) -> Unit = {},
     onMediaPlayPause: () -> Unit = {},
     onMediaNext: () -> Unit = {},
     onMediaPrevious: () -> Unit = {},
@@ -1112,6 +1114,23 @@ fun KeyboardScreen(
 
     val rotationStates by PhotoBackgroundManager.rotationStates.collectAsState()
     KeyboardThemeProvider(settings = state.settings, rotationStates = rotationStates) {
+        // The collapsed voice bar takes the whole window over: no keyboard, no
+        // strips, just the pill. It outranks floating mode because it is the
+        // temporary state — restoring the keyboard lands back in whichever
+        // chrome the settings ask for.
+        if (voiceBarTakesWindow(state)) {
+            VoiceBarLayer(
+                state = state,
+                onToggle = onVoiceToggle,
+                onUndo = onVoiceUndo,
+                onRequestPermission = onVoicePermissionRequest,
+                onOpenVoiceSettings = onOpenVoiceSettings,
+                onRestoreKeyboard = { onToolTap(ToolbarTool.VOICE) },
+                onAction = onVoiceRailKey,
+                onLayoutSelect = onLayoutSelect,
+            )
+            return@KeyboardThemeProvider
+        }
         if (state.settings.floatingKeyboard) {
             // Floating mode: the compose root spans the whole IME window with
             // no background; the service restricts the touchable region to
@@ -1136,91 +1155,121 @@ fun KeyboardScreen(
             )
             return@KeyboardThemeProvider
         }
-        Box(modifier = Modifier.fillMaxWidth()) {
-            BoardBackground(LocalKbTheme.current)
-            // navigationBarsPadding keeps the bottom key row clear of the
-            // gesture-navigation bar on edge-to-edge (SDK 35+) IME windows.
-            val oneHanded = state.settings.oneHandedMode
-            val landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-            val ohProfile = state.settings.oneHanded.forLandscape(landscape)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    // Extra breathing room above the gesture bar, adjustable
-                    // in Settings → Appearance.
-                    .padding(bottom = state.settings.bottomPaddingDp.dp),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                // Flip to the other side: update the live mode and remember the
-                // new side as this orientation's default.
-                val flipSide: () -> Unit = {
-                    val next =
-                        if (oneHanded == OneHandedMode.LEFT) OneHandedSide.RIGHT
-                        else OneHandedSide.LEFT
-                    onOneHandedSide(landscape, next)
-                    onOneHanded(next.toMode())
+        DockedKeyboardFrame(
+            state = state,
+            landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+            onOneHanded = onOneHanded,
+            onOneHandedSide = onOneHandedSide,
+            body = movableBody,
+        )
+    }
+}
+
+/**
+ * Docked chrome: the board background plus the width, alignment and
+ * one-handed arrangement around the keyboard body — the everyday counterpart
+ * of [FloatingKeyboardFrame].
+ */
+@Composable
+private fun DockedKeyboardFrame(
+    state: KeyboardUiState,
+    landscape: Boolean,
+    onOneHanded: (OneHandedMode) -> Unit,
+    onOneHandedSide: (Boolean, OneHandedSide) -> Unit,
+    body: @Composable ColumnScope.(KeyboardUiState) -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        BoardBackground(LocalKbTheme.current)
+        // navigationBarsPadding keeps the bottom key row clear of the
+        // gesture-navigation bar on edge-to-edge (SDK 35+) IME windows.
+        val oneHanded = state.settings.oneHandedMode
+        val ohProfile = state.settings.oneHanded.forLandscape(landscape)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                // Extra breathing room above the gesture bar, adjustable
+                // in Settings → Appearance.
+                .padding(bottom = state.settings.bottomPaddingDp.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            // Flip to the other side: update the live mode and remember the
+            // new side as this orientation's default.
+            val flipSide: () -> Unit = {
+                val next =
+                    if (oneHanded == OneHandedMode.LEFT) OneHandedSide.RIGHT
+                    else OneHandedSide.LEFT
+                onOneHandedSide(landscape, next)
+                onOneHanded(next.toMode())
+            }
+            if (oneHanded == OneHandedMode.OFF) {
+                // Resizable width: below 100% the keyboard shrinks and sits
+                // at the chosen edge (or centered).
+                // Side-padding (A50) shaves an equal fraction off each side
+                // on top of the width setting, narrowing the keys toward the
+                // centre for thumb reach; it rides on the same slack/centering
+                // machinery below.
+                val sidePad = state.settings.layoutBehavior.sidePadScale.coerceIn(0f, 0.3f)
+                val widthFraction =
+                    (state.settings.keyboardWidthPercent / 100f * (1f - 2f * sidePad))
+                        .coerceAtLeast(0.2f)
+                val slack = 1f - widthFraction
+                val leftSlack = when (state.settings.keyboardAlignment) {
+                    KeyboardAlignment.LEFT -> 0f
+                    KeyboardAlignment.CENTER -> slack / 2f
+                    KeyboardAlignment.RIGHT -> slack
                 }
-                if (oneHanded == OneHandedMode.OFF) {
-                    // Resizable width: below 100% the keyboard shrinks and sits
-                    // at the chosen edge (or centered).
-                    // Side-padding (A50) shaves an equal fraction off each side
-                    // on top of the width setting, narrowing the keys toward the
-                    // centre for thumb reach; it rides on the same slack/centering
-                    // machinery below.
-                    val sidePad = state.settings.layoutBehavior.sidePadScale.coerceIn(0f, 0.3f)
-                    val widthFraction =
-                        (state.settings.keyboardWidthPercent / 100f * (1f - 2f * sidePad))
-                            .coerceAtLeast(0.2f)
-                    val slack = 1f - widthFraction
-                    val leftSlack = when (state.settings.keyboardAlignment) {
-                        KeyboardAlignment.LEFT -> 0f
-                        KeyboardAlignment.CENTER -> slack / 2f
-                        KeyboardAlignment.RIGHT -> slack
-                    }
-                    if (leftSlack > 0.001f) Spacer(modifier = Modifier.weight(leftSlack))
-                    Column(modifier = Modifier.weight(widthFraction)) { movableBody(state) }
-                    val rightSlack = slack - leftSlack
-                    if (rightSlack > 0.001f) Spacer(modifier = Modifier.weight(rightSlack))
-                } else {
-                    // One-handed: dock to the live side with this orientation's
-                    // width and height scale. The weights sum to 1 so the body
-                    // is exactly `widthFraction` of the screen and any leftover
-                    // beyond the rail becomes centre-ward slack.
-                    val widthFraction = (ohProfile.widthPercent / 100f).coerceIn(0.30f, 0.90f)
-                    val leftover = 1f - widthFraction
-                    val railWeight = ONE_HANDED_RAIL_WEIGHT.coerceAtMost(leftover)
-                    val slack = (leftover - railWeight).coerceAtLeast(0f)
-                    val ohState = if (ohProfile.heightScale >= 100) state else state.copy(
-                        settings = state.settings.copy(
-                            keyHeightDp =
-                                (state.settings.keyHeightDp * ohProfile.heightScale / 100).coerceAtLeast(1),
-                            numberRowHeightDp =
-                                (state.settings.numberRowHeightDp * ohProfile.heightScale / 100).coerceAtLeast(1),
-                        ),
+                if (leftSlack > 0.001f) Spacer(modifier = Modifier.weight(leftSlack))
+                Column(modifier = Modifier.weight(widthFraction)) { body(state) }
+                val rightSlack = slack - leftSlack
+                if (rightSlack > 0.001f) Spacer(modifier = Modifier.weight(rightSlack))
+            } else {
+                // One-handed: dock to the live side with this orientation's
+                // width and height scale. The weights sum to 1 so the body
+                // is exactly `widthFraction` of the screen and any leftover
+                // beyond the rail becomes centre-ward slack.
+                val widthFraction = (ohProfile.widthPercent / 100f).coerceIn(0.30f, 0.90f)
+                val leftover = 1f - widthFraction
+                val railWeight = ONE_HANDED_RAIL_WEIGHT.coerceAtMost(leftover)
+                val slack = (leftover - railWeight).coerceAtLeast(0f)
+                val ohState = if (ohProfile.heightScale >= 100) state else state.copy(
+                    settings = state.settings.copy(
+                        keyHeightDp =
+                            (state.settings.keyHeightDp * ohProfile.heightScale / 100).coerceAtLeast(1),
+                        numberRowHeightDp =
+                            (state.settings.numberRowHeightDp * ohProfile.heightScale / 100).coerceAtLeast(1),
+                    ),
+                )
+                val rail = @Composable {
+                    OneHandedRail(
+                        current = oneHanded,
+                        onFlip = flipSide,
+                        onExit = { onOneHanded(OneHandedMode.OFF) },
+                        modifier = Modifier.weight(railWeight),
                     )
-                    val rail = @Composable {
-                        OneHandedRail(
-                            current = oneHanded,
-                            onFlip = flipSide,
-                            onExit = { onOneHanded(OneHandedMode.OFF) },
-                            modifier = Modifier.weight(railWeight),
-                        )
-                    }
-                    if (oneHanded == OneHandedMode.RIGHT) {
-                        if (slack > 0.001f) Spacer(modifier = Modifier.weight(slack))
-                        rail()
-                        Column(modifier = Modifier.weight(widthFraction)) { movableBody(ohState) }
-                    } else {
-                        Column(modifier = Modifier.weight(widthFraction)) { movableBody(ohState) }
-                        rail()
-                        if (slack > 0.001f) Spacer(modifier = Modifier.weight(slack))
-                    }
+                }
+                if (oneHanded == OneHandedMode.RIGHT) {
+                    if (slack > 0.001f) Spacer(modifier = Modifier.weight(slack))
+                    rail()
+                    Column(modifier = Modifier.weight(widthFraction)) { body(ohState) }
+                } else {
+                    Column(modifier = Modifier.weight(widthFraction)) { body(ohState) }
+                    rail()
+                    if (slack > 0.001f) Spacer(modifier = Modifier.weight(slack))
                 }
             }
         }
     }
 }
+
+/**
+ * The collapsed voice bar owns the window right now. A panel forced open (a
+ * hardware shortcut can do this) or a password field puts the keyboard back
+ * without disarming the bar. The service's insets check mirrors this
+ * predicate — keep the two in step.
+ */
+private fun voiceBarTakesWindow(state: KeyboardUiState): Boolean =
+    state.voice.bar && state.panel == PanelMode.NONE && !state.secureField
 
 /**
  * Floating mode chrome: a detached, elevated panel holding the regular
@@ -4083,7 +4132,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.OCR -> state.panel == PanelMode.OCR
     ToolbarTool.QR_SCAN -> state.panel == PanelMode.QR_SCAN
     ToolbarTool.DOC_SCAN -> false
-    ToolbarTool.VOICE -> state.panel == PanelMode.VOICE || state.voice.strip
+    ToolbarTool.VOICE -> state.panel == PanelMode.VOICE || state.voice.strip || state.voice.bar
     ToolbarTool.GRAMMAR -> state.panel == PanelMode.GRAMMAR
     ToolbarTool.WIKIPEDIA -> state.panel == PanelMode.WIKIPEDIA
     ToolbarTool.SYMBOLS -> state.panel == PanelMode.SYMBOLS
@@ -6077,7 +6126,7 @@ private fun KeyboardBody(
     onWhisperTranslateToggle: () -> Unit,
     onOpenVoiceSettings: () -> Unit,
     onVoiceUseSystemEngine: () -> Unit,
-    onVoiceRailKey: (Key) -> Unit,
+    onVoiceRailKey: (VoiceBarAction) -> Unit,
     onMediaPlayPause: () -> Unit,
     onMediaNext: () -> Unit,
     onMediaPrevious: () -> Unit,

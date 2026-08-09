@@ -9751,11 +9751,20 @@ private fun ToolDetailSettings(
             }
             SettingsGroup(stringResource(R.string.tooldetail_voice_dictation_group)) {
                 item {
-                    ToggleSetting(
-                        R.string.tooldetail_voice_strip_title,
-                        stringResource(R.string.tooldetail_voice_strip_subtitle),
-                        settings.voiceStripMode,
-                    ) { scope.launch { repository.setVoiceStripMode(it) } }
+                    ChoiceSetting(
+                        R.string.tooldetail_voice_ui_title,
+                        subtitle = stringResource(R.string.tooldetail_voice_ui_subtitle),
+                        info = stringResource(R.string.tooldetail_voice_ui_info),
+                        options = listOf(
+                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_PANEL to
+                                stringResource(R.string.tooldetail_voice_ui_panel),
+                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_STRIP to
+                                stringResource(R.string.tooldetail_voice_ui_strip),
+                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_BAR to
+                                stringResource(R.string.tooldetail_voice_ui_bar),
+                        ),
+                        selected = settings.voiceBar.mode,
+                    ) { scope.launch { repository.setVoiceUiMode(it) } }
                 }
                 item {
                     ToggleSetting(

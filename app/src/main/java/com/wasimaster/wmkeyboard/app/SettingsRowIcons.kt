@@ -631,7 +631,7 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.tooldetail_qr_scan_haptics_title, Icons.Outlined.Vibration)
     put(R.string.tooldetail_qr_scan_preview_title, Icons.Outlined.Link)
     put(R.string.tooldetail_doc_scan_gallery_title, Icons.Outlined.PhotoLibrary)
-    put(R.string.tooldetail_voice_strip_title, Icons.Outlined.ViewAgenda)
+    put(R.string.tooldetail_voice_ui_title, Icons.Outlined.ViewAgenda)
     put(R.string.tooldetail_voice_continuous_title, Icons.Outlined.MicNone)
     put(R.string.tooldetail_voice_punctuation_title, Icons.Outlined.MoreHoriz)
     put(R.string.tooldetail_voice_engine_title, Icons.Outlined.GraphicEq)

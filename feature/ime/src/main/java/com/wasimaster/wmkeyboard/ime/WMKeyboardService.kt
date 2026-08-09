@@ -170,6 +170,7 @@ import com.wasimaster.wmkeyboard.core.plugins.resolve
 import com.wasimaster.wmkeyboard.core.settings.AutoBackupScheduler
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
 import com.wasimaster.wmkeyboard.core.settings.restrictedToDirectBoot
 import com.wasimaster.wmkeyboard.core.settings.PowerSavingSettings
 import com.wasimaster.wmkeyboard.core.settings.underPowerSaving
@@ -1607,6 +1608,7 @@ open class WMKeyboardService : InputMethodService() {
             var pinnedLastEnabled: Boolean? = null
             var userScreenshotsEnabled: Boolean? = null
             var otpCaptureEnabled: Boolean? = null
+            var voiceBarPersisted: Boolean? = null
             // Recompute the hidden-emoji set only when the toggle or the font
             // behind it actually changes, not on every unrelated settings save.
             var hiddenEmojiKey: Triple<Boolean, EmojiFontChoice, String>? = null
@@ -1767,9 +1769,21 @@ open class WMKeyboardService : InputMethodService() {
                 // tablet the digit row is where backspace goes, and a
                 // disagreement means the keyboard has none at all.
                 val modeSettings = settings.applyMode(mode)
+                // The collapsed voice bar's armed flag is persisted settings
+                // ([VoiceBarSettings.active]); the ui-state flag follows it so
+                // the bar survives the IME process dying between fields, and
+                // so a mode change in the settings app takes effect live.
+                // Synced only when the persisted value *changes*: open/close
+                // update the ui state first and persist after, so an unrelated
+                // emission in that gap still carries the old value, and
+                // re-applying it would flash the bar back mid-close.
+                val voiceBarArmed = modeSettings.voiceBar.armed()
+                val voiceBarSync = voiceBarPersisted != voiceBarArmed
+                voiceBarPersisted = voiceBarArmed
                 _uiState.update {
                     it.copy(
                         settings = modeSettings,
+                        voice = it.voice.withBarSynced(sync = voiceBarSync, armed = voiceBarArmed),
                         // The settings above are already reduced, so this is
                         // only for the indicator and the tool's lit state —
                         // nothing gates on it.
@@ -2525,6 +2539,27 @@ open class WMKeyboardService : InputMethodService() {
      */
     override fun onComputeInsets(outInsets: Insets) {
         super.onComputeInsets(outInsets)
+        // The collapsed voice bar wins over floating mode because it is what
+        // the screen actually shows — KeyboardScreen branches to it first.
+        if (voiceBarShowing()) {
+            // The vertical bar spans the window to reach mid-screen, so the
+            // app behind must keep its full size; the horizontal bar's window
+            // is only bar-tall, and the app resizing above it keeps the text
+            // field visible while dictating. Either way touches only land on
+            // the bar itself and everything else falls through.
+            if (_uiState.value.settings.voiceBar.vertical) {
+                val decorHeight = window?.window?.decorView?.height ?: return
+                outInsets.contentTopInsets = decorHeight
+                outInsets.visibleTopInsets = decorHeight
+            }
+            // Until the bar has published a rectangle the whole window stays
+            // touchable — an empty region would make the bar itself untappable.
+            val bounds = voiceBarBounds ?: return
+            outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
+            outInsets.touchableRegion.setEmpty()
+            outInsets.touchableRegion.set(bounds)
+            return
+        }
         if (!_uiState.value.settings.floatingKeyboard) return
         val decorHeight = window?.window?.decorView?.height ?: return
         outInsets.contentTopInsets = decorHeight
@@ -2534,9 +2569,13 @@ open class WMKeyboardService : InputMethodService() {
         floatingPanelBounds?.let { outInsets.touchableRegion.set(it) }
     }
 
-    /** Never use the fullscreen (extract) editor while floating. */
+    /** Never use the fullscreen (extract) editor while floating or collapsed to the bar. */
     override fun onEvaluateFullscreenMode(): Boolean =
-        if (_uiState.value.settings.floatingKeyboard) false else super.onEvaluateFullscreenMode()
+        if (_uiState.value.settings.floatingKeyboard || voiceBarShowing()) {
+            false
+        } else {
+            super.onEvaluateFullscreenMode()
+        }
 
     /** A physical keyboard is attached and not folded away. */
     private fun hasHardwareKeyboard(): Boolean {
@@ -5504,8 +5543,15 @@ open class WMKeyboardService : InputMethodService() {
         ) {
             refreshHandwritingStatus()
         }
-        // Same for dictation: restart the session in the new language.
-        if (_uiState.value.panel == PanelMode.VOICE) startVoice()
+        // Same for dictation: restart the session in the new language. The
+        // collapsed bar's language switch lands here too — but only mid-
+        // session: the bar idles with the mic closed, and a language change
+        // must not open it uninvited.
+        if (_uiState.value.panel == PanelMode.VOICE ||
+            (voiceBarShowing() && voiceActive())
+        ) {
+            startVoice()
+        }
         serviceScope.launch { settingsRepository.setActiveLayoutId(spec.id) }
         // Per-app memory: an explicit pick is what this app should reopen on.
         // The global write above still moves, so apps with no stored pick keep
@@ -8091,17 +8137,8 @@ open class WMKeyboardService : InputMethodService() {
      */
     fun onPanelChange(panel: PanelMode, haptic: Boolean = true) {
         if (panel == PanelMode.CLIPBOARD && !isClipboardAccessible()) return
-        // Strip mode reroutes the voice tool: no panel, just the compact
-        // bar over the keys. A voice panel already open (setting flipped
-        // mid-session) still closes normally below.
-        if (panel == PanelMode.VOICE && _uiState.value.settings.voiceStripMode &&
-            _uiState.value.panel != PanelMode.VOICE
-        ) {
-            toggleVoiceStrip()
-            return
-        }
-        // Opening anything else dismisses the dictation strip.
-        if (_uiState.value.voice.strip) closeVoiceStrip()
+        if (rerouteVoiceTool(panel)) return
+        dismissVoiceSurfacesFor(panel)
         // Panels have their own key semantics — the panel would eat the
         // modified key — so a pending latch does not survive opening one.
         clearModifiers()
@@ -8379,7 +8416,8 @@ open class WMKeyboardService : InputMethodService() {
      */
     /** Whether a dictation surface is still up to receive the next utterance. */
     private fun voiceSessionAlive(): Boolean =
-        _uiState.value.panel == PanelMode.VOICE || _uiState.value.voice.strip
+        _uiState.value.panel == PanelMode.VOICE || _uiState.value.voice.strip ||
+            voiceBarShowing()
 
     private fun startVoice() {
         cancelVoice()
@@ -8744,7 +8782,24 @@ open class WMKeyboardService : InputMethodService() {
      * Whisper has no partial — its audio is in the recorder, not the editor — so
      * a rail key never costs a recording.
      */
-    fun onVoiceRailKey(key: Key) {
+    fun onVoiceRailKey(action: VoiceBarAction) {
+        when (action) {
+            is VoiceBarAction.RailKey -> onVoiceSurfaceKey(action.key)
+            is VoiceBarAction.SetVertical -> {
+                vibrate()
+                serviceScope.launch { settingsRepository.setVoiceBarVertical(action.vertical) }
+            }
+            is VoiceBarAction.SetSnap ->
+                serviceScope.launch { settingsRepository.setVoiceBarSnap(action.snap) }
+            is VoiceBarAction.SetEdge ->
+                serviceScope.launch {
+                    settingsRepository.setVoiceBarEdge(action.rightEdge, action.yBias)
+                }
+            is VoiceBarAction.Bounds -> onVoiceBarBounds(action)
+        }
+    }
+
+    private fun onVoiceSurfaceKey(key: Key) {
         if (_uiState.value.voice.partial.isNotEmpty()) {
             onKey(key)
             return
@@ -8815,6 +8870,38 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * Strip and bar modes reroute the voice tool: no panel — the compact bar
+     * over the keys, or the collapsed bar in the keyboard's place. A voice
+     * panel already open (setting flipped mid-session) still closes normally
+     * through [onPanelChange]. True when the tap was taken.
+     */
+    private fun rerouteVoiceTool(panel: PanelMode): Boolean {
+        if (panel != PanelMode.VOICE || _uiState.value.panel == PanelMode.VOICE) return false
+        return when (_uiState.value.settings.voiceBar.mode) {
+            VoiceBarSettings.MODE_STRIP -> {
+                toggleVoiceStrip()
+                true
+            }
+            VoiceBarSettings.MODE_BAR -> {
+                toggleVoiceBar()
+                true
+            }
+            else -> false
+        }
+    }
+
+    /**
+     * A panel is opening: the dictation strip closes outright, and the
+     * collapsed bar — which the keyboard needs the window back from (hardware
+     * shortcuts can do this) — ends its session but stays armed, so it
+     * returns when the panel closes.
+     */
+    private fun dismissVoiceSurfacesFor(panel: PanelMode) {
+        if (_uiState.value.voice.strip) closeVoiceStrip()
+        if (panel != PanelMode.VOICE && voiceBarShowing()) cancelVoice()
+    }
+
     /** Voice tool tap in strip mode: dictate over the keys, no panel. */
     private fun toggleVoiceStrip() {
         if (_uiState.value.voice.strip) {
@@ -8840,6 +8927,81 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         cancelVoice()
         _uiState.update { it.copy(voice = it.voice.copy(strip = false, canUndo = false)) }
+    }
+
+    // ---- collapsed voice bar (Gboard-style toolbar) ----
+
+    /**
+     * The collapsed bar is on screen right now. Armed but hidden does not
+     * count: a panel a hardware shortcut opened, or a password field, puts the
+     * keyboard back up without disarming the bar.
+     */
+    private fun voiceBarShowing(): Boolean {
+        val state = _uiState.value
+        return state.voice.bar && state.panel == PanelMode.NONE && !state.secureField
+    }
+
+    /** Voice tool tap in bar mode: collapse the keyboard to the bar, or restore it. */
+    private fun toggleVoiceBar() {
+        val state = _uiState.value
+        if (state.secureField) {
+            vibrate()
+            Toast.makeText(
+                this,
+                getString(R.string.ime_service_voice_secure_field_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        if (state.voice.bar) {
+            if (voiceBarShowing()) {
+                closeVoiceBar()
+            } else if (state.panel != PanelMode.NONE) {
+                // Armed but hidden behind a panel (a hardware shortcut can
+                // open one over the bar): the tap asks for the bar back, not
+                // for disarming it. Closing the panel through onPanelChange
+                // keeps that path's cleanup; the reroute cannot recurse here
+                // because the closing panel is never VOICE.
+                onPanelChange(state.panel)
+                voiceSilentRetries = 0
+                startVoice()
+            }
+            return
+        }
+        vibrate()
+        // The state flag first so the bar is up this frame; the persisted flag
+        // is what brings it back on the next field ([VoiceUi.bar] doc).
+        _uiState.update { it.copy(voice = it.voice.copy(bar = true)) }
+        serviceScope.launch { settingsRepository.setVoiceBarActive(true) }
+        voiceSilentRetries = 0
+        startVoice()
+    }
+
+    /** The bar's keyboard button (or the voice tool again): bring the keys back. */
+    private fun closeVoiceBar() {
+        if (!_uiState.value.voice.bar) return
+        vibrate()
+        cancelVoice()
+        voiceBarBounds = null
+        _uiState.update { it.copy(voice = it.voice.copy(bar = false, canUndo = false)) }
+        serviceScope.launch { settingsRepository.setVoiceBarActive(false) }
+    }
+
+    /**
+     * The bar published its rectangle. Kept apart from [floatingPanelBounds]:
+     * the settings collector clears that one whenever floating mode is off,
+     * which is exactly when the bar needs its own region to survive.
+     */
+    private var voiceBarBounds: android.graphics.Rect? = null
+
+    private fun onVoiceBarBounds(bounds: VoiceBarAction.Bounds) {
+        val rect = android.graphics.Rect(bounds.left, bounds.top, bounds.right, bounds.bottom)
+        if (rect != voiceBarBounds) {
+            voiceBarBounds = rect
+            // Same trick as [onFloatingBounds]: insets are only re-queried on
+            // a window layout pass, so force one.
+            window?.window?.decorView?.requestLayout()
+        }
     }
 
     /**
