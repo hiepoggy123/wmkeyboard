@@ -49,6 +49,8 @@
     <string name="onboarding_theme_mode_dark">Dark</string>
     <string name="onboarding_theme_mode_amoled" translatable="false">AMOLED</string>
     <string name="onboarding_keyboard_theme_title">Keyboard theme</string>
+    <!-- Shown under the Light/Dark tabs, which only appear for the Auto mode. -->
+    <string name="onboarding_keyboard_theme_auto_info">Select one theme for each. The keyboard changes with your device.</string>
     <!-- Name of the Android colour system. It is a brand name. -->
     <string name="onboarding_keyboard_theme_material_you_label" translatable="false">Material You</string>
 

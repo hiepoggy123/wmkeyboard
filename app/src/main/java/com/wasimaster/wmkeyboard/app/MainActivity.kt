@@ -1629,17 +1629,23 @@ internal fun SetupCard(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(12.dp))
-            Row {
-                if (!enabled) {
-                    Button(onClick = {
+            // One button, the width of the card: setup is a sequence, not a
+            // choice. Offering "Switch keyboard" beside "Turn on keyboard"
+            // put a button there that cannot work yet, and the pair squeezed
+            // the longer label into two wrapped lines on a phone.
+            if (!enabled) {
+                Button(
+                    onClick = {
                         onEnableRequested?.invoke()
                         context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-                    }) { Text(stringResource(R.string.home_setup_enable_action)) }
-                    Spacer(Modifier.width(8.dp))
-                }
-                OutlinedButton(onClick = { imm.showInputMethodPicker() }) {
-                    Text(stringResource(R.string.home_setup_switch_action))
-                }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.home_setup_enable_action)) }
+            } else {
+                Button(
+                    onClick = { imm.showInputMethodPicker() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.home_setup_switch_action)) }
             }
         }
     }

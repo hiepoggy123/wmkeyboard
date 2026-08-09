@@ -14,6 +14,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -167,16 +168,18 @@ internal fun OnboardingScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 8.dp, top = 8.dp),
+                    .padding(start = 16.dp, end = 8.dp, top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // Takes whatever the Skip button leaves, and spreads the steps
+                // across it rather than bunching them at the left.
                 OnboardingProgress(
                     pages = pages,
                     index = index,
                     accent = accent,
                     reduceMotion = settings.reduceMotion,
+                    modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.weight(1f))
                 // No Skip on the last page: the only thing left to skip there
                 // is the Finish button next to it.
                 if (!replay && !onLastPage) {
@@ -313,12 +316,17 @@ private fun finishOnboarding(
 }
 
 /**
- * The wizard's progress: a dot per page, with the current one grown into an
- * accent pill that carries that page's own icon.
+ * The wizard's progress: every page's own icon, the current one filled with
+ * that page's accent and the ones behind it faded.
  *
- * The icon rather than a bare stretched pill because every page already has
- * one on its hero — the same glyph in the progress row says *which* step this
- * is, not only how many are left, and it costs no extra width to say it.
+ * The icons rather than dots because every page already has one on its hero,
+ * so the row says *which* steps these are — where you have been, where you
+ * are, and what is still coming — instead of only how many are left.
+ *
+ * The whole row is measured against the width it is given and the icons shrink
+ * to fit, because the page count is not fixed: the persona answers add and
+ * remove steps, and eleven of them still have to fit next to a Skip button on
+ * a small phone.
  */
 @Composable
 private fun OnboardingProgress(
@@ -326,37 +334,46 @@ private fun OnboardingProgress(
     index: Int,
     accent: androidx.compose.ui.graphics.Color,
     reduceMotion: Boolean,
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        pages.forEachIndexed { i, page ->
-            val current = i == index
-            val size by animateDpAsState(
-                targetValue = if (current) ProgressPillSize else ProgressDotSize,
-                animationSpec = if (reduceMotion) snap() else tween(NavTransitionMs),
-                label = "progressPill",
-            )
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(size)
-                    .background(
-                        when {
-                            current -> accent
-                            i < index -> accent.copy(alpha = 0.45f)
-                            else -> MaterialTheme.colorScheme.surfaceVariant
-                        },
-                        CircleShape,
-                    ),
-            ) {
-                if (current) {
+    BoxWithConstraints(modifier = modifier) {
+        // The current step is drawn a size up, so budget for one of those and
+        // plain cells for the rest.
+        val cell = ((maxWidth - ProgressGap * (pages.size - 1) - ProgressGrowth) / pages.size)
+            .coerceIn(ProgressMinCell, ProgressMaxCell)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(ProgressGap),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            pages.forEachIndexed { i, page ->
+                val current = i == index
+                val size by animateDpAsState(
+                    targetValue = if (current) cell + ProgressGrowth else cell,
+                    animationSpec = if (reduceMotion) snap() else tween(NavTransitionMs),
+                    label = "progressCell",
+                )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(size)
+                        .background(
+                            when {
+                                current -> accent
+                                i < index -> accent.copy(alpha = 0.25f)
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            },
+                            CircleShape,
+                        ),
+                ) {
                     Icon(
                         heroIcon(page),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.size(14.dp),
+                        tint = when {
+                            current -> MaterialTheme.colorScheme.surface
+                            i < index -> accent
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(size * ProgressGlyphShare),
                     )
                 }
             }
@@ -364,9 +381,14 @@ private fun OnboardingProgress(
     }
 }
 
-/** The progress row's two sizes: a plain dot, and the pill holding an icon. */
-private val ProgressDotSize: Dp = 8.dp
-private val ProgressPillSize: Dp = 22.dp
+/** The progress row's geometry: cell bounds, the gap, and the current step's bump. */
+private val ProgressMinCell: Dp = 16.dp
+private val ProgressMaxCell: Dp = 26.dp
+private val ProgressGap: Dp = 4.dp
+private val ProgressGrowth: Dp = 6.dp
+
+/** How much of a progress cell its glyph takes. */
+private const val ProgressGlyphShare = 0.62f
 
 private val HeroTileSize: Dp = 56.dp
 private val CompactHeroTileSize: Dp = 40.dp

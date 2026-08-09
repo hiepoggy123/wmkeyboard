@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.app
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,8 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -52,6 +51,8 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -71,6 +72,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
@@ -431,7 +433,11 @@ internal fun LookPage(repository: SettingsRepository, settings: KeyboardSettings
     ThemeModeChoice(settings.themeMode) { mode ->
         scope.launch {
             repository.setThemeMode(mode)
-            // The row below is about to stop showing the selected theme.
+            // A fixed mode has one keyboard theme, so the light/dark pair has
+            // to stand down — while it is on it overrides the selected id
+            // outright, and every tap on the list below would do nothing.
+            if (mode != ThemeMode.SYSTEM) repository.setAutoThemeEnabled(false)
+            // The list below is about to stop showing the selected theme.
             // Leaving a dark keyboard selected under "Light" would be a
             // choice the user can no longer see, so it goes back to the
             // default, which follows the mode.
@@ -446,54 +452,128 @@ internal fun LookPage(repository: SettingsRepository, settings: KeyboardSettings
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
     )
+    if (settings.themeMode == ThemeMode.SYSTEM) {
+        AutoThemeChooser(repository, settings)
+        return
+    }
     // Only the themes that match the choice above. Someone who has just asked
-    // for a light keyboard has no use for eleven dark ones, and a shorter row
+    // for a light keyboard has no use for eleven dark ones, and a shorter list
     // is a choice rather than a catalogue. The full set stays in Appearance.
     val themes = remember(settings.themeMode) { themesForMode(settings.themeMode) }
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ThemeChoiceList(
+        themes = themes,
+        selectedId = settings.keyboardThemeId,
+        onSelect = { id -> scope.launch { repository.setKeyboardThemeId(id) } },
+    )
+}
+
+/**
+ * The keyboard theme under "Auto": one light theme and one dark theme, chosen
+ * separately, behind a tab each.
+ *
+ * Auto means the board follows the system, so it has two answers rather than
+ * one — and the mixed list this replaced offered dark themes to someone
+ * looking at a light phone with no way to say which half they were picking.
+ * Picking either half turns the auto-theme pair on; it is the setting that
+ * makes two chosen themes mean anything, and choosing one is the only honest
+ * signal that the user wants it.
+ *
+ * The tab that opens is the half in effect right now, so the theme marked as
+ * selected is the theme on screen.
+ */
+@Composable
+private fun AutoThemeChooser(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val systemDark = isSystemInDarkTheme()
+    var darkTab by rememberSaveable { mutableStateOf(systemDark) }
+    val auto = settings.autoTheme
+    // Before the pair is on there is one selected theme, not two. Show it in
+    // the half it belongs to and leave the other on the default, so turning
+    // the pair on keeps what was already showing.
+    val lightId = if (auto.enabled) auto.lightThemeId else settings.keyboardThemeId.inHalf(false)
+    val darkId = if (auto.enabled) auto.darkThemeId else settings.keyboardThemeId.inHalf(true)
+    TabRow(
+        selectedTabIndex = if (darkTab) 1 else 0,
+        modifier = Modifier.padding(horizontal = 16.dp),
     ) {
-        item {
-            OnboardingThemeCard(
-                selected = settings.keyboardThemeId == DEFAULT_THEME_ID,
-                onSelect = { scope.launch { repository.setKeyboardThemeId(DEFAULT_THEME_ID) } },
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(72.dp)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        stringResource(CommonR.string.common_default),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
-                Text(
-                    stringResource(R.string.onboarding_keyboard_theme_material_you_label),
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(6.dp),
-                )
+        Tab(
+            selected = !darkTab,
+            onClick = { darkTab = false },
+            text = { Text(stringResource(R.string.onboarding_theme_mode_light)) },
+            icon = { Icon(Icons.Outlined.LightMode, contentDescription = null) },
+        )
+        Tab(
+            selected = darkTab,
+            onClick = { darkTab = true },
+            text = { Text(stringResource(R.string.onboarding_theme_mode_dark)) },
+            icon = { Icon(Icons.Outlined.DarkMode, contentDescription = null) },
+        )
+    }
+    CaptionText(stringResource(R.string.onboarding_keyboard_theme_auto_info))
+    ThemeChoiceList(
+        themes = remember(darkTab) { BuiltInThemes.filter { it.dark == darkTab } },
+        selectedId = if (darkTab) darkId else lightId,
+        onSelect = { id ->
+            scope.launch {
+                if (darkTab) repository.setAutoThemeDarkId(id) else repository.setAutoThemeLightId(id)
+                repository.setAutoThemeEnabled(true)
             }
+        },
+    )
+}
+
+/**
+ * This id if it belongs to the [dark] half, and the default theme otherwise —
+ * the default is the one entry that exists in both halves, since it is drawn
+ * from the Material scheme.
+ */
+private fun String.inHalf(dark: Boolean): String =
+    takeIf { BuiltInThemes.find { theme -> theme.id == this }?.dark == dark } ?: DEFAULT_THEME_ID
+
+/**
+ * The themes on offer, stacked. Vertical rather than the side-scrolling strip
+ * this replaced: a row that runs off the edge hides most of what it holds, and
+ * a setup page has the height to spare.
+ */
+@Composable
+private fun ThemeChoiceList(
+    themes: List<ThemeSpec>,
+    selectedId: String,
+    onSelect: (String) -> Unit,
+) {
+    OnboardingThemeRow(
+        name = stringResource(R.string.onboarding_keyboard_theme_material_you_label),
+        selected = selectedId == DEFAULT_THEME_ID,
+        onSelect = { onSelect(DEFAULT_THEME_ID) },
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(ThemeRowPreviewHeight)
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                stringResource(CommonR.string.common_default),
+                style = MaterialTheme.typography.labelMedium,
+            )
         }
-        items(themes, key = { it.id }) { theme ->
-            OnboardingThemeCard(
-                selected = settings.keyboardThemeId == theme.id,
-                onSelect = { scope.launch { repository.setKeyboardThemeId(theme.id) } },
-            ) {
-                ThemePreview(theme, modifier = Modifier.fillMaxWidth())
-                Text(
-                    theme.name,
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
-                    modifier = Modifier.padding(6.dp),
-                )
-            }
+    }
+    for (theme in themes) {
+        OnboardingThemeRow(
+            name = theme.name,
+            selected = selectedId == theme.id,
+            onSelect = { onSelect(theme.id) },
+        ) {
+            ThemePreview(theme, modifier = Modifier.fillMaxWidth())
         }
     }
 }
+
+/** Width of the miniature on a theme row, and the height its stand-in draws at. */
+private val ThemeRowPreviewWidth: Dp = 104.dp
+private val ThemeRowPreviewHeight: Dp = 74.dp
 
 /**
  * The built-in themes worth offering under [mode]. Auto shows all of them —
@@ -588,25 +668,50 @@ internal fun OnboardingNotice(text: String) {
     }
 }
 
+/**
+ * One theme on the stack: its miniature, its name, and a radio saying whether
+ * it is the one. The radio rather than the border alone because a stacked list
+ * reads as a list of options, and in the auto tabs there are two of these
+ * lists, each with its own answer.
+ */
 @Composable
-private fun OnboardingThemeCard(
+private fun OnboardingThemeRow(
+    name: String,
     selected: Boolean,
     onSelect: () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Column(
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .width(150.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(16.dp))
             .border(
                 if (selected) 2.dp else 1.dp,
                 if (selected) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.outlineVariant,
-                RoundedCornerShape(12.dp),
+                RoundedCornerShape(16.dp),
             )
-            .clickable(onClick = onSelect),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) { content() }
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                else MaterialTheme.colorScheme.surfaceContainerLow,
+            )
+            .clickable(onClick = onSelect)
+            .padding(10.dp),
+    ) {
+        Box(modifier = Modifier.width(ThemeRowPreviewWidth)) { content() }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            name,
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 2,
+            modifier = Modifier.weight(1f),
+        )
+        // The row is the click target; a second one on the radio would
+        // double-toggle under TalkBack.
+        RadioButton(selected = selected, onClick = null)
+    }
 }
 
 /**
@@ -772,12 +877,20 @@ internal fun GesturesPage(repository: SettingsRepository, settings: KeyboardSett
         ListItem(
             headlineContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(choice.titleRes))
+                    Text(
+                        stringResource(choice.titleRes),
+                        // Yields to the badge instead of splitting the row in
+                        // half: "Only change the language" is wider than what
+                        // an even share leaves, and the badge was the one that
+                        // lost, wrapping "Recommended" onto two lines.
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
                     if (choice == recommended) {
                         Text(
                             stringResource(R.string.onboarding_recommended_badge),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            maxLines = 1,
                             modifier = Modifier
                                 .padding(start = 8.dp)
                                 .clip(RoundedCornerShape(8.dp))

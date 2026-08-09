@@ -20,9 +20,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Mood
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,8 +35,11 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.layout.Key
@@ -50,10 +55,13 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 // the APK.
 
 /** Height of one key in every miniature here. */
-private val MiniKeyHeight: Dp = 14.dp
+private val MiniKeyHeight: Dp = 22.dp
 
 /** Gap between miniature keys, horizontally and between rows. */
-private val MiniKeyGap: Dp = 2.dp
+private val MiniKeyGap: Dp = 3.dp
+
+/** Size of a key's letter. Set against a matching line height — see [MiniKeyLabel]. */
+private val MiniKeyFontSize: TextUnit = 9.sp
 
 /** How many rows of a real layout the layout-picker miniature draws. */
 private const val MINI_LAYOUT_ROWS = 4
@@ -150,9 +158,9 @@ private fun MiniBoard(modifier: Modifier = Modifier, content: @Composable () -> 
     Column(
         verticalArrangement = Arrangement.spacedBy(MiniKeyGap),
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .padding(4.dp),
+            .padding(6.dp),
     ) { content() }
 }
 
@@ -184,19 +192,39 @@ private fun MiniKey(label: String, modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
         modifier = modifier
             .height(MiniKeyHeight)
-            .clip(RoundedCornerShape(3.dp))
+            .clip(RoundedCornerShape(4.dp))
             .background(MaterialTheme.colorScheme.surface),
     ) {
-        if (label.isNotEmpty()) {
-            Text(
-                label,
-                fontSize = 6.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Clip,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
+        if (label.isNotEmpty()) MiniKeyLabel(label)
     }
+}
+
+/**
+ * A key's letter, sitting in the middle of the key rather than near its floor.
+ *
+ * Centring the `Text` is not enough on its own: what gets centred is the line
+ * box, and a line box carries the font's ascent and descent whether or not the
+ * glyph uses them. At 9sp that leftover space is a visible drop. Trimming the
+ * line box to the glyph and dropping the platform's extra font padding is what
+ * actually puts an "a" in the centre of the key.
+ */
+@Composable
+private fun MiniKeyLabel(label: String) {
+    Text(
+        label,
+        maxLines = 1,
+        overflow = TextOverflow.Clip,
+        color = MaterialTheme.colorScheme.onSurface,
+        style = LocalTextStyle.current.copy(
+            fontSize = MiniKeyFontSize,
+            lineHeight = MiniKeyFontSize,
+            platformStyle = PlatformTextStyle(includeFontPadding = false),
+            lineHeightStyle = LineHeightStyle(
+                alignment = LineHeightStyle.Alignment.Center,
+                trim = LineHeightStyle.Trim.Both,
+            ),
+        ),
+    )
 }
 
 @Composable
@@ -205,7 +233,7 @@ private fun MiniKeyIcon(icon: ImageVector, highlighted: Boolean, modifier: Modif
         contentAlignment = Alignment.Center,
         modifier = modifier
             .height(MiniKeyHeight)
-            .clip(RoundedCornerShape(3.dp))
+            .clip(RoundedCornerShape(4.dp))
             .background(
                 if (highlighted) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.surface,
@@ -216,7 +244,7 @@ private fun MiniKeyIcon(icon: ImageVector, highlighted: Boolean, modifier: Modif
             contentDescription = null,
             tint = if (highlighted) MaterialTheme.colorScheme.onPrimary
             else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(9.dp),
+            modifier = Modifier.size(14.dp),
         )
     }
 }
@@ -259,7 +287,8 @@ internal fun DiscoverPreview(
             "clipboard", "snippets" -> StackScene(accent, animate)
             "photos", "modes" -> WallpaperScene(accent)
             "whisper" -> WaveScene(accent, animate)
-            "fancy", "ai" -> FancyScene(accent, animate)
+            "fancy" -> FancyScene(accent, animate)
+            "ai" -> AiScene(accent, animate)
             else -> ToggleScene(accent, animate)
         }
     }
@@ -401,6 +430,55 @@ private fun FancyScene(accent: Color, animate: Boolean) {
             Text("𝓐𝓪", fontSize = 15.sp, color = Color.White)
         }
     }
+}
+
+/**
+ * The AI tools: a rough line of text being rewritten into a clean one, with
+ * the wand doing it.
+ *
+ * Its own scene rather than the fancy-text one in another colour — the two
+ * cards sit in the same grid, and two identical pictures say the two features
+ * are the same feature.
+ */
+@Composable
+private fun AiScene(accent: Color, animate: Boolean) {
+    val pulse = pulseAlpha(animate)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // Before: a short, ragged draft.
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextLine(width = 46.dp, color = MaterialTheme.colorScheme.onSurfaceVariant, alpha = 0.35f)
+            TextLine(width = 30.dp, color = MaterialTheme.colorScheme.onSurfaceVariant, alpha = 0.35f)
+        }
+        Icon(
+            Icons.Outlined.AutoAwesome,
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier
+                .size(18.dp)
+                .alpha(pulse),
+        )
+        // After: longer, even, and in the tool's own colour.
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextLine(width = 52.dp, color = accent, alpha = pulse)
+            TextLine(width = 44.dp, color = accent, alpha = pulse)
+        }
+    }
+}
+
+/** One bar standing in for a line of text. */
+@Composable
+private fun TextLine(width: Dp, color: Color, alpha: Float) {
+    Box(
+        modifier = Modifier
+            .alpha(alpha)
+            .width(width)
+            .height(6.dp)
+            .clip(RoundedCornerShape(3.dp))
+            .background(color),
+    )
 }
 
 /** Two switches on the bar: incognito and autocorrect. */
