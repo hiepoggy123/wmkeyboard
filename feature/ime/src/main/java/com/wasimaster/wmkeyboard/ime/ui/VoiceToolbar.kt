@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.ime.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.OpenInFull
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.SwapVert
@@ -53,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -92,11 +94,12 @@ import kotlin.math.roundToInt
  * gets the screen back while the user talks. The service keeps the touchable
  * region down to the pill itself — everything around it falls through.
  *
- * Two orientations share the state machine: the horizontal pill lies along the
- * bottom edge (draggable between left/centre/right rests), the vertical one
- * stands against a side edge (draggable along it, crossing the middle of the
- * screen flips the edge). Both persist where they settle through
- * [VoiceBarAction], the multiplexed command slot.
+ * Both orientations share one placement engine: drag the pill anywhere; on
+ * release the horizontal pill snaps to the nearest of three rests and keeps
+ * its height, the vertical pill docks to the nearer screen edge and keeps its
+ * position along it. The rest lives in local state first and persists behind
+ * ([VoiceBarAction.SetRest]) — deriving it live from the settings made the
+ * pill spring back to its old edge while the DataStore write was in flight.
  */
 @Composable
 internal fun VoiceBarLayer(
@@ -124,32 +127,186 @@ internal fun VoiceBarLayer(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    if (state.settings.voiceBar.vertical) {
-        VerticalVoiceBar(
-            state = state,
-            hasPermission = hasPermission,
-            onToggle = onToggle,
-            onRequestPermission = onRequestPermission,
-            onOpenVoiceSettings = onOpenVoiceSettings,
-            onRestoreKeyboard = onRestoreKeyboard,
-            onAction = onAction,
-            onUndo = onUndo,
-            onLayoutSelect = onLayoutSelect,
-        )
-    } else {
-        HorizontalVoiceBar(
-            state = state,
-            hasPermission = hasPermission,
-            onToggle = onToggle,
-            onUndo = onUndo,
-            onRequestPermission = onRequestPermission,
-            onOpenVoiceSettings = onOpenVoiceSettings,
-            onRestoreKeyboard = onRestoreKeyboard,
-            onAction = onAction,
-            onLayoutSelect = onLayoutSelect,
-        )
+    val vertical = state.settings.voiceBar.vertical
+    val kb = LocalKbTheme.current
+    val scope = rememberCoroutineScope()
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(VoiceBarMargin),
+    ) {
+        val boxW = constraints.maxWidth
+        val boxH = constraints.maxHeight
+        // Seeded from the persisted settings once per orientation; drags move
+        // it immediately and persist behind. Not re-read afterwards — see the
+        // class doc for the jump-back this prevents.
+        val rest = remember(vertical) { VoiceBarRest(state.settings.voiceBar) }
+        val pillSize = remember { mutableStateOf(IntSize.Zero) }
+        // Live drag position; null = resting (or settling toward the rest).
+        val dragPos = remember { mutableStateOf<Offset?>(null) }
+        val settle = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
+        var settling by remember { mutableStateOf(false) }
+        val drag = remember { VoiceBarDrag() }
+
+        fun slackX() = (boxW - pillSize.value.width).coerceAtLeast(0).toFloat()
+        fun slackY() = (boxH - pillSize.value.height).coerceAtLeast(0).toFloat()
+        fun restOffset(): Offset = if (vertical) {
+            Offset(if (rest.rightEdge) slackX() else 0f, rest.yBias * slackY())
+        } else {
+            val x = when (rest.snap) {
+                VoiceBarSettings.SNAP_LEFT -> 0f
+                VoiceBarSettings.SNAP_RIGHT -> slackX()
+                else -> slackX() / 2f
+            }
+            Offset(x, rest.dockBias * slackY())
+        }
+        fun currentOffset(): Offset {
+            val live = dragPos.value
+            return when {
+                live != null -> Offset(
+                    live.x.coerceIn(0f, slackX()),
+                    live.y.coerceIn(0f, slackY()),
+                )
+                settling -> settle.value
+                else -> restOffset()
+            }
+        }
+
+        VoiceBarPill(
+            placed = pillSize.value != IntSize.Zero,
+            modifier = Modifier
+                .then(if (vertical) Modifier else Modifier.widthIn(max = VoiceBarMaxWidth))
+                .offset {
+                    val o = currentOffset()
+                    IntOffset(o.x.roundToInt(), o.y.roundToInt())
+                }
+                .onGloballyPositioned { coords ->
+                    pillSize.value = coords.size
+                    drag.record(coords.positionInWindow(), coords.size)
+                    // Publishing mid-gesture or mid-settle would force a decor
+                    // layout pass per frame; the region cannot matter while the
+                    // finger is captured, so only the resting pill publishes.
+                    if (!drag.active && !settling) drag.publish(onAction)
+                }
+                .pointerInput(vertical) {
+                    detectDragGestures(
+                        onDragStart = {
+                            drag.active = true
+                            settling = false
+                            dragPos.value = currentOffset()
+                        },
+                        onDrag = { change, delta ->
+                            change.consume()
+                            val current = dragPos.value ?: return@detectDragGestures
+                            dragPos.value = Offset(
+                                (current.x + delta.x).coerceIn(0f, slackX()),
+                                (current.y + delta.y).coerceIn(0f, slackY()),
+                            )
+                        },
+                        onDragCancel = {
+                            drag.active = false
+                            dragPos.value = null
+                        },
+                        onDragEnd = {
+                            drag.active = false
+                            val end = dragPos.value ?: return@detectDragGestures
+                            rest.settleFrom(
+                                end = end,
+                                vertical = vertical,
+                                pillWidth = pillSize.value.width,
+                                boxWidth = boxW,
+                                slackX = slackX(),
+                                slackY = slackY(),
+                            )
+                            onAction(
+                                VoiceBarAction.SetRest(
+                                    snap = rest.snap,
+                                    rightEdge = rest.rightEdge,
+                                    yBias = rest.yBias,
+                                    dockBias = rest.dockBias,
+                                ),
+                            )
+                            scope.launch {
+                                settling = true
+                                settle.snapTo(currentOffset())
+                                dragPos.value = null
+                                if (kb.reduceMotion) {
+                                    settle.snapTo(restOffset())
+                                } else {
+                                    settle.animateTo(restOffset(), VoiceBarSettleSpring)
+                                }
+                                settling = false
+                                drag.publish(onAction)
+                            }
+                        },
+                    )
+                },
+        ) {
+            if (vertical) {
+                VerticalBarContent(
+                    state = state,
+                    hasPermission = hasPermission,
+                    onToggle = onToggle,
+                    onRequestPermission = onRequestPermission,
+                    onOpenVoiceSettings = onOpenVoiceSettings,
+                    onRestoreKeyboard = onRestoreKeyboard,
+                    onAction = onAction,
+                    onUndo = onUndo,
+                    onLayoutSelect = onLayoutSelect,
+                )
+            } else {
+                HorizontalBarContent(
+                    state = state,
+                    hasPermission = hasPermission,
+                    onToggle = onToggle,
+                    onUndo = onUndo,
+                    onRequestPermission = onRequestPermission,
+                    onOpenVoiceSettings = onOpenVoiceSettings,
+                    onRestoreKeyboard = onRestoreKeyboard,
+                    onAction = onAction,
+                    onLayoutSelect = onLayoutSelect,
+                )
+            }
+        }
     }
 }
+
+/** The pill's resting place, local-first. Written by drags, persisted behind. */
+private class VoiceBarRest(seed: VoiceBarSettings) {
+    var snap = seed.snap
+    var rightEdge = seed.rightEdge
+    var yBias = seed.yBias.coerceIn(0f, 1f)
+    var dockBias = seed.dockBias.coerceIn(0f, 1f)
+}
+
+/** Where a released drag comes to rest, per orientation. */
+private fun VoiceBarRest.settleFrom(
+    end: Offset,
+    vertical: Boolean,
+    pillWidth: Int,
+    boxWidth: Int,
+    slackX: Float,
+    slackY: Float,
+) {
+    if (vertical) {
+        // Whichever half of the screen the pill's centre ends in is the
+        // edge it docks to.
+        rightEdge = end.x + pillWidth / 2f > boxWidth / 2f
+        yBias = if (slackY > 0f) (end.y / slackY).coerceIn(0f, 1f) else 0.5f
+    } else {
+        snap = nearestSnap(end.x, slackX)
+        dockBias = if (slackY > 0f) (end.y / slackY).coerceIn(0f, 1f) else 1f
+    }
+}
+
+/** The closest of the horizontal pill's three rests to a released drag. */
+private fun nearestSnap(x: Float, slackX: Float): Int = listOf(
+    VoiceBarSettings.SNAP_LEFT to 0f,
+    VoiceBarSettings.SNAP_CENTER to slackX / 2f,
+    VoiceBarSettings.SNAP_RIGHT to slackX,
+).minByOrNull { (_, anchor) -> abs(anchor - x) }?.first ?: VoiceBarSettings.SNAP_CENTER
 
 /** Scratch state for one bar drag. Deliberately not snapshot state. */
 private class VoiceBarDrag {
@@ -167,225 +324,7 @@ private fun VoiceBarDrag.publish(onAction: (VoiceBarAction) -> Unit) {
     if (measured) onAction(VoiceBarAction.Bounds(left, top, right, bottom))
 }
 
-@Composable
-private fun HorizontalVoiceBar(
-    state: KeyboardUiState,
-    hasPermission: Boolean,
-    onToggle: () -> Unit,
-    onUndo: () -> Unit,
-    onRequestPermission: () -> Unit,
-    onOpenVoiceSettings: () -> Unit,
-    onRestoreKeyboard: () -> Unit,
-    onAction: (VoiceBarAction) -> Unit,
-    onLayoutSelect: (String) -> Unit,
-) {
-    val kb = LocalKbTheme.current
-    val scope = rememberCoroutineScope()
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = VoiceBarMargin, vertical = VoiceBarMargin),
-    ) {
-        val trackPx = constraints.maxWidth
-        val pillWidth = remember { mutableStateOf(0) }
-        // Live drag position; null = resting at the persisted snap anchor.
-        val dragX = remember { mutableStateOf<Float?>(null) }
-        val settleX = remember { Animatable(0f) }
-        var settling by remember { mutableStateOf(false) }
-        val drag = remember { VoiceBarDrag() }
-        fun slack() = (trackPx - pillWidth.value).coerceAtLeast(0).toFloat()
-        fun anchorFor(snap: Int) = when (snap) {
-            VoiceBarSettings.SNAP_LEFT -> 0f
-            VoiceBarSettings.SNAP_RIGHT -> slack()
-            else -> slack() / 2f
-        }
-        fun restingX(): Float {
-            val live = dragX.value
-            return when {
-                live != null -> live.coerceIn(0f, slack())
-                settling -> settleX.value
-                else -> anchorFor(state.settings.voiceBar.snap)
-            }
-        }
-
-        VoiceBarPill(
-            modifier = Modifier
-                .widthIn(max = VoiceBarMaxWidth)
-                .offset { IntOffset(restingX().roundToInt(), 0) }
-                .onGloballyPositioned { coords ->
-                    pillWidth.value = coords.size.width
-                    drag.record(coords.positionInWindow(), coords.size)
-                    if (!drag.active && !settling) drag.publish(onAction)
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = {
-                            drag.active = true
-                            settling = false
-                            dragX.value = restingX()
-                        },
-                        onDrag = { change, delta ->
-                            change.consume()
-                            dragX.value = ((dragX.value ?: 0f) + delta.x).coerceIn(0f, slack())
-                        },
-                        onDragCancel = { drag.active = false },
-                        onDragEnd = {
-                            drag.active = false
-                            val end = dragX.value ?: return@detectDragGestures
-                            // Nearest of the three rests wins the pill.
-                            val snap = listOf(
-                                VoiceBarSettings.SNAP_LEFT,
-                                VoiceBarSettings.SNAP_CENTER,
-                                VoiceBarSettings.SNAP_RIGHT,
-                            ).minByOrNull { abs(anchorFor(it) - end) }
-                                ?: VoiceBarSettings.SNAP_CENTER
-                            onAction(VoiceBarAction.SetSnap(snap))
-                            scope.launch {
-                                settling = true
-                                settleX.snapTo(end)
-                                dragX.value = null
-                                if (kb.reduceMotion) {
-                                    settleX.snapTo(anchorFor(snap))
-                                } else {
-                                    settleX.animateTo(anchorFor(snap), VoiceBarSettleSpring)
-                                }
-                                settling = false
-                                drag.publish(onAction)
-                            }
-                        },
-                    )
-                },
-        ) {
-            HorizontalBarContent(
-                state = state,
-                hasPermission = hasPermission,
-                onToggle = onToggle,
-                onUndo = onUndo,
-                onRequestPermission = onRequestPermission,
-                onOpenVoiceSettings = onOpenVoiceSettings,
-                onRestoreKeyboard = onRestoreKeyboard,
-                onAction = onAction,
-                onLayoutSelect = onLayoutSelect,
-            )
-        }
-    }
-}
-
-@Composable
-private fun VerticalVoiceBar(
-    state: KeyboardUiState,
-    hasPermission: Boolean,
-    onToggle: () -> Unit,
-    onRequestPermission: () -> Unit,
-    onOpenVoiceSettings: () -> Unit,
-    onRestoreKeyboard: () -> Unit,
-    onAction: (VoiceBarAction) -> Unit,
-    onUndo: () -> Unit,
-    onLayoutSelect: (String) -> Unit,
-) {
-    val kb = LocalKbTheme.current
-    val scope = rememberCoroutineScope()
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(VoiceBarMargin),
-    ) {
-        val boxWidth = constraints.maxWidth
-        val boxHeight = constraints.maxHeight
-        val pillSize = remember { mutableStateOf(IntSize.Zero) }
-        val dragPos = remember { mutableStateOf<Pair<Float, Float>?>(null) }
-        val settleX = remember { Animatable(0f) }
-        val settleY = remember { Animatable(0f) }
-        var settling by remember { mutableStateOf(false) }
-        val drag = remember { VoiceBarDrag() }
-        fun slackX() = (boxWidth - pillSize.value.width).coerceAtLeast(0).toFloat()
-        fun slackY() = (boxHeight - pillSize.value.height).coerceAtLeast(0).toFloat()
-        fun edgeAnchor(rightEdge: Boolean) = if (rightEdge) slackX() else 0f
-        fun resting(): Pair<Float, Float> {
-            val live = dragPos.value
-            return when {
-                live != null -> live.first.coerceIn(0f, slackX()) to
-                    live.second.coerceIn(0f, slackY())
-                settling -> settleX.value to settleY.value
-                else -> edgeAnchor(state.settings.voiceBar.rightEdge) to
-                    state.settings.voiceBar.yBias.coerceIn(0f, 1f) * slackY()
-            }
-        }
-
-        VoiceBarPill(
-            modifier = Modifier
-                .offset {
-                    val (x, y) = resting()
-                    IntOffset(x.roundToInt(), y.roundToInt())
-                }
-                .onGloballyPositioned { coords ->
-                    pillSize.value = coords.size
-                    drag.record(coords.positionInWindow(), coords.size)
-                    if (!drag.active && !settling) drag.publish(onAction)
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = {
-                            drag.active = true
-                            settling = false
-                            dragPos.value = resting()
-                        },
-                        onDrag = { change, delta ->
-                            change.consume()
-                            val current = dragPos.value ?: return@detectDragGestures
-                            dragPos.value =
-                                (current.first + delta.x).coerceIn(0f, slackX()) to
-                                    (current.second + delta.y).coerceIn(0f, slackY())
-                        },
-                        onDragCancel = { drag.active = false },
-                        onDragEnd = {
-                            drag.active = false
-                            val end = dragPos.value ?: return@detectDragGestures
-                            // Whichever half of the screen the pill's centre
-                            // ends up in is the edge it docks to.
-                            val centre = end.first + pillSize.value.width / 2f
-                            val rightEdge = centre > boxWidth / 2f
-                            val yBias = if (slackY() > 0f) end.second / slackY() else 0.5f
-                            onAction(VoiceBarAction.SetEdge(rightEdge, yBias))
-                            scope.launch {
-                                settling = true
-                                settleX.snapTo(end.first)
-                                settleY.snapTo(end.second)
-                                dragPos.value = null
-                                if (kb.reduceMotion) {
-                                    settleX.snapTo(edgeAnchor(rightEdge))
-                                } else {
-                                    settleX.animateTo(edgeAnchor(rightEdge), VoiceBarSettleSpring)
-                                }
-                                settling = false
-                                drag.publish(onAction)
-                            }
-                        },
-                    )
-                },
-        ) {
-            VerticalBarContent(
-                state = state,
-                hasPermission = hasPermission,
-                onToggle = onToggle,
-                onRequestPermission = onRequestPermission,
-                onOpenVoiceSettings = onOpenVoiceSettings,
-                onRestoreKeyboard = onRestoreKeyboard,
-                onAction = onAction,
-                onUndo = onUndo,
-                onLayoutSelect = onLayoutSelect,
-            )
-        }
-    }
-}
-
-private fun VoiceBarDrag.record(
-    position: androidx.compose.ui.geometry.Offset,
-    size: IntSize,
-) {
+private fun VoiceBarDrag.record(position: Offset, size: IntSize) {
     left = position.x.roundToInt()
     top = position.y.roundToInt()
     right = left + size.width
@@ -396,10 +335,13 @@ private fun VoiceBarDrag.record(
 /**
  * The pill chrome both orientations share: entrance animation, theme
  * background (colour, gradient or photo — the same painter as the keyboard
- * board, clipped to the pill), border and shadow.
+ * board, clipped to the pill), border and shadow. Invisible until [placed] —
+ * the first frame measures at a provisional offset, and flashing there reads
+ * as the pill teleporting.
  */
 @Composable
 private fun VoiceBarPill(
+    placed: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -408,15 +350,15 @@ private fun VoiceBarPill(
     // Enter as one gesture: fade, rise and unshrink together. Draw-phase
     // reads only, so the entrance never moves the published touch bounds.
     val appear = remember { Animatable(if (kb.reduceMotion) 1f else 0f) }
-    LaunchedEffect(Unit) {
-        if (appear.value < 1f) {
+    LaunchedEffect(placed) {
+        if (placed && appear.value < 1f) {
             appear.animateTo(1f, spring(stiffness = Spring.StiffnessMediumLow))
         }
     }
     val riseDistance = with(LocalDensity.current) { VoiceBarRise.toPx() }
     Surface(
         modifier = modifier.graphicsLayer {
-            val seen = appear.value
+            val seen = if (placed) appear.value else 0f
             alpha = seen
             translationY = (1f - seen) * riseDistance
             scaleX = 0.92f + 0.08f * seen
@@ -514,6 +456,7 @@ private fun HorizontalBarContent(
                     onUndo()
                 }
             }
+            VoiceBarExpandButton(state, onAction)
             VoiceBarIconButton(
                 icon = Icons.Outlined.Keyboard,
                 description = stringResource(R.string.ime_voice_bar_restore_desc),
@@ -659,6 +602,7 @@ private fun VerticalBarContent(
                 onRequestPermission = onRequestPermission,
             )
             VoiceBarDeleteButton(onAction)
+            VoiceBarExpandButton(state, onAction)
             VoiceBarIconButton(
                 icon = Icons.Outlined.Keyboard,
                 description = stringResource(R.string.ime_voice_bar_restore_desc),
@@ -672,6 +616,31 @@ private fun VerticalBarContent(
                 menuOpen = true
             }
         }
+    }
+}
+
+/**
+ * Expand back to the surface the bar replaced (panel or strip) — the inline
+ * inverse of their collapse buttons, so switching styles never needs the
+ * settings app.
+ */
+@Composable
+private fun VoiceBarExpandButton(
+    state: KeyboardUiState,
+    onAction: (VoiceBarAction) -> Unit,
+) {
+    val feedback = LocalKeyPressFeedback.current
+    val returnMode = state.settings.voiceBar.returnMode
+    VoiceBarIconButton(
+        icon = Icons.Outlined.OpenInFull,
+        description = if (returnMode == VoiceBarSettings.MODE_STRIP) {
+            stringResource(R.string.ime_voice_bar_expand_strip_desc)
+        } else {
+            stringResource(R.string.ime_voice_bar_expand_panel_desc)
+        },
+    ) {
+        feedback()
+        onAction(VoiceBarAction.SwitchSurface(returnMode))
     }
 }
 
@@ -981,4 +950,4 @@ private const val VoiceBarStatusFadeMs = 180
 
 /** The settle after a drag: firm, one soft overshoot at most. */
 private val VoiceBarSettleSpring =
-    spring<Float>(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium)
+    spring<Offset>(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium)

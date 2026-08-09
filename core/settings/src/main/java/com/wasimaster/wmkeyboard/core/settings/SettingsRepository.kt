@@ -2182,6 +2182,14 @@ data class VoiceBarSettings(
     val rightEdge: Boolean = true,
     /** The vertical bar's position along its edge, as a fraction of the travel. */
     val yBias: Float = 0.5f,
+    /** The horizontal bar's height on screen: 1 = docked at the bottom, 0 = the top. */
+    val dockBias: Float = 1f,
+    /**
+     * The surface the bar's expand button goes back to — whichever of
+     * [MODE_PANEL] or [MODE_STRIP] the user collapsed from, defaulting to the
+     * panel when the bar was chosen in settings instead.
+     */
+    val returnMode: String = MODE_PANEL,
 ) {
     companion object {
         const val MODE_PANEL = "panel"
@@ -3569,6 +3577,8 @@ class SettingsRepository(private val context: Context) {
         private val VOICE_BAR_SNAP = intPreferencesKey("voice_bar_snap")
         private val VOICE_BAR_EDGE_RIGHT = booleanPreferencesKey("voice_bar_edge_right")
         private val VOICE_BAR_Y_BIAS = floatPreferencesKey("voice_bar_y_bias")
+        private val VOICE_BAR_DOCK_BIAS = floatPreferencesKey("voice_bar_dock_bias")
+        private val VOICE_UI_RETURN_MODE = stringPreferencesKey("voice_ui_return_mode")
         private val VOICE_CONTINUOUS = booleanPreferencesKey("voice_continuous")
         private val VOICE_SPOKEN_PUNCTUATION = booleanPreferencesKey("voice_spoken_punctuation")
         private val VOICE_ENGINE = stringPreferencesKey("voice_engine")
@@ -4437,6 +4447,8 @@ class SettingsRepository(private val context: Context) {
                 snap = p[VOICE_BAR_SNAP] ?: defaults.voiceBar.snap,
                 rightEdge = p[VOICE_BAR_EDGE_RIGHT] ?: defaults.voiceBar.rightEdge,
                 yBias = p[VOICE_BAR_Y_BIAS] ?: defaults.voiceBar.yBias,
+                dockBias = p[VOICE_BAR_DOCK_BIAS] ?: defaults.voiceBar.dockBias,
+                returnMode = p[VOICE_UI_RETURN_MODE] ?: defaults.voiceBar.returnMode,
             ),
             voiceContinuous = p[VOICE_CONTINUOUS] ?: defaults.voiceContinuous,
             voiceSpokenPunctuation = p[VOICE_SPOKEN_PUNCTUATION]
@@ -4929,14 +4941,26 @@ class SettingsRepository(private val context: Context) {
     suspend fun setVoiceBarVertical(value: Boolean) =
         editPrefs { it[VOICE_BAR_VERTICAL] = value }
 
-    suspend fun setVoiceBarSnap(value: Int) =
-        editPrefs { it[VOICE_BAR_SNAP] = value }
-
-    /** The vertical bar settled after a drag: which edge, and how far along it. */
-    suspend fun setVoiceBarEdge(rightEdge: Boolean, yBias: Float) =
+    /** The bar settled after a drag: its whole resting place, in one write. */
+    suspend fun setVoiceBarRest(snap: Int, rightEdge: Boolean, yBias: Float, dockBias: Float) =
         editPrefs {
+            it[VOICE_BAR_SNAP] = snap
             it[VOICE_BAR_EDGE_RIGHT] = rightEdge
             it[VOICE_BAR_Y_BIAS] = yBias.coerceIn(0f, 1f)
+            it[VOICE_BAR_DOCK_BIAS] = dockBias.coerceIn(0f, 1f)
+        }
+
+    /**
+     * An inline switch between the voice surfaces (the panel's and strip's
+     * collapse buttons, the bar's expand button): the mode, the bar's armed
+     * flag and the surface to return to move together, in one write, so a
+     * settings emission can never see half a switch.
+     */
+    suspend fun setVoiceSurface(mode: String, barActive: Boolean, returnMode: String? = null) =
+        editPrefs {
+            it[VOICE_UI_MODE] = mode
+            it[VOICE_BAR_ACTIVE] = barActive
+            if (returnMode != null) it[VOICE_UI_RETURN_MODE] = returnMode
         }
 
     suspend fun setVoiceContinuous(value: Boolean) =

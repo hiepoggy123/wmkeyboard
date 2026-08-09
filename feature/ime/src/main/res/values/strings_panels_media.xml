@@ -77,6 +77,12 @@
     <string name="ime_voice_bar_vertical_desc">Stand the bar upright</string>
     <!-- Menu action: lay the upright bar back along the bottom edge. -->
     <string name="ime_voice_bar_horizontal_desc">Lay the bar flat</string>
+    <!-- Collapse button on the voice panel and the compact bar: switch
+         dictation to the small pill and make that the new default. -->
+    <string name="ime_voice_collapse_desc">Collapse to the small bar</string>
+    <!-- The bar's expand button: go back to the surface it replaced. -->
+    <string name="ime_voice_bar_expand_panel_desc">Open the voice panel</string>
+    <string name="ime_voice_bar_expand_strip_desc">Open the bar over the keys</string>
 
     <!-- Handwriting panel. -->
     <string name="ime_handwriting_checking_progress">Checking the handwriting model…</string>

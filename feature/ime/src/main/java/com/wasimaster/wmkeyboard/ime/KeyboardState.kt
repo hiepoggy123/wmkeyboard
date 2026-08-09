@@ -580,11 +580,21 @@ sealed interface VoiceBarAction {
     /** The collapsed bar should stand upright against a screen edge. */
     data class SetVertical(val vertical: Boolean) : VoiceBarAction
 
-    /** The horizontal bar settled on a resting place after a drag. */
-    data class SetSnap(val snap: Int) : VoiceBarAction
+    /** The bar settled after a drag: its whole resting place, persisted at once. */
+    data class SetRest(
+        val snap: Int,
+        val rightEdge: Boolean,
+        val yBias: Float,
+        val dockBias: Float,
+    ) : VoiceBarAction
 
-    /** The vertical bar settled after a drag: which edge, how far along it. */
-    data class SetEdge(val rightEdge: Boolean, val yBias: Float) : VoiceBarAction
+    /**
+     * Inline switch between the voice surfaces: the panel's and strip's
+     * collapse buttons pass MODE_BAR, the bar's expand button passes the
+     * stored return mode. Persists as the new default — that is the point:
+     * this one setting changes without a trip to the settings app.
+     */
+    data class SwitchSurface(val mode: String) : VoiceBarAction
 
     /**
      * The collapsed bar's on-screen rectangle in window coordinates — the

@@ -2552,22 +2552,26 @@ open class WMKeyboardService : InputMethodService() {
         // The collapsed voice bar wins over floating mode because it is what
         // the screen actually shows — KeyboardScreen branches to it first.
         if (voiceBarShowing()) {
-            // The vertical bar spans the window to reach mid-screen, so the
-            // app behind must keep its full size; the horizontal bar's window
-            // is only bar-tall, and the app resizing above it keeps the text
-            // field visible while dictating. Either way touches only land on
-            // the bar itself and everything else falls through.
-            if (_uiState.value.settings.voiceBar.vertical) {
-                val decorHeight = window?.window?.decorView?.height ?: return
-                outInsets.contentTopInsets = decorHeight
-                outInsets.visibleTopInsets = decorHeight
-            }
+            val decorHeight = window?.window?.decorView?.height ?: return
+            val bounds = voiceBarBounds
+            // A horizontal bar resting at the bottom lets the app resize to
+            // just above it, keeping the text field in view while dictating.
+            // A bar dragged anywhere else floats over a full-sized app.
+            // Judged from the published rectangle, not the stored bias — the
+            // rectangle is always current, the bias is a DataStore round
+            // trip behind a drag.
+            val docked = bounds != null && !_uiState.value.settings.voiceBar.vertical &&
+                bounds.bottom >= decorHeight - voiceBarDockSlopPx()
+            val topInset = if (docked && bounds != null) bounds.top else decorHeight
+            outInsets.contentTopInsets = topInset
+            outInsets.visibleTopInsets = topInset
             // Until the bar has published a rectangle the whole window stays
             // touchable — an empty region would make the bar itself untappable.
-            val bounds = voiceBarBounds ?: return
-            outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
-            outInsets.touchableRegion.setEmpty()
-            outInsets.touchableRegion.set(bounds)
+            if (bounds != null) {
+                outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
+                outInsets.touchableRegion.setEmpty()
+                outInsets.touchableRegion.set(bounds)
+            }
             return
         }
         if (!_uiState.value.settings.floatingKeyboard) return
@@ -2578,6 +2582,14 @@ open class WMKeyboardService : InputMethodService() {
         outInsets.touchableRegion.setEmpty()
         floatingPanelBounds?.let { outInsets.touchableRegion.set(it) }
     }
+
+    /**
+     * How close to the window's bottom the horizontal bar must sit to count
+     * as docked (nav bar plus margin, generously): everything below the
+     * gesture area reads as "at the bottom".
+     */
+    private fun voiceBarDockSlopPx(): Int =
+        (VOICE_BAR_DOCK_SLOP_DP * resources.displayMetrics.density).toInt()
 
     /** Never use the fullscreen (extract) editor while floating or collapsed to the bar. */
     override fun onEvaluateFullscreenMode(): Boolean =
@@ -8840,12 +8852,13 @@ open class WMKeyboardService : InputMethodService() {
                 vibrate()
                 serviceScope.launch { settingsRepository.setVoiceBarVertical(action.vertical) }
             }
-            is VoiceBarAction.SetSnap ->
-                serviceScope.launch { settingsRepository.setVoiceBarSnap(action.snap) }
-            is VoiceBarAction.SetEdge ->
+            is VoiceBarAction.SetRest ->
                 serviceScope.launch {
-                    settingsRepository.setVoiceBarEdge(action.rightEdge, action.yBias)
+                    settingsRepository.setVoiceBarRest(
+                        action.snap, action.rightEdge, action.yBias, action.dockBias,
+                    )
                 }
+            is VoiceBarAction.SwitchSurface -> switchVoiceSurface(action.mode)
             is VoiceBarAction.Bounds -> onVoiceBarBounds(action)
         }
     }
@@ -8927,7 +8940,15 @@ open class WMKeyboardService : InputMethodService() {
      * panel already open (setting flipped mid-session) still closes normally
      * through [onPanelChange]. True when the tap was taken.
      */
+    /**
+     * [switchVoiceSurface] is mid-flight: the surfaces are being swapped by
+     * hand, so [rerouteVoiceTool] must not bounce its onPanelChange call back
+     * to the bar the settings flow still says is the mode.
+     */
+    private var voiceSurfaceSwitch = false
+
     private fun rerouteVoiceTool(panel: PanelMode): Boolean {
+        if (voiceSurfaceSwitch) return false
         if (panel != PanelMode.VOICE || _uiState.value.panel == PanelMode.VOICE) return false
         return when (_uiState.value.settings.voiceBar.mode) {
             VoiceBarSettings.MODE_STRIP -> {
@@ -9044,6 +9065,65 @@ open class WMKeyboardService : InputMethodService() {
      * which is exactly when the bar needs its own region to survive.
      */
     private var voiceBarBounds: android.graphics.Rect? = null
+
+    /**
+     * Inline switch between the voice surfaces, from the panel's and strip's
+     * collapse buttons and the bar's expand button. Persists the choice as
+     * the new default in one write; the ui state moves first so the swap is
+     * this frame, not a DataStore round trip later.
+     */
+    private fun switchVoiceSurface(target: String) {
+        val state = _uiState.value
+        if (state.secureField) return
+        if (target == VoiceBarSettings.MODE_BAR) {
+            val from = state.settings.voiceBar.mode
+            val returnMode = if (from == VoiceBarSettings.MODE_STRIP) {
+                VoiceBarSettings.MODE_STRIP
+            } else {
+                VoiceBarSettings.MODE_PANEL
+            }
+            vibrate()
+            _uiState.update {
+                it.copy(
+                    panel = PanelMode.NONE,
+                    panelFocus = null,
+                    voice = it.voice.copy(strip = false, bar = true),
+                )
+            }
+            serviceScope.launch {
+                settingsRepository.setVoiceSurface(
+                    mode = VoiceBarSettings.MODE_BAR,
+                    barActive = true,
+                    returnMode = returnMode,
+                )
+            }
+            voiceSilentRetries = 0
+            startVoice()
+            return
+        }
+        // Expanding back to the surface the bar replaced.
+        _uiState.update { it.copy(voice = it.voice.copy(bar = false)) }
+        voiceBarBounds = null
+        serviceScope.launch {
+            settingsRepository.setVoiceSurface(mode = target, barActive = false)
+        }
+        if (target == VoiceBarSettings.MODE_STRIP) {
+            vibrate()
+            _uiState.update { it.copy(voice = it.voice.copy(strip = true)) }
+            voiceSilentRetries = 0
+            startVoice()
+        } else {
+            // The panel opens through onPanelChange so its side effects run;
+            // the flag stops the reroute from reading the stale "bar" mode
+            // out of the not-yet-updated settings and bouncing straight back.
+            voiceSurfaceSwitch = true
+            try {
+                onPanelChange(PanelMode.VOICE)
+            } finally {
+                voiceSurfaceSwitch = false
+            }
+        }
+    }
 
     private fun onVoiceBarBounds(bounds: VoiceBarAction.Bounds) {
         val rect = android.graphics.Rect(bounds.left, bounds.top, bounds.right, bounds.bottom)
@@ -15372,6 +15452,9 @@ open class WMKeyboardService : InputMethodService() {
          * visible delay.
          */
         private const val ENGINE_SWITCH_TIMEOUT_MS = 1_000L
+
+        /** See [voiceBarDockSlopPx]. */
+        private const val VOICE_BAR_DOCK_SLOP_DP = 72
 
         /** Inline emoji search is a local index lookup — no network wait. */
         private const val EMOJI_SEARCH_DEBOUNCE_MS = 24L

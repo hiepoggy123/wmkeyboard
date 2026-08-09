@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.CloseFullscreen
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Keyboard
@@ -64,6 +65,7 @@ import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.VoiceBarAction
 import com.wasimaster.wmkeyboard.ime.VoiceModelState
@@ -134,12 +136,17 @@ internal fun VoicePanel(
             ?: other.layoutIds.firstOrNull()
         if (layoutId != null) onLayoutSelect(layoutId)
     }
+    val collapseVisible = !state.secureField
+    fun collapseToBar() = onRailKey(
+        VoiceBarAction.SwitchSurface(VoiceBarSettings.MODE_BAR),
+    )
     val ringEntries: List<() -> Unit> = buildList {
         if (micUsable) {
             if (hasPermission) add(onToggle) else add(onRequestPermission)
         }
         if (undoVisible) add { feedback(); onUndo() }
         if (languageChipVisible) add { feedback(); switchVoiceLanguage() }
+        if (collapseVisible) add { feedback(); collapseToBar() }
     }
     PanelFocusTarget(
         panel = PanelMode.VOICE,
@@ -150,6 +157,7 @@ internal fun VoicePanel(
     val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
     val undoRingIndex = if (micUsable) 1 else 0
     val languageRingIndex = undoRingIndex + (if (undoVisible) 1 else 0)
+    val collapseRingIndex = languageRingIndex + (if (languageChipVisible) 1 else 0)
 
     Row(
         modifier = Modifier
@@ -208,6 +216,31 @@ internal fun VoicePanel(
                     onOpenVoiceSettings = onOpenVoiceSettings,
                     onUseSystemEngine = onUseSystemEngine,
                     micFocused = focusedAction == 0,
+                )
+            }
+
+            // Collapse to the bar: keep dictating in the small pill instead
+            // of this panel — and make that the voice tool's new default,
+            // which is the point: this one setting switches inline.
+            if (collapseVisible) {
+                Icon(
+                    Icons.Outlined.CloseFullscreen,
+                    contentDescription = stringResource(R.string.ime_voice_collapse_desc),
+                    tint = kb.toolbarIcon,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                        .focusRing(
+                            focusedAction == collapseRingIndex,
+                            RoundedCornerShape(kb.toolRadiusDp.dp),
+                        )
+                        .clickable {
+                            feedback()
+                            collapseToBar()
+                        }
+                        .padding(6.dp)
+                        .size(20.dp),
                 )
             }
 
@@ -608,6 +641,8 @@ internal fun VoiceStripBar(
     onUndo: () -> Unit,
     onRequestPermission: () -> Unit,
     onOpenVoiceSettings: () -> Unit,
+    /** Collapse to the bar in the keyboard's place — the strip's inline mode switch. */
+    onCollapse: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -738,6 +773,23 @@ internal fun VoiceStripBar(
                     .clickable {
                         feedback()
                         onUndo()
+                    }
+                    .padding(6.dp)
+                    .size(20.dp),
+            )
+        }
+        // Collapse to the bar: same session, small pill instead of the strip;
+        // persists as the voice tool's new default.
+        if (!state.secureField) {
+            Icon(
+                Icons.Outlined.CloseFullscreen,
+                contentDescription = stringResource(R.string.ime_voice_collapse_desc),
+                tint = kb.toolbarIcon,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                    .clickable {
+                        feedback()
+                        onCollapse()
                     }
                     .padding(6.dp)
                     .size(20.dp),
