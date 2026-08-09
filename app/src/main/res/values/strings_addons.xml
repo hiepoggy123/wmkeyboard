@@ -165,6 +165,13 @@
     </plurals>
     <!-- %1$d is the number of the recording in the pack, starting at 1. -->
     <string name="addon_preview_play_variant_title">Play recording %1$d</string>
+    <!-- How many key-up recordings a sound pack holds. %1$d is the count. -->
+    <plurals name="addon_preview_pack_release_count">
+        <item quantity="one">%1$d key-up recording, played when you lift your finger</item>
+        <item quantity="other">%1$d key-up recordings, played when you lift your finger</item>
+    </plurals>
+    <!-- %1$d is the number of the key-up recording in the pack, starting at 1. -->
+    <string name="addon_preview_play_release_title">Play key-up recording %1$d</string>
     <!-- %1$s lists the key roles, for example "space, enter". -->
     <string name="addon_preview_pack_roles_caption">Separate sounds for: %1$s</string>
     <!-- How many words a word list holds. %1$d is the count. -->

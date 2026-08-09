@@ -86,7 +86,10 @@ sealed interface AddonPreviewContent {
         val name: String,
         val variants: List<File>,
         val totalVariants: Int,
-        val roles: List<String>,
+        /** Key-up recordings, if the pack has any; empty is the common case. */
+        val releaseVariants: List<File> = emptyList(),
+        val totalReleaseVariants: Int = 0,
+        val roles: List<String> = emptyList(),
     ) : AddonPreviewContent
 
     /** Sticker images extracted beside the archive, ready to be shown. */
@@ -283,7 +286,7 @@ object AddonPreviewReader {
      * preview directory.
      */
     /**
-     * Extracts a pack's default key-down variants beside the payload.
+     * Extracts a pack's default key-down and key-up variants beside the payload.
      *
      * Reads the manifest first and pulls only the files it names, in its order,
      * so what the preview plays is what the keyboard would play — not whatever
@@ -296,35 +299,63 @@ object AddonPreviewReader {
             AddonText.of(R.string.faddons_preview_error_sound_pack_unreadable),
         )
 
-        val wanted = manifest.press.take(MAX_PACK_VARIANTS)
-        // Match on the bare file name: the manifest addresses samples by path
-        // and the archive lists them by entry name, and neither is ever joined
-        // onto a directory here — the target below is named by this function.
-        val byTail = wanted.withIndex().associate { (index, path) ->
-            path.substringAfterLast('/').substringAfterLast('\\') to index
-        }
-        val found = arrayOfNulls<File>(wanted.size)
+        val press = manifest.press.take(MAX_PACK_VARIANTS)
+        val release = manifest.release.take(MAX_PACK_VARIANTS)
         val outDir = File(payload.parentFile, payload.nameWithoutExtension + "_pack")
         outDir.mkdirs()
+
+        // Match on the bare file name: the manifest addresses samples by path
+        // and the archive lists them by entry name, and neither is ever joined
+        // onto a directory here — every target below is named by this function.
+        //
+        // A tail maps to a *list* of targets, not one: a pack whose key-up list
+        // reuses a key-down recording names the same archive entry twice, and
+        // the entry only comes past once in a stream read.
+        val wanted = HashMap<String, MutableList<File>>()
+        fun plan(paths: List<String>, prefix: String): Array<File?> {
+            val targets = arrayOfNulls<File>(paths.size)
+            paths.forEachIndexed { index, path ->
+                val tail = path.substringAfterLast('/').substringAfterLast('\\')
+                val target = File(outDir, "${prefix}_$index.snd")
+                targets[index] = target
+                wanted.getOrPut(tail) { mutableListOf() }.add(target)
+            }
+            return targets
+        }
+
+        val pressTargets = plan(press, "variant")
+        val releaseTargets = plan(release, "release")
+        val written = HashSet<File>()
 
         val ok = runCatching {
             ZipInputStream(payload.inputStream().buffered()).use { zip ->
                 while (true) {
                     val zipEntry = zip.nextEntry ?: break
-                    val tail = zipEntry.name.substringAfterLast('/')
-                    val index = byTail[tail]
-                    if (zipEntry.isDirectory || index == null || found[index] != null) {
+                    val targets = wanted[zipEntry.name.substringAfterLast('/')]
+                    if (zipEntry.isDirectory || targets == null || targets.first() in written) {
                         zip.closeEntry()
                         continue
                     }
-                    val target = File(outDir, "variant_$index.snd")
-                    if (copyBounded(zip, target)) found[index] = target else target.delete()
+                    val first = targets.first()
+                    if (copyBounded(zip, first)) {
+                        written += first
+                        // The rest are the same bytes under another name, so
+                        // they are copied from what just landed rather than by
+                        // rewinding the archive.
+                        for (extra in targets.drop(1)) {
+                            if (runCatching { first.copyTo(extra, overwrite = true) }.isSuccess) {
+                                written += extra
+                            }
+                        }
+                    } else {
+                        first.delete()
+                    }
                     zip.closeEntry()
                 }
             }
         }.isSuccess
 
-        val variants = found.filterNotNull()
+        val variants = pressTargets.filterNotNull().filter { it in written }
         if (!ok || variants.isEmpty()) {
             return AddonPreviewContent.Unreadable(
                 AddonText.of(R.string.faddons_preview_error_sound_pack_unreadable),
@@ -334,6 +365,8 @@ object AddonPreviewReader {
             name = manifest.name,
             variants = variants,
             totalVariants = manifest.press.size,
+            releaseVariants = releaseTargets.filterNotNull().filter { it in written },
+            totalReleaseVariants = manifest.release.size,
             roles = manifest.filledRoles().map { it.serialName },
         )
     }

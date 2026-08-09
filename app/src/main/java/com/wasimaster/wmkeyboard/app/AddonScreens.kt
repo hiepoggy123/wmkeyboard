@@ -2225,6 +2225,31 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
                     )
                 }
             }
+            // A pack with key-up recordings is two packs' worth of judgement,
+            // and the rows above only ever played one of them.
+            if (shown.releaseVariants.isNotEmpty()) {
+                item {
+                    CaptionText(
+                        pluralStringResource(
+                            R.plurals.addon_preview_pack_release_count,
+                            shown.totalReleaseVariants,
+                            shown.totalReleaseVariants,
+                        ),
+                    )
+                }
+                for ((index, variant) in shown.releaseVariants.withIndex()) {
+                    item {
+                        WmRow(
+                            title = stringResource(
+                                R.string.addon_preview_play_release_title,
+                                index + 1,
+                            ),
+                            leading = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
+                            onClick = { AddonSoundPreview.play(variant) },
+                        )
+                    }
+                }
+            }
             if (shown.roles.isNotEmpty()) {
                 item {
                     CaptionText(
