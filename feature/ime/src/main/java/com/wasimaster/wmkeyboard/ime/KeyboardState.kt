@@ -543,6 +543,14 @@ data class VoiceUi(
      * later; the settings collector re-syncs it from the stored value.
      */
     val bar: Boolean = false,
+    /**
+     * The bar was entered through a collapse button, not picked in settings —
+     * it wears the expand button instead of the keyboard button. Mirrors
+     * [com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.inline] the
+     * same optimistic way as [bar], so the right button shows on the bar's
+     * very first frame.
+     */
+    val barInline: Boolean = false,
     /** A just-dictated utterance is still at the cursor; the undo chip shows. */
     val canUndo: Boolean = false,
     /** Offline-model chip on the panel (download for offline dictation). */
@@ -561,11 +569,16 @@ data class VoiceUi(
 fun VoiceBarSettings.armed(): Boolean = mode == VoiceBarSettings.MODE_BAR && active
 
 /**
- * [VoiceUi.bar] following the persisted flag — applied only when the stored
- * value changed ([sync]), so a stale emission cannot undo a live toggle.
+ * [VoiceUi.bar] and [VoiceUi.barInline] following the persisted flags —
+ * applied only when the stored values changed ([sync]), so a stale emission
+ * cannot undo a live toggle.
  */
-fun VoiceUi.withBarSynced(sync: Boolean, armed: Boolean): VoiceUi =
-    if (!sync || bar == armed) this else copy(bar = armed)
+fun VoiceUi.withBarSynced(sync: Boolean, armed: Boolean, inline: Boolean): VoiceUi =
+    if (!sync || (bar == armed && barInline == inline)) {
+        this
+    } else {
+        copy(bar = armed, barInline = inline)
+    }
 
 /**
  * Everything the voice surfaces ask of the service beyond the dedicated

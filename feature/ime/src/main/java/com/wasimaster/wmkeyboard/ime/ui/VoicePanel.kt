@@ -24,8 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.CloseFullscreen
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Mic
@@ -224,7 +224,7 @@ internal fun VoicePanel(
             // which is the point: this one setting switches inline.
             if (collapseVisible) {
                 Icon(
-                    Icons.Outlined.CloseFullscreen,
+                    Icons.Outlined.KeyboardDoubleArrowDown,
                     contentDescription = stringResource(R.string.ime_voice_collapse_desc),
                     tint = kb.toolbarIcon,
                     modifier = Modifier
@@ -782,7 +782,7 @@ internal fun VoiceStripBar(
         // persists as the voice tool's new default.
         if (!state.secureField) {
             Icon(
-                Icons.Outlined.CloseFullscreen,
+                Icons.Outlined.KeyboardDoubleArrowDown,
                 contentDescription = stringResource(R.string.ime_voice_collapse_desc),
                 tint = kb.toolbarIcon,
                 modifier = Modifier

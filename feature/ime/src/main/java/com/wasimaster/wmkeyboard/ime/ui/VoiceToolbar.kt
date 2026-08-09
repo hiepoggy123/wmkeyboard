@@ -32,9 +32,9 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.OpenInFull
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.SwapVert
@@ -46,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -174,100 +175,105 @@ internal fun VoiceBarLayer(
             }
         }
 
-        VoiceBarPill(
-            placed = pillSize.value != IntSize.Zero,
-            modifier = Modifier
-                .then(if (vertical) Modifier else Modifier.widthIn(max = VoiceBarMaxWidth))
-                .offset {
-                    val o = currentOffset()
-                    IntOffset(o.x.roundToInt(), o.y.roundToInt())
-                }
-                .onGloballyPositioned { coords ->
-                    pillSize.value = coords.size
-                    drag.record(coords.positionInWindow(), coords.size)
-                    // Publishing mid-gesture or mid-settle would force a decor
-                    // layout pass per frame; the region cannot matter while the
-                    // finger is captured, so only the resting pill publishes.
-                    if (!drag.active && !settling) drag.publish(onAction)
-                }
-                .pointerInput(vertical) {
-                    detectDragGestures(
-                        onDragStart = {
-                            drag.active = true
-                            settling = false
-                            dragPos.value = currentOffset()
-                        },
-                        onDrag = { change, delta ->
-                            change.consume()
-                            val current = dragPos.value ?: return@detectDragGestures
-                            dragPos.value = Offset(
-                                (current.x + delta.x).coerceIn(0f, slackX()),
-                                (current.y + delta.y).coerceIn(0f, slackY()),
-                            )
-                        },
-                        onDragCancel = {
-                            drag.active = false
-                            dragPos.value = null
-                        },
-                        onDragEnd = {
-                            drag.active = false
-                            val end = dragPos.value ?: return@detectDragGestures
-                            rest.settleFrom(
-                                end = end,
-                                vertical = vertical,
-                                pillWidth = pillSize.value.width,
-                                boxWidth = boxW,
-                                slackX = slackX(),
-                                slackY = slackY(),
-                            )
-                            onAction(
-                                VoiceBarAction.SetRest(
-                                    snap = rest.snap,
-                                    rightEdge = rest.rightEdge,
-                                    yBias = rest.yBias,
-                                    dockBias = rest.dockBias,
-                                ),
-                            )
-                            scope.launch {
-                                settling = true
-                                settle.snapTo(currentOffset())
-                                dragPos.value = null
-                                if (kb.reduceMotion) {
-                                    settle.snapTo(restOffset())
-                                } else {
-                                    settle.animateTo(restOffset(), VoiceBarSettleSpring)
-                                }
+        // Keyed on the orientation: flipping it recreates the pill, so it
+        // runs its entrance again at the new shape and place — an instant
+        // reshape mid-screen read as a glitch, a fresh rise reads as intent.
+        key(vertical) {
+            VoiceBarPill(
+                placed = pillSize.value != IntSize.Zero,
+                modifier = Modifier
+                    .then(if (vertical) Modifier else Modifier.widthIn(max = VoiceBarMaxWidth))
+                    .offset {
+                        val o = currentOffset()
+                        IntOffset(o.x.roundToInt(), o.y.roundToInt())
+                    }
+                    .onGloballyPositioned { coords ->
+                        pillSize.value = coords.size
+                        drag.record(coords.positionInWindow(), coords.size)
+                        // Publishing mid-gesture or mid-settle would force a decor
+                        // layout pass per frame; the region cannot matter while the
+                        // finger is captured, so only the resting pill publishes.
+                        if (!drag.active && !settling) drag.publish(onAction)
+                    }
+                    .pointerInput(vertical) {
+                        detectDragGestures(
+                            onDragStart = {
+                                drag.active = true
                                 settling = false
-                                drag.publish(onAction)
-                            }
-                        },
+                                dragPos.value = currentOffset()
+                            },
+                            onDrag = { change, delta ->
+                                change.consume()
+                                val current = dragPos.value ?: return@detectDragGestures
+                                dragPos.value = Offset(
+                                    (current.x + delta.x).coerceIn(0f, slackX()),
+                                    (current.y + delta.y).coerceIn(0f, slackY()),
+                                )
+                            },
+                            onDragCancel = {
+                                drag.active = false
+                                dragPos.value = null
+                            },
+                            onDragEnd = {
+                                drag.active = false
+                                val end = dragPos.value ?: return@detectDragGestures
+                                rest.settleFrom(
+                                    end = end,
+                                    vertical = vertical,
+                                    pillWidth = pillSize.value.width,
+                                    boxWidth = boxW,
+                                    slackX = slackX(),
+                                    slackY = slackY(),
+                                )
+                                onAction(
+                                    VoiceBarAction.SetRest(
+                                        snap = rest.snap,
+                                        rightEdge = rest.rightEdge,
+                                        yBias = rest.yBias,
+                                        dockBias = rest.dockBias,
+                                    ),
+                                )
+                                scope.launch {
+                                    settling = true
+                                    settle.snapTo(currentOffset())
+                                    dragPos.value = null
+                                    if (kb.reduceMotion) {
+                                        settle.snapTo(restOffset())
+                                    } else {
+                                        settle.animateTo(restOffset(), VoiceBarSettleSpring)
+                                    }
+                                    settling = false
+                                    drag.publish(onAction)
+                                }
+                            },
+                        )
+                    },
+            ) {
+                if (vertical) {
+                    VerticalBarContent(
+                        state = state,
+                        hasPermission = hasPermission,
+                        onToggle = onToggle,
+                        onRequestPermission = onRequestPermission,
+                        onOpenVoiceSettings = onOpenVoiceSettings,
+                        onRestoreKeyboard = onRestoreKeyboard,
+                        onAction = onAction,
+                        onUndo = onUndo,
+                        onLayoutSelect = onLayoutSelect,
                     )
-                },
-        ) {
-            if (vertical) {
-                VerticalBarContent(
-                    state = state,
-                    hasPermission = hasPermission,
-                    onToggle = onToggle,
-                    onRequestPermission = onRequestPermission,
-                    onOpenVoiceSettings = onOpenVoiceSettings,
-                    onRestoreKeyboard = onRestoreKeyboard,
-                    onAction = onAction,
-                    onUndo = onUndo,
-                    onLayoutSelect = onLayoutSelect,
-                )
-            } else {
-                HorizontalBarContent(
-                    state = state,
-                    hasPermission = hasPermission,
-                    onToggle = onToggle,
-                    onUndo = onUndo,
-                    onRequestPermission = onRequestPermission,
-                    onOpenVoiceSettings = onOpenVoiceSettings,
-                    onRestoreKeyboard = onRestoreKeyboard,
-                    onAction = onAction,
-                    onLayoutSelect = onLayoutSelect,
-                )
+                } else {
+                    HorizontalBarContent(
+                        state = state,
+                        hasPermission = hasPermission,
+                        onToggle = onToggle,
+                        onUndo = onUndo,
+                        onRequestPermission = onRequestPermission,
+                        onOpenVoiceSettings = onOpenVoiceSettings,
+                        onRestoreKeyboard = onRestoreKeyboard,
+                        onAction = onAction,
+                        onLayoutSelect = onLayoutSelect,
+                    )
+                }
             }
         }
     }
@@ -456,12 +462,7 @@ private fun HorizontalBarContent(
                     onUndo()
                 }
             }
-            VoiceBarExpandButton(state, onAction)
-            VoiceBarIconButton(
-                icon = Icons.Outlined.Keyboard,
-                description = stringResource(R.string.ime_voice_bar_restore_desc),
-                onClick = onRestoreKeyboard,
-            )
+            VoiceBarExitButton(state, onAction, onRestoreKeyboard)
             VoiceBarDeleteButton(onAction)
             VoiceBarMic(
                 state = state,
@@ -602,12 +603,7 @@ private fun VerticalBarContent(
                 onRequestPermission = onRequestPermission,
             )
             VoiceBarDeleteButton(onAction)
-            VoiceBarExpandButton(state, onAction)
-            VoiceBarIconButton(
-                icon = Icons.Outlined.Keyboard,
-                description = stringResource(R.string.ime_voice_bar_restore_desc),
-                onClick = onRestoreKeyboard,
-            )
+            VoiceBarExitButton(state, onAction, onRestoreKeyboard)
             VoiceBarIconButton(
                 icon = Icons.Outlined.Menu,
                 description = stringResource(R.string.ime_voice_bar_menu_desc),
@@ -620,27 +616,38 @@ private fun VerticalBarContent(
 }
 
 /**
- * Expand back to the surface the bar replaced (panel or strip) — the inline
- * inverse of their collapse buttons, so switching styles never needs the
- * settings app.
+ * The bar's one exit control, chosen by how the bar was entered. An inline
+ * visit (the panel's or strip's collapse button) shows the double-arrow-up
+ * expand: back to the surface it replaced, undoing the inline switch. A bar
+ * picked in settings shows the keyboard button: keys back, bar stays the
+ * default.
  */
 @Composable
-private fun VoiceBarExpandButton(
+private fun VoiceBarExitButton(
     state: KeyboardUiState,
     onAction: (VoiceBarAction) -> Unit,
+    onRestoreKeyboard: () -> Unit,
 ) {
     val feedback = LocalKeyPressFeedback.current
-    val returnMode = state.settings.voiceBar.returnMode
-    VoiceBarIconButton(
-        icon = Icons.Outlined.OpenInFull,
-        description = if (returnMode == VoiceBarSettings.MODE_STRIP) {
-            stringResource(R.string.ime_voice_bar_expand_strip_desc)
-        } else {
-            stringResource(R.string.ime_voice_bar_expand_panel_desc)
-        },
-    ) {
-        feedback()
-        onAction(VoiceBarAction.SwitchSurface(returnMode))
+    if (state.voice.barInline) {
+        val returnMode = state.settings.voiceBar.returnMode
+        VoiceBarIconButton(
+            icon = Icons.Outlined.KeyboardDoubleArrowUp,
+            description = if (returnMode == VoiceBarSettings.MODE_STRIP) {
+                stringResource(R.string.ime_voice_bar_expand_strip_desc)
+            } else {
+                stringResource(R.string.ime_voice_bar_expand_panel_desc)
+            },
+        ) {
+            feedback()
+            onAction(VoiceBarAction.SwitchSurface(returnMode))
+        }
+    } else {
+        VoiceBarIconButton(
+            icon = Icons.Outlined.Keyboard,
+            description = stringResource(R.string.ime_voice_bar_restore_desc),
+            onClick = onRestoreKeyboard,
+        )
     }
 }
 

@@ -2190,6 +2190,13 @@ data class VoiceBarSettings(
      * panel when the bar was chosen in settings instead.
      */
     val returnMode: String = MODE_PANEL,
+    /**
+     * The bar was entered through a collapse button rather than picked in
+     * settings. Decides its exit control: an inline visit shows the expand
+     * button (back to [returnMode]); a settings choice shows the keyboard
+     * button (keys back, bar stays the default).
+     */
+    val inline: Boolean = false,
 ) {
     companion object {
         const val MODE_PANEL = "panel"
@@ -3579,6 +3586,7 @@ class SettingsRepository(private val context: Context) {
         private val VOICE_BAR_Y_BIAS = floatPreferencesKey("voice_bar_y_bias")
         private val VOICE_BAR_DOCK_BIAS = floatPreferencesKey("voice_bar_dock_bias")
         private val VOICE_UI_RETURN_MODE = stringPreferencesKey("voice_ui_return_mode")
+        private val VOICE_BAR_INLINE = booleanPreferencesKey("voice_bar_inline")
         private val VOICE_CONTINUOUS = booleanPreferencesKey("voice_continuous")
         private val VOICE_SPOKEN_PUNCTUATION = booleanPreferencesKey("voice_spoken_punctuation")
         private val VOICE_ENGINE = stringPreferencesKey("voice_engine")
@@ -4449,6 +4457,7 @@ class SettingsRepository(private val context: Context) {
                 yBias = p[VOICE_BAR_Y_BIAS] ?: defaults.voiceBar.yBias,
                 dockBias = p[VOICE_BAR_DOCK_BIAS] ?: defaults.voiceBar.dockBias,
                 returnMode = p[VOICE_UI_RETURN_MODE] ?: defaults.voiceBar.returnMode,
+                inline = p[VOICE_BAR_INLINE] ?: defaults.voiceBar.inline,
             ),
             voiceContinuous = p[VOICE_CONTINUOUS] ?: defaults.voiceContinuous,
             voiceSpokenPunctuation = p[VOICE_SPOKEN_PUNCTUATION]
@@ -4933,7 +4942,12 @@ class SettingsRepository(private val context: Context) {
         editPrefs { it[HANDWRITING_AUTO_SPACE] = value }
 
     suspend fun setVoiceUiMode(value: String) =
-        editPrefs { it[VOICE_UI_MODE] = value }
+        editPrefs {
+            it[VOICE_UI_MODE] = value
+            // A settings-app choice, so the bar wears its keyboard button —
+            // only [setVoiceSurface]'s inline collapse sets this true.
+            it[VOICE_BAR_INLINE] = false
+        }
 
     suspend fun setVoiceBarActive(value: Boolean) =
         editPrefs { it[VOICE_BAR_ACTIVE] = value }
@@ -4960,6 +4974,7 @@ class SettingsRepository(private val context: Context) {
         editPrefs {
             it[VOICE_UI_MODE] = mode
             it[VOICE_BAR_ACTIVE] = barActive
+            it[VOICE_BAR_INLINE] = mode == VoiceBarSettings.MODE_BAR
             if (returnMode != null) it[VOICE_UI_RETURN_MODE] = returnMode
         }
 

@@ -1130,19 +1130,15 @@ fun KeyboardScreen(
         val barTarget = voiceBarTakesWindow(state)
         val transitionTheme = LocalKbTheme.current
         val collapse = remember { Animatable(if (barTarget) 1f else 0f) }
-        var collapsing by remember { mutableStateOf(false) }
         LaunchedEffect(barTarget, transitionTheme.reduceMotion) {
             val target = if (barTarget) 1f else 0f
             if (transitionTheme.reduceMotion) {
                 collapse.snapTo(target)
-                collapsing = false
             } else if (collapse.value != target) {
-                if (barTarget) collapsing = true
                 collapse.animateTo(
                     target,
                     tween(VoiceBarTransitionMs, easing = FastOutSlowInEasing),
                 )
-                collapsing = false
             }
         }
         val chromeHeight = remember { mutableStateOf(0) }
@@ -1159,7 +1155,14 @@ fun KeyboardScreen(
                     onLayoutSelect = onLayoutSelect,
                 )
             }
-            if (!barTarget || collapsing) {
+            // The keyboard stays composed until the slide has fully carried it
+            // out. Judged from the animation's value, not a flag an effect
+            // sets: an effect runs after the composition that flipped the
+            // target, so a flag unmounted the keyboard for one frame and
+            // remounted it — a visible blink right as the slide began. The
+            // short-circuit keeps the value unread (no per-frame recompose)
+            // whenever the keyboard is staying anyway.
+            if (!barTarget || collapse.value < 1f) {
                 Box(
                     modifier = Modifier
                         .onSizeChanged { chromeHeight.value = it.height }

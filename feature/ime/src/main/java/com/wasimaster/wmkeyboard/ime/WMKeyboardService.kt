@@ -1616,7 +1616,7 @@ open class WMKeyboardService : InputMethodService() {
             var pinnedLastEnabled: Boolean? = null
             var userScreenshotsEnabled: Boolean? = null
             var otpCaptureEnabled: Boolean? = null
-            var voiceBarPersisted: Boolean? = null
+            var voiceBarPersisted: Pair<Boolean, Boolean>? = null
             // Recompute the hidden-emoji set only when the toggle or the font
             // behind it actually changes, not on every unrelated settings save.
             var hiddenEmojiKey: Triple<Boolean, EmojiFontChoice, String>? = null
@@ -1786,12 +1786,17 @@ open class WMKeyboardService : InputMethodService() {
                 // emission in that gap still carries the old value, and
                 // re-applying it would flash the bar back mid-close.
                 val voiceBarArmed = modeSettings.voiceBar.armed()
-                val voiceBarSync = voiceBarPersisted != voiceBarArmed
-                voiceBarPersisted = voiceBarArmed
+                val voiceBarInline = modeSettings.voiceBar.inline
+                val voiceBarSync = voiceBarPersisted != (voiceBarArmed to voiceBarInline)
+                voiceBarPersisted = voiceBarArmed to voiceBarInline
                 _uiState.update {
                     it.copy(
                         settings = modeSettings,
-                        voice = it.voice.withBarSynced(sync = voiceBarSync, armed = voiceBarArmed),
+                        voice = it.voice.withBarSynced(
+                            sync = voiceBarSync,
+                            armed = voiceBarArmed,
+                            inline = voiceBarInline,
+                        ),
                         // The settings above are already reduced, so this is
                         // only for the indicator and the tool's lit state —
                         // nothing gates on it.
@@ -8850,6 +8855,11 @@ open class WMKeyboardService : InputMethodService() {
             is VoiceBarAction.RailKey -> onVoiceSurfaceKey(action.key)
             is VoiceBarAction.SetVertical -> {
                 vibrate()
+                // The old orientation's rectangle must not shape the new
+                // one's insets — one clean whole-window pass until the
+                // reshaped pill publishes, instead of two app reflows.
+                voiceBarBounds = null
+                window?.window?.decorView?.requestLayout()
                 serviceScope.launch { settingsRepository.setVoiceBarVertical(action.vertical) }
             }
             is VoiceBarAction.SetRest ->
@@ -9042,8 +9052,14 @@ open class WMKeyboardService : InputMethodService() {
         }
         vibrate()
         // The state flag first so the bar is up this frame; the persisted flag
-        // is what brings it back on the next field ([VoiceUi.bar] doc).
-        _uiState.update { it.copy(voice = it.voice.copy(bar = true)) }
+        // is what brings it back on the next field ([VoiceUi.bar] doc). The
+        // exit button follows the stored origin: a tool tap with bar as the
+        // settings-chosen mode keeps the keyboard button.
+        _uiState.update {
+            it.copy(
+                voice = it.voice.copy(bar = true, barInline = it.settings.voiceBar.inline),
+            )
+        }
         serviceScope.launch { settingsRepository.setVoiceBarActive(true) }
         voiceSilentRetries = 0
         startVoice()
@@ -9087,7 +9103,7 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(
                     panel = PanelMode.NONE,
                     panelFocus = null,
-                    voice = it.voice.copy(strip = false, bar = true),
+                    voice = it.voice.copy(strip = false, bar = true, barInline = true),
                 )
             }
             serviceScope.launch {
@@ -9102,26 +9118,34 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
         // Expanding back to the surface the bar replaced.
-        _uiState.update { it.copy(voice = it.voice.copy(bar = false)) }
         voiceBarBounds = null
         serviceScope.launch {
             settingsRepository.setVoiceSurface(mode = target, barActive = false)
         }
         if (target == VoiceBarSettings.MODE_STRIP) {
             vibrate()
-            _uiState.update { it.copy(voice = it.voice.copy(strip = true)) }
+            // One update for the whole swap: dropping the bar first put a
+            // bare keyboard on screen for a frame before the strip arrived.
+            _uiState.update {
+                it.copy(voice = it.voice.copy(bar = false, barInline = false, strip = true))
+            }
             voiceSilentRetries = 0
             startVoice()
         } else {
             // The panel opens through onPanelChange so its side effects run;
             // the flag stops the reroute from reading the stale "bar" mode
             // out of the not-yet-updated settings and bouncing straight back.
+            // The panel goes up BEFORE the bar flag drops for the same
+            // one-frame reason as the strip above: `panel != NONE` already
+            // hands the window back to the keyboard, so the intermediate
+            // frame shows the panel, never bare keys.
             voiceSurfaceSwitch = true
             try {
                 onPanelChange(PanelMode.VOICE)
             } finally {
                 voiceSurfaceSwitch = false
             }
+            _uiState.update { it.copy(voice = it.voice.copy(bar = false, barInline = false)) }
         }
     }
 
