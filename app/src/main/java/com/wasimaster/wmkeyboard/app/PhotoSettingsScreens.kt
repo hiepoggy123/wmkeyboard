@@ -61,6 +61,7 @@ import com.wasimaster.wmkeyboard.core.settings.PoolEntry
 import com.wasimaster.wmkeyboard.core.settings.RotationInterval
 import com.wasimaster.wmkeyboard.core.settings.RotationScope
 import com.wasimaster.wmkeyboard.core.settings.RotationSourceKind
+import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.findThemeFamily
@@ -218,6 +219,7 @@ fun PhotoRotationScreen(
                     title = R.string.photo_rotation_on_title,
                     subtitle = stringResource(R.string.photo_rotation_on_subtitle),
                     checked = photos.rotateEnabled,
+                    default = SettingsDefaults.photoBackground.rotateEnabled,
                 ) { scope.launch { repository.setPhotoRotateEnabled(it) } }
             }
             item {
@@ -294,6 +296,7 @@ fun PhotoRotationScreen(
                         label = stringResource(R.string.photo_rotation_terms_label),
                         value = photos.queries.joinToString(", "),
                         hint = stringResource(R.string.photo_rotation_terms_hint),
+                        default = SettingsDefaults.photoBackground.queries.joinToString(", "),
                     ) { text ->
                         repository.setPhotoRotateQueries(
                             text.split(',').map { it.trim() }.filter { it.isNotEmpty() },
@@ -305,6 +308,7 @@ fun PhotoRotationScreen(
                         title = R.string.photo_rotation_wide_title,
                         subtitle = stringResource(R.string.photo_rotation_wide_subtitle),
                         checked = photos.landscapeOnly,
+                        default = SettingsDefaults.photoBackground.landscapeOnly,
                     ) { scope.launch { repository.setPhotoLandscapeOnly(it) } }
                 }
                 item {
@@ -312,6 +316,7 @@ fun PhotoRotationScreen(
                         title = R.string.photo_rotation_safe_title,
                         subtitle = stringResource(R.string.photo_rotation_safe_subtitle),
                         checked = photos.safeSearch,
+                        default = SettingsDefaults.photoBackground.safeSearch,
                     ) { scope.launch { repository.setPhotoSafeSearch(it) } }
                 }
                 item {
@@ -319,6 +324,7 @@ fun PhotoRotationScreen(
                         title = R.string.photo_rotation_metered_title,
                         subtitle = stringResource(R.string.photo_rotation_metered_subtitle),
                         checked = photos.fetchOnMetered,
+                        default = SettingsDefaults.photoBackground.fetchOnMetered,
                     ) { scope.launch { repository.setPhotoFetchOnMetered(it) } }
                 }
                 item {
@@ -341,6 +347,7 @@ fun PhotoRotationScreen(
                         PhotoBackgroundSettings.MAX_POOL_TARGET.toFloat(),
                     display = { it.toInt().toString() },
                     info = stringResource(R.string.photo_rotation_pool_info),
+                    default = SettingsDefaults.photoBackground.poolTarget.toFloat(),
                 ) { scope.launch { repository.setPhotoPoolTarget(it.toInt()) } }
             }
             item {
@@ -585,7 +592,12 @@ private fun SourceToggle(
     photos: PhotoBackgroundSettings,
     onChange: (Set<RotationSourceKind>) -> Unit,
 ) {
-    ToggleSetting(title = title, subtitle = subtitle, checked = kind in photos.sources) { on ->
+    ToggleSetting(
+        title = title,
+        subtitle = subtitle,
+        checked = kind in photos.sources,
+        default = kind in SettingsDefaults.photoBackground.sources,
+    ) { on ->
         onChange(if (on) photos.sources + kind else photos.sources - kind)
     }
 }

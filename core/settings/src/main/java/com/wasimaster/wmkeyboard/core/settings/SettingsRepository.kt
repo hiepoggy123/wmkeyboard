@@ -1600,6 +1600,22 @@ data class KeyboardSettings(
 )
 
 /**
+ * Every setting at the value it shipped with, as one object to read a single
+ * default out of: `SettingsDefaults.hapticFeedback`, `SettingsDefaults.otp.enabled`.
+ *
+ * The settings screens use it for the reset control each row grows once its
+ * value stops matching the default. Reading the default off the same data
+ * class the setting itself lives on is the point — a default written a second
+ * time in the UI is a default that drifts the first time the real one changes,
+ * and the row would then offer to "reset" to a value the app never had.
+ *
+ * Lazy, because building it walks the nested settings objects and the registry
+ * lookups behind the language defaults, and nothing needs that before the
+ * first screen is drawn.
+ */
+val SettingsDefaults: KeyboardSettings by lazy { KeyboardSettings() }
+
+/**
  * The one-time-code suggestion chip: a verification code arriving in any app's
  * notification is offered on the suggestion strip, one tap from typed. Grouped
  * (see [CameraSettings] for why); DataStore keys stay flat.
@@ -3835,7 +3851,7 @@ class SettingsRepository(private val context: Context) {
      * immutable data class whose defaults are constants and registry entries,
      * so one instance answers for every emission.
      */
-    private val storedDefaults by lazy { KeyboardSettings() }
+    private val storedDefaults get() = SettingsDefaults
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val settings: Flow<KeyboardSettings> = unlocked

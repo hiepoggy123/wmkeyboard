@@ -47,6 +47,7 @@ import com.wasimaster.wmkeyboard.app.ToggleSetting
 import com.wasimaster.wmkeyboard.app.WmRow
 import com.wasimaster.wmkeyboard.app.storage.ConfirmDeleteDialog
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.tools.StatsPeriod
 import com.wasimaster.wmkeyboard.core.tools.TypingStats
@@ -97,6 +98,7 @@ internal fun StatisticsScreen(repository: SettingsRepository, settings: Keyboard
         stringResource(R.string.statistics_toggle_subtitle),
         settings.typingStatsEnabled,
         info = stringResource(R.string.statistics_toggle_info),
+        default = SettingsDefaults.typingStatsEnabled,
     ) { scope.launch { repository.setTypingStatsEnabled(it) } }
 
     val lifetime = totals

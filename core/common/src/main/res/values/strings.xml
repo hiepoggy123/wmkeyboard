@@ -50,6 +50,8 @@
     <string name="common_settings">Settings</string>
     <string name="common_open_system_settings">Open system settings</string>
     <string name="common_reset_defaults">Reset to defaults</string>
+    <!-- Content description of the per-setting reset control. %1$s is the setting's own name. -->
+    <string name="common_reset_setting_desc">Reset %1$s to its default</string>
 
     <!-- ================================================================== -->
     <!-- States and values.                                                 -->

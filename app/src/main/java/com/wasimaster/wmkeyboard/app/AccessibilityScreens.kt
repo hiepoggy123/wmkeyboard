@@ -10,6 +10,7 @@ import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
+import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import kotlinx.coroutines.launch
@@ -53,6 +54,7 @@ internal fun AccessibilitySettings(
                         stringResource(R.string.accessibility_color_vision_grey),
                 ),
                 selected = settings.colorVisionFilter,
+                default = SettingsDefaults.colorVisionFilter,
             ) { scope.launch { repository.setColorVisionFilter(it) } }
         }
         item {
@@ -61,6 +63,7 @@ internal fun AccessibilitySettings(
                 stringResource(R.string.accessibility_high_contrast_subtitle),
                 settings.highContrastKeys,
                 info = stringResource(R.string.accessibility_high_contrast_info),
+                default = SettingsDefaults.highContrastKeys,
             ) { scope.launch { repository.setHighContrastKeys(it) } }
         }
         item {
@@ -69,6 +72,7 @@ internal fun AccessibilitySettings(
                 stringResource(R.string.accessibility_key_outlines_subtitle),
                 settings.keyOutlines,
                 info = stringResource(R.string.accessibility_key_outlines_info),
+                default = SettingsDefaults.keyOutlines,
             ) { scope.launch { repository.setKeyOutlines(it) } }
         }
         item {
@@ -77,6 +81,7 @@ internal fun AccessibilitySettings(
                 stringResource(R.string.accessibility_bold_labels_subtitle),
                 settings.boldKeyLabels,
                 info = stringResource(R.string.accessibility_bold_labels_info),
+                default = SettingsDefaults.boldKeyLabels,
             ) { scope.launch { repository.setBoldKeyLabels(it) } }
         }
         item {
@@ -85,6 +90,7 @@ internal fun AccessibilitySettings(
                 stringResource(R.string.accessibility_readable_font_subtitle, READABLE_FONT),
                 settings.keyFontId == readableFontId,
                 info = stringResource(R.string.accessibility_readable_font_info, READABLE_FONT),
+                default = SettingsDefaults.keyFontId == readableFontId,
             ) { on ->
                 scope.launch {
                     repository.setKeyFontId(if (on) readableFontId else KeyboardFonts.DEFAULT_ID)
@@ -99,6 +105,7 @@ internal fun AccessibilitySettings(
                 range = 0.7f..1.5f,
                 display = { "${(it * 100).toInt()}%" },
                 info = stringResource(R.string.accessibility_text_size_info),
+                default = SettingsDefaults.fontScale,
             ) { scope.launch { repository.setFontScale(it) } }
         }
         item {
@@ -118,6 +125,7 @@ internal fun AccessibilitySettings(
                 stringResource(R.string.accessibility_reduce_motion_subtitle),
                 settings.reduceMotion,
                 info = stringResource(R.string.accessibility_reduce_motion_info),
+                default = SettingsDefaults.reduceMotion,
             ) { scope.launch { repository.setReduceMotion(it) } }
         }
     }
@@ -138,6 +146,7 @@ internal fun AccessibilitySettings(
                         stringResource(R.string.accessibility_talkback_mode_gestures),
                 ),
                 selected = settings.screenReaderMode,
+                default = SettingsDefaults.screenReaderMode,
             ) { scope.launch { repository.setScreenReaderMode(it) } }
         }
         if (settings.screenReaderMode == ScreenReaderMode.PASSTHROUGH) {
@@ -188,6 +197,7 @@ internal fun AccessibilitySettings(
                 range = 0f..500f,
                 display = { if (it.toInt() == 0) offLabel else "${it.toInt()} ms" },
                 info = stringResource(R.string.accessibility_debounce_info),
+                default = SettingsDefaults.keyDebounceMs.toFloat(),
             ) { scope.launch { repository.setKeyDebounceMs(it.toInt()) } }
         }
         item {
@@ -198,6 +208,7 @@ internal fun AccessibilitySettings(
                 range = 150f..800f,
                 display = { "${it.toInt()} ms" },
                 info = stringResource(R.string.accessibility_long_press_info),
+                default = SettingsDefaults.longPressDelayMs.toFloat(),
             ) { scope.launch { repository.setLongPressDelayMs(it.toInt()) } }
         }
         item {

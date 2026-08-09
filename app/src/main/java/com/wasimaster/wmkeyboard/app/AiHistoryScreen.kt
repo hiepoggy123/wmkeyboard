@@ -40,6 +40,7 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryEntry
 import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryStore
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import java.io.File
 import java.text.DateFormat
@@ -105,6 +106,7 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
                 R.string.toolai_ai_history_title,
                 stringResource(R.string.toolai_ai_history_subtitle),
                 settings.ai.historyEnabled,
+                default = SettingsDefaults.ai.historyEnabled,
             ) { on ->
                 scope.launch {
                     repository.setAiHistoryEnabled(on)
@@ -126,6 +128,7 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
                     range = AiHistoryStore.MIN_MAX_ITEMS.toFloat()..
                         AiHistoryStore.MAX_ITEMS_CEILING.toFloat(),
                     display = { it.toInt().toString() },
+                    default = SettingsDefaults.ai.historyMax.toFloat(),
                 ) { picked ->
                     scope.launch {
                         repository.setAiHistoryMax(picked.toInt())

@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -637,6 +638,51 @@ internal fun WmRow(
                 },
             ),
     )
+}
+
+// ---- reset to default ----
+
+/**
+ * The tap target of the reset control. Smaller than Material's 48 dp
+ * `IconButton`, because it shares a row's trailing edge with a switch and the
+ * two together would push the row's own words off a narrow phone. 36 dp is
+ * still comfortably past the 24 dp the accessibility guidance floors at, and
+ * the row it sits in is 56 dp tall, so the finger has vertical room to spare.
+ */
+private val ResetTargetSize = 36.dp
+
+/** The glyph inside that target. */
+private val ResetGlyphSize = 18.dp
+
+/**
+ * The control a settings row grows once its value stops matching the default
+ * it shipped with: one tap puts it back.
+ *
+ * Drawn only while the value differs, which is what makes it worth the width.
+ * A reset button on every row is a row of dead controls on a screen where
+ * nothing has been touched, and — worse — it stops carrying information. Shown
+ * only on the changed rows, it doubles as the answer to "what have I actually
+ * changed on this screen", which is otherwise a question the settings app
+ * cannot answer at all.
+ *
+ * [name] is the setting's own name, and goes into the content description
+ * rather than into anything drawn: the glyph is the same on every row, so
+ * "Reset" alone would leave a screen reader with a dozen identical buttons.
+ */
+@Composable
+internal fun ResetSetting(name: String, changed: Boolean, onReset: () -> Unit) {
+    if (!changed) return
+    IconButton(
+        onClick = onReset,
+        modifier = Modifier.size(ResetTargetSize),
+    ) {
+        Icon(
+            Icons.Outlined.Restore,
+            contentDescription = stringResource(CommonR.string.common_reset_setting_desc, name),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(ResetGlyphSize),
+        )
+    }
 }
 
 // ---- collapsing app bar ----

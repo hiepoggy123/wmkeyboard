@@ -78,6 +78,7 @@ import com.wasimaster.wmkeyboard.core.script.SuggestedLanguage
 import com.wasimaster.wmkeyboard.core.script.SuggestionReason
 import com.wasimaster.wmkeyboard.core.script.resolveNumeralDigits
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -680,7 +681,12 @@ internal fun LanguageDetailScreen(
         for (layoutId in lang.layoutIds) {
             item {
                 val name = resolveLayout(settings.customLayouts, layoutId).name
-                ToggleSetting(name, null, layoutId in settings.enabledLayoutIds) { enable ->
+                ToggleSetting(
+                    name,
+                    null,
+                    layoutId in settings.enabledLayoutIds,
+                    default = layoutId in SettingsDefaults.enabledLayoutIds,
+                ) { enable ->
                     fun write() {
                         scope.launch {
                             val next =
@@ -708,6 +714,8 @@ internal fun LanguageDetailScreen(
                     options = FancyStyles.all.map { it to it.sample },
                     selected = FancyStyles.byId(settings.layoutBehavior.fancyStyleId)
                         ?: FancyStyles.all.first(),
+                    default = FancyStyles.byId(SettingsDefaults.layoutBehavior.fancyStyleId)
+                        ?: FancyStyles.all.first(),
                 ) { scope.launch { repository.setFancyStyle(it.id) } }
             }
         }
@@ -730,6 +738,7 @@ internal fun LanguageDetailScreen(
                         R.string.languages_conjunct_backspace_info,
                         lang.englishName,
                     ),
+                    default = langId in SettingsDefaults.conjunctBackspaceLanguages,
                 ) { scope.launch { repository.setConjunctBackspace(langId, it) } }
             }
         }
@@ -751,6 +760,7 @@ internal fun LanguageDetailScreen(
                         R.string.languages_spelling_map_info,
                         lang.englishName,
                     ),
+                    default = SettingsDefaults.suggestionStrip.spellingMapEnabledFor(langId),
                 ) { scope.launch { repository.setSpellingMapEnabled(langId, it) } }
             }
         }
@@ -792,6 +802,7 @@ internal fun LanguageDetailScreen(
                     } else {
                         NumeralSystem.AUTO
                     },
+                    default = SettingsDefaults.layoutBehavior.numeralSystemFor(langId),
                 ) { scope.launch { repository.setNumeralSystemForLanguage(langId, it) } }
             }
         }
@@ -1278,6 +1289,7 @@ private fun CjkDictPackManager(
                 R.string.languages_cjk_traditional_title,
                 stringResource(R.string.languages_cjk_traditional_subtitle),
                 settings.cjk.traditionalOutput,
+                default = SettingsDefaults.cjk.traditionalOutput,
             ) { on -> scope.launch { repository.setCjkTraditionalOutput(on) } }
         }
 
@@ -1330,6 +1342,7 @@ private fun CjkDictPackManager(
                     R.string.languages_cjk_lazy_title,
                     stringResource(R.string.languages_cjk_lazy_subtitle),
                     settings.cjk.jyutpingLazy,
+                    default = SettingsDefaults.cjk.jyutpingLazy,
                 ) { on -> scope.launch { repository.setJyutpingLazy(on) } }
             }
         }
@@ -1341,6 +1354,7 @@ private fun CjkDictPackManager(
                     R.string.languages_cjk_fuzzy_title,
                     stringResource(R.string.languages_cjk_fuzzy_subtitle),
                     settings.cjk.pinyinFuzzy,
+                    default = SettingsDefaults.cjk.pinyinFuzzy,
                 ) { on -> scope.launch { repository.setPinyinFuzzy(on) } }
             }
             item { CaptionText(stringResource(R.string.languages_cjk_double_pinyin_info)) }

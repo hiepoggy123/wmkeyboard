@@ -83,6 +83,7 @@ import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.clipboard.PhoneFormats
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.core.settings.AppSortOrder
+import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
 import com.wasimaster.wmkeyboard.core.tools.CheatSheetLetter
 import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
@@ -2030,6 +2031,7 @@ internal fun ToggleSetting(
     switchKey: String? = null,
     icon: ImageVector? = SettingsRowIcons[title],
     enabled: Boolean = true,
+    default: Boolean? = null,
     onChange: (Boolean) -> Unit,
 ) = ToggleSetting(
     title = stringResource(title),
@@ -2040,9 +2042,17 @@ internal fun ToggleSetting(
     icon = icon,
     highlightKey = title,
     enabled = enabled,
+    default = default,
     onChange = onChange,
 )
 
+/**
+ * [default] is the value the setting shipped with, from [SettingsDefaults].
+ * Passing it gives the row a reset control while it is switched the other way;
+ * see [ResetSetting]. Leave it null on the rows that have no one default — a
+ * toggle over a list the user built, or one whose default depends on the
+ * device rather than on the app.
+ */
 @Composable
 internal fun ToggleSetting(
     title: String,
@@ -2056,6 +2066,7 @@ internal fun ToggleSetting(
     // still opens, it just has nothing to switch. The subtitle is where the
     // caller says why.
     enabled: Boolean = true,
+    default: Boolean? = null,
     onChange: (Boolean) -> Unit,
 ) {
     HighlightableRow(title, highlightKey) {
@@ -2066,6 +2077,9 @@ internal fun ToggleSetting(
             trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (info != null) InfoButton(title, info)
+                    ResetSetting(title, default != null && checked != default) {
+                        onChange(default == true)
+                    }
                     Switch(
                         checked = checked,
                         onCheckedChange = onChange,
@@ -2202,6 +2216,7 @@ internal fun SliderSetting(
     display: (Float) -> String,
     info: String? = null,
     icon: ImageVector? = SettingsRowIcons[title],
+    default: Float? = null,
     onChange: (Float) -> Unit,
 ) = SliderSetting(
     title = stringResource(title),
@@ -2212,6 +2227,7 @@ internal fun SliderSetting(
     info = info,
     icon = icon,
     highlightKey = title,
+    default = default,
     onChange = onChange,
 )
 
@@ -2219,6 +2235,11 @@ internal fun SliderSetting(
  * A labelled slider row. [display] formats the *live* value rather than taking a
  * pre-rendered string, so the readout tracks the thumb instead of the stored
  * setting; see [rememberLiveSlider] for the rest.
+ *
+ * [default] is the value the slider shipped at, from [SettingsDefaults]. The
+ * reset control compares against the *stored* value rather than the live one,
+ * so it neither flickers under a drag nor disappears the instant the thumb
+ * passes over the default on its way somewhere else.
  */
 @Composable
 internal fun SliderSetting(
@@ -2230,6 +2251,7 @@ internal fun SliderSetting(
     info: String? = null,
     icon: ImageVector? = null,
     @StringRes highlightKey: Int = 0,
+    default: Float? = null,
     onChange: (Float) -> Unit,
 ) {
     val slider = rememberLiveSlider(value, onChange)
@@ -2255,6 +2277,7 @@ internal fun SliderSetting(
                     style = MaterialTheme.typography.labelLarge,
                     maxLines = 1,
                 )
+                ResetSetting(title, default != null && value != default) { onChange(default ?: 0f) }
             },
         ) {
             Slider(
@@ -2317,6 +2340,7 @@ internal fun <T> ChoiceSetting(
     options: List<Pair<T, String>>,
     selected: T,
     icon: ImageVector? = SettingsRowIcons[title],
+    default: T? = null,
     onChange: (T) -> Unit,
 ) = ChoiceSetting(
     title = stringResource(title),
@@ -2326,10 +2350,18 @@ internal fun <T> ChoiceSetting(
     selected = selected,
     icon = icon,
     highlightKey = title,
+    default = default,
     onChange = onChange,
 )
 
-/** A titled single-choice row of segmented buttons over [options]. */
+/**
+ * A titled single-choice row of segmented buttons over [options].
+ *
+ * [default] is the option the setting shipped on, from [SettingsDefaults]; it
+ * gives the row a reset control while some other option is picked. Null on a
+ * choice with no fixed default — one over a list the user assembled, or one
+ * whose starting option is read off the device.
+ */
 @Composable
 internal fun <T> ChoiceSetting(
     title: String,
@@ -2339,6 +2371,7 @@ internal fun <T> ChoiceSetting(
     selected: T,
     icon: ImageVector? = null,
     @StringRes highlightKey: Int = 0,
+    default: T? = null,
     onChange: (T) -> Unit,
 ) {
     HighlightableRow(title, highlightKey) {
@@ -2348,6 +2381,8 @@ internal fun <T> ChoiceSetting(
             header = {
                 Text(title, style = MaterialTheme.typography.bodyLarge)
                 if (info != null) InfoButton(title, info)
+                Spacer(Modifier.weight(1f))
+                ResetSetting(title, default != null && selected != default) { onChange(default!!) }
             },
         ) {
             ChoiceControl(options, selected, Modifier.padding(top = 8.dp), onChange)
@@ -2457,6 +2492,7 @@ private fun SpaceSwipeSetting(
     subtitle: String,
     info: String,
     value: SpaceSwipeAction,
+    default: SpaceSwipeAction,
     onChange: (SpaceSwipeAction) -> Unit,
 ) {
     val nothing = stringResource(R.string.home_space_swipe_none_label)
@@ -2476,6 +2512,7 @@ private fun SpaceSwipeSetting(
             }
         },
         selected = value,
+        default = default,
         onChange = onChange,
     )
 }
@@ -2499,6 +2536,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_autocorrect_subtitle),
                 settings.autocorrect,
                 info = stringResource(R.string.typing_autocorrect_info),
+                default = SettingsDefaults.autocorrect,
             ) { scope.launch { repository.setAutocorrect(it) } }
         }
         if (settings.autocorrect) {
@@ -2511,6 +2549,7 @@ private fun TypingSettings(
                     range = 1.5f..10f,
                     display = { valueFormat.format("%.1f".format(it)) },
                     info = stringResource(R.string.typing_autocorrect_confidence_info),
+                    default = SettingsDefaults.autocorrectConfidence,
                 ) { scope.launch { repository.setAutocorrectConfidence(it) } }
             }
             item {
@@ -2519,6 +2558,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_autocorrect_adaptive_subtitle),
                     settings.autocorrectAdaptive,
                     info = stringResource(R.string.typing_autocorrect_adaptive_info),
+                    default = SettingsDefaults.autocorrectAdaptive,
                 ) { scope.launch { repository.setAutocorrectAdaptive(it) } }
             }
             item {
@@ -2530,6 +2570,7 @@ private fun TypingSettings(
                     range = 0f..1f,
                     display = { percentFormat.format((it * 100).toInt()) },
                     info = stringResource(R.string.typing_timing_signal_info),
+                    default = SettingsDefaults.suggestionStrip.timingSignalStrength,
                 ) { scope.launch { repository.setTimingSignalStrength(it) } }
             }
             item {
@@ -2538,6 +2579,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_undo_autocorrect_subtitle),
                     settings.revertAutocorrectOnBackspace,
                     info = stringResource(R.string.typing_undo_autocorrect_info),
+                    default = SettingsDefaults.revertAutocorrectOnBackspace,
                 ) { scope.launch { repository.setRevertAutocorrectOnBackspace(it) } }
             }
             item {
@@ -2546,6 +2588,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_skip_all_caps_subtitle),
                     settings.autocorrectSkipAllCaps,
                     info = stringResource(R.string.typing_skip_all_caps_info),
+                    default = SettingsDefaults.autocorrectSkipAllCaps,
                 ) { scope.launch { repository.setAutocorrectSkipAllCaps(it) } }
             }
             item {
@@ -2554,6 +2597,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_block_offensive_subtitle),
                     settings.suggestionStrip.blockOffensiveWords,
                     info = stringResource(R.string.typing_block_offensive_info),
+                    default = SettingsDefaults.suggestionStrip.blockOffensiveWords,
                 ) { scope.launch { repository.setBlockOffensiveWords(it) } }
             }
             item {
@@ -2562,6 +2606,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_context_rerank_subtitle),
                     settings.suggestionStrip.contextRerank,
                     info = stringResource(R.string.typing_context_rerank_info),
+                    default = SettingsDefaults.suggestionStrip.contextRerank,
                 ) { scope.launch { repository.setContextRerank(it) } }
             }
             item {
@@ -2570,6 +2615,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_autocorrect_splits_subtitle),
                     settings.suggestionStrip.autocorrectSplits,
                     info = stringResource(R.string.typing_autocorrect_splits_info),
+                    default = SettingsDefaults.suggestionStrip.autocorrectSplits,
                 ) { scope.launch { repository.setAutocorrectSplits(it) } }
             }
             item {
@@ -2578,6 +2624,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_language_detection_subtitle),
                     settings.suggestionStrip.languageDetection,
                     info = stringResource(R.string.typing_language_detection_info),
+                    default = SettingsDefaults.suggestionStrip.languageDetection,
                 ) { scope.launch { repository.setLanguageDetection(it) } }
             }
             if (settings.suggestionStrip.languageDetection) {
@@ -2594,6 +2641,7 @@ private fun TypingSettings(
                                 stringResource(R.string.typing_language_detection_aggressive),
                         ),
                         selected = settings.suggestionStrip.languageDetectionStrength,
+                        default = SettingsDefaults.suggestionStrip.languageDetectionStrength,
                     ) { scope.launch { repository.setLanguageDetectionStrength(it) } }
                 }
             }
@@ -2604,6 +2652,7 @@ private fun TypingSettings(
                         stringResource(R.string.typing_number_row_corrections_subtitle),
                         settings.suggestionStrip.numberRowCorrections,
                         info = stringResource(R.string.typing_number_row_corrections_info),
+                        default = SettingsDefaults.suggestionStrip.numberRowCorrections,
                     ) { scope.launch { repository.setNumberRowCorrections(it) } }
                 }
             }
@@ -2614,6 +2663,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_register_priors_subtitle),
                 settings.suggestionStrip.registerPriors,
                 info = stringResource(R.string.typing_register_priors_info),
+                default = SettingsDefaults.suggestionStrip.registerPriors,
             ) { scope.launch { repository.setRegisterPriors(it) } }
         }
         item {
@@ -2622,6 +2672,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_auto_apostrophe_subtitle),
                 settings.autoApostrophe,
                 info = stringResource(R.string.typing_auto_apostrophe_info),
+                default = SettingsDefaults.autoApostrophe,
             ) { scope.launch { repository.setAutoApostrophe(it) } }
         }
         item {
@@ -2630,6 +2681,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_auto_capitalize_subtitle),
                 settings.autoCapitalize,
                 info = stringResource(R.string.typing_auto_capitalize_info),
+                default = SettingsDefaults.autoCapitalize,
             ) { scope.launch { repository.setAutoCapitalize(it) } }
         }
         item {
@@ -2638,6 +2690,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_double_space_period_subtitle),
                 settings.doubleSpacePeriod,
                 info = stringResource(R.string.typing_double_space_period_info),
+                default = SettingsDefaults.doubleSpacePeriod,
             ) { scope.launch { repository.setDoubleSpacePeriod(it) } }
         }
         item {
@@ -2646,6 +2699,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_double_space_tab_subtitle),
                 settings.doubleSpaceTab,
                 info = stringResource(R.string.typing_double_space_tab_info),
+                default = SettingsDefaults.doubleSpaceTab,
             ) { scope.launch { repository.setDoubleSpaceTab(it) } }
         }
         item {
@@ -2654,6 +2708,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_auto_space_punctuation_subtitle),
                 settings.autoSpaceAfterPunctuation,
                 info = stringResource(R.string.typing_auto_space_punctuation_info),
+                default = SettingsDefaults.autoSpaceAfterPunctuation,
             ) { scope.launch { repository.setAutoSpaceAfterPunctuation(it) } }
         }
         item {
@@ -2662,6 +2717,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_space_after_suggestion_subtitle),
                 settings.suggestionStrip.autoSpaceAfterSuggestion,
                 info = stringResource(R.string.typing_space_after_suggestion_info),
+                default = SettingsDefaults.suggestionStrip.autoSpaceAfterSuggestion,
             ) { scope.launch { repository.setAutoSpaceAfterSuggestion(it) } }
         }
         item {
@@ -2670,6 +2726,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_wrap_selection_subtitle),
                 settings.textEditing.wrapSelectionWithPair,
                 info = stringResource(R.string.typing_wrap_selection_info),
+                default = SettingsDefaults.textEditing.wrapSelectionWithPair,
             ) { scope.launch { repository.setWrapSelectionWithPair(it) } }
         }
         item {
@@ -2678,6 +2735,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_shift_recase_subtitle),
                 settings.textEditing.recapitalizeSelectionWithShift,
                 info = stringResource(R.string.typing_shift_recase_info),
+                default = SettingsDefaults.textEditing.recapitalizeSelectionWithShift,
             ) { scope.launch { repository.setRecapitalizeSelectionWithShift(it) } }
         }
     }
@@ -2689,6 +2747,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_suggestions_subtitle),
                 settings.suggestions,
                 info = stringResource(R.string.typing_suggestions_info),
+                default = SettingsDefaults.suggestions,
             ) { scope.launch { repository.setSuggestions(it) } }
         }
         item {
@@ -2697,6 +2756,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_punctuation_suggestions_subtitle),
                 settings.suggestionStrip.punctuation,
                 info = stringResource(R.string.typing_punctuation_suggestions_info),
+                default = SettingsDefaults.suggestionStrip.punctuation,
             ) { scope.launch { repository.setPunctuationSuggestions(it) } }
         }
         item {
@@ -2705,6 +2765,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_suggestions_all_fields_subtitle),
                 settings.showSuggestionsInAllFields,
                 info = stringResource(R.string.typing_suggestions_all_fields_info),
+                default = SettingsDefaults.showSuggestionsInAllFields,
             ) { scope.launch { repository.setShowSuggestionsInAllFields(it) } }
         }
         item {
@@ -2713,6 +2774,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_suggestions_first_subtitle),
                 settings.suggestionStrip.suggestionsFirst,
                 info = stringResource(R.string.typing_suggestions_first_info),
+                default = SettingsDefaults.suggestionStrip.suggestionsFirst,
             ) { scope.launch { repository.setSuggestionsFirst(it) } }
         }
         item {
@@ -2721,6 +2783,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_primary_center_subtitle),
                 settings.suggestionStrip.suggestionPrimaryCenter,
                 info = stringResource(R.string.typing_primary_center_info),
+                default = SettingsDefaults.suggestionStrip.suggestionPrimaryCenter,
             ) { scope.launch { repository.setSuggestionPrimaryCenter(it) } }
         }
         item {
@@ -2736,6 +2799,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_contact_names_subtitle),
                 settings.contactSuggestions,
                 info = stringResource(R.string.typing_contact_names_info),
+                default = SettingsDefaults.contactSuggestions,
             ) { enabled ->
                 when {
                     !enabled -> scope.launch { repository.setContactSuggestions(false) }
@@ -2757,6 +2821,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_contact_emails_subtitle),
                 settings.contactEmailSuggestions,
                 info = stringResource(R.string.typing_contact_emails_info),
+                default = SettingsDefaults.contactEmailSuggestions,
             ) { enabled ->
                 when {
                     !enabled -> scope.launch { repository.setContactEmailSuggestions(false) }
@@ -2774,6 +2839,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_contact_emails_in_email_fields_subtitle),
                     settings.contactEmailSuggestionsInEmailFields,
                     info = stringResource(R.string.typing_contact_emails_in_email_fields_info),
+                    default = SettingsDefaults.contactEmailSuggestionsInEmailFields,
                 ) { scope.launch { repository.setContactEmailSuggestionsInEmailFields(it) } }
             }
         }
@@ -2783,6 +2849,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_app_names_subtitle),
                 settings.appNameSuggestions,
                 info = stringResource(R.string.typing_app_names_info),
+                default = SettingsDefaults.appNameSuggestions,
             ) { scope.launch { repository.setAppNameSuggestions(it) } }
         }
         item {
@@ -2791,6 +2858,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_inline_emoji_search_subtitle),
                 settings.inlineEmojiSearch,
                 info = stringResource(R.string.typing_inline_emoji_search_info),
+                default = SettingsDefaults.inlineEmojiSearch,
             ) { scope.launch { repository.setInlineEmojiSearch(it) } }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -2800,6 +2868,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_inline_autofill_subtitle),
                     settings.inlineAutofill,
                     info = stringResource(R.string.typing_inline_autofill_info),
+                    default = SettingsDefaults.inlineAutofill,
                 ) { scope.launch { repository.setInlineAutofill(it) } }
             }
             item {
@@ -2808,6 +2877,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_smart_replies_subtitle),
                     settings.suggestionStrip.systemSmartReplies,
                     info = stringResource(R.string.typing_smart_replies_info),
+                    default = SettingsDefaults.suggestionStrip.systemSmartReplies,
                 ) { scope.launch { repository.setSystemSmartReplies(it) } }
             }
         }
@@ -2817,6 +2887,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_smart_hit_detection_subtitle),
                 settings.layoutBehavior.smartHitDetection,
                 info = stringResource(R.string.typing_smart_hit_detection_info),
+                default = SettingsDefaults.layoutBehavior.smartHitDetection,
             ) { scope.launch { repository.setSmartHitDetection(it) } }
         }
         item {
@@ -2857,6 +2928,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_smart_chips_subtitle),
                 settings.smartSuggestions,
                 info = stringResource(R.string.typing_smart_chips_info),
+                default = SettingsDefaults.smartSuggestions,
             ) { scope.launch { repository.setSmartSuggestions(it) } }
         }
         if (settings.smartSuggestions) {
@@ -2865,6 +2937,7 @@ private fun TypingSettings(
                     R.string.typing_smart_calc_title,
                     stringResource(R.string.typing_smart_calc_subtitle),
                     settings.smartCalc,
+                    default = SettingsDefaults.smartCalc,
                 ) { scope.launch { repository.setSmartCalc(it) } }
             }
             item {
@@ -2872,6 +2945,7 @@ private fun TypingSettings(
                     R.string.typing_smart_currency_title,
                     stringResource(R.string.typing_smart_currency_subtitle, settings.currencyTo),
                     settings.smartCurrency,
+                    default = SettingsDefaults.smartCurrency,
                 ) { scope.launch { repository.setSmartCurrency(it) } }
             }
             item {
@@ -2879,6 +2953,7 @@ private fun TypingSettings(
                     R.string.typing_smart_units_title,
                     stringResource(R.string.typing_smart_units_subtitle),
                     settings.smartUnits,
+                    default = SettingsDefaults.smartUnits,
                 ) { scope.launch { repository.setSmartUnits(it) } }
             }
             item {
@@ -2887,6 +2962,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_smart_tool_keywords_subtitle),
                     settings.smartToolKeywords,
                     info = stringResource(R.string.typing_smart_tool_keywords_info),
+                    default = SettingsDefaults.smartToolKeywords,
                 ) { scope.launch { repository.setSmartToolKeywords(it) } }
             }
         }
@@ -2903,6 +2979,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_otp_chip_subtitle),
                 settings.otp.enabled,
                 info = stringResource(R.string.typing_otp_chip_info),
+                default = SettingsDefaults.otp.enabled,
             ) { on ->
                 scope.launch { repository.setOtpChipEnabled(on) }
                 // Disclosure then the grant screen, the first time it goes on —
@@ -2928,6 +3005,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_otp_number_fields_subtitle),
                     settings.otp.numberFieldsOnly,
                     info = stringResource(R.string.typing_otp_number_fields_info),
+                    default = SettingsDefaults.otp.numberFieldsOnly,
                 ) { scope.launch { repository.setOtpNumberFieldsOnly(it) } }
             }
             item {
@@ -2937,6 +3015,7 @@ private fun TypingSettings(
                     value = settings.otp.expiryMinutes.toFloat(),
                     range = 1f..10f,
                     display = { minutesFormat.format(it.toInt()) },
+                    default = SettingsDefaults.otp.expiryMinutes.toFloat(),
                 ) { scope.launch { repository.setOtpExpiryMinutes(it.toInt()) } }
             }
             item {
@@ -2945,6 +3024,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_otp_dismiss_subtitle),
                     settings.otp.dismissNotification,
                     info = stringResource(R.string.typing_otp_dismiss_info),
+                    default = SettingsDefaults.otp.dismissNotification,
                 ) { scope.launch { repository.setOtpDismissNotification(it) } }
             }
         }
@@ -2957,6 +3037,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_otp_per_digit_subtitle),
                 settings.otp.perDigitEntry,
                 info = stringResource(R.string.typing_otp_per_digit_info),
+                default = SettingsDefaults.otp.perDigitEntry,
             ) { scope.launch { repository.setOtpPerDigitEntry(it) } }
         }
     }
@@ -2968,6 +3049,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_glide_typing_subtitle),
                 settings.gestureTyping,
                 info = stringResource(R.string.typing_glide_typing_info),
+                default = SettingsDefaults.gestureTyping,
             ) { scope.launch { repository.setGestureTyping(it) } }
         }
         // What a letter swipe does — glide a word or handwrite it. Full builds
@@ -2987,6 +3069,7 @@ private fun TypingSettings(
                     ),
                     selected = settings.letterSwipeAction,
                     onChange = { scope.launch { repository.setLetterSwipeAction(it) } },
+                    default = SettingsDefaults.letterSwipeAction,
                 )
             }
         }
@@ -3000,6 +3083,7 @@ private fun TypingSettings(
                         stringResource(R.string.typing_space_glide_multiword_subtitle),
                         settings.gesture.spaceGlideMultiWord,
                         info = stringResource(R.string.typing_space_glide_multiword_info),
+                        default = SettingsDefaults.gesture.spaceGlideMultiWord,
                     ) { scope.launch { repository.setGestureSpaceMultiWord(it) } }
                 }
                 item {
@@ -3008,6 +3092,7 @@ private fun TypingSettings(
                         stringResource(R.string.typing_glide_picker_subtitle),
                         settings.gesture.ambiguityPicker,
                         info = stringResource(R.string.typing_glide_picker_info),
+                        default = SettingsDefaults.gesture.ambiguityPicker,
                     ) { scope.launch { repository.setGestureAmbiguityPicker(it) } }
                 }
                 item {
@@ -3016,6 +3101,7 @@ private fun TypingSettings(
                         stringResource(R.string.typing_space_after_glide_subtitle),
                         settings.gesture.autoSpaceAfterGlide,
                         info = stringResource(R.string.typing_space_after_glide_info),
+                        default = SettingsDefaults.gesture.autoSpaceAfterGlide,
                     ) { scope.launch { repository.setGestureAutoSpace(it) } }
                 }
             }
@@ -3028,6 +3114,7 @@ private fun TypingSettings(
                     range = 0.5f..4f,
                     display = { valueFormat.format("%.1f".format(it)) },
                     info = stringResource(R.string.typing_swipe_start_distance_info),
+                    default = SettingsDefaults.gesture.startThresholdSlop,
                 ) { scope.launch { repository.setGestureStartThresholdSlop(it) } }
             }
             // Glide-word only: the guard raises the swipe-start bar, which never
@@ -3043,6 +3130,7 @@ private fun TypingSettings(
                         range = 0f..500f,
                         display = { if (it.roundToInt() == 0) offLabel else msFormat.format(it.roundToInt()) },
                         info = stringResource(R.string.typing_gesture_cooldown_info),
+                        default = SettingsDefaults.gesture.postTypeCooldownMs.toFloat(),
                     ) { scope.launch { repository.setGesturePostTypeCooldownMs(it.roundToInt()) } }
                 }
             }
@@ -3061,6 +3149,7 @@ private fun TypingSettings(
                         range = 0f..1500f,
                         display = { if (it.roundToInt() == 0) offLabel else msFormat.format(it.roundToInt()) },
                         info = stringResource(R.string.typing_handwrite_dot_info),
+                        default = SettingsDefaults.gesture.handwriteDotCooldownMs.toFloat(),
                     ) { scope.launch { repository.setGestureHandwriteDotCooldownMs(it.roundToInt()) } }
                 }
             }
@@ -3072,6 +3161,7 @@ private fun TypingSettings(
                     value = settings.gesture.trailWidthDp,
                     range = 2f..24f,
                     display = { dpFormat.format(it.roundToInt()) },
+                    default = SettingsDefaults.gesture.trailWidthDp,
                 ) { scope.launch { repository.setGestureTrailWidthDp(it) } }
             }
             item {
@@ -3082,6 +3172,7 @@ private fun TypingSettings(
                     value = settings.gesture.trailDurationMs.toFloat(),
                     range = 100f..1200f,
                     display = { msFormat.format(it.roundToInt()) },
+                    default = SettingsDefaults.gesture.trailDurationMs.toFloat(),
                 ) { scope.launch { repository.setGestureTrailDurationMs(it.roundToInt()) } }
             }
             item {
@@ -3091,6 +3182,7 @@ private fun TypingSettings(
                     value = settings.gesture.trailOpacity,
                     range = 0.1f..1f,
                     display = { percentFormat.format((it * 100).roundToInt()) },
+                    default = SettingsDefaults.gesture.trailOpacity,
                 ) { scope.launch { repository.setGestureTrailOpacity(it) } }
             }
         }
@@ -3100,6 +3192,7 @@ private fun TypingSettings(
                 subtitle = stringResource(R.string.typing_space_short_swipe_subtitle),
                 info = stringResource(R.string.typing_space_short_swipe_info),
                 value = settings.spaceShortSwipe,
+                default = SettingsDefaults.spaceShortSwipe,
             ) { scope.launch { repository.setSpaceShortSwipe(it) } }
         }
         item {
@@ -3108,6 +3201,7 @@ private fun TypingSettings(
                 subtitle = stringResource(R.string.typing_space_long_swipe_subtitle),
                 info = stringResource(R.string.typing_space_long_swipe_info),
                 value = settings.spaceLongSwipe,
+                default = SettingsDefaults.spaceLongSwipe,
             ) { scope.launch { repository.setSpaceLongSwipe(it) } }
         }
         // 2-D cursor pad only makes sense once a slide is set to cursor control.
@@ -3120,6 +3214,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_space_cursor_2d_subtitle),
                     settings.layoutBehavior.spaceCursor2d,
                     info = stringResource(R.string.typing_space_cursor_2d_info),
+                    default = SettingsDefaults.layoutBehavior.spaceCursor2d,
                 ) { scope.launch { repository.setSpaceCursor2d(it) } }
             }
         }
@@ -3129,6 +3224,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_space_swipe_down_hide_subtitle),
                 settings.layoutBehavior.spaceSwipeDownHide,
                 info = stringResource(R.string.typing_space_swipe_down_hide_info),
+                default = SettingsDefaults.layoutBehavior.spaceSwipeDownHide,
             ) { scope.launch { repository.setSpaceSwipeDownHide(it) } }
         }
         if (settings.spaceShortSwipe == SpaceSwipeAction.LANGUAGE ||
@@ -3140,6 +3236,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_spacebar_language_arrows_subtitle),
                     settings.spacebarLanguageArrows,
                     info = stringResource(R.string.typing_spacebar_language_arrows_info),
+                    default = SettingsDefaults.spacebarLanguageArrows,
                 ) { scope.launch { repository.setSpacebarLanguageArrows(it) } }
             }
         }
@@ -3157,6 +3254,7 @@ private fun TypingSettings(
                         stringResource(R.string.typing_spacebar_display_both_label),
                 ),
                 selected = settings.layoutBehavior.spacebarDisplay,
+                default = SettingsDefaults.layoutBehavior.spacebarDisplay,
             ) { scope.launch { repository.setSpacebarDisplay(it) } }
         }
         item {
@@ -3165,6 +3263,7 @@ private fun TypingSettings(
                 value = settings.spacebarLabel,
                 // The %s token is text the user types, so it travels as an argument.
                 hint = stringResource(R.string.typing_spacebar_text_hint, "%s"),
+                default = SettingsDefaults.spacebarLabel,
             ) { repository.setSpacebarLabel(it) }
         }
     }
@@ -3176,6 +3275,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_backspace_swipe_subtitle),
                 settings.backspaceSwipeDelete,
                 info = stringResource(R.string.typing_backspace_swipe_info),
+                default = SettingsDefaults.backspaceSwipeDelete,
             ) { scope.launch { repository.setBackspaceSwipeDelete(it) } }
         }
     }
@@ -3187,6 +3287,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_shift_enter_subtitle),
                 settings.layoutBehavior.shiftEnterNewline,
                 info = stringResource(R.string.typing_shift_enter_info),
+                default = SettingsDefaults.layoutBehavior.shiftEnterNewline,
             ) { scope.launch { repository.setShiftEnterNewline(it) } }
         }
     }
@@ -3198,6 +3299,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_volume_cursor_subtitle),
                 settings.volumeCursor,
                 info = stringResource(R.string.typing_volume_cursor_info),
+                default = SettingsDefaults.volumeCursor,
             ) { scope.launch { repository.setVolumeCursor(it) } }
         }
         if (settings.volumeCursor) {
@@ -3207,6 +3309,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_volume_cursor_media_subtitle),
                     settings.volumeCursorMediaAware,
                     info = stringResource(R.string.typing_volume_cursor_media_info),
+                    default = SettingsDefaults.volumeCursorMediaAware,
                 ) { scope.launch { repository.setVolumeCursorMediaAware(it) } }
             }
         }
@@ -3219,6 +3322,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_hardware_input_subtitle),
                 settings.hardwareKeyboardInput,
                 info = stringResource(R.string.typing_hardware_input_info),
+                default = SettingsDefaults.hardwareKeyboardInput,
             ) { scope.launch { repository.setHardwareKeyboardInput(it) } }
         }
         val hw = settings.hardwareKeyboard
@@ -3228,6 +3332,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_hw_shortcuts_subtitle),
                 hw.shortcutsEnabled,
                 info = stringResource(R.string.typing_hw_shortcuts_info),
+                default = SettingsDefaults.hardwareKeyboard.shortcutsEnabled,
             ) { scope.launch { repository.setHwShortcutsEnabled(it) } }
         }
         if (hw.shortcutsEnabled) {
@@ -3253,6 +3358,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_hw_digit_chord_subtitle),
                     hw.toolbarDigitChord,
                     info = stringResource(R.string.typing_hw_digit_chord_info),
+                    default = SettingsDefaults.hardwareKeyboard.toolbarDigitChord,
                 ) { scope.launch { repository.setHwToolbarDigitChord(it) } }
             }
             item {
@@ -3261,6 +3367,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_hw_modifier_words_subtitle),
                     hw.hintModifierWords,
                     info = stringResource(R.string.typing_hw_modifier_words_info),
+                    default = SettingsDefaults.hardwareKeyboard.hintModifierWords,
                 ) { scope.launch { repository.setHwHintModifierWords(it) } }
             }
             item {
@@ -3274,6 +3381,7 @@ private fun TypingSettings(
                     range = PickerTimeoutRange.first.toFloat()..PickerTimeoutRange.last.toFloat(),
                     display = { secondsFormat.format("%.1f".format(it / 1000f)) },
                     info = stringResource(R.string.typing_hw_picker_timeout_info),
+                    default = SettingsDefaults.hardwareKeyboard.pickerTimeoutMs.toFloat(),
                 ) { scope.launch { repository.setHwPickerTimeoutMs(it.toInt()) } }
             }
         }
@@ -3283,6 +3391,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_hw_panel_nav_subtitle),
                 hw.panelNavigation,
                 info = stringResource(R.string.typing_hw_panel_nav_info),
+                default = SettingsDefaults.hardwareKeyboard.panelNavigation,
             ) { scope.launch { repository.setHwPanelNavigation(it) } }
         }
         item {
@@ -3291,6 +3400,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_hw_esc_subtitle),
                 hw.escClosesPanel,
                 info = stringResource(R.string.typing_hw_esc_info),
+                default = SettingsDefaults.hardwareKeyboard.escClosesPanel,
             ) { scope.launch { repository.setHwEscClosesPanel(it) } }
         }
         item {
@@ -3300,6 +3410,7 @@ private fun TypingSettings(
                 info = stringResource(R.string.typing_hw_suggestion_hotkeys_info),
                 options = SuggestionHotkeyMode.entries.map { it to stringResource(it.labelRes) },
                 selected = hw.suggestionHotkeys,
+                default = SettingsDefaults.hardwareKeyboard.suggestionHotkeys,
             ) { scope.launch { repository.setHwSuggestionHotkeys(it) } }
         }
         if (hw.suggestionHotkeys == SuggestionHotkeyMode.ALT_DIGIT) {
@@ -3309,6 +3420,7 @@ private fun TypingSettings(
                     stringResource(R.string.typing_hw_suggestion_hints_subtitle),
                     hw.suggestionHintsAlways,
                     info = stringResource(R.string.typing_hw_suggestion_hints_info),
+                    default = SettingsDefaults.hardwareKeyboard.suggestionHintsAlways,
                 ) { scope.launch { repository.setHwSuggestionHintsAlways(it) } }
             }
         }
@@ -3318,6 +3430,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_hw_mac_subtitle),
                 hw.macShortcuts,
                 info = stringResource(R.string.typing_hw_mac_info),
+                default = SettingsDefaults.hardwareKeyboard.macShortcuts,
             ) { scope.launch { repository.setHwMacShortcuts(it) } }
         }
         item {
@@ -3326,6 +3439,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_hw_lang_chord_subtitle),
                 hw.languageSwitchChord,
                 info = stringResource(R.string.typing_hw_lang_chord_info),
+                default = SettingsDefaults.hardwareKeyboard.languageSwitchChord,
             ) { scope.launch { repository.setHwLanguageSwitchChord(it) } }
         }
         item {
@@ -3334,6 +3448,7 @@ private fun TypingSettings(
                 stringResource(R.string.typing_hw_auto_show_subtitle),
                 hw.autoShowUi,
                 info = stringResource(R.string.typing_hw_auto_show_info),
+                default = SettingsDefaults.hardwareKeyboard.autoShowUi,
             ) { scope.launch { repository.setHwAutoShowUi(it) } }
         }
     }
@@ -3688,6 +3803,7 @@ private fun KeySoundGroup(
                 R.string.hardware_sound_key_title,
                 stringResource(R.string.hardware_sound_key_subtitle),
                 settings.keySound,
+                default = SettingsDefaults.keySound,
             ) {
                 scope.launch { repository.setKeySound(it) }
                 if (it) {
@@ -3816,6 +3932,7 @@ private fun KeySoundGroup(
                 value = settings.keySoundVolume,
                 range = 0.05f..1f,
                 display = { percentFormat.format((it * 100).roundToInt()) },
+                default = SettingsDefaults.keySoundVolume,
             ) {
                 scope.launch { repository.setKeySoundVolume(it) }
                 // Debounced inside the player, so dragging previews smoothly.
@@ -4150,6 +4267,7 @@ private fun KeyReleaseSoundToggle(
         R.string.hardware_sound_pack_release_title,
         stringResource(R.string.hardware_sound_pack_release_subtitle),
         settings.keySoundCustom.playRelease,
+        default = SettingsDefaults.keySoundCustom.playRelease,
     ) { on ->
         scope.launch { repository.setKeySoundPlayRelease(on) }
         // Turning it on previews the whole keystroke, which is the only way to
@@ -4195,6 +4313,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_haptics_subtitle),
                 settings.hapticFeedback,
                 info = stringResource(R.string.keypress_haptics_info),
+                default = SettingsDefaults.hapticFeedback,
             ) {
                 scope.launch { repository.setHapticFeedback(it) }
                 if (it) {
@@ -4253,6 +4372,7 @@ private fun KeyPressSettings(
                     range = 5f..60f,
                     display = { context.getString(R.string.keypress_value_ms, it.roundToInt()) },
                     info = stringResource(R.string.keypress_haptic_strength_info),
+                    default = SettingsDefaults.hapticStrengthMs.toFloat(),
                 ) {
                     scope.launch { repository.setHapticStrengthMs(it.toInt()) }
                     // Debounced inside the player, so dragging previews smoothly.
@@ -4271,6 +4391,7 @@ private fun KeyPressSettings(
                         context.getString(R.string.keypress_value_percent, it.roundToInt() * 100 / 255)
                     },
                     info = stringResource(R.string.keypress_haptic_intensity_info),
+                    default = SettingsDefaults.hapticAmplitude.toFloat(),
                 ) {
                     scope.launch { repository.setHapticAmplitude(it.toInt()) }
                     HapticPlayer.preview(context, settings.hapticStyle, it.toInt(), settings.hapticStrengthMs, view)
@@ -4283,6 +4404,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_long_press_haptics_subtitle),
                 settings.hapticOnLongPress,
                 info = stringResource(R.string.keypress_long_press_haptics_info),
+                default = SettingsDefaults.hapticOnLongPress,
             ) { scope.launch { repository.setHapticOnLongPress(it) } }
         }
         item {
@@ -4291,6 +4413,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_long_press_release_subtitle),
                 settings.hapticOnLongPressRelease,
                 info = stringResource(R.string.keypress_long_press_release_info),
+                default = SettingsDefaults.hapticOnLongPressRelease,
             ) { scope.launch { repository.setHapticOnLongPressRelease(it) } }
         }
         // Per-event gates: only meaningful while the master switch above is on,
@@ -4302,6 +4425,7 @@ private fun KeyPressSettings(
                     stringResource(R.string.keypress_vibrate_space_subtitle),
                     settings.feedback.vibrateOnSpace,
                     info = stringResource(R.string.keypress_vibrate_space_info),
+                    default = SettingsDefaults.feedback.vibrateOnSpace,
                 ) { scope.launch { repository.setVibrateOnSpace(it) } }
             }
             item {
@@ -4310,6 +4434,7 @@ private fun KeyPressSettings(
                     stringResource(R.string.keypress_vibrate_delete_swipe_subtitle),
                     settings.feedback.vibrateOnDeleteSwipe,
                     info = stringResource(R.string.keypress_vibrate_delete_swipe_info),
+                    default = SettingsDefaults.feedback.vibrateOnDeleteSwipe,
                 ) { scope.launch { repository.setVibrateOnDeleteSwipe(it) } }
             }
             item {
@@ -4318,6 +4443,7 @@ private fun KeyPressSettings(
                     stringResource(R.string.keypress_vibrate_repeat_subtitle),
                     settings.feedback.vibrateOnRepeat,
                     info = stringResource(R.string.keypress_vibrate_repeat_info),
+                    default = SettingsDefaults.feedback.vibrateOnRepeat,
                 ) { scope.launch { repository.setVibrateOnRepeat(it) } }
             }
             item {
@@ -4326,6 +4452,7 @@ private fun KeyPressSettings(
                     stringResource(R.string.keypress_dnd_mute_subtitle),
                     settings.feedback.hapticsRespectDnd,
                     info = stringResource(R.string.keypress_dnd_mute_info),
+                    default = SettingsDefaults.feedback.hapticsRespectDnd,
                 ) { scope.launch { repository.setHapticsRespectDnd(it) } }
             }
         }
@@ -4340,6 +4467,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_popup_subtitle),
                 settings.popup.enabled,
                 info = stringResource(R.string.keypress_popup_info),
+                default = SettingsDefaults.popup.enabled,
             ) { scope.launch { repository.setKeyPopup(it) } }
         }
         if (settings.popup.enabled) {
@@ -4349,6 +4477,7 @@ private fun KeyPressSettings(
                     stringResource(R.string.keypress_popup_numeric_subtitle),
                     settings.popup.inNumericFields,
                     info = stringResource(R.string.keypress_popup_numeric_info),
+                    default = SettingsDefaults.popup.inNumericFields,
                 ) { scope.launch { repository.setKeyPopupInNumericFields(it) } }
             }
             item {
@@ -4359,6 +4488,7 @@ private fun KeyPressSettings(
                     range = 0f..300f,
                     display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
                     info = stringResource(R.string.keypress_popup_min_duration_info),
+                    default = SettingsDefaults.popup.minDurationMs.toFloat(),
                 ) { scope.launch { repository.setKeyPopupMinDurationMs(it.toInt()) } }
             }
             item {
@@ -4369,6 +4499,7 @@ private fun KeyPressSettings(
                     range = 400f..2000f,
                     display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
                     info = stringResource(R.string.keypress_popup_max_duration_info),
+                    default = SettingsDefaults.popup.maxDurationMs.toFloat(),
                 ) { scope.launch { repository.setKeyPopupMaxDurationMs(it.toInt()) } }
             }
         }
@@ -4378,6 +4509,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_popup_on_key_subtitle),
                 settings.popup.onKey,
                 info = stringResource(R.string.keypress_popup_on_key_info),
+                default = SettingsDefaults.popup.onKey,
             ) { scope.launch { repository.setKeyPopupOnKey(it) } }
         }
         item {
@@ -4388,6 +4520,7 @@ private fun KeyPressSettings(
                 range = 0.7f..1.6f,
                 display = { context.getString(R.string.keypress_value_multiplier, it) },
                 info = stringResource(R.string.keypress_popup_font_size_info),
+                default = SettingsDefaults.popup.fontScale,
             ) { scope.launch { repository.setPopupFontScale(it) } }
         }
         item {
@@ -4398,6 +4531,7 @@ private fun KeyPressSettings(
                 range = 32f..160f,
                 display = { context.getString(R.string.keypress_value_dp, it.toInt()) },
                 info = stringResource(R.string.keypress_popup_height_info),
+                default = SettingsDefaults.popup.heightDp.toFloat(),
             ) { scope.launch { repository.setKeyPopupHeightDp(it.toInt()) } }
         }
         // Shape and radius govern every popup surface, not only the preview
@@ -4419,6 +4553,7 @@ private fun KeyPressSettings(
                 range = 0f..40f,
                 display = { context.getString(R.string.keypress_value_dp, it.toInt()) },
                 info = stringResource(R.string.keypress_popup_radius_info),
+                default = SettingsDefaults.popup.cornerRadiusDp.toFloat(),
             ) { scope.launch { repository.setKeyPopupCornerRadiusDp(it.toInt()) } }
         }
     }
@@ -4432,6 +4567,7 @@ private fun KeyPressSettings(
                 range = 150f..700f,
                 display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
                 info = stringResource(R.string.keypress_long_press_delay_info),
+                default = SettingsDefaults.longPressDelayMs.toFloat(),
             ) { scope.launch { repository.setLongPressDelayMs(it.toInt()) } }
         }
         item {
@@ -4442,6 +4578,7 @@ private fun KeyPressSettings(
                 range = 20f..200f,
                 display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
                 info = stringResource(R.string.keypress_delete_repeat_info),
+                default = SettingsDefaults.keyRepeat.deleteMs.toFloat(),
             ) { scope.launch { repository.setDeleteRepeatIntervalMs(it.toInt()) } }
         }
         item {
@@ -4452,6 +4589,7 @@ private fun KeyPressSettings(
                 range = 20f..200f,
                 display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
                 info = stringResource(R.string.keypress_space_repeat_info),
+                default = SettingsDefaults.keyRepeat.spaceMs.toFloat(),
             ) { scope.launch { repository.setSpaceRepeatIntervalMs(it.toInt()) } }
         }
         item {
@@ -4462,6 +4600,7 @@ private fun KeyPressSettings(
                 range = ShiftCapsLockMsRange.first.toFloat()..ShiftCapsLockMsRange.last.toFloat(),
                 display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
                 info = stringResource(R.string.keypress_caps_lock_info),
+                default = SettingsDefaults.layoutBehavior.shiftCapsLockMs.toFloat(),
             ) { scope.launch { repository.setShiftCapsLockMs(it.toInt()) } }
         }
     }
@@ -4473,6 +4612,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_long_press_hints_subtitle),
                 settings.longPressHints,
                 info = stringResource(R.string.keypress_long_press_hints_info),
+                default = SettingsDefaults.longPressHints,
             ) { scope.launch { repository.setLongPressHints(it) } }
         }
         item {
@@ -4481,6 +4621,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_all_accents_subtitle),
                 settings.layoutBehavior.showAllPopupKeys,
                 info = stringResource(R.string.keypress_all_accents_info),
+                default = SettingsDefaults.layoutBehavior.showAllPopupKeys,
             ) { scope.launch { repository.setShowAllPopupKeys(it) } }
         }
         item {
@@ -4489,6 +4630,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_symbols_numpad_subtitle),
                 settings.layoutBehavior.symbolsLongPressNumpad,
                 info = stringResource(R.string.keypress_symbols_numpad_info),
+                default = SettingsDefaults.layoutBehavior.symbolsLongPressNumpad,
             ) { scope.launch { repository.setSymbolsLongPressNumpad(it) } }
         }
         item {
@@ -4531,6 +4673,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_ctrl_raw_subtitle),
                 settings.rawClipboardShortcuts,
                 info = stringResource(R.string.keypress_ctrl_raw_info),
+                default = SettingsDefaults.rawClipboardShortcuts,
             ) { scope.launch { repository.setRawClipboardShortcuts(it) } }
         }
         item {
@@ -4539,6 +4682,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_hold_a_subtitle),
                 settings.longPressLetterActions.selectAll,
                 info = stringResource(R.string.keypress_hold_a_info),
+                default = SettingsDefaults.longPressLetterActions.selectAll,
             ) { scope.launch { repository.setLongPressASelectAll(it) } }
         }
         item {
@@ -4547,6 +4691,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_hold_c_subtitle),
                 settings.longPressLetterActions.copy,
                 info = stringResource(R.string.keypress_hold_c_info),
+                default = SettingsDefaults.longPressLetterActions.copy,
             ) { scope.launch { repository.setLongPressCCopy(it) } }
         }
         item {
@@ -4555,6 +4700,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_hold_x_subtitle),
                 settings.longPressLetterActions.cut,
                 info = stringResource(R.string.keypress_hold_x_info),
+                default = SettingsDefaults.longPressLetterActions.cut,
             ) { scope.launch { repository.setLongPressXCut(it) } }
         }
         item {
@@ -4563,6 +4709,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_hold_v_subtitle),
                 settings.longPressLetterActions.paste,
                 info = stringResource(R.string.keypress_hold_v_info),
+                default = SettingsDefaults.longPressLetterActions.paste,
             ) { scope.launch { repository.setLongPressVPaste(it) } }
         }
         item {
@@ -4571,6 +4718,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_hold_z_subtitle),
                 settings.longPressLetterActions.undo,
                 info = stringResource(R.string.keypress_hold_z_info),
+                default = SettingsDefaults.longPressLetterActions.undo,
             ) { scope.launch { repository.setLongPressZUndo(it) } }
         }
         item {
@@ -4579,6 +4727,7 @@ private fun KeyPressSettings(
                 stringResource(R.string.keypress_hold_y_subtitle),
                 settings.longPressLetterActions.redo,
                 info = stringResource(R.string.keypress_hold_y_info),
+                default = SettingsDefaults.longPressLetterActions.redo,
             ) { scope.launch { repository.setLongPressYRedo(it) } }
         }
     }
@@ -4679,6 +4828,7 @@ private fun AppearanceSettings(
                 range = 0f..28f,
                 display = { dpFormat.format(it.toInt()) },
                 info = stringResource(R.string.appearance_key_corner_radius_info),
+                default = SettingsDefaults.keyCornerRadiusDp.toFloat(),
             ) { scope.launch { repository.setKeyCornerRadiusDp(it.toInt()) } }
         }
         item {
@@ -4689,6 +4839,7 @@ private fun AppearanceSettings(
                 range = 0.7f..1.5f,
                 display = { multiplierFormat.format(it) },
                 info = stringResource(R.string.appearance_key_label_size_info),
+                default = SettingsDefaults.fontScale,
             ) { scope.launch { repository.setFontScale(it) } }
         }
         item {
@@ -4699,6 +4850,7 @@ private fun AppearanceSettings(
                 range = 0.5f..2.0f,
                 display = { multiplierFormat.format(it) },
                 info = stringResource(R.string.appearance_key_hint_size_info),
+                default = SettingsDefaults.layoutBehavior.hintFontScale,
             ) { scope.launch { repository.setHintFontScale(it) } }
         }
     }
@@ -4710,6 +4862,7 @@ private fun AppearanceSettings(
                 stringResource(R.string.appearance_toolbar_show_subtitle),
                 settings.toolbarBehavior.enabled,
                 info = stringResource(R.string.appearance_toolbar_show_info),
+                default = SettingsDefaults.toolbarBehavior.enabled,
             ) { on ->
                 // Enabling is harmless; disabling loses real features, so confirm.
                 if (on) scope.launch { repository.setToolbarEnabled(true) }
@@ -4722,6 +4875,7 @@ private fun AppearanceSettings(
                 stringResource(R.string.appearance_toolbar_swipe_down_subtitle),
                 settings.toolbarBehavior.swipeDownHide,
                 info = stringResource(R.string.appearance_toolbar_swipe_down_info),
+                default = SettingsDefaults.toolbarBehavior.swipeDownHide,
             ) { scope.launch { repository.setToolbarSwipeDownHide(it) } }
         }
         item {
@@ -4730,6 +4884,7 @@ private fun AppearanceSettings(
                 stringResource(R.string.appearance_toolbar_hardware_only_subtitle),
                 settings.toolbarBehavior.onlyWithHardwareKeyboard,
                 info = stringResource(R.string.appearance_toolbar_hardware_only_info),
+                default = SettingsDefaults.toolbarBehavior.onlyWithHardwareKeyboard,
             ) { scope.launch { repository.setToolbarOnlyWithHardwareKeyboard(it) } }
         }
         item {
@@ -4738,6 +4893,7 @@ private fun AppearanceSettings(
                 stringResource(R.string.appearance_toolbar_rtl_subtitle),
                 settings.toolbarBehavior.reverseForRtl,
                 info = stringResource(R.string.appearance_toolbar_rtl_info),
+                default = SettingsDefaults.toolbarBehavior.reverseForRtl,
             ) { scope.launch { repository.setReverseToolbarForRtl(it) } }
         }
         item {
@@ -4746,6 +4902,7 @@ private fun AppearanceSettings(
                 stringResource(R.string.appearance_toolbar_spread_subtitle),
                 settings.toolbarBehavior.greedy,
                 info = stringResource(R.string.appearance_toolbar_spread_info),
+                default = SettingsDefaults.toolbarBehavior.greedy,
             ) { scope.launch { repository.setToolbarGreedy(it) } }
         }
         item {
@@ -4756,6 +4913,7 @@ private fun AppearanceSettings(
                 range = 32f..80f,
                 display = { dpFormat.format(it.roundToInt()) },
                 info = stringResource(R.string.appearance_toolbar_height_info),
+                default = SettingsDefaults.toolbarHeightDp.toFloat(),
             ) { scope.launch { repository.setToolbarHeightDp(it.roundToInt()) } }
         }
         item {
@@ -4764,6 +4922,7 @@ private fun AppearanceSettings(
                 stringResource(R.string.appearance_toolbar_scroll_subtitle),
                 settings.toolbarBehavior.scrollable,
                 info = stringResource(R.string.appearance_toolbar_scroll_info),
+                default = SettingsDefaults.toolbarBehavior.scrollable,
             ) { scope.launch { repository.setToolbarScrollable(it) } }
         }
         item {
@@ -4772,6 +4931,7 @@ private fun AppearanceSettings(
                 stringResource(R.string.appearance_toolbar_lock_subtitle),
                 settings.toolbarBehavior.hideWhenLocked,
                 info = stringResource(R.string.appearance_toolbar_lock_info),
+                default = SettingsDefaults.toolbarBehavior.hideWhenLocked,
             ) { scope.launch { repository.setToolbarHideWhenLocked(it) } }
         }
         item {
@@ -4780,6 +4940,7 @@ private fun AppearanceSettings(
                 stringResource(R.string.appearance_toolbar_labels_subtitle),
                 settings.toolbarLabels,
                 info = stringResource(R.string.appearance_toolbar_labels_info),
+                default = SettingsDefaults.toolbarLabels,
             ) { scope.launch { repository.setToolbarLabels(it) } }
         }
         if (settings.toolbarLabels) {
@@ -4790,6 +4951,7 @@ private fun AppearanceSettings(
                     value = settings.toolbarLabelSize.toFloat(),
                     range = 7f..14f,
                     display = { spFormat.format(it.roundToInt()) },
+                    default = SettingsDefaults.toolbarLabelSize.toFloat(),
                 ) { scope.launch { repository.setToolbarLabelSize(it.roundToInt()) } }
             }
         }
@@ -4805,6 +4967,7 @@ private fun AppearanceSettings(
                 range = 0f..20f,
                 display = { if (it.toInt() == 0) offLabel else dpFormat.format(it.toInt()) },
                 info = stringResource(R.string.appearance_tool_circle_info),
+                default = SettingsDefaults.toolCircleRadiusDp.toFloat(),
             ) { scope.launch { repository.setToolCircleRadiusDp(it.toInt()) } }
         }
         // The same shapes the keys and the popups use. It draws nothing while
@@ -4827,6 +4990,7 @@ private fun AppearanceSettings(
                 range = 38f..64f,
                 display = { dpFormat.format(it.roundToInt()) },
                 info = stringResource(R.string.appearance_tool_width_info),
+                default = SettingsDefaults.toolbarBehavior.toolWidthDp.toFloat(),
             ) { scope.launch { repository.setToolbarToolWidthDp(it.roundToInt()) } }
         }
         item {
@@ -4841,6 +5005,7 @@ private fun AppearanceSettings(
                 ),
                 selected = settings.toolbox.layout,
                 info = stringResource(R.string.appearance_toolbox_layout_info),
+                default = SettingsDefaults.toolbox.layout,
             ) { scope.launch { repository.setToolboxLayout(it) } }
         }
         if (settings.toolbox.layout == ToolboxLayout.ICONS) {
@@ -4853,6 +5018,7 @@ private fun AppearanceSettings(
                     range = 3f..6f,
                     display = { perRow.format(it.roundToInt()) },
                     info = stringResource(R.string.appearance_toolbox_columns_info),
+                    default = SettingsDefaults.toolboxColumns.toFloat(),
                 ) { scope.launch { repository.setToolboxColumns(it.roundToInt()) } }
             }
         } else {
@@ -4865,6 +5031,7 @@ private fun AppearanceSettings(
                     range = 1f..3f,
                     display = { perRow.format(it.roundToInt()) },
                     info = stringResource(R.string.appearance_toolbox_pill_columns_info),
+                    default = SettingsDefaults.toolbox.pillColumns.toFloat(),
                 ) { scope.launch { repository.setToolboxPillColumns(it.roundToInt()) } }
             }
             item {
@@ -4873,6 +5040,7 @@ private fun AppearanceSettings(
                     stringResource(R.string.appearance_toolbox_pill_filled_subtitle),
                     settings.toolbox.pillFilled,
                     info = stringResource(R.string.appearance_toolbox_pill_filled_info),
+                    default = SettingsDefaults.toolbox.pillFilled,
                 ) { scope.launch { repository.setToolboxPillFilled(it) } }
             }
         }
@@ -4882,6 +5050,7 @@ private fun AppearanceSettings(
                 stringResource(R.string.appearance_toolbox_paginate_subtitle),
                 settings.toolbox.paginate,
                 info = stringResource(R.string.appearance_toolbox_paginate_info),
+                default = SettingsDefaults.toolbox.paginate,
             ) { scope.launch { repository.setToolboxPaginate(it) } }
         }
         if (settings.toolbox.paginate) {
@@ -4894,6 +5063,7 @@ private fun AppearanceSettings(
                     range = ToolboxPageSizeRange.first.toFloat()..ToolboxPageSizeRange.last.toFloat(),
                     display = { perPage.format(it.roundToInt()) },
                     info = stringResource(R.string.appearance_toolbox_page_size_info),
+                    default = SettingsDefaults.toolbox.pageSize.toFloat(),
                 ) { scope.launch { repository.setToolboxPageSize(it.roundToInt()) } }
             }
         }
@@ -4937,6 +5107,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 stringResource(R.string.layout_number_row_subtitle),
                 settings.numberRow,
                 info = stringResource(R.string.layout_number_row_info),
+                default = SettingsDefaults.numberRow,
             ) { scope.launch { repository.setNumberRow(it) } }
         }
         if (settings.numberRow) {
@@ -4948,6 +5119,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     range = 32f..100f,
                     display = { dpFormat.format(it.toInt()) },
                     info = stringResource(R.string.layout_number_row_height_info),
+                    default = SettingsDefaults.numberRowHeightDp.toFloat(),
                 ) { scope.launch { repository.setNumberRowHeightDp(it.toInt()) } }
             }
             item {
@@ -4956,6 +5128,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     stringResource(R.string.layout_number_row_shift_symbols_subtitle),
                     settings.layoutBehavior.numberRowShiftSymbols,
                     info = stringResource(R.string.layout_number_row_shift_symbols_info),
+                    default = SettingsDefaults.layoutBehavior.numberRowShiftSymbols,
                 ) { scope.launch { repository.setNumberRowShiftSymbols(it) } }
             }
             item {
@@ -4964,6 +5137,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     stringResource(R.string.layout_number_row_in_symbols_subtitle),
                     settings.layoutBehavior.numberRowInSymbols,
                     info = stringResource(R.string.layout_number_row_in_symbols_info),
+                    default = SettingsDefaults.layoutBehavior.numberRowInSymbols,
                 ) { scope.launch { repository.setNumberRowInSymbols(it) } }
             }
         }
@@ -4976,6 +5150,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 stringResource(R.string.layout_symbols_return_subtitle),
                 settings.layoutBehavior.symbolsReturnToLetters,
                 info = stringResource(R.string.layout_symbols_return_info),
+                default = SettingsDefaults.layoutBehavior.symbolsReturnToLetters,
             ) { scope.launch { repository.setSymbolsReturnToLetters(it) } }
         }
         if (settings.layoutBehavior.symbolsReturnToLetters) {
@@ -5020,6 +5195,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 info = stringResource(R.string.layout_numeral_scope_info),
                 options = NumeralCommitScope.entries.map { it to stringResource(it.labelRes) },
                 selected = settings.layoutBehavior.numeralCommitScope,
+                default = SettingsDefaults.layoutBehavior.numeralCommitScope,
             ) { scope.launch { repository.setNumeralCommitScope(it) } }
         }
         item {
@@ -5036,6 +5212,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 range = 32f..100f,
                 display = { dpFormat.format(it.toInt()) },
                 info = stringResource(R.string.layout_key_height_info),
+                default = SettingsDefaults.keyHeightDp.toFloat(),
             ) { scope.launch { repository.setKeyHeightDp(it.toInt()) } }
         }
         item {
@@ -5047,6 +5224,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 range = 0f..BottomRowHeightRange.last.toFloat(),
                 display = { if (it < 1f) followKeys else dpFormat.format(it.toInt()) },
                 info = stringResource(R.string.layout_bottom_row_height_info),
+                default = SettingsDefaults.layoutBehavior.bottomRowHeightDp.toFloat(),
             ) { scope.launch { repository.setBottomRowHeightDp(it.toInt()) } }
         }
         item {
@@ -5057,6 +5235,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 range = SidePadScaleRange.start..SidePadScaleRange.endInclusive,
                 display = { percentFormat.format((it * 100).toInt()) },
                 info = stringResource(R.string.layout_side_padding_info),
+                default = SettingsDefaults.layoutBehavior.sidePadScale,
             ) { scope.launch { repository.setSidePadScale(it) } }
         }
         item {
@@ -5067,6 +5246,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 range = 0f..2f,
                 display = { percentFormat.format((it * 100).toInt()) },
                 info = stringResource(R.string.layout_key_spacing_info),
+                default = SettingsDefaults.keyGapScale,
             ) { scope.launch { repository.setKeyGapScale(it) } }
         }
         item {
@@ -5077,6 +5257,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 range = 0f..SettingsRepository.MAX_BOTTOM_PADDING_DP.toFloat(),
                 display = { dpFormat.format(it.toInt()) },
                 info = stringResource(R.string.layout_bottom_padding_info),
+                default = SettingsDefaults.bottomPaddingDp.toFloat(),
             ) { scope.launch { repository.setBottomPaddingDp(it.toInt()) } }
         }
         item {
@@ -5087,6 +5268,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 range = 50f..100f,
                 display = { percentFormat.format(it.toInt()) },
                 info = stringResource(R.string.layout_keyboard_width_info),
+                default = SettingsDefaults.keyboardWidthPercent.toFloat(),
             ) { scope.launch { repository.setKeyboardWidthPercent(it.toInt()) } }
         }
         if (settings.keyboardWidthPercent < 100) {
@@ -5098,6 +5280,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         alignment to stringResource(layoutAlignmentLabelRes(alignment))
                     },
                     selected = settings.keyboardAlignment,
+                    default = SettingsDefaults.keyboardAlignment,
                 ) { scope.launch { repository.setKeyboardAlignment(it) } }
             }
         }
@@ -5220,6 +5403,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     mode to stringResource(layoutOneHandedModeLabelRes(mode))
                 },
                 selected = settings.oneHandedMode,
+                default = SettingsDefaults.oneHandedMode,
             ) { scope.launch { repository.setOneHandedMode(it) } }
         }
         item {
@@ -5244,6 +5428,8 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         SettingsRepository.ONE_HANDED_WIDTH_MAX.toFloat(),
                     display = { percentFormat.format(it.toInt()) },
                     info = stringResource(R.string.layout_one_handed_width_info),
+                    default = SettingsDefaults.oneHanded.forLandscape(landscape)
+                        .widthPercent.toFloat(),
                 ) { scope.launch { repository.setOneHandedWidthPercent(landscape, it.toInt()) } }
             }
             item {
@@ -5258,6 +5444,8 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         SettingsRepository.ONE_HANDED_HEIGHT_SCALE_MAX.toFloat(),
                     display = { percentFormat.format(it.toInt()) },
                     info = stringResource(R.string.layout_one_handed_height_info),
+                    default = SettingsDefaults.oneHanded.forLandscape(landscape)
+                        .heightScale.toFloat(),
                 ) { scope.launch { repository.setOneHandedHeightScale(landscape, it.toInt()) } }
             }
             item {
@@ -5275,6 +5463,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         side to stringResource(layoutOneHandedSideLabelRes(side))
                     },
                     selected = profile.side,
+                    default = SettingsDefaults.oneHanded.forLandscape(landscape).side,
                 ) { scope.launch { repository.setOneHandedSide(landscape, it) } }
             }
         }
@@ -5284,6 +5473,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 stringResource(R.string.layout_split_subtitle),
                 settings.splitKeyboard,
                 info = stringResource(R.string.layout_split_info),
+                default = SettingsDefaults.splitKeyboard,
             ) { scope.launch { repository.setSplitKeyboard(it) } }
         }
         if (settings.splitKeyboard) {
@@ -5295,6 +5485,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     range = 5f..40f,
                     display = { percentFormat.format(it.toInt()) },
                     info = stringResource(R.string.layout_split_gap_info),
+                    default = SettingsDefaults.splitGapPercent.toFloat(),
                 ) { scope.launch { repository.setSplitGapPercent(it.toInt()) } }
             }
         }
@@ -5304,6 +5495,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 stringResource(R.string.layout_floating_subtitle),
                 settings.floatingKeyboard,
                 info = stringResource(R.string.layout_floating_info),
+                default = SettingsDefaults.floatingKeyboard,
             ) { scope.launch { repository.setFloatingKeyboard(it) } }
         }
         if (settings.floatingKeyboard) {
@@ -5315,6 +5507,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     range = 240f..500f,
                     display = { dpFormat.format(it.toInt()) },
                     info = stringResource(R.string.layout_floating_width_info),
+                    default = SettingsDefaults.floatingWidthDp.toFloat(),
                 ) { scope.launch { repository.setFloatingWidthDp(it.toInt()) } }
             }
         }
@@ -5327,6 +5520,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 stringResource(R.string.layout_comma_emoji_subtitle),
                 settings.commaAsEmoji,
                 info = stringResource(R.string.layout_comma_emoji_info),
+                default = SettingsDefaults.commaAsEmoji,
             ) { scope.launch { repository.setCommaAsEmoji(it) } }
         }
         item {
@@ -5335,6 +5529,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 stringResource(R.string.layout_globe_emoji_subtitle),
                 settings.globeAsEmoji,
                 info = stringResource(R.string.layout_globe_emoji_info),
+                default = SettingsDefaults.globeAsEmoji,
             ) { scope.launch { repository.setGlobeAsEmoji(it) } }
         }
         item {
@@ -5343,6 +5538,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 stringResource(R.string.layout_swap_comma_globe_subtitle),
                 settings.swapCommaAndGlobe,
                 info = stringResource(R.string.layout_swap_comma_globe_info),
+                default = SettingsDefaults.swapCommaAndGlobe,
             ) { scope.launch { repository.setSwapCommaAndGlobe(it) } }
         }
     }
@@ -5460,6 +5656,7 @@ private fun LanguageSettings(
                 stringResource(R.string.langemoji_lang_auto_download_subtitle),
                 settings.autoDownloadLanguageData,
                 info = stringResource(R.string.langemoji_lang_auto_download_info),
+                default = SettingsDefaults.autoDownloadLanguageData,
             ) { scope.launch { repository.setAutoDownloadLanguageData(it) } }
         }
     }
@@ -5516,6 +5713,7 @@ private fun LanguageSettings(
                             baseModeTitle(layout),
                         ),
                         layout.id in settings.enabledLayoutIds,
+                        default = layout.id in SettingsDefaults.enabledLayoutIds,
                     ) { enable ->
                         fun write() {
                             scope.launch {
@@ -5552,6 +5750,7 @@ private fun LanguageSettings(
                 stringResource(R.string.langemoji_lang_per_app_toggle_subtitle),
                 settings.perAppLanguage.enabled,
                 info = stringResource(R.string.langemoji_lang_per_app_toggle_info),
+                default = SettingsDefaults.perAppLanguage.enabled,
             ) { scope.launch { repository.setRememberLayoutPerApp(it) } }
         }
     }
@@ -5562,6 +5761,7 @@ private fun LanguageSettings(
                 stringResource(R.string.langemoji_lang_os_switcher_subtitle),
                 settings.osLanguageSwitcher,
                 info = stringResource(R.string.langemoji_lang_os_switcher_info),
+                default = SettingsDefaults.osLanguageSwitcher,
             ) { scope.launch { repository.setOsLanguageSwitcher(it) } }
         }
         if (settings.osLanguageSwitcher) {
@@ -5571,6 +5771,7 @@ private fun LanguageSettings(
                     stringResource(R.string.langemoji_lang_app_name_first_subtitle),
                     settings.subtypeAppNameFirst,
                     info = stringResource(R.string.langemoji_lang_app_name_first_info),
+                    default = SettingsDefaults.subtypeAppNameFirst,
                 ) { scope.launch { repository.setSubtypeAppNameFirst(it) } }
             }
             item {
@@ -5615,6 +5816,7 @@ private fun EmojiSettings(
                 stringResource(R.string.langemoji_emoji_toolbar_subtitle),
                 settings.emojiToolbar,
                 info = stringResource(R.string.langemoji_emoji_toolbar_info),
+                default = SettingsDefaults.emojiToolbar,
             ) { scope.launch { repository.setEmojiToolbar(it) } }
         }
         item {
@@ -5623,6 +5825,7 @@ private fun EmojiSettings(
                 stringResource(R.string.langemoji_emoji_full_bleed_subtitle),
                 settings.emojiFullBleed,
                 info = stringResource(R.string.langemoji_emoji_full_bleed_info),
+                default = SettingsDefaults.emojiFullBleed,
             ) { scope.launch { repository.setEmojiFullBleed(it) } }
         }
     }
@@ -5633,6 +5836,7 @@ private fun EmojiSettings(
                 stringResource(R.string.langemoji_emoji_prediction_subtitle),
                 settings.emojiPrediction,
                 info = stringResource(R.string.langemoji_emoji_prediction_info, birthdayWord),
+                default = SettingsDefaults.emojiPrediction,
             ) { scope.launch { repository.setEmojiPrediction(it) } }
         }
         if (settings.emojiPrediction) {
@@ -5648,6 +5852,7 @@ private fun EmojiSettings(
                             stringResource(R.string.langemoji_emoji_insert_append_label),
                     ),
                     selected = settings.emojiInsertMode,
+                    default = SettingsDefaults.emojiInsertMode,
                 ) { scope.launch { repository.setEmojiInsertMode(it) } }
             }
         }
@@ -5667,6 +5872,7 @@ private fun EmojiSettings(
                     EmojiSkinTone.DARK to "✋🏿",
                 ),
                 selected = settings.emoji.defaultSkinTone,
+                default = SettingsDefaults.emoji.defaultSkinTone,
             ) { scope.launch { repository.setEmojiDefaultSkinTone(it) } }
         }
         item {
@@ -5675,6 +5881,7 @@ private fun EmojiSettings(
                 stringResource(R.string.langemoji_emoji_tone_override_subtitle),
                 settings.emoji.toneOverrideByLastUsed,
                 info = stringResource(R.string.langemoji_emoji_tone_override_info),
+                default = SettingsDefaults.emoji.toneOverrideByLastUsed,
             ) { scope.launch { repository.setEmojiToneOverrideByLastUsed(it) } }
         }
     }
@@ -5685,6 +5892,7 @@ private fun EmojiSettings(
                 stringResource(R.string.langemoji_emoji_close_after_insert_subtitle),
                 settings.emoji.closeAfterInsert,
                 info = stringResource(R.string.langemoji_emoji_close_after_insert_info),
+                default = SettingsDefaults.emoji.closeAfterInsert,
             ) { scope.launch { repository.setEmojiCloseAfterInsert(it) } }
         }
         item {
@@ -5698,6 +5906,7 @@ private fun EmojiSettings(
                         stringResource(R.string.langemoji_emoji_most_used_label),
                 ),
                 selected = settings.emojiTabMode,
+                default = SettingsDefaults.emojiTabMode,
             ) { scope.launch { repository.setEmojiTabMode(it) } }
         }
         item {
@@ -5706,6 +5915,7 @@ private fun EmojiSettings(
                 stringResource(R.string.langemoji_emoji_clear_recents_subtitle),
                 settings.emojiClearRecentsButton,
                 info = stringResource(R.string.langemoji_emoji_clear_recents_info),
+                default = SettingsDefaults.emojiClearRecentsButton,
             ) { scope.launch { repository.setEmojiClearRecentsButton(it) } }
         }
         item {
@@ -5714,6 +5924,7 @@ private fun EmojiSettings(
                 stringResource(R.string.langemoji_emoji_kaomoji_subtitle),
                 settings.emoji.kaomojiTabs,
                 info = stringResource(R.string.langemoji_emoji_kaomoji_info),
+                default = SettingsDefaults.emoji.kaomojiTabs,
             ) { scope.launch { repository.setEmojiKaomojiTabs(it) } }
         }
         item {
@@ -5722,6 +5933,7 @@ private fun EmojiSettings(
                 stringResource(R.string.langemoji_emoji_long_press_name_subtitle),
                 settings.emojiLongPressName,
                 info = stringResource(R.string.langemoji_emoji_long_press_name_info),
+                default = SettingsDefaults.emojiLongPressName,
             ) { scope.launch { repository.setEmojiLongPressName(it) } }
         }
         item {
@@ -5730,6 +5942,7 @@ private fun EmojiSettings(
                 stringResource(R.string.langemoji_emoji_animated_subtitle),
                 settings.emoji.animated,
                 info = stringResource(R.string.langemoji_emoji_animated_info),
+                default = SettingsDefaults.emoji.animated,
             ) { scope.launch { repository.setAnimatedEmoji(it) } }
         }
         item {
@@ -5738,6 +5951,7 @@ private fun EmojiSettings(
                 stringResource(R.string.langemoji_emoji_sticker_subtitle),
                 settings.emoji.sendAsSticker,
                 info = stringResource(R.string.langemoji_emoji_sticker_info),
+                default = SettingsDefaults.emoji.sendAsSticker,
             ) { scope.launch { repository.setSendEmojiAsSticker(it) } }
         }
         item {
@@ -5762,6 +5976,7 @@ private fun EmojiSettings(
                         stringResource(R.string.langemoji_emoji_bar_always_label),
                 ),
                 selected = settings.emojiBarMode,
+                default = SettingsDefaults.emojiBarMode,
             ) { scope.launch { repository.setEmojiBarMode(it) } }
         }
         if (settings.emojiBarMode != EmojiBarMode.OFF) {
@@ -5778,6 +5993,7 @@ private fun EmojiSettings(
                             stringResource(R.string.langemoji_emoji_favourites_label),
                     ),
                     selected = settings.emojiBarContent,
+                    default = SettingsDefaults.emojiBarContent,
                 ) { scope.launch { repository.setEmojiBarContent(it) } }
             }
             item {
@@ -5788,6 +6004,7 @@ private fun EmojiSettings(
                     range = EmojiBarCountRange.first.toFloat()..EmojiBarCountRange.last.toFloat(),
                     display = { numberFormat.format(it.roundToInt()) },
                     info = stringResource(R.string.langemoji_emoji_bar_count_info),
+                    default = SettingsDefaults.emoji.barCount.toFloat(),
                 ) { scope.launch { repository.setEmojiBarCount(it.roundToInt()) } }
             }
             item {
@@ -5796,6 +6013,7 @@ private fun EmojiSettings(
                     stringResource(R.string.langemoji_emoji_bar_scroll_subtitle),
                     settings.emoji.barScrollable,
                     info = stringResource(R.string.langemoji_emoji_bar_scroll_info),
+                    default = SettingsDefaults.emoji.barScrollable,
                 ) { scope.launch { repository.setEmojiBarScrollable(it) } }
             }
         }
@@ -5839,6 +6057,7 @@ private fun EmojiSettings(
                     add(EmojiFontChoice.CUSTOM to stringResource(CommonR.string.common_custom))
                 },
                 selected = settings.emojiFont,
+                default = SettingsDefaults.emojiFont,
             ) { scope.launch { repository.setEmojiFont(it) } }
             EmojiFontPreviewRow(
                 choice = settings.emojiFont,
@@ -5909,6 +6128,7 @@ private fun EmojiSettings(
                 stringResource(R.string.langemoji_emoji_hide_unrenderable_subtitle),
                 settings.emoji.hideUnrenderable,
                 info = if (ownFont) "$hideInfo\n\n$ownFontInfo" else hideInfo,
+                default = SettingsDefaults.emoji.hideUnrenderable,
             ) { scope.launch { repository.setHideUnrenderableEmoji(it) } }
         }
     }
@@ -6510,6 +6730,7 @@ private fun DestinationRow(
         subtitle = stringResource(R.string.backup_auto_dest_subtitle),
         options = options,
         selected = selected,
+        default = SettingsDefaults.autoBackup.destination,
         onChange = onChange,
     )
 }
@@ -6592,6 +6813,7 @@ private fun S3Rows(repository: SettingsRepository, auto: AutoBackupSettings) {
             R.string.backup_auto_s3_path_style_title,
             stringResource(R.string.backup_auto_s3_path_style_subtitle),
             s3.pathStyle,
+            default = SettingsDefaults.autoBackup.s3.pathStyle,
         ) { on -> update(s3.copy(pathStyle = on)) }
         if (S3Sink.isCleartext(s3.endpoint)) {
             CaptionText(stringResource(R.string.backup_auto_s3_cleartext))
@@ -6639,6 +6861,7 @@ private fun FtpRows(repository: SettingsRepository, auto: AutoBackupSettings) {
             R.string.backup_auto_ftp_secure_title,
             stringResource(R.string.backup_auto_ftp_secure_subtitle),
             ftp.secure,
+            default = SettingsDefaults.autoBackup.ftp.secure,
         ) { on -> update(ftp.copy(secure = on)) }
         if (!ftp.secure) {
             CaptionText(stringResource(R.string.backup_auto_ftp_cleartext))
@@ -6883,6 +7106,7 @@ private fun AutoBackupGroup(
                     },
                 ),
                 auto.enabled && configured,
+                default = SettingsDefaults.autoBackup.enabled && configured,
             ) { on ->
                 scope.launch {
                     repository.setAutoBackupEnabled(on)
@@ -6901,6 +7125,7 @@ private fun AutoBackupGroup(
                         24 * 7 to stringResource(R.string.backup_auto_interval_week),
                     ),
                     selected = auto.intervalHours,
+                    default = SettingsDefaults.autoBackup.intervalHours,
                 ) { hours ->
                     scope.launch {
                         repository.setAutoBackupIntervalHours(hours)
@@ -6914,6 +7139,7 @@ private fun AutoBackupGroup(
                     subtitle = stringResource(R.string.backup_auto_keep_subtitle),
                     options = listOf(3 to "3", 5 to "5", 10 to "10"),
                     selected = auto.keep,
+                    default = SettingsDefaults.autoBackup.keep,
                 ) { keep -> scope.launch { repository.setAutoBackupKeep(keep) } }
             }
         }
@@ -6923,6 +7149,7 @@ private fun AutoBackupGroup(
                 stringResource(R.string.backup_auto_encrypt_subtitle),
                 auto.encrypt,
                 info = stringResource(R.string.backup_auto_encrypt_info),
+                default = SettingsDefaults.autoBackup.encrypt,
             ) { on -> scope.launch { repository.setAutoBackupEncrypt(on) } }
         }
         if (auto.encrypt) {
@@ -7792,6 +8019,7 @@ private fun EmojiKeywordSettings(
                 stringResource(R.string.customdict_emoji_auto_download_subtitle),
                 settings.emoji.autoDownloadKeywords,
                 info = stringResource(R.string.customdict_emoji_auto_download_info),
+                default = SettingsDefaults.emoji.autoDownloadKeywords,
             ) { scope.launch { repository.setEmojiAutoDownloadKeywords(it) } }
         }
         item { AddonStoreRow(AddonType.EmojiKeywords, onNavigate) }
@@ -8504,6 +8732,7 @@ private fun ToolsSettings(
         subtitle = stringResource(R.string.tools_colored_icons_subtitle),
         checked = settings.coloredToolIcons,
         onChange = { scope.launch { repository.setColoredToolIcons(it) } },
+        default = SettingsDefaults.coloredToolIcons,
     )
     // Nested under the switch above rather than shown greyed out: with the
     // colours off there is nothing for a gradient to be made of, so the row
@@ -8515,6 +8744,7 @@ private fun ToolsSettings(
             checked = settings.toolIconGradients,
             info = stringResource(R.string.tools_gradient_icons_info),
             onChange = { scope.launch { repository.setToolIconGradients(it) } },
+            default = SettingsDefaults.toolIconGradients,
         )
     }
     val hasColourOverrides = settings.toolColorOverrides.isNotEmpty() ||
@@ -8728,6 +8958,7 @@ private fun ToolDetailSettings(
                 usable && tool in settings.enabledTools,
                 switchKey = landingKey("switch"),
                 enabled = usable,
+                default = usable && tool in SettingsDefaults.enabledTools,
             ) { scope.launch { repository.setToolEnabled(tool, it) } }
         }
         // Recolour just this tool's icon. Only meaningful while the global
@@ -8779,6 +9010,7 @@ private fun ToolDetailSettings(
                                 stringResource(R.string.tooldetail_launcher_sort_recent_label),
                         ),
                         selected = settings.launcher.sortOrder,
+                        default = SettingsDefaults.launcher.sortOrder,
                     ) { scope.launch { repository.setLauncherSortOrder(it) } }
                 }
                 item {
@@ -8786,6 +9018,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_launcher_labels_title,
                         stringResource(R.string.tooldetail_launcher_labels_subtitle),
                         settings.launcher.showLabels,
+                        default = SettingsDefaults.launcher.showLabels,
                     ) { scope.launch { repository.setLauncherShowLabels(it) } }
                 }
                 item {
@@ -8794,6 +9027,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_launcher_recents_subtitle),
                         settings.launcher.recentsEnabled,
                         info = stringResource(R.string.tooldetail_launcher_recents_info),
+                        default = SettingsDefaults.launcher.recentsEnabled,
                     ) { scope.launch { repository.setLauncherRecentsEnabled(it) } }
                 }
                 item {
@@ -8802,6 +9036,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_launcher_drilldown_subtitle),
                         settings.launcher.activityDrilldown,
                         info = stringResource(R.string.tooldetail_launcher_drilldown_info),
+                        default = SettingsDefaults.launcher.activityDrilldown,
                     ) { scope.launch { repository.setLauncherActivityDrilldown(it) } }
                 }
                 item {
@@ -8810,6 +9045,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_launcher_non_exported_subtitle),
                         settings.launcher.showNonExported,
                         info = stringResource(R.string.tooldetail_launcher_non_exported_info),
+                        default = SettingsDefaults.launcher.showNonExported,
                     ) { scope.launch { repository.setLauncherShowNonExported(it) } }
                 }
             }
@@ -8828,6 +9064,7 @@ private fun ToolDetailSettings(
                     R.string.tooldetail_emoji_toolbar_title,
                     stringResource(R.string.tooldetail_emoji_toolbar_subtitle),
                     settings.emojiToolbar,
+                    default = SettingsDefaults.emojiToolbar,
                 ) { scope.launch { repository.setEmojiToolbar(it) } }
             }
             item {
@@ -8851,6 +9088,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_clipboard_history_title,
                         stringResource(R.string.tooldetail_clipboard_history_subtitle),
                         settings.clipboard.history,
+                        default = SettingsDefaults.clipboard.history,
                     ) { scope.launch { repository.setClipboardHistory(it) } }
                 }
                 item {
@@ -8858,6 +9096,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_clipboard_suggest_recent_title,
                         stringResource(R.string.tooldetail_clipboard_suggest_recent_subtitle),
                         settings.clipboard.suggestRecent,
+                        default = SettingsDefaults.clipboard.suggestRecent,
                     ) { scope.launch { repository.setClipboardSuggestRecent(it) } }
                 }
                 if (settings.clipboard.suggestRecent) {
@@ -8867,6 +9106,7 @@ private fun ToolDetailSettings(
                             stringResource(R.string.tooldetail_clipboard_suggest_codes_subtitle),
                             settings.clipboard.suggestCodesInCodeFields,
                             info = stringResource(R.string.tooldetail_clipboard_suggest_codes_info),
+                            default = SettingsDefaults.clipboard.suggestCodesInCodeFields,
                         ) { scope.launch { repository.setClipboardSuggestCodesInCodeFields(it) } }
                     }
                 }
@@ -8876,6 +9116,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_clipboard_toast_subtitle),
                         settings.feedback.toastOnCopy,
                         info = stringResource(R.string.tooldetail_clipboard_toast_info),
+                        default = SettingsDefaults.feedback.toastOnCopy,
                     ) { scope.launch { repository.setToastOnCopy(it) } }
                 }
                 item {
@@ -8888,6 +9129,7 @@ private fun ToolDetailSettings(
                         value = settings.clipboard.expiryHours.toFloat(),
                         range = 0f..168f,
                         display = { if (it.toInt() == 0) never else hoursFormat.format(it.toInt()) },
+                        default = SettingsDefaults.clipboard.expiryHours.toFloat(),
                     ) { scope.launch { repository.setClipboardExpiryHours(it.toInt()) } }
                 }
                 item {
@@ -8898,6 +9140,7 @@ private fun ToolDetailSettings(
                         range = 5f..500f,
                         display = { numberFormat.format(it.toInt()) },
                         info = stringResource(R.string.tooldetail_clipboard_max_info),
+                        default = SettingsDefaults.clipboard.maxItems.toFloat(),
                     ) { scope.launch { repository.setClipboardMaxItems(it.toInt()) } }
                 }
                 item {
@@ -8905,6 +9148,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_clipboard_bottom_row_title,
                         stringResource(R.string.tooldetail_clipboard_bottom_row_subtitle),
                         settings.clipboard.bottomRow,
+                        default = SettingsDefaults.clipboard.bottomRow,
                     ) { scope.launch { repository.setClipboardBottomRow(it) } }
                 }
                 item {
@@ -8913,6 +9157,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_clipboard_full_bleed_subtitle),
                         settings.clipboard.fullBleed,
                         info = stringResource(R.string.tooldetail_clipboard_full_bleed_info),
+                        default = SettingsDefaults.clipboard.fullBleed,
                     ) { scope.launch { repository.setClipboardFullBleed(it) } }
                 }
                 item {
@@ -8920,6 +9165,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_clipboard_pinned_last_title,
                         stringResource(R.string.tooldetail_clipboard_pinned_last_subtitle),
                         settings.clipboard.pinnedLast,
+                        default = SettingsDefaults.clipboard.pinnedLast,
                     ) { scope.launch { repository.setClipboardPinnedLast(it) } }
                 }
                 item {
@@ -8927,6 +9173,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_clipboard_search_title,
                         stringResource(R.string.tooldetail_clipboard_search_subtitle),
                         settings.clipboard.search,
+                        default = SettingsDefaults.clipboard.search,
                     ) { scope.launch { repository.setClipboardSearch(it) } }
                 }
                 item {
@@ -8935,6 +9182,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_clipboard_entities_subtitle),
                         settings.clipboard.detectEntities,
                         info = stringResource(R.string.tooldetail_clipboard_entities_info),
+                        default = SettingsDefaults.clipboard.detectEntities,
                     ) { scope.launch { repository.setClipboardDetectEntities(it) } }
                 }
                 // The number chips are the ones that go wrong, because a phone
@@ -8965,6 +9213,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_clipboard_password_paste_subtitle),
                         settings.clipboard.clearAfterPasswordPaste,
                         info = stringResource(R.string.tooldetail_clipboard_password_paste_info),
+                        default = SettingsDefaults.clipboard.clearAfterPasswordPaste,
                     ) { scope.launch { repository.setClipboardClearAfterPasswordPaste(it) } }
                 }
                 item {
@@ -8972,6 +9221,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_clipboard_link_previews_title,
                         stringResource(R.string.tooldetail_clipboard_link_previews_subtitle),
                         settings.clipboard.linkPreviews,
+                        default = SettingsDefaults.clipboard.linkPreviews,
                     ) { scope.launch { repository.setClipboardLinkPreviews(it) } }
                 }
                 item {
@@ -8980,6 +9230,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_clipboard_screenshots_title,
                         stringResource(R.string.tooldetail_clipboard_screenshots_subtitle),
                         settings.clipboard.userScreenshots,
+                        default = SettingsDefaults.clipboard.userScreenshots,
                     ) { on ->
                         scope.launch { repository.setClipboardUserScreenshots(on) }
                         if (on && !hasImagesPermission(context)) {
@@ -9017,6 +9268,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_clipboard_track_source_subtitle),
                         settings.clipboard.trackSource,
                         info = stringResource(R.string.tooldetail_clipboard_track_source_info),
+                        default = SettingsDefaults.clipboard.trackSource,
                     ) { on ->
                         scope.launch { repository.setClipboardTrackSource(on) }
                         // Disclosure then the grant screen, the first time they
@@ -9043,6 +9295,7 @@ private fun ToolDetailSettings(
                         info = stringResource(R.string.tooldetail_clipboard_sensitive_info),
                         options = SensitiveClipHandling.entries.map { it to stringResource(it.labelRes) },
                         selected = settings.clipboard.sensitiveHandling,
+                        default = SettingsDefaults.clipboard.sensitiveHandling,
                     ) { scope.launch { repository.setClipboardSensitiveHandling(it) } }
                 }
                 if (settings.clipboard.sensitiveHandling != SensitiveClipHandling.KEEP) {
@@ -9052,6 +9305,7 @@ private fun ToolDetailSettings(
                             stringResource(R.string.tooldetail_clipboard_detect_sensitive_subtitle),
                             settings.clipboard.detectSensitive,
                             info = stringResource(R.string.tooldetail_clipboard_detect_sensitive_info),
+                            default = SettingsDefaults.clipboard.detectSensitive,
                         ) { scope.launch { repository.setClipboardDetectSensitive(it) } }
                     }
                 }
@@ -9065,6 +9319,7 @@ private fun ToolDetailSettings(
                             value = settings.clipboard.sensitiveExpiryMinutes.toFloat(),
                             range = 1f..120f,
                             display = { minutesFormat.format(it.toInt()) },
+                            default = SettingsDefaults.clipboard.sensitiveExpiryMinutes.toFloat(),
                         ) {
                             scope.launch { repository.setClipboardSensitiveExpiryMinutes(it.toInt()) }
                         }
@@ -9080,6 +9335,7 @@ private fun ToolDetailSettings(
                     value = settings.splitGapPercent.toFloat(),
                     range = 5f..40f,
                     display = { percentFormat.format(it.toInt()) },
+                    default = SettingsDefaults.splitGapPercent.toFloat(),
                 ) { scope.launch { repository.setSplitGapPercent(it.toInt()) } }
             }
             item {
@@ -9098,6 +9354,7 @@ private fun ToolDetailSettings(
                     value = settings.floatingWidthDp.toFloat(),
                     range = 240f..500f,
                     display = { dpFormat.format(it.toInt()) },
+                    default = SettingsDefaults.floatingWidthDp.toFloat(),
                 ) { scope.launch { repository.setFloatingWidthDp(it.toInt()) } }
             }
             item {
@@ -9115,6 +9372,7 @@ private fun ToolDetailSettings(
                     stringResource(R.string.tooldetail_flashlight_auto_off_subtitle),
                     settings.flashlightAutoOff,
                     info = stringResource(R.string.tooldetail_flashlight_auto_off_info),
+                    default = SettingsDefaults.flashlightAutoOff,
                 ) { scope.launch { repository.setFlashlightAutoOff(it) } }
             }
         }
@@ -9125,6 +9383,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_compass_degrees_title,
                         stringResource(R.string.tooldetail_compass_degrees_subtitle),
                         settings.compassShowDegrees,
+                        default = SettingsDefaults.compassShowDegrees,
                     ) { scope.launch { repository.setCompassShowDegrees(it) } }
                 }
                 item {
@@ -9133,6 +9392,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_compass_qibla_subtitle),
                         settings.compassShowQibla,
                         info = stringResource(R.string.tooldetail_compass_qibla_info),
+                        default = SettingsDefaults.compassShowQibla,
                     ) { scope.launch { repository.setCompassShowQibla(it) } }
                 }
             }
@@ -9149,6 +9409,7 @@ private fun ToolDetailSettings(
                     R.string.tooldetail_level_angles_title,
                     stringResource(R.string.tooldetail_level_angles_subtitle),
                     settings.levelShowAngles,
+                    default = SettingsDefaults.levelShowAngles,
                 ) { scope.launch { repository.setLevelShowAngles(it) } }
             }
         }
@@ -9160,6 +9421,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_redo_ctrl_y_subtitle),
                         settings.redoUsesCtrlY,
                         info = stringResource(R.string.tooldetail_redo_ctrl_y_info),
+                        default = SettingsDefaults.redoUsesCtrlY,
                     ) { scope.launch { repository.setRedoUsesCtrlY(it) } }
                 }
             }
@@ -9169,6 +9431,7 @@ private fun ToolDetailSettings(
                     R.string.tooldetail_moon_southern_title,
                     stringResource(R.string.tooldetail_moon_southern_subtitle),
                     settings.moonSouthernHemisphere,
+                    default = SettingsDefaults.moonSouthernHemisphere,
                 ) { scope.launch { repository.setMoonSouthernHemisphere(it) } }
             }
         }
@@ -9180,6 +9443,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_weather_fahrenheit_title,
                         stringResource(R.string.tooldetail_weather_fahrenheit_subtitle),
                         settings.weatherFahrenheit,
+                        default = SettingsDefaults.weatherFahrenheit,
                     ) { scope.launch { repository.setWeatherFahrenheit(it) } }
                 }
             }
@@ -9222,6 +9486,7 @@ private fun ToolDetailSettings(
                                 if (d > 0) daysAheadFormat.format(d) else daysFormat.format(d)
                             },
                             info = stringResource(R.string.tooldetail_calendar_hijri_info),
+                            default = SettingsDefaults.hijriAdjustDays.toFloat(),
                         ) { scope.launch { repository.setHijriAdjustDays(it.roundToInt()) } }
                     }
                 }
@@ -9236,6 +9501,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_camera_front_title,
                         stringResource(R.string.tooldetail_camera_front_subtitle),
                         settings.camera.preferFront,
+                        default = SettingsDefaults.camera.preferFront,
                     ) { scope.launch { repository.setCameraPreferFront(it) } }
                 }
                 item {
@@ -9244,6 +9510,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_camera_mirror_subtitle),
                         settings.camera.mirrorFront,
                         info = stringResource(R.string.tooldetail_camera_mirror_info),
+                        default = SettingsDefaults.camera.mirrorFront,
                     ) { scope.launch { repository.setCameraMirrorFront(it) } }
                 }
                 item {
@@ -9252,6 +9519,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_camera_fullframe_subtitle),
                         settings.camera.fullFrame,
                         info = stringResource(R.string.tooldetail_camera_fullframe_info),
+                        default = SettingsDefaults.camera.fullFrame,
                     ) { scope.launch { repository.setCameraFullFrame(it) } }
                 }
                 item {
@@ -9260,6 +9528,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_camera_gallery_subtitle),
                         settings.camera.saveToGallery,
                         info = stringResource(R.string.tooldetail_camera_gallery_info),
+                        default = SettingsDefaults.camera.saveToGallery,
                     ) { scope.launch { repository.setCameraSaveToGallery(it) } }
                 }
             }
@@ -9269,6 +9538,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_camera_shutter_title,
                         stringResource(R.string.tooldetail_camera_shutter_subtitle),
                         settings.camera.shutterSound,
+                        default = SettingsDefaults.camera.shutterSound,
                     ) { scope.launch { repository.setCameraShutterSound(it) } }
                 }
                 item {
@@ -9277,6 +9547,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_camera_haptics_subtitle),
                         settings.camera.haptics,
                         info = stringResource(R.string.tooldetail_camera_haptics_info),
+                        default = SettingsDefaults.camera.haptics,
                     ) { scope.launch { repository.setCameraHaptics(it) } }
                 }
             }
@@ -9289,6 +9560,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_dictionary_auto_title,
                         stringResource(R.string.tooldetail_dictionary_auto_subtitle),
                         settings.dictionaryAutoLookup,
+                        default = SettingsDefaults.dictionaryAutoLookup,
                     ) { scope.launch { repository.setDictionaryAutoLookup(it) } }
                 }
             }
@@ -9302,6 +9574,7 @@ private fun ToolDetailSettings(
                     value = settings.textEditing.repeatMs.toFloat(),
                     range = 30f..200f,
                     display = { msFormat.format(it.toInt()) },
+                    default = SettingsDefaults.textEditing.repeatMs.toFloat(),
                 ) { scope.launch { repository.setTextEditRepeatMs(it.toInt()) } }
             }
         }
@@ -9311,6 +9584,7 @@ private fun ToolDetailSettings(
                     R.string.tooldetail_numpad_calc_title,
                     stringResource(R.string.tooldetail_numpad_calc_subtitle),
                     settings.numpadCalculatorLayout,
+                    default = SettingsDefaults.numpadCalculatorLayout,
                 ) { scope.launch { repository.setNumpadCalculatorLayout(it) } }
             }
         }
@@ -9321,6 +9595,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_incognito_learning_title,
                         stringResource(R.string.tooldetail_incognito_learning_subtitle),
                         settings.incognitoPausesLearning,
+                        default = SettingsDefaults.incognitoPausesLearning,
                     ) { scope.launch { repository.setIncognitoPausesLearning(it) } }
                 }
                 item {
@@ -9328,6 +9603,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_incognito_clipboard_title,
                         stringResource(R.string.tooldetail_incognito_clipboard_subtitle),
                         settings.incognitoPausesClipboard,
+                        default = SettingsDefaults.incognitoPausesClipboard,
                     ) { scope.launch { repository.setIncognitoPausesClipboard(it) } }
                 }
             }
@@ -9338,6 +9614,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_incognito_auto_subtitle),
                         settings.autoIncognito,
                         info = stringResource(AUTO_INCOGNITO_INFO),
+                        default = SettingsDefaults.autoIncognito,
                     ) { scope.launch { repository.setAutoIncognito(it) } }
                 }
             }
@@ -9352,6 +9629,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_power_now_subtitle),
                         ps.manual,
                         info = stringResource(R.string.tooldetail_power_now_info),
+                        default = SettingsDefaults.powerSaving.manual,
                     ) { scope.launch { repository.setPowerSavingManual(it) } }
                 }
                 item {
@@ -9361,6 +9639,7 @@ private fun ToolDetailSettings(
                         info = stringResource(R.string.tooldetail_power_trigger_info),
                         options = PowerSavingTrigger.entries.map { it to stringResource(it.labelRes) },
                         selected = ps.trigger,
+                        default = SettingsDefaults.powerSaving.trigger,
                     ) { scope.launch { repository.setPowerSavingTrigger(it) } }
                 }
                 if (ps.trigger == PowerSavingTrigger.LOW_BATTERY ||
@@ -9373,6 +9652,7 @@ private fun ToolDetailSettings(
                             value = ps.batteryPercent.toFloat(),
                             range = 5f..50f,
                             display = { percentFormat.format(it.toInt()) },
+                            default = SettingsDefaults.powerSaving.batteryPercent.toFloat(),
                         ) { scope.launch { repository.setPowerSavingBatteryPercent(it.toInt()) } }
                     }
                 }
@@ -9383,6 +9663,7 @@ private fun ToolDetailSettings(
                             stringResource(R.string.tooldetail_power_charging_subtitle),
                             ps.offWhileCharging,
                             info = stringResource(R.string.tooldetail_power_charging_info),
+                            default = SettingsDefaults.powerSaving.offWhileCharging,
                         ) { scope.launch { repository.setPowerSavingOffWhileCharging(it) } }
                     }
                 }
@@ -9393,6 +9674,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_power_drop_haptics_title,
                         stringResource(R.string.tooldetail_power_drop_haptics_subtitle),
                         ps.dropHaptics,
+                        default = SettingsDefaults.powerSaving.dropHaptics,
                     ) { scope.launch { repository.setPowerSavingDropHaptics(it) } }
                 }
                 item {
@@ -9400,6 +9682,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_power_drop_sound_title,
                         stringResource(R.string.tooldetail_power_drop_sound_subtitle),
                         ps.dropKeySound,
+                        default = SettingsDefaults.powerSaving.dropKeySound,
                     ) { scope.launch { repository.setPowerSavingDropKeySound(it) } }
                 }
                 item {
@@ -9407,6 +9690,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_power_drop_anim_title,
                         stringResource(R.string.tooldetail_power_drop_anim_subtitle),
                         ps.dropAnimations,
+                        default = SettingsDefaults.powerSaving.dropAnimations,
                     ) { scope.launch { repository.setPowerSavingDropAnimations(it) } }
                 }
                 item {
@@ -9415,6 +9699,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_power_drop_trail_subtitle),
                         ps.dropGlideTrail,
                         info = stringResource(R.string.tooldetail_power_drop_trail_info),
+                        default = SettingsDefaults.powerSaving.dropGlideTrail,
                     ) { scope.launch { repository.setPowerSavingDropGlideTrail(it) } }
                 }
                 item {
@@ -9422,6 +9707,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_power_drop_popup_title,
                         stringResource(R.string.tooldetail_power_drop_popup_subtitle),
                         ps.dropKeyPopup,
+                        default = SettingsDefaults.powerSaving.dropKeyPopup,
                     ) { scope.launch { repository.setPowerSavingDropKeyPopup(it) } }
                 }
                 item {
@@ -9430,6 +9716,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_power_drop_glide_subtitle),
                         ps.dropGestureTyping,
                         info = stringResource(R.string.tooldetail_power_drop_glide_info),
+                        default = SettingsDefaults.powerSaving.dropGestureTyping,
                     ) { scope.launch { repository.setPowerSavingDropGestureTyping(it) } }
                 }
                 item {
@@ -9437,6 +9724,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_power_drop_emoji_title,
                         stringResource(R.string.tooldetail_power_drop_emoji_subtitle),
                         ps.dropEmojiPrediction,
+                        default = SettingsDefaults.powerSaving.dropEmojiPrediction,
                     ) { scope.launch { repository.setPowerSavingDropEmojiPrediction(it) } }
                 }
                 item {
@@ -9444,6 +9732,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_power_drop_chips_title,
                         stringResource(R.string.tooldetail_power_drop_chips_subtitle),
                         ps.dropSmartChips,
+                        default = SettingsDefaults.powerSaving.dropSmartChips,
                     ) { scope.launch { repository.setPowerSavingDropSmartChips(it) } }
                 }
                 item {
@@ -9452,6 +9741,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_power_drop_network_subtitle),
                         ps.dropBackgroundNetwork,
                         info = stringResource(R.string.tooldetail_power_drop_network_info),
+                        default = SettingsDefaults.powerSaving.dropBackgroundNetwork,
                     ) { scope.launch { repository.setPowerSavingDropBackgroundNetwork(it) } }
                 }
                 item {
@@ -9459,6 +9749,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_power_drop_screenshot_title,
                         stringResource(R.string.tooldetail_power_drop_screenshot_subtitle),
                         ps.dropScreenshotWatch,
+                        default = SettingsDefaults.powerSaving.dropScreenshotWatch,
                     ) { scope.launch { repository.setPowerSavingDropScreenshotWatch(it) } }
                 }
                 item {
@@ -9467,6 +9758,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_power_drop_models_subtitle),
                         ps.dropOnDeviceModels,
                         info = stringResource(R.string.tooldetail_power_drop_models_info),
+                        default = SettingsDefaults.powerSaving.dropOnDeviceModels,
                     ) { scope.launch { repository.setPowerSavingDropOnDeviceModels(it) } }
                 }
                 item {
@@ -9474,6 +9766,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_power_drop_stats_title,
                         stringResource(R.string.tooldetail_power_drop_stats_subtitle),
                         ps.dropTypingStats,
+                        default = SettingsDefaults.powerSaving.dropTypingStats,
                     ) { scope.launch { repository.setPowerSavingDropTypingStats(it) } }
                 }
             }
@@ -9485,6 +9778,7 @@ private fun ToolDetailSettings(
                     R.string.tooldetail_autocorrect_title,
                     stringResource(R.string.tooldetail_autocorrect_subtitle),
                     settings.autocorrect,
+                    default = SettingsDefaults.autocorrect,
                 ) { scope.launch { repository.setAutocorrect(it) } }
             }
             item {
@@ -9508,6 +9802,10 @@ private fun ToolDetailSettings(
                         info = stringResource(R.string.tooldetail_fancy_style_info),
                         options = listOf<Pair<String?, String>>(null to follow) +
                             FancyStyles.all.map { it.id to it.sample },
+                        // No reset control: this row's default *is* the "follow
+                        // the strip" option, which is already one press away in
+                        // the list, and a null default is how [ChoiceSetting]
+                        // spells "no one right answer".
                         selected = behavior.fancyToolStyleId
                             ?.takeIf { FancyStyles.byId(it) != null },
                     ) { scope.launch { repository.setFancyToolStyle(it) } }
@@ -9518,6 +9816,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_fancy_keep_subtitle),
                         behavior.fancyToolKeepsLanguage,
                         info = stringResource(R.string.tooldetail_fancy_keep_info),
+                        default = SettingsDefaults.layoutBehavior.fancyToolKeepsLanguage,
                     ) { scope.launch { repository.setFancyToolKeepsLanguage(it) } }
                 }
                 item {
@@ -9526,6 +9825,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_fancy_auto_off_subtitle),
                         behavior.fancyToolAutoOff,
                         info = stringResource(R.string.tooldetail_fancy_auto_off_info),
+                        default = SettingsDefaults.layoutBehavior.fancyToolAutoOff,
                     ) { scope.launch { repository.setFancyToolAutoOff(it) } }
                 }
                 item {
@@ -9558,6 +9858,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_handwriting_stylus_subtitle),
                         settings.handwritingStylusOnly,
                         info = stringResource(R.string.tooldetail_handwriting_stylus_info),
+                        default = SettingsDefaults.handwritingStylusOnly,
                     ) { scope.launch { repository.setHandwritingStylusOnly(it) } }
                 }
                 item {
@@ -9565,6 +9866,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_handwriting_auto_space_title,
                         stringResource(R.string.tooldetail_handwriting_auto_space_subtitle),
                         settings.handwritingAutoSpace,
+                        default = SettingsDefaults.handwritingAutoSpace,
                     ) { scope.launch { repository.setHandwritingAutoSpace(it) } }
                 }
                 item {
@@ -9575,6 +9877,7 @@ private fun ToolDetailSettings(
                         range = 300f..2000f,
                         display = { msFormat.format(it.roundToInt()) },
                         info = stringResource(R.string.tooldetail_handwriting_pause_info),
+                        default = SettingsDefaults.handwritingCommitDelayMs.toFloat(),
                     ) { scope.launch { repository.setHandwritingCommitDelayMs(it.roundToInt()) } }
                 }
             }
@@ -9645,6 +9948,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_media_full_bleed_subtitle),
                         settings.mediaFullBleed,
                         info = stringResource(R.string.tooldetail_media_full_bleed_info),
+                        default = SettingsDefaults.mediaFullBleed,
                     ) { scope.launch { repository.setMediaFullBleed(it) } }
                 }
             }
@@ -9695,6 +9999,7 @@ private fun ToolDetailSettings(
                                 MediaSendMode.IMAGE to imageOption,
                             ),
                             selected = settings.stickerSendMode,
+                            default = SettingsDefaults.stickerSendMode,
                         ) { scope.launch { repository.setStickerSendMode(it) } }
                     } else {
                         ChoiceSetting(
@@ -9706,6 +10011,7 @@ private fun ToolDetailSettings(
                                 MediaSendMode.STICKER to stickerOption,
                             ),
                             selected = settings.gifSendMode,
+                            default = SettingsDefaults.gifSendMode,
                         ) { scope.launch { repository.setGifSendMode(it) } }
                     }
                 }
@@ -9745,6 +10051,7 @@ private fun ToolDetailSettings(
                         value = settings.gifResultLimit.toFloat(),
                         range = 6f..48f,
                         display = { numberFormat.format(it.roundToInt()) },
+                        default = SettingsDefaults.gifResultLimit.toFloat(),
                     ) { scope.launch { repository.setGifResultLimit(it.roundToInt()) } }
                 }
             }
@@ -9767,6 +10074,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_search_safe_title,
                         stringResource(R.string.tooldetail_search_safe_subtitle),
                         settings.searchSafe,
+                        default = SettingsDefaults.searchSafe,
                     ) { scope.launch { repository.setSearchSafe(it) } }
                 }
                 item {
@@ -9776,6 +10084,7 @@ private fun ToolDetailSettings(
                         value = settings.searchResultCount.toFloat(),
                         range = 1f..10f,
                         display = { numberFormat.format(it.roundToInt()) },
+                        default = SettingsDefaults.searchResultCount.toFloat(),
                     ) { scope.launch { repository.setSearchResultCount(it.roundToInt()) } }
                 }
             }
@@ -9787,6 +10096,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_ocr_select_all_title,
                         stringResource(R.string.tooldetail_ocr_select_all_subtitle),
                         settings.ocrAutoSelectWords,
+                        default = SettingsDefaults.ocrAutoSelectWords,
                     ) { scope.launch { repository.setOcrAutoSelectWords(it) } }
                 }
             }
@@ -9799,6 +10109,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_qr_scan_auto_title,
                         stringResource(R.string.tooldetail_qr_scan_auto_subtitle),
                         settings.qrScanAutoInsert,
+                        default = SettingsDefaults.qrScanAutoInsert,
                     ) { scope.launch { repository.setQrScanAutoInsert(it) } }
                 }
                 item {
@@ -9806,6 +10117,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_qr_scan_haptics_title,
                         stringResource(R.string.tooldetail_qr_scan_haptics_subtitle),
                         settings.qrScanHaptics,
+                        default = SettingsDefaults.qrScanHaptics,
                     ) { scope.launch { repository.setQrScanHaptics(it) } }
                 }
                 item {
@@ -9813,6 +10125,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_qr_scan_preview_title,
                         stringResource(R.string.tooldetail_qr_scan_preview_subtitle),
                         settings.qrScanLinkPreviews,
+                        default = SettingsDefaults.qrScanLinkPreviews,
                     ) { scope.launch { repository.setQrScanLinkPreviews(it) } }
                 }
             }
@@ -9825,6 +10138,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_doc_scan_gallery_title,
                         stringResource(R.string.tooldetail_doc_scan_gallery_subtitle),
                         settings.docScanSaveToGallery,
+                        default = SettingsDefaults.docScanSaveToGallery,
                     ) { scope.launch { repository.setDocScanSaveToGallery(it) } }
                 }
             }
@@ -9847,6 +10161,7 @@ private fun ToolDetailSettings(
                                 "whisper" to whisperEngine,
                             ),
                             selected = settings.whisper.engine,
+                            default = SettingsDefaults.whisper.engine,
                         ) { scope.launch { repository.setVoiceEngine(it) } }
                     }
                 }
@@ -9866,6 +10181,7 @@ private fun ToolDetailSettings(
                                 stringResource(R.string.tooldetail_voice_ui_bar),
                         ),
                         selected = settings.voiceBar.mode,
+                        default = SettingsDefaults.voiceBar.mode,
                     ) { scope.launch { repository.setVoiceUiMode(it) } }
                 }
                 item {
@@ -9873,6 +10189,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_voice_continuous_title,
                         stringResource(R.string.tooldetail_voice_continuous_subtitle),
                         settings.voiceContinuous,
+                        default = SettingsDefaults.voiceContinuous,
                     ) { scope.launch { repository.setVoiceContinuous(it) } }
                 }
                 item {
@@ -9880,6 +10197,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_voice_punctuation_title,
                         stringResource(R.string.tooldetail_voice_punctuation_subtitle),
                         settings.voiceSpokenPunctuation,
+                        default = SettingsDefaults.voiceSpokenPunctuation,
                     ) { scope.launch { repository.setVoiceSpokenPunctuation(it) } }
                 }
             }
@@ -9890,6 +10208,7 @@ private fun ToolDetailSettings(
                             R.string.tooldetail_voice_translate_title,
                             stringResource(R.string.tooldetail_voice_translate_subtitle),
                             settings.whisper.translate,
+                            default = SettingsDefaults.whisper.translate,
                         ) { scope.launch { repository.setWhisperTranslate(it) } }
                     }
                 }
@@ -9906,6 +10225,7 @@ private fun ToolDetailSettings(
                         subtitle = stringResource(R.string.tooldetail_grammar_dialect_subtitle),
                         options = GrammarDialect.entries.map { it to stringResource(it.labelRes) },
                         selected = settings.grammarDialect,
+                        default = SettingsDefaults.grammarDialect,
                     ) { scope.launch { repository.setGrammarDialect(it) } }
                 }
                 item {
@@ -9915,6 +10235,7 @@ private fun ToolDetailSettings(
                         value = settings.grammarDebounceMs.toFloat(),
                         range = 100f..1500f,
                         display = { msFormat.format(it.toInt()) },
+                        default = SettingsDefaults.grammarDebounceMs.toFloat(),
                     ) { scope.launch { repository.setGrammarDebounceMs(it.toInt()) } }
                 }
             }
@@ -9938,6 +10259,7 @@ private fun ToolDetailSettings(
                                     R.string.tooldetail_grammar_no_suggestions_subtitle,
                                 ),
                                 settings.spellCheckerNoSuggestions,
+                                default = SettingsDefaults.spellCheckerNoSuggestions,
                             ) {
                                 scope.launch {
                                     repository.setSpellCheckerNoSuggestions(it)
@@ -9956,6 +10278,7 @@ private fun ToolDetailSettings(
                         label = stringResource(R.string.tooldetail_wiki_language_label),
                         value = settings.wikiLanguage,
                         hint = stringResource(R.string.tooldetail_wiki_language_hint),
+                        default = SettingsDefaults.wikiLanguage,
                     ) { repository.setWikiLanguage(it) }
                 }
                 item {
@@ -9963,6 +10286,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_wiki_markdown_title,
                         stringResource(R.string.tooldetail_wiki_markdown_subtitle),
                         settings.wikiLinksMarkdown,
+                        default = SettingsDefaults.wikiLinksMarkdown,
                     ) { scope.launch { repository.setWikiLinksMarkdown(it) } }
                 }
             }
@@ -9996,6 +10320,7 @@ private fun ToolDetailSettings(
                     stringResource(R.string.tooldetail_calc_smart_subtitle),
                     settings.smartCalc,
                     info = stringResource(R.string.tooldetail_calc_smart_info),
+                    default = SettingsDefaults.smartCalc,
                 ) { scope.launch { repository.setSmartCalc(it) } }
             }
             item {
@@ -10003,6 +10328,7 @@ private fun ToolDetailSettings(
                     R.string.tooldetail_calc_degrees_title,
                     stringResource(R.string.tooldetail_calc_degrees_subtitle),
                     settings.calcDegrees,
+                    default = SettingsDefaults.calcDegrees,
                 ) { scope.launch { repository.setCalcDegrees(it) } }
             }
             item {
@@ -10012,6 +10338,7 @@ private fun ToolDetailSettings(
                     value = settings.calcPrecision.toFloat(),
                     range = 0f..12f,
                     display = { numberFormat.format(it.roundToInt()) },
+                    default = SettingsDefaults.calcPrecision.toFloat(),
                 ) { scope.launch { repository.setCalcPrecision(it.roundToInt()) } }
             }
         }
@@ -10023,6 +10350,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_units_smart_subtitle),
                         settings.smartUnits,
                         info = stringResource(R.string.tooldetail_units_smart_info),
+                        default = SettingsDefaults.smartUnits,
                     ) { scope.launch { repository.setSmartUnits(it) } }
                 }
                 item {
@@ -10031,6 +10359,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_units_compound_subtitle),
                         settings.compoundUnits,
                         info = stringResource(R.string.tooldetail_units_compound_info),
+                        default = SettingsDefaults.compoundUnits,
                     ) { scope.launch { repository.setCompoundUnits(it) } }
                 }
             }
@@ -10047,6 +10376,7 @@ private fun ToolDetailSettings(
                         ),
                         settings.smartCurrency,
                         info = stringResource(R.string.tooldetail_currency_smart_info),
+                        default = SettingsDefaults.smartCurrency,
                     ) { scope.launch { repository.setSmartCurrency(it) } }
                 }
                 item {
@@ -10056,6 +10386,7 @@ private fun ToolDetailSettings(
                         value = settings.currencyDecimals.toFloat(),
                         range = 0f..6f,
                         display = { numberFormat.format(it.toInt()) },
+                        default = SettingsDefaults.currencyDecimals.toFloat(),
                     ) { scope.launch { repository.setCurrencyDecimals(it.toInt()) } }
                 }
                 item {
@@ -10066,6 +10397,7 @@ private fun ToolDetailSettings(
                         range = 1f..48f,
                         display = { hoursFormat.format(it.toInt()) },
                         info = stringResource(R.string.tooldetail_currency_refresh_info),
+                        default = SettingsDefaults.currencyCacheHours.toFloat(),
                     ) { scope.launch { repository.setCurrencyCacheHours(it.toInt()) } }
                 }
                 item {
@@ -10073,6 +10405,7 @@ private fun ToolDetailSettings(
                         title = R.string.tooldetail_currency_source_title,
                         subtitle = stringResource(R.string.tooldetail_currency_source_subtitle),
                         providers = settings.rateSources.fiatProviders,
+                        defaultProviders = SettingsDefaults.rateSources.fiatProviders,
                         candidates = CurrencyClient.Provider.entries.filter { it.fiat },
                     ) { scope.launch { repository.setFiatProviders(it) } }
                 }
@@ -10085,6 +10418,7 @@ private fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_crypto_enable_subtitle),
                         settings.rateSources.cryptoEnabled,
                         info = stringResource(R.string.tooldetail_crypto_enable_info),
+                        default = SettingsDefaults.rateSources.cryptoEnabled,
                     ) { scope.launch { repository.setCryptoEnabled(it) } }
                 }
                 if (settings.rateSources.cryptoEnabled) {
@@ -10098,6 +10432,7 @@ private fun ToolDetailSettings(
                             display = {
                                 if (it.toInt() == 0) auto else numberFormat.format(it.toInt())
                             },
+                            default = SettingsDefaults.rateSources.cryptoDecimals.toFloat(),
                         ) { scope.launch { repository.setCryptoDecimals(it.toInt()) } }
                     }
                     item {
@@ -10107,6 +10442,7 @@ private fun ToolDetailSettings(
                             value = settings.rateSources.cryptoCacheMinutes.toFloat(),
                             range = 1f..60f,
                             display = { minutesFormat.format(it.toInt()) },
+                            default = SettingsDefaults.rateSources.cryptoCacheMinutes.toFloat(),
                         ) { scope.launch { repository.setCryptoCacheMinutes(it.toInt()) } }
                     }
                     item {
@@ -10114,6 +10450,7 @@ private fun ToolDetailSettings(
                             title = R.string.tooldetail_crypto_source_title,
                             subtitle = stringResource(R.string.tooldetail_crypto_source_subtitle),
                             providers = settings.rateSources.cryptoProviders,
+                            defaultProviders = SettingsDefaults.rateSources.cryptoProviders,
                             candidates = CurrencyClient.Provider.entries.filter { it.crypto },
                         ) { scope.launch { repository.setCryptoProviders(it) } }
                     }
@@ -10135,6 +10472,7 @@ private fun ToolDetailSettings(
                         value = settings.qrSizePx.toFloat(),
                         range = 256f..2048f,
                         display = { pixelsFormat.format(it.roundToInt()) },
+                        default = SettingsDefaults.qrSizePx.toFloat(),
                     ) { scope.launch { repository.setQrSizePx(it.roundToInt()) } }
                 }
                 item {
@@ -10147,6 +10485,7 @@ private fun ToolDetailSettings(
                             MediaSendMode.STICKER to qrStickerOption,
                         ),
                         selected = settings.qrSendMode,
+                        default = SettingsDefaults.qrSendMode,
                     ) { scope.launch { repository.setQrSendMode(it) } }
                 }
                 item {
@@ -10154,6 +10493,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_qr_gen_gallery_title,
                         stringResource(R.string.tooldetail_qr_gen_gallery_subtitle),
                         settings.qrSaveToGallery,
+                        default = SettingsDefaults.qrSaveToGallery,
                     ) { scope.launch { repository.setQrSaveToGallery(it) } }
                 }
             }
@@ -10175,6 +10515,7 @@ private fun ToolDetailSettings(
                         value = settings.passwordGenerator.pwLength.toFloat(),
                         range = 4f..64f,
                         display = { numberFormat.format(it.roundToInt()) },
+                        default = SettingsDefaults.passwordGenerator.pwLength.toFloat(),
                     ) { scope.launch { repository.setPwLength(it.roundToInt()) } }
                 }
                 item {
@@ -10182,6 +10523,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_password_uppercase_title,
                         stringResource(R.string.tooldetail_password_uppercase_subtitle),
                         settings.passwordGenerator.pwUppercase,
+                        default = SettingsDefaults.passwordGenerator.pwUppercase,
                     ) { scope.launch { repository.setPwUppercase(it) } }
                 }
                 item {
@@ -10189,6 +10531,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_password_digits_title,
                         stringResource(R.string.tooldetail_password_digits_subtitle),
                         settings.passwordGenerator.pwDigits,
+                        default = SettingsDefaults.passwordGenerator.pwDigits,
                     ) { scope.launch { repository.setPwDigits(it) } }
                 }
                 item {
@@ -10196,6 +10539,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_password_symbols_title,
                         stringResource(R.string.tooldetail_password_symbols_subtitle),
                         settings.passwordGenerator.pwSymbols,
+                        default = SettingsDefaults.passwordGenerator.pwSymbols,
                     ) { scope.launch { repository.setPwSymbols(it) } }
                 }
                 item {
@@ -10203,6 +10547,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_password_ambiguous_title,
                         stringResource(R.string.tooldetail_password_ambiguous_subtitle),
                         settings.passwordGenerator.pwExcludeAmbiguous,
+                        default = SettingsDefaults.passwordGenerator.pwExcludeAmbiguous,
                     ) { scope.launch { repository.setPwExcludeAmbiguous(it) } }
                 }
             }
@@ -10213,6 +10558,7 @@ private fun ToolDetailSettings(
                         value = settings.passwordGenerator.ppWordCount.toFloat(),
                         range = 2f..10f,
                         display = { numberFormat.format(it.roundToInt()) },
+                        default = SettingsDefaults.passwordGenerator.ppWordCount.toFloat(),
                     ) { scope.launch { repository.setPpWordCount(it.roundToInt()) } }
                 }
                 item {
@@ -10220,6 +10566,7 @@ private fun ToolDetailSettings(
                         label = stringResource(R.string.tooldetail_passphrase_separator_label),
                         value = settings.passwordGenerator.ppSeparator,
                         hint = stringResource(R.string.tooldetail_passphrase_separator_hint),
+                        default = SettingsDefaults.passwordGenerator.ppSeparator,
                     ) { repository.setPpSeparator(it) }
                 }
                 item {
@@ -10227,6 +10574,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_passphrase_capitalize_title,
                         stringResource(R.string.tooldetail_passphrase_capitalize_subtitle),
                         settings.passwordGenerator.ppCapitalize,
+                        default = SettingsDefaults.passwordGenerator.ppCapitalize,
                     ) { scope.launch { repository.setPpCapitalize(it) } }
                 }
                 item {
@@ -10234,6 +10582,7 @@ private fun ToolDetailSettings(
                         R.string.tooldetail_passphrase_digit_title,
                         stringResource(R.string.tooldetail_passphrase_digit_subtitle),
                         settings.passwordGenerator.ppIncludeDigit,
+                        default = SettingsDefaults.passwordGenerator.ppIncludeDigit,
                     ) { scope.launch { repository.setPpIncludeDigit(it) } }
                 }
             }
@@ -10277,12 +10626,17 @@ private fun RateSourceSetting(
     @StringRes title: Int,
     subtitle: String,
     providers: List<String>,
+    defaultProviders: List<String>,
     candidates: List<CurrencyClient.Provider>,
     onChange: (List<String>) -> Unit,
 ) {
     val primary = providers.firstNotNullOfOrNull { CurrencyClient.Provider.of(it) }
         ?: candidates.first()
     val fallback = providers.size > 1
+    // Both rows are views onto the one stored list, so both read their default
+    // off the list the app shipped with rather than off a constant of their own.
+    val defaultPrimary = defaultProviders.firstNotNullOfOrNull { CurrencyClient.Provider.of(it) }
+        ?: candidates.first()
     fun write(head: CurrencyClient.Provider, withFallback: Boolean) {
         val rest = if (withFallback) candidates.filter { it != head }.map { it.name } else emptyList()
         onChange(listOf(head.name) + rest)
@@ -10292,11 +10646,13 @@ private fun RateSourceSetting(
         subtitle = subtitle,
         options = candidates.map { it to providerLabel(it) },
         selected = primary,
+        default = defaultPrimary,
     ) { write(it, fallback) }
     ToggleSetting(
         R.string.tooldetail_rate_fallback_title,
         stringResource(R.string.tooldetail_rate_fallback_subtitle),
         fallback,
+        default = defaultProviders.size > 1,
     ) { write(primary, it) }
 }
 
@@ -10438,6 +10794,7 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
                     value = settings.typingTestDuration.toFloat(),
                     range = 15f..120f,
                     display = { secondsFormat.format(it.roundToInt()) },
+                    default = SettingsDefaults.typingTestDuration.toFloat(),
                 ) { scope.launch { repository.setTypingTestDuration(it.roundToInt()) } }
             }
             TypingTestMode.WORDS -> item {
@@ -10446,6 +10803,7 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
                     value = settings.typingTestWordCount.toFloat(),
                     range = 10f..100f,
                     display = { numberFormat.format(it.roundToInt()) },
+                    default = SettingsDefaults.typingTestWordCount.toFloat(),
                 ) { scope.launch { repository.setTypingTestWordCount(it.roundToInt()) } }
             }
             // Quotes come at whatever length they were written.
@@ -10462,6 +10820,7 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
                     R.string.toolai_typing_punctuation_title,
                     stringResource(R.string.toolai_typing_punctuation_subtitle),
                     settings.typingTestPunctuation,
+                    default = SettingsDefaults.typingTestPunctuation,
                 ) { scope.launch { repository.setTypingTestPunctuation(it) } }
             }
             item {
@@ -10469,6 +10828,7 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
                     R.string.toolai_typing_numbers_title,
                     stringResource(R.string.toolai_typing_numbers_subtitle),
                     settings.typingTestNumbers,
+                    default = SettingsDefaults.typingTestNumbers,
                 ) { scope.launch { repository.setTypingTestNumbers(it) } }
             }
         }
@@ -10641,6 +11001,7 @@ private fun AiToolSettings(
                         R.string.toolai_ai_model_hint,
                         AiClient.DefaultModels.ANTHROPIC,
                     ),
+                    default = SettingsDefaults.ai.anthropicModel,
                 ) { repository.setAiAnthropicModel(it) }
             }
         }
@@ -10663,6 +11024,7 @@ private fun AiToolSettings(
                         R.string.toolai_ai_model_hint,
                         AiClient.DefaultModels.OPENAI,
                     ),
+                    default = SettingsDefaults.ai.openAiModel,
                 ) { repository.setAiOpenAiModel(it) }
             }
         }
@@ -10685,6 +11047,7 @@ private fun AiToolSettings(
                         R.string.toolai_ai_model_hint,
                         AiClient.DefaultModels.GEMINI,
                     ),
+                    default = SettingsDefaults.ai.geminiModel,
                 ) { repository.setAiGeminiModel(it) }
             }
         }
@@ -10696,6 +11059,7 @@ private fun AiToolSettings(
                     label = stringResource(R.string.toolai_ai_server_address_label),
                     value = settings.ai.ollamaUrl,
                     hint = stringResource(R.string.toolai_ai_ollama_url_hint),
+                    default = SettingsDefaults.ai.ollamaUrl,
                 ) { repository.setAiOllamaUrl(it) }
             }
             item {
@@ -10706,6 +11070,7 @@ private fun AiToolSettings(
                         R.string.toolai_ai_model_hint,
                         AiClient.DefaultModels.OLLAMA,
                     ),
+                    default = SettingsDefaults.ai.ollamaModel,
                 ) { repository.setAiOllamaModel(it) }
             }
         }
@@ -10717,6 +11082,7 @@ private fun AiToolSettings(
                     label = stringResource(R.string.toolai_ai_server_address_label),
                     value = settings.ai.lmStudioUrl,
                     hint = stringResource(R.string.toolai_ai_lm_studio_url_hint),
+                    default = SettingsDefaults.ai.lmStudioUrl,
                 ) { repository.setAiLmStudioUrl(it) }
             }
             item {
@@ -10724,6 +11090,7 @@ private fun AiToolSettings(
                     label = stringResource(R.string.toolai_ai_model_label),
                     value = settings.ai.lmStudioModel,
                     hint = stringResource(R.string.toolai_ai_lm_studio_model_hint),
+                    default = SettingsDefaults.ai.lmStudioModel,
                 ) { repository.setAiLmStudioModel(it) }
             }
         }
@@ -10746,6 +11113,7 @@ private fun AiToolSettings(
                         R.string.toolai_ai_model_hint,
                         AiClient.DefaultModels.XAI,
                     ),
+                    default = SettingsDefaults.ai.xaiModel,
                 ) { repository.setAiXaiModel(it) }
             }
         }
@@ -10768,6 +11136,7 @@ private fun AiToolSettings(
                         R.string.toolai_ai_model_hint,
                         AiClient.DefaultModels.DEEPSEEK,
                     ),
+                    default = SettingsDefaults.ai.deepSeekModel,
                 ) { repository.setAiDeepSeekModel(it) }
             }
         }
@@ -10779,6 +11148,7 @@ private fun AiToolSettings(
                     label = stringResource(R.string.toolai_ai_compatible_url_label),
                     value = settings.ai.compatibleUrl,
                     hint = stringResource(R.string.toolai_ai_compatible_url_hint),
+                    default = SettingsDefaults.ai.compatibleUrl,
                 ) { repository.setAiCompatibleUrl(it) }
             }
             item {
@@ -10788,6 +11158,7 @@ private fun AiToolSettings(
                     label = stringResource(R.string.toolai_ai_model_label),
                     value = settings.ai.compatibleModel,
                     hint = stringResource(R.string.toolai_ai_compatible_model_hint),
+                    default = SettingsDefaults.ai.compatibleModel,
                 ) { repository.setAiCompatibleModel(it) }
             }
             item {
@@ -10836,6 +11207,7 @@ private fun AiToolSettings(
                 label = stringResource(R.string.toolai_ai_translate_to_label),
                 value = settings.ai.translateTo,
                 hint = stringResource(R.string.toolai_ai_translate_to_hint),
+                default = SettingsDefaults.ai.translateTo,
             ) { repository.setAiTranslateTo(it) }
         }
         item {
@@ -10843,6 +11215,7 @@ private fun AiToolSettings(
                 R.string.toolai_ai_show_thinking_title,
                 stringResource(R.string.toolai_ai_show_thinking_subtitle),
                 settings.ai.showThinking,
+                default = SettingsDefaults.ai.showThinking,
             ) { scope.launch { repository.setAiShowThinking(it) } }
         }
         item {
@@ -10850,6 +11223,7 @@ private fun AiToolSettings(
                 R.string.toolai_ai_model_picker_title,
                 stringResource(R.string.toolai_ai_model_picker_subtitle),
                 settings.ai.panelModelPicker,
+                default = SettingsDefaults.ai.panelModelPicker,
             ) { scope.launch { repository.setAiPanelModelPicker(it) } }
         }
         item {
@@ -10857,6 +11231,7 @@ private fun AiToolSettings(
                 R.string.toolai_ai_diff_title,
                 stringResource(R.string.toolai_ai_diff_subtitle),
                 settings.ai.diffView,
+                default = SettingsDefaults.ai.diffView,
             ) { scope.launch { repository.setAiDiffView(it) } }
         }
         if (settings.ai.diffView) {
@@ -10865,6 +11240,7 @@ private fun AiToolSettings(
                     R.string.toolai_ai_diff_first_title,
                     stringResource(R.string.toolai_ai_diff_first_subtitle),
                     settings.ai.diffOpensFirst,
+                    default = SettingsDefaults.ai.diffOpensFirst,
                 ) { scope.launch { repository.setAiDiffOpensFirst(it) } }
             }
         }
@@ -11012,6 +11388,10 @@ private fun ToolKeywordSetting(
                 ),
                 caseSensitive,
                 info = stringResource(R.string.toolai_keyword_case_info),
+                default = SmartSuggest.caseSensitiveKeyword(
+                    tool,
+                    SettingsDefaults.toolKeywordCase,
+                ),
             ) { scope.launch { repository.setToolKeywordCaseSensitive(tool, it) } }
         }
         if (saved != defaults) {
@@ -11100,6 +11480,7 @@ internal fun TextFieldSetting(
     label: String,
     value: String,
     hint: String,
+    default: String? = null,
     onSave: suspend (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -11114,6 +11495,12 @@ internal fun TextFieldSetting(
             label = { Text(label) },
             singleLine = true,
             supportingText = { Text(hint) },
+            trailingIcon = {
+                ResetSetting(label, default != null && text != default) {
+                    text = default.orEmpty()
+                    scope.launch { onSave(default.orEmpty()) }
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp),
@@ -11645,6 +12032,7 @@ private fun PrivacySettings(
                 stringResource(R.string.privacy_learn_typing_subtitle),
                 settings.learnFromTyping,
                 info = stringResource(R.string.privacy_learn_typing_info),
+                default = SettingsDefaults.learnFromTyping,
             ) { scope.launch { repository.setLearnFromTyping(it) } }
         }
         item {
@@ -11653,6 +12041,7 @@ private fun PrivacySettings(
                 stringResource(R.string.privacy_system_dictionary_subtitle),
                 settings.addWordsToSystemDictionary,
                 info = stringResource(R.string.privacy_system_dictionary_info),
+                default = SettingsDefaults.addWordsToSystemDictionary,
             ) { scope.launch { repository.setAddWordsToSystemDictionary(it) } }
         }
         item {
@@ -11661,6 +12050,7 @@ private fun PrivacySettings(
                 stringResource(R.string.privacy_dict_shortcuts_subtitle),
                 settings.suggestionStrip.expandUserDictShortcuts,
                 info = stringResource(R.string.privacy_dict_shortcuts_info),
+                default = SettingsDefaults.suggestionStrip.expandUserDictShortcuts,
             ) { scope.launch { repository.setExpandUserDictShortcuts(it) } }
         }
         item {
@@ -11669,6 +12059,7 @@ private fun PrivacySettings(
                 stringResource(R.string.privacy_incognito_subtitle),
                 settings.incognito,
                 info = stringResource(R.string.privacy_incognito_info),
+                default = SettingsDefaults.incognito,
             ) { scope.launch { repository.setIncognito(it) } }
         }
         item {
@@ -11677,6 +12068,7 @@ private fun PrivacySettings(
                 stringResource(R.string.privacy_auto_incognito_subtitle),
                 settings.autoIncognito,
                 info = stringResource(AUTO_INCOGNITO_INFO),
+                default = SettingsDefaults.autoIncognito,
             ) { scope.launch { repository.setAutoIncognito(it) } }
         }
     }
@@ -11687,6 +12079,7 @@ private fun PrivacySettings(
                 stringResource(R.string.privacy_backup_subtitle),
                 settings.cloudBackup,
                 info = stringResource(R.string.privacy_backup_info),
+                default = SettingsDefaults.cloudBackup,
             ) { scope.launch { repository.setCloudBackup(it) } }
         }
     }
@@ -12377,6 +12770,7 @@ private fun RowsSettings(
                 stringResource(R.string.rows_symbol_row_subtitle),
                 settings.symbolRowEnabled,
                 info = stringResource(R.string.rows_symbol_row_info),
+                default = SettingsDefaults.symbolRowEnabled,
             ) { scope.launch { repository.setSymbolRowEnabled(it) } }
         }
     }
@@ -13216,6 +13610,7 @@ private fun ModesSettings(
                 stringResource(R.string.modes_drag_edits_subtitle),
                 settings.modeToolOrderEdits,
                 info = stringResource(R.string.modes_drag_edits_info),
+                default = SettingsDefaults.modeToolOrderEdits,
             ) { scope.launch { repository.setModeToolOrderEdits(it) } }
         }
     }
