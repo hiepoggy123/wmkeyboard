@@ -12,18 +12,29 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Calculate
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.Gif
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Mood
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.QrCode
+import androidx.compose.material.icons.outlined.Translate
+import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.PlatformTextStyle
@@ -119,45 +131,62 @@ internal fun MiniKeyboardPreview(
     highlight: MiniKeyHighlight = MiniKeyHighlight.NONE,
     modifier: Modifier = Modifier,
 ) {
-    MiniBoard(modifier) {
-        // The digit row's height is held whether or not the digits are there.
-        // Without it, flipping the switch under this preview resized the
-        // preview, which moved everything below it and left the user scrolling
-        // back down to see what their own tap had done.
-        if (numberRow) {
-            MiniRow(highlighted = highlight == MiniKeyHighlight.NUMBER_ROW) {
-                for (digit in "1234567890") {
-                    MiniKey(digit.toString(), Modifier.weight(1f))
+    // The digit row's height is held whether or not the digits are there —
+    // otherwise flipping the switch under this preview resizes it, and
+    // everything below moves out from under the user's thumb. The reserved
+    // strip sits *outside* the board, so a board without digits is simply a
+    // shorter board rather than one with an empty shelf inside it.
+    Column(
+        verticalArrangement = Arrangement.Bottom,
+        modifier = modifier.height(MiniBoardHeight),
+    ) {
+        MiniBoard {
+            if (numberRow) {
+                MiniRow(highlighted = highlight == MiniKeyHighlight.NUMBER_ROW) {
+                    for (digit in "1234567890") {
+                        MiniKey(digit.toString(), Modifier.weight(1f))
+                    }
                 }
             }
-        } else {
-            Spacer(Modifier.height(MiniKeyHeight))
-        }
-        for ((index, row) in MiniQwertyRows.withIndex()) {
-            MiniRow {
-                // The bottom letter row keeps shift and backspace, so the
-                // miniature is recognisable as a keyboard rather than as three
-                // rows of letters.
-                if (index == 2) MiniKey("", Modifier.weight(1.5f))
-                for (letter in row) {
-                    MiniKey(letter.toString(), Modifier.weight(1f))
-                }
-                if (index == 2) MiniKey("", Modifier.weight(1.5f))
-            }
-        }
-        MiniRow {
-            MiniKey("", Modifier.weight(1.5f))
-            MiniKeyIcon(
-                icon = if (globeAsEmoji) Icons.Outlined.Mood else Icons.Outlined.Language,
-                highlighted = highlight == MiniKeyHighlight.GLOBE,
-                modifier = Modifier.weight(1f),
-            )
-            MiniKey("", Modifier.weight(4f))
-            MiniKey("", Modifier.weight(1f))
-            MiniKey("", Modifier.weight(1.5f))
+            MiniQwertyBody(globeAsEmoji, highlight)
         }
     }
 }
+
+/** The three letter rows and the bottom row, shared by every full miniature. */
+@Composable
+private fun MiniQwertyBody(globeAsEmoji: Boolean, highlight: MiniKeyHighlight) {
+    for ((index, row) in MiniQwertyRows.withIndex()) {
+        MiniRow {
+            // The bottom letter row keeps shift and backspace, so the
+            // miniature is recognisable as a keyboard rather than as three
+            // rows of letters.
+            if (index == 2) MiniKey("", Modifier.weight(1.5f))
+            for (letter in row) {
+                MiniKey(letter.toString(), Modifier.weight(1f))
+            }
+            if (index == 2) MiniKey("", Modifier.weight(1.5f))
+        }
+    }
+    MiniRow {
+        MiniKey("", Modifier.weight(1.5f))
+        MiniKeyIcon(
+            icon = if (globeAsEmoji) Icons.Outlined.Mood else Icons.Outlined.Language,
+            highlighted = highlight == MiniKeyHighlight.GLOBE,
+            modifier = Modifier.weight(1f),
+        )
+        MiniKey("", Modifier.weight(4f))
+        MiniKey("", Modifier.weight(1f))
+        MiniKey("", Modifier.weight(1.5f))
+    }
+}
+
+/**
+ * Height of a full miniature with its digit row: five key rows, the gaps
+ * between them, and the board's own padding. Held constant so the digit-row
+ * switch cannot move the page under the reader.
+ */
+private val MiniBoardHeight: Dp = MiniKeyHeight * 5 + MiniKeyGap * 4 + 12.dp
 
 /** The board these miniatures sit on: one rounded, tinted panel. */
 @Composable
@@ -290,10 +319,11 @@ internal fun DiscoverPreview(
             "chips" -> ChipScene("12*8=", "96", accent, animate)
             "hotwords" -> ChipScene("translate", "⇱", accent, animate)
             "otp" -> ChipScene("code", "482 913", accent, animate)
-            "toolbox" -> GridScene(accent)
+            "toolbox" -> ToolboxScene(accent, animate)
             "clipboard" -> ClipboardScene(accent, animate)
             "snippets" -> SnippetScene(accent, animate)
-            "photos", "modes" -> WallpaperScene(accent)
+            "photos" -> PhotoBoardScene(accent, animate)
+            "modes" -> PerAppScene(accent, animate)
             "whisper" -> WaveScene(accent, animate)
             "fancy" -> FancyScene(accent, animate)
             "ai" -> AiScene(accent, animate)
@@ -323,24 +353,76 @@ private fun ChipScene(typed: String, chip: String, accent: Color, animate: Boole
     }
 }
 
-/** The toolbox: a grid of tool circles. */
+/**
+ * The toolbox: the grid key on the toolbar, and the tools it opens.
+ *
+ * Named glyphs rather than the ten identical dots this replaced — the pitch is
+ * "seventy different things live behind one key", and ten dots said "there is
+ * a grid", which is not the same claim.
+ */
 @Composable
-private fun GridScene(accent: Color) {
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        repeat(2) {
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                repeat(5) { column ->
-                    Box(
-                        modifier = Modifier
-                            .size(13.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(accent.copy(alpha = 0.35f + column * 0.1f)),
-                    )
+private fun ToolboxScene(accent: Color, animate: Boolean) {
+    val pulse = pulseAlpha(animate)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // The key it all comes out of.
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .alpha(pulse)
+                .size(24.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(accent),
+        ) {
+            Icon(
+                Icons.Outlined.Widgets,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(15.dp),
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            for (row in ToolboxSceneGlyphs) {
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    for (glyph in row) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(17.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(accent.copy(alpha = 0.25f)),
+                        ) {
+                            Icon(
+                                glyph,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier.size(11.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+/** The tools the toolbox scene shows, two rows of four. */
+private val ToolboxSceneGlyphs: List<List<ImageVector>> = listOf(
+    listOf(
+        Icons.Outlined.Translate,
+        Icons.Outlined.Calculate,
+        Icons.Outlined.Gif,
+        Icons.Outlined.QrCode,
+    ),
+    listOf(
+        Icons.Outlined.Mic,
+        Icons.Outlined.Palette,
+        Icons.Outlined.ContentPaste,
+        Icons.Outlined.MoreHoriz,
+    ),
+)
 
 /**
  * The clipboard: a stack of things you copied, with the newest one holding the
@@ -409,28 +491,89 @@ private fun SnippetScene(accent: Color, animate: Boolean) {
     }
 }
 
-/** Keys over a picture: the photo backgrounds, and the per-app boards. */
+/**
+ * Photo backgrounds: translucent keys over a picture, with a second picture
+ * sliding in behind them — the rotation is half of what that card sells.
+ */
 @Composable
-private fun WallpaperScene(accent: Color) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .width(96.dp)
-            .height(42.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .background(accent.copy(alpha = 0.45f)),
+private fun PhotoBoardScene(accent: Color, animate: Boolean) {
+    val pulse = pulseAlpha(animate)
+    Box(contentAlignment = Alignment.Center) {
+        // The next photo in the rotation, peeking out behind the current one.
+        Box(
+            modifier = Modifier
+                .offset(x = 10.dp, y = (-7).dp)
+                .alpha(pulse)
+                .size(width = 92.dp, height = 40.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(
+                    Brush.linearGradient(
+                        listOf(accent.copy(alpha = 0.75f), Color(0xFF5C6BC0).copy(alpha = 0.75f)),
+                    ),
+                ),
+        )
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(width = 100.dp, height = 44.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(
+                    Brush.linearGradient(
+                        listOf(accent, Color(0xFFFFB74D)),
+                    ),
+                ),
+        ) {
+            MiniGhostKeys(rows = 2, perRow = 6)
+        }
+    }
+}
+
+/**
+ * Per-app keyboards: two boards, each wearing a different app's colours, with
+ * that app's glyph on it. One board could not say "a different one per app".
+ */
+@Composable
+private fun PerAppScene(accent: Color, animate: Boolean) {
+    val pulse = pulseAlpha(animate)
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        PerAppBoard(Icons.AutoMirrored.Outlined.Chat, accent, 1f)
+        PerAppBoard(Icons.Outlined.Code, Color(0xFF26A69A), pulse)
+    }
+}
+
+@Composable
+private fun PerAppBoard(app: ImageVector, tint: Color, alpha: Float) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+        modifier = Modifier.alpha(alpha),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            repeat(2) {
-                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                    repeat(6) {
-                        Box(
-                            modifier = Modifier
-                                .size(width = 12.dp, height = 9.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(Color.White.copy(alpha = 0.55f)),
-                        )
-                    }
+        Icon(app, contentDescription = null, tint = tint, modifier = Modifier.size(12.dp))
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(width = 46.dp, height = 30.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(tint.copy(alpha = 0.55f)),
+        ) {
+            MiniGhostKeys(rows = 2, perRow = 4)
+        }
+    }
+}
+
+/** Blank key shapes, for the scenes that draw a board rather than a feature. */
+@Composable
+private fun MiniGhostKeys(rows: Int, perRow: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        repeat(rows) {
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                repeat(perRow) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 12.dp, height = 9.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color.White.copy(alpha = 0.55f)),
+                    )
                 }
             }
         }

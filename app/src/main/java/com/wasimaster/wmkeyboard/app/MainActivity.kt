@@ -132,6 +132,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
@@ -1629,25 +1630,60 @@ internal fun SetupCard(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(12.dp))
-            // One button, the width of the card: setup is a sequence, not a
-            // choice. Offering "Switch keyboard" beside "Turn on keyboard"
-            // put a button there that cannot work yet, and the pair squeezed
-            // the longer label into two wrapped lines on a phone.
-            if (!enabled) {
-                Button(
-                    onClick = {
-                        onEnableRequested?.invoke()
-                        context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(stringResource(R.string.home_setup_enable_action)) }
-            } else {
-                Button(
-                    onClick = { imm.showInputMethodPicker() },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(stringResource(R.string.home_setup_switch_action)) }
-            }
+            // Both steps, stacked, with only the one still to do drawn as a
+            // button to press. Showing one at a time read as the same button
+            // twice — "did I not already do this?" — and showing both as
+            // equals put a live-looking control on a step that cannot run yet.
+            SetupStep(
+                label = stringResource(R.string.home_setup_enable_action),
+                done = enabled,
+                // The first step is the pending one until it is done.
+                pending = !enabled,
+                onClick = {
+                    onEnableRequested?.invoke()
+                    context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+                },
+            )
+            Spacer(Modifier.height(8.dp))
+            SetupStep(
+                label = stringResource(R.string.home_setup_switch_action),
+                done = false,
+                pending = enabled,
+                onClick = { imm.showInputMethodPicker() },
+            )
         }
+    }
+}
+
+/**
+ * One step of the setup card.
+ *
+ * Three states, and the styling is the whole point of the row: [pending] is
+ * the one thing to press, so it is the only filled button; [done] has a tick
+ * and goes quiet; a step that is neither is still ahead of the user and is
+ * drawn as an outline they cannot press, so it reads as "later" rather than
+ * as a second thing to try.
+ */
+@Composable
+private fun SetupStep(label: String, done: Boolean, pending: Boolean, onClick: () -> Unit) {
+    if (pending) {
+        Button(onClick = onClick, modifier = Modifier.fillMaxWidth()) { Text(label) }
+        return
+    }
+    OutlinedButton(
+        onClick = onClick,
+        enabled = false,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        if (done) {
+            Icon(
+                Icons.Outlined.CheckCircle,
+                contentDescription = null,
+                modifier = Modifier.size(ButtonDefaults.IconSize),
+            )
+            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+        }
+        Text(label)
     }
 }
 

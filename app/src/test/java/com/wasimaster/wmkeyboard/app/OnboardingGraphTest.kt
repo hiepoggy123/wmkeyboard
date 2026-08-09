@@ -28,26 +28,43 @@ class OnboardingGraphTest {
     fun `fresh run with unanswered quiz takes the short path`() {
         assertEquals(
             listOf(
-                OnboardingPage.WELCOME, OnboardingPage.PERSONA, OnboardingPage.LANGUAGES,
+                OnboardingPage.WELCOME, OnboardingPage.PERSONA,
                 OnboardingPage.LOOK, OnboardingPage.DISCOVER, OnboardingPage.TRY,
             ),
-            pages(),
+            pages(enabledLanguageCount = 1),
         )
     }
 
     @Test
-    fun `answering the depth question only ever adds pages`() {
-        val unanswered = pages()
+    fun `a second enabled language brings the languages page back unasked`() {
+        assertTrue(OnboardingPage.LANGUAGES in pages(enabledLanguageCount = 2))
+    }
+
+    @Test
+    fun `answering only ever adds pages`() {
+        val unanswered = pages(enabledLanguageCount = 1)
         for (depth in PersonaDepth.entries) {
-            val answered = pages(persona = OnboardingSettings(personaDepth = depth))
+            val answered = pages(
+                persona = OnboardingSettings(personaDepth = depth),
+                enabledLanguageCount = 1,
+            )
             assertTrue(
                 "$depth dropped a page the unanswered quiz shows",
                 answered.containsAll(unanswered),
             )
         }
         assertTrue(
-            pages(persona = OnboardingSettings(personaDepth = PersonaDepth.BALANCED)).size >
-                unanswered.size,
+            pages(
+                persona = OnboardingSettings(personaDepth = PersonaDepth.BALANCED),
+                enabledLanguageCount = 1,
+            ).size > unanswered.size,
+        )
+        // The language answer is the other half of the same rule.
+        assertTrue(
+            pages(
+                persona = OnboardingSettings(personaLanguages = PersonaLanguages.MANY),
+                enabledLanguageCount = 1,
+            ).containsAll(unanswered + OnboardingPage.LANGUAGES),
         )
     }
 

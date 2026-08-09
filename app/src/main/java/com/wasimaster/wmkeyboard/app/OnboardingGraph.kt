@@ -55,8 +55,13 @@ internal fun onboardingPages(
 ): List<OnboardingPage> = OnboardingPage.entries.filter { page ->
     when (page) {
         OnboardingPage.WELCOME -> !(replay && imeReady)
+        // Unanswered means one language, the same as answering "just one":
+        // most people type in one, the page seeds itself from the phone's own
+        // languages anyway, and "two or more" brings the page back. A second
+        // language already enabled overrides all of that — there is something
+        // to manage, so the page has something to say.
         OnboardingPage.LANGUAGES ->
-            persona.personaLanguages != PersonaLanguages.ONE || enabledLanguageCount > 1
+            persona.personaLanguages == PersonaLanguages.MANY || enabledLanguageCount > 1
         OnboardingPage.EMOJI -> (missingEmoji ?: 0) > 0 || samsungEmoji
         OnboardingPage.FEEDBACK, OnboardingPage.GESTURES ->
             persona.personaDepth == PersonaDepth.BALANCED ||

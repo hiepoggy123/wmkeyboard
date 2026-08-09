@@ -1,6 +1,10 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Typeface
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -101,12 +105,7 @@ private const val MISSING_SAMPLE = 7
 internal fun MissingEmojiComparison(missing: List<String>, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val sample by produceState(emptyList<String>(), missing) {
-        value = withContext(Dispatchers.Default) {
-            val noto = KeyboardFonts.emojiTypeface(context, EmojiFontChoice.NOTO)
-                ?: return@withContext emptyList()
-            val paint = Paint().apply { typeface = noto }
-            missing.filter { paint.hasGlyph(it) }.take(MISSING_SAMPLE)
-        }
+        value = withContext(Dispatchers.Default) { notoOnlyEmoji(context, missing) }
     }
     if (sample.isEmpty()) return
     val noto = remember { KeyboardFonts.emojiFamily(context, EmojiFontChoice.NOTO) }
@@ -131,6 +130,70 @@ internal fun MissingEmojiComparison(missing: List<String>, modifier: Modifier = 
         )
     }
 }
+
+/**
+ * The emoji worth putting in the comparison: the ones this phone really draws
+ * as a box, and that Google's font really draws as something else.
+ *
+ * Both halves are decided by drawing them, not by asking. `Paint.hasGlyph` is
+ * the only "does this font have it" API there is, and it is wrong often enough
+ * to be useless here: it answers for the glyph, not for the sequence, so it
+ * says yes to a flag whose regional-indicator pair the font renders as two
+ * lettered squares, and yes to a ZWJ sequence a font renders as its separate
+ * parts. Both of those produced comparison rows where the two halves were
+ * identical — a picture whose caption said the opposite of what it showed.
+ *
+ * Rendering each candidate into a small bitmap answers the actual question.
+ * The device's own drawing is compared against a codepoint nothing can draw,
+ * which is what its "missing" box looks like; and Google's drawing is compared
+ * against the device's, because a Google row that comes out pixel-identical is
+ * not an upgrade to show anyone.
+ *
+ * Costs one small bitmap pair per candidate and runs off the main thread; the
+ * candidate list is capped for the same reason.
+ */
+private suspend fun notoOnlyEmoji(context: Context, missing: List<String>): List<String> {
+    val noto = KeyboardFonts.emojiTypeface(context, EmojiFontChoice.NOTO) ?: return emptyList()
+    val tofu = renderGlyph(UNDRAWABLE, null)
+    return missing.asSequence()
+        .take(MISSING_CANDIDATES)
+        .filter { emoji ->
+            val system = renderGlyph(emoji, null)
+            // Drawn as the device's own "no glyph" box, and drawn differently
+            // by Google's font: only then is there something to show.
+            system.sameAs(tofu) && !renderGlyph(emoji, noto).sameAs(system)
+        }
+        .take(MISSING_SAMPLE)
+        .toList()
+}
+
+/** Renders one emoji at [GLYPH_PROBE_PX] square, in [typeface] or the system font. */
+private fun renderGlyph(emoji: String, typeface: Typeface?): Bitmap {
+    val bitmap = Bitmap.createBitmap(GLYPH_PROBE_PX, GLYPH_PROBE_PX, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.typeface = typeface
+        textSize = GLYPH_PROBE_PX * 0.8f
+        textAlign = Paint.Align.CENTER
+    }
+    val baseline = GLYPH_PROBE_PX / 2f - (paint.descent() + paint.ascent()) / 2f
+    canvas.drawText(emoji, GLYPH_PROBE_PX / 2f, baseline, paint)
+    return bitmap
+}
+
+/**
+ * A codepoint no font will ever have (a plane-16 noncharacter), so whatever it
+ * draws as is this device's "I do not have this" box. Built from its number
+ * rather than written out, because an astral literal does not survive every
+ * editor it passes through.
+ */
+private val UNDRAWABLE = String(Character.toChars(0x10FFFD))
+
+/** Side of the square each probe is rendered into. */
+private const val GLYPH_PROBE_PX = 24
+
+/** How many of the reported-missing emoji are probed before giving up. */
+private const val MISSING_CANDIDATES = 40
 
 @Composable
 private fun MissingEmojiRow(label: String, sample: List<String>, family: FontFamily?) {
