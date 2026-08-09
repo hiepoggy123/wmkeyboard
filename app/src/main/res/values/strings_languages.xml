@@ -74,6 +74,9 @@
     <string name="languages_secondary_title">Also suggest from</string>
     <!-- %1$s is the English name of the language this screen is about. -->
     <string name="languages_secondary_info">The keyboard offers words from these languages while you type <xliff:g id="language" example="Bengali">%1$s</xliff:g>. Autocorrect never changes them.</string>
+    <!-- Toast after adding a romanized language pairs it with a same-script
+         language. %1$s and %2$s are English names of the two languages. -->
+    <string name="languages_auto_pair_toast"><xliff:g id="language_one" example="Bangla (Romanized)">%1$s</xliff:g> and <xliff:g id="language_two" example="English">%2$s</xliff:g> now suggest each other\'s words. You can change this on each language\'s page.</string>
 
     <!-- ===== Dictionary ===== -->
 

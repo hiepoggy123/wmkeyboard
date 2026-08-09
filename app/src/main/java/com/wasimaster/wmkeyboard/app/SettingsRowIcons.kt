@@ -469,6 +469,8 @@ internal val SettingsRowIcons: Map<Int, ImageVector> = buildMap {
     put(R.string.typing_timing_signal_title, Icons.Outlined.Timer)
     put(R.string.typing_number_row_corrections_title, Icons.Outlined.Pin)
     put(R.string.typing_autocorrect_splits_title, Icons.Outlined.SpaceBar)
+    put(R.string.typing_language_detection_title, Icons.Outlined.Translate)
+    put(R.string.typing_language_detection_strength_title, Icons.Outlined.Tune)
     put(R.string.typing_register_priors_title, Icons.Outlined.QuestionAnswer)
     put(R.string.typing_undo_autocorrect_title, Icons.AutoMirrored.Outlined.Undo)
     put(R.string.typing_skip_all_caps_title, Icons.Outlined.KeyboardCapslock)

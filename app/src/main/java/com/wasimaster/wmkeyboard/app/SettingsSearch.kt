@@ -147,6 +147,11 @@ private fun Resources.typingRows(): List<SettingsSearchEntry> {
         row(R.string.typing_context_rerank_title, R.string.typing_context_rerank_subtitle),
         row(R.string.typing_autocorrect_splits_title, R.string.typing_autocorrect_splits_subtitle),
         row(
+            R.string.typing_language_detection_title,
+            R.string.typing_language_detection_subtitle,
+        ),
+        row(R.string.typing_language_detection_strength_title),
+        row(
             R.string.typing_number_row_corrections_title,
             R.string.typing_number_row_corrections_subtitle,
         ),

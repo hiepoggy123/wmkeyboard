@@ -47,6 +47,16 @@
     <string name="typing_autocorrect_splits_subtitle">Split two words typed together when you press space</string>
     <string name="typing_autocorrect_splits_info">When the word you typed is unknown, but it divides into two words the keyboard knows, the keyboard can commit the two words with a space between them: "ofthe" becomes "of the". A letter next to the spacebar can also stand in for the space itself, so "amibtomake" becomes "ami tomake". The split applies only when no single word explains the typed text and both halves are clear words. Backspace right after the split puts your text back, like any other correction.</string>
 
+    <string name="typing_language_detection_title">Detect the language you type</string>
+    <string name="typing_language_detection_subtitle">Follow the language of the current message</string>
+    <string name="typing_language_detection_info">When your languages share a keyboard, the words already in the text field show which language you write now. The keyboard leans its suggestions and autocorrect toward that language, and swings back when you switch. Type "ami tomake" on the English keyboard and it behaves like the Banglish one; type "how are you" and it behaves like English again. This works per text field and needs languages with "Also suggest from" set up, which romanized languages get automatically.</string>
+
+    <string name="typing_language_detection_strength_title">Detection strength</string>
+    <string name="typing_language_detection_strength_info">Gentle only reorders suggestions and never lets the detected language win over the keyboard\'s own. Balanced lets a clearly detected language take the lead, and autocorrect follows for all but the most common words. Aggressive hands over completely, so autocorrect fixes typos in the detected language even against very common words of the keyboard\'s own language.</string>
+    <string name="typing_language_detection_gentle">Gentle</string>
+    <string name="typing_language_detection_balanced">Balanced</string>
+    <string name="typing_language_detection_aggressive">Aggressive</string>
+
     <string name="typing_autocorrect_adaptive_title">Adaptive confidence</string>
     <string name="typing_autocorrect_adaptive_subtitle">Correct less eagerly when you undo corrections often</string>
     <string name="typing_autocorrect_adaptive_info">The keyboard tracks how often you undo its corrections. When you undo corrections often, the keyboard raises the confidence it needs before it corrects a word. When you rarely undo corrections, the confidence returns to the value of the slider. The keyboard also remembers each correction you undo. A correction you undo twice never applies again.</string>

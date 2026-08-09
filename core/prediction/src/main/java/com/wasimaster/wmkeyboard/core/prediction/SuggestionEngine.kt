@@ -8,6 +8,7 @@ import com.wasimaster.wmkeyboard.core.gesture.GlideWorkspace
 import com.wasimaster.wmkeyboard.core.gesture.RomanizedIndex
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
+import kotlin.math.exp
 import kotlin.math.ln
 
 /**
@@ -200,6 +201,56 @@ class SuggestionEngine(
         }
 
     /**
+     * How far the per-field language detection may shift the mix, as the
+     * maximum log-space handicap/boost (see [FieldLanguageMix]). 0 turns
+     * detection off entirely; the FIELD_SHIFT_* companion constants are the
+     * calibrated strengths the settings screen offers. At full evidence a
+     * language the field is clearly written in gains up to `e^shift` weight
+     * while the others lose the same, so at the stronger settings a
+     * detected secondary language genuinely takes over ranking — and with
+     * it the autocorrect targets — from the on-screen primary.
+     */
+    @Volatile
+    private var fieldDetectionShiftField: Double = 0.0
+    var fieldDetectionShift: Double
+        get() = fieldDetectionShiftField
+        set(value) {
+            if (value == fieldDetectionShiftField) return
+            fieldDetectionShiftField = value
+            generation.incrementAndGet()
+        }
+
+    /**
+     * The words already sitting in the field the user just entered, and every
+     * word committed there since. Owned by the engine (not injected) because
+     * classifying a word needs the very dictionaries the engine holds.
+     */
+    private val fieldMix = FieldLanguageMix()
+
+    /**
+     * Seed the per-field language mix from the words already in the field —
+     * oldest first, so the decay leaves the words nearest the caret in
+     * charge. Called by the IME when it enters a field; a field it cannot
+     * read seeds empty, which keeps the mix neutral until the user types.
+     */
+    fun seedFieldContext(words: List<String>) {
+        fieldMix.reset()
+        if (secondaryDictionaries.isNotEmpty() || englishAsSecondary) {
+            for (word in words) {
+                val lower = word.lowercase()
+                if (lower.isNotEmpty()) fieldMix.record(languagesOwning(lower))
+            }
+        }
+        generation.incrementAndGet()
+    }
+
+    /** Forget the field mix (leaving the field, or detection turned off). */
+    fun clearFieldContext() {
+        fieldMix.reset()
+        generation.incrementAndGet()
+    }
+
+    /**
      * Words recently committed in the app now being typed in — an in-memory
      * recency overlay from the IME, giving each app's own vocabulary a small
      * ranking edge there. Read post-cache, so no generation bump.
@@ -370,11 +421,113 @@ class SuggestionEngine(
      * old fixed behaviour.
      */
     private fun englishSecondaryFactor(): Double =
-        mixConfidence.confidenceFor(EN) / SECONDARY_ENGLISH_DIVISOR
+        mixConfidence.confidenceFor(EN) / SECONDARY_ENGLISH_DIVISOR * fieldFactorFor(EN)
 
     /** Adaptive weight for a secondary language's imported list. */
     private fun secondaryWeight(langId: String): Int =
-        (SECONDARY_WORD_WEIGHT * mixConfidence.confidenceFor(langId)).toInt()
+        (SECONDARY_WORD_WEIGHT * mixConfidence.confidenceFor(langId) * fieldFactorFor(langId))
+            .toInt()
+
+    /**
+     * The languages taking part in the current mix: the primary, bundled
+     * English when it rides as a secondary, and each secondary list.
+     */
+    private fun mixLanguageIds(): List<String> {
+        val ids = ArrayList<String>(secondaryDictionaries.size + 2)
+        if (primaryLanguageId.isNotEmpty()) ids.add(primaryLanguageId)
+        if (englishAsSecondary && !englishSources && EN !in ids) ids.add(EN)
+        for (t in secondaryDictionaries) if (t.langId !in ids) ids.add(t.langId)
+        return ids
+    }
+
+    /**
+     * Every language of the mix whose dictionary knows [lower], including the
+     * language a learned word is tagged with. A word valid in several is
+     * evidence for all of them at once — which is exactly why it moves the
+     * field mix nowhere.
+     */
+    private fun languagesOwning(lower: String): Set<String> {
+        val owners = HashSet<String>(4)
+        if (primaryLanguageId.isNotEmpty() &&
+            (activeDictionary.contains(lower) || customDictionary.contains(lower))
+        ) {
+            owners.add(primaryLanguageId)
+        }
+        if (englishAsSecondary && !englishSources && dictionary.contains(lower)) owners.add(EN)
+        for (t in secondaryDictionaries) if (t.source.contains(lower)) owners.add(t.langId)
+        userLexicon.languageOf(lower)?.let { owners.add(it) }
+        return owners
+    }
+
+    /**
+     * Weight multiplier the field's own words earn [langId]: above 1 when the
+     * field is being written in it, below 1 when it is clearly being written
+     * in another language of the mix, exactly 1 while there is no evidence —
+     * so an empty field behaves as if detection did not exist. Cached per
+     * walk generation; every mutation of the field mix bumps the generation.
+     */
+    private fun fieldFactorFor(langId: String): Double {
+        if (langId.isEmpty()) return 1.0
+        val gen = generation.get()
+        fieldFactorCache?.let { (cachedGen, factors) ->
+            if (cachedGen == gen) return factors[langId] ?: 1.0
+        }
+        val factors = computeFieldFactors()
+        fieldFactorCache = gen to factors
+        return factors[langId] ?: 1.0
+    }
+
+    @Volatile
+    private var fieldFactorCache: Pair<Long, Map<String, Double>>? = null
+
+    /**
+     * One multiplier per mix language, from each one's share of the field's
+     * classified words relative to its strongest rival: `e^(shift·ramp·delta)`
+     * with delta in [-1, 1]. A pure-Banglish field at full evidence boosts
+     * bn_rom by `e^shift` and damps English by the same, bridging the raw
+     * frequency gap between a freq-1 romanized list and the bundled English
+     * corpus; a 50/50 field moves nothing.
+     */
+    private fun computeFieldFactors(): Map<String, Double> {
+        val shift = fieldDetectionShift
+        if (shift <= 0.0) return emptyMap()
+        val shares = fieldMix.shares() ?: return emptyMap()
+        val langs = mixLanguageIds()
+        if (langs.size < 2) return emptyMap()
+        val factors = HashMap<String, Double>(langs.size * 2)
+        for (lang in langs) {
+            var rival = 0.0
+            for (other in langs) {
+                if (other != lang) rival = maxOf(rival, shares.shareOf(other))
+            }
+            val delta = shares.shareOf(lang) - rival
+            if (delta != 0.0) factors[lang] = exp(shift * shares.ramp * delta)
+        }
+        return factors
+    }
+
+    /**
+     * The language the field is being written in right now: the primary
+     * unless detection is on and another mix language clearly dominates the
+     * field's words. This is what the learned-word damp treats as "active",
+     * so the user's Banglish habits stop being handicapped the moment the
+     * field itself turns Banglish.
+     */
+    private fun detectedLanguageId(): String {
+        val active = primaryLanguageId
+        if (active.isEmpty() || fieldDetectionShift <= 0.0) return active
+        val shares = fieldMix.shares() ?: return active
+        var top = active
+        var topShare = shares.shareOf(active)
+        for (lang in mixLanguageIds()) {
+            val share = shares.shareOf(lang)
+            if (share > topShare) {
+                top = lang
+                topShare = share
+            }
+        }
+        return if (topShare - shares.shareOf(active) >= DETECTED_MARGIN) top else active
+    }
 
     /** English's bundled frequency when it is a secondary language, else 0. */
     private fun secondaryEnglishFrequencyOf(word: String): Int =
@@ -577,7 +730,10 @@ class SuggestionEngine(
     private fun dampMismatchedLanguages(
         ranked: List<FuzzyBeamSearch.ScoredCandidate>,
     ): List<FuzzyBeamSearch.ScoredCandidate> {
-        val active = primaryLanguageId
+        // Relative to the *detected* language, not the on-screen one: in a
+        // field the mix says is Banglish, it is the English-tagged habits
+        // that crowd, and the Banglish ones that belong.
+        val active = detectedLanguageId()
         if (active.isEmpty()) return ranked
         var changed = false
         val damped = ranked.map { c ->
@@ -611,14 +767,18 @@ class SuggestionEngine(
                 sources.add(FuzzyBeamSearch.WalkSource(walker, logWeight, tier))
             }
         }
-        add(activeDictionary, 0.0, FuzzyBeamSearch.Tier.DICTIONARY)
-        add(customDictionary, LOG_CUSTOM_WORD_WEIGHT, FuzzyBeamSearch.Tier.DICTIONARY)
+        // ln(1.0) = 0 while the field mix is neutral, keeping the primary's
+        // weights bit-identical to the pre-detection engine.
+        val primaryShift = ln(fieldFactorFor(primaryLanguageId))
+        add(activeDictionary, primaryShift, FuzzyBeamSearch.Tier.DICTIONARY)
+        add(customDictionary, LOG_CUSTOM_WORD_WEIGHT + primaryShift, FuzzyBeamSearch.Tier.DICTIONARY)
         if (englishAsSecondary && !englishSources) {
             val factor = englishSecondaryFactor()
             if (factor > 0) add(dictionary, ln(factor), FuzzyBeamSearch.Tier.DICTIONARY)
         }
         for (t in secondaryDictionaries) {
-            val weight = SECONDARY_WORD_WEIGHT * mixConfidence.confidenceFor(t.langId)
+            val weight = SECONDARY_WORD_WEIGHT * mixConfidence.confidenceFor(t.langId) *
+                fieldFactorFor(t.langId)
             if (weight > 0) add(t.source, ln(weight), FuzzyBeamSearch.Tier.DICTIONARY)
         }
         for (walker in userLexicon.walkers()) {
@@ -681,6 +841,10 @@ class SuggestionEngine(
     fun recordUsage(word: String) {
         if (secondaryDictionaries.isEmpty() && !englishAsSecondary) return
         val lower = word.lowercase()
+        // The field mix takes every owner at once — an ambiguous word is
+        // evidence for each of its languages and so moves the mix nowhere —
+        // while the long-term confidence keeps its exclusive attribution.
+        fieldMix.record(languagesOwning(lower))
         val langId = when {
             activeDictionary.contains(lower) || customDictionary.contains(lower) ||
                 userLexicon.contains(lower) -> primaryLanguageId
@@ -809,6 +973,29 @@ class SuggestionEngine(
          * 3x frequency disadvantage, enough to stop cross-language crowding
          * without ever hiding a genuinely strong habit. */
         private val LANG_MISMATCH_DAMP = ln(3.0)
+
+        /**
+         * Calibrated [fieldDetectionShift] strengths. Each is the maximum
+         * log-space swing per language; the detected and rival languages
+         * move in opposite directions, so the effective bridge between them
+         * is `e^(2·shift)`. Gentle re-orders the strip without letting the
+         * detected language's typo targets overtake the primary's common
+         * words; balanced hands ranking over for all but the most common
+         * rival words while the ×4 autocorrect confidence gate absorbs the
+         * contested middle; aggressive is a full role swap that out-bridges
+         * even top-frequency English against a freq-1 romanized list.
+         */
+        const val FIELD_SHIFT_OFF = 0.0
+        const val FIELD_SHIFT_GENTLE = 1.4
+        const val FIELD_SHIFT_BALANCED = 2.6
+        const val FIELD_SHIFT_AGGRESSIVE = 4.0
+
+        /**
+         * Share lead over the primary a mix language needs before the
+         * learned-word damp treats it as the field's language. A third keeps
+         * a genuinely mixed field on the primary's side.
+         */
+        private const val DETECTED_MARGIN = 0.34
 
         /** Register prior shifts: chat-speak's edge in casual fields, and its
          * (heavier) handicap in formal ones — misranking "lol" upward in an

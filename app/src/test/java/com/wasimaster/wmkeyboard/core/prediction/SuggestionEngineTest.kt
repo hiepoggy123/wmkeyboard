@@ -711,4 +711,99 @@ class SuggestionEngineTest {
         // field cannot stand in for presence of words.
         assertFalse(bengaliEngine().apply { customDictionary = Trie() }.hasWordSources)
     }
+
+    // ---- per-field language detection ----
+
+    /**
+     * English keyboard with Banglish as a secondary. "barj" is one adjacent
+     * substitution from English "bark" and from Banglish "bari", so which way
+     * autocorrect goes is decided purely by the field's language.
+     */
+    private fun banglishEngine(
+        shift: Double = SuggestionEngine.FIELD_SHIFT_AGGRESSIVE,
+    ): SuggestionEngine {
+        val dictionary = Trie().apply {
+            insert("bark", 2000)
+            insert("how", 90_000)
+            insert("are", 80_000)
+            insert("you", 100_000)
+        }
+        val banglish = Trie().apply {
+            insert("bari", 1)
+            insert("ami", 1)
+            insert("tomake", 1)
+            insert("bhalo", 1)
+        }
+        return SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+            .apply {
+                primaryLanguageId = "en"
+                secondaryDictionaries = listOf(SecondaryDictionary("bn_rom", banglish))
+                fieldDetectionShift = shift
+            }
+    }
+
+    private val banglishWords = listOf("bhalo", "ami", "tomake")
+
+    @Test fun `an empty field leaves the primary language in charge`() {
+        val e = banglishEngine()
+        val s = e.suggest("bar", previousWord = null)
+        assertTrue(s.indexOf("bark") < s.indexOf("bari"))
+        assertEquals("bark", e.shouldAutocorrect("barj"))
+    }
+
+    @Test fun `a banglish field hands ranking and autocorrect to banglish`() {
+        val e = banglishEngine()
+        e.seedFieldContext(banglishWords)
+        val s = e.suggest("bar", previousWord = null)
+        assertTrue("expected bari first in $s", s.indexOf("bari") < s.indexOf("bark"))
+        assertEquals("bari", e.shouldAutocorrect("barj"))
+    }
+
+    @Test fun `an english field keeps autocorrect english`() {
+        val e = banglishEngine()
+        e.seedFieldContext(listOf("how", "are", "you"))
+        assertEquals("bark", e.shouldAutocorrect("barj"))
+    }
+
+    @Test fun `gentle strength reorders nothing away from the primary`() {
+        val e = banglishEngine(shift = SuggestionEngine.FIELD_SHIFT_GENTLE)
+        e.seedFieldContext(banglishWords)
+        val s = e.suggest("bar", previousWord = null)
+        assertTrue("gentle must not dethrone the primary in $s", s.indexOf("bark") < s.indexOf("bari"))
+    }
+
+    @Test fun `committed words swing the detection back mid-field`() {
+        val e = banglishEngine()
+        e.seedFieldContext(banglishWords)
+        repeat(3) { e.recordUsage("you") }
+        assertEquals("bark", e.shouldAutocorrect("barj"))
+    }
+
+    @Test fun `reseeding replaces the old field's evidence`() {
+        val e = banglishEngine()
+        e.seedFieldContext(banglishWords)
+        e.seedFieldContext(emptyList())
+        assertEquals("bark", e.shouldAutocorrect("barj"))
+    }
+
+    @Test fun `clearing the field context restores the primary`() {
+        val e = banglishEngine()
+        e.seedFieldContext(banglishWords)
+        e.clearFieldContext()
+        assertEquals("bark", e.shouldAutocorrect("barj"))
+    }
+
+    @Test fun `detection off is inert whatever the field says`() {
+        val e = banglishEngine(shift = SuggestionEngine.FIELD_SHIFT_OFF)
+        e.seedFieldContext(banglishWords)
+        assertEquals("bark", e.shouldAutocorrect("barj"))
+    }
+
+    @Test fun `a banglish word stays protected from autocorrect either way`() {
+        // The in-dictionary gate is deliberately unbiased: however English the
+        // field looks, a word a secondary list contains is never corrected.
+        val e = banglishEngine()
+        e.seedFieldContext(listOf("how", "are", "you"))
+        assertNull(e.shouldAutocorrect("tomake"))
+    }
 }

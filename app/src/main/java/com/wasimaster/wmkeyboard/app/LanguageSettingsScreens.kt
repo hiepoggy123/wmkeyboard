@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -294,11 +295,26 @@ internal fun AddLanguageScreen(
     // The language is enabled straight away either way; the prompt only decides
     // whether its data comes down now, so answering it is never load-bearing.
     val prompt = rememberLanguageDataPrompt()
+    val context = LocalContext.current
     val add: (LanguageDef) -> Unit = { lang ->
         // Nothing is enabled until the dialog is answered, so its Cancel really
         // is a cancel and has nothing to undo.
         prompt.ask(lang) {
-            addLanguage(scope, repository, settings, lang)
+            addLanguage(scope, repository, settings, lang, onPaired = { pairs ->
+                // One toast even if several links landed: the first pair is
+                // the one the user just caused, and the detail screen lists
+                // the full truth.
+                val (a, b) = pairs.first()
+                Toast.makeText(
+                    context,
+                    context.getString(
+                        R.string.languages_auto_pair_toast,
+                        LanguageRegistry.byId(a)?.englishName ?: a,
+                        LanguageRegistry.byId(b)?.englishName ?: b,
+                    ),
+                    Toast.LENGTH_LONG,
+                ).show()
+            })
             onOpenLanguage(lang.id)
         }
     }
@@ -582,16 +598,24 @@ private fun LanguageDataDeleteDialog(
  * Adds a language by enabling its first layout. The rest of its layouts, and any
  * secondary suggestion sources, are then a tap away on its detail screen — which
  * is where every caller sends the user next.
+ *
+ * Adding is also the moment romanized languages get cross-wired with their
+ * same-script company (see [RomanizedPairing]): [onPaired] fires with the new
+ * links so the Languages screen can toast them, while onboarding leaves it at
+ * its silent default.
  */
 internal fun addLanguage(
     scope: CoroutineScope,
     repository: SettingsRepository,
     settings: KeyboardSettings,
     language: LanguageDef,
+    onPaired: (List<Pair<String, String>>) -> Unit = {},
 ) {
     val first = language.layoutIds.firstOrNull() ?: return
     scope.launch {
         repository.setEnabledLayoutIds((settings.enabledLayoutIds + first).distinct())
+        val paired = repository.autoPairRomanizedSecondaries()
+        if (paired.isNotEmpty()) onPaired(paired)
     }
 }
 

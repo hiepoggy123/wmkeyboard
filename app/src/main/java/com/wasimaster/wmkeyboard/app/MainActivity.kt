@@ -293,6 +293,7 @@ import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.settings.ConfigBackup
 import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
+import com.wasimaster.wmkeyboard.core.settings.LanguageDetectionStrength
 import com.wasimaster.wmkeyboard.core.settings.DefaultKeyboardModes
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolbarTools
 import com.wasimaster.wmkeyboard.core.settings.AutoBackupRunner
@@ -2511,6 +2512,31 @@ private fun TypingSettings(
                     settings.suggestionStrip.autocorrectSplits,
                     info = stringResource(R.string.typing_autocorrect_splits_info),
                 ) { scope.launch { repository.setAutocorrectSplits(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_language_detection_title,
+                    stringResource(R.string.typing_language_detection_subtitle),
+                    settings.suggestionStrip.languageDetection,
+                    info = stringResource(R.string.typing_language_detection_info),
+                ) { scope.launch { repository.setLanguageDetection(it) } }
+            }
+            if (settings.suggestionStrip.languageDetection) {
+                item {
+                    ChoiceSetting(
+                        R.string.typing_language_detection_strength_title,
+                        info = stringResource(R.string.typing_language_detection_strength_info),
+                        options = listOf(
+                            LanguageDetectionStrength.GENTLE to
+                                stringResource(R.string.typing_language_detection_gentle),
+                            LanguageDetectionStrength.BALANCED to
+                                stringResource(R.string.typing_language_detection_balanced),
+                            LanguageDetectionStrength.AGGRESSIVE to
+                                stringResource(R.string.typing_language_detection_aggressive),
+                        ),
+                        selected = settings.suggestionStrip.languageDetectionStrength,
+                    ) { scope.launch { repository.setLanguageDetectionStrength(it) } }
+                }
             }
             if (settings.numberRow) {
                 item {

@@ -148,6 +148,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.HardwareKeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
+import com.wasimaster.wmkeyboard.core.settings.LanguageDetectionStrength
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import android.net.ConnectivityManager
 import com.wasimaster.wmkeyboard.core.settings.PhotoNetworkConditions
@@ -1562,6 +1563,13 @@ open class WMKeyboardService : InputMethodService() {
         // since it was first seeded. No-op once it has run.
         if (userUnlocked) serviceScope.launch { settingsRepository.seedNewDefaultModes() }
 
+        // Installs that enabled a romanized pair (English + Banglish) before
+        // auto-pairing shipped get the cross-suggestions wired up once here;
+        // from then on only adding a language pairs anything.
+        if (userUnlocked) {
+            serviceScope.launch { settingsRepository.reconcileRomanizedSecondariesOnce() }
+        }
+
         // The automatic backup's job is not persisted across reboots, so
         // something has to put it back, and the keyboard starts long before the
         // settings app does. Leaves an already-correct job alone, which matters:
@@ -1887,6 +1895,7 @@ open class WMKeyboardService : InputMethodService() {
                         .mapNotNull { id -> customDictionaries[id]?.let { SecondaryDictionary(id, it) } }
                 suggestionEngine?.englishAsSecondary =
                     "en" in secondaryIds && !activeLang.isEnglish
+                suggestionEngine?.fieldDetectionShift = fieldDetectionShift(settings)
             }
         }
 
@@ -2183,6 +2192,7 @@ open class WMKeyboardService : InputMethodService() {
                 secondaryDictionaries = secondaryIds.filter { it != "en" }
                     .mapNotNull { id -> customTries[id]?.let { SecondaryDictionary(id, it) } }
                 englishAsSecondary = "en" in secondaryIds && !lang.isEnglish
+                fieldDetectionShift = fieldDetectionShift(_uiState.value.settings)
                 ngramReranker = NgramReranker(
                     userLexicon,
                     seedBigrams,
@@ -2715,6 +2725,9 @@ open class WMKeyboardService : InputMethodService() {
             invalidateRecentWords()
             lastGestureWord = null
             lastRevertible = null
+            // The last field's language mix must not color this one; the
+            // entry re-read below re-seeds it from this field's own words.
+            suggestionEngine?.clearFieldContext()
         }
         // The Fancy tool's automatic pass, run here rather than when the
         // keyboard closed: this is the first moment the work is safe again (the
@@ -4812,7 +4825,45 @@ open class WMKeyboardService : InputMethodService() {
         val before = ic.getTextBeforeCursor(64, 0)
         setContextFrom(before)
         rebuildRecentWords(before)
+        seedFieldLanguageMix()
     }
+
+    /**
+     * Re-derives the engine's per-field language mix from [recentWords] —
+     * the tokens [rebuildRecentWords] just read off the field — so the mix
+     * always describes the words in front of the user. Runs wherever the
+     * field is re-read: entry, caret jumps, post-edit re-syncs. Between
+     * re-reads the engine keeps itself current from each committed word.
+     */
+    private fun seedFieldLanguageMix() {
+        val engine = suggestionEngine ?: return
+        if (engine.fieldDetectionShift <= 0.0) {
+            engine.clearFieldContext()
+            return
+        }
+        val words = ArrayList<String>(recentWords.size)
+        for (token in recentWords) {
+            val word = token.trim { !it.isLetter() }
+            if (word.isNotEmpty()) words.add(word)
+        }
+        engine.seedFieldContext(words)
+    }
+
+    /**
+     * The engine's calibrated detection shift for the current settings: 0
+     * (off) unless the user has left field-language detection on, else the
+     * strength they chose.
+     */
+    private fun fieldDetectionShift(settings: KeyboardSettings): Double =
+        if (!settings.suggestionStrip.languageDetection) {
+            SuggestionEngine.FIELD_SHIFT_OFF
+        } else {
+            when (settings.suggestionStrip.languageDetectionStrength) {
+                LanguageDetectionStrength.GENTLE -> SuggestionEngine.FIELD_SHIFT_GENTLE
+                LanguageDetectionStrength.BALANCED -> SuggestionEngine.FIELD_SHIFT_BALANCED
+                LanguageDetectionStrength.AGGRESSIVE -> SuggestionEngine.FIELD_SHIFT_AGGRESSIVE
+            }
+        }
 
     /**
      * Adds a freshly committed [word] to the pattern gate's memory.

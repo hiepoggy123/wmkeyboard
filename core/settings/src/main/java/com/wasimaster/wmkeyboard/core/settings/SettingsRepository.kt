@@ -44,6 +44,7 @@ import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
 import com.wasimaster.wmkeyboard.core.script.NumeralSystem
+import com.wasimaster.wmkeyboard.core.script.RomanizedPairing
 import com.wasimaster.wmkeyboard.core.script.ScriptDef
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
@@ -2858,6 +2859,15 @@ val LatinAccents: Map<Char, List<String>> = mapOf(
 )
 
 /**
+ * How far detecting the field's language may shift suggestions and
+ * autocorrect toward it. Maps to the engine's calibrated shift constants;
+ * GENTLE re-orders the strip without dethroning the on-screen language,
+ * AGGRESSIVE hands ranking and autocorrect over completely once the field's
+ * words say so.
+ */
+enum class LanguageDetectionStrength { GENTLE, BALANCED, AGGRESSIVE }
+
+/**
  * Suggestion-strip content options, grouped into their own object (see
  * [CameraSettings] for why the top-level class can't take more flat fields).
  * DataStore keys stay flat.
@@ -2964,6 +2974,19 @@ data class SuggestionStripSettings(
      * under the settings class's JVM field ceiling.
      */
     val spellingMapOffLangs: Set<String> = emptySet(),
+    /**
+     * Detect which language of the mix the current field is being written in
+     * — from the words already in it — and lean suggestions and autocorrect
+     * toward that language while it holds. Typing "ami tomake" on the English
+     * keyboard makes it behave like the Banglish one, and "how are you"
+     * swings it straight back. Per field, never persisted, and inert unless
+     * the language has secondary suggestion languages configured. Lives here
+     * rather than beside the other language options only to stay under the
+     * settings class's JVM field ceiling.
+     */
+    val languageDetection: Boolean = true,
+    /** How far the detected language may take over; see [LanguageDetectionStrength]. */
+    val languageDetectionStrength: LanguageDetectionStrength = LanguageDetectionStrength.BALANCED,
 ) {
     /** Whether the fixed-spelling map applies to [langId]. */
     fun spellingMapEnabledFor(langId: String): Boolean = langId !in spellingMapOffLangs
@@ -3087,6 +3110,8 @@ class SettingsRepository(private val context: Context) {
         private val ENABLED_LAYOUT_IDS = stringPreferencesKey("enabled_layout_ids")
         private val CUSTOM_LAYOUTS = stringPreferencesKey("custom_layouts")
         private val SECONDARY_LANGUAGES = stringPreferencesKey("secondary_languages")
+        private val AUTO_PAIR_ROMANIZED_DONE =
+            booleanPreferencesKey("auto_pair_romanized_done")
         private val RAW_CLIPBOARD_SHORTCUTS = booleanPreferencesKey("raw_clipboard_shortcuts")
         private val THEME_MODE = stringPreferencesKey("theme_mode")
         private val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
@@ -3235,6 +3260,9 @@ class SettingsRepository(private val context: Context) {
         private val SUGGESTION_PRIMARY_CENTER = booleanPreferencesKey("suggestion_primary_center")
         private val BLOCK_OFFENSIVE_WORDS = booleanPreferencesKey("block_offensive_words")
         private val CONTEXT_RERANK = booleanPreferencesKey("context_rerank")
+        private val LANGUAGE_DETECTION = booleanPreferencesKey("language_detection")
+        private val LANGUAGE_DETECTION_STRENGTH =
+            stringPreferencesKey("language_detection_strength")
         private val NUMBER_ROW_CORRECTIONS = booleanPreferencesKey("number_row_corrections")
         private val AUTOCORRECT_SPLITS = booleanPreferencesKey("autocorrect_splits")
         private val REGISTER_PRIORS = booleanPreferencesKey("register_priors")
@@ -4217,6 +4245,11 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.suggestionStrip.autocorrectSplits,
                 spellingMapOffLangs = p[SPELLING_MAP_OFF_LANGS]
                     ?: defaults.suggestionStrip.spellingMapOffLangs,
+                languageDetection = p[LANGUAGE_DETECTION]
+                    ?: defaults.suggestionStrip.languageDetection,
+                languageDetectionStrength = p[LANGUAGE_DETECTION_STRENGTH]
+                    ?.let { runCatching { LanguageDetectionStrength.valueOf(it) }.getOrNull() }
+                    ?: defaults.suggestionStrip.languageDetectionStrength,
             ),
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeat = KeyRepeatSettings(
@@ -5187,6 +5220,38 @@ class SettingsRepository(private val context: Context) {
     /** Replaces the secondary-language map (primary langId → secondary langIds). */
     suspend fun setSecondaryLanguages(map: Map<String, List<String>>) =
         editPrefs { it[SECONDARY_LANGUAGES] = encodeSecondaryLanguages(map) }
+
+    /**
+     * Cross-wires every enabled romanized language with the enabled languages
+     * of the same script, both directions (see [RomanizedPairing]). Returns
+     * the newly linked pairs as unordered language-id pairs — empty when
+     * everything was already wired — so the Languages screen can toast what
+     * happened while onboarding stays silent. Only ever adds links; callers
+     * run it at the moments auto-pairing is documented to apply (a language
+     * was just added, or the one-shot upgrade reconcile).
+     */
+    suspend fun autoPairRomanizedSecondaries(): List<Pair<String, String>> {
+        val current = settings.first()
+        val result = RomanizedPairing.autoPair(
+            current.enabledLanguages,
+            current.secondaryLanguages,
+        )
+        if (result.added.isEmpty()) return emptyList()
+        setSecondaryLanguages(result.secondaries)
+        return result.addedPairs
+    }
+
+    /**
+     * The upgrade path for installs that enabled a romanized pair before
+     * auto-pairing existed: runs [autoPairRomanizedSecondaries] exactly once
+     * per install. Behind a flag rather than folded into every read so that
+     * a link the user deliberately removes afterwards stays removed.
+     */
+    suspend fun reconcileRomanizedSecondariesOnce() {
+        if (context.dataStore.data.first()[AUTO_PAIR_ROMANIZED_DONE] == true) return
+        autoPairRomanizedSecondaries()
+        editPrefs { it[AUTO_PAIR_ROMANIZED_DONE] = true }
+    }
 
     /** The layouts the 🌐 key cycles; an empty pick falls back to the default. */
     suspend fun setEnabledLayoutIds(ids: List<String>) =
@@ -6543,6 +6608,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setContextRerank(value: Boolean) =
         editPrefs { it[CONTEXT_RERANK] = value }
+
+    suspend fun setLanguageDetection(value: Boolean) =
+        editPrefs { it[LANGUAGE_DETECTION] = value }
+
+    suspend fun setLanguageDetectionStrength(value: LanguageDetectionStrength) =
+        editPrefs { it[LANGUAGE_DETECTION_STRENGTH] = value.name }
 
     suspend fun setNumberRowCorrections(value: Boolean) =
         editPrefs { it[NUMBER_ROW_CORRECTIONS] = value }
