@@ -582,3 +582,16 @@ dependencies {
     // it adds a manifest entry, so it must never reach a release build.
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
+// `-Pwmkb.skipBenchmarks` drops the wall-clock benchmarks from the run. They
+// assert against millisecond budgets measured on a quiet machine, so on a
+// shared CI runner they measure the runner's neighbours rather than this
+// project. Nothing else is filtered: the accuracy evals still run.
+if (providers.gradleProperty("wmkb.skipBenchmarks").map(String::toBoolean).getOrElse(false)) {
+    tasks.withType<Test>().configureEach {
+        filter {
+            excludeTestsMatching("*LatencyBench")
+            excludeTestsMatching("*NoiseSweepTest")
+        }
+    }
+}

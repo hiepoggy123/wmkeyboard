@@ -1,0 +1,108 @@
+---
+title: "Privacy policy"
+description: "The formal policy: what WM Keyboard collects (nothing), what stays on your device, and what optional tools send where."
+sidebar:
+  order: 7
+---
+
+**Effective 10 August 2026.** This policy covers the WM Keyboard Android app
+(`com.wasimaster.wmkeyboard`) and this documentation site. WM Keyboard is
+written and published by Wasi Master, an individual developer.
+
+The rest of this section explains the same subject in more depth and with
+screenshots. This page is the short, formal version, the one a store listing
+links to.
+
+## The summary
+
+WM Keyboard collects nothing. There is no account, no analytics, no crash
+reporting, no advertising, no tracking, and no server belonging to this
+project that the app sends anything to. What you type is processed on your
+device and stays there.
+
+The app does not sell, rent or share personal information, because it does not
+receive any in the first place.
+
+## What stays on your device
+
+The keyboard writes several things to its own private app storage. None of it
+is transmitted anywhere by the app.
+
+- **Learned words and word pairs.** Words you use that were not already in a
+  dictionary, plus the bigrams and trigrams used to predict the next word.
+- **Clipboard history**, if you have the clipboard tool enabled, along with
+  anything you pinned.
+- **Typing statistics**, such as counts of keystrokes and words, if you have
+  statistics enabled.
+- **Your settings**, themes, layouts, snippets and personal dictionary
+  entries.
+- **Downloaded data**, such as dictionaries, emoji keyword packs and voice
+  models.
+
+You can delete all of it. Clearing learned data, clipboard history and
+statistics are each one tap in the app's Privacy screen, and uninstalling
+removes everything the app ever wrote.
+
+Password fields, and any field an app marks as sensitive, are excluded from
+learning, suggestions and clipboard capture automatically. Incognito mode
+applies the same exclusions to everything for as long as it is on.
+
+## What leaves your device, and only when you ask
+
+Typing itself never uses the network. A set of optional tools do, each one
+only while you are actively using it:
+
+| Tool | What it sends | To |
+|---|---|---|
+| Translate | the text in the panel | Google Cloud Translation |
+| Web and image search | your query | Brave Search |
+| GIF and sticker search | your query | KLIPY, GIPHY |
+| Dictionary | one word | `api.dictionaryapi.dev` |
+| Encyclopedia | your query | Wikipedia |
+| Weather | a location you entered | Open-Meteo |
+| Currency and crypto rates | nothing identifying | `open.er-api.com`, `api.coinbase.com` and their fallbacks |
+| Photo backgrounds | your search terms | Unsplash, Pexels |
+| AI writing tools | the text you ran an action on | the provider you chose, using your own API key |
+| Voice typing | your speech audio | Android's own speech service, unless you use the offline Whisper option |
+| Language and model downloads | nothing about you | GitHub, Hugging Face |
+
+Three of these can fire without you opening a tool under default settings: the
+currency smart chip, automatic language data downloads, and the dictionary
+tool's look-up-at-cursor. Each has its own switch. [Network policy](/privacy/network/)
+documents every one of these in full, including what is cached and for how
+long, and [Permissions](/privacy/permissions/) covers what each Android
+permission is for.
+
+When you use one of these tools, your data is handled by that service under
+its own privacy policy, not this one. The app ships no key for the AI
+providers: those only work if you supply your own.
+
+## Backups
+
+Backups are optional, encrypted with AES-GCM, and written to the destination
+you choose, which may be local storage, a cloud drive you connect, or a WebDAV
+server you run. Nothing is uploaded anywhere by default and no copy is sent to
+the developer. See [Backup and restore](/privacy/backup/).
+
+## Children
+
+WM Keyboard is not directed at children and collects no data from anyone,
+including children. There is nothing to delete on request because nothing is
+ever received.
+
+## Third-party components
+
+The app bundles open-source libraries and data (dictionaries, emoji
+annotations, fonts). None of them phone home. The full list, with licences,
+is in the app under About, Licences and attributions.
+
+## Changes
+
+If this policy changes, the effective date at the top changes with it, and the
+history of every edit is public in the
+[repository](https://github.com/wasi-master/wmkeyboard/commits/main/docs/src/content/docs/privacy/policy.mdx).
+
+## Contact
+
+Questions about this policy: `arianmollik323@gmail.com`, or open an issue at
+[github.com/wasi-master/wmkeyboard/issues](https://github.com/wasi-master/wmkeyboard/issues).

@@ -1,0 +1,225 @@
+---
+title: "Releasing"
+description: "The three release channels, what each build flag does, and the exact steps for GitHub, F-Droid and Play."
+sidebar:
+  order: 6
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+WM Keyboard ships through three channels, and they are not the same build. The
+differences are real (a Play build carries Google libraries that an F-Droid
+build must not have) but they are all driven by two flags and a flavor, so
+nothing here needs a branch or a patched source tree.
+
+## What the channels actually differ on
+
+| | GitHub release | F-Droid | Play Store |
+|---|---|---|---|
+| Flavor | `full` | `lite` | `full` |
+| `wmkb.enablePlayStore` | `false` | `false` | `true` |
+| `wmkb.enableGms` | `true` | `false` | `true` |
+| `wmkb.splitApks` | `true` | not used | ignored by `bundle*` |
+| Artifact | one APK per ABI | one APK, built by F-Droid | one AAB |
+| ML Kit | bundled in the APK | absent | unbundled, fetched from Play services |
+| Local LLM | bundled | absent | on-demand `:feature:llm` module |
+| In-app updates | no | no | yes |
+
+The flags read from `local.properties` first, then the environment, then
+default to `false`. A clean checkout has no `local.properties`, which is why
+an F-Droid builder gets the right answer without being told.
+
+:::caution[Keep the flags matched to the channel]
+`wmkb.enablePlayStore=true` links Play's in-app update library. That library
+only works for an install that actually came from Play, and calling
+`completeUpdate()` restarts the process, which kills a running keyboard. Never
+ship a Play-flagged build anywhere but Play.
+:::
+
+## Cutting a GitHub release
+
+The [`Release` workflow](https://github.com/wasi-master/wmkeyboard/blob/main/.github/workflows/release.yml)
+does the build. It runs on any tag starting with `v`, refuses to run if the
+tag disagrees with `wmkb.versionName`, signs with your release key, and
+attaches one APK per ABI plus a `SHA256SUMS.txt` to the release.
+
+### One-time setup
+
+<Steps>
+
+1. **Base64 your keystore** so it can live in a secret:
+
+   ```sh
+   base64 -i release.keystore | pbcopy
+   ```
+
+2. **Add the signing secrets** under Settings → Secrets and variables →
+   Actions → New repository secret:
+
+   | Secret | Value |
+   |---|---|
+   | `KEYSTORE_BASE64` | the base64 blob from step 1 |
+   | `RELEASE_STORE_PASSWORD` | keystore password |
+   | `RELEASE_KEY_ALIAS` | key alias |
+   | `RELEASE_KEY_PASSWORD` | key password |
+
+3. **Add the API-key secrets** you want baked into public builds:
+   `WMKB_KLIPY_API_KEY`, `WMKB_GIPHY_API_KEY`, `WMKB_BRAVE_API_KEY`,
+   `WMKB_TRANSLATE_API_KEY`, `WMKB_UNSPLASH_API_KEY`, `WMKB_PEXELS_API_KEY`,
+   `WMKB_DROPBOX_APP_KEY`. Any you leave out simply make that tool show its
+   "needs an API key" state, so a release without them still builds and runs.
+
+</Steps>
+
+### Every release
+
+<Steps>
+
+1. **Bump the version.** `wmkb.versionCode` and `wmkb.versionName` in
+   `gradle.properties`. The code must increase; the name is what the tag has
+   to match.
+
+2. **Write the changelog.** `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
+   F-Droid and Play both read this file, so it is the only place you write it.
+
+3. **Tag and push.**
+
+   ```sh
+   git tag v0.3.1 && git push origin v0.3.1
+   ```
+
+4. **Watch the run.** It builds the APKs, builds the Play AAB as a separate
+   artifact, and publishes the release. The AAB is deliberately not attached
+   to the public release: an AAB is not installable, and pushing to Play stays
+   a decision you make by hand.
+
+</Steps>
+
+:::tip[Rehearse without publishing]
+Run the workflow from the Actions tab with **dry run** left on. Everything
+builds and uploads as workflow artifacts, and no release is created.
+:::
+
+## Getting into F-Droid
+
+F-Droid does not take your APK. It builds from source on its own machines and
+signs with its own key, which is why the `lite` flavor exists: every
+proprietary dependency in the tree (ML Kit, LiteRT, Play's update and feature
+delivery libraries, `play-services-auth`) is declared `fullImplementation` or
+sits behind a channel flag, so `lite` has no Google artifact on its compile
+classpath at all.
+
+The build recipe is staged in the repo at `fdroid/com.wasimaster.wmkeyboard.yml`.
+F-Droid never reads it from there; it is versioned next to the code so the
+recipe and the build stay in step.
+
+<Steps>
+
+1. **Check the app is buildable as-is.** Nothing generated may be missing from
+   source. The dictionaries are fine here: `.wmdict` and `.wmng` files are
+   compiled at build time by `:tools:dictc`, and no binary dictionary is
+   committed. The only prebuilt binaries in the tree are the Harper `.so`
+   files under `core/intelligence/src/full/` and the LLM module's, both of
+   which belong to variants a `lite` build never assembles. The recipe deletes
+   them before building so the scanner has nothing to complain about.
+
+2. **Test the exact build locally** before you submit, because a failed build
+   on their side means a round trip:
+
+   ```sh
+   ./gradlew clean assembleLiteRelease -Pwmkb.enablePlayStore=false -Pwmkb.enableGms=false
+   ```
+
+3. **Fork [fdroiddata](https://gitlab.com/fdroid/fdroiddata)** on GitLab and
+   copy the recipe to `metadata/com.wasimaster.wmkeyboard.yml`.
+
+4. **Lint it** with their tooling, which catches format problems before a
+   human sees them:
+
+   ```sh
+   fdroid lint com.wasimaster.wmkeyboard
+   ```
+
+5. **Open a merge request** titled `New app: WM Keyboard`. Expect review
+   comments and a wait measured in weeks rather than days. The two questions
+   that come up most are whether every network service is optional (it is, and
+   the `NonFreeNet` anti-feature in the recipe says so plainly) and whether
+   anything prebuilt ends up in the APK (nothing does).
+
+6. **After it is accepted**, every release is just a new `Builds:` entry with
+   the new `versionName`, `versionCode` and `commit`, plus a bumped
+   `CurrentVersion`. Switching `UpdateCheckMode` to `Tags` lets their bot do
+   that for you once the tag pattern has proven itself.
+
+</Steps>
+
+:::note[Screenshots and description come from this repo]
+F-Droid reads `fastlane/metadata/android/en-US/` directly out of the source
+tree: `title.txt`, `short_description.txt`, `full_description.txt`, the
+`changelogs/` folder and `images/`. Editing them here updates the F-Droid
+listing on the next build, with no metadata merge request.
+:::
+
+## Publishing to Play
+
+<Steps>
+
+1. **Create the app** in the Play Console with package name
+   `com.wasimaster.wmkeyboard`.
+
+2. **Fill in the policy answers before you upload anything**, since they gate
+   the release. A keyboard is a sensitive category and reviewers do read
+   these:
+
+   - **Privacy policy URL**: `https://wmkeyboard.pages.dev/privacy/policy/`.
+   - **Data safety**: the honest answer is no collection and no sharing. The
+     optional network tools send what you typed into that tool to the service
+     you chose, which belongs under the tool's own disclosure rather than as
+     app-wide collection. Read [Network policy](/privacy/network/) while
+     filling the form.
+   - **Permissions**: every one is optional and requested in context. The
+     prominent-disclosure screens the app already shows are what the policy
+     asks for.
+
+3. **Build the bundle.** The `Release` workflow produces it as the
+   `play-bundle` artifact, or locally:
+
+   ```sh
+   ./gradlew bundleFullRelease -Pwmkb.enablePlayStore=true -Pwmkb.enableGms=true
+   ```
+
+4. **Upload to internal testing first.** Play's own device catalogue will tell
+   you within minutes if the on-demand `:feature:llm` module or the unbundled
+   ML Kit path is misconfigured, and that is much cheaper to learn there than
+   in production.
+
+5. **Promote when it looks right.** Play signs with its own upload key flow,
+   so the APK a user installs is not byte-identical to anything you built.
+   That is expected, and it is why the GitHub release exists for people who
+   want to verify a checksum.
+
+</Steps>
+
+:::caution[The store listing lives in two places]
+Play does not read `fastlane/metadata/` unless you drive it with
+[Fastlane supply](https://docs.fastlane.tools/actions/supply/). Until then,
+paste the same text into the Console by hand and keep this repo's copy as the
+source of truth.
+:::
+
+## Deploying the docs
+
+The site at [wmkeyboard.pages.dev](https://wmkeyboard.pages.dev) is a
+Cloudflare Pages project connected to this repository, so a push to `main`
+that touches `docs/` deploys itself. The settings are:
+
+| Setting | Value |
+|---|---|
+| Framework preset | Astro |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Root directory | `docs` |
+| Node version | 22 (set `NODE_VERSION=22` if the default is older) |
+
+CI builds the site with `npm run check` on every pull request, which turns on
+the link validator, so a broken internal link fails there rather than shipping.

@@ -1,0 +1,70 @@
+# F-Droid build metadata, staged here for review.
+#
+# This file is NOT read by F-Droid from this repository. To get the app into
+# f-droid.org you copy it to metadata/com.wasimaster.wmkeyboard.yml inside a
+# fork of https://gitlab.com/fdroid/fdroiddata and open a merge request.
+# Keeping the copy here means the build recipe is versioned next to the code
+# that has to keep satisfying it. See docs/development/releasing for the walk
+# through.
+#
+# Name, summary, description, icon and screenshots are deliberately absent:
+# F-Droid reads those from fastlane/metadata/android/en-US/ in this repo, so
+# they only have to be right in one place.
+
+Categories:
+  - Writing
+License: MIT
+AuthorName: Wasi Master
+AuthorWebSite: https://github.com/wasi-master
+SourceCode: https://github.com/wasi-master/wmkeyboard
+IssueTracker: https://github.com/wasi-master/wmkeyboard/issues
+Changelog: https://github.com/wasi-master/wmkeyboard/releases
+WebSite: https://wmkeyboard.pages.dev
+
+# Optional tools (translate, GIF search, web search, photo backgrounds, the
+# bring-your-own-key AI providers) call third-party services. They are off
+# until opened and the app works fully without them, but the services
+# themselves are not free software, so the flag is declared honestly.
+AntiFeatures:
+  NonFreeNet:
+    en-US: |-
+      Typing, prediction, autocorrect and learning are entirely offline. A
+      set of optional tools can reach third-party services (Google Translate,
+      Brave Search, GIPHY and KLIPY, Unsplash and Pexels, Open-Meteo, and
+      whichever AI provider you supply your own key for). Each is opt-in per
+      tool and the keyboard is fully usable with all of them untouched.
+
+RepoType: git
+Repo: https://github.com/wasi-master/wmkeyboard.git
+
+Builds:
+  - versionName: 0.3.0
+    versionCode: 6
+    commit: v0.3.0
+    subdir: app
+    # The lite flavor. Every proprietary dependency in the tree (ML Kit,
+    # LiteRT, Play in-app updates, play-services-auth) is declared as
+    # `fullImplementation` or behind the enablePlayStore/enableGms flags, so
+    # this variant has no Google artifact on its compile classpath at all.
+    gradle:
+      - lite
+    # Both flags default to false when local.properties is absent, which it is
+    # in a clean checkout. Stated anyway so the recipe does not depend on that.
+    gradleprops:
+      - wmkb.enablePlayStore=false
+      - wmkb.enableGms=false
+    # Prebuilt native libraries that belong to variants this build does not
+    # produce: the Harper grammar engine lives in the full source set (its
+    # Rust sources are under native/harper-jni), and the LLM module is only
+    # assembled for the Play channel. Deleting them keeps the scanner quiet
+    # and proves neither reaches the built APK.
+    scandelete:
+      - core/intelligence/src/full/jniLibs
+      - feature/llm/src/main/jniLibs
+
+# Bump both of these with every release. Alternatively switch to
+# UpdateCheckMode: Tags once the tag pattern has a couple of releases behind it.
+AutoUpdateMode: None
+UpdateCheckMode: None
+CurrentVersion: 0.3.0
+CurrentVersionCode: 6
