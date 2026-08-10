@@ -329,6 +329,7 @@
     <string name="theme_crop_ratio_keyboard_label">Keyboard</string>
     <string name="theme_crop_ratio_wide_label">Wide</string>
     <string name="theme_crop_ratio_square_label">Square</string>
+    <string name="theme_crop_ratio_free_label">Free</string>
     <string name="theme_crop_saving_progress">Saving…</string>
     <string name="theme_crop_action">Crop</string>
 

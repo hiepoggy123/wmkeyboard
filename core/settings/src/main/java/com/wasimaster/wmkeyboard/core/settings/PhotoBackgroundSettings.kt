@@ -115,10 +115,29 @@ data class PhotoBackgroundSettings(
     val seedPalette: Boolean = false,
     /** Add a scrim on its own when a photo would make the keys unreadable. */
     val readabilityGuard: Boolean = true,
+    /**
+     * How opaque a key stays once a photo is behind it, 0-1.
+     *
+     * 62% was fixed, so anyone who disliked it retuned two or three colour
+     * rows by hand after every photo. Only applied to keys that were fully
+     * opaque to begin with; a theme that already sets its own transparency
+     * keeps it.
+     */
+    val keyOpacity: Float = PHOTO_KEY_ALPHA,
+    /**
+     * How much disk the ready-to-use photo pool may take, in megabytes.
+     *
+     * The library screen showed the size and offered no way to change the
+     * ceiling, so a pool that kept evicting had no remedy and one that was
+     * too generous could not be reined in.
+     */
+    val poolBudgetMb: Int = DEFAULT_POOL_BUDGET_MB,
 ) {
     companion object {
         const val DEFAULT_POOL_TARGET = 8
         const val MIN_POOL_TARGET = 3
+        const val DEFAULT_POOL_BUDGET_MB = 24
+        val POOL_BUDGET_MB_RANGE = 8..128
         const val MAX_POOL_TARGET = 20
 
         /**

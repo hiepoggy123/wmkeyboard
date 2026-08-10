@@ -406,7 +406,7 @@ object PhotoBackgroundManager {
             entries = index.entries,
             existingFiles = onDisk,
             maxEntries = settings.poolTarget * POOL_HEADROOM,
-            maxBytes = POOL_BUDGET_BYTES,
+            maxBytes = settings.poolBudgetMb * 1024L * 1024,
         )
         plan.deleteFiles.forEach { runCatching { File(dir, it).delete() } }
         writePoolLocked(
@@ -589,7 +589,6 @@ object PhotoBackgroundManager {
     /** Room above the target before eviction starts, so the pool is not churned. */
     private const val POOL_HEADROOM = 3
 
-    private const val POOL_BUDGET_BYTES = 24L * 1024 * 1024
     private const val SPACE_MARGIN_BYTES = 32L * 1024 * 1024
     private const val POOL_DIR_NAME = "theme_photos"
     private const val LOG_TAG = "PhotoBackground"

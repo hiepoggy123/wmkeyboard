@@ -169,4 +169,22 @@
     <!-- Accessibility -->
     <string name="photo_high_contrast_body">High contrast keys is on, so the keyboard does not show background photos. You can select a photo here, but the keyboard does not show it.</string>
 
+
+    <!-- %1$d is a whole number of megabytes, for example 24. "MB" is a unit
+         symbol, not a countable noun: it does not inflect. -->
+    <string name="photo_value_megabytes">%1$d MB</string>
+
+    <string name="photo_rotation_look_section_title">How a photo changes the keyboard</string>
+    <string name="photo_rotation_seed_palette_title">Take colours from each photo</string>
+    <string name="photo_rotation_seed_palette_subtitle">Rebuild the theme colours to match the picture</string>
+    <string name="photo_rotation_seed_palette_info">Every time the picture changes, the keyboard picks a colour out of it and builds the theme around that. Leave this off to keep the colours you chose and change only the picture behind them.</string>
+    <string name="photo_rotation_readability_title">Dim a photo that hides the keys</string>
+    <string name="photo_rotation_readability_subtitle">Darken the picture on its own when the letters become hard to read</string>
+    <string name="photo_rotation_readability_info">Photos vary, and a bright one can leave the letters almost invisible. The keyboard checks the contrast after each change and lays a light shade over the picture only when it has to. Turn this off if you would rather the picture always came through exactly as it is.</string>
+    <string name="photo_rotation_key_opacity_title">How solid the keys stay</string>
+    <string name="photo_rotation_key_opacity_subtitle">How much of the picture shows through the keys</string>
+    <string name="photo_rotation_key_opacity_info">When you put a photo behind the keyboard, the keys are made partly see-through so that the picture is visible at all. Lower shows more of the picture and makes the letters harder to read; 100% hides the picture behind the keys entirely. This only changes keys whose colour is fully solid, so a theme where you already set your own transparency is left alone.</string>
+    <string name="photo_rotation_budget_title">Space for ready photos</string>
+    <string name="photo_rotation_budget_subtitle">How much room the waiting pictures may use</string>
+    <string name="photo_rotation_budget_info">The keyboard keeps a few pictures downloaded in advance so that a change is instant rather than a wait. When they pass this size, the oldest ones are deleted. Raise it if you keep a large pool ready, lower it to give the space back.</string>
 </resources>

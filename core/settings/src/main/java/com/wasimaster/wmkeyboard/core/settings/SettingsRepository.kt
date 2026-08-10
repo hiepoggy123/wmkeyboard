@@ -3642,6 +3642,8 @@ class SettingsRepository(private val context: Context) {
         private val PHOTO_SAFE_SEARCH = booleanPreferencesKey("photo_safe_search")
         private val PHOTO_FETCH_ON_METERED = booleanPreferencesKey("photo_fetch_on_metered")
         private val PHOTO_POOL_TARGET = intPreferencesKey("photo_pool_target")
+        private val PHOTO_KEY_OPACITY = floatPreferencesKey("photo_key_opacity")
+        private val PHOTO_POOL_BUDGET_MB = intPreferencesKey("photo_pool_budget_mb")
         private val PHOTO_SEED_PALETTE = booleanPreferencesKey("photo_seed_palette")
         private val PHOTO_READABILITY_GUARD = booleanPreferencesKey("photo_readability_guard")
 
@@ -4494,6 +4496,8 @@ class SettingsRepository(private val context: Context) {
                         PhotoBackgroundSettings.MAX_POOL_TARGET,
                     ),
                 seedPalette = p[PHOTO_SEED_PALETTE] ?: defaults.photoBackground.seedPalette,
+                keyOpacity = p[PHOTO_KEY_OPACITY] ?: defaults.photoBackground.keyOpacity,
+                poolBudgetMb = p[PHOTO_POOL_BUDGET_MB] ?: defaults.photoBackground.poolBudgetMb,
                 readabilityGuard = p[PHOTO_READABILITY_GUARD]
                     ?: defaults.photoBackground.readabilityGuard,
             ),
@@ -6165,6 +6169,7 @@ class SettingsRepository(private val context: Context) {
     ): String? {
         var replaced: String? = null
         editPrefs { prefs ->
+            val photoAlpha = prefs[PHOTO_KEY_OPACITY] ?: PHOTO_KEY_ALPHA
             val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }.orEmpty()
             // The id can name a variant; the write goes back through the
             // family that carries it.
@@ -6182,8 +6187,9 @@ class SettingsRepository(private val context: Context) {
                     // them is barely visible and choosing one feels like it did
                     // nothing. Only keys that are still fully opaque are
                     // changed, so a theme the user already tuned is left alone.
-                    keyBackground = theme.keyBackground.softenedForPhoto(),
-                    modifierKeyBackground = theme.modifierKeyBackground.softenedForPhoto(),
+                    keyBackground = theme.keyBackground.softenedForPhoto(photoAlpha),
+                    modifierKeyBackground =
+                        theme.modifierKeyBackground.softenedForPhoto(photoAlpha),
                 )
             }
             val nextFamily = family.replacingMember(themeId) { next }
@@ -6279,6 +6285,16 @@ class SettingsRepository(private val context: Context) {
                 PhotoBackgroundSettings.MAX_POOL_TARGET,
             )
         }
+
+    suspend fun setPhotoPoolBudgetMb(value: Int) = editPrefs {
+        it[PHOTO_POOL_BUDGET_MB] = value.coerceIn(
+            PhotoBackgroundSettings.POOL_BUDGET_MB_RANGE.first,
+            PhotoBackgroundSettings.POOL_BUDGET_MB_RANGE.last,
+        )
+    }
+
+    suspend fun setPhotoKeyOpacity(value: Float) =
+        editPrefs { it[PHOTO_KEY_OPACITY] = value.coerceIn(0.2f, 1f) }
 
     suspend fun setPhotoSeedPalette(value: Boolean) =
         editPrefs { it[PHOTO_SEED_PALETTE] = value }

@@ -77,6 +77,7 @@ import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.common.R as CommonR
 
@@ -338,6 +339,42 @@ fun PhotoRotationScreen(
             }
         }
 
+        // Both of these were read by withRotation and had repository setters,
+        // and no screen ever drew them: the palette rebuild was unreachable and
+        // the scrim dimmed the board on every rotation with nothing to say so.
+        SettingsGroup(stringResource(R.string.photo_rotation_look_section_title)) {
+            item {
+                ToggleSetting(
+                    R.string.photo_rotation_seed_palette_title,
+                    stringResource(R.string.photo_rotation_seed_palette_subtitle),
+                    photos.seedPalette,
+                    info = stringResource(R.string.photo_rotation_seed_palette_info),
+                    default = SettingsDefaults.photoBackground.seedPalette,
+                ) { scope.launch { repository.setPhotoSeedPalette(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.photo_rotation_readability_title,
+                    stringResource(R.string.photo_rotation_readability_subtitle),
+                    photos.readabilityGuard,
+                    info = stringResource(R.string.photo_rotation_readability_info),
+                    default = SettingsDefaults.photoBackground.readabilityGuard,
+                ) { scope.launch { repository.setPhotoReadabilityGuard(it) } }
+            }
+            item {
+                val percentFormat = stringResource(R.string.typing_value_percent)
+                SliderSetting(
+                    title = R.string.photo_rotation_key_opacity_title,
+                    subtitle = stringResource(R.string.photo_rotation_key_opacity_subtitle),
+                    value = photos.keyOpacity,
+                    range = 0.2f..1f,
+                    display = { percentFormat.format((it * 100).roundToInt()) },
+                    info = stringResource(R.string.photo_rotation_key_opacity_info),
+                    default = SettingsDefaults.photoBackground.keyOpacity,
+                ) { scope.launch { repository.setPhotoKeyOpacity(it) } }
+            }
+        }
+
         SettingsGroup(stringResource(R.string.photo_rotation_storage_section_title)) {
             item {
                 SliderSetting(
@@ -349,6 +386,19 @@ fun PhotoRotationScreen(
                     info = stringResource(R.string.photo_rotation_pool_info),
                     default = SettingsDefaults.photoBackground.poolTarget.toFloat(),
                 ) { scope.launch { repository.setPhotoPoolTarget(it.toInt()) } }
+            }
+            item {
+                val mbFormat = stringResource(R.string.photo_value_megabytes)
+                SliderSetting(
+                    title = R.string.photo_rotation_budget_title,
+                    subtitle = stringResource(R.string.photo_rotation_budget_subtitle),
+                    value = photos.poolBudgetMb.toFloat(),
+                    range = PhotoBackgroundSettings.POOL_BUDGET_MB_RANGE.first.toFloat()..
+                        PhotoBackgroundSettings.POOL_BUDGET_MB_RANGE.last.toFloat(),
+                    display = { mbFormat.format(it.roundToInt()) },
+                    info = stringResource(R.string.photo_rotation_budget_info),
+                    default = SettingsDefaults.photoBackground.poolBudgetMb.toFloat(),
+                ) { scope.launch { repository.setPhotoPoolBudgetMb(it.roundToInt()) } }
             }
             item {
                 NavRow(

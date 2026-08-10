@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -196,6 +197,16 @@ private fun themeModeLabelRes(mode: ThemeMode): Int = when (mode) {
     ThemeMode.DARK -> R.string.theme_mode_dark_label
     ThemeMode.AMOLED -> R.string.theme_mode_amoled_label
 }
+
+/**
+ * Sentinel for the crop dialog's "free" ratio: keep the picture's own shape.
+ *
+ * A value no real aspect can be, so it never collides with a preset. The
+ * three presets are all wider-than-tall keyboard shapes, and a split or a
+ * floating keyboard is none of them, so every one of them cropped away
+ * something the user meant to keep.
+ */
+private const val FREE_CROP_ASPECT = -1f
 
 /**
  * The display name for a theme id in the same namespace as keyboardThemeId.
@@ -897,6 +908,7 @@ fun ThemesScreen(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     ) { style -> scope.launch { repository.setThemeGalleryStyle(style) } }
     val newThemeName = stringResource(R.string.theme_new_default_name)
+    val newThemeDark = isSystemInDarkTheme()
     FlowRow(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -905,8 +917,11 @@ fun ThemesScreen(
         Button(onClick = {
             scope.launch {
                 val id = "custom_${System.currentTimeMillis()}"
+                // Was hard-coded dark on a phone set to light, and always the
+                // first swatch. Follows whatever the keyboard is wearing now,
+                // which is the only signal available at this point.
                 repository.upsertCustomTheme(
-                    themeFromSeed(id, newThemeName, SeedSwatches.first(), dark = true)
+                    themeFromSeed(id, newThemeName, SeedSwatches.first(), dark = newThemeDark)
                 )
                 repository.setKeyboardThemeId(id)
                 onEditTheme(id)
@@ -1402,8 +1417,8 @@ fun ThemeEditorScreen(
                                 backgroundImage = file.absolutePath,
                                 backgroundPhoto = null,
                                 boardBackground = theme.boardBackground and 0x00FFFFFFL,
-                                keyBackground = theme.keyBackground.softenedForPhoto(),
-                                modifierKeyBackground = theme.modifierKeyBackground.softenedForPhoto(),
+                                keyBackground = theme.keyBackground.softenedForPhoto(settings.photoBackground.keyOpacity),
+                                modifierKeyBackground = theme.modifierKeyBackground.softenedForPhoto(settings.photoBackground.keyOpacity),
                             )
                         },
                     )
@@ -3820,6 +3835,15 @@ private fun CropImageDialog(
         text = {
             Column {
                 val bmp = bitmap
+                // Free resolves to the source image's own ratio, so the
+                // crop frame matches the picture and nothing is cut.
+                val effectiveAspect = if (aspect == FREE_CROP_ASPECT && bmp != null) {
+                    bmp.width.toFloat() / bmp.height.coerceAtLeast(1)
+                } else if (aspect == FREE_CROP_ASPECT) {
+                    2.4f
+                } else {
+                    aspect
+                }
                 if (bmp == null) {
                     Text(
                         stringResource(CommonR.string.common_loading),
@@ -3829,7 +3853,7 @@ private fun CropImageDialog(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(aspect)
+                            .aspectRatio(effectiveAspect)
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color.Black)
                             .onGloballyPositioned {
@@ -3838,7 +3862,7 @@ private fun CropImageDialog(
                                     offset = clampOffset(offset, bmp, zoom)
                                 }
                             }
-                            .pointerInput(bmp, aspect) {
+                            .pointerInput(bmp, effectiveAspect) {
                                 detectTransformGestures { _, pan, gestureZoom, _ ->
                                     zoom = (zoom * gestureZoom).coerceIn(1f, 6f)
                                     offset = clampOffset(offset + pan, bmp, zoom)
@@ -3865,6 +3889,10 @@ private fun CropImageDialog(
                             2.4f to stringResource(R.string.theme_crop_ratio_keyboard_label),
                             1.7f to stringResource(R.string.theme_crop_ratio_wide_label),
                             1f to stringResource(R.string.theme_crop_ratio_square_label),
+                            // A split or a floating keyboard is none of the
+                            // three, so every preset cropped away something the
+                            // user wanted. Free keeps the picture's own shape.
+                            FREE_CROP_ASPECT to stringResource(R.string.theme_crop_ratio_free_label),
                         ),
                         selected = aspect,
                     ) { value ->

@@ -106,7 +106,7 @@ fun PhotoDetailScreen(
         } else {
             theme.copy(
                 boardBackground = theme.boardBackground.withAlphaFraction(0f),
-                keyBackground = theme.keyBackground.softenedForPhoto(),
+                keyBackground = theme.keyBackground.softenedForPhoto(settings.photoBackground.keyOpacity),
             )
         }
     }
