@@ -13380,6 +13380,18 @@ private fun RowsSettings(
                 )
             }
         }
+        // Reordering is two arrow buttons per row, so getting back to the
+        // shipped order by hand is a guessing game once the rows have been
+        // shuffled twice.
+        if (order != SettingsDefaults.barOrder) {
+            item {
+                ActionRow(
+                    title = R.string.rows_reset_order_title,
+                    subtitle = stringResource(R.string.rows_reset_order_subtitle),
+                    action = stringResource(CommonR.string.common_reset),
+                ) { scope.launch { repository.setBarOrder(SettingsDefaults.barOrder) } }
+            }
+        }
     }
     CaptionText(stringResource(R.string.rows_row_order_caption))
     SettingsGroup(stringResource(R.string.rows_symbol_sets_title)) {
@@ -14139,6 +14151,10 @@ private fun ModesSettings(
     val scope = rememberCoroutineScope()
     CaptionText(stringResource(R.string.modes_intro_body))
     val deleteModeDesc = stringResource(R.string.modes_delete_action)
+    // A mode is a screenful of bindings and overrides that took real effort to
+    // set up, and the delete button sits on the row you tap to open it. Both
+    // delete paths ask first; the editor's own button does the same below.
+    var confirmDelete by remember { mutableStateOf<KeyboardMode?>(null) }
     SettingsGroup(stringResource(R.string.modes_group_title)) {
         for (mode in settings.keyboardModes) {
             item {
@@ -14149,9 +14165,7 @@ private fun ModesSettings(
                         Icon(ModeIcons.icon(mode.icon), contentDescription = null)
                     },
                     trailing = {
-                        IconButton(onClick = {
-                            scope.launch { repository.deleteKeyboardMode(mode.id) }
-                        }) {
+                        IconButton(onClick = { confirmDelete = mode }) {
                             Icon(Icons.Outlined.Delete, contentDescription = deleteModeDesc)
                         }
                     },
@@ -14179,6 +14193,24 @@ private fun ModesSettings(
         }
     }
     CaptionText(stringResource(R.string.modes_tool_order_body))
+    confirmDelete?.let { mode ->
+        AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text(stringResource(R.string.modes_delete_confirm_title, mode.name)) },
+            text = { Text(stringResource(R.string.modes_delete_confirm_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = null
+                    scope.launch { repository.deleteKeyboardMode(mode.id) }
+                }) { Text(stringResource(CommonR.string.common_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = null }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
+    }
 }
 
 /** Everything one mode overrides, and when it activates. */
@@ -14204,6 +14236,9 @@ private fun ModeEditor(
     // fall back to. Matched by id so an edited built-in still offers it.
     val builtInDefault = DefaultKeyboardModes.firstOrNull { it.id == modeId }
     var confirmReset by remember { mutableStateOf(false) }
+    // Deleting a mode throws away a screenful of bindings and overrides, and
+    // the button sits beside the reset one, which does not. Ask first.
+    var confirmDelete by remember { mutableStateOf(false) }
 
     SettingsGroup {
         item {
@@ -14576,10 +14611,7 @@ private fun ModeEditor(
             }
             Spacer(Modifier.width(8.dp))
         }
-        TextButton(onClick = {
-            scope.launch { repository.deleteKeyboardMode(modeId) }
-            onDeleted()
-        }) {
+        TextButton(onClick = { confirmDelete = true }) {
             Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(4.dp))
             Text(stringResource(R.string.modes_delete_action))
@@ -14600,6 +14632,25 @@ private fun ModeEditor(
             },
             dismissButton = {
                 TextButton(onClick = { confirmReset = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
+    }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.modes_delete_confirm_title, mode.name)) },
+            text = { Text(stringResource(R.string.modes_delete_confirm_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    scope.launch { repository.deleteKeyboardMode(modeId) }
+                    onDeleted()
+                }) { Text(stringResource(CommonR.string.common_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) {
                     Text(stringResource(CommonR.string.common_cancel))
                 }
             },

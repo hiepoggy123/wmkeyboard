@@ -99,4 +99,7 @@
     <string name="modes_icon_picker_title">Mode icon</string>
     <string name="modes_app_picker_title">Select an app</string>
 
+    <!-- %1$s is the mode's name, for example "Coding". -->
+    <string name="modes_delete_confirm_title">Delete %1$s?</string>
+    <string name="modes_delete_confirm_body">The mode and everything set up inside it goes, including its apps, its pinned tools and any overrides. This cannot be undone.</string>
 </resources>
