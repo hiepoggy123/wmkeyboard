@@ -68,8 +68,11 @@ export default defineConfig({
 				// Head and PageTitle wrap starlight-theme-black's own override
 				// rather than replacing it — the theme skips (and warns about)
 				// any component we've already claimed here. Sidebar genuinely
-				// replaces the theme's, which can't nest or collapse.
+				// replaces the theme's, which can't nest or collapse. Hero
+				// replaces it on the homepage only (the live theme deck) and
+				// delegates back to the theme everywhere else, 404 included.
 				Head: './src/components/Head.astro',
+				Hero: './src/components/Hero.astro',
 				PageTitle: './src/components/PageTitle.astro',
 				Sidebar: './src/components/Sidebar.astro',
 			},

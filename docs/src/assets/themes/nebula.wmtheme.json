@@ -1,0 +1,22 @@
+{
+  "id": "nebula",
+  "name": "Nebula",
+  "dark": true,
+  "boardGradient": {
+    "colors": [
+      4280948568,
+      4279578731,
+      4278917946
+    ],
+    "type": "LINEAR",
+    "angleDeg": 135
+  },
+  "keyBackground": 1497706614,
+  "keyText": 4294110463,
+  "modifierKeyBackground": 1076961116,
+  "enterKeyBackground": 4287519432,
+  "enterKeyText": 4294373631,
+  "accent": 4290223359,
+  "toolCircleBackground": 1497706614,
+  "animation": "NONE"
+}

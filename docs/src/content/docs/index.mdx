@@ -5,17 +5,14 @@ template: splash
 editUrl: false
 lastUpdated: false
 hero:
-  title: "Type anything. Share nothing."
-  tagline: A modern, privacy-first, multilingual Android keyboard — offline prediction, 350+ languages, a full tool belt, themes, addons and Lua plugins.
-  image:
-    alt: The WM Keyboard mark — a keyboard with a speech-bubble pin carrying the WM monogram
-    file: ../../assets/logo-mark.png
+  title: 'Type anything. <span class="wm-gradient-text">Share nothing.</span>'
+  tagline: A privacy-first Android keyboard for 350+ languages, with offline prediction, a full tool belt, themes, addons and Lua plugins.
   actions:
     - text: Get started
       link: /start/installation/
       icon: right-arrow
-    - text: Explore features
-      link: /typing/basics/
+    - text: Take the tour
+      link: /start/tour/
       icon: rocket
       variant: minimal
     - text: GitHub
@@ -25,18 +22,40 @@ hero:
 ---
 
 import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { LinkButton } from 'starlight-theme-black/components';
+import FeatureRow from '@components/FeatureRow.astro';
+import GestureDemo from '@components/GestureDemo.astro';
+import LayoutExplorer from '@components/LayoutExplorer.astro';
+import PhoneFrame from '@components/PhoneFrame.astro';
+import languages from '@data/languages.json';
+import wordlists from '@data/wordlists.json';
+import bengali from '../../../../app/src/main/assets/layouts/bpy_bengali.wmlayout.json';
+
+{/* 352 and 333 are computed from the generated data files; the rest are the
+    code-verified figures from CONTENT_GUIDE.md (checked 2026-07-28). */}
+
+<div class="wm-stats not-content">
+	<a href="/languages/overview/"><strong>{languages.length}</strong> languages</a>
+	<a href="/languages/custom-layouts/"><strong>393</strong> layouts</a>
+	<a href="/languages/dictionaries/"><strong>{wordlists.length}</strong> wordlists</a>
+	<a href="/tools/overview/"><strong>60</strong> toolbar tools</a>
+	<a href="/tools/whisper/"><strong>27</strong> Whisper models</a>
+	<a href="/tools/ai/"><strong>8</strong> local LLMs</a>
+</div>
+
+<p class="wm-kicker">The short version</p>
 
 ## Why WM Keyboard
 
 <CardGrid>
 	<Card title="Offline first" icon="padlock">
 		Dictionaries, prediction, autocorrect, transliteration and emoji search all run on
-		device. No telemetry, no cloud round-trips; the network is opt-in, per tool.
+		device. No telemetry, no cloud round-trips. The network is opt-in, one tool at a time.
 	</Card>
 	<Card title="350+ languages" icon="translate">
-		Data-driven language registry that starts you in the languages your phone is
-		already set to, with Avro-style Bengali phonetic typing, CJK input, downloadable
-		dictionaries for 330+ languages, plus musical notation, braille chording and Morse.
+		You start in the languages your phone is already set to. Avro-style Bangla phonetic
+		typing, CJK input and downloadable dictionaries for 330+ languages are all here, plus
+		musical notation, braille chording and Morse.
 	</Card>
 	<Card title="A real tool belt" icon="setting">
 		Clipboard manager, translator, OCR & QR scanner, voice typing (online and offline
@@ -48,6 +67,44 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 		self-host, and sandboxed Lua plugins that add new tools to the keyboard.
 	</Card>
 </CardGrid>
+
+<FeatureRow kicker="Glide typing" title="Slide to type" href="/typing/gestures/" linkText="All the gestures">
+	<Fragment slot="media"><GestureDemo type="glide" /></Fragment>
+	Trace a path over the letters and lift your finger. The glide engine runs on the
+	same dictionaries as prediction, so it works in every language, Bangla included.
+	Cursor swipes, long-press popups and spacebar gestures ride along.
+</FeatureRow>
+
+<FeatureRow kicker="Voice typing" title="Speech that stays on the phone" href="/tools/whisper/" linkText="Set up Whisper" flip>
+	<Fragment slot="media">
+		<PhoneFrame caption="The Whisper model catalog">
+			![The Whisper model catalog inside WM Keyboard settings](../../assets/screens/tools/whisper-catalog.webp)
+		</PhoneFrame>
+	</Fragment>
+	Dictate with Whisper running entirely on device. Pick from 27 models, tiny ones
+	for older phones up to big multilingual ones, and nothing you say leaves the
+	device. There is a lighter online engine too, if you want it.
+</FeatureRow>
+
+<FeatureRow kicker="Languages" title="352 languages, one keyboard" href="/languages/overview/" linkText="Browse the languages">
+	<Fragment slot="media"><LayoutExplorer layout={bengali} /></Fragment>
+	This layout is rendered from the same file the app ships, live on this page.
+	Hover any key to peek at its long-press alternates. Custom layouts, phonetic
+	typing and per-field language detection are all part of the same system.
+</FeatureRow>
+
+<FeatureRow kicker="Privacy" title="Private by construction" href="/privacy/overview/" linkText="Read the privacy tour" flip>
+	<Fragment slot="media">
+		<PhoneFrame caption="On-device learning, under your control">
+			![The on-device learning toggles in settings](../../assets/screens/privacy/on-device-learning-toggles.webp)
+		</PhoneFrame>
+	</Fragment>
+	Prediction, autocorrect and learning all happen offline. Every tool that touches
+	the network says so up front and stays off until you switch it on. Learned words
+	can be inspected, exported or cleared at any time.
+</FeatureRow>
+
+<p class="wm-kicker">Pick a door</p>
 
 ## Jump in
 
@@ -93,3 +150,13 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 		href="/reference/settings/"
 	/>
 </CardGrid>
+
+<div class="wm-cta not-content">
+	<p class="wm-cta-kicker">Free and open source</p>
+	<h2>Get WM Keyboard</h2>
+	<p>No ads, no tracking, MIT licensed. Grab the APK and make it yours.</p>
+	<div class="wm-cta-actions">
+		<LinkButton href="/start/installation/" icon="right-arrow">Install guide</LinkButton>
+		<LinkButton href="https://github.com/wasi-master/wmkeyboard/releases" variant="secondary" icon="external">Latest release</LinkButton>
+	</div>
+</div>

@@ -95,22 +95,11 @@
 
 /* ---------- Hero ---------- */
 
-/* Gradient headline on the splash page. */
-[data-has-hero] .hero h1 {
-	background: var(--wm-gradient);
-	-webkit-background-clip: text;
-	background-clip: text;
-	color: transparent;
-	line-height: 1.12;
-}
+/* The headline gradient lives on a `.wm-gradient-text` span inside the hero
+   title (set in index.mdx frontmatter), so only the closing phrase glows.
+   The hero markup itself comes from src/components/Hero.astro. */
 
-/* Soft brand glow behind the hero image; the mark is a full-bleed square. */
-[data-has-hero] .hero img {
-	border-radius: 22%;
-	filter: drop-shadow(0 0 3rem rgba(108, 116, 246, 0.45));
-}
-
-/* The navbar logo is the same full-bleed mark — round it like a launcher icon. */
+/* The navbar logo is a full-bleed mark — round it like a launcher icon. */
 .site-title img {
 	border-radius: 22%;
 }
@@ -183,4 +172,107 @@
 	-webkit-background-clip: text;
 	background-clip: text;
 	color: transparent;
+}
+
+/* ---------- Homepage ---------- */
+
+/* Everything below is scoped to the splash page ([data-has-hero]) so none of
+   it leaks into ordinary doc pages. The hero and feature rows carry their own
+   scoped styles in Hero.astro / ThemeDeck.astro / FeatureRow.astro; these are
+   the bits authored directly in index.mdx. */
+
+/* Stat strip: each number is a door into the docs. */
+[data-has-hero] .wm-stats {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 0.6rem 0.75rem;
+	margin-top: 1.5rem;
+}
+[data-has-hero] .wm-stats a {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.4em;
+	padding: 0.45em 1em;
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 999px;
+	background: var(--sl-color-gray-6);
+	color: var(--sl-color-gray-2);
+	font-size: var(--sl-text-sm);
+	text-decoration: none;
+	transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+[data-has-hero] .wm-stats a strong {
+	font-size: 1.15em;
+	background: var(--wm-gradient);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+[data-has-hero] .wm-stats a:hover {
+	transform: translateY(-2px);
+	border-color: var(--sl-color-accent);
+	box-shadow: 0 6px 24px rgba(76, 141, 246, 0.14);
+	color: var(--sl-color-white);
+}
+
+/* Tiny gradient kicker above the section headings. */
+[data-has-hero] .wm-kicker {
+	margin: 3.5rem 0 0;
+	font-size: var(--sl-text-xs);
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	background: var(--wm-gradient);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	width: fit-content;
+}
+[data-has-hero] .wm-kicker + h2 {
+	margin-top: 0.4rem;
+}
+
+/* Closing call-to-action panel. */
+[data-has-hero] .wm-cta {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.75rem;
+	margin-top: 4rem;
+	padding: 2.5rem 1.5rem;
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 1.25rem;
+	background:
+		radial-gradient(40rem 18rem at 50% -8rem, rgba(76, 141, 246, 0.16), transparent 70%),
+		linear-gradient(135deg, rgba(76, 141, 246, 0.08), rgba(139, 92, 246, 0.08));
+	text-align: center;
+}
+[data-has-hero] .wm-cta-kicker {
+	margin: 0;
+	font-size: var(--sl-text-xs);
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	background: var(--wm-gradient);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+[data-has-hero] .wm-cta h2 {
+	margin: 0;
+	color: var(--sl-color-white);
+	font-size: var(--sl-text-3xl);
+	font-weight: 600;
+}
+[data-has-hero] .wm-cta p:not(.wm-cta-kicker) {
+	margin: 0;
+	color: var(--sl-color-gray-2);
+}
+[data-has-hero] .wm-cta-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 0.75rem 1rem;
+	padding-top: 0.5rem;
 }

@@ -1,0 +1,23 @@
+{
+  "id": "aurora",
+  "name": "Aurora",
+  "dark": true,
+  "boardGradient": {
+    "colors": [
+      4279122755,
+      4279522363,
+      4279513679
+    ],
+    "type": "SWEEP",
+    "angleDeg": 0
+  },
+  "keyBackground": 1495288388,
+  "keyText": 4293328884,
+  "modifierKeyBackground": 1075198000,
+  "enterKeyBackground": 4282289754,
+  "enterKeyText": 4294243576,
+  "accent": 4286376117,
+  "toolCircleBackground": 1495288388,
+  "animation": "HUE_CYCLE",
+  "animationSpeed": 0.6
+}

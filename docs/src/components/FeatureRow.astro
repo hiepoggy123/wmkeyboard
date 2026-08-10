@@ -1,0 +1,104 @@
+---
+/**
+ * Homepage feature spotlight: prose on one side, a visual on the other.
+ *
+ *   <FeatureRow kicker="Gestures" title="Slide to type" href="/typing/gestures/" flip>
+ *     <Fragment slot="media"><GestureDemo type="glide" /></Fragment>
+ *     One or two sentences of prose.
+ *   </FeatureRow>
+ *
+ * The media slot takes anything: PhoneFrame, GestureDemo, LayoutExplorer.
+ * `flip` puts the media on the left (rows alternate). On small screens the
+ * media always stacks above the prose.
+ */
+interface Props {
+	title: string;
+	href: string;
+	linkText?: string;
+	kicker?: string;
+	flip?: boolean;
+}
+const { title, href, linkText = 'Learn more', kicker, flip = false } = Astro.props;
+---
+
+<section class:list={['wm-feature-row', 'not-content', { flip }]}>
+	<div class="wm-feature-media"><slot name="media" /></div>
+	<div class="wm-feature-copy">
+		{kicker && <p class="wm-feature-kicker">{kicker}</p>}
+		<h2>{title}</h2>
+		<div class="wm-feature-body"><slot /></div>
+		<a class="wm-feature-link" href={href}>{linkText}<span aria-hidden="true"> →</span></a>
+	</div>
+</section>
+
+<style>
+	.wm-feature-row {
+		display: grid;
+		align-items: center;
+		gap: 1.5rem;
+		margin-top: 2.5rem;
+	}
+	.wm-feature-media {
+		min-width: 0;
+	}
+	.wm-feature-copy {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		min-width: 0;
+	}
+	.wm-feature-kicker {
+		margin: 0;
+		font-size: var(--sl-text-xs);
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		background: var(--wm-gradient);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+		width: fit-content;
+	}
+	.wm-feature-copy h2 {
+		margin: 0;
+		color: var(--sl-color-white);
+		font-size: var(--sl-text-2xl);
+		font-weight: 600;
+		line-height: 1.2;
+	}
+	.wm-feature-body {
+		color: var(--sl-color-gray-2);
+		line-height: 1.7;
+	}
+	.wm-feature-body :global(p) {
+		margin: 0;
+	}
+	.wm-feature-body :global(p + p) {
+		margin-top: 0.6rem;
+	}
+	.wm-feature-link {
+		width: fit-content;
+		color: var(--sl-color-accent-high);
+		font-weight: 500;
+		text-decoration: none;
+	}
+	.wm-feature-link:hover {
+		text-decoration: underline;
+	}
+
+	@media (min-width: 48rem) {
+		.wm-feature-row {
+			grid-template-columns: 1fr 1fr;
+			gap: 2.5rem;
+			margin-top: 3.5rem;
+		}
+		/* Media is first in the DOM so phones stack it on top; on wide
+		   screens it moves to the right column unless the row is flipped. */
+		.wm-feature-row .wm-feature-media {
+			order: 1;
+		}
+		.wm-feature-row.flip .wm-feature-media {
+			order: 0;
+		}
+	}
+</style>

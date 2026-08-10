@@ -1,0 +1,15 @@
+{
+  "id": "ocean",
+  "name": "Ocean",
+  "dark": true,
+  "keyShape": "PILL",
+  "boardBackground": 4279573536,
+  "keyBackground": 4281087813,
+  "keyText": 4293519854,
+  "modifierKeyBackground": 4280362809,
+  "enterKeyBackground": 4282090180,
+  "enterKeyText": 4294243576,
+  "accent": 4285966294,
+  "toolCircleBackground": 4281088071,
+  "animation": "NONE"
+}

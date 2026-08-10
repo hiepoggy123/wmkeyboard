@@ -1,0 +1,14 @@
+{
+  "id": "snow",
+  "name": "Snow",
+  "dark": false,
+  "boardBackground": 4293125868,
+  "keyBackground": 4294967295,
+  "keyText": 4279966752,
+  "modifierKeyBackground": 4291547613,
+  "enterKeyBackground": 4284186033,
+  "enterKeyText": 4294243576,
+  "accent": 4283461276,
+  "toolCircleBackground": 4294967295,
+  "animation": "NONE"
+}

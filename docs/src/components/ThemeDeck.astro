@@ -1,0 +1,124 @@
+---
+/**
+ * Fanned deck of live ThemePreview cards for the homepage hero.
+ *
+ * Five real `.wmtheme.json` specs rendered as playing cards, rotated and
+ * overlapped like a hand of cards. Hovering or focusing a card straightens
+ * and raises it; every card links into the themes section. Cards must scale
+ * via `transform`, never by narrowing their width — ThemePreview's keys have
+ * a fixed height, so squeezing the container distorts the board.
+ *
+ * The two outer cards drop out below 64rem so the fan fits a phone screen.
+ */
+import ThemePreview from './ThemePreview.astro';
+
+import aurora from '@assets/themes/aurora.wmtheme.json';
+import midnight from '@assets/themes/midnight.wmtheme.json';
+import nebula from '@assets/themes/nebula.wmtheme.json';
+import ocean from '@assets/themes/ocean.wmtheme.json';
+import snow from '@assets/themes/snow.wmtheme.json';
+
+// Order is the fan, left to right. The middle three survive on small
+// screens, so the animated card and the light card sit next to the centre.
+const DECK = [nebula, aurora, midnight, snow, ocean];
+---
+
+<div class="wm-deck-wrap">
+	<div class="wm-deck">
+		{DECK.map((spec) => (
+			<a
+				class="wm-deck-card"
+				href="/themes/overview/"
+				aria-label={`${spec.name}, one of the built-in themes. Browse themes & appearance.`}
+			>
+				<ThemePreview specs={[spec]} />
+			</a>
+		))}
+	</div>
+	<p class="wm-deck-caption">
+		Every card is a real theme, rendered live. <a href="/themes/editor/">Meet the editor</a>
+	</p>
+</div>
+
+<style>
+	.wm-deck-wrap {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.4rem;
+		width: 100%;
+	}
+	.wm-deck {
+		position: relative;
+		width: 100%;
+		height: 19rem;
+	}
+	.wm-deck-card {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		display: block;
+		width: 24rem;
+		border-radius: 1rem;
+		transform: translate(-50%, -50%) rotate(var(--r, 0deg))
+			translate(var(--x, 0rem), var(--y, 0rem)) scale(var(--s, 0.56));
+		transition: transform 200ms ease;
+		filter: drop-shadow(0 18px 26px rgba(5, 8, 25, 0.45));
+	}
+	.wm-deck-card:nth-child(1) { --r: -14deg; --x: -7.5rem; --y: 1.7rem; z-index: 1; }
+	.wm-deck-card:nth-child(2) { --r: -7deg; --x: -3.75rem; --y: 0.5rem; z-index: 2; }
+	.wm-deck-card:nth-child(3) { --s: 0.62; z-index: 3; }
+	.wm-deck-card:nth-child(4) { --r: 7deg; --x: 3.75rem; --y: 0.5rem; z-index: 2; }
+	.wm-deck-card:nth-child(5) { --r: 14deg; --x: 7.5rem; --y: 1.7rem; z-index: 1; }
+	.wm-deck-card:hover,
+	.wm-deck-card:focus-visible {
+		--r: 0deg;
+		--x: 0rem;
+		--y: 0rem;
+		--s: 0.66;
+		z-index: 5;
+	}
+	.wm-deck-card:focus-visible {
+		outline: 2px solid var(--sl-color-accent);
+		outline-offset: 4px;
+	}
+	/* The board card is the whole visual; kill the figure's content margins. */
+	.wm-deck-card :global(.wm-theme-preview) {
+		margin: 0;
+	}
+	.wm-deck-caption {
+		margin: 0;
+		color: var(--sl-color-gray-3);
+		font-size: var(--sl-text-sm);
+		text-align: center;
+	}
+	.wm-deck-caption a {
+		color: var(--sl-color-accent-high);
+	}
+
+	:global([data-theme='light']) .wm-deck-card {
+		filter: drop-shadow(0 14px 22px rgba(25, 28, 66, 0.2));
+	}
+
+	@media (max-width: 63.9rem) {
+		.wm-deck {
+			height: 15rem;
+		}
+		.wm-deck-card {
+			--s: 0.46;
+		}
+		.wm-deck-card:nth-child(2) { --x: -3rem; }
+		.wm-deck-card:nth-child(3) { --s: 0.52; }
+		.wm-deck-card:nth-child(4) { --x: 3rem; }
+		.wm-deck-card:nth-child(1),
+		.wm-deck-card:nth-child(5) {
+			display: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.wm-deck-card {
+			transition: none;
+		}
+	}
+</style>

@@ -1,0 +1,104 @@
+---
+/**
+ * Splash hero with the live theme deck.
+ *
+ * On the homepage this replaces starlight-theme-black's hero with a
+ * two-column layout: title, tagline and actions on the left, a fanned deck
+ * of live ThemePreview cards (ThemeDeck) on the right. Everything is still
+ * authored in index.mdx frontmatter; this component only owns the markup.
+ *
+ * Every other page that renders a hero — including Starlight's built-in 404
+ * — falls through to the theme's own Hero, so this override changes exactly
+ * one page. Like Head and PageTitle, the theme steps aside (with a build
+ * warning) because we claim `Hero` in astro.config.mjs first.
+ */
+import { LinkButton } from 'starlight-theme-black/components';
+import ThemeBlackHero from 'starlight-theme-black/overrides/Hero.astro';
+import ThemeDeck from './ThemeDeck.astro';
+
+const isHome = Astro.locals.starlightRoute.id === '';
+const { data } = Astro.locals.starlightRoute.entry;
+const { title = data.title, tagline, actions = [] } = data.hero || {};
+---
+
+{
+	!isHome ? (
+		<ThemeBlackHero />
+	) : (
+		<div class="wm-hero">
+			<div class="wm-hero-copy">
+				{/* Starlight's skip link and "back to top" both target `_top`. */}
+				<h1 id="_top" data-page-title set:html={title} />
+				{tagline && <p class="wm-hero-tagline" set:html={tagline} />}
+				{actions.length > 0 && (
+					<div class="wm-hero-actions">
+						{actions.map(
+							({ attrs: { class: className, ...attrs } = {}, icon, link: href, text, variant }) => (
+								<LinkButton {href} {variant} icon={icon?.name} class:list={[className]} {...attrs}>
+									{text}
+									{icon?.html && <Fragment set:html={icon.html} />}
+								</LinkButton>
+							),
+						)}
+					</div>
+				)}
+			</div>
+			<ThemeDeck />
+		</div>
+	)
+}
+
+<style>
+	.wm-hero {
+		display: grid;
+		align-items: center;
+		gap: 2rem;
+		padding-block: 1rem;
+		/* Rotated deck corners may poke past the column; never cause a scrollbar. */
+		overflow-x: clip;
+	}
+	.wm-hero-copy {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1.25rem;
+		text-align: center;
+	}
+	.wm-hero-copy h1 {
+		margin: 0;
+		font-size: clamp(1.875rem, 4.5vw, 3rem);
+		font-weight: 600;
+		line-height: 1.12;
+		letter-spacing: -0.02em;
+		text-wrap: balance;
+	}
+	.wm-hero-tagline {
+		margin: 0;
+		color: var(--sl-color-gray-2);
+		font-size: 1.125rem;
+		line-height: 1.75;
+		text-wrap: balance;
+	}
+	.wm-hero-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem 1rem;
+		padding-top: 0.5rem;
+	}
+
+	@media (min-width: 64rem) {
+		.wm-hero {
+			grid-template-columns: 1fr 1.1fr;
+			gap: 1rem;
+		}
+		.wm-hero-copy {
+			align-items: flex-start;
+			text-align: left;
+		}
+		.wm-hero-actions {
+			justify-content: flex-start;
+		}
+	}
+</style>
