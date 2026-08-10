@@ -37,7 +37,8 @@ any of this.
 | Currency converter | `open.er-api.com`, falling back to `frankfurter.app`; the source is yours to pick, and `cdn.jsdelivr.net` and `api.coinbase.com` are the other two | nothing identifying: it fetches the whole rate table, converted locally | on panel open, or the first time a smart chip sees an amount; cached for hours, not fetched per conversion |
 | Cryptocurrency prices | `api.coinbase.com`, falling back to `cdn.jsdelivr.net`; `api.coingecko.com` is the other choice | nothing identifying: it fetches prices for the coins you have turned on, converted locally | only when you type a coin amount or select a coin on the panel, never on a plain panel open; cached for a few minutes |
 | Weather | `api.open-meteo.com`, `geocoding-api.open-meteo.com` | the location you typed or searched, or nothing beyond a saved lat/long | on panel open, cached for a while; geocoding only fires while you're editing the location |
-| AI — cloud provider | Anthropic, OpenAI, or Gemini's own API | the text you ran the action on, plus a system prompt | only when you tap an action, never in the background |
+| AI — cloud provider | the provider you picked, on its own API: Anthropic, OpenAI, Gemini, Grok (xAI) or DeepSeek | the text you ran the action on, plus a system prompt | only when you tap an action, never in the background |
+| AI — any other OpenAI-compatible service | whatever address you type in, for instance OpenRouter, Groq, Together or Mistral | same | same |
 | AI — self-hosted (Ollama/LM Studio) | a server address you enter on your own network | same | same, over plain HTTP |
 | AI — on-device <Flavor edition="full" /> | none | nothing leaves the phone | never: this provider has no network path at all |
 | AI — reporting a result | none of the app's own | nothing: it builds a mail draft and hands it to your mail app | only when you tap Report, and only your mail app sends it |
@@ -133,8 +134,9 @@ Each tool that needs a key has its own field, all blank by default:
 Translate's Cloud Translation key, GIF search's Klipy and GIPHY keys, Web
 and Image search's Brave key, photo backgrounds' Unsplash and Pexels keys,
 and the AI tool's per-provider keys
-(Anthropic, OpenAI, Gemini) plus its Hugging Face token for gated on-device
-models. Leave any of them blank and that tool either falls back to a free
+(Anthropic, OpenAI, Gemini, Grok, DeepSeek, and whatever key the
+OpenAI-compatible service you pointed it at wants) plus its Hugging Face
+token for gated on-device models. Leave any of them blank and that tool either falls back to a free
 endpoint (Translate) or shows a "needs an API key" state (GIF, search, AI);
 see each tool's own page under [Tools](/tools/overview/) for exactly where
 its field lives.

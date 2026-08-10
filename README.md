@@ -9,6 +9,7 @@
 352 languages, Avro-style Bengali phonetic typing, a toolbox that goes well past emoji,
 and a prediction stack that never phones home.
 
+[![Docs](https://img.shields.io/badge/Docs-wmkeyboard.pages.dev-F38020?style=flat-square&logo=cloudflarepages&logoColor=white)](https://wmkeyboard.pages.dev)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](#building)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/compose)
@@ -157,8 +158,9 @@ native/               Rust sources for the Harper grammar engine
 
 ## Documentation
 
-The full docs site lives in [`docs/`](docs/) and is built with Astro Starlight. Run `npm run dev`
-inside that folder to preview it.
+The full documentation site is at **[wmkeyboard.pages.dev](https://wmkeyboard.pages.dev)**. Its source
+lives in [`docs/`](docs/) and is built with Astro Starlight, so `npm run dev` inside that folder
+gives you a local preview.
 
 | | |
 |---|---|

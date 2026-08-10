@@ -5,8 +5,11 @@
  * SEO tags built from it.
  */
 
-/** Deployed origin. Also what the sitemap and every absolute og: URL is built from. */
-// TODO: set the final URL before deploying (needed for correct og: tags & sitemap).
+/**
+ * Deployed origin. Also what the sitemap and every absolute og: URL is built
+ * from, and what the app's About screen opens (`DOCS_URL` in AboutScreens.kt).
+ * Change it in both places or the in-app links point at the old host.
+ */
 export const SITE_URL = 'https://wmkeyboard.pages.dev';
 
 export const SITE_TITLE = 'WM Keyboard';
