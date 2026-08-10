@@ -89,18 +89,20 @@ jobs:
           WMKB_DROPBOX_APP_KEY: ${{ secrets.WMKB_DROPBOX_APP_KEY }}
         run: ./gradlew assembleFullRelease assembleLiteRelease --stacktrace
 
-      # Versioned filenames (wmkeyboard-0.3.0-full-arm64-v8a.apk) so APKs from
-      # different releases can sit in the same Downloads folder without the
-      # browser calling them duplicates.
+      # Versioned filenames (wmkeyboard-0.3.0-vc7-full-arm64-v8a.apk) so APKs
+      # from different releases can sit in the same Downloads folder without
+      # the browser calling them duplicates. vc = versionCode, which moves even
+      # when the name does not (a re-cut of the same versionName).
       - name: Collect artifacts
         run: |
           version=$(grep '^wmkb.versionName=' gradle.properties | cut -d= -f2)
+          code=$(grep '^wmkb.versionCode=' gradle.properties | cut -d= -f2)
           mkdir -p dist
           find app/build/outputs/apk -name '*-release.apk' | while read -r apk; do
             name=$(basename "$apk" .apk)   # app-full-arm64-v8a-release
             name=${name#app-}
             name=${name%-release}
-            cp "$apk" "dist/wmkeyboard-${version}-${name}.apk"
+            cp "$apk" "dist/wmkeyboard-${version}-vc${code}-${name}.apk"
           done
           cd dist && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt
 
