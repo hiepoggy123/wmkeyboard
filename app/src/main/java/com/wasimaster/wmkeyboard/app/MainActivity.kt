@@ -9874,7 +9874,7 @@ private fun ToolDetailSettings(
                     item {
                         val untilDismissed =
                             stringResource(R.string.tooldetail_clipboard_chip_until_dismissed)
-                        val minutesFormat = stringResource(R.string.values_minutes)
+                        val chipMinutesFormat = stringResource(R.string.values_minutes)
                         val secondsFormat = stringResource(R.string.values_seconds)
                         SliderSetting(
                             R.string.tooldetail_clipboard_chip_life_title,
@@ -9888,7 +9888,7 @@ private fun ToolDetailSettings(
                                 when {
                                     secs <= 0 -> untilDismissed
                                     secs < 60 -> secondsFormat.format(secs)
-                                    else -> minutesFormat.format(secs / 60)
+                                    else -> chipMinutesFormat.format(secs / 60)
                                 }
                             },
                             info = stringResource(R.string.tooldetail_clipboard_chip_life_info),
@@ -10247,13 +10247,13 @@ private fun ToolDetailSettings(
                     ) { scope.launch { repository.setWeatherFahrenheit(it) } }
                 }
                 item {
-                    val minutesFormat = stringResource(R.string.values_minutes)
+                    val weatherMinutesFormat = stringResource(R.string.values_minutes)
                     SliderSetting(
                         R.string.tooldetail_weather_refresh_title,
                         subtitle = stringResource(R.string.tooldetail_weather_refresh_subtitle),
                         value = settings.toolLimits.weatherRefreshMinutes.toFloat(),
                         range = 1f..180f,
-                        display = { minutesFormat.format(it.roundToInt()) },
+                        display = { weatherMinutesFormat.format(it.roundToInt()) },
                         info = stringResource(R.string.tooldetail_weather_refresh_info),
                         default = SettingsDefaults.toolLimits.weatherRefreshMinutes.toFloat(),
                     ) { picked ->
@@ -11044,13 +11044,13 @@ private fun ToolDetailSettings(
                     ) { scope.launch { repository.setVoiceUiMode(it) } }
                 }
                 item {
-                    val msFormat = stringResource(R.string.typing_value_milliseconds)
+                    val holdMsFormat = stringResource(R.string.typing_value_milliseconds)
                     SliderSetting(
                         R.string.tooldetail_voice_hold_title,
                         subtitle = stringResource(R.string.tooldetail_voice_hold_subtitle),
                         value = settings.voiceBar.holdToTalkMs.toFloat(),
                         range = HoldToTalkRange.first.toFloat()..HoldToTalkRange.last.toFloat(),
-                        display = { msFormat.format((it / 50f).roundToInt() * 50) },
+                        display = { holdMsFormat.format((it / 50f).roundToInt() * 50) },
                         info = stringResource(R.string.tooldetail_voice_hold_info),
                         default = SettingsDefaults.voiceBar.holdToTalkMs.toFloat(),
                     ) { picked ->

@@ -546,27 +546,7 @@ internal fun AddonsScreen(
     // Only worth showing once there is a repository to fetch from; with none,
     // the auto-fetch has nothing to do and the rows explain nothing.
     if (repos.isNotEmpty()) {
-        SettingsGroup(stringResource(R.string.addon_refresh_section_title)) {
-            item {
-                ToggleSetting(
-                    R.string.addon_auto_refresh_title,
-                    stringResource(R.string.addon_auto_refresh_subtitle),
-                    autoRefresh,
-                    info = stringResource(R.string.addon_auto_refresh_info),
-                    default = true,
-                ) { store.setAutoRefresh(it) }
-            }
-            if (autoRefresh) {
-                item {
-                    ToggleSetting(
-                        R.string.addon_refresh_unmetered_title,
-                        stringResource(R.string.addon_refresh_unmetered_subtitle),
-                        refreshUnmeteredOnly,
-                        default = false,
-                    ) { store.setRefreshUnmeteredOnly(it) }
-                }
-            }
-        }
+        RefreshSettingsGroup(store, autoRefresh, refreshUnmeteredOnly)
     }
 
     if (installed.isNotEmpty()) {
@@ -919,6 +899,40 @@ private fun RepositoryRow(
             onNavigate(addonRepoRoute(ref.manifestUrl, typeFilter))
         },
     )
+}
+
+/**
+ * The two gates on the fetch-every-visit, extracted from `AddonsScreen` rather
+ * than inlined: that function is at detekt's cognitive-complexity ceiling, and
+ * these rows are self-contained.
+ */
+@Composable
+private fun RefreshSettingsGroup(
+    store: AddonStore,
+    autoRefresh: Boolean,
+    refreshUnmeteredOnly: Boolean,
+) {
+    SettingsGroup(stringResource(R.string.addon_refresh_section_title)) {
+        item {
+            ToggleSetting(
+                R.string.addon_auto_refresh_title,
+                stringResource(R.string.addon_auto_refresh_subtitle),
+                autoRefresh,
+                info = stringResource(R.string.addon_auto_refresh_info),
+                default = true,
+            ) { store.setAutoRefresh(it) }
+        }
+        if (autoRefresh) {
+            item {
+                ToggleSetting(
+                    R.string.addon_refresh_unmetered_title,
+                    stringResource(R.string.addon_refresh_unmetered_subtitle),
+                    refreshUnmeteredOnly,
+                    default = false,
+                ) { store.setRefreshUnmeteredOnly(it) }
+            }
+        }
+    }
 }
 
 @Composable
