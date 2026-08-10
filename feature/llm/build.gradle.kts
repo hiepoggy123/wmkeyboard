@@ -13,6 +13,17 @@ plugins {
 // src/llmbridge directory, whose one class the base app reaches by
 // reflection, plus the litertlm dependency whose ~20 MB per ABI of native
 // code is the entire point of the split.
+//
+// src/main/jniLibs holds three ~2 KB libwmllm_abi_parity.so placeholders
+// (empty NDK-built ELFs, nothing ever loads them). They exist because
+// bundletool requires every module with native libraries to support the SAME
+// ABI set, and litertlm ships no armeabi-v7a — without the placeholders the
+// Play bundle fails with "module 'base' supports [ARM64_V8A, ARMEABI_V7A,
+// X86_64] and module 'llm' supports [ARM64_V8A, X86_64]". A v7a device that
+// installs the module gets litertlm's dex but no real .so, and the engine's
+// existing load-failure path reports it — identical to what v7a users of the
+// universal sideload APK have always seen. Rebuild recipe in the commit that
+// added them (NDK clang, -nostdlib, 16 KB max-page-size on the 64-bit pair).
 android {
     namespace = "com.wasimaster.wmkeyboard.llmfeature"
     compileSdk {
