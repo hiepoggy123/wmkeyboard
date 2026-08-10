@@ -44,9 +44,9 @@ The transport itself has no settings screen of its own: there's nothing to confi
 
 ## Granting notification access
 
-The Android APIs that hand over another app's media session (`MediaSessionManager`) are gated behind notification-listener access (the same permission class notification-reading apps use), even though WM Keyboard never reads a single notification. See [privacy at a glance](/privacy/overview/) for how this fits the keyboard's broader per-tool, opt-in approach to anything that touches data outside the keyboard itself. The panel explains the grant up front:
+The Android APIs that hand over another app's media session (`MediaSessionManager`) are gated behind notification-listener access (the same permission class notification-reading apps use), even though this tool never reads a single notification. One other feature shares that grant: the [one-time code chip](/smart/one-time-codes/), which does read notification text, and only while you have it switched on. See [privacy at a glance](/privacy/overview/) for how this fits the keyboard's broader per-tool, opt-in approach to anything that touches data outside the keyboard itself. The panel explains the grant up front:
 
-> To show and control what's playing, WM Keyboard needs notification access. It reads no notifications — only the media session.
+> WM Keyboard needs notification access to show and control the media. This tool reads no notification content, only the media session. The same access powers the optional one-time code chip, which reads notification text only while you have that turned on.
 
 <PhoneFrame caption="The access prompt shown before notification-listener access is granted.">
   {/* shot: tools/media-access-prompt */}

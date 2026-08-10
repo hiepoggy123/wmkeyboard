@@ -122,7 +122,7 @@
     <string name="ime_media_control_play_desc">Play</string>
     <string name="ime_media_control_pause_desc">Pause</string>
     <string name="ime_media_control_next_desc">Next</string>
-    <string name="ime_media_control_access_body">WM Keyboard needs notification access to show and control the media. The app reads no notifications. It reads only the media session.</string>
+    <string name="ime_media_control_access_body">WM Keyboard needs notification access to show and control the media. This tool reads no notification content, only the media session. The same access powers the optional one-time code chip, which reads notification text only while you have that turned on.</string>
     <string name="ime_media_control_access_action">Allow access</string>
 
     <!-- GIF and sticker panel. -->
