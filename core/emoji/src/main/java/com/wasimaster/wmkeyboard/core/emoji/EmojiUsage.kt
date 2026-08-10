@@ -29,8 +29,31 @@ class EmojiUsage(private val storageFile: File?) {
     private val variantPrefs = HashMap<String, String>()
     private val json = Json { ignoreUnknownKeys = true }
 
+    /**
+     * How many recents to keep. Settable because 32 is one panel row on some
+     * phones and four on a tablet, so the same number is a short list for one
+     * user and a wall for another. Trims immediately when lowered, so the
+     * change is visible on the next panel open rather than after 32 more
+     * emoji.
+     */
+    @get:Synchronized
+    var maxRecents: Int = MAX_RECENTS
+        set(value) {
+            val clamped = value.coerceIn(MIN_RECENTS, MAX_RECENTS_CEILING)
+            if (clamped == field) return
+            field = clamped
+            synchronized(this) {
+                while (recents.size > clamped) {
+                    recents.removeLast()
+                    dirty = true
+                }
+            }
+        }
+
     companion object {
-        private const val MAX_RECENTS = 32
+        const val MAX_RECENTS = 32
+        const val MIN_RECENTS = 8
+        const val MAX_RECENTS_CEILING = 96
         private const val MAX_FAVOURITES = 64
     }
 
@@ -69,7 +92,7 @@ class EmojiUsage(private val storageFile: File?) {
         storageFile?.takeIf { it.exists() }?.let { file ->
             runCatching {
                 val snapshot = json.decodeFromString<Snapshot>(file.readText())
-                recents.addAll(snapshot.recents.take(MAX_RECENTS))
+                recents.addAll(snapshot.recents.take(maxRecents))
                 counts.putAll(snapshot.counts)
                 favourites.addAll(snapshot.favourites.distinct().take(MAX_FAVOURITES))
                 variantPrefs.putAll(snapshot.variantPrefs)
@@ -81,19 +104,19 @@ class EmojiUsage(private val storageFile: File?) {
     fun record(emoji: String) {
         recents.remove(emoji)
         recents.addFirst(emoji)
-        while (recents.size > MAX_RECENTS) recents.removeLast()
+        while (recents.size > maxRecents) recents.removeLast()
         counts.merge(emoji, 1, Int::plus)
         dirty = true
     }
 
     /** Favourites first, then the most recently used non-favourites. */
     @Synchronized
-    fun recents(limit: Int = MAX_RECENTS): List<String> =
+    fun recents(limit: Int = maxRecents): List<String> =
         pinned(recents.asSequence(), limit)
 
     /** Favourites first, then the most frequently used non-favourites. */
     @Synchronized
-    fun frequents(limit: Int = MAX_RECENTS): List<String> =
+    fun frequents(limit: Int = maxRecents): List<String> =
         pinned(
             counts.entries.asSequence()
                 .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })

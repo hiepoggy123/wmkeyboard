@@ -227,6 +227,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
 import com.wasimaster.wmkeyboard.core.settings.EmojiGridCellSizeRange
 import com.wasimaster.wmkeyboard.core.settings.EmojiGridEmojiSizeRange
+import com.wasimaster.wmkeyboard.core.settings.EmojiRecentsRange
 import com.wasimaster.wmkeyboard.core.settings.PickerTimeoutRange
 import com.wasimaster.wmkeyboard.core.settings.BottomRowHeightRange
 import com.wasimaster.wmkeyboard.core.settings.SidePadScaleRange
@@ -6333,6 +6334,25 @@ private fun EmojiSettings(
                 info = stringResource(R.string.langemoji_emoji_size_info),
                 default = SettingsDefaults.emoji.gridEmojiSize.toFloat(),
             ) { scope.launch { repository.setEmojiGridEmojiSize(it.roundToInt()) } }
+        }
+        item {
+            SliderSetting(
+                title = R.string.langemoji_emoji_recents_title,
+                subtitle = stringResource(R.string.langemoji_emoji_recents_subtitle),
+                value = settings.emoji.recentsLimit.toFloat(),
+                range = EmojiRecentsRange.first.toFloat()..EmojiRecentsRange.last.toFloat(),
+                display = { numberFormat.format(it.roundToInt()) },
+                info = stringResource(R.string.langemoji_emoji_recents_info),
+                default = SettingsDefaults.emoji.recentsLimit.toFloat(),
+            ) { scope.launch { repository.setEmojiRecentsLimit(it.roundToInt()) } }
+        }
+        item {
+            ActionRow(
+                title = R.string.langemoji_emoji_clear_history_title,
+                subtitle = stringResource(R.string.langemoji_emoji_clear_history_subtitle),
+                action = stringResource(CommonR.string.common_clear),
+                confirm = stringResource(R.string.langemoji_emoji_clear_history_confirm),
+            ) { scope.launch { repository.clearEmojiHistory() } }
         }
         item {
             ToggleSetting(

@@ -2636,6 +2636,12 @@ data class EmojiSettings(
      */
     val gridCellSize: Int = 44,
     /**
+     * How many recently used emoji the history tab keeps. 32 is one panel row
+     * on a small phone and four on a tablet, so the same number reads as a
+     * short list to one user and a wall to another. See [EmojiRecentsRange].
+     */
+    val recentsLimit: Int = 32,
+    /**
      * Size the emoji panel's grids draw each emoji at, in sp — the category
      * tabs, history and search results alike. The long-press popup keeps its
      * own fixed size. See [EmojiGridEmojiSizeRange].
@@ -2717,6 +2723,9 @@ val EmojiBarCountRange = 3..16
 
 /** Bounds for [EmojiSettings.gridCellSize]; the settings slider shares them. */
 val EmojiGridCellSizeRange = 36..64
+
+/** Bounds for [EmojiSettings.recentsLimit]; the settings slider shares them. */
+val EmojiRecentsRange = 8..96
 
 /** Bounds for [EmojiSettings.gridEmojiSize]; the settings slider shares them. */
 val EmojiGridEmojiSizeRange = 20..36
@@ -3799,6 +3808,7 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_KAOMOJI_TABS = booleanPreferencesKey("emoji_kaomoji_tabs")
         private val EMOJI_KEYWORD_PACK_VERSION = intPreferencesKey("emoji_keyword_pack_version")
         private val EMOJI_USAGE_VERSION = intPreferencesKey("emoji_usage_version")
+        private val EMOJI_RECENTS_LIMIT = intPreferencesKey("emoji_recents_limit")
         private val EMOJI_ANIMATED = booleanPreferencesKey("emoji_animated")
         private val EMOJI_SEND_AS_STICKER = booleanPreferencesKey("emoji_send_as_sticker")
         private val EMOJI_AUTO_DOWNLOAD_KEYWORDS =
@@ -4701,6 +4711,8 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.emoji.gridCellSize,
                 gridEmojiSize = p[EMOJI_GRID_EMOJI_SIZE]?.coerceIn(EmojiGridEmojiSizeRange)
                     ?: defaults.emoji.gridEmojiSize,
+                recentsLimit = p[EMOJI_RECENTS_LIMIT]?.coerceIn(EmojiRecentsRange)
+                    ?: defaults.emoji.recentsLimit,
                 kaomojiTabs = p[EMOJI_KAOMOJI_TABS] ?: defaults.emoji.kaomojiTabs,
                 keywordPackVersion = p[EMOJI_KEYWORD_PACK_VERSION]
                     ?: defaults.emoji.keywordPackVersion,
@@ -6875,6 +6887,20 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun bumpEmojiUsageVersion() =
         editPrefs { it[EMOJI_USAGE_VERSION] = (it[EMOJI_USAGE_VERSION] ?: 0) + 1 }
+
+    suspend fun setEmojiRecentsLimit(value: Int) =
+        editPrefs { it[EMOJI_RECENTS_LIMIT] = value.coerceIn(EmojiRecentsRange) }
+
+    /**
+     * Wipes the emoji history file: recents, usage counts, favourites and the
+     * per-emoji variant picks. Deletes rather than empties, and bumps the
+     * version so a running keyboard drops its in-memory copy instead of
+     * saving it back over the wipe.
+     */
+    suspend fun clearEmojiHistory() {
+        runCatching { File(context.filesDir, "learning/emoji_usage.json").delete() }
+        bumpEmojiUsageVersion()
+    }
 
     suspend fun setEmojiFont(value: EmojiFontChoice) =
         editPrefs { it[EMOJI_FONT] = value.name }

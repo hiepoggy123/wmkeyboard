@@ -181,4 +181,11 @@
     <!-- %1$s is the name of the emoji font. -->
     <string name="langemoji_emoji_font_delete_desc">Delete <xliff:g id="font" example="Twemoji">%1$s</xliff:g></string>
 
+    <string name="langemoji_emoji_recents_title">Recent emoji kept</string>
+    <string name="langemoji_emoji_recents_subtitle">How many emoji the history tab remembers</string>
+    <string name="langemoji_emoji_recents_info">The history tab lists your favourites first and then the emoji you used most recently. Thirty two is about one row on a small phone and four on a tablet, so raise it if history feels too short. Lowering it trims the list straight away. This setting is 32 by default.</string>
+
+    <string name="langemoji_emoji_clear_history_title">Clear emoji history</string>
+    <string name="langemoji_emoji_clear_history_subtitle">Forget recents, usage counts, favourites and skin tone picks</string>
+    <string name="langemoji_emoji_clear_history_confirm">The history tab empties, your favourites are unpinned, and the skin tone picked for each emoji goes back to the default. Emoji themselves are not affected. This cannot be undone.</string>
 </resources>

@@ -1849,6 +1849,7 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.skipAllCapsAutocorrect = settings.autocorrectSkipAllCaps
                 suggestionEngine?.learnedWordMinCount =
                     settings.suggestionStrip.learnedWordMinCount
+                emojiUsage.maxRecents = settings.emoji.recentsLimit
                 suggestionEngine?.autocorrectSplits = settings.suggestionStrip.autocorrectSplits
                 suggestionEngine?.digitSlipCorrections =
                     settings.numberRow && settings.suggestionStrip.numberRowCorrections
@@ -1994,7 +1995,9 @@ open class WMKeyboardService : InputMethodService() {
         // Its own file, so clearing one store never silently clears the other.
         CjkLearning.store = CjkUserHistory(store("learning/cjk_history.json"))
         languageMixConfidence = LanguageMixConfidence(store("learning/language_mix.json"))
-        emojiUsage = EmojiUsage(store("learning/emoji_usage.json"))
+        emojiUsage = EmojiUsage(store("learning/emoji_usage.json")).also {
+            it.maxRecents = _uiState.value.settings.emoji.recentsLimit
+        }
         // Under stats/, not learning/: "Delete learned words" must not take
         // the typing statistics with it. The enabled gate re-arms on the next
         // settings emission.
