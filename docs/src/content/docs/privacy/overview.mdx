@@ -22,10 +22,10 @@ Everything the keyboard needs to type, predict, autocorrect and learn from you r
 
 No analytics, crash-reporting, or telemetry SDK is built into the app: there's no Firebase, Crashlytics, Mixpanel, Sentry, Bugsnag, or Amplitude anywhere in the source tree, and no first-party WM Keyboard server that the app phones home to for any reason. There's no update check, either. Updates come from wherever you installed the app, the same as any other app. Every network call the app makes is a request you can trace to one specific, named tool.
 
-A fresh install asks for no permissions at all. Each one belongs to a single optional feature (microphone to voice input, camera to the camera tool, and so on), gets requested the first time you use that feature, and gets an explanation of its own before Android's prompt appears. The full list, along with what refusing does, is on [Permissions](/privacy/permissions/).
+A fresh install asks for no permissions at all. Each one belongs to a single optional feature (microphone to voice input, camera to the camera tool, and so on), gets requested the first time you use that feature, and gets an explanation of its own before Android's prompt appears. The app also keeps an inventory of the lot at <SettingsPath path="Privacy / Permissions" />, where you can see what's granted and hand something back. The full list, along with what refusing does, is on [Permissions](/privacy/permissions/).
 
-:::note[The in-app caption undersells this]
-The Privacy screen's own caption says the keyboard works offline apart from one optional weather tool. That's true as far as it goes, but incomplete: there are more network-touching tools than that one line lets on. The rest of this page is the accurate, complete version.
+:::note[The in-app caption gets you most of the way]
+The Privacy screen's own caption now names the network side by hand: translate, weather, web search, image search, GIFs, stickers, dictionary lookup and the AI tools, each one only on the tap that uses it. What a one-paragraph caption can't fit is the handful of fetches that happen without you pressing a tool, which is the part worth reading below.
 :::
 
 ## The only things that touch the network
@@ -81,11 +81,12 @@ Whether any particular build of the app ships with a working built-in key for Tr
 
 <SettingsPath path="Privacy" />
 
-The Privacy screen has three groups, each documented in full on its own page:
+The Privacy screen has four groups, each documented in full on its own page:
 
-- **On-device learning** — what gets learned, incognito mode, and private-browsing detection. See [Your data on device](/privacy/data/) and [Incognito & secure fields](/privacy/incognito/).
-- **Android backup** — folding the keyboard into Android's own backup system, off by default. See [Backup & restore](/privacy/backup/).
-- **Your data** — the one-tap **Clear learned words** button. See [Your data on device](/privacy/data/#clearing-whats-stored).
+- **Permissions** (an unnamed group at the top, holding one row) opens the inventory of everything the keyboard can reach, and what it currently holds. See [Permissions](/privacy/permissions/) and, field by field, [Permissions settings](/reference/settings/permissions/).
+- **On-device learning** covers what gets learned, incognito mode, and private-browsing detection. See [Your data on device](/privacy/data/) and [Incognito & secure fields](/privacy/incognito/).
+- **Android backup** folds the keyboard into Android's own backup system, off by default. See [Backup & restore](/privacy/backup/).
+- **Your data** is the one-tap **Clear learned words** button. See [Your data on device](/privacy/data/#clearing-whats-stored).
 
 Every per-tool network toggle mentioned above lives on that tool's own settings screen rather than on Privacy. See [Network policy](/privacy/network/) for the full list, or the [tool settings reference](/reference/settings/tools/) for a screen-by-screen field list.
 

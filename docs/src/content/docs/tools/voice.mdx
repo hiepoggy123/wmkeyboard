@@ -1,6 +1,6 @@
 ---
 title: "Voice typing"
-description: "Dictation through your device's speech engine: strip mode and full panel."
+description: "Dictation through your device's speech engine: a full panel, a compact bar over the keys, or a draggable bar with the keyboard out of the way."
 sidebar:
   order: 3
 ---
@@ -18,12 +18,15 @@ Voice typing turns speech into text using your device's own speech recognizer: n
 
 ## Starting dictation
 
-Open **Voice typing** from the toolbar (or the toolbox if you haven't pinned it). What opens depends on the **Compact bar** setting, covered below:
+Open **Voice typing** from the toolbar (or the toolbox if you haven't pinned it). What opens depends on **Voice typing view**, covered below. There are three of them:
 
 - **Full panel** (the default) replaces the whole keyboard with a large mic button and a level-driven pulse ring, plus a four-key action rail down the right side: <KeyCap>Delete</KeyCap>, <KeyCap>Space</KeyCap>, a context-aware <KeyCap>Enter</KeyCap> (it shows a search icon in a search box instead of promising a newline it won't insert), and a key that closes the panel and returns to normal typing.
-- **Compact bar** replaces the suggestion strip with a small mic and status text, while the keys stay visible underneath: dictate a sentence, then tap a letter key to fix a misheard word without leaving the panel-free view.
+- **Compact bar over the keys** replaces the suggestion strip with a small mic and status text, while the keys stay visible underneath: dictate a sentence, then tap a letter key to fix a misheard word without leaving the panel-free view.
+- **Collapsed bar, keyboard hidden** hands the keyboard's whole window back to the app you're typing in and leaves a small draggable pill of dictation controls floating over it. See [The collapsed bar](#the-collapsed-bar).
 
-Tap the mic to start listening; tap again to finish. In the full panel only, you can also **long-press the mic for walkie-talkie dictation**: holding it past about 600&nbsp;ms starts listening only while your finger stays down, and releasing stops it immediately. A quick tap-and-release instead toggles listening on, same as before. The compact bar's mic doesn't have this. It's a plain tap-to-toggle button with no hold gesture.
+You aren't locked into the one you picked. The panel and the compact bar each carry a collapse button down to the pill, and the pill carries a button back up, so switching is one tap from wherever you are.
+
+Tap the mic to start listening; tap again to finish. In the full panel only, you can also **long-press the mic for walkie-talkie dictation**: holding it past about 600&nbsp;ms starts listening only while your finger stays down, and releasing stops it immediately. A quick tap-and-release instead toggles listening on, same as before. Neither bar has this. Both mics are plain tap-to-toggle buttons with no hold gesture.
 
 <GestureDemo type="long-press" caption="Hold the mic in the full panel to dictate walkie-talkie style." />
 
@@ -33,9 +36,31 @@ Every word you dictate is learned the same way a typed word is, so frequent dict
 
 ### If the mic can't open
 
-- **Password and other secure fields** never get a mic. The panel shows "Voice input is unavailable in password fields."; the compact bar shows a brief "Voice typing is unavailable in password fields" toast instead, since there's no room for inline text.
-- **No microphone permission** shows an explanation and an "Allow microphone" button. Tapping it opens a system permission prompt through a small trampoline screen (IMEs can't show permission dialogs directly), and the keyboard rechecks automatically once you're back.
-- **No speech recognizer on the device** (rare, typically no Google app installed) shows "Speech recognition is not available on this device." in the panel, or "Speech recognition unavailable" on the compact bar.
+- **Password and other secure fields** never get a mic. Tapping the voice tool in one shows a brief "You cannot use voice typing in a password field" toast and opens nothing. If you land in a password field with a view already open, the panel reads "Voice typing does not work in password fields." and the compact bar reads "Not available in password fields".
+- **No microphone permission** shows an explanation and an "Allow microphone" button. Tapping it opens a system permission prompt through a small trampoline screen (IMEs can't show permission dialogs directly), and the keyboard rechecks automatically once you're back. The bars have room for one line, so they say "The app needs microphone permission" with an **Allow** chip.
+- **No speech recognizer on the device** (rare, typically no Google app installed) shows "Speech recognition is not available on your device." in the panel, or "Speech recognition is not available" on either bar.
+
+## The collapsed bar
+
+The third surface isn't a keyboard at all. Pick **Collapsed bar, keyboard hidden**, or tap the collapse button in the panel or the compact bar, and the keyboard gives its whole window back to the app you're typing in. What's left is a small pill of dictation controls floating on top. Only the pill itself is touchable: taps anywhere around it go through to the app underneath, so you can scroll the thing you're dictating into while you talk.
+
+<PhoneFrame caption="The collapsed bar floating over an app, with the keyboard out of the way.">
+{/* shot: tools/voice-collapsed-bar */}
+</PhoneFrame>
+
+Drag it wherever you want it. Where it settles is remembered, so it comes back in the same place next time:
+
+- Lying flat, it snaps to the nearest of three rests across the screen (left, centre or right) and keeps whatever height you dragged it to. It starts centred and docked at the bottom.
+- Standing upright, it docks to whichever side edge you let go nearest, and keeps its position along that edge. It starts on the right, halfway down.
+
+The hamburger swaps the row of controls for a second page: back, undo, the language chip, a button that stands the bar upright (or lays it flat again), and a shortcut into the voice settings. The first page has the status line, undo when there's something to undo, an exit button, backspace, and the mic.
+
+That exit button is two different buttons depending on how you got here, which is worth knowing because they don't do the same thing:
+
+- **Arrived by collapsing** from the panel or the compact bar, you get an expand button that takes you back to the surface you came from. It undoes the switch.
+- **Chose the collapsed bar in settings**, and you get a keyboard button instead. That brings the keys back for now, and the bar stays your default for the next time you open voice typing.
+
+The bar isn't just for one field. It stands in for the keyboard on every new field until you bring the keyboard back, and it survives the keyboard's process being killed in between. Two things put the keys back on their own without disarming it: a password field, which never gets the bar, and a panel opened over the top (a hardware shortcut can do that). Both end the current dictation session, and closing the panel brings the bar back.
 
 ## Undoing a dictated phrase
 
@@ -43,21 +68,21 @@ Every word you dictate is learned the same way a typed word is, so frequent dict
 {/* shot: tools/voice-undo */}
 </PhoneFrame>
 
-An **Undo** control appears (bottom-left in the panel, as a small icon on the compact bar) right after a phrase commits, as long as it's still sitting immediately before your cursor. Tapping it removes exactly that dictated text in one step. It disappears again once you dictate something else, edit the text some other way, or the text it would remove is no longer where dictation left it.
+An **Undo** control appears (bottom-left in the panel, as a small icon on either bar) right after a phrase commits, as long as it's still sitting immediately before your cursor. Tapping it removes exactly that dictated text in one step. It disappears again once you dictate something else, edit the text some other way, or the text it would remove is no longer where dictation left it.
 
 ## Continuous mode
 
-<SettingsPath path="Tools / Voice typing / Dictation / Keep listening" />
+<SettingsPath path="Tools / Voice typing / Keep listening" />
 
 With **Keep listening** on (the default), finishing one sentence doesn't stop dictation: the next listening session starts automatically so you can keep talking sentence after sentence without re-tapping the mic. Turn it off and each session ends after one utterance; you tap the mic again for the next one.
 
 Continuous mode is also patient with silence: a pause that would normally time out the recognizer just restarts listening quietly instead of surfacing an error, but only for two silent retries in a row. After that it gives up and goes idle, so an abandoned open mic doesn't sit there listening forever.
 
-Dictation stops for good (not just pausing) the moment you type a key, swipe, or tap a suggestion. Partial results build up as one continuous chunk, so typing in the middle of an utterance would corrupt it rather than just interrupting it; the panel or compact bar stays open afterward so you can tap the mic to resume. It also stops when you close the panel, dismiss the compact bar, or switch to a different tool panel.
+Dictation stops for good (not just pausing) the moment you type a key, swipe, or tap a suggestion. Partial results build up as one continuous chunk, so typing in the middle of an utterance would corrupt it rather than just interrupting it; whichever view you're in stays open afterward so you can tap the mic to resume. It also stops when you close the panel, dismiss either bar, or switch to a different tool panel.
 
 ## Spoken punctuation
 
-<SettingsPath path="Tools / Voice typing / Dictation / Spoken punctuation" />
+<SettingsPath path="Tools / Voice typing / Spoken punctuation" />
 
 With this on (the default), saying certain words types the punctuation mark instead of the word itself. It only applies to finished phrases, never to the live partial text, and only recognizes two language groups: English and Bengali.
 
@@ -92,13 +117,13 @@ On Android 13 and up, if an on-device model for your language is available but n
 
 | Setting | Default | What it does |
 |---|---|---|
-| Compact bar | Off | Dictates over the keys in a slim bar instead of opening the full panel. |
+| Voice typing view | Full panel | A choice of three, not a switch: which surface the mic button opens. **Full panel**, **Compact bar over the keys**, or **Collapsed bar, keyboard hidden**. |
 | Keep listening | On | Starts the next sentence automatically after each one commits. |
 | Spoken punctuation | On | Saying "comma", "question mark" or "দাঁড়ি" types the mark. |
 
-An edition with the offline engine built in also shows a **Recognition engine** choice above these (see [Offline voice (Whisper)](/tools/whisper/) for what that adds). With the system recognizer in use, the Options screen shows this note about what it sends:
+All three sit in a group headed **Voice typing**, on the Voice typing tool's own screen. An edition with the offline engine built in adds an **Engine** group above it holding the **Recognition engine** choice (see [Offline voice (Whisper)](/tools/whisper/) for what that adds). With the system recognizer in use, the screen ends with this note about what it sends:
 
-> Recognition uses the device's speech recognizer. On Android 12+ it runs on-device when the language model is installed; otherwise audio goes to the recognizer service while you dictate. Long-press the mic to dictate walkie-talkie style — it stops when you let go.
+> Recognition uses the speech recognizer of your device. On Android 12 and later it runs on your device when the language model is installed. If it is not, the audio goes to the recognizer service while you speak. Press and hold the microphone to speak in walkie-talkie style. It stops when you let go.
 
 ## Privacy: what leaves your device
 
@@ -108,10 +133,12 @@ If you want a hard guarantee that audio never leaves the device regardless of wh
 
 ## Details & edge cases
 
-**Errors show specific messages.** A network problem says "Network problem — check your connection and try again."; the recognizer being busy (or another app holding the mic) says "The microphone is busy — close other apps using it and try again."; a language the device can't recognize at all says "Speech recognition doesn't support this language on this device." A network hiccup mid-utterance keeps whatever was already heard instead of throwing it away.
+**Errors show specific messages.** A network problem says "No connection. Check your network and try again."; the recognizer being busy (or another app holding the mic) says "The microphone is busy. Close the other apps that use it and try again."; a language the device can't recognise at all says "Speech recognition does not support this language on your device." A network hiccup mid-utterance keeps whatever was already heard instead of throwing it away.
 
 **Switching tools closes dictation.** Opening any other panel (Handwriting, Clipboard, Emoji, and so on) ends the current dictation session first.
 
-**The strip and the panel aren't full equivalents.** Continuous mode, spoken punctuation, and undo work the same way whichever mode you're in: those live in the dictation session itself, not the view. Three things are panel-only, though: hold-to-talk, the **EN** / **বাং** language-switch chip, and the offline-model download chip. In the compact bar, dictation still follows whatever language your active layout is set to; you just switch layouts some other way (spacebar swipe, the language picker) instead of tapping a chip in the strip, and there's no in-strip prompt to download an offline model.
+**All three rows carry the usual restore button** once you move one off the default listed above; see [Putting one setting back](/reference/settings/#putting-one-setting-back). Where the collapsed bar last rested isn't one of those rows: it has no control on the settings screen, and you reset it by dragging the bar somewhere else.
+
+**The three views aren't full equivalents.** Continuous mode, spoken punctuation, and undo work the same way whichever one you're in: those live in the dictation session itself, not the view. Two things are panel-only, though: hold-to-talk, and the offline-model download chip. The **EN** / **বাং** language-switch chip is on the panel and, behind the hamburger, on the collapsed bar, but not on the compact bar. Dictation still follows your active layout's language there, you just switch layouts some other way (spacebar swipe, the language picker) instead of tapping a chip. Neither bar prompts you to download an offline model.
 
 Related: [Offline voice (Whisper)](/tools/whisper/) covers the second dictation engine, including its model catalog, per-language routing, downloads, and the full offline privacy guarantee.

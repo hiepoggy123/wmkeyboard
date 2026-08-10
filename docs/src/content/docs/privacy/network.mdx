@@ -211,11 +211,14 @@ have no network code to disable in the first place.
 
 ## Details & edge cases
 
-- **The in-app Privacy screen undersells this.** Its note says the keyboard
-  works offline apart from the weather tool (accurate for what it's really
-  talking about, telemetry), but this page is the complete network picture.
-  See [Data collection](/privacy/data/#details--edge-cases) for
-  where that note falls short.
+- **The in-app Privacy screen lists the tools, not the fetches.** Its note
+  names translate, weather, web search, image search, GIFs, stickers,
+  dictionary lookup and the AI tools, and says the network is used only at
+  the moment you press one. That covers the deliberate half. It leaves out
+  the things that fetch on their own (currency chips, language data, link
+  previews) and the download screens, which is what this page adds. See
+  [Data collection](/privacy/data/#details--edge-cases) for the same note
+  read from the storage side.
 - **AI's default provider needs a key before it does anything.** Claude
   (Anthropic) is the pre-selected provider chip, but with a blank key, so
   the tool shows a "needs an API key" state out of the box rather than

@@ -21,19 +21,20 @@ Glide typing lets you write a word by sliding one finger from letter to letter w
 
 ## Turning it on
 
-<SettingsPath path="Typing / Gestures / Gesture typing" />
+<SettingsPath path="Typing / Gestures / Glide typing" />
 
-Glide typing is on by default. It's **English only for now**, but that covers every layout registered under English, not just QWERTY: AZERTY, Dvorak, Colemak, Workman, and Halmak all glide too, because the check is per-language rather than per-layout. Switch to a non-English language and the letter keys go back to tap-only typing.
+Glide typing is on by default, and it isn't tied to one language. What it needs is a layout that types the letters you press rather than converting them, and a word list that covers enough of that layout's alphabet. English gets it on every layout registered under English, not just QWERTY: AZERTY, Dvorak, Colemak, Workman and Halmak all glide, because the check is per-language rather than per-layout. Other languages glide as soon as their word list is installed and covers the keys.
 
 A swipe only turns into a glide when several things line up at once:
 
 - You're on the **letters layer**: glide typing doesn't apply to the symbols or number pages.
 - No panel (emoji, clipboard, tools) is open over the keyboard.
-- The active English layout has **every letter A through Z somewhere on it**. If you've edited your English layout in the [layout editor](/languages/custom-layouts/) and removed a letter, glide typing quietly turns itself off for that layout rather than guessing at a key that isn't there, so it's worth checking first if swiping stops working after an edit.
+- The layout **types letters rather than converting them**. Avro, Hangul, Vietnamese and the CJK input methods all turn keystrokes into something other than the keys pressed, so a stroke over them spells a reading, not a word. Bengali phonetic is the exception: it converts, but into a script the keyboard has a romanisation for, so a stroke can still be read back into words.
+- The active word list **covers enough of the layout's letters**. If you've edited a layout in the [layout editor](/languages/custom-layouts/) and dropped letters the language needs, glide typing quietly turns itself off for that layout rather than guessing at a key that isn't there, so it's worth checking first if swiping stops working after an edit. A finished dictionary download re-asks the same question, so a language can start gliding a minute after you add it.
 - You're not in the middle of a [typing-test tool](/tools/overview/) run.
 - The field allows it at all: secure fields (password boxes) and structured keypads (email, URL, number, phone, date/time) skip glide typing the same way they skip autocorrect: there's no dictionary word to guess on a PIN pad.
 
-The word list behind a glide is whatever English dictionary is active: the bundled one, or a bigger downloaded English word list if you've installed one under [Dictionaries](/languages/dictionaries/), since a larger downloaded list for a language always takes over from the bundled copy. Words you've typed and had WM Keyboard learn are folded in too, and weighted heavily, so a word you've typed even once becomes an easy swipe target the next time.
+The word list behind a glide is whatever dictionary is active for the language you're typing: the bundled one, or a bigger downloaded list if you've installed one under [Dictionaries](/languages/dictionaries/), since a larger downloaded list for a language always takes over from the bundled copy. Words you've typed and had WM Keyboard learn are folded in too, and weighted heavily, so a word you've typed even once becomes an easy swipe target the next time.
 
 :::note
 A letter-area swipe can do something other than glide a word: <Flavor edition="full" /> lets you set it to **handwrite** instead, drawing letters over the keys for on-device recognition. That's a separate feature with its own page: see [Handwriting](/tools/handwriting/#handwriting-without-opening-the-panel). Glide typing itself, the "Type words" mode, ships in both editions.
@@ -66,6 +67,14 @@ The moment you lift your finger, the best-scoring word commits to the field. The
 </PhoneFrame>
 
 That tap-to-replace only works while your cursor is still sitting exactly where the glide left it: moving the caret away, or typing something else first, retires the alternates for that word. The same guard governs a plain backspace: press it right after a glide and it deletes the **whole swiped word** in one go rather than one character at a time, since a wrong swipe shouldn't cost a letter-by-letter cleanup. That takes the trailing space with it, so one press puts the cursor back exactly where the swipe found it.
+
+## When a swipe is a genuine toss-up
+
+Some strokes have no single right answer. On a fixed Bengali layout ক and খ share a key, so a word and its aspirated twin are drawn in exactly the same shape, and on any layout a hurried stroke can fit two words equally well. Rather than commit the likelier one and leave you to notice, **Ask when a glide is unclear** (on by default) offers the choice while your finger is still down.
+
+When a stroke's best candidate barely leads its runner-up, keep your finger down and hold it still for a moment. The closest words appear under your fingertip; slide onto one and lift to type it. Lift without choosing and the keyboard commits its best guess exactly as it always did, and the same words are on the suggestion strip either way, so ignoring the picker costs nothing.
+
+The picker only arms on the strokes that are actually in doubt: a confident decode never shows it. It's shown only in the "Type words" swipe mode, since a handwritten stroke resolves through a different path.
 
 ## The space after a glided word
 
@@ -119,22 +128,23 @@ One more shift-related detail: only the **first** word of a multi-word glide hon
 
 | Setting | Default | Notes |
 |---|---|---|
-| Gesture typing | On | Master switch for glide typing. |
-| Glide across spacebar | On | Only shown while glide typing (not handwriting) is the active swipe mode. Turn off to treat a spacebar-crossing swipe as one word. |
+| Glide typing | On | Master switch for glide typing. |
+| Glide across the spacebar | On | Only shown while glide typing (not handwriting) is the active swipe mode. Turn off to treat a spacebar-crossing swipe as one word. |
+| Ask when a glide is unclear | On | Only shown while glide typing is the active swipe mode. When a stroke's best word barely beats its runner-up, hold still without lifting to pick between them. See [When a swipe is a genuine toss-up](#when-a-swipe-is-a-genuine-toss-up). |
 | Space after a glided word | On | Only shown while glide typing is the active swipe mode. A glided word is followed by a space; punctuation typed next takes it back. Turn off to commit the word bare. |
-| Swipe start distance | 2× | How far a touch has to travel, as a multiple of the system's touch slop, before it's read as the start of a glide rather than a tap. Range 0.5×–4×; lower is more sensitive but can mistake a stationary tap for a glide. |
-| Cooldown after typing | 160 ms | A brief window right after a tap where a glide needs to travel further before it takes over, so fast tapping doesn't misfire into an accidental swipe. Range 0–500 ms; 0 turns it off. |
+| Swipe start distance | 2.0× | How far a touch has to travel, as a multiple of the system's touch slop, before it's read as the start of a glide rather than a tap. Range 0.5×–4×; lower is more sensitive but can mistake a stationary tap for a glide. |
+| Delay after typing | 160 ms | A brief window right after a tap where a glide needs to travel further before it takes over, so fast tapping doesn't misfire into an accidental swipe. Range 0–500 ms; 0 turns it off. |
 | Trail width | 10 dp | Thickness of the trail at the head (the tail tapers to about 30% of this). Range 2–24 dp. |
 | Trail length | 350 ms | How long a point on the trail lingers before fading out. Range 100–1200 ms. |
-| Trail opacity | 55% | Peak opacity of the trail. Range 10%–100%. |
+| Trail opacity | 55% | Peak opacity of the trail. Range 0%–100%; 0 is the one way to glide with no trail at all. |
 
-The **Handwrite with swipes** toggle lives in this same settings group but belongs to a different feature: see [Handwriting](/tools/handwriting/#handwriting-without-opening-the-panel).
+**Handwrite with swipes** lives in this same settings group but belongs to a different feature. It's a two-option picker (Type words or Handwrite) rather than a toggle, and it decides what a letter-area swipe means in the first place: see [Handwriting](/tools/handwriting/#handwriting-without-opening-the-panel).
 
 ## Details & edge cases
 
 **Power Saving mode splits glide typing into two independent switches.** By default, power saving drops only the trail: it forces trail opacity to zero so nothing is drawn while you swipe, but decoding and committing keep working normally. Turning off glide typing entirely under power saving is a separate option that's **off by default**, because decoding a swipe is genuinely the most expensive thing the keyboard does, but it's also a big part of why people install a gesture keyboard in the first place, so the cheap fix (drop the trail) is the one that's on by default, and the expensive one (drop gliding) is opt-in. See [Power saving](/typing/power-saving/).
 
-**A missing letter on a custom layout doesn't break glide typing: it just turns it off.** The decoder scores candidates purely against whichever key centers it's handed, so a layout missing even one letter would otherwise produce confident-looking nonsense instead of an honest failure. WM Keyboard checks for a complete A–Z layer first and disables glide typing for that layout if anything's missing.
+**A layout that can't spell the language doesn't break glide typing: it just turns it off.** The decoder throws out any word holding a character the grid can't produce, so a layout covering a fraction of a language wouldn't fail loudly, it would decode against that fraction and commit confident nonsense. Instead WM Keyboard takes the language's most common words and counts how many the layout can draw end to end, and gliding needs at least 90% of them. The threshold sits short of 100% on purpose: real word lists carry a few loanwords and proper nouns in other scripts, and demanding every one of them would fail layouts that handle everything people actually type.
 
 **Multi-word glides only leave the last word revertible.** If a phrase-length glide gets one word wrong, tap-to-fix and the backspace-whole-word shortcut only apply to the final word in the stroke; the earlier words in the phrase are ordinary committed text at that point.
 

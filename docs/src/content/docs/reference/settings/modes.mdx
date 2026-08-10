@@ -20,7 +20,7 @@ You reach this screen three ways: Home → **Keyboard modes**, the settings sear
 
 <SettingsPath path="Keyboard modes" />
 
-Each row shows the mode's icon, its name, and a one-line summary of what triggers it: **"Manual only (Modes tool)"** for a mode with no apps or field types bound, otherwise **"Auto: N apps"** and/or the field types it's bound to (for example **"Auto: 6 apps + text fields"**). Tapping a row opens that mode's editor; the trailing delete icon removes the mode immediately, with no confirmation prompt.
+Each row shows the mode's icon, its name, and a one-line summary of what triggers it: **"Manual only, from the Modes tool"** for a mode with no apps or field types bound, otherwise **"Automatic:"** followed by the app count and/or the field types it's bound to, joined with a `+` because both have to match. The shipped Chat mode reads **"Automatic: 15 apps + text, notification replies fields"**. Tapping a row opens that mode's editor; the trailing delete icon removes the mode immediately, with no confirmation prompt.
 
 **New mode** adds a row and opens a fresh editor. The mode isn't written to disk until you make your first edit inside it; backing out of an untouched new-mode editor leaves nothing behind.
 
@@ -63,11 +63,15 @@ Every override here defaults to **Inherit** (unset, so the mode falls through to
   {/* shot: reference/settings/mode-editor-activation */}
 </PhoneFrame>
 
-**Field types** is a row of chips for the six kinds a mode can match: Password, Email, URL, Number, Phone, Text. **Text** means plain free-text only: a password field is excluded from it even though it also reports as text-capable, so a mode bound to Text can never take over a login form.
+**Field types** is a row of chips for the seven kinds a mode can match: Password, Email, URL, Number, Phone, Text, Notification replies.
+
+**Text** means plain free-text only: a password field is excluded from it even though it also reports as text-capable, so a mode bound to Text can never take over a login form.
+
+**Notification replies** is the inline reply box in the notification shade, and it's the one chip that ignores the app list. That box is drawn by the system UI, so the package the keyboard sees there is the shell's, never the app whose notification you're answering. A mode with this chip ticked matches the box whatever its bound apps say, which is how the shipped Chat mode still gets chat treatment in a reply you fire off without opening the app.
 
 Below that is the app list: one row per bound app (resolved to its display name, falling back to the raw package name), each removable, plus an **Add app** row that opens a searchable picker of every launcher app on the device.
 
-Setting apps and field types together means both must match: a mode bound to your chat apps and the Text field type stays off their search boxes. Setting only one matches on that alone; setting neither leaves the mode manual-only, reachable only from the Modes tool. When several modes match at once, one that names a field type beats one that only names apps, and a mode picked by hand from the Modes tool wins until you switch apps. See [How a mode gets picked](/typing/modes/#how-a-mode-gets-picked) for the full resolution order.
+Setting apps and field types together means both must match: a mode bound to your chat apps and the Text field type stays off their search boxes. Setting only one matches on that alone; setting neither leaves the mode manual-only, reachable only from the Modes tool. Notification replies is the single exception to the AND, as above. When several modes match at once, one that names a field type beats one that only names apps, and a mode picked by hand from the Modes tool wins until you switch apps. See [How a mode gets picked](/typing/modes/#how-a-mode-gets-picked) for the full resolution order.
 
 ### Reset and delete
 
@@ -82,11 +86,18 @@ Six modes are seeded on first run. You can edit or delete any of them freely.
 | **Passwords** | Off | Off | Replaced: password generator, clipboard, settings | Password generator, clipboard, snippets, numpad, symbols, settings | — | Password |
 | **Email** | Inherit | On (Email, Punctuation) | Inherit | Clipboard, snippets, text edit, voice, symbols | — | Email |
 | **Browser** | Inherit | On (Web) | Inherit | Clipboard, web search, snippets, QR scan, voice, incognito | — | URL |
-| **Chat** | Always on | Inherit | Added: emoji, GIF, sticker, voice | Grammar, translate, camera, image search, clipboard, snippets, then the pinned four | Messenger, Instagram, Telegram, WhatsApp, Signal, Discord | Text |
+| **Chat** | Always on | Inherit | Added: emoji, GIF, sticker, voice | Grammar, translate, camera, image search, clipboard, snippets, then the pinned four | 15: Messenger, Instagram, Telegram, WhatsApp, Signal, Discord, Facebook, Facebook Lite, TikTok, Snapchat, Viber, LINE, KakaoTalk, WeChat, Beeper | Text, Notification replies |
 | **Writing** | Inherit | On (Punctuation) | Replaced: AI, text edit, voice, clipboard, emoji | Grammar, dictionary, OCR, doc scan, calendar, clipboard, snippets, translate, undo, redo, then the pinned five | Keep, Google Docs, Samsung Notes, Word, OneNote, Obsidian, Notion, Evernote, Joplin, Gmail, Outlook, Yahoo Mail, ProtonMail, K-9 Mail | Text |
 | **Coding** | Inherit | On (Coding, Math) | Inherit | Snippets, clipboard, text edit, symbols, calculator, numpad, undo, redo, cursor keys | Termux, Acode, RK Editor, Spck | — |
 
-Passwords and Writing replace the toolbar outright rather than adding to it; Chat appends its four tools to whatever you already have pinned. If your install already had a saved mode list before Chat and Writing existed, both were appended once automatically on upgrade, but a mode you've since deleted isn't re-added.
+Passwords and Writing replace the toolbar outright rather than adding to it; Chat appends its four tools to whatever you already have pinned.
+
+An install that already had a saved mode list before these modes grew gets topped up on upgrade, in two rounds so far:
+
+- **Chat and Writing were added as whole modes** the first time, since a stored list frozen before they existed would never have picked them up.
+- **Chat's own bindings were topped up** in the round after that: the nine apps it was missing (Facebook, Facebook Lite, TikTok, Snapchat, Viber, LINE, KakaoTalk, WeChat, Beeper) and the Notification replies field type were appended to the stored mode.
+
+Both rounds run once and leave your edits alone. A mode you've deleted isn't re-added, an app you'd already bound to some other mode is skipped rather than routed twice, and a field type the mode already has isn't duplicated.
 
 ## Rearranging tools
 

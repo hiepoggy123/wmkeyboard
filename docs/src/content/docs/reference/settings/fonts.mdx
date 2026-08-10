@@ -20,11 +20,14 @@ The keyboard font screen picks the typeface for key labels, the suggestion strip
 
 | Setting | Choices | Default |
 |---|---|---|
+| Download more | Opens the addon catalogue, filtered to fonts | — |
 | English font | System default, or one of 20 Google Fonts, or an imported/installed file. Also governs Cyrillic and Greek keys, which have no picker of their own. | System default (`"default"`) |
 | One section per enabled script | The script's Automatic (Noto) face, or one of a short curated list (1 alternative for Armenian or Georgian, up to 9 for Bengali, Thai, Chinese, Korean, or Japanese). 22 scripts get a section: Bengali, Arabic, Hebrew, Armenian, Georgian, Devanagari, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Sinhala, Thai, Lao, Khmer, Myanmar, Ethiopic, Korean, Japanese, and Chinese. | Automatic (Noto) |
 | Installed fonts | The shared font library: fonts you imported or installed from an addon. Listed under the English and Bengali sections, each filtered to fonts that declare that section's script or declare none. | — |
 
 Selecting a row applies it immediately; there's no separate download or apply step. The English section is always shown; every script section only appears while a language using that script is enabled, so you never see a picker for a script you don't type in.
+
+**Download more** is the first row on the screen, above the English section. It opens the addon catalogue already filtered to fonts, so you can go looking for a face without knowing the addon store exists first. Anything you install from there lands in the same Installed fonts library the import button fills, and shows up under whichever sections its script matches. See [Installing addons](/addons/installing/).
 
 Bengali is not a special case any more. It used to have a hand-built picker of its own, stored separately from every other script; it is now one section in the same list, stored the same way. The only thing still particular about it is that its section also takes an imported file, which the other script sections don't. An existing Bengali font choice carries over on its own — including an imported one.
 
@@ -40,6 +43,7 @@ For the full explanation of how Google Fonts are fetched, how imports and addon 
 
 - The Installed-fonts library caps out at 50 fonts total and 32 MB per file. Hitting either limit shows a plain-language dialog: `"Fonts are limited to 32 MB"` for an oversized file, `"You already have 50 fonts. Remove one first."` for the count. Installing from an addon at the count cap shows different wording: `"You've reached the maximum number of installed fonts"`
 - Deleting a font from its row on this screen resets English or Bengali to the automatic default first if it was selected, so the keyboard never points at a file that's about to disappear. Uninstalling the same font from the Addons screen doesn't reset the setting; rendering just falls back to the system font.
-- If Google Play Services is missing or the device is offline the first time a font is needed, that row quietly renders in the system font instead of erroring, and downloads normally once the provider is reachable.
+- On a device with no Google Play Services, the Google Fonts rows aren't listed at all. Every one of them would resolve to the system face there, so the screen leaves them out rather than offering rows that change nothing, and a short line under the intro text says why. System default, your imported file and the Installed fonts library are the app's own and stay exactly where they are.
+- Being offline is a different case: the provider is there, so the rows are too. A font that hasn't been fetched yet draws in the system face for now and swaps itself in once the download lands. Each one is fetched once and kept on the device.
 - The Addons screen's **Use** button for a font addon deep-links here with the anchor `Installed fonts`, scrolled to the English section. See [Installing addons](/addons/installing/).
 - Emoji have their own font setting, entirely separate from this screen. See [Emoji customization](/emoji/customization/).

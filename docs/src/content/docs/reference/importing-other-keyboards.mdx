@@ -24,9 +24,9 @@ HeliBoard's JSON layouts use FlorisBoard's format, so one reader handles both.
 
 ## Layouts
 
-<SettingsPath path="Layouts / Import from another keyboard" />
+<SettingsPath path="Key layouts / Import from another keyboard" />
 
-Pick the file and the app reads it, then asks you two things before it saves anything.
+Pick the file and the app reads it, then puts one dialog in front of you before it saves anything. There is only one thing to answer on it, the language; everything else on the dialog is telling you what the conversion did, and the Import button is your confirmation.
 
 ### It asks for the language
 
@@ -40,7 +40,7 @@ A foreign layout file holds the letters and nothing else: the keyboard that read
 
 ### Keys that cannot come across
 
-Some keys in those formats do things WM Keyboard reaches another way — voice input, the clipboard panel, the settings screen, the suggestion-bar toggles. Those are tools here rather than keys, so they are removed and the dialog names the codes it removed. A key that looked right and quietly did nothing would be worse.
+Some keys in those formats do things WM Keyboard reaches another way: voice input, the clipboard panel, the settings screen, the suggestion-bar toggles. Those are tools here rather than keys, so they are removed and the dialog names the codes it removed. A key that looked right and quietly did nothing would be worse.
 
 A handful of keys convert to the closest match rather than an exact one, and the dialog counts those too. Delete-word becomes a plain delete; the second symbols page folds onto the symbols key.
 
@@ -54,7 +54,7 @@ Some letters can be written two ways in Unicode: a base letter plus a mark, or a
 
 A `.flex` file is FlorisBoard's theme package. Pick one and the app converts every theme inside it. You can also open a `.flex` straight from a file manager.
 
-A FlorisBoard theme that holds both a day and a night version becomes **two** themes, named for which is which, so you can put them under <SettingsPath path="Themes / Auto theme" /> as a pair.
+A FlorisBoard theme that holds both a day and a night version becomes **one** theme with two looks, not two separate entries. The first look heads the family, the second becomes a variant of it, and the family takes its name from the file. Auto theme addresses the looks individually, so you can still put the day one in one slot and the night one in the other under <SettingsPath path="Themes / Auto theme" />. The result message says so too: "The app saved *name* with 2 looks."
 
 **Converted themes are saved but not turned on.** They go into your themes list for you to look at first, and the theme editor is where you finish the parts that did not carry over.
 
@@ -81,7 +81,8 @@ FlorisBoard changed its style format in 0.5, and the two are not compatible. A 0
 
 - **Nothing is decided by the file extension.** A file is read and then judged. A layout renamed `.wmtheme.json` is refused rather than imported as an empty theme.
 - **Opening a `.flex` from a file manager** works because the app registers that extension. If FlorisBoard is installed too, Android asks which app should open it.
-- **Layout files are not auto-detected from a file manager.** They carry no marker that identifies them, so they go through <SettingsPath path="Layouts / Import from another keyboard" />, where you have already said what the file is.
+- **Layout files are not auto-detected from a file manager.** They carry no marker that identifies them, so they go through <SettingsPath path="Key layouts / Import from another keyboard" />, where you have already said what the file is.
+- **A foreign layout over 4 MB is refused.** The whole file is decoded as one string, so there is a cap, and the cap is 4 MB. Past it you get the same "The app cannot read that file as a layout" message a genuinely unreadable file gets, with nothing to say the size was the problem. No real grid is anywhere near it, so in practice this only catches a file that is not a layout at all.
 - **Add-on repositories stay native.** Repository payloads are always WM Keyboard's own formats; conversion applies to files you pick yourself.
 - **Nothing is sent anywhere.** Conversion runs on the phone. There is no upload and no server.
 

@@ -137,6 +137,14 @@ pick where it goes:
 None of these send anything to a WM Keyboard server. There is no account with
 us and nothing of yours passes through anything we run.
 
+**Charging is the only condition, so it will use mobile data.** The scheduled
+job asks the system for one thing: that the device is on a charger. It doesn't
+ask for Wi-Fi and it doesn't check whether your connection is metered, so a
+phone charging in the car will upload over mobile just the same. Most backups
+are small, but one carrying sticker packs or icon packs is not, and it goes out
+every interval. If that matters on your plan, either point **Folder** at
+somewhere on the device itself, or leave the image-heavy sections out.
+
 **The app keeps a few backups and deletes the oldest.** You choose how many. It
 never deletes the newest one, and it never deletes an older backup until the
 new one has been written, read back and checked. A backup that fails halfway
@@ -203,9 +211,11 @@ export:
 
 Reach it from the home screen or by searching "Backup & restore" in settings
 search. Its export switches are the ones described in
-[Exporting a config file](#exporting-a-config-file) above: unlike most
-settings screens, none of them are persisted preferences; every switch resets
-to its default each time you reopen the screen.
+[Exporting a config file](#exporting-a-config-file) above, and they are
+ordinary stored settings: what you tick stays ticked when you come back. They
+have to, because the automatic backup reads the same list and there is nobody
+there to set it. Field by field, they're on
+[Backup & restore settings](/reference/settings/backup/).
 
 <SettingsPath path="Privacy / Android backup / Back up with Android" />
 

@@ -137,7 +137,7 @@ The catalog is eight models, ordered best-first rather than smallest-first:
 | Gemma 3 270M | 270M | 304 MB | Untested | Yes |
 | SmolLM2 135M | 135M | 143 MB | Experimental | |
 
-"Gated" models (2 of the 8) need a Hugging Face account: paste a token into the **Hugging Face token** field above the catalog and accept the model's license on its Hugging Face page once. Every model also carries an advisory minimum-RAM figure behind the scenes: the app appends "May be too large for this device" to a model's subtitle when your phone's total RAM falls under it, but it never blocks the download outright and never shows the raw RAM number. That comparison is the only per-device signal the catalog gives you up front: there's no published speed benchmark, since how fast a model actually responds depends on the phone as much as the model, and a progress readout with elapsed seconds is what you get once a request is running rather than an estimate beforehand.
+"Gated" models (2 of the 8) need a Hugging Face account: paste a token into the **Access token** field under **Hugging Face account** above the catalog, then accept the model's license on its Hugging Face page once. Every model also carries an advisory minimum-RAM figure behind the scenes: the app appends "May be too large for this device" to a model's subtitle when your phone's total RAM falls under it, but it never blocks the download outright and never shows the raw RAM number. That comparison is the only per-device signal the catalog gives you up front: there's no published speed benchmark, since how fast a model actually responds depends on the phone as much as the model, and a progress readout with elapsed seconds is what you get once a request is running rather than an estimate beforehand.
 
 Tapping **Download** starts a resumable download: cancel it, lose signal, or background the app, and resuming picks the transfer back up from where it left off rather than restarting. Only one download runs at a time. A model 500 MB or larger asks for confirmation first if you're on a metered connection.
 
@@ -178,6 +178,12 @@ Write `{target}` anywhere in a prompt and it becomes the translate target langua
 Prompts you'd already customised are carried over automatically, and the app checks its own work: a prompt it recognises is unpicked back into a task, and anything it doesn't recognise is kept verbatim under this switch rather than guessed at.
 :::
 
+## Chatting instead of transforming
+
+<SettingsPath path="Tools / AI writing tools / Chat with the model" />
+
+The panel's actions all do the same shape of thing: take the text in a field, hand it back changed. When you want an actual conversation instead, **Chat** opens one in the settings app, against any model you've already set up here. It's a separate screen with its own saved conversations, its own model picker, and a launcher shortcut of its own. See [AI chat](/tools/ai-chat/).
+
 ## History
 
 <SettingsPath path="Tools / AI writing tools / History" />
@@ -203,15 +209,28 @@ API keys are never part of a record; it carries the model's name and nothing abo
 
 Like every tool, AI has an **Enabled** toggle (on by default) and, if [colorful tool icons](/reference/settings/tools/) are on, a per-tool icon color override. Below that:
 
-- **Keyword** — the word that offers this tool on the suggestion strip when you type it alone; defaults to `ai`.
-- **Provider** — which of the nine providers above is active; defaults to **Claude**, though with no key entered yet a fresh install lands on the empty-state screen until you add one.
-- **Max response length** — a token ceiling, roughly ¾ of a word each, picked from steps rather than a slider: 1k through 128k, plus **Provider maximum**. Default **8,192**. A model the app guesses is a reasoning model (by a substring match against its model ID, e.g. containing "thinking", "qwen3", "grok-4" or "deepseek-v4") automatically gets 4× this ceiling, capped at 131,072, since reasoning tokens are spent from the same budget before the answer even starts. Replaced by **Context size** for the On-device provider.
-- **Translate action's target language** — free text, defaults to **English**.
-- **Show model reasoning** — off by default. Turning it on streams a reasoning model's raw `<think>` passages instead of the step-by-step progress readout.
-- **Model picker on the panel** — on by default. Adds a horizontally-scrolling row to the panel itself for switching between every configured provider and downloaded local model in one tap; it's hidden automatically whenever there are fewer than two to choose from.
-- **Show a changes view** — on by default; see [Seeing what changed](#seeing-what-changed). **Open a result on the changes** below it is off.
-- **Actions on the panel** — the whole action list; see [Your own actions](#your-own-actions).
-- **History** — off by default; see [History](#history).
+- **Keyword**: the word that offers this tool on the suggestion strip when you type it alone. Defaults to `ai`.
+- **Provider**: which of the nine providers above is active. Defaults to **Claude**, though with no key entered yet a fresh install lands on the empty-state screen until you add one.
+- **Max response length**: a token ceiling, roughly ¾ of a word each, picked from steps rather than a slider: 1k through 128k, plus **Provider maximum**. Default **8,192**. A model the app guesses is a reasoning model (by a substring match against its model ID, e.g. containing "thinking", "qwen3", "grok-4" or "deepseek-v4") automatically gets 4× this ceiling, capped at 131,072, since reasoning tokens are spent from the same budget before the answer even starts. Replaced by **Context size** for the On-device provider.
+- **Translate action's target language**: free text, defaults to **English**.
+- **Show model reasoning**: off by default. Turning it on streams a reasoning model's raw `<think>` passages instead of the step-by-step progress readout.
+- **Model picker on the panel**: on by default. Adds a horizontally-scrolling row to the panel itself for switching between every configured provider and downloaded local model in one tap. It's hidden automatically whenever there are fewer than two to choose from.
+- **Show a changes view**: on by default, see [Seeing what changed](#seeing-what-changed). **Open a result on the changes** below it is off.
+- **Chat with the model**: opens the conversation screen, see [AI chat](/tools/ai-chat/).
+- **Actions on the panel**: the whole action list, see [Your own actions](#your-own-actions).
+- **History**: off by default, see [History](#history).
+
+### What the On-device provider adds
+
+<Flavor edition="full" />
+
+Picking **On-device** draws the whole model manager onto the same screen, under the provider row. [Local models](#local-models) covers the catalog, **Compute** and **Context size**. Three more things sit on that screen and nowhere else:
+
+- **Hugging Face account**, holding an **Access token** field. Blank by default, stored the same way an API key is, and only the gated models need it. Under the field, **Get a token** opens `huggingface.co/settings/tokens` in your browser.
+- **Import your own**, an **Import model file** button that opens the system file picker. It takes `.litertlm` and `.task` files only, and anything else is rejected with a message under the button.
+- **Free up**, labelled with a size (like "Free up 584 MB"). It only appears when there are orphaned files, meaning model directories left behind by an app update that dropped a model from the catalog. No row can reach those files any more, so the button is the only way to delete them. They're reported rather than deleted for you, on the grounds that it's a multi-gigabyte download you already paid for.
+
+Above that sits a line reporting how much storage your models take in total, partial downloads included. That figure is usually bigger than the one beside **Your models**, which only sums the finished ones you can see.
 
 ### About "Provider maximum"
 
@@ -233,6 +252,7 @@ The panel itself sends nothing until you actually tap an action chip: opening th
 
 ## Details & edge cases
 
+- **Not every row here can be reset.** The four switches (Show model reasoning, Model picker on the panel, Show a changes view, Open a result on the changes) and the Translate target-language field each grow a restore button once you move them off the default listed above; see [Putting one setting back](/reference/settings/#putting-one-setting-back). The provider row, Max response length and Context size are drawn as chip rows rather than settings rows, so none of them has one, and the shipped value of an API key or address field is an empty box you clear yourself.
 - **AI isn't pinned to the toolbar or the onboarding wizard's starter set by default.** You add it yourself from the toolbox once you want it, the same as most non-essential tools.
 - **Not available on the lock screen.** AI needs credentials the direct-boot-safe mirror of your data deliberately doesn't carry, so it's one of the tools that only works after you've unlocked the device once since restart.
 - **The Writing keyboard mode pins AI first** on its toolbar for apps it recognizes as writing-heavy (see [Keyboard modes](/typing/modes/)). The pin shows in both editions, same as the tool itself; only the On-device provider is Full-only.

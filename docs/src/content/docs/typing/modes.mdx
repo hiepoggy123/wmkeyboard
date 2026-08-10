@@ -83,13 +83,13 @@ A mode can override the emoji row's presentation, whether the symbol row shows a
 | Passwords | Emoji off, symbol row off, toolbar replaced with password generator, clipboard, settings | Password fields |
 | Email | Symbol row on (Email, Punctuation sets) | Email fields |
 | Browser | Symbol row on (Web set) | URL fields |
-| Chat | Emoji row always on, emoji/GIF/sticker/voice appended to the toolbar | WhatsApp, Instagram, Telegram, Messenger, Signal, Discord, and any text field |
+| Chat | Emoji row always on, emoji/GIF/sticker/voice appended to the toolbar | A text field in any of 15 messaging and social apps (WhatsApp, Messenger, Instagram, Telegram, Signal, Discord, Facebook, Facebook Lite, TikTok, Snapchat, Viber, LINE, KakaoTalk, WeChat, Beeper), plus any notification reply box |
 | Writing | Toolbar replaced with AI, text editing, voice, clipboard, emoji; symbol row on (Punctuation) | Keep, Docs, Samsung Notes, Word, OneNote, Obsidian, Notion, Evernote, Joplin (plus mail app bodies), and any text field |
 | Coding | Symbol row on (Coding, Math sets) | Termux, Acode, RK Editor, Spck |
 
 Passwords and Writing replace the toolbar outright instead of adding to it: nothing that opens a network-facing panel belongs next to a password box, and Writing's own pins want the bar to themselves so the global Settings shortcut doesn't ride along into a writing session. Chat appends its tools to your existing pins instead.
 
-If an existing install already had its own mode list saved before Chat and Writing shipped, both are appended automatically on upgrade, but a mode you've since deleted stays deleted, it isn't re-added.
+If an existing install already had its own mode list saved before Chat and Writing shipped, both are appended automatically on upgrade, but a mode you've since deleted stays deleted, it isn't re-added. A later round topped up the Chat mode itself the same way, adding the nine apps it didn't have yet (Facebook, Facebook Lite, TikTok, Snapchat, Viber, LINE, KakaoTalk, WeChat, Beeper) and the notification-reply field type to a stored copy. An app you'd already bound to another mode is left where it is.
 
 ### Editing a mode
 
@@ -97,9 +97,11 @@ Tap a mode in **Keyboard modes** to open its editor: a name, an icon, then **Wha
 
 ## How a mode gets picked
 
-WM Keyboard re-checks which mode should be active every time you focus a field. A field can match more than one kind at once (a password box always adds **Password**, on top of whatever else it reports), and the built-in field-type categories used here (Password, Email, URL, Number, Phone, Text) are deliberately narrower than the field-kind detection covered in [The keyboard adapts to the field](/typing/field-adaptation/). **Text** in particular means plain free-text only: a password field also reports as text-capable at the OS level, but is explicitly excluded from the Text category, so a mode bound to Text (a chat composer, a document body) can never take over a login form.
+WM Keyboard re-checks which mode should be active every time you focus a field. A field can match more than one kind at once (a password box always adds **Password**, on top of whatever else it reports), and the built-in field-type categories used here (Password, Email, URL, Number, Phone, Text, Notification replies) are deliberately narrower than the field-kind detection covered in [The keyboard adapts to the field](/typing/field-adaptation/). **Text** in particular means plain free-text only: a password field also reports as text-capable at the OS level, but is explicitly excluded from the Text category, so a mode bound to Text (a chat composer, a document body) can never take over a login form.
 
-A mode's **apps** list and **field-type** chips combine as an AND when both are set: a mode bound to an app and a field type needs both to match. Set only one and that alone is enough. Set neither and the mode never activates on its own: it shows as "Manual only (Modes tool)" in its settings-list subtitle and is only reachable by picking it yourself.
+A mode's **apps** list and **field-type** chips combine as an AND when both are set: a mode bound to an app and a field type needs both to match. Set only one and that alone is enough. Set neither and the mode never activates on its own: it shows as "Manual only, from the Modes tool" in its settings-list subtitle and is only reachable by picking it yourself.
+
+**Notification replies** is the exception to that AND. The inline reply box in the notification shade belongs to the system UI, so the package the keyboard sees there is the shell's rather than the app you're answering, and an app binding could never match it. A mode carrying that chip matches the reply box on its own, apps ignored. That's why the shipped Chat mode carries it alongside Text.
 
 When more than one mode's bindings match, the one that names a field type wins over one that only names apps, so a password box inside a coding app still gets the Passwords mode, not Coding. Beyond that, the first match in your mode list wins.
 

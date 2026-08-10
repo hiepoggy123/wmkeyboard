@@ -30,6 +30,11 @@ The screen has three groups, top to bottom: Symbol row, Row order, and Symbol se
 
 A single toggle. Its info button explains what it does: the row shows one symbol set at a time, and a chip at the row's left edge switches between whichever sets you've enabled; a keyboard mode can also pick a set automatically per app. See [The symbol row](/typing/modes/#the-symbol-row) for how the row behaves once it's on.
 
+Two things about the row have no setting behind them, so they're worth saying here rather than leaving you to look for a control that isn't there:
+
+- **Its height is a fixed 40 dp.** The number row has its own **Number row height** slider (32–100 dp, default 42 dp) on [Layout & size](/reference/settings/layout/); the symbol row doesn't, on this screen or any other.
+- **It takes itself off screen while the Symbols panel is open**, and while any panel running full-bleed has claimed the strip above the keys. A row of symbols on top of a panel of symbols is just noise. The height it gives up goes to the panel rather than shrinking the window, so nothing jumps as the panel opens or closes, and the row comes straight back when you close it.
+
 ### Row order
 
 <SettingsPath path="Rows & bars / Row order" />

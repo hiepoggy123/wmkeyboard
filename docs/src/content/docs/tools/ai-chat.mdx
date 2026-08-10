@@ -1,0 +1,96 @@
+---
+title: "AI chat"
+description: "A full back-and-forth conversation with whichever model you set up, in the settings app rather than on the keyboard."
+sidebar:
+  order: 11.5
+---
+
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import Flavor from '@components/Flavor.astro';
+
+The [AI tool](/tools/ai/) runs one-shot actions against the text in a field. Chat is the other half: a normal back-and-forth conversation with the same model, kept on your device, in the settings app rather than on the keyboard.
+
+The keyboard itself never chats. It has no room for a transcript and no reason to hold one, so the whole feature lives in the app, where a conversation gets a proper screen.
+
+## Getting there
+
+<SettingsPath path="Tools / AI writing tools / Chat with the model" />
+
+It sits in a group headed **Chat** on the AI tool's settings screen, under the reasoning and panel options. There's a faster way in too: long-press the app icon on your launcher and pick **AI chat**, which lands you on the conversation list without going through Home.
+
+<PhoneFrame caption="The conversation list, newest first, with the New chat button at the top.">
+  {/* shot: tools/ai-chat-list */}
+</PhoneFrame>
+
+The list is your saved conversations, most recently updated first. Each row is the chat's title and how long ago you touched it, with a delete button on the right that asks first and names the chat it's about to remove. **New chat** is both a button at the top of the list and a plus in the top bar.
+
+Nothing saved yet? You skip the empty list entirely and land in a new chat, because an empty list with one button on it isn't worth a screen. A chat is only written down on your first send, so opening one and backing straight out leaves no row behind.
+
+Titles aren't something you type. The first line of your first message becomes the title, cut to 48 characters on a word boundary.
+
+## Picking the model
+
+A scrolling row of chips above the transcript lists everything you can actually talk to right now: models you've downloaded on-device first, then every provider you've configured. "Configured" just means the thing it needs is filled in, an API key for the cloud services, an address for Ollama or LM Studio, both an address and a model name for **Other service**. With fewer than two to choose from the row doesn't appear at all.
+
+<PhoneFrame caption="Model chips over a conversation, with an answer streaming in.">
+  {/* shot: tools/ai-chat-conversation */}
+</PhoneFrame>
+
+Two things worth knowing about that row:
+
+- **It doesn't touch the keyboard's own setting.** Chatting to Gemini while the AI tool is set to Claude leaves the tool on Claude. The chip is the chat's choice and nothing else reads it.
+- **It's frozen while an answer is coming in.** The chips grey out until the answer lands or you stop it, since swapping models halfway through a reply has no sensible meaning.
+
+Your pick is remembered for next time, and each conversation also remembers the last model that answered in it.
+
+## Sending, stopping, retrying
+
+Type in the box and hit send. While the answer streams, the send button becomes **Stop**.
+
+- **Stop** keeps what arrived. The partial answer stays in the transcript, labelled "Stopped", rather than vanishing as if you'd never asked. On an on-device model the generation is a native call that can't actually be interrupted, so it finishes quietly in the background and the model's own memory of the conversation is kept in step with what you can see.
+- **A failed turn** shows the error in its own bubble with a **Retry** button. Only the newest failed message gets one, because retrying something from the middle of a transcript would answer out of order. Retry re-sends the message the failure was answering, so nothing is duplicated.
+- **Leaving doesn't cancel anything.** Navigate away mid-answer and the generation carries on. Come back and it's either still streaming or already in the transcript.
+
+Reasoning models follow the same **Show model reasoning** setting the keyboard panel uses. With it on, the raw stream renders with the thinking part dimmed. With it off, you get a "Reasoning…" line until real answer text starts arriving.
+
+An on-device model gets a live session per conversation, seeded with the saved transcript, so it keeps the context of what you've already said. Switching conversation, model, [compute backend or context size](/tools/ai/#local-models) closes that session and opens a fresh one, seeded the same way.
+
+## Nothing set up yet
+
+With no downloaded model and no configured provider, the chat screen says **Nothing to chat with yet** and offers one button back to the AI tool settings. That's the same setup you'd do for the keyboard panel: see [Choosing where it runs](/tools/ai/#choosing-where-it-runs).
+
+On-device models are <Flavor edition="full" />, so on a Lite build chat only works once you've configured a cloud or self-hosted provider. See [Full vs Lite](/start/editions/) if you're not sure which one you have.
+
+## What's kept, and where
+
+Conversations live in one file in the app's private storage, in the same folder as the [AI history](/tools/ai/#history). It shows up as **AI chats** on the storage screen under <SettingsPath path="About / Storage" />, so you can at least see what it costs you; see [Your data](/privacy/data/) for what else is in there.
+
+Three caps keep the file from growing without limit:
+
+| What | Cap | What happens past it |
+|---|---|---|
+| Conversations | 50 | The one you touched longest ago drops off |
+| Messages per conversation | 200 | The oldest messages drop off the front |
+| Characters per message | 20,000 | The rest is cut |
+
+Deleting a conversation from the list removes it for good; there's no undo, which is why the dialog names the chat first.
+
+## What leaves your phone
+
+Exactly what the AI tool sends, and only when you hit send:
+
+- **An on-device model** sends nothing. The whole conversation stays on the phone.
+- **Any other provider** gets the conversation so far, since that's what makes a reply follow on from the last one, along with a fixed instruction to answer in plain text and keep it as short as the question allows. Your API keys stay on the device.
+- **The transcript itself** goes nowhere. It's deliberately left out of settings backups, the same as the [AI history](/tools/ai/#history) and for the same reason: your own conversations shouldn't ride along in a file you export and mail to yourself. See [Your data](/privacy/data/).
+
+## Details & edge cases
+
+- **Max response length applies here too.** For a cloud or self-hosted model, the AI tool's ceiling bounds a chat reply the same way it bounds a panel result, reasoning-model multiplier included. See [About "Provider maximum"](/tools/ai/#about-provider-maximum). On-device, the **Context size** row is what bounds it, exactly as on the panel.
+- **The chat prompt isn't one of your actions.** The panel's [action prompts](/tools/ai/#your-own-actions) are for transforming text in a field, which is a different job. Chat has its own fixed prompt and nothing on this screen edits it.
+- **Nothing here is written to the AI history.** That log records panel runs. A conversation is only in the chat file.
+- **The launcher shortcut is one of seven.** Long-pressing the app icon can drop you into Typing, Appearance, Themes, Languages, Tools, Search, or this. See [Deep links & launcher shortcuts](/reference/deep-links/).
+- **Deleting a chat mid-answer is handled.** If a generation finishes for a conversation you've already deleted, the answer is dropped rather than resurrecting the row.
+- **Reasoning is stripped from what's saved.** Only the answer lands in the transcript, the same way the keyboard panel only commits the answer.
+
+Related: [AI tools](/tools/ai/) covers the providers, the on-device model catalog, the panel's actions, and the history.

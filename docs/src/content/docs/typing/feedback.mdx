@@ -46,6 +46,10 @@ Custom exposes two sliders: **Haptic strength** (5–60&nbsp;ms, vibration lengt
 
 Two more toggles cover the edges of a long press: **Long-press haptics** (on by default) buzzes the moment a long press registers (the alternate-character popup opening, or a long-press action firing), so your finger knows it can let go. **Long-press release haptics** (off by default) adds a second buzz when you lift your finger afterward; it's off because a third vibration in one gesture (press, long-press, release) reads as excessive to a lot of people.
 
+### What the setup wizard picks
+
+Tap is the app's own default, but it may well not be the style you find selected after a first run, and that isn't a bug. The setup wizard asks the vibration motor once, at the top of a fresh install, and writes whichever style the device can actually play: **Key** on a phone whose motor supports the predefined click effects, and **Heavy** where it reports them unsupported or where the phone is older than Android 11 and support can't be read at all. It only ever happens on a genuine first run, never on a replay of the wizard, so it can't overwrite a choice you've already made. If you wanted Tap, pick it from the chips; nothing will move it back afterwards.
+
 ### Per-event vibration
 
 Four more toggles, visible only while Key press haptics is on, let you keep the buzz everywhere except one specific event, rather than trading it all for silence:
@@ -147,7 +151,7 @@ It isn't part of the recommended onboarding set, so depending on what you picked
 | Setting | Default |
 | --- | --- |
 | Key press haptics | On |
-| Haptic style | Key |
+| Haptic style | Tap (but see [what the wizard writes](#what-the-setup-wizard-picks)) |
 | Haptic strength (Custom only) | 15 ms |
 | Haptic intensity (Custom, Sharp) | 255 |
 | Long-press haptics | On |

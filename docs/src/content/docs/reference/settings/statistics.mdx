@@ -1,0 +1,81 @@
+---
+title: "Statistics"
+description: "The typing counts screen: what gets counted, the charts, when counting pauses, and how to delete the lot."
+sidebar:
+  order: 21
+---
+
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+
+<SettingsPath path="About / Statistics" />
+
+**Statistics** is the running tally of how much you type: characters, words, backspaces, time spent typing, and a speed figure worked out from those. It's counted on the device and stored on the device, and nothing you actually typed is kept, only the totals.
+
+<PhoneFrame caption="Statistics: the all-time tiles, the history chart with its period and metric chips, and the hour-of-day chart.">
+  {/* shot: reference/settings/statistics-screen */}
+</PhoneFrame>
+
+There's a second way in. <SettingsPath path="About / Storage / Typing statistics" /> is the storage row that owns these files, and **Open the settings for this** at the bottom of it lands you on the same screen.
+
+## What counts as typing
+
+A keystroke counts when its text reaches your text field. Soft keys, a physical keyboard, braille and morse all take the same path, so they all count. A word you pick off the suggestion strip or draw with a glide counts as a word, but adds no characters and no time, since counting the characters you didn't type would make the speed figure a fiction.
+
+Insertions aren't typing and are left out on purpose: voice input, handwriting, and anything a panel puts in the field (emoji, a clipboard entry, a translation). Backspaces are counted separately and never subtract, because the statistic is work done rather than text that survived; a word-delete swipe counts as one backspace.
+
+Time is measured in bursts. The gap between two keystrokes joins your typing time only when it's **5 seconds or shorter**; anything longer is you thinking, switching apps, or putting the phone down, and it adds nothing. Speed is then the usual arithmetic: characters ÷ 5, over the minutes of typing time.
+
+What lands on disk is only ever aggregate: one bucket per calendar day, the lifetime sums, and a lifetime hour-of-day histogram. No text, no per-app split, no timestamp finer than the day. Day buckets are kept for **370 days** counted back from the newest day recorded, and pruning them costs you nothing at the top of the screen, because the all-time totals are stored separately.
+
+## Reading the screen
+
+**All time** is five tiles, three to a row: Characters, Words, Average speed, Time typing, and Backspaces. Average speed shows a dash until there's at least **30 seconds** of recorded typing time behind it, below which a words-per-minute number is noise rather than a measurement.
+
+**History** is a chart with two rows of chips. The first picks the window (**Days**, the last 14; **Weeks**, the last 12; **Months**, the last 12) and the second picks what's plotted (**Words**, **Characters** or **Speed**). Words and Characters draw bars, Speed draws a line over a light grid. Quiet buckets still get a tick so the axis reads as a run of days rather than a chart full of holes. Under the chart, one row per bucket that has something in it, newest first: the date, "N words · N characters", and the bucket's speed on the right when there was enough typing time to have one.
+
+**When you type** is the 24-hour histogram, with your busiest hour named underneath in your own time format. It only appears once at least one hour has something in it.
+
+Both charts are hidden from screen readers on purpose. Every number they draw is restated in the rows and captions around them, so nothing is only available as a picture.
+
+## When counting pauses
+
+Three switches can stop the counting, and any one of them is enough:
+
+| Setting | Where | Default |
+|---|---|---|
+| Count typing statistics | <SettingsPath path="About / Statistics" /> | On |
+| Pause learning | <SettingsPath path="Tools / Incognito" /> | On |
+| Typing statistics | <SettingsPath path="Tools / Power saving" /> | Off |
+
+**Pause learning** is the incognito one, and it does what its name says for statistics too: with incognito on and that switch on (which is how it ships), nothing you type in an incognito session is counted. Turn the switch off and incognito stops mattering here.
+
+**Typing statistics** under Power saving is off by default, so power saving doesn't touch your counts unless you ask it to. When you do, it suppresses counting for as long as power saving is running without changing the setting on this screen, which is waiting for you when it stops.
+
+A pause is a real pause, not a gap that gets filled in afterwards. Counting coming back on forgets the previous keystroke's timing, so the stretch you weren't counted through can never land in your typing time, not even when it was shorter than the five-second burst gap.
+
+## Deleting what's been counted
+
+**Delete all statistics** sits at the bottom, and asks first: "This deletes every count and average. You cannot get them back." It's greyed out while there's nothing counted yet. Switching the counting off doesn't hide what's already there, so the tiles, the charts and a working delete button all stay put.
+
+The same data can also go from <SettingsPath path="About / Storage / Typing statistics" />, and it's an ordinary section in [Backup & restore](/reference/settings/backup/) (listed there as **Typing statistics**), so you can include or leave out your counts when you export.
+
+## Options
+
+<SettingsPath path="About / Statistics" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Count typing statistics | Toggle | **On** |
+
+The row carries an info button repeating the privacy terms: the counts stay on your device, nothing you type is saved, nothing leaves the device, and counting pauses while incognito pauses learning. Turn it off and the screen keeps whatever it already has, with "Statistics are off. Turn them on to start counting." underneath. It's a normal settings row, so it has the restore control described in [Putting one setting back](/reference/settings/#putting-one-setting-back).
+
+## Details & edge cases
+
+- **Words are counted off the keystroke stream, not off the word the field ends up with.** A letter or digit arms a word and the next separator counts it, which works the same for scripts that compose as they go and scripts that commit each letter. Finishing a half-typed word by tapping a suggestion counts it once, not twice.
+- **A word committed by a suggestion or a glide adds no characters and no time.** Only the word tally moves, which keeps your average speed honest.
+- **The settings screen only ever reads the file.** It never saves, so opening Statistics can't race the keyboard into losing counts. Deleting works the other way round: the file is emptied, then a counter is bumped that tells the keyboard to drop its in-memory copy instead of writing the old numbers back over your deletion.
+- **A fresh install starts from zero**, and the counts live in the app's own storage, so uninstalling takes them with it. A backup that includes the statistics section is the only thing that carries them to a new phone.
+- **Nothing here is edition-gated.** Counting, the charts and the delete action work identically on full and lite builds.
+
+See [Privacy at a glance](/privacy/overview/) for what does and doesn't leave the device, [Incognito & secure fields](/privacy/incognito/) for exactly when the pause kicks in, and [About & diagnostics](/reference/settings/about/) for the rest of the About tree.

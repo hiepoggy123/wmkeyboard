@@ -1,0 +1,99 @@
+---
+title: "Theme families and looks"
+description: "One theme, several looks: family cards with swatch dots, the Grouped and Separate gallery styles, and building a family of your own."
+sidebar:
+  label: "Families & looks"
+  order: 1.5
+---
+
+import SettingsPath from '@components/SettingsPath.astro';
+
+A theme can carry more than one **look**. The dark colourways are really one design in seven colours, Catppuccin is four flavours of the same palette, Solarized is a light half and a dark half. Rather than spilling those across the gallery as unrelated cards, they group into one **family**: one card, one preview, and a row of dots under it, one per look.
+
+Each look is still a whole theme underneath. It has its own complete set of colours and its own id, so anything that names a theme can name one specific look.
+
+## Family cards in the gallery
+
+<SettingsPath path="Appearance / Keyboard themes" />
+
+A family card shows the family's name as its title, the name of the look it's currently showing underneath that, and a dot per look beneath the preview. Each dot is painted with that look's board (its gradient if it has one, its plain board colour otherwise) with the accent as a small core, so two colourways with the same board still tell apart.
+
+Tapping a dot does two things at once: the card turns its preview to that look, and the keyboard switches to it. There's no second screen to open, which is the point of putting the dots on the card.
+
+The rest of the card behaves the way a single-theme card does, with one wrinkle each:
+
+- **The pencil** on a built-in family asks **Make a copy** first, offering **Only this look** or **All looks**. On a family of your own it just opens the editor, on the look the card is showing.
+- **Export** saves the whole family as one file while the gallery is grouped, and the single look the card shows while it's separate.
+- **Delete** goes by the card, not by the look showing on it. A grouped family card deletes the whole family. To drop one look, either switch the gallery to Separate and delete that look's own card, or use the bin beside the Looks chips in the editor. The one card that still takes the whole family with it is the first look's, since that's the theme the others hang off.
+- **The pin** (built-ins only) is per look, not per family, because the keyboard's Themes tool lists looks.
+
+## Grouped or separate
+
+<SettingsPath path="Appearance / Keyboard themes / Theme gallery style" />
+
+The dots aren't compulsory. A three-way control above the grid decides how a multi-look theme is drawn:
+
+| Choice | What the grid does |
+|---|---|
+| **Auto** *(default)* | Follows the answer you gave the setup wizard |
+| **Grouped** | A theme with more than one look is one card with a dot per look |
+| **Separate** | Every look of every theme is its own card |
+
+**Auto** reads the "how much do you want to tweak" question from the setup wizard: "keep it simple" gets the separate list, and every other answer, including never having answered at all, gets the grouped cards. So an install from before families existed picks a side on its own, and an explicit Grouped or Separate always wins over the guess. A caption above the control tells you which way it's currently resolving.
+
+It makes a real difference to how far the built-in section scrolls. Twenty-two of the 28 built-in themes belong to a family, so grouped they fit into eleven cards.
+
+## The built-in families
+
+The card title is the family's name, which isn't always the name of the look heading it: the dark colourways card reads **Nightfall**, not Ocean.
+
+| Family | Looks |
+|---|---|
+| Nightfall | Ocean, Forest, Sunset, Berry, Crimson, Slate, Pitch black |
+| Pastel | Snow, Mint, Rose, Sand, Glacier |
+| Gradients | Deep sea, Sunset drift, Aurora, Nebula |
+| Solarized | Solarized Dark, Solarized Light |
+| Catppuccin | Catppuccin Mocha, Catppuccin Latte, Catppuccin Frappé, Catppuccin Macchiato |
+
+Bubble, Facet, Dracula, Nord, Tokyo Night and Cyberpunk stand alone, so they draw as ordinary single cards either way.
+
+Switch the gallery to Separate and those family names disappear with the cards: every look goes back to its own name, which is the name it has always had and the one an export writes.
+
+## Building a family of your own
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Looks" />
+
+Every custom theme starts as one look, and the editor's **Looks** row (right under the live preview) is where you add more:
+
+- **Add look** copies the look you have open into a new one and switches the editor to it, so the second look starts from the first rather than from nothing. It stops at twelve extras, thirteen looks in all.
+- **The chips** switch which look the whole editor below is editing. The colours, the shape, the background, all of it belongs to the open look.
+- **Group name** appears once there are two looks. That's the title the gallery card shows over the dots. Leave it empty and the card falls back to the first look's own name.
+- **The bin icon** beside the chips deletes the look you have open, and only shows while that isn't the first one.
+
+Looks don't nest. A look can't have looks of its own, and anything that would create one (a hand-edited file, an import) has the nesting stripped on the way in.
+
+## What a look's id buys you
+
+Because every look keeps its own id rather than being an index into a family, a look is addressable everywhere a theme is:
+
+- **Auto theme's** light and dark slots each name one look. The picker lists them flat with the family's name as a heading above its members, so you can put Solarized Light in one slot and Solarized Dark in the other.
+- **The Themes tool's** pin list holds look ids, so you can pin Aurora without pinning the rest of the gradient family.
+- **Per-mode themes** name a look the same way.
+
+The ids didn't change when families landed, either. Every built-in id that ever shipped still resolves, so a selection, a pin or an auto-theme slot set before the grouping still points at the same colours.
+
+## Details & edge cases
+
+- **A built-in family's label is translated; yours is typed.** Built-in family names come from string resources so they localise, which is why there's no Group name field on a built-in. Your own families carry the text you typed in that field, exported verbatim.
+- **A separate card exports a look on its own.** The export strips the variants and the group name, so what the other person imports is one theme, not the family minus a few looks.
+- **Importing a family mints fresh ids for every look.** The ids inside the file are discarded (the head gets a new one and each look is reminted off it), so importing the same family twice gives you two independent families rather than one overwritten one.
+- **Older builds see the head look only.** The looks live in a key an older importer doesn't know, so a family imported into a build from before this shipped comes in as the first look alone rather than failing.
+- **A FlorisBoard theme with a day and a night version arrives as one theme with two looks.** See [Importing other keyboards](/reference/importing-other-keyboards/).
+- **Image files are shared between looks, not copied.** Add look points the new look at the same background file, and a file is only deleted once nothing in the theme still points at it.
+
+## Related pages
+
+- [Theming overview](/themes/overview/) for the gallery, Mode, Material You and Auto theme
+- [Theme editor](/themes/editor/) for everything below the Looks row
+- [Sharing themes](/themes/sharing/) for exporting and importing
+- [Keyboard themes reference](/reference/settings/themes/) for the field-by-field tables

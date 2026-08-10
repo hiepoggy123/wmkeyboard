@@ -127,9 +127,23 @@ When Emoji row is set to **Own row**, a caption on this screen points to **Rows 
 | Setting | Control | Options / range | Default |
 |---|---|---|---|
 | Emoji font | Choice | System / Google / Installed / Custom | System |
+| Get the newest emoji *(only while there's something to download)* | Card with a Download button | — | — |
+| Download more | Opens the addon catalogue, filtered to emoji fonts | — | — |
 | Hide emoji this phone can't display | Toggle | — | Off |
 
 **Emoji font** decides which font draws emoji on the keyboard itself: WM Keyboard ships no emoji font of its own. A live preview row (😀😂🥰😎🤔👍❤️🎉) rendered through the real shaping pipeline shows exactly what the panel will draw. **System** uses your phone's own emoji pack; **Google** fetches Noto Color Emoji once through the system font provider and caches it; **Installed** picks from an emoji font installed via [Addons](/addons/installing/); **Custom** uses a single font file you import via a document picker. Text you send stays plain Unicode regardless of the choice: other apps and phones draw it with their own emoji font.
+
+**Get the newest emoji** is a card rather than a row, sitting just under the font choice and its preview, and it's the one-tap route to emoji your phone is too old to draw. Tap **Download** and it fetches the current Noto Color Emoji (around 10 MB) from WM Keyboard's addon repository, installs it into the font library, and switches **Emoji font** to **Installed** pointed at it. The **Google** choice above can't do that job: a downloadable font is asked for by family name with no version in the request, so the system font provider serves whichever build it happens to have, which on a phone with a recent system emoji font is the older of the two.
+
+The card only shows when there's something to do:
+
+- Nothing in your font library yet: **Get the newest emoji**, with a **Download** button.
+- A newer build published since you installed yours: **New emoji are available**, naming the version, with an **Update** button.
+- Otherwise it isn't on the screen at all.
+
+While the download runs the button becomes a progress bar, and a failure leaves the card in place with the reason and a **Retry** button. It's the same file that's published as an emoji-font addon, so this shortcut and the catalogue install the same font.
+
+**Download more** opens the addon catalogue filtered to emoji fonts, for faces like Twemoji or OpenMoji from whichever repositories you've added. See [Installing addons](/addons/installing/).
 
 **Hide emoji this phone can't display**, off by default, hides an emoji from the panel, search, and suggestions only when *neither* the chosen font *nor* the phone's own system font can draw it: an emoji missing from just the chosen font is instead silently drawn in the phone's system font, in a different style.
 
@@ -148,8 +162,11 @@ Reached from the **Emoji keywords** row in the Emoji panel group above, this sub
 | Setting | Control | Options / range | Default |
 |---|---|---|---|
 | Download automatically | Toggle | — | On |
+| Download more | Opens the addon catalogue, filtered to emoji keywords | — | — |
 
 **Download automatically** fetches a keyword pack (roughly 100 KB) in the background the first time you enable a language you type in. Off leaves it to the Download button next to each language below.
+
+**Download more** sits in the same group and opens the addon catalogue filtered to emoji keyword packs, which is where a pack lives if it isn't one of the 125 the data repository carries.
 
 Below that, one group appears per language you've enabled (plus any language that already has a downloaded or imported pack, even if you've since turned it off). Each group shows:
 

@@ -19,7 +19,7 @@ This page covers the strip itself: its layout, the completion/correction/predict
 
 ## What's on the strip
 
-Word candidates fill up to three slots. By default the strongest candidate (the one autocorrect would pick) sits in the center with the runner-up to its left, the layout most keyboards use; turning off **Best suggestion in the middle** (see [Options](#options)) ranks all three left to right instead.
+Word candidates fill up to three slots, or as few as two and as many as six if you move **Number of suggestions** (see [Options](#options)). By default the strongest candidate (the one autocorrect would pick) sits in the centre with the runner-up to its left, the layout most keyboards use; turning off **Best suggestion in the middle** ranks them all left to right instead.
 
 Slots are equal width, so a long word gets no more room than a short one. Rather than cut it off, the strip shrinks it to fit: the point size drops first, down to about two thirds of normal, and past that the letters themselves narrow a little. Most words that would once have read "internationali…" now fit whole, just set smaller and tighter. Nothing is configurable here, and short words are never scaled — a word that already fits is drawn at full size.
 
@@ -29,7 +29,7 @@ Up to four predicted emoji can ride after the word chips (see [Emoji in the stri
   {/* shot: smart/suggestion-strip-emoji-tail */}
 </PhoneFrame>
 
-The strip isn't a fixed area. It's the same row the toolbar uses, and several other features can claim it instead of word candidates: a [smart chip](/smart/chips/) (calculator, currency, unit conversion) takes the full row when it has an answer, [autofill chips](/smart/autofill/) take it over completely on a login field, the system's [smart replies](/smart/autofill/#smart-replies) take the row when nothing is typed and ride the tail once you start typing, a "paste your last copy" or one-time-code chip can appear from the [clipboard tool](/tools/clipboard/), and typing `:` turns the row into [inline emoji search](/emoji/customization/#inline-emoji-search-and-shortcodes) instead of word candidates. Any of these counts as "the strip has something to show," so the row rests on suggestions rather than falling back to the toolbar. **Suggestions bar always visible** (see [Options](#options)) keeps the strip as the resting view even before any of them has anything to offer.
+The strip isn't a fixed area. It's the same row the toolbar uses, and several other features can claim it instead of word candidates: a [smart chip](/smart/chips/) (calculator, currency, unit conversion) takes the full row when it has an answer, [autofill chips](/smart/autofill/) take it over completely on a login field, the system's [smart replies](/smart/autofill/#smart-replies) take the row when nothing is typed and ride the tail once you start typing, a "paste your last copy" or one-time-code chip can appear from the [clipboard tool](/tools/clipboard/), and typing `:` turns the row into [inline emoji search](/emoji/customization/#inline-emoji-search-and-shortcodes) instead of word candidates. Any of these counts as "the strip has something to show," so the row rests on suggestions rather than falling back to the toolbar. **Suggestion strip always visible** (see [Options](#options)) keeps the strip as the resting view even before any of them has anything to offer.
 
 ## Completions, corrections, and predictions
 
@@ -86,7 +86,7 @@ Matching emoji append to the end of the word candidates once you finish typing a
 Every word you commit and every pair of words you type back to back feeds a private, on-device vocabulary that both the completion ranking above and next-word prediction draw from. How strongly a word is taught depends on how deliberately you typed it: tapping a suggestion from the strip teaches harder than a word that was merely typed and committed, and a word autocorrect chose *for* you earns no credit at all, only the word pair around it. This grading, along with adding, removing, and clearing what's been learned, is covered in full on the [Personal dictionary](/smart/personal-dictionary/) page. This page is only about what that learning does to ranking: a learned word carries a &times;500 weight (see the table [above](#completions-corrections-and-predictions)), so it competes with genuinely common dictionary words in the strip almost immediately rather than needing to be typed dozens of times first.
 
 :::note
-If you type in more than one language, the keyboard separately tracks which secondary language you actually reach for and how often, decaying older commits geometrically so the weighting follows your recent habit rather than your whole history. That's the 0.5&times;&ndash;2&times; scaling factor on secondary dictionaries in the table above: a deeper multi-language topic than this page covers, and not tied to word-level personal-dictionary learning.
+If you type in more than one language, the keyboard separately tracks which secondary language you actually reach for and how often, decaying older commits geometrically so the weighting follows your recent habit rather than your whole history. That's the 0.5&times;&ndash;2&times; scaling factor on secondary dictionaries in the table above: a deeper multi-language topic than this page covers, and not tied to word-level personal-dictionary learning. A second, much faster signal reads the language of the field you're in right now and leans ranking toward it; that one has its own page, [Mixed-language typing](/smart/mixed-language/).
 :::
 
 ## Removing an unwanted suggestion
@@ -104,16 +104,23 @@ There's no long-press gesture on a suggestion chip itself. Every chip in the str
 | --- | --- |
 | Suggestions | On |
 | Punctuation suggestions | Off |
+| Number of suggestions | 3 (range 2&ndash;6) |
 | Suggestions in every field | On |
-| Suggestions bar always visible | Off |
+| Suggestion strip always visible | Off |
 | Best suggestion in the middle | On |
 | Space after a suggestion | On |
 | Block offensive words | On |
+| Context-aware suggestions | On |
+| Adapt to app tone | Off |
 | Suggestion blacklist | Empty |
 
-**Suggestions** is the master switch for the whole strip described on this page: turning it off also stops corrections from surfacing as candidates and stops next-word prediction, though [autocorrect](/smart/autocorrect/) itself is a separate toggle and keeps working. **Suggestions in every field** overrides the handful of apps that ask the keyboard to hide suggestions on an ordinary text field; password fields and structured keypads (number, phone, and similar) never show suggestions regardless of this setting. **Space after a suggestion** adds a trailing space when you tap a candidate, the same as finishing a word yourself would.
+**Suggestions** is the master switch for the whole strip described on this page: turning it off also stops corrections from surfacing as candidates and stops next-word prediction, though [autocorrect](/smart/autocorrect/) itself is a separate toggle and keeps working. **Number of suggestions** is how many word slots the strip splits itself into: three suits a phone, and a tablet or a landscape screen has the room for more, at the cost of each candidate getting narrower. **Suggestions in every field** overrides the handful of apps that ask the keyboard to hide suggestions on an ordinary text field; password fields and structured keypads (number, phone, and similar) never show suggestions regardless of this setting. **Space after a suggestion** adds a trailing space when you tap a candidate, the same as finishing a word yourself would.
 
-**Block offensive words**, listed under <SettingsPath path="Typing / Automatic corrections / Block offensive words" /> and only visible while autocorrect is on, uses the same filtering mechanism as the [suggestion blacklist](/smart/blacklist/) to keep a bundled list of profanity and slurs out of the strip, not just out of autocorrect.
+Three of the rows above aren't in the Suggestions group at all. They live under <SettingsPath path="Typing / Automatic corrections" />, and they're listed here because what they actually do is change the strip:
+
+- **Block offensive words** (on, and only visible while autocorrect is on) uses the same filtering mechanism as the [suggestion blacklist](/smart/blacklist/) to keep a bundled list of profanity and slurs out of the strip, not just out of autocorrect.
+- **Context-aware suggestions** (on, also only visible while autocorrect is on) reorders the top few candidates using the words you typed before them: your own learned word pairs, common English pairs, and words already used in this conversation. It only reorders when there's real evidence to reorder on, so an unfamiliar context keeps the usual order, and it never changes which word autocorrect would apply.
+- **Adapt to app tone** (off, and visible whatever autocorrect is set to) tilts ranking by where you're typing. Chat-speak like "lol" and "gonna" ranks a little higher in messaging apps and a little lower in email apps and email fields. It's ranking only: no word is ever hidden or blocked, and autocorrect doesn't change.
 
 A physical keyboard can also pick a strip candidate by number without touching the screen (see [Hardware keyboard](/typing/hardware-keyboard/) for how that's bound).
 

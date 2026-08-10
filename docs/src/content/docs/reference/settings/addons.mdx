@@ -52,7 +52,7 @@ For types with an obvious slot to fill, finishing an install shows a prompt aski
 
 | Type | Max size | Preview button | "Use" opens |
 |---|---|---|---|
-| Theme | 4 MB | No | Themes |
+| Theme | 16 MB | No | Themes |
 | Layout | 4 MB | No | Languages → Your layouts |
 | Dictionary | 32 MB | Yes | Custom dictionaries |
 | Emoji keywords | 8 MB | Yes | Emoji keywords |
@@ -62,7 +62,10 @@ For types with an obvious slot to fill, finishing an install shows a prompt aski
 | Font | 32 MB | No | Fonts → Installed fonts |
 | Emoji font | 32 MB | No | Emoji → Emoji font |
 | Sound | 4 MB | Yes | Key press → Sound style |
+| Sound pack | 16 MB | Yes | Key press → Sound pack |
 | Plugin | 1 MB | Yes (capabilities only) | Plugins → Allow plugins |
+
+**Sound** and **Sound pack** are two different types. A sound is one recording the whole keyboard uses; a pack is a set of them, one keyboard's worth of individually recorded keys, which is why it gets four times the size budget (each recording inside it is still held to the same 4 MB a lone sound gets). Both offer a preview, and both land in Key press, just in different rows.
 
 A repository manifest can declare an "Unknown" type too, but the app filters those entries out before they're ever shown, since it's a defensive fallback and not something you'll see as an installable card. See [Deep links](/reference/deep-links/#opening-addon-links) for the `wmkeyboard://addons`, `wmkeyboard://repo` and `wmkeyboard://addon` links that can open any of these screens directly; none of them install or add a repository on their own.
 
@@ -129,6 +132,6 @@ Unlike most of this app's settings, **Allow plugins** is stored in the plugin su
 - **Settings search doesn't reach most of this tree.** The top-level "Addons" entry is indexed, along with "Plugins", "Allow plugins", "Manage plugins" and "Install from a file" under Tools › Plugins, and "Stickers", "Sticker packs", "New pack" and "Import a pack" under Tools › Stickers (plus a second "Sticker packs" entry under Backup). The catalogue, an addon's own detail page, and a plugin's own detail page have no search entry, so you always reach them by tapping through, not by typing their name into settings search.
 - **The per-plugin Enabled switch is separate from the subsystem-wide Allow plugins switch.** Turning off Allow plugins hides the whole Plugins panel; turning off one plugin's Enabled switch (by hand, or automatically after two failures) only hides that plugin, leaving the rest running.
 - **A plugin is the one addon type that must carry a checksum.** Every other type's `sha256` is optional and only checked when present; a plugin manifest entry without one is refused outright, because it's the only type that runs code rather than just being read.
-- **No edition differences.** Nothing in the Addons, sticker-pack, or plugin screens, or the caps above, is gated to the full or lite build; both editions install and run the same eleven addon types.
+- **No edition differences.** Nothing in the Addons, sticker-pack, or plugin screens, or the caps above, is gated to the full or lite build; both editions install and run the same twelve addon types.
 
 See [What are addons?](/addons/overview/) for the trust model behind repositories, [Installing addons](/addons/installing/) and [Updates & management](/addons/managing/) for the install and update flow in narrative form, and [WM Keyboard plugins](/plugins/overview/) with [Plugin permissions](/plugins/permissions/) and [Plugin security](/plugins/security/) for what a plugin can build and what stops it from doing anything else.

@@ -46,6 +46,14 @@ The first code it decodes freezes into a result card with **Copy**, **Insert**, 
 
 ## Options
 
+All three scanners have their own settings screen, and all three start with the same header rows before anything tool-specific:
+
+- **Enabled** — Text scan is in the "recommended" and "show me everything" starter sets that setup lands, so it arrives on unless you picked the simplest answer. QR & barcode and Document scanner are in no starter set at all, so both begin switched off and you turn them on here.
+- **Icon colour** — only shown while [colorful tool icons](/reference/settings/tools/) is on globally (it is by default). Text scan is green, QR & barcode teal, Document scanner a light blue.
+- **Trigger words** — under a **Keyword shortcut** heading: `ocr` for Text scan, `scan` for QR & barcode, `docscan` for Document scanner. Type one of them on its own and the suggestion strip offers to open that tool. Commas separate several words, and an empty field means the tool never offers itself.
+- **Match capitals** — off by default on all three, so a trigger word matches however you capitalise it. Turn it on and only the exact spelling counts.
+- **Reset to defaults** — joins the group once you've edited that tool's trigger words, and puts them back.
+
 <SettingsPath path="Tools / QR & barcode scanner / Options" />
 
 - **Insert automatically** — off by default. When on, the scanned code's text types into your field the instant it's spotted, with no confirm tap.
@@ -76,7 +84,7 @@ Once you're back in your app, each captured page is inserted exactly like a Came
 
 - **Camera permission** works differently across the three tools. OCR and QR/barcode check for camera permission themselves and, if it's not granted, show an **Allow camera** prompt that opens a brief system dialog and returns you to the panel. The document scanner doesn't go through that prompt at all; Google's scanner activity manages its own camera permission internally.
 - None of the three scanners work before you've unlocked your device once after a restart (no direct-boot support), unlike some other tools that do work at the lock screen.
-- Typing `ocr`, `scan`, or `docscan` as a standalone word can surface a smart-suggestion chip that jumps straight into the matching tool.
+- The trigger words in [Options](#options) are what make a standalone `ocr`, `scan` or `docscan` surface a chip into the matching tool. [Smart chips](/smart/chips/) covers that mechanism in full.
 - Open any of the three from Settings → **Tools** → **Scanners**, or by typing its keyword as described above.
 
 ## Why full only

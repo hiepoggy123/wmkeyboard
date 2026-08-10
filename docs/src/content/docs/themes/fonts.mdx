@@ -16,7 +16,9 @@ The keyboard doesn't have to draw its key labels in the system font. Pick from d
 
 ## Choosing a Google Font
 
-Every picker is a scrollable list of `SettingsGroup` rows, and every row renders its own label live in the face it names: nothing to imagine from a font name alone. Fonts are fetched once through the Google Play Services downloadable-fonts provider and cached on-device after that; if Play Services is missing or the device is offline, the row simply falls back to the system default instead of failing loudly.
+Every picker is a scrollable list of `SettingsGroup` rows, and every row renders its own label live in the face it names: nothing to imagine from a font name alone. Fonts are fetched once through the Google Play Services downloadable-fonts provider and cached on-device after that, so the second time you pick one there's no download at all.
+
+On a device with no Play Services (a de-Googled ROM, most commonly), the Google Font rows don't appear at all. Picking one there would resolve to the system face and change nothing on screen, so instead of a list of rows that all look identical, you get one paragraph at the top of the screen saying Play Services supplies those fonts and the lists below hold the system font, your imports and anything you installed from the store. The theme editor's own font picker drops its Google list on the same devices, for the same reason.
 
 - **English** gets 20 curated faces: Roboto, Inter, Open Sans, Lato, Montserrat, Poppins, Nunito, Rubik, Ubuntu, Source Sans 3, Merriweather, Lora, Playfair Display, Roboto Slab, Roboto Mono, JetBrains Mono, Comfortaa, Pacifico, Caveat, and Orbitron. This same picker also draws Cyrillic and Greek keys, since neither script has one of its own.
 - **Bengali** gets 9 faces: Hind Siliguri, Noto Sans Bengali, Noto Serif Bengali, Anek Bangla, Baloo Da 2, Tiro Bangla, Atma, Mina, and Galada, shown only while a Bengali-script language is enabled.
@@ -79,7 +81,8 @@ A related but separate control: <SettingsPath path="Accessibility / Readable fon
 ## Details & edge cases
 
 - Fonts apply to key labels, the suggestion strip, and the keyboard's own panels, but not to the text you type, which always commits as plain Unicode and renders with whatever font the receiving app and device use.
-- If Google Play Services isn't installed or the device is offline the first time a Google Font is needed, that row quietly renders in the system font instead of erroring; it downloads normally as soon as the provider is reachable.
+- No Play Services means no Google Font rows: they're removed from every picker rather than left there resolving to the system face, and a short paragraph at the top of the screen says why. The system font, your imported files and the font library are all the app's own, so those stay.
+- With the provider present but the device offline the first time a Google Font is needed, that row quietly renders in the system font instead of erroring; it downloads normally as soon as the provider is reachable.
 - The 50-font and 32 MB limits are shared across the whole library: text and emoji fonts, manually imported and addon-installed, all count against the same caps.
 - Deleting a font from its row on the Keyboard font screen resets that setting to the automatic default first if it was currently selected, so the keyboard is never left pointing at a file that's about to disappear. Uninstalling the same font from the Addons screen doesn't reset the setting: the file is just gone, and rendering quietly falls back to the system font instead.
 - A script's picker section only appears while a language using that script is enabled; disabling the last language of a script hides the section, though the underlying setting isn't deleted.

@@ -49,7 +49,7 @@ The system screens for all three carry broad, alarming warnings, because the *ca
 
 | Access | Feature | What the keyboard uses it for |
 |---|---|---|
-| Notification access | [Media controls](/tools/media/) | Android only hands the play/pause/skip controls of the current media session to apps holding this. The keyboard's listener is empty: no notification, title, sender or content is read. It exists purely so the platform will surface the session. |
+| Notification access | [Media controls](/tools/media/) and the [one-time code chip](/smart/one-time-codes/) | Android only hands the play/pause/skip controls of the current media session to apps holding this. For media the listener reads nothing at all: no notification, title, sender or content. It exists purely so the platform will surface the session. The code chip is the one thing that ever reads notification text, only while you've turned it on, and only to find a verification code. Nothing is stored and nothing leaves the phone either way. |
 | Usage access | "Show source app" on clipboard entries | Reads which app was in front at the moment you copied something, so the clip can show where it came from. Not your history, not time spent anywhere. Kept with the clip, on this device. |
 | Accessibility service | Keyboard gestures under a screen reader | Marks the key grid as bypassing TalkBack's touch handling, which is the only way an app can keep its own gestures there. It subscribes to no accessibility events, can't read window content, and covers nothing outside the keys. See [Screen readers](/reference/settings/accessibility/). |
 
@@ -57,9 +57,13 @@ All three are revoked the same way they were granted, from the relevant system S
 
 ## Options
 
-<SettingsPath path="Privacy" />
+<SettingsPath path="Privacy / Permissions" />
 
-There's no permissions screen in the app, by design: each permission belongs to its feature, so it's requested and revoked where that feature lives rather than from a central list. To review or change everything at once, use Android's own page for the app: **Settings → Apps → WM Keyboard → Permissions**. Notification access, usage access and accessibility each sit on their own system screen rather than in that list.
+The app has a permissions screen of its own, at the top of **Privacy**. It's an inventory rather than a funnel: every permission the keyboard can hold, in three groups (the ones Android prompts for, the three special-access grants, and the three that come with the install), each row showing **Granted**, **Not granted** or **Automatic** on the right.
+
+Tapping a row you haven't granted runs the same explanation-then-prompt flow the feature itself would, so this is the one place you can grant something ahead of the feature that wants it. Tapping a row that's already granted opens the app's own page in Android's Settings, since that's the only place a grant can be taken back. Field by field, it's on [Permissions settings](/reference/settings/permissions/).
+
+Nothing stops you going to Android's page directly instead: **Settings → Apps → WM Keyboard → Permissions**. Notification access, usage access and accessibility each sit on their own system screen rather than in that list, which is why the in-app screen keeps them in a group of their own.
 
 ## Details & edge cases
 

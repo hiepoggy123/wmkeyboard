@@ -1,0 +1,67 @@
+---
+title: "Mixed-language typing"
+description: "The keyboard reads which language the message in front of you is written in, and leans suggestions and autocorrect that way until you switch back."
+sidebar:
+  order: 10
+---
+
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+
+Plenty of people type two languages into the same box, on the same keyboard, in the same message. Banglish is the obvious case: "ami tomake" and "how are you" are both typed on a Latin keyboard, and both are ordinary sentences to the person writing them. Left alone, the suggestion engine treats one of those languages as the real one and the other as a stream of typos.
+
+**Detect the language you type** fixes that by reading the words already in the field. Type "ami tomake" on the English keyboard and it starts behaving like the Banglish one. Type "how are you" and it swings straight back, usually within two or three words.
+
+<PhoneFrame caption="The suggestion strip following a message mid-switch: English words, then Banglish ones.">
+  {/* shot: smart/language-detection-switch */}
+</PhoneFrame>
+
+## What it needs to work at all
+
+Detection is on by default, but it is inert unless the language you're typing has other languages to lean toward. That means **Also suggest from** has to name at least one other language on the language's own screen (see [Languages overview](/languages/overview/)).
+
+Romanised languages get that link for free. Enable Banglish (`bn_rom`) alongside English and the two are paired both ways automatically, because a romanised language and its Latin-script neighbour are exactly the pair this feature exists for. A hand-made link you added yourself is never overwritten or duplicated by that pairing.
+
+With only one language in the mix, or with the field still empty, nothing shifts. The keyboard behaves exactly as if the feature didn't exist.
+
+## How the field is read
+
+Every word committed in the field is credited to each language whose dictionary knows it. A word both languages know pushes neither ahead, which is what keeps names and shared loanwords from voting.
+
+Older words fade fast. Each new word decays the running tally to 70% of what it was, so roughly the last three words are in charge and a mid-sentence switch takes effect almost immediately. When you focus a field that already has text in it, the words already there are read in oldest-first, so the same decay leaves the words nearest your cursor in charge.
+
+A run of words nobody recognises (typos, names, a third language entirely) still decays the tally without adding to it, so the mix drifts back to neutral rather than hardening into a guess. Nothing here is written down: the reading is per field, held in memory, and thrown away when you move on.
+
+## The three strengths
+
+<SettingsPath path="Typing / Automatic corrections / Detection strength" />
+
+Once the field has clearly gone one way, the detected language gets a ranking boost and its rival takes the same size handicap. **Detection strength** is how big that swing is allowed to get:
+
+| Strength | What it does |
+| --- | --- |
+| Gentle | Reorders the strip only. The detected language's typo targets never overtake the on-screen language's common words, so autocorrect stays with the keyboard you're on. |
+| Balanced (default) | Lets a clearly detected language take the lead in ranking, and autocorrect follows for everything but the most common rival words. The ×4 confidence gate absorbs the contested middle. |
+| Aggressive | A full role swap. Autocorrect fixes typos in the detected language even against top-frequency words of the language the keyboard is set to. |
+
+Balanced is the shipped default and the one to leave alone unless something specific is annoying you. Go Gentle if autocorrect keeps reaching into the other language when you only wanted better suggestions; go Aggressive if you write whole messages in the language that isn't your keyboard's and you want it treated as the real one.
+
+Whichever strength is set, the swing scales with the evidence. One classified word moves the mix about halfway, three make it certain, and a field split evenly between the two languages moves nothing at all.
+
+## Options
+
+<SettingsPath path="Typing / Automatic corrections" />
+
+| Setting | Default | Shown when |
+| --- | --- | --- |
+| Detect the language you type | On | Autocorrect on |
+| Detection strength | Balanced | Autocorrect on, and Detect the language you type on |
+
+Both rows sit under Automatic corrections rather than Suggestions, because detection moves autocorrect's targets as well as the strip's order. That also means both are gated on the **Autocorrect** master switch: turn autocorrect off and the rows disappear along with the feature. See [Typing settings](/reference/settings/typing/#automatic-corrections) for the rest of that group.
+
+## Details & edge cases
+
+- **It is per field, and per field only.** Switching apps, or just tapping into a different box, starts the reading from scratch. There is no memory of "you write Banglish to this person"; that's a different feature, the long-run per-language weighting described under [Suggestions & prediction](/smart/suggestions/#learning-from-what-you-type).
+- **Detection never changes the keyboard.** The layout, the language name on the spacebar and the script you're typing all stay exactly where you put them. Only ranking and autocorrect targets move. To actually switch language, see [Switching languages](/languages/switching/).
+- **A language has to clearly lead before it counts as the field's language.** For the learned-word weighting in particular, the detected language needs about a third more share than the language you're on before it takes over, so a genuinely mixed field stays with the keyboard's own.
+- **It's a different question from "which languages do you use".** The long-run mix moves over weeks and would never notice that this message switched to romanised Bengali three words ago. This one is the fast signal, and the two run side by side.

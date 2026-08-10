@@ -14,13 +14,23 @@ WM Keyboard keeps your words in four separate screens, reached from two differen
 
 <SettingsPath path="Typing / Suggestions / Personal dictionary" />
 
-Every word the keyboard has learned from your typing, plus any you add by hand, sorted with the most-reinforced word first. Each row reads "Added by you" once its weight reaches 200, and "Seen N×" below that. **Add word** opens a single-field dialog and sets a new word's weight to exactly 200, so it reads "Added by you" immediately. A trash icon on each row removes that word (and drops it from any word pairs it was part of), and every add or remove signals a running keyboard session to reload the list rather than silently overwrite your edit.
+Every word the keyboard has learned from your typing, plus any you add by hand, sorted with the most-reinforced word first. Each row reads "Added by you" once its weight reaches 200, and "Seen N×" below that. **Add word** opens a single-field dialog and adds 200 to the word's weight: a word the keyboard has never seen lands at exactly 200 and reads "Added by you" immediately, and a word you'd already typed 50 times goes to 250 rather than back down to 200. A trash icon on each row removes that word (and drops it from any word pairs it was part of), and every add or remove signals a running keyboard session to reload the list rather than silently overwrite your edit.
+
+The dialog takes anything you type, but the store won't: a word over 32 characters (measured after lowercasing) is dropped silently, so the dialog closes and the list is exactly as it was. The same limit applies to words learned from typing.
 
 <PhoneFrame caption="The Personal dictionary screen: learned and manually-added words, most-used first.">
   ![The Personal dictionary screen: learned and manually-added words, most-used first.](@assets/screens/reference/settings/dictionary-personal.webp)
 </PhoneFrame>
 
 Before you've typed or added anything, the screen reads "Nothing here yet — words appear as you type (with 'Learn from typing' on under Privacy), or add one above." The screen itself carries no toggles. Everything that governs *whether* a word gets learned in the first place (Learn from typing, Incognito, Follow private browsing) lives on the Privacy screen instead. See [Personal dictionary](/smart/personal-dictionary/) for the full learning-weight mechanics, what disqualifies a field, and how to clear everything at once.
+
+### The list is capped at 10,000 words
+
+Nothing on the screen says so, but the store is bounded, which is the answer when words you know you typed are no longer in the list. The check runs when the keyboard is dismissed after learning something new, and only then: if the list has gone over 10,000 words, it's trimmed back to 9,000 in one go. Cutting a thousand rather than one keeps it from re-trimming on every dismissal from then on.
+
+What gets cut is decided by a decaying score, not by raw weight. The file keeps a counter that ticks once per save that had something new in it, and a word's score is its weight halved for every 64 ticks since you last typed it. A word you still use holds its place, while a typo learned last year quietly sinks to the bottom whatever its count was. Words at weight 100 or more count as deliberate (anything from **Add word** starts at 200, well clear of that) and go only after every organic word has already gone. Losing a word loses the word pairs built on it too.
+
+Two smaller caps sit alongside it, on the next-word data rather than on the words: 5,000 first words for word pairs, 2,000 two-word contexts, and at most 32 followers remembered for each, all trimmed least-used-first. None of them ask before trimming and there's no undo, so a word you want kept for good is worth adding by hand rather than leaving to be relearned.
 
 ## Custom dictionaries
 

@@ -33,13 +33,21 @@ An emoji font converted from a color format usually has no variation-selector ta
 
 ## Fixing emoji that won't display
 
-Older phones and some OEM skins ship an emoji font that predates the newest emoji, and those show up as an empty "tofu" box. There's no one-tap repair for this. Two settings work together instead:
+Older phones and some OEM skins ship an emoji font that predates the newest emoji, and those show up as an empty "tofu" box. There's a one-tap fix for that, plus a toggle for tidying away whatever it can't reach.
+
+### Getting a font that has them
+
+<SettingsPath path="Emoji / Emoji style / Get the newest emoji" />
+
+A card sits under the font picker offering the current Noto Color Emoji, around 10 MB, from WM Keyboard's own addon repository. Tap **Download** and it installs into the font library and selects itself, so the panel and the keys redraw with a font that actually has the new faces in it. After that the card disappears, and it comes back as **New emoji are available** with an **Update** button when the repository publishes a newer build.
+
+Switching **Emoji font** to Google is not the same thing, and it's the part that catches people out. A downloadable font is requested by family name with no version attached, so the system font provider answers with whichever build of Noto it already has, which on a phone with a recent system emoji font is usually the older of the two: the boxes stay. Installing a complete addon font like Twemoji or OpenMoji from [Addons](/addons/installing/) works as well, and there's a **Download more** row right below the picker that opens the catalogue filtered to emoji fonts. The download card is just the shortcut to the font most people are after.
+
+### Hiding the ones that are left
 
 <SettingsPath path="Emoji / Emoji style / Hide emoji this phone can't display" />
 
 This toggle (off by default) checks both your chosen font and the phone's own system font, and only hides an emoji from the panel, search, and suggestions when **neither** can draw it. An emoji your chosen font is missing but the phone's system font can still draw isn't hidden; it's silently drawn in the system font instead, in a different style from the rest of the row, so it still gets through.
-
-To actually fill the gaps rather than hide them, switch **Emoji font** above to Google (Noto Color Emoji has close to complete Unicode coverage) or install a complete addon font like Twemoji or OpenMoji from [Addons](/addons/installing/).
 
 ## Emoji search in your language
 

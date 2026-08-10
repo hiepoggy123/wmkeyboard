@@ -1,6 +1,6 @@
 ---
 title: "Typing"
-description: "Every setting on the Typing screen: autocorrect, suggestions, smart chips, gestures, backspace, Enter, volume keys, and physical keyboards."
+description: "Every setting on the Typing screen: autocorrect, suggestions, smart chips, one-time codes, gestures, backspace, Enter, volume keys, and physical keyboards."
 sidebar:
   order: 2
 ---
@@ -10,7 +10,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import Flavor from '@components/Flavor.astro';
 
-The Typing screen is the largest single screen in Settings, with eight groups covering everything from autocorrect confidence to physical-keyboard shortcuts, plus one sub-screen (the tool-shortcuts letter list) a tap deeper. Most of what's here also has its own task-focused guide, linked from each group below; this page is the field-by-field reference to check a default or find a setting by name.
+The Typing screen is the largest single screen in Settings, with nine groups covering everything from autocorrect confidence to physical-keyboard shortcuts, plus one sub-screen (the tool-shortcuts letter list) a tap deeper. Most of what's here also has its own task-focused guide, linked from each group below; this page is the field-by-field reference to check a default or find a setting by name.
 
 <PhoneFrame caption="The Typing settings screen, scrolled to the Automatic corrections group.">
   ![The Typing settings screen, scrolled to the Automatic corrections group.](@assets/screens/reference/settings/typing-overview.webp)
@@ -24,21 +24,34 @@ The Typing screen is the largest single screen in Settings, with eight groups co
 | --- | --- | --- | --- |
 | Autocorrect | Toggle | On | always |
 | Autocorrect confidence | Slider, ×1.5–×10 | ×4.0 | Autocorrect on |
+| Adaptive confidence | Toggle | On | Autocorrect on |
+| Typing rhythm | Slider, 0%–100% | 0% (off) | Autocorrect on |
 | Undo autocorrect with backspace | Toggle | On | Autocorrect on |
-| Skip all-caps words | Toggle | On | Autocorrect on |
+| Skip words in capital letters | Toggle | On | Autocorrect on |
 | Block offensive words | Toggle | On | Autocorrect on |
+| Context-aware suggestions | Toggle | On | Autocorrect on |
+| Add missing spaces | Toggle | On | Autocorrect on |
+| Detect the language you type | Toggle | On | Autocorrect on |
+| Detection strength | Choice: Gentle / Balanced / Aggressive | Balanced | Autocorrect on and Detect the language you type on |
+| Fix number row slips | Toggle | On | Autocorrect on and the number row is shown |
+| Adapt to app tone | Toggle | Off | always |
 | Fix missing apostrophes | Toggle | On | always |
-| Auto-capitalize | Toggle | On | always |
-| Double-space period | Toggle | On | always |
-| Double-space tab | Toggle | Off | always |
-| Auto-space after punctuation | Toggle | Off | always |
+| Automatic capital letters | Toggle | On | always |
+| Double space for a full stop | Toggle | On | always |
+| Double space for a tab | Toggle | Off | always |
+| Double space speed | Slider, 200–800 ms | 400 ms | either double-space rule on |
+| Automatic space after punctuation | Toggle | Off | always |
 | Space after a suggestion | Toggle | On | always |
-| Wrap selection with brackets | Toggle | On | always |
-| Shift re-cases selection | Toggle | On | always |
+| Wrap the selection with brackets | Toggle | On | always |
+| Shift changes the case of the selection | Toggle | On | always |
 
-**Autocorrect** is this group's master switch: the confidence slider and the next three toggles only appear while it's on. **Double-space tab** takes priority over **Double-space period** when both are on. **Space after a suggestion** lives in this group even though it governs the suggestion strip, not autocorrect. It's grouped here in the app's own settings screen, not under Suggestions below.
+**Autocorrect** is this group's master switch, and eleven rows hang off it: the confidence slider, the two rows that tune how hard it tries (Adaptive confidence, Typing rhythm), and everything down to Fix number row slips. Two of those eleven have a second condition on top: Detection strength needs Detect the language you type on, and Fix number row slips only appears while the [number row](/reference/settings/layout/) is actually showing, since it corrects a digit to the letter below it. From **Adapt to app tone** downwards the rows stay put whether autocorrect is on or off.
 
-Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, what a word is never corrected to, and reverting a correction with backspace. [Suggestions & prediction](/smart/suggestions/) covers auto-space-after-suggestion, and [Gestures](/typing/gestures/) and [Text editing](/tools/text-editing/) cover selection-wrap and shift-recase.
+**Double space for a tab** takes priority over **Double space for a full stop** when both are on, and the **Double space speed** slider they share only appears once one of them is. **Space after a suggestion** lives in this group even though it governs the suggestion strip, not autocorrect. It's grouped here in the app's own settings screen, not under Suggestions below.
+
+Three of these rows are ranking settings rather than correction settings, filed here because that's where the app puts them: **Context-aware suggestions** reorders the strip using the words before what you're typing, **Adapt to app tone** nudges chat-speak up in messaging apps and down in email, and **Typing rhythm** lets a fast, sloppy burst make autocorrect fire more eagerly than slow deliberate typing does. Rhythm ships at 0%, so it does nothing until you move the slider.
+
+Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, what a word is never corrected to, and reverting a correction with backspace. [Mixed-language typing](/smart/mixed-language/) covers Detect the language you type and its three strengths. [Suggestions & prediction](/smart/suggestions/) covers auto-space-after-suggestion, context reranking and app tone, and [Gestures](/typing/gestures/) and [Text editing](/tools/text-editing/) cover selection-wrap and shift-recase.
 
 ## Suggestions
 
@@ -48,8 +61,10 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 | --- | --- | --- | --- |
 | Suggestions | Toggle | On | always |
 | Punctuation suggestions | Toggle | Off | always |
+| Punctuation marks | Text field | `.,?!'` | Punctuation suggestions on |
+| Number of suggestions | Slider, 2–6 | 3 | always |
 | Suggestions in every field | Toggle | On | always |
-| Suggestions bar always visible | Toggle | Off | always |
+| Suggestion strip always visible | Toggle | Off | always |
 | Best suggestion in the middle | Toggle | On | always |
 | Suggest contact names | Toggle | Off | always (requests Contacts permission) |
 | Suggest contact emails | Toggle | Off | always (requests Contacts permission) |
@@ -58,12 +73,12 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 | Inline emoji search | Toggle | On | always |
 | Password manager suggestions | Toggle | On | Android 11+ only |
 | Smart replies | Toggle | On | Android 11+ only |
-| Smart key-hit detection | Toggle | Off | always (needs Suggestions on to bias toward anything) |
+| Smart detection of key hits | Toggle | Off | always (needs Suggestions on to bias toward anything) |
 | Personal dictionary | Nav row | — | always (opens the [Personal dictionary](/smart/personal-dictionary/) screen) |
 | Custom dictionaries | Nav row | — | always (opens the Custom dictionaries screen) |
 | Suggestion blacklist | Nav row | — | always (opens the [Suggestion blacklist](/smart/blacklist/) screen) |
 
-**Suggestions** is the master switch for the whole strip: word completions, typo corrections offered as candidates, and next-word prediction. The three navigation rows at the bottom each open their own screen rather than an inline setting, and the subtitle on **Suggestion blacklist** switches from "Words to never suggest or autocorrect to" to a running count ("3 words never suggested") once you've added something. All three are documented in full on [Dictionaries & words](/reference/settings/dictionaries/), not repeated here.
+**Suggestions** is the master switch for the whole strip: word completions, typo corrections offered as candidates, and next-word prediction. **Punctuation marks** sets which marks the punctuation chips offer, one per character in the order you want them; leaving it blank falls back to the shipped `.,?!'`. **Number of suggestions** splits the strip evenly, so raising it on a narrow screen buys candidates at the cost of reading each one. The three navigation rows at the bottom each open their own screen rather than an inline setting, and the subtitle on **Suggestion blacklist** switches from "Words to never suggest or autocorrect to" to a running count ("3 words never suggested") once you've added something. All three are documented in full on [Dictionaries & words](/reference/settings/dictionaries/), not repeated here.
 
 <PhoneFrame caption="The Suggestions group, including the three dictionary and blacklist navigation rows.">
   ![The Suggestions group, including the three dictionary and blacklist navigation rows.](@assets/screens/reference/settings/typing-suggestions-group.webp)
@@ -82,14 +97,38 @@ Full writeup: [Suggestions & prediction](/smart/suggestions/) for the strip itse
 | Convert currencies | Toggle | On | Smart chips on |
 | Convert units | Toggle | On | Smart chips on |
 | Tool keywords | Toggle | On | Smart chips on |
+| Resolve dates | Toggle | On | Smart chips on |
+| Answer weather questions | Toggle | On | Smart chips on |
+| Offer lookups | Toggle | On | Smart chips on |
+| Translate hints | Toggle | On | Smart chips on |
+| GIFs for celebrations | Toggle | On | Smart chips on |
 
-**Convert currencies**' own subtitle names your live target currency (Taka by default, since the app's built-in default is `BDT`) rather than a static description, and it updates the moment you change it inside the Currency converter tool. The same three calculate/currency/unit toggles are mirrored inside each tool's own Options screen; see [Smart chips](/smart/chips/#options) for where.
+**Convert currencies**' own subtitle names your live target currency (Taka by default, since the app's built-in default is `BDT`) rather than a static description, and it updates the moment you change it inside the Currency converter tool. The same three calculate/currency/unit toggles are mirrored inside each tool's own Options screen; see [Smart chips](/smart/chips/#options) for where. The bottom five rows are the phrase-triggered chips: "next friday" offers a date, "will it rain" the forecast, "define serendipity" a dictionary lookup, "in spanish" the translator, and "happy birthday" a GIF search.
 
-<PhoneFrame caption="The Smart chips group: the master switch and its four per-family toggles.">
-  ![The Smart chips group: the master switch and its four per-family toggles.](@assets/screens/reference/settings/typing-smart-chips-group.webp)
+<PhoneFrame caption="The Smart chips group: the master switch and its per-family toggles.">
+  ![The Smart chips group: the master switch and its per-family toggles.](@assets/screens/reference/settings/typing-smart-chips-group.webp)
 </PhoneFrame>
 
 Full writeup: [Smart chips](/smart/chips/).
+
+## One-time codes
+
+<SettingsPath path="Typing / One-time codes" />
+
+| Setting | Type | Default | Shown when |
+| --- | --- | --- | --- |
+| Codes from notifications | Toggle | Off | always |
+| Allow notification access | Nav row | — | Codes from notifications on and access not granted yet |
+| Only in number fields | Toggle | On | Codes from notifications on |
+| Offer a code for | Slider, 1–10 min | 3 min | Codes from notifications on |
+| Clear the notification | Toggle | Off | Codes from notifications on |
+| Type codes one character at a time | Toggle | On | always |
+
+**Codes from notifications** is the only row here that needs a grant. Turning it on shows a disclosure and then the system's notification-listener screen; the **Allow notification access** row is the way back to that screen, and it disappears once access is granted. Turning the toggle off stops the keyboard reading notifications immediately and drops any code it was holding.
+
+**Type codes one character at a time** sits outside the enabled block on purpose. It governs how *every* code is typed, including one tapped from a clipboard chip, which needs no notification access at all.
+
+Full writeup: [One-time codes](/smart/one-time-codes/), and [Permissions](/privacy/permissions/) for the grant itself.
 
 ## Gestures
 
@@ -97,29 +136,33 @@ Full writeup: [Smart chips](/smart/chips/).
 
 | Setting | Type | Default | Shown when |
 | --- | --- | --- | --- |
-| Gesture typing | Toggle | On | always |
-| Handwrite with swipes | Choice: Type words / Handwrite | Type words | <Flavor edition="full" /> and Gesture typing on |
-| Glide across spacebar | Toggle | On | Gesture typing on and swipe mode is Type words |
-| Space after a glided word | Toggle | On | Gesture typing on and swipe mode is Type words |
-| Swipe start distance | Slider, ×0.5–×4 | ×2.0 | Gesture typing on |
-| Cooldown after typing | Slider, 0–500 ms ("Off" at 0) | 160 ms | Gesture typing on and swipe mode is Type words |
-| Dot leeway after drawing | Slider, 0–1500 ms ("Off" at 0) | 700 ms | <Flavor edition="full" /> and swipe mode is Handwrite |
-| Trail width | Slider, 2–24 dp | 10 dp | Gesture typing on |
-| Trail length | Slider, 100–1200 ms | 350 ms | Gesture typing on |
-| Trail opacity | Slider, 10%–100% | 55% | Gesture typing on |
-| Quick swipe on spacebar | Choice: Nothing / Language / Cursor / Numpad | Language | always |
-| Hold + swipe on spacebar | Choice: Nothing / Language / Cursor / Numpad | Cursor | always |
+| Glide typing | Toggle | On | always |
+| Handwrite with swipes | Choice: Type words / Handwrite | Type words | <Flavor edition="full" /> and Glide typing on |
+| Glide across the spacebar | Toggle | On | Glide typing on and swipe mode is Type words |
+| Ask when a glide is unclear | Toggle | On | Glide typing on and swipe mode is Type words |
+| Space after a glided word | Toggle | On | Glide typing on and swipe mode is Type words |
+| Swipe start distance | Slider, 0.5×–4× | 2.0× | Glide typing on |
+| Delay after typing | Slider, 0–500 ms ("Off" at 0) | 160 ms | Glide typing on and swipe mode is Type words |
+| Extra time for a dot or a cross | Slider, 0–1500 ms ("Off" at 0) | 700 ms | <Flavor edition="full" /> and swipe mode is Handwrite |
+| Trail width | Slider, 2–24 dp | 10 dp | Glide typing on |
+| Trail length | Slider, 100–1200 ms | 350 ms | Glide typing on |
+| Trail opacity | Slider, 0%–100% | 55% | Glide typing on |
+| Quick swipe on the spacebar | Choice: Nothing / Language / Cursor / Numpad | Language | always |
+| Press and hold, then swipe | Choice: Nothing / Language / Cursor / Numpad | Cursor | always |
 | 2-D cursor touchpad | Toggle | Off | either swipe slot above is Cursor |
-| Swipe down to hide | Toggle | Off | always (this is the **spacebar's** swipe, see note below) |
-| Arrows on spacebar | Toggle | On | either swipe slot above is Language |
-| Spacebar shows | Choice: Language / Layout / Both | Language | always |
+| Cursor speed | Slider, 8–32 dp | 16 dp | either swipe slot above is Cursor |
+| Swipe down to hide the keyboard | Toggle | Off | always (this is the **spacebar's** swipe, see note below) |
+| Arrows on the spacebar | Toggle | On | either swipe slot above is Language |
+| The spacebar shows | Choice: Language / Layout / Both | Language | always |
 | Spacebar text | Text field | Blank (falls back to the live spacebar label) | always |
 
 :::note
-**Two settings share the label "Swipe down to hide."** This one, under Typing → Gestures, dismisses the keyboard on a downward swipe of the **spacebar**. A separate, independent toggle under <SettingsPath path="Appearance / Toolbar / Swipe down to hide" /> does the same for a downward flick on the **toolbar** strip instead. See [Gestures](/typing/gestures/#swiping-down-to-hide-the-keyboard) for the full disambiguation.
+**Two settings are named almost the same thing.** This one, "Swipe down to hide the keyboard" under Typing → Gestures, dismisses the keyboard on a downward swipe of the **spacebar**. A separate, independent toggle under <SettingsPath path="Appearance / Toolbar / Swipe down to hide" /> does the same for a downward flick on the **toolbar** strip instead. Search results for "swipe down" bring back both. See [Gestures](/typing/gestures/#swiping-down-to-hide-the-keyboard) for the full disambiguation.
 :::
 
-**Handwrite with swipes** is a two-option picker, not a toggle: it decides what a letter-area swipe *means*, and only appears in the full edition (it needs the bundled ML Kit handwriting model). **Dot leeway after drawing** is the mirror image of **Cooldown after typing**: one guards against misreading a tap as a glide start, the other against misreading a tap as a handwriting dot, and only one of the pair is ever visible at once since they're gated on opposite `Handwrite with swipes` choices.
+**Handwrite with swipes** is a two-option picker, not a toggle: it decides what a letter-area swipe *means*, and only appears in the full edition (it needs the bundled ML Kit handwriting model). **Extra time for a dot or a cross** is the mirror image of **Delay after typing**: one guards against misreading a tap as a glide start, the other against misreading a tap as a handwriting dot, and only one of the pair is ever visible at once since they're gated on opposite `Handwrite with swipes` choices.
+
+**Ask when a glide is unclear** covers the strokes that have no single right answer. Hold your finger still at the end of one and the closest words appear under your fingertip; slide onto one and lift to take it, or lift without choosing and you get the best guess as before. It matters most on a fixed Bengali layout, where ক and খ share a key and a word and its aspirated twin are drawn identically.
 
 <PhoneFrame caption="The Gestures group: the spacebar's Quick swipe and Hold + swipe pickers.">
   ![The Gestures group: the spacebar's Quick swipe and Hold + swipe pickers.](@assets/screens/reference/settings/typing-gestures-group.webp)
@@ -131,11 +174,12 @@ Full writeup: [Gestures](/typing/gestures/) for the spacebar/backspace/volume-ke
 
 <SettingsPath path="Typing / Backspace" />
 
-| Setting | Type | Default |
-| --- | --- | --- |
-| Swipe to delete words | Toggle | On |
+| Setting | Type | Default | Shown when |
+| --- | --- | --- | --- |
+| Swipe to delete words | Toggle | On | always |
+| Word delete distance | Slider, 32–120 dp | 72 dp | Swipe to delete words on |
 
-A leftward drag on <KeyCap>⌫</KeyCap> deletes a word at a time instead of one character per press. Full writeup: [Gestures](/typing/gestures/#deleting-whole-words-with-backspace).
+A leftward drag on <KeyCap>⌫</KeyCap> deletes a word at a time instead of one character per press, and **Word delete distance** is how far you drag before the first word goes. Later words come off faster on a fixed curve, so that one number tunes the whole gesture. Full writeup: [Gestures](/typing/gestures/#deleting-whole-words-with-backspace).
 
 ## Enter key
 
@@ -143,7 +187,7 @@ A leftward drag on <KeyCap>⌫</KeyCap> deletes a word at a time instead of one 
 
 | Setting | Type | Default |
 | --- | --- | --- |
-| Shift + Enter types a newline | Toggle | Off |
+| Shift and Enter type a new line | Toggle | Off |
 
 With this on, holding <KeyCap>Shift</KeyCap> (or pressing it first on a physical keyboard) makes <KeyCap>Enter</KeyCap> insert a line break instead of triggering the field's Send/Go/Search action. Only a shift you pressed yourself counts: auto-capitalize's own shift doesn't arm it, and caps lock is ignored.
 
@@ -153,10 +197,10 @@ With this on, holding <KeyCap>Shift</KeyCap> (or pressing it first on a physical
 
 | Setting | Type | Default | Shown when |
 | --- | --- | --- | --- |
-| Volume cursor control | Toggle | Off | always |
-| Release while audio plays | Toggle | On | Volume cursor control on |
+| Volume keys move the cursor | Toggle | Off | always |
+| Release the keys while audio plays | Toggle | On | Volume keys move the cursor on |
 
-With **Volume cursor control** on, volume down/up step the text cursor left/right instead of changing the volume while the keyboard is showing. **Release while audio plays** hands the keys back to normal volume control the instant something is actually playing, re-checked on every keypress.
+With **Volume keys move the cursor** on, volume down/up step the text cursor left/right instead of changing the volume while the keyboard is showing. **Release the keys while audio plays** hands the keys back to normal volume control the instant something is actually playing, re-checked on every keypress.
 
 <PhoneFrame caption="Volume cursor control and its media-aware release toggle.">
   ![Volume cursor control and its media-aware release toggle.](@assets/screens/reference/settings/typing-volume-keys-group.webp)
@@ -170,15 +214,25 @@ Full writeup: [Gestures](/typing/gestures/#volume-keys-as-a-cursor-control).
 
 | Setting | Type | Default | Shown when |
 | --- | --- | --- | --- |
-| Process hardware keys | Toggle | On | always |
+| Process the physical keys | Toggle | On | always |
 | Tool shortcuts | Toggle | On | always |
 | Tool shortcuts list | Nav row | value = current shortcut key, e.g. "Double-tap Ctrl" | Tool shortcuts on |
+| Ctrl + number opens a toolbar tool | Toggle | On | Tool shortcuts on |
+| Write the modifier names | Toggle | On | Tool shortcuts on |
+| Time to press a key | Slider, 1.0s–30.0s | 8.0s | Tool shortcuts on |
 | Arrow keys move a highlight | Toggle | On | always |
 | Esc closes the tool | Toggle | On | always |
-| Number keys pick suggestions | Choice: Off / After the shortcut key / Alt + number | After the shortcut key | always |
+| Number keys select suggestions | Choice: Off / After the shortcut key / Alt + number | Alt + number | always |
+| Show the suggestion numbers | Toggle | On | Number keys select suggestions is Alt + number |
+| macOS shortcuts | Toggle | Off | always |
+| Ctrl+Space changes the language | Toggle | On | always |
 | Show the keyboard for shortcuts | Toggle | On | always |
 
-**Process hardware keys** only governs typed characters. Turning it off stops physical keys from running through autocorrect and suggestions, but Tool shortcuts, panel navigation, and Esc keep working regardless, since none of them touch typed text.
+**Process the physical keys** only governs typed characters. Turning it off stops physical keys from running through autocorrect and suggestions, but Tool shortcuts, panel navigation, and Esc keep working regardless, since none of them touch typed text.
+
+Three rows are about how much the keyboard takes from your apps, and all three are worth knowing if a shortcut you rely on stops working. **Ctrl + number opens a toolbar tool** claims Ctrl+1 to Ctrl+0 while a text field has focus, which is exactly what browsers and editors use to switch tabs. **Ctrl+Space changes the language** claims the chord code editors use for completions. **macOS shortcuts** is off by default and only makes sense on a Mac keyboard: on a PC one the Meta key is the Search/Windows key and belongs to the system.
+
+**Number keys select suggestions** ships on **Alt + number**, so a digit picks a strip candidate with no shortcut key first. **Show the suggestion numbers** only appears in that mode, because it puts the key under each suggestion for as long as a physical keyboard is attached; on "After the shortcut key" the numbers already show at the moment they work. **Time to press a key** is how long the badges stay up after the shortcut key, and nothing else happens until they clear or you press one.
 
 <PhoneFrame caption="The Physical keyboard group, with Tool shortcuts list showing the current shortcut key.">
   ![The Physical keyboard group, with Tool shortcuts list showing the current shortcut key.](@assets/screens/reference/settings/typing-physical-keyboard-group.webp)
@@ -206,9 +260,11 @@ A **Reset to defaults** button at the bottom restores every letter and the short
 - **"Space after a suggestion" sits in the wrong-sounding group on purpose.** It reads like a Suggestions setting, but the app itself files it under Automatic corrections, alongside the other space-insertion rules (double-space period/tab, auto-space after punctuation) it shares logic with.
 - **Structured and secure fields gate autocorrect, suggestions, and the smart key-hit bias together, but smart chips use a related, separate check.** Autocorrect, suggestions, and the smart key-hit bias all share one check keyed on field kind: password fields and every keypad-style field (email, URL, number, phone, date, time, date-time) lose all three, regardless of how each toggle is set. Smart chips are gated by whether the app has asked to hide the suggestion strip instead, so with **Suggestions in every field** on (the default), a calc or currency chip can still appear in an email or URL field even though autocorrect and suggestions stay off there; number, phone, date, and password fields still block chips either way.
 - **Three separate settings each add a space, and none of them covers the others.** "Automatic space after punctuation" spaces what follows a mark, "Space after a suggestion" spaces a word tapped from the strip, and "Space after a glided word" spaces a word a swipe committed. All three treat that space as the keyboard's to take back, so punctuation typed next removes it and a space press is spent on it, but each has its own switch: turning one off leaves the other two alone.
-- **Two settings named "Swipe down to hide" are genuinely independent**: the spacebar one here under Gestures, and the toolbar one under [Appearance](/reference/settings/appearance/). Turning one on has no effect on the other.
-- **Handwrite with swipes only exists in the full edition**, since it needs the bundled ML Kit handwriting model; the lite edition's Gestures group goes straight from Gesture typing to Glide across spacebar.
+- **The two swipe-down settings are genuinely independent**: "Swipe down to hide the keyboard" here under Gestures, and "Swipe down to hide" for the toolbar under [Appearance](/reference/settings/appearance/). Turning one on has no effect on the other.
+- **Handwrite with swipes only exists in the full edition**, since it needs the bundled ML Kit handwriting model; the lite edition's Gestures group goes straight from Glide typing to Glide across the spacebar.
 - **The Tool shortcuts list route isn't reachable by deep link.** Unlike Typing itself, it doesn't appear in the app's `wmkeyboard://settings/` allowlist, so getting there means opening Typing first and tapping through.
-- **Smart key-hit detection needs Suggestions on**, not Autocorrect: it biases boundary taps toward whichever letter the suggestion engine's own prediction favors, so with Suggestions off there's nothing for it to bias toward.
+- **Smart detection of key hits needs Suggestions on**, not Autocorrect: it biases boundary taps toward whichever letter the suggestion engine's own prediction favours, so with Suggestions off there's nothing for it to bias toward.
+- **Three rows sit in Automatic corrections without being corrections.** Context-aware suggestions, Adapt to app tone and Typing rhythm all reorder or reweight candidates. Two of them are still gated on the Autocorrect switch (Context-aware suggestions and Typing rhythm), which is worth knowing if you turn autocorrect off and wonder where the reranking went; Adapt to app tone is not.
+- **Every row with a control carries the [per-setting reset](/reference/settings/#putting-one-setting-back)**, sliders, pickers and the two text fields included. A restore button next to a control means that row no longer matches the shipped default listed above. The navigation rows (Personal dictionary, Custom dictionaries, Suggestion blacklist, Tool shortcuts list) have nothing to reset, since they only open another screen.
 
 For dictionary and blacklist screens opened from this page, see [Dictionaries & words](/reference/settings/dictionaries/). For the toolbar and key-appearance settings that sit next to this screen, see [Appearance](/reference/settings/appearance/). For the printable shortcut and gesture tables, see [Hardware shortcuts](/reference/shortcuts/) and [Gesture cheat sheet](/reference/gestures/).

@@ -8,15 +8,25 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-The Privacy screen collects on-device learning, incognito, Android's own backup opt-in, and the one button that clears learned data: three groups, in that order, nothing else. This page is the field reference; for the reasoning and the rest of the privacy story, start at [Privacy at a glance](/privacy/overview/).
+The Privacy screen is four groups, in this order: the way into the permissions inventory, on-device learning and incognito, Android's own backup opt-in, and the one button that clears learned data. Nothing else. This page is the field reference; for the reasoning and the rest of the privacy story, start at [Privacy at a glance](/privacy/overview/).
 
-<PhoneFrame caption="The Privacy screen: On-device learning, Android backup, and Your data groups.">
+<PhoneFrame caption="The Privacy screen: the Permissions row, then the On-device learning, Android backup and Your data groups.">
   {/* shot: reference/settings/privacy-screen-groups */}
 </PhoneFrame>
 
 ## Options
 
 <SettingsPath path="Privacy" />
+
+### Permissions
+
+<SettingsPath path="Privacy / Permissions" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Permissions | Opens a sub-screen | n/a |
+
+An unnamed group holding one navigation row, sitting above everything else on the screen: "See what the keyboard can reach, and give or take back a permission". It opens the permissions inventory, which is a screen of its own and has its own page here, [Permissions](/reference/settings/permissions/). Nothing on this row is a setting, so there's nothing to reset.
 
 ### On-device learning
 
@@ -54,7 +64,7 @@ This is a different screen from the sibling **Backup & restore** item on the Set
 
 <SettingsPath path="Privacy / Your data" />
 
-A single button, **Clear learned words**: no toggle, no confirmation prompt. Tapping it immediately deletes three files: your word and word-pair lexicon, your emoji-usage history, and your Chinese/Japanese/Cantonese pick history. It does **not** touch the language-mix tracker that remembers which language you tend to reach for when mixing languages.
+A single button, **Clear learned words**: no toggle, no confirmation prompt. Tapping it immediately deletes four files: your word and word-pair lexicon, your emoji-usage history, autocorrect's revert memory (which corrections you undid), and your Chinese/Japanese/Cantonese pick history. It does **not** touch the language-mix tracker that remembers which language you tend to reach for when mixing languages.
 
 <PhoneFrame caption="Clear learned words, the only control in the Your data group.">
   {/* shot: reference/settings/privacy-clear-learned-words */}
@@ -64,16 +74,17 @@ This is the only bulk clear on this screen. Personal dictionary entries, clipboa
 
 ## Details & edge cases
 
-- **"Clear learned words" is one bulk action, not a per-category picker.** There's no dialog letting you choose which of the three files to wipe: tapping the button deletes all three at once, instantly, with no undo.
+- **"Clear learned words" is one bulk action, not a per-category picker.** There's no dialog letting you choose which of the four files to wipe: tapping the button deletes all four at once, instantly, with no undo.
 - **"Follow private browsing" isn't two settings.** The row here and the row of the same name under <SettingsPath path="Tools / Incognito" /> both read and write `autoIncognito`; flip it in either place and the other reflects the change.
 - **Saved API keys are included in an Android backup**, not excluded the way large downloads are. If that matters to you, use [Backup & restore](/privacy/backup/)'s manual export instead, which never leaves the device.
 - **A cloud backup needs an encryptable screen lock.** On a device without one, turning "Back up with Android" on has nothing to actually back up into: Android's own backup system requires it.
-- **The footer caption names the whole network side.** The screen's own note reads: "Typing runs entirely on this device. Dictionaries, prediction, autocorrect, transliteration and emoji search are bundled with the app, and none of them need a network connection. There is no telemetry and no analytics. Network access is per tool and only on the tap that uses it — translate, weather, web and image search, GIFs and stickers, dictionary lookup and the AI tools — and every one of them can be switched off under Tools." It used to name only the weather tool, which undersold it. See [Privacy at a glance](/privacy/overview/) for the same list with per-tool detail.
+- **The footer caption names the whole network side.** The screen's own note reads: "Typing works fully on this device. The word lists, prediction, autocorrect, transliteration and emoji search are part of the app, and none of them needs a network connection. The app has no telemetry and no analytics. Only a tool uses the network, and only at the moment that you press it: translate, weather, web search, image search, GIFs, stickers, dictionary lookup and the AI tools. You can turn off each one of them on the Tools screen." It used to name only the weather tool, which undersold it. See [Privacy at a glance](/privacy/overview/) for the same list with per-tool detail, plus the few fetches that happen without you pressing a tool.
 - **No edition differences.** Every setting on this screen behaves the same on both the full and lite builds.
 
 ## Related pages
 
 - [Privacy at a glance](/privacy/overview/) — what leaves the device and what never does, with the receipts.
+- [Permissions](/reference/settings/permissions/): the field list for the sub-screen the top row on this page opens.
 - [Your data on device](/privacy/data/) — everything stored locally, where, and every way to clear it, not just the one button on this screen.
 - [Incognito & secure fields](/privacy/incognito/) — incognito mode, private-browsing detection, and password/secure-field handling in full.
 - [Network policy](/privacy/network/) — the complete tool-by-tool table of what reaches the network and why.

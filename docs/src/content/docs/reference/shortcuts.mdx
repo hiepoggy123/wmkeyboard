@@ -74,6 +74,18 @@ Double-tap the shortcut key and each cell in the symbol row and the emoji row sh
 
 Letters against digits, so the two pools cannot collide and editing one row never renumbers the other. An open toolbox claims the whole <KeyCap>Shift</KeyCap> tier for its own tools, and the rows drop their badges until it closes.
 
+## Switching language
+
+<SettingsPath path="Typing / Physical keyboard / Ctrl+Space changes the language" />, on by default.
+
+| Chord | Does |
+| --- | --- |
+| <KeyCap>Ctrl</KeyCap>+<KeyCap>Space</KeyCap> | Step forward through your enabled layouts |
+| <KeyCap>Ctrl</KeyCap>+<KeyCap>Shift</KeyCap>+<KeyCap>Space</KeyCap> | Step back |
+| The dedicated 🌐 / language key, if your keyboard has one | Switch to the next layout |
+
+Keep <KeyCap>Ctrl</KeyCap> held and each press of <KeyCap>Space</KeyCap> walks a list on screen; releasing <KeyCap>Ctrl</KeyCap> commits whatever is highlighted, and <KeyCap>Esc</KeyCap> cancels. A quick tap and release is just a one-step switch. With only one layout enabled the chord falls through to the app untouched, so nothing is stolen for a switch that has nowhere to go. <KeyCap>Meta</KeyCap>+<KeyCap>Space</KeyCap> is left alone on purpose: that one belongs to Android's own keyboard rotation. The dedicated language key is claimed whatever this setting says, since no app wants it. See [Hardware keyboards](/typing/hardware-keyboard/) for the walkthrough.
+
 ## macOS shortcuts
 
 <SettingsPath path="Typing / Physical keyboard / macOS shortcuts" /> — off by default.
@@ -128,7 +140,7 @@ Plugin panels have no fixed set of sections to cycle, so hardware navigation ins
 
 WM Keyboard doesn't reimplement the app's editing shortcuts. Any <KeyCap>Ctrl</KeyCap> or <KeyCap>Meta</KeyCap> combination (copy, paste, undo, save, whatever the app binds it to) is passed straight through, whether or not **Process hardware keys** is on. <KeyCap>AltGr</KeyCap> is the one combination that looks like a shortcut but isn't: it arrives as Ctrl+Alt held together, so it falls through to the normal character path instead (a German keyboard's AltGr+Q still types "@").
 
-Two opt-in settings are the exceptions, and both say so on their own row: **Ctrl + number opens a toolbar tool** claims <KeyCap>Ctrl</KeyCap>+<KeyCap>1</KeyCap> through <KeyCap>Ctrl</KeyCap>+<KeyCap>0</KeyCap> (on by default), and **macOS shortcuts** claims the Command and Option chords in the table above (off by default). Nothing else is intercepted.
+Three settings are the exceptions, and each says so on its own row: **Ctrl + number opens a toolbar tool** claims <KeyCap>Ctrl</KeyCap>+<KeyCap>1</KeyCap> through <KeyCap>Ctrl</KeyCap>+<KeyCap>0</KeyCap> (on by default), **Ctrl+Space changes the language** claims <KeyCap>Ctrl</KeyCap>+<KeyCap>Space</KeyCap> and <KeyCap>Ctrl</KeyCap>+<KeyCap>Shift</KeyCap>+<KeyCap>Space</KeyCap> (on by default, and only while you have two or more layouts enabled), and **macOS shortcuts** claims the Command and Option chords in the table above (off by default). Nothing else is intercepted.
 
 The physical-key behavior WM Keyboard adds on top is all on this page: the leader and its picker, <KeyCap>Esc</KeyCap> closing an open panel, the focus ring, and the suggestion hotkeys. They work regardless of the **Process hardware keys** toggle, since none of them touch typed text; that toggle only governs typing itself. See [Hardware keyboards](/typing/hardware-keyboard/#typing-on-a-physical-keyboard) for what typing on a physical keyboard does and doesn't intercept.
 
@@ -149,6 +161,7 @@ The physical-key behavior WM Keyboard adds on top is all on this page: the leade
 | Number keys pick suggestions | Alt + number |
 | Show the suggestion numbers | On |
 | macOS shortcuts | Off |
+| Ctrl+Space changes the language | On |
 | Show the keyboard for shortcuts | On |
 
 A related pair of settings lives in the same **Typing** screen's <SettingsPath path="Typing / Volume keys" /> group rather than here, since they're volume-key shortcuts and not part of the leader/picker mechanism:

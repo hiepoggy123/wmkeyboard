@@ -11,7 +11,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import Flavor from '@components/Flavor.astro';
 
-WM Keyboard ships 62 tools (panels, sensors, generators, and one-tap actions), but only a handful sit on the toolbar at once. The rest wait one tap away in the toolbox, and you decide which is which by dragging tools between the two.
+WM Keyboard ships 63 tools (panels, sensors, generators, and one-tap actions), but only a handful sit on the toolbar at once. The rest wait one tap away in the toolbox, and you decide which is which by dragging tools between the two.
 
 <PhoneFrame caption="The toolbar's default row (Emoji, Clipboard, Settings) with the toolbox grid open below it.">
   {/* shot: tools/toolbar-and-toolbox */}
@@ -54,13 +54,13 @@ The trade is muscle memory against reach. Paging keeps every tool at the same sp
 
 Pick a page size that's a multiple of your row size and every page comes out with full rows. Ask for more tools than fit the panel's height and the page will scroll as well as swipe, which rather defeats the point.
 
-## Browsing all 62 tools
+## Browsing all 63 tools
 
 <SettingsPath path="Tools" />
 
-Every tool has a settings screen, with its own **Enabled** switch plus whatever options it has, under `Settings → Tools`. At the top of that screen, **Colorful tool icons** (on by default) tints each tool's icon with its own accent color, on the toolbar and in the toolbox alike; turn it off and every icon falls back to the theme's plain foreground color. Below that, the list is grouped by what the tools do: **Panels**, **Scanners**, **Online tools**, **Create & convert**, **Keyboard modes**, **Cursor**, **Quick actions**, and **Utilities**, with any tool a future group forgets to claim falling into an **Other** catch-all so it's never invisible. Tapping a row's switch enables or disables the tool everywhere (toolbar, toolbox, and hardware leader key); tapping the row itself opens that tool's own settings. A small tune icon marks tools that have settings beyond the switch. Most do, but a few (Unit converter, Settings, Themes, Sound & haptics, One-handed, Media controls) are toggle-only here because their real options live on other settings screens.
+Every tool has a settings screen, with its own **Enabled** switch plus whatever options it has, under `Settings → Tools`. At the top of that screen, **Colorful tool icons** (on by default) tints each tool's icon with its own accent color, on the toolbar and in the toolbox alike; turn it off and every icon falls back to the theme's plain foreground color. Below that, the list is grouped by what the tools do: **Panels**, **Scanners**, **Online tools**, **Create and convert**, **Keyboard modes**, **Cursor**, **Quick actions**, and **Utilities**, with any tool a future group forgets to claim falling into an **Other** catch-all so it's never invisible. Tapping a row's switch enables or disables the tool everywhere (toolbar, toolbox, and hardware leader key); tapping the row itself opens that tool's own settings. A small tune icon marks tools that have settings beyond the switch. Most do, but six (Settings, Themes, Sound & haptics, One-handed, Media controls, and [Resize](/tools/resize/)) are toggle-only here because their real options live on other settings screens.
 
-Related pages cover most of these tools in depth: [Clipboard manager](/tools/clipboard/), [Snippets & text expansion](/tools/snippets/), [Text editing & cursor tools](/tools/text-editing/), [Handwriting](/tools/handwriting/), [Camera tool](/tools/camera/), [Voice typing](/tools/voice/), [Offline voice (Whisper)](/tools/whisper/), [Scanner (OCR, QR, documents)](/tools/scanner/), [Translate](/tools/translate/), [Search & Wikipedia](/tools/search/), [AI tools](/tools/ai/), [Utility tools](/tools/utilities/), [Media controls](/tools/media/), [Calendar](/tools/calendar/), and [Instruments](/tools/instruments/) (flashlight, compass, level, moon phase, weather). The master tool list is being built out on [Reference → Tools](/reference/settings/tools/).
+Related pages cover most of these tools in depth: [Clipboard manager](/tools/clipboard/), [Snippets & text expansion](/tools/snippets/), [Text editing & cursor tools](/tools/text-editing/), [Handwriting](/tools/handwriting/), [Camera tool](/tools/camera/), [Voice typing](/tools/voice/), [Offline voice (Whisper)](/tools/whisper/), [Scanner (OCR, QR, documents)](/tools/scanner/), [Translate](/tools/translate/), [Search & Wikipedia](/tools/search/), [AI tools](/tools/ai/), [Utility tools](/tools/utilities/), [Media controls](/tools/media/), [Calendar](/tools/calendar/), [App launcher](/tools/app-launcher/), [Resize](/tools/resize/), and [Instruments](/tools/instruments/) (flashlight, compass, level, moon phase, weather). The master tool list is being built out on [Reference → Tools](/reference/settings/tools/).
 
 ## Panels and captured keys
 
@@ -76,7 +76,7 @@ To back out of any open panel:
 
 ## Which tools work before you unlock your phone
 
-Some tools stay usable during **direct boot**: the window right after a restart, before you've entered your PIN or pattern for the first time, when the keyboard has no access to its stored data. WM Keyboard exposes 37 of its 62 tools during this window: everything that's pure arithmetic, a sensor reading, or a control over the keyboard's own on-screen state (Emoji, Text editing, Numpad, Symbols, One-handed, Split, Floating, Hide keyboard, Themes, Autocorrect, Sound & haptics, Incognito, Modes, Fancy text, Undo, Redo, Power saving, Calculator, Unit converter, Password generator, QR generator, Flashlight, Compass, Level, Moon phase, and all twelve cursor tools). Anything backed by a file on disk (Clipboard, Snippets, Camera, downloaded speech or AI models), anything that needs a credential (Translate, the online searches, AI), anything that reads a content provider behind the lock screen (Calendar), or anything that has to launch a separate activity (Settings, the document scanner) sits out until you unlock. This set isn't a toggle anywhere; it's automatic, and only applies during that specific before-first-unlock window.
+Some tools stay usable during **direct boot**: the window right after a restart, before you've entered your PIN or pattern for the first time, when the keyboard has no access to its stored data. WM Keyboard exposes 38 of its 63 tools during this window: everything that's pure arithmetic, a sensor reading, or a control over the keyboard's own on-screen state (Emoji, Text editing, Numpad, Symbols, One-handed, Split, Floating, Resize, Hide keyboard, Themes, Autocorrect, Sound & haptics, Incognito, Modes, Fancy text, Undo, Redo, Power saving, Calculator, Unit converter, Password generator, QR generator, Flashlight, Compass, Level, Moon phase, and all twelve cursor tools). Anything backed by a file on disk (Clipboard, Snippets, Camera, downloaded speech or AI models), anything that needs a credential (Translate, the online searches, AI), anything that reads a content provider behind the lock screen (Calendar), or anything that has to launch a separate activity (Settings, the document scanner) sits out until you unlock. This set isn't a toggle anywhere; it's automatic, and only applies during that specific before-first-unlock window.
 
 That's a different thing from the **"Hide toolbar & clipboard on lock screen"** option under <SettingsPath path="Appearance / Toolbar" /> (off by default), which hides the *entire* toolbar (not a filtered subset) any time the phone's screen is currently locked, even long after you've unlocked it once since the last restart. Turn that on if you don't want a pinned tool or the suggestion strip visible while replying to a notification from the lock screen.
 
@@ -92,28 +92,32 @@ This is one part of a broader hardware-keyboard settings group: the leader itsel
 
 <SettingsPath path="Appearance / Toolbar" />
 
-- **Show the toolbar** — on by default. Turning it off reclaims its height for the keys, but also hides suggestions and every pinned tool, so Settings warns you before you do it.
-- **Swipe down to hide** — off by default. A downward flick anywhere on the toolbar dismisses the keyboard.
-- **Only toolbar with hardware keyboard** — off by default. With a physical keyboard attached, drop the on-screen keys and keep just the toolbar strip.
-- **Reverse order for RTL languages** — on by default. Mirrors the pinned tool order when the active layout's script runs right-to-left.
-- **Spread tools across the bar** — on by default. Pinned tools split the available width evenly instead of packing to the left.
-- **Scroll the toolbar** — off by default. Lets pinned tools scroll sideways instead of shrinking to fit; turning it on forces the packed (non-spread) layout.
-- **Hide toolbar & clipboard on lock screen** — off by default. See [above](#which-tools-work-before-you-unlock-your-phone).
-- **Toolbar height** — 44dp by default, adjustable from 32–80dp.
-- **Tool labels** — off by default. Shows each tool's name under its icon; label size is 10sp by default when on.
-- **Reset pinned tools** — restores the toolbar to Emoji, Clipboard, and Settings. This always resets the *global* row, even while a mode with its own pinned toolbar is active. To change what a mode itself pins, edit that mode instead.
-- **Tool circle radius** — 20dp by default (a full circle behind each icon, Gboard-style). Lower values give a rounded square; 0 removes the background entirely.
-- **Toolbox layout** — Icons by default; Pills is the wide-row alternative. See [above](#two-ways-to-draw-the-toolbox).
-- **Toolbox grid size** — 4 tools per row by default, adjustable from 3–6. Icons layout only.
-- **Pills per row** — 2 by default, adjustable from 1–3. Pills layout only.
-- **Fill pills with the tool color** — off by default. Pills layout only, and needs Colorful tool icons on.
-- **Swipe the toolbox in pages** — off by default. See [above](#scrolling-or-pages).
-- **Tools per page** — 12 by default, adjustable from 4–40. Only shown once paging is on.
+- **Show the toolbar**: on by default. Turning it off reclaims its height for the keys, but also hides suggestions and every pinned tool, so Settings warns you before you do it.
+- **Swipe down to hide**: off by default. A downward flick anywhere on the toolbar dismisses the keyboard.
+- **Only toolbar with hardware keyboard**: off by default. With a physical keyboard attached, drop the on-screen keys and keep just the toolbar strip.
+- **Reverse order for RTL languages**: on by default. Mirrors the pinned tool order when the active layout's script runs right-to-left.
+- **Spread tools across the bar**: on by default. Pinned tools split the available width evenly instead of packing to the left.
+- **Scroll the toolbar**: off by default. Lets pinned tools scroll sideways instead of shrinking to fit; turning it on forces the packed (non-spread) layout.
+- **Hide toolbar & clipboard on lock screen**: off by default. See [above](#which-tools-work-before-you-unlock-your-phone).
+- **Toolbar height**: 44dp by default, adjustable from 32–80dp.
+- **Tool labels**: off by default. Shows each tool's name under its icon; label size is 10sp by default when on.
+- **Reset pinned tools**: restores the toolbar to Emoji, Clipboard, and Settings, after a confirmation. This always resets the *global* row, even while a mode with its own pinned toolbar is active. To change what a mode itself pins, edit that mode instead. It resets the pinned row only, not the order you dragged the toolbox into; see [below](#details--edge-cases).
+- **Tool circle radius**: 20dp by default (a full circle behind each icon, Gboard-style). Lower values give a rounded square; 0 removes the background entirely.
+- **Tool background shape**: Rounded by default. The outline of that background, from the same set of shapes the keys and popups use. Only shown while the radius above is over 0, since at 0 there's no background to shape.
+- **Tool background width**: 38dp by default, adjustable from 38–64dp. 38 is the classic circle; wider stretches it into a pill, which pairs well with a low corner radius and a scrolling bar.
+- **Toolbox layout**: Icons by default; Pills is the wide-row alternative. See [above](#two-ways-to-draw-the-toolbox).
+- **Toolbox grid size**: 4 tools per row by default, adjustable from 3–6. Icons layout only.
+- **Pills per row**: 2 by default, adjustable from 1–3. Pills layout only.
+- **Fill pills with the tool color**: off by default. Pills layout only, and needs Colorful tool icons on.
+- **Swipe the toolbox in pages**: off by default. See [above](#scrolling-or-pages).
+- **Tools per page**: 12 by default, adjustable from 4–40. Only shown once paging is on.
 
 ## Details & edge cases
 
 - A tool that's disabled under <SettingsPath path="Tools" /> disappears from the toolbar, the toolbox, *and* its hardware leader-key letter all at once, since there's a single switch, not three.
-- Five tools depend on ML Kit and are <Flavor edition="full" />: Handwriting, OCR, QR scan, Document scanner, and Grammar. The lite edition ships 57 of the 62 tools rather than 62, and a build-gated tool gets no settings row at all, never a switch you can't turn on.
+- Five tools depend on ML Kit and are <Flavor edition="full" />: Handwriting, OCR, QR scan, Document scanner, and Grammar. The lite edition ships 58 of the 63 tools rather than 63, and a build-gated tool gets no settings row at all, never a switch you can't turn on.
+- **Document scanner** has a second gate on top of that one: it's an activity inside Google Play services, not this app's own code, so it's hidden on any device without Play services even on <Flavor edition="full" />. OCR and QR scan stay put there, since their models ship in the APK and run with no Play services at all.
+- **Nothing restores the toolbox order.** Once you've dragged tools around the grid, that arrangement is yours for good. **Reset pinned tools** rewrites the pinned row and nothing else, and the toolbox order isn't a settings row anywhere, so it has no restore button of its own either. The only way back to the shipped ranking is resetting the whole app from [Backup & restore](/reference/settings/backup/).
 - Toolbar reordering is per-installation, not per-language: pinning a tool applies everywhere, not just while a particular language is active. A keyboard mode's own toolbar override is the one exception; see [above](#pinning-and-reordering).
 - The toolbox shows only tools that are both enabled *and* not already pinned, so enabling a tool that's already pinned won't create a second entry in the toolbox.
 - With paging on, a drag reorders within the page you're holding it over. The pages don't flip under your finger, so moving a tool to another page means dragging it onto the toolbar first, then off again on the page you want. Dragging up onto the toolbar to pin works from any page.

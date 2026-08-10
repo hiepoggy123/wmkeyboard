@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-The clipboard tool keeps a running history of what you copy (text, images, files, and more), so a paste from ten minutes ago is still one tap away, not gone the moment you copy something new. It's one of only three tools pinned to the toolbar out of the box, alongside Emoji and Settings.
+The clipboard tool keeps a running history of what you copy (text, images, files, and more), so a paste from ten minutes ago is still one tap away, not gone the moment you copy something new. On a phone it's one of only three tools pinned to the toolbar out of the box, alongside Emoji and Settings. A tablet starts wider, because three icons across a twelve-inch bar is mostly empty space: five pinned on a small tablet (Emoji, GIF, Clipboard, Voice, Settings) and seven on a large one (those five plus Translate and Text edit). Clipboard is in all three sets.
 
 <PhoneFrame caption="The clipboard panel: staggered two-column cards, entity chips for a fresh code or link, and a search pill.">
   {/* shot: tools/clipboard-panel */}
@@ -67,7 +67,7 @@ Detection is conservative on purpose: a 4-digit year is never mistaken for a cod
 
 Phone numbers are the one fragment with no shape of its own, so they get an extra setting. Without it, anything with 7 to 15 digits counts, which is how an invoice total or a tracking number ends up wearing a phone chip. Open **Phone number formats** from the clipboard settings and give it a number you copy often: it turns that into a format like `+880 1XXX-XXXXXX`, keeps the dial code, and turns the rest into wildcards you can type digits back over to pin. After that, only numbers matching one of your formats become chips.
 
-The matching is deliberately forgiving about the things people vary and strict about the things they don't. Spaces, hyphens, brackets and dots are ignored on both sides, and the same format accepts the number with its country code, without it, or with a leading 0 in its place. What it won't accept is the wrong length, the wrong leading digit, or an explicit `+` naming a different country. There's a test field on the screen so you can paste a number in and see the answer before you trust it. Add as many formats as you like (one per country you deal with), and delete them all to go back to catching everything.
+The matching is deliberately forgiving about the things people vary and strict about the things they don't. Spaces, hyphens, brackets and dots are ignored on both sides, and the same format accepts the number with its country code, without it, or with a leading 0 in its place. What it won't accept is the wrong length, the wrong leading digit, or an explicit `+` naming a different country. There's a test field on the screen so you can paste a number in and see the answer before you trust it. Add as many formats as you like (one per country you deal with), and delete them all to go back to catching everything. [Phone number formats](/reference/settings/phone-formats/) is the field reference for that screen: the mask characters, the length bounds, and every bit of leeway spelled out.
 
 This entity strip is a different mechanism from [Smart chips](/smart/chips/), which reacts to what you're currently typing rather than to what you've copied; the two happen to look similar (a dashed outline) but don't share any code.
 
@@ -93,24 +93,30 @@ Locking the keyboard out of the clipboard panel entirely while the device is loc
   ![Clipboard settings: the History group and, below it, Passwords & codes.](@assets/screens/tools/clipboard-settings.webp)
 </PhoneFrame>
 
-**History**
-- **Clipboard history** — master capture switch, on by default.
-- **Suggest recent copy** — offers your latest copy as a paste chip on the suggestion strip, on by default; the chip disappears on its own after a few minutes.
-- **Clipboard expiry** — hours before an unpinned clip is removed, 0–168, default 24 hours (0 means never).
-- **Maximum entries** — how many unpinned clips history keeps, 5–500, default 100.
-- **Bottom control row** — adds an abc/space/backspace row at the bottom of the panel, like the emoji panel's; off by default.
-- **Pinned entries last** — moves pinned clips to the end of the panel instead of the top; off by default.
-- **Search bar** — enables the [search pill](#finding-a-clip-again) described above; off by default.
-- **Detect codes, numbers & links** — enables the [entity chips](#pulling-codes-and-links-out-of-a-clip); on by default. Detection runs entirely on the device.
-- **Forget after pasting a password** — the paste-time purge described [above](#passwords-are-handled-deliberately); on by default.
-- **Link previews** — fetches a copied link's page title and description directly from the linked site; off by default, and the toggle's own description says so plainly.
-- **User screenshots** — shows device screenshots in the panel alongside copied text and images; off by default, and needs the photos/storage permission the app will prompt for.
-- **Show source app** — records which app a clip was copied from, for the long-press info popup; off by default, and needs the Usage Access permission (a best-effort guess of the foreground app at copy time, not a precise log).
+**History**, in the order the rows appear:
 
-**Passwords & codes**
-- **Sensitive clips** — keep, hide-and-forget (default), or never save. See [above](#passwords-are-handled-deliberately).
-- **Recognise them yourself** — extends sensitive handling to clips that merely look like a password or code; on by default, shown only when sensitive handling isn't set to "keep."
-- **Forget sensitive clips after** — the hidden-clip timer, 1–120 minutes, default 5; shown only under the hide-and-forget option.
+- **Clipboard history**: master capture switch, on by default.
+- **Suggest the last copy**: offers your latest copy as a paste chip on the suggestion strip, on by default; the chip disappears on its own after a few minutes.
+- **Suggest copied codes in code boxes**: on by default, and only shown while "Suggest the last copy" is on. A copied one-time code is otherwise treated as a secret and kept off the strip, since the chip sits in view while you type something else. A code box is the exception, because the code is the only thing you're there to type, so a recently copied code is offered there and nowhere else.
+- **Pop-up when you copy**: off by default. It lives in this group but it isn't a history setting at all, see [below](#details--edge-cases).
+- **Clipboard expiry**: hours before an unpinned clip is removed, 0–168, default 24 hours (0 means never).
+- **Maximum entries**: how many unpinned clips history keeps, 5–500, default 100.
+- **Bottom control row**: adds an abc/space/backspace row at the bottom of the panel, like the emoji panel's; off by default.
+- **Full-screen clipboard panel**: on by default, so this is what the panel does unless you say otherwise. The history takes the whole keyboard and a slim back header stands in for the toolbar, the emoji row and the symbol row, which is worth it because picking the right clip is easier the more of them are on screen. Start a search and the panel drops back to its compact size so the keys fit underneath. Turn it off to keep the toolbar visible while the panel is open.
+- **Pinned entries last**: moves pinned clips to the end of the panel instead of the top; off by default.
+- **Search bar**: enables the [search pill](#finding-a-clip-again) described above; off by default.
+- **Detect codes, numbers and links**: enables the [entity chips](#pulling-codes-and-links-out-of-a-clip); on by default. Detection runs entirely on the device.
+- **Phone number formats**: a nav row, shown only while detection is on, opening the mask editor covered in [Phone number formats](/reference/settings/phone-formats/). Its subtitle says every number becomes a chip while you have no formats saved, and counts them once you do.
+- **Forget after you paste a password**: the paste-time purge described [above](#passwords-are-handled-deliberately); on by default.
+- **Link previews**: fetches a copied link's page title and description directly from the linked site; off by default, and the toggle's own description says so plainly.
+- **Your screenshots**: shows device screenshots in the panel alongside copied text and images; off by default. While it's on without the photos permission granted, a row appears underneath to open system settings.
+- **Show the source app**: records which app a clip was copied from, for the long-press info popup; off by default, and needs the Usage Access permission (a best-effort guess of the foreground app at copy time, not a precise log). It gets the same "grant this" row underneath until you do.
+
+**Passwords and codes**
+
+- **Sensitive clips**: keep, hide-and-forget (default), or never save. See [above](#passwords-are-handled-deliberately).
+- **Let the keyboard find them**: extends sensitive handling to clips that merely look like a password or code; on by default, shown only when sensitive handling isn't set to "keep."
+- **Forget sensitive clips after**: the hidden-clip timer, 1–120 minutes, default 5; shown only under the hide-and-forget option.
 
 ## Backups and exports
 
@@ -118,9 +124,10 @@ The whole-app [config backup](/privacy/backup/) has its own Clipboard section, o
 
 ## Details & edge cases
 
+- Every toggle and slider on this screen carries the usual [restore button](/reference/settings/#putting-one-setting-back) once you've moved it off its shipped value, so the rows that grew one are the ones you've changed.
 - The clipboard tool needs the device to have been unlocked at least once since restart: its history lives in credential-encrypted storage, so it sits out any lock-screen or pre-unlock typing until then.
 - Ships the same way in the full and lite editions; nothing about this tool is edition-gated.
 - Link previews make a direct, unauthenticated request to whichever site you copied a link from (not through any of the app's own network services), so turning that setting on means that site sees a request from your device the moment you open the panel with a fresh link in history.
 - A file or folder clip is only as good as the URI permission grant behind it; if that's lapsed by the time you tap it (the source app cleared its cache, for instance), pasting falls back to putting the URI back on the system clipboard with an explanatory toast rather than silently failing.
-- "Toast on copy" appears in this same screen's History group but is actually a [feedback](/typing/feedback/) setting: it's about the keyboard's own copy shortcuts (<KeyCap>A</KeyCap>/<KeyCap>C</KeyCap>/<KeyCap>V</KeyCap>/<KeyCap>X</KeyCap> and the text-editing panel's copy button), not clipboard history.
+- "Pop-up when you copy" appears in this same screen's History group but is actually a [feedback](/typing/feedback/) setting: it's about the keyboard's own copy shortcuts (<KeyCap>A</KeyCap>/<KeyCap>C</KeyCap>/<KeyCap>V</KeyCap>/<KeyCap>X</KeyCap> and the text-editing panel's copy button), not clipboard history. It only fires in fields that give no copy feedback of their own, and it's off by default.
 - Pausing capture while [incognito](/privacy/incognito/) is on is a separate Incognito setting, not part of this screen.

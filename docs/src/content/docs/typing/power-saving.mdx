@@ -17,7 +17,7 @@ Power saving drops the parts of WM Keyboard that cost the most battery (vibratio
 
 ## Turning it on
 
-The quickest way is the **Power saving** toolbar tile: a single tap flips it on or off, with a toast confirming which ("Power saving on", "Power saving off"). It isn't one of the tools WM Keyboard starts you with, though: pin it from the toolbox, or from **Tools** in settings, the same way you'd add any other tool. On a physical keyboard, double-tap <KeyCap>Ctrl</KeyCap> and press <KeyCap>B</KeyCap> to do the same thing without touching the screen; see [Hardware keyboards](/typing/hardware-keyboard/) for the rest of the leader-key shortcuts.
+The quickest way is the **Power saving** toolbar tile: a single tap flips it on or off, with a toast confirming which ("Power saving is on", "Power saving is off"). It isn't one of the tools WM Keyboard starts you with, though: pin it from the toolbox, or from **Tools** in settings, the same way you'd add any other tool. On a physical keyboard, double-tap <KeyCap>Ctrl</KeyCap> and press <KeyCap>B</KeyCap> to do the same thing without touching the screen; see [Hardware keyboards](/typing/hardware-keyboard/) for the rest of the leader-key shortcuts.
 
 However you flip it, the manual switch is sticky: it survives the keyboard being torn down and rebuilt between fields, and a full battery or the charger going in doesn't turn it back off by itself. Once you've turned it on by hand, it stays on until you turn it off by hand.
 
@@ -46,10 +46,10 @@ Under the hood, the keyboard watches a handful of coarse system broadcasts (batt
 
 ## What gets dropped
 
-Power saving isn't one bundle of "reduce everything": it's eleven independent switches, each defaulting to whatever gives up the least for the most battery back. Turn any of them back on individually if that trade-off doesn't suit you.
+Power saving isn't one bundle of "reduce everything": it's twelve independent switches, each defaulting to whatever gives up the least for the most battery back. Turn any of them back on individually if that trade-off doesn't suit you.
 
-<PhoneFrame caption="The What to drop group — eleven independent switches.">
-  ![The What to drop group — eleven independent switches.](@assets/screens/typing/power-saving-what-to-drop.webp)
+<PhoneFrame caption="The What to drop group, twelve independent switches.">
+  ![The What to drop group, twelve independent switches.](@assets/screens/typing/power-saving-what-to-drop.webp)
 </PhoneFrame>
 
 | Switch | Default | What it drops |
@@ -65,8 +65,9 @@ Power saving isn't one bundle of "reduce everything": it's eleven independent sw
 | Background network | On | Unrequested fetches only: link previews for copied URLs and scanned QR codes, and the dictionary's look-up-on-selection. Tools you open by hand (translate, search, GIFs) still work. |
 | Screenshot watching | On | Watching the screenshot folder for new images to offer in the clipboard. |
 | On-device models | On | Whisper dictation falls back to the system recognizer, and the letter-swipe action falls back to gesture typing if it was set to handwriting. See [Offline voice](/tools/whisper/) and [Handwriting](/tools/handwriting/). |
+| Typing statistics | Off | Counting your keystrokes, words and speed. Off by default: the counters are a few integer bumps per keystroke, so the saving is speculative. Days spent saving power simply record nothing, and they never drag your speed averages down. |
 
-Power saving is only in force in any *useful* sense if at least one of these is on; turn every switch off and the tile's toast admits it plainly: "Power saving on — nothing is set to be dropped yet."
+Power saving is only in force in any *useful* sense if at least one of these is on; turn every switch off and the tile's toast admits it plainly: "Power saving is on. No feature is set to stop yet."
 
 ## Options
 
@@ -81,12 +82,12 @@ The **Power saving** group holds the four controls above:
 | Low battery is | 20% (5%–50% range) |
 | Off while charging | On |
 
-The **What to drop** group below it is the eleven switches from the table above, listed in this order: Key vibration, Key sounds, Animations, Glide trail, Key popup, Gesture typing, Emoji suggestions, Smart chips, Background network, Screenshot watching, On-device models.
+The **What to drop** group below it is the twelve switches from the table above, listed in this order: Key vibration, Key sounds, Animations, Glide trail, Key popup, Gesture typing, Emoji suggestions, Smart chips, Background network, Screenshot watching, On-device models, Typing statistics.
 
 ## Details & edge cases
 
 - **Nothing is ever overwritten.** The reduced settings are computed on the way out, the moment power saving applies: the stored values never change, so turning it off, the charger going in, or the battery recovering all bring every feature back exactly as you set it.
-- **Turning off the manual switch doesn't always turn saving off.** If an automatic trigger (low battery, say) is still holding it on, the toast says "Still saving: the battery trigger is on" instead of "Power saving off".
+- **Turning off the manual switch doesn't always turn saving off.** If an automatic trigger (low battery, say) is still holding it on, the toast says "Power saving stays on. The battery trigger is on." instead of "Power saving is off".
 - **The toolbar tile lights up while power saving is actually in force**, the same way the Incognito tile does, and it follows the fully resolved state, not just the manual switch, so it's lit while an automatic trigger is holding things on too.
 - **Not a default or recommended tool.** Power saving isn't among the tools WM Keyboard starts you with, and it isn't part of the onboarding wizard's suggested set either: you pin it yourself.
 - **Works before you unlock your device once after a restart**, and behaves identically on the full and lite editions.

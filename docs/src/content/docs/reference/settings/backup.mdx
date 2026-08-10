@@ -18,11 +18,50 @@ The Backup & restore screen is where you write your keyboard to a file and read 
 
 <SettingsPath path="Data / Backup & restore" />
 
-Reach it from the **Data** group on the settings home screen, or by searching "Backup & restore" in settings search.
+Reach it from the **Data** group on the settings home screen, or by searching "Backup & restore" in settings search. The screen opens on a paragraph explaining what a backup file is, then runs **Automatic backup**, **Include in export**, the export button, and **Import**, in that order.
+
+### Automatic backup
+
+<SettingsPath path="Data / Backup & restore / Automatic backup" />
+
+This group writes the same bundle as the export button below, on a timer, to somewhere you choose. It stays inert until the destination you picked has everything it needs, so several rows here only appear once it does.
+
+| Setting | Type | Default | Shown when |
+| --- | --- | --- | --- |
+| Where to put backups | Choice: Folder / WebDAV / S3 / FTP / Google Drive / Dropbox / OneDrive | Folder | always |
+| Back up automatically | Toggle | Off | always (forced off until the destination is usable) |
+| How often | Choice: 6 hours / 12 hours / 1 day / 1 week | 1 day | Back up automatically on and destination usable |
+| Backups to keep | Choice: 3 / 5 / 10 | 5 | Back up automatically on and destination usable |
+| Protect with a passphrase | Toggle | Off | always |
+| Passphrase | Password field | empty | Protect with a passphrase on |
+
+Three of the seven only appear when the build can actually reach them: Google Drive needs Play services on the device, and Dropbox and OneDrive each need a client id compiled into the APK. A choice with nothing behind it is left off the list rather than shown and then refused, so a phone without Play services, or a build made without those client ids, simply sees a shorter list.
+
+Under the destination picker sits whatever that destination needs. Each set of fields saves as you type:
+
+| Destination | Fields | Notes |
+| --- | --- | --- |
+| Folder | **Folder** (a folder picker; reads "Not set" until you choose one) | Anywhere a files app can reach: the device, an SD card, or a cloud app's synced folder |
+| WebDAV | **Server address**, **User name**, **Password** | A plain `http` address gets a warning under the fields and is refused at upload time, because the credentials ride along on every request |
+| S3 | **Endpoint**, **Bucket**, **Region** (default `us-east-1`), **Folder in the bucket**, **Access key ID**, **Secret access key**, **Put the bucket in the path** (toggle, default off) | Leave the endpoint empty for Amazon. Path style is for MinIO and for any endpoint that's a bare IP; a plain `http` endpoint gets the same warning |
+| FTP | **Server**, **Port** (default 21), **User name**, **Password**, **Directory**, **Use TLS** (toggle, default **on**) | Turning TLS off is allowed, for old NAS boxes that offer nothing else, and puts a warning under the toggle |
+| Google Drive | An **Allow access to Drive** button, plus a line saying whether it's authorised | The app gets a hidden folder of its own and can't see anything else in your Drive |
+| Dropbox | A **Sign in** / **Sign out** button, plus "Signed in." or "Not signed in yet." | You get a folder of your own under Apps |
+| OneDrive | Same sign-in row as Dropbox | Same folder-under-Apps arrangement |
+
+Below the group, three things appear conditionally:
+
+| Element | Shown when |
+| --- | --- |
+| A warning that the backup carries typed words or copied text with no passphrase on it | Dictionary or Clipboard is included below **and** the passphrase is off or empty |
+| **Back up now** (reads "Backing up…" while it runs) | always, but only tappable once the destination is usable |
+| The status line under the button | always |
+
+That status line says one of four things: the last error if there was one ("The app can no longer write to your backup folder", "The app cannot find your backup folder", "There is not enough space for a backup", or a generic "The last backup did not finish. The app tries again later."), otherwise "Last backup: `<relative time>`", otherwise "The app has not made an automatic backup yet."
 
 ### Export
 
-The **Include in export** group is eleven independent toggles, top to bottom:
+The **Include in export** group is twelve toggles, top to bottom. Eleven are independent; the twelfth, **Include API keys**, only exists while **Settings** is on:
 
 | Setting | Subtitle | Default |
 |---|---|---|
@@ -95,6 +134,10 @@ Opening a `.wmconfig.json` or `.wmsettings.json` file from a file manager routes
 - **The Themes toggle's own in-app description undersells it.** Its info text says a theme's background image "doesn't travel to another phone — only the theme itself does." In the current app it does travel: a background image is embedded in the export and written back to local storage on import, so a restored theme keeps its image. See [Backup & restore](/privacy/backup/#exporting-a-config-file) for the accurate version.
 - **The API-keys warning applies to a manual export only.** It has no effect on Android's own backup system, which is a separate opt-in covered on the [Privacy](/reference/settings/privacy/) screen and copies saved API keys regardless of anything on this page.
 - **Addon repositories is a bookmark list, not the addons themselves.** What an installed addon leaves behind on this screen is in whichever section matches its type: a theme, icon pack, or sticker pack you installed from a repository is already covered by that section.
+- **The automatic backup's only condition is charging.** The scheduled job asks the system for a charger and nothing else: not Wi-Fi, not an unmetered connection, not an idle device. An interval is a period, not an alarm clock, so a run lands somewhere inside the window rather than on the hour. **Back up now** ignores all of it and runs immediately.
+- **Turning the automatic switch on with no usable destination does nothing.** The row reads "Choose a folder first." and stays off, and the interval and keep-count rows below it stay hidden until both the switch and the destination are sorted. "Usable" is a cheap check (a folder grant exists, a WebDAV address and user are filled in, an S3 bucket and key pair are present, a token was stored), not proof the upload will work.
+- **The stored credentials are filed as secrets, alongside your API keys.** The WebDAV and FTP passwords, the S3 secret, the Dropbox and OneDrive tokens and the backup passphrase are all stripped from an export unless **Include API keys** is on, and they're kept out of pre-unlock storage either way. Four things never travel at all, on or off: the folder grant (a `content://` URI means nothing on another phone), the **Back up automatically** switch itself, the per-install salt, and the last-run time and error. That's deliberate. Restore a bundle on a new phone and you don't want its automatic backup coming back armed, pointing at a folder that isn't there.
+- **The toggles and choices in Automatic backup carry the usual restore button** once you move one off its default; see [Putting one setting back](/reference/settings/#putting-one-setting-back). The text fields don't, because an address or a password has no shipped value to go back to, and neither do the twelve include-in-export toggles.
 
 ## Related pages
 

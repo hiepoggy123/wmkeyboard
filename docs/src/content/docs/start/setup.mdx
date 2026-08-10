@@ -42,7 +42,7 @@ The wizard tailors itself to a short quiz on its second page, so not everyone se
 
 1. **Welcome** — the setup card from above, embedded in the wizard's first page. Enabling and selecting WM Keyboard here advances the wizard automatically, so you don't need to tap Next after coming back from system settings.
 
-2. **Make it yours** — three quick questions: how many languages you type in, whether you want a simple or a fully loaded keyboard, and how private it should be. Every answer's subtitle spells out exactly what picking it changes, answers apply those defaults on the spot, and the rest of the wizard trims itself to match. Answering is optional; skipping the quiz takes the middle path.
+2. **Make it yours**: three quick questions, all optional. How many languages you type in, whether you want a simple or a fully loaded keyboard, and how private it should be. Every answer's subtitle spells out what picking it changes, the answers apply those defaults on the spot, and the rest of the wizard trims itself to match. Leave them all alone and you get the short version of the wizard. [What the quiz changes](#what-the-quiz-changes) below lists every setting each answer writes.
 
 3. **Your languages** *(hidden if you answered "just one" language and only one is enabled)* — your currently enabled languages, each with its layouts individually switchable, then a short **Suggested for you** list, then a search box for the other 350-odd. The suggestions come from your phone's own language settings and region; see [Suggested languages](/languages/overview/#suggested-languages) for exactly what's read. Adding a language during setup enables its first layout only; add its other layouts later from Settings.
 
@@ -64,9 +64,41 @@ The wizard tailors itself to a short quiz on its second page, so not everyone se
 
 </Steps>
 
-<PhoneFrame caption="The Spacebar & keys page — one choice sets both swipe directions at once.">
+<PhoneFrame caption="The Spacebar & keys page, where one choice sets both swipe directions at once.">
   {/* shot: start/wizard-gestures-page */}
 </PhoneFrame>
+
+## What the quiz changes
+
+Each answer does two things: it writes a few settings there and then, and it decides which of the later pages you get. Here's the whole mapping, so you can see what you agreed to.
+
+**How many languages do you type in?**
+
+| Answer | What it writes | What it does to the wizard |
+|---|---|---|
+| Just one | Both spacebar swipes (short and long) move the cursor, and the <KeyCap>🌐</KeyCap> key becomes an emoji key | Your languages is skipped, unless you already have two or more enabled |
+| Two or more | Both spacebar swipes change the language, and the <KeyCap>🌐</KeyCap> key stays a language key | Your languages appears |
+
+Neither is a one-way door: the Spacebar & keys page later offers the same choice again, with a **Recommended** badge on whichever one matches your answer.
+
+**What kind of keyboard do you want?**
+
+| Answer | Toolbar tools it turns on | What it does to the wizard |
+|---|---|---|
+| Keep it simple | Eight: emoji, GIFs, stickers, clipboard, voice typing, AI writing tools, grammar check, and the settings shortcut | The short path. No Typing feedback, no Spacebar & keys, no Your tools |
+| A good middle | 21: those eight plus themes, dictionary, fancy text, translate, autocorrect, snippets, one-handed, split, text editing, handwriting, text scan, undo and redo | Adds Typing feedback and Spacebar & keys |
+| Show me everything | 35: those 21 plus Wikipedia, power saving, keyboard modes, numpad, special symbols, calculator, unit converter, currency, password generator, calendar, weather, media controls, apps and hide keyboard | Adds Your tools, and Tool setup when calendar, weather or compass is among them |
+
+A set that can't run in full on your phone gets topped up rather than left short. If part of it isn't available (a Lite build has no handwriting and no text scan), or the phone has no Google services, Wikipedia and power saving come in behind whatever's missing, so a "recommended" set never quietly arrives two tools smaller.
+
+**How private should it be?**
+
+| Answer | What it writes |
+|---|---|
+| Standard | Nothing. The shipped defaults already are the standard behaviour |
+| Extra strict | Turns off **Learn from typing**, **Clipboard history** and **Count typing statistics**, and adds the Incognito tool to whichever set the question above landed |
+
+Leave the quiz alone entirely and you get the short page list, the same one "keep it simple" gets, plus the middle tool set when the wizard closes.
 
 ## Switching keyboards later
 

@@ -81,21 +81,41 @@ A related, separately-gated feature nudges which key a *borderline* tap resolves
   ![The Automatic corrections group in Typing settings, including the confidence slider.](@assets/screens/smart/autocorrect-options.webp)
 </PhoneFrame>
 
-| Setting | Default |
-| --- | --- |
-| Autocorrect | On |
-| Autocorrect confidence | 4.0&times; (range 1.5&times;&ndash;10&times;) |
-| Undo autocorrect with backspace | On |
-| Skip all-caps words | On |
-| Block offensive words | On |
-| Fix missing apostrophes | On |
-| Double-space period | On |
-| Double-space tab | Off |
-| Auto-space after punctuation | Off |
+| Setting | Default | Shown when |
+| --- | --- | --- |
+| Autocorrect | On | always |
+| Autocorrect confidence | 4.0&times; (range 1.5&times;&ndash;10&times;) | Autocorrect on |
+| Adaptive confidence | On | Autocorrect on |
+| Typing rhythm | 0% (range 0%&ndash;100%) | Autocorrect on |
+| Undo autocorrect with backspace | On | Autocorrect on |
+| Skip words in capital letters | On | Autocorrect on |
+| Block offensive words | On | Autocorrect on |
+| Context-aware suggestions | On | Autocorrect on |
+| Add missing spaces | On | Autocorrect on |
+| Detect the language you type | On | Autocorrect on |
+| Detection strength | Balanced (Gentle / Balanced / Aggressive) | Autocorrect on, and Detect the language you type on |
+| Fix number row slips | On | Autocorrect on, and the number row is shown |
+| Fix missing apostrophes | On | always |
+| Double space for a full stop | On | always |
+| Double space for a tab | Off | always |
+| Double space speed | 400 ms (range 200&ndash;800 ms) | either double-space rule on |
+| Automatic space after punctuation | Off | always |
 
-The **Autocorrect** toggle is the master switch; the rest of this group (including the confidence slider) only shows while it's on. It's also reachable as a one-tap toolbar tool that flips the same switch without leaving the keyboard, showing a brief "Autocorrect on"/"Autocorrect off" confirmation.
+The **Autocorrect** toggle is the master switch for the eleven rows marked "Autocorrect on" above, from the confidence slider down to Fix number row slips. It is *not* a switch for the whole group: the apostrophe fix, both double-space rules and the auto-space after punctuation carry on working with autocorrect off, which is the point of them having their own toggles. Autocorrect is also reachable as a one-tap toolbar tool that flips the same switch without leaving the keyboard, showing a brief "Autocorrect on"/"Autocorrect off" confirmation.
 
 **Autocorrect confidence** is the ratio the top candidate must beat the runner-up by, shown as a continuous slider from 1.5&times; to 10&times; and labeled with the exact multiplier (e.g. "&times;4.0"). Lower makes autocorrect fire more eagerly, on less-certain calls; higher restricts it to only the most unambiguous typos. Two-source agreement (see [How a correction is chosen](#how-a-correction-is-chosen)) always bypasses this slider, whatever it's set to.
+
+Three more rows move that same gate around without you touching the slider:
+
+- **Adaptive confidence** (on) watches how often you undo corrections and raises the bar when you undo a lot, settling back to the slider's value when you stop. It also remembers each correction you reverted: one you've undone twice never fires again.
+- **Typing rhythm** (0%, so off until you move it) measures how fast you typed the word. A quick sloppy burst makes autocorrect a bit braver, slow deliberate typing (an unusual name, a word from another language) makes it hold back. The slider is how much the rhythm is allowed to sway things.
+- **Detection strength** decides how far a detected language may take the gate with it, from a Gentle reorder to Aggressive handing autocorrect over completely. See [Mixed-language typing](/smart/mixed-language/).
+
+The other new rows are corrections in their own right rather than gate tuning:
+
+- **Add missing spaces** (on) splits a word you typed without its space when both halves are known words and nothing else explains it: "ofthe" becomes "of the", and a letter next to the spacebar can stand in for the space itself, so "amibtomake" becomes "ami tomake". Backspace right after puts your text back, like any other correction.
+- **Fix number row slips** (on) treats a lone digit inside a word as a tap that landed one row too high, so "as3" can commit as "ase". Only a same-length, single-digit swap is ever trusted: a word starting with a digit, or one with two or more digits, is left alone. The row only appears while the [number row](/reference/settings/layout/) is on, since that's the only time the slip is possible.
+- **Context-aware suggestions** (on) reorders the top candidates using the words before them, drawing on your own word pairs, common English pairs and the words already in this conversation. It only reorders where there's real evidence, and it never changes which word autocorrect applies.
 
 ## Details & edge cases
 

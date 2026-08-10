@@ -1,0 +1,90 @@
+---
+title: "One-time codes"
+description: "A verification code arrives in a notification, and a chip above the keys types it. Off by default, and it needs notification access."
+sidebar:
+  order: 11
+---
+
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+
+Typing a verification code normally means pulling down the shade, reading six digits, going back to the app and hoping you remembered them. WM Keyboard can skip that: when a code arrives in a notification, a chip appears above the keys with the code and the name of the app that sent it, and one tap types it.
+
+This is **off by default** and it needs notification access, which is a broad grant. The rest of this page is what the keyboard does with it, and what it deliberately doesn't.
+
+<PhoneFrame caption="A code chip above the keys: the code, the app that sent it, and an ✕ to dismiss.">
+  {/* shot: smart/otp-notification-chip */}
+</PhoneFrame>
+
+## Turning it on
+
+<SettingsPath path="Typing / One-time codes / Codes from notifications" />
+
+Flip the switch and you get a plain-language disclosure of what the feature reads and why, then the system's notification-listener screen to grant it on. If you back out without granting, an **Allow notification access** row appears under the switch as the way back; it disappears once access is there.
+
+The grant is the same notification-listener permission the [media control tool](/tools/media/) uses, but the two features are asked for separately, because they read very different things. Media control reads no notification content at all; the code chip reads notification text to find a code. Granting one doesn't turn the other on.
+
+Turning **Codes from notifications** off stops the keyboard reading notifications immediately, and drops any code it was holding at the same time.
+
+## What gets read, and what's kept
+
+While the feature is on, the keyboard looks at each incoming notification's text: title, body, big text, inbox lines, sub-text and summary, up to the first 1,000 characters. It skips its own notifications, anything ongoing (a media session, a download, a foreground service) and group summaries, since none of those carry codes and the summary would only raise the same code twice.
+
+If a code is found, it goes into a single in-memory slot: the code, the posting app's name, the notification's key, and a capped copy of the message for context. Nothing is written to disk, nothing is sent anywhere, and a newer code replaces an older one rather than queueing behind it. Two codes in flight means the first one was abandoned, and offering a stale code is worse than offering none.
+
+## What counts as a code
+
+The detector is deliberately hard to trigger. There is no "any six digits" rule, because delivery slots, order numbers and flight times all arrive as notifications too. Every pattern is anchored to a word that promises a code is next: `otp`, `verification code`, `security code`, `login code`, `2fa`, `passcode`, `pin`, and similar.
+
+Four anchored shapes run in precision order, so a message with several numbers gives up the right one:
+
+- `482913 is your Amazon OTP`
+- `Your OTP is 482913`, `code: 482913`, `PIN - 4829`
+- `OTP for account 2310990533 is 4279`, where the code follows the "is" rather than the account number
+- `use 482913 to sign in`, `enter 4829 to verify`
+
+If none of those bites, the [clipboard detector](/tools/clipboard/)'s keyword-proximity pass runs as a recall net, which is also what catches alphanumeric codes like `WX8Q2P`.
+
+A few guards apply throughout. A code has to be 4 to 8 characters. A bare four-digit value between 1900 and 2099 is rejected, because that's a year to a person and a code to a regex. Google's `G-` prefix is stripped as branding rather than treated as part of the code. And a deny list on the keyword itself stops "zip code 90210" and friends from ever qualifying.
+
+## The chip
+
+The chip is drawn with a dashed outline, the same visual language the clipboard fragment chips use: this is something lifted out of somewhere else, not text you typed. It shows a **CODE** badge, the code itself, and the posting app's name, so you can see whose code you're about to trust before you trust it. The ✕ on the right dismisses it, which drops the code everywhere rather than just hiding the chip.
+
+It ranks high in the strip, above the clipboard and snippet chips, because the code is usually the whole reason you're in that field and it expires while everything else can wait. Only the [password-manager lane](/smart/autofill/) beats it, since the platform may be offering the same code with more context.
+
+The chip is hidden, without the code being dropped, when the current field doesn't qualify: **Only in number fields** is on and this field isn't a number field, or you're in [incognito mode](/privacy/incognito/) (globally or for this field). Hidden rather than dropped, because you're often one tap away from the box the code belongs in.
+
+## Typing into a row of boxes
+
+Plenty of apps and websites split a code across a row of single-character boxes that advance the focus for you. A code committed whole lands entirely in the first of them, which keeps one character and drops the rest.
+
+**Type codes one character at a time** (on by default) handles that: the code is typed character by character, about 40 ms apart, with the input connection re-read between each one, because the focus moving to the next box is exactly what replaces it. In an ordinary single field the result is identical, just spread over a few frames.
+
+This setting sits outside the rest of the group on purpose. It governs every path that types a code, including a code tapped from a [clipboard chip](/smart/chips/#pulling-fragments-out-of-your-clipboard), which needs no notification access at all.
+
+## Options
+
+<SettingsPath path="Typing / One-time codes" />
+
+| Setting | Default | Shown when |
+| --- | --- | --- |
+| Codes from notifications | Off | always |
+| Allow notification access | — | Codes from notifications on, and access not granted yet |
+| Only in number fields | On | Codes from notifications on |
+| Offer a code for | 3 min (range 1–10 min) | Codes from notifications on |
+| Clear the notification | Off | Codes from notifications on |
+| Type codes one character at a time | On | always |
+
+**Only in number fields** matches the shape most code boxes have. Some apps use a plain text box instead, so if your chip never shows up in one particular app, this is the switch to turn off.
+
+**Offer a code for** is measured from when the notification was posted, not from when you saw it. Past that, the code is dropped rather than hidden.
+
+**Clear the notification** dismisses the code's notification once the chip has typed it, using the same access the capture does. A few apps re-post their code after a dismissal, which is the reason it's off by default.
+
+## Details & edge cases
+
+- **The code never leaves the device and is never stored.** It lives in memory until it's used, dismissed, replaced by a newer code, or ages out. There's no history of past codes anywhere in the app.
+- **An app updating the same notification doesn't re-raise a dismissed chip.** Recently processed notifications are remembered by key and post time, so progress ticks and group re-sorts don't bring back a chip you just closed.
+- **The clipboard has its own, separate code path.** Copying a verification text offers a **CODE** chip too, covered under [Smart chips](/smart/chips/#pulling-fragments-out-of-your-clipboard). It needs no notification access, and it has its own setting under the Clipboard tool.
+- **Turning the feature off is immediate, not on next launch.** The flag the notification listener reads is flipped at the same moment as the setting, and any captured code is dropped with it.

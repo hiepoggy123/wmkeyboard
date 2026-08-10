@@ -87,7 +87,13 @@ On a device with no camera at all, the panel shows "This device has no camera." 
   ![Camera's Options screen: selfie camera, mirroring, gallery saving, shutter sound and haptics.](@assets/screens/tools/camera-options.webp)
 </PhoneFrame>
 
-Like every tool on the [full tool list](/reference/settings/tools/), this screen opens with an **Enabled** toggle (on by default, along with every other tool) and, only if [colorful tool icons](/tools/overview/) are turned on globally, an icon color override, pink by default. Below that is a **Keyword shortcut** field pre-filled with "camera": type that word on its own while typing and the suggestion strip offers to open the tool, dropping the word (see [smart suggestion chips](/smart/chips/)); clear the field and the tool stops offering itself this way.
+Like every tool on the [full tool list](/reference/settings/tools/), this screen opens with an **Enabled** toggle and, only if [colorful tool icons](/tools/overview/) are turned on globally, an **Icon colour** override (pink by default; two rows instead of one if gradient tool colours are on as well).
+
+Under those sits the **Keyword shortcut** group, which every tool that ships a built-in keyword gets:
+
+- **Trigger words** — a text field pre-filled with "camera". Type that word on its own and the suggestion strip offers to open the tool, dropping the word (see [smart suggestion chips](/smart/chips/)). Commas separate more than one word, and clearing the field stops the tool offering itself this way.
+- **Match capitals** — off by default, so "camera", "Camera" and "CAMERA" all match. Turn it on and only the exact spelling in the field above counts, which is worth doing for a short trigger word that's also ordinary text.
+- **Reset to defaults** — only appears once you've edited the trigger words, and puts them back to "camera". Its subtitle shows what you'd be going back to.
 
 The tool's own settings, split into two groups:
 

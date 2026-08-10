@@ -37,6 +37,7 @@ Home has no toggles of its own; it's pure navigation, plus the [setup card](/sta
 **Features**
 - [Emoji](/reference/settings/emoji/) — suggestions, emoji row, emoji style, favourites
 - [Tools](/reference/settings/tools/) — the master tool list; each tool's own screen is documented on its guide page, not here
+  - [Phone number formats](/reference/settings/phone-formats/): the clipboard's phone-number masks, reached from Tools → Clipboard; the one per-tool sub-screen with a page here, because the mask syntax needs the room
 - [Addons](/reference/settings/addons/) — repositories, installed addons, sticker packs, and the plugin manager (the sticker-pack and plugin managers are also addon-install destinations, so they're covered here rather than under Tools)
 
 **Accessibility**
@@ -44,12 +45,14 @@ Home has no toggles of its own; it's pure navigation, plus the [setup card](/sta
 
 **Data**
 - [Privacy](/reference/settings/privacy/) — on-device learning, incognito
-- [Backup & restore](/reference/settings/backup/) — export your settings to a file, or restore them
+  - [Permissions](/reference/settings/permissions/): everything the keyboard can reach and what it holds right now; a sub-screen off the top row of Privacy, not a Home row of its own
+- [Backup & restore](/reference/settings/backup/): export your settings to a file, restore one, or set up the automatic backup that does it on a timer
 
 **About**
-- [About & diagnostics](/reference/settings/about/) — version, licence, open-source notices, diagnostics
+- [About & diagnostics](/reference/settings/about/) — version, licence, open-source notices, updates, storage, diagnostics
+  - [Statistics](/reference/settings/statistics/) — how much you type, and the switch that stops the counting
 
-That's 19 screens in total: the 15 Home rows, plus four sub-screens (Dictionaries, Themes, Fonts, Icons) that earned their own page instead of folding into a parent's.
+That's 22 screens in total: the 15 Home rows, plus seven sub-screens (Dictionaries, Themes, Fonts, Icons, Permissions, Statistics, Phone number formats) that earned their own page instead of folding into a parent's.
 
 ## Searching instead of browsing
 
@@ -85,6 +88,6 @@ Two related topics live on their own pages rather than here:
 
 ## Details & edge cases
 
-- Per-tool settings live on each tool's own guide page under [Tools](/tools/overview/), cross-linked from [the Tools screen page](/reference/settings/tools/), not documented separately here. The sticker-pack manager and plugin manager are the two exceptions: both are opened from a tool's detail screen *and* from Addons (installing a sticker pack or a plugin addon lands you in the same manager), so they're covered under [Addons](/reference/settings/addons/) instead.
+- Per-tool settings live on each tool's own guide page under [Tools](/tools/overview/), cross-linked from [the Tools screen page](/reference/settings/tools/), not documented separately here. Three screens are exceptions. The sticker-pack manager and plugin manager are both opened from a tool's detail screen *and* from Addons (installing a sticker pack or a plugin addon lands you in the same manager), so they're covered under [Addons](/reference/settings/addons/) instead. The clipboard's [Phone number formats](/reference/settings/phone-formats/) gets a page of its own because its mask syntax is reference material, not a guide.
 - Screen transitions are a quick 220ms slide-and-fade. If you've turned on reduced motion under [Accessibility](/reference/settings/accessibility/), that collapses to an instant cut with no animation at all.
 - Every screen in this section is reachable from Home in one or two taps; nothing here requires a hidden gesture or a developer option to reach.

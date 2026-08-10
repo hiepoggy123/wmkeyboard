@@ -11,7 +11,7 @@ import Flavor from '@components/Flavor.astro';
 
 About has its own group on the Settings home screen: one tap gets you the build you're running, every licence bundled into the app, and a diagnostics screen for pulling a shareable report when something needs debugging.
 
-<PhoneFrame caption="The About screen: Share, App, Feedback, Documentation, Third party, and Word lists groups.">
+<PhoneFrame caption="The About screen: Share, App, Feedback, Documentation, Third party, and Word lists groups, plus Updates on a Play build.">
   {/* shot: reference/settings/about-screen */}
 </PhoneFrame>
 
@@ -21,14 +21,35 @@ The **Share** group at the top has up to three rows: **Share Play Store link**, 
 
 ## Checking version, licence, and source
 
-The **App** group holds four rows:
+The **App** group holds seven rows:
 
-- **Version** shows the flavor and build type as its subtitle ("Full build (release)" or "Lite build (debug)," for example), with the build number after "code," and the version name as the row's trailing value. This row doesn't navigate anywhere; it's read-only.
-- **Licence** shows "MIT — © 2026 Wasi Master" and opens the app's own MIT licence text in full underneath it, monospaced and horizontally scrollable.
+- **Version** shows the edition, build type and store channel as its subtitle ("Full build (release · Play Store)", or "Lite build (debug)" on something you sideloaded), with the build number after "code," and the version name as the row's trailing value. It navigates nowhere, but it isn't quite inert: tap it seven times and you get [the hidden mini game](/reference/easter-eggs/#find-the-hidden-mini-game), with a toast counting you down from the fourth tap.
+- **Licence** shows "MIT, © 2026 Wasi Master" and opens the app's own MIT licence text in full underneath it, monospaced and horizontally scrollable.
 - **Source code** opens the GitHub repository directly in your browser; unlike the Share rows above, this one navigates immediately rather than opening a share sheet.
+- **Storage** opens the [storage screen](#seeing-what-the-app-is-using) below, which is where you see what the app keeps on your device and delete any of it.
+- **Statistics** opens [Statistics](/reference/settings/statistics/): how much you type, day by day, plus the switch that turns the counting off.
 - **Diagnostics** opens the [diagnostics screen](#diagnosing-a-problem) covered below.
+- **Run setup again** walks you back through the first-run wizard. A replay changes nothing on its own, so your settings stay as they are; see [Running it again](/start/setup/#running-it-again).
 
 Underneath the group, a caption spells out what the MIT licence means in practice: you can use, modify, and redistribute the app, provided the copyright notice and licence text travel with it.
+
+## Updating the app
+
+Directly under that caption sits an **Updates** group, on Play builds only. Every other build has no updater behind it, so the group draws nothing at all and you update the way you installed: F-Droid, or a new APK.
+
+Its first row follows whatever the updater is currently doing, and its label always matches what pressing it will do:
+
+| Row | When you see it | What it does |
+|---|---|---|
+| **Check for updates** | Nothing in flight. The subtitle reads "Ask the Play Store if a newer version is out", "Asking the Play Store…", "This is the newest version", or "The Play Store did not answer. Press to try again" | Asks the Play Store |
+| **Download the update** | A newer version is out. The subtitle names its version code and, when Play says, the download size | Starts the download |
+| **Downloading the update** | While it downloads. The subtitle counts bytes once Play reports them | Nothing; it isn't pressable |
+| **Install the update** | The download finished | Installs it |
+| **Installing the update** | While it installs | Nothing; it isn't pressable |
+
+Installing restarts the app *and* the keyboard, which the Install row says out loud, so the moment is yours to pick rather than something that happens mid-sentence.
+
+Below the row is **Ask me about updates**, on by default: it lets the Play Store offer a new version when you open the app. Turn it off and nothing arrives uninvited; the update card on the settings home screen and this row are still there when you go looking. High-priority releases ask anyway. This one switch lives in its own small preferences file rather than in the main settings store, so it doesn't travel in a settings export or a backup, but it resets like any other row.
 
 ## Seeing what the app is using
 
@@ -42,7 +63,7 @@ Tapping a row opens that piece on its own: what it holds, how big each item in i
 
 A few rows worth knowing about:
 
-- **Sticker packs** lists one row per pack, plus **Images you made stickers from** — the photos the [sticker editor](/emoji/stickers/#the-sticker-editor) keeps so you can edit a sticker again later. Deleting that row keeps every sticker and only costs you the ability to resume those edits.
+- **Sticker packs** lists one row per pack, plus **Images you made stickers from**, the photos the [sticker editor](/emoji/stickers/#the-sticker-editor) keeps so you can edit a sticker again later. Deleting that row keeps every sticker and only costs you the ability to resume those edits.
 - **Downloads** covers the things the app fetched and can fetch again: word lists, CJK dictionaries, emoji keyword packs, and (on the full build) the speech and AI models, which are usually the biggest rows on the screen.
 - **Your data** is the personal end: learned words, clipboard history, snippets, AI history, and your own imported word lists. This group is also where the reset lives, and it asks twice.
 
@@ -75,9 +96,11 @@ Tapping **Open-source licences** opens a three-group screen: everything bundled 
   {/* shot: reference/settings/licenses-screen */}
 </PhoneFrame>
 
-**Bundled in the app** always lists AndroidX & Jetpack Compose, Kotlin/coroutines/serialization, Coil, OkHttp & Okio, ZXing, and LuaJ, all Apache-2.0 or MIT. <Flavor edition="full" /> adds Harper and its Rust dependencies (grammar checking), Google ML Kit (handwriting and scanning), LiteRT-LM (the local AI models), and LiteRT plus OpenAI Whisper and whisper_android (offline speech-to-text); these are features the <Flavor edition="lite" /> build doesn't link, so their licences don't apply to it. Both flavors also list Unicode CLDR & emoji data, gemoji, OpenCC, the LSHK Jyutping table, the bundled editor colour palettes (Dracula, Nord, Solarized, Catppuccin, Tokyo Night), and Google Fonts. A full build lists 19 bundled components in total; a lite build lists 12, since it drops the seven entries gated behind grammar checking, ML Kit, the local LLM, and Whisper.
+**Bundled in the app** always lists AndroidX & Jetpack Compose, Kotlin/coroutines/serialization, Coil, OkHttp & Okio, ZXing, and LuaJ, all Apache-2.0 or MIT. <Flavor edition="full" /> adds Harper and its Rust dependencies (grammar checking), Google ML Kit (handwriting and scanning), LiteRT-LM (the local AI models), and LiteRT plus OpenAI Whisper and whisper_android (offline speech-to-text); these are features the <Flavor edition="lite" /> build doesn't link, so their licences don't apply to it. A Play build adds one more, Play In-App Updates, which isn't open source and so opens Google's SDK terms in your browser rather than a bundled text. Both editions also list Unicode CLDR & emoji data, gemoji, OpenCC, the LSHK Jyutping table, the bundled editor colour palettes (Dracula, Nord, Solarized, Catppuccin, Tokyo Night), Google Fonts, and Inter & Manrope (the two faces the settings app itself is set in, which ship as files in the APK and so carry their own notice rather than the generic one).
 
-**Downloadable data packs** (not flavor-gated, since any build can fetch them) covers the frequency wordlists, offensive word lists, and emoji keyword dictionaries served from the WM Keyboard data repository, plus the CJK-specific conversion data: CC-CEDICT, mozc, rime-cantonese & CC-Canto, a Chinese stroke code table, and the Unicode Unihan database. A caption underneath notes these keep their upstream licences whether or not they're actually installed on your device.
+That makes 21 bundled components on a full Play build and 13 on a lite F-Droid one. The gap is the seven entries gated behind grammar checking, ML Kit, the local LLM and Whisper, plus the Play updates entry: a full F-Droid build lists 20, a lite Play build 14.
+
+**Downloadable data packs** (not edition-gated, since any build can fetch them) covers the frequency wordlists, offensive word lists, emoji keyword dictionaries and Noto Animated Emoji served from the WM Keyboard data repository, plus the CJK-specific conversion data: CC-CEDICT, mozc, rime-cantonese & CC-Canto, a Chinese stroke code table, and the Unicode Unihan database. Nine rows in all. A caption underneath notes these keep their upstream licences whether or not they're actually installed on your device.
 
 **Online services** lists what each network tool talks to and under what terms: Brave Search, KLIPY & GIPHY, Wikipedia, Google Translate, Open-Meteo, Frankfurter & ExchangeRate-API, Coinbase & the other coin-price sources, the Free Dictionary API, Hugging Face, and the bring-your-own-key AI providers (Anthropic, OpenAI, and Google AI). None of their code or data ships inside the app; see [Network policy](/privacy/network/) for what each one actually sends and when.
 
@@ -101,9 +124,21 @@ The **app log** itself is a free-text filter field plus one level chip per sever
 
 ## Options
 
+There are only two switches in this whole tree. Everything else is either a display-only row (Version, Dictionaries) or a read-only browser (the licence and diagnostics screens).
+
+<SettingsPath path="About / Updates" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Ask me about updates | Toggle | **On** |
+
 <SettingsPath path="About / Diagnostics" />
 
-The only real switch on this page is **Include the system log**, off by default: everything else (Version, Dictionaries) is a display-only row, and the licence and diagnostics screens are read-only browsers. See [Privacy policy](/privacy/overview/) and [Network policy](/privacy/network/) for what the app does and doesn't send over the network in general; Diagnostics itself never touches the network on its own, since sharing or copying the report is something you trigger and send yourself.
+| Setting | Control | Default |
+|---|---|---|
+| Include the system log | Toggle | Off |
+
+See [Privacy policy](/privacy/overview/) and [Network policy](/privacy/network/) for what the app does and doesn't send over the network in general. Diagnostics itself never touches the network on its own, since sharing or copying the report is something you trigger and send yourself.
 
 ## Details & edge cases
 

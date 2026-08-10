@@ -11,15 +11,15 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import LayoutExplorer from '@components/LayoutExplorer.astro';
 import qwertyAfar from '../../../../../app/src/main/assets/layouts/aa.wmlayout.json';
 
-A layout is the key grid itself: which key sits where, what it types, what its long-press alternates are. WM Keyboard ships 393 of them, and every one is editable: rearrange a few keys, add a Ctrl key for a terminal app, or build a language layout from scratch, then share the result as a file.
+A layout is the key grid itself: which key sits where, what it types, what its long-press alternates are. WM Keyboard ships 372 of them, and every one is editable: rearrange a few keys, add a Ctrl key for a terminal app, or build a language layout from scratch, then share the result as a file.
 
-<PhoneFrame caption="The Key layouts screen: your own layouts, the shipped set, and an import row.">
+<PhoneFrame caption="The Key layouts screen: your own layouts, the shipped set, and the two import rows.">
   {/* shot: languages/key-layouts-gallery */}
 </PhoneFrame>
 
 ## Editing a layout
 
-Every enabled layout (the ones you've turned on under [Languages](/languages/switching/)) shows up here with an edit button. Tap it to open the visual editor, a grid that renders with your actual theme, key shape, and font, so what you edit is what you'll type on.
+Layouts of your own are always listed, on or off; shipped ones appear once you've turned them on under [Languages](/languages/switching/). There's no edit button: tap the row itself and the visual editor opens, a grid that renders with your actual theme, key shape, and font, so what you edit is what you'll type on. The three icon buttons at the end of a row do something else, and in this order: export the layout to a file, duplicate it, and delete it (or, on a shipped layout you've edited, reset it).
 
 <PhoneFrame caption="The visual layout editor, showing the Letters layer with a key selected.">
   {/* shot: languages/layout-editor-grid */}
@@ -35,15 +35,15 @@ Keys set to "switch layout" or "emoji panel" draw an icon in the grid rather tha
 
 Tap any key to open its edit sheet:
 
-<PhoneFrame caption="The key edit sheet — label, output, action, width, and long-press alternates.">
+<PhoneFrame caption="The key edit sheet: label, output, action, width, and long-press alternates.">
   {/* shot: languages/key-edit-sheet */}
 </PhoneFrame>
 
-- **Label** — what's drawn on the key.
-- **Output** — what it actually types; leave it blank and it types the label.
-- **Shift label** — leave it blank and <KeyCap>Shift</KeyCap> just uppercases the label.
-- **Action** — opens a picker with 25 options across six groups: typing (types text, <KeyCap>Shift</KeyCap>, <KeyCap>Delete</KeyCap>, forward delete, <KeyCap>Space</KeyCap>, <KeyCap>Enter</KeyCap>), layers (symbols page, letters page, emoji panel, switch layout, Fn layer), modifiers (Ctrl, Alt, Meta; tap to arm, double-tap to lock), keys apps understand (<KeyCap>Tab</KeyCap>, <KeyCap>Esc</KeyCap>, arrow keys), chorded input (braille dot, morse dot, morse dash), and a catch-all group for a broadcast-intent key (fires an Android broadcast for automation apps like Tasker) and a "Nothing" key that deliberately swallows taps.
-- **Width** — a slider in quarter-step increments, plus preset chips for 1 / 1.25 / 1.5 / 2 / 4, and a "Fill the row" button.
+- **Label**: what's drawn on the key.
+- **Output**: what it actually types; leave it blank and it types the label.
+- **Shift label**: leave it blank and <KeyCap>Shift</KeyCap> just uppercases the label.
+- **Action**: opens a picker with 26 options across six groups: typing (types text, <KeyCap>Shift</KeyCap>, caps lock, <KeyCap>Delete</KeyCap>, forward delete, <KeyCap>Space</KeyCap>, <KeyCap>Enter</KeyCap>), layers (symbols page, letters page, emoji panel, switch layout, Fn layer), modifiers (Ctrl, Alt, Meta; tap to arm, double-tap to lock), keys apps understand (<KeyCap>Tab</KeyCap>, <KeyCap>Esc</KeyCap>, arrow keys), chorded input (braille dot, morse dot, morse dash), and a catch-all group for a broadcast-intent key (fires an Android broadcast for automation apps like Tasker) and a "Nothing" key that deliberately swallows taps.
+- **Width**: a slider in quarter-step increments, plus preset chips for 1 / 1.25 / 1.5 / 2 / 4, and a "Fill the row" button.
 - On text keys only: **Icon** and **Icon hint** (a name from a 46-icon catalog: arrows, editing, keyboard chrome, and so on, plus 24 shorthand aliases like `delete` for `backspace` or `globe` for `language`, matched case-insensitively; an unrecognized name just falls back to drawing the label), **Long-press alternates** (space-separated, so an alternate can't itself contain a space; multi-character entries like `.com` work fine, and the first one doubles as the small corner hint), and **Field adaptation** (none, comma slot, or period slot: email and web fields swap those two slots for `@` and `/`).
 
 The sheet also has buttons to delete the key, move it left or right, or duplicate it. Two fields exist only in the raw JSON: a clipboard action (select all / copy / paste / cut / undo / redo, fired on long-press instead of the alternates popup) and per-direction flick outputs for a 12-key kana-style pad, because they're rare enough that a dedicated control would crowd the sheet for everyone else.
@@ -69,6 +69,8 @@ Your phone grid is what the editor shows and what you're editing; the tablet key
 ### Reaching the raw JSON
 
 "Edit as JSON" at the bottom of the grid editor opens the layout as text, for anything the grid editor has no control for: clipboard actions, flick maps, or just pasting in a grid you built elsewhere.
+
+It's also the only way to change the layout's **name**, its **language** (`langId`) or its **composer**, which is the thing people go looking for right after duplicating something. There's no rename button on the list screen or in the editor, so a copy stays "Probhat copy" until you edit `"name"` here. Same for the language: a duplicate inherits the original's, and `langId` is what picks the dictionary, autocorrect, script rules, dictation and shift behaviour, so a grid you've rearranged into a different language needs it changed by hand.
 
 <PhoneFrame caption="The raw JSON editor, with syntax highlighting and an Apply button.">
   {/* shot: languages/layout-json-editor */}
@@ -100,7 +102,7 @@ Addon-installed layouts don't show up in the "Your layouts" group on the Key lay
 
 <SettingsPath path="Settings / Key layouts" />
 
-This screen has two sections: **Your layouts** lists the enabled layouts you've made or edited yourself; **Built in** lists the enabled shipped layouts (393 in total: 18 compiled built-ins, including QWERTY's English alternates like Dvorak and Colemak, plus 375 JSON assets covering the long tail of languages and scripts, including regional Latin standards like BÉPO). Only *enabled* layouts appear on either list. Enable a layout for a language first under [Languages → Switching](/languages/switching/), and it shows up here to edit.
+This screen has two sections plus two import rows between them. **Your layouts** lists every layout you've made or edited yourself, on or off, since both Duplicate and Import leave their result switched off and hiding it would mean the thing you just made disappearing. **Built in** lists the shipped layouts you've enabled (372 ship in total: 18 compiled built-ins, including QWERTY's English alternates like Dvorak and Colemak, plus 354 JSON assets covering the long tail of languages and scripts, including regional Latin standards like BÉPO). That's the one filtered group, so enable a layout for a language first under [Languages → Switching](/languages/switching/) and it shows up here to edit.
 
 There's no default value to quote for "which layouts exist": a fresh install starts with no custom layouts of your own. The active layout defaults to QWERTY, and the initial enabled set is seeded from your phone's own language list plus QWERTY. See [Languages overview](/languages/overview/#what-ships) for how that seeding works.
 
@@ -110,7 +112,9 @@ There's no default value to quote for "which layouts exist": a fresh install sta
 
 **Duplicating never activates.** Copying any layout (shipped or your own) creates a new layout and opens it for editing, but never switches to it. A half-finished copy becoming the live keyboard mid-edit is exactly the situation where you'd be stuck unable to type well enough to undo it.
 
-**Two passes keep you from getting locked out: one that only reports, one that actually rewrites.** While you're editing, a continuous check flags problems: a layer with more than 8 rows, a row over 24 keys, a key with zero or non-finite width, a Braille key naming a dot outside 1–6, or a cycled layer (Symbols, Symbols 2, Fn) with no way back to Letters, but never touches your grid. Most of these are marked blocking rather than a warning; a missing <KeyCap>Shift</KeyCap> key is the one exception, since a symbols-forward layout may not want one. Enabling a layout under Languages doesn't check this list: you can switch on something broken. What actually stops it from biting you is the repair pass: a separate pass that runs only twice, when a file is imported and when a layout becomes the one you're actively typing on. It's the one that rewrites: dropping unrecognized keys, capping an oversized key or row, and, critically, guaranteeing the Letters layer has a delete, space, and enter key by adding default ones if they're missing. That guarantee is deliberately never applied while you're still editing (it would fight you: remove a row, and it would silently grow it right back) but it's always applied before a layout becomes the one you're actually typing on, so you can never end up on a layout you can't backspace out of, however broken it looked in the enabled list a moment before.
+**Two passes keep you from getting locked out: one that only reports, one that actually rewrites.** While you're editing, a continuous check flags problems: a layer with more than 8 rows, a row over 24 keys, a key with zero or non-finite width, a Braille key naming a dot outside 1–6, or a cycled layer (Symbols, Symbols 2, Fn) with no way back to Letters, but never touches your grid. Most of these are marked blocking rather than a warning; a missing <KeyCap>Shift</KeyCap> key is the one exception, since a symbols-forward layout may not want one.
+
+That reporting pass is what the Languages toggle consults. Try to switch on a layout with a blocking finding and it refuses, with a dialog headed "Fix these problems in the layout editor first:" that names every reason. It's literally the same list the editor prints, so the two can't drift apart, and turning a layout off is never blocked. The second pass is the one that rewrites: dropping unrecognised keys, capping an oversized key or row, and, critically, guaranteeing the Letters layer has a delete, space and enter key by adding default ones if they're missing. It runs on import, when a layout becomes the one you're typing on, and again each time the keyboard builds the grid to draw. That last one is why editing a layout that's already switched on is survivable: your changes go live keystroke by keystroke, and the repair puts a backspace key back the moment you delete the last one. It's deliberately never applied to what's *stored* while you edit, because it would fight you, silently regrowing a row you just removed.
 
 **Two version numbers, and they mean different things.** The file envelope has its own version (currently 1, unused for migration so far; only the format tag itself is checked on import). A layout's internal spec also carries its own version, separately, bumped when a stored field's shape changes.
 

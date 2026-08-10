@@ -17,7 +17,7 @@ Snippets are reusable pieces of text (a mailing address, a canned reply, a sign-
 
 ## Opening the panel
 
-Open **Snippets** from the toolbar if you've pinned it there, or from the toolbox. Snippets isn't one of the three tools pinned by default (Emoji, Clipboard, and Settings are), so the first few times you'll likely reach it through the toolbox, or by typing its [keyword](#options). On a hardware keyboard, double-tap <KeyCap>Ctrl</KeyCap> to arm the leader key, then press <KeyCap>S</KeyCap> (see [hardware shortcuts](/reference/shortcuts/) for the full letter-to-tool map).
+Open **Snippets** from the toolbar if you've pinned it there, or from the toolbox. Snippets isn't pinned by default on any device (a phone starts with Emoji, Clipboard and Settings; a tablet starts with five or seven pins, none of them Snippets), so the first few times you'll likely reach it through the toolbox, or by typing its [keyword](#options). On a hardware keyboard, double-tap <KeyCap>Ctrl</KeyCap> to arm the leader key, then press <KeyCap>S</KeyCap> (see [hardware shortcuts](/reference/shortcuts/) for the full letter-to-tool map).
 
 Each snippet shows as a card in a two-column grid: its label in bold on top, the raw snippet text underneath. That's the raw template, not the expanded preview. A card whose text contains `{date}` shows the literal token, not today's date. Tap a card to insert it; anything you were mid-typing gets committed first, so a half-finished word can't get swallowed into the snippet. With nothing saved yet, the panel shows the same variable hint plus a shortcut straight to Snippets settings.
 
@@ -91,7 +91,7 @@ A snippet's text can include any of these tokens. They're substituted the moment
 | `{day}` | Day of month |
 | `{month}` | Month name |
 | `{year}` | Four-digit year |
-| `{timezone}` | Time zone, e.g. GMT+06:00 |
+| `{timezone}` | Your time zone's full name, e.g. Bangladesh Standard Time |
 | `{timestamp}` | Unix time in seconds |
 | `{clip}` | Your latest clipboard entry |
 | `{selection}` | Text currently selected in the field |
@@ -99,6 +99,8 @@ A snippet's text can include any of these tokens. They're substituted the moment
 | `{package}` | That app's package name |
 | `{uuid}` | A fresh random UUID, different every time it's used |
 | `{cursor}` | Not text; marks where the cursor lands after insertion |
+
+`{timezone}` is the one worth a second look. It writes the zone's long name, not an offset, so you get "Bangladesh Standard Time" or "Central European Summer Time" rather than GMT+06:00. An offset only shows up for a zone with no name of its own. The settings screen's reference card gives GMT+06:00 as its example, which is the fallback rather than the usual case, but the live preview next to it always shows what you'd actually get. If you want the offset itself, `{date:XXX}` or `{date:ZZZZ}` will give you one.
 
 `{date:pattern}` takes any date pattern you like, for example `` {date:EEEE 'week' w} `` or `` {date:dd/MM/yy} ``. It's checked before the plain `{date}` token, so a literal pattern can't be partly swallowed by it, and a malformed pattern quietly expands to nothing instead of breaking the rest of the snippet. Tokens the expander doesn't recognize, like `{nope}`, are left untouched, and a variable with nothing to draw on (`{app}` outside the keyboard, `{clip}` with an empty clipboard) expands to an empty string rather than leaving the raw token behind.
 
@@ -116,7 +118,7 @@ The settings screen opens with a reference card listing all 18 variables plus `{
 - Choosing **Word** gives you a single trigger-word field. Choosing **Pattern** gives you the pattern itself, chips that write `(.+)`, `$1`, `^` and `$` at the cursor, a words-to-match picker, and a **Try it** box: type what you'd type on the keyboard and the result appears underneath. A pattern that won't compile is flagged as you type, with the regular-expression engine's own complaint underneath it, and Save stays disabled until it's fixed.
 - Under both is **Ask before it expands**, which turns the trigger into a suggestion-bar offer instead of an automatic rewrite (see [Ask before it expands](#ask-before-it-expands)).
 - The pencil icon on a saved snippet reopens that same dialog, pre-filled, to **edit** it.
-- The trash icon **deletes** it immediately: there's no confirmation prompt, so double-check before you tap it.
+- The trash icon **deletes** it immediately: no confirmation prompt, no undo. It sits right next to the pencil at the end of every row, a thumb's width away, which is where nearly every accidental deletion comes from. Aim before you tap, and keep an [export](#import-and-export) around if a snippet took you a while to write.
 - Every row also shows a live "Inserts as: …" preview whenever the expanded text would differ from what you typed, and "Expands by itself from: …" if you've set a trigger (or the pattern itself, if you set one of those). A snippet set to ask first says "Offers itself after: …" instead.
 
 <PhoneFrame caption="Adding a snippet: label, text with variables, and an optional trigger word.">

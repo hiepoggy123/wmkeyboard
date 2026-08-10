@@ -101,7 +101,9 @@ Once a location is set, the panel shows an emoji and short description for the c
 </PhoneFrame>
 
 - **Location** — unset by default. Opens a dialog with a search field (backed by Open-Meteo's geocoding API) and manual latitude/longitude fields for entering coordinates yourself, if you'd rather skip the search.
-- **Fahrenheit** — off by default, so temperatures show in Celsius until you turn this on.
+- **Fahrenheit** — off by default, so temperatures show in Celsius until you turn this on. It moves the temperatures and nothing else: current, feels-like, and the day's high and low. **Wind speed stays in km/h whichever way this is set**, because there's no separate unit for it, and pressure stays in hPa for the same reason.
+
+Those two rows are the whole screen. In particular the 15-minute cache isn't adjustable: it's a fixed value in the keyboard rather than a setting, so the refresh button in the panel is the only way to pull fresh conditions sooner than that.
 
 The settings screen's own privacy note: "Weather and place search both use Open-Meteo, only when you use them — the keyboard makes no other network requests." Weather is the only one of the five instruments that reaches the network at all; see [network policy](/privacy/network/) for what every network-touching feature sends and when.
 

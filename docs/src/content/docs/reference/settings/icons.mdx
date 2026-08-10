@@ -34,14 +34,17 @@ Every installed row also carries two trailing buttons the built-in row doesn't h
   {/* shot: reference/settings/icons-delete-confirm */}
 </PhoneFrame>
 
-### Import and reset
+### Download, import and reset
 
-Two ungrouped rows sit below the pack list:
+Three rows sit below the pack list, in their own untitled group:
 
 | Row | What it does |
 |---|---|
+| Download more | Opens the addon catalogue, already filtered to icon packs |
 | Import an icon pack | Opens a file picker for a `.wmicons` file and installs it, switching to it right away |
-| Reset all icons | Turns off the active pack and clears every per-slot override in one step. Installed packs are kept: subtitle reads "Turns the pack off and drops every single-icon change. Installed packs are kept." |
+| Reset all icons | Turns off the active pack and clears every per-slot override in one step. Installed packs are kept: subtitle reads "This turns the pack off and deletes every single-icon change. The app keeps the installed packs." |
+
+**Download more** sits first, next to the file importer, because the two answer the same question from opposite ends: one takes a `.wmicons` file you already have, the other goes looking for packs in whichever repositories you've added. See [Installing addons](/addons/installing/).
 
 Reset all icons runs immediately with no confirmation dialog, unlike deleting a pack; afterward you see "Every icon is back to the built-in one."
 

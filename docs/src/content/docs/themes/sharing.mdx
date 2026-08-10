@@ -22,11 +22,13 @@ Every card in the gallery has an export icon (a small upload glyph) except the *
 
 Tapping export opens the system "Save as" file picker so you choose the destination and filename yourself; the suggested name is the theme's own name plus the `.wmtheme.json` extension, so exporting a theme called "Midnight" suggests `Midnight.wmtheme.json`. The picker uses the plain `application/json` MIME type rather than a custom one, deliberately, so file managers and chat apps don't hide the file from you the way they might hide an unrecognized vendor type.
 
+What a card exports depends on how the gallery is drawing it. A grouped family card exports the whole family, every look in one file. A separate card exports the single look it shows, with the other looks and the group name stripped out, so the person you send it to gets one theme rather than a family with holes in it. Flip **Theme gallery style** if you want the other one; see [Theme families and looks](/themes/families/).
+
 The exported file is the theme's full set of colors, gradients, and radii, written as plain JSON with no wrapper or format tag around it; a theme file identifies itself by its `.wmtheme.json` extension rather than a marker inside the file, unlike layout or settings exports. If the theme has a background image, the image is read off disk and embedded in the file as base64 rather than left as a reference to a path on your device, so the export is fully self-contained. Opening it on another phone doesn't require re-picking the photo. A theme with no background image just has empty image fields. There's no size limit on a local export, so a theme with a large background photo can produce a correspondingly large file.
 
 ## Importing a theme
 
-There are three ways a theme gets imported, and they don't all behave the same way: two apply the theme immediately, one doesn't.
+There are three ways a theme gets imported, and they don't all behave the same way: two apply the theme immediately, one doesn't. A fourth button on the same row, **FlorisBoard**, reads someone else's format rather than this one; it's covered separately below.
 
 ### From the Import button
 
@@ -53,6 +55,10 @@ This file association is matched by filename, since a theme file carries no inte
 See [Addon repositories](/development/addon-repos/) for how repositories work generally. Installing a theme from one behaves differently from the two file-based flows above: it's added to Your themes but **not** switched on automatically. Browsing a repository shouldn't repaint your keyboard behind your back, so after the install finishes you get a separate, dismissable prompt: "Installed *theme name*", asking "Use it as your keyboard theme now?" with a **Switch to it** button and a **Not now** dismiss option. Declining leaves the theme sitting in Your themes, installed but not worn, until you tap it yourself.
 
 A theme listing in a repository also isn't previewable in the addon browser the way a dictionary or sticker pack is. A theme is judged by seeing the keyboard wearing it, which a static preview panel can't honestly show. And unlike a plugin, a theme's checksum in the repository manifest is optional rather than enforced, since a theme isn't executable code; a theme with no checksum still installs the same as one that has it, with no extra warning either way.
+
+### From a FlorisBoard file
+
+The gallery's third import button reads FlorisBoard's own `.flex` theme packages instead of `.wmtheme.json`, and converts every theme inside one into a custom theme here. You can open a `.flex` straight from a file manager too. A file that carries both a day and a night version becomes one theme with two looks rather than two entries. What converts cleanly, what gets reported instead of guessed at, and why a FlorisBoard 0.4 theme is refused outright are all in [Importing other keyboards](/reference/importing-other-keyboards/).
 
 ## Publishing a theme
 

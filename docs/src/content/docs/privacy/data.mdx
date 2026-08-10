@@ -22,6 +22,7 @@ Everything below lives under the app's private storage: the same folder no other
 | What | Where | How it gets there |
 |---|---|---|
 | Words and word-pairs you type (Latin-script languages) | `learning/user_lexicon.json` | Learned automatically while [Learn from typing](#options) is on |
+| Autocorrections you undid | `learning/correction_stats.json` | Recorded whenever you revert a correction, including with learning off or in incognito: undoing a correction is you telling the keyboard it got that word wrong |
 | Chinese, Japanese and Cantonese picks | `learning/cjk_history.json` | Learned automatically |
 | Which language you tend to reach for when mixing languages | `learning/language_mix.json` | Tracked automatically |
 | Emoji you've used | `learning/emoji_usage.json` | Learned automatically |
@@ -54,21 +55,28 @@ One consequence: a phone that's been unlocked once since it last rebooted counts
 
 <SettingsPath path="Privacy / Your data / Clear learned words" />
 
-Open **Privacy** and tap **Clear learned words**. It deletes your word history, CJK pick history, and emoji-usage history immediately; there's no confirmation prompt, so make sure before you tap it. It does **not** clear the language-mix tracker (`learning/language_mix.json`); if you want every trace of on-device learning gone, follow it up with the full-storage clear described below.
+Open **Privacy** and tap **Clear learned words**. It deletes four files immediately: your word and word-pair history, your emoji-usage history, your autocorrect revert memory, and your Chinese/Japanese/Cantonese pick history. There's no confirmation prompt, so be sure before you tap it. It does **not** clear the language-mix tracker (`learning/language_mix.json`); if you want every trace of on-device learning gone, clear the **Learned words** row on the storage screen described below, which empties the whole `learning/` folder.
 
 <PhoneFrame caption="Clear learned words, under Privacy → Your data.">
   ![Clear learned words, under Privacy → Your data.](@assets/screens/privacy/clear-learned-words-button.webp)
 </PhoneFrame>
 
-Beyond that one bulk action, clearing is mostly per-item, and it's worth knowing what does and doesn't exist:
+Beyond that one bulk action, clearing works two ways: per-item where the data lives, and per-category on the storage screen.
 
 - **Personal dictionary** has its own screen with per-word delete (and undoes the word's effect on the bigram map at the same time, so nothing orphaned survives); see [Personal dictionary](/smart/personal-dictionary/) for the full picker.
 - **Emoji usage** has no control on the Privacy screen itself, but two ways to trim it live elsewhere: long-press an emoji on the history tab for **Remove from recents**, which drops it from recents, usage counts and favourites in one go; and <SettingsPath path="Emoji / Emoji panel / Clear recents button" /> (off by default) adds a **Clear recents** button to the panel's Recent tab, which wipes the whole recents list at once but leaves usage counts and favourites untouched. See [Emoji picker](/emoji/picker/) for both.
-- **Clipboard** has per-item delete and pin, but no "clear all" button anywhere in the app. In practice, history shrinks itself: entries expire and the list is capped; see [Clipboard](/tools/clipboard/) for the exact numbers and how to change them.
-- **Downloaded dictionaries, CJK packs, emoji-keyword packs and AI/speech models** each have a per-item remove action on their own settings screen (wherever you downloaded them from). There's no single "delete all downloads" button.
-- **Settings** have no in-app "reset everything to defaults" option: only narrow, per-feature resets (an individual theme, your pinned tools, and similar).
+- **Clipboard** has per-item delete and pin in the panel itself, and history also shrinks on its own: entries expire and the list is capped. See [Clipboard](/tools/clipboard/) for the exact numbers and how to change them.
+- **Downloaded dictionaries, CJK packs, emoji-keyword packs and AI/speech models** each have a per-item remove action on their own settings screen, wherever you downloaded them from.
 
-There is also no in-app factory reset. To wipe everything at once (settings, every learned-data file, clipboard, and every download), go through Android itself: **Settings → Apps → WM Keyboard → Storage & cache → Clear storage** (or uninstall the app). Either one is destructive and cannot be undone for anything you haven't backed up; see the next section.
+### Clearing by category
+
+<SettingsPath path="About / Storage" />
+
+The storage screen lists everything above as its own row, with what it costs you in megabytes, and every row has a clear action. That includes the rows the panels themselves give you no bulk control over: **Learned words** (the whole `learning/` folder, language-mix tracker included), **Clipboard**, **Typing statistics**, **AI history**, each download category, and your own themes, sticker packs and icon packs. Personal rows confirm once before deleting.
+
+**Settings** is a row there too, and clearing it is the reset-to-defaults you're probably looking for: it wipes every stored preference plus the themes, layouts, keyboard modes, symbol sets and AI actions you made, and the keyboard comes back exactly as it was on install. It's the only row that confirms twice, and it can't be undone. If you only want one setting back rather than all of them, every row you've changed has its own small restore button; see [Putting one setting back](/reference/settings/#putting-one-setting-back).
+
+What the storage screen has no single button for is wiping the lot at once: **Free up space** at the top only clears caches, and the personal and download rows go one at a time. For a genuine clean slate, go through Android instead: **Settings → Apps → WM Keyboard → Storage & cache → Clear storage** (or uninstall the app). Either one is destructive and cannot be undone for anything you haven't backed up; see the next section.
 
 ## What Android's own backup can include
 
@@ -90,5 +98,5 @@ Turning on Android's own backup is a separate opt-in, off by default, covered in
 ## Details & edge cases
 
 - **"Add words to the system dictionary" and "Expand dictionary shortcuts" point in opposite directions.** The first writes learned words out to Android's system dictionary; the second reads shortcuts back in from it. They're independent; turning one on doesn't affect the other.
-- **The in-app privacy caption undersells the network side, not the storage side.** The note at the bottom of the Privacy screen says the keyboard works offline apart from the optional weather tool, accurate for telemetry, but several other tools (translate, GIF/sticker search, web search, AI features, link previews, and every download screen) also reach the network, each off until you use it. None of that changes what's described on this page, since none of it is stored beyond what's already listed above; see [Network policy](/privacy/network/) for the complete list.
+- **The in-app privacy caption is about the network side, not the storage side.** The note at the bottom of the Privacy screen names the tools that reach the network by hand: translate, weather, web and image search, GIFs, stickers, dictionary lookup and the AI tools, each one only on the tap that uses it. Its list is a per-tap list rather than a complete one, though, so it doesn't mention link previews or the download screens. None of that changes what's described on this page, since none of it is stored beyond what's already listed above; see [Network policy](/privacy/network/) for the complete list.
 - **Voice input can leave the device even though nothing on this page tracks it as "stored."** For a language without an on-device speech model, dictation transparently falls back to Android's network-based recognizer for that session. Nothing about that fallback is saved by WM Keyboard itself.

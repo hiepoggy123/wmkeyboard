@@ -1,0 +1,88 @@
+---
+title: "Permissions"
+description: "Every row on the Permissions screen: what each one unlocks, what Granted, Not granted and Automatic mean, and where tapping a row sends you."
+sidebar:
+  order: 18.5
+---
+
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import Flavor from '@components/Flavor.astro';
+
+The Permissions screen is an inventory, not a setup wizard. Every feature that needs a permission still asks for it where the feature lives, so nothing funnels you through here. What this screen answers is "what can this keyboard reach, and what does it hold right now?", without you having to read a manifest. It's also the one place you can grant something ahead of the feature that wants it.
+
+This page is the field reference. For what each permission is actually used for and what refusing costs you, see [Permissions](/privacy/permissions/).
+
+<PhoneFrame caption="The Permissions screen: runtime permissions, special access, and the ones that come with the install.">
+  {/* shot: reference/settings/permissions-screen */}
+</PhoneFrame>
+
+## Options
+
+<SettingsPath path="Privacy / Permissions" />
+
+The top row of the [Privacy](/reference/settings/privacy/) screen opens it. Settings search finds it too, under "permissions".
+
+The screen opens on a caption: the keyboard works without all of these, each one unlocks a single optional feature, press a row to give the permission, press a granted row to open the system settings where you can take it back. Then three groups, none of which holds a toggle. Every row is either a link out or a plain label.
+
+### Permissions
+
+<SettingsPath path="Privacy / Permissions / Permissions" />
+
+The ones Android shows a prompt for. Each row reads **Granted** or **Not granted** on the right.
+
+| Row | Subtitle | Shown when |
+|---|---|---|
+| Microphone | Dictate text with the voice input tool | always |
+| Camera | Take a photo with the camera tool and send it into the chat | always |
+| Contacts | Suggest the names and the email addresses of your contacts while you type | always |
+| Calendar | The calendar tool lists the events of your day | always |
+| Photos and images | Show your new screenshots in the clipboard | always |
+| Storage | Save images from the keyboard to your gallery | Android 9 and older only |
+
+Tapping a row that isn't granted shows that permission's own explanation and then Android's prompt, exactly the same flow the feature itself would run. Tapping a row that *is* granted opens the app's page in Android's Settings instead, since that's the only place a grant can be handed back.
+
+**Storage** is the one row that isn't always there. From Android 10 the app writes to your gallery with no permission at all, so the row would be a control wired to nothing and it isn't drawn.
+
+### Special access
+
+<SettingsPath path="Privacy / Permissions / Special access" />
+
+The three grants Android won't prompt for. Each one is a switch on a system screen, so all the app can do is explain itself and then take you there. Same **Granted** / **Not granted** labels.
+
+| Row | Subtitle | Where it sends you |
+|---|---|---|
+| Notification access | Media controls on the keyboard, and one-time codes from your notifications | The notification-listener page, on the app's own row where Android has one (API 30 and up), otherwise the full listener list |
+| Usage access | Show which app a clipboard entry was copied from | Android's usage-access list |
+| Accessibility service | Keep the keyboard gestures while TalkBack is on | Android's accessibility list |
+
+These three go through the explanation every time, granted or not, because the system screen you land on is also where you turn them off.
+
+### Included with the app
+
+<SettingsPath path="Privacy / Permissions / Included with the app" />
+
+Three permissions Android hands every app at install. They can't be asked for and they can't be given back, so these rows do nothing when tapped and read **Automatic** on the right rather than a grant state.
+
+| Row | Subtitle |
+|---|---|
+| Internet | Only the network tools use it: translate, weather, search, GIFs, stickers, dictionary and the AI tools |
+| Network state | The model downloads first check that the connection is not metered |
+| Vibration | Haptic feedback when you press a key |
+
+The screen closes on a caption saying as much: Android gives that last group out at install, an app can't ask for them or give them back, and every other permission on the screen can be taken back at any time, at which point the feature using it stops and the rest of the keyboard carries on.
+
+## Details & edge cases
+
+- **The labels re-read themselves every time the screen comes back.** Both directions of a change happen on a system screen this one sends you to, so a row would otherwise be stale the moment you pressed Back. Grant something in Android's Settings, return to the keyboard, and the row already says **Granted**.
+- **Nothing on this screen is a setting**, so no row grows the usual restore button. What a row reflects is a grant held by Android, not a value stored by the app; see [Putting one setting back](/reference/settings/#putting-one-setting-back) for where that button does apply.
+- **Contacts is one permission behind two features.** Contact-name suggestions and contact-email suggestions both read the same grant. This screen asks for it once, with the name-suggestions wording; the two settings on the [Typing](/reference/settings/typing/) screen each have their own.
+- **The notification row's explanation covers both of its features.** It says the listener reads nothing at all for media controls, and that the optional one-time-code chip is the only thing that ever reads notification text, on the device, looking for a code. Turning the chip on is a separate decision on the Typing screen; see [One-time codes](/smart/one-time-codes/).
+- **A permission Android has stopped prompting for still works from here.** Refuse the same one twice and Android silently stops showing the dialog. The disclosure notices and turns the button into **Open settings** rather than firing a request that would do nothing visible. See [If Android stops asking](/privacy/permissions/#if-android-stops-asking).
+- **No edition differences.** The same rows appear on both the full and lite builds, even though a few of the features behind them are <Flavor edition="full" /> only.
+
+## Related pages
+
+- [Permissions](/privacy/permissions/): the guide. What each permission is for, what refusing does, and the three grants that aren't permissions.
+- [Privacy](/reference/settings/privacy/): the screen this one hangs off, and the rest of its rows.
+- [Privacy at a glance](/privacy/overview/): why a fresh install asks for nothing.

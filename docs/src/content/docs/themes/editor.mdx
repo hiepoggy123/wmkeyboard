@@ -24,6 +24,14 @@ Built-in themes can't be edited in place. Their card shows a pencil instead, whi
 
 Importing a `.wmtheme.json` file (from the gallery's Import button or by opening the file itself) adds it to Your themes and switches the keyboard to it immediately, without opening this editor. See [Sharing themes](/themes/sharing/) for both ways to import.
 
+## The Looks row
+
+Straight under the preview, before the name field, sits a **Looks** row: one chip per look this theme carries, an **Add look** chip, and (while you have a look other than the first one open) a bin icon that deletes the one you're editing. Everything below that row edits the open look and nothing else, so a theme with four looks is four full colour sets, switched between with a chip.
+
+A theme starts as one look, and the row is just the one chip until you press Add look. Add a second and a **Group name** field appears below the chips: that's the label the gallery card shows over the dots. Add look copies the look you have open, so the new one starts where the old one left off, and it greys out after twelve extras (thirteen looks in all).
+
+[Theme families and looks](/themes/families/) is the full story: what a family card looks like in the gallery, the Grouped/Separate choice, and what happens to a family when you copy, export or delete it.
+
 ## Starting from a color
 
 At the top of the editor, a **Dark theme** switch and a row of swatches let you regenerate every color at once from a single seed:
@@ -47,7 +55,7 @@ The rest of the editor is grouped into sections, each opening a standard color p
 
 ### Keys
 
-- **Key shape** — a row that opens a picker with all eleven shapes listed by name, each drawn beside its name at key proportions and at this theme's own corner radius, so you can see what you're choosing before you choose it. The full list, and which shapes react to the radius slider, is under [Key shapes](#key-shapes) below.
+- **Key shape**: a row that opens a picker with all twelve shapes listed by name, each drawn beside its name at key proportions and at this theme's own corner radius, so you can see what you're choosing before you choose it. The full list, and which shapes react to the radius slider, is under [Key shapes](#key-shapes) below.
 - **Letter keys** — the color, plus an optional **Key gradient**, a subtle sheen painted over letter keys only (see [Gradients](#gradients)).
 - **Key text**, **Modifier keys**, **Modifier key text** (falls back to Key text when left on Auto), **Enter key**, **Enter key icon**.
 - **Pressed key** — the color a key flashes while held; Auto derives it from Letter keys.
@@ -166,14 +174,14 @@ Both **Board** and **Keys** can carry an optional gradient instead of (technical
 
 ### Corners
 
-Off by default, so keys everywhere follow the global sliders under Appearance → Keys. Turning on **Theme-specific corner radii** seeds three independent sliders for this theme alone:
+Off by default, so keys everywhere follow the global sliders (two under Appearance, one under Key press). Turning on **Theme-specific corner radii** seeds three independent sliders for this theme alone, each starting at whatever its global counterpart is set to:
 
 <PhoneFrame caption="Theme-specific corner radii, with the Key, Popup, and Tool circle sliders.">
   ![Theme-specific corner radii, with the Key, Popup, and Tool circle sliders.](@assets/screens/themes/editor-corners-animation.webp)
 </PhoneFrame>
 
 - **Key corner radius** — 0–28dp, seeded from the global Key corner radius slider (default 8dp) when you turn the switch on.
-- **Popup corner radius** — 0–24dp, seeded to 12dp (there's no matching global popup-radius slider to inherit from).
+- **Popup corner radius**: 0–40dp, seeded from the global **Popup corner radius** slider under <SettingsPath path="Key press" /> (default 12dp).
 - **Tool circle radius** — 0–20dp ("off," i.e. square, at 0), seeded from the global Tool circle radius slider (default 20dp).
 
 ### Layout

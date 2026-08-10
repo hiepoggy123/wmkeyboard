@@ -49,23 +49,32 @@ Choosing **Sunrise & sunset** shows explanatory text instead of a control: it re
 
 ### Themes
 
+| Setting | Control | Options | Default |
+|---|---|---|---|
+| Theme gallery style | Segmented row | Auto / Grouped / Separate | Auto |
+
+**Grouped** draws a theme that has more than one look as a single card with a dot per look; **Separate** gives every look its own card. **Auto** reads the answer to the setup wizard's "how much do you want to tweak" question: "keep it simple" gets Separate, every other answer (including never having answered) gets Grouped. A caption above the control says which way it's currently resolving. See [Theme families and looks](/themes/families/).
+
 | Control | What it does |
 |---|---|
 | Create theme | Makes a new custom theme named "My theme", seeded from the first swatch in the theme editor's color row, generated as a dark theme, sets it active, and opens the editor on it right away |
 | Import | Opens a file picker for a theme file, adds it to Your themes under a fresh id, and switches to it immediately (the editor doesn't open) |
-| Card tap | Applies that theme to the keyboard immediately |
+| FlorisBoard | Reads a FlorisBoard `.flex` theme file and converts it into a custom theme. See [Importing other keyboards](/reference/importing-other-keyboards/) |
+| Card tap | Applies that theme to the keyboard immediately. On a family card, tapping a dot applies that look and turns the card's preview to it |
 | Card pencil (custom theme) | Opens that theme in the editor |
 | Card pencil (built-in theme) | Copies the built-in into a new custom theme named "*(name) copy*", makes the copy active, and opens the editor on the copy (the original is untouched) |
-| Card export | Saves a `.wmtheme.json` file named after the theme, with any background image embedded as base64 |
-| Card delete *(custom themes only)* | Confirms first, then removes the theme and its background image files (portrait and landscape) from disk |
+| Card pencil (built-in family) | Asks **Make a copy** first: **Only this look** copies the look the card is showing, **All looks** copies the whole family |
+| Card pin *(built-in cards only)* | Adds or removes that look from the keyboard's Themes tool shortlist. Six built-ins are pinned on a fresh install: Ocean, Pitch black, Snow, Nebula, Sunset drift, Aurora |
+| Card export | Saves a `.wmtheme.json` file named after the theme, with any background image embedded as base64. A grouped card exports the whole family; a separate card exports just the one look |
+| Card delete *(custom themes only)* | Confirms first, then removes the theme. Its background and texture images are swept off disk once nothing else still points at them, since looks and family copies share image files. Deleting a variant's own card (Separate style) removes just that look and falls the selection back to the family; deleting a family card, or the first look's card, removes the whole family and falls back to Default |
 
-The grid runs two cards per row: **Default (system)** first (no edit, export, or delete, since it's generated live rather than stored), then **Your themes** (only shown once you have at least one), then **Built-in** with its own note, "Tap to use. The pencil makes an editable copy." Built-in cards never show a delete button.
+The grid runs two cards per row: **Default (system)** first (no edit, export, or delete, since it's generated live rather than stored), then **Your themes** (only shown once you have at least one), then **Built-in** with its own note, "Press a theme to use it. The pencil icon makes a copy that you can edit." Built-in cards never show a delete button. A second caption under that one explains the pin: your own themes always show in the Themes tool, built-ins only when pinned.
 
 <PhoneFrame caption="Deleting a custom theme asks for confirmation before removing it.">
 ![Deleting a custom theme asks for confirmation before removing it.](@assets/screens/reference/settings/themes-delete-confirm.webp)
 </PhoneFrame>
 
-There are 26 built-in themes: 18 original WM Keyboard designs plus 8 ports of well-known editor color schemes (Dracula, Nord, Solarized Dark, Solarized Light, Catppuccin Mocha, Catppuccin Latte, Tokyo Night, Cyberpunk). See [Theming overview](/themes/overview/#choosing-a-theme) for the full list and what each one showcases.
+There are 28 built-in themes: 18 original WM Keyboard designs plus 10 ports of well-known editor colour schemes (Dracula, Nord, Solarized Dark, Solarized Light, Catppuccin Mocha, Catppuccin Latte, Catppuccin Frappé, Catppuccin Macchiato, Tokyo Night, Cyberpunk). Twenty-two of them sit in five families, so the grouped grid shows eleven built-in cards. See [Theming overview](/themes/overview/#choosing-a-theme) for the full list and what each one showcases.
 
 ## Theme editor
 
@@ -76,6 +85,19 @@ Every field here writes and applies the instant you touch it, so there's no save
 <PhoneFrame caption="The theme editor, live preview pinned above the color and shape controls.">
 ![The theme editor, live preview pinned above the color and shape controls.](@assets/screens/reference/settings/themes-editor-overview.webp)
 </PhoneFrame>
+
+### Looks
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Looks" />
+
+| Control | What it does | Shown when |
+|---|---|---|
+| Look chips | One chip per look; tapping one points the whole editor below at that look | Always (a one-look theme shows one chip) |
+| Add look | Copies the open look into a new one and switches to it | Until the theme has twelve looks beyond the first |
+| Delete this look (bin icon) | Confirms, then removes the open look and reopens the first one | While a look other than the first is open |
+| Group name | Text field for the label the gallery card shows over the dots | Once the theme has more than one look |
+
+Everything below this row edits the open look alone. See [Theme families and looks](/themes/families/).
 
 ### Theme name and start-from-a-color
 
@@ -99,6 +121,7 @@ Tapping a swatch, or flipping **Dark theme**, reseeds every seed-derived color a
 | Crop image *(image set)* | Opens the [crop dialog](#cropping-an-image) | — |
 | Image opacity *(image set)* | Slider, 0–100% | 100% |
 | Image blur *(image set)* | Slider, 0–25 | 0 (off) |
+| Play animated image *(image set)* | Toggle | Off |
 | Landscape background image | Opens **Select a background**, always shown | None |
 | Crop landscape image *(landscape image set)* | Opens the crop dialog | — |
 | Photo credit *(service photo set)* | Opens the photographer's page | — |
@@ -111,13 +134,15 @@ Applying a background zeroes the board color's alpha and drops fully opaque key 
 
 The landscape image row is independent: it's shown even with no portrait image set, falls back to the portrait image (or the plain background color) when empty, and lets a portrait photo and a wide crop each fit their own orientation instead of one being stretched into the other.
 
+**Play animated image** plays a GIF or animated WebP background instead of freezing it on frame one. It and the blur slider exclude each other: turning the switch on zeroes the blur, and raising the blur turns the switch off, because blurring a running animation re-renders it every frame. The animation also holds still under reduce motion and power saving.
+
 The last two rows stay hidden until you have started using photos, so a theme with one gallery picture never shows them. Full walkthroughs: [Image backgrounds](/themes/backgrounds/) and [Online photos and rotation](/themes/online-photos/).
 
 ### Keys
 
 | Setting | Control | Default |
 |---|---|---|
-| Key shape | Row → picker dialog: Rounded / Square / Pill / Cut / Squircle / Arch / Leaf / Slanted / Hexagon / Scalloped / Ticket | Rounded |
+| Key shape | Row → picker dialog: Rounded / Square / Pill / Cut / Squircle / Arch / Leaf / Slanted / Hexagon / Scalloped / Ticket / Circle | Rounded |
 | Letter keys | Color, alpha | `#303338` |
 | Key gradient | [Gradient](#gradients), off by default | Off |
 | Key text | Color | `#E9E9EE` |
@@ -129,7 +154,45 @@ The last two rows stay hidden until you have started using photos, so a theme wi
 | Key border | Color, Auto → no border | Auto |
 | Border width *(border color set)* | Slider, 0–3dp | 0dp |
 
-The Key shape row opens a dialog rather than filling a segmented row: eleven names don't fit side by side, and a name on its own doesn't tell you much, so each row of the dialog draws the shape at key proportions and at this theme's corner radius. Rounded and Cut both follow the corner-radius value (global or per-theme, see [Corners](#corners)), but Cut clamps its own radius to 2–14dp regardless of the slider. The other nine size themselves off the key's own width and height and ignore the slider. Shape descriptions are on [the theme editor page](/themes/editor/#key-shapes). Setting a key border color alone shows no visible border until you also raise **Border width** above 0.
+The Key shape row opens a dialog rather than filling a segmented row: twelve names don't fit side by side, and a name on its own doesn't tell you much, so each row of the dialog draws the shape at key proportions and at this theme's corner radius. Rounded and Cut both follow the corner-radius value (global or per-theme, see [Corners](#corners)), but Cut clamps its own radius to 2–14dp regardless of the slider. The other ten size themselves off the key's own width and height and ignore the slider. Shape descriptions are on [the theme editor page](/themes/editor/#key-shapes). Setting a key border color alone shows no visible border until you also raise **Border width** above 0.
+
+### Key textures
+
+| Setting | Control | Default | Shown when |
+|---|---|---|---|
+| Letter keys | Picks an image from the gallery | None | Always |
+| Modifier keys | Same | None | Always |
+| Enter key | Same | None | Always |
+| Space bar | Same | None | Always |
+| Pressed keys | Same | None | Always |
+| Key preview popup | Same | None | Always |
+| Crop / Stretch / Tile | Segmented row | Crop | Any of the six slots has an image |
+| Texture opacity | Slider, 10–100% | 100% | Same |
+
+Six slots, one image each, drawn over the key colour and clipped to the key shape. One picture in **Letter keys** is enough to theme the board: the other slots fall back to it or to plain colour rather than sitting empty. Each image is stored downscaled to 512px and a row with one set shows it as a thumbnail, with a bin icon to clear it. Textures travel inside an exported theme.
+
+### Single-key styles
+
+| Control | What it does |
+|---|---|
+| Add a key | Dialog: type a letter, or pick one of Enter, Space, Shift, Delete, Symbols, Emoji, Languageswitch (the globe key) |
+| A key's row | Opens that key's own five colours: face, label, border, popup background, popup text |
+| Bin icon | Drops the whole override for that key |
+
+A letter's style follows that letter onto every layout that has it. Anything you leave unset keeps following the theme, and an armed or locked modifier still shows the accent or pressed face whatever colour you gave it.
+
+### Stickers
+
+| Setting | Control | Range | Default |
+|---|---|---|---|
+| Add a sticker | Picks an image from the gallery | Up to 6 | None |
+| Position, across | Slider | 0–1 (fraction of the grid's width) | 0.5 |
+| Position, down | Slider | 0–1 | 0.5 |
+| Size | Slider | 0.05–0.8 (fraction of the grid's width) | 0.25 |
+| Rotation | Slider | -180° to 180° | 0° |
+| Opacity | Slider | 10–100% | 100% |
+
+Purely decorative images laid over the keys; the layer takes no touches, so typing goes straight through. Each sticker's five sliders are adjusted over a live miniature of the board. Positions are fractions of the key grid, not pixels, so a sticker keeps its place across widths and orientations.
 
 ### Accent & popups
 
@@ -140,8 +203,12 @@ The Key shape row opens a dialog rather than filling a segmented row: eleven nam
 | Popup background | Color, alpha, Auto → computed scrim | Auto |
 | Popup text | Color, Auto → Key text | Auto |
 | Popup shape | Row → the same picker dialog Key shape uses | follows <SettingsPath path="Key press / Popup shape" /> |
+| Popup placement | Segmented row: Default / On the key / Floating | Default (follows <SettingsPath path="Key press" />) |
+| Popup outline | Color, Auto → no outline | Auto |
+| Popup outline width *(outline color set)* | Slider, 0–3dp | 0dp |
+| Menu shape | Row → the same picker dialog | Automatic (a safe derivative of Popup shape) |
 
-Accent drives the shift-on tint, active-tool highlight, and buttons across the panels. Popup shape covers every popup surface, not just the character bubble: the long-press alternates, the language list, and the panel menus all draw with it.
+Accent drives the shift-on tint, active-tool highlight, and buttons across the panels. Popup shape covers every popup surface, not just the character bubble: the long-press alternates, the language list, and the panel menus all draw with it. Menu shape is the exception: on **Automatic** the list menus take Popup shape only when it's one of the four plain outlines (Rounded, Square, Cut, Squircle) and fall back to Rounded otherwise, since a slanted or scalloped menu clips its own rows. Picking a shape here overrules that.
 
 ### Toolbar
 
@@ -165,6 +232,23 @@ Accent drives the shift-on tint, active-tool highlight, and buttons across the p
 
 Any row still on Auto shows an "Auto" label instead of a swatch; once you override it, its color picker gains an **Auto** button next to Apply that clears the override again. See [Theme editor](/themes/editor/#options) for the exact fallback formula behind every Auto field.
 
+### Chips & buttons
+
+| Setting | Control | Default |
+|---|---|---|
+| Chip text | Color, Auto → Modifier key text, then Key text | Auto |
+| Selected chip | Color, alpha, Auto → Active tool circle | Auto |
+| Selected chip text | Color, Auto → Accent | Auto |
+| Chip outline | Color, Auto → no outline | Auto |
+| Chip outline width *(outline color set)* | Slider, 0–3dp | 0dp |
+| Chip shape | Row → the same picker dialog Key shape uses | Rounded |
+| Chip corner radius *(Rounded or Cut only)* | Slider, 0–24dp | 12dp |
+| Card shape | Row → the same picker dialog | Automatic (a safe derivative of Chip shape) |
+
+Chips are the small tappable surfaces inside the tool panels: style pickers, tab strips, converter controls, search bars, and the buttons a plugin draws. Their background is the **Cards & search bar** colour above, and this group styles the rest of them. The radius slider only appears for the two shapes that read a radius. Card shape follows the same safety rule as Menu shape, so the bigger surfaces fall back to Rounded when the chip shape is a decorative one.
+
+The panels' own keypads (calculator, numpad, the converters, the text-editing pad) are keys rather than chips, so they follow the theme's key shape and key border instead.
+
 ### Corners
 
 <SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Corners" />
@@ -173,10 +257,33 @@ Any row still on Auto shows an "Auto" label instead of a swatch; once you overri
 |---|---|---|---|
 | Theme-specific corner radii | Toggle | — | Off |
 | Key corner radius *(on)* | Slider | 0–28dp | seeded from <SettingsPath path="Appearance / Keys / Key corner radius" /> (8dp) |
-| Popup corner radius *(on)* | Slider | 0–24dp | 12dp |
+| Popup corner radius *(on)* | Slider | 0–40dp | seeded from <SettingsPath path="Key press / Popup corner radius" /> (12dp) |
 | Tool circle radius *(on)* | Slider | 0–20dp, "off" at 0 | seeded from Appearance → Toolbar → Tool circle radius (20dp) |
 
-Off by default, so a theme follows the two global sliders under Appearance. Turning the switch on seeds all three radii at once, but only Key corner radius and Tool circle radius actually inherit a global value; Popup corner radius has no matching global slider, so it always seeds to 12dp regardless of anything else.
+Off by default, so a theme follows the three global sliders: two under Appearance, and the popup one under Key press. Turning the switch on seeds all three radii from their global counterparts at once, and turning it off clears all three back to following the globals again.
+
+### Layout
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Layout" />
+
+| Setting | Control | Range | Default when enabled |
+|---|---|---|---|
+| Layout for this theme | Toggle | — | Off |
+| Tool background width *(on)* | Slider | 38–64dp | your current global value |
+| Toolbar height *(on)* | Slider | 32–80dp | your current global value |
+| Popup height *(on)* | Slider | 32–160dp | your current global value |
+| Key height *(on)* | Slider | 32–100dp | your current global value |
+| Key gap *(on)* | Slider | 0–2× | your current global value |
+| Side padding *(on)* | Slider | 0–30% | your current global value |
+| Key label size *(on)* | Slider | 0.7–1.5× | your current global value |
+| Bold labels *(on)* | Toggle | — | your current global value |
+| Corner hint size *(on)* | Slider | 0.5–2× | your current global value |
+| Gesture trail width *(on)* | Slider | 2–24dp | your current global value |
+| Gesture trail opacity *(on)* | Slider | 10–100% | your current global value |
+
+A second opt-in group, off by default. One switch seeds every value in the group from your current global settings, and turning it off clears them all again, so a theme either carries its own sizes or carries none of them. Screen-specific sizes from Layout settings (folded, unfolded, landscape) still win over a theme's own.
+
+Popup height is the height of the key-preview bubble. The global slider keeps one value for the on-key bubble and another for the floating one; the theme's override applies to whichever style is switched on.
 
 ### Animation
 
@@ -186,6 +293,28 @@ Off by default, so a theme follows the two global sliders under Appearance. Turn
 | Speed *(not None)* | Slider | 0.25×–3× | 1× |
 
 Flow drifts the board gradient along its own axis (or orbits the center, for a radial gradient); Hue cycle slowly rotates the hue of the board gradient, or the solid board color if no gradient is set. Animation only runs while the keyboard is on screen. Three built-ins ship with it on: Sunset drift and Cyberpunk use Flow, Aurora uses Hue cycle, and every other built-in and every fresh custom theme starts on None.
+
+### Key press effect
+
+| Setting | Control | Range | Default |
+|---|---|---|---|
+| Effect | Segmented row | None / Stars / Hearts / Sparkle / Confetti / Emoji / Images | None |
+| Emoji to throw *(Emoji only)* | Text field, up to 16 characters | — | Empty |
+| Particle images *(Images only)* | Picks images from the gallery | Up to 6 | None |
+| Intensity *(any effect)* | Slider | 0.4×–2.4× | 1× |
+
+A small particle burst under every key press. With **Emoji**, each character you type into the field becomes its own particle kind; with **Images**, each picture does. Transparent PNGs look best. The effect never plays under reduce motion or power saving, and high contrast keys drops it along with the rest of the decoration.
+
+### Font and sound
+
+| Setting | Control | Default |
+|---|---|---|
+| Key font | Row → picker of the fonts on this device | Follow settings |
+| *(a script's name)* font | Row → picker for that script | Only listed for scripts the theme names |
+| Add a font for a script | Row → script picker, then a font picker | — |
+| Key sound | Row → picker of the sounds on this device | Follow settings |
+
+Both are referenced by name, never copied into the theme file, so importing a theme without the font or sound installed just falls back to your own global choice. **Key font** covers Latin, Cyrillic and Greek only; every other script keeps its automatic Noto face unless the theme names one for it. Your own pick in <SettingsPath path="Appearance / Keyboard font" /> always beats the theme's. See [Theme editor](/themes/editor/#font-and-sound) for the id forms that travel between devices.
 
 ### Gradients
 
@@ -211,10 +340,11 @@ Tapping any color row opens the same dialog: a hex field (label "Hex (AARRGGBB)"
 
 ## Details & edge cases
 
+- **No per-row restore buttons on either screen.** The app-wide [putting one setting back](/reference/settings/#putting-one-setting-back) control doesn't appear here, because a theme is something you built rather than a setting the app shipped a default for. Undo works the way the thing itself works instead: a colour row goes back with its picker's **Auto** button, the two opt-in groups (theme-specific corner radii, layout for this theme) clear by switching the group off, and a look, sticker or single-key style goes by deleting it. The built-in you copied from is still sitting in the gallery if you want to start over.
 - **Editing an existing custom theme doesn't switch to it.** Opening the pencil on a theme already in Your themes just opens the editor. Only Create, the built-in pencil (duplicate), and Import set the opened theme as active, as a side effect of those specific actions.
 - **"Landscape background image" is reached only through a specific theme's editor**, not from the gallery screen itself, even though its settings-search entry is filed under the gallery's breadcrumb, since the editor needs a real theme open, which search alone can't supply.
 - **Mode, Material You colors, and the Auto trigger picker have no settings-search entry.** They're real rows on the gallery screen; searching for "Mode" or "Trigger" won't surface them directly, so search "themes" or "auto theme" instead.
-- **Corner radii aren't fully symmetric with the global sliders.** Turning on Theme-specific corner radii seeds Key corner radius and Tool circle radius from their matching Appearance sliders, but Popup corner radius has no global counterpart and always starts at 12dp.
+- **The three corner radii are symmetric with the globals, but the globals aren't all on one screen.** Key corner radius and Tool circle radius come from Appearance; Popup corner radius comes from Key press, which is easy to miss when you're looking for it under Appearance with the other two.
 - **Deleting or exporting is only offered for Your themes.** The Default card and every built-in card skip both buttons; a built-in's pencil makes an editable copy instead of opening it directly.
 - **Changing the seed keeps a photo visible.** A seed swatch or the light/dark switch rebuilds every color, but when the theme has a background image, how see-through the board and keys are is carried across rather than reset to opaque.
 - **The photo rows are conditional, and so is their settings-search behavior.** Rotating background and Photo services are reachable from search whether or not their rows are currently visible in the editor, since search navigates to the screen directly.
@@ -223,6 +353,7 @@ Tapping any color row opens the same dialog: a hex field (label "Hex (AARRGGBB)"
 ## Related pages
 
 - [Theming overview](/themes/overview/) — why you'd pick each mode, the full built-in theme list, and how Auto's three triggers behave.
+- [Theme families and looks](/themes/families/) — family cards, the swatch dots, the Grouped and Separate gallery styles, and building a multi-look theme.
 - [Theme editor](/themes/editor/) — the guided walkthrough of building a theme, with the exact fallback formula behind every Auto color.
 - [Image backgrounds](/themes/backgrounds/) — the background-image picker, crop, opacity, and blur controls in full.
 - [Online photos and rotation](/themes/online-photos/) — searching Unsplash and Pexels, the photo collection, and the background that changes on a schedule.

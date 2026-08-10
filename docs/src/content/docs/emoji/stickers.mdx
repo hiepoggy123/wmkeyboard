@@ -108,6 +108,7 @@ Stickers isn't pinned to the toolbar by default. It lives in the toolbox alongsi
 - **Send stickers as** — <SettingsPath path="Tools / Stickers / Sending" /> — Sticker or Image, default **Sticker**. Only shown under Stickers: it governs what the sticker panel commits, and the GIF panel has its own **Send GIFs as** on its own page.
 - **Multiple sources** — Tabs or Mixed, default **Tabs**. Tabs gives every configured source its own chip, including My stickers. Mixed collapses Klipy/GIPHY into one "Online" chip and keeps My stickers as a second chip.
 - **Content filter** — Off/Low/Medium/High, default **Medium**. Maps to Klipy's and GIPHY's own content rating.
+- **Results for each search**, under <SettingsPath path="Tools / Stickers / Results" />: a slider from 6 to 48, default **24**. How many stickers one search or the trending view loads. Your own packs ignore it, so **My stickers** always shows everything that matches, however long the list. Shared with the GIF tool.
 
 Both tools are among the ones the setup wizard suggests enabling, and neither needs a particular edition: the gating here is an API key, not the build.
 
@@ -118,6 +119,7 @@ Both tools are among the ones the setup wizard suggests enabling, and neither ne
 - **Save and report don't apply to your own stickers.** Long-pressing something from My stickers offers pack management and Copy only; there's nothing to save (you already have it) and nothing to report (nobody served it to you).
 - **A source already at spec is left alone.** If a picked image is already a 512×512 WebP under 100 KB, it's stored as-is rather than re-encoded.
 - **One process, one store, but two independent views of it.** The keyboard and the settings app run in the same app process and share the same on-disk pack store, so every mutator saves immediately rather than batching. Each side still caches its own snapshot of the packs, though, so the keyboard checks a cheap size-and-timestamp signal against the manifest and only reloads when it's actually changed, rather than re-parsing it on every keystroke.
+- **Multiple sources and Content filter don't get a restore button.** Every other row on this screen grows [a small restore button](/reference/settings/#putting-one-setting-back) once you move it off its shipped value. Those two are drawn as a bare segmented row under a heading rather than as full setting rows, so there's nowhere to hang one, and undoing them means picking Tabs and the middle filter level back yourself. The Klipy and GIPHY key fields have no button either, though clearing the box does the same job there.
 - **Packs need the device unlocked.** Sticker packs live in app-private storage that isn't available before you unlock the device after a restart, so the sticker tool isn't usable from a locked-screen field the way some other tools are.
 
 See also [GIFs](/emoji/gifs/) for the tool this one shares its settings and layout with, and [Emoji picker & search](/emoji/picker/) for the other route into expressive content on this keyboard.
