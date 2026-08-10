@@ -64,11 +64,32 @@ data class SizingOverride(
      * without re-dialling each height by hand. null = 1× (portrait size).
      */
     val keyboardScale: Float? = null,
+    /**
+     * Gap between keys, as a multiple of the built-in gap. Landscape is the
+     * shape that wants this most: the same spacing that reads as comfortable
+     * in portrait is what pushes the bottom row off a short screen.
+     */
+    val keyGapScale: Float? = null,
+    /** Space kept clear either side of the keys, as a fraction of the width. */
+    val sidePadScale: Float? = null,
+    /** Height of the bottom row, which carries the spacebar. */
+    val bottomRowHeightDp: Int? = null,
+    /**
+     * Whether the dedicated digit row is drawn on this shape.
+     *
+     * The one sizing choice that is not a number, and the one a landscape
+     * phone most often wants to answer differently: it has the least room for
+     * a sixth row and the most need for the keys below it. null follows
+     * portrait, as everywhere else here.
+     */
+    val numberRow: Boolean? = null,
 ) {
     val isEmpty: Boolean
         get() = keyHeightDp == null && numberRowHeightDp == null &&
             bottomPaddingDp == null && keyboardWidthPercent == null &&
-            fontScale == null && keyboardAlignment == null && keyboardScale == null
+            fontScale == null && keyboardAlignment == null && keyboardScale == null &&
+            keyGapScale == null && sidePadScale == null && bottomRowHeightDp == null &&
+            numberRow == null
 }
 
 /**
@@ -81,8 +102,15 @@ data class SizingOverride(
  * knowing variants exist at all.
  */
 fun KeyboardSettings.resolvedFor(variant: ScreenVariant): KeyboardSettings {
-    val override = sizingOverrides[variant] ?: return this
-    if (override.isEmpty) return this
+    // Split is gated on the shape rather than overridden per shape: the user
+    // set one switch, and this decides whether the current screen is wide
+    // enough to honour it. Portrait on a folded phone is the one that is not.
+    val splitHere = splitKeyboard &&
+        (!layoutBehavior.splitOnlyOnLargeScreens || variant != ScreenVariant.PORTRAIT)
+    val override = sizingOverrides[variant]
+    if (override == null || override.isEmpty) {
+        return if (splitHere == splitKeyboard) this else copy(splitKeyboard = splitHere)
+    }
     // The scale rides on the resolved heights, so every `settings.keyHeightDp`
     // downstream is already scaled and no render code learns it exists.
     val scale = override.keyboardScale ?: 1f
@@ -93,6 +121,22 @@ fun KeyboardSettings.resolvedFor(variant: ScreenVariant): KeyboardSettings {
         keyboardWidthPercent = override.keyboardWidthPercent ?: keyboardWidthPercent,
         fontScale = override.fontScale ?: fontScale,
         keyboardAlignment = override.keyboardAlignment ?: keyboardAlignment,
+        numberRow = override.numberRow ?: numberRow,
+        // These three live on the nested layout-behaviour object, so the
+        // override has to rebuild it rather than name a top-level field.
+        layoutBehavior = if (
+            override.keyGapScale == null && override.sidePadScale == null &&
+            override.bottomRowHeightDp == null
+        ) {
+            layoutBehavior
+        } else {
+            layoutBehavior.copy(
+                sidePadScale = override.sidePadScale ?: layoutBehavior.sidePadScale,
+                bottomRowHeightDp = override.bottomRowHeightDp ?: layoutBehavior.bottomRowHeightDp,
+            )
+        },
+        keyGapScale = override.keyGapScale ?: keyGapScale,
+        splitKeyboard = splitHere,
     )
 }
 
@@ -113,5 +157,9 @@ fun KeyboardSettings.sizingValuesFor(variant: ScreenVariant): SizingOverride {
         fontScale = override?.fontScale ?: fontScale,
         keyboardAlignment = override?.keyboardAlignment ?: keyboardAlignment,
         keyboardScale = override?.keyboardScale ?: 1f,
+        keyGapScale = override?.keyGapScale ?: keyGapScale,
+        sidePadScale = override?.sidePadScale ?: layoutBehavior.sidePadScale,
+        bottomRowHeightDp = override?.bottomRowHeightDp ?: layoutBehavior.bottomRowHeightDp,
+        numberRow = override?.numberRow ?: numberRow,
     )
 }

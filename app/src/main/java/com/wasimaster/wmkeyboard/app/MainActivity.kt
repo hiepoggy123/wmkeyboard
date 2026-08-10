@@ -2335,6 +2335,59 @@ private fun ResetPinnedToolsSetting(repository: SettingsRepository, scope: Corou
     }
 }
 
+/**
+ * A settings row whose control is a button rather than a value: clear this,
+ * reset that, forget the other.
+ *
+ * [confirm] is the body of a confirmation dialog. Pass it for anything that
+ * throws away something the user cannot get back (a word list, a history, a
+ * set of pins) and leave it null for anything that only restores a default,
+ * which the user can simply set again.
+ */
+@Composable
+internal fun ActionRow(
+    @StringRes title: Int,
+    subtitle: String?,
+    action: String,
+    confirm: String? = null,
+    icon: ImageVector? = SettingsRowIcons[title],
+    enabled: Boolean = true,
+    onAction: () -> Unit,
+) {
+    var asking by remember { mutableStateOf(false) }
+    val label = stringResource(title)
+    HighlightableRow(label, title) {
+        WmRow(
+            title = label,
+            subtitle = subtitle,
+            icon = icon,
+            trailing = {
+                OutlinedButton(
+                    enabled = enabled,
+                    onClick = { if (confirm == null) onAction() else asking = true },
+                ) { Text(action) }
+            },
+        )
+    }
+    if (!asking) return
+    AlertDialog(
+        onDismissRequest = { asking = false },
+        title = { Text(label) },
+        text = { Text(confirm.orEmpty()) },
+        confirmButton = {
+            TextButton(onClick = {
+                asking = false
+                onAction()
+            }) { Text(action) }
+        },
+        dismissButton = {
+            TextButton(onClick = { asking = false }) {
+                Text(stringResource(CommonR.string.common_cancel))
+            }
+        },
+    )
+}
+
 /** [ChoiceSetting] for a row named by a string resource. */
 @Composable
 internal fun <T> ChoiceSetting(
@@ -4982,6 +5035,7 @@ private fun AppearanceSettings(
     // which is what gives Bengali or Arabic digits.
     val dpFormat = stringResource(R.string.typing_value_dp)
     val spFormat = stringResource(R.string.values_sp)
+    val percentFormat = stringResource(R.string.typing_value_percent)
     val multiplierFormat = stringResource(R.string.keypress_value_multiplier)
     // Turning the toolbar off is guarded — it hides suggestions and every tool.
     var confirmDisableToolbar by remember { mutableStateOf(false) }
@@ -5189,6 +5243,17 @@ private fun AppearanceSettings(
             }
         }
         item {
+            SliderSetting(
+                R.string.appearance_suggestion_text_size_title,
+                subtitle = stringResource(R.string.appearance_suggestion_text_size_subtitle),
+                value = settings.suggestionStrip.textScale,
+                range = 0.8f..1.6f,
+                display = { percentFormat.format((it * 100).roundToInt()) },
+                info = stringResource(R.string.appearance_suggestion_text_size_info),
+                default = SettingsDefaults.suggestionStrip.textScale,
+            ) { scope.launch { repository.setSuggestionTextScale(it) } }
+        }
+        item {
             ResetPinnedToolsSetting(repository, scope)
         }
         item {
@@ -5299,6 +5364,22 @@ private fun AppearanceSettings(
                     default = SettingsDefaults.toolbox.pageSize.toFloat(),
                 ) { scope.launch { repository.setToolboxPageSize(it.roundToInt()) } }
             }
+        }
+        item {
+            val followToolbar = stringResource(R.string.appearance_toolbox_label_size_follow)
+            SliderSetting(
+                R.string.appearance_toolbox_label_size_title,
+                subtitle = stringResource(R.string.appearance_toolbox_label_size_subtitle),
+                value = settings.toolbox.labelSizeSp.toFloat(),
+                // 0 is the "follow the toolbar" end of the slider rather than a
+                // size, which is why the readout reads as a word there.
+                range = 0f..16f,
+                display = {
+                    if (it.roundToInt() == 0) followToolbar else spFormat.format(it.roundToInt())
+                },
+                info = stringResource(R.string.appearance_toolbox_label_size_info),
+                default = SettingsDefaults.toolbox.labelSizeSp.toFloat(),
+            ) { scope.launch { repository.setToolboxLabelSize(it.roundToInt()) } }
         }
     }
 
@@ -5517,6 +5598,29 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 ) { scope.launch { repository.setKeyboardAlignment(it) } }
             }
         }
+        // Drawn only once something in the group has actually moved, like the
+        // per-row reset controls: on an untouched screen it would be a button
+        // that does nothing.
+        val sizingMoved = settings.keyHeightDp != SettingsDefaults.keyHeightDp ||
+            settings.numberRowHeightDp != SettingsDefaults.numberRowHeightDp ||
+            settings.bottomPaddingDp != SettingsDefaults.bottomPaddingDp ||
+            settings.keyboardWidthPercent != SettingsDefaults.keyboardWidthPercent ||
+            settings.keyboardAlignment != SettingsDefaults.keyboardAlignment ||
+            settings.keyGapScale != SettingsDefaults.keyGapScale ||
+            settings.keyCornerRadiusDp != SettingsDefaults.keyCornerRadiusDp ||
+            settings.layoutBehavior.sidePadScale != SettingsDefaults.layoutBehavior.sidePadScale ||
+            settings.layoutBehavior.bottomRowHeightDp !=
+            SettingsDefaults.layoutBehavior.bottomRowHeightDp
+        if (sizingMoved) {
+            item {
+                ActionRow(
+                    title = R.string.layout_reset_sizing_title,
+                    subtitle = stringResource(R.string.layout_reset_sizing_subtitle),
+                    action = stringResource(CommonR.string.common_reset),
+                    confirm = stringResource(R.string.layout_reset_sizing_confirm),
+                ) { scope.launch { repository.resetSizeAndPosition() } }
+            }
+        }
     }
 
     var expandedVariant by remember { mutableStateOf<ScreenVariant?>(null) }
@@ -5599,6 +5703,48 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         range = 0.7f..1.5f,
                         display = { multiplierFormat.format(it) },
                     ) { scope.launch { repository.setVariantFontScale(variant, it) } }
+                }
+                item {
+                    SliderSetting(
+                        R.string.layout_key_spacing_title,
+                        value = values.keyGapScale ?: settings.keyGapScale,
+                        range = 0f..2f,
+                        display = { percentFormat.format((it * 100).toInt()) },
+                    ) { scope.launch { repository.setVariantKeyGapScale(variant, it) } }
+                }
+                item {
+                    SliderSetting(
+                        R.string.layout_side_padding_title,
+                        value = values.sidePadScale ?: settings.layoutBehavior.sidePadScale,
+                        range = SidePadScaleRange,
+                        display = { percentFormat.format((it * 100).toInt()) },
+                    ) { scope.launch { repository.setVariantSidePadScale(variant, it) } }
+                }
+                item {
+                    val followKeys = stringResource(R.string.layout_bottom_row_follow_keys_label)
+                    SliderSetting(
+                        R.string.layout_bottom_row_height_title,
+                        value = (
+                            values.bottomRowHeightDp
+                                ?: settings.layoutBehavior.bottomRowHeightDp
+                            ).toFloat(),
+                        range = 0f..BottomRowHeightRange.last.toFloat(),
+                        display = {
+                            if (it.toInt() == 0) followKeys else dpFormat.format(it.toInt())
+                        },
+                    ) {
+                        scope.launch { repository.setVariantBottomRowHeightDp(variant, it.toInt()) }
+                    }
+                }
+                item {
+                    // The one per-shape choice that is not a number. Landscape
+                    // has the least room for a sixth row and the most need for
+                    // the keys under it.
+                    ToggleSetting(
+                        R.string.layout_number_row_title,
+                        null,
+                        values.numberRow ?: settings.numberRow,
+                    ) { scope.launch { repository.setVariantNumberRow(variant, it) } }
                 }
                 if ((values.keyboardWidthPercent ?: settings.keyboardWidthPercent) < 100) {
                     item {
@@ -5711,6 +5857,15 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         }
         if (settings.splitKeyboard) {
             item {
+                ToggleSetting(
+                    R.string.layout_split_large_only_title,
+                    stringResource(R.string.layout_split_large_only_subtitle),
+                    settings.layoutBehavior.splitOnlyOnLargeScreens,
+                    info = stringResource(R.string.layout_split_large_only_info),
+                    default = SettingsDefaults.layoutBehavior.splitOnlyOnLargeScreens,
+                ) { scope.launch { repository.setSplitOnlyOnLargeScreens(it) } }
+            }
+            item {
                 SliderSetting(
                     R.string.layout_split_gap_title,
                     subtitle = stringResource(R.string.layout_split_gap_subtitle),
@@ -5742,6 +5897,30 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     info = stringResource(R.string.layout_floating_width_info),
                     default = SettingsDefaults.floatingWidthDp.toFloat(),
                 ) { scope.launch { repository.setFloatingWidthDp(it.toInt()) } }
+            }
+            item {
+                SliderSetting(
+                    R.string.layout_floating_height_title,
+                    subtitle = stringResource(R.string.layout_floating_height_subtitle),
+                    value = settings.floatingHeightScale,
+                    range = 0.6f..1.6f,
+                    display = { percentFormat.format((it * 100).toInt()) },
+                    info = stringResource(R.string.layout_floating_height_info),
+                    default = SettingsDefaults.floatingHeightScale,
+                ) { scope.launch { repository.setFloatingHeightScale(it) } }
+            }
+            item {
+                val movedFloating = settings.floatingWidthDp != SettingsDefaults.floatingWidthDp ||
+                    settings.floatingHeightScale != SettingsDefaults.floatingHeightScale ||
+                    settings.floatingXFraction != SettingsDefaults.floatingXFraction ||
+                    settings.floatingYFraction != SettingsDefaults.floatingYFraction
+                if (movedFloating) {
+                    ActionRow(
+                        title = R.string.layout_floating_reset_title,
+                        subtitle = stringResource(R.string.layout_floating_reset_subtitle),
+                        action = stringResource(CommonR.string.common_reset),
+                    ) { scope.launch { repository.resetFloatingGeometry() } }
+                }
             }
         }
     }

@@ -2684,6 +2684,7 @@ private fun TopBar(
                     candidates = shownSuggestions,
                     enabled = suggestionsShowing,
                     alpha = stripContentFade,
+                    textScale = state.settings.suggestionStrip.textScale,
                     hints = if (suggestionsShowing) suggestionHintPlan(state) else null,
                     onCandidate = onCandidate,
                     onExpand = onCandidatesExpand,
@@ -2726,6 +2727,7 @@ private fun TopBar(
                     enabled = suggestionsShowing,
                     alpha = stripContentFade,
                     slotCount = state.settings.suggestionStrip.slotCount,
+                    textScale = state.settings.suggestionStrip.textScale,
                     centerPrimaryEnabled = state.settings.suggestionStrip.suggestionPrimaryCenter,
                     shiftState = state.shiftState,
                     // Only while the live candidates are the ones on screen: the
@@ -2897,6 +2899,8 @@ private fun RowScope.LatinSuggestionChips(
     enabled: Boolean,
     alpha: () -> Float,
     slotCount: Int,
+    /** Multiplier on the suggestion text, from the settings slider. */
+    textScale: Float,
     centerPrimaryEnabled: Boolean,
     shiftState: ShiftState,
     /** The hotkey badges, or null when no physical keyboard is asking for them. */
@@ -2934,7 +2938,11 @@ private fun RowScope.LatinSuggestionChips(
         val measurer = rememberTextMeasurer()
         val density = LocalDensity.current
         val baseStyle = LocalTextStyle.current
-        val baseSize = if (baseStyle.fontSize.isSpecified) baseStyle.fontSize else SuggestionFontSize
+        // The user's own text scale rides on whichever base is in force, so a
+        // theme that sets its own suggestion size is scaled rather than replaced.
+        val baseSize = (
+            if (baseStyle.fontSize.isSpecified) baseStyle.fontSize else SuggestionFontSize
+            ) * textScale
         val shaper = LocalEmojiShaper.current
         Row(
             modifier = Modifier.fillMaxSize(),
@@ -3106,6 +3114,8 @@ private fun RowScope.CandidateStrip(
     candidates: List<String>,
     enabled: Boolean,
     alpha: () -> Float,
+    /** Same multiplier the Latin strip uses; the two are one row in two modes. */
+    textScale: Float,
     /** The hotkey badges, or null when no physical keyboard is asking for them. */
     hints: HintPlan? = null,
     onCandidate: (String, Int) -> Unit,
@@ -3139,7 +3149,7 @@ private fun RowScope.CandidateStrip(
                     text = suggestion,
                     modifier = Modifier.padding(horizontal = 10.dp),
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = CandidateFontSize,
+                    fontSize = CandidateFontSize * textScale,
                     fontWeight = if (index == 0) FontWeight.SemiBold else FontWeight.Normal,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
@@ -3177,6 +3187,7 @@ private fun CandidateGridPanel(
     state: KeyboardUiState,
     onCandidate: (String, Int) -> Unit,
 ) {
+    val textScale = state.settings.suggestionStrip.textScale
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -3198,7 +3209,7 @@ private fun CandidateGridPanel(
                         text = candidate,
                         modifier = Modifier.padding(horizontal = 10.dp),
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = CandidateFontSize,
+                        fontSize = CandidateFontSize * textScale,
                         fontWeight = if (index == 0) FontWeight.SemiBold else FontWeight.Normal,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -5814,6 +5825,7 @@ private fun ToolboxGrid(
                         ToolPill(
                             tool = shown,
                             active = toolActive(shown, state),
+                            labelSize = toolboxLabelSize(state),
                             paint = paint,
                             filled = state.settings.toolbox.pillFilled,
                             ghost = ghost,
@@ -5850,7 +5862,7 @@ private fun ToolboxGrid(
                             // the words are not — so it carries the same
                             // weight as a suggestion chip rather than the
                             // caption size it used to have.
-                            fontSize = ToolLabelSize,
+                            fontSize = toolboxLabelSize(state),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                 .copy(alpha = if (ghost) 0.5f else 1f),
                             textAlign = TextAlign.Center,
@@ -5899,8 +5911,19 @@ private fun Modifier.toolboxCellWidth(columns: Int): Modifier = layout { measura
     layout(placeable.width, placeable.height) { placeable.place(0, 0) }
 }
 
-/** The size of a tool's name under its icon in the toolbox grid. */
+/**
+ * The size of a tool's name under its icon in the toolbox grid, when the user
+ * has not set one. [ToolboxSettings.labelSizeOr] resolves the setting against
+ * the toolbar's own label size.
+ */
 private val ToolLabelSize = 12.5.sp
+
+/** The caption size for this toolbox, resolving the "follow the toolbar" default. */
+@Composable
+private fun toolboxLabelSize(state: KeyboardUiState): TextUnit {
+    val chosen = state.settings.toolbox.labelSizeSp
+    return if (chosen > 0) chosen.sp else ToolLabelSize
+}
 
 /** How tall a toolbox pill is. Half of it is the radius that makes the ends round. */
 private val PillHeight = 44.dp
@@ -5940,6 +5963,8 @@ private const val ToolCircleRadiusMax = 20
 private fun ToolPill(
     tool: ToolbarTool,
     active: Boolean,
+    /** Caption size, resolved by the caller from the toolbox settings. */
+    labelSize: TextUnit,
     /** The tool's colour, or null when colourful tool icons are off. */
     paint: ToolPaint?,
     filled: Boolean,
@@ -6003,7 +6028,7 @@ private fun ToolPill(
         )
         Text(
             toolLabel(tool),
-            fontSize = ToolLabelSize,
+            fontSize = labelSize,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             color = content.copy(alpha = if (ghost) 0.5f else 1f),

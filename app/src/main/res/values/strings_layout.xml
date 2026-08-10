@@ -137,4 +137,18 @@
     <string name="layout_swap_comma_globe_title">Swap the comma and 🌐 keys</string>
     <string name="layout_swap_comma_globe_subtitle">Put the comma next to the spacebar</string>
     <string name="layout_swap_comma_globe_info">The two keys on each side of the spacebar change places. If one of them is an emoji key, it moves to the outer position and the comma stays next to the spacebar. Turn this off to get the usual order.</string>
+    <string name="layout_split_large_only_title">Split only on wide screens</string>
+    <string name="layout_split_large_only_subtitle">Stay whole on a portrait phone, split when there is room</string>
+    <string name="layout_split_large_only_info">Split is one setting for every screen shape, so turning it on in landscape leaves the keyboard split after you rotate back, where a split layout is hard to use. Turn this on to split only in landscape or on an unfolded screen. This setting is off by default.</string>
+
+    <string name="layout_floating_height_title">Floating keyboard height</string>
+    <string name="layout_floating_height_subtitle">How tall the floating panel is, as a share of the normal key height</string>
+    <string name="layout_floating_height_info">The resize grip on the floating panel changes this by dragging. The slider is here so you can set an exact height, and undo a drag that went too far. This setting is 100% by default.</string>
+
+    <string name="layout_floating_reset_title">Reset the floating panel</string>
+    <string name="layout_floating_reset_subtitle">Put it back to the middle at its starting size</string>
+
+    <string name="layout_reset_sizing_title">Reset size and position</string>
+    <string name="layout_reset_sizing_subtitle">Put every slider in this group back to its default</string>
+    <string name="layout_reset_sizing_confirm">Key height, number row height, bottom row height, padding, width, position, spacing and corner radius all go back to their defaults. Per screen shape settings are not affected.</string>
 </resources>

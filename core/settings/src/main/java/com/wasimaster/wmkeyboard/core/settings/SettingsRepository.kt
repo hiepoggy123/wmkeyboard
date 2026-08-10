@@ -702,7 +702,20 @@ data class ToolboxSettings(
     val paginate: Boolean = false,
     /** Tools per page while [paginate] is on. */
     val pageSize: Int = 12,
-)
+    /**
+     * Size of the caption under each toolbox tool, in sp. 0 means "whatever
+     * the toolbar labels are set to", which is the default and keeps the two
+     * label sizes in step.
+     *
+     * The toolbar's own labels got a slider and these did not, so a user who
+     * enlarged one was left with two label sizes that disagreed.
+     */
+    val labelSizeSp: Int = 0,
+) {
+    /** The caption size to draw at, resolving 0 against the toolbar's setting. */
+    fun labelSizeOr(toolbarLabelSize: Int): Int =
+        if (labelSizeSp > 0) labelSizeSp else toolbarLabelSize
+}
 
 /**
  * Tools a toolbox page may hold. The floor is one full row of the widest icon
@@ -2910,6 +2923,17 @@ data class LayoutBehaviorSettings(
      */
     val sidePadScale: Float = 0f,
     /**
+     * Hold the split layout back until the screen is actually wide enough for
+     * it: landscape, or a device unfolded past
+     * [ScreenVariant.UNFOLDED_MIN_DP].
+     *
+     * [KeyboardSettings.splitKeyboard] is one global flag, so turning it on in
+     * landscape left the keyboard split after rotating back to a portrait
+     * phone, where a split layout is close to unusable. Off by default, which
+     * keeps the flag meaning exactly what it always did.
+     */
+    val splitOnlyOnLargeScreens: Boolean = false,
+    /**
      * How long, in ms, a second shift tap still counts as the double-tap that
      * turns on caps lock. Lower makes caps lock quicker but easier to trigger by
      * accident; higher makes a deliberate double-tap more forgiving. Default 350.
@@ -3087,6 +3111,16 @@ data class SuggestionStripSettings(
      * phone has the room to spare.
      */
     val slotCount: Int = 3,
+    /**
+     * Multiplier on the suggestion text, and on the CJK candidate text with
+     * it: both are the same row in different modes, so one number keeps them
+     * agreeing.
+     *
+     * Key labels have scaled since the beginning and the words above them
+     * never did, which left a low-vision user with large keys and 16 sp
+     * suggestions they still could not read.
+     */
+    val textScale: Float = 1f,
     /** Keep the suggestion strip as the default top bar even with nothing typed. */
     val suggestionsFirst: Boolean = false,
     /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */
@@ -3386,6 +3420,14 @@ class SettingsRepository(private val context: Context) {
             floatPreferencesKey(variantKey("font_scale", v))
         private fun keyboardScaleKey(v: ScreenVariant) =
             floatPreferencesKey(variantKey("keyboard_scale", v))
+        private fun keyGapScaleKey(v: ScreenVariant) =
+            floatPreferencesKey(variantKey("key_gap_scale", v))
+        private fun sidePadScaleKey(v: ScreenVariant) =
+            floatPreferencesKey(variantKey("side_pad_scale", v))
+        private fun bottomRowHeightKey(v: ScreenVariant) =
+            intPreferencesKey(variantKey("bottom_row_height", v))
+        private fun variantNumberRowKey(v: ScreenVariant) =
+            booleanPreferencesKey(variantKey("number_row", v))
         private val KEY_GAP_SCALE = floatPreferencesKey("key_gap_scale")
         private val KEY_FONT_ID = stringPreferencesKey("key_font_id")
         private val CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
@@ -3517,6 +3559,7 @@ class SettingsRepository(private val context: Context) {
         private val NUMBER_ROW_IN_SYMBOLS = booleanPreferencesKey("number_row_in_symbols")
         private val BOTTOM_ROW_HEIGHT = intPreferencesKey("bottom_row_height")
         private val SIDE_PAD_SCALE = floatPreferencesKey("side_pad_scale")
+        private val SPLIT_ONLY_LARGE = booleanPreferencesKey("split_only_large_screens")
         private val SHIFT_CAPS_LOCK_MS = intPreferencesKey("shift_caps_lock_ms")
         private val SHOW_ALL_POPUP_KEYS = booleanPreferencesKey("show_all_popup_keys")
         private val CURRENCY_KEYS = stringPreferencesKey("currency_keys")
@@ -3847,6 +3890,8 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBOX_PILL_FILLED = booleanPreferencesKey("toolbox_pill_filled")
         private val TOOLBOX_PAGINATE = booleanPreferencesKey("toolbox_paginate")
         private val TOOLBOX_PAGE_SIZE = intPreferencesKey("toolbox_page_size")
+        private val TOOLBOX_LABEL_SIZE = intPreferencesKey("toolbox_label_size")
+        private val SUGGESTION_TEXT_SCALE = floatPreferencesKey("suggestion_text_scale")
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
         private val GRAMMAR_DIALECT = stringPreferencesKey("grammar_dialect")
@@ -4196,6 +4241,10 @@ class SettingsRepository(private val context: Context) {
                         keyboardAlignment = p[alignmentKey(v)]
                             ?.let { name -> runCatching { KeyboardAlignment.valueOf(name) }.getOrNull() },
                         keyboardScale = p[keyboardScaleKey(v)],
+                        keyGapScale = p[keyGapScaleKey(v)],
+                        sidePadScale = p[sidePadScaleKey(v)],
+                        bottomRowHeightDp = p[bottomRowHeightKey(v)],
+                        numberRow = p[variantNumberRowKey(v)],
                     )
                 }
                 .filterValues { !it.isEmpty },
@@ -4467,6 +4516,7 @@ class SettingsRepository(private val context: Context) {
                 punctuationChips = p[PUNCTUATION_CHIPS]?.takeIf { it.isNotBlank() }
                     ?: defaults.suggestionStrip.punctuationChips,
                 slotCount = p[SUGGESTION_SLOT_COUNT] ?: defaults.suggestionStrip.slotCount,
+                textScale = p[SUGGESTION_TEXT_SCALE] ?: defaults.suggestionStrip.textScale,
                 suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionStrip.suggestionsFirst,
                 suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
                     ?: defaults.suggestionStrip.suggestionPrimaryCenter,
@@ -4542,6 +4592,8 @@ class SettingsRepository(private val context: Context) {
                 bottomRowHeightDp =
                     p[BOTTOM_ROW_HEIGHT] ?: defaults.layoutBehavior.bottomRowHeightDp,
                 sidePadScale = p[SIDE_PAD_SCALE] ?: defaults.layoutBehavior.sidePadScale,
+                splitOnlyOnLargeScreens = p[SPLIT_ONLY_LARGE]
+                    ?: defaults.layoutBehavior.splitOnlyOnLargeScreens,
                 shiftCapsLockMs = p[SHIFT_CAPS_LOCK_MS] ?: defaults.layoutBehavior.shiftCapsLockMs,
                 showAllPopupKeys = p[SHOW_ALL_POPUP_KEYS] ?: defaults.layoutBehavior.showAllPopupKeys,
                 currencyKeys = p[CURRENCY_KEYS]
@@ -4655,6 +4707,7 @@ class SettingsRepository(private val context: Context) {
                 paginate = p[TOOLBOX_PAGINATE] ?: defaults.toolbox.paginate,
                 pageSize = p[TOOLBOX_PAGE_SIZE]?.coerceIn(ToolboxPageSizeRange)
                     ?: defaults.toolbox.pageSize,
+                labelSizeSp = p[TOOLBOX_LABEL_SIZE] ?: defaults.toolbox.labelSizeSp,
             ),
             flashlightAutoOff = p[FLASHLIGHT_AUTO_OFF] ?: defaults.flashlightAutoOff,
             compassShowDegrees = p[COMPASS_SHOW_DEGREES] ?: defaults.compassShowDegrees,
@@ -5415,6 +5468,13 @@ class SettingsRepository(private val context: Context) {
     suspend fun setToolboxPageSize(value: Int) =
         editPrefs { it[TOOLBOX_PAGE_SIZE] = value.coerceIn(ToolboxPageSizeRange) }
 
+    /** 0 means "follow the toolbar label size"; see [ToolboxSettings.labelSizeSp]. */
+    suspend fun setToolboxLabelSize(value: Int) =
+        editPrefs { it[TOOLBOX_LABEL_SIZE] = if (value <= 0) 0 else value.coerceIn(7, 16) }
+
+    suspend fun setSuggestionTextScale(value: Float) =
+        editPrefs { it[SUGGESTION_TEXT_SCALE] = value.coerceIn(0.8f, 1.6f) }
+
     suspend fun setEmojiRowAboveToolbar(value: Boolean) =
         editPrefs { it[EMOJI_ROW_ABOVE_TOOLBAR] = value }
 
@@ -5916,6 +5976,14 @@ class SettingsRepository(private val context: Context) {
     suspend fun setFloatingWidthDp(value: Int) =
         editPrefs { it[FLOATING_WIDTH] = value.coerceIn(240, 500) }
 
+    /**
+     * Height on its own, for the settings slider. The resize grip writes both
+     * axes at once through [setFloatingSize]; this exists because height was
+     * drag-only, so a bad drag had no way back and no way to be typed exactly.
+     */
+    suspend fun setFloatingHeightScale(value: Float) =
+        editPrefs { it[FLOATING_HEIGHT_SCALE] = value.coerceIn(0.6f, 1.6f) }
+
     /** Both axes from one resize-grip gesture, persisted in a single edit. */
     suspend fun setFloatingSize(widthDp: Int, heightScale: Float) =
         editPrefs {
@@ -6014,7 +6082,41 @@ class SettingsRepository(private val context: Context) {
             it.remove(fontScaleKey(variant))
             it.remove(alignmentKey(variant))
             it.remove(keyboardScaleKey(variant))
+            it.remove(keyGapScaleKey(variant))
+            it.remove(sidePadScaleKey(variant))
+            it.remove(bottomRowHeightKey(variant))
+            it.remove(variantNumberRowKey(variant))
         }
+    }
+
+    /**
+     * The four later per-variant overrides. Each writes only the override key,
+     * never the base one: unlike key height, none of these has a "portrait is
+     * the base value" story to preserve, so a null simply clears the override.
+     */
+    suspend fun setVariantKeyGapScale(variant: ScreenVariant, value: Float?) =
+        editVariantOnly(variant, keyGapScaleKey(variant), value?.coerceIn(0f, 2f))
+
+    suspend fun setVariantSidePadScale(variant: ScreenVariant, value: Float?) =
+        editVariantOnly(
+            variant,
+            sidePadScaleKey(variant),
+            value?.coerceIn(SidePadScaleRange.start, SidePadScaleRange.endInclusive),
+        )
+
+    suspend fun setVariantBottomRowHeightDp(variant: ScreenVariant, value: Int?) =
+        editVariantOnly(variant, bottomRowHeightKey(variant), value?.coerceIn(0, 100))
+
+    suspend fun setVariantNumberRow(variant: ScreenVariant, value: Boolean?) =
+        editVariantOnly(variant, variantNumberRowKey(variant), value)
+
+    private suspend fun <T : Any> editVariantOnly(
+        variant: ScreenVariant,
+        key: Preferences.Key<T>,
+        value: T?,
+    ) {
+        if (!variant.isOverride) return
+        editPrefs { if (value == null) it.remove(key) else it[key] = value }
     }
 
     private suspend fun <T : Any> editVariant(
@@ -7016,6 +7118,39 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSidePadScale(value: Float) =
         editPrefs { it[SIDE_PAD_SCALE] = value.coerceIn(SidePadScaleRange.start, SidePadScaleRange.endInclusive) }
+
+    suspend fun setSplitOnlyOnLargeScreens(value: Boolean) =
+        editPrefs { it[SPLIT_ONLY_LARGE] = value }
+
+    /**
+     * Puts the floating panel back where it starts: centred, 320 dp wide, at
+     * full key height. Its position and size are only ever written by drags,
+     * so a panel dragged somewhere awkward otherwise has no way back.
+     */
+    suspend fun resetFloatingGeometry() = editPrefs {
+        it.remove(FLOATING_WIDTH)
+        it.remove(FLOATING_HEIGHT_SCALE)
+        it.remove(FLOATING_X)
+        it.remove(FLOATING_Y)
+    }
+
+    /**
+     * Puts the whole Size and position group back to its shipped values. The
+     * per-row reset controls each do one of these; this is for the user who
+     * has moved six of them and wants the keyboard back rather than a tour of
+     * which slider they touched.
+     */
+    suspend fun resetSizeAndPosition() = editPrefs {
+        it.remove(KEY_HEIGHT)
+        it.remove(NUMBER_ROW_HEIGHT)
+        it.remove(BOTTOM_ROW_HEIGHT)
+        it.remove(BOTTOM_PADDING)
+        it.remove(KEYBOARD_WIDTH_PERCENT)
+        it.remove(KEYBOARD_ALIGNMENT)
+        it.remove(KEY_GAP_SCALE)
+        it.remove(SIDE_PAD_SCALE)
+        it.remove(KEY_CORNER_RADIUS)
+    }
 
     suspend fun setShiftCapsLockMs(value: Int) =
         editPrefs { it[SHIFT_CAPS_LOCK_MS] = value.coerceIn(ShiftCapsLockMsRange.first, ShiftCapsLockMsRange.last) }
