@@ -306,7 +306,9 @@ import com.wasimaster.wmkeyboard.core.settings.AutoBackupSettings
 import com.wasimaster.wmkeyboard.core.settings.BackupDestination
 import com.wasimaster.wmkeyboard.core.settings.FtpConfig
 import com.wasimaster.wmkeyboard.core.settings.S3Config
+import com.wasimaster.wmkeyboard.core.settings.DEFAULT_LONG_PRESS_LETTERS
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.LongPressLetterActions
 import com.wasimaster.wmkeyboard.core.settings.destinationConfigured
 import com.wasimaster.wmkeyboard.core.settings.sectionSet
 import com.wasimaster.wmkeyboard.core.settings.sink.BackupClients
@@ -2531,6 +2533,7 @@ private fun TypingSettings(
     onOpenHardwareShortcuts: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     SettingsGroup(stringResource(R.string.typing_group_corrections_title)) {
         item {
             ToggleSetting(
@@ -2704,6 +2707,19 @@ private fun TypingSettings(
                 default = SettingsDefaults.doubleSpaceTab,
             ) { scope.launch { repository.setDoubleSpaceTab(it) } }
         }
+        if (settings.doubleSpacePeriod || settings.doubleSpaceTab) {
+            item {
+                SliderSetting(
+                    R.string.typing_double_space_window_title,
+                    subtitle = stringResource(R.string.typing_double_space_window_subtitle),
+                    value = settings.textEditing.doubleSpaceWindowMs.toFloat(),
+                    range = 200f..800f,
+                    display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                    info = stringResource(R.string.typing_double_space_window_info),
+                    default = SettingsDefaults.textEditing.doubleSpaceWindowMs.toFloat(),
+                ) { scope.launch { repository.setDoubleSpaceWindowMs(it.toInt()) } }
+            }
+        }
         item {
             ToggleSetting(
                 R.string.typing_auto_space_punctuation_title,
@@ -2760,6 +2776,27 @@ private fun TypingSettings(
                 info = stringResource(R.string.typing_punctuation_suggestions_info),
                 default = SettingsDefaults.suggestionStrip.punctuation,
             ) { scope.launch { repository.setPunctuationSuggestions(it) } }
+        }
+        if (settings.suggestionStrip.punctuation) {
+            item {
+                TextFieldSetting(
+                    label = stringResource(R.string.typing_punctuation_marks_title),
+                    value = settings.suggestionStrip.punctuationChips,
+                    hint = stringResource(R.string.typing_punctuation_marks_hint),
+                    default = SettingsDefaults.suggestionStrip.punctuationChips,
+                ) { repository.setPunctuationChips(it) }
+            }
+        }
+        item {
+            SliderSetting(
+                R.string.typing_suggestion_slots_title,
+                subtitle = stringResource(R.string.typing_suggestion_slots_subtitle),
+                value = settings.suggestionStrip.slotCount.toFloat(),
+                range = 2f..6f,
+                display = { it.toInt().toString() },
+                info = stringResource(R.string.typing_suggestion_slots_info),
+                default = SettingsDefaults.suggestionStrip.slotCount.toFloat(),
+            ) { scope.launch { repository.setSuggestionSlotCount(it.toInt()) } }
         }
         item {
             ToggleSetting(
@@ -3222,7 +3259,11 @@ private fun TypingSettings(
                 SliderSetting(
                     R.string.typing_trail_opacity_title,
                     value = settings.gesture.trailOpacity,
-                    range = 0.1f..1f,
+                    // Down to zero, which is the only way to glide with no
+                    // trail at all. It used to floor at 0.1, so the one way to
+                    // turn the trail off was power saving mode, which changes
+                    // a dozen other things with it.
+                    range = 0f..1f,
                     display = { percentFormat.format((it * 100).roundToInt()) },
                     default = SettingsDefaults.gesture.trailOpacity,
                 ) { scope.launch { repository.setGestureTrailOpacity(it) } }
@@ -3258,6 +3299,17 @@ private fun TypingSettings(
                     info = stringResource(R.string.typing_space_cursor_2d_info),
                     default = SettingsDefaults.layoutBehavior.spaceCursor2d,
                 ) { scope.launch { repository.setSpaceCursor2d(it) } }
+            }
+            item {
+                SliderSetting(
+                    R.string.typing_space_cursor_step_title,
+                    subtitle = stringResource(R.string.typing_space_cursor_step_subtitle),
+                    value = settings.textEditing.spaceCursorStepDp.toFloat(),
+                    range = 8f..32f,
+                    display = { context.getString(R.string.typing_value_dp, it.toInt()) },
+                    info = stringResource(R.string.typing_space_cursor_step_info),
+                    default = SettingsDefaults.textEditing.spaceCursorStepDp.toFloat(),
+                ) { scope.launch { repository.setSpaceCursorStepDp(it.toInt()) } }
             }
         }
         item {
@@ -3319,6 +3371,19 @@ private fun TypingSettings(
                 info = stringResource(R.string.typing_backspace_swipe_info),
                 default = SettingsDefaults.backspaceSwipeDelete,
             ) { scope.launch { repository.setBackspaceSwipeDelete(it) } }
+        }
+        if (settings.backspaceSwipeDelete) {
+            item {
+                SliderSetting(
+                    R.string.typing_backspace_step_title,
+                    subtitle = stringResource(R.string.typing_backspace_step_subtitle),
+                    value = settings.textEditing.backspaceWordStepDp.toFloat(),
+                    range = 32f..120f,
+                    display = { context.getString(R.string.typing_value_dp, it.toInt()) },
+                    info = stringResource(R.string.typing_backspace_step_info),
+                    default = SettingsDefaults.textEditing.backspaceWordStepDp.toFloat(),
+                ) { scope.launch { repository.setBackspaceWordStepDp(it.toInt()) } }
+            }
         }
     }
 
@@ -4490,6 +4555,24 @@ private fun KeyPressSettings(
             }
             item {
                 ToggleSetting(
+                    R.string.keypress_sound_repeat_title,
+                    stringResource(R.string.keypress_sound_repeat_subtitle),
+                    settings.feedback.soundOnRepeat,
+                    info = stringResource(R.string.keypress_sound_repeat_info),
+                    default = SettingsDefaults.feedback.soundOnRepeat,
+                ) { scope.launch { repository.setSoundOnRepeat(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.keypress_system_touch_title,
+                    stringResource(R.string.keypress_system_touch_subtitle),
+                    settings.feedback.respectSystemTouchFeedback,
+                    info = stringResource(R.string.keypress_system_touch_info),
+                    default = SettingsDefaults.feedback.respectSystemTouchFeedback,
+                ) { scope.launch { repository.setRespectSystemTouchFeedback(it) } }
+            }
+            item {
+                ToggleSetting(
                     R.string.keypress_dnd_mute_title,
                     stringResource(R.string.keypress_dnd_mute_subtitle),
                     settings.feedback.hapticsRespectDnd,
@@ -4611,6 +4694,17 @@ private fun KeyPressSettings(
                 info = stringResource(R.string.keypress_long_press_delay_info),
                 default = SettingsDefaults.longPressDelayMs.toFloat(),
             ) { scope.launch { repository.setLongPressDelayMs(it.toInt()) } }
+        }
+        item {
+            SliderSetting(
+                R.string.keypress_repeat_start_title,
+                subtitle = stringResource(R.string.keypress_repeat_start_subtitle),
+                value = settings.keyRepeat.startDelayMs.toFloat(),
+                range = 150f..800f,
+                display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                info = stringResource(R.string.keypress_repeat_start_info),
+                default = SettingsDefaults.keyRepeat.startDelayMs.toFloat(),
+            ) { scope.launch { repository.setKeyRepeatStartDelayMs(it.toInt()) } }
         }
         item {
             SliderSetting(
@@ -4772,7 +4866,104 @@ private fun KeyPressSettings(
                 default = SettingsDefaults.longPressLetterActions.redo,
             ) { scope.launch { repository.setLongPressYRedo(it) } }
         }
+        val holdActions = settings.longPressLetterActions
+        if (holdActions.selectAll || holdActions.copy || holdActions.paste ||
+            holdActions.cut || holdActions.undo || holdActions.redo
+        ) {
+            item { HoldShortcutLettersSetting(repository, holdActions) }
+        }
     }
+}
+
+/**
+ * Which key each hold shortcut sits on.
+ *
+ * One row for all six rather than six rows, because the six letters are one
+ * decision: the shipped `acvxzy` is the QWERTY answer, and someone typing
+ * Bengali or Russian is rebinding the whole set at once or not at all. Shown
+ * only once at least one of the six actions is on, since it has nothing to say
+ * otherwise.
+ */
+@Composable
+private fun HoldShortcutLettersSetting(
+    repository: SettingsRepository,
+    actions: LongPressLetterActions,
+) {
+    val scope = rememberCoroutineScope()
+    val labels = listOf(
+        R.string.keypress_hold_a_title,
+        R.string.keypress_hold_c_title,
+        R.string.keypress_hold_v_title,
+        R.string.keypress_hold_x_title,
+        R.string.keypress_hold_z_title,
+        R.string.keypress_hold_y_title,
+    )
+    val enabled = listOf(
+        actions.selectAll, actions.copy, actions.paste,
+        actions.cut, actions.undo, actions.redo,
+    )
+    var editing by remember { mutableStateOf(false) }
+    val title = stringResource(R.string.keypress_hold_letters_title)
+    // Only the keys that are actually bound, so the summary reads as what the
+    // keyboard will do rather than as the whole six-character string.
+    val summary = enabled.mapIndexedNotNull { slot, on ->
+        actions.letterFor(slot)?.takeIf { on }?.uppercase()
+    }.joinToString(" ")
+    HighlightableRow(title) {
+        WmRow(
+            title = title,
+            subtitle = summary.ifEmpty { stringResource(R.string.keypress_hold_letters_subtitle) },
+            trailing = {
+                ResetSetting(title, actions.letters != DEFAULT_LONG_PRESS_LETTERS) {
+                    scope.launch { repository.setLongPressLetters(DEFAULT_LONG_PRESS_LETTERS) }
+                }
+            },
+            onClick = { editing = true },
+        )
+    }
+    if (!editing) return
+    // Edited as one string and written once on Save: a per-character write
+    // would push five malformed values through the setter on the way to a
+    // valid one, and the setter refuses anything that is not six characters.
+    var draft by remember(actions.letters) { mutableStateOf(actions.letters) }
+    AlertDialog(
+        onDismissRequest = { editing = false },
+        title = { Text(title) },
+        text = {
+            Column {
+                DialogNote(stringResource(R.string.keypress_hold_letters_dialog_note))
+                Spacer(Modifier.height(8.dp))
+                labels.forEachIndexed { slot, labelRes ->
+                    if (!enabled[slot]) return@forEachIndexed
+                    OutlinedTextField(
+                        value = draft.getOrNull(slot)?.toString().orEmpty(),
+                        onValueChange = { typed ->
+                            val ch = typed.lastOrNull() ?: return@OutlinedTextField
+                            draft = draft.mapIndexed { i, old ->
+                                if (i == slot) ch.lowercaseChar() else old
+                            }.joinToString("")
+                        },
+                        label = { Text(stringResource(labelRes)) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                editing = false
+                scope.launch { repository.setLongPressLetters(draft) }
+            }) { Text(stringResource(CommonR.string.common_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = { editing = false }) {
+                Text(stringResource(CommonR.string.common_cancel))
+            }
+        },
+    )
 }
 
 // ---- appearance ----

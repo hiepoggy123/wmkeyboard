@@ -381,4 +381,23 @@
     <string name="typing_hw_auto_show_subtitle">A shortcut that opens a tool also shows the keyboard</string>
     <string name="typing_hw_auto_show_info">With a physical keyboard, there is usually no on-screen keyboard, and a tool has no space to draw. With this setting on, a shortcut that opens a tool shows the keyboard. When you close the tool, the keyboard hides again.</string>
 
+    <string name="typing_punctuation_marks_title">Punctuation marks</string>
+    <string name="typing_punctuation_marks_hint">One mark per character, in the order you want them. Leave empty for . , ? ! \'</string>
+
+    <string name="typing_suggestion_slots_title">Number of suggestions</string>
+    <string name="typing_suggestion_slots_subtitle">How many words the suggestion strip shows at once</string>
+    <string name="typing_suggestion_slots_info">The strip splits its width evenly between the suggestions, so more of them means each one is narrower and long words are shrunk further to fit. Three suits a phone. A tablet or a landscape screen has room for more. This setting is 3 by default.</string>
+
+    <string name="typing_double_space_window_title">Double space speed</string>
+    <string name="typing_double_space_window_subtitle">How quickly the two spaces have to follow each other</string>
+    <string name="typing_double_space_window_info">Two spaces closer together than this count as a double space and become a full stop or a tab. Raise it if you type slowly and never get the full stop. Lower it if you get full stops you did not mean. This setting is 400 ms by default.</string>
+
+    <string name="typing_space_cursor_step_title">Cursor speed</string>
+    <string name="typing_space_cursor_step_subtitle">How far you slide along the spacebar to move one character</string>
+    <string name="typing_space_cursor_step_info">A smaller distance moves the cursor faster, so a short spacebar can still cross a long line. A larger one is steadier if your slides tend to overshoot. This setting is 16 dp by default.</string>
+
+    <string name="typing_backspace_step_title">Word delete distance</string>
+    <string name="typing_backspace_step_subtitle">How far you swipe backspace to delete the first word</string>
+    <string name="typing_backspace_step_info">Later words come off faster than the first on a fixed curve, so this one distance tunes the whole gesture. Raise it if words disappear by accident, lower it if clearing a sentence takes too long a pull. This setting is 72 dp by default.</string>
+
 </resources>

@@ -260,6 +260,16 @@ data class KeyRepeatSettings(
     /** Backspace and forward-delete, including the panel backspaces. */
     val deleteMs: Int = 50,
     val spaceMs: Int = 50,
+    /**
+     * How long a key is held before it starts repeating.
+     *
+     * Its own value rather than [KeyboardSettings.longPressDelayMs], which is
+     * what it used to borrow. That delay is how long an accent popup takes to
+     * appear, and someone who lengthens it for a tremor was lengthening the
+     * wait before backspace starts clearing too — two unrelated problems
+     * sharing one number.
+     */
+    val startDelayMs: Int = 300,
 )
 
 /** Shrinks the keyboard toward one edge for thumb reach. */
@@ -849,6 +859,24 @@ data class FeedbackSettings(
      */
     val vibrateOnRepeat: Boolean = true,
     /**
+     * Click on every auto-repeat while a key is held, the sound counterpart of
+     * [vibrateOnRepeat]. On by default, which is what the keyboard has always
+     * done; off is for people who hold backspace with the sound on and would
+     * rather not hear it machine-gun.
+     */
+    val soundOnRepeat: Boolean = true,
+    /**
+     * Let the system's own "touch feedback" switch silence the keyboard's
+     * haptics along with everything else.
+     *
+     * Off by default, which keeps the long-standing behaviour: the keyboard
+     * passes `FLAG_IGNORE_GLOBAL_SETTING`, so its buzz survives turning system
+     * touch vibration off. That is right for the people who switch the system
+     * setting off to quiet *other* apps, and wrong for the ones who expect one
+     * switch to cover the phone.
+     */
+    val respectSystemTouchFeedback: Boolean = false,
+    /**
      * Show a short toast confirming text was copied to the clipboard, for
      * fields that give no visual copy feedback of their own. Off by default.
      */
@@ -877,7 +905,30 @@ data class LongPressLetterActions(
     val cut: Boolean = false,
     val undo: Boolean = false,
     val redo: Boolean = false,
-)
+    /**
+     * Which key carries each action, as six characters in the order the fields
+     * above are declared: select-all, copy, paste, cut, undo, redo.
+     *
+     * Editable because the shipped `acvxzy` is a Latin answer. On a Bengali or
+     * Russian layout there is no `a` key to hold, so every one of the six
+     * switches above did nothing at all and said nothing about why. Anything
+     * other than six characters falls back to the default, so a half-typed
+     * value cannot silently unbind the lot.
+     */
+    val letters: String = DEFAULT_LONG_PRESS_LETTERS,
+) {
+    /**
+     * The key [action] is bound to, or null when this value is malformed.
+     * [action] is an index into [letters] in the declaration order above.
+     */
+    fun letterFor(action: Int): Char? =
+        letters.takeIf { it.length == DEFAULT_LONG_PRESS_LETTERS.length }
+            ?.getOrNull(action)
+            ?: DEFAULT_LONG_PRESS_LETTERS.getOrNull(action)
+}
+
+/** Select-all, copy, paste, cut, undo, redo, on the keys a QWERTY user expects. */
+const val DEFAULT_LONG_PRESS_LETTERS = "acvxzy"
 
 data class KeyboardSettings(
     /**
@@ -2291,6 +2342,36 @@ data class TextEditingSettings(
      * instead of arming shift for the next character.
      */
     val recapitalizeSelectionWithShift: Boolean = true,
+    /**
+     * How long after a space another space still counts as a double space, for
+     * the ". " and tab rules.
+     *
+     * 400 ms is the long-standing constant. It is a setting because both ends
+     * of it fail for someone: a slow or tremor-affected typist never lands two
+     * spaces inside the window and never sees a full stop at all, and a very
+     * fast one gets full stops they did not ask for between words.
+     */
+    val doubleSpaceWindowMs: Int = 400,
+    /**
+     * How far the finger travels along the spacebar per character, when a
+     * spacebar swipe is set to cursor control.
+     *
+     * Smaller moves the caret faster. 16 dp is the long-standing constant; it
+     * is short enough that a wide screen runs out of spacebar before the caret
+     * reaches the end of a long line, and long enough that a shaky hand
+     * overshoots.
+     */
+    val spaceCursorStepDp: Int = 16,
+    /**
+     * How far a backspace swipe drags before the first word goes.
+     *
+     * Later words come cheaper on a fixed curve derived from this one, so a
+     * single number tunes the whole gesture: raise it if words disappear by
+     * accident, lower it if clearing a sentence is a marathon. 72 dp is the
+     * long-standing constant, which is a long pull on a small phone and a
+     * twitch on a tablet.
+     */
+    val backspaceWordStepDp: Int = 72,
 )
 
 /**
@@ -2987,6 +3068,25 @@ data class SuggestionStripSettings(
      * prediction takes the tail instead when one is present.
      */
     val punctuation: Boolean = false,
+    /**
+     * The marks [punctuation] offers, in order, one per character.
+     *
+     * A list rather than a constant because the fixed `. , ? ! '` is an
+     * English answer on a keyboard that ships 352 languages: a Bengali typist
+     * wants the danda, a Spanish one the inverted marks, and neither could
+     * reach them from here. Blank falls back to the shipped set, so emptying
+     * the field cannot leave the row with nothing in it.
+     */
+    val punctuationChips: String = ".,?!'",
+    /**
+     * How many word candidates the strip shows at once.
+     *
+     * Three is the phone-width answer and the long-standing constant. The
+     * slots split the strip evenly, so raising it on a narrow screen buys more
+     * candidates at the cost of reading each one; a tablet or a landscape
+     * phone has the room to spare.
+     */
+    val slotCount: Int = 3,
     /** Keep the suggestion strip as the default top bar even with nothing typed. */
     val suggestionsFirst: Boolean = false,
     /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */
@@ -3324,6 +3424,9 @@ class SettingsRepository(private val context: Context) {
         private val FEEDBACK_VIBRATE_SPACE = booleanPreferencesKey("feedback_vibrate_space")
         private val FEEDBACK_VIBRATE_DELETE_SWIPE = booleanPreferencesKey("feedback_vibrate_delete_swipe")
         private val FEEDBACK_VIBRATE_REPEAT = booleanPreferencesKey("feedback_vibrate_repeat")
+        private val FEEDBACK_SOUND_REPEAT = booleanPreferencesKey("feedback_sound_repeat")
+        private val FEEDBACK_RESPECT_SYSTEM_TOUCH =
+            booleanPreferencesKey("feedback_respect_system_touch")
         private val FEEDBACK_TOAST_ON_COPY = booleanPreferencesKey("feedback_toast_on_copy")
         private val FEEDBACK_HAPTICS_RESPECT_DND = booleanPreferencesKey("feedback_haptics_respect_dnd")
         private val KEY_SOUND = booleanPreferencesKey("key_sound")
@@ -3588,6 +3691,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_REPEAT_INTERVAL = intPreferencesKey("key_repeat_interval")
         private val KEY_REPEAT_DELETE = intPreferencesKey("key_repeat_delete")
         private val KEY_REPEAT_SPACE = intPreferencesKey("key_repeat_space")
+        private val KEY_REPEAT_START_DELAY = intPreferencesKey("key_repeat_start_delay")
         private val LONG_PRESS_HINTS = booleanPreferencesKey("long_press_hints")
         private val LONG_PRESS_A_SELECT_ALL = booleanPreferencesKey("long_press_a_select_all")
         private val LONG_PRESS_C_COPY = booleanPreferencesKey("long_press_c_copy")
@@ -3595,6 +3699,7 @@ class SettingsRepository(private val context: Context) {
         private val LONG_PRESS_X_CUT = booleanPreferencesKey("long_press_x_cut")
         private val LONG_PRESS_Z_UNDO = booleanPreferencesKey("long_press_z_undo")
         private val LONG_PRESS_Y_REDO = booleanPreferencesKey("long_press_y_redo")
+        private val LONG_PRESS_LETTERS = stringPreferencesKey("long_press_letters")
         private val EMOJI_TOOLBAR = booleanPreferencesKey("emoji_toolbar")
         private val COLORED_TOOL_ICONS = booleanPreferencesKey("colored_tool_icons")
         private val TOOL_COLOR_OVERRIDES = stringPreferencesKey("tool_color_overrides")
@@ -3705,6 +3810,11 @@ class SettingsRepository(private val context: Context) {
         private val QR_SEND_MODE = stringPreferencesKey("qr_send_mode")
         private val DICTIONARY_AUTO_LOOKUP = booleanPreferencesKey("dictionary_auto_lookup")
         private val TEXT_EDIT_REPEAT_MS = intPreferencesKey("text_edit_repeat_ms")
+        private val DOUBLE_SPACE_WINDOW_MS = intPreferencesKey("double_space_window_ms")
+        private val SPACE_CURSOR_STEP_DP = intPreferencesKey("space_cursor_step_dp")
+        private val BACKSPACE_WORD_STEP_DP = intPreferencesKey("backspace_word_step_dp")
+        private val PUNCTUATION_CHIPS = stringPreferencesKey("punctuation_chips")
+        private val SUGGESTION_SLOT_COUNT = intPreferencesKey("suggestion_slot_count")
         private val NUMPAD_CALCULATOR_LAYOUT = booleanPreferencesKey("numpad_calculator_layout")
 
         /**
@@ -4116,6 +4226,9 @@ class SettingsRepository(private val context: Context) {
                 vibrateOnDeleteSwipe = p[FEEDBACK_VIBRATE_DELETE_SWIPE]
                     ?: defaults.feedback.vibrateOnDeleteSwipe,
                 vibrateOnRepeat = p[FEEDBACK_VIBRATE_REPEAT] ?: defaults.feedback.vibrateOnRepeat,
+                soundOnRepeat = p[FEEDBACK_SOUND_REPEAT] ?: defaults.feedback.soundOnRepeat,
+                respectSystemTouchFeedback = p[FEEDBACK_RESPECT_SYSTEM_TOUCH]
+                    ?: defaults.feedback.respectSystemTouchFeedback,
                 toastOnCopy = p[FEEDBACK_TOAST_ON_COPY] ?: defaults.feedback.toastOnCopy,
                 hapticsRespectDnd = p[FEEDBACK_HAPTICS_RESPECT_DND]
                     ?: defaults.feedback.hapticsRespectDnd,
@@ -4351,6 +4464,9 @@ class SettingsRepository(private val context: Context) {
             ),
             suggestionStrip = SuggestionStripSettings(
                 punctuation = p[PUNCTUATION_SUGGESTIONS] ?: defaults.suggestionStrip.punctuation,
+                punctuationChips = p[PUNCTUATION_CHIPS]?.takeIf { it.isNotBlank() }
+                    ?: defaults.suggestionStrip.punctuationChips,
+                slotCount = p[SUGGESTION_SLOT_COUNT] ?: defaults.suggestionStrip.slotCount,
                 suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionStrip.suggestionsFirst,
                 suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
                     ?: defaults.suggestionStrip.suggestionPrimaryCenter,
@@ -4386,6 +4502,7 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.keyRepeat.deleteMs,
                 spaceMs = p[KEY_REPEAT_SPACE] ?: p[KEY_REPEAT_INTERVAL]
                     ?: defaults.keyRepeat.spaceMs,
+                startDelayMs = p[KEY_REPEAT_START_DELAY] ?: defaults.keyRepeat.startDelayMs,
             ),
             longPressHints = p[LONG_PRESS_HINTS] ?: defaults.longPressHints,
             layoutBehavior = LayoutBehaviorSettings(
@@ -4448,6 +4565,7 @@ class SettingsRepository(private val context: Context) {
                 cut = p[LONG_PRESS_X_CUT] ?: defaults.longPressLetterActions.cut,
                 undo = p[LONG_PRESS_Z_UNDO] ?: defaults.longPressLetterActions.undo,
                 redo = p[LONG_PRESS_Y_REDO] ?: defaults.longPressLetterActions.redo,
+                letters = p[LONG_PRESS_LETTERS] ?: defaults.longPressLetterActions.letters,
             ),
             emojiToolbar = p[EMOJI_TOOLBAR] ?: defaults.emojiToolbar,
             coloredToolIcons = p[COLORED_TOOL_ICONS] ?: defaults.coloredToolIcons,
@@ -4608,6 +4726,12 @@ class SettingsRepository(private val context: Context) {
                     p[WRAP_SELECTION_WITH_PAIR] ?: defaults.textEditing.wrapSelectionWithPair,
                 recapitalizeSelectionWithShift = p[RECAPITALIZE_SELECTION_WITH_SHIFT]
                     ?: defaults.textEditing.recapitalizeSelectionWithShift,
+                doubleSpaceWindowMs = p[DOUBLE_SPACE_WINDOW_MS]
+                    ?: defaults.textEditing.doubleSpaceWindowMs,
+                spaceCursorStepDp = p[SPACE_CURSOR_STEP_DP]
+                    ?: defaults.textEditing.spaceCursorStepDp,
+                backspaceWordStepDp = p[BACKSPACE_WORD_STEP_DP]
+                    ?: defaults.textEditing.backspaceWordStepDp,
             ),
             powerSaving = PowerSavingSettings(
                 manual = p[PS_MANUAL] ?: defaults.powerSaving.manual,
@@ -5170,6 +5294,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTextEditRepeatMs(value: Int) =
         editPrefs { it[TEXT_EDIT_REPEAT_MS] = value.coerceIn(30, 200) }
+
+    suspend fun setDoubleSpaceWindowMs(value: Int) =
+        editPrefs { it[DOUBLE_SPACE_WINDOW_MS] = value.coerceIn(200, 800) }
+
+    suspend fun setSpaceCursorStepDp(value: Int) =
+        editPrefs { it[SPACE_CURSOR_STEP_DP] = value.coerceIn(8, 32) }
+
+    suspend fun setBackspaceWordStepDp(value: Int) =
+        editPrefs { it[BACKSPACE_WORD_STEP_DP] = value.coerceIn(32, 120) }
 
     suspend fun setNumpadCalculatorLayout(value: Boolean) =
         editPrefs {
@@ -6723,6 +6856,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setVibrateOnRepeat(value: Boolean) =
         editPrefs { it[FEEDBACK_VIBRATE_REPEAT] = value }
 
+    suspend fun setSoundOnRepeat(value: Boolean) =
+        editPrefs { it[FEEDBACK_SOUND_REPEAT] = value }
+
+    suspend fun setRespectSystemTouchFeedback(value: Boolean) =
+        editPrefs { it[FEEDBACK_RESPECT_SYSTEM_TOUCH] = value }
+
     suspend fun setToastOnCopy(value: Boolean) =
         editPrefs { it[FEEDBACK_TOAST_ON_COPY] = value }
 
@@ -6985,8 +7124,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setGestureTrailDurationMs(value: Int) =
         editPrefs { it[GESTURE_TRAIL_DURATION_MS] = value.coerceIn(100, 1200) }
 
+    /** Zero is a real value here: it is how the trail is switched off. */
     suspend fun setGestureTrailOpacity(value: Float) =
-        editPrefs { it[GESTURE_TRAIL_OPACITY] = value.coerceIn(0.1f, 1f) }
+        editPrefs { it[GESTURE_TRAIL_OPACITY] = value.coerceIn(0f, 1f) }
 
     suspend fun setSpaceShortSwipe(value: SpaceSwipeAction) =
         editPrefs { it[SPACE_SHORT_SWIPE] = value.name }
@@ -7334,6 +7474,13 @@ class SettingsRepository(private val context: Context) {
     suspend fun setPunctuationSuggestions(value: Boolean) =
         editPrefs { it[PUNCTUATION_SUGGESTIONS] = value }
 
+    /** Blank stores blank; the read side falls back to the shipped marks. */
+    suspend fun setPunctuationChips(value: String) =
+        editPrefs { it[PUNCTUATION_CHIPS] = value.filterNot { c -> c.isWhitespace() }.take(12) }
+
+    suspend fun setSuggestionSlotCount(value: Int) =
+        editPrefs { it[SUGGESTION_SLOT_COUNT] = value.coerceIn(2, 6) }
+
     suspend fun setClipboardBottomRow(value: Boolean) =
         editPrefs { it[CLIPBOARD_BOTTOM_ROW] = value }
 
@@ -7510,6 +7657,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setSpaceRepeatIntervalMs(value: Int) =
         editPrefs { it[KEY_REPEAT_SPACE] = value.coerceIn(20, 200) }
 
+    suspend fun setKeyRepeatStartDelayMs(value: Int) =
+        editPrefs { it[KEY_REPEAT_START_DELAY] = value.coerceIn(150, 800) }
+
     suspend fun setLongPressHints(value: Boolean) =
         editPrefs { it[LONG_PRESS_HINTS] = value }
 
@@ -7530,6 +7680,16 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setLongPressYRedo(value: Boolean) =
         editPrefs { it[LONG_PRESS_Y_REDO] = value }
+
+    /**
+     * Rebinds the six hold-shortcut keys. Anything that is not six characters
+     * is refused rather than stored, so a half-typed value cannot leave every
+     * one of the six actions bound to nothing.
+     */
+    suspend fun setLongPressLetters(value: String) {
+        if (value.length != DEFAULT_LONG_PRESS_LETTERS.length) return
+        editPrefs { it[LONG_PRESS_LETTERS] = value }
+    }
 
     suspend fun setEmojiToolbar(value: Boolean) =
         editPrefs { it[EMOJI_TOOLBAR] = value }

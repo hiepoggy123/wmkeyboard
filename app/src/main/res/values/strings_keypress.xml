@@ -39,7 +39,19 @@
 
     <string name="keypress_vibrate_repeat_title">Vibrate on key repeat</string>
     <string name="keypress_vibrate_repeat_subtitle">Vibrate on each repeat while you hold a key</string>
-    <string name="keypress_vibrate_repeat_info">When you hold backspace or space, the key repeats. By default each repeat vibrates. Turn this off to vibrate on the first press only and to keep the repeats silent. Their key sound still plays if it is on. This setting is on by default.</string>
+    <string name="keypress_vibrate_repeat_info">When you hold backspace or space, the key repeats. By default each repeat vibrates. Turn this off to vibrate on the first press only. The repeats still click if \"Click on key repeat\" is on. This setting is on by default.</string>
+
+    <string name="keypress_sound_repeat_title">Click on key repeat</string>
+    <string name="keypress_sound_repeat_subtitle">Play the key sound on each repeat while you hold a key</string>
+    <string name="keypress_sound_repeat_info">When you hold backspace or space, the key repeats. By default each repeat plays the key sound, which can sound like a machine gun while you clear a line. Turn this off to hear the first press only. Vibration is separate, above. This setting is on by default and does nothing unless key sound is on.</string>
+
+    <string name="keypress_system_touch_title">Follow the system touch feedback setting</string>
+    <string name="keypress_system_touch_subtitle">Let Android\'s own touch vibration switch silence the keyboard too</string>
+    <string name="keypress_system_touch_info">By default the keyboard keeps vibrating even when you turn off touch feedback in Android\'s sound settings, because the keyboard has its own switch for it. Turn this on if you expect the system setting to cover the keyboard as well. This setting is off by default.</string>
+
+    <string name="keypress_repeat_start_title">Time before a key repeats</string>
+    <string name="keypress_repeat_start_subtitle">How long you hold backspace or space before it starts repeating</string>
+    <string name="keypress_repeat_start_info">Holding backspace or space starts repeating after this long. It used to share the long press delay, which meant slowing down accent popups also slowed down backspace. They are now separate. This setting is 300 ms by default.</string>
 
     <string name="keypress_dnd_mute_title">Mute haptics in Do Not Disturb</string>
     <string name="keypress_dnd_mute_subtitle">Stop all keyboard vibration while Do Not Disturb is on</string>
@@ -163,5 +175,9 @@
     <!-- %1$d is a length in density independent pixels, for example 64.
          "dp" is a unit symbol, not a countable noun: it does not inflect. -->
     <string name="keypress_value_dp" tools:ignore="PluralsCandidate">%1$d dp</string>
+
+    <string name="keypress_hold_letters_title">Shortcut keys</string>
+    <string name="keypress_hold_letters_subtitle">Which key each hold shortcut sits on</string>
+    <string name="keypress_hold_letters_dialog_note">Hold shortcuts sit on A, C, V, X, Z and Y by default, which only works on a layout that has those letters. Put them on keys your own layout actually draws.</string>
 
 </resources>

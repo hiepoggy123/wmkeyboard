@@ -104,26 +104,59 @@ object HapticPlayer {
      * strength by the haptic-intensity setting.
      */
     @Suppress("DEPRECATION")
-    private fun playSystem(view: View, style: HapticStyle): Boolean {
+    private fun playSystem(view: View, style: HapticStyle, respectSystemSetting: Boolean): Boolean {
         val constant = when (style) {
             HapticStyle.SYSTEM_TAP -> HapticFeedbackConstants.KEYBOARD_TAP
             else -> HapticFeedbackConstants.VIRTUAL_KEY
         }
-        return view.performHapticFeedback(
-            constant,
-            HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING or
-                HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING,
-        )
+        // The VIEW flag always stays: the IME's own root view has haptics off,
+        // and that is a property of how the window is built rather than
+        // anything the user chose. The GLOBAL flag is the one that overrides
+        // the phone's "Touch feedback" switch, so it comes off when the user
+        // has asked the keyboard to follow it.
+        val flags = HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING or
+            if (respectSystemSetting) 0 else HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+        return view.performHapticFeedback(constant, flags)
     }
 
+    /**
+     * The phone's own "Touch feedback" switch. Read per press rather than
+     * cached: it is a single ContentResolver lookup against a value the
+     * platform keeps in a settings cache, and a stale answer here means the
+     * keyboard keeps buzzing after the user switched it off.
+     */
+    private fun systemTouchFeedbackOn(context: Context): Boolean =
+        android.provider.Settings.System.getInt(
+            context.contentResolver,
+            android.provider.Settings.System.HAPTIC_FEEDBACK_ENABLED,
+            1,
+        ) != 0
+
+    /**
+     * [respectSystemSetting] makes the phone's own "Touch feedback" switch
+     * silence the keyboard along with everything else. Off by default, which
+     * is what the keyboard has always done. Previews pass false: someone
+     * dragging the intensity slider wants to feel the result whatever the
+     * system switch says.
+     */
     @Suppress("DEPRECATION")
-    fun play(context: Context, style: HapticStyle, amplitude: Int, durationMs: Int, view: View? = null) {
+    fun play(
+        context: Context,
+        style: HapticStyle,
+        amplitude: Int,
+        durationMs: Int,
+        view: View? = null,
+        respectSystemSetting: Boolean = false,
+    ) {
         // System styles ride the platform's tuned key haptic. If it actually
         // played we're done; otherwise fall through to a hardware click so
         // there's always feedback (e.g. preview before the view is attached).
         if (style == HapticStyle.SYSTEM_KEY || style == HapticStyle.SYSTEM_TAP) {
-            if (view != null && playSystem(view, style)) return
+            if (view != null && playSystem(view, style, respectSystemSetting)) return
         }
+        // The direct-vibrator paths below never consult the platform switch on
+        // their own, so honouring it is this check.
+        if (respectSystemSetting && !systemTouchFeedbackOn(context)) return
         val vibrator = vibratorFor(context)
         if (style == HapticStyle.SHARP &&
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&

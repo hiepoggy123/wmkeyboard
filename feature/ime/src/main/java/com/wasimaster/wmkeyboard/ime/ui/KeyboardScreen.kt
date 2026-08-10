@@ -296,6 +296,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyPopupSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyRepeatSettings
+import com.wasimaster.wmkeyboard.core.settings.TextEditingSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
@@ -2724,6 +2725,7 @@ private fun TopBar(
                     candidates = shownSuggestions,
                     enabled = suggestionsShowing,
                     alpha = stripContentFade,
+                    slotCount = state.settings.suggestionStrip.slotCount,
                     centerPrimaryEnabled = state.settings.suggestionStrip.suggestionPrimaryCenter,
                     shiftState = state.shiftState,
                     // Only while the live candidates are the ones on screen: the
@@ -2882,8 +2884,8 @@ private fun RowScope.InlineEmojiChips(
 }
 
 /**
- * The Latin suggestion strip: the top three candidates splitting the bar evenly
- * (Gboard style), so each gets the largest possible tap target.
+ * The Latin suggestion strip: the top [slotCount] candidates splitting the bar
+ * evenly (Gboard style), so each gets the largest possible tap target.
  *
  * [candidates] is the *held* set, so a cleared field fades the last words out
  * rather than blanking them; [enabled] gates taps to the live ones. [alpha] is
@@ -2894,6 +2896,7 @@ private fun RowScope.LatinSuggestionChips(
     candidates: List<String>,
     enabled: Boolean,
     alpha: () -> Float,
+    slotCount: Int,
     centerPrimaryEnabled: Boolean,
     shiftState: ShiftState,
     /** The hotkey badges, or null when no physical keyboard is asking for them. */
@@ -2901,8 +2904,8 @@ private fun RowScope.LatinSuggestionChips(
     onSuggestion: (String) -> Unit,
 ) {
     // BoxWithConstraints, not a bare Row, because the chips shrink long words to
-    // fit and that needs the slot width up front. One subcomposition covers all
-    // three slots: they carry equal weight, so every slot is the same width.
+    // fit and that needs the slot width up front. One subcomposition covers
+    // every slot: they carry equal weight, so each is the same width.
     BoxWithConstraints(
         modifier = Modifier
             .weight(1f)
@@ -2911,7 +2914,7 @@ private fun RowScope.LatinSuggestionChips(
             // and out as they leave (see [stripContentAlpha]).
             .graphicsLayer { this.alpha = alpha() },
     ) {
-        val ranked = candidates.take(3)
+        val ranked = candidates.take(slotCount)
         // Gboard convention: the primary candidate sits in the middle slot with
         // the runner-up on its left. The commit path still uses the engine's
         // order — this is display-only.
@@ -9367,17 +9370,24 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     // A43: merge the full accent set into each Latin letter's long-press popup.
     val allAccents = state.settings.layoutBehavior.showAllPopupKeys &&
         state.layoutMode == LayoutMode.LETTERS && !state.composer.isClusterShaping
-    // A/C/V/X/Z/Y clipboard/undo/redo shortcuts only make sense on Latin letter keys.
+    // The clipboard/undo/redo hold shortcuts, on whichever keys the user has
+    // bound them to. The keys are settings rather than the literal a/c/v/x/z/y
+    // they used to be: on a layout with no Latin letters there was no `a` to
+    // hold, so all six switches did nothing and said nothing about why.
     val clipboardKeys: Map<String, ClipboardKeyAction> =
         if (state.layoutMode == LayoutMode.LETTERS && !state.composer.isClusterShaping) {
             val longPress = state.settings.longPressLetterActions
             buildMap {
-                if (longPress.selectAll) put("a", ClipboardKeyAction.SELECT_ALL)
-                if (longPress.copy) put("c", ClipboardKeyAction.COPY)
-                if (longPress.paste) put("v", ClipboardKeyAction.PASTE)
-                if (longPress.cut) put("x", ClipboardKeyAction.CUT)
-                if (longPress.undo) put("z", ClipboardKeyAction.UNDO)
-                if (longPress.redo) put("y", ClipboardKeyAction.REDO)
+                fun bind(on: Boolean, slot: Int, action: ClipboardKeyAction) {
+                    if (!on) return
+                    longPress.letterFor(slot)?.let { put(it.toString(), action) }
+                }
+                bind(longPress.selectAll, 0, ClipboardKeyAction.SELECT_ALL)
+                bind(longPress.copy, 1, ClipboardKeyAction.COPY)
+                bind(longPress.paste, 2, ClipboardKeyAction.PASTE)
+                bind(longPress.cut, 3, ClipboardKeyAction.CUT)
+                bind(longPress.undo, 4, ClipboardKeyAction.UNDO)
+                bind(longPress.redo, 5, ClipboardKeyAction.REDO)
             }
         } else {
             emptyMap()
@@ -9967,6 +9977,10 @@ private fun KeyButton(
     // have recorded the spacebar separately from the letters.
     val rawKeyPress = LocalKeyRoleFeedback.current
     val rawKeySound = LocalKeyRoleSound.current
+    // Buzz with no click. Only the repeat tick uses it, for the case where the
+    // user wants the held key to keep vibrating without machine-gunning the
+    // sound.
+    val onKeyHaptic = LocalHapticFeedback.current
     val onClipboardKey = LocalClipboardKeyAction.current
     val canDelete = LocalCanDelete.current
     val canForwardDelete = LocalCanForwardDelete.current
@@ -10110,7 +10124,7 @@ private fun KeyButton(
             .then(
                 if (semanticsDriven) Modifier
                 else Modifier.pointerInputKey(
-                    key, settings.longPressDelayMs, settings.keyRepeat,
+                    key, settings.longPressDelayMs, settings.keyRepeat, settings.textEditing,
                     spaceShortSwipe = settings.spaceShortSwipe,
                     spaceLongSwipe = settings.spaceLongSwipe,
                     enabledLayoutIds = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) },
@@ -10158,6 +10172,8 @@ private fun KeyButton(
                     vibrateOnSpace = settings.feedback.vibrateOnSpace,
                     vibrateOnDeleteSwipe = settings.feedback.vibrateOnDeleteSwipe,
                     vibrateOnRepeat = settings.feedback.vibrateOnRepeat,
+                    soundOnRepeat = settings.feedback.soundOnRepeat,
+                    onKeyHaptic = onKeyHaptic,
                     hapticOnLongPress = settings.hapticOnLongPress,
                     hapticOnLongPressRelease = settings.hapticOnLongPressRelease,
                     // The alternates take the bubble's place outright, so it goes
@@ -10857,6 +10873,39 @@ private fun brailleRelease(key: Key): Key {
 }
 
 /**
+ * The backspace word-swipe curve, as fractions of the first word's distance
+ * ([TextEditingSettings.backspaceWordStepDp]). The shipped 72 dp first pull
+ * gives back the 56/6/28 dp the curve used to hard-code, and a user who
+ * retunes the first pull moves the rest of the curve with it.
+ */
+private const val NEXT_WORD_STEP_RATIO = 56f / 72f
+private const val WORD_STEP_SHRINK_RATIO = 6f / 72f
+private const val MIN_WORD_STEP_RATIO = 28f / 72f
+
+/**
+ * What a held key's repeat tick plays.
+ *
+ * The buzz and the click are one call when both are wanted, because the sound
+ * pack times its click against the haptic. Turning one off splits them: the
+ * haptic-only path exists exactly so a held backspace can keep vibrating
+ * without machine-gunning the click, which is the complaint that made
+ * [FeedbackSettings.soundOnRepeat] a setting.
+ */
+private fun repeatFeedback(
+    vibrate: Boolean,
+    sound: Boolean,
+    onKeyPress: () -> Unit,
+    onKeySound: () -> Unit,
+    onKeyHaptic: () -> Unit,
+) {
+    when {
+        vibrate && sound -> onKeyPress()
+        vibrate -> onKeyHaptic()
+        sound -> onKeySound()
+    }
+}
+
+/**
  * Press handling: tap commits, long-press opens alternates (or begins
  * repeating for delete), release cancels. The spacebar instead supports
  * horizontal swipes: a swipe that starts moving right away performs
@@ -10870,6 +10919,8 @@ private fun Modifier.pointerInputKey(
     key: Key,
     longPressDelayMs: Int,
     keyRepeat: KeyRepeatSettings,
+    /** Carries the spacebar cursor step and the backspace word step. */
+    textEditing: TextEditingSettings,
     spaceShortSwipe: SpaceSwipeAction,
     spaceLongSwipe: SpaceSwipeAction,
     enabledLayoutIds: List<String>,
@@ -10889,6 +10940,9 @@ private fun Modifier.pointerInputKey(
     vibrateOnSpace: Boolean,
     vibrateOnDeleteSwipe: Boolean,
     vibrateOnRepeat: Boolean,
+    soundOnRepeat: Boolean,
+    /** Buzz with no click, for a repeat tick that vibrates but stays quiet. */
+    onKeyHaptic: () -> Unit,
     hapticOnLongPress: Boolean,
     hapticOnLongPressRelease: Boolean,
     openAlternates: () -> Unit,
@@ -10928,10 +10982,10 @@ private fun Modifier.pointerInputKey(
     ) {
         Modifier.pointerInput(
             key, spaceShortSwipe, spaceLongSwipe, enabledLayoutIds, currentLayoutId, longPressDelayMs,
-            hapticOnLongPress, vibrateOnSpace, spaceCursor2d, spaceSwipeDownHide,
+            hapticOnLongPress, vibrateOnSpace, spaceCursor2d, spaceSwipeDownHide, textEditing,
         ) {
             val slopPx = 12.dp.toPx()
-            val cursorStepPx = 16.dp.toPx()
+            val cursorStepPx = textEditing.spaceCursorStepDp.dp.toPx()
             val langStepPx = 44.dp.toPx()
             // One picker row of vertical travel moves the hold-drag selection
             // one row; must match the fixed row height LanguagePickerPopup lays
@@ -11266,16 +11320,22 @@ private fun Modifier.pointerInputKey(
         // the shared press handler: tap, hold-to-repeat and word-swipe are
         // one state machine, so a drag can cleanly take over from the repeat
         // loop mid-press and the move events are consumed while it does.
-        Modifier.pointerInput(key, longPressDelayMs, keyRepeat, hapticOnLongPress,
-            hapticOnLongPressRelease, vibrateOnRepeat, vibrateOnDeleteSwipe) {
+        Modifier.pointerInput(key, longPressDelayMs, keyRepeat, textEditing, hapticOnLongPress,
+            hapticOnLongPressRelease, vibrateOnRepeat, soundOnRepeat, vibrateOnDeleteSwipe) {
             val slopPx = 10.dp.toPx()
             // The first word costs a deliberate drag; later ones get cheaper,
             // down to a floor, so clearing a sentence is one long pull but a
             // flick can never take more than a word or two.
-            val firstStepPx = 72.dp.toPx()
-            val nextStepPx = 56.dp.toPx()
-            val stepShrinkPx = 6.dp.toPx()
-            val minStepPx = 28.dp.toPx()
+            //
+            // The whole curve is derived from the one setting, in the same
+            // proportions the fixed 72/56/6/28 dp had, so a user who shortens
+            // the first pull shortens the rest with it rather than ending up
+            // with a first word that costs less than the second.
+            val firstStepDp = textEditing.backspaceWordStepDp.toFloat()
+            val firstStepPx = firstStepDp.dp.toPx()
+            val nextStepPx = (firstStepDp * NEXT_WORD_STEP_RATIO).dp.toPx()
+            val stepShrinkPx = (firstStepDp * WORD_STEP_SHRINK_RATIO).dp.toPx()
+            val minStepPx = (firstStepDp * MIN_WORD_STEP_RATIO).dp.toPx()
             fun wordStepPx(deleted: Int): Float = when (deleted) {
                 0 -> firstStepPx
                 else -> (nextStepPx - (deleted - 1) * stepShrinkPx).coerceAtLeast(minStepPx)
@@ -11291,10 +11351,10 @@ private fun Modifier.pointerInputKey(
                 var anchorX = down.position.x
                 var longPressFired = false
                 val repeat = scope.launch {
-                    delay(longPressDelayMs.toLong())
+                    delay(keyRepeat.startDelayMs.toLong())
                     longPressFired = true
                     while (canDelete()) {
-                        if (vibrateOnRepeat) onKeyPress() else onKeySound()
+                        repeatFeedback(vibrateOnRepeat, soundOnRepeat, onKeyPress, onKeySound, onKeyHaptic)
                         onKeyRepeat(key)
                         delay(keyRepeat.deleteMs.toLong())
                     }
@@ -11408,7 +11468,8 @@ private fun Modifier.pointerInputKey(
         // stale closure alive (e.g. release haptics still firing after the
         // toggle was turned off).
         Modifier.pointerInput(key, spaceShortSwipe, spaceLongSwipe, longPressDelayMs, keyRepeat,
-            hapticOnLongPress, hapticOnLongPressRelease, vibrateOnSpace, vibrateOnRepeat) {
+            hapticOnLongPress, hapticOnLongPressRelease, vibrateOnSpace, vibrateOnRepeat,
+            soundOnRepeat) {
             // Raw per-pointer tracking rather than detectTapGestures, which
             // handles one gesture at a time per key: a second finger landing
             // on the same key before the first lifts (burst double-taps) was
@@ -11446,13 +11507,22 @@ private fun Modifier.pointerInputKey(
                                     onKeyRepeat(key)
                                     continue
                                 }
+                                // One timer, two meanings: on a repeating key it
+                                // is how long before the repeat starts, and on
+                                // every other key it is how long before the
+                                // accent popup opens. They were the same number
+                                // until the repeat got its own, so pick here
+                                // rather than after the wait.
+                                val repeats = key.action == KeyAction.Delete ||
+                                    key.action == KeyAction.ForwardDelete ||
+                                    key.action == KeyAction.Space
                                 p.job = scope.launch {
-                                    delay(longPressDelayMs.toLong())
+                                    delay(
+                                        if (repeats) keyRepeat.startDelayMs.toLong()
+                                        else longPressDelayMs.toLong(),
+                                    )
                                     p.longPressFired = true
-                                    if (key.action == KeyAction.Delete ||
-                                        key.action == KeyAction.ForwardDelete ||
-                                        key.action == KeyAction.Space
-                                    ) {
+                                    if (repeats) {
                                         // Space and the two deletes each hold to
                                         // a different purpose, so each has its
                                         // own cadence.
@@ -11472,7 +11542,10 @@ private fun Modifier.pointerInputKey(
                                                 else -> true
                                             }
                                         ) {
-                                            if (vibrateOnRepeat) onKeyPress() else onKeySound()
+                                            repeatFeedback(
+                                                vibrateOnRepeat, soundOnRepeat,
+                                                onKeyPress, onKeySound, onKeyHaptic,
+                                            )
                                             onKeyRepeat(key)
                                             delay(intervalMs)
                                         }

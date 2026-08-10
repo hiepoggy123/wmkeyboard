@@ -5311,10 +5311,14 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
 
+        // How close together the two spaces have to be. One number for both
+        // rules below, so the tab and the full stop never disagree about what
+        // counts as a double space.
+        val doubleSpaceWindow = state.settings.textEditing.doubleSpaceWindowMs
         // Double-tap space inserts a tab. Checked before the period rule so
         // enabling it wins, and unlike the period it works anywhere a space
         // was just typed (indenting at a line start has no word before it).
-        if (!committed && state.settings.doubleSpaceTab && now - lastSpaceTime < 400) {
+        if (!committed && state.settings.doubleSpaceTab && now - lastSpaceTime < doubleSpaceWindow) {
             val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
             if (before == " ") {
                 ic.deleteSurroundingText(1, 0)
@@ -5328,7 +5332,7 @@ open class WMKeyboardService : InputMethodService() {
         // Only in plain text fields: a double space in an email, URI or
         // number box must stay two spaces, not become ". ".
         if (!committed && state.settings.doubleSpacePeriod &&
-            state.fieldKind == FieldKind.TEXT && now - lastSpaceTime < 400
+            state.fieldKind == FieldKind.TEXT && now - lastSpaceTime < doubleSpaceWindow
         ) {
             val before = ic.getTextBeforeCursor(2, 0)?.toString().orEmpty()
             if (before.endsWith(" ") && before.length == 2 && !before[0].isWhitespace()) {
@@ -7630,7 +7634,11 @@ open class WMKeyboardService : InputMethodService() {
                 results.isNotEmpty() &&
                 shownEmojis.isEmpty()
             ) {
-                PUNCTUATION_SUGGESTIONS
+                // The user's own marks, one chip per character, so a Bengali
+                // danda or a Spanish inverted mark can sit here instead of the
+                // English five. Blank has already fallen back to the shipped
+                // set on the way out of the repository.
+                state.settings.suggestionStrip.punctuationChips.map { it.toString() }
             } else {
                 emptyList()
             }
@@ -15504,6 +15512,7 @@ open class WMKeyboardService : InputMethodService() {
             settings.hapticAmplitude,
             settings.hapticStrengthMs,
             inputRootView,
+            respectSystemSetting = settings.feedback.respectSystemTouchFeedback,
         )
     }
 
@@ -15743,14 +15752,6 @@ open class WMKeyboardService : InputMethodService() {
 
         /** How long the SOS easter-egg note stays on the strip. */
         private const val MORSE_SOS_EGG_MS = 5000L
-
-        /**
-         * Quick-insert punctuation offered in the tail of the suggestion strip
-         * when the "Punctuation suggestions" setting is on — the marks people
-         * reach for mid-sentence, kept short so they don't crowd the word
-         * candidates. Tapping one behaves exactly like typing its key.
-         */
-        private val PUNCTUATION_SUGGESTIONS = listOf(".", ",", "?", "!", "'")
 
         /**
          * Opening bracket/brace/quote → its closer. Typing one of these with a
