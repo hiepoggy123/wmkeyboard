@@ -12,7 +12,8 @@ import Flavor from '@components/Flavor.astro';
 The core typing engine (prediction, autocorrect, gesture typing, layouts)
 has no network code anywhere in it; it works the same with the radio off.
 A set of optional tools do reach the internet, each one only while you're
-actively using it, and this page is the complete list of what goes where.
+actively using it, plus automatic backup on a timer if you set that up. This
+page is the complete list of what goes where.
 
 <PhoneFrame caption="The Tools screen: every tool has its own Enabled switch, on by default.">
   ![The Tools screen: every tool has its own Enabled switch, on by default.](@assets/screens/privacy/tools-enabled-switches.webp)
@@ -111,6 +112,20 @@ what's already in the table above:
 - **`huggingface.co`** — source for offline Whisper speech models and
   on-device AI models. Most are public; a couple of gated on-device models
   need your own Hugging Face account token.
+- **`fonts.gstatic.com`** — Google's Noto animated emoji. Long-pressing an
+  emoji that has an animated version fetches a small WebP to loop in the
+  popup, and tapping Send fetches the full GIF. Nothing about you goes with
+  either request, and it only happens when Animated emoji is on and you're in
+  a field that accepts images. See
+  [Animated emoji](/emoji/picker/#animated-emoji).
+- **Your backup destination, if you set one up** — Google Drive
+  (`www.googleapis.com`), Dropbox (`www.dropbox.com` to sign in, then
+  `api.dropbox.com`, `api.dropboxapi.com` and `content.dropboxapi.com`),
+  OneDrive (`login.microsoftonline.com` to sign in, then
+  `graph.microsoft.com`), or the S3, WebDAV or FTP server whose address you
+  typed in yourself. Backups are off until you pick a destination, so none of
+  these are contacted on a fresh install. What travels is your settings file
+  and nothing else; see [Backup & restore](/privacy/backup/).
 - **Whatever addon repository you add** — one is pre-added to the Addons
   screen on first run (`github.com/wasi-master/wmkeyboard-addon-repository`),
   but adding that reference doesn't fetch anything by itself; see
@@ -123,8 +138,9 @@ what's already in the table above:
   full setup.
 
 None of these services receive anything from WM Keyboard beyond the single
-request described for that tool: there's no shared analytics identifier or
-background check-in tying them together.
+request described for that tool, and there's no shared analytics identifier
+tying them together. Automatic backup is the one thing here that fires
+without you, and only to the destination you chose yourself.
 
 ## Keeping API keys safe
 
