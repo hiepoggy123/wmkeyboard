@@ -58,7 +58,6 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiDictStore
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictPack
-import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyin
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
@@ -1414,26 +1413,16 @@ private fun CjkDictPackManager(
             item { CaptionText(stringResource(R.string.languages_cjk_double_pinyin_info)) }
             for (scheme in DoublePinyinScheme.entries) {
                 item {
-                    // OFF is always selectable; a scheme is live only once its key
-                    // table ships (currently Xiaohe), so the rest are shown but
-                    // disabled rather than silently doing nothing.
-                    val ready = scheme == DoublePinyinScheme.OFF || DoublePinyin.tableFor(scheme) != null
                     val select: () -> Unit = { scope.launch { repository.setPinyinDoublePinyin(scheme) } }
-                    val schemeName = stringResource(scheme.displayNameRes)
                     WmRow(
-                        title = if (ready) {
-                            schemeName
-                        } else {
-                            stringResource(R.string.languages_cjk_scheme_coming_soon, schemeName)
-                        },
+                        title = stringResource(scheme.displayNameRes),
                         trailing = {
                             RadioButton(
                                 selected = settings.cjk.pinyinDoublePinyin == scheme,
-                                enabled = ready,
                                 onClick = select,
                             )
                         },
-                        onClick = if (ready) select else null,
+                        onClick = select,
                     )
                 }
             }

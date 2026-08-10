@@ -183,8 +183,6 @@
          spelling and stays as it is. -->
     <string name="languages_cjk_fuzzy_subtitle">Match confusable sounds: zh↔z, ch↔c, sh↔s, n↔l, an↔ang, in↔ing…</string>
     <string name="languages_cjk_double_pinyin_info">Double Pinyin: type each syllable with exactly two keys. It needs the Pinyin dictionary above.</string>
-    <!-- %1$s is the name of a Double Pinyin scheme that does not work yet. -->
-    <string name="languages_cjk_scheme_coming_soon"><xliff:g id="scheme" example="Sogou">%1$s</xliff:g>, coming soon</string>
 
     <!-- Button that takes a language off the list. %1$s is its English name. -->
     <string name="languages_remove_action">Remove <xliff:g id="language" example="Bengali">%1$s</xliff:g></string>
