@@ -353,6 +353,8 @@ internal object SettingsRowIcons {
         put(R.string.langemoji_emoji_full_bleed_title) { Icons.Outlined.Fullscreen }
         put(R.string.langemoji_emoji_prediction_title) { Icons.Outlined.AutoAwesome }
         put(R.string.langemoji_emoji_insert_mode_title) { Icons.Outlined.TouchApp }
+        put(R.string.langemoji_emoji_grid_size_title) { Icons.Outlined.GridOn }
+        put(R.string.langemoji_emoji_size_title) { Icons.Outlined.FormatSize }
         put(R.string.langemoji_emoji_tab_mode_title) { Icons.Outlined.History }
         put(R.string.langemoji_emoji_clear_recents_title) { Icons.Outlined.DeleteSweep }
         put(R.string.langemoji_emoji_kaomoji_title) { Icons.Outlined.SentimentSatisfied }

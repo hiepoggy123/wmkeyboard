@@ -88,6 +88,12 @@
     <string name="langemoji_emoji_tone_override_info">When this is on, and it is on by default, an emoji that you already selected a tone for keeps that tone everywhere: in the panel, the suggestions and the search. You select that tone from the press and hold popup of the emoji in the panel. The emoji does not use the default above. When this is off, the default skin tone always wins.</string>
 
     <string name="langemoji_emoji_panel_title">Emoji panel</string>
+    <string name="langemoji_emoji_grid_size_title">Grid size</string>
+    <string name="langemoji_emoji_grid_size_subtitle">How wide each cell of the emoji grid is, at least. A smaller size fits more columns</string>
+    <string name="langemoji_emoji_grid_size_info">The emoji panel fits as many columns as its width allows, and each cell is at least this wide. A smaller size packs more emoji on one screen. A larger size spreads them out, and each one is easier to hit. When the emoji size below needs more room than this, the cells grow to fit it.</string>
+    <string name="langemoji_emoji_size_title">Emoji size</string>
+    <string name="langemoji_emoji_size_subtitle">How large the emoji panel draws each emoji</string>
+    <string name="langemoji_emoji_size_info">The size of the emoji in the grid of the emoji panel, on every tab and in the search results. The cells always keep enough room around each emoji, so a very large size can also mean fewer columns. The press and hold popup keeps its own size.</string>
     <string name="langemoji_emoji_close_after_insert_title">Return to the keyboard after you insert</string>
     <string name="langemoji_emoji_close_after_insert_subtitle">Close the panel when you insert one emoji or paste one clip</string>
     <string name="langemoji_emoji_close_after_insert_info">By default, the emoji panel and the clipboard panel stay open, so that you can select several items. Turn this on to go back to the keys directly after one emoji or one clipboard paste.</string>

@@ -11876,6 +11876,10 @@ private fun EmojiPanel(
         }
     }
     val searching = state.emojiSearchActive || state.emojiQuery.isNotEmpty()
+    // User-sized grid cells. The floor never drops below the glyph plus the
+    // cell's own padding (6.dp a side in EmojiCell), so a large emoji size on
+    // a small cell size cannot spill glyphs into their neighbours.
+    val gridCell = with(state.settings.emoji) { maxOf(gridCellSize, gridEmojiSize + 12) }.dp
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -11940,7 +11944,7 @@ private fun EmojiPanel(
             ScrollFocusIntoView(focusedResult) { resultsGrid.animateScrollToItem(it) }
             LazyVerticalGrid(
                 state = resultsGrid,
-                columns = GridCells.Adaptive(minSize = 44.dp),
+                columns = GridCells.Adaptive(minSize = gridCell),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(8.dp),
             ) {
@@ -12040,7 +12044,7 @@ private fun EmojiPanel(
                         ScrollFocusIntoView(focusedHistory) { historyGrid.animateScrollToItem(it) }
                         LazyVerticalGrid(
                             state = historyGrid,
-                            columns = GridCells.Adaptive(minSize = 44.dp),
+                            columns = GridCells.Adaptive(minSize = gridCell),
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(8.dp),
                         ) {
@@ -12098,7 +12102,7 @@ private fun EmojiPanel(
                     ScrollFocusIntoView(focusedEmoji) { categoryGrid.animateScrollToItem(it) }
                     LazyVerticalGrid(
                         state = categoryGrid,
-                        columns = GridCells.Adaptive(minSize = 44.dp),
+                        columns = GridCells.Adaptive(minSize = gridCell),
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(8.dp),
                     ) {
@@ -12425,7 +12429,7 @@ private fun EmojiCell(
                     )
                 }
                 .padding(6.dp),
-            fontSize = 26.sp,
+            fontSize = state.settings.emoji.gridEmojiSize.sp,
             fontFamily = emojiFamilyFor(display),
         )
         if (showVariants) {

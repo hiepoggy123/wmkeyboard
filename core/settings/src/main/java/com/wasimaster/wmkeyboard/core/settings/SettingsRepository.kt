@@ -2514,6 +2514,20 @@ data class EmojiSettings(
      */
     val closeAfterInsert: Boolean = false,
     /**
+     * The narrowest a cell in the emoji panel's grids may be, in dp. The grids
+     * fit as many columns as the width allows at this size, so a smaller cell
+     * packs more emoji on screen and a larger one spreads them out. A cell
+     * still grows past this when [gridEmojiSize] needs the room, so the two
+     * settings cannot combine into clipped glyphs. See [EmojiGridCellSizeRange].
+     */
+    val gridCellSize: Int = 44,
+    /**
+     * Size the emoji panel's grids draw each emoji at, in sp — the category
+     * tabs, history and search results alike. The long-press popup keeps its
+     * own fixed size. See [EmojiGridEmojiSizeRange].
+     */
+    val gridEmojiSize: Int = 28,
+    /**
      * Hide emoji nothing on the device can draw (they render as a blank "tofu"
      * box) from the panel, search and suggestions. An emoji only the *chosen*
      * emoji font lacks is not hidden — it is drawn in the phone's own emoji
@@ -2586,6 +2600,12 @@ data class EmojiSettings(
 
 /** Bounds for [EmojiSettings.barCount]; the settings slider shares them. */
 val EmojiBarCountRange = 3..16
+
+/** Bounds for [EmojiSettings.gridCellSize]; the settings slider shares them. */
+val EmojiGridCellSizeRange = 36..64
+
+/** Bounds for [EmojiSettings.gridEmojiSize]; the settings slider shares them. */
+val EmojiGridEmojiSizeRange = 20..36
 
 /** Glide-typing behaviour and swipe-trail appearance. See [KeyboardSettings.gesture]. */
 data class GestureSettings(
@@ -3594,6 +3614,8 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_HIDE_UNRENDERABLE = booleanPreferencesKey("emoji_hide_unrenderable")
         private val EMOJI_BAR_SCROLLABLE = booleanPreferencesKey("emoji_bar_scrollable")
         private val EMOJI_BAR_COUNT = intPreferencesKey("emoji_bar_count")
+        private val EMOJI_GRID_CELL_SIZE = intPreferencesKey("emoji_grid_cell_size")
+        private val EMOJI_GRID_EMOJI_SIZE = intPreferencesKey("emoji_grid_emoji_size")
         private val EMOJI_KAOMOJI_TABS = booleanPreferencesKey("emoji_kaomoji_tabs")
         private val EMOJI_KEYWORD_PACK_VERSION = intPreferencesKey("emoji_keyword_pack_version")
         private val EMOJI_USAGE_VERSION = intPreferencesKey("emoji_usage_version")
@@ -4465,6 +4487,10 @@ class SettingsRepository(private val context: Context) {
                 barScrollable = p[EMOJI_BAR_SCROLLABLE] ?: defaults.emoji.barScrollable,
                 barCount = p[EMOJI_BAR_COUNT]?.coerceIn(EmojiBarCountRange)
                     ?: defaults.emoji.barCount,
+                gridCellSize = p[EMOJI_GRID_CELL_SIZE]?.coerceIn(EmojiGridCellSizeRange)
+                    ?: defaults.emoji.gridCellSize,
+                gridEmojiSize = p[EMOJI_GRID_EMOJI_SIZE]?.coerceIn(EmojiGridEmojiSizeRange)
+                    ?: defaults.emoji.gridEmojiSize,
                 kaomojiTabs = p[EMOJI_KAOMOJI_TABS] ?: defaults.emoji.kaomojiTabs,
                 keywordPackVersion = p[EMOJI_KEYWORD_PACK_VERSION]
                     ?: defaults.emoji.keywordPackVersion,
@@ -7568,6 +7594,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEmojiBarCount(value: Int) =
         editPrefs { it[EMOJI_BAR_COUNT] = value.coerceIn(EmojiBarCountRange) }
+
+    suspend fun setEmojiGridCellSize(value: Int) =
+        editPrefs { it[EMOJI_GRID_CELL_SIZE] = value.coerceIn(EmojiGridCellSizeRange) }
+
+    suspend fun setEmojiGridEmojiSize(value: Int) =
+        editPrefs { it[EMOJI_GRID_EMOJI_SIZE] = value.coerceIn(EmojiGridEmojiSizeRange) }
 
     suspend fun setEmojiInsertMode(value: EmojiInsertMode) =
         editPrefs { it[EMOJI_INSERT_MODE] = value.name }

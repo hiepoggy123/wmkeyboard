@@ -450,6 +450,8 @@ private fun Resources.emojiRows(): List<SettingsSearchEntry> {
         row(R.string.langemoji_emoji_full_bleed_title, R.string.langemoji_emoji_full_bleed_subtitle),
         row(R.string.langemoji_emoji_prediction_title, R.string.langemoji_emoji_prediction_subtitle),
         row(R.string.langemoji_emoji_insert_mode_title, R.string.langemoji_emoji_insert_mode_subtitle),
+        row(R.string.langemoji_emoji_grid_size_title, R.string.langemoji_emoji_grid_size_subtitle),
+        row(R.string.langemoji_emoji_size_title, R.string.langemoji_emoji_size_subtitle),
         row(R.string.langemoji_emoji_tab_mode_title, R.string.langemoji_emoji_tab_mode_subtitle),
         row(R.string.langemoji_emoji_clear_recents_title, R.string.langemoji_emoji_clear_recents_subtitle),
         row(R.string.langemoji_emoji_kaomoji_title, R.string.langemoji_emoji_kaomoji_subtitle),

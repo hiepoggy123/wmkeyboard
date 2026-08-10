@@ -225,6 +225,8 @@ import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
+import com.wasimaster.wmkeyboard.core.settings.EmojiGridCellSizeRange
+import com.wasimaster.wmkeyboard.core.settings.EmojiGridEmojiSizeRange
 import com.wasimaster.wmkeyboard.core.settings.PickerTimeoutRange
 import com.wasimaster.wmkeyboard.core.settings.BottomRowHeightRange
 import com.wasimaster.wmkeyboard.core.settings.SidePadScaleRange
@@ -5886,6 +5888,30 @@ private fun EmojiSettings(
         }
     }
     SettingsGroup(stringResource(R.string.langemoji_emoji_panel_title)) {
+        item {
+            SliderSetting(
+                title = R.string.langemoji_emoji_grid_size_title,
+                subtitle = stringResource(R.string.langemoji_emoji_grid_size_subtitle),
+                value = settings.emoji.gridCellSize.toFloat(),
+                range = EmojiGridCellSizeRange.first.toFloat()..
+                    EmojiGridCellSizeRange.last.toFloat(),
+                display = { numberFormat.format(it.roundToInt()) },
+                info = stringResource(R.string.langemoji_emoji_grid_size_info),
+                default = SettingsDefaults.emoji.gridCellSize.toFloat(),
+            ) { scope.launch { repository.setEmojiGridCellSize(it.roundToInt()) } }
+        }
+        item {
+            SliderSetting(
+                title = R.string.langemoji_emoji_size_title,
+                subtitle = stringResource(R.string.langemoji_emoji_size_subtitle),
+                value = settings.emoji.gridEmojiSize.toFloat(),
+                range = EmojiGridEmojiSizeRange.first.toFloat()..
+                    EmojiGridEmojiSizeRange.last.toFloat(),
+                display = { numberFormat.format(it.roundToInt()) },
+                info = stringResource(R.string.langemoji_emoji_size_info),
+                default = SettingsDefaults.emoji.gridEmojiSize.toFloat(),
+            ) { scope.launch { repository.setEmojiGridEmojiSize(it.roundToInt()) } }
+        }
         item {
             ToggleSetting(
                 R.string.langemoji_emoji_close_after_insert_title,
