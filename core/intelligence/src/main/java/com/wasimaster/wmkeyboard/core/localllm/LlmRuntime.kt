@@ -1,0 +1,83 @@
+package com.wasimaster.wmkeyboard.core.localllm
+
+import android.content.Context
+import com.wasimaster.wmkeyboard.core.settings.LocalLlmBackend
+import java.io.File
+
+/**
+ * The seam between the app and the LiteRT-LM runtime. `LocalLlmEngine` (the
+ * facade every caller uses) reaches its implementation, `LitertLmRuntime`,
+ * only by reflection — see [LlmModule.BRIDGE_CLASS] — because the class lives
+ * in a different place per channel:
+ *
+ * - Play builds: in the on-demand `:feature:llm` module, downloaded the first
+ *   time On-device AI is used, keeping ~20 MB per ABI out of every install.
+ * - Every other full build: compiled straight into `:core:intelligence`
+ *   (the `src/llmbridge` source directory), embedded like it always was.
+ *
+ * No type here may come from the LiteRT-LM SDK: this interface is what the
+ * base APK compiles against in Play builds, where that SDK is absent.
+ */
+interface LlmRuntime {
+
+    /** Contract of [LocalLlmEngine.generate]; same blocking/threading rules. */
+    fun generate(
+        context: Context,
+        modelFile: File,
+        backend: LocalLlmBackend,
+        contextTokens: Int,
+        system: String,
+        user: String,
+        onPartial: ((String) -> Unit)?,
+    ): String
+
+    /** Contract of [LocalLlmEngine.chatSession]. */
+    fun chatSession(
+        context: Context,
+        modelFile: File,
+        backend: LocalLlmBackend,
+        contextTokens: Int,
+        system: String,
+    ): Chat
+
+    /** Contract of [LocalLlmEngine.release]. */
+    fun release()
+
+    /** Contract of [LocalLlmEngine.ChatSession], minus the facade wrapper. */
+    interface Chat {
+        fun sendMessage(user: String, onPartial: ((String) -> Unit)?): String
+
+        fun seed(transcript: List<ChatReplay.Turn>)
+
+        fun recordStoppedTurn(user: String, fullAnswer: String)
+
+        fun close()
+    }
+}
+
+/**
+ * Whether the runtime's home is present on this install, and how to fetch it
+ * when it is not. The default says "always present", which is correct for
+ * every channel except Play: sideload full builds embed the bridge, and lite
+ * builds never reach this code (the On-device provider is hidden there).
+ * Play builds swap in a SplitInstall-backed gate at startup — see
+ * `installLlmDelivery` in `:app`.
+ */
+interface LlmModuleGate {
+    fun installed(): Boolean
+
+    /** Idempotent; safe to call while a download is already running. */
+    fun requestInstall()
+}
+
+object LlmModule {
+
+    /** FQN [LocalLlmEngine] instantiates reflectively; keep rule in :app. */
+    const val BRIDGE_CLASS = "com.wasimaster.wmkeyboard.core.localllm.bridge.LitertLmRuntime"
+
+    @Volatile
+    var gate: LlmModuleGate = object : LlmModuleGate {
+        override fun installed() = true
+        override fun requestInstall() = Unit
+    }
+}

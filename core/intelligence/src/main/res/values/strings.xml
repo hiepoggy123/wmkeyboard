@@ -64,4 +64,13 @@
     <string name="core_intel_llm_engine_error_gpu">The model failed on the GPU. The GPU memory is much smaller than the system memory. The next try uses the CPU. To always use the CPU, set Compute to CPU in settings. You can also select a smaller model.</string>
     <string name="core_intel_llm_engine_error_memory">The model ran out of memory, or it failed. Select a smaller model.</string>
 
+    <!-- ================================================================== -->
+    <!-- On-device runtime delivery: Play installs fetch the AI runtime as  -->
+    <!-- an on-demand module the first time it is used. Other builds ship   -->
+    <!-- it built in and never show these.                                  -->
+    <!-- ================================================================== -->
+
+    <string name="core_intel_llm_module_downloading">The AI part of the keyboard is downloading from Google Play. Try again in a moment.</string>
+    <string name="core_intel_llm_module_restart">The AI part just finished installing. Close and reopen the keyboard to use it.</string>
+
 </resources>

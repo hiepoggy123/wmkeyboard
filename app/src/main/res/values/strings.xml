@@ -1,6 +1,10 @@
 <resources>
     <string name="app_name">WM Keyboard</string>
     <string name="ime_name">WM Keyboard</string>
+    <!-- Play's name for the on-demand AI-runtime module (:feature:llm);
+         surfaces in Play's download UI and settings. Lives here because a
+         dist:title must resolve from the BASE module's resources. -->
+    <string name="llm_module_title">On-device AI</string>
     <!-- Shown in Settings › Notification access for the media-control tool's
          listener; names why the app appears in that list. -->
     <string name="media_listener_label">WM Keyboard media controls</string>

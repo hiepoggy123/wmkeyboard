@@ -168,6 +168,16 @@ android {
             )
         }
     }
+    // Play builds carry the LiteRT-LM runtime as an on-demand module instead
+    // of ~20 MB per ABI in every install; LocalLlmEngine requests it on first
+    // AI use. Channel-gated because Play Feature Delivery only exists on
+    // Play: sideload and F-Droid builds compile the same runtime code into
+    // :core:intelligence instead (see playStoreChannel there), so for them
+    // the module is not even part of the build graph.
+    if (playStoreChannel) {
+        dynamicFeatures += ":feature:llm"
+    }
+
     // See the splitApks flag at the top of this file. Splits shape APK
     // assembly only — bundle<Variant> ignores this block entirely.
     splits {
@@ -549,6 +559,8 @@ dependencies {
     // Google binary is linked into an F-Droid or direct-download APK.
     if (playStoreChannel) {
         implementation(libs.play.app.update)
+        // SplitInstall + SplitCompat for the on-demand :feature:llm module.
+        implementation(libs.play.feature.delivery)
     }
     // Only for the Drive backup destination's OAuth token. The Drive calls
     // themselves are plain HTTP and need nothing from Google.

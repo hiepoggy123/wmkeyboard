@@ -123,3 +123,15 @@
 }
 -dontwarn androidx.work.impl.**
 
+
+# --- On-device AI runtime bridge ---------------------------------------------
+# LitertLmRuntime is reached ONLY by reflection (LocalLlmEngine's facade):
+# from the base APK in sideload builds, from the on-demand :feature:llm split
+# in Play builds. Nothing references it statically either way, so without this
+# rule R8 strips it and On-device AI dies at Class.forName. Keep the whole
+# class: its interface methods are only provably reachable once the reflective
+# construction is visible, which it never is to R8.
+-keep class com.wasimaster.wmkeyboard.core.localllm.bridge.LitertLmRuntime {
+    <init>();
+    *;
+}

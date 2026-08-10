@@ -50,6 +50,12 @@ include(":core:intelligence")
 include(":feature:tools")
 include(":feature:addons")
 include(":feature:ime")
+// Dynamic feature module (Play channel only): the on-demand home of the
+// LiteRT-LM runtime. Included unconditionally so the IDE always sees it, but
+// only Play builds reference it — :app adds it to `dynamicFeatures` behind
+// the wmkb.enablePlayStore flag, and nothing else depends on it, so F-Droid
+// and direct-download builds never even configure its tasks.
+include(":feature:llm")
 // Host-side dictionary compiler: turns dictionaries-src/*.txt into the .wmdict
 // binary assets at build time, sharing the app's own trie/codec sources so the
 // written format can never drift from the reader.
