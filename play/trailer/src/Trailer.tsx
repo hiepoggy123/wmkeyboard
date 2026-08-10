@@ -33,56 +33,56 @@ export const Trailer: React.FC = () => {
         />
       ) : null}
       <TransitionSeries>
-        <TransitionSeries.Sequence durationInFrames={110} name="Intro">
+        <TransitionSeries.Sequence durationInFrames={70} name="Intro">
           <SceneIntro />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition
           presentation={fade()}
           timing={linearTiming({ durationInFrames: T })}
         />
-        <TransitionSeries.Sequence durationInFrames={205} name="Glide">
+        <TransitionSeries.Sequence durationInFrames={150} name="Glide">
           <SceneGlide />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition
           presentation={slide({ direction: "from-right" })}
           timing={linearTiming({ durationInFrames: T })}
         />
-        <TransitionSeries.Sequence durationInFrames={205} name="Themes">
+        <TransitionSeries.Sequence durationInFrames={120} name="Themes">
           <SceneThemes />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition
           presentation={slide({ direction: "from-bottom" })}
           timing={linearTiming({ durationInFrames: T })}
         />
-        <TransitionSeries.Sequence durationInFrames={245} name="Tools">
+        <TransitionSeries.Sequence durationInFrames={200} name="Tools">
           <SceneTools />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition
           presentation={slide({ direction: "from-right" })}
           timing={linearTiming({ durationInFrames: T })}
         />
-        <TransitionSeries.Sequence durationInFrames={185} name="Modes">
+        <TransitionSeries.Sequence durationInFrames={120} name="Modes">
           <SceneModes />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition
           presentation={slide({ direction: "from-bottom" })}
           timing={linearTiming({ durationInFrames: T })}
         />
-        <TransitionSeries.Sequence durationInFrames={185} name="Emoji">
+        <TransitionSeries.Sequence durationInFrames={140} name="Emoji">
           <SceneEmoji />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition
           presentation={slide({ direction: "from-right" })}
           timing={linearTiming({ durationInFrames: T })}
         />
-        <TransitionSeries.Sequence durationInFrames={160} name="Addons">
+        <TransitionSeries.Sequence durationInFrames={130} name="Addons">
           <SceneAddons />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition
           presentation={fade()}
           timing={linearTiming({ durationInFrames: T })}
         />
-        <TransitionSeries.Sequence durationInFrames={229} name="Outro">
+        <TransitionSeries.Sequence durationInFrames={120} name="Outro">
           <SceneOutro />
         </TransitionSeries.Sequence>
       </TransitionSeries>
@@ -90,5 +90,5 @@ export const Trailer: React.FC = () => {
   );
 };
 
-// 110+205+205+245+185+185+160+229 - 7*12 = 1440 frames = 48s @ 30fps
-export const TRAILER_DURATION = 1440;
+// 70+150+120+200+120+140+130+120 - 7*12 = 966 frames = 32.2s @ 30fps
+export const TRAILER_DURATION = 966;

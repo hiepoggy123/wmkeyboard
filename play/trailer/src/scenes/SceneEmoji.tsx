@@ -16,14 +16,7 @@ export const SceneEmoji: React.FC = () => {
       accentA={MAGENTA}
       accentB={VIOLET}
     >
-      <PhoneFrame
-        clip="emoji"
-        still="kb-english-dark.png"
-        width={400}
-        delay={8}
-        tilt={2}
-        playbackRate={1.2}
-      />
+      <PhoneFrame clip="emoji" still="kb-english-dark.png" width={400} delay={4} tilt={2} />
     </SceneSplit>
   );
 };

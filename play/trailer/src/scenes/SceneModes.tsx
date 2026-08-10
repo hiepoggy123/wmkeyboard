@@ -18,21 +18,19 @@ export const SceneModes: React.FC = () => {
       accentB={CYAN}
     >
       <Series>
-        <Series.Sequence durationInFrames={95} layout="none">
+        <Series.Sequence durationInFrames={60} layout="none">
           <PhoneFrame
             clip="modes"
             still="kb-english-dark.png"
             width={400}
-            playbackRate={1.2}
             label="One-handed · split · floating"
           />
         </Series.Sequence>
-        <Series.Sequence durationInFrames={90} layout="none">
+        <Series.Sequence durationInFrames={60} layout="none">
           <PhoneFrame
             clip="fieldkinds"
             still="kb-english-dark.png"
             width={400}
-            playbackRate={2}
             label="Adapts to the field"
           />
         </Series.Sequence>

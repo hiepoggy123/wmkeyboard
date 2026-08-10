@@ -3,6 +3,7 @@
 export const AVAILABLE_CLIPS: string[] = [
   "addons.mp4",
   "calc.mp4",
+  "dictionary.mp4",
   "emoji.mp4",
   "fieldkinds.mp4",
   "glide.mp4",

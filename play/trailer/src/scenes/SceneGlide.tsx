@@ -14,7 +14,7 @@ export const SceneGlide: React.FC = () => {
         { label: "352 languages · 393 layouts", accent: CYAN },
       ]}
     >
-      <PhoneFrame clip="glide" still="kb-english-dark.png" width={400} delay={8} tilt={-2} />
+      <PhoneFrame clip="glide" still="kb-english-dark.png" width={400} delay={4} tilt={-2} />
     </SceneSplit>
   );
 };

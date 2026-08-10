@@ -16,14 +16,7 @@ export const SceneThemes: React.FC = () => {
       accentA={MAGENTA}
       accentB={VIOLET}
     >
-      <PhoneFrame
-        clip="themes"
-        still="theme-sakura.jpg"
-        width={340}
-        delay={8}
-        tilt={-3}
-        playbackRate={1.2}
-      />
+      <PhoneFrame clip="themes" still="theme-sakura.jpg" width={340} delay={4} tilt={-3} />
       <PhoneFrame still="theme-photo.png" width={300} delay={22} tilt={3} />
     </SceneSplit>
   );

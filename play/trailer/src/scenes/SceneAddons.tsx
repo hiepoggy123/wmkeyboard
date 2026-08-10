@@ -16,14 +16,7 @@ export const SceneAddons: React.FC = () => {
       accentA={LIME}
       accentB={CYAN}
     >
-      <PhoneFrame
-        clip="addons"
-        still="theme-light.png"
-        width={400}
-        delay={8}
-        tilt={-2}
-        playbackRate={1.4}
-      />
+      <PhoneFrame clip="addons" still="theme-light.png" width={400} delay={4} tilt={-2} />
     </SceneSplit>
   );
 };
