@@ -772,18 +772,11 @@ class SmartSuggestTest {
     // ---- intents ----
 
     @Test
-    fun writingChoresHintTheAiTool() {
-        val h = hit("can you draft an email")
-        assertEquals(SmartSuggest.Kind.INTENT, h?.kind)
-        assertEquals(ToolbarTool.AI, h?.tool)
-        assertEquals(0, h?.replaceSpan)
-        assertEquals(ToolbarTool.AI, hit("make this shorter")?.tool)
-        assertEquals(ToolbarTool.AI, hit("summarize this")?.tool)
-    }
-
-    @Test
     fun sayingItInAnotherLanguageHintsTheTranslator() {
-        assertEquals(ToolbarTool.TRANSLATE, hit("how do you say")?.tool)
+        val h = hit("how do you say")
+        assertEquals(SmartSuggest.Kind.INTENT, h?.kind)
+        assertEquals(ToolbarTool.TRANSLATE, h?.tool)
+        assertEquals(0, h?.replaceSpan)
         assertEquals(ToolbarTool.TRANSLATE, hit("in spanish")?.tool)
     }
 
@@ -807,27 +800,15 @@ class SmartSuggestTest {
     }
 
     @Test
-    fun grammarHintNeedsALongFormFieldAndRealProse() {
-        // Two finished sentences inside the 48-character lookbehind window.
-        val prose = "Hi there. This is fine. See you soon. Bye for now everyone"
-        val h = hit(prose, ctx.copy(longFormField = true))
-        assertEquals(SmartSuggest.Kind.INTENT, h?.kind)
-        assertEquals(ToolbarTool.GRAMMAR, h?.tool)
-        // Same text without the field shape, or too little of it: no chip.
-        assertNull(hit(prose))
-        assertNull(hit("Short. Bits. Here", ctx.copy(longFormField = true)))
-    }
-
-    @Test
     fun intentAndLookupFamiliesCanBeTurnedOff() {
-        assertNull(hit("can you draft an email", ctx.copy(intentChips = false)))
+        assertNull(hit("how do you say", ctx.copy(intentChips = false)))
         assertNull(hit("define serendipity", ctx.copy(lookupChips = false)))
         assertNull(hit("will it rain", ctx.copy(weatherChips = false, weather = weatherInfo())))
     }
 
     @Test
     fun intentChipsRespectTheToolBeingEnabled() {
-        val noAi = ctx.copy(enabledTools = ToolbarTool.entries - ToolbarTool.AI)
-        assertNull(hit("can you draft an email", noAi))
+        val noTranslate = ctx.copy(enabledTools = ToolbarTool.entries - ToolbarTool.TRANSLATE)
+        assertNull(hit("how do you say", noTranslate))
     }
 }

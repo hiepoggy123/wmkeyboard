@@ -2150,7 +2150,7 @@ data class SmartChipSettings(
     val weather: Boolean = true,
     /** "define X" / "who is X" → the dictionary or Wikipedia lookup. */
     val lookups: Boolean = true,
-    /** Writing chores → AI/grammar/translate hints, plus the password offer. */
+    /** "how do you say" / "in spanish" → a translator hint. */
     val intents: Boolean = true,
     /** "happy birthday" → a GIF search. */
     val gifs: Boolean = true,

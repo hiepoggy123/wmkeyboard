@@ -245,11 +245,8 @@ private fun narrowChipLabel(hit: SmartSuggest.SmartHit): String = when (hit.kind
     )
     SmartSuggest.Kind.INTENT -> stringResource(
         when (hit.tool) {
-            ToolbarTool.AI -> R.string.ime_smart_ask_ai
-            ToolbarTool.GRAMMAR -> R.string.ime_smart_check_grammar
             ToolbarTool.TRANSLATE -> R.string.ime_smart_translate_offer
             ToolbarTool.GIF, ToolbarTool.STICKER -> R.string.ime_smart_gif_offer
-            ToolbarTool.PASSWORD_GEN -> R.string.ime_smart_password_offer
             else -> R.string.ime_smart_open_tool
         },
         toolLabel(hit.tool),

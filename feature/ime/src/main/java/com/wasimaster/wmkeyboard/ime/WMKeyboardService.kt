@@ -2942,7 +2942,6 @@ open class WMKeyboardService : InputMethodService() {
                 // same field keeps whatever layer the user was on.
                 layoutMode = if (restarting) it.layoutMode else LayoutMode.LETTERS,
                 fieldKind = fieldKind,
-                fieldMultiline = info.isMultiLineText(),
                 fieldNoSuggestions = fieldNoSuggestions,
                 fieldIncognito = fieldIncognito,
                 emojiSearchActive = false,
@@ -7212,12 +7211,8 @@ open class WMKeyboardService : InputMethodService() {
 
     private fun refreshSmartSuggestion() {
         val state = _uiState.value
-        if (state.secureField) {
-            refreshPasswordOffer(state)
-            return
-        }
         val enabled = state.settings.smartSuggestions &&
-            !state.fieldNoSuggestions &&
+            !state.secureField && !state.fieldNoSuggestions &&
             state.panel == PanelMode.NONE &&
             // A smart chip takes the whole strip, and in a conversion IME that
             // strip is the candidate list — losing it mid-reading would leave
@@ -7293,53 +7288,6 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
-    /**
-     * The one chip that runs in a password box: the field is empty, the
-     * generator is on the keyboard — offer it. The field's text is never
-     * read beyond "is there any", and the offer retires like any intent chip
-     * the moment it stops applying, so a login box with a saved password
-     * never sees it twice.
-     */
-    private fun refreshPasswordOffer(state: KeyboardUiState) {
-        val eligible = state.settings.smartSuggestions && state.settings.smartChips.intents &&
-            state.panel == PanelMode.NONE &&
-            ToolbarTool.PASSWORD_GEN in usableTools(state.settings) &&
-            ToolbarTool.PASSWORD_GEN !in intentChipsRetired
-        val ic = currentInputConnection
-        if (!eligible || ic == null) {
-            clearSmartChip()
-            return
-        }
-        smartJob?.cancel()
-        smartJob = serviceScope.launch {
-            delay(SMART_SUGGEST_DEBOUNCE_MS)
-            val still = _uiState.value
-            if (still.panel != PanelMode.NONE || !still.secureField) {
-                clearSmartChip()
-                return@launch
-            }
-            val empty = withContext(Dispatchers.Default) {
-                ic.getTextBeforeCursor(1, 0)?.isEmpty() != false &&
-                    ic.getTextAfterCursor(1, 0)?.isEmpty() != false
-            }
-            val hit = if (empty) {
-                SmartSuggest.SmartHit(
-                    kind = SmartSuggest.Kind.INTENT,
-                    query = "",
-                    result = null,
-                    insert = null,
-                    replaceSpan = 0,
-                    tool = ToolbarTool.PASSWORD_GEN,
-                    prefill = null,
-                )
-            } else {
-                null
-            }
-            retireIntentChip(hit)
-            if (hit != _uiState.value.smart) _uiState.update { it.copy(smart = hit) }
-        }
-    }
-
     private fun smartContext(state: KeyboardUiState): SmartSuggest.Context =
         SmartSuggest.Context(
             calcEnabled = state.settings.smartCalc,
@@ -7375,8 +7323,6 @@ open class WMKeyboardService : InputMethodService() {
             lookupChips = state.settings.smartChips.lookups,
             intentChips = state.settings.smartChips.intents,
             gifChips = state.settings.smartChips.gifs,
-            longFormField = state.fieldMultiline && state.fieldKind == FieldKind.TEXT &&
-                !state.secureField && !state.incognitoOn,
         )
 
     private fun todayJdn(): Long = Calendar.getInstance().let {
@@ -16005,16 +15951,6 @@ open class WMKeyboardService : InputMethodService() {
                 )
         }
 
-        /**
-         * A text field with the multi-line flag: a chat composer, an email
-         * body, a document. The one field shape the ambient grammar chip is
-         * allowed to speak up in.
-         */
-        private fun EditorInfo?.isMultiLineText(): Boolean {
-            val inputType = this?.inputType ?: return false
-            return inputType and InputType.TYPE_MASK_CLASS == InputType.TYPE_CLASS_TEXT &&
-                inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0
-        }
     }
 }
 

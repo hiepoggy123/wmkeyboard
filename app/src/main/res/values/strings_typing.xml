@@ -209,9 +209,8 @@
     <string name="typing_smart_lookups_title">Offer lookups</string>
     <string name="typing_smart_lookups_subtitle">\"define serendipity\" offers the dictionary, \"who is Tesla\" offers Wikipedia</string>
 
-    <string name="typing_smart_intents_title">Tool hints</string>
-    <string name="typing_smart_intents_subtitle">\"draft an email\" hints the AI tool, long text hints the grammar check, an empty password box offers the generator</string>
-    <string name="typing_smart_intents_info">A hint chip appears when what you type sounds like a job a keyboard tool does: writing chores hint the AI tool, \"how do you say\" hints the translator, a few finished sentences hint the grammar check, and an empty new-password box offers a generated password. Each hint shows at most once per text field, and using it or typing past it puts it away.</string>
+    <string name="typing_smart_intents_title">Translate hints</string>
+    <string name="typing_smart_intents_subtitle">\"how do you say\" or \"in spanish\" offers the translator</string>
 
     <string name="typing_smart_gifs_title">GIFs for celebrations</string>
     <string name="typing_smart_gifs_subtitle">\"happy birthday\" offers a matching GIF search</string>

@@ -2996,7 +2996,6 @@ private fun TypingSettings(
                     R.string.typing_smart_intents_title,
                     stringResource(R.string.typing_smart_intents_subtitle),
                     settings.smartChips.intents,
-                    info = stringResource(R.string.typing_smart_intents_info),
                     default = SettingsDefaults.smartChips.intents,
                 ) { scope.launch { repository.setSmartChipIntents(it) } }
             }

@@ -362,11 +362,8 @@
          term the lookup chips were typed with. -->
     <string name="ime_smart_define_word">Define “%1$s”</string>
     <string name="ime_smart_wiki_word">“%1$s” on Wikipedia</string>
-    <string name="ime_smart_ask_ai">Ask AI</string>
-    <string name="ime_smart_check_grammar">Check grammar</string>
     <string name="ime_smart_translate_offer">Translate</string>
     <string name="ime_smart_gif_offer">Find a GIF</string>
-    <string name="ime_smart_password_offer">Strong password</string>
 
     <!-- Badge on the preview of a theme that moves while you type. -->
     <string name="ime_theme_animated_badge">Animated</string>

@@ -138,11 +138,6 @@ object SmartSuggest {
         val lookupChips: Boolean = true,
         val intentChips: Boolean = true,
         val gifChips: Boolean = true,
-        /**
-         * A multi-line free-text field with room to write — the one place the
-         * ambient grammar hint is worth the strip space it takes.
-         */
-        val longFormField: Boolean = false,
     )
 
     /** Characters of context the scanners look back over. */
@@ -169,7 +164,6 @@ object SmartSuggest {
         if (ctx.lookupChips) detectLookup(tail, ctx)?.let { return it }
         if (ctx.intentChips) detectIntent(tail, ctx)?.let { return it }
         if (ctx.keywordsEnabled) detectKeyword(tail, ctx)?.let { return it }
-        if (ctx.intentChips) detectGrammarHint(tail, ctx)?.let { return it }
         return null
     }
 
@@ -1204,15 +1198,6 @@ object SmartSuggest {
 
     // ---- intents ----
 
-    private val AI_TAIL = Regex(
-        "(?:(?:draft|write|compose)\\s(?:me\\s)?(?:an?\\s)?" +
-            "(?:email|e-?mail|message|reply|response|poem|essay|letter|tweet|caption|paragraph|cover letter)|" +
-            "summari[sz]e (?:this|it)|rewrite (?:this|it)|rephrase (?:this|it)|" +
-            "make (?:this|it) (?:shorter|longer|formal|casual|polite|better|professional)|" +
-            "help me write)\\s?\\??$",
-        RegexOption.IGNORE_CASE,
-    )
-
     private val TRANSLATE_TAIL = Regex(
         "(?:how do (?:you|i) say|translate (?:this|it)|" +
             "in (?:english|bengali|bangla|hindi|urdu|arabic|spanish|french|german|" +
@@ -1239,10 +1224,9 @@ object SmartSuggest {
     )
 
     /**
-     * Text that sounds like a job a tool does: writing chores for the AI
-     * panel, "how do you say" for the translator, a celebration for the GIF
-     * search. All of them keep what was typed — the chip is a door, not an
-     * autocorrect.
+     * Text that sounds like a job a tool does: "how do you say" for the
+     * translator, a celebration for the GIF search. Both keep what was
+     * typed — the chip is a door, not an autocorrect.
      */
     private fun detectIntent(tail: String, ctx: Context): SmartHit? {
         if (ctx.gifChips) {
@@ -1262,9 +1246,6 @@ object SmartSuggest {
                 return intentHit(tool, phrase, ToolPrefill.Gif(search))
             }
         }
-        if (toolOn(ToolbarTool.AI, ctx)) {
-            AI_TAIL.find(tail)?.let { return intentHit(ToolbarTool.AI, it.value.trimEnd(' ', '?')) }
-        }
         if (toolOn(ToolbarTool.TRANSLATE, ctx)) {
             TRANSLATE_TAIL.find(tail)?.let {
                 return intentHit(ToolbarTool.TRANSLATE, it.value.trimEnd(' ', '?'))
@@ -1283,23 +1264,6 @@ object SmartSuggest {
             tool = tool,
             prefill = prefill,
         )
-
-    // ---- ambient grammar hint ----
-
-    private val SENTENCE_ENDS = Regex("""[.!?]\s""")
-
-    /**
-     * Long-form prose under way: a full lookbehind window with at least two
-     * finished sentences in it. No text shape triggers this — it is the one
-     * ambient chip, which is why it runs after everything else and only in
-     * fields with room to write (see [Context.longFormField]).
-     */
-    private fun detectGrammarHint(tail: String, ctx: Context): SmartHit? {
-        if (!ctx.longFormField || !toolOn(ToolbarTool.GRAMMAR, ctx)) return null
-        if (tail.length < LOOKBEHIND) return null
-        if (SENTENCE_ENDS.findAll(tail).count() < 2) return null
-        return intentHit(ToolbarTool.GRAMMAR, query = "")
-    }
 
     // ---- tool keywords ----
 
