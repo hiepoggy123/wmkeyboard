@@ -148,6 +148,31 @@ class SnippetStore(private val storageFile: File?) {
         lookup = null
     }
 
+    /**
+     * Rewrites the stored order to [ids], which is also the order the snippets
+     * panel draws in.
+     *
+     * The list was creation order everywhere, and the panel has no search, so a
+     * snippet used every day sank under a year of one-off ones with no way to
+     * lift it back. New snippets still append; this is the only thing that
+     * moves an existing one.
+     *
+     * Ids the store does not know are dropped and ids missing from [ids] keep
+     * their relative order at the end, so a reorder raced against a delete or
+     * an import can neither lose a snippet nor resurrect one.
+     */
+    @Synchronized
+    fun reorder(ids: List<Long>) {
+        val byId = snippets.associateBy { it.id }
+        val moved = ids.mapNotNull(byId::get)
+        val movedIds = moved.mapTo(HashSet()) { it.id }
+        val rest = snippets.filter { it.id !in movedIds }
+        snippets.clear()
+        snippets.addAll(moved)
+        snippets.addAll(rest)
+        lookup = null
+    }
+
     /** The snippet whose trigger matches [word] exactly (case-insensitive), if any. */
     fun matchTrigger(word: String): Snippet? = index().matchTrigger(word)
 

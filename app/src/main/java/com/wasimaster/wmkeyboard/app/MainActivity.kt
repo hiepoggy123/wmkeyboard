@@ -8324,10 +8324,17 @@ private fun CustomDictionarySettings(
     // thread — the screen draws empty for a moment and fills in.
     suspend fun refresh() {
         lists = withContext(Dispatchers.IO) {
-            settings.enabledLanguages.associate { language ->
+            // The enabled languages plus any language that still has lists on
+            // disk. Walking only the enabled ones meant that switching a
+            // language off took its lists out of the one screen that manages
+            // them, while the files stayed on disk and in Storage.
+            val ids = LinkedHashSet<String>()
+            settings.enabledLanguages.mapTo(ids) { it.id }
+            ids.addAll(CustomDictionaries.languagesWithLists(context.filesDir))
+            ids.associateWith { langId ->
                 // allLists, not lists: a switched-off list still has to be
                 // shown, or there is no way to switch it back on.
-                language.id to CustomDictionaries.allLists(context.filesDir, language.id).map { file ->
+                CustomDictionaries.allLists(context.filesDir, langId).map { file ->
                     val words = runCatching {
                         file.inputStream().use { DictionaryLoader.loadEntries(it).size }
                     }.getOrDefault(0)
@@ -8429,9 +8436,18 @@ private fun CustomDictionarySettings(
     )
     AddonStoreGroup(AddonType.Dictionary, onNavigate)
 
-    for (language in settings.enabledLanguages) {
-        val entries = lists[language.id].orEmpty()
-        SettingsGroup(language.englishName) {
+    // The enabled languages in their own order, then any language switched off
+    // that still has lists on disk. Those used to disappear from this screen
+    // entirely while their files stayed, so the only way to reach a list again
+    // was to work out which language it belonged to and re-enable that.
+    val enabledIds = settings.enabledLanguages.map { it.id }
+    val strandedIds = lists.keys.filter { it !in enabledIds && lists[it]?.isNotEmpty() == true }
+    val offHeader = stringResource(R.string.customdict_language_off_header)
+    for (langId in enabledIds + strandedIds) {
+        val entries = lists[langId].orEmpty()
+        val languageOff = langId in strandedIds
+        val header = languageLabel(langId)
+        SettingsGroup(if (languageOff) offHeader.format(header) else header) {
             for (entry in entries) {
                 item {
                     // A downloaded word list is recorded by its path, which is
@@ -8496,27 +8512,35 @@ private fun CustomDictionarySettings(
                     }
                 }
             }
-            item {
-                Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    OutlinedButton(
-                        enabled = !busy,
-                        onClick = {
-                            pending = language.id
-                            importList.launch(arrayOf("*/*"))
-                        },
-                    ) {
-                        Text(
-                            stringResource(
-                                if (entries.isEmpty()) R.string.customdict_import_action
-                                else R.string.customdict_import_another_action,
-                            ),
-                        )
+            // No import buttons for a language that is switched off: a list
+            // imported there would not be read by anything. The rows above stay
+            // live, so the lists can still be switched off or deleted, which is
+            // what someone reaching this group came for.
+            if (languageOff) {
+                item { CaptionText(stringResource(R.string.customdict_language_off_caption)) }
+            } else {
+                item {
+                    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        OutlinedButton(
+                            enabled = !busy,
+                            onClick = {
+                                pending = langId
+                                importList.launch(arrayOf("*/*"))
+                            },
+                        ) {
+                            Text(
+                                stringResource(
+                                    if (entries.isEmpty()) R.string.customdict_import_action
+                                    else R.string.customdict_import_another_action,
+                                ),
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedButton(
+                            enabled = !busy,
+                            onClick = { urlDialogFor = langId },
+                        ) { Text(stringResource(R.string.customdict_from_url_action)) }
                     }
-                    Spacer(Modifier.width(8.dp))
-                    OutlinedButton(
-                        enabled = !busy,
-                        onClick = { urlDialogFor = language.id },
-                    ) { Text(stringResource(R.string.customdict_from_url_action)) }
                 }
             }
         }
@@ -13020,6 +13044,22 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
         ) { Text(stringResource(CommonR.string.common_export)) }
     }
     Spacer(Modifier.height(12.dp))
+    // Both this list and the snippets panel draw in stored order, and the panel
+    // has no search, so a snippet used daily sank under a year of one-off ones.
+    // The row disables itself below two snippets, where order means nothing.
+    if (snippets.isNotEmpty()) {
+        SettingsGroup {
+            item {
+                ReorderSetting(
+                    title = stringResource(R.string.privacy_snippets_reorder_title),
+                    dialogTitle = stringResource(R.string.privacy_snippets_reorder_title),
+                    items = snippets,
+                    label = { it.label },
+                    onReordered = { ordered -> mutate { s -> s.reorder(ordered.map { it.id }) } },
+                )
+            }
+        }
+    }
     SettingsGroup {
         for (snippet in snippets) {
             item {
@@ -13131,6 +13171,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
             },
         )
     }
+
 }
 
 /**

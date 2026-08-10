@@ -65,6 +65,22 @@ object CustomDictionaries {
             ?.sortedBy { it.name }
             .orEmpty()
 
+    /**
+     * Every language id with at least one imported list on disk, switched on or
+     * not.
+     *
+     * The settings screen used to walk the *enabled* languages instead, so
+     * turning a language off took its word lists out of the only screen that
+     * manages them: the files stayed on disk and kept counting against storage,
+     * with no way to see or delete them short of re-enabling the language.
+     */
+    fun languagesWithLists(filesDir: File): List<String> =
+        root(filesDir).listFiles { f -> f.isDirectory }
+            ?.filter { allLists(filesDir, it.name).isNotEmpty() }
+            ?.map { it.name }
+            ?.sorted()
+            .orEmpty()
+
     fun isEnabled(file: File): Boolean = file.extension == "txt"
 
     /** The list's name without the disabled marker, for showing in settings. */

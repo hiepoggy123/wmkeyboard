@@ -170,6 +170,7 @@
     <string name="privacy_snippets_variables_info">A variable expands at the moment that you insert the snippet, not when you save it. Because of this, {date} always gives the current date. {date:…} takes a pattern, for example {date:EEEE} or {date:dd/MM/yy}.</string>
 
     <string name="privacy_snippets_add_action">Add snippet</string>
+    <string name="privacy_snippets_reorder_title">Snippet order</string>
 
     <!-- %1$s is the snippet text after every variable in it expands. -->
     <string name="privacy_snippets_inserts_as_label">Inserts as: %1$s</string>

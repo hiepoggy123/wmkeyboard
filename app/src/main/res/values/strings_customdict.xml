@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
     <!-- Settings > Typing > Custom word lists. The user imports plain-text word
          lists so the keyboard can complete and correct words it does not ship with. -->
@@ -88,4 +88,7 @@
     <string name="customdict_url_scheme_error">The app accepts only http:// and https:// links.</string>
 
     <string name="customdict_list_off_subtitle">Switched off, still on the device</string>
+    <!-- Group header for a language the user has switched off that still has word lists on the device. %1$s is the language name. -->
+    <string name="customdict_language_off_header"><xliff:g example="Bengali" id="language">%1$s</xliff:g> (language switched off)</string>
+    <string name="customdict_language_off_caption">You have switched this language off, so these lists are not being read. They are still on the device and still count towards storage. Switch the language back on to use them, or delete them here.</string>
 </resources>
