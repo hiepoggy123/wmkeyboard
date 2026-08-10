@@ -7381,6 +7381,49 @@ class SettingsRepository(private val context: Context) {
         it.remove(KEY_CORNER_RADIUS)
     }
 
+    /**
+     * Puts the Appearance screen back to its shipped values.
+     *
+     * Same reasoning as [resetSizeAndPosition]: twenty-odd rows, each with its
+     * own per-row reset, and no way to undo an afternoon of them at once.
+     *
+     * Theme, font and icon pack are deliberately left alone. They are the three
+     * rows on this screen that only lead somewhere else, each has its own screen
+     * with its own undo, and a theme is the one appearance choice a user is
+     * likely to have spent real time on — a reset for the sliders must not take
+     * it with them.
+     *
+     * The keyboard's own key sizes are not here either. They belong to Layout &
+     * size, and [resetSizeAndPosition] is their reset; `KEY_CORNER_RADIUS` is
+     * the single overlap, drawn on both screens and reset by both.
+     */
+    suspend fun resetAppearance() = editPrefs {
+        it.remove(KEY_CORNER_RADIUS)
+        it.remove(FONT_SCALE)
+        it.remove(HINT_FONT_SCALE)
+        it.remove(TOOLBAR_ENABLED)
+        it.remove(TOOLBAR_SWIPE_DOWN_HIDE)
+        it.remove(TOOLBAR_ONLY_HW_KEYBOARD)
+        it.remove(REVERSE_TOOLBAR_RTL)
+        it.remove(TOOLBAR_GREEDY)
+        it.remove(TOOLBAR_HEIGHT)
+        it.remove(TOOLBAR_SCROLLABLE)
+        it.remove(TOOLBAR_HIDE_WHEN_LOCKED)
+        it.remove(TOOLBAR_LABELS)
+        it.remove(TOOLBAR_LABEL_SIZE)
+        it.remove(SUGGESTION_TEXT_SCALE)
+        it.remove(TOOL_CIRCLE_RADIUS)
+        it.remove(TOOL_SHAPE)
+        it.remove(TOOLBAR_TOOL_WIDTH)
+        it.remove(TOOLBOX_LAYOUT)
+        it.remove(TOOLBOX_COLUMNS)
+        it.remove(TOOLBOX_PILL_COLUMNS)
+        it.remove(TOOLBOX_PILL_FILLED)
+        it.remove(TOOLBOX_PAGINATE)
+        it.remove(TOOLBOX_PAGE_SIZE)
+        it.remove(TOOLBOX_LABEL_SIZE)
+    }
+
     suspend fun setShiftCapsLockMs(value: Int) =
         editPrefs { it[SHIFT_CAPS_LOCK_MS] = value.coerceIn(ShiftCapsLockMsRange.first, ShiftCapsLockMsRange.last) }
 

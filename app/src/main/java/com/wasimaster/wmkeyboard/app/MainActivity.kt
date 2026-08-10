@@ -5399,6 +5399,33 @@ private fun AppearanceSettings(
                 default = SettingsDefaults.toolbox.labelSizeSp.toFloat(),
             ) { scope.launch { repository.setToolboxLabelSize(it.roundToInt()) } }
         }
+        // Drawn only once something has actually moved, like the group reset on
+        // Layout & size. Theme, font and icons are excluded on both sides of
+        // this: they lead to their own screens and are not what "reset the
+        // sliders" means.
+        val d = SettingsDefaults
+        val appearanceMoved = settings.keyCornerRadiusDp != d.keyCornerRadiusDp ||
+            settings.fontScale != d.fontScale ||
+            settings.layoutBehavior.hintFontScale != d.layoutBehavior.hintFontScale ||
+            settings.toolbarBehavior != d.toolbarBehavior ||
+            settings.toolbarHeightDp != d.toolbarHeightDp ||
+            settings.toolbarLabels != d.toolbarLabels ||
+            settings.toolbarLabelSize != d.toolbarLabelSize ||
+            settings.suggestionStrip.textScale != d.suggestionStrip.textScale ||
+            settings.toolCircleRadiusDp != d.toolCircleRadiusDp ||
+            settings.toolShape != d.toolShape ||
+            settings.toolbox != d.toolbox ||
+            settings.toolboxColumns != d.toolboxColumns
+        if (appearanceMoved) {
+            item {
+                ActionRow(
+                    title = R.string.appearance_reset_title,
+                    subtitle = stringResource(R.string.appearance_reset_subtitle),
+                    action = stringResource(CommonR.string.common_reset),
+                    confirm = stringResource(R.string.appearance_reset_confirm),
+                ) { scope.launch { repository.resetAppearance() } }
+            }
+        }
     }
 
     if (confirmDisableToolbar) {
@@ -8973,9 +9000,9 @@ private fun FontSettings(
     )
     // Curated font pickers for the non-Latin scripts, each shown only while a
     // language using that script is enabled. Every one offers the script's
-    // automatic Noto face plus a few alternatives; the scripts that also take an
-    // imported file (Bengali today) additionally get the import button and the
-    // installed-font library. Latin/Cyrillic/Greek follow the English font above.
+    // automatic Noto face, a few alternatives, the import button and whatever in
+    // the font library covers that script.
+    // Latin/Cyrillic/Greek follow the English font above.
     val enabledScripts = settings.enabledLanguages.mapTo(mutableSetOf()) { it.script }
     for (choices in KeyboardFonts.scriptFontChoices) {
         if (choices.script !in enabledScripts) continue
@@ -8983,9 +9010,14 @@ private fun FontSettings(
         // Non-null only for the scripts whose picker takes an imported file;
         // everything import-shaped below hangs off it.
         val customId = KeyboardFonts.customScriptFontId(choices.script)
-        val importable = customId != null
-        val onImportFont: ((Uri) -> Unit)? = customId?.let {
-            { uri: Uri -> importIntoLibrary(uri) { id -> repository.setScriptFontId(script, id) } }
+        // Importing goes into the shared library, which every script can select
+        // from, so it does not need the per-script file slot [customId] names
+        // and is offered everywhere. Before this, a Devanagari or Thai font had
+        // nowhere to be imported and nowhere to be picked even once installed
+        // from an addon: only the two scripts with a legacy file slot showed
+        // the library at all.
+        val onImportFont: (Uri) -> Unit = { uri: Uri ->
+            importIntoLibrary(uri) { id -> repository.setScriptFontId(script, id) }
         }
         // The name of the script, drawn into both headers of this picker.
         val scriptName = stringResource(choices.labelRes)
@@ -9000,10 +9032,10 @@ private fun FontSettings(
             customName = settings.customScriptFontNames[script].orEmpty(),
             onSelect = { id -> scope.launch { repository.setScriptFontId(script, id) } },
             onImport = onImportFont,
-            installedFonts = if (importable) installedFonts else emptyList(),
+            installedFonts = installedFonts,
             installedTitle = stringResource(R.string.fonts_installed_script_header, scriptName),
             scripts = setOf(choices.script),
-            onDeleteInstalled = if (importable) ::deleteInstalled else null,
+            onDeleteInstalled = ::deleteInstalled,
         )
     }
     Spacer(Modifier.height(16.dp))
