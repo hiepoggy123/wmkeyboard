@@ -543,4 +543,17 @@
     <string name="tooldetail_image_columns_title">Results per row</string>
     <string name="tooldetail_image_columns_subtitle">How many image results sit side by side</string>
     <string name="tooldetail_image_columns_info">Fewer columns means larger previews, which is easier to judge before you send one. More columns fits more results without scrolling. GIF results are not affected: they are laid out in justified rows so each one keeps its own shape. This setting is 3 by default.</string>
+
+    <string name="tooldetail_launcher_recents_count_title">How many recent apps</string>
+    <string name="tooldetail_launcher_recents_count_subtitle">Length of the recent apps row</string>
+    <string name="tooldetail_launcher_recents_count_info">The grid is three to six apps wide, so a number that divides by your grid width fills whole rows and leaves no gap at the end.</string>
+
+    <string name="tooldetail_clipboard_chip_life_title">How long the paste chip stays</string>
+    <string name="tooldetail_clipboard_chip_life_subtitle">Time before the recently copied chip hides itself</string>
+    <string name="tooldetail_clipboard_chip_life_info">The chip appears on the suggestion strip after you copy something, so that you can paste it without opening the clipboard. Typing does not dismiss it, because it is meant to survive writing the message you will paste it into. Set a shorter time if you would rather what you copied stopped being on screen, which matters for a password or an address. You can always dismiss the chip yourself.</string>
+    <string name="tooldetail_clipboard_chip_until_dismissed">Until dismissed</string>
+
+    <string name="tooldetail_camera_timer_title">Self-timer</string>
+    <string name="tooldetail_camera_timer_subtitle">The timer the camera opens on</string>
+    <string name="tooldetail_camera_timer_info">The camera panel has a timer button that steps through off, 3 seconds and 10 seconds. This is where it starts each time you open the panel, so if you always use the same one you do not have to set it again.</string>
 </resources>

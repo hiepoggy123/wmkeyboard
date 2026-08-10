@@ -2249,11 +2249,20 @@ data class LauncherToolSettings(
     val showNonExported: Boolean = false,
     /** Pinned packages, in the user's order; they lead the grid. */
     val pinned: List<String> = emptyList(),
-    /** Most-recent-first launched packages, capped at [MAX_RECENTS]. */
+    /** Most-recent-first launched packages, capped at [maxRecents]. */
     val recents: List<String> = emptyList(),
+    /**
+     * How many recent apps the row keeps.
+     *
+     * Ten, hard-coded, against a grid three to six wide — so it never filled
+     * clean rows at any width, and neither someone who app-hops nor someone
+     * who wants the row out of the way could say so.
+     */
+    val maxRecents: Int = MAX_RECENTS,
 ) {
     companion object {
         const val MAX_RECENTS = 10
+        val RECENTS_RANGE = 4..20
     }
 }
 
@@ -2368,6 +2377,13 @@ data class CjkSettings(
 data class CameraSettings(
     /** Camera tool opens on the selfie camera. */
     val preferFront: Boolean = false,
+    /**
+     * Self-timer the camera tool opens on, in seconds. 0 is no timer.
+     *
+     * Panel-local state reset to 0 on every open, so somebody who always uses
+     * three seconds picked it again every time.
+     */
+    val timerSeconds: Int = 0,
     /** Mirror selfie captures so the photo matches the preview. */
     val mirrorFront: Boolean = true,
     /** Play a shutter click when the camera tool takes a photo. */
@@ -2677,6 +2693,16 @@ enum class SensitiveClipHandling {
 data class ClipboardSettings(
     /** Save copied text/images/files for quick paste from the clipboard tool. */
     val history: Boolean = true,
+    /**
+     * How long the recently-copied paste chip stays on the suggestion strip,
+     * in seconds. 0 means until it is pasted or dismissed.
+     *
+     * Five minutes, hard-coded. Generous is right for someone writing the
+     * message they are about to paste into, and wrong for anyone who would
+     * rather what they copied stopped being on screen — which for a password
+     * or an address is the whole point.
+     */
+    val pasteChipSeconds: Int = 5 * 60,
     /** Remove unpinned items after this many hours (0 = never). */
     val expiryHours: Int = 24,
     /**
@@ -4053,6 +4079,9 @@ class SettingsRepository(private val context: Context) {
         private val WHISPER_MODEL_BY_LANG = stringPreferencesKey("whisper_model_by_lang")
         private val WHISPER_TRANSLATE = booleanPreferencesKey("whisper_translate")
         private val CAMERA_PREFER_FRONT = booleanPreferencesKey("camera_prefer_front")
+        private val CAMERA_TIMER_SECONDS = intPreferencesKey("camera_timer_seconds")
+        private val CLIPBOARD_PASTE_CHIP_SECONDS = intPreferencesKey("clipboard_paste_chip_seconds")
+        private val LAUNCHER_MAX_RECENTS = intPreferencesKey("launcher_max_recents")
         private val CAMERA_MIRROR_FRONT = booleanPreferencesKey("camera_mirror_front")
         private val CAMERA_SHUTTER_SOUND = booleanPreferencesKey("camera_shutter_sound")
         private val CAMERA_HAPTICS = booleanPreferencesKey("camera_haptics")
@@ -4668,6 +4697,8 @@ class SettingsRepository(private val context: Context) {
                 p[ADD_WORDS_TO_SYSTEM_DICTIONARY] ?: defaults.addWordsToSystemDictionary,
             clipboard = ClipboardSettings(
                 history = p[CLIPBOARD_HISTORY] ?: defaults.clipboard.history,
+                pasteChipSeconds = p[CLIPBOARD_PASTE_CHIP_SECONDS]
+                    ?: defaults.clipboard.pasteChipSeconds,
                 expiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboard.expiryHours,
                 maxItems = p[CLIPBOARD_MAX_ITEMS] ?: defaults.clipboard.maxItems,
                 sensitiveHandling = p[CLIPBOARD_SENSITIVE_HANDLING]
@@ -5000,6 +5031,7 @@ class SettingsRepository(private val context: Context) {
             ),
             camera = CameraSettings(
                 preferFront = p[CAMERA_PREFER_FRONT] ?: defaults.camera.preferFront,
+                timerSeconds = p[CAMERA_TIMER_SECONDS] ?: defaults.camera.timerSeconds,
                 mirrorFront = p[CAMERA_MIRROR_FRONT] ?: defaults.camera.mirrorFront,
                 shutterSound = p[CAMERA_SHUTTER_SOUND] ?: defaults.camera.shutterSound,
                 haptics = p[CAMERA_HAPTICS] ?: defaults.camera.haptics,
@@ -5235,11 +5267,16 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.launcher.sortOrder,
                 showLabels = p[LAUNCHER_SHOW_LABELS] ?: defaults.launcher.showLabels,
                 recentsEnabled = p[LAUNCHER_RECENTS_ENABLED] ?: defaults.launcher.recentsEnabled,
+                maxRecents = p[LAUNCHER_MAX_RECENTS] ?: defaults.launcher.maxRecents,
                 activityDrilldown = p[LAUNCHER_DRILLDOWN] ?: defaults.launcher.activityDrilldown,
                 showNonExported =
                     p[LAUNCHER_SHOW_NON_EXPORTED] ?: defaults.launcher.showNonExported,
                 pinned = p[LAUNCHER_PINNED]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty(),
-                recents = p[LAUNCHER_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty(),
+                // Trimmed on read as well as on write: a cap lowered while the
+                // stored list was longer takes effect immediately rather than
+                // on the next launch that happens to rewrite the list.
+                recents = p[LAUNCHER_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty()
+                    .take(p[LAUNCHER_MAX_RECENTS] ?: defaults.launcher.maxRecents),
             ),
         )
     }
@@ -5337,14 +5374,39 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLauncherShowNonExported(value: Boolean) =
         editPrefs { it[LAUNCHER_SHOW_NON_EXPORTED] = value }
 
+    suspend fun setLauncherMaxRecents(value: Int) = editPrefs { prefs ->
+        val cap = value.coerceIn(
+            LauncherToolSettings.RECENTS_RANGE.first,
+            LauncherToolSettings.RECENTS_RANGE.last,
+        )
+        prefs[LAUNCHER_MAX_RECENTS] = cap
+        val current = prefs[LAUNCHER_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty()
+        if (current.size > cap) prefs[LAUNCHER_RECENTS] = current.take(cap).joinToString("\t")
+    }
+
+    suspend fun setCameraTimerSeconds(value: Int) =
+        editPrefs { it[CAMERA_TIMER_SECONDS] = value.coerceIn(0, 10) }
+
+    suspend fun setPasteChipSeconds(value: Int) =
+        editPrefs { it[CLIPBOARD_PASTE_CHIP_SECONDS] = value.coerceIn(0, 30 * 60) }
+
+    /**
+     * Puts the toolbox grid back to [DefaultToolOrder]. "Reset pinned tools"
+     * restored the bar and nothing restored the grid, so a bad drag session
+     * there had no way back.
+     */
+    suspend fun resetToolboxOrder() = editPrefs { it.remove(TOOLBOX_ORDER) }
+
     /** Records a launch at the head of the recents, newest first, capped. */
     suspend fun addLauncherRecent(packageName: String) =
         editPrefs { prefs ->
             if (prefs[LAUNCHER_RECENTS_ENABLED] == false) return@editPrefs
             val current = prefs[LAUNCHER_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }
                 .orEmpty()
-            val next = (listOf(packageName) + (current - packageName))
-                .take(LauncherToolSettings.MAX_RECENTS)
+            // Trimmed to the user's cap here as well as on read, so lowering
+            // it actually drops the tail instead of hiding it.
+            val cap = prefs[LAUNCHER_MAX_RECENTS] ?: LauncherToolSettings.MAX_RECENTS
+            val next = (listOf(packageName) + (current - packageName)).take(cap)
             prefs[LAUNCHER_RECENTS] = next.joinToString("\t")
         }
 

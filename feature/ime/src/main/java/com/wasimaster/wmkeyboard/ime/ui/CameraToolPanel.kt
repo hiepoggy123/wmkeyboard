@@ -92,6 +92,7 @@ import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.ime.R
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -246,7 +247,16 @@ private fun CameraContent(
     }
     var frontFacing by remember { mutableStateOf(state.settings.camera.preferFront) }
     var flashMode by remember { mutableIntStateOf(ImageCapture.FLASH_MODE_OFF) }
-    var timerSeconds by remember { mutableIntStateOf(0) }
+    // Seeded from the stored value and written back on every change, so a
+    // habitual three-second user stops re-picking it on every open.
+    //
+    // Written straight to the repository rather than through a callback from
+    // KeyboardScreen: that function's parameter list and ServiceKeyboardContent
+    // are both at the 64K method limit, and one more hop through either is not
+    // worth a self-timer. The DataStore behind this is a per-process singleton,
+    // so this writes to the same store the service reads.
+    val settingsRepo = remember(context) { SettingsRepository(context.applicationContext) }
+    var timerSeconds by remember { mutableIntStateOf(state.settings.camera.timerSeconds) }
     var countdown by remember { mutableIntStateOf(0) }
     var capturing by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<PendingCapture?>(null) }
@@ -612,11 +622,13 @@ private fun CameraContent(
                     },
                 ) {
                     feedback()
-                    timerSeconds = when (timerSeconds) {
+                    val next = when (timerSeconds) {
                         0 -> 3
                         3 -> 10
                         else -> 0
                     }
+                    timerSeconds = next
+                    scope.launch { settingsRepo.setCameraTimerSeconds(next) }
                 }
             }
             // Shutter: white ring with a fill that dims while busy. The

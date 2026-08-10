@@ -313,6 +313,7 @@ import com.wasimaster.wmkeyboard.core.settings.DEFAULT_LONG_PRESS_LETTERS
 import com.wasimaster.wmkeyboard.core.settings.KeyFontScaleRange
 import com.wasimaster.wmkeyboard.core.settings.ManualModeDuration
 import com.wasimaster.wmkeyboard.core.settings.SymbolRowHeightRange
+import com.wasimaster.wmkeyboard.core.settings.LauncherToolSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.LongPressLetterActions
 import com.wasimaster.wmkeyboard.core.settings.destinationConfigured
@@ -5276,6 +5277,19 @@ private fun AppearanceSettings(
         item {
             ResetPinnedToolsSetting(repository, scope)
         }
+        // The grid's own order. "Reset pinned tools" restored the bar and
+        // nothing restored the grid, so a bad drag session there had no way
+        // back. Drawn only once the order has actually been changed.
+        if (settings.toolboxOrder != SettingsDefaults.toolboxOrder) {
+            item {
+                ActionRow(
+                    title = R.string.appearance_reset_toolbox_order_title,
+                    subtitle = stringResource(R.string.appearance_reset_toolbox_order_subtitle),
+                    action = stringResource(CommonR.string.common_reset),
+                    confirm = stringResource(R.string.appearance_reset_toolbox_order_confirm),
+                ) { scope.launch { repository.resetToolboxOrder() } }
+            }
+        }
         item {
             val offLabel = stringResource(CommonR.string.common_off)
             SliderSetting(
@@ -9769,6 +9783,23 @@ private fun ToolDetailSettings(
                         default = SettingsDefaults.launcher.recentsEnabled,
                     ) { scope.launch { repository.setLauncherRecentsEnabled(it) } }
                 }
+                if (settings.launcher.recentsEnabled) {
+                    item {
+                        val appsFormat = stringResource(R.string.values_number)
+                        SliderSetting(
+                            R.string.tooldetail_launcher_recents_count_title,
+                            subtitle = stringResource(
+                                R.string.tooldetail_launcher_recents_count_subtitle,
+                            ),
+                            value = settings.launcher.maxRecents.toFloat(),
+                            range = LauncherToolSettings.RECENTS_RANGE.first.toFloat()..
+                                LauncherToolSettings.RECENTS_RANGE.last.toFloat(),
+                            display = { appsFormat.format(it.roundToInt()) },
+                            info = stringResource(R.string.tooldetail_launcher_recents_count_info),
+                            default = SettingsDefaults.launcher.maxRecents.toFloat(),
+                        ) { scope.launch { repository.setLauncherMaxRecents(it.roundToInt()) } }
+                    }
+                }
                 item {
                     ToggleSetting(
                         R.string.tooldetail_launcher_drilldown_title,
@@ -9837,6 +9868,35 @@ private fun ToolDetailSettings(
                         settings.clipboard.suggestRecent,
                         default = SettingsDefaults.clipboard.suggestRecent,
                     ) { scope.launch { repository.setClipboardSuggestRecent(it) } }
+                }
+                if (settings.clipboard.suggestRecent) {
+                    item {
+                        val untilDismissed =
+                            stringResource(R.string.tooldetail_clipboard_chip_until_dismissed)
+                        val minutesFormat = stringResource(R.string.values_minutes)
+                        val secondsFormat = stringResource(R.string.values_seconds)
+                        SliderSetting(
+                            R.string.tooldetail_clipboard_chip_life_title,
+                            subtitle = stringResource(R.string.tooldetail_clipboard_chip_life_subtitle),
+                            value = settings.clipboard.pasteChipSeconds.toFloat(),
+                            // Steps of 30 s to 30 min, with 0 at the top of the
+                            // range reading as a word rather than a duration.
+                            range = 0f..1800f,
+                            display = { value ->
+                                val secs = (value / 30f).roundToInt() * 30
+                                when {
+                                    secs <= 0 -> untilDismissed
+                                    secs < 60 -> secondsFormat.format(secs)
+                                    else -> minutesFormat.format(secs / 60)
+                                }
+                            },
+                            info = stringResource(R.string.tooldetail_clipboard_chip_life_info),
+                            default = SettingsDefaults.clipboard.pasteChipSeconds.toFloat(),
+                        ) { value ->
+                            val secs = (value / 30f).roundToInt() * 30
+                            scope.launch { repository.setPasteChipSeconds(secs) }
+                        }
+                    }
                 }
                 if (settings.clipboard.suggestRecent) {
                     item {
@@ -10242,6 +10302,22 @@ private fun ToolDetailSettings(
                         settings.camera.preferFront,
                         default = SettingsDefaults.camera.preferFront,
                     ) { scope.launch { repository.setCameraPreferFront(it) } }
+                }
+                item {
+                    val offLabel = stringResource(CommonR.string.common_off)
+                    val secondsFormat = stringResource(R.string.values_seconds)
+                    ChoiceSetting(
+                        R.string.tooldetail_camera_timer_title,
+                        subtitle = stringResource(R.string.tooldetail_camera_timer_subtitle),
+                        options = listOf(
+                            0 to offLabel,
+                            3 to secondsFormat.format(3),
+                            10 to secondsFormat.format(10),
+                        ),
+                        selected = settings.camera.timerSeconds,
+                        info = stringResource(R.string.tooldetail_camera_timer_info),
+                        default = SettingsDefaults.camera.timerSeconds,
+                    ) { scope.launch { repository.setCameraTimerSeconds(it) } }
                 }
                 item {
                     ToggleSetting(

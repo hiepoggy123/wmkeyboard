@@ -128,4 +128,8 @@
     <string name="appearance_reset_title">Reset appearance</string>
     <string name="appearance_reset_subtitle">Put every setting on this screen back to its default</string>
     <string name="appearance_reset_confirm">The key corner radius, the label and hint sizes, the whole toolbar group and the whole toolbox group go back to their defaults. Your theme, your font and your icon pack are not affected: they have their own screens.</string>
+
+    <string name="appearance_reset_toolbox_order_title">Reset toolbox order</string>
+    <string name="appearance_reset_toolbox_order_subtitle">Put the tools in the toolbox grid back in their original order</string>
+    <string name="appearance_reset_toolbox_order_confirm">The tools in the toolbox grid go back to the order they shipped in. Which tools are switched on, and which are pinned to the toolbar, are not affected.</string>
 </resources>

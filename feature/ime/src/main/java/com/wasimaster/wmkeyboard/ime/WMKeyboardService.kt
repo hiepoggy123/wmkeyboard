@@ -13799,8 +13799,11 @@ open class WMKeyboardService : InputMethodService() {
     private fun showClipboardSuggestion(item: com.wasimaster.wmkeyboard.core.clipboard.ClipItem) {
         clipboardSuggestionJob?.cancel()
         _uiState.update { it.copy(clipboardSuggestion = item) }
-        clipboardSuggestionJob = serviceScope.launch {
-            delay(CLIPBOARD_SUGGESTION_TIMEOUT_MS)
+        // 0 is "until pasted or dismissed": no timer at all rather than a very
+        // long one, so the chip cannot outlive the process quietly.
+        val ttlSeconds = _uiState.value.settings.clipboard.pasteChipSeconds
+        clipboardSuggestionJob = if (ttlSeconds <= 0) null else serviceScope.launch {
+            delay(ttlSeconds * 1000L)
             _uiState.update { it.copy(clipboardSuggestion = null) }
         }
     }
@@ -15809,6 +15812,7 @@ open class WMKeyboardService : InputMethodService() {
          * is meant to survive writing the message it will be pasted into, and
          * the user can dismiss it outright at any point.
          */
+        /** Only the shipped default now; the live value is a setting. */
         private const val CLIPBOARD_SUGGESTION_TIMEOUT_MS = 5L * 60 * 1000
         /**
          * Gap between the characters of a code typed into the field (see
