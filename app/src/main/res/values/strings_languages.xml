@@ -182,6 +182,11 @@
     <!-- Only "Match confusable sounds" needs translation. The rest is Pinyin
          spelling and stays as it is. -->
     <string name="languages_cjk_fuzzy_subtitle">Match confusable sounds: zh↔z, ch↔c, sh↔s, n↔l, an↔ang, in↔ing…</string>
+    <string name="languages_cjk_fuzzy_pairs_info">Pick the sounds you want matched. Every one is on to start with. Switching a pair off makes your spelling of it exact again, which gives you back some precision: the ending pairs are a regional accent and cost you little, while n↔l affects every syllable that starts with either.</string>
+    <!-- Subtitle under a fuzzy pair. "Initial" and "final" are the standard Pinyin terms for the start and end of a syllable. -->
+    <string name="languages_cjk_fuzzy_pair_initial">Start of a syllable</string>
+    <string name="languages_cjk_fuzzy_pair_final">End of a syllable</string>
+    <string name="languages_cjk_fuzzy_pairs_reset_title">Match every pair again</string>
     <string name="languages_cjk_double_pinyin_info">Double Pinyin: type each syllable with exactly two keys. It needs the Pinyin dictionary above.</string>
 
     <!-- Button that takes a language off the list. %1$s is its English name. -->

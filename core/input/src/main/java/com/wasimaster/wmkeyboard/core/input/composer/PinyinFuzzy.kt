@@ -12,27 +12,49 @@ package com.wasimaster.wmkeyboard.core.input.composer
  */
 object PinyinFuzzy {
 
-    // Initial confusions. Grouped bidirectionally: any initial in a group is
-    // interchangeable with the others. `l` sits in two groups (n↔l and r↔l), so
-    // its alternates are n, r and l.
-    private val INITIAL_GROUPS = listOf(
-        setOf("zh", "z"),
-        setOf("ch", "c"),
-        setOf("sh", "s"),
-        setOf("n", "l"),
-        setOf("r", "l"),
-        setOf("f", "h"),
+    /**
+     * One confusion group, and the id it is stored under.
+     *
+     * [id] is the two members joined by a hyphen. It is persisted, so it is
+     * append-only in the same way an enum's ordinals are: renaming one silently
+     * turns that pair back on for everybody who had switched it off.
+     */
+    data class Pair(val id: String, val members: Set<String>, val initial: Boolean)
+
+    private fun initialPair(a: String, b: String) = Pair("$a-$b", setOf(a, b), true)
+
+    private fun finalPair(a: String, b: String) = Pair("$a-$b", setOf(a, b), false)
+
+    /**
+     * Every group, in the order the settings screen lists them.
+     *
+     * Initial confusions are bidirectional: any initial in a group is
+     * interchangeable with the others. `l` sits in two groups (n↔l and r↔l), so
+     * its alternates are n, r and l when both are on.
+     *
+     * Final confusions are front vs. back nasal endings, matched on the whole
+     * final so `ang`↔`an` never mangles `iang` (which pairs with `ian` instead).
+     */
+    val PAIRS = listOf(
+        initialPair("zh", "z"),
+        initialPair("ch", "c"),
+        initialPair("sh", "s"),
+        initialPair("n", "l"),
+        initialPair("r", "l"),
+        initialPair("f", "h"),
+        finalPair("an", "ang"),
+        finalPair("en", "eng"),
+        finalPair("in", "ing"),
+        finalPair("ian", "iang"),
+        finalPair("uan", "uang"),
     )
 
-    // Final confusions: front vs. back nasal endings. Matched on the whole final
-    // so `ang`↔`an` never mangles `iang` (which pairs with `ian` instead).
-    private val FINAL_GROUPS = listOf(
-        setOf("an", "ang"),
-        setOf("en", "eng"),
-        setOf("in", "ing"),
-        setOf("ian", "iang"),
-        setOf("uan", "uang"),
-    )
+    /**
+     * What "Fuzzy Pinyin is on" means with nothing else chosen: all eleven
+     * groups, which is what the composer did before any of them could be picked
+     * individually.
+     */
+    val ALL_PAIRS: Set<String> = PAIRS.mapTo(LinkedHashSet()) { it.id }
 
     // Two-letter initials must be tried before one-letter ones (zh before z).
     private val INITIALS = listOf(
@@ -40,9 +62,12 @@ object PinyinFuzzy {
         "j", "q", "x", "r", "z", "c", "s", "y", "w",
     )
 
-    private fun altsOf(part: String, groups: List<Set<String>>): Set<String> {
+    private fun altsOf(part: String, initial: Boolean, enabled: Set<String>): Set<String> {
         val out = linkedSetOf(part)
-        for (g in groups) if (part in g) out.addAll(g)
+        for (p in PAIRS) {
+            if (p.initial != initial || p.id !in enabled) continue
+            if (part in p.members) out.addAll(p.members)
+        }
         return out
     }
 
@@ -53,13 +78,21 @@ object PinyinFuzzy {
      * Every valid fuzzy variant of [syllable] (including itself), keeping only
      * combinations that are real syllables per [valid]. With [valid] empty (no
      * inventory loaded) the syllable is returned unchanged.
+     *
+     * [enabled] is the set of [Pair.id]s to apply, defaulting to all of them.
+     * An empty set expands nothing, which is what a user who turned every group
+     * off asked for — the caller checks the Fuzzy Pinyin switch itself.
      */
-    fun expand(syllable: String, valid: Set<String>): Set<String> {
+    fun expand(
+        syllable: String,
+        valid: Set<String>,
+        enabled: Set<String> = ALL_PAIRS,
+    ): Set<String> {
         if (syllable.isEmpty()) return emptySet()
         val initial = initialOf(syllable)
         val final = syllable.substring(initial.length)
-        val initialAlts = altsOf(initial, INITIAL_GROUPS)
-        val finalAlts = altsOf(final, FINAL_GROUPS)
+        val initialAlts = altsOf(initial, initial = true, enabled = enabled)
+        val finalAlts = altsOf(final, initial = false, enabled = enabled)
         val out = linkedSetOf(syllable)
         for (i in initialAlts) for (f in finalAlts) {
             val cand = i + f

@@ -22,8 +22,10 @@ import com.wasimaster.wmkeyboard.core.clipboard.PhoneFormats
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
+import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
+import com.wasimaster.wmkeyboard.core.input.composer.PinyinFuzzy
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
@@ -2342,6 +2344,16 @@ data class RateSourceSettings(
 data class CjkSettings(
     /** Chinese: treat confusable pinyin initials/finals as equivalent (zh↔z, an↔ang…). */
     val pinyinFuzzy: Boolean = false,
+    /**
+     * Which of [PinyinFuzzy.PAIRS] [pinyinFuzzy] applies, by pair id. All of
+     * them by default, which is what the switch meant on its own.
+     *
+     * The eleven groups were all-or-nothing, and they are not one preference:
+     * the nasal endings are a regional accent, while n↔l costs precision on
+     * every syllable starting with either. Sogou and Google Pinyin both let a
+     * user take one without the other.
+     */
+    val pinyinFuzzyPairs: Set<String> = PinyinFuzzy.ALL_PAIRS,
     /** Chinese: the Double Pinyin scheme, or OFF for full pinyin. */
     val pinyinDoublePinyin: DoublePinyinScheme = DoublePinyinScheme.OFF,
     /** Convert candidate output to Traditional characters (Taiwan, Hong Kong). */
@@ -2553,6 +2565,17 @@ enum class ThemeGalleryStyle { AUTO, GROUPED, FLAT }
  */
 data class AppUiSettings(
     val themeGalleryStyle: ThemeGalleryStyle = ThemeGalleryStyle.AUTO,
+    /**
+     * Which size tier a word-list download offers first.
+     *
+     * The tier used to be per-composition state that reset to LARGE on every
+     * visit, so someone who wants the whole list re-picked it for each
+     * language and again after every scroll that dropped the row. It belongs
+     * here rather than on [KeyboardSettings]: it is a download parameter for
+     * one settings screen and nothing in the keyboard reads it.
+     */
+    val defaultWordlistSize: DictionaryCatalog.DictionarySize =
+        DictionaryCatalog.DictionarySize.LARGE,
 )
 
 /**
@@ -3768,6 +3791,7 @@ class SettingsRepository(private val context: Context) {
         private val ONBOARDING_PERSONA_DEPTH = stringPreferencesKey("onboarding_persona_depth")
         private val ONBOARDING_PERSONA_PRIVACY = stringPreferencesKey("onboarding_persona_privacy")
         private val THEME_GALLERY_STYLE = stringPreferencesKey("theme_gallery_style")
+        private val DEFAULT_WORDLIST_SIZE = stringPreferencesKey("default_wordlist_size")
         private val CONJUNCT_BACKSPACE_LANGUAGES = stringPreferencesKey("conjunct_backspace_languages")
 
         /**
@@ -3777,6 +3801,7 @@ class SettingsRepository(private val context: Context) {
          */
         private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
         private val PINYIN_FUZZY = booleanPreferencesKey("pinyin_fuzzy")
+        private val PINYIN_FUZZY_PAIRS = stringSetPreferencesKey("pinyin_fuzzy_pairs")
         private val PINYIN_DOUBLE_PINYIN = stringPreferencesKey("pinyin_double_pinyin")
         private val CJK_TRADITIONAL_OUTPUT = booleanPreferencesKey("cjk_traditional_output")
         private val JYUTPING_LAZY = booleanPreferencesKey("jyutping_lazy")
@@ -4562,10 +4587,21 @@ class SettingsRepository(private val context: Context) {
                 themeGalleryStyle = p[THEME_GALLERY_STYLE]
                     ?.let { runCatching { ThemeGalleryStyle.valueOf(it) }.getOrNull() }
                     ?: defaults.appUi.themeGalleryStyle,
+                defaultWordlistSize = p[DEFAULT_WORDLIST_SIZE]
+                    ?.let {
+                        runCatching { DictionaryCatalog.DictionarySize.valueOf(it) }.getOrNull()
+                    }
+                    ?: defaults.appUi.defaultWordlistSize,
             ),
             conjunctBackspaceLanguages = conjunctLanguagesFromPrefs(p, layoutSelection.enabledLanguages),
             cjk = CjkSettings(
                 pinyinFuzzy = p[PINYIN_FUZZY] ?: defaults.cjk.pinyinFuzzy,
+                // Unknown ids are dropped rather than kept: a pair removed in
+                // a later build must not sit in the set forever, and the
+                // composer would ignore it anyway.
+                pinyinFuzzyPairs = p[PINYIN_FUZZY_PAIRS]
+                    ?.filterTo(LinkedHashSet()) { it in PinyinFuzzy.ALL_PAIRS }
+                    ?: defaults.cjk.pinyinFuzzyPairs,
                 pinyinDoublePinyin = p[PINYIN_DOUBLE_PINYIN]
                     ?.let { runCatching { DoublePinyinScheme.valueOf(it) }.getOrNull() }
                     ?: defaults.cjk.pinyinDoublePinyin,
@@ -7756,6 +7792,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setThemeGalleryStyle(value: ThemeGalleryStyle) =
         editPrefs { it[THEME_GALLERY_STYLE] = value.name }
 
+    suspend fun setDefaultWordlistSize(value: DictionaryCatalog.DictionarySize) =
+        editPrefs { it[DEFAULT_WORDLIST_SIZE] = value.name }
+
     /** Turns cluster-aware backspace on or off for one language. */
     suspend fun setConjunctBackspace(languageId: String, value: Boolean) =
         editPrefs { prefs ->
@@ -7791,6 +7830,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setPinyinFuzzy(value: Boolean) =
         context.dataStore.edit { it[PINYIN_FUZZY] = value }
+
+    suspend fun setPinyinFuzzyPair(id: String, on: Boolean) = context.dataStore.edit { p ->
+        val current = p[PINYIN_FUZZY_PAIRS] ?: PinyinFuzzy.ALL_PAIRS
+        p[PINYIN_FUZZY_PAIRS] = if (on) current + id else current - id
+    }
+
+    suspend fun resetPinyinFuzzyPairs() =
+        context.dataStore.edit { it.remove(PINYIN_FUZZY_PAIRS) }
 
     suspend fun setPinyinDoublePinyin(value: DoublePinyinScheme) =
         context.dataStore.edit { it[PINYIN_DOUBLE_PINYIN] = value.name }

@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -60,6 +61,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictPack
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
+import com.wasimaster.wmkeyboard.core.input.composer.PinyinFuzzy
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
@@ -937,7 +939,9 @@ internal fun LanguageDetailScreen(
             )
         }
         for (entry in wordlistEntries) {
-            item { WordlistRow(entry) }
+            item { WordlistRow(entry, settings.appUi.defaultWordlistSize) { chosen ->
+                scope.launch { repository.setDefaultWordlistSize(chosen) }
+            } }
         }
         item {
             NavRow(
@@ -1119,12 +1123,19 @@ internal fun EmojiDictRow(entry: EmojiDictEntry) {
  * a download parameter, not a setting; it is recorded in the file itself.
  */
 @Composable
-private fun WordlistRow(entry: DictionaryEntry) {
+private fun WordlistRow(
+    entry: DictionaryEntry,
+    defaultSize: DictionaryCatalog.DictionarySize,
+    onDefaultSizeChange: (DictionaryCatalog.DictionarySize) -> Unit,
+) {
     val filesDir = LocalContext.current.filesDir
     val states by WordlistDownloadManager.states.collectAsState()
     LaunchedEffect(entry.id) { WordlistDownloadManager.refresh(filesDir) }
     val status = states[entry.id] ?: WordlistDownloadManager.DownloadStatus.NotDownloaded
-    var size by remember { mutableStateOf(DictionaryCatalog.DictionarySize.LARGE) }
+    // Seeded from the stored default and written back on every pick, so the
+    // choice carries to the next language and survives leaving the screen. It
+    // used to be plain composition state that reset to LARGE every time.
+    var size by remember(defaultSize) { mutableStateOf(defaultSize) }
     var sizeMenu by remember { mutableStateOf(false) }
     val effectiveWords = DictionaryCatalog.wordCap(entry, size)
     // Tiers past the end of a short list all keep the same words, so only the
@@ -1222,6 +1233,7 @@ private fun WordlistRow(entry: DictionaryEntry) {
                                     },
                                     onClick = {
                                         size = option
+                                        onDefaultSizeChange(option)
                                         sizeMenu = false
                                     },
                                 )
@@ -1416,6 +1428,48 @@ private fun CjkDictPackManager(
                     settings.cjk.pinyinFuzzy,
                     default = SettingsDefaults.cjk.pinyinFuzzy,
                 ) { on -> scope.launch { repository.setPinyinFuzzy(on) } }
+            }
+            // The eleven groups, individually. They were all-or-nothing, and
+            // they are not one preference: the nasal endings are a regional
+            // accent, while n↔l costs precision on every syllable starting with
+            // either. Only drawn while fuzzy is on — off, they decide nothing.
+            if (settings.cjk.pinyinFuzzy) {
+                item { CaptionText(stringResource(R.string.languages_cjk_fuzzy_pairs_info)) }
+                for (pair in PinyinFuzzy.PAIRS) {
+                    item {
+                        val on = pair.id in settings.cjk.pinyinFuzzyPairs
+                        val label = pair.members.joinToString(" ↔ ")
+                        WmRow(
+                            title = label,
+                            subtitle = stringResource(
+                                if (pair.initial) {
+                                    R.string.languages_cjk_fuzzy_pair_initial
+                                } else {
+                                    R.string.languages_cjk_fuzzy_pair_final
+                                },
+                            ),
+                            trailing = {
+                                Switch(
+                                    checked = on,
+                                    onCheckedChange = { checked ->
+                                        scope.launch {
+                                            repository.setPinyinFuzzyPair(pair.id, checked)
+                                        }
+                                    },
+                                )
+                            },
+                        )
+                    }
+                }
+                if (settings.cjk.pinyinFuzzyPairs != PinyinFuzzy.ALL_PAIRS) {
+                    item {
+                        ActionRow(
+                            title = R.string.languages_cjk_fuzzy_pairs_reset_title,
+                            subtitle = null,
+                            action = stringResource(CommonR.string.common_reset),
+                        ) { scope.launch { repository.resetPinyinFuzzyPairs() } }
+                    }
+                }
             }
             item { CaptionText(stringResource(R.string.languages_cjk_double_pinyin_info)) }
             for (scheme in DoublePinyinScheme.entries) {

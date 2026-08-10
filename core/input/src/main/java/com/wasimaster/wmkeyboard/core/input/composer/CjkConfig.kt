@@ -24,6 +24,19 @@ object CjkConfig {
         set(value) { field = value; CjkDictionaries.invalidate() }
 
     /**
+     * Which of [PinyinFuzzy.PAIRS] the switch above applies. All eleven by
+     * default, which is what Fuzzy Pinyin meant before the groups could be
+     * picked apart.
+     *
+     * Sogou and Google Pinyin both let a user take an↔ang without taking n↔l,
+     * and the two are not the same request: the nasal endings are a regional
+     * accent, n↔l costs precision on every syllable that starts with either.
+     */
+    @Volatile
+    var fuzzyPinyinPairs: Set<String> = PinyinFuzzy.ALL_PAIRS
+        set(value) { field = value; CjkDictionaries.invalidate() }
+
+    /**
      * The Double Pinyin scheme in use, or [DoublePinyinScheme.OFF] for full
      * Pinyin. When set, each syllable is two keys that the composer expands to
      * full Pinyin before the normal segmentation runs.

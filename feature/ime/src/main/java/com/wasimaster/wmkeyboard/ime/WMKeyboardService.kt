@@ -1864,6 +1864,7 @@ open class WMKeyboardService : InputMethodService() {
                 // Chinese Pinyin options the composer reads at call time (it stays a
                 // parameter-less singleton). Pushed from the same block, like above.
                 CjkConfig.fuzzyPinyin = settings.cjk.pinyinFuzzy
+                CjkConfig.fuzzyPinyinPairs = settings.cjk.pinyinFuzzyPairs
                 CjkConfig.doublePinyin = settings.cjk.pinyinDoublePinyin
                 CjkConfig.traditionalOutput = settings.cjk.traditionalOutput
                 CjkConfig.lazyJyutping = settings.cjk.jyutpingLazy

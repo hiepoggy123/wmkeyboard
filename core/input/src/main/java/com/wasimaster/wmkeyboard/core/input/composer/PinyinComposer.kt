@@ -104,11 +104,12 @@ object PinyinComposer : Composer {
         val boundaries = IntArray(n + 1)
         for (i in 0 until n) boundaries[i + 1] = boundaries[i] + segs[i].inputLen
         val fuzzy = CjkConfig.fuzzyPinyin
+        val fuzzyPairs = CjkConfig.fuzzyPinyinPairs
         val options = Array(n) { i ->
             val typed = segs[i].syllable
             if (!fuzzy) arrayOf(typed)
             else {
-                val variants = PinyinFuzzy.expand(typed, PinyinSyllables.valid)
+                val variants = PinyinFuzzy.expand(typed, PinyinSyllables.valid, fuzzyPairs)
                     .filter { it != typed }
                     .take(FUZZY_VARIANTS)
                 (listOf(typed) + variants).toTypedArray()
