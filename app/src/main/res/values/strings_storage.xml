@@ -126,6 +126,95 @@
     <string name="storage_item_partial_label">Unfinished download</string>
     <string name="storage_item_unknown_label">Unnamed</string>
 
+    <!-- names for the files inside a category
+
+         Each of these replaces a file name on a detail screen, and the file
+         name moves underneath it as the subtitle. So they say what the file is
+         for, and never repeat the name they are standing in for. -->
+
+    <!-- add-on sources -->
+    <string name="storage_file_repos_label">Source list</string>
+    <string name="storage_file_installed_label">Add-ons you installed</string>
+    <string name="storage_file_seeded_label">First-run marker</string>
+
+    <!-- learned words -->
+    <string name="storage_file_lexicon_label">Words the keyboard learned</string>
+    <string name="storage_file_corrections_label">Corrections you accepted</string>
+    <string name="storage_file_emoji_usage_label">Emoji you use most</string>
+    <string name="storage_file_cjk_history_label">Chinese, Japanese and Cantonese picks</string>
+    <string name="storage_file_language_mix_label">How you mix languages</string>
+
+    <!-- your own data -->
+    <string name="storage_file_typing_stats_label">Your typing counts</string>
+    <string name="storage_file_clip_history_label">Clip history</string>
+    <string name="storage_file_clip_images_label">Images you copied</string>
+    <string name="storage_file_snippets_label">Saved phrases</string>
+    <string name="storage_file_ai_history_label">AI action history</string>
+    <string name="storage_file_ai_chats_label">AI chats</string>
+
+    <!-- settings -->
+    <string name="storage_file_settings_store_label">Every setting</string>
+    <string name="storage_file_locked_settings_label">The settings the keyboard reads before you unlock</string>
+
+    <!-- diagnostics -->
+    <string name="storage_file_crash_log_label">Crash log</string>
+    <string name="storage_file_debug_log_label">Debug log</string>
+
+    <!-- theme images -->
+    <string name="storage_file_background_label">Background</string>
+    <string name="storage_file_background_land_label">Landscape background</string>
+    <string name="storage_file_texture_key_label">Key texture</string>
+    <string name="storage_file_texture_modifier_label">Modifier key texture</string>
+    <string name="storage_file_texture_enter_label">Enter key texture</string>
+    <string name="storage_file_texture_space_label">Spacebar texture</string>
+    <string name="storage_file_texture_pressed_label">Pressed key texture</string>
+    <string name="storage_file_texture_popup_label">Popup texture</string>
+    <string name="storage_file_decal_label">Decal</string>
+    <string name="storage_file_effect_label">Effect image</string>
+    <string name="storage_file_crop_label">Image you cropped</string>
+
+    <!-- the photo rotation pool -->
+    <string name="storage_file_photo_stock_label">Photo from a photo site</string>
+    <string name="storage_file_photo_device_label">Photo from your gallery</string>
+    <string name="storage_file_photo_source_label">Photo from a search</string>
+    <string name="storage_file_photo_pool_label">The list of saved photos</string>
+
+    <!-- camera and scans -->
+    <string name="storage_file_camera_shot_label">Photo you took</string>
+    <string name="storage_file_scan_label">Document scan</string>
+
+    <!-- caches -->
+    <string name="storage_file_skia_cache_label">Graphics shaders your device built</string>
+    <string name="storage_file_gl_cache_label">OpenGL shaders your device built</string>
+    <string name="storage_file_webview_cache_label">Browser engine cache</string>
+    <string name="storage_file_llm_cache_label">AI model working files</string>
+    <string name="storage_file_keysound_cache_label">Key sounds the app built</string>
+    <string name="storage_file_diagnostics_label">Logs you shared</string>
+
+    <!-- the rest of the app's data directory -->
+    <string name="storage_file_no_backup_label">Files kept out of backups</string>
+    <string name="storage_file_shared_prefs_label">Preference files</string>
+    <string name="storage_file_databases_label">Databases</string>
+    <string name="storage_file_code_cache_label">Code your device compiled</string>
+    <string name="storage_file_cache_label">Cache</string>
+    <string name="storage_file_app_files_label">App files</string>
+    <string name="storage_file_profile_installed_label">Start-up speed marker</string>
+    <string name="storage_file_native_libs_label">Native libraries</string>
+    <string name="storage_file_webview_data_label">Browser engine data</string>
+    <string name="storage_file_apk_base_label">The app</string>
+    <string name="storage_file_apk_split_label">Part of the app</string>
+
+    <!-- anything, anywhere -->
+    <string name="storage_file_staging_label">Unfinished import</string>
+    <string name="storage_file_temp_label">Half-written file</string>
+    <string name="storage_file_version_marker_label">Version marker</string>
+    <string name="storage_file_nomedia_label">Hides this folder from your gallery</string>
+
+    <!-- Under a file that lives in the storage the keyboard can read before the
+         phone is unlocked. %1$s is the file name. Two rows can otherwise carry
+         the same name, one from each half of the app's storage. -->
+    <string name="storage_file_direct_boot_detail">%1$s · readable before you unlock</string>
+
     <!-- confirmation dialogs -->
 
     <!-- %1$s is a category name, for example "Voice models". -->

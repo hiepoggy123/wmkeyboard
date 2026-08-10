@@ -1,10 +1,13 @@
 package com.wasimaster.wmkeyboard.app.storage
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -20,15 +23,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.app.CaptionText
 import com.wasimaster.wmkeyboard.app.SettingsGroup
+import com.wasimaster.wmkeyboard.app.WmIconTile
 import com.wasimaster.wmkeyboard.app.WmRow
 import com.wasimaster.wmkeyboard.app.formatBytes
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -84,10 +92,20 @@ internal fun StorageCategoryScreen(
     if (items.isEmpty()) {
         CaptionText(stringResource(R.string.storage_detail_empty))
     } else {
+        // A leading slot on every row or on none of them. Thumbnails on the
+        // picture rows and nothing on the JSON beside them would step the
+        // headlines in and out down the column, which reads as a broken list
+        // rather than as two kinds of thing.
+        val slotted = items.any { it.preview != null }
         SettingsGroup {
             for (item in items) {
                 item {
-                    StorageItemRow(item, enabled = !busy) { confirmItem = item }
+                    StorageItemRow(
+                        item = item,
+                        accent = category.accent,
+                        slotted = slotted,
+                        enabled = !busy,
+                    ) { confirmItem = item }
                 }
             }
         }
@@ -147,11 +165,32 @@ internal fun StorageCategoryScreen(
 }
 
 @Composable
-private fun StorageItemRow(item: StorageItem, enabled: Boolean, onDelete: () -> Unit) {
+private fun StorageItemRow(
+    item: StorageItem,
+    accent: Color,
+    slotted: Boolean,
+    enabled: Boolean,
+    onDelete: () -> Unit,
+) {
     val deleteDesc = stringResource(R.string.storage_delete_item_desc, item.label)
+    val preview = item.preview
     WmRow(
         title = item.label.ifBlank { stringResource(R.string.storage_item_unknown_label) },
         subtitle = item.detail,
+        leading = when {
+            preview != null -> {
+                { StorageThumbnail(preview, accent) }
+            }
+            slotted -> {
+                {
+                    WmIconTile(
+                        if (item.directory) Icons.Outlined.Folder else Icons.Outlined.Description,
+                        accent,
+                    )
+                }
+            }
+            else -> null
+        },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(formatBytes(item.bytes), style = MaterialTheme.typography.labelLarge)
@@ -167,6 +206,28 @@ private fun StorageItemRow(item: StorageItem, enabled: Boolean, onDelete: () -> 
             }
         },
     )
+}
+
+/**
+ * The picture itself in the row's icon slot.
+ *
+ * Drawn inside the same tile the icon rows use, so the two kinds of row line up
+ * to the pixel and a picture with transparency in it — a decal, a cut-out
+ * sticker — has the tile's wash behind it instead of the card.
+ *
+ * No content description: the row's own headline already names it, and a second
+ * reading of "Key texture" is noise to a screen reader rather than help.
+ */
+@Composable
+private fun StorageThumbnail(file: File, accent: Color) {
+    WmIconTile(accent) {
+        AsyncImage(
+            model = file,
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+    }
 }
 
 private fun bodyForItem(danger: Danger): Int = when (danger) {

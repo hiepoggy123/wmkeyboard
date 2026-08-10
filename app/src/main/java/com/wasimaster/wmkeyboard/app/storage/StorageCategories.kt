@@ -41,6 +41,7 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
 import com.wasimaster.wmkeyboard.core.feedback.SoundStore
 import com.wasimaster.wmkeyboard.core.fonts.FontStore
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
+import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
 import com.wasimaster.wmkeyboard.core.input.composer.CjkLearning
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
@@ -124,6 +125,10 @@ internal class StorageItem(
     val bytes: Long,
     val files: List<File> = emptyList(),
     val deletable: Boolean = true,
+    /** An image to draw beside the row, when the item is one. */
+    val preview: File? = null,
+    /** Whether the row stands for a directory, for the icon it falls back to. */
+    val directory: Boolean = false,
 )
 
 internal class StorageCategory(
@@ -169,14 +174,7 @@ internal class StorageCategory(
 
     /** Direct children, largest first — right for a directory of packs or models. */
     private fun defaultItems(env: StorageEnv): List<StorageItem> =
-        paths(env.roots).flatMap { childrenOf(it) }.map { child ->
-            StorageItem(
-                id = child.absolutePath,
-                label = child.name,
-                bytes = diskUsage(child, env.roots.blockSize),
-                files = listOf(child),
-            )
-        }
+        paths(env.roots).flatMap { childrenOf(it) }.map { env.namedItem(it) }
 }
 
 /**
@@ -237,15 +235,20 @@ internal object StorageCategories {
         itemsOf = { env ->
             val info = env.context.applicationInfo
             buildList {
-                add(File(info.sourceDir))
-                info.splitSourceDirs?.forEach { add(File(it)) }
-                info.nativeLibraryDir?.let { add(File(it)) }
-            }.map {
-                StorageItem(
-                    id = it.absolutePath,
-                    label = it.name,
-                    bytes = diskUsage(it, env.roots.blockSize),
+                add(File(info.sourceDir) to 0)
+                info.splitSourceDirs?.forEach { add(File(it) to 0) }
+                // The only piece whose own name says nothing: the directory is
+                // called after the ABI it holds, `arm64` and the like.
+                info.nativeLibraryDir?.let { add(File(it) to R.string.storage_file_native_libs_label) }
+            }.map { (file, forced) ->
+                if (forced == 0) env.namedItem(file, deletable = false)
+                else StorageItem(
+                    id = file.absolutePath,
+                    label = env.context.getString(forced),
+                    detail = file.name,
+                    bytes = diskUsage(file, env.roots.blockSize),
                     deletable = false,
+                    directory = true,
                 )
             }
         },
@@ -267,12 +270,17 @@ internal object StorageCategories {
             pathsOf = { listOf(File(it.files, "dict"), File(it.files, "cjk_dicts")) },
             itemsOf = { env ->
                 languageItems(env, File(env.roots.files, "dict")) +
-                    childrenOf(File(env.roots.files, "cjk_dicts")).map {
+                    childrenOf(File(env.roots.files, "cjk_dicts")).map { dir ->
+                        // These are named after the input method rather than a
+                        // language: `pinyin`, `jyutping`, `cangjie`.
+                        val pack = CjkDictCatalog.byId(dir.name)
                         StorageItem(
-                            id = it.absolutePath,
-                            label = it.name,
-                            bytes = diskUsage(it, env.roots.blockSize),
-                            files = listOf(it),
+                            id = dir.absolutePath,
+                            label = pack?.let { env.context.getString(it.displayNameRes) } ?: dir.name,
+                            detail = pack?.let { dir.name },
+                            bytes = diskUsage(dir, env.roots.blockSize),
+                            files = listOf(dir),
+                            directory = true,
                         )
                     }
             },
@@ -297,6 +305,7 @@ internal object StorageCategories {
             // Device-protected: the keyboard needs a dictionary before the user
             // has unlocked the phone, so this copy lives where it can read it.
             pathsOf = { listOf(File(it.deFiles, "dict")) },
+            itemsOf = { env -> languageItems(env, File(env.roots.deFiles, "dict")) },
         ),
         StorageCategory(
             id = "emoji_dicts",
@@ -737,14 +746,7 @@ internal object StorageCategories {
                 // is a worse state than none of one.
                 settingsPaths(env.roots)
                     .flatMap { filesUnder(it) }
-                    .map {
-                        StorageItem(
-                            id = it.absolutePath,
-                            label = it.name,
-                            bytes = diskUsage(it, env.roots.blockSize),
-                            deletable = false,
-                        )
-                    }
+                    .map { env.namedItem(it, deletable = false) }
             },
             clearOf = { env -> env.repository.clearAllPreferences() },
         ),
@@ -860,6 +862,7 @@ internal object StorageCategories {
                 detail = dir.name,
                 bytes = diskUsage(dir, env.roots.blockSize),
                 files = listOf(dir),
+                directory = true,
             )
         }
 
@@ -905,13 +908,25 @@ internal object StorageCategories {
         }
         return candidates
             .filterNot { it.absolutePath in claimed }
-            .map {
-                StorageItem(
-                    id = it.absolutePath,
-                    label = it.name,
-                    bytes = diskUsage(it, roots.blockSize),
-                    deletable = false,
-                )
-            }
+            .map { env.namedItem(it, detail = residualDetail(env, it), deletable = false) }
+    }
+
+    /**
+     * What a residual row says under its name.
+     *
+     * The bare file name is not enough here, and only here: the app's storage
+     * comes in two halves, and both hold a `shared_prefs`, a `cache` and a
+     * `code_cache`. Named from this list they would be the same row printed
+     * twice, so the device-protected half says so.
+     */
+    private fun residualDetail(env: StorageEnv, file: File): String {
+        val name = file.name
+        val protected = file.absolutePath.startsWith(env.roots.deDataDir.absolutePath) &&
+            env.roots.deDataDir.absolutePath != env.roots.dataDir.absolutePath
+        return if (protected) {
+            env.context.getString(R.string.storage_file_direct_boot_detail, name)
+        } else {
+            name
+        }
     }
 }
