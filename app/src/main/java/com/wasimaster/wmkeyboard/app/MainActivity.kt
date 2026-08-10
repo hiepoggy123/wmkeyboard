@@ -6641,6 +6641,12 @@ private fun InstalledEmojiFontList(repository: SettingsRepository, settings: Key
 // ---- personal dictionary ----
 
 /**
+ * Word count past which the personal dictionary grows a search field. Below
+ * it the list is short enough to scan, and a search box would be furniture.
+ */
+private const val DICTIONARY_SEARCH_THRESHOLD = 12
+
+/**
  * The learned-words file, edited directly from the settings app. Every
  * change bumps the DataStore lexicon version so the IME (which holds its
  * own in-memory copy) reloads from disk instead of clobbering the edit.
@@ -6685,11 +6691,43 @@ private fun DictionarySettings(repository: SettingsRepository) {
         modifier = Modifier.padding(horizontal = 16.dp),
     ) { Text(stringResource(R.string.backup_add_word_action)) }
     Spacer(Modifier.height(12.dp))
+    // The lexicon holds up to 10,000 words and used to render as one flat
+    // count-sorted list, which made finding a single word to delete a scroll
+    // through everything the keyboard has ever learned.
+    var query by remember { mutableStateOf("") }
+    if (words.size > DICTIONARY_SEARCH_THRESHOLD || query.isNotEmpty()) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            label = { Text(stringResource(CommonR.string.common_search)) },
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { query = "" }) {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = stringResource(CommonR.string.common_clear),
+                        )
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+    }
+    val shown = remember(words, query) {
+        val needle = query.trim().lowercase()
+        if (needle.isEmpty()) words else words.filter { needle in it.first.lowercase() }
+    }
     if (words.isEmpty()) {
         CaptionText(stringResource(R.string.backup_dictionary_empty))
+    } else if (shown.isEmpty()) {
+        CaptionText(stringResource(R.string.backup_dictionary_no_matches, query))
     }
     SettingsGroup {
-        for ((word, count) in words) {
+        for ((word, count) in shown) {
             item {
                 WmRow(
                     title = word,
@@ -8110,7 +8148,9 @@ private fun CustomDictionarySettings(
     suspend fun refresh() {
         lists = withContext(Dispatchers.IO) {
             settings.enabledLanguages.associate { language ->
-                language.id to CustomDictionaries.lists(context.filesDir, language.id).map { file ->
+                // allLists, not lists: a switched-off list still has to be
+                // shown, or there is no way to switch it back on.
+                language.id to CustomDictionaries.allLists(context.filesDir, language.id).map { file ->
                     val words = runCatching {
                         file.inputStream().use { DictionaryLoader.loadEntries(it).size }
                     }.getOrDefault(0)
@@ -8220,14 +8260,39 @@ private fun CustomDictionarySettings(
                     // A downloaded word list is recorded by its path, which is
                     // what an addon's Use button hands over.
                     HighlightableItem(entry.file.absolutePath) {
+                        val enabled = CustomDictionaries.isEnabled(entry.file)
+                        val listName = CustomDictionaries.displayName(entry.file)
+                            .substringBeforeLast('.')
                         WmRow(
-                            title = entry.file.nameWithoutExtension,
-                            subtitle = pluralStringResource(
-                                R.plurals.customdict_word_count,
-                                entry.words,
-                                entry.words,
-                            ),
+                            title = listName,
+                            subtitle = if (!enabled) {
+                                stringResource(R.string.customdict_list_off_subtitle)
+                            } else {
+                                pluralStringResource(
+                                    R.plurals.customdict_word_count,
+                                    entry.words,
+                                    entry.words,
+                                )
+                            },
                             trailing = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Switching off renames the file rather than
+                                // deleting it: working out whether a bad import
+                                // is polluting suggestions used to cost a delete
+                                // and a re-import.
+                                Switch(
+                                    checked = enabled,
+                                    enabled = !busy,
+                                    onCheckedChange = { on ->
+                                        scope.launch {
+                                            withContext(Dispatchers.IO) {
+                                                CustomDictionaries.setEnabled(entry.file, on)
+                                            }
+                                            refresh()
+                                            repository.bumpCustomDictVersion()
+                                        }
+                                    },
+                                )
                                 IconButton(
                                     enabled = !busy,
                                     onClick = {
@@ -8244,9 +8309,10 @@ private fun CustomDictionarySettings(
                                         Icons.Outlined.Delete,
                                         contentDescription = stringResource(
                                             R.string.customdict_delete_list_desc,
-                                            entry.file.nameWithoutExtension,
+                                            listName,
                                         ),
                                     )
+                                }
                                 }
                             },
                         )

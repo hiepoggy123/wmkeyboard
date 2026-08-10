@@ -324,4 +324,6 @@
         <item quantity="other">Remove all %1$d blocked words</item>
     </plurals>
     <string name="backup_blacklist_clear_confirm">Every word on the blacklist is removed and can be suggested again. Words you have taught the keyboard are not affected.</string>
+    <!-- %1$s is what the user typed into the dictionary search field. -->
+    <string name="backup_dictionary_no_matches">No learned word matches \"%1$s\".</string>
 </resources>

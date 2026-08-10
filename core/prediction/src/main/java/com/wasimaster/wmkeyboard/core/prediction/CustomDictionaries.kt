@@ -41,12 +41,48 @@ object CustomDictionaries {
     fun languageDir(filesDir: File, langId: String): File =
         File(root(filesDir), langId)
 
-    /** Imported lists for one language, oldest first. */
+    /**
+     * What a switched-off list is called. Marked by renaming rather than by a
+     * flag in DataStore: the state then travels with the file through backup,
+     * restore and a manual copy, and [lists] keeps its one-line definition of
+     * "the lists that count".
+     */
+    const val DISABLED_SUFFIX = ".off"
+
+    /** Imported lists for one language that are switched on, oldest first. */
     fun lists(filesDir: File, langId: String): List<File> =
         languageDir(filesDir, langId)
             .listFiles { f -> f.isFile && f.extension == "txt" }
             ?.sortedBy { it.name }
             .orEmpty()
+
+    /** Every imported list for one language, switched on or not. */
+    fun allLists(filesDir: File, langId: String): List<File> =
+        languageDir(filesDir, langId)
+            .listFiles { f ->
+                f.isFile && (f.extension == "txt" || f.name.endsWith(".txt$DISABLED_SUFFIX"))
+            }
+            ?.sortedBy { it.name }
+            .orEmpty()
+
+    fun isEnabled(file: File): Boolean = file.extension == "txt"
+
+    /** The list's name without the disabled marker, for showing in settings. */
+    fun displayName(file: File): String = file.name.removeSuffix(DISABLED_SUFFIX)
+
+    /**
+     * Switches a list on or off, returning its new file. Testing whether a bad
+     * import is polluting suggestions used to cost a delete and a re-import.
+     */
+    fun setEnabled(file: File, enabled: Boolean): File {
+        if (isEnabled(file) == enabled) return file
+        val target = if (enabled) {
+            File(file.parentFile, file.name.removeSuffix(DISABLED_SUFFIX))
+        } else {
+            File(file.parentFile, file.name + DISABLED_SUFFIX)
+        }
+        return if (file.renameTo(target)) target else file
+    }
 
     /** Every entry across every list for one language, in file order. */
     fun entries(filesDir: File, langId: String): List<Pair<String, Int>> {
