@@ -15,7 +15,13 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
  */
 object QrCodeGen {
 
-    /** ZXing's payload cap for QR (numeric is higher; this is the safe bound). */
+    /**
+     * ZXing's payload cap for QR at the middle error-correction level.
+     *
+     * The shipped default. A longer payload does encode at a lower level, which
+     * is the trade the `qrMaxChars` setting exists to let the user make, so
+     * [bitmap] takes the live cap rather than reading this.
+     */
     const val MAX_CHARS = 2000
 
     /**
@@ -29,8 +35,9 @@ object QrCodeGen {
         ecc: String = "M",
         foreground: Int = 0xFF000000.toInt(),
         background: Int = 0xFFFFFFFF.toInt(),
+        maxChars: Int = MAX_CHARS,
     ): Bitmap? {
-        if (content.isBlank() || content.length > MAX_CHARS) return null
+        if (content.isBlank() || content.length > maxChars) return null
         val level = runCatching { ErrorCorrectionLevel.valueOf(ecc) }.getOrDefault(ErrorCorrectionLevel.M)
         val matrix = runCatching {
             QRCodeWriter().encode(

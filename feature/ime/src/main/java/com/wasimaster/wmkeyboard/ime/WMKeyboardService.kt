@@ -7380,7 +7380,7 @@ open class WMKeyboardService : InputMethodService() {
     /** The fetched conditions, only while still within the cache window. */
     private fun freshWeather(state: KeyboardUiState): WeatherInfo? =
         (state.weather as? WeatherUi.Ready)?.info?.takeIf {
-            System.currentTimeMillis() - it.fetchedAtMillis < WEATHER_CACHE_MS
+            System.currentTimeMillis() - it.fetchedAtMillis < weatherCacheMs()
         }
 
     /**
@@ -10037,7 +10037,7 @@ open class WMKeyboardService : InputMethodService() {
         }
         val cached = (_uiState.value.weather as? WeatherUi.Ready)?.info
         if (!force && cached != null &&
-            System.currentTimeMillis() - cached.fetchedAtMillis < WEATHER_CACHE_MS
+            System.currentTimeMillis() - cached.fetchedAtMillis < weatherCacheMs()
         ) {
             return
         }
@@ -10139,7 +10139,13 @@ open class WMKeyboardService : InputMethodService() {
         serviceScope.launch {
             val lang = _uiState.value.settings.wikiLanguage
             val result = withContext(Dispatchers.IO) {
-                runCatching { WikipediaClient.links(article.summary.title, lang) }
+                runCatching {
+                    WikipediaClient.links(
+                        article.summary.title,
+                        lang,
+                        _uiState.value.settings.toolLimits.wikiLinkLimit,
+                    )
+                }
             }
             _uiState.update { state ->
                 val current = state.wiki as? WikiUi.Article ?: return@update state
@@ -11163,6 +11169,10 @@ open class WMKeyboardService : InputMethodService() {
      * mode decide, and "carry this on" then reads what is *before* the cursor,
      * because the words after it are not part of what came before.
      */
+    /** How long a weather reading counts as fresh, from the user's setting. */
+    private fun weatherCacheMs(): Long =
+        _uiState.value.settings.toolLimits.weatherRefreshMinutes * 60_000L
+
     private fun aiInputText(spec: AiActionSpec): String {
         val ic = currentInputConnection ?: return ""
         ic.getSelectedText(0)?.toString()?.takeIf { it.isNotBlank() }?.let { return it }
@@ -15759,6 +15769,7 @@ open class WMKeyboardService : InputMethodService() {
          * the Latin default, so recognition doesn't fire mid-glyph.
          */
         private const val BENGALI_HW_MIN_COMMIT_DELAY_MS = 1200L
+        /** Only the shipped default now; the live value is a setting. */
         private const val WEATHER_CACHE_MS = 15L * 60 * 1000
 
         /**

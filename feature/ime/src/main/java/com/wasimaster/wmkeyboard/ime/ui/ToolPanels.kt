@@ -881,8 +881,14 @@ internal fun WeatherPanel(
                         add(
                             Triple(
                                 Icons.Outlined.Air,
-                                "${info.windKmh.roundToInt()} km/h " +
-                                    WeatherClient.windCardinal(info.windDirectionDeg),
+                                // Follows the temperature unit: a panel that
+                                // said 72°F and 11 km/h was half imperial and
+                                // half metric, which is nobody's convention.
+                                WeatherClient.formatWind(
+                                    info.windKmh,
+                                    info.windDirectionDeg,
+                                    fahrenheit = fahrenheit,
+                                ),
                                 windCaption,
                             )
                         )

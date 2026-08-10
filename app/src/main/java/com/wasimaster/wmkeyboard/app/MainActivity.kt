@@ -10246,6 +10246,20 @@ private fun ToolDetailSettings(
                         default = SettingsDefaults.weatherFahrenheit,
                     ) { scope.launch { repository.setWeatherFahrenheit(it) } }
                 }
+                item {
+                    val minutesFormat = stringResource(R.string.values_minutes)
+                    SliderSetting(
+                        R.string.tooldetail_weather_refresh_title,
+                        subtitle = stringResource(R.string.tooldetail_weather_refresh_subtitle),
+                        value = settings.toolLimits.weatherRefreshMinutes.toFloat(),
+                        range = 1f..180f,
+                        display = { minutesFormat.format(it.roundToInt()) },
+                        info = stringResource(R.string.tooldetail_weather_refresh_info),
+                        default = SettingsDefaults.toolLimits.weatherRefreshMinutes.toFloat(),
+                    ) { picked ->
+                        scope.launch { repository.setWeatherRefreshMinutes(picked.roundToInt()) }
+                    }
+                }
             }
             CaptionText(stringResource(R.string.tooldetail_weather_info))
         }
@@ -10319,6 +10333,22 @@ private fun ToolDetailSettings(
                         info = stringResource(R.string.tooldetail_camera_timer_info),
                         default = SettingsDefaults.camera.timerSeconds,
                     ) { scope.launch { repository.setCameraTimerSeconds(it) } }
+                }
+                item {
+                    val pxFormat = stringResource(R.string.values_pixels)
+                    ChoiceSetting(
+                        R.string.tooldetail_camera_resolution_title,
+                        subtitle = stringResource(R.string.tooldetail_camera_resolution_subtitle),
+                        options = listOf(
+                            1000 to pxFormat.format(1000),
+                            1600 to pxFormat.format(1600),
+                            2400 to pxFormat.format(2400),
+                            3200 to pxFormat.format(3200),
+                        ),
+                        selected = settings.camera.captureMaxPx,
+                        info = stringResource(R.string.tooldetail_camera_resolution_info),
+                        default = SettingsDefaults.camera.captureMaxPx,
+                    ) { scope.launch { repository.setCameraCaptureMaxPx(it) } }
                 }
                 item {
                     ToggleSetting(
@@ -11134,6 +11164,20 @@ private fun ToolDetailSettings(
                         default = SettingsDefaults.wikiLinksMarkdown,
                     ) { scope.launch { repository.setWikiLinksMarkdown(it) } }
                 }
+                item {
+                    val linksFormat = stringResource(R.string.values_number)
+                    SliderSetting(
+                        R.string.tooldetail_wiki_link_limit_title,
+                        subtitle = stringResource(R.string.tooldetail_wiki_link_limit_subtitle),
+                        value = settings.toolLimits.wikiLinkLimit.toFloat(),
+                        range = 50f..500f,
+                        display = { linksFormat.format((it / 10f).roundToInt() * 10) },
+                        info = stringResource(R.string.tooldetail_wiki_link_limit_info),
+                        default = SettingsDefaults.toolLimits.wikiLinkLimit.toFloat(),
+                    ) { picked ->
+                        scope.launch { repository.setWikiLinkLimit((picked / 10f).roundToInt() * 10) }
+                    }
+                }
             }
             CaptionText(stringResource(R.string.tooldetail_wiki_info))
         }
@@ -11350,6 +11394,24 @@ private fun ToolDetailSettings(
                 selected = settings.qrEcc,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             ) { level -> scope.launch { repository.setQrEcc(level) } }
+            SettingsGroup {
+                item {
+                    val charsFormat = stringResource(R.string.values_number)
+                    SliderSetting(
+                        R.string.tooldetail_qr_max_chars_title,
+                        subtitle = stringResource(R.string.tooldetail_qr_max_chars_subtitle),
+                        value = settings.toolLimits.qrMaxChars.toFloat(),
+                        range = 500f..4000f,
+                        display = { charsFormat.format((it / 100f).roundToInt() * 100) },
+                        info = stringResource(R.string.tooldetail_qr_max_chars_info),
+                        default = SettingsDefaults.toolLimits.qrMaxChars.toFloat(),
+                    ) { picked ->
+                        scope.launch {
+                            repository.setQrMaxChars((picked / 100f).roundToInt() * 100)
+                        }
+                    }
+                }
+            }
             CaptionText(stringResource(R.string.tooldetail_qr_gen_ecc_info))
         }
         ToolbarTool.PASSWORD_GEN -> {
@@ -11386,6 +11448,17 @@ private fun ToolDetailSettings(
                         settings.passwordGenerator.pwSymbols,
                         default = SettingsDefaults.passwordGenerator.pwSymbols,
                     ) { scope.launch { repository.setPwSymbols(it) } }
+                }
+                if (settings.passwordGenerator.pwSymbols) {
+                    item {
+                        TextFieldSetting(
+                            label = stringResource(R.string.tooldetail_password_pool_label),
+                            value = settings.toolLimits.passwordSymbols,
+                            hint = stringResource(R.string.tooldetail_password_pool_hint),
+                            default = SettingsDefaults.toolLimits.passwordSymbols,
+                        ) { repository.setPasswordSymbols(it) }
+                    }
+                    item { CaptionText(stringResource(R.string.tooldetail_password_pool_info)) }
                 }
                 item {
                     ToggleSetting(

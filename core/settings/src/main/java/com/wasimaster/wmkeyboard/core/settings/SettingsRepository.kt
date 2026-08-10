@@ -23,6 +23,7 @@ import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
+import com.wasimaster.wmkeyboard.core.tools.QrCodeGen
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinFuzzy
@@ -1309,6 +1310,7 @@ data class KeyboardSettings(
     /** Settings-app screen preferences (see [AppUiSettings]). */
     val appUi: AppUiSettings = AppUiSettings(),
     val rows: RowSettings = RowSettings(),
+    val toolLimits: ToolLimitSettings = ToolLimitSettings(),
     /**
      * Language ids whose conjunct clusters backspace as one unit. Per language,
      * not global: someone who types both Bengali and Hindi may well want whole
@@ -2253,6 +2255,39 @@ data class AiSettings(
     val beforeCursorChars: Int = 4_000,
 )
 
+/**
+ * Caps and pools the tools used to hard-code, grouped for the ceiling reason on
+ * [KeyboardSettings.photoBackground]. The flat list is three or four fields from
+ * the JVM limit on `copy$default`, so this domain takes one slot once and
+ * further tool limits cost nothing.
+ */
+data class ToolLimitSettings(
+    /**
+     * How long a weather reading is reused before the tool fetches again, in
+     * minutes. Was 15, hard-coded, while the currency tool exposed its own
+     * cache — so someone watching a storm could not ask for fresher numbers.
+     */
+    val weatherRefreshMinutes: Int = 15,
+    /**
+     * How many outgoing links the Wikipedia tool lists. Was capped at 200 while
+     * the API allows 500, and a longer article's Links tab simply stopped with
+     * nothing to say it had.
+     */
+    val wikiLinkLimit: Int = 200,
+    /**
+     * Longest text the QR tool will encode. Past this the preview refuses, and
+     * 2,000 was fixed: a longer payload is possible at a lower error-correction
+     * level, which is a trade the user should get to make.
+     */
+    val qrMaxChars: Int = QrCodeGen.MAX_CHARS,
+    /**
+     * The symbol pool the password generator draws from. Blank means the built-in
+     * set. Sites that reject particular punctuation forced people to regenerate
+     * repeatedly instead of narrowing it once.
+     */
+    val passwordSymbols: String = "",
+)
+
 /** How the app-launcher grid orders its apps. */
 enum class AppSortOrder { ALPHABETICAL, RECENT_FIRST }
 
@@ -2411,6 +2446,13 @@ data class CameraSettings(
      * three seconds picked it again every time.
      */
     val timerSeconds: Int = 0,
+    /**
+     * Longest edge of a capture, in pixels.
+     *
+     * 1600 for everyone: too little for a photo of a document somebody
+     * needs to read back, and more than a data-saver wants to send.
+     */
+    val captureMaxPx: Int = 1600,
     /** Mirror selfie captures so the photo matches the preview. */
     val mirrorFront: Boolean = true,
     /** Play a shutter click when the camera tool takes a photo. */
@@ -3897,6 +3939,10 @@ class SettingsRepository(private val context: Context) {
         private val THEME_GALLERY_STYLE = stringPreferencesKey("theme_gallery_style")
         private val DEFAULT_WORDLIST_SIZE = stringPreferencesKey("default_wordlist_size")
         private val SYMBOL_ROW_HEIGHT = intPreferencesKey("symbol_row_height")
+        private val WEATHER_REFRESH_MINUTES = intPreferencesKey("weather_refresh_minutes")
+        private val WIKI_LINK_LIMIT = intPreferencesKey("wiki_link_limit")
+        private val QR_MAX_CHARS = intPreferencesKey("qr_max_chars")
+        private val PASSWORD_SYMBOLS = stringPreferencesKey("password_symbols")
         private val MANUAL_MODE_DURATION = stringPreferencesKey("manual_mode_duration")
         private val CONJUNCT_BACKSPACE_LANGUAGES = stringPreferencesKey("conjunct_backspace_languages")
 
@@ -4122,6 +4168,7 @@ class SettingsRepository(private val context: Context) {
         private val WHISPER_TRANSLATE = booleanPreferencesKey("whisper_translate")
         private val CAMERA_PREFER_FRONT = booleanPreferencesKey("camera_prefer_front")
         private val CAMERA_TIMER_SECONDS = intPreferencesKey("camera_timer_seconds")
+        private val CAMERA_CAPTURE_MAX_PX = intPreferencesKey("camera_capture_max_px")
         private val CLIPBOARD_PASTE_CHIP_SECONDS = intPreferencesKey("clipboard_paste_chip_seconds")
         private val LAUNCHER_MAX_RECENTS = intPreferencesKey("launcher_max_recents")
         private val CAMERA_MIRROR_FRONT = booleanPreferencesKey("camera_mirror_front")
@@ -4708,6 +4755,13 @@ class SettingsRepository(private val context: Context) {
                     }
                     ?: defaults.appUi.defaultWordlistSize,
             ),
+            toolLimits = ToolLimitSettings(
+                weatherRefreshMinutes = p[WEATHER_REFRESH_MINUTES]
+                    ?: defaults.toolLimits.weatherRefreshMinutes,
+                wikiLinkLimit = p[WIKI_LINK_LIMIT] ?: defaults.toolLimits.wikiLinkLimit,
+                qrMaxChars = p[QR_MAX_CHARS] ?: defaults.toolLimits.qrMaxChars,
+                passwordSymbols = p[PASSWORD_SYMBOLS] ?: defaults.toolLimits.passwordSymbols,
+            ),
             rows = RowSettings(
                 symbolRowHeightDp = p[SYMBOL_ROW_HEIGHT] ?: defaults.rows.symbolRowHeightDp,
                 manualModeDuration = p[MANUAL_MODE_DURATION]
@@ -5080,6 +5134,7 @@ class SettingsRepository(private val context: Context) {
             camera = CameraSettings(
                 preferFront = p[CAMERA_PREFER_FRONT] ?: defaults.camera.preferFront,
                 timerSeconds = p[CAMERA_TIMER_SECONDS] ?: defaults.camera.timerSeconds,
+                captureMaxPx = p[CAMERA_CAPTURE_MAX_PX] ?: defaults.camera.captureMaxPx,
                 mirrorFront = p[CAMERA_MIRROR_FRONT] ?: defaults.camera.mirrorFront,
                 shutterSound = p[CAMERA_SHUTTER_SOUND] ?: defaults.camera.shutterSound,
                 haptics = p[CAMERA_HAPTICS] ?: defaults.camera.haptics,
@@ -5436,6 +5491,9 @@ class SettingsRepository(private val context: Context) {
         val current = prefs[LAUNCHER_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty()
         if (current.size > cap) prefs[LAUNCHER_RECENTS] = current.take(cap).joinToString("\t")
     }
+
+    suspend fun setCameraCaptureMaxPx(value: Int) =
+        editPrefs { it[CAMERA_CAPTURE_MAX_PX] = value.coerceIn(800, 3200) }
 
     suspend fun setCameraTimerSeconds(value: Int) =
         editPrefs { it[CAMERA_TIMER_SECONDS] = value.coerceIn(0, 10) }
@@ -7978,6 +8036,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setDefaultWordlistSize(value: DictionaryCatalog.DictionarySize) =
         editPrefs { it[DEFAULT_WORDLIST_SIZE] = value.name }
+
+    suspend fun setWeatherRefreshMinutes(value: Int) =
+        editPrefs { it[WEATHER_REFRESH_MINUTES] = value.coerceIn(1, 180) }
+
+    suspend fun setWikiLinkLimit(value: Int) =
+        editPrefs { it[WIKI_LINK_LIMIT] = value.coerceIn(50, 500) }
+
+    suspend fun setQrMaxChars(value: Int) =
+        editPrefs { it[QR_MAX_CHARS] = value.coerceIn(500, 4_000) }
+
+    /** Blank restores the built-in pool; duplicates and whitespace are dropped. */
+    suspend fun setPasswordSymbols(value: String) = editPrefs {
+        it[PASSWORD_SYMBOLS] = value.filterNot { c -> c.isWhitespace() }
+            .toCharArray().distinct().joinToString("")
+    }
 
     suspend fun setSymbolRowHeightDp(value: Int) = editPrefs {
         it[SYMBOL_ROW_HEIGHT] = value.coerceIn(SymbolRowHeightRange.first, SymbolRowHeightRange.last)

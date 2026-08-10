@@ -118,6 +118,7 @@ internal fun PasswordPanel(
         digits = settings.passwordGenerator.pwDigits,
         symbols = settings.passwordGenerator.pwSymbols,
         excludeAmbiguous = settings.passwordGenerator.pwExcludeAmbiguous,
+        symbolPool = settings.toolLimits.passwordSymbols,
     )
     val passphraseMode = settings.passwordGenerator.pwPassphraseMode
     val generated = remember(passphraseMode, passwordSpec, passphraseSpec, wordlist, regenerateKey) {
@@ -397,8 +398,14 @@ internal fun QrGeneratorPanel(
     val kb = LocalKbTheme.current
     val content = state.mediaQuery
     // Preview renders small and cheap; the inserted PNG uses the size setting.
-    val bitmap = remember(content, state.settings.qrEcc) {
-        QrCodeGen.bitmap(content, sizePx = 384, ecc = state.settings.qrEcc.name)
+    val qrMaxChars = state.settings.toolLimits.qrMaxChars
+    val bitmap = remember(content, state.settings.qrEcc, qrMaxChars) {
+        QrCodeGen.bitmap(
+            content,
+            sizePx = 384,
+            ecc = state.settings.qrEcc.name,
+            maxChars = qrMaxChars,
+        )
     }
     // Typing already reaches the content buffer; the ring only needs Send.
     PanelFocusTarget(
@@ -444,7 +451,7 @@ internal fun QrGeneratorPanel(
             if (bitmap == null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        if (content.length > QrCodeGen.MAX_CHARS) {
+                        if (content.length > qrMaxChars) {
                             pluralStringResource(
                                 R.plurals.ime_qr_too_long_error,
                                 content.length,

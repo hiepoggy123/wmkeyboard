@@ -208,4 +208,21 @@ object WeatherClient {
         val names = listOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
         return names[(((degrees % 360) + 360) % 360 + 22) / 45 % 8]
     }
+
+    /**
+     * Wind speed and direction in the same system as the temperature.
+     *
+     * The API answers in km/h and the panel printed that whatever the
+     * temperature unit was, so a US user got 72°F beside 11 km/h — half
+     * imperial and half metric, which is nobody's convention. The unit symbols
+     * and the compass letters stay as they are: they are international.
+     */
+    fun formatWind(windKmh: Double, directionDeg: Int, fahrenheit: Boolean): String {
+        val speed = if (fahrenheit) windKmh * KM_PER_HOUR_IN_MPH else windKmh
+        val unit = if (fahrenheit) "mph" else "km/h"
+        return "${Math.round(speed)} $unit ${windCardinal(directionDeg)}"
+    }
+
+    /** One km/h in mph. */
+    private const val KM_PER_HOUR_IN_MPH = 0.621371
 }

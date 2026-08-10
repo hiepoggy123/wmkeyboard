@@ -288,7 +288,8 @@ private fun CameraContent(
     }
     // Send the whole frame instead of the slice the viewfinder showed.
     val fullFrame = state.settings.camera.fullFrame
-    val imageCapture = remember(fullFrame) {
+    val captureMaxPx = state.settings.camera.captureMaxPx
+    val imageCapture = remember(fullFrame, captureMaxPx) {
         ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             // Chat photos don't need the sensor's full 12+ MP — a bounded
@@ -297,7 +298,7 @@ private fun CameraContent(
                 ResolutionSelector.Builder()
                     .setResolutionStrategy(
                         ResolutionStrategy(
-                            Size(1600, 1600),
+                            Size(captureMaxPx, captureMaxPx),
                             ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
                         )
                     )

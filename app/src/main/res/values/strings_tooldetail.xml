@@ -560,4 +560,24 @@
     <string name="tooldetail_voice_hold_title">Hold to talk</string>
     <string name="tooldetail_voice_hold_subtitle">How long you hold the microphone before it becomes press-and-hold</string>
     <string name="tooldetail_voice_hold_info">A short tap on the microphone starts dictation and leaves it running until you tap again. Holding it instead dictates only while you hold, like a walkie-talkie. This is the line between the two. Raise it if a slow press keeps stopping your dictation, lower it if you mean to hold and it keeps latching on.</string>
+
+    <string name="tooldetail_weather_refresh_title">How often to check</string>
+    <string name="tooldetail_weather_refresh_subtitle">Time before the tool fetches the weather again</string>
+    <string name="tooldetail_weather_refresh_info">The tool reuses the last reading for this long instead of asking the service again, which saves data and battery. Set it shorter if you are watching weather that is changing, longer if you only glance at it. Opening the tool after this time has passed fetches fresh numbers.</string>
+
+    <string name="tooldetail_camera_resolution_title">Photo size</string>
+    <string name="tooldetail_camera_resolution_subtitle">Longest edge of the photos you take</string>
+    <string name="tooldetail_camera_resolution_info">Larger photos hold more detail, which matters for a picture of a document somebody has to read. They also take longer to capture and to send, and use more data. The camera picks the closest size its sensor offers.</string>
+
+    <string name="tooldetail_qr_max_chars_title">Longest text</string>
+    <string name="tooldetail_qr_max_chars_subtitle">How much text the code may hold</string>
+    <string name="tooldetail_qr_max_chars_info">A QR code holds more text at a lower error correction level, and less at a higher one. Raise this to fit a longer link or note; if the code then refuses to build, lower the error correction above, or shorten the text.</string>
+
+    <string name="tooldetail_wiki_link_limit_title">Links per article</string>
+    <string name="tooldetail_wiki_link_limit_subtitle">How many outgoing links the Links tab lists</string>
+    <string name="tooldetail_wiki_link_limit_info">A long article can have hundreds of links. The tool asks for this many and a longer list is cut short. 500 is as many as Wikipedia will return at once.</string>
+
+    <string name="tooldetail_password_pool_label">Symbols to use</string>
+    <string name="tooldetail_password_pool_hint">Leave empty for the usual set</string>
+    <string name="tooldetail_password_pool_info">Some sites accept only a few punctuation marks. Type the ones that site allows and the generator draws from those, so you do not have to generate again and again until a password comes out clean. Leave it empty to use the full set.</string>
 </resources>

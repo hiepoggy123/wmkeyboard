@@ -24,6 +24,13 @@ object PasswordGen {
         val digits: Boolean = true,
         val symbols: Boolean = true,
         val excludeAmbiguous: Boolean = false,
+        /**
+         * The symbol pool to draw from; blank uses the built-in set.
+         *
+         * Sites that reject particular punctuation used to mean generating
+         * again and again until one came out clean, because the pool was fixed.
+         */
+        val symbolPool: String = "",
     )
 
     data class PassphraseSpec(
@@ -40,7 +47,7 @@ object PasswordGen {
             add(pool(LOWER))
             if (spec.upper) add(pool(UPPER))
             if (spec.digits) add(pool(DIGITS))
-            if (spec.symbols) add(pool(SYMBOLS))
+            if (spec.symbols) add(pool(spec.symbolPool.ifBlank { SYMBOLS }))
         }.filter { it.isNotEmpty() }
         val all = pools.joinToString("")
         val length = spec.length.coerceIn(4, 128)
@@ -79,7 +86,7 @@ object PasswordGen {
         var poolSize = LOWER.length
         if (spec.upper) poolSize += UPPER.length
         if (spec.digits) poolSize += DIGITS.length
-        if (spec.symbols) poolSize += SYMBOLS.length
+        if (spec.symbols) poolSize += spec.symbolPool.ifBlank { SYMBOLS }.length
         if (spec.excludeAmbiguous) poolSize -= 8
         return (spec.length.coerceIn(4, 128) * ln(poolSize.toDouble()) / ln(2.0)).roundToInt()
     }
