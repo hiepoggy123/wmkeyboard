@@ -294,4 +294,38 @@
     <string name="layout_editor_apply_action">Apply</string>
     <string name="layout_editor_json_invalid_error">That is not valid layout JSON.</string>
 
+
+    <string name="layout_editor_new_layout_title">Start a new layout</string>
+    <string name="layout_editor_new_layout_subtitle">Begin from an empty grid with the usual rows</string>
+    <string name="layout_editor_new_layout_name">My layout</string>
+
+    <string name="layout_editor_name_title">Name</string>
+    <string name="layout_editor_name_label">Layout name</string>
+
+    <string name="layout_editor_language_title">Language</string>
+    <string name="layout_editor_language_unset">Not set</string>
+
+    <string name="layout_editor_composer_title">Typing method</string>
+    <string name="layout_editor_composer_subtitle">How keystrokes become letters</string>
+    <string name="layout_editor_composer_info">Most layouts should leave this alone: the language you chose above already knows the right method. Set it when this layout types the same language a different way, such as a phonetic grid and a direct grid for one script.</string>
+    <string name="layout_editor_composer_inherit">Follow the language</string>
+    <string name="layout_editor_composer_none">Plain keys</string>
+    <string name="layout_editor_composer_dead_key">Dead keys for accents</string>
+    <string name="layout_editor_composer_transliterate">Phonetic, typed in Latin letters</string>
+    <string name="layout_editor_composer_indic">Indic clusters</string>
+    <string name="layout_editor_composer_hangul">Hangul syllables</string>
+    <string name="layout_editor_composer_telex">Vietnamese Telex</string>
+    <string name="layout_editor_composer_vni">Vietnamese VNI</string>
+    <string name="layout_editor_composer_romaji">Japanese romaji to kana</string>
+    <string name="layout_editor_composer_pinyin">Pinyin</string>
+    <string name="layout_editor_composer_stroke">Stroke (笔画)</string>
+    <string name="layout_editor_composer_t9_pinyin">Pinyin on nine keys (九宫格)</string>
+    <string name="layout_editor_composer_zhuyin">Bopomofo (注音)</string>
+    <string name="layout_editor_composer_cangjie">Cangjie (倉頡)</string>
+    <string name="layout_editor_composer_cangjie_quick">Quick (速成)</string>
+    <string name="layout_editor_composer_jyutping">Jyutping (粵拼)</string>
+
+    <string name="layout_editor_actual_size_title">Preview at your key height</string>
+    <string name="layout_editor_actual_size_subtitle">Draw the grid at the height you actually type at</string>
+    <string name="layout_editor_actual_size_info">The preview normally keeps the keys within a comfortable range so the whole grid fits on this screen. Turn this on to see your real proportions, which matters if you type at a tall key height. The grid may then run off the screen and need scrolling.</string>
 </resources>

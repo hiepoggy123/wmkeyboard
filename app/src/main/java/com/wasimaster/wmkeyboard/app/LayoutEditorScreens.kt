@@ -119,6 +119,7 @@ import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.resolveLayouts
 import com.wasimaster.wmkeyboard.core.layout.sidePadFor
 import com.wasimaster.wmkeyboard.core.layout.validateLayout
+import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.ime.ui.KbTheme
@@ -182,6 +183,65 @@ private fun java.io.InputStream.readBytes(max: Int): ByteArray {
  * field needs the room. Seeded from the character-set guess, which the caller
  * has already put in front of the user as a guess.
  */
+/** Renames a layout. Blank is rejected rather than saved as an unnamed row. */
+@Composable
+private fun LayoutNameDialog(
+    initial: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var text by remember(initial) { mutableStateOf(initial) }
+    val trimmed = text.trim()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.layout_editor_name_title)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                label = { Text(stringResource(R.string.layout_editor_name_label)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = trimmed.isNotEmpty(),
+                onClick = { onConfirm(trimmed) },
+            ) { Text(stringResource(CommonR.string.common_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+}
+
+/**
+ * A composer's name for the override row. Deliberately descriptive rather than
+ * the enum name: "PINYIN" says nothing to someone choosing between a phonetic
+ * and a direct grid.
+ */
+@Composable
+private fun composerLabel(type: ComposerType): String = stringResource(
+    when (type) {
+        ComposerType.NONE -> R.string.layout_editor_composer_none
+        ComposerType.DEAD_KEY -> R.string.layout_editor_composer_dead_key
+        ComposerType.TRANSLITERATE -> R.string.layout_editor_composer_transliterate
+        ComposerType.INDIC_CLUSTER -> R.string.layout_editor_composer_indic
+        ComposerType.HANGUL -> R.string.layout_editor_composer_hangul
+        ComposerType.TELEX -> R.string.layout_editor_composer_telex
+        ComposerType.VNI -> R.string.layout_editor_composer_vni
+        ComposerType.ROMAJI -> R.string.layout_editor_composer_romaji
+        ComposerType.PINYIN -> R.string.layout_editor_composer_pinyin
+        ComposerType.STROKE -> R.string.layout_editor_composer_stroke
+        ComposerType.T9_PINYIN -> R.string.layout_editor_composer_t9_pinyin
+        ComposerType.ZHUYIN -> R.string.layout_editor_composer_zhuyin
+        ComposerType.CANGJIE -> R.string.layout_editor_composer_cangjie
+        ComposerType.CANGJIE_QUICK -> R.string.layout_editor_composer_cangjie_quick
+        ComposerType.JYUTPING -> R.string.layout_editor_composer_jyutping
+    },
+)
+
 @Composable
 private fun ForeignLanguageDialog(
     selected: String,
@@ -385,7 +445,48 @@ internal fun KeyLayoutsScreen(
         }
     }
 
+    /**
+     * A new layout from a four-row skeleton rather than from a copy.
+     *
+     * The empty state said "Copy a layout below", which is fine advice and was
+     * also the only route: building something that is not a rearranged QWERTY
+     * meant duplicating one and deleting thirty keys first. The skeleton is the
+     * default letters grid's shape with blank keys, so the row structure and
+     * the bottom row are already right.
+     */
+    fun createBlankAndEdit() {
+        scope.launch {
+            val id = "custom_${System.currentTimeMillis()}"
+            val name = context.getString(R.string.layout_editor_new_layout_name)
+            val letters = BuiltInLayouts.default.compile(LayoutLayer.LETTERS)
+            val blankRows = letters.rows.map { row ->
+                row.map { key ->
+                    // Only the plain character keys are emptied. Enter, shift,
+                    // space and delete are what make the grid usable while it
+                    // is being filled in, and nobody wants to re-add them.
+                    if (key.action == KeyAction.Text) key.copy(label = "", output = "") else key
+                }
+            }
+            repository.upsertCustomLayout(
+                LayoutSpec(
+                    id = id,
+                    name = name,
+                    layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(rows = blankRows)),
+                ),
+            )
+            openEditor(id)
+        }
+    }
+
     SettingsGroup(stringResource(R.string.layout_editor_your_layouts_title)) {
+        item {
+            WmRow(
+                title = stringResource(R.string.layout_editor_new_layout_title),
+                subtitle = stringResource(R.string.layout_editor_new_layout_subtitle),
+                leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                onClick = { createBlankAndEdit() },
+            )
+        }
         // Every grid the user made, on or off. Filtering to the enabled ones
         // made the two buttons on this very screen — Duplicate and Import —
         // produce a layout that then vanished from it: neither turns its result
@@ -848,6 +949,9 @@ internal fun KeyLayoutEditorScreen(
     var layer by rememberSaveable(layoutId) { mutableStateOf(LayoutLayer.LETTERS) }
     var selection by remember(layoutId, layer) { mutableStateOf<KeyRef?>(null) }
     var showShift by rememberSaveable(layoutId) { mutableStateOf(false) }
+    // Draw the preview at the user's real key height instead of the clamped
+    // one. Off by default because a tall setting pushes the grid off screen.
+    var actualSize by rememberSaveable(layoutId) { mutableStateOf(false) }
     var sheetOpen by remember(layoutId, layer) { mutableStateOf(false) }
 
     // Session-scoped on purpose. Persisting it would mean a second serialized
@@ -974,6 +1078,71 @@ internal fun KeyLayoutEditorScreen(
 
     SectionHeaderPublic(layout.name)
 
+    // A layout's identity: its name, the language it counts as, and the
+    // composer it types through. All three were reachable only by hand-editing
+    // the JSON — the editor printed the name as a header and nothing else, so
+    // every copy of a copy read "X copy copy", and a duplicate of QWERTY could
+    // never be re-languaged even though langId decides its dictionary,
+    // autocorrect, shift behaviour and dictation.
+    var renaming by remember(layoutId) { mutableStateOf(false) }
+    var languagePickerOpen by remember(layoutId) { mutableStateOf(false) }
+    SettingsGroup {
+        item {
+            WmRow(
+                title = stringResource(R.string.layout_editor_name_title),
+                subtitle = layout.name,
+                onClick = { renaming = true },
+            )
+        }
+        item {
+            WmRow(
+                title = stringResource(R.string.layout_editor_language_title),
+                subtitle = layout.langId.takeIf { it.isNotBlank() }
+                    ?.let { LanguageRegistry.byId(it).displayName }
+                    ?: stringResource(R.string.layout_editor_language_unset),
+                onClick = { languagePickerOpen = true },
+            )
+        }
+        item {
+            // Null is "whatever this script normally uses", which is the right
+            // answer for almost every layout; the override exists because a
+            // phonetic and a direct grid for the same language differ only here.
+            val inheritLabel = stringResource(R.string.layout_editor_composer_inherit)
+            ChoiceSetting(
+                title = R.string.layout_editor_composer_title,
+                subtitle = stringResource(R.string.layout_editor_composer_subtitle),
+                options = listOf<Pair<ComposerType?, String>>(null to inheritLabel) +
+                    ComposerType.entries.map { it to composerLabel(it) },
+                selected = layout.composer,
+                info = stringResource(R.string.layout_editor_composer_info),
+            ) { chosen -> edit { it.copy(composer = chosen) } }
+        }
+    }
+
+    if (renaming) {
+        LayoutNameDialog(
+            initial = layout.name,
+            onDismiss = { renaming = false },
+            onConfirm = { typed ->
+                renaming = false
+                edit { it.copy(name = typed) }
+            },
+        )
+    }
+
+    if (languagePickerOpen) {
+        // The same picker the foreign-layout import uses: it searches the whole
+        // registry, which is what re-languaging a duplicate needs.
+        ForeignLanguageDialog(
+            selected = layout.langId,
+            onDismiss = { languagePickerOpen = false },
+            onPick = { id ->
+                languagePickerOpen = false
+                edit { it.copy(langId = id) }
+            },
+        )
+    }
+
     LayerChips(layout, layer) { layer = it; selection = null }
 
     if (layout.layer(layer) == null) {
@@ -1050,6 +1219,7 @@ internal fun KeyLayoutEditorScreen(
         settings = settings,
         selection = selection,
         showShift = showShift,
+        actualSize = actualSize,
         onSelect = { ref ->
             selection = ref
             stepPushed = false
@@ -1152,6 +1322,14 @@ internal fun KeyLayoutEditorScreen(
                 stringResource(R.string.layout_editor_show_shift_subtitle),
                 showShift,
             ) { showShift = it }
+        }
+        item {
+            ToggleSetting(
+                R.string.layout_editor_actual_size_title,
+                stringResource(R.string.layout_editor_actual_size_subtitle),
+                actualSize,
+                info = stringResource(R.string.layout_editor_actual_size_info),
+            ) { actualSize = it }
         }
         item {
             // Layout-wide, like the JSON row below it, rather than layer-scoped
@@ -1458,6 +1636,7 @@ private fun EditorGrid(
     settings: KeyboardSettings,
     selection: KeyRef?,
     showShift: Boolean,
+    actualSize: Boolean,
     onSelect: (KeyRef) -> Unit,
 ) {
     Box(
@@ -1502,6 +1681,7 @@ private fun EditorGrid(
                                     key = key,
                                     kb = kb,
                                     heightDp = settings.keyHeightDp,
+                                    actualSize = actualSize,
                                     selected = selection == KeyRef(r, c),
                                     showShift = showShift,
                                     modifier = Modifier.weight(key.width),
@@ -1521,6 +1701,7 @@ private fun RowScope.EditorKeyCell(
     key: Key,
     kb: KbTheme,
     heightDp: Int,
+    actualSize: Boolean,
     selected: Boolean,
     showShift: Boolean,
     modifier: Modifier = Modifier,
@@ -1536,9 +1717,11 @@ private fun RowScope.EditorKeyCell(
         key.action != KeyAction.Text -> kb.modifierKeyText
         else -> kb.keyText
     }
-    // The user's own key height keeps the preview honest, but a 100dp setting
-    // would put two rows on screen — clamping is cheaper than a zoom control.
-    val height = heightDp.dp.coerceIn(38.dp, 56.dp)
+    // The user's own key height keeps the preview honest, but a 100 dp setting
+    // would put two rows on screen. Clamped by default and exact on request:
+    // someone typing at 70 dp never otherwise saw their real proportions while
+    // editing, which is most of what a preview is for.
+    val height = if (actualSize) heightDp.dp else heightDp.dp.coerceIn(38.dp, 56.dp)
     // Read here rather than inside the ifBlank lambda below, which is not a
     // composable and so cannot reach a resource itself.
     val spaceLabel = stringResource(R.string.layout_editor_space_key_label)
