@@ -188,4 +188,21 @@
     <string name="langemoji_emoji_clear_history_title">Clear emoji history</string>
     <string name="langemoji_emoji_clear_history_subtitle">Forget recents, usage counts, favourites and skin tone picks</string>
     <string name="langemoji_emoji_clear_history_confirm">The history tab empties, your favourites are unpinned, and the skin tone picked for each emoji goes back to the default. Emoji themselves are not affected. This cannot be undone.</string>
+    <string name="langemoji_lang_metered_title">Ask before downloading on mobile data</string>
+    <string name="langemoji_lang_metered_subtitle">Confirm language downloads when you are not on Wi-Fi</string>
+    <string name="langemoji_lang_metered_info">Word lists and dictionary packs can be tens of megabytes, and the Chinese dictionary alone is about 42 MB. With this on, a download over a metered connection asks first and tells you the size. Voice and AI models already ask separately. This setting is on by default.</string>
+
+    <string name="langemoji_lang_autopair_title">Link romanized languages automatically</string>
+    <string name="langemoji_lang_autopair_subtitle">Pair a romanized language with the languages it is typed alongside</string>
+    <string name="langemoji_lang_autopair_info">Adding a romanized language such as Banglish links it with the other languages that share its script, so suggestions come from both. The linking runs every time you add a language, which means a link you removed by hand would come back. Turn this off to keep your own choices. This setting is on by default.</string>
+
+    <string name="langemoji_lang_forget_apps_title">Forget remembered apps</string>
+    <plurals name="langemoji_lang_forget_apps_subtitle">
+        <item quantity="one">One app has a language pinned to it</item>
+        <item quantity="other">%1$d apps have a language pinned to them</item>
+    </plurals>
+    <string name="langemoji_lang_forget_apps_confirm">Every app goes back to following your last used language. The setting that remembers them stays on, so apps will start being remembered again as you switch language inside them.</string>
+    <string name="languages_metered_confirm_title">Download on mobile data?</string>
+    <!-- %1$s is an already formatted size such as "42 MB". -->
+    <string name="languages_metered_confirm_body">This language data is about %1$s. You are not on Wi-Fi, so it will use your mobile data allowance.</string>
 </resources>

@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.net.ConnectivityManager
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -428,6 +429,26 @@ internal fun languageData(langId: String): LanguageData {
 }
 
 /**
+ * Whether a language download should stop and ask first: the user has asked
+ * for the check and the connection is metered.
+ *
+ * Whisper and the local LLM already confirm before a large download. Language
+ * packs and the 42 MB CJK dictionary did not check at all, so a phone on
+ * mobile data could spend it without being asked.
+ */
+@Composable
+internal fun rememberMeteredGuard(settings: KeyboardSettings): () -> Boolean {
+    val context = LocalContext.current
+    return remember(settings.confirmMeteredDownloads) {
+        {
+            settings.confirmMeteredDownloads &&
+                (context.getSystemService(ConnectivityManager::class.java)
+                    ?.isActiveNetworkMetered ?: false)
+        }
+    }
+}
+
+/**
  * Fetches everything [data] offers, as the prompt's Download does.
  *
  * All three managers queue internally and skip what is already on disk, so
@@ -839,11 +860,19 @@ internal fun LanguageDetailScreen(
     // rows below still fetch them one at a time. The size is on the button
     // because pressing it is the consent.
     val downloadable = remember(langId) { languageData(langId) }
+    val meteredGuard = rememberMeteredGuard(settings)
+    var confirmMetered by remember { mutableStateOf(false) }
     if (!downloadable.isEmpty) {
         SettingsGroup(stringResource(R.string.languages_data_title)) {
             item {
                 OutlinedButton(
-                    onClick = { startLanguageDataDownload(filesDir, downloadable) },
+                    onClick = {
+                        if (meteredGuard()) {
+                            confirmMetered = true
+                        } else {
+                            startLanguageDataDownload(filesDir, downloadable)
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
@@ -858,6 +887,31 @@ internal fun LanguageDetailScreen(
             }
             item { CaptionText(stringResource(R.string.languages_data_download_all_info)) }
         }
+    }
+    if (confirmMetered) {
+        AlertDialog(
+            onDismissRequest = { confirmMetered = false },
+            title = { Text(stringResource(R.string.languages_metered_confirm_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.languages_metered_confirm_body,
+                        formatBytes(downloadable.bytes),
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmMetered = false
+                    startLanguageDataDownload(filesDir, downloadable)
+                }) { Text(stringResource(CommonR.string.common_download)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmMetered = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
     }
 
     val wordlistEntries = DictionaryCatalog.forLanguage(langId)

@@ -1057,6 +1057,32 @@ data class KeyboardSettings(
      * way — they are the megabyte-sized ones, so they are always a choice.
      */
     val autoDownloadLanguageData: Boolean = true,
+    /**
+     * Ask before fetching language data over a metered connection.
+     *
+     * On by default. Whisper and the local LLM already confirm before a large
+     * download; language packs and the 42 MB CJK dictionary did not check at
+     * all, so a phone on mobile data could spend it without being asked.
+     */
+    val confirmMeteredDownloads: Boolean = true,
+    /**
+     * Re-link romanized languages with the languages of their own script
+     * every time a language is added (see [RomanizedPairing]).
+     *
+     * On by default, which is the long-standing behaviour and right for
+     * almost everyone. Off matters for the user who deliberately unlinks a
+     * pair: the auto-pairing runs on every add, so their removed link came
+     * back the next time they touched the language list.
+     */
+    val autoPairRomanized: Boolean = true,
+    /**
+     * How long a Morse key has to stay quiet before the letter commits, in ms.
+     *
+     * 750 was a constant, and it is the one number that decides whether the
+     * layout is usable: a slow or motor-impaired user loses sequences
+     * mid-letter, and a fast one waits. See [MorseCommitMsRange].
+     */
+    val morseCommitMs: Int = 750,
     /** Emoji look on the keyboard: system pack, Noto (stock Android), or custom. */
     val emojiFont: EmojiFontChoice = EmojiFontChoice.SYSTEM,
     /** Which library face [EmojiFontChoice.INSTALLED] uses; see [EmojiFontSettings]. */
@@ -2403,6 +2429,9 @@ data class PerAppLanguageSettings(
     val layoutByPackage: Map<String, String> = emptyMap(),
 )
 
+/** Bounds for the Morse commit pause, in ms; the settings slider shares them. */
+val MorseCommitMsRange = 300..2000
+
 /** How many languages the user said they type in during onboarding. */
 enum class PersonaLanguages { UNSET, ONE, MANY }
 
@@ -3483,6 +3512,10 @@ class SettingsRepository(private val context: Context) {
         private const val DEFAULT_FONT_ID = "default"
         private val LEXICON_VERSION = intPreferencesKey("lexicon_version")
         private val CUSTOM_DICT_VERSION = intPreferencesKey("custom_dict_version")
+        private val CONFIRM_METERED_DOWNLOADS =
+            booleanPreferencesKey("confirm_metered_downloads")
+        private val AUTO_PAIR_ROMANIZED = booleanPreferencesKey("auto_pair_romanized")
+        private val MORSE_COMMIT_MS = intPreferencesKey("morse_commit_ms")
         private val AUTO_DOWNLOAD_LANGUAGE_DATA =
             booleanPreferencesKey("auto_download_language_data")
         private val EMOJI_FONT = stringPreferencesKey("emoji_font")
@@ -4290,6 +4323,11 @@ class SettingsRepository(private val context: Context) {
             customDictVersion = p[CUSTOM_DICT_VERSION] ?: defaults.customDictVersion,
             autoDownloadLanguageData = p[AUTO_DOWNLOAD_LANGUAGE_DATA]
                 ?: defaults.autoDownloadLanguageData,
+            confirmMeteredDownloads = p[CONFIRM_METERED_DOWNLOADS]
+                ?: defaults.confirmMeteredDownloads,
+            autoPairRomanized = p[AUTO_PAIR_ROMANIZED] ?: defaults.autoPairRomanized,
+            morseCommitMs = p[MORSE_COMMIT_MS]?.coerceIn(MorseCommitMsRange)
+                ?: defaults.morseCommitMs,
             emojiFont = p[EMOJI_FONT]
                 ?.let { runCatching { EmojiFontChoice.valueOf(it) }.getOrNull() }
                 ?: defaults.emojiFont,
@@ -5628,6 +5666,9 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun autoPairRomanizedSecondaries(): List<Pair<String, String>> {
         val current = settings.first()
+        // Off means a link the user removed by hand stays removed, instead of
+        // coming back the next time any language is added.
+        if (!current.autoPairRomanized) return emptyList()
         val result = RomanizedPairing.autoPair(
             current.enabledLanguages,
             current.secondaryLanguages,
@@ -6878,6 +6919,24 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAutoDownloadLanguageData(value: Boolean) =
         editPrefs { it[AUTO_DOWNLOAD_LANGUAGE_DATA] = value }
+
+    suspend fun setConfirmMeteredDownloads(value: Boolean) =
+        editPrefs { it[CONFIRM_METERED_DOWNLOADS] = value }
+
+    suspend fun setAutoPairRomanized(value: Boolean) =
+        editPrefs { it[AUTO_PAIR_ROMANIZED] = value }
+
+    suspend fun setMorseCommitMs(value: Int) =
+        editPrefs { it[MORSE_COMMIT_MS] = value.coerceIn(MorseCommitMsRange) }
+
+    /**
+     * Forgets every app's remembered layout, leaving the feature on.
+     *
+     * The map is written invisibly as you switch language inside an app, has
+     * no viewer, and had no way out: one accidental switch pinned that app to
+     * the wrong language for good.
+     */
+    suspend fun clearPerAppLayouts() = editPrefs { it.remove(PER_APP_LAYOUT_MAP) }
 
     suspend fun setEmojiAutoDownloadKeywords(value: Boolean) =
         editPrefs { it[EMOJI_AUTO_DOWNLOAD_KEYWORDS] = value }

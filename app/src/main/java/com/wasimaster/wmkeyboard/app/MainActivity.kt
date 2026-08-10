@@ -6084,6 +6084,38 @@ private fun LanguageSettings(
                 default = SettingsDefaults.autoDownloadLanguageData,
             ) { scope.launch { repository.setAutoDownloadLanguageData(it) } }
         }
+        item {
+            ToggleSetting(
+                R.string.langemoji_lang_metered_title,
+                stringResource(R.string.langemoji_lang_metered_subtitle),
+                settings.confirmMeteredDownloads,
+                info = stringResource(R.string.langemoji_lang_metered_info),
+                default = SettingsDefaults.confirmMeteredDownloads,
+            ) { scope.launch { repository.setConfirmMeteredDownloads(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.langemoji_lang_autopair_title,
+                stringResource(R.string.langemoji_lang_autopair_subtitle),
+                settings.autoPairRomanized,
+                info = stringResource(R.string.langemoji_lang_autopair_info),
+                default = SettingsDefaults.autoPairRomanized,
+            ) { scope.launch { repository.setAutoPairRomanized(it) } }
+        }
+        if (settings.perAppLanguage.layoutByPackage.isNotEmpty()) {
+            item {
+                ActionRow(
+                    title = R.string.langemoji_lang_forget_apps_title,
+                    subtitle = pluralStringResource(
+                        R.plurals.langemoji_lang_forget_apps_subtitle,
+                        settings.perAppLanguage.layoutByPackage.size,
+                        settings.perAppLanguage.layoutByPackage.size,
+                    ),
+                    action = stringResource(CommonR.string.common_clear),
+                    confirm = stringResource(R.string.langemoji_lang_forget_apps_confirm),
+                ) { scope.launch { repository.clearPerAppLayouts() } }
+            }
+        }
     }
     // Reorder the switch ring (spacebar swipe / 🌐 cycle) across every enabled
     // layout, not just languages, so AZERTY and QWERTY keep distinct slots.

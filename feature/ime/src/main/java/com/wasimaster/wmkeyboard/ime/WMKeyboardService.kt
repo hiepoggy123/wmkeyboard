@@ -3834,7 +3834,8 @@ open class WMKeyboardService : InputMethodService() {
 
     /**
      * One morse signal. The sequence accumulates in [morse] and the decoded
-     * character commits after [MORSE_COMMIT_MS] of silence, Gboard's model;
+     * character commits after [KeyboardSettings.morseCommitMs] of silence,
+     * Gboard's model;
      * every signal restarts the pause. A non-morse key flushes the pending
      * sequence first (see [onKey]) and backspace edits it (see [onDelete]),
      * so the timer never races the user's next intent.
@@ -3844,7 +3845,7 @@ open class WMKeyboardService : InputMethodService() {
         _uiState.update { it.copy(morsePending = morse.display) }
         morseJob?.cancel()
         morseJob = serviceScope.launch {
-            delay(MORSE_COMMIT_MS)
+            delay(_uiState.value.settings.morseCommitMs.toLong())
             commitMorse()
         }
     }
@@ -4542,7 +4543,7 @@ open class WMKeyboardService : InputMethodService() {
             morseJob?.cancel()
             morseJob = if (morse.isPending) {
                 serviceScope.launch {
-                    delay(MORSE_COMMIT_MS)
+                    delay(_uiState.value.settings.morseCommitMs.toLong())
                     commitMorse()
                 }
             } else {
@@ -15755,7 +15756,6 @@ open class WMKeyboardService : InputMethodService() {
          * to finish a five-signal digit, short enough that typing doesn't feel
          * like waiting for the keyboard.
          */
-        private const val MORSE_COMMIT_MS = 750L
 
         /** How long the SOS easter-egg note stays on the strip. */
         private const val MORSE_SOS_EGG_MS = 5000L
