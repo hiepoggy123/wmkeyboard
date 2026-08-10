@@ -144,7 +144,7 @@ platform :android do
 
   desc "Validate the service-account key against the Play API without changing anything"
   lane :check_key do
-    validate_play_json_key
+    validate_play_store_json_key
     UI.success("Play API key works")
   end
 end
