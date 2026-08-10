@@ -224,15 +224,29 @@
     <string name="backup_auto_folder_none">Not set</string>
     <string name="backup_auto_folder_denied">The app cannot write to that folder. Choose another one.</string>
     <string name="backup_auto_enabled_title">Back up automatically</string>
-    <string name="backup_auto_enabled_subtitle">The app writes a backup while your device charges.</string>
+    <string name="backup_auto_enabled_subtitle">The app writes a backup on a timer.</string>
     <string name="backup_auto_enabled_needs_folder">Choose a folder first.</string>
     <string name="backup_auto_interval_title">How often</string>
-    <string name="backup_auto_interval_6">6 hours</string>
-    <string name="backup_auto_interval_12">12 hours</string>
-    <string name="backup_auto_interval_24">1 day</string>
-    <string name="backup_auto_interval_week">1 week</string>
+    <plurals name="backup_auto_interval_hours">
+        <item quantity="one">Every hour</item>
+        <item quantity="other">Every %d hours</item>
+    </plurals>
+    <plurals name="backup_auto_interval_days">
+        <item quantity="one">Every day</item>
+        <item quantity="other">Every %d days</item>
+    </plurals>
     <string name="backup_auto_keep_title">Backups to keep</string>
     <string name="backup_auto_keep_subtitle">The app deletes the oldest backup when there are more than this. It keeps the newest one always.</string>
+    <plurals name="backup_auto_keep_value">
+        <item quantity="one">%d backup</item>
+        <item quantity="other">%d backups</item>
+    </plurals>
+    <string name="backup_auto_unmetered_title">Only on Wi-Fi</string>
+    <string name="backup_auto_unmetered_subtitle">Wait for a connection that costs you nothing</string>
+    <string name="backup_auto_unmetered_info">A backup can be a few megabytes, and it goes out every time the timer comes round. With this on, the app waits for Wi-Fi, or for any other connection that Android does not count as metered. With it off, a backup goes out over mobile data as soon as it is due. This setting does nothing when you back up to a folder, because a folder is storage on your own device and needs no connection at all. This setting is on by default.</string>
+    <string name="backup_auto_charging_title">Only while charging</string>
+    <string name="backup_auto_charging_subtitle">Wait until your device is plugged in</string>
+    <string name="backup_auto_charging_info">This is what the app always did. Turn it off if you rarely charge your device for long enough, because a backup that never finds a charger never runs, and nothing tells you that it did not. The work itself is a few seconds of copying, so it costs little battery.</string>
     <string name="backup_auto_encrypt_title">Protect with a passphrase</string>
     <string name="backup_auto_encrypt_subtitle">The app encrypts each backup. You need the passphrase to restore one.</string>
     <string name="backup_auto_encrypt_info">The app stores the passphrase on this device, because an automatic backup has nobody to type it. This protects the backup file where it goes, for example in a cloud folder. It does not protect it from a person who holds your unlocked device. Write the passphrase down: without it, a backup cannot be restored.</string>

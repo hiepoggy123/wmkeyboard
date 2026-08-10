@@ -1930,11 +1930,31 @@ data class AutoBackupSettings(
      */
     val folderUri: String = "",
 
-    /** Wall-clock hours between runs. */
+    /** Wall-clock hours between runs. See [AutoBackupIntervals]. */
     val intervalHours: Int = 24,
 
     /** How many generations survive rotation. The newest is never one of them. */
     val keep: Int = 5,
+
+    /**
+     * Whether the job waits for an unmetered network.
+     *
+     * On, because the alternative is a daily upload to S3, WebDAV or Drive out
+     * of somebody's mobile data with nothing anywhere saying so. Ignored for
+     * [BackupDestination.FOLDER], which needs no network at all — see
+     * [needsNetwork].
+     */
+    val requireUnmetered: Boolean = true,
+
+    /**
+     * Whether the job waits for the charger.
+     *
+     * On, which is what it always silently was. Worth being able to turn off:
+     * a phone that is charged in the car and never overnight would otherwise
+     * never reach the end of a period awake and plugged in, and get no backups
+     * at all without ever reporting a failure.
+     */
+    val requireCharging: Boolean = true,
 
     /**
      * Which parts of the bundle go in, as [ConfigBackup.Section] ids.
@@ -2013,6 +2033,43 @@ val AutoBackupSettings.sectionSet: Set<ConfigBackup.Section>
     get() = ConfigBackup.Section.entries.filterTo(LinkedHashSet()) { it.id in sections }
 
 /**
+ * Every file under `filesDir` that holds something learned from typing, for
+ * [SettingsRepository.clearLearnedData].
+ *
+ * A list rather than four literals at the call site because the set has grown
+ * twice and both times a caller was missed: the language-mix signal survived
+ * the Privacy screen's delete entirely, so a wipe left the keyboard still
+ * guessing which language a user mixes.
+ */
+val LEARNED_DATA_FILES = listOf(
+    "learning/user_lexicon.json",
+    "learning/emoji_usage.json",
+    "learning/correction_stats.json",
+    "learning/cjk_history.json",
+    "learning/language_mix.json",
+)
+
+/**
+ * The hour values [AutoBackupSettings.intervalHours] can be set to.
+ *
+ * A ladder rather than a plain 1..168 range: a slider that wide makes the value
+ * almost everyone wants — once a day — a pixel-perfect drag. Every hour up to
+ * six, then the round divisors of a day, then whole days out to a week. Wide
+ * enough for the two-hourly and the fortnightly-quota cases the old fixed list
+ * of four refused, without pretending anyone needs to pick 137.
+ */
+val AutoBackupIntervals = listOf(1, 2, 3, 4, 6, 8, 12, 18, 24, 36, 48, 72, 96, 120, 168)
+
+/**
+ * What [AutoBackupSettings.keep] can be set to.
+ *
+ * Ordinary integers, so a slider lands on each one. The ceiling is a rotation
+ * that keeps a month of dailies; the floor keeps one previous generation, since
+ * the newest is never counted.
+ */
+val AutoBackupKeepRange = 1..30
+
+/**
  * Whether the chosen destination has everything it needs to be tried.
  *
  * Not whether it will work: a folder grant can be revoked and a password can be
@@ -2038,6 +2095,18 @@ val AutoBackupSettings.destinationConfigured: Boolean
         BackupDestination.ONEDRIVE -> oneDriveRefreshToken.isNotEmpty()
         BackupDestination.FTP -> ftp.host.isNotEmpty() && ftp.user.isNotEmpty()
     }
+
+/**
+ * Whether reaching this destination costs data.
+ *
+ * [BackupDestination.FOLDER] is the odd one: a `DocumentsProvider` is usually
+ * local storage, so demanding a network for it would mean an offline phone
+ * never backing up to its own SD card. It can be backed by a cloud provider's
+ * app, but the app on the other side of that grant does its own syncing on its
+ * own terms, and we cannot see which case we are in.
+ */
+val BackupDestination.needsNetwork: Boolean
+    get() = this != BackupDestination.FOLDER
 
 /**
  * AI-tool settings, grouped rather than flat because [KeyboardSettings] sits against
@@ -3757,6 +3826,8 @@ class SettingsRepository(private val context: Context) {
             stringPreferencesKey(SettingsBackup.AUTO_BACKUP_FOLDER_URI)
         private val AUTO_BACKUP_INTERVAL_HOURS = intPreferencesKey("auto_backup_interval_hours")
         private val AUTO_BACKUP_KEEP = intPreferencesKey("auto_backup_keep")
+        private val AUTO_BACKUP_UNMETERED = booleanPreferencesKey("auto_backup_unmetered")
+        private val AUTO_BACKUP_CHARGING = booleanPreferencesKey("auto_backup_charging")
         private val AUTO_BACKUP_SECTIONS = stringSetPreferencesKey("auto_backup_sections")
         private val AUTO_BACKUP_INCLUDE_SECRETS =
             booleanPreferencesKey("auto_backup_include_secrets")
@@ -4571,6 +4642,10 @@ class SettingsRepository(private val context: Context) {
                 intervalHours = p[AUTO_BACKUP_INTERVAL_HOURS]
                     ?: defaults.autoBackup.intervalHours,
                 keep = p[AUTO_BACKUP_KEEP] ?: defaults.autoBackup.keep,
+                requireUnmetered = p[AUTO_BACKUP_UNMETERED]
+                    ?: defaults.autoBackup.requireUnmetered,
+                requireCharging = p[AUTO_BACKUP_CHARGING]
+                    ?: defaults.autoBackup.requireCharging,
                 // Absent means never chosen, so the defaults stand. An empty
                 // set is a choice — every section turned off — and round-trips
                 // as one, because the setter writes the key either way.
@@ -6977,6 +7052,30 @@ class SettingsRepository(private val context: Context) {
         bumpEmojiUsageVersion()
     }
 
+    /**
+     * Wipes everything the keyboard picked up from typing: the learned-word
+     * lexicon, the emoji history, autocorrect's revert memory and the
+     * language-mix signal.
+     *
+     * Bumps [KeyboardSettings.lexiconVersion], which is the signal a running
+     * keyboard watches to drop all of those in-memory copies at once. Deleting
+     * the files without it looks like it worked and then loses: the keyboard
+     * still holds the old data and writes it straight back on its next save.
+     * That is what the Privacy screen's button did before this existed, and
+     * why the Storage screen's delete has always bumped.
+     *
+     * The Chinese, Japanese and Cantonese history is one of these files, but
+     * its store lives in `:core:input`, which this module does not depend on,
+     * so the caller clears that copy itself.
+     */
+    suspend fun clearLearnedData() {
+        for (path in LEARNED_DATA_FILES) {
+            runCatching { File(context.filesDir, path).delete() }
+        }
+        bumpLexiconVersion()
+        bumpEmojiUsageVersion()
+    }
+
     suspend fun setEmojiFont(value: EmojiFontChoice) =
         editPrefs { it[EMOJI_FONT] = value.name }
 
@@ -7872,6 +7971,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAutoBackupKeep(value: Int) =
         editPrefs { it[AUTO_BACKUP_KEEP] = value.coerceIn(1, 50) }
+
+    suspend fun setAutoBackupRequireUnmetered(value: Boolean) =
+        editPrefs { it[AUTO_BACKUP_UNMETERED] = value }
+
+    suspend fun setAutoBackupRequireCharging(value: Boolean) =
+        editPrefs { it[AUTO_BACKUP_CHARGING] = value }
 
     /** Writes the key even when [value] is empty: an empty set is a choice. */
     suspend fun setAutoBackupSections(value: Set<ConfigBackup.Section>) =

@@ -56,14 +56,33 @@ object AutoBackupScheduler {
         }
 
         val intervalMs = settings.intervalHours.coerceAtLeast(1) * HOUR_MS
-        if (pending != null && pending.intervalMillis == intervalMs) return
+        // Only the destinations that go over the wire wait for a network; a SAF
+        // folder is usually local storage, and an offline phone should still be
+        // able to back up to its own card.
+        val networkType = if (settings.requireUnmetered && settings.destination.needsNetwork) {
+            JobInfo.NETWORK_TYPE_UNMETERED
+        } else {
+            JobInfo.NETWORK_TYPE_NONE
+        }
+        // The constraints belong in this comparison as much as the period does.
+        // Left out, turning the charging requirement off would write the
+        // setting, leave the old job in place, and change nothing the user can
+        // see — the worst shape a settings bug takes.
+        if (pending != null &&
+            pending.intervalMillis == intervalMs &&
+            pending.isRequireCharging == settings.requireCharging &&
+            pending.networkType == networkType
+        ) {
+            return
+        }
 
         val job = JobInfo.Builder(JOB_ID, ComponentName(context.packageName, SERVICE_CLASS))
             .setPeriodic(intervalMs)
-            // Charging only, deliberately without `setRequiresDeviceIdle`.
-            // Both together is what makes the platform's own backups so hard to
-            // predict, and the work here is a few seconds of file copying.
-            .setRequiresCharging(true)
+            // Deliberately without `setRequiresDeviceIdle`. Idle plus charging
+            // is what makes the platform's own backups so hard to predict, and
+            // the work here is a few seconds of file copying.
+            .setRequiresCharging(settings.requireCharging)
+            .setRequiredNetworkType(networkType)
             .setBackoffCriteria(BACKOFF_MS, JobInfo.BACKOFF_POLICY_LINEAR)
             .build()
         runCatching { scheduler.schedule(job) }

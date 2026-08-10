@@ -92,6 +92,9 @@
 
     <string name="privacy_data_group_title">Your data</string>
     <string name="privacy_delete_learned_words_action">Delete the learned words</string>
+    <string name="privacy_delete_learned_words_title">Learned words</string>
+    <string name="privacy_delete_learned_words_subtitle">Everything the keyboard picked up from your typing</string>
+    <string name="privacy_delete_learned_words_confirm">This deletes every word that the keyboard learned from you, your emoji history, the corrections that you undid, and your Chinese, Japanese and Cantonese picks. Your personal dictionary, your snippets and your imported word lists stay. This cannot be undone.</string>
 
     <!-- Caption at the end of the Privacy screen. -->
     <string name="privacy_on_device_info">Typing works fully on this device. The word lists, prediction, autocorrect, transliteration and emoji search are part of the app, and none of them needs a network connection. The app has no telemetry and no analytics. Only a tool uses the network, and only at the moment that you press it: translate, weather, web search, image search, GIFs, stickers, dictionary lookup and the AI tools. You can turn off each one of them on the Tools screen.</string>

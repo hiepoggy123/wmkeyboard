@@ -301,6 +301,8 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.LanguageDetectionStrength
 import com.wasimaster.wmkeyboard.core.settings.DefaultKeyboardModes
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolbarTools
+import com.wasimaster.wmkeyboard.core.settings.AutoBackupIntervals
+import com.wasimaster.wmkeyboard.core.settings.AutoBackupKeepRange
 import com.wasimaster.wmkeyboard.core.settings.AutoBackupRunner
 import com.wasimaster.wmkeyboard.core.settings.AutoBackupScheduler
 import com.wasimaster.wmkeyboard.core.settings.AutoBackupSettings
@@ -311,6 +313,7 @@ import com.wasimaster.wmkeyboard.core.settings.DEFAULT_LONG_PRESS_LETTERS
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.LongPressLetterActions
 import com.wasimaster.wmkeyboard.core.settings.destinationConfigured
+import com.wasimaster.wmkeyboard.core.settings.needsNetwork
 import com.wasimaster.wmkeyboard.core.settings.sectionSet
 import com.wasimaster.wmkeyboard.core.settings.sink.BackupClients
 import com.wasimaster.wmkeyboard.core.settings.sink.S3Sink
@@ -7157,6 +7160,32 @@ private sealed interface PendingImport {
     data class Legacy(override val text: String) : PendingImport
 }
 
+/**
+ * Where [hours] sits on [AutoBackupIntervals], for the slider's thumb.
+ *
+ * Nearest rather than exact: a value stored before the ladder existed, or by a
+ * restored backup from a build with a different one, still has to put the thumb
+ * somewhere sensible instead of snapping to the first stop.
+ */
+private fun intervalSliderIndex(hours: Int): Int =
+    AutoBackupIntervals.indices.minBy { kotlin.math.abs(AutoBackupIntervals[it] - hours) }
+
+/** The ladder value under a slider position. */
+private fun intervalAt(index: Float): Int =
+    AutoBackupIntervals[index.roundToInt().coerceIn(AutoBackupIntervals.indices)]
+
+/** "Every 6 hours", "Every day", "Every 3 days". */
+private fun backupIntervalLabel(context: Context, hours: Int): String =
+    if (hours % 24 == 0) {
+        context.resources.getQuantityString(
+            R.plurals.backup_auto_interval_days,
+            hours / 24,
+            hours / 24,
+        )
+    } else {
+        context.resources.getQuantityString(R.plurals.backup_auto_interval_hours, hours, hours)
+    }
+
 /** One sentence for a recorded failure, or null when the last run was fine. */
 private fun autoBackupErrorText(context: Context, error: String): String? = when (error) {
     "" -> null
@@ -7671,31 +7700,75 @@ private fun AutoBackupGroup(
         }
         if (auto.enabled && configured) {
             item {
-                ChoiceSetting(
+                // The slider walks the ladder by index, so every stop is a value
+                // somebody would choose and one a drag can actually land on. A
+                // plain 1..168 range makes "once a day" a pixel-hunt.
+                SliderSetting(
                     R.string.backup_auto_interval_title,
-                    options = listOf(
-                        6 to stringResource(R.string.backup_auto_interval_6),
-                        12 to stringResource(R.string.backup_auto_interval_12),
-                        24 to stringResource(R.string.backup_auto_interval_24),
-                        24 * 7 to stringResource(R.string.backup_auto_interval_week),
-                    ),
-                    selected = auto.intervalHours,
-                    default = SettingsDefaults.autoBackup.intervalHours,
-                ) { hours ->
+                    value = intervalSliderIndex(auto.intervalHours).toFloat(),
+                    range = 0f..(AutoBackupIntervals.size - 1).toFloat(),
+                    display = { backupIntervalLabel(context, intervalAt(it)) },
+                    default = intervalSliderIndex(
+                        SettingsDefaults.autoBackup.intervalHours,
+                    ).toFloat(),
+                ) { index ->
                     scope.launch {
-                        repository.setAutoBackupIntervalHours(hours)
+                        repository.setAutoBackupIntervalHours(intervalAt(index))
                         AutoBackupScheduler.sync(context, repository.settings.first().autoBackup)
                     }
                 }
             }
             item {
-                ChoiceSetting(
+                SliderSetting(
                     R.string.backup_auto_keep_title,
                     subtitle = stringResource(R.string.backup_auto_keep_subtitle),
-                    options = listOf(3 to "3", 5 to "5", 10 to "10"),
-                    selected = auto.keep,
-                    default = SettingsDefaults.autoBackup.keep,
-                ) { keep -> scope.launch { repository.setAutoBackupKeep(keep) } }
+                    value = auto.keep.toFloat(),
+                    range = AutoBackupKeepRange.first.toFloat()..
+                        AutoBackupKeepRange.last.toFloat(),
+                    display = { kept ->
+                        context.resources.getQuantityString(
+                            R.plurals.backup_auto_keep_value,
+                            kept.roundToInt(),
+                            kept.roundToInt(),
+                        )
+                    },
+                    default = SettingsDefaults.autoBackup.keep.toFloat(),
+                ) { kept -> scope.launch { repository.setAutoBackupKeep(kept.roundToInt()) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.backup_auto_charging_title,
+                    stringResource(R.string.backup_auto_charging_subtitle),
+                    auto.requireCharging,
+                    info = stringResource(R.string.backup_auto_charging_info),
+                    default = SettingsDefaults.autoBackup.requireCharging,
+                ) { on ->
+                    scope.launch {
+                        repository.setAutoBackupRequireCharging(on)
+                        AutoBackupScheduler.sync(context, repository.settings.first().autoBackup)
+                    }
+                }
+            }
+            // A folder is storage on this device, so a network requirement there
+            // would only ever stop a backup that costs nothing.
+            if (auto.destination.needsNetwork) {
+                item {
+                    ToggleSetting(
+                        R.string.backup_auto_unmetered_title,
+                        stringResource(R.string.backup_auto_unmetered_subtitle),
+                        auto.requireUnmetered,
+                        info = stringResource(R.string.backup_auto_unmetered_info),
+                        default = SettingsDefaults.autoBackup.requireUnmetered,
+                    ) { on ->
+                        scope.launch {
+                            repository.setAutoBackupRequireUnmetered(on)
+                            AutoBackupScheduler.sync(
+                                context,
+                                repository.settings.first().autoBackup,
+                            )
+                        }
+                    }
+                }
             }
         }
         item {
@@ -7902,6 +7975,8 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                 R.string.backup_section_settings_label,
                 stringResource(R.string.backup_include_settings_subtitle),
                 ConfigBackup.Section.SETTINGS in sections,
+                default = ConfigBackup.Section.SETTINGS.id in
+                    AutoBackupSettings.DEFAULT_SECTIONS,
             ) { setSection(ConfigBackup.Section.SETTINGS, it) }
         }
         if (ConfigBackup.Section.SETTINGS in sections) {
@@ -7911,6 +7986,7 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                     stringResource(R.string.backup_include_secrets_subtitle),
                     includeSecrets,
                     info = stringResource(R.string.backup_include_secrets_info),
+                    default = SettingsDefaults.autoBackup.includeSecrets,
                 ) { on -> scope.launch { repository.setAutoBackupIncludeSecrets(on) } }
             }
         }
@@ -7919,6 +7995,8 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                 R.string.backup_section_themes_label,
                 stringResource(R.string.backup_include_themes_subtitle),
                 ConfigBackup.Section.THEMES in sections,
+                default = ConfigBackup.Section.THEMES.id in
+                    AutoBackupSettings.DEFAULT_SECTIONS,
                 info = stringResource(R.string.backup_include_themes_info),
             ) { setSection(ConfigBackup.Section.THEMES, it) }
         }
@@ -7927,6 +8005,8 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                 R.string.backup_section_dictionary_label,
                 stringResource(R.string.backup_include_dictionary_subtitle),
                 ConfigBackup.Section.DICTIONARY in sections,
+                default = ConfigBackup.Section.DICTIONARY.id in
+                    AutoBackupSettings.DEFAULT_SECTIONS,
                 info = stringResource(R.string.backup_include_dictionary_info),
             ) { setSection(ConfigBackup.Section.DICTIONARY, it) }
         }
@@ -7935,6 +8015,8 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                 R.string.backup_section_clipboard_label,
                 stringResource(R.string.backup_include_clipboard_subtitle),
                 ConfigBackup.Section.CLIPBOARD in sections,
+                default = ConfigBackup.Section.CLIPBOARD.id in
+                    AutoBackupSettings.DEFAULT_SECTIONS,
                 info = stringResource(R.string.backup_include_clipboard_info),
             ) { setSection(ConfigBackup.Section.CLIPBOARD, it) }
         }
@@ -7943,6 +8025,8 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                 R.string.backup_section_snippets_label,
                 stringResource(R.string.backup_include_snippets_subtitle),
                 ConfigBackup.Section.SNIPPETS in sections,
+                default = ConfigBackup.Section.SNIPPETS.id in
+                    AutoBackupSettings.DEFAULT_SECTIONS,
             ) { setSection(ConfigBackup.Section.SNIPPETS, it) }
         }
         item {
@@ -7950,6 +8034,8 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                 R.string.backup_section_stickers_label,
                 stringResource(R.string.backup_include_stickers_subtitle),
                 ConfigBackup.Section.STICKERS in sections,
+                default = ConfigBackup.Section.STICKERS.id in
+                    AutoBackupSettings.DEFAULT_SECTIONS,
                 info = stringResource(R.string.backup_include_stickers_info),
             ) { setSection(ConfigBackup.Section.STICKERS, it) }
         }
@@ -7958,6 +8044,8 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                 R.string.backup_section_icons_label,
                 stringResource(R.string.backup_include_icons_subtitle),
                 ConfigBackup.Section.ICONS in sections,
+                default = ConfigBackup.Section.ICONS.id in
+                    AutoBackupSettings.DEFAULT_SECTIONS,
                 info = stringResource(R.string.backup_include_icons_info),
             ) { setSection(ConfigBackup.Section.ICONS, it) }
         }
@@ -7966,6 +8054,8 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                 R.string.backup_section_wordlists_label,
                 stringResource(R.string.backup_include_wordlists_subtitle),
                 ConfigBackup.Section.WORDLISTS in sections,
+                default = ConfigBackup.Section.WORDLISTS.id in
+                    AutoBackupSettings.DEFAULT_SECTIONS,
             ) { setSection(ConfigBackup.Section.WORDLISTS, it) }
         }
         item {
@@ -7973,6 +8063,8 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                 R.string.backup_section_addons_label,
                 stringResource(R.string.backup_include_addons_subtitle),
                 ConfigBackup.Section.ADDONS in sections,
+                default = ConfigBackup.Section.ADDONS.id in
+                    AutoBackupSettings.DEFAULT_SECTIONS,
                 info = stringResource(R.string.backup_include_addons_info),
             ) { setSection(ConfigBackup.Section.ADDONS, it) }
         }
@@ -7981,6 +8073,8 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                 R.string.backup_section_emoji_label,
                 stringResource(R.string.backup_include_emoji_subtitle),
                 ConfigBackup.Section.EMOJI in sections,
+                default = ConfigBackup.Section.EMOJI.id in
+                    AutoBackupSettings.DEFAULT_SECTIONS,
             ) { setSection(ConfigBackup.Section.EMOJI, it) }
         }
         item {
@@ -7988,6 +8082,8 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
                 R.string.backup_section_statistics_label,
                 stringResource(R.string.backup_include_statistics_subtitle),
                 ConfigBackup.Section.STATISTICS in sections,
+                default = ConfigBackup.Section.STATISTICS.id in
+                    AutoBackupSettings.DEFAULT_SECTIONS,
             ) { setSection(ConfigBackup.Section.STATISTICS, it) }
         }
     }
@@ -12608,7 +12704,6 @@ private fun PrivacySettings(
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     // An unnamed group has no SectionHeader to hold it off the top bar, so the
     // breathing room a named group gets for free is spelled out here.
     Spacer(Modifier.height(12.dp))
@@ -12681,17 +12776,20 @@ private fun PrivacySettings(
     }
     SettingsGroup(stringResource(R.string.privacy_data_group_title)) {
         item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                OutlinedButton(onClick = {
-                    java.io.File(context.filesDir, "learning/user_lexicon.json").delete()
-                    java.io.File(context.filesDir, "learning/emoji_usage.json").delete()
-                    // Autocorrect's revert memory is typing-derived data too.
-                    java.io.File(context.filesDir, "learning/correction_stats.json").delete()
-                    // Chinese/Japanese/Cantonese picks live apart from the Latin
-                    // lexicon, so clearing has to name them or they survive it.
-                    java.io.File(context.filesDir, "learning/cjk_history.json").delete()
+            ActionRow(
+                title = R.string.privacy_delete_learned_words_title,
+                subtitle = stringResource(R.string.privacy_delete_learned_words_subtitle),
+                action = stringResource(R.string.privacy_delete_learned_words_action),
+                confirm = stringResource(R.string.privacy_delete_learned_words_confirm),
+            ) {
+                scope.launch {
+                    repository.clearLearnedData()
+                    // The Chinese, Japanese and Cantonese picks are one of the
+                    // files the repository deletes, but its live store is a
+                    // `:core:input` object that `:core:settings` cannot reach,
+                    // so the in-memory copy in this process is dropped here.
                     CjkLearning.store?.clear()
-                }) { Text(stringResource(R.string.privacy_delete_learned_words_action)) }
+                }
             }
         }
     }

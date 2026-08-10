@@ -4150,8 +4150,7 @@ open class WMKeyboardService : InputMethodService() {
                 composing = StringBuilder()
                 ic.commitText(applyEmojiTone(emoji), 1)
                 learnEmoji(emoji)
-                emojiUsage.record(emoji)
-                emojiHistoryStale = true
+                recordEmojiUse(emoji)
                 _uiState.update {
                     it.copy(
                         composingPreview = "",
@@ -6901,6 +6900,27 @@ open class WMKeyboardService : InputMethodService() {
         }
         previousWord?.let { userLexicon.learnBigram(it, emoji) }
         previousWord = emoji
+    }
+
+    /**
+     * Counts one use of [emoji] towards recents, frequents and the emoji row.
+     *
+     * Skipped in incognito, which is the one thing "Pause learning" already
+     * promised and did not do: its own subtitle says no emoji habits are
+     * learned, while every path that commits an emoji recorded one regardless.
+     * A private message leaving its emoji at the front of the history tab is
+     * exactly what incognito exists to stop.
+     *
+     * Separate from [learnEmoji], which is about word→emoji prediction and also
+     * answers to `learnFromTyping`. The history tab is a list of what the user
+     * pressed, not something inferred from it, so turning off learning does not
+     * empty it.
+     */
+    private fun recordEmojiUse(emoji: String) {
+        val state = _uiState.value
+        if (state.incognitoOn && state.settings.incognitoPausesLearning) return
+        emojiUsage.record(emoji)
+        emojiHistoryStale = true
     }
 
     /**
@@ -13210,8 +13230,7 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         commitToField(emoji)
         learnEmoji(emoji)
-        emojiUsage.record(emoji)
-        emojiHistoryStale = true
+        recordEmojiUse(emoji)
         // "Return to keyboard after emoji": one insertion from the panel drops
         // straight back to the keys instead of keeping the panel open for a run.
         val closeAfter = _uiState.value.settings.emoji.closeAfterInsert &&
@@ -13316,8 +13335,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     fun onAnimatedEmojiSend(emoji: String) {
         val key = animatedEmojiKey(emoji) ?: return
-        emojiUsage.record(emoji)
-        emojiHistoryStale = true
+        recordEmojiUse(emoji)
         // The popup deliberately stays open, preview and all: sending one
         // animation is usually not the last thing someone wants to do with it,
         // and a popup that empties itself on the way out reads as a glitch.
@@ -13345,8 +13363,7 @@ open class WMKeyboardService : InputMethodService() {
         if (!state.settings.emoji.sendAsSticker || !state.acceptsRichMedia) return
         if (state.mediaDownloadingId != null) return
         vibrate()
-        emojiUsage.record(emoji)
-        emojiHistoryStale = true
+        recordEmojiUse(emoji)
         startMediaDownload(emojiStickerJobId(emoji))
         mediaInsertJob = serviceScope.launch {
             // Off the main thread as far as the provider call, which can be a
@@ -13552,8 +13569,7 @@ open class WMKeyboardService : InputMethodService() {
             ic.commitText(emoji, 1)
         }
         learnEmoji(emoji)
-        emojiUsage.record(emoji)
-        emojiHistoryStale = true
+        recordEmojiUse(emoji)
         composing = StringBuilder()
         _uiState.update {
             it.copy(
