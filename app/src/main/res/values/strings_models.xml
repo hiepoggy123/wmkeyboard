@@ -167,4 +167,9 @@
     <string name="models_llm_import_error_open">The app cannot open the selected file.</string>
     <string name="models_llm_import_error_move">The app cannot move the imported file into place.</string>
 
+
+    <string name="models_whisper_fallback_title">Model for other languages</string>
+    <string name="models_whisper_fallback_subtitle">Used when a language has no model of its own</string>
+    <string name="models_whisper_fallback_info">You can pin a model to each language in the list below. This is the one used for every language you have not pinned. Automatic picks the best downloaded model that covers the language you are typing in, which is usually what you want; choose a model here if you would rather always use the same one.</string>
+    <string name="models_whisper_fallback_auto">Automatic</string>
 </resources>

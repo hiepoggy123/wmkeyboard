@@ -11167,7 +11167,8 @@ open class WMKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return ""
         ic.getSelectedText(0)?.toString()?.takeIf { it.isNotBlank() }?.let { return it }
         return if (spec.inputMode == AiInputMode.BEFORE_CURSOR) {
-            ic.getTextBeforeCursor(4000, 0)?.toString().orEmpty()
+            ic.getTextBeforeCursor(_uiState.value.settings.ai.beforeCursorChars, 0)
+                ?.toString().orEmpty()
         } else {
             extractFieldText()
         }

@@ -556,4 +556,8 @@
     <string name="tooldetail_camera_timer_title">Self-timer</string>
     <string name="tooldetail_camera_timer_subtitle">The timer the camera opens on</string>
     <string name="tooldetail_camera_timer_info">The camera panel has a timer button that steps through off, 3 seconds and 10 seconds. This is where it starts each time you open the panel, so if you always use the same one you do not have to set it again.</string>
+
+    <string name="tooldetail_voice_hold_title">Hold to talk</string>
+    <string name="tooldetail_voice_hold_subtitle">How long you hold the microphone before it becomes press-and-hold</string>
+    <string name="tooldetail_voice_hold_info">A short tap on the microphone starts dictation and leaves it running until you tap again. Holding it instead dictates only while you hold, like a walkie-talkie. This is the line between the two. Raise it if a slow press keeps stopping your dictation, lower it if you mean to hold and it keeps latching on.</string>
 </resources>

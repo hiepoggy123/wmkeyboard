@@ -180,9 +180,26 @@ class AiChatStore(private val storageFile: File?) {
         conversations.clear()
     }
 
+    /**
+     * Whether [save] is allowed to write. Off keeps the session's conversations
+     * in memory and leaves nothing on disk.
+     *
+     * A property rather than a settings read, for the reason
+     * `PluginStore.autoDisableOnAbandon` gives: this module knows nothing about
+     * `:core:settings`, so whoever owns the settings pushes the value in.
+     */
+    @Volatile
+    var persist: Boolean = true
+
     @Synchronized
     fun save() {
         val file = storageFile ?: return
+        // Turning persistence off has to remove what was already written, or
+        // "do not keep conversations" would leave every earlier one on disk.
+        if (!persist) {
+            runCatching { file.delete() }
+            return
+        }
         runCatching {
             file.parentFile?.mkdirs()
             file.writeText(

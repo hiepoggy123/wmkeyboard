@@ -402,6 +402,10 @@ private fun MicContent(
             // Tap toggles; a long press is walkie-talkie — dictation runs
             // only while the finger stays down, releasing stops it.
             val currentStatus by rememberUpdatedState(voice.status)
+            // Read through rememberUpdatedState too: the gesture lambda is
+            // keyed on Unit and would otherwise hold the value from the
+            // composition that started it.
+            val holdToTalkMs by rememberUpdatedState(state.settings.voiceBar.holdToTalkMs)
             Box(
                 modifier = Modifier
                     .size(64.dp)
@@ -421,7 +425,7 @@ private fun MicContent(
                                     tryAwaitRelease()
                                     val held = System.currentTimeMillis() - downAt
                                     if (startedIdle) {
-                                        if (held >= HOLD_TO_TALK_MS) onToggle()
+                                        if (held >= holdToTalkMs) onToggle()
                                     } else {
                                         onToggle()
                                     }
@@ -625,7 +629,13 @@ private fun VoiceChipAction(text: String, icon: ImageVector, onClick: () -> Unit
     }
 }
 
-/** A long press on the mic switches to press-and-hold dictation. */
+/**
+ * A long press on the mic switches to press-and-hold dictation.
+ *
+ * Only the shipped default now; the live value is
+ * [VoiceBarSettings.holdToTalkMs], because this threshold decides which of
+ * two quite different behaviours a press gets.
+ */
 private const val HOLD_TO_TALK_MS = 600L
 
 /**

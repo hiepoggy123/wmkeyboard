@@ -314,6 +314,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyFontScaleRange
 import com.wasimaster.wmkeyboard.core.settings.ManualModeDuration
 import com.wasimaster.wmkeyboard.core.settings.SymbolRowHeightRange
 import com.wasimaster.wmkeyboard.core.settings.LauncherToolSettings
+import com.wasimaster.wmkeyboard.core.settings.HoldToTalkRange
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.LongPressLetterActions
 import com.wasimaster.wmkeyboard.core.settings.destinationConfigured
@@ -11011,6 +11012,22 @@ private fun ToolDetailSettings(
                         selected = settings.voiceBar.mode,
                         default = SettingsDefaults.voiceBar.mode,
                     ) { scope.launch { repository.setVoiceUiMode(it) } }
+                }
+                item {
+                    val msFormat = stringResource(R.string.typing_value_milliseconds)
+                    SliderSetting(
+                        R.string.tooldetail_voice_hold_title,
+                        subtitle = stringResource(R.string.tooldetail_voice_hold_subtitle),
+                        value = settings.voiceBar.holdToTalkMs.toFloat(),
+                        range = HoldToTalkRange.first.toFloat()..HoldToTalkRange.last.toFloat(),
+                        display = { msFormat.format((it / 50f).roundToInt() * 50) },
+                        info = stringResource(R.string.tooldetail_voice_hold_info),
+                        default = SettingsDefaults.voiceBar.holdToTalkMs.toFloat(),
+                    ) { picked ->
+                        scope.launch {
+                            repository.setHoldToTalkMs((picked / 50f).roundToInt() * 50)
+                        }
+                    }
                 }
                 item {
                     ToggleSetting(

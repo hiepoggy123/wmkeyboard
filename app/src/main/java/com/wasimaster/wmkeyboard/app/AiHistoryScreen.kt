@@ -47,6 +47,7 @@ import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.common.R as CommonR
 
@@ -139,6 +140,73 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
                         }
                         revision++
                     }
+                }
+            }
+        }
+    }
+
+    SettingsGroup(stringResource(R.string.toolai_models_group_title)) {
+        item {
+            ToggleSetting(
+                R.string.toolai_download_wifi_title,
+                stringResource(R.string.toolai_download_wifi_subtitle),
+                settings.ai.downloadUnmeteredOnly,
+                info = stringResource(R.string.toolai_download_wifi_info),
+                default = SettingsDefaults.ai.downloadUnmeteredOnly,
+            ) { on -> scope.launch { repository.setAiDownloadUnmeteredOnly(on) } }
+        }
+        item {
+            val charsFormat = stringResource(R.string.values_number)
+            SliderSetting(
+                R.string.toolai_continue_context_title,
+                subtitle = stringResource(R.string.toolai_continue_context_subtitle),
+                value = settings.ai.beforeCursorChars.toFloat(),
+                range = 500f..32_000f,
+                display = { charsFormat.format((it / 500f).roundToInt() * 500) },
+                info = stringResource(R.string.toolai_continue_context_info),
+                default = SettingsDefaults.ai.beforeCursorChars.toFloat(),
+            ) { picked ->
+                scope.launch {
+                    repository.setAiBeforeCursorChars((picked / 500f).roundToInt() * 500)
+                }
+            }
+        }
+    }
+
+    // Chat transcripts. They persisted with no switch and no bulk delete while
+    // the one-shot history above had both, which is the wrong way round: a
+    // conversation is the longer and more revealing record of the two.
+    SettingsGroup(stringResource(R.string.toolai_chats_group_title)) {
+        item {
+            ToggleSetting(
+                R.string.toolai_keep_chats_title,
+                stringResource(R.string.toolai_keep_chats_subtitle),
+                settings.ai.keepChats,
+                info = stringResource(R.string.toolai_keep_chats_info),
+                default = SettingsDefaults.ai.keepChats,
+            ) { on ->
+                scope.launch {
+                    repository.setAiKeepChats(on)
+                    // Applied straight away, which also deletes the file when
+                    // switching off — the same contract as the log above.
+                    AiChatController.applyPersistSetting(context, on)
+                }
+            }
+        }
+        item {
+            ActionRow(
+                title = R.string.toolai_delete_chats_title,
+                subtitle = stringResource(R.string.toolai_delete_chats_subtitle),
+                action = stringResource(CommonR.string.common_delete),
+                confirm = stringResource(R.string.toolai_delete_chats_confirm),
+            ) {
+                scope.launch {
+                    withContext(Dispatchers.IO) {
+                        val chats = AiChatController.store(context)
+                        chats.clear()
+                        chats.save()
+                    }
+                    AiChatController.bumpStoreVersion()
                 }
             }
         }

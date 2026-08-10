@@ -2224,6 +2224,33 @@ data class AiSettings(
     val historyEnabled: Boolean = false,
     /** How many runs the history keeps before the oldest fall off. */
     val historyMax: Int = 100,
+    /**
+     * Keep chat conversations between sessions.
+     *
+     * On, which is what the store always did. Worth being able to turn off:
+     * transcripts persisted with no switch and no bulk delete, while the less
+     * sensitive one-shot AI history had both — the wrong way round, since a
+     * conversation is the longer and more revealing record of the two.
+     */
+    val keepChats: Boolean = true,
+    /**
+     * Wait for an unmetered connection before downloading a model.
+     *
+     * Off, so today's per-size prompt is unchanged for anyone who does not ask
+     * for this. That prompt only fires above 500 MB for a language model and
+     * 150 MB for a Whisper one, so a 400 MB model came down over mobile data
+     * without a word.
+     */
+    val downloadUnmeteredOnly: Boolean = false,
+    /**
+     * How much text before the cursor a "carry this on" action sends, in
+     * characters.
+     *
+     * Was 4,000, hard-coded and silent: a long-form writer's Continue lost the
+     * earlier context with nothing to say so. Bigger costs tokens and latency
+     * on every run, which is why it is a number and not simply raised.
+     */
+    val beforeCursorChars: Int = 4_000,
 )
 
 /** How the app-launcher grid orders its apps. */
@@ -2409,6 +2436,9 @@ data class CameraSettings(
  * keyboard's place on every new field until the user restores the keyboard,
  * and that has to survive the IME process being killed between fields.
  */
+/** What [VoiceBarSettings.holdToTalkMs] may be set to. */
+val HoldToTalkRange = 200..1500
+
 data class VoiceBarSettings(
     /** What the voice tool opens: the full panel, the strip over the keys, or the collapsed bar. */
     val mode: String = MODE_PANEL,
@@ -2424,6 +2454,15 @@ data class VoiceBarSettings(
     val yBias: Float = 0.5f,
     /** The horizontal bar's height on screen: 1 = docked at the bottom, 0 = the top. */
     val dockBias: Float = 1f,
+    /**
+     * How long the mic must be held before dictation switches from tap-to-toggle
+     * to press-and-hold, in milliseconds.
+     *
+     * 600 ms, hard-coded. It decides which of two quite different behaviours a
+     * press gets, so a slow or tremor-affected tap landed on the wrong one every
+     * time with nothing to adjust.
+     */
+    val holdToTalkMs: Int = 600,
     /**
      * The surface the bar's expand button goes back to — whichever of
      * [MODE_PANEL] or [MODE_STRIP] the user collapsed from, defaulting to the
@@ -4070,6 +4109,7 @@ class SettingsRepository(private val context: Context) {
         private val VOICE_BAR_EDGE_RIGHT = booleanPreferencesKey("voice_bar_edge_right")
         private val VOICE_BAR_Y_BIAS = floatPreferencesKey("voice_bar_y_bias")
         private val VOICE_BAR_DOCK_BIAS = floatPreferencesKey("voice_bar_dock_bias")
+        private val VOICE_HOLD_TO_TALK_MS = intPreferencesKey("voice_hold_to_talk_ms")
         private val VOICE_UI_RETURN_MODE = stringPreferencesKey("voice_ui_return_mode")
         private val VOICE_BAR_INLINE = booleanPreferencesKey("voice_bar_inline")
         private val VOICE_CONTINUOUS = booleanPreferencesKey("voice_continuous")
@@ -4234,6 +4274,9 @@ class SettingsRepository(private val context: Context) {
         private val AI_LOCAL_CONTEXT_TOKENS = intPreferencesKey("ai_local_context_tokens")
         private val AI_HISTORY_ENABLED = booleanPreferencesKey("ai_history_enabled")
         private val AI_HISTORY_MAX = intPreferencesKey("ai_history_max")
+        private val AI_KEEP_CHATS = booleanPreferencesKey("ai_keep_chats")
+        private val AI_DOWNLOAD_UNMETERED = booleanPreferencesKey("ai_download_unmetered_only")
+        private val AI_BEFORE_CURSOR_CHARS = intPreferencesKey("ai_before_cursor_chars")
         private val AI_DIFF_VIEW = booleanPreferencesKey("ai_diff_view")
         private val AI_DIFF_OPENS_FIRST = booleanPreferencesKey("ai_diff_opens_first")
         private val AI_CUSTOM_ACTIONS = stringPreferencesKey("ai_custom_actions")
@@ -5016,6 +5059,7 @@ class SettingsRepository(private val context: Context) {
                 rightEdge = p[VOICE_BAR_EDGE_RIGHT] ?: defaults.voiceBar.rightEdge,
                 yBias = p[VOICE_BAR_Y_BIAS] ?: defaults.voiceBar.yBias,
                 dockBias = p[VOICE_BAR_DOCK_BIAS] ?: defaults.voiceBar.dockBias,
+                holdToTalkMs = p[VOICE_HOLD_TO_TALK_MS] ?: defaults.voiceBar.holdToTalkMs,
                 returnMode = p[VOICE_UI_RETURN_MODE] ?: defaults.voiceBar.returnMode,
                 inline = p[VOICE_BAR_INLINE] ?: defaults.voiceBar.inline,
             ),
@@ -5260,6 +5304,11 @@ class SettingsRepository(private val context: Context) {
                 diffOpensFirst = p[AI_DIFF_OPENS_FIRST] ?: defaults.ai.diffOpensFirst,
                 historyEnabled = p[AI_HISTORY_ENABLED] ?: defaults.ai.historyEnabled,
                 historyMax = p[AI_HISTORY_MAX] ?: defaults.ai.historyMax,
+                keepChats = p[AI_KEEP_CHATS] ?: defaults.ai.keepChats,
+                downloadUnmeteredOnly = p[AI_DOWNLOAD_UNMETERED]
+                    ?: defaults.ai.downloadUnmeteredOnly,
+                beforeCursorChars = p[AI_BEFORE_CURSOR_CHARS]
+                    ?: defaults.ai.beforeCursorChars,
             ),
             launcher = LauncherToolSettings(
                 sortOrder = p[LAUNCHER_SORT]
@@ -7566,6 +7615,18 @@ class SettingsRepository(private val context: Context) {
         it.remove(TOOLBOX_PAGE_SIZE)
         it.remove(TOOLBOX_LABEL_SIZE)
     }
+
+    suspend fun setHoldToTalkMs(value: Int) = editPrefs {
+        it[VOICE_HOLD_TO_TALK_MS] = value.coerceIn(HoldToTalkRange.first, HoldToTalkRange.last)
+    }
+
+    suspend fun setAiKeepChats(value: Boolean) = editPrefs { it[AI_KEEP_CHATS] = value }
+
+    suspend fun setAiDownloadUnmeteredOnly(value: Boolean) =
+        editPrefs { it[AI_DOWNLOAD_UNMETERED] = value }
+
+    suspend fun setAiBeforeCursorChars(value: Int) =
+        editPrefs { it[AI_BEFORE_CURSOR_CHARS] = value.coerceIn(500, 32_000) }
 
     suspend fun setShiftCapsLockMs(value: Int) =
         editPrefs { it[SHIFT_CAPS_LOCK_MS] = value.coerceIn(ShiftCapsLockMsRange.first, ShiftCapsLockMsRange.last) }

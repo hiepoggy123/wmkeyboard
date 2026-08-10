@@ -18,6 +18,7 @@ import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.AiThinking
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import com.wasimaster.wmkeyboard.core.tools.ToolHttpException
+import kotlinx.coroutines.withContext
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -90,6 +91,27 @@ object AiChatController {
     fun store(context: Context): AiChatStore = storeInstance ?: AiChatStore(
         File(context.applicationContext.filesDir, AiChatStore.FILE_PATH),
     ).also { storeInstance = it }
+
+    /**
+     * Points the store at the user's "keep conversations" answer.
+     *
+     * Called from the screens that open the store rather than read inside it:
+     * `:core:content` knows nothing about settings, and the value is a flow
+     * while `store` is synchronous. The flag is only consulted when a chat is
+     * saved, which happens on send — long after this has landed.
+     */
+    suspend fun applyPersistSetting(context: Context, keep: Boolean) {
+        val target = store(context)
+        if (target.persist == keep) return
+        target.persist = keep
+        // Switching it off has to take what is already on disk with it.
+        if (!keep) withContext(Dispatchers.IO) { target.save() }
+    }
+
+    /** Public form of [touchStore], for settings screens that mutate the store. */
+    fun bumpStoreVersion() {
+        _storeVersion.value++
+    }
 
     private fun touchStore() {
         _storeVersion.value++

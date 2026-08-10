@@ -59,6 +59,7 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCatalog
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperDownloadManager
@@ -119,7 +120,12 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
 
     fun requestDownload(model: WhisperModel) {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        if (model.sizeBytes >= WHISPER_METERED_CONFIRM_BYTES && cm.isActiveNetworkMetered) {
+        val metered = cm.isActiveNetworkMetered
+        // The size threshold only ever caught the big models, so a
+        // mid-sized one came down over mobile data without a word. With
+        // Wi-Fi only on, size stops mattering: every download waits.
+        val ask = metered && (settings.ai.downloadUnmeteredOnly || model.sizeBytes >= WHISPER_METERED_CONFIRM_BYTES)
+        if (ask) {
             meteredPending = model
         } else {
             startDownload(model)
@@ -187,6 +193,26 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
     } else {
         SettingsGroup {
             for (model in onDisk) item { modelRow(model) }
+        }
+    }
+
+    // Which model answers for any language without a per-language pin. The
+    // value was only ever written by adopting a sole download or clearing a
+    // deleted one, so the docs listed a setting that no control wrote.
+    if (onDisk.size > 1) {
+        SettingsGroup(stringResource(R.string.models_whisper_fallback_title)) {
+            item {
+                val autoLabel = stringResource(R.string.models_whisper_fallback_auto)
+                ChoiceSetting(
+                    title = R.string.models_whisper_fallback_title,
+                    subtitle = stringResource(R.string.models_whisper_fallback_subtitle),
+                    options = listOf<Pair<String, String>>("" to autoLabel) +
+                        onDisk.map { it.id to it.displayName },
+                    selected = settings.whisper.modelId,
+                    info = stringResource(R.string.models_whisper_fallback_info),
+                    default = SettingsDefaults.whisper.modelId,
+                ) { id -> scope.launch { repository.setWhisperModelId(id) } }
+            }
         }
     }
 

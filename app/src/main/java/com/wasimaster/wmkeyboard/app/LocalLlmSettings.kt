@@ -114,7 +114,12 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
 
     fun requestDownload(model: LocalLlmModel) {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        if (model.sizeBytes >= METERED_CONFIRM_BYTES && cm.isActiveNetworkMetered) {
+        val metered = cm.isActiveNetworkMetered
+        // The size threshold only ever caught the big models, so a
+        // mid-sized one came down over mobile data without a word. With
+        // Wi-Fi only on, size stops mattering: every download waits.
+        val ask = metered && (settings.ai.downloadUnmeteredOnly || model.sizeBytes >= METERED_CONFIRM_BYTES)
+        if (ask) {
             meteredPending = model
         } else {
             startDownload(model)
