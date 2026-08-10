@@ -39,7 +39,7 @@ Repo: https://github.com/wasi-master/wmkeyboard.git
 
 Builds:
   - versionName: 0.3.0
-    versionCode: 6
+    versionCode: 7
     commit: v0.3.0
     subdir: app
     # The lite flavor. Every proprietary dependency in the tree (ML Kit,
@@ -67,4 +67,4 @@ Builds:
 AutoUpdateMode: None
 UpdateCheckMode: None
 CurrentVersion: 0.3.0
-CurrentVersionCode: 6
+CurrentVersionCode: 7
