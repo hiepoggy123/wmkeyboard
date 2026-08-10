@@ -97,9 +97,12 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # Scoped to :app because that is where the eval suites live. An
+      # unqualified task name would run the filter against every module too,
+      # and a Test task whose --tests filter matches nothing fails the build.
       - name: Run evals
         run: >
-          ./gradlew testFullDebugUnitTest
+          ./gradlew :app:testFullDebugUnitTest
           --tests '*.prediction.eval.*' --tests '*.gesture.eval.*'
           -Pwmkb.skipBenchmarks=true --stacktrace
 
