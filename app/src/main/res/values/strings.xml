@@ -7,7 +7,7 @@
     <string name="llm_module_title">On-device AI</string>
     <!-- Shown in Settings › Notification access for the media-control tool's
          listener; names why the app appears in that list. -->
-    <string name="media_listener_label">WM Keyboard media controls</string>
+    <string name="media_listener_label">WM Keyboard media controls and one-time codes</string>
     <!-- Shown in Settings › Accessibility for the keyboard-gesture
          pass-through service. -->
     <string name="passthrough_service_label">WM Keyboard gestures</string>

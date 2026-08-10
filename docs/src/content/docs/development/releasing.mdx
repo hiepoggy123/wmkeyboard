@@ -167,33 +167,49 @@ listing on the next build, with no metadata merge request.
 1. **Create the app** in the Play Console with package name
    `com.wasimaster.wmkeyboard`.
 
-2. **Fill in the policy answers before you upload anything**, since they gate
-   the release. A keyboard is a sensitive category and reviewers do read
-   these:
+2. **Fill in App content before you upload anything**, since these answers
+   gate the release. A keyboard is a sensitive category and reviewers do read
+   them:
 
    - **Privacy policy URL**: `https://wmkeyboard.pages.dev/privacy/policy/`.
-   - **Data safety**: the honest answer is no collection and no sharing. The
-     optional network tools send what you typed into that tool to the service
-     you chose, which belongs under the tool's own disclosure rather than as
-     app-wide collection. Read [Network policy](/privacy/network/) while
-     filling the form.
-   - **Permissions**: every one is optional and requested in context. The
-     prominent-disclosure screens the app already shows are what the policy
-     asks for.
+   - **Data safety**: no collection, no sharing. The optional network tools
+     send what you typed into that tool to the service you chose, which
+     belongs under that tool's own disclosure rather than as app-wide
+     collection. Read [Network policy](/privacy/network/) while filling it in.
+   - **Target audience**: not children. A keyboard aimed at children pulls in
+     Families policy, which this app is not built for.
+   - **Ads**: none. **Financial features**: none. **News**: no.
 
-3. **Build the bundle.** The `Release` workflow produces it as the
+3. **Answer the four declarations this manifest forces.** Each one has its own
+   form, and a missing or vague answer is the most common reason a keyboard
+   sits in review:
+
+   | Declaration | Why it applies | What to say |
+   |---|---|---|
+   | Accessibility API | `TouchPassthroughService` binds `BIND_ACCESSIBILITY_SERVICE` | It exists to carve the key grid out of TalkBack's touch exploration so screen-reader users can type. It is inert unless the user turns pass-through on, and it reads no screen content. |
+   | Photo and video permissions | `READ_MEDIA_IMAGES` | It feeds the screenshot observer that offers a just-taken screenshot on the strip. The Photo Picker cannot replace it: a picker returns a file the user chose, and this needs to notice that a new one appeared. |
+   | Notification access | `MediaNotificationListener` | Two jobs, both user-facing: the media-control tool needs the active media session, and one-time-code capture reads codes to offer them on the strip. Both are off until the user enables them. |
+   | `PACKAGE_USAGE_STATS` | the app-launcher tool's ordering | It ranks the launcher tool's apps by how recently you used them. Optional, and the tool works without the grant. |
+
+4. **Check the sensitive-permission story matches what the app says.** The
+   label on the notification listener is what a user reads in Settings before
+   granting it, and it has to name both jobs. The in-app prominent-disclosure
+   screens are what the policy asks for, and they exist for every runtime
+   permission already.
+
+5. **Build the bundle.** The `Release` workflow produces it as the
    `play-bundle` artifact, or locally:
 
    ```sh
    ./gradlew bundleFullRelease -Pwmkb.enablePlayStore=true -Pwmkb.enableGms=true
    ```
 
-4. **Upload to internal testing first.** Play's own device catalogue will tell
+6. **Upload to internal testing first.** Play's own device catalogue will tell
    you within minutes if the on-demand `:feature:llm` module or the unbundled
    ML Kit path is misconfigured, and that is much cheaper to learn there than
    in production.
 
-5. **Promote when it looks right.** Play signs with its own upload key flow,
+7. **Promote when it looks right.** Play signs with its own upload key flow,
    so the APK a user installs is not byte-identical to anything you built.
    That is expected, and it is why the GitHub release exists for people who
    want to verify a checksum.
