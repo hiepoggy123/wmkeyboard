@@ -2,14 +2,14 @@
 title: "Sound & vibration"
 description: "Key sounds, haptics, and how to tune or silence them."
 sidebar:
-  order: 6
+  order: 7
 ---
 
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-Every key press can confirm itself two ways (a short vibration and a click sound), and both are tunable independently, down to which specific events buzz. Haptics are on by default; the sound is off.
+Every key press can confirm itself two ways: a short vibration and a click sound. Both are tunable on their own, down to which events buzz and which don't. Haptics are on by default. The sound is off.
 
 <PhoneFrame caption="The Key press screen: haptic style chips above the key press sound group.">
   ![The Key press screen: haptic style chips above the key press sound group.](@assets/screens/typing/keypress-settings-overview.webp)
@@ -19,45 +19,45 @@ Every key press can confirm itself two ways (a short vibration and a click sound
 
 <SettingsPath path="Key press / Haptic feedback" />
 
-**Key press haptics** vibrates on every key press, including the small steps as you swipe-drag a cursor across the <KeyCap>Space</KeyCap> bar. It's on by default. Turn it off and the keyboard falls silent for touch; sound, if you've turned it on, still plays.
+**Key press haptics** vibrates on every key press, including the small steps as you swipe-drag a cursor across the <KeyCap>Space</KeyCap> bar. It's on by default. Turn it off and the keyboard goes quiet for touch, though the sound still plays if you've turned that on.
 
 With haptics on, **Haptic style** picks how the buzz is produced:
 
 | Style | What it does | Requires |
 | --- | --- | --- |
-| Tap | Platform's own "keyboard tap" haptic, the one vendors tune for keyboards (default) | — |
-| Key | Platform's own "virtual key" haptic, the general button press | — |
+| Tap | Platform's own "keyboard tap" haptic, the one vendors tune for keyboards (default) | Any device |
+| Key | Platform's own "virtual key" haptic, the general button press | Any device |
 | Click | Hardware-tuned click effect | Android 10+ |
 | Heavy | Hardware-tuned heavy-click effect | Android 10+ |
 | Sharp | Hardware click primitive, strength follows the intensity slider | Android 11+ |
 | Custom | Drives the vibration motor directly by duration and intensity | Android 8+ |
 
-Tap and Key are the recommended styles: they hand the buzz to the same platform call stock keyboards use, so on a phone with vendor-tuned haptics (Samsung, Pixel) you get that crafted click, and it follows the system's own haptic-intensity slider automatically.
+Tap and Key are the two to reach for first. They hand the buzz to the same platform call stock keyboards use, so a phone with vendor-tuned haptics (Samsung, Pixel) gives you that crafted click, and it follows the system's own haptic-intensity slider on its own.
 
-Tap is the default, and on most phones it's the one you want. Vendors usually tune a separate waveform for keyboards and Tap is what their own keyboard plays, so it tends to feel crisper than Key even though the two are only one constant apart. On a Galaxy S25 Ultra, for instance, Tap and Key resolve to genuinely different Samsung effects, and Tap is the one Samsung Keyboard uses. Switch to Key if Tap feels wrong on your device, which happens on phones whose vendor never bothered to tune a keyboard-specific effect.
+Tap is the default, and on most phones it's the one you want. Vendors usually tune a separate waveform for keyboards, and Tap is what their own keyboard plays, so it tends to feel crisper than Key even though the two are only one constant apart. On a Galaxy S25 Ultra, for instance, Tap and Key resolve to genuinely different Samsung effects, and Tap is the one Samsung Keyboard uses. Switch to Key if Tap feels wrong on your device. That happens on phones whose vendor never bothered to tune a keyboard-specific effect.
 
-Click, Heavy, Sharp and Custom bypass the platform call and drive the motor more directly: useful if you want a feel the platform styles don't offer. When a style isn't available on a device, it falls back to a hardware Click, then to Custom, so every style produces some feedback everywhere.
+Click, Heavy, Sharp and Custom bypass the platform call and drive the motor more directly, which is useful if you want a feel the platform styles don't offer. When a style isn't available on a device, it falls back to a hardware Click and then to Custom, so every style produces some feedback everywhere.
 
-Custom exposes two sliders: **Haptic strength** (5–60&nbsp;ms, vibration length) and **Haptic intensity** (1–255, how hard the motor is driven). Sharp exposes intensity too, to control the punch of its click primitive, but not strength; the primitive's length is fixed by the hardware. The system-wide touch-feedback vibration setting still scales the final strength on top of whatever you set here.
+Custom exposes two sliders: **Haptic strength** (5–60&nbsp;ms, vibration length) and **Haptic intensity** (1–255, how hard the motor is driven). Sharp exposes intensity too, to control the punch of its click primitive, but not strength, since the hardware fixes the primitive's length. The system-wide touch-feedback vibration setting still scales the final strength on top of whatever you set here.
 
 <PhoneFrame caption="Haptic style chips, with the strength and intensity sliders shown for Custom.">
   ![Haptic style chips, with the strength and intensity sliders shown for Custom.](@assets/screens/typing/haptic-style-custom-sliders.webp)
 </PhoneFrame>
 
-Two more toggles cover the edges of a long press: **Long-press haptics** (on by default) buzzes the moment a long press registers (the alternate-character popup opening, or a long-press action firing), so your finger knows it can let go. **Long-press release haptics** (off by default) adds a second buzz when you lift your finger afterward; it's off because a third vibration in one gesture (press, long-press, release) reads as excessive to a lot of people.
+Two more toggles cover the edges of a long press. **Long-press haptics** (on by default) buzzes the moment a long press registers, whether that's the alternate-character popup opening or a long-press action firing, so your finger knows it can let go. **Long-press release haptics** (off by default) adds a second buzz when you lift your finger afterward. It's off because a third vibration in one gesture reads as excessive to a lot of people.
 
 ### What the setup wizard picks
 
-Tap is the app's own default, but it may well not be the style you find selected after a first run, and that isn't a bug. The setup wizard asks the vibration motor once, at the top of a fresh install, and writes whichever style the device can actually play: **Key** on a phone whose motor supports the predefined click effects, and **Heavy** where it reports them unsupported or where the phone is older than Android 11 and support can't be read at all. It only ever happens on a genuine first run, never on a replay of the wizard, so it can't overwrite a choice you've already made. If you wanted Tap, pick it from the chips; nothing will move it back afterwards.
+Tap is the app's own default, but it may well not be the style you find selected after a first run, and that isn't a bug. The setup wizard asks the vibration motor once, at the top of a fresh install, and writes whichever style the device can actually play. That's **Key** on a phone whose motor supports the predefined click effects, and **Heavy** where the motor reports them unsupported, or where the phone is older than Android 11 and support can't be read at all. It only ever happens on a genuine first run, never on a replay of the wizard, so it can't overwrite a choice you've already made. If you wanted Tap, pick it from the chips. Nothing will move it back afterwards.
 
 ### Per-event vibration
 
-Four more toggles, visible only while Key press haptics is on, let you keep the buzz everywhere except one specific event, rather than trading it all for silence:
+Four more toggles, visible only while Key press haptics is on, let you keep the buzz everywhere except one event, rather than trading it all for silence:
 
-- **Vibrate on space** (on) — the <KeyCap>Space</KeyCap> bar's own press buzz. Turning it off doesn't silence the space key outright; the key press sound, if on, still plays.
-- **Vibrate on delete swipe** (on) — buzzes on each word a <KeyCap>⌫</KeyCap> swipe removes. Off turns clearing a sentence into one smooth pull instead of a buzz-saw. A plain backspace tap is unaffected either way.
-- **Vibrate on key repeat** (on) — buzzes on every auto-repeat while <KeyCap>⌫</KeyCap> or <KeyCap>Space</KeyCap> is held. Off keeps only the first press buzzing; the repeats' key sound, if on, still plays.
-- **Mute haptics in Do Not Disturb** (off) — see [Silent and Do Not Disturb](#silent-and-do-not-disturb) below.
+- **Vibrate on space** (on) is the <KeyCap>Space</KeyCap> bar's own press buzz. Turning it off doesn't silence the space key outright, since the key press sound still plays if it's on.
+- **Vibrate on delete swipe** (on) buzzes on each word a <KeyCap>⌫</KeyCap> swipe removes. Off turns clearing a sentence into one smooth pull instead of a buzz-saw. A plain backspace tap is unaffected either way.
+- **Vibrate on key repeat** (on) buzzes on every auto-repeat while <KeyCap>⌫</KeyCap> or <KeyCap>Space</KeyCap> is held. Off keeps only the first press buzzing, and the repeats' key sound still plays if it's on.
+- **Mute haptics in Do Not Disturb** (off) is covered in [Silent and Do Not Disturb](#silent-and-do-not-disturb) below.
 
 ## Key press sound
 
@@ -77,49 +77,49 @@ Four more toggles, visible only while Key press haptics is on, let you keep the 
 | Custom | A single sound file you've installed (see [Installing more key sounds](#installing-more-key-sounds)) |
 | Sound pack | An installed pack of many recordings, one picked per key press and, on some packs, another when you lift (see [Sound packs](#sound-packs)) |
 
-Click and Standard come from the device's own system sound pack, so they vary phone to phone the same way the stock keyboard's clicks do. Pop, Thock and Chime are synthesized in-app and sound the same on every device.
+Click and Standard come from the device's own system sound pack, so they vary phone to phone the way the stock keyboard's clicks do. Pop, Thock and Chime are synthesized in-app and sound the same everywhere.
 
-Custom and Sound pack only show up as chips once one is actually selected, since neither means anything until you've installed something. Pick them from the settings screen, not from the keyboard's own sound panel.
+Custom and Sound pack only show up as chips once one is actually selected, since neither means anything until you've installed something. Pick them from the settings screen rather than the keyboard's own sound panel.
 
 <PhoneFrame caption="Sound style chips with the volume slider below.">
   ![Sound style chips with the volume slider below.](@assets/screens/typing/keysound-style-chips.webp)
 </PhoneFrame>
 
-**Sound volume** (5%–100%) is relative to the system media volume, not an absolute level.
+**Sound volume** (5%–100%) is relative to the system media volume rather than an absolute level.
 
 ### Installing more key sounds
 
-Picking the Custom chip reveals your installed sound library and an **Import sound file (.mp3)** button that also accepts `.ogg` and `.wav`. A sound you haven't chosen falls back to the system click rather than staying silent, so a key press never goes unheard because a file went missing.
+Pick the Custom chip to reveal your installed sound library and an **Import sound file (.mp3)** button that also accepts `.ogg` and `.wav`. A sound you haven't chosen falls back to the system click rather than staying silent, so a key press never goes unheard because a file went missing.
 
-You can grow that library two ways: importing a file directly here, or installing a key sound addon from an addon repository; both land in the same list. See [Installing addons](/addons/installing/) for the general install flow; a key sound addon lands under **Key press → Sound style** and, like themes and layouts, offers to switch to it right after install.
+You can grow that library two ways: import a file directly here, or install a key sound addon from an addon repository. Both land in the same list. See [Installing addons](/addons/installing/) for the general install flow. A key sound addon lands under **Key press → Sound style** and, like themes and layouts, offers to switch to it right after install.
 
 ## Sound packs
 
 <SettingsPath path="Key press / Key press sound / Sound pack" />
 
-A **sound pack** is a key sound with more than one recording in it. Picking the Sound pack chip reveals your installed packs and an **Import a sound pack (.wmsoundpack)** button.
+A **sound pack** is a key sound with more than one recording in it. Pick the Sound pack chip to reveal your installed packs and an **Import a sound pack (.wmsoundpack)** button.
 
-Why it exists: a single file can't sound like a real keyboard, because a real keyboard never makes the same noise twice. A pack holds up to 32 recordings of the same board and the keyboard picks one for each key press, so a run of the same letter doesn't come out as a loop. The row under each pack's name tells you how many recordings it holds.
+Why it exists: a single file can't sound like a real keyboard, because a real keyboard never makes the same noise twice. A pack holds up to 32 recordings of the same board, and the keyboard picks one for each key press, so a run of the same letter doesn't come out as a loop. The row under each pack's name tells you how many recordings it holds.
 
 The same recording never plays twice in a row, which is a small but audible difference from how [monkeytype](https://monkeytype.com) does it. Monkeytype picks uniformly across the whole list, so on a three-recording set roughly every third keystroke repeats the previous one, which is exactly what the recordings are there to avoid.
 
 ### Key release sound
 
-A mechanical keyboard makes two noises per key: the switch going down, and the stem coming back up when your finger leaves. Packs recorded from real switches carry both, and the keyboard plays each when it happens — so holding a key holds the second sound too, instead of firing it on a timer.
+A mechanical keyboard makes two noises per key: the switch going down, and the stem coming back up when your finger leaves. Packs recorded from real switches carry both, and the keyboard plays each when it happens. Hold a key and you hold the second sound too, instead of it firing on a timer.
 
 Packs that have it say so on their row ("10 recordings • keys sound on the way up"), and a **Key release sound** switch appears under the list to turn it off. The switch is hidden for packs without key-up recordings, because there'd be nothing for it to do. Every other sound style is one sound per press and is unaffected either way.
 
-Tapping a pack in the list plays a whole keystroke — press, a short hold, release — rather than just the way down, since half a pack is a different pack.
+Tap a pack in the list and it plays a whole keystroke (press, a short hold, release) rather than just the way down, since half a pack is a different pack.
 
 ### Separate sounds per key
 
 A pack can also carry different recordings for different kinds of key: the <KeyCap>Space</KeyCap> bar, <KeyCap>Enter</KeyCap>, <KeyCap>⌫</KeyCap>, and the modifier row (<KeyCap>Shift</KeyCap>, <KeyCap>?123</KeyCap>, the globe and so on). On a real board those genuinely do sound different, mostly because of the stabilizers under the longer keys.
 
-Most packs don't fill those slots and don't need to. When a pack does, its row says so: "10 recordings • separate sounds for space, enter". A slot a pack leaves empty falls back to the pack's main recordings, so nothing ever goes silent. This is independent of the key-up recordings above — a spacebar recorded on its own still uses the pack's ordinary key-up sound unless it brought its own.
+Most packs don't fill those slots and don't need to. When a pack does, its row says so: "10 recordings • separate sounds for space, enter". A slot a pack leaves empty falls back to the pack's main recordings, so nothing ever goes silent. This is independent of the key-up recordings above. A spacebar recorded on its own still uses the pack's ordinary key-up sound unless it brought one.
 
 ### Where packs come from
 
-Same two routes as single sounds: import a `.wmsoundpack` file here, or install one from an addon repository. The [Monkeytype Key Sounds](https://github.com/wasi-master/wmkeyboard-monkeytype-sounds) repository ships pre-added and carries 26 packs built from monkeytype's own sound files, including recordings of Cherry MX, Kailh, Akko, Tealios and Razer switches. Twelve of those — the mechanical switch sets, the typewriter and the two boards — have their key-up sounds cut out of the recordings, so they behave like the keyboards they came from.
+Same two routes as single sounds: import a `.wmsoundpack` file here, or install one from an addon repository. The [Monkeytype Key Sounds](https://github.com/wasi-master/wmkeyboard-monkeytype-sounds) repository ships pre-added and carries 26 packs built from monkeytype's own sound files, including recordings of Cherry MX, Kailh, Akko, Tealios and Razer switches. Twelve of them (the mechanical switch sets, the typewriter and the two boards) have their key-up sounds cut out of the recordings, so they behave like the keyboards they came from.
 
 Before installing, an addon's page offers a **Preview** that plays each recording in the pack separately, key-downs and key-ups on their own rows, so you can hear how much it actually varies rather than guessing from one sample.
 
@@ -129,20 +129,20 @@ If a pack goes missing while it's selected, the key press falls back to the syst
 
 The ringer switch and Do Not Disturb are handled differently, and it's worth knowing which is which:
 
-- **Key press sound follows the ringer switch automatically: there's no setting for it.** It plays through the same system sound-effect stream the rest of Android uses, so silent and vibrate mode mute it the same way they'd mute any other system sound. If a toolbar "Sound & haptics" panel is on your keyboard (see below), it shows a live warning, either "Phone is on vibrate" or "Phone is silenced — key press sounds won't play", whenever the sound is on but the ringer would swallow it.
-- **Haptics do not follow Do Not Disturb, by default.** DND targets notifications, not touch feedback, so the keyboard keeps buzzing under DND unless you turn on **Mute haptics in Do Not Disturb**. With that on, every keyboard vibration (not just the master toggle, the whole feedback system) stays silent for as long as DND is active.
+- **Key press sound follows the ringer switch automatically, with no setting for it.** It plays through the same system sound-effect stream the rest of Android uses, so silent and vibrate mode mute it the way they'd mute any other system sound. The toolbar "Sound & haptics" panel (see below) shows a live warning whenever the sound is on but the ringer would swallow it. That's either "Phone is on vibrate", or a note that the phone is silenced and key press sounds won't play.
+- **Haptics do not follow Do Not Disturb, by default.** DND targets notifications rather than touch feedback, so the keyboard keeps buzzing under DND unless you turn on **Mute haptics in Do Not Disturb**. With that on, every keyboard vibration stays silent for as long as DND is active, down to the long-press and per-event buzzes.
 
-Ringer mode and DND are independent Android states: sound only checks the ringer, haptics only check DND, and neither one looks at the other.
+Ringer mode and DND are independent Android states. Sound only checks the ringer, haptics only check DND, and neither one looks at the other.
 
 ## A toolbar shortcut
 
-Sound and haptics settings are also reachable straight from the keyboard, without opening the Settings app: add the **Sound & haptics** tool to your toolbar and its panel exposes the master toggles (haptic style with its intensity/strength sliders, sound style and volume) in a compact view. The per-event toggles and long-press options stay on the full settings screen; every change here writes to the same settings either way.
+Sound and haptics settings are reachable straight from the keyboard, without opening the Settings app. Add the **Sound & haptics** tool to your toolbar and its panel gives you the master toggles in a compact view: haptic style with its intensity and strength sliders, sound style and volume. The per-event toggles and long-press options stay on the full settings screen. Every change here writes to the same settings either way.
 
 <PhoneFrame caption="The Sound & haptics toolbar panel, with the ringer warning banner shown.">
   ![The Sound & haptics toolbar panel, with the ringer warning banner shown.](@assets/screens/typing/sound-haptics-toolbar-panel.webp)
 </PhoneFrame>
 
-It isn't part of the recommended onboarding set, so depending on what you picked during setup it may need enabling from <SettingsPath path="Tools" /> first; either way, drag it from the toolbox up onto the toolbar to pin it. See [The toolbar](/tools/overview/) for how pinning works.
+It isn't part of the recommended onboarding set, so depending on what you picked during setup it may need enabling from <SettingsPath path="Tools" /> first. Either way, drag it from the toolbox up onto the toolbar to pin it. See [The toolbar](/tools/overview/) for how pinning works.
 
 ## Options
 
@@ -164,13 +164,13 @@ It isn't part of the recommended onboarding set, so depending on what you picked
 | Sound style | Click |
 | Sound volume | 50% |
 
-Reach the full screen from the home grid's **Key press** tile, or search "Key press" in settings search. For the exhaustive, field-by-field breakdown (including the key popup and long-press editing shortcuts that share this screen), see [Key press settings](/reference/settings/keypress/).
+Open the **Key press** tile on the settings home grid, or search "Key press" in settings search. For the field-by-field breakdown, including the key popup and the long-press editing shortcuts that share this screen, see [Key press settings](/reference/settings/keypress/).
 
 ## Details & edge cases
 
-- **You'll see a slimmed-down version of this during setup.** The onboarding wizard's "Typing feedback" page offers Key press haptics with style chips, plus plain on/off toggles for Key press sound and Key popup; the finer controls (strength, per-event toggles, DND) only live on the full settings screen.
+- **You'll see a slimmed-down version of this during setup.** The onboarding wizard's "Typing feedback" page offers Key press haptics with style chips, plus plain on/off toggles for Key press sound and Key popup. The finer controls (strength, per-event toggles, DND) live only on the full settings screen.
 - **A held key won't sound like a smear.** Rapid presses coalesce with a short minimum gap between vibrations, so fast rollover typing still reads as distinct clicks rather than one continuous buzz.
-- **Power saving turns both off.** When [Power saving](/typing/power-saving/) is active, it forces haptics and key sound off regardless of what you've set here, and restores your choices when it deactivates.
+- **Power saving turns both off.** When [Power saving](/typing/power-saving/) is active, it forces haptics and key sound off whatever you've set here, and restores your choices when it deactivates.
 - **Nothing on this page is edition-gated.** Haptics, key sounds and sound addons all work identically on the full and lite builds.
 
 See [Accessibility](/accessibility/overview/) for how touch feedback interacts with screen-reader use, and [Installing addons](/addons/installing/) for the general addon install flow that key sound packs go through.

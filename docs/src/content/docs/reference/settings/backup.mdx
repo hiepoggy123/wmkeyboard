@@ -30,14 +30,14 @@ This group writes the same bundle as the export button below, on a timer, to som
 | --- | --- | --- | --- |
 | Where to put backups | Choice: Folder / WebDAV / S3 / FTP / Google Drive / Dropbox / OneDrive | Folder | always |
 | Back up automatically | Toggle | Off | always (forced off until the destination is usable) |
-| How often | Choice: 6 hours / 12 hours / 1 day / 1 week | 1 day | Back up automatically on and destination usable |
-| Backups to keep | Choice: 3 / 5 / 10 | 5 | Back up automatically on and destination usable |
+| How often | Slider over 1, 2, 3, 4, 6, 8, 12, 18, 24, 36, 48, 72, 96, 120 and 168 hours | 24 hours (1 day) | Back up automatically on and destination usable |
+| Backups to keep | Slider, 1–30 | 5 | Back up automatically on and destination usable |
 | Only while charging | Toggle | On | Back up automatically on and destination usable |
 | Only on Wi-Fi | Toggle | On | Same, and only for a destination that needs a connection (everything except Folder) |
 | Protect with a passphrase | Toggle | Off | always |
 | Passphrase | Password field | empty | Protect with a passphrase on |
 
-Three of the seven only appear when the build can actually reach them: Google Drive needs Play services on the device, and Dropbox and OneDrive each need a client id compiled into the APK. A choice with nothing behind it is left off the list rather than shown and then refused, so a phone without Play services, or a build made without those client ids, simply sees a shorter list.
+Three of the seven only appear when the build can actually reach them. Google Drive needs Play services on the device. Dropbox and OneDrive each need a client id compiled into the APK. A choice with nothing behind it is left off the list rather than shown and then refused, so a phone without Play services, or a build made without those client ids, sees a shorter list.
 
 Under the destination picker sits whatever that destination needs. Each set of fields saves as you type:
 
@@ -84,9 +84,9 @@ The **Include in export** group is twelve toggles, top to bottom. Eleven are ind
 They used to be local to the screen, and they're stored settings now, because the automatic backup has to know what to put in a file when you aren't there to tell it. One list drives both: what you tick here is what a hand-made export contains and what an automatic backup contains.
 :::
 
-Sticker packs and icon packs default off because their images make the file larger, not because of any privacy concern; Dictionary and Clipboard default off because they're your personal typing history rather than configuration. Emoji history defaults on despite being personal too: it's a few hundred bytes, and unlike a word list or a model there's nowhere to download it back from. Addon repositories carries only the repository addresses you've added, not the addons installed from them: an installed theme already travels inside Themes, an installed icon pack inside Icon packs.
+Sticker packs and icon packs default off because their images make the file larger, not out of any privacy concern. Dictionary and Clipboard default off because they're your personal typing history rather than configuration. Emoji history is personal too, but it defaults on: it's a few hundred bytes, and unlike a word list or a model there's nowhere to download it back from. Addon repositories carries only the repository addresses you've added, not the addons installed from them. An installed theme already travels inside Themes, and an installed icon pack inside Icon packs.
 
-**Export backup** is disabled until at least one toggle above is on. Tapping it opens Android's save dialog with a name of the form `wmkeyboard-backup-<date>-<time>.wmconfig.json`, timestamped down to the second so repeated exports don't overwrite each other. The file goes wherever you choose; nothing is uploaded anywhere. Afterward you see one of:
+**Export backup** stays disabled until at least one toggle above is on. Tap it to open Android's save dialog. The name takes the form `wmkeyboard-backup-<date>-<time>.wmconfig.json`, timestamped down to the second so repeated exports don't overwrite each other. The file goes wherever you choose, and nothing is uploaded anywhere. Afterward you see one of:
 
 | Result | Message |
 |---|---|
@@ -96,7 +96,7 @@ Sticker packs and icon packs default off because their images make the file larg
 
 ### Import
 
-**Import backup** opens a document picker for any file type. It reads the file and tries to decode it before changing anything; nothing is written until you confirm a dialog:
+**Import backup** opens a document picker for any file type. It reads the file and tries to decode it before changing anything. Nothing is written until you confirm a dialog.
 
 | Outcome | What happens |
 |---|---|
@@ -113,37 +113,37 @@ Confirming a current-format import applies each section independently and merges
 
 | Section | On import |
 |---|---|
-| Settings | **Merges** — only the preferences present in the file are overwritten; everything else on the device is left as-is |
-| Themes | **Replaces** — the entire custom-theme list is swapped for what's in the file |
+| Settings | **Merges**. Only the preferences present in the file are overwritten, and everything else on the device is left as-is |
+| Themes | **Replaces**. The entire custom-theme list is swapped for what's in the file |
 | Dictionary | **Replaces** |
 | Clipboard | **Replaces** |
 | Snippets | **Replaces** |
-| Sticker packs | **Replaces** — the local collection is cleared and rebuilt from the file |
-| Icon packs | **Replaces** — same clear-and-rebuild |
-| Custom word lists | **Replaces** — same clear-and-rebuild |
-| Addon repositories | **Merges** — incoming repository addresses are added to your existing list; a duplicate address is skipped, not overwritten |
-| Emoji history | **Replaces** — recents, use counts, favourites and per-emoji skin tones all come from the file |
-| Typing statistics | **Replaces** — the day-by-day counts and the all-time totals both come from the file |
+| Sticker packs | **Replaces**. The local collection is cleared and rebuilt from the file |
+| Icon packs | **Replaces**, with the same clear-and-rebuild |
+| Custom word lists | **Replaces**, with the same clear-and-rebuild |
+| Addon repositories | **Merges**. Incoming repository addresses join your existing list, and a duplicate address is skipped rather than overwritten |
+| Emoji history | **Replaces**. Recents, use counts, favourites and per-emoji skin tones all come from the file |
+| Typing statistics | **Replaces**. The day-by-day counts and the all-time totals both come from the file |
 
-Settings import is rollback-safe: after writing, the keyboard re-reads its own settings to confirm they still parse, and undoes the write if they don't. The other sections in the same file still apply even when settings roll back. After a confirmed import you see either "Restored `<sections>`." (a lowercase, comma-separated list of what changed) or "Nothing to restore from that file.", with "\n\nThe settings couldn't be applied and were left unchanged." appended if the settings portion rolled back. A confirmed legacy import instead reports "Restored `<N>` settings.", or "That backup could not be applied — your settings are unchanged." if it rolled back.
+Settings import is rollback-safe. After writing, the keyboard re-reads its own settings to confirm they still parse, and it undoes the write if they don't. The other sections in the same file still apply even when settings roll back. After a confirmed import you see either "Restored `<sections>`.", a lowercase comma-separated list of what changed, or "Nothing to restore from that file." A rolled-back settings portion appends a line saying the settings couldn't be applied and were left unchanged. A confirmed legacy import instead reports how many settings it restored, or tells you the backup could not be applied and your settings are unchanged.
 
 Opening a `.wmconfig.json` or `.wmsettings.json` file from a file manager routes through this same read-then-confirm flow rather than importing silently.
 
 ## Details & edge cases
 
-- **An emoji-history import lands live.** The keyboard holds its emoji history in memory while it runs and writes it out when a field closes, so a restore could have been overwritten seconds later. Importing bumps a counter the running keyboard watches, which makes it drop its copy and re-read the file; the panel's Recent and Favourites tabs refresh on the spot, with no need to restart anything.
-- **Two file formats, one import path.** `.wmconfig.json` is the current, full-bundle format that **Export backup** writes today. `.wmsettings.json` is an older, settings-only format that the app still accepts on import for files made by earlier versions: nothing in the current app writes one anymore.
-- **The Themes toggle's own in-app description undersells it.** Its info text says a theme's background image "doesn't travel to another phone — only the theme itself does." In the current app it does travel: a background image is embedded in the export and written back to local storage on import, so a restored theme keeps its image. See [Backup & restore](/privacy/backup/#exporting-a-config-file) for the accurate version.
+- **An emoji-history import lands live.** The keyboard holds its emoji history in memory while it runs and writes it out when a field closes, so a restore could have been overwritten seconds later. Importing bumps a counter the running keyboard watches, which makes it drop its copy and re-read the file. The panel's Recent and Favourites tabs refresh on the spot, with nothing to restart.
+- **Two file formats, one import path.** `.wmconfig.json` is the current, full-bundle format that **Export backup** writes today. `.wmsettings.json` is an older, settings-only format the app still accepts on import, for files made by earlier versions. Nothing in the current app writes one anymore.
+- **The Themes toggle's own in-app description undersells it.** Its info text says a theme's background image doesn't travel to another phone, and that only the theme itself does. In the current app the image does travel. It's embedded in the export and written back to local storage on import, so a restored theme keeps its picture. See [Backup & restore](/privacy/backup/#exporting-a-config-file) for the accurate version.
 - **The API-keys warning applies to a manual export only.** It has no effect on Android's own backup system, which is a separate opt-in covered on the [Privacy](/reference/settings/privacy/) screen and copies saved API keys regardless of anything on this page.
 - **Addon repositories is a bookmark list, not the addons themselves.** What an installed addon leaves behind on this screen is in whichever section matches its type: a theme, icon pack, or sticker pack you installed from a repository is already covered by that section.
 - **The automatic backup asks the system for two things, both yours to turn off.** A charger, from **Only while charging**, and an unmetered connection, from **Only on Wi-Fi**. It never asks for an idle device, because the work is a few seconds of copying rather than the kind of job that wants the phone asleep. The Wi-Fi requirement is dropped for a **Folder** destination, which needs no connection at all, and the toggle is hidden there for the same reason. An interval is a period, not an alarm clock, so a run lands somewhere inside the window rather than on the hour. **Back up now** ignores all of it and runs immediately.
-- **Changing either condition reschedules the job on the spot.** Both toggles are part of what the app compares against the job already queued, so flipping one takes effect without waiting for the current period to end. That matters because the interval restarts when the job is replaced: a keyboard whose conditions you keep changing keeps pushing its next run back.
-- **Turning the automatic switch on with no usable destination does nothing.** The row reads "Choose a folder first." and stays off, and the interval and keep-count rows below it stay hidden until both the switch and the destination are sorted. "Usable" is a cheap check (a folder grant exists, a WebDAV address and user are filled in, an S3 bucket and key pair are present, a token was stored), not proof the upload will work.
-- **The stored credentials are filed as secrets, alongside your API keys.** The WebDAV and FTP passwords, the S3 secret, the Dropbox and OneDrive tokens and the backup passphrase are all stripped from an export unless **Include API keys** is on, and they're kept out of pre-unlock storage either way. Four things never travel at all, on or off: the folder grant (a `content://` URI means nothing on another phone), the **Back up automatically** switch itself, the per-install salt, and the last-run time and error. That's deliberate. Restore a bundle on a new phone and you don't want its automatic backup coming back armed, pointing at a folder that isn't there.
-- **The toggles and choices in Automatic backup carry the usual restore button** once you move one off its default; see [Putting one setting back](/reference/settings/#putting-one-setting-back). The text fields don't, because an address or a password has no shipped value to go back to, and neither do the twelve include-in-export toggles.
+- **Changing either condition reschedules the job on the spot.** Both toggles are part of what the app compares against the job already queued, so flipping one takes effect without waiting for the current period to end. That matters, because the interval restarts when the job is replaced. Keep changing the conditions and you keep pushing the next run back.
+- **Turning the automatic switch on with no usable destination does nothing.** The row reads "Choose a folder first." and stays off. The interval and keep-count rows below it stay hidden until both the switch and the destination are sorted. "Usable" is a cheap check, not proof the upload will work: a folder grant exists, a WebDAV address and user are filled in, an S3 bucket and key pair are present, or a token was stored.
+- **The stored credentials are filed as secrets, alongside your API keys.** The WebDAV and FTP passwords, the S3 secret, the Dropbox and OneDrive tokens and the backup passphrase are all stripped from an export unless **Include API keys** is on. They're kept out of pre-unlock storage either way. Four things never travel at all, on or off: the folder grant (a `content://` URI means nothing on another phone), the **Back up automatically** switch itself, the per-install salt, and the last-run time and error. That's deliberate. Restore a bundle on a new phone and you don't want its automatic backup coming back armed, pointing at a folder that isn't there.
+- **The toggles and sliders in Automatic backup carry the usual restore button** once you move one off its default. See [Putting one setting back](/reference/settings/#putting-one-setting-back). The text fields don't, because an address or a password has no shipped value to go back to, and neither do the twelve include-in-export toggles.
 
 ## Related pages
 
-- [Backup & restore](/privacy/backup/) — the guide: why each default is what it is, Android's own backup system, and a step-by-step for moving to a new phone.
-- [Privacy](/reference/settings/privacy/) — the **Back up with Android** toggle that folds the keyboard into Android's own backup, separate from the export on this page.
-- [What are addons?](/addons/overview/) — how installed addons relate to the repositories this screen's Addon repositories toggle backs up.
+- [Backup & restore](/privacy/backup/): the guide. Why each default is what it is, Android's own backup system, and a step-by-step for moving to a new phone.
+- [Privacy](/reference/settings/privacy/): the **Back up with Android** toggle that folds the keyboard into Android's own backup, separate from the export on this page.
+- [What are addons?](/addons/overview/): how installed addons relate to the repositories this screen's Addon repositories toggle backs up.

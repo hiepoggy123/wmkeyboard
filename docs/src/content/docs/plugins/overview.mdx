@@ -10,7 +10,7 @@ import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 import SettingsPath from '@components/SettingsPath.astro';
 
 A plugin is a small Lua script that adds a tool to the keyboard. It draws a
-panel — some text, a few buttons, maybe a text box — and does whatever you write
+panel (some text, a few buttons, maybe a text box) and does whatever you write
 it to do.
 
 ```lua title="main.lua"
@@ -48,7 +48,7 @@ That is a complete plugin, minus its `plugin.json`.
 	/>
 	<LinkCard
 		title="Security"
-		description="What the sandbox does, what it deliberately does not offer, and where its limits actually are."
+		description="What the sandbox does, what it leaves out on purpose, and where the limits really are."
 		href="/plugins/security/"
 	/>
 </CardGrid>
@@ -69,9 +69,9 @@ Compute things, and draw its own panel. That is genuinely the whole list.
 - **Run in the background.** A plugin only runs while its panel is open.
 
 :::note[These are absences, not settings]
-There is no version of a plugin that gets around them — the sandbox has no
-function for any of it. See [Security](/plugins/security/) for how that is
-enforced and what the residual risks honestly are.
+No version of a plugin gets around them. The sandbox has no function for any of
+it. See [Security](/plugins/security/) for how that is enforced, and what the
+residual risks honestly are.
 :::
 
 Text still gets into a plugin: you type into its box, or tap **Paste** on it.
@@ -88,12 +88,12 @@ are meant to be read:
 |---|---|
 | **Cipher Tool** | Tabs, inputs, buttons, insertable output. The getting-started build. |
 | **UI Kitchen Sink** | Every widget and every event, with a live event log. |
-| **Todo List** | `wm.storage` — the one capability a plugin can ask for. |
+| **Todo List** | `wm.storage`. The one capability a plugin can ask for. |
 | **Text Tools** | The paste-in, transform, insert-out flow. |
 
 :::tip[Enabling plugins]
-Plugins are **off until you ask for them**. Turn them on here, then install from
-the Addons screen or open a `.wmplugin` file:
+Plugins are **off until you ask for them**. Turn them on here. Then install one
+from the Addons screen, or open a `.wmplugin` file:
 
 <SettingsPath path="Tools / Plugins" />
 :::

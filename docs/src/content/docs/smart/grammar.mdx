@@ -20,14 +20,14 @@ Grammar check runs your writing past Harper, the same open-source engine behind 
 
 ## What it catches
 
-Harper checks English spelling, grammar, and style: agreement errors, punctuation and capitalization slips, redundant or repeated words, malapropisms, and a long tail of style nits. The panel groups Harper's fine-grained lint kinds into four color-coded categories so an issue reads at a glance:
+Harper checks English spelling, grammar, and style: agreement errors, punctuation and capitalization slips, redundant or repeated words, malapropisms, and a long tail of style nits. The panel groups Harper's fine-grained lint kinds into four color-coded categories, so an issue reads at a glance:
 
-- **Correctness** — spelling, typos, grammar, agreement, capitalization, punctuation, and similar hard errors
-- **Clarity** — readability, redundancy, repetition, word choice
-- **Engagement** — style and phrasing suggestions, plus anything Harper doesn't tag with a specific kind
-- **Delivery** — formatting, regionalisms, nonstandard usage
+- **Correctness**: spelling, typos, grammar, agreement, capitalization, punctuation, and similar hard errors
+- **Clarity**: readability, redundancy, repetition, word choice
+- **Engagement**: style and phrasing suggestions, plus anything Harper doesn't tag with a specific kind
+- **Delivery**: formatting, regionalisms, nonstandard usage
 
-Each issue also lints against a specific English dialect: **American** (the default), **British**, **Canadian**, or **Australian**, chosen independently of whatever language or layout you're actually typing with, since Harper only understands English. See [Options](#options) below for where to change it.
+Each issue also lints against a specific English dialect: **American** (the default), **British**, **Canadian**, or **Australian**. You pick that independently of whatever language or layout you're actually typing with, since Harper only understands English. See [Options](#options) below for where to change it.
 
 ## Using the panel
 
@@ -37,27 +37,27 @@ Open **Grammar check** from the toolbox to check whatever's in the field you're 
   {/* shot: smart/grammar-toolbox-entry */}
 </PhoneFrame>
 
-The panel sits in a fixed strip above the key rows rather than covering them, so you can fix an issue by editing the text directly just as easily as by tapping a fix chip. Opening it checks the field's current text immediately, with no wait; after that, edits re-check after a short pause (see [Fully offline](#fully-offline-in-process) below).
+The panel sits in a fixed strip above the key rows rather than covering them, so you can fix an issue by editing the text directly just as easily as by tapping a fix chip. Open the panel and it checks the field's current text immediately, with no wait. After that, edits re-check after a short pause (see [Fully offline](#fully-offline-in-process) below).
 
 Each issue is a card: a colored dot and category label, the flagged text struck through, an arrow to up to five suggested fixes, and Harper's explanation underneath. From there:
 
-- **Tap a fix chip** to apply just that fix and re-check the field.
-- **Tap the card itself** (not a chip or the dismiss icon) to jump the field's cursor to the issue: a multi-word span parks the cursor at its start, a single word with a real replacement gets selected so you can type over it, and anything else parks the cursor right after it.
-- **Tap the dismiss icon** (**×**) to hide a card. It's hidden only until the text changes and re-lints. Dismissing isn't remembered past that.
-- **Tap "Fix all"**, shown whenever at least one issue has a suggestion, to apply every issue's top fix in one go. Fixes are applied back to front so earlier issues don't shift the ones after them, and an issue whose span overlaps one already fixed is skipped rather than risk mangling the text.
+- **Tap a fix chip** to apply that one fix. The field re-checks straight after.
+- **Tap the card itself**, meaning neither a chip nor the dismiss icon, to jump the field's cursor to the issue. A multi-word span parks the cursor at its start. A single word with a real replacement gets selected, so you can type over it. Anything else parks the cursor right after the issue.
+- **Tap the dismiss icon** (**×**) to hide a card. It stays hidden only until the text changes and re-lints. Dismissing isn't remembered past that.
+- **Tap "Fix all"**, shown whenever at least one issue has a suggestion, to apply every issue's top fix in one go. Fixes go in back to front, so earlier issues don't shift the ones after them. An issue whose span overlaps one already fixed is skipped rather than risk mangling the text.
 - **Tap the dialect chip** in the header to switch American/British/Canadian/Australian on the fly. The same text re-checks immediately under the new dialect.
 
 <PhoneFrame caption="A card mid-fix: struck-through original text, fix chips, and Harper's explanation.">
   {/* shot: smart/grammar-fix-chips */}
 </PhoneFrame>
 
-If nothing's flagged, the panel just says so; if the field is empty, it invites you to type or open a field with text.
+If nothing's flagged, the panel says so. If the field is empty, it invites you to type or to open a field with text in it.
 
 ## Fully offline (in-process)
 
 Harper is a Rust engine compiled into `libharper_jni.so` and loaded directly into the keyboard's process. There's no server call anywhere in this path, checked or unchecked. All linting runs on one dedicated background thread, since Harper's internal linter state isn't safe to share across threads.
 
-Re-checks are debounced: after you stop typing, the panel waits before re-linting rather than running on every keystroke (see the **Re-check delay** setting below). Opening the panel or switching dialects skips the wait and checks right away.
+Re-checks are debounced. After you stop typing, the panel waits before re-linting rather than running on every keystroke (see the **Re-check delay** setting below). Opening the panel or switching dialects skips the wait and checks right away.
 
 :::note
 The very first check after opening the panel can take a beat longer, since building Harper's linter costs roughly 100&nbsp;ms the first time. That cost is already paid by the time you open the panel if [Harper is also set as your system spell checker](/smart/spell-checker/). Its own service warms the linter up on its own. Opening the Grammar tool alone doesn't pre-warm it.
@@ -76,16 +76,16 @@ The very first check after opening the panel can take a beat longer, since build
 | English dialect | American | American, British, Canadian, Australian |
 | Re-check delay | 350&nbsp;ms | 100–1500&nbsp;ms |
 
-A **System-wide** group sits below these two, with a **Use Harper everywhere** button and (on Android 12 and up) an **Underline only, no fix popup** toggle. Those set up Harper as Android's system spell checker, so the same engine underlines typos in other apps too (see [System spell checker](/smart/spell-checker/) for what that covers and how it differs from this in-keyboard tool).
+A **System-wide** group sits below these two, with a **Use Harper everywhere** button and (on Android 12 and up) an **Underline only, no fix popup** toggle. Those set up Harper as Android's system spell checker, so the same engine underlines typos in other apps too. See [System spell checker](/smart/spell-checker/) for what that covers and how it differs from this in-keyboard tool.
 
 ## Details & edge cases
 
 - **English only.** Harper doesn't check any other language, and the dialect setting is global. It applies no matter which typing language or layout is currently active. Grammar check has nothing to do while you're typing in a non-English language.
-- **Full edition only.** Grammar check doesn't exist at all in the lite build: not a disabled or grayed-out entry, genuinely absent from both the toolbar customization list and the toolbox, because lite ships without Harper's native library. If you're on lite and don't see it, that's expected.
-- **A missing engine fails safely.** If `libharper_jni.so` somehow didn't load, the panel opens normally and just says the grammar engine isn't in this build, rather than crashing or hanging on "checking."
-- **A fix only touches the words it flagged.** Applying a chip (or "Fix all") replaces the flagged spans and nothing else, so the rest of what you wrote is never re-typed into the field. That's what keeps formatting alive in apps that have any: bold, colour, a checklist item in Google Keep. Nothing outside the highlighted words gets rewritten, so nothing outside them can lose its styling.
-- **Dismissing an issue is temporary.** A dismissed card comes back if you edit the text again and it re-lints to the same issue; there's no permanent "ignore this" list.
+- **Full edition only.** Grammar check doesn't exist at all in the lite build. It's absent from both the toolbar customization list and the toolbox, rather than sitting there disabled or grayed out, because lite ships without Harper's native library. If you're on lite and don't see it, that's expected.
+- **A missing engine fails safely.** If `libharper_jni.so` somehow didn't load, the panel opens normally and says the grammar engine isn't in this build, rather than crashing or hanging on "checking."
+- **A fix only touches the words it flagged.** Applying a chip (or "Fix all") replaces the flagged spans and nothing else, so the rest of what you wrote is never re-typed into the field. That's what keeps formatting alive in apps that have any: bold, colour, a checklist item in Google Keep.
+- **Dismissing an issue is temporary.** A dismissed card comes back if you edit the text again and it re-lints to the same issue. There's no permanent "ignore this" list.
 - **"Fix all" only uses each issue's first suggestion.** For an issue with several possible fixes, use its individual fix chips instead if you want a different one applied.
 - **Re-check delay only paces this panel.** It has no effect on [the system spell checker](/smart/spell-checker/), which always answers synchronously when another app's text field asks it to.
 
-For contact-aware, dictionary-based red squiggles in every other app on your phone (not just WM Keyboard's own writing surface), see [System spell checker](/smart/spell-checker/). For the everyday typo-fixing that runs on every language and every edition, see [Autocorrect](/smart/autocorrect/).
+For contact-aware, dictionary-based red squiggles in every other app on your phone, not only WM Keyboard's own writing surface, see [System spell checker](/smart/spell-checker/). For the everyday typo-fixing that runs on every language and every edition, see [Autocorrect](/smart/autocorrect/).

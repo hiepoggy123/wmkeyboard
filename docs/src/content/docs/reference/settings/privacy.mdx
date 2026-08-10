@@ -1,6 +1,6 @@
 ---
 title: "Privacy"
-description: "Every row on the Privacy screen: on-device learning, incognito, Android backup, and the one button that clears learned data."
+description: "Every row on the Privacy screen: learning on this device, incognito, Android backup, and the one button that clears learned data."
 sidebar:
   order: 18
 ---
@@ -8,9 +8,9 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-The Privacy screen is four groups, in this order: the way into the permissions inventory, on-device learning and incognito, Android's own backup opt-in, and the one button that clears learned data. Nothing else. This page is the field reference; for the reasoning and the rest of the privacy story, start at [Privacy at a glance](/privacy/overview/).
+The Privacy screen is four groups, in this order: the way into the permissions inventory, learning on this device and incognito, Android's own backup opt-in, and the one button that clears learned data. Nothing else. This page is the field reference. For the reasoning and the rest of the privacy story, start at [Privacy at a glance](/privacy/overview/).
 
-<PhoneFrame caption="The Privacy screen: the Permissions row, then the On-device learning, Android backup and Your data groups.">
+<PhoneFrame caption="The Privacy screen: the Permissions row, then the Learning on this device, Android backup and Your data groups.">
   {/* shot: reference/settings/privacy-screen-groups */}
 </PhoneFrame>
 
@@ -28,21 +28,25 @@ The Privacy screen is four groups, in this order: the way into the permissions i
 
 An unnamed group holding one navigation row, sitting above everything else on the screen: "See what the keyboard can reach, and give or take back a permission". It opens the permissions inventory, which is a screen of its own and has its own page here, [Permissions](/reference/settings/permissions/). Nothing on this row is a setting, so there's nothing to reset.
 
-### On-device learning
+### Learning on this device
 
-<SettingsPath path="Privacy / On-device learning" />
+<SettingsPath path="Privacy / Learning on this device" />
 
 | Setting | Control | Default |
 |---|---|---|
 | Learn from typing | Toggle | **On** |
 | Add words to the system dictionary | Toggle | Off |
-| Expand dictionary shortcuts | Toggle | Off |
+| Expand Android dictionary shortcuts | Toggle | Off |
 | Incognito mode | Toggle | Off |
 | Follow private browsing | Toggle | **On** |
 
-**Learn from typing** is the master switch for the on-device word and word-pair lexicon; turning it off stops new learning without deleting anything already learned. **Add words to the system dictionary** additionally writes learned words to Android's own personal dictionary (System Settings → Languages & input → Dictionary) so other keyboards and the platform spell checker see them too. It's the one setting in this group that writes outside the app, which is why it defaults off even though the keyboard's own learning already covers the same ground. **Expand dictionary shortcuts** reads that same system dictionary the other way: type a shortcut you've defined there (say "omw") and it offers the full phrase ("on my way") as a suggestion.
+**Learn from typing** is the master switch for the on-device word and word-pair lexicon. Turning it off stops new learning without deleting anything already learned.
 
-**Incognito mode** and **Follow private browsing** are covered in full, including exactly what pausing learning and clipboard capture means, on [Incognito & secure fields](/privacy/incognito/). Worth knowing here is that **Follow private browsing** defaults to **on**, the opposite of what its neighbor "Incognito mode" does, and that two related toggles, **Pause learning** and **Pause clipboard capture** (both on by default), live on a separate screen, <SettingsPath path="Tools / Incognito" />, not on this one. "Follow private browsing" itself also appears on that Tools screen; it's the same setting shown in both places, not a second copy.
+**Add words to the system dictionary** also writes learned words to Android's own personal dictionary (System Settings → Languages & input → Dictionary), so other keyboards and the platform spell checker see them too. It's the one setting in this group that writes outside the app, which is why it defaults off even though the keyboard's own learning already covers the same ground.
+
+**Expand Android dictionary shortcuts** reads that same system dictionary the other way. Type a shortcut you've defined there, say "omw", and it offers the full phrase, "on my way", as a suggestion.
+
+**Incognito mode** and **Follow private browsing** are covered in full on [Incognito & secure fields](/privacy/incognito/), including exactly what pausing learning and clipboard capture means. Two things are worth knowing here. **Follow private browsing** defaults to **on**, the opposite of its neighbour "Incognito mode". And two related toggles, **Pause learning** and **Pause clipboard capture**, both on by default, live on <SettingsPath path="Tools / Incognito" /> rather than here. "Follow private browsing" appears on that Tools screen too. It's the same setting shown in both places, not a second copy.
 
 ### Android backup
 
@@ -52,7 +56,7 @@ An unnamed group holding one navigation row, sitting above everything else on th
 |---|---|---|
 | Back up with Android | Toggle | Off |
 
-**Back up with Android** folds the keyboard into Android's own backup and phone-to-phone transfer system. Off by default, so nothing this keyboard stores is copied anywhere until you turn it on. Once on, settings, themes, layouts, snippets, learned words, sticker and icon packs, and plugins are all included, and so are any saved API keys (Translate, AI tools, and the rest). Left out, because the keyboard can fetch them again on its own: voice and AI models, downloaded dictionaries, and emoji-keyword packs. A cloud backup is only made on devices that can encrypt it with your screen lock.
+**Back up with Android** folds the keyboard into Android's own backup and phone-to-phone transfer system. It's off by default, so nothing this keyboard stores is copied anywhere until you turn it on. Once on, it includes settings, themes, layouts, snippets, learned words, sticker and icon packs, and plugins, plus any saved API keys (Translate, AI tools, and the rest). Voice and AI models, downloaded dictionaries, and emoji-keyword packs are left out, because the keyboard can fetch them again on its own. A cloud backup is only made on devices that can encrypt it with your screen lock.
 
 <PhoneFrame caption="The info dialog for Back up with Android, listing what's included and excluded.">
   {/* shot: reference/settings/privacy-backup-info-dialog */}
@@ -64,9 +68,9 @@ This is a different screen from the sibling **Backup & restore** item on the Set
 
 <SettingsPath path="Privacy / Your data" />
 
-A single button, **Clear learned words**: no toggle, no confirmation prompt. Tapping it immediately deletes four files: your word and word-pair lexicon, your emoji-usage history, autocorrect's revert memory (which corrections you undid), and your Chinese/Japanese/Cantonese pick history. It does **not** touch the language-mix tracker that remembers which language you tend to reach for when mixing languages.
+A single row, **Learned words**, with a **Delete the learned words** button that asks to confirm first. Confirming deletes five files: your word and word-pair lexicon, your emoji-usage history, autocorrect's revert memory (which corrections you undid), your Chinese/Japanese/Cantonese pick history, and the language-mix tracker that remembers which language you tend to reach for. The dialog names the first four and promises that your personal dictionary, your snippets and your imported word lists stay.
 
-<PhoneFrame caption="Clear learned words, the only control in the Your data group.">
+<PhoneFrame caption="Learned words, the only control in the Your data group.">
   {/* shot: reference/settings/privacy-clear-learned-words */}
 </PhoneFrame>
 
@@ -74,20 +78,20 @@ This is the only bulk clear on this screen. Personal dictionary entries, clipboa
 
 ## Details & edge cases
 
-- **"Clear learned words" is one bulk action, not a per-category picker.** There's no dialog letting you choose which of the four files to wipe: tapping the button deletes all four at once, instantly, with no undo.
+- **"Delete the learned words" is one bulk action, not a per-category picker.** No dialog lets you choose which of the five files to wipe. Confirming deletes all five at once, with no undo.
 - **"Follow private browsing" isn't two settings.** The row here and the row of the same name under <SettingsPath path="Tools / Incognito" /> both read and write `autoIncognito`; flip it in either place and the other reflects the change.
 - **Saved API keys are included in an Android backup**, not excluded the way large downloads are. If that matters to you, use [Backup & restore](/privacy/backup/)'s manual export instead, which never leaves the device.
 - **A cloud backup needs an encryptable screen lock.** On a device without one, turning "Back up with Android" on has nothing to actually back up into: Android's own backup system requires it.
-- **The footer caption names the whole network side.** The screen's own note reads: "Typing works fully on this device. The word lists, prediction, autocorrect, transliteration and emoji search are part of the app, and none of them needs a network connection. The app has no telemetry and no analytics. Only a tool uses the network, and only at the moment that you press it: translate, weather, web search, image search, GIFs, stickers, dictionary lookup and the AI tools. You can turn off each one of them on the Tools screen." It used to name only the weather tool, which undersold it. See [Privacy at a glance](/privacy/overview/) for the same list with per-tool detail, plus the few fetches that happen without you pressing a tool.
+- **The footer caption names the whole network side.** The screen's own note reads: "Typing works fully on this device. The word lists, prediction, autocorrect, transliteration and emoji search are part of the app, and none of them needs a network connection. The app collects nothing about you and has no analytics of its own. Handwriting, text scanning and QR scanning are built on Google's ML Kit, which reports its own diagnostics to Google while you use them. Only a tool uses the network, and only at the moment that you press it: translate, weather, web search, image search, GIFs, stickers, dictionary lookup and the AI tools. You can turn off each one of them on the Tools screen." See [Privacy at a glance](/privacy/overview/) for the same list with per-tool detail, plus the few fetches that happen without you pressing a tool.
 - **No edition differences.** Every setting on this screen behaves the same on both the full and lite builds.
 
 ## Related pages
 
-- [Privacy at a glance](/privacy/overview/) — what leaves the device and what never does, with the receipts.
+- [Privacy at a glance](/privacy/overview/): what leaves the device and what never does, with the receipts.
 - [Permissions](/reference/settings/permissions/): the field list for the sub-screen the top row on this page opens.
-- [Your data on device](/privacy/data/) — everything stored locally, where, and every way to clear it, not just the one button on this screen.
-- [Incognito & secure fields](/privacy/incognito/) — incognito mode, private-browsing detection, and password/secure-field handling in full.
-- [Network policy](/privacy/network/) — the complete tool-by-tool table of what reaches the network and why.
-- [Backup & restore](/privacy/backup/) — the guide covering both this screen's "Back up with Android" and the separate manual export/import screen.
-- [Backup & restore reference](/reference/settings/backup/) — the field list for that separate screen.
-- [Tool settings reference](/reference/settings/tools/) — the master tool list; it's still an outline page. The "Tools / Incognito" toggles that live outside this screen are covered above and in [Incognito & secure fields](/privacy/incognito/); Clipboard's own settings are on its [tool guide](/tools/clipboard/).
+- [Your data on device](/privacy/data/): everything stored locally, where it sits, and every way to clear it. Not just the one button on this screen.
+- [Incognito & secure fields](/privacy/incognito/): incognito mode, private-browsing detection, and password/secure-field handling in full.
+- [Network policy](/privacy/network/): the complete tool-by-tool table of what reaches the network and why.
+- [Backup & restore](/privacy/backup/): the guide covering both this screen's "Back up with Android" and the separate manual export/import screen.
+- [Backup & restore reference](/reference/settings/backup/): the field list for that separate screen.
+- [Tool settings reference](/reference/settings/tools/): the master tool list. The "Tools / Incognito" toggles that live outside this screen are covered above and in [Incognito & secure fields](/privacy/incognito/). Clipboard's own settings are on its [tool guide](/tools/clipboard/).

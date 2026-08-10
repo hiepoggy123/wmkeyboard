@@ -11,7 +11,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import LayoutExplorer from '@components/LayoutExplorer.astro';
 import fancy from '../../../../../app/src/main/assets/layouts/fancy.wmlayout.json';
 
-Fancy Text isn't a language; it's 22 Unicode "font" styles on a single keyboard. Add it once, pick a style from the strip above the keys, and every letter key immediately shows the styled glyph. What you type is already 𝓯𝓪𝓷𝓬𝔂: there's no separate conversion step afterward.
+Fancy Text isn't a language. It's 22 Unicode "font" styles on a single keyboard. Add it once, pick a style from the strip above the keys, and every letter key immediately shows the styled glyph. What you type is already 𝓯𝓪𝓷𝓬𝔂: there's no separate conversion step afterward.
 
 <PhoneFrame caption="The Bold style active in a text field: typing hello commits 𝐡𝐞𝐥𝐥𝐨 directly, and the style strip sits above the keys.">
   {/* shot: languages/fancy-text-bold-field */}
@@ -21,7 +21,7 @@ Fancy Text isn't a language; it's 22 Unicode "font" styles on a single keyboard.
 
 <SettingsPath path="Languages / Add language" />
 
-Fancy Text lives in the same language catalogue as everything else; see [Languages overview](/languages/overview/) for how that catalogue works in general. Search for "fancy" (or scroll to "𝓕𝓪𝓷𝓬𝔂 · Fancy Text") and tap the row. That's the whole setup: one entry in your language list, one layout, one stop on the <KeyCap>🌐</KeyCap> cycle and the OS keyboard switcher.
+Fancy Text lives in the same language catalogue as everything else, and [Languages overview](/languages/overview/) covers how that catalogue works in general. Search for "fancy" (or scroll to "𝓕𝓪𝓷𝓬𝔂 · Fancy Text") and tap the row. That's the whole setup: one entry in your language list, one layout, one stop on the <KeyCap>🌐</KeyCap> cycle and the OS keyboard switcher.
 
 ### The Fancy text tool
 
@@ -37,7 +37,7 @@ On a hardware keyboard the tool answers to the leader key followed by <KeyCap>F<
 
 ## Picking a style
 
-While the fancy keyboard is active, a strip appears above the keys with every style written in itself: 𝐁𝐨𝐥𝐝, 𝘐𝘵𝘢𝘭𝘪𝘤, 𝔉𝔯𝔞𝔨𝔱𝔲𝔯, 🅒🅘🅡🅒🅛🅔🅓 and so on. Tap a chip and the keys restyle instantly; the pick is remembered until you change it. The plain-text dropdown on the strip's left edge lists the same styles by name, which helps when a sample doesn't render on your device (see the font notes below).
+While the fancy keyboard is active, a strip appears above the keys with every style written in itself: 𝐁𝐨𝐥𝐝, 𝘐𝘵𝘢𝘭𝘪𝘤, 𝔉𝔯𝔞𝔨𝔱𝔲𝔯, 🅒🅘🅡🅒🅛🅔🅓 and so on. Tap a chip and the keys restyle instantly. The pick is remembered until you change it. The plain-text dropdown on the strip's left edge lists the same styles by name, which helps when a sample doesn't render on your device (see the font notes below).
 
 The same choice also lives in Settings, on the Fancy Text language screen, as a **Style** row.
 
@@ -55,7 +55,7 @@ The full set, with the name each one shows:
 
 ## The keyboard itself
 
-The fancy layout is a plain QWERTY grid: three letter rows plus a bottom row for <KeyCap>?123</KeyCap>, comma, <KeyCap>🌐</KeyCap>, space, period, and <KeyCap>Enter</KeyCap>. Comma, period, and space always commit as plain ASCII: only the letters get the styled substitution. There are no long-press popups on the letter keys; digits and symbols come from the shared <KeyCap>?123</KeyCap> panel, in plain ASCII.
+The fancy layout is a plain QWERTY grid: three letter rows plus a bottom row for <KeyCap>?123</KeyCap>, comma, <KeyCap>🌐</KeyCap>, space, period, and <KeyCap>Enter</KeyCap>. Comma, period, and space always commit as plain ASCII, because only the letters get the styled substitution. There are no long-press popups on the letter keys. Digits and symbols come from the shared <KeyCap>?123</KeyCap> panel, in plain ASCII.
 
 <LayoutExplorer layout={fancy} title="The base grid. The style strip restyles these labels live; the stored layout stays plain." />
 
@@ -72,9 +72,9 @@ Not every style has full alphabet coverage. Double-struck and (non-bold) Fraktur
 
 ## Details & edge cases
 
-**Case coverage varies by style.** Superscript and Small Caps have no capitals: shift leaves them as they are, because Unicode simply doesn't define capital forms for them. Squared and Circled (Filled) are single-case too, since Unicode only assigned capital-shaped symbols for those blocks. Circled (non-filled), Fullwidth, Double-struck, and every Fraktur/Script variant do have real upper/lower distinction.
+**Case coverage varies by style.** Superscript and Small Caps have no capitals, so shift leaves them as they are. Unicode doesn't define capital forms for them. Squared and Circled (Filled) are single-case too, since Unicode only assigned capital-shaped symbols for those blocks. Circled (non-filled), Fullwidth, Double-struck, and every Fraktur/Script variant do have real upper/lower distinction.
 
-**A handful of letters fall back to an older block.** Beyond Double-struck's gaps, non-bold Fraktur is missing astral forms for C, H, I, R, and Z (it falls back to the same Letterlike Symbols block); non-bold Script is missing several letters on both cases. Bold Fraktur and Bold Script have no such gaps; their Unicode blocks are complete.
+**A handful of letters fall back to an older block.** Beyond Double-struck's gaps, non-bold Fraktur is missing astral forms for C, H, I, R, and Z, so it falls back to the same Letterlike Symbols block. Non-bold Script is missing several letters in both cases. Bold Fraktur and Bold Script have no such gaps, since their Unicode blocks are complete.
 
 :::caution
 Fancy Text is exempt from the keyboard's normal ASCII-only safeguard. Fields that request ASCII-only input (a common flag on username boxes, coupon codes, and some search fields) normally force WM Keyboard back onto a plain layout automatically, because the app storing that field can't hold non-Latin text. That check compares script IDs, and Fancy Text is technically registered as the Latin script (its keys are Latin letters, just styled), so it passes the check and stays active. If the fancy keyboard is your current layout when you tap into one of those fields, it keeps typing styled glyphs, which the field may silently reject or mangle. Switch to a plain layout first if you're not sure a field will accept anything but ASCII.
@@ -86,4 +86,4 @@ Fancy Text is exempt from the keyboard's normal ASCII-only safeguard. Fields tha
 
 **Search and screen readers** in the receiving app are governed by that app, not by WM Keyboard. Styled Unicode letters aren't the same codepoints as their plain equivalents, so a search box or screen reader that only matches literal ASCII text won't recognize 𝕥𝕙𝕚𝕤 as "this." That's general behavior of the receiving app, not something this keyboard controls either way.
 
-**The base grid is just a layout**, so you can open it in the visual layout editor to remap a key or add long-press entries; see [Custom layouts & the layout editor](/languages/custom-layouts/). The styles themselves aren't separate layouts anymore, so they can't be edited individually: your remapped keys apply to every style.
+**The base grid is just a layout**, so you can open it in the visual layout editor to remap a key or add long-press entries. See [Custom layouts & the layout editor](/languages/custom-layouts/). The styles themselves aren't separate layouts anymore, so they can't be edited individually: your remapped keys apply to every style.

@@ -8,23 +8,24 @@ sidebar:
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-The format WM Keyboard uses to install themes, layouts, dictionaries, snippets, sticker packs,
-icon packs, fonts, emoji fonts and key sounds from a URL the user pastes in.
+The format WM Keyboard uses to install themes, layouts, dictionaries, emoji keyword packs,
+snippets, sticker packs, icon packs, fonts, emoji fonts, key sounds, sound packs and plugins
+from a URL the user pastes in.
 
 <CardGrid>
 	<LinkCard
 		title="Repository format"
-		description="The published spec — what a repository author writes."
+		description="The published spec: what a repository author writes."
 		href="/development/addon-repos/repo-format/"
 	/>
 	<LinkCard
 		title="JSON Schema"
-		description="Draft 2020-12 schema for wmkeyboard-repo.json — point $schema at it for IDE validation."
+		description="Draft 2020-12 schema for wmkeyboard-repo.json. Point $schema at it for IDE validation."
 		href="/schemas/wmkeyboard-repo.schema.json"
 	/>
 	<LinkCard
 		title="Client design"
-		description="How this app fetches, verifies and installs — the client side."
+		description="How this app fetches, verifies and installs an addon, on the client side."
 		href="/development/addon-repos/client-design/"
 	/>
 </CardGrid>
@@ -39,7 +40,7 @@ The spec and schema are **mirrored** from the
 under its own `docs/addons/`.
 
 That copy is canonical, because the schema's `$id` and the `"$schema"` key in every published
-manifest already point at its `raw.githubusercontent.com` URL — repointing them would break
+manifest already point at its `raw.githubusercontent.com` URL. Repointing them would break
 manifests in the wild. Edit there first, then port the change here.
 
 :::note[The mirror is adapted, not byte-identical]
@@ -60,4 +61,4 @@ The mirror exists so the spec is readable alongside the code that implements it
 
 Client code lives in [`:core:addons`](https://github.com/wasi-master/wmkeyboard/tree/main/core/addons) (data layer) and [`:feature:addons`](https://github.com/wasi-master/wmkeyboard/tree/main/feature/addons) (install/reconcile/download).
 The install dispatch table in [Client design §5](/development/addon-repos/client-design/) maps each addon type to the importer that
-handles it; most of those already existed for local file import.
+handles it. Most of those importers already existed for local file import.

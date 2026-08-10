@@ -6,9 +6,10 @@
 
 **An Android keyboard that keeps its brain on the device.**
 
-352 languages, Avro-style Bengali phonetic typing, a toolbox that goes well past emoji,
+352 languages, Avro-style Bangla phonetic typing, a toolbox that goes well past emoji,
 and a prediction stack that never phones home.
 
+[![Download](https://img.shields.io/github/v/release/wasi-master/wmkeyboard?style=flat-square&label=Download&color=3DDC84&logo=android&logoColor=white)](https://github.com/wasi-master/wmkeyboard/releases/latest)
 [![Docs](https://img.shields.io/badge/Docs-wmkeyboard.pages.dev-F38020?style=flat-square&logo=cloudflarepages&logoColor=white)](https://wmkeyboard.pages.dev)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](#building)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
@@ -20,13 +21,13 @@ and a prediction stack that never phones home.
 
 <table>
 <tr>
-<td width="33%"><img src=".github/media/kb-bengali-typing.png" width="100%" alt="Bengali phonetic typing"></td>
+<td width="33%"><img src=".github/media/kb-bengali-typing.png" width="100%" alt="Bangla phonetic typing"></td>
 <td width="33%"><img src=".github/media/toolbox-grid.png" width="100%" alt="The toolbox"></td>
 <td width="33%"><img src=".github/media/emoji-search.png" width="100%" alt="Emoji search"></td>
 </tr>
 <tr>
 <td align="center"><sub><b>Type <code>ami valo achi</code>, get আমি ভালো আছি</b></sub></td>
-<td align="center"><sub><b>A toolbox, not just an emoji button</b></sub></td>
+<td align="center"><sub><b>A whole toolbox behind one button</b></sub></td>
 <td align="center"><sub><b>Search emoji without leaving the keys</b></sub></td>
 </tr>
 </table>
@@ -37,30 +38,30 @@ and a prediction stack that never phones home.
 
 ## Why this exists
 
-Every keyboard I tried made me pick two out of three: types Bengali well, has the features I
+Every keyboard I tried made me pick two out of three: types Bangla well, has the features I
 actually use, and doesn't ship my keystrokes to somebody's analytics pipeline. So I built one
 that does all three.
 
-The whole intelligence layer runs on device. Dictionaries, transliteration, autocorrect,
-glide typing, emoji search, grammar checking and dictation are all bundled or downloaded once
-and then run locally. Network access exists only for things that genuinely need it, like
-translation or GIF search, and every one of those is a tool you choose to open.
+The whole intelligence layer runs on device. Dictionaries, transliteration, autocorrect, glide
+typing, emoji search, grammar checking and dictation are bundled, or downloaded once and then
+run locally. Network access exists only where it has to, like translation or GIF search. Each
+of those is a tool you open yourself.
 
-It is written in Kotlin with Jetpack Compose, including the keyboard surface itself, split
-across 22 Gradle modules so the engines stay testable and free of Android dependencies.
+It is written in Kotlin with Jetpack Compose, keyboard surface included. The code splits across
+22 Gradle modules, which keeps the engines testable and free of Android dependencies.
 
 ## What you get
 
 | | |
 |---|---|
-| **Languages** | 352 languages and 393 layouts from a data-driven registry: native scripts, InScript variants, romanized entries, CJK, even constructed ones. A fresh install picks up whatever your phone is already set to. |
-| **Bengali, done right** | Avro-compatible phonetic typing with a lenient index, so `asi`, `achi` and `achhi` all land on আছি. Probhat layout too, with aspirates on shift, plus conjunct-aware backspace. |
+| **Languages** | 352 languages and 372 layouts from a data-driven registry: native scripts, InScript variants, romanized entries, CJK, even constructed ones. A fresh install picks up whatever your phone is already set to. |
+| **Bangla, done right** | Avro-compatible phonetic typing for the Bengali script, with a lenient index, so `asi`, `achi` and `achhi` all land on আছি. Probhat layout too, with aspirates on shift, plus conjunct-aware backspace. |
 | **Prediction** | Trie-lattice beam decoder shared by tapping and glide, n-gram context ranking, likelihood-gated autocorrect, and on-device learning of your words, bigrams and trigrams. |
-| **Emoji and friends** | Emoji 16.0 catalog with semantic search in 125 languages, per-person skin tones, kaomoji, GIFs, stickers, and long-press to send Google's animated emoji. |
+| **Emoji and friends** | Emoji 17.0 catalog with semantic search in 125 languages, per-person skin tones, kaomoji, GIFs, stickers, and long-press to send Google's animated emoji. |
 | **The toolbox** | Clipboard with history and pinning, snippets, translate, calculator, unit and currency conversion, camera, OCR and QR scanning, media controls, an app launcher, text editing, and more. |
 | **Themes** | A real theme editor: palettes, fonts, key shapes, textures, decals, particles, photo backgrounds, plus Material You and AMOLED. Themes export and import as files. |
 | **AI, voice, handwriting** | Speech recognition with a continuous mode, offline Whisper dictation, ML Kit handwriting, Harper grammar checking through a Rust JNI bridge, and an optional local LLM. |
-| **Extensibility** | Addon repositories serve 11 kinds of addon. Lua plugins run sandboxed. Layouts and themes import from other keyboards, including Florisboard and HeliBoard. |
+| **Extensibility** | Addon repositories serve 12 kinds of addon. Lua plugins run sandboxed. Layouts and themes import from other keyboards, including Florisboard and HeliBoard. |
 
 <details>
 <summary><b>The full inventory, if you want numbers</b></summary>
@@ -91,17 +92,26 @@ Entries marked `RARE` there are things few or no mainstream keyboards ship. Ther
 
 ## Privacy is the default, not a setting
 
-- No telemetry, no analytics, no crash reporting that leaves the device.
+- No analytics SDK, no crash reporting, no server of this project's to phone home to. (One exception: Google's ML Kit sits under handwriting and the scanners in the full edition, and it reports its own diagnostics to Google. The [privacy policy](https://wmkeyboard.pages.dev/privacy/policy/) spells that out.)
 - Learned words, clipboard history and typing stats stay in app storage and can be wiped in one tap.
 - Password and secure fields turn off learning, suggestions and clipboard capture on their own.
 - Incognito mode does the same on demand.
 - Network tools are opt-in per tool, and the offline build never links them at all.
 - Backups are AES-GCM encrypted and written wherever you point them through the storage picker.
 
+## Installing
+
+Signed APKs live on the [releases page](https://github.com/wasi-master/wmkeyboard/releases/latest).
+Each release carries eight of them: `full` and `lite`, each built for `arm64-v8a`,
+`armeabi-v7a`, `x86_64`, and a `universal` APK that covers all three. Almost every phone made
+since 2017 wants `arm64-v8a`. Check your download against the `SHA256SUMS.txt` in the same
+release. Not on Google Play or F-Droid yet.
+
 ## Building
 
-You need JDK 17 or newer (a JDK 21 toolchain gets provisioned automatically through Foojay)
-and the Android SDK at compileSdk 36. Android Studio's bundled JBR works well as `JAVA_HOME`.
+Install JDK 17 or newer to launch Gradle. Gradle then provisions its own JDK 21 toolchain
+through Foojay on the first build. Install the Android SDK with compileSdk 36.1 available.
+Android Studio's bundled JBR works well as `JAVA_HOME`.
 
 ```bash
 ./gradlew assembleFullDebug
@@ -116,12 +126,12 @@ and the Android SDK at compileSdk 36. Android Studio's bundled JBR works well as
 ```
 
 Two flavors ship. `full` is everything. `lite` swaps the ML Kit and on-device model paths for
-stubs, which matters on storage-constrained devices. Build channel (Play versus direct download)
-is a flag in `local.properties`, and it decides whether ML Kit models and the LLM runtime are
-bundled or fetched on demand.
+stubs, which matters on storage-constrained devices. The build channel (Play versus direct
+download) is a flag in `local.properties`. It decides whether ML Kit models and the LLM runtime
+ship inside the APK or download on demand.
 
-Install the APK, open the app, and follow the setup card: enable WM Keyboard in system settings,
-then pick it as your input method.
+Install the APK. Open the app and follow the setup card. Turn on WM Keyboard in system
+settings, then select it as your input method.
 
 ## Project layout
 
@@ -159,8 +169,8 @@ native/               Rust sources for the Harper grammar engine
 ## Documentation
 
 The full documentation site is at **[wmkeyboard.pages.dev](https://wmkeyboard.pages.dev)**. Its source
-lives in [`docs/`](docs/) and is built with Astro Starlight, so `npm run dev` inside that folder
-gives you a local preview.
+lives in [`docs/`](docs/) and runs on Astro Starlight. Run `npm run dev` inside that folder for a
+local preview.
 
 | | |
 |---|---|
@@ -184,4 +194,3 @@ we can agree on the shape of it.
 ## License
 
 MIT. See [LICENSE](LICENSE).
-</content>

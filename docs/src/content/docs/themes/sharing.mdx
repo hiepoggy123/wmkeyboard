@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-Every theme (yours or a built-in) can be exported to a single self-contained file, and any `.wmtheme.json` file can be imported back in, whether it came from a friend, a download, or your own backup. The same file format is also what an addon repository serves, so publishing a theme takes no extra packaging step.
+Every theme, yours or a built-in, exports to a single self-contained file. Any `.wmtheme.json` file imports back in, no matter where it came from. An addon repository serves that same format, so publishing a theme takes no extra packaging step.
 
 <PhoneFrame caption="The theme gallery, with export and import actions above the cards.">
   ![The theme gallery, with export and import actions above the cards.](@assets/screens/themes/gallery-export-import.webp)
@@ -18,17 +18,17 @@ Every theme (yours or a built-in) can be exported to a single self-contained fil
 
 <SettingsPath path="Appearance / Keyboard themes" />
 
-Every card in the gallery has an export icon (a small upload glyph) except the **Default (system)** card, which has no export option because it isn't a stored theme: it's generated live from your device's Material You color scheme, so there's nothing fixed to export. Custom themes and every built-in theme can be exported.
+Every card in the gallery has an export icon (a small upload glyph), except the **Default (system)** card. That one is generated live from your device's Material You color scheme rather than stored anywhere, so there's nothing fixed to export. Custom themes and every built-in theme export fine.
 
-Tapping export opens the system "Save as" file picker so you choose the destination and filename yourself; the suggested name is the theme's own name plus the `.wmtheme.json` extension, so exporting a theme called "Midnight" suggests `Midnight.wmtheme.json`. The picker uses the plain `application/json` MIME type rather than a custom one, deliberately, so file managers and chat apps don't hide the file from you the way they might hide an unrecognized vendor type.
+Tap export and the system "Save as" picker opens, so you choose the destination and filename yourself. The suggested name is the theme's own name plus the `.wmtheme.json` extension, so a theme called "Midnight" suggests `Midnight.wmtheme.json`. The picker uses the plain `application/json` MIME type on purpose rather than a custom one, so file managers and chat apps don't hide the file the way they might hide an unrecognized vendor type.
 
 What a card exports depends on how the gallery is drawing it. A grouped family card exports the whole family, every look in one file. A separate card exports the single look it shows, with the other looks and the group name stripped out, so the person you send it to gets one theme rather than a family with holes in it. Flip **Theme gallery style** if you want the other one; see [Theme families and looks](/themes/families/).
 
-The exported file is the theme's full set of colors, gradients, and radii, written as plain JSON with no wrapper or format tag around it; a theme file identifies itself by its `.wmtheme.json` extension rather than a marker inside the file, unlike layout or settings exports. If the theme has a background image, the image is read off disk and embedded in the file as base64 rather than left as a reference to a path on your device, so the export is fully self-contained. Opening it on another phone doesn't require re-picking the photo. A theme with no background image just has empty image fields. There's no size limit on a local export, so a theme with a large background photo can produce a correspondingly large file.
+The exported file is the theme's full set of colors, gradients, and radii, written as plain JSON with no wrapper or format tag around it. Unlike a layout or settings export, a theme file identifies itself by its `.wmtheme.json` extension rather than by a marker inside. If the theme has a background image, the app reads that image off disk and embeds it as base64 instead of leaving behind a path that only exists on your device. The export is self-contained, so opening it on another phone doesn't mean re-picking the photo. A theme with no background image has empty image fields. There's no size limit on a local export, so a theme with a large background photo makes a correspondingly large file.
 
 ## Importing a theme
 
-There are three ways a theme gets imported, and they don't all behave the same way: two apply the theme immediately, one doesn't. A fourth button on the same row, **FlorisBoard**, reads someone else's format rather than this one; it's covered separately below.
+There are three ways a theme gets imported, and they don't all behave the same way: two apply the theme immediately, one doesn't. A fourth button on the same row, **FlorisBoard**, reads someone else's format rather than this one. It's covered separately below.
 
 ### From the Import button
 
@@ -54,7 +54,7 @@ This file association is matched by filename, since a theme file carries no inte
 
 See [Addon repositories](/development/addon-repos/) for how repositories work generally. Installing a theme from one behaves differently from the two file-based flows above: it's added to Your themes but **not** switched on automatically. Browsing a repository shouldn't repaint your keyboard behind your back, so after the install finishes you get a separate, dismissable prompt: "Installed *theme name*", asking "Use it as your keyboard theme now?" with a **Switch to it** button and a **Not now** dismiss option. Declining leaves the theme sitting in Your themes, installed but not worn, until you tap it yourself.
 
-A theme listing in a repository also isn't previewable in the addon browser the way a dictionary or sticker pack is. A theme is judged by seeing the keyboard wearing it, which a static preview panel can't honestly show. And unlike a plugin, a theme's checksum in the repository manifest is optional rather than enforced, since a theme isn't executable code; a theme with no checksum still installs the same as one that has it, with no extra warning either way.
+A theme listing in a repository also isn't previewable in the addon browser the way a dictionary or sticker pack is. You judge a theme by seeing the keyboard wearing it, which a static preview panel can't honestly show. Unlike a plugin, a theme's checksum in the repository manifest is optional rather than enforced, since a theme isn't executable code. A theme with no checksum installs exactly like one that has it, with no extra warning either way.
 
 ### From a FlorisBoard file
 
@@ -62,7 +62,7 @@ The gallery's third import button reads FlorisBoard's own `.flex` theme packages
 
 ## Publishing a theme
 
-Publishing requires no extra packaging: the exact `.wmtheme.json` file the Export button produces is what a repository serves. Export the theme, drop the file into your repository's `themes/` folder, and reference it from the repository manifest. See [Addon repository format](/development/addon-repos/repo-format/) for the manifest shape and a worked theme entry.
+Publishing requires no extra packaging. A repository serves the exact `.wmtheme.json` file the Export button produces. Export the theme. Drop the file into your repository's `themes/` folder. Reference it from the repository manifest. See [Addon repository format](/development/addon-repos/repo-format/) for the manifest shape and a worked theme entry.
 
 ## Details and edge cases
 

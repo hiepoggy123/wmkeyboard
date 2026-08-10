@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-The emoji panel is a full browsing surface, not just a grid: search understands synonyms and typos in English and Bengali, every toned emoji remembers the variant you last picked for it, and your favourites and recents ride at the front of their own tab.
+The emoji panel does more than lay emoji out in a grid. Search understands synonyms and typos in English and Bangla, every toned emoji remembers the variant you last picked for it, and your favourites and recents ride at the front of their own tab.
 
 <PhoneFrame caption="The emoji panel open over a text field, with the search icon, tab strip, and category grid.">
   {/* shot: emoji/panel-overview */}
@@ -25,7 +25,7 @@ Two more toggles replace a bottom-row key outright with an emoji key, so opening
 
 <SettingsPath path="Layout & size / Bottom-row keys / Emoji key instead of 🌐" />
 
-**Emoji key instead of 🌐** is on by default: the <KeyCap>🌐</KeyCap> key opens the emoji panel instead of switching language. Language switching doesn't disappear: it moves to a spacebar swipe (set to Language by default; see [Gestures](/typing/gestures/)), so you get it back for free.
+**Emoji key instead of 🌐** is on by default, so the <KeyCap>🌐</KeyCap> key opens the emoji panel instead of switching language. Language switching doesn't disappear. It moves to a spacebar swipe, set to Language by default, so you get it back for free. See [Gestures](/typing/gestures/).
 
 **Comma key opens emoji**, under the same group, is off by default. Turn it on and the bottom-row comma key becomes an emoji key too, with comma itself demoted to a long-press alternate. Its own info text warns that turning this on also removes the emoji tool from the toolbar, since the key is meant to replace it. Drag the tool back into the toolbar if you want both.
 
@@ -35,7 +35,9 @@ Typing `:cat:` is a different feature entirely: it searches or auto-commits an e
 
 ## Searching for an emoji
 
-Tap the magnifying-glass tab at the start of the tab strip to switch the panel into search mode. The search pill appears under the results, just above the keys typing into it, so the emoji themselves stay at the top of the panel where your thumb left them. It isn't a text field you type into directly. Tapping it turns the letter keys underneath into a query editor: what you type appends to the search pill instead of going to your document, and a small backspace icon next to the pill deletes from your actual text field without leaving search. Tap the search icon again (or switch to any category tab) to leave search and go back to browsing.
+Tap the magnifying-glass tab at the start of the tab strip. The panel switches into search mode. The search pill appears under the results, just above the keys that type into it, so the emoji stay at the top of the panel where your thumb left them.
+
+The pill is not a text field you type into directly. Tap it, and the letter keys underneath become a query editor: what you type appends to the pill instead of going to your document. A small backspace icon next to the pill deletes from your actual text field without leaving search. To go back to browsing, tap the search icon again or switch to any category tab.
 
 <PhoneFrame caption="Typing 'cat' and 'বিড়াল' in the panel's search field, both surfacing the same cat emoji.">
   {/* shot: emoji/panel-search */}
@@ -43,14 +45,14 @@ Tap the magnifying-glass tab at the start of the tab strip to switch the panel i
 
 Search understands more than an exact keyword match, layered in this order, where matches on more than one query word add up:
 
-1. **An exact shortcode** — `tada` finds only 🎉, unambiguously, ahead of anything else.
-2. **A shortcode prefix** — `thumb` starts narrowing toward `:thumbsup:` and its neighbors.
-3. **An exact keyword** — `cat` matches every emoji tagged with the word "cat".
-4. **A synonym** — a small hand-curated list expands common searches: `party` also surfaces 🍾 via "celebration", `happy` also reaches emoji tagged "joy" or "cheerful", and Bengali concepts expand the same way (খুশি → হাসি, আনন্দ).
-5. **A keyword prefix** — `cele` starts matching "celebration" before you finish typing it.
-6. **A one-typo fuzzy match** — `hapy` still finds 😀, for query words of four letters or more.
+1. **An exact shortcode.** `tada` finds only 🎉, unambiguously, ahead of anything else.
+2. **A shortcode prefix.** `thumb` starts narrowing toward `:thumbsup:` and its neighbors.
+3. **An exact keyword.** `cat` matches every emoji tagged with the word "cat".
+4. **A synonym.** A small hand-curated list expands common searches. `party` also surfaces 🍾 via "celebration", and `happy` also reaches emoji tagged "joy" or "cheerful". Bangla concepts expand the same way (খুশি → হাসি, আনন্দ).
+5. **A keyword prefix.** `cele` starts matching "celebration" before you finish typing it.
+6. **A one-typo fuzzy match.** `hapy` still finds 😀, for query words of four letters or more.
 
-English and Bengali keywords are merged into the same index, so a query never needs to specify a language: বিড়াল and "cat" surface the same set of cat emoji, and this holds for every cat-family emoji in the catalog, not just the smiley ones. Typing a language you haven't installed a keyword pack for still works for anything with English or Bengali tags; downloading a pack for another language is covered in [Emoji search in your language](/emoji/customization/#emoji-search-in-your-language).
+English and Bangla keywords are merged into the same index, so a query never needs to name a language. বিড়াল and "cat" surface the same set of cat emoji, and that holds for every cat-family emoji in the catalog, not only the smiley ones. Typing in a language you haven't installed a keyword pack for still works for anything carrying English or Bangla tags. To download a pack for another language, see [Emoji search in your language](/emoji/customization/#emoji-search-in-your-language).
 
 ## Picking a skin tone
 
@@ -62,25 +64,25 @@ Long-press any emoji in the panel grid (search results included) to open its var
   {/* shot: emoji/variant-popup */}
 </PhoneFrame>
 
-Most toned emoji offer a single row of six choices (the neutral base plus five Fitzpatrick skin tones); tap any one to insert it. A small number of two-person emoji, like 🤝 and 👫, instead open a dual-tone picker with two independent swatch rows, one per person, so each side of a handshake or hug can carry its own tone.
+Most toned emoji offer a single row of six choices: the neutral base plus five Fitzpatrick skin tones. Tap any one to insert it. A small number of two-person emoji, like 🤝 and 👫, open a dual-tone picker instead. It has two independent swatch rows, one per person, so each side of a handshake or hug can carry its own tone.
 
 <PhoneFrame caption="The dual-tone picker for 🤝, with independent skin tones for each hand.">
   {/* shot: emoji/dual-tone-picker */}
 </PhoneFrame>
 
-Whichever variant you tap becomes that emoji's new default: the picker remembers your last choice per emoji and shows it from then on, in the grid and in your recents. Two settings shape how tones work everywhere else:
+Whichever variant you tap becomes that emoji's new default. The picker remembers your last choice per emoji and shows it from then on, in the grid and in your recents. Two settings shape how tones work everywhere else:
 
 <SettingsPath path="Emoji / Skin tone / Override with last used" />
 
-**Default skin tone** sets the tone every toned emoji gets when you haven't picked one for it yourself — in the panel grid, the suggestion strip and search results alike. **Override with last used** (on by default) keeps your per-emoji memory ahead of that default, so an emoji you've already toned by hand stays the way you left it. Turn it off if you'd rather the default tone win everywhere and your per-emoji picks only apply to that one insertion.
+**Default skin tone** sets the tone every toned emoji gets when you haven't picked one for it yourself. That covers the panel grid, the suggestion strip and search results alike. **Override with last used** (on by default) keeps your per-emoji memory ahead of that default, so an emoji you've already toned by hand stays the way you left it. Turn it off if you'd rather the default tone win everywhere and your per-emoji picks only apply to that one insertion.
 
-Emoji with gender or role variants (a runner shown as 🏃‍♀️ or 🏃‍♂️, a doctor as 👨‍⚕️ or 👩‍⚕️) collapse into the same long-press popup rather than cluttering the grid with every combination as its own cell; pick the member you want at the top of the popup, then its tone below.
+Emoji with gender or role variants (a runner shown as 🏃‍♀️ or 🏃‍♂️, a doctor as 👨‍⚕️ or 👩‍⚕️) collapse into the same long-press popup, so the grid isn't cluttered with every combination as its own cell. Pick the member you want at the top of the popup, then its tone below.
 
 ## Favourites, recents, and most used
 
 <SettingsPath path="Emoji / Emoji panel / History tab" />
 
-The first tab in the panel (once you have at least one recent or favourited emoji) shows your history. **History tab** chooses what fills it: **Recent** orders by when you last used an emoji, **Most used** ranks by frequency; favourited emoji are pinned to the front either way.
+The first tab in the panel shows your history, once you have at least one recent or favourited emoji. **History tab** chooses what fills it. **Recent** orders by when you last used an emoji, and **Most used** ranks by frequency. Favourited emoji are pinned to the front either way.
 
 <PhoneFrame caption="The history tab with favourites pinned first, and the long-press options for a starred emoji.">
   {/* shot: emoji/history-tab */}
@@ -104,13 +106,13 @@ Off by default. Turn it on to add a "Clear recents" button to the Recent tab. It
 
 Around 880 emoji have an animated version published by Google as part of [Noto Animated Emoji](https://googlefonts.github.io/noto-emoji-animation/). Long-press any of them in the panel and the popup loops the animation, with a **Send animated emoji** button under it that sends the 512×512 GIF into the field you're typing in.
 
-The button only appears once the animation has loaded — there's no control offering to send something you haven't seen — and the popup stays open afterward, preview and all, so you can fire off two in a row or pick a skin tone next.
+The button only appears once the animation has loaded, so no control ever offers to send something you haven't seen. The popup stays open afterward, preview and all, so you can fire off two in a row or pick a skin tone next.
 
 <PhoneFrame caption="Long-pressing 😀 shows its animation looping, over the send button.">
   {/* shot: emoji/animated-popup */}
 </PhoneFrame>
 
-Two files exist for every animation, and the popup uses them for different jobs. Opening it fetches the WebP (around 350 KB) to loop in the preview; pressing the button fetches the GIF (around 800 KB) and sends that. Long-press is also how you reach skin tones and favourites, so most long-presses send nothing and shouldn't cost the larger file — and the GIF is what gets sent because an app that accepts `image/webp` may still draw only its first frame, which would make a "send animated emoji" button a liar.
+Two files exist for every animation, and the popup uses them for different jobs. Opening it fetches the WebP (around 350 KB) to loop in the preview. Pressing the button fetches the GIF (around 800 KB) and sends that. Long-press is also how you reach skin tones and favourites, so most long-presses send nothing and shouldn't cost the larger file. The GIF is what goes out because an app that accepts `image/webp` may still draw only its first frame, which would make a "send animated emoji" button a liar.
 
 Both come from `fonts.gstatic.com`, and nothing is downloaded until you long-press. Nothing about you goes with either request: it's a plain fetch of a fixed URL, with no query, no key, and no identifier.
 
@@ -128,15 +130,15 @@ Sending one counts as using that emoji, so it lands in your recents like an ordi
 
 Under the animation (and on every emoji, animated or not) is **Send image as sticker**: the emoji itself, drawn at 512×512 in whichever [emoji font](/emoji/customization/#choosing-an-emoji-font) you've picked, sent as a transparent WebP.
 
-It's the answer to the oldest emoji problem there is — the other person's phone drawing your emoji as something else, or as an empty box. Send it as a picture and they see the one you saw.
+It answers the oldest emoji problem there is: the other person's phone drawing your emoji as something else, or as an empty box. Send it as a picture and they see the one you saw.
 
-The picture is drawn in the font the keyboard itself draws with, whichever that is: an imported font, one installed from an addon repository, Google's Noto Color Emoji, or the phone's own set. Noto is fetched once from the same system font provider Compose draws it with and then kept; everything else is already on the device, so this normally works offline and sends nothing anywhere.
+The picture is drawn in the font the keyboard itself draws with, whichever that is: an imported font, one installed from an addon repository, Google's Noto Color Emoji, or the phone's own set. Noto is fetched once from the same system font provider Compose draws it with, then kept. Everything else is already on the device, so this normally works offline and sends nothing anywhere.
 
 How it goes out follows the sticker tool's own setting, so one preference governs every sticker the keyboard sends:
 
 <SettingsPath path="Tools / Stickers / Send stickers as" />
 
-Left at **Sticker** (the default) WhatsApp receives it as a real sticker. Set it to **Image** and it arrives as an ordinary picture in the message box instead, which is the thing to try if an app does something unhelpful with a sticker — sending it instantly, say, or closing the keyboard afterward.
+Left at **Sticker** (the default) WhatsApp receives it as a real sticker. Set it to **Image** and it arrives as an ordinary picture in the message box instead. That's the thing to try if an app does something unhelpful with a sticker, like sending it instantly or closing the keyboard afterward.
 
 Like the animated button, this one only shows on a field that accepts images, and it can be switched off on its own.
 
@@ -155,6 +157,6 @@ The animations are **Noto Animated Emoji** by Google, licensed [CC BY 4.0](https
 
 ### Coverage
 
-The bundled catalog covers **1,914 base emoji** across ten categories (activities, animals, flags, food, nature, objects, people, smileys, symbols, travel). Of those, 330 carry Fitzpatrick skin-tone variants (five uniform tones each), and 19 of that 330 also support independently-toned pairs like 🤝; together that's 2,030 additional toned sequences on top of the base count.
+The bundled catalog covers **1,914 base emoji** across ten categories (activities, animals, flags, food, nature, objects, people, smileys, symbols, travel). Of those, 330 carry Fitzpatrick skin-tone variants, five uniform tones each, and 19 of that 330 also support independently-toned pairs like 🤝. Together that's 2,030 additional toned sequences on top of the base count.
 
 For the settings that shape all of this (which font draws the emoji, keyword packs for other languages, word-typing predictions, and the emoji row), see [Emoji customization](/emoji/customization/).

@@ -1,6 +1,6 @@
 ---
 title: "Utility tools"
-description: "Calculator, unit and currency converters, a symbol picker, QR and password generators, and a typing-speed test: six related tools split across Create & convert and Online tools in the toolbox."
+description: "Calculator, unit and currency converters, a symbol picker, QR and password generators, and a typing-speed test: seven related tools split across Create & convert and Online tools in the toolbox."
 sidebar:
   order: 12
 ---
@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-This page covers six tools that share a theme (arithmetic, conversion and generation) even though the toolbox doesn't file them all in the same place: a scientific **Calculator**, a **Unit converter**, a **Special symbols** picker, a **QR code generator**, and a **Password generator** sit under **Create & convert**, alongside **Typing speed test**, which lives in the same group even though it measures rather than generates. **Currency converter** is filed under **Online tools** instead, since it's the only one of the six that has to touch the network for live exchange rates. Otherwise all six run their math or generation entirely on the device.
+This page covers seven tools that share a theme: arithmetic, conversion and generation. The toolbox doesn't file them all in the same place. A scientific **Calculator**, a **Unit converter**, a **Special symbols** picker, a **QR code generator** and a **Password generator** sit under **Create & convert**, alongside **Typing speed test**, which measures rather than generates but lands in the same group. **Currency converter** is filed under **Online tools**, because it's the only one that has to touch the network for live exchange rates. The other six run their math or generation entirely on the device.
 
 <PhoneFrame caption="The Calculator panel: live expression and result, the scientific function row, and the custom digit keypad.">
   {/* shot: tools/calculator-panel */}
@@ -19,115 +19,118 @@ For Wikipedia, web/image search, and the AI writing tools (also reachable from t
 
 ## Doing the math
 
-Open **Calculator** from the toolbar or toolbox (it isn't pinned by default), or double-tap <KeyCap>Ctrl</KeyCap> for the [leader key](/reference/shortcuts/), then <KeyCap>L</KeyCap>. It evaluates the expression live as you type: `+ - × ÷ * / mod % ^ ( )`, implicit multiplication (`2π`, `3(4+1)`), the constants `π`/`pi` and `e`, and a scrolling function row with `C`, `sin`, `cos`, `tan`, `π`, `e`, `^`, `√`, `ln`, `log` (base 10), `abs`, and `mod` as one-tap chips. `asin`/`acos`/`atan`/`sinh`/`cosh`/`tanh`/`sqrt`/`cbrt`/`exp`/`floor`/`ceil`/`round` all work too, typed out by name rather than tapped. A trailing `%` divides by 100; a `%` followed by a number is modulo, same as `mod`. Permutations and combinations use the keypad shorthand, `5p3` and `4c2`.
+Open **Calculator** from the toolbar or toolbox. It isn't pinned by default. On a hardware keyboard, double-tap <KeyCap>Ctrl</KeyCap> for the [leader key](/reference/shortcuts/), then press <KeyCap>L</KeyCap>.
 
-- The **deg**/**rad** chip in the scrolling function row flips trig between degrees and radians and remembers your choice.
+The panel evaluates your expression live as you type. It takes `+ - × ÷ * / mod % ^ ( )`, implicit multiplication (`2π`, `3(4+1)`), and the constants `π`/`pi` and `e`. A scrolling function row offers `C`, `sin`, `cos`, `tan`, `π`, `e`, `^`, `√`, `ln`, `log` (base 10), `abs` and `mod` as one-tap chips. Typed out by name, `asin`/`acos`/`atan`/`sinh`/`cosh`/`tanh`/`sqrt`/`cbrt`/`exp`/`floor`/`ceil`/`round` all work too. A trailing `%` divides by 100, and a `%` followed by a number is modulo, same as `mod`. Permutations and combinations use the keypad shorthand, `5p3` and `4c2`.
+
+- The **deg**/**rad** chip in the scrolling function row flips trig between degrees and radians, and remembers your choice.
 - **=** collapses the expression down to its result in place, so `12*4=` becomes `12*4=48` rather than clearing the display.
 - An **Insert** chip appears next to the live result whenever it evaluates successfully, and types the formatted number at the cursor.
 - Opening Calculator from a [smart chip](/smart/chips/) (the inline `96` that appears when you type `12*8` on the strip) prefills the expression with what you already typed.
 
-The custom keypad (`7 8 9 ÷ ⌫`, `4 5 6 × (`, `1 2 3 − )`, `0 . % + =`) replaces the letter rows entirely while the panel is open; there's nothing to type past what the calculator itself accepts.
+The custom keypad (`7 8 9 ÷ ⌫`, `4 5 6 × (`, `1 2 3 − )`, `0 . % + =`) replaces the letter rows entirely while the panel is open. There's nothing to type past what the calculator itself accepts.
 
 ### Options
 
 <SettingsPath path="Tools / Calculator / Options" />
 
-- **Calculate as you type** — on by default. The strip's inline chip behavior described above; the same toggle also appears under [Smart chips](/smart/chips/#options), since it's one setting surfaced in both places.
-- **Degrees** — on by default. Off switches trig functions to radians.
-- **Result precision** — a slider from 0 to 12 decimal places, defaulting to **8**. Trailing zeros are stripped either way, and this same setting also shapes the unit converter's output below.
+- **Calculate as you type**: on by default. This is the strip's inline chip behavior described above. The same toggle also appears under [Smart chips](/smart/chips/#options), since it's one setting surfaced in both places.
+- **Degrees**: on by default. Off switches trig functions to radians.
+- **Result precision**: a slider from 0 to 12 decimal places, defaulting to **8**. Trailing zeros are stripped either way, and this same setting shapes the unit converter's output below.
 
 ## Converting units and currencies
 
-**Unit converter** and **Currency converter** share the same layout: category or currency chips up top, a swap icon between the two sides, a live result, and the same digit keypad. Only one of them touches the network. That keypad is simpler than Calculator's own: just digits, a decimal point and backspace, with no operator keys, since neither converter evaluates an expression.
+**Unit converter** and **Currency converter** share a layout: category or currency chips up top, a swap icon between the two sides, a live result, and the same digit keypad. Only one of them touches the network. That keypad is simpler than Calculator's, just digits, a decimal point and backspace, because neither converter evaluates an expression.
 
 <PhoneFrame caption="The Unit converter panel: category chips, From/To unit rows, the swap icon, and the shared digit keypad.">
   {/* shot: tools/unit-converter-panel */}
 </PhoneFrame>
 
-**Unit converter** covers 14 categories: length, mass, temperature, area, volume, speed, time, data, energy, power, pressure, angle, frequency, and fuel economy, all converted locally. Pick a category, a From and To unit, type a value, and tap **Insert**. The panel remembers the unit pair you used last *per category*, so switching to Volume and back to Length restores each one's own last pair rather than sharing a single memory slot.
+**Unit converter** covers 14 categories, all converted locally: length, mass, temperature, area, volume, speed, time, data, energy, power, pressure, angle, frequency, and fuel economy. Pick a category. Pick a From and a To unit. Type a value, then tap **Insert**. The panel remembers the unit pair you used last *per category*, so switching to Volume and back to Length restores each one's own last pair rather than sharing a single memory slot.
 
-**Currency converter** needs live exchange rates: it fetches from `open.er-api.com` (roughly 160 currencies, updated daily) and falls back to `frankfurter.app` (European Central Bank, roughly 30 currencies) if that fails (both free, no key required). Rates are quoted against USD and cross-converted locally, so one fetch covers every pair. A refresh icon on the panel forces a new fetch; otherwise it only refetches once the cached rates are older than the refresh interval set below, and that cache doesn't survive the keyboard process restarting, so the very first open after a while can show a brief "Fetching exchange rates…" message.
+**Currency converter** needs live exchange rates. It fetches from `open.er-api.com` (roughly 160 currencies, updated daily) and falls back to `frankfurter.app` (European Central Bank, roughly 30 currencies) if that fails. Both are free and need no key. Rates are quoted against USD and cross-converted locally, so one fetch covers every pair. A refresh icon on the panel forces a new fetch. Otherwise it only refetches once the cached rates are older than the refresh interval set below, and that cache doesn't survive the keyboard process restarting, so the first open after a while can show a brief "Fetching exchange rates…" message.
 
 <PhoneFrame caption="The Currency converter panel: a From/To currency pair, live converted amount, and the refresh icon.">
   {/* shot: tools/currency-converter-panel */}
 </PhoneFrame>
 
-The currency picker pins 15 common codes to the front of the list: USD, EUR, BDT, GBP, INR, JPY, CNY, AUD, CAD, SGD, AED, SAR, MYR, TRY, PKR, before falling through to everything else the current rate table has, sorted alphabetically.
+The currency picker pins 15 common codes to the front of the list: USD, EUR, BDT, GBP, INR, JPY, CNY, AUD, CAD, SGD, AED, SAR, MYR, TRY, PKR. Everything else the current rate table has follows, sorted alphabetically.
 
-**Cryptocurrency** rides in the same panel. With coins on (they are by default) the picker grows a **Crypto** section between the pinned codes and the alphabetical tail, and picking a coin on either side converts against it exactly like a currency. Coin prices come from `api.coinbase.com`, with the jsDelivr `currency-api` behind it and CoinGecko as the other choice, and they are only fetched when you actually pick a coin or type a coin amount. Coin results keep five meaningful digits instead of the two decimals a currency gets, since a fraction of a bitcoin at two decimals is just `0.00`.
+**Cryptocurrency** rides in the same panel. With coins on (they are by default) the picker grows a **Crypto** section between the pinned codes and the alphabetical tail. Picking a coin on either side converts against it exactly like a currency. Coin prices come from `api.coinbase.com`, with the jsDelivr `currency-api` behind it and CoinGecko as the other choice, and they're only fetched when you actually pick a coin or type a coin amount. Coin results keep five meaningful digits instead of the two decimals a currency gets, since a fraction of a bitcoin at two decimals is just `0.00`.
 
-Both converters are also reachable inline: typing `1 ft` or `150 usd` on the strip offers a [smart chip](/smart/chips/) with the converted amount, and its gear icon opens the matching panel with the category/pair already set. That inline mechanism is covered on the smart chips page, not here.
+Both converters are also reachable inline. Typing `1 ft` or `150 usd` on the strip offers a [smart chip](/smart/chips/) with the converted amount, and its gear icon opens the matching panel with the category or pair already set. That inline mechanism is covered on the smart chips page, not here.
 
 ### Options
 
 <SettingsPath path="Tools / Unit converter / Options" />
 
-- **Convert as you type** — on by default. The inline unit chip described above.
-- **Feet and inches** — on by default. Anything converting into feet is read as feet plus inches, so 1 metre comes back as `3 ft 3.37 in` rather than `3.2808399 ft`. Turn it off for the plain decimal.
+- **Convert as you type**: on by default. This is the inline unit chip described above.
+- **Feet and inches**: on by default. Anything converting into feet is read as feet plus inches, so 1 metre comes back as `3 ft 3.37 in` rather than `3.2808399 ft`. Turn it off for the plain decimal.
 
 <SettingsPath path="Tools / Currency converter / Options" />
 
-- **Convert as you type** — on by default. The inline currency chip.
-- **Decimal places** — a slider from 0 to 6, defaulting to **2**.
-- **Refresh rates every** — a slider from 1 to 48 hours, defaulting to **6**. Upstream rates only update about once a day, so anything under 24 hours mostly changes how soon a *failed* fetch gets retried.
-- **Currency rates from** — which source to fetch fiat rates from: ExchangeRate-API (the default), Frankfurter, Coinbase, or the jsDelivr currency-api. **Try the other sources** underneath decides whether the rest stand behind it as fallbacks.
+- **Convert as you type**: on by default. This is the inline currency chip.
+- **Decimal places**: a slider from 0 to 6, defaulting to **2**.
+- **Refresh rates every**: a slider from 1 to 48 hours, defaulting to **6**. Upstream rates only update about once a day, so anything under 24 hours mostly changes how soon a *failed* fetch gets retried.
+- **Currency rates from**: which source to fetch fiat rates from, either ExchangeRate-API (the default), Frankfurter, Coinbase, or the jsDelivr currency-api. **Try the other sources** underneath decides whether the rest stand behind it as fallbacks.
 
 <SettingsPath path="Tools / Currency converter / Cryptocurrency" />
 
-- **Convert coins** — on by default. Reads amounts like `1 btc` and shows the Crypto section on the panel.
-- **Coin decimal places** — a slider from Auto to 12, defaulting to **Auto**, which keeps five meaningful digits whatever the size of the number.
-- **Refresh coin prices every** — a slider from 1 to 60 minutes, defaulting to **5**.
-- **Coin prices from** — Coinbase (the default), the jsDelivr currency-api, or CoinGecko, with the same **Try the other sources** switch.
-- **Coins** — a chip for each of the 39 coins the keyboard knows, 20 of them on to begin with, plus **Add a ticker** for anything else your source quotes. At least one coin always stays on.
+- **Convert coins**: on by default. Reads amounts like `1 btc` and shows the Crypto section on the panel.
+- **Coin decimal places**: a slider from Auto to 12, defaulting to **Auto**, which keeps five meaningful digits whatever the size of the number.
+- **Refresh coin prices every**: a slider from 1 to 60 minutes, defaulting to **5**.
+- **Coin prices from**: Coinbase (the default), the jsDelivr currency-api, or CoinGecko, with the same **Try the other sources** switch.
+- **Coins**: a chip for each of the 39 coins the keyboard knows, 20 of them on to begin with, plus **Add a ticker** for anything else your source quotes. At least one coin always stays on.
 
-[Power saving mode](/typing/power-saving/) doesn't touch either converter's own network fetch: its background-network toggle only forces off clipboard link previews, QR-scan link previews, and dictionary auto-lookup, not the currency panel opening or refreshing. See [network policy](/privacy/network/) for what leaves the device and when.
+[Power saving mode](/typing/power-saving/) doesn't touch either converter's own network fetch. Its background-network toggle only forces off clipboard link previews, QR-scan link previews and dictionary auto-lookup, never the currency panel opening or refreshing. See [network policy](/privacy/network/) for what leaves the device and when.
 
 ## Typing special symbols
 
-**Special symbols** is a tap-to-type picker for characters that are otherwise a hunt to find: fractions, real math operators, Greek letters, arrows, currency signs, super/subscripts, punctuation marks, shapes and stars, and a Misc catch-all (nine categories in all). Tap a category chip, then tap a symbol to type it exactly like a regular key.
+**Special symbols** is a tap-to-type picker for characters that are otherwise a hunt to find: fractions, real math operators, Greek letters, arrows, currency signs, super/subscripts, punctuation marks, shapes and stars, and a Misc catch-all, nine categories in all. Tap a category chip, then tap a symbol to type it exactly like a regular key.
 
 <PhoneFrame caption="The Symbols panel: category chips over an adaptive grid, with a Recents chip once you've used a few.">
   {/* shot: tools/symbols-panel */}
 </PhoneFrame>
 
-Every symbol you tap is remembered under a **Recents** chip that appears at the front of the category row (capped at 24, most recent first), and a repeat tap just moves a symbol back to the front instead of duplicating it. A few characters that render invisibly get a text label instead of a blank cell: non-breaking space shows as "NBSP", zero-width space as "ZWSP", zero-width joiner as "ZWJ".
+Every symbol you tap is remembered under a **Recents** chip at the front of the category row, capped at 24 and most recent first. A repeat tap moves a symbol back to the front instead of duplicating it. A few characters render invisibly, so they get a text label instead of a blank cell: non-breaking space shows as "NBSP", zero-width space as "ZWSP", zero-width joiner as "ZWJ".
 
-This tool is separate from the **symbol row** (off by default), a strip of one-tap characters that sits above the key grid and is covered under [Modes & the symbol row](/typing/modes/#the-symbol-row); that's a persistent row you configure once, while Special symbols is a picker you open on demand.
+This tool is separate from the **symbol row** (off by default), a strip of one-tap characters that sits above the key grid and is covered under [Modes & the symbol row](/typing/modes/#the-symbol-row). That's a persistent row you configure once, while Special symbols is a picker you open on demand.
 
 ### Options
 
 <SettingsPath path="Tools / Special symbols" />
 
-- **Clear recent symbols** — a single action; the row shows how many symbols are currently remembered, or "No recents yet".
+- **Clear recent symbols**: a single action. The row shows how many symbols are currently remembered, or "No recents yet".
 
 ## Making a QR code
 
-**QR code generator** turns whatever you type into a scannable code and sends it as an image: it's the one tool on this page that keeps the letter rows on screen instead of replacing them. Opening it seeds its own editable buffer with the focused field's text as a starting point, but from there it's independent: your keystrokes route into the QR content rather than the field, and the field itself is never touched until you send.
+**QR code generator** turns whatever you type into a scannable code and sends it as an image. It's the one tool on this page that keeps the letter rows on screen instead of replacing them. Opening it seeds its own editable buffer with the focused field's text as a starting point. From there it's independent: your keystrokes route into the QR content rather than the field, and the field itself is never touched until you send.
 
 <PhoneFrame caption="The QR generator panel: editable content line, live QR preview, and Send as image.">
   {/* shot: tools/qr-generator-panel */}
 </PhoneFrame>
 
-The preview updates as you type, up to 2,000 characters: past that it shows "Too much text for one QR code" with the current character count instead of a code. **Send as image** commits the PNG through the same `commitContent` path the clipboard and sticker tools use; if the receiving field or app doesn't advertise support for it, the code falls back to the system clipboard instead, with a toast telling you to paste it in.
+The preview updates as you type, up to **Longest text** characters (500 to 4,000, default 2,000). Past that it replaces the code with "The text is too long for one QR code," followed by your current character count. A longer payload encodes at a lower error correction level, which is why the two rows sit together in settings. **Send as image** commits the PNG through the same `commitContent` path the clipboard and sticker tools use. If the receiving field or app doesn't advertise support for it, the code falls back to the system clipboard instead, with a toast telling you to paste it in.
 
 ### Options
 
 <SettingsPath path="Tools / QR code generator / Options" />
 
-- **Image size** — a slider from 256 to 2048 px, defaulting to **1024**. This only affects the PNG that gets sent; the on-panel preview is a fixed small size regardless.
-- **Send as** — Image or Sticker, defaulting to **Image**. This is the same Image/Sticker switch the GIF and sticker tools use, but it has no visible effect here: a WhatsApp-style sticker only goes out for WebP source images, and a generated QR code is always saved as a PNG, so it sends as a plain image either way.
-- **Save to gallery** — off by default. Also copies each generated code into **Pictures/WM Keyboard**.
-- **Error correction** — a segmented L/M/Q/H row, defaulting to **M**. Higher levels survive more smudging and damage but fit less text into the same code.
+- **Image size**: a slider from 256 to 2048 px, defaulting to **1024**. This only affects the PNG that gets sent. The on-panel preview is a fixed small size regardless.
+- **Send as**: Image or Sticker, defaulting to **Image**. It's the same Image/Sticker switch the GIF and sticker tools use, but it has no visible effect here. A WhatsApp-style sticker only goes out for WebP source images, and a generated QR code is always saved as a PNG, so it sends as a plain image either way.
+- **Save to gallery**: off by default. Also copies each generated code into **Pictures/WM Keyboard**.
+- **Error correction**: a segmented L/M/Q/H row, defaulting to **M**. Higher levels survive more smudging and damage but fit less text into the same code.
+- **Longest text**: a slider from 500 to 4,000 characters, defaulting to **2,000**. Raise it to fit a longer link or note. If the code then refuses to build, lower the error correction above it, or shorten the text.
 
 ## Generating a password
 
-**Password generator** makes passwords or passphrases with `SecureRandom` entirely on the device: nothing generated here is ever stored or logged, and there's no history to clear because none is kept.
+**Password generator** makes passwords or passphrases with `SecureRandom` entirely on the device. Nothing generated here is ever stored or logged, and there's no history to clear because none is kept.
 
 <PhoneFrame caption="The Password generator panel: generated result, entropy estimate, and the Password/Passphrase tabs.">
   {/* shot: tools/password-generator-panel */}
 </PhoneFrame>
 
-**Password mode** picks one character from every enabled class first, fills the rest at random, then shuffles the whole string so the guaranteed characters aren't front-loaded at the start. **Passphrase mode** draws words from the keyboard's own bundled English dictionary, filtered down to short (4–8 letter), plain-lowercase, distinct words, so it works regardless of which language you're actually typing in, with no separate wordlist to download. Both modes show a rough "≈N bits of entropy" estimate, and both have **Copy** and **Insert** chips plus a regenerate icon. Once in a long while the entropy line picks up a second caption — see [Easter eggs](/reference/easter-eggs/#read-your-password-generators-mind).
+**Password mode** picks one character from every enabled class first, fills the rest at random, then shuffles the whole string so the guaranteed characters aren't front-loaded. **Passphrase mode** draws words from the keyboard's own bundled English dictionary, filtered down to short (4–8 letter), plain-lowercase, distinct words. That works regardless of which language you're actually typing in, with no separate wordlist to download. Both modes show a rough "≈N bits of entropy" estimate, and both have **Copy** and **Insert** chips plus a regenerate icon. Once in a long while the entropy line picks up a second caption. See [Easter eggs](/reference/easter-eggs/#read-your-password-generators-mind).
 
 ### Options
 
@@ -135,47 +138,48 @@ The preview updates as you type, up to 2,000 characters: past that it shows "Too
 
 **Password**
 
-- **Length** — a slider from 4 to 64, defaulting to **16**.
-- **Uppercase letters**, **Digits**, **Symbols** — all on by default.
-- **Exclude look-alikes** — off by default. Strips easily-confused characters (`Il1O0o5S8B` and a few punctuation marks) from the pool.
+- **Length**: a slider from 4 to 64, defaulting to **16**.
+- **Uppercase letters**, **Digits**, **Symbols**: all on by default.
+- **Symbols to use**: empty by default, which means the built-in punctuation set. Shown only while **Symbols** is on. Some sites accept only a few marks. Type just those and the generator draws from them alone, so you don't have to generate again and again until a password comes out clean.
+- **Exclude look-alikes**: off by default. Strips easily-confused characters (`Il1O0o5S8B` and a few punctuation marks) from the pool.
 
 **Passphrase**
 
-- **Words** — a slider from 2 to 10, defaulting to **4**.
-- **Separator** — free text between words, defaulting to `-`; leave it blank for no separator.
-- **Capitalize words** — off by default (`correct-horse` → `Correct-Horse`).
-- **Include a digit** — off by default. Appends a random digit to one random word in the phrase.
+- **Words**: a slider from 2 to 10, defaulting to **4**.
+- **Separator**: free text between words, defaulting to `-`. Leave it blank for no separator.
+- **Capitalize words**: off by default (`correct-horse` → `Correct-Horse`).
+- **Include a digit**: off by default. Appends a random digit to one random word in the phrase.
 
 ## Testing your typing speed
 
-**Typing speed test** is the one tool on this page that doesn't replace the key rows: you type the prompt on the real keys while the panel scores it from above. Shift is forced off the moment a run starts, so a field's auto-capitalization can't turn your first keystroke into a false miss, and the clock itself doesn't start until you type your first character, so time spent reading the prompt doesn't count against you.
+**Typing speed test** is the one tool on this page that doesn't replace the key rows. You type the prompt on the real keys while the panel scores it from above. Shift is forced off the moment a run starts, so a field's auto-capitalization can't turn your first keystroke into a false miss. The clock doesn't start until you type your first character either, so time spent reading the prompt costs you nothing.
 
 <PhoneFrame caption="A typing test in progress: the prompt with per-character correctness coloring, above the live key rows.">
   {/* shot: tools/typing-test-panel */}
 </PhoneFrame>
 
-Three modes decide when a run ends: **Time** (the default, 30 seconds), **Word count** (default 25 words), and **Quote** (types out one of 14 short public-domain quotations, however long it runs). Time and Word-count prompts draw from the 200 most common English words, deliberately short and high-frequency so the test measures typing, not vocabulary. Turning on **Punctuation** or **Numbers** (both off by default, and hidden entirely in Quote mode) sprinkles capitals, commas, periods, and the occasional numeral into the prompt.
+Three modes decide when a run ends: **Time** (the default, 30 seconds), **Word count** (default 25 words), and **Quote** (types out one of 14 short public-domain quotations, however long it runs). Time and Word-count prompts draw from the 200 most common English words, deliberately short and high-frequency so the test measures typing rather than vocabulary. Turning on **Punctuation** or **Numbers** sprinkles capitals, commas, periods and the occasional numeral into the prompt. Both are off by default, and both are hidden entirely in Quote mode.
 
 <PhoneFrame caption="Typing test results: WPM, accuracy, consistency, and the Insert score chip.">
   {/* shot: tools/typing-test-results */}
 </PhoneFrame>
 
-Results show words-per-minute (correct characters ÷ 5 ÷ minutes, the usual "5 characters = 1 word" convention), a raw speed that counts every character you typed whether or not it matched the prompt, keystroke-level accuracy that still counts a mistake even after you correct it, and a consistency score for how even your pace stayed through the run. **Insert score** types the result straight into your field as `"83 WPM · 96% accuracy (30s)"` (with your own numbers and config in place of that example). Personal bests are tracked per configuration (a 15-second sprint and a 2-minute run don't share a record), alongside a rolling history of your last 24 runs and a running count of tests completed. There are also four achievement badges to chase — the full list, conditions included, is on [Easter eggs](/reference/easter-eggs/#earn-typing-test-achievements).
+Results show four numbers. Words per minute is correct characters ÷ 5 ÷ minutes, the usual "5 characters = 1 word" convention. Raw speed counts every character you typed whether or not it matched. Accuracy is keystroke-level, so it still counts a mistake after you correct it. Consistency scores how even your pace stayed through the run. **Insert score** types the result straight into your field as `"83 WPM · 96% accuracy (30s)"`, with your own numbers and config in place of that example. Personal bests are tracked per configuration, so a 15-second sprint and a 2-minute run don't share a record, alongside a rolling history of your last 24 runs and a running count of tests completed. There are also four achievement badges to chase, listed with their conditions on [Easter eggs](/reference/easter-eggs/#earn-typing-test-achievements).
 
 ### Options
 
 <SettingsPath path="Tools / Typing speed test" />
 
-- **Default test** — Timed / Word count / Quote chips; the app opens on whichever you used last.
-- **Length** — for Timed, a slider from 15 to 120 seconds (default **30**); for Word count, a slider from 10 to 100 words (default **25**); Quote mode has no length control, since a quote runs to its own end.
-- **Difficulty** — **Punctuation** and **Numbers** toggles, both off by default; this group is hidden entirely while Quote mode is selected.
-- **Records** — tests completed, a recent average once you have history, a best-WPM row per configuration you've actually run, and **Clear records** to wipe all of it.
-- **Achievements** — all four badges, listed whether you've earned them or not: **100 wpm club** (finish a run at 100 wpm or faster), **Flawless run** (nothing wrong, extra or missed in a run of at least 30 characters), **Quick brown fox** (finish a quote that uses every letter of the alphabet), and **50 runs**. Earned ones carry a green tick, the rest a faded padlock, so this group is where the goals are visible; the panel's own results screen only shows badges you already have. Same list, with the conditions written out, on [Easter eggs](/reference/easter-eggs/#earn-typing-test-achievements).
+- **Default test**: Timed / Word count / Quote chips. The app opens on whichever you used last.
+- **Length**: for Timed, a slider from 15 to 120 seconds (default **30**); for Word count, a slider from 10 to 100 words (default **25**). Quote mode has no length control, since a quote runs to its own end.
+- **Difficulty**: the **Punctuation** and **Numbers** toggles, both off by default. This group is hidden entirely while Quote mode is selected.
+- **Records**: tests completed, a recent average once you have history, a best-WPM row per configuration you've actually run, and **Clear records** to wipe all of it.
+- **Achievements**: all four badges, listed whether you've earned them or not. **100 wpm club** (finish a run at 100 wpm or faster), **Flawless run** (nothing wrong, extra or missed in a run of at least 30 characters), **Quick brown fox** (finish a quote that uses every letter of the alphabet), and **50 runs**. Earned ones carry a green tick, the rest a faded padlock, so this group is where the goals are visible. The panel's own results screen only shows badges you already have. Same list, with the conditions written out, on [Easter eggs](/reference/easter-eggs/#earn-typing-test-achievements).
 
 ## Details & edge cases
 
-- **What's offline, and what's direct-boot safe.** All six tools work with no network connection except Currency, which needs one to fetch rates. Separately, Symbols, Calculator, Unit converter, Password generator, and QR generator all still work during **direct boot** (the window right after a restart, before you've unlocked the device for the first time), while Currency (no network yet) and, for reasons the app doesn't surface anywhere, Typing test do not. See [The toolbar](/tools/overview/#which-tools-work-before-you-unlock-your-phone) for the full direct-boot picture across every tool.
-- **Hardware shortcuts.** With a [physical keyboard](/typing/hardware-keyboard/) attached, double-tap <KeyCap>Ctrl</KeyCap> then a letter: <KeyCap>Y</KeyCap> for Symbols, <KeyCap>L</KeyCap> for Calculator, <KeyCap>U</KeyCap> for Unit converter, <KeyCap>Q</KeyCap> for QR generator, <KeyCap>P</KeyCap> for Password generator. Currency converter and Typing test have no default letter: reach them through the toolbox (<KeyCap>T</KeyCap>) or [assign one yourself](/reference/shortcuts/).
+- **What's offline, and what's direct-boot safe.** All seven tools work with no network connection except Currency, which needs one to fetch rates. Separately, Symbols, Calculator, Unit converter, Password generator and QR generator all still work during **direct boot**, the window right after a restart before you've unlocked the device for the first time. Currency doesn't, having no network yet, and neither does Typing test, for reasons the app doesn't surface anywhere. See [The toolbar](/tools/overview/#which-tools-work-before-you-unlock-your-phone) for the full direct-boot picture across every tool.
+- **Hardware shortcuts.** With a [physical keyboard](/typing/hardware-keyboard/) attached, double-tap <KeyCap>Ctrl</KeyCap> then a letter: <KeyCap>Y</KeyCap> for Symbols, <KeyCap>L</KeyCap> for Calculator, <KeyCap>U</KeyCap> for Unit converter, <KeyCap>Q</KeyCap> for QR generator, <KeyCap>P</KeyCap> for Password generator. Currency converter and Typing test have no default letter. Reach them through the toolbox (<KeyCap>T</KeyCap>) or [assign one yourself](/reference/shortcuts/).
 - **Discoverable by typing.** Typing one of a tool's keywords as a standalone word offers a [smart chip](/smart/chips/) straight into it: `symbol`/`symbols`, `calc`/`calculator`, `convert`/`unit`, `currency`/`forex`, `qr`, `password`/`passgen`, `wpm`. Each list is editable per tool under that tool's own **Keyword shortcut** field.
-- **None of these six are edition-gated.** Unlike the ML Kit–backed scanners and handwriting, Full and Lite ship all six identically (see [Full vs Lite](/start/editions/) if you're comparing builds).
-- Every tool here has its own **Enabled** switch and, if [colorful tool icons](/tools/overview/#browsing-all-63-tools) are on globally, an **Icon colour** override; both live at the top of that tool's own settings screen, above everything documented in this page's Options sections.
+- **None of these seven are edition-gated.** Unlike the scanners and handwriting, which lean on ML Kit, Full and Lite ship all seven identically (see [Full vs Lite](/start/editions/) if you're comparing builds).
+- Every tool here has its own **Enabled** switch, and an **Icon colour** override if [colorful tool icons](/tools/overview/#browsing-all-63-tools) are on globally. Both live at the top of that tool's own settings screen, above everything documented in this page's Options sections.

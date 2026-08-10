@@ -1,4 +1,4 @@
-# WM Keyboard docs — content guide
+# WM Keyboard docs: content guide
 
 Read this before writing or editing any page. It is the contract between the
 scaffold and the content passes that fill it in.
@@ -15,16 +15,18 @@ Z"), never vague ("we care about your privacy").
 
 1. **Never invent behaviour.** Every claim must be verified against the code
    (`../app`, `../core`, `../feature`) or on a device (reserved for hard cases).
-   Stub outlines are *checklists written from memory* — treat each bullet as a
-   hypothesis to verify from code, not a fact to restate. If a bullet turns out
-   wrong, fix the page, not the truth.
+   An outline written from memory is a list of hypotheses. Verify each bullet
+   from code before you restate it. If a bullet turns out wrong, fix the page,
+   not the truth.
 2. **One page = one job.** If a section outgrows its page, split it and
    cross-link rather than nesting H4s.
-3. **Kill the draft banner** (`:::caution[Draft page]` block) and the
-   `TODO(sonnet)` comment when a page is done. A page with the banner is
-   unfinished by definition.
-4. **Keep frontmatter `description`** — it feeds search, SEO and `<LinkCard>`s.
-   Rewrite it if the page's focus shifts or you find that it is factually incorrect.
+3. **A stub is unfinished by definition.** If you ever land one, mark it with a
+   `:::caution[Draft page]` block, and delete that block when the page is done.
+   No page carries one today.
+4. **Keep frontmatter `description`.** It feeds search, SEO and `<LinkCard>`s.
+   Rewrite it if the page's focus shifts or you find that it is factually
+   incorrect. Always wrap it in double quotes, because an unquoted description
+   containing a colon breaks the build.
 5. **Link generously.** Guide pages link to their Reference → Settings screen
    and vice versa. Use absolute paths with trailing slash: `/typing/gestures/`.
 6. **American-neutral, second person, present tense.** "Long-press the key" not
@@ -35,7 +37,7 @@ Z"), never vague ("we care about your privacy").
 ```mdx
 ---
 title: Spacebar gestures            # sentence case, no "WM Keyboard" prefix
-description: One crisp sentence — shown in search results and link cards.
+description: "One crisp sentence, shown in search results and link cards."
 sidebar:
   order: 2                          # keep the scaffold's ordering unless told
 ---
@@ -47,7 +49,7 @@ import KeyCap from '@components/KeyCap.astro';
 Lead paragraph: what this feature is and why you'd care. Two sentences max
 before the first visual.
 
-<PhoneFrame caption="Short swipe switches language; long swipe moves the cursor.">
+<PhoneFrame caption="A short swipe switches language. A long swipe moves the cursor.">
   ![Spacebar gesture in action](@assets/screens/typing/spacebar-swipe.webp)
 </PhoneFrame>
 
@@ -72,7 +74,7 @@ All in `src/components/`, importable via the `@components/*` alias
 | `<SettingsPath path="…" />` | Where a setting lives; put one at the top of every "Options" section | `<SettingsPath path="Typing / Autocorrect" />` |
 | `<Flavor edition="full" />` | Feature gated to an edition; place next to the H1 lead or section heading | also `lite`, `both` |
 | `<Since v="1.4" />` | Version a feature landed (start using once versions are documented) | |
-| `<PhoneFrame caption="…">` | Every screenshot. Empty `<PhoneFrame />` renders a "screenshot pending" placeholder — acceptable in drafts, not in finished pages | |
+| `<PhoneFrame caption="…">` | Every screenshot. An empty `<PhoneFrame />` renders a "screenshot pending" placeholder, which no finished page should show | |
 | `<LayoutExplorer layout={json} />` | Interactive keyboard rendered from a real `.wmlayout.json` (import it from `app/src/main/assets/layouts/`, five `../` up). Prefer over static layout screenshots | see gallery |
 | `<GestureDemo type="…" />` | Conceptual gesture loop: `space-swipe`, `space-hold`, `long-press`, `glide`. Reduced-motion safe | see gallery |
 | `<ThemePreview />` | Mock keyboard rendering real ThemeSpec objects (`.wmtheme.json` format) via `specs`; built-in showcase set by default | see gallery |
@@ -82,34 +84,38 @@ Live demos of everything: `/development/component-gallery/`.
 
 Starlight built-ins (`@astrojs/starlight/components`) to lean on:
 
-- `<Tabs>/<TabItem>` — Full vs Lite behaviour, Android version differences.
-- `<Steps>` — any setup flow ≥ 3 steps.
-- `<Card>/<CardGrid>/<LinkCard>` — section landing pages and "next steps" footers.
-- `<Badge>` — inline "New"/"Full" markers in tables.
-- Asides: `:::note`, `:::tip`, `:::caution`, `:::danger` — danger is reserved
-  for data-loss and privacy warnings.
+- `<Tabs>/<TabItem>`: Full vs Lite behaviour, Android version differences.
+- `<Steps>`: any setup flow of three steps or more.
+- `<Card>/<CardGrid>/<LinkCard>`: section landing pages and "next steps" footers.
+- `<Badge>`: inline "New"/"Full" markers in tables.
+- Asides `:::note`, `:::tip`, `:::caution`, `:::danger`. Reserve danger for
+  data-loss and privacy warnings.
 
 ## Screenshots
 
-- Live under `src/assets/screens/<section>/kebab-name.webp`, referenced with
-  the `@assets` alias. Anything in `src/assets` is optimised at build time.
-- Capture at device resolution, **portrait, status bar clean** (100% battery,
-  no notifications — use demo mode: `adb shell settings put global sysui_demo_allowed 1`).
-- Prefer the default theme in **dark mode** for consistency; use light only
-  when demonstrating light-specific behaviour.
-- `adb exec-out screencap -p > name.png`, then convert:
-  `cwebp -q 88 name.png -o name.webp` (target < 150 KB each).
-- Always wrap in `<PhoneFrame>`; always write meaningful alt text.
-- Zoom on click is automatic (starlight-image-zoom) — don't hand-roll lightboxes.
-- **Motion**: where behaviour only reads in motion (glide trails, hold-drags,
-  live previews), use a looping **animated WebP** captured via
-  `adb shell screenrecord` + ffmpeg (`-c:v libwebp_anim -loop 0`, ≤ 6 s,
-  ≤ 1 MB, 15 fps) — it drops into `<PhoneFrame>` like any image. GIFs are
-  banned (4× the bytes). Keep a still alongside every animation for
-  reduced-motion readers. Conceptual gesture *explanations* should be CSS/SVG
-  animations instead of recordings. Full pipeline in `SONNET_PROMPT.md`.
+- Save screenshots to `src/assets/screens/<section>/kebab-name.webp` and
+  reference them with the `@assets` alias. The build optimises anything in
+  `src/assets`.
+- Capture at device resolution, in portrait, with a clean status bar. Turn on
+  demo mode first for 100% battery and no notifications:
+  `adb shell settings put global sysui_demo_allowed 1`.
+- Use the default theme in dark mode. Switch to light mode only when the page
+  demonstrates light-specific behaviour.
+- Capture with `adb exec-out screencap -p > name.png`. Convert with
+  `cwebp -q 88 name.png -o name.webp`. Keep each file under 150 KB.
+- Wrap every screenshot in `<PhoneFrame>`. Write meaningful alt text every time.
+- Zoom on click is automatic (starlight-image-zoom). Do not hand-roll a
+  lightbox.
+- **Motion**: some behaviour only reads in motion, such as glide trails,
+  hold-drags and live previews. Record those with `adb shell screenrecord`, then
+  convert to a looping animated WebP with ffmpeg (`-c:v libwebp_anim -loop 0`,
+  6 s or less, 1 MB or less, 15 fps). It drops into `<PhoneFrame>` like any
+  image. GIFs are banned because they cost four times the bytes. Keep a still
+  alongside every animation for reduced-motion readers. Build conceptual gesture
+  *explanations* as CSS/SVG animations instead of recordings. The full pipeline
+  is in `SONNET_PROMPT.md`.
 
-## Interactive elements — the taste rules
+## Interactive elements: the taste rules
 
 Interactivity must explain something a static image can't. Good candidates,
 roughly in order of value:
@@ -119,7 +125,7 @@ roughly in order of value:
    framework needed).
 2. **Layout explorer**: render a keyboard layout as HTML from its data file so
    readers can hover keys to see long-press popups. Worth building once,
-   reusable for all 393 layouts + notation layouts.
+   reusable for all 372 layouts + notation layouts.
 3. **Theme preview**: swatch grid that live-recolours an HTML keyboard mockup.
 4. **Searchable tables**: the 333-wordlist list and 352-language matrix
    should be filterable (a `<script>` in the MDX is fine at this scale).
@@ -132,15 +138,28 @@ widget needs a framework, question it first.
 ## Voice & style calibration
 
 - Explain jargon on first use, then use it freely (glossary backs you up).
-- Numbers are features: "332 languages", "27 Whisper models" — be exact,
-  and verify the number in code before writing it. Headline counts were
-  code-verified on 2026-07-28: 352 registered languages, 393 layouts
-  (18 built-in + 375 asset), 333 wordlists (332 languages), 125 emoji keyword
-  packs, 27 Whisper models, 8 local LLMs, 60 toolbar tools, 11 addon types,
-  8 alternative calendars, 22 fancy-text layouts, 18 snippet variables,
-  Emoji 16.0 catalog (1,913 base emoji). Re-verify before reuse — several
-  of these drift with every feature release.
-- The privacy section is the trust anchor: every network claim there needs a
+- **No em dashes in prose.** Not in body text, not in a table cell, not in a
+  caption, not in a frontmatter `description`. An em dash almost always hides
+  two sentences wearing one coat. Split them, or reach for "and", "but",
+  "because", brackets or a colon. The same goes for an en dash used as a
+  sentence break. An en dash in a numeric range (150-600 ms) is fine.
+- **Procedures follow ASD-STE100 Simplified Technical English.** That covers
+  setup steps, `<Steps>` blocks, troubleshooting and developer commands. One
+  instruction per sentence, imperative, active voice, 20 words or fewer. Keep
+  the articles. Put the condition before the action, and the warning before the
+  step it guards. Use one word per concept: "press", never "tap" or "hit". The
+  full rule set and the term glossary live in `../config/i18n/STRINGS.md`, which
+  the app's own strings already follow. Descriptive prose stays warm and normal,
+  up to 25 words a sentence.
+- Numbers are features. Write "332 languages" and "29 Whisper models", and
+  verify the number in code before you write it. Headline counts were
+  code-verified on 2026-08-11: 352 registered languages, 372 layouts
+  (18 built-in + 354 asset), 333 wordlists (332 languages), 125 emoji keyword
+  packs, 29 Whisper models, 8 local LLMs, 63 toolbar tools, 12 addon types,
+  8 alternative calendars, 22 fancy-text styles, 18 snippet variables,
+  Emoji 17.0 catalog (1,914 catalog rows; 1,717 base grid entries). Re-verify
+  before reuse. Several of these drift with every feature release.
+- The privacy section is the trust anchor. Every network claim there needs a
   file/class reference in a code comment or PR description, even though the
   prose itself stays reference-free.
 - Screenshots > words. If a paragraph describes UI for more than two
@@ -150,31 +169,31 @@ widget needs a framework, question it first.
 
 ```sh
 npm run dev     # live preview at localhost:4321
-npm run build   # what CI runs
-npm run check   # build + validate all internal links (CHECK_LINKS=1)
+npm run build   # plain production build
+npm run check   # build + validate all internal links (CHECK_LINKS=1). CI runs this one.
 ```
 
-`npm run check` must pass before a content PR merges — it catches dead links
-from renamed pages.
+Run `npm run check` before you open a content PR. It catches the dead links a
+renamed page leaves behind, and it must pass before the PR merges.
 
 ## Current state / handoff notes
 
-- All stub pages carry `:::caution[Draft page]` + a `Planned coverage` outline.
-  Outlines were audited against the codebase (toolbar tool registry, the
-  settings nav graph, layout assets) — still verify details, but the page *set*
-  is believed complete.
+- No draft banners or `Planned coverage` outlines remain. Every page in the
+  sidebar is written content.
 - `reference/settings/` mirrors the app's real navigation graph (the NavHost in
   `app/.../MainActivity.kt`): one page per screen, small sub-screens folded
   into their parent's page. Per-tool settings screens (one per toolbar tool)
   are documented on each tool's guide page, not as separate reference pages.
-- Legacy docs were moved in with history intact and have been restyled to
-  Starlight MDX (components, asides, FileTree): all five plugin pages and the
-  addon-repos section — these are **real content already**, only screenshots
-  pending. `development/architecture.md` and `client-design.md` intentionally
-  stay plain Markdown.
+- Legacy docs were moved in with history intact and restyled to Starlight MDX
+  with components, asides and FileTree. That covers all five plugin pages and
+  the addon-repos section. Both are real content already, with only screenshots
+  still missing. `development/architecture.md` intentionally stays plain
+  Markdown.
 - The addon repo JSON schema is served at `/schemas/wmkeyboard-repo.schema.json`
   (source: `public/schemas/`).
-- `site` in `astro.config.mjs` and both GitHub URLs are placeholders — fix
-  before deploying.
-- Sidebar order is controlled by `sidebar.order` frontmatter per page;
-  top-level grouping lives in `astro.config.mjs`.
+- `site` is `https://wmkeyboard.pages.dev`, set in `docs/src/site.mjs`. It must
+  stay in step with `DOCS_URL` in `AboutScreens.kt`, or the app's About screen
+  points at the wrong host. The GitHub links in `astro.config.mjs` point at
+  `wasi-master/wmkeyboard`, which is the real origin.
+- Sidebar order is controlled by `sidebar.order` frontmatter per page. Top-level
+  grouping lives in `astro.config.mjs`.

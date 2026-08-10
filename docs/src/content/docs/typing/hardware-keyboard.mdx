@@ -2,14 +2,14 @@
 title: "Hardware keyboards"
 description: "Physical keyboards route through the same engine: autocorrect, suggestions and tools included."
 sidebar:
-  order: 7
+  order: 8
 ---
 
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-Plug in a Bluetooth or USB keyboard and WM Keyboard doesn't just get out of the way: it keeps running the same engine underneath. Autocorrect, suggestions and transliteration all work on physical keystrokes exactly as they do on the soft keys, and a leader key opens any tool without your hand ever leaving the keyboard.
+Plug in a Bluetooth or USB keyboard and WM Keyboard keeps running underneath rather than getting out of the way. Autocorrect, suggestions and transliteration all work on physical keystrokes exactly as they do on the soft keys. A leader key opens any tool without your hand leaving the keys.
 
 <PhoneFrame caption="Typing on a physical keyboard: a word underlined mid-correction in the field.">
   {/* shot: typing/hardware-typing-live */}
@@ -19,24 +19,24 @@ Plug in a Bluetooth or USB keyboard and WM Keyboard doesn't just get out of the 
 
 <SettingsPath path="Typing / Physical keyboard / Process hardware keys" />
 
-With **Process hardware keys** on (the default), a key you press on a physical keyboard runs through the exact same code path as a tap on the screen: phonetic layouts transliterate as you go, words compose for suggestions, autocorrect fires on <KeyCap>Space</KeyCap>, and <KeyCap>⌫</KeyCap> undoes a swipe or a correction instead of just deleting a character. If you've turned on wrap-around-selection for brackets and quotes, that carries over too: select some text and type an opening bracket or quote on the physical keyboard and it wraps the selection, same as it would from a tap.
+With **Process hardware keys** on (the default), a key you press on a physical keyboard runs through the same code path as a tap on the screen. Phonetic layouts transliterate as you go, words compose for suggestions, autocorrect fires on <KeyCap>Space</KeyCap>, and <KeyCap>⌫</KeyCap> undoes a swipe or a correction instead of just deleting a character. Wrap-around-selection carries over too, if you've turned it on: select some text, type an opening bracket or quote on the physical keyboard, and it wraps the selection the same way a tap would.
 
-Turn the toggle off and physical keys type their raw characters straight into the field, letting the keyboard's own layout (and the system, not WM Keyboard's autocorrect) own input entirely.
+Turn the toggle off and physical keys type their raw characters straight into the field. The keyboard's own layout owns input entirely from there, and correction is the system's business rather than WM Keyboard's.
 
 Two things stay true no matter how this toggle is set:
 
-- **Shortcuts, navigation and function keys always go straight to the app.** <KeyCap>Ctrl</KeyCap>+<KeyCap>C</KeyCap>, the arrow keys, <KeyCap>Tab</KeyCap>, <KeyCap>Esc</KeyCap> and forward-delete are never intercepted for typing; only actual character keys are. AltGr combinations are the one exception that looks like a shortcut but isn't: a German keyboard's AltGr+Q for "@" arrives as Ctrl+Alt together, and the keyboard treats that as a character rather than a shortcut, decoding it the same way the system does.
-- **Password fields and structured fields never get autocorrect help.** Email, URL, number, phone, date, time and date-time fields, and anything marked as a password, always take raw physical typing: there's nothing to transliterate or correct in a field that isn't ordinary prose.
+- **Shortcuts, navigation and function keys always go straight to the app.** <KeyCap>Ctrl</KeyCap>+<KeyCap>C</KeyCap>, the arrow keys, <KeyCap>Tab</KeyCap>, <KeyCap>Esc</KeyCap> and forward-delete are never intercepted for typing. Only actual character keys are. AltGr combinations look like a shortcut and aren't one: a German keyboard's AltGr+Q for "@" arrives as Ctrl and Alt together, and the keyboard reads that as a character, decoding it the way the system does.
+- **Password fields and structured fields never get autocorrect help.** Email, URL, number, phone, date, time and date-time fields, and anything marked as a password, always take raw physical typing. There's nothing to transliterate or correct in a field that isn't ordinary prose.
 
-A physical dead key (an accent key that combines with the next letter) is composed by Android itself before the keystroke reaches the keyboard, so WM Keyboard doesn't try to run its own accent logic on top: you get the accented character the same way any other app would see it. One soft-keyboard-only behavior worth knowing: a bare press of the physical <KeyCap>Shift</KeyCap> key is just a modifier, so it doesn't cycle a selection's capitalization the way tapping the on-screen <KeyCap>Shift</KeyCap> key does.
+Android composes a physical dead key (an accent key that combines with the next letter) before the keystroke reaches the keyboard, so WM Keyboard doesn't run its own accent logic on top. You get the accented character the same way any other app would see it. One soft-keyboard-only behavior is worth knowing: a bare press of the physical <KeyCap>Shift</KeyCap> key is only a modifier, so it doesn't cycle a selection's capitalization the way tapping the on-screen <KeyCap>Shift</KeyCap> key does.
 
 ## Opening tools with the leader key
 
 <SettingsPath path="Typing / Physical keyboard / Tool shortcuts list" />
 
-**Tool shortcuts** (on by default) let you open any tool without touching the screen at all. Double-tap <KeyCap>Ctrl</KeyCap> — nothing else uses that combination, so it's safe by default — and every button on the keyboard sprouts a small badge, under its icon, showing the key that operates it. Press that key and the button fires. If you don't press anything, the badges disappear on their own.
+**Tool shortcuts** (on by default) let you open any tool without touching the screen at all. Double-tap <KeyCap>Ctrl</KeyCap>, a combination nothing else uses, and every button on the keyboard sprouts a small badge under its icon showing the key that operates it. Press that key and the button fires. Press nothing and the badges disappear on their own.
 
-Four kinds of badge appear, and between them they cover everything on screen:
+The badges cover everything on screen:
 
 | Where | Key |
 | --- | --- |
@@ -46,9 +46,9 @@ Four kinds of badge appear, and between them they cover everything on screen:
 | Emoji row | <KeyCap>Shift</KeyCap>+<KeyCap>1</KeyCap> onward, counting from the left like the toolbar |
 | Suggestions | <KeyCap>1</KeyCap> to <KeyCap>9</KeyCap>, left to right (see below) |
 
-The badges spell their modifier out — `Ctrl+2`, `Shift+Q` — because those are the names printed on a PC keyboard. <SettingsPath path="Typing / Physical keyboard / Write the modifier names" /> swaps them for the shorter `⌃` and `⇧` glyphs if you'd rather have the space back.
+The badges spell their modifier out, `Ctrl+2` and `Shift+Q`, because those are the names printed on a PC keyboard. <SettingsPath path="Typing / Physical keyboard / Write the modifier names" /> swaps them for the shorter `⌃` and `⇧` glyphs if you'd rather have the space back.
 
-<SettingsPath path="Typing / Physical keyboard / Time to press a key" /> is how long they stay up: eight seconds by default, anywhere from one to thirty. Long while you're learning them, short once you aren't — the keyboard does nothing else until the time runs out or you press a key.
+<SettingsPath path="Typing / Physical keyboard / Time to press a key" /> sets how long they stay up: eight seconds by default, anywhere from one to thirty. Keep it long while you're learning them and short once you aren't. The keyboard does nothing else until the time runs out or you press a key.
 
 <PhoneFrame caption="Hotkey badges under the toolbar icons after double-tapping Ctrl.">
   {/* shot: typing/hardware-tool-picker */}
@@ -62,7 +62,7 @@ The badges spell their modifier out — `Ctrl+2`, `Shift+Q` — because those ar
 
 The toolbar's numbers also work as a direct chord, so the common tools are one keystroke away rather than three. <KeyCap>Ctrl</KeyCap>+<KeyCap>1</KeyCap> is the toolbox button, <KeyCap>Ctrl</KeyCap>+<KeyCap>2</KeyCap> the first tool after it, and so on to <KeyCap>Ctrl</KeyCap>+<KeyCap>0</KeyCap> for the tenth button. Anything past the tenth stays reachable through the toolbox.
 
-That's the one setting here worth a second thought before leaving it on: browsers and editors use <KeyCap>Ctrl</KeyCap>+number to switch tabs, and while you're writing in a text field the keyboard takes the key first. Turn it off and the same numbers still work after the leader key.
+That's the one setting here worth a second thought before you leave it on. Browsers and editors use <KeyCap>Ctrl</KeyCap>+number to switch tabs, and while you're writing in a text field the keyboard takes the key first. Turn it off and the same numbers still work after the leader key.
 
 ### The tool letters
 
@@ -85,7 +85,7 @@ The default letter for each tool is close to its own initial, wherever that lett
 | <KeyCap>M</KeyCap> | Media controls | | |
 | <KeyCap>N</KeyCap> | Numpad | | |
 
-Open **Tool shortcuts list** (reachable only while Tool shortcuts is on) to change any of it: tap the shortcut key row to pick a different double-tapped modifier (<KeyCap>Ctrl</KeyCap>, <KeyCap>Alt</KeyCap> or <KeyCap>Shift</KeyCap>) or capture an arbitrary chord live from an attached keyboard, and tap any tool's row to type a new single letter or digit for it. **Reset to defaults** puts every letter and the shortcut key itself back the way they started.
+Open **Tool shortcuts list** to change any of it. (The screen is reachable only while Tool shortcuts is on.) Tap the shortcut key row to pick a different double-tapped modifier, <KeyCap>Ctrl</KeyCap>, <KeyCap>Alt</KeyCap> or <KeyCap>Shift</KeyCap>, or to capture an arbitrary chord live from an attached keyboard. Tap any tool's row to type a new single letter or digit for it. **Reset to defaults** puts every letter and the shortcut key itself back the way they started.
 
 <PhoneFrame caption="The Tool shortcuts list screen: every tool with the letter that opens it.">
   ![The Tool shortcuts list screen: every tool with the letter that opens it.](@assets/screens/typing/hardware-shortcuts-list.webp)
@@ -93,13 +93,13 @@ Open **Tool shortcuts list** (reachable only while Tool shortcuts is on) to chan
 
 <KeyCap>T</KeyCap> and <KeyCap>?</KeyCap> are reserved and can never be bound to a tool: they always open the toolbox and the cheat sheet, respectively. The full binding table and cheat sheet also live in [Hardware shortcuts](/reference/shortcuts/).
 
-There are far more tools than there are letters, so the ones with no letter of their own get a <KeyCap>Shift</KeyCap>+key assigned automatically when the toolbox is open — that's what the badges in the grid are showing. Those follow the grid's order, so they stay put unless you rearrange the toolbox itself.
+There are far more tools than there are letters, so the ones with no letter of their own get a <KeyCap>Shift</KeyCap>+key assigned automatically while the toolbox is open. That's what the badges in the grid are showing. They follow the grid's order, so they stay put unless you rearrange the toolbox itself.
 
 ## Symbols and emoji from the keyboard
 
-While the toolbox is closed, the same <KeyCap>Shift</KeyCap> tier goes to the symbol row and the emoji row: double-tap <KeyCap>Ctrl</KeyCap>, then <KeyCap>Shift</KeyCap> with the key shown under the cell you want, and it's inserted.
+While the toolbox is closed, the same <KeyCap>Shift</KeyCap> tier goes to the symbol row and the emoji row. Double-tap <KeyCap>Ctrl</KeyCap>, then press <KeyCap>Shift</KeyCap> with the key shown under the cell you want, and it's inserted.
 
-The symbol row takes the letters, the emoji row takes the digits — <KeyCap>Shift</KeyCap>+<KeyCap>1</KeyCap> for the first emoji, counting from the left exactly the way the toolbar's numbers do. Letters against digits means the two pools can never collide, so adding a character to a symbol set never renumbers the emoji beside it.
+The symbol row takes the letters and the emoji row takes the digits: <KeyCap>Shift</KeyCap>+<KeyCap>1</KeyCap> for the first emoji, counting from the left exactly the way the toolbar's numbers do. Letters against digits means the two pools can never collide, so adding a character to a symbol set never renumbers the emoji beside it.
 
 An open toolbox takes the whole tier for itself and the rows drop their badges while it's up. That's deliberate: sharing would move the rows' keys around every time a panel opened, and a key that moves is a key nobody learns.
 
@@ -119,7 +119,7 @@ Off by default, and worth turning on for a keyboard built for a Mac. With it on,
 | <KeyCap>⌥</KeyCap>+<KeyCap>⌫</KeyCap> | Delete the word before the cursor |
 | <KeyCap>⌘</KeyCap>+<KeyCap>⌫</KeyCap> | Delete to the start of the line |
 
-Hold <KeyCap>Shift</KeyCap> with any of the moves to select instead. <KeyCap>Ctrl</KeyCap> keeps its usual meaning throughout — on a Mac it's a separate modifier with its own habits, and an app that already handles <KeyCap>Ctrl</KeyCap>+<KeyCap>C</KeyCap> should keep getting it. Every other Command chord (<KeyCap>⌘</KeyCap>+<KeyCap>F</KeyCap>, <KeyCap>⌘</KeyCap>+<KeyCap>S</KeyCap>) goes straight to the app, and a few Command chords are claimed by the system on some devices, so those never reach the keyboard to be remapped at all.
+Hold <KeyCap>Shift</KeyCap> with any of the moves to select instead. <KeyCap>Ctrl</KeyCap> keeps its usual meaning throughout. On a Mac it's a separate modifier with its own habits, and an app that already handles <KeyCap>Ctrl</KeyCap>+<KeyCap>C</KeyCap> should keep getting it. Every other Command chord (<KeyCap>⌘</KeyCap>+<KeyCap>F</KeyCap>, <KeyCap>⌘</KeyCap>+<KeyCap>S</KeyCap>) goes straight to the app, and some devices let the system claim a few Command chords, which never reach the keyboard to be remapped at all.
 
 One deliberate difference from the on-screen long-press shortcuts: <KeyCap>⌘</KeyCap>+<KeyCap>C</KeyCap> with nothing selected does nothing, rather than selecting the whole field first. That's what every other keyboard on a Mac does, and quietly copying a half-written message is a poor surprise.
 
@@ -127,21 +127,23 @@ One deliberate difference from the on-screen long-press shortcuts: <KeyCap>⌘</
 
 <SettingsPath path="Typing / Physical keyboard / Ctrl+Space changes the language" />
 
-A keyboard with its own language key (some have a globe or <KeyCap>한/영</KeyCap>-style key) can always switch: press it and the keyboard moves to the next enabled language, flashing a small list so you can see where you landed. That needs no setting and can't collide with anything, since apps have no use for the key.
+A keyboard with its own language key (some have a globe or <KeyCap>한/영</KeyCap>-style key) can always switch. Press it and the keyboard moves to the next enabled language, flashing a small list so you can see where you landed. That needs no setting and can't collide with anything, since apps have no use for the key.
 
-For every other keyboard there's **Ctrl+Space changes the language**, on by default. <KeyCap>Ctrl</KeyCap>+<KeyCap>Space</KeyCap> works like <KeyCap>Alt</KeyCap>+<KeyCap>Tab</KeyCap> does for windows: keep <KeyCap>Ctrl</KeyCap> held and each press of <KeyCap>Space</KeyCap> steps through the list on screen, add <KeyCap>Shift</KeyCap> to step backward, and releasing <KeyCap>Ctrl</KeyCap> switches to whatever is highlighted. A quick tap-and-release is simply a one-step switch. <KeyCap>Esc</KeyCap> cancels, and the rows in the list can be tapped too.
+For every other keyboard there's **Ctrl+Space changes the language**, on by default. <KeyCap>Ctrl</KeyCap>+<KeyCap>Space</KeyCap> works the way <KeyCap>Alt</KeyCap>+<KeyCap>Tab</KeyCap> does for windows. Keep <KeyCap>Ctrl</KeyCap> held and each press of <KeyCap>Space</KeyCap> steps through the list on screen. Add <KeyCap>Shift</KeyCap> to step backward. Release <KeyCap>Ctrl</KeyCap> and you switch to whatever is highlighted. A quick tap-and-release is a one-step switch. <KeyCap>Esc</KeyCap> cancels, and the rows in the list can be tapped too.
 
-One thing to know: some apps want <KeyCap>Ctrl</KeyCap>+<KeyCap>Space</KeyCap> for themselves — code editors use it to show completions — and while you're in a text field the keyboard takes it first. If that bites you, this is the toggle to turn off; the dedicated language key and the spacebar keep working either way. <KeyCap>⌘</KeyCap>+<KeyCap>Space</KeyCap> is untouched regardless; that one belongs to the system's own keyboard switcher. Seeing the list depends on **Show the keyboard for shortcuts** below: with it off the switch still happens, you just find out from the spacebar label the next time the keys are up.
+One thing to know: some apps want <KeyCap>Ctrl</KeyCap>+<KeyCap>Space</KeyCap> for themselves, code editors especially, where it shows completions. While you're in a text field the keyboard takes it first. If that bites you, this is the toggle to turn off, and the dedicated language key and the spacebar keep working either way. <KeyCap>⌘</KeyCap>+<KeyCap>Space</KeyCap> is untouched regardless, since it belongs to the system's own keyboard switcher. Whether you see the list depends on **Show the keyboard for shortcuts** below. With that off the switch still happens, and you find out from the spacebar label the next time the keys are up.
 
 ## Driving a tool with the keyboard
 
 <SettingsPath path="Typing / Physical keyboard / Arrow keys move a highlight" />
 
-Once a tool is open, **Arrow keys move a highlight** (on by default) lets you drive it without touching the screen. The arrow keys move a highlighted outline over the panel's results, chips or search box, <KeyCap>Enter</KeyCap> activates whatever's highlighted, and <KeyCap>Tab</KeyCap> jumps between the panel's sections (search, category chips, then results) once the highlight exists. <KeyCap>Home</KeyCap> and <KeyCap>End</KeyCap> jump to a section's first and last item, and <KeyCap>PageUp</KeyCap>/<KeyCap>PageDown</KeyCap> move four rows at a time through a long grid. The highlight is a filled, outlined ring in your theme's accent color, and it only ever appears after you press a key; it never shows up while you're using the keyboard by touch.
+Once a tool is open, **Arrow keys move a highlight** (on by default) lets you drive it without touching the screen. The arrow keys move a highlighted outline over the panel's results, chips or search box. <KeyCap>Enter</KeyCap> activates whatever's highlighted. <KeyCap>Tab</KeyCap> jumps between the panel's sections (search, category chips, then results) once the highlight exists. <KeyCap>Home</KeyCap> and <KeyCap>End</KeyCap> jump to a section's first and last item, and <KeyCap>PageUp</KeyCap>/<KeyCap>PageDown</KeyCap> move four rows at a time through a long grid. The highlight is a filled, outlined ring in your theme's accent color, and it only ever appears after you press a key. It never shows up while you're using the keyboard by touch.
 
-This covers nearly every tool, not just the searchable ones: the AI panel's actions and Replace/Insert buttons, translate's language picker, media controls' transport, the password generator's options, a running plugin's buttons and text boxes, the calendar's month arrows and day grid, the sound & haptics switches and style chips, the weather refresh, the voice tool's mic, and the camera and scanner tools once they're showing a captured photo or a scanned result (the live viewfinder itself stays touch-only). The grammar strip is navigable too, with one difference: because you're usually mid-sentence while it's open, the arrows keep moving your cursor — the highlight only appears when you open the tool from the shortcut key, and <KeyCap>Enter</KeyCap> on an issue applies its top suggestion.
+This covers nearly every tool, searchable or not: the AI panel's actions and Replace/Insert buttons, translate's language picker, media controls' transport, the password generator's options, a running plugin's buttons and text boxes, the calendar's month arrows and day grid, the sound & haptics switches and style chips, the weather refresh, the voice tool's mic. The camera and scanner tools join in once they're showing a captured photo or a scanned result. The live viewfinder itself stays touch-only.
 
-A few tools work by typing rather than highlighting — the calculator and the unit and currency converters take digits and operators straight from the physical keys (type `2*3` and the display shows `2×3`), and in the calculator <KeyCap>Enter</KeyCap> is the <KeyCap>=</KeyCap> key. The text-editing and numpad panels stay touch-only on purpose: everything they offer, a physical keyboard already does directly. The compass, level and moon phase have no buttons at all, and the handwriting canvas is for fingers and pens.
+The grammar strip is navigable too, with one difference. You're usually mid-sentence while it's open, so the arrows keep moving your cursor. The highlight appears only when you open the tool from the shortcut key, and <KeyCap>Enter</KeyCap> on an issue applies its top suggestion.
+
+A few tools work by typing rather than highlighting. The calculator and the unit and currency converters take digits and operators straight from the physical keys (type `2*3` and the display shows `2×3`), and in the calculator <KeyCap>Enter</KeyCap> is the <KeyCap>=</KeyCap> key. The text-editing and numpad panels stay touch-only on purpose, since a physical keyboard already does everything they offer. The compass, level and moon phase have no buttons at all, and the handwriting canvas is for fingers and pens.
 
 <PhoneFrame caption="The focus ring highlighting a result inside an open panel after an arrow-key press.">
   {/* shot: typing/hardware-focus-ring */}
@@ -149,23 +151,23 @@ A few tools work by typing rather than highlighting — the calculator and the u
 
 <SettingsPath path="Typing / Physical keyboard / Esc closes the tool" />
 
-**Esc closes the tool** (on by default) makes <KeyCap>Esc</KeyCap> shut whatever panel or picker the keyboard has open. It only ever consumes the key when the keyboard actually has something open: with nothing open, <KeyCap>Esc</KeyCap> goes straight to the app, so it still stops a page loading or backs out of insert mode in an editor.
+**Esc closes the tool** (on by default) makes <KeyCap>Esc</KeyCap> shut whatever panel or picker the keyboard has open. It only consumes the key when the keyboard actually has something open. With nothing open, <KeyCap>Esc</KeyCap> goes straight to the app, so it still stops a page loading or backs out of insert mode in an editor.
 
 ## Picking a suggestion from the keyboard
 
 <SettingsPath path="Typing / Physical keyboard / Number keys pick suggestions" />
 
-Since the suggestion strip can't be tapped while you're typing on a physical keyboard, **Number keys pick suggestions** gives you a keystroke instead, with three modes:
+The suggestion strip can't be tapped while you're typing on a physical keyboard, so **Number keys pick suggestions** gives you a keystroke instead. It has three modes:
 
-- **Off** — number keys always type digits.
-- **Alt + number** (the default) — <KeyCap>Alt</KeyCap>+<KeyCap>1</KeyCap> through <KeyCap>Alt</KeyCap>+<KeyCap>9</KeyCap> commit directly, with no leader key first. Browsers and chat apps sometimes claim Alt+number for tab switching, so it's the one to change if that bites.
-- **After the shortcut key** — double-tap the shortcut key, then press <KeyCap>1</KeyCap> through <KeyCap>9</KeyCap>. Nothing else uses it, at the cost of one extra keystroke. In this mode the bare numbers belong to the strip, so the toolbar's tools rely on the <KeyCap>Ctrl</KeyCap>+number chord above.
+- **Off.** Number keys always type digits.
+- **Alt + number**, the default. <KeyCap>Alt</KeyCap>+<KeyCap>1</KeyCap> through <KeyCap>Alt</KeyCap>+<KeyCap>9</KeyCap> commit directly, with no leader key first. Browsers and chat apps sometimes claim Alt+number for tab switching, so this is the one to change if that bites.
+- **After the shortcut key.** Double-tap the shortcut key, then press <KeyCap>1</KeyCap> through <KeyCap>9</KeyCap>. Nothing else uses it, at the cost of one extra keystroke. In this mode the bare numbers belong to the strip, so the toolbar's tools rely on the <KeyCap>Ctrl</KeyCap>+number chord above.
 
 Either way there's no slot for suggestion "10": only the first nine entries in the strip are reachable by number.
 
 <SettingsPath path="Typing / Physical keyboard / Show the suggestion numbers" />
 
-In **Alt + number** mode the strip is the one surface that wears its badges all the time — a small `Alt+1`, `Alt+2`, `Alt+3` under the words, for as long as a physical keyboard is attached. That's on by default and can be turned off if you'd rather have the clean strip. **After the shortcut key** has no equivalent: a bare <KeyCap>1</KeyCap> does nothing until the leader is pressed, so its numbers only appear once it is.
+In **Alt + number** mode the strip is the one surface that wears its badges all the time: a small `Alt+1`, `Alt+2`, `Alt+3` under the words, for as long as a physical keyboard is attached. That's on by default, and you can turn it off if you'd rather have the clean strip. **After the shortcut key** has no equivalent, because a bare <KeyCap>1</KeyCap> does nothing until the leader is pressed, so its numbers only appear once it is.
 
 The numbers count **slots, left to right**, not the engine's ranking. That matters if you use <SettingsPath path="Typing / Best suggestion in the middle" />, which draws the runner-up first: the strip still reads 1, 2, 3 across, and <KeyCap>Alt</KeyCap>+<KeyCap>1</KeyCap> commits the leftmost word you can see rather than the one the engine ranked first.
 
@@ -189,18 +191,18 @@ The numbers count **slots, left to right**, not the engine's ranking. That matte
 | Ctrl+Space changes the language | On |
 | Show the keyboard for shortcuts | On |
 
-**Show the keyboard for shortcuts** covers the case where you have a physical keyboard attached and no reason for the on-screen keyboard to be up: pressing a shortcut that opens a tool brings it up anyway, since the tool needs somewhere to draw, and it's hidden again once you close the tool.
+**Show the keyboard for shortcuts** covers the case where a physical keyboard is attached and there's no reason for the on-screen keyboard to be up. Press a shortcut that opens a tool and the keyboard comes up anyway, because the tool needs somewhere to draw. It hides again once you close the tool.
 
-A related setting lives elsewhere: <SettingsPath path="Appearance / Only toolbar with hardware keyboard" /> hides the key grid entirely (leaving just the suggestion strip and toolbar) whenever a physical keyboard is attached, since you're typing on the physical keys anyway. It's off by default and doesn't affect anything documented on this page.
+A related setting lives elsewhere. <SettingsPath path="Appearance / Only toolbar with hardware keyboard" /> hides the key grid entirely, leaving just the suggestion strip and toolbar, whenever a physical keyboard is attached. You're typing on the physical keys anyway. It's off by default and doesn't affect anything documented on this page.
 
 ## Details and edge cases
 
-- **The tool picker waits eight seconds for a key** before it disarms itself if you don't press one. Adjustable from one to thirty under **Time to press a key**.
+- **The tool picker waits eight seconds for a key** before it disarms itself. Adjustable from one to thirty under **Time to press a key**.
 - **The badges never resize the keyboard.** They're drawn over the buttons rather than added beside them, so double-tapping <KeyCap>Ctrl</KeyCap> can't shove the app's text out from under your hands.
-- **Toolbar badges only show when the toolbar does.** With suggestions occupying the strip instead, <KeyCap>Ctrl</KeyCap>+number still opens the same tools — there's just nothing on screen to label. The cheat sheet lists them either way.
-- **Reserved chords still work as a shortcut key, with a warning.** If you capture a chord like Ctrl+C, Ctrl+V, Ctrl+S or Ctrl+Tab as your shortcut key, the picker warns you it's "usually the app's own shortcut" but still lets you use it; it's a nudge, not a block.
-- **Process hardware keys only governs typed characters.** Turning it off stops physical keys from running through autocorrect and suggestions, but Tool shortcuts, panel navigation and Esc keep working regardless; none of them touch typed text, so none of them are governed by that toggle.
+- **Toolbar badges only show when the toolbar does.** With suggestions occupying the strip instead, <KeyCap>Ctrl</KeyCap>+number still opens the same tools, with nothing on screen to label them. The cheat sheet lists them either way.
+- **Reserved chords still work as a shortcut key, with a warning.** Capture a chord like Ctrl+C, Ctrl+V, Ctrl+S or Ctrl+Tab as your shortcut key and the picker warns you it's "usually the app's own shortcut", then lets you use it anyway. It's a nudge, not a block.
+- **Process hardware keys only governs typed characters.** Turning it off stops physical keys from running through autocorrect and suggestions. Tool shortcuts, panel navigation and Esc keep working regardless, since none of them touch typed text.
 - **No edition split.** Everything on this page works the same on both the full and lite builds.
-- **Presence detection is automatic.** The keyboard notices a physical keyboard is attached (and detaches) through the system's own configuration, which is also what drives the separate "Only toolbar with hardware keyboard" setting above.
+- **Presence detection is automatic.** The keyboard notices a physical keyboard attaching and detaching through the system's own configuration, which is also what drives the separate "Only toolbar with hardware keyboard" setting above.
 
 For the complete shortcut and cheat-sheet reference in one table, see [Hardware shortcuts](/reference/shortcuts/). For the toolbar setting that hides the key grid when a keyboard is attached, see [Appearance settings](/reference/settings/appearance/).

@@ -3,7 +3,7 @@ title: "Docs component gallery"
 description: "Live demos of every custom component available to documentation authors."
 sidebar:
   label: "Component gallery"
-  order: 6
+  order: 7
 ---
 
 import KeyCap from '@components/KeyCap.astro';
@@ -20,8 +20,8 @@ import midnight from '@assets/themes/midnight.wmtheme.json';
 import FilterTable from '@components/FilterTable.astro';
 import languages from '@data/languages.json';
 
-Every custom component the docs can use, rendered live. Import from
-`@components/*`; conventions live in
+Every custom component the docs can use, rendered live. Import them from
+`@components/*`. The conventions live in
 [CONTENT_GUIDE.md](https://github.com/wasi-master/wmkeyboard/blob/main/docs/CONTENT_GUIDE.md).
 
 ## Inline
@@ -36,16 +36,16 @@ Settings location chip:
 
 ## PhoneFrame
 
-Empty renders the screenshot-pending placeholder; with an image (or a
-`<video>`) it renders a device frame:
+Left empty, it renders the screenshot-pending placeholder. Given an image (or a
+`<video>`), it renders a device frame:
 
 <PhoneFrame caption="An empty PhoneFrame: the placeholder stubs use." />
 
 ## LayoutExplorer
 
-Renders any `.wmlayout.json` straight from `app/src/main/assets/layouts/`:
-import the file, pass it in. Hover/tap dotted keys for long-press characters;
-layouts with a shift layer get a toggle:
+Renders any `.wmlayout.json` straight from `app/src/main/assets/layouts/`.
+Import the file, then pass it in. Tap a dotted key to see its long-press
+characters. Layouts with a shift layer get a toggle:
 
 <LayoutExplorer layout={qwertyAfar} />
 
@@ -69,10 +69,10 @@ Pass `specs` to render an actual export file:
 
 ## FilterTable
 
-Client-filterable, sortable table for big datasets. Live on the
+Client-filterable, sortable table for big datasets. It's live on the
 [language overview](/languages/overview/) (352 rows) and
-[dictionaries](/languages/dictionaries/) (333 rows) pages; data is generated
-from the app's registries by `docs/scripts/extract_data.py`:
+[dictionaries](/languages/dictionaries/) (333 rows) pages. The data is
+generated from the app's registries by `docs/scripts/extract_data.py`:
 
 <FilterTable
 	columns={[{ label: 'Id' }, { label: 'Name' }, { label: 'Script' }]}
@@ -82,15 +82,15 @@ from the app's registries by `docs/scripts/extract_data.py`:
 
 ## GestureDemo
 
-Stylised, looping gesture explainers (use screen recordings for *real*
-behaviour; these are for concepts). Four types:
+Stylised, looping gesture explainers. They illustrate concepts, so use a screen
+recording when you need the *real* behaviour. Four types:
 
-<GestureDemo type="space-swipe" caption="space-swipe — short spacebar swipe switches language" />
+<GestureDemo type="space-swipe" caption="space-swipe: a short spacebar swipe switches language" />
 
-<GestureDemo type="space-hold" caption="space-hold — hold, then drag through the language picker" />
+<GestureDemo type="space-hold" caption="space-hold: hold, then drag through the language picker" />
 
-<GestureDemo type="long-press" caption="long-press — accent popup on a held key" />
+<GestureDemo type="long-press" caption="long-press: an accent popup on a held key" />
 
-<GestureDemo type="glide" caption="glide — trace a word without lifting" />
+<GestureDemo type="glide" caption="glide: trace a word without lifting" />
 
 All four freeze to a static end-state under `prefers-reduced-motion`.

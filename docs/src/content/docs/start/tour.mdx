@@ -10,7 +10,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import Flavor from '@components/Flavor.astro';
 
-WM Keyboard looks like a normal keyboard until you need more; then a toolbar, a panel, or a long-press gets you there. This page walks the layout so nothing feels hidden.
+WM Keyboard looks like a normal keyboard until you need more. Then a toolbar, a panel, or a long-press gets you there. This page walks the layout so nothing feels hidden.
 
 ## The anatomy
 
@@ -20,7 +20,7 @@ WM Keyboard looks like a normal keyboard until you need more; then a toolbar, a 
 
 The keyboard is built from a small set of stacked bars, plus the key area itself:
 
-- **The top bar** does double duty as either the suggestion strip or the toolbar (never both at once). Before you type anything (and whenever there's nothing to suggest), it shows the toolbar; once you have candidates, it switches to showing them instead.
+- **The top bar** does double duty as either the suggestion strip or the toolbar, never both at once. Before you type anything, and whenever there's nothing to suggest, it shows the toolbar. Once there are candidates, it shows those instead.
 - **The key area** fills the rest of the height with the current layout's keys. Opening almost any tool swaps this area out for that tool's panel. See [Panels replace the keys](#panels-replace-the-keys) below.
 - **A symbol row** (a strip of quick symbols like currency or arrows, with a set picker) is available but off by default. Turn it on from <SettingsPath path="Rows & bars / Symbol row" />, and see [Rows & bars](/reference/settings/rows/) for the full set list.
 - **A dedicated emoji row** above the keys is also available but off by default. Switch it on from <SettingsPath path="Emoji / Emoji row" />: **Button** adds a toolbar toggle that flips the top bar over to show emoji in place of suggestions, or **Own row** keeps it permanently visible. See [Emoji settings](/reference/settings/emoji/) for both modes.
@@ -39,17 +39,19 @@ Reading left to right, the toolbar has:
 2. A **Toolbox** button (the grid icon) that opens a grid of every tool you have enabled.
 3. Your **pinned tools**: the small set of tools that live directly on the bar.
 
-Out of the box only three tools are pinned: Emoji, Clipboard, and Settings. Everything else (GIFs, translation, the calculator, sensors, scanners, and dozens more) lives one tap away in the Toolbox grid, arranged in a 4-column layout ordered roughly by how often people reach for each tool. The Toolbox's first-run hint explains the gesture: hold and drag a tool from the grid onto the toolbar to pin it, drag within the grid to reorder, or drag a pinned tool back down into the grid to unpin it.
+Out of the box a phone pins three tools: **Emoji**, **Clipboard**, and **Settings**. A tablet starts wider, with five on a small tablet (adding GIF and Voice) and seven on a large one (adding Translate and Text edit). See [Size & position](/typing/size-position/#on-a-tablet) for the tablet defaults.
+
+Everything else (GIFs, translation, the calculator, sensors, scanners, and dozens more) lives one tap away in the Toolbox grid, four columns wide and ordered roughly by how often people reach for each tool. The Toolbox's first-run hint explains the gesture. Hold a tool in the grid and drag it onto the toolbar to pin it. Drag a tool inside the grid to reorder it. Drag a pinned tool back down into the grid to unpin it.
 
 <PhoneFrame caption="The Toolbox grid: every enabled tool, four to a row, drag to pin or reorder.">
   {/* shot: tour/toolbox-grid */}
 </PhoneFrame>
 
-During onboarding you can widen this from a "Recommended" starter set to everything, but that only changes which tools are *available* in the Toolbox; it does not add anything new to the pinned bar. If you want more than three tools within one tap, drag them up yourself. See [Tools overview](/tools/overview/) for what each one does, and <SettingsPath path="Tools" /> to manage the enabled set later.
+During onboarding you can widen this from a "Recommended" starter set to everything. That only changes which tools are *available* in the Toolbox. It adds nothing to the pinned bar. To keep more tools within one tap, drag them up yourself. See [Tools overview](/tools/overview/) for what each one does, and <SettingsPath path="Tools" /> to manage the enabled set later.
 
 ### Panels replace the keys
 
-Tapping a tool almost always swaps the key area for that tool's panel: the keyboard doesn't get taller, it repurposes the space the keys were using. Some panels, like Emoji, additionally take over the toolbar row itself and use its height too, so the tool gets the keyboard's full space; others, like Clipboard and the Toolbox, leave the toolbar in place above them so you can hop to a different tool without backing out first. Either way, a back chevron gets you to typing again, whether in the toolbar itself for panels that keep it, or in the panel's own header when the toolbar has stepped aside.
+Tap a tool and the key area almost always becomes that tool's panel. The keyboard doesn't get taller. It reuses the space the keys were sitting in. Some panels, Emoji among them, take the toolbar row as well, so the tool gets the keyboard's full height. Others, like Clipboard and the Toolbox, leave the toolbar in place above them, so you can hop to a different tool without backing out first. Either way, a back chevron returns you to typing. It sits in the toolbar on panels that keep the toolbar, and in the panel's own header when the toolbar has stepped aside.
 
 ## Long-press for more
 
@@ -59,12 +61,12 @@ Tapping a tool almost always swaps the key area for that tool's panel: the keybo
 
 Long-press is the keyboard's "there's more here" gesture in a few different places:
 
-- **Keys with alternates** (most letters, and some punctuation) pop up a row of accented or related characters on long-press. A small corner mark hints which keys have alternates; you can turn that hint off from [Key press settings](/reference/settings/keypress/).
-- **The globe key** cycles to your next enabled layout on a tap; long-press it instead to jump straight to the full language picker.
-- **Toolbar tools** respond to three different holds: a tap runs the tool, a hold that doesn't move opens that tool's own settings page, and a hold that then drags picks the tool up to reorder, pin, or unpin it.
+- **Keys with alternates** (most letters, and some punctuation) pop up a row of accented or related characters on long-press. A small corner mark hints which keys have alternates. Turn that hint off from [Key press settings](/reference/settings/keypress/).
+- **The globe key** cycles to your next enabled layout on a tap. Long-press it instead to jump straight to the full language picker.
+- **Toolbar tools** respond to three gestures. A tap runs the tool. A hold that doesn't move opens that tool's own settings page. A hold that then drags picks the tool up to reorder, pin, or unpin it.
 - **Emoji** open a popup of skin-tone and gender variants on long-press, along with the emoji's name and a favorite toggle.
 
-<KeyCap>?123</KeyCap> can optionally open a numeric keypad on long-press instead of just switching layers, and letter keys can optionally get long-press shortcuts for select-all, copy, paste, cut, undo, and redo. Both are off by default, so turn them on under <SettingsPath path="Key press" /> if you want them.
+Two more long-press behaviors are off by default. <KeyCap>?123</KeyCap> can open a numeric keypad instead of only switching layers, and letter keys can carry shortcuts for select-all, copy, paste, cut, undo, and redo. Turn either on under <SettingsPath path="Key press" />.
 
 ## Getting to settings
 
@@ -82,17 +84,17 @@ There are three ways to reach the settings app from the keyboard itself:
 
 The settings app is a flat list of screens, one per section, grouped into six clusters on the home screen:
 
-- **Typing** — Typing, Key press, Languages
-- **Keyboard** — Appearance, Layout & size, Key layouts, Rows & bars, Keyboard modes
-- **Features** — Emoji, Tools, Addons
-- **Accessibility** — Accessibility
-- **Data** — Privacy, Backup & restore
-- **About** — About
+- **Typing:** Typing, Key press, Languages
+- **Keyboard:** Appearance, Layout & size, Key layouts, Rows & bars, Keyboard modes
+- **Features:** Emoji, Tools, Addons
+- **Accessibility:** Accessibility
+- **Data:** Privacy, Backup & restore
+- **About:** About
 
-Each screen is just a title and a back button: there's no deep nesting to get lost in. Every section here has a matching reference page under [Reference → Settings](/reference/settings/) with the exact options and defaults; this tour only covers where things live, not every switch.
+Each screen is just a title and a back button. There's no deep nesting to get lost in. Every section here has a matching reference page under [Reference → Settings](/reference/settings/) with the exact options and defaults. This tour only covers where things live, not every switch.
 
 :::tip
-Long-pressing the WM Keyboard launcher icon on your home screen offers shortcuts straight into Typing, Appearance, Themes, Languages, Tools, or Search, which is handy if you tweak settings often.
+Long-press the WM Keyboard launcher icon on your home screen for shortcuts straight into Tools, Languages, AI chat and Themes. Handy if you tweak settings often.
 :::
 
-Handwriting, OCR, QR/document scanning, and grammar checking need on-device ML models that only ship in the full build <Flavor edition="full" />; everything else on this tour, including every pinned tool, the toolbox, and every settings section, is available in both editions <Flavor edition="both" />. See [Editions](/start/editions/) for the full comparison.
+Handwriting, OCR, QR/document scanning, and grammar checking need on-device ML models that ship only in the full build <Flavor edition="full" />. Everything else on this tour is available in both editions <Flavor edition="both" />, including every pinned tool, the toolbox, and every settings section. See [Editions](/start/editions/) for the full comparison.

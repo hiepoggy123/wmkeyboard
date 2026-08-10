@@ -17,17 +17,17 @@ Snippets are reusable pieces of text (a mailing address, a canned reply, a sign-
 
 ## Opening the panel
 
-Open **Snippets** from the toolbar if you've pinned it there, or from the toolbox. Snippets isn't pinned by default on any device (a phone starts with Emoji, Clipboard and Settings; a tablet starts with five or seven pins, none of them Snippets), so the first few times you'll likely reach it through the toolbox, or by typing its [keyword](#options). On a hardware keyboard, double-tap <KeyCap>Ctrl</KeyCap> to arm the leader key, then press <KeyCap>S</KeyCap> (see [hardware shortcuts](/reference/shortcuts/) for the full letter-to-tool map).
+Open **Snippets** from the toolbar if you've pinned it there, or from the toolbox. Snippets isn't pinned by default on any device. A phone starts with Emoji, Clipboard and Settings, and a tablet starts with five or seven pins, none of them Snippets. So the first few times you'll likely reach it through the toolbox, or by typing its [keyword](#options). On a hardware keyboard, double-tap <KeyCap>Ctrl</KeyCap> to arm the leader key, then press <KeyCap>S</KeyCap> (see [hardware shortcuts](/reference/shortcuts/) for the full letter-to-tool map).
 
-Each snippet shows as a card in a two-column grid: its label in bold on top, the raw snippet text underneath. That's the raw template, not the expanded preview. A card whose text contains `{date}` shows the literal token, not today's date. Tap a card to insert it; anything you were mid-typing gets committed first, so a half-finished word can't get swallowed into the snippet. With nothing saved yet, the panel shows the same variable hint plus a shortcut straight to Snippets settings.
+Each snippet shows as a card in a two-column grid: its label in bold on top, the snippet text underneath. That text is the raw template rather than an expanded preview, so a card containing `{date}` shows the literal token instead of today's date. Tap a card to insert it. Anything you were mid-typing gets committed first, so a half-finished word can't get swallowed into the snippet. With nothing saved yet, the panel shows the same variable hint plus a shortcut straight to Snippets settings.
 
-The panel re-reads the snippet file every time you open it; settings and the keyboard share the same file, so an edit you make in Settings shows up the next time you switch to this panel, not while it's already open. Unlike [Clipboard](/tools/clipboard/), there's no search inside the panel, so keep labels short and distinct if your list grows.
+The panel re-reads the snippet file every time you open it. Settings and the keyboard share that file, so an edit you make in Settings shows up the next time you switch to this panel, not while it's already open. Unlike [Clipboard](/tools/clipboard/), there's no search inside the panel, so keep labels short and distinct if your list grows.
 
 ## Auto-expanding as you type
 
-Give a snippet a trigger word and it expands on its own: type the trigger by itself and finish it with a space, punctuation, or Enter, and what you typed is replaced with the expanded snippet instead of being committed literally. Matching is case-insensitive and exact: `omw` matches `OMW` but not `omww`; there's no partial or prefix matching. If you'd rather match something that varies — a name, a time, a phrase — use a [pattern trigger](#pattern-triggers) instead.
+Give a snippet a trigger word and it expands on its own. Type the trigger by itself, then finish it with a space, punctuation or Enter. What you typed is replaced with the expanded snippet instead of being committed literally. Matching is case-insensitive and exact: `omw` matches `OMW` but not `omww`, with no partial or prefix matching. To match something that varies, like a name or a time or a phrase, use a [pattern trigger](#pattern-triggers) instead.
 
-Trigger expansion is skipped while you're mid-transliteration or mid-conversion. For phonetic composers like Bengali-style transliteration, or Pinyin/Japanese-style conversion, the composing buffer holds an input spelling rather than the literal word you meant as a trigger, so expansion would misfire.
+Trigger expansion is skipped while you're mid-transliteration or mid-conversion. For phonetic composers like Bangla-style transliteration, or Pinyin/Japanese-style conversion, the composing buffer holds an input spelling rather than the literal word you meant as a trigger, so expansion would misfire.
 
 This is a different mechanism from the **Keyword shortcut** field on the Snippets settings screen (see [Options](#options)), which is a [smart chip](/smart/chips/) that offers to *open the Snippets panel* when you type "snippet" or "snippets." It has nothing to do with any individual snippet's own trigger word.
 
@@ -47,12 +47,12 @@ Some details worth knowing:
 
 - **Matching is case-insensitive** by default, so `HELLO John` works too. Start the pattern with `(?-i)` if you want it to care.
 - **`^` and `$` are optional.** The pattern always has to fill the whole span it's matched against, so `hello (.+)` behaves exactly like `^hello (.+)$`. Most people write the anchors anyway, and the examples here follow suit.
-- **Words to match** caps how far back a pattern can reach — three words by default, up to eight. It's there because names are short: with a cap of three, `^hello (.+)$` can turn "hello John Smith" into a greeting but will leave a whole sentence alone.
+- **Words to match** caps how far back a pattern can reach: three words by default, up to eight. It's there because names are short. With a cap of three, `^hello (.+)$` can turn "hello John Smith" into a greeting but will leave a whole sentence alone.
 - **A pattern never reaches across a line break**, so a snippet can't swallow the paragraph above the one you're writing.
 - **The shortest match wins.** If two patterns both fit, the one that eats fewer of your words is the one that runs. A plain word trigger always beats a pattern.
 - **Backspace takes it back.** One press right after an expansion restores exactly what you typed, spacing and capitals included, and the pattern won't fire again on that same text.
 
-Patterns run on every space you type, so the keyboard is careful about what they cost. Starting a pattern with a plain word (`^hello `, `^/gh `) lets it skip the pattern entirely unless that word is actually behind your cursor — which is nearly always. A pattern that starts with something variable instead, like `^(.+)$` or `^\d+`, has to be tried after every word, and the editor says so when you write one. A pattern that turns out to be pathologically slow is stopped rather than allowed to stall your typing.
+Patterns run on every space you type, so the keyboard is careful about what they cost. Start a pattern with a plain word (`^hello `, `^/gh `) and it can be skipped entirely unless that word is actually behind your cursor, which is nearly always. A pattern that starts with something variable instead, like `^(.+)$` or `^\d+`, has to be tried after every word. The editor says so when you write one. A pattern that turns out to be pathologically slow is stopped rather than allowed to stall your typing.
 
 Everything else about word triggers applies here too: patterns are skipped mid-transliteration and mid-conversion, and they never run in password fields or in fields that ask for no suggestions.
 
@@ -64,14 +64,14 @@ Every snippet has an **Ask before it expands** switch in its add/edit dialog. Tu
 
 The chip arrives as soon as the trigger is typed. There's no need to press space first, and that goes for both kinds of trigger:
 
-- A **word** trigger offers itself while you're still typing the word. Type `brb` and the chip is there before you reach the space bar; press space instead of tapping and you get a literal "brb."
-- A **pattern** offers itself mid-phrase, and keeps up as you type. With `^hello (.+)$`, typing "hello Jo" already shows a chip reading "Hello, Jo!" — the next letter re-reads it as "Hello, Jon!", and so on. The offer survives the space that ends the word, so you can finish the phrase and then decide.
+- A **word** trigger offers itself while you're still typing the word. Type `brb` and the chip is there before you reach the space bar. Press space instead of tapping and you get a literal "brb."
+- A **pattern** offers itself mid-phrase, and keeps up as you type. With `^hello (.+)$`, typing "hello Jo" already shows a chip reading "Hello, Jo!". The next letter re-reads it as "Hello, Jon!", and so on. The offer survives the space that ends the word, so you can finish the phrase and then decide.
 
-Tapping the chip swaps the words it matched for the expansion, keeping any trailing space. Everything on the chip is what actually goes in: what you're looking at is what you get.
+Tapping the chip swaps the words it matched for the expansion and keeps any trailing space. What the chip shows is exactly what goes in.
 
-The chip shares the suggestion bar with your word candidates, so turning an offer down never costs you the predictions you were about to use. Backspace takes an accepted expansion back the same way it does an automatic one. The offer isn't remembered anywhere — it's worked out fresh from the text in front of the cursor, so moving the cursor, editing from elsewhere, or carrying on typing all simply stop it matching, and the chip goes.
+The chip shares the suggestion bar with your word candidates, so turning an offer down never costs you the predictions you were about to use. Backspace takes an accepted expansion back the same way it does an automatic one. The offer isn't remembered anywhere. It's worked out fresh from the text in front of the cursor, so moving the cursor, editing from elsewhere, or carrying on typing all stop it matching, and the chip goes.
 
-One cost worth knowing: an asking *pattern* is checked on every keystroke rather than once a word, so it reads a little of the text in front of your cursor each time you type. The check is debounced and runs off the typing path, and it doesn't happen at all unless you have an asking pattern installed. Plain word triggers are free either way — matching one is a dictionary lookup on the word you're typing, with nothing to read.
+One cost worth knowing: an asking *pattern* is checked on every keystroke rather than once a word, so it reads a little of the text in front of your cursor each time you type. The check is debounced and runs off the typing path, and it doesn't happen at all unless you have an asking pattern installed. Plain word triggers are free either way, because matching one is a dictionary lookup on the word you're typing, with nothing to read.
 
 This is what the **Pattern Replies** pack in the [addon repository](/addons/overview/) uses. Canned replies written by somebody else are exactly the case where silent rewriting is unwelcome: "hello John" turning itself into a paragraph you didn't ask for is a worse outcome than one extra tap. Every pack's preview says which way each of its snippets goes, so you can see it before installing.
 
@@ -102,7 +102,7 @@ A snippet's text can include any of these tokens. They're substituted the moment
 
 `{timezone}` is the one worth a second look. It writes the zone's long name, not an offset, so you get "Bangladesh Standard Time" or "Central European Summer Time" rather than GMT+06:00. An offset only shows up for a zone with no name of its own. The settings screen's reference card gives GMT+06:00 as its example, which is the fallback rather than the usual case, but the live preview next to it always shows what you'd actually get. If you want the offset itself, `{date:XXX}` or `{date:ZZZZ}` will give you one.
 
-`{date:pattern}` takes any date pattern you like, for example `` {date:EEEE 'week' w} `` or `` {date:dd/MM/yy} ``. It's checked before the plain `{date}` token, so a literal pattern can't be partly swallowed by it, and a malformed pattern quietly expands to nothing instead of breaking the rest of the snippet. Tokens the expander doesn't recognize, like `{nope}`, are left untouched, and a variable with nothing to draw on (`{app}` outside the keyboard, `{clip}` with an empty clipboard) expands to an empty string rather than leaving the raw token behind.
+`{date:pattern}` takes any date pattern you like, for example `` {date:EEEE 'week' w} `` or `` {date:dd/MM/yy} ``. It's checked before the plain `{date}` token, so a literal pattern can't be partly swallowed by it. A malformed pattern quietly expands to nothing instead of breaking the rest of the snippet. Tokens the expander doesn't recognize, like `{nope}`, are left untouched. A variable with nothing to draw on expands to an empty string rather than leaving the raw token behind, which is what you get from `{app}` outside the keyboard or `{clip}` with an empty clipboard.
 
 ## Managing snippets
 
@@ -115,7 +115,7 @@ Find the list under Settings → Tools → Snippets (see [Options](#options) bel
 The settings screen opens with a reference card listing all 18 variables plus `{date:pattern}`, each with a live example. Below it:
 
 - **Add snippet** opens a dialog with a label, a multi-line text field (hint text calls out the most common variables), and a Word / Pattern switch for how it expands as you type.
-- Choosing **Word** gives you a single trigger-word field. Choosing **Pattern** gives you the pattern itself, chips that write `(.+)`, `$1`, `^` and `$` at the cursor, a words-to-match picker, and a **Try it** box: type what you'd type on the keyboard and the result appears underneath. A pattern that won't compile is flagged as you type, with the regular-expression engine's own complaint underneath it, and Save stays disabled until it's fixed.
+- Choosing **Word** gives you a single trigger-word field. Choosing **Pattern** gives you the pattern itself, chips that write `(.+)`, `$1`, `^` and `$` at the cursor, a words-to-match picker, and a **Try it** box. Type into **Try it** what you'd type on the keyboard, and the result appears underneath. A pattern that won't compile is flagged as you type, with the regular-expression engine's own complaint under it. Save stays disabled until you fix it.
 - Under both is **Ask before it expands**, which turns the trigger into a suggestion-bar offer instead of an automatic rewrite (see [Ask before it expands](#ask-before-it-expands)).
 - The pencil icon on a saved snippet reopens that same dialog, pre-filled, to **edit** it.
 - The trash icon **deletes** it immediately: no confirmation prompt, no undo. It sits right next to the pencil at the end of every row, a thumb's width away, which is where nearly every accidental deletion comes from. Aim before you tap, and keep an [export](#import-and-export) around if a snippet took you a while to write.
@@ -125,37 +125,39 @@ The settings screen opens with a reference card listing all 18 variables plus `{
   ![Adding a snippet: label, text with variables, and an optional trigger word.](@assets/screens/tools/snippets-add-dialog.webp)
 </PhoneFrame>
 
-There's no way to reorder the list from inside settings. Snippets stay in the order you created them.
+Snippets have a stored order. New ones append to the end, and the **Snippet order** row that sits above the saved list lifts the ones you use daily back to the top. That matters because the snippets panel draws in the same order and has no search of its own.
 
 ### Import and export
 
-**Export** writes every current snippet to a `.wmsnippets.json` file (see [file formats](/reference/file-formats/)). **Import** always adds alongside what's already there rather than replacing it, so importing the same file twice leaves you with two copies, not one. Rows are repaired rather than rejected when something's off: a snippet with no text is dropped, text over 20,000 characters is trimmed, a blank label is filled in from the snippet's own first line, a trigger pattern that won't compile (or runs past 200 characters) is removed while the snippet itself is kept, and only the first 500 snippets of an oversized file are kept, with a summary of anything that changed shown once the import finishes.
+**Export** writes every current snippet to a `.wmsnippets.json` file (see [file formats](/reference/file-formats/)). **Import** always adds alongside what's already there rather than replacing it, so importing the same file twice leaves you with two copies.
+
+Rows are repaired rather than rejected when something's off. A snippet with no text is dropped. Text over 20,000 characters is trimmed. A blank label is filled in from the snippet's own first line. A trigger pattern that won't compile, or that runs past 200 characters, is removed while the snippet itself is kept. Only the first 500 snippets of an oversized file are kept. Once the import finishes you get a summary of everything that changed.
 
 ## Options
 
 <SettingsPath path="Tools / Snippets" />
 
-- **Enabled** — on by default, like every tool. Turning it off removes Snippets from both the toolbar and the toolbox.
-- **Icon colour** — only shown if [colorful tool icons](/tools/overview/) is turned on globally; overrides just this tool's icon color.
-- **Keyword shortcut** — the words that make the [Smart chips](/smart/chips/) suggestion offer to open this panel; "snippet" and "snippets" out of the box, editable or clearable here. This only controls opening the panel; it's unrelated to a snippet's own trigger word (above).
+- **Enabled**: on by default, like every tool. Turning it off removes Snippets from both the toolbar and the toolbox.
+- **Icon colour**: only shown if [colorful tool icons](/tools/overview/) is turned on globally. Overrides just this tool's icon color.
+- **Keyword shortcut**: the words that make the [Smart chips](/smart/chips/) suggestion offer to open this panel. "Snippet" and "snippets" out of the box, editable or clearable here. This only controls opening the panel, and it's unrelated to a snippet's own trigger word (above).
 
-Beyond that, there's nothing global to configure about expansion: no on/off switch separate from the tool. How matching works is set per snippet instead, in the add/edit dialog: word or pattern, how far back a pattern may reach, and whether it expands on its own or asks first. Having no pattern snippets at all is what keeps the matching machinery out of the typing path entirely.
+Beyond that, there's nothing global to configure about expansion. There's no on/off switch separate from the tool. How matching works is set per snippet instead, in the add/edit dialog: word or pattern, how far back a pattern may reach, and whether it expands on its own or asks first. Having no pattern snippets at all is what keeps the matching machinery out of the typing path entirely.
 
 ## Snippet packs and backups
 
-Someone can package a set of snippets as an installable addon: a `.wmsnippets.json` file up to 4&nbsp;MB, previewable before you install it so you can see the actual snippets it contains rather than installing blind. Installing a pack adds its snippets alongside anything you already have; uninstalling it removes exactly the snippets that pack added, leaving your own snippets and any other installed pack untouched. See [installing addons](/addons/installing/) for the general install/preview/uninstall flow.
+Someone can package a set of snippets as an installable addon: a `.wmsnippets.json` file up to 4&nbsp;MB. You can preview it before installing, so you see the actual snippets it contains rather than installing blind. Installing a pack adds its snippets alongside anything you already have. Uninstalling it removes exactly the snippets that pack added and leaves your own snippets and any other installed pack untouched. See [installing addons](/addons/installing/) for the general install/preview/uninstall flow.
 
-That's a different mechanism from the whole-app [config backup](/privacy/backup/) (`.wmconfig.json`), which has its own, optional Snippets section you can include or leave out when backing up everything at once: themes, dictionary, clipboard, stickers, and more, alongside your settings. It's different again from the plain settings backup (`.wmsettings.json`), which deliberately leaves snippets out; they're covered by these two separate flows instead.
+That's a different mechanism from the whole-app [config backup](/privacy/backup/) (`.wmconfig.json`). That backup has its own optional Snippets section you can include or leave out when backing up everything at once, alongside themes, dictionary, clipboard, stickers and your settings. The plain settings backup (`.wmsettings.json`) is different again: it deliberately leaves snippets out, since these two flows already cover them.
 
 ## Details & edge cases
 
 - Snippets aren't available before you've unlocked your device once after a restart. The snippet file lives in credential-encrypted storage, so this tool sits out any lock-screen or pre-unlock typing until then.
 - Ships the same way in both the full and lite editions: there's no edition gating on this tool.
-- The 500-snippet and 20,000-character limits above are enforced only on import; adding snippets one at a time from the dialog has no equivalent cap.
+- The 500-snippet and 20,000-character limits above are enforced only on import. Adding snippets one at a time from the dialog has no equivalent cap.
 - Because the panel re-reads the snippet file only when you open it, a snippet you just added in Settings won't appear if you already had the panel open. Close and reopen the panel (or switch to another panel and back) to pick it up. Triggers themselves are refreshed whenever you tap into a text field, so a snippet you just saved starts expanding straight away even if you never open the panel.
-- `{uuid}` generates a new value on every single insertion, including inserting the same snippet twice in a row; it's not fixed per snippet.
+- `{uuid}` generates a new value on every insertion, including inserting the same snippet twice in a row. It isn't fixed per snippet.
 - Tapping a **pattern** snippet in the panel inserts its text with the captures left blank and puts the cursor in the first gap, since a tap has no words to capture. `Hello, $1! Nice to meet you.` goes in as "Hello, ! Nice to meet you." with the cursor after "Hello, ". A plain snippet is unaffected: a `$1` in its text is a dollar sign and a one.
-- Capture text is spliced in exactly as you typed it. A template variable that lands inside a capture — typing "note remember `{clip}`" into a `^note (.+)$` pattern — stays literal rather than expanding, so text in the field you're typing into can never pull your clipboard in behind you.
+- Capture text is spliced in exactly as you typed it. A template variable that lands inside a capture stays literal rather than expanding. Type "note remember `{clip}`" into a `^note (.+)$` pattern and the token goes in as written, so text in the field you're typing into can never pull your clipboard in behind you.
 - A snippet whose text ends at a `{cursor}` marker swallows the key that triggered it, so the space or full stop you pressed doesn't land in the middle of what was just inserted.
 - Triggers only fire where the keyboard keeps a composing buffer, which means they're skipped in password fields, in fields that ask for no suggestions, and when you've turned suggestions off entirely.
 - Swiping a word with gesture typing, or tapping one from the suggestion strip, doesn't fire a pattern. The next word you type by hand does.

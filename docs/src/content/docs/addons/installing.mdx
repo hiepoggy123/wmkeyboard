@@ -19,9 +19,9 @@ install one addon at a time.
 
 ## Adding a repository
 
-Open **Add repository** and paste an address. As you type, the dialog shows
-exactly what it resolved to (`Will read: <url>`), so you can see where the
-data is actually coming from before anything is fetched:
+Open **Add repository**. Paste an address into the field. As you type, the
+dialog shows what the address resolved to (`Will read: <url>`), so you can see
+where the data comes from before anything is fetched:
 
 | You paste | It fetches |
 |---|---|
@@ -47,20 +47,21 @@ opens the existing one, so following the same link twice is harmless.
 :::note[Links open, they don't install]
 A `wmkeyboard://` link from a README or a chat message can pre-fill this
 dialog or jump straight to one addon's detail page, but it never adds a
-repository or installs anything on its own; you still tap **Add**, and then
+repository or installs anything on its own. You still tap **Add**, and then
 **Install**. See [Deep links](/reference/deep-links/) for the full set.
 :::
 
 ## Browsing the catalogue
 
-Each repository has its own screen: a search field that matches an addon's
-name, description, author and tags, a row of type filter chips generated from
-whatever that repository actually contains, and a grid of cards below it.
+Each repository gets its own screen. At the top is a search field that matches
+an addon's name, description, author and tags. Under it sits a row of type
+filter chips built from whatever that repository actually contains, and then
+the grid of cards.
 
 Every card shows the addon's first screenshot (or a plain icon in its type's
 colour if it has none), a status badge that doubles as the install button, and
-a line of `version · size · author`. Tapping a card opens its detail page,
-which is where the fuller description and licence live.
+a line of `version · size · author`. Tap a card to open its detail page, where
+the fuller description and licence live.
 
 <PhoneFrame caption="An addon's detail page, with its licence and repository details.">
   {/* shot: addons/detail-page-licence */}
@@ -75,14 +76,14 @@ at all just says "Not stated."
 ## Installing an addon
 
 Tap the download arrow on a card, or **Install** on its detail page. Installing
-always does two things and stops: it puts the file on your device, and (for
-themes, layouts, icon packs, emoji fonts, key sounds and plugins) it asks
-whether you want to switch to it. Fonts, dictionaries, emoji keyword packs,
-snippet packs and sticker packs have nothing to "switch to"; they're live the
-moment they land.
+always does two things and stops. It puts the file on your device, and then,
+for themes, layouts, icon packs, emoji fonts, key sounds, sound packs and
+plugins, it asks whether you want to switch to it. Fonts, dictionaries, emoji
+keyword packs, snippet packs and sticker packs have nothing to "switch to".
+They're live the moment they land.
 
-That split matters because a repository is meant to be safe to browse:
-installing three themes while you're comparing them should not repaint your
+That split matters because a repository is meant to be safe to browse.
+Installing three themes while you're comparing them should not repaint your
 keyboard three times.
 
 <PhoneFrame caption="The prompt after a first install, offering to switch to what you just installed.">
@@ -101,19 +102,20 @@ never revoked.
 | Icon pack | "Use its icons on the keyboard now?" | Switch to it |
 | Emoji font | "Draw emoji with it now?" | Switch to it |
 | Key sound | "Use it as your key sound now?" | Switch to it |
+| Sound pack | "Use this sound pack for your keys now?" | Switch to it |
 | Layout | "Turn it on so you can type with it?" | Turn on |
 | Plugin | "Turn it on so it shows in the plugins panel?" | Turn on |
 
-Dismissing the prompt just says "Not now": the addon stays installed either
-way, and every detail page has an outlined "Use — open …" button that takes
-you straight to the right settings screen if you change your mind later.
+Dismissing the prompt just says "Not now". The addon stays installed either
+way, and every detail page carries an outlined "Use it: open …" button that
+takes you straight to the right settings screen if you change your mind later.
 
-Some addons were designed with others: a theme that wants a particular font and
-key sound says so, and installing it offers to fetch them in the same tap. You
-still get asked about one thing, the addon you tapped. Its fonts and sounds
-install quietly, and saying yes to the theme is what puts them on the board.
-"Only this one" skips them, and the theme falls back to your global font and
-sound.
+Some addons were designed alongside others. A theme that wants a particular
+font and key sound says so, and installing it offers to fetch them in the same
+tap. You still get asked about one thing, the addon you tapped. Its fonts and
+sounds install quietly, and saying yes to the theme is what puts them on the
+board. "Only this one" skips them, and the theme falls back to your global font
+and sound.
 
 ### Where each type lands
 
@@ -133,6 +135,7 @@ Downloads end up identical:
 | Font | Added to your font library | Fonts → Installed fonts |
 | Emoji font | Added to your font library | Emoji → Emoji font |
 | Key sound | Added to your sound library | Key press → Sound style |
+| Sound pack | Added to your sound library as a whole pack | Key press → Sound style |
 | Plugin | Lands on disk switched off | Plugins → Allow plugins |
 
 A dictionary or emoji keyword pack that doesn't say which language it's for
@@ -142,19 +145,20 @@ what it will download:
 | Cap | Types |
 |---|---|
 | 1 MB | Plugin |
-| 4 MB | Theme, Layout, Snippets, Key sound |
+| 4 MB | Layout, Snippets, Key sound |
 | 8 MB | Emoji keywords, Icon pack |
+| 16 MB | Theme, Sound pack |
 | 32 MB | Dictionary, Font, Emoji font |
 | 64 MB | Stickers |
 
 **Plugins are a special case.** Installing one requires "Allow plugins" to
-already be on; otherwise the detail page tells you so before you even tap
+already be on. If it is off, the detail page tells you so before you even tap
 Install, with a shortcut straight to the switch:
 
 <SettingsPath path="Tools / Plugins / Allow plugins" />
 
 Even with the switch on, a plugin installed from a repository always lands
-disabled; you still turn it on yourself through the prompt above or from the
+disabled. You still turn it on yourself, through the prompt above or from the
 plugins list. A plugin is also the one type where the manifest's checksum
 isn't optional: without one to verify against, the install is refused
 outright. See [Plugin permissions](/plugins/permissions/) for what a plugin
@@ -171,24 +175,27 @@ addons in each and a three-dot menu for **Refresh**, **Open homepage** (when
 the manifest declares one), and **Remove**.
 
 Removing a repository only removes it from that list. Anything you already
-installed from it keeps working; you just stop getting update checks for it.
+installed from it keeps working. You just stop getting update checks for it.
 The app adds one sample repository automatically the first time you open the
 Addons screen, so there's something to browse before you've found one of your
-own; removing it is permanent and it won't come back.
+own. Removing it is permanent, and it won't come back.
 
-Repositories refresh automatically every time you open the Addons screen, and
-you can force it with **Refresh**. A repository that's briefly unreachable
-keeps showing what it last had rather than emptying out.
+Repositories refresh every time you open the Addons screen, as long as **Check
+when you open this screen** is on (it is by default). **Only on Wi-Fi**, under
+it and off by default, skips that check on a metered connection. **Refresh**
+always fetches whatever those two say, because pressing it is the request. A
+repository that's briefly unreachable keeps showing what it last had rather
+than emptying out.
 
 ## Options
 
-<SettingsPath path="Addons" />
+<SettingsPath path="Add-ons" />
 
-Reach the Addons screen from the home grid or by searching "Addons" in
-settings search. Adding and browsing repositories, and installing from them,
-all happen on this one screen and the ones you navigate to from it. There's
-nothing addon-specific tucked away anywhere else in settings, aside from the
-plugin subsystem switch above. See the
+Reach the Add-ons screen from the home grid, or find it through settings
+search. Adding and browsing repositories, and installing from them, all happen
+on this one screen and the ones you navigate to from it. Nothing
+addon-specific is tucked away anywhere else in settings, aside from the plugin
+subsystem switch above. See the
 [Addons settings reference](/reference/settings/addons/) for a full
 screen-by-screen breakdown, and [Updates & management](/addons/managing/#options)
 for the repository cap and what backup covers.
@@ -198,9 +205,9 @@ for the repository cap and what backup covers.
 - **Repository files are plain data, never code.** Adding a repository or
   installing a theme, dictionary, sticker pack or any other type never
   executes anything (the one exception, a plugin, still only lands as an
-  inert file until you separately turn it on). There are eleven addon types in
+  inert file until you separately turn it on). There are twelve addon types in
   total: themes, layouts, dictionaries, emoji keyword packs, snippets, sticker
-  packs, icon packs, fonts, emoji fonts, key sounds and plugins.
+  packs, icon packs, fonts, emoji fonts, key sounds, sound packs and plugins.
 - **Updating replaces rather than duplicates.** When a newer version of an
   installed addon comes in, the old copy is removed only after the new one
   verifies successfully, so you never end up with two copies of the same

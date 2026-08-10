@@ -2,24 +2,24 @@
 title: "Power saving"
 description: "A lighter keyboard when the battery is low: what turns off and when."
 sidebar:
-  order: 8
+  order: 9
 ---
 
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-Power saving drops the parts of WM Keyboard that cost the most battery (vibration, key sounds, animations, the glide trail, background network fetches) either with one tap or automatically once Android's own battery saver kicks in or your battery gets low. It's a view laid over your settings, not a rewrite of them: turning it off restores everything exactly as you had it, because nothing was ever actually changed.
+Power saving drops the parts of WM Keyboard that cost the most battery: vibration, key sounds, animations, the glide trail, background network fetches. It goes on with one tap, or by itself once Android's own battery saver kicks in or your battery gets low. It's a view laid over your settings rather than a rewrite of them. Turn it off and everything comes back exactly as you had it, because nothing was ever changed.
 
-<PhoneFrame caption="Tapping the Power saving toolbar tile — the toast confirms it switched on.">
+<PhoneFrame caption="Tapping the Power saving toolbar tile: the toast confirms it switched on.">
   {/* shot: typing/power-saving-toolbar-toggle */}
 </PhoneFrame>
 
 ## Turning it on
 
-The quickest way is the **Power saving** toolbar tile: a single tap flips it on or off, with a toast confirming which ("Power saving is on", "Power saving is off"). It isn't one of the tools WM Keyboard starts you with, though: pin it from the toolbox, or from **Tools** in settings, the same way you'd add any other tool. On a physical keyboard, double-tap <KeyCap>Ctrl</KeyCap> and press <KeyCap>B</KeyCap> to do the same thing without touching the screen; see [Hardware keyboards](/typing/hardware-keyboard/) for the rest of the leader-key shortcuts.
+The quickest way is the **Power saving** toolbar tile. One tap flips it on or off, and a toast confirms which ("Power saving is on", "Power saving is off"). It isn't one of the tools WM Keyboard starts you with, so pin it from the toolbox, or from **Tools** in settings, the way you'd add any other tool. On a physical keyboard, double-tap <KeyCap>Ctrl</KeyCap> and press <KeyCap>B</KeyCap> to do the same without touching the screen. See [Hardware keyboards](/typing/hardware-keyboard/) for the rest of the leader-key shortcuts.
 
-However you flip it, the manual switch is sticky: it survives the keyboard being torn down and rebuilt between fields, and a full battery or the charger going in doesn't turn it back off by itself. Once you've turned it on by hand, it stays on until you turn it off by hand.
+However you flip it, the manual switch is sticky. It survives the keyboard being torn down and rebuilt between fields, and neither a full battery nor the charger going in turns it back off. Once you've turned it on by hand, it stays on until you turn it off by hand.
 
 ## Switching on by itself
 
@@ -27,12 +27,12 @@ However you flip it, the manual switch is sticky: it survives the keyboard being
 
 Beyond the manual switch, **Switch on by itself** decides whether power saving also arms automatically:
 
-- **Only when I turn it on** — the manual switch is the only way in.
-- **Android's battery saver is on** — the default. Power saving follows the system's own Battery Saver toggle in lockstep, because by the time that's on, you've already told the phone to economize.
-- **Battery is low** — arms once the battery drops to or below **Low battery is**, a slider from 5% to 50% (default 20%).
-- **Battery saver or low battery** — either condition arms it.
+- **Only when I turn it on.** The manual switch is the only way in.
+- **Android's battery saver is on**, the default. Power saving follows the system's own Battery Saver toggle in lockstep, because by the time that's on, you've already told the phone to economize.
+- **Battery is low.** It arms once the battery drops to or below **Low battery is**, a slider from 5% to 50% (default 20%).
+- **Battery saver or low battery.** Either condition arms it.
 
-Two things temper the automatic triggers. **Off while charging** (on by default) suppresses them entirely while the charger is in: there's nothing to save with power flowing in, and a phone sitting at 100% on the charger counts as charging too. And an unread battery level (before the keyboard has taken a reading yet) is always treated as "not low," so it can never falsely trigger on startup. Neither of these touches the manual switch: turning it on by hand means it, charger or no charger.
+Two things temper the automatic triggers. **Off while charging** (on by default) suppresses them entirely while the charger is in, since there's nothing to save with power flowing in, and a phone sitting at 100% on the charger counts as charging too. An unread battery level, before the keyboard has taken a reading, is always treated as "not low", so it can never falsely trigger on startup. Neither of these touches the manual switch: turning it on by hand means it, charger or no charger.
 
 <PhoneFrame caption="The Power saving group: the switch, the automatic trigger picker, and the battery slider.">
   ![The Power saving group: the switch, the automatic trigger picker, and the battery slider.](@assets/screens/typing/power-saving-settings-triggers.webp)
@@ -42,11 +42,11 @@ Two things temper the automatic triggers. **Off while charging** (on by default)
 This is a one-way follow. Turning on the keyboard's own power saving never touches Android's system Battery Saver setting: only the reverse.
 :::
 
-Under the hood, the keyboard watches a handful of coarse system broadcasts (battery low, battery okay, charger connected/disconnected, and battery-saver mode changed) rather than the noisy per-percent battery broadcast, so toggling the charger or the system's battery saver while you're mid-sentence takes effect immediately. The exact battery percentage, though, is only re-read each time the keyboard comes back on screen. If you're using the **Battery is low** trigger, crossing your threshold while the keyboard is already open doesn't switch power saving on until you switch fields or reopen it.
+The keyboard watches a handful of coarse system broadcasts (battery low, battery okay, charger connected and disconnected, battery-saver mode changed) rather than the noisy per-percent battery broadcast. Toggling the charger or the system's battery saver mid-sentence therefore takes effect immediately. The exact battery percentage is a different matter: it's re-read only each time the keyboard comes back on screen. On the **Battery is low** trigger, crossing your threshold while the keyboard is already open doesn't switch power saving on until you switch fields or reopen it.
 
 ## What gets dropped
 
-Power saving isn't one bundle of "reduce everything": it's twelve independent switches, each defaulting to whatever gives up the least for the most battery back. Turn any of them back on individually if that trade-off doesn't suit you.
+Power saving is twelve independent switches rather than one bundle of "reduce everything". Each defaults to whatever gives up the least for the most battery back. Turn any of them back on individually if that trade-off doesn't suit you.
 
 <PhoneFrame caption="The What to drop group, twelve independent switches.">
   ![The What to drop group, twelve independent switches.](@assets/screens/typing/power-saving-what-to-drop.webp)
@@ -65,9 +65,9 @@ Power saving isn't one bundle of "reduce everything": it's twelve independent sw
 | Background network | On | Unrequested fetches only: link previews for copied URLs and scanned QR codes, and the dictionary's look-up-on-selection. Tools you open by hand (translate, search, GIFs) still work. |
 | Screenshot watching | On | Watching the screenshot folder for new images to offer in the clipboard. |
 | On-device models | On | Whisper dictation falls back to the system recognizer, and the letter-swipe action falls back to gesture typing if it was set to handwriting. See [Offline voice](/tools/whisper/) and [Handwriting](/tools/handwriting/). |
-| Typing statistics | Off | Counting your keystrokes, words and speed. Off by default: the counters are a few integer bumps per keystroke, so the saving is speculative. Days spent saving power simply record nothing, and they never drag your speed averages down. |
+| Typing statistics | Off | Counting your keystrokes, words and speed. Off by default: the counters are a few integer bumps per keystroke, so the saving is speculative. Days spent saving power record nothing, and they never drag your speed averages down. |
 
-Power saving is only in force in any *useful* sense if at least one of these is on; turn every switch off and the tile's toast admits it plainly: "Power saving is on. No feature is set to stop yet."
+Power saving only does anything *useful* if at least one of these is on. Turn every switch off and the tile's toast admits it plainly: "Power saving is on. No feature is set to stop yet."
 
 ## Options
 
@@ -86,10 +86,10 @@ The **What to drop** group below it is the twelve switches from the table above,
 
 ## Details & edge cases
 
-- **Nothing is ever overwritten.** The reduced settings are computed on the way out, the moment power saving applies: the stored values never change, so turning it off, the charger going in, or the battery recovering all bring every feature back exactly as you set it.
-- **Turning off the manual switch doesn't always turn saving off.** If an automatic trigger (low battery, say) is still holding it on, the toast says "Power saving stays on. The battery trigger is on." instead of "Power saving is off".
-- **The toolbar tile lights up while power saving is actually in force**, the same way the Incognito tile does, and it follows the fully resolved state, not just the manual switch, so it's lit while an automatic trigger is holding things on too.
-- **Not a default or recommended tool.** Power saving isn't among the tools WM Keyboard starts you with, and it isn't part of the onboarding wizard's suggested set either: you pin it yourself.
+- **Nothing is ever overwritten.** The reduced settings are computed on the way out, the moment power saving applies. The stored values never change, so turning it off, the charger going in, or the battery recovering all bring every feature back exactly as you set it.
+- **Turning off the manual switch doesn't always turn saving off.** If an automatic trigger, low battery say, is still holding it on, the toast reads "Power saving stays on. The battery trigger is on." instead of "Power saving is off".
+- **The toolbar tile lights up while power saving is actually in force**, the way the Incognito tile does. It follows the fully resolved state rather than just the manual switch, so it's lit while an automatic trigger is holding things on too.
+- **Not a default or recommended tool.** Power saving isn't among the tools WM Keyboard starts you with, and it isn't part of the onboarding wizard's suggested set either. You pin it yourself.
 - **Works before you unlock your device once after a restart**, and behaves identically on the full and lite editions.
 
 Related: [Sound & vibration](/typing/feedback/) for haptics and key-click tuning on their own, [Glide typing](/typing/glide-typing/) for how the trail and the decoder split apart, [Accessibility](/accessibility/overview/) for Reduce motion outside of power saving, and [Network policy](/privacy/network/) for the fuller picture of what WM Keyboard can and can't send.

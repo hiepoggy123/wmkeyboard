@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-The emoji panel itself (search, skin tones, favourites) is covered in [Emoji picker & search](/emoji/picker/). This page is about the settings that shape it: which font draws the emoji, which languages emoji search understands, when emoji get suggested while you type, and whether there's a dedicated row of them above the keys.
+The emoji panel itself (search, skin tones, favourites) is covered in [Emoji picker & search](/emoji/picker/). This page is about the settings that shape it: which font draws the emoji, which languages emoji search understands, when emoji get suggested while you type, and whether a dedicated row of them sits above the keys.
 
 <PhoneFrame caption="The Emoji settings screen, with the live font preview row.">
   ![The Emoji settings screen, with the live font preview row.](@assets/screens/emoji/settings-overview.webp)
@@ -18,14 +18,14 @@ The emoji panel itself (search, skin tones, favourites) is covered in [Emoji pic
 
 <SettingsPath path="Emoji / Emoji style / Emoji font" />
 
-WM Keyboard ships no emoji font of its own. It draws emoji with whichever one you pick here, and a preview row on the settings screen renders 😀😂🥰😎🤔👍❤️🎉 through the real rendering pipeline so you see exactly what the keyboard will show, not a mockup.
+WM Keyboard ships no emoji font of its own. It draws emoji with whichever one you pick here. A preview row on the settings screen renders 😀😂🥰😎🤔👍❤️🎉 through the real rendering pipeline, so what you see there is what the keyboard shows, not a mockup.
 
-- **System** (default) — your phone's own emoji pack. On Samsung phones that's Samsung's set, not Google's.
-- **Google** — fetches Noto Color Emoji, the stock-Android look, once through the system font provider and caches it on the device.
-- **Installed** — an emoji font from [Addons](/addons/installing/), such as Twemoji or OpenMoji, picked from a list of whatever you've installed. Deleting the font you currently have selected falls back to System automatically.
-- **Custom** — a single font file you import yourself, kept separate from the addon library.
+- **System** (default): your phone's own emoji pack. On Samsung phones that's Samsung's set, not Google's.
+- **Google**: fetches Noto Color Emoji, the stock-Android look, once through the system font provider and caches it on the device.
+- **Installed**: an emoji font from [Addons](/addons/installing/), such as Twemoji or OpenMoji, picked from a list of whatever you've installed. Deleting the font you currently have selected falls back to System automatically.
+- **Custom**: a single font file you import yourself, kept separate from the addon library.
 
-Text you send is always plain Unicode, regardless of which font you pick; the app or phone on the other end draws it with its own emoji font. This setting only changes how emoji look while you're composing them.
+Text you send is always plain Unicode, whichever font you pick. The app or phone on the other end draws it with its own emoji font. This setting only changes how emoji look while you're composing them.
 
 :::note
 An emoji font converted from a color format usually has no variation-selector table, so ❤️ (U+2764 + the invisible U+FE0F that makes it draw as color) can't resolve in it. WM Keyboard strips that invisible selector before handing the glyph to your chosen font, rather than let it fall back to the system font and look inconsistent with the rest of the row.
@@ -39,49 +39,49 @@ Older phones and some OEM skins ship an emoji font that predates the newest emoj
 
 <SettingsPath path="Emoji / Emoji style / Get the newest emoji" />
 
-A card sits under the font picker offering the current Noto Color Emoji, around 10 MB, from WM Keyboard's own addon repository. Tap **Download** and it installs into the font library and selects itself, so the panel and the keys redraw with a font that actually has the new faces in it. After that the card disappears, and it comes back as **New emoji are available** with an **Update** button when the repository publishes a newer build.
+A card sits under the font picker offering the current Noto Color Emoji, around 10 MB, from WM Keyboard's own addon repository. Tap **Download**. The font installs into the font library and selects itself, so the panel and the keys redraw with a face that actually has the new emoji in it. The card then disappears. It comes back as **New emoji are available**, with an **Update** button, when the repository publishes a newer build.
 
-Switching **Emoji font** to Google is not the same thing, and it's the part that catches people out. A downloadable font is requested by family name with no version attached, so the system font provider answers with whichever build of Noto it already has, which on a phone with a recent system emoji font is usually the older of the two: the boxes stay. Installing a complete addon font like Twemoji or OpenMoji from [Addons](/addons/installing/) works as well, and there's a **Download more** row right below the picker that opens the catalogue filtered to emoji fonts. The download card is just the shortcut to the font most people are after.
+Switching **Emoji font** to Google is not the same thing, and that's the part that catches people out. A downloadable font is requested by family name with no version attached. The system font provider answers with whichever build of Noto it already has, which on a phone with a recent system emoji font is usually the older of the two, so the boxes stay. Installing a complete addon font like Twemoji or OpenMoji from [Addons](/addons/installing/) works as well, and a **Download more** row right below the picker opens the catalogue filtered to emoji fonts. The download card is the shortcut to the font most people are after.
 
 ### Hiding the ones that are left
 
 <SettingsPath path="Emoji / Emoji style / Hide emoji this phone can't display" />
 
-This toggle (off by default) checks both your chosen font and the phone's own system font, and only hides an emoji from the panel, search, and suggestions when **neither** can draw it. An emoji your chosen font is missing but the phone's system font can still draw isn't hidden; it's silently drawn in the system font instead, in a different style from the rest of the row, so it still gets through.
+This toggle (off by default) checks both your chosen font and the phone's own system font. It only hides an emoji from the panel, search, and suggestions when **neither** can draw it. An emoji your chosen font is missing but the phone's system font can still draw isn't hidden. It's quietly drawn in the system font instead, in a different style from the rest of the row, so it still gets through.
 
 ## Emoji search in your language
 
 <SettingsPath path="Emoji / Emoji panel / Emoji keywords" />
 
-Emoji search ships with English and Bengali keywords built in, so it works out of the box in both languages. For anything else, download a keyword pack: WM Keyboard's data repository carries packs for 125 languages, each a small gzipped file of `{emoji, name, keywords, category}` entries sourced from Unicode CLDR.
+Emoji search ships with English and Bangla keywords built in, so it works out of the box in both languages. For anything else, download a keyword pack. WM Keyboard's data repository carries packs for 125 languages, each a small gzipped file of `{emoji, name, keywords, category}` entries sourced from Unicode CLDR.
 
 <PhoneFrame caption="The Emoji keywords screen, with per-language download and delete controls.">
   ![The Emoji keywords screen, with per-language download and delete controls.](@assets/screens/emoji/keyword-packs.webp)
 </PhoneFrame>
 
-Packs stack on top of the bundled English/Bengali keywords rather than replacing them, so downloading, say, Spanish adds Spanish search terms without losing the two you already had.
+Packs stack on top of the bundled English and Bangla keywords rather than replacing them, so downloading, say, Spanish adds Spanish search terms without losing the two you already had.
 
-The examples in this screen's own copy follow the languages you type in — with Spanish and Japanese enabled it says "so dinero or お金 all find 💰", with Russian and Hindi "деньги or पैसा". It's the same feature either way; showing you a script you don't read is a poor way to demonstrate it.
+The examples in this screen's own copy follow the languages you type in. With Spanish and Japanese enabled it says "so dinero or お金 all find 💰", with Russian and Hindi "деньги or पैसा". It's the same feature either way. Showing you a script you don't read is a poor way to demonstrate it.
 
-Keywords stack, but names don't — only one name fits in an emoji's long-press popup. A pack's display names are used while you're typing that pack's language, and the emoji's standard Unicode name is used otherwise, so a Spanish pack never renames your emoji while you're typing Bengali.
+Keywords stack, but names don't. Only one name fits in an emoji's long-press popup. A pack's display names are used while you're typing that pack's language, and the emoji's standard Unicode name is used otherwise, so a Spanish pack never renames your emoji while you're typing Bangla.
 
-**Download automatically** (on by default) fetches a keyword pack the first time you enable a language you type in, and skips anything already downloaded. Turn it off and packs only arrive when you tap Download next to a language yourself. There's a wider switch above it, **Download data automatically** under <SettingsPath path="Languages / Language data" /> (also on by default), which covers every automatic download the keyboard makes; with that one off, packs stay put no matter what this toggle says.
+**Download automatically** (on by default) fetches a keyword pack the first time you enable a language you type in, and skips anything already downloaded. Turn it off and packs only arrive when you tap Download next to a language yourself. A wider switch sits above it: **Download data automatically** under <SettingsPath path="Languages / Language data" />, also on by default, covering every automatic download the keyboard makes. With that one off, packs stay put no matter what this toggle says.
 
-Deleting a downloaded pack leaves a marker behind so automatic download won't silently re-fetch it. If you want it back, download it again explicitly.
+Deleting a downloaded pack leaves a marker behind so automatic download won't quietly re-fetch it. If you want it back, download it again yourself.
 
-You can also import a pack by hand: either a plain tab-separated file (`emoji`, comma-separated keywords, optional display name) or the data repository's own JSON file directly, and WM Keyboard sniffs the format so you don't have to convert it first. Imported packs are kept separate from downloaded ones on disk, but merge into the same search index.
+You can also import a pack by hand. Two formats work: a plain tab-separated file (`emoji`, comma-separated keywords, optional display name), or the data repository's own JSON file directly. WM Keyboard sniffs the format, so you don't have to convert anything first. Imported packs are kept separate from downloaded ones on disk, but merge into the same search index.
 
 ## Emoji suggestions while typing
 
 <SettingsPath path="Emoji / Suggestions / Emoji suggestions" />
 
-Turn this on (it's on by default) and matching emoji append to the end of the suggestion strip as you finish typing a whole word: "birthday" offers 🎂🎉🥳🎁, and it works the same way for Bengali words. It also fires on an empty buffer from words you've just typed, learned over time, so a word like "you" can suggest ❤️ without you typing anything new.
+Turn this on (it's on by default) and matching emoji append to the end of the suggestion strip as you finish typing a whole word. "Birthday" offers 🎂🎉🥳🎁, and it works the same way for Bangla words. It also fires on an empty buffer from words you've just typed, learned over time, so a word like "you" can suggest ❤️ without you typing anything new.
 
-The chip doesn't vanish at the space, which is exactly when you'd reach for it: type "happy birthday" and 🎂 is still there after the space, until the next word replaces it. Four sources feed the match, stacked so a hit from any one of them counts:
+The chip doesn't vanish at the space, which is exactly when you'd reach for it. Type "happy birthday" and 🎂 is still there after the space, until the next word replaces it. Four sources feed the match, stacked so a hit from any one of them counts:
 
-- a small curated table, which is where the ordering judgements ("birthday" leads with 🎂, not 🥳) and the Bengali triggers live;
+- a small curated table, which is where the ordering judgements ("birthday" leads with 🎂, not 🥳) and the Bangla triggers live;
 - GitHub's own word-to-emoji data, which covers far more English than a hand-written table can: "hooray", "espresso", "workout";
-- the `:shortcode:` names, which mostly earn their place on two-word matches nothing else can reach — "alarm clock" offers ⏰, "crossed fingers" offers 🤞. Two-letter codes are left out on purpose: `:it:` and `:us:` are flags, and firing them at anyone typing "it" or "us" is the wrong-emoji case this whole feature avoids;
+- the `:shortcode:` names, which mostly earn their place on two-word matches nothing else can reach. "Alarm clock" offers ⏰, "crossed fingers" offers 🤞. Two-letter codes are left out on purpose, because `:it:` and `:us:` are flags, and firing them at anyone typing "it" or "us" is the wrong-emoji case this whole feature avoids;
 - exact keyword hits from the emoji catalog, in whatever languages you have keyword packs for.
 
 <PhoneFrame caption="Emoji suggestions appended to the strip after typing a whole word.">
@@ -90,14 +90,14 @@ The chip doesn't vanish at the space, which is exactly when you'd reach for it: 
 
 **Emoji suggestion tap** decides what happens when you tap one:
 
-- **Replace word** (default, Gboard-style) — swaps the word you typed for the emoji. Typing "birthday" and tapping 🎂 leaves just 🎂.
-- **Keep word** — adds the emoji after the word instead: "birthday 🎂".
+- **Replace word** (default, Gboard-style): swaps the word you typed for the emoji. Typing "birthday" and tapping 🎂 leaves just 🎂.
+- **Keep word**: adds the emoji after the word instead, giving "birthday 🎂".
 
-Both of those describe tapping while the word is still being typed. Tap the chip after the space and there's no word left to replace, so the emoji simply lands at the cursor under either setting: "happy birthday " becomes "happy birthday 🎂".
+Both of those describe tapping while the word is still being typed. Tap the chip after the space and there's no word left to replace, so the emoji lands at the cursor under either setting: "happy birthday " becomes "happy birthday 🎂".
 
 ## Inline emoji search and shortcodes
 
-Typing a `:` isn't part of the suggestions setting above. It's a separate toggle, and it lives on the Typing settings screen rather than the Emoji screen:
+Typing a `:` isn't part of the suggestions setting above. It has its own toggle, and that toggle lives on the Typing settings screen rather than the Emoji screen:
 
 <SettingsPath path="Typing / Suggestions / Inline emoji search" />
 
@@ -107,7 +107,7 @@ With this on (the default), typing a colon at a word boundary turns the whole su
   {/* shot: emoji/inline-colon-search */}
 </PhoneFrame>
 
-The same toggle also covers exact shortcode names. If you type the *closing* colon and the text between the two colons is an exact match (`:tada:`, `:thumbsup:`), the whole thing is replaced with the emoji immediately, with no tap needed. A name that's only a partial or unknown match is left as ordinary typed text; an unrecognized shortcode is never silently eaten.
+The same toggle also covers exact shortcode names. If you type the *closing* colon and the text between the two colons is an exact match (`:tada:`, `:thumbsup:`), the whole thing is replaced with the emoji immediately, with no tap needed. A name that's only a partial or unknown match is left as ordinary typed text. An unrecognized shortcode is never quietly eaten.
 
 ## The dedicated emoji row
 
@@ -115,9 +115,9 @@ The same toggle also covers exact shortcode names. If you type the *closing* col
 
 A row of your own emoji, similar to Gboard's, that sits between the toolbar and the keys.
 
-- **Off** (default) — no emoji row.
-- **Button** — adds a toggle to the toolbar strip that swaps it for the emoji row on tap.
-- **Own row** — keeps the emoji row permanently visible above the keys.
+- **Off** (default): no emoji row.
+- **Button**: adds a toggle to the toolbar strip that swaps it for the emoji row on tap.
+- **Own row**: keeps the emoji row permanently visible above the keys.
 
 <PhoneFrame caption="The emoji row in Own row mode, above the key rows.">
   {/* shot: emoji/emoji-row-own */}
@@ -125,17 +125,17 @@ A row of your own emoji, similar to Gboard's, that sits between the toolbar and 
 
 Once the row is showing (anything other than Off), three more settings appear:
 
-- **Emoji row content** — Most used (default), Recent, or Favourites. Whichever you pick, your favourited emoji always sort to the front.
-- **Emojis in the row** — a slider from 3 to 16, defaulting to 8. The row splits its width into that many slots and shrinks the emoji to fit, so a higher number packs more emoji in at a smaller size.
-- **Scroll the emoji row** — off by default, meaning the row shows exactly that many slots and nothing past the last one, so a sideways swipe on the row can't slide the whole thing out from under your finger. Turn it on to reach the rest by swiping.
+- **Emoji row content**: Most used (default), Recent, or Favourites. Whichever you pick, your favourited emoji always sort to the front.
+- **Emojis in the row**: a slider from 3 to 16, defaulting to 8. The row splits its width into that many slots and shrinks the emoji to fit, so a higher number packs more emoji in at a smaller size.
+- **Scroll the emoji row**: off by default. The row then shows exactly that many slots and nothing past the last one, so a sideways swipe can't slide the whole thing out from under your finger. Turn it on to reach the rest by swiping.
 
 Where the row sits relative to the toolbar and the symbol row (above them, below them, in between) is a separate setting under Rows & bars on the settings home screen, not on this screen.
 
 ## Details & edge cases
 
 - **The font preview is exact, not illustrative.** The eight-emoji preview row on the Emoji font setting runs through the same shaping code the keyboard itself uses, including the ❤️ variation-selector workaround, so what you see there is what you'll get on the keys.
-- **Installed emoji fonts share storage with text fonts**, but are listed separately in the picker: a colour emoji font would make an odd choice for key labels, so the two lists never cross over.
-- **Bundled Unicode data, not user data.** Keyword packs, shortcode names, and the trigger words behind emoji suggestions are all static files that ship with the app or download from WM Keyboard's own data repository; none of it depends on what you type.
-- **Emoji predictions can drop under battery pressure.** Power Saving mode has its own setting that can suppress emoji predictions to save cycles; see [Power saving](/typing/power-saving/) for that behavior.
-- **Kaomoji and ASCII emoticons are a separate system.** They live behind their own two panel tabs, don't use the emoji font setting at all (they're plain text), and aren't searchable or favoritable the way real emoji are. See [Kaomoji & text art](/emoji/kaomoji/).
-- **Two other keys can open emoji access directly**: the language-switch key can be replaced with an emoji key (on by default, under Layout & size), and the comma key can be too (off by default). Both are separate from the emoji row and the toolbar button described above.
+- **Installed emoji fonts share storage with text fonts**, but are listed separately in the picker. A colour emoji font would make an odd choice for key labels, so the two lists never cross over.
+- **Bundled Unicode data, not user data.** Keyword packs, shortcode names, and the trigger words behind emoji suggestions are all static files. They ship with the app or download from WM Keyboard's own data repository, and none of it depends on what you type.
+- **Emoji predictions can drop under battery pressure.** Power Saving mode has its own setting that can suppress emoji predictions to save cycles. See [Power saving](/typing/power-saving/) for that behavior.
+- **Kaomoji and ASCII emoticons are a separate system.** They live behind their own two panel tabs, ignore the emoji font setting entirely (they're plain text), and aren't searchable or favoritable the way real emoji are. See [Kaomoji & text art](/emoji/kaomoji/).
+- **Two other keys can open the emoji panel directly.** The language-switch key can be replaced with an emoji key (on by default, under Layout & size), and the comma key can be too (off by default). Both are separate from the emoji row and the toolbar button described above.

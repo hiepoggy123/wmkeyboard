@@ -26,7 +26,7 @@ wm.storage.set("items", wm.json.encode(items))
 local saved = wm.storage.get("items")
 ```
 
-- Local to the device. It cannot leave — there is no network API in the sandbox
+- Local to the device. It cannot leave, because the sandbox has no network API
   for it to leave through.
 - Local to your plugin. No other plugin can read it.
 - Deleted when the user uninstalls you, and clearable by them any time from
@@ -34,19 +34,20 @@ local saved = wm.storage.get("items")
 - 128 keys, 64 characters per key, 8 KB per value, 64 KB in total.
 
 :::caution[Handle quota errors]
-`set` returns `nil` and a reason when you are over quota. Say something; do not
+`set` returns `nil` and a reason when you are over quota. Say something. Do not
 lose the user's data quietly.
 :::
 
 Declared permissions are shown to the user *before* they install, on the addon
-page and in the file-import confirmation. There is no runtime prompt, because
-with no way for data to leave the device there is nothing for a prompt to
-protect — and a prompt for something harmless mostly teaches people to dismiss
-prompts without reading them.
+page and in the file-import confirmation. There is no runtime prompt. With no
+way for data to leave the device, a prompt would have nothing to protect, and a
+prompt for something harmless mostly teaches people to dismiss prompts without
+reading them.
 
 ## What you cannot ask for
 
-Not "what requires a permission" — what has no API at all:
+This is not a list of things that need a permission. It is a list of things with
+no API at all:
 
 | | |
 |---|---|
@@ -60,11 +61,11 @@ Not "what requires a permission" — what has no API at all:
 | Background work | No timers. Execution stops when the panel closes. |
 
 :::note[Unknown permissions refuse the install]
-Adding `"permissions": ["network"]` to your manifest will not enable anything —
-it will make the app **refuse to install your plugin**, because it will not
-install something whose capabilities it cannot explain to the user. That refusal
-is deliberate: it is also how an old app version safely declines a plugin built
-for a newer one.
+Adding `"permissions": ["network"]` to your manifest enables nothing. It makes
+the app **refuse to install your plugin**, because the app will not install
+something whose capabilities it cannot explain to the user. That refusal is
+deliberate: it is also how an old app version safely declines a plugin built for
+a newer one.
 :::
 
 ## Getting text without reading it
@@ -86,9 +87,9 @@ exchange nothing on the keyboard can read anyone's messages.
 ## Why it is this short
 
 A keyboard sees everything its user types. Third-party code that could read that
-text *and* reach the network is a keylogger with extra steps, and no consent
-dialog makes that untrue — the user cannot audit what a script does with a
-permission after they grant it.
+text *and* reach the network is a keylogger with extra steps. No consent dialog
+makes that untrue, because nobody can audit what a script does with a permission
+after they grant it.
 
 Google Play's Device and Network Abuse policy takes the same view for
 runtime-loaded interpreted code, and names Lua specifically: such code "must not

@@ -26,20 +26,20 @@ The Accessibility screen collects every vision, motion, screen-reader, and touch
 | Setting | Control | Options / range | Default |
 |---|---|---|---|
 | Colour vision | Choice | Off / Deutan / Protan / Tritan / Grey | Off |
-| High contrast keys | Toggle | — | Off |
-| Key outlines | Toggle | — | Off |
-| Bold key labels | Toggle | — | Off |
-| Readable font | Toggle | — | Off |
-| Text size | Slider | 70%–150% | 100% |
-| Keyboard font | Opens **Keyboard font** | — | — |
+| High contrast keys | Toggle | On / Off | Off |
+| Key outlines | Toggle | On / Off | Off |
+| Bold key labels | Toggle | On / Off | Off |
+| Readable font | Toggle | On / Off | Off |
+| Text size | Slider | 70%–200% | 100% |
+| Keyboard font | Opens **Keyboard font** | n/a | n/a |
 
 **Colour vision** applies a real-time correction for red-green (Deutan, Protan) and blue-yellow (Tritan) colour blindness, or strips colour entirely (Grey). It corrects the keyboard's own palette rather than simulating what a colour-blind person sees.
 
 **High contrast keys** flattens the active theme to a plain black-or-white board with maximum-contrast labels, but keeps the theme's accent colour, so <KeyCap>Shift</KeyCap> and an active toolbar tool still stand out.
 
-**Readable font** is a derived toggle, not its own stored setting: it reads as on only when the keyboard's font is already set to Atkinson Hyperlegible, and switching it on or off writes straight to the same font setting used by **Keyboard font** below and by [Fonts](/themes/fonts/) under Appearance. There's no separate default to track: it starts off because the keyboard's font starts at its system default.
+**Readable font** is a derived toggle rather than its own stored setting. It reads as on only when the keyboard's font is already Atkinson Hyperlegible. Switching it writes straight to the same font setting **Keyboard font** below uses, and that [Fonts](/themes/fonts/) under Appearance uses. There's no separate default to track. It starts off because the keyboard's font starts at its system default.
 
-**Text size** scales only the labels drawn on the keys, from 70% up to 150% of normal. To change the size of the keys themselves, use [Size, position & one-handed use](/typing/size-position/), a common mix-up, since both live under different screens.
+**Text size** scales only the labels drawn on the keys, from 70% up to 200% of normal. To change the size of the keys themselves, use [Size, position & one-handed use](/typing/size-position/). The two are easy to confuse, and they live on different screens.
 
 <PhoneFrame caption="Colour vision set to Deutan, with the five filter options shown in the picker.">
   {/* shot: reference/settings/accessibility-color-vision-picker */}
@@ -51,9 +51,9 @@ The Accessibility screen collects every vision, motion, screen-reader, and touch
 
 | Setting | Control | Options / range | Default |
 |---|---|---|---|
-| Reduce motion | Toggle | — | Off |
+| Reduce motion | Toggle | On / Off | Off |
 
-**Reduce motion** turns off non-essential animation across the toolbar, animated theme backgrounds, and this settings app's own transitions. Feedback that tells you something (the key-preview bubble, the pressed-key colour, the glide-typing trail) stays, since removing it would make typing harder rather than easier.
+**Reduce motion** turns off non-essential animation across the toolbar, animated theme backgrounds, and this settings app's own transitions. Feedback that tells you something stays: the key-preview bubble, the pressed-key colour, the glide-typing trail. Removing those would make typing harder rather than easier.
 
 [Power saving mode](/typing/power-saving/) can flip this same behaviour on as a side effect of its own "Animations" toggle, without touching this switch. Check there too if animation is off and you didn't turn it off here.
 
@@ -64,7 +64,7 @@ The Accessibility screen collects every vision, motion, screen-reader, and touch
 | Setting | Control | Options / range | Default |
 |---|---|---|---|
 | TalkBack support | Choice | Off / Labels / Explore / Gestures | **Labels** |
-| Keyboard gestures service *(shown only when TalkBack support is Gestures)* | Opens system Accessibility settings | — | — |
+| Keyboard gestures service *(shown only when TalkBack support is Gestures)* | Opens system Accessibility settings | n/a | n/a |
 
 :::note[Not off by default]
 **TalkBack support** defaults to **Labels**, not Off. A fresh install already announces every key's name, including punctuation, before you've turned on a screen reader at all.
@@ -75,9 +75,9 @@ Setting TalkBack support to **Gestures** reveals the **Keyboard gestures service
 | Grant state | Title | Subtitle |
 |---|---|---|
 | Not granted | "Keyboard gestures service required" | `Turn on "WM Keyboard gestures" in Settings › Accessibility` |
-| Granted | "Keyboard gestures service" | "On — the keys get your touches, TalkBack keeps the rest of the screen" |
+| Granted | "Keyboard gestures service" | "On. The keys get your touches. TalkBack keeps the rest of the screen" |
 
-Tapping the row opens Android's Accessibility settings directly. Without the service granted, Gestures mode falls back to behaving like Explore.
+Tap the row to open Android's Accessibility settings directly. Without the service granted, Gestures mode falls back to behaving like Explore.
 
 <PhoneFrame caption="TalkBack support set to Gestures, with the Keyboard gestures service row asking to be granted.">
   {/* shot: reference/settings/accessibility-screen-reader-group */}
@@ -91,12 +91,12 @@ Tapping the row opens Android's Accessibility settings directly. Without the ser
 |---|---|---|---|
 | Ignore repeated presses | Slider | 0–500 ms | Off (0 ms) |
 | Long-press delay | Slider | 150–800 ms | 300 ms |
-| Key size & spacing | Opens **Layout & size** | — | — |
-| Haptics & sound | Opens **Key press** | — | — |
+| Key size & spacing | Opens **Layout & size** | n/a | n/a |
+| Haptics & sound | Opens **Key press** | n/a | n/a |
 
-**Ignore repeated presses** is the on-screen name for what the [overview guide](/accessibility/overview/) calls debouncing: the word "debounce" itself doesn't appear in the app. It discards a second press of the *same* key that lands within the chosen window after the first; two different keys pressed close together are never affected.
+**Ignore repeated presses** is the on-screen name for what the [overview guide](/accessibility/overview/) calls debouncing. The word "debounce" itself never appears in the app. It discards a second press of the *same* key that lands within the chosen window after the first. Two different keys pressed close together are never affected.
 
-**Key size & spacing** and **Haptics & sound** are plain navigation rows, not settings stored on this screen: they open [Layout & size](/reference/settings/layout/) and [Key press](/reference/settings/keypress/) respectively.
+**Key size & spacing** and **Haptics & sound** are plain navigation rows, not settings stored on this screen. They open [Layout & size](/reference/settings/layout/) and [Key press](/reference/settings/keypress/) respectively.
 
 <PhoneFrame caption="The Touch group: ignore repeated presses and long-press delay.">
   {/* shot: reference/settings/accessibility-touch-group */}
@@ -104,18 +104,18 @@ Tapping the row opens Android's Accessibility settings directly. Without the ser
 
 ## Details & edge cases
 
-- **Screen reader default is Labels, not Off.** See the note above; this is the one default on this screen most likely to surprise you.
-- **Readable font has no independent default value.** It mirrors whichever font `keyFontId` currently points to; there's nothing to reset separately from the font itself.
+- **Screen reader default is Labels, not Off.** See the note above. This is the one default on this screen most likely to surprise you.
+- **Readable font has no independent default value.** It mirrors whichever font `keyFontId` currently points to, so there's nothing to reset separately from the font itself.
 - **The on-screen label for the greyscale colour-vision filter reads "Grey."** The setting's internal name is `GRAYSCALE`, but nothing you see in the app spells it that way.
-- **Text size here and the key-preview popup's font scale are two different settings.** Changing one doesn't change the other, even though both scale text.
+- **Text size here and the key-preview popup's font scale are two different settings.** Both scale text, but changing one doesn't change the other.
 - **Ignore repeated presses only filters a repeat of the same key.** It cannot slow down typing in general by blocking different keys pressed close together.
-- **The gesture pass-through service needs Android 11 (API 30).** WM Keyboard's minimum supported version is Android 7.0 (API 24). On Android 9 or 10 the "WM Keyboard gestures" service can still be granted, but the system call it depends on is unavailable, so Gestures mode silently behaves like Explore even with the service on.
+- **The gesture pass-through service needs Android 11 (API 30).** WM Keyboard's minimum supported version is Android 7.0 (API 24). On Android 9 or 10 you can still grant the "WM Keyboard gestures" service, but the system call it depends on is unavailable. Gestures mode quietly behaves like Explore even with the service on.
 - **No edition differences.** Every setting on this screen, and the pass-through service behind it, works the same on both the full and lite builds.
 
 ## Related pages
 
-- [Accessibility overview](/accessibility/overview/) — the why behind every option here, plus one-handed and floating-keyboard accommodations that live on the [Layout & size](/reference/settings/layout/) screen instead.
-- [Fonts](/themes/fonts/) — the full font browser that **Keyboard font** and **Readable font** both open into.
-- [Size, position & one-handed use](/typing/size-position/) — for making the keys themselves bigger, not just their labels.
-- [Sound & vibration](/typing/feedback/) — the destination of the **Haptics & sound** row.
-- [Power saving mode](/typing/power-saving/) — another path to reduced motion, independent of the toggle on this screen.
+- [Accessibility overview](/accessibility/overview/): the why behind every option here, plus one-handed and floating-keyboard accommodations that live on the [Layout & size](/reference/settings/layout/) screen instead.
+- [Fonts](/themes/fonts/): the full font browser that **Keyboard font** and **Readable font** both open into.
+- [Size, position & one-handed use](/typing/size-position/): for making the keys themselves bigger, not just their labels.
+- [Sound & vibration](/typing/feedback/): the destination of the **Haptics & sound** row.
+- [Power saving mode](/typing/power-saving/): another path to reduced motion, independent of the toggle on this screen.

@@ -1,6 +1,6 @@
 ---
-title: Sound packs
-description: The .wmsoundpack format — many recordings of one keyboard, one played per key press and one when you lift, with optional per-key-role sounds.
+title: "Sound packs"
+description: "The .wmsoundpack format: many recordings of one keyboard, one played per key press and one when you lift, with optional per-key-role sounds."
 sidebar:
   order: 3
 ---
@@ -77,7 +77,7 @@ inside the manifest has anywhere to go.
 | --- | :-: | --- |
 | `format` | ✔ | Must be exactly `wmkeyboard-sound-pack`. Anything else is refused. |
 | `version` | ✔ | Format version, currently `1`. A higher number is refused rather than guessed at. |
-| `id` | ✔ | `[A-Za-z0-9._-]+`, at most 64 characters. **Frozen once published** — it's how installs are keyed. |
+| `id` | ✔ | `[A-Za-z0-9._-]+`, at most 64 characters. **Frozen once published**, because it's how installs are keyed. |
 | `name` | ✔ | What the user sees in the picker. |
 | `press` | ✔ | At least one path. The default key-down recordings. |
 | `author` | | Shown on the row. |
@@ -98,9 +98,9 @@ switch actuating under the finger, and the stem returning when it comes off.
 moment it happens. Hold a key down and the second sound waits for you.
 
 An empty `release` means **silence on key-up**, not a fallback to `press`. Most
-sounds worth typing on are one event — a beep, a pop, an interface click — and
+sounds worth typing on are one event (a beep, a pop, an interface click), and
 inventing a second one for them would double every keystroke. So a pack with no
-`release` behaves exactly as packs did before the field was played.
+`release` behaves exactly as packs did before the field existed.
 
 Roles and the split are independent. A role can fill `press`, `release`, both or
 neither, and each field falls back to the pack's top-level list **on its own**,
@@ -112,21 +112,20 @@ a pair and are never treated as one, so the lists can be different lengths.
 The user can turn key-up sounds off in
 <SettingsPath path="Key press / Key press sound / Key release sound" />, which appears only
 once a pack that has them is selected. A switch that does nothing visible is
-worse than no switch — it reads as the feature being broken rather than as the
+worse than no switch. It reads as the feature being broken rather than as the
 pack not having it.
 
 ### Recording them
 
-Record the two halves as separate files. If you are cutting them out of
-recordings that hold both — which is what
-[the monkeytype packs](#a-worked-example) needed — cut at the quietest point
-between the two events rather than at a fixed delay: the gap varies by tens of
-milliseconds between recordings of the same switch, and a fixed cut clips the
-key-up's attack on the fast ones.
+Record the two halves as separate files. Some source recordings hold both halves
+in one file, which is what [the monkeytype packs](#a-worked-example) had. To
+split one, cut at the quietest point between the two events. Do not cut at a
+fixed delay: the gap varies by tens of milliseconds between recordings of the
+same switch, and a fixed cut clips the key-up's attack on the fast ones.
 
-Don't normalize the halves separately. A key-up is genuinely quieter than its
-key-down — a tenth to a half the level on real switches — and levelling them to
-match makes typing sound like two keyboards.
+Do not normalize the halves separately. A key-up is genuinely quieter than its
+key-down, a tenth to a half the level on real switches. Level the two to match
+and typing sounds like two keyboards.
 
 ## Roles
 
@@ -266,8 +265,8 @@ It's also a worked example of the key-up cut: monkeytype plays one file per key
 press, so its switch recordings hold the return in the same file 100–200 ms
 behind the press, and the importer finds that boundary and cuts there. Which
 sets get cut is written down by hand, because a detector can't tell a key coming
-back up from the second half of a punch — *Fist Fight* trips it on all eight
-recordings and is deliberately left whole.
+back up from the second half of a punch. *Fist Fight* trips it on all eight
+recordings, so that pack is deliberately left whole.
 
 ## Known gaps
 

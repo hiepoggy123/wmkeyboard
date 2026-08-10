@@ -5,29 +5,31 @@ sidebar:
   order: 6
 ---
 
-import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Steps } from '@astrojs/starlight/components';
 
 WM Keyboard ships through three channels, and they are not the same build. The
-differences are real (a Play build carries Google libraries that an F-Droid
-build must not have) but they are all driven by two flags and a flavor, so
-nothing here needs a branch or a patched source tree.
+differences are real: a Play build carries Google libraries that an F-Droid
+build must not have. But two flags and a flavor drive all of it, so nothing
+here needs a branch or a patched source tree.
 
 ## What the channels actually differ on
 
 | | GitHub release | F-Droid | Play Store |
 |---|---|---|---|
-| Flavor | `full` | `lite` | `full` |
+| Flavor | `full` **and** `lite` | `lite` | `full` |
 | `wmkb.enablePlayStore` | `false` | `false` | `true` |
 | `wmkb.enableGms` | `true` | `false` | `true` |
 | `wmkb.splitApks` | `true` | not used | ignored by `bundle*` |
-| Artifact | one APK per ABI | one APK, built by F-Droid | one AAB |
+| Artifact | one APK per ABI, for both flavors, plus `SHA256SUMS.txt` | one APK, built by F-Droid | one AAB |
 | ML Kit | bundled in the APK | absent | unbundled, fetched from Play services |
 | Local LLM | bundled | absent | on-demand `:feature:llm` module |
 | In-app updates | no | no | yes |
 
-The flags read from `local.properties` first, then the environment, then
-default to `false`. A clean checkout has no `local.properties`, which is why
-an F-Droid builder gets the right answer without being told.
+The flags read from a `-P` Gradle property first, then `local.properties`, then
+the environment, then default to `false`. `-P` winning is what lets a fastlane
+lane or CI override a developer machine's `local.properties`. A clean checkout
+has no `local.properties` at all, which is why an F-Droid builder gets the
+right answer without being told.
 
 :::caution[Keep the flags matched to the channel]
 `wmkb.enablePlayStore=true` links Play's in-app update library. That library
@@ -39,9 +41,10 @@ ship a Play-flagged build anywhere but Play.
 ## Cutting a GitHub release
 
 The [`Release` workflow](https://github.com/wasi-master/wmkeyboard/blob/main/.github/workflows/release.yml)
-does the build. It runs on any tag starting with `v`, refuses to run if the
-tag disagrees with `wmkb.versionName`, signs with your release key, and
-attaches one APK per ABI plus a `SHA256SUMS.txt` to the release.
+does the build. It runs on any tag starting with `v` and refuses to run if the
+tag disagrees with `wmkb.versionName`. It signs with your release key, then
+attaches one APK per ABI for each flavor, plus a `SHA256SUMS.txt`, to the
+release.
 
 ### One-time setup
 
@@ -66,7 +69,7 @@ attaches one APK per ABI plus a `SHA256SUMS.txt` to the release.
 3. **Add the API-key secrets** you want baked into public builds:
    `WMKB_KLIPY_API_KEY`, `WMKB_GIPHY_API_KEY`, `WMKB_BRAVE_API_KEY`,
    `WMKB_TRANSLATE_API_KEY`, `WMKB_UNSPLASH_API_KEY`, `WMKB_PEXELS_API_KEY`,
-   `WMKB_DROPBOX_APP_KEY`. Any you leave out simply make that tool show its
+   `WMKB_DROPBOX_APP_KEY`. Any you leave out just make that tool show its
    "needs an API key" state, so a release without them still builds and runs.
 
 </Steps>
@@ -90,9 +93,9 @@ attaches one APK per ABI plus a `SHA256SUMS.txt` to the release.
 
 4. **Watch the run.** It builds the APKs, builds the Play AAB as a separate
    artifact, and publishes the release. The AAB is not attached to the public
-   release (an AAB is not installable); instead the `play` job uploads it to
-   the Play *internal* track through fastlane, or skips itself with a warning
-   if the `PLAY_SERVICE_ACCOUNT_JSON` secret is not set. Promoting to
+   release, because an AAB is not installable. The `play` job uploads it to
+   the Play *internal* track through fastlane instead, or skips itself with a
+   warning if the `PLAY_SERVICE_ACCOUNT_JSON` secret is not set. Promoting to
    production stays a decision you make by hand.
 
 </Steps>
@@ -105,7 +108,7 @@ builds and uploads as workflow artifacts, and no release is created.
 ## Getting into F-Droid
 
 F-Droid does not take your APK. It builds from source on its own machines and
-signs with its own key, which is why the `lite` flavor exists: every
+signs with its own key, which is why the `lite` flavor exists. Every
 proprietary dependency in the tree (ML Kit, LiteRT, Play's update and feature
 delivery libraries, `play-services-auth`) is declared `fullImplementation` or
 sits behind a channel flag, so `lite` has no Google artifact on its compile
@@ -174,10 +177,26 @@ listing on the next build, with no metadata merge request.
    them:
 
    - **Privacy policy URL**: `https://wmkeyboard.pages.dev/privacy/policy/`.
-   - **Data safety**: no collection, no sharing. The optional network tools
-     send what you typed into that tool to the service you chose, which
-     belongs under that tool's own disclosure rather than as app-wide
-     collection. Read [Network policy](/privacy/network/) while filling it in.
+   - **Data safety**: this project collects nothing and shares nothing. The
+     optional network tools send what you typed into that tool to the service
+     you chose, which belongs under that tool's own disclosure rather than as
+     app-wide collection. **But the form covers bundled SDKs as well as your
+     own code**, and the full edition bundles ML Kit. Google
+     [documents](https://developers.google.com/ml-kit/android-data-disclosure)
+     that its SDKs send device and app information, a per-installation
+     identifier, and performance and error data to Google for diagnostics and
+     usage analytics whenever an ML Kit feature runs. Declare that under *App
+     info and performance → Diagnostics* and *Device or other IDs*: collected,
+     not shared, encrypted in transit, and not deletable on request, since
+     Google offers no opt-out. Answering "no data collected" here is the
+     mismatch that gets a keyboard rejected, because the reviewer can see the
+     SDK in the bundle. Read [Network policy](/privacy/network/) while you fill
+     it in.
+   - **AI-generated content**: yes. The AI writing tools, the AI chat screen
+     and the on-device models all produce generated text, and the policy asks
+     for an in-app way to report a bad generation. Every surface that shows
+     generated text has one: the keyboard's AI panel, and the chat screen's
+     per-answer **Report**. So the declaration has something true to point at.
    - **Target audience**: not children. A keyboard aimed at children pulls in
      Families policy, which this app is not built for.
    - **Ads**: none. **Financial features**: none. **News**: no.
@@ -191,7 +210,7 @@ listing on the next build, with no metadata merge request.
    | Accessibility API | `TouchPassthroughService` binds `BIND_ACCESSIBILITY_SERVICE` | It exists to carve the key grid out of TalkBack's touch exploration so screen-reader users can type. It is inert unless the user turns pass-through on, and it reads no screen content. |
    | Photo and video permissions | `READ_MEDIA_IMAGES` | It feeds the screenshot observer that offers a just-taken screenshot on the strip. The Photo Picker cannot replace it: a picker returns a file the user chose, and this needs to notice that a new one appeared. |
    | Notification access | `MediaNotificationListener` | Two jobs, both user-facing: the media-control tool needs the active media session, and one-time-code capture reads codes to offer them on the strip. Both are off until the user enables them. |
-   | `PACKAGE_USAGE_STATS` | the app-launcher tool's ordering | It ranks the launcher tool's apps by how recently you used them. Optional, and the tool works without the grant. |
+   | `PACKAGE_USAGE_STATS` | the clipboard's "Show source app" setting | On a copy it reads which app was in the foreground in the ten seconds before, so the clip can say where it came from. It reads no history and no time-in-app, keeps the answer with the clip on the device, and the setting is off until the user turns it on. |
 
 4. **Check the sensitive-permission story matches what the app says.** The
    label on the notification listener is what a user reads in Settings before
@@ -206,9 +225,9 @@ listing on the next build, with no metadata merge request.
    bundle exec fastlane android internal
    ```
 
-   Internal first, always: Play's own device catalogue will tell you within
-   minutes if the on-demand `:feature:llm` module or the unbundled ML Kit
-   path is misconfigured, and that is much cheaper to learn there than in
+   Go to internal first, always. Play's own device catalogue tells you within
+   minutes if the on-demand `:feature:llm` module or the unbundled ML Kit path
+   is misconfigured, and that is far cheaper to learn there than in
    production.
 
 6. **Promote when it looks right.**
@@ -241,9 +260,10 @@ bundle install
 | `preflight` | checks the changelog for the current `versionCode` exists and signing is configured |
 | `bundle_play` | `bundleFullRelease` with the Play channel flags |
 | `apks` | sideload APKs, full + lite, one per ABI |
-| `internal` | preflight, build (or take `aab:path`), upload to the internal track |
+| `internal` | checks the changelog, builds the AAB (or takes `aab:path`), uploads to the internal track. Only the build path checks signing, since a prebuilt `aab:` is assumed already signed |
 | `promote` | move the internal release to production (`to:`, `from:`, `rollout:` options) |
 | `listing` | push the store-listing text and changelogs to Play, nothing else |
+| `graphics` | push the icon, feature graphic and screenshots to Play, nothing else |
 | `check_key` | validate the service-account key against the Play API |
 
 Every lane passes the channel flags as `-P` properties, which beat whatever
@@ -251,10 +271,25 @@ your `local.properties` has, so a machine set up for Play builds still
 produces a correct sideload build and the other way round.
 
 `internal` and the tag-triggered upload only touch the binary and the release
-notes. The listing text is a separate, deliberate `listing` run, and images
-are never pushed at all: the Play screenshots live in `play/store-listing/`
-and the F-Droid set in `fastlane/metadata/.../images/`, and they are not the
-same assets. Upload Play imagery in the Console.
+notes. The listing text is a separate, deliberate `listing` run and the
+imagery a separate `graphics` run, so a routine release can never half-rewrite
+the store page.
+
+`fastlane/metadata/.../images/` is what both stores read: F-Droid takes it
+straight out of the source tree, and the `graphics` lane uploads the same
+files to Play. `play/store-listing/` and `play/store-listing-tablet10/` are
+the composed slides those copies come from.
+
+:::caution[Screenshot shape is a hard Play rule]
+A Play screenshot's long side may not be more than **twice** its short side.
+The phone slides are composed on a 1080x2400 device canvas, which is 2.22x.
+The API refuses that, with an error naming neither the file nor the rule. Run
+`python3 play/pipeline/pad_phone_shots.py` after you regenerate the slides. It
+widens each one to 1200x2400 by replicating its edge columns, so the shape is
+legal and exactly 2:1, with no art scaled or cropped. The `graphics` lane
+re-checks every file before it uploads. The 2560x1440 tablet slides are 16:9
+and already fine.
+:::
 
 ### One-time setup: the Play API key
 

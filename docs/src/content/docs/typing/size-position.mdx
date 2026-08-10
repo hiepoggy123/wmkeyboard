@@ -2,14 +2,14 @@
 title: "Size, position & one-handed use"
 description: "Resize, float, and reposition the keyboard, per orientation and fold state."
 sidebar:
-  order: 5
+  order: 6
 ---
 
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-Every height, width and gap on WM Keyboard is a slider, not a fixed number: you can shrink it toward one thumb, split it down the middle for a wide screen, or detach it into a floating panel entirely. Sizing you set for portrait carries over everywhere by default, but landscape and unfolded screens can each override it, right down to scaling the whole keyboard at once.
+Every height, width and gap on WM Keyboard is a slider rather than a fixed number. Shrink the keyboard toward one thumb, split it down the middle for a wide screen, or detach it into a floating panel. Sizing you set for portrait carries everywhere by default, and landscape and unfolded screens can each override it, right down to scaling the whole keyboard at once.
 
 <PhoneFrame caption="The Size & position group: key height, key spacing, width and position sliders.">
   ![The Size & position group: key height, key spacing, width and position sliders.](@assets/screens/typing/size-position-settings-overview.webp)
@@ -19,65 +19,65 @@ Every height, width and gap on WM Keyboard is a slider, not a fixed number: you 
 
 <SettingsPath path="Layout & size / Size & position / Key height" />
 
-**Key height** sets the height of every key row and, with it, the overall input height: a slider from 32dp to 100dp, default **48dp**. The emoji, clipboard and snippet panels scale with this value too, so a taller keyboard also means taller panels.
+**Key height** sets the height of every key row and, with it, the overall input height. It's a slider from 32dp to 100dp, default **48dp**. The emoji, clipboard and snippet panels scale with this value too, so a taller keyboard means taller panels.
 
-**Bottom row height** gives the spacebar and <KeyCap>Enter</KeyCap> row its own height, independent of the letter rows: a slider from 0dp to 96dp. At 0 (the default) it shows "Follow keys" and just matches the letter rows; raise it for an easier-to-hit spacebar without growing the whole keyboard. A custom layout that sets its own row heights ignores this slider.
+**Bottom row height** gives the spacebar and <KeyCap>Enter</KeyCap> row its own height, independent of the letter rows: a slider from 0dp to 96dp. At 0, the default, it shows "Follow keys" and matches the letter rows. Raise it for an easier-to-hit spacebar without growing the whole keyboard. A custom layout that sets its own row heights ignores this slider.
 
-**Key spacing** adjusts the gap around every key, from 0% to 200%, default **100%**. Higher spreads the keys apart (and makes the keyboard a little taller, since the gap is part of each row); lower packs them tighter.
+**Key spacing** adjusts the gap around every key, from 0% to 200%, default **100%**. Higher spreads the keys apart, and makes the keyboard a little taller, since the gap is part of each row. Lower packs them tighter.
 
-If you've turned on <SettingsPath path="Layout & size / Number row / Number row" /> (its own group at the top of this same screen, above Size & position), it gets its own **Number row height** slider too, 32dp to 100dp, default **42dp**, independent of the letter keys.
+While <SettingsPath path="Layout & size / Number row / Number row" /> is on (its own group at the top of this same screen, above Size & position), it has its own **Number row height** slider too: 32dp to 100dp, default **42dp**, independent of the letter keys.
 
-The size of the labels printed on the keys is a separate slider (**Key label font size**) under <SettingsPath path="Appearance / Key label font size" />, 0.7× to 1.5×, default **1.0×**. It isn't part of this settings group, but the [per-screen sizing](#sizing-each-screen-shape) below can still override it per screen shape.
+The size of the labels printed on the keys is a separate slider, **Key label font size**, under <SettingsPath path="Appearance / Key label font size" />: 0.7× to 1.5×, default **1.0×**. It isn't part of this settings group, but the [per-screen sizing](#sizing-each-screen-shape) below can still override it per screen shape.
 
 ## Narrowing and repositioning it
 
 <SettingsPath path="Layout & size / Size & position / Keyboard width" />
 
-**Keyboard width** shrinks the keyboard horizontally instead of spanning the full screen, from 50% to 100%, default **100%**. Below 100%, a **Keyboard position** choice appears, Left, Centre (the default), or Right, to pick which edge the narrowed keyboard hugs. This is a permanent dock; [one-handed mode](#one-handed-mode) below is described in its own info text as "a quick preset that overrides this while active," without changing the stored width or position.
+**Keyboard width** shrinks the keyboard horizontally instead of spanning the full screen, from 50% to 100%, default **100%**. Below 100%, a **Keyboard position** choice appears (Left, Centre, or Right, with Centre the default) to pick which edge the narrowed keyboard hugs. This is a permanent dock. [One-handed mode](#one-handed-mode) below describes itself in its own info text as "a quick preset that overrides this while active", and it leaves the stored width and position alone.
 
-**Side padding** narrows the keys toward the middle for thumb reach, without docking to one side the way one-handed mode does. It's a slider from 0% to 30%, default **0%**, and it stacks on top of keyboard width: the two multiply, so the keyboard ends up at width × (1 − 2 × padding) of the screen.
+**Side padding** narrows the keys toward the middle for thumb reach, without docking to one side the way one-handed mode does. It's a slider from 0% to 30%, default **0%**, and it stacks on top of keyboard width. The two multiply, so the keyboard ends up at width × (1 − 2 × padding) of the screen.
 
-Where the freed space actually goes is decided by **Keyboard position**, not by the padding slider. On Centre (the default) you get the equal margin on each side you'd expect. On Left or Right, the whole reduction lands on the opposite side, so side padding reads as extra docking rather than as a margin. Worth knowing if you've set both and wondered why one edge never moved.
+Where the freed space actually goes is decided by **Keyboard position**, not by the padding slider. On Centre you get the equal margin on each side you'd expect. On Left or Right, the whole reduction lands on the opposite side, so side padding reads as extra docking rather than as a margin. Worth knowing if you've set both and wondered why one edge never moved.
 
-**Bottom padding** raises the whole keyboard away from the bottom edge and the gesture navigation bar, from 0dp to 160dp. The default depends on your Android version: **32dp** on Android 15 and up, where the IME window can draw behind the gesture bar, and **8dp** on older versions. Raise it if the bottom row feels cramped against the screen edge or you keep triggering system navigation by mistake. The slider runs so high because the inline **Resize** tool moves the same value, and it can push the keyboard a long way up the screen.
+**Bottom padding** raises the whole keyboard away from the bottom edge and the gesture navigation bar, from 0dp to 160dp. The default depends on your Android version: **32dp** on Android 15 and up, where the IME window can draw behind the gesture bar, and **8dp** on older versions. Raise it if the bottom row feels cramped against the screen edge, or if you keep triggering system navigation by mistake. The slider runs so high because the inline **Resize** tool moves the same value, and that can push the keyboard a long way up the screen.
 
 ## Sizing each screen shape
 
 <SettingsPath path="Layout & size / Per-screen sizing" />
 
-Portrait is the base size: everything in the two sections above. Three other screen shapes can each override any of that: **Landscape**, **Portrait, unfolded**, and **Landscape, unfolded**. Whatever you leave untouched on an override just follows portrait, so tuning one shape never requires setting up the rest.
+Portrait is the base size: everything in the two sections above. Three other screen shapes can each override any of it, namely **Landscape**, **Portrait, unfolded** and **Landscape, unfolded**. Whatever you leave untouched on an override follows portrait, so tuning one shape never means setting up the rest.
 
-"Unfolded" isn't read from a fold sensor: it's decided by the screen's smallest dimension being at least 600dp, checked live as the configuration changes. That deliberately catches a phone turned sideways as still "not unfolded" (it's wide but still a phone), while catching a genuinely large screen (an opened foldable's inner display, or a tablet that was never foldable at all) as "unfolded" either way it's held. There's no separate "folded" state in the code; portrait's values are what a folded or ordinary phone always used. The settings screen's own caption calls portrait your "folded" size for exactly that reason.
+"Unfolded" isn't read from a fold sensor. It's decided by the screen's smallest dimension being at least 600dp, checked live as the configuration changes. That deliberately reads a phone turned sideways as still "not unfolded", since it's wide but still a phone. A genuinely large screen counts as "unfolded" however it's held, whether that's an opened foldable's inner display or a tablet that never folded at all. There's no separate "folded" state in the code. Portrait's values are what a folded or ordinary phone always used, which is why the settings screen's own caption calls portrait your "folded" size.
 
 Tap a shape's row to expand its editor:
 
-- **Keyboard scale**, a whole-keyboard multiplier, 50% to 150%, that only exists on these three override shapes; there is no base scale for portrait itself. It multiplies key height and number row height together, so a foldable's roomy inner display can run a smaller keyboard than its cover screen (or the reverse) without re-dialling each height by hand.
+- **Keyboard scale**, a whole-keyboard multiplier from 50% to 150%. It exists only on these three override shapes; portrait has no base scale of its own. It multiplies key height and number row height together, so a foldable's roomy inner display can run a smaller keyboard than its cover screen, or the reverse, without re-dialing each height by hand.
 - **Key height**, **Number row height** (if the number row is on), **Bottom padding**, **Keyboard width**, **Font size**, **Key spacing**, **Side padding**, **Bottom row height**, and, when width is under 100%, **Keyboard position**. Same ranges as their portrait counterparts above.
 - **Number row**, the one override that isn't a number at all. Landscape is what it's there for: it has the least room for a sixth row and the most need for the keys underneath it, so plenty of people run the digits in portrait and turn them off sideways.
-- **Follow portrait again**, which appears only once a shape has at least one override set, and clears every override for that shape in one tap.
+- **Follow portrait again**, which appears only once a shape has at least one override set. It clears every override for that shape in one tap.
 
 <PhoneFrame caption="Per-screen sizing: Landscape expanded, showing the Keyboard scale slider.">
   {/* shot: typing/size-position-per-screen */}
 </PhoneFrame>
 
-Everything in [one-handed, split and floating](#one-handed-mode) below is global instead: it applies the same regardless of which screen shape you're on.
+Everything in [one-handed, split and floating](#one-handed-mode) below is global instead. It applies the same whichever screen shape you're on.
 
 ## On a tablet
 
-A tablet gets a wider keyboard automatically, and you don't have to set anything up for it. The screen's smallest dimension decides which one you get, the same measurement per-screen sizing uses:
+A tablet gets a wider keyboard automatically, with nothing to set up. The screen's smallest dimension decides which one you get, the same measurement per-screen sizing uses:
 
 - under 600dp is a phone, and nothing below applies;
 - 600dp to 767dp is a small tablet, which is also where an unfolded foldable lands;
 - 768dp and up is a large tablet.
 
-On either tablet size the letter rows gain a column on each side, which fills the width with keys instead of stretching the letters across it, and leaves the alphabet sitting in the middle where two hands reach it:
+On either tablet size the letter rows gain a column on each side. That fills the width with keys instead of stretching the letters across it, and leaves the alphabet sitting in the middle where two hands reach it:
 
 - <KeyCap>Tab</KeyCap> and <KeyCap>\\</KeyCap> flank the top letter row;
 - <KeyCap>Caps</KeyCap> and <KeyCap>Enter</KeyCap> flank the home row, so Enter is under your right little finger rather than at the bottom corner;
 - the number row gains a <KeyCap>`</KeyCap> and takes over <KeyCap>Backspace</KeyCap>, which frees the shift row's right end for a second <KeyCap>Shift</KeyCap>;
 - the comma moves up beside the letters, and a real emoji key appears next to <KeyCap>?123</KeyCap>.
 
-A large tablet gets three more: <KeyCap>←</KeyCap> and <KeyCap>→</KeyCap> next to the spacebar, a second <KeyCap>?123</KeyCap> at the right end so you don't have to reach back across ten inches for it, and the period joins the comma up on the letter rows. A small tablet keeps the period on the bottom row, because a 7-inch tablet is still held and still thumb-typed.
+A large tablet gets three more. <KeyCap>←</KeyCap> and <KeyCap>→</KeyCap> sit next to the spacebar, a second <KeyCap>?123</KeyCap> lands at the right end so you don't have to reach back across ten inches for it, and the period joins the comma up on the letter rows. A small tablet keeps the period on the bottom row, because a 7-inch tablet is still held and still thumb-typed.
 
 Two settings also start from different defaults on a tablet, and only until you touch them:
 
@@ -86,51 +86,53 @@ Two settings also start from different defaults on a tablet, and only until you 
 
 Change either of them and your value sticks on every device, tablet included.
 
-The <SettingsPath path="Layout & size / Number row / Number row" /> isn't one of them any more: it's on by default everywhere now, phones included, so there's nothing left for a tablet to override.
+The <SettingsPath path="Layout & size / Number row / Number row" /> isn't one of them any more. It's on by default everywhere now, phones included, so there's nothing left for a tablet to override.
 
-The extra keys are added to whatever layout you're using, so all the shipped languages get them, and so does anything you build in the [layout editor](/languages/custom-layouts/). Layouts that aren't ordinary alphabetic grids are left alone: the Japanese flick pads, braille, morse, the Chinese shape and phonetic pads, and a handful of scripts whose grids have no shift key. If you'd rather a particular layout was left alone too, the editor has an **Add tablet keys automatically** switch for it.
+The extra keys are added to whatever layout you're using, so every shipped language gets them, and so does anything you build in the [layout editor](/languages/custom-layouts/). Layouts that aren't ordinary alphabetic grids are left alone: the Japanese flick pads, braille, morse, the Chinese shape and phonetic pads, and a handful of scripts whose grids have no shift key. If you'd rather a particular layout was left alone too, the editor has an **Add tablet keys automatically** switch for it.
 
 ## One-handed mode
 
 <SettingsPath path="Layout & size / One-handed, split & floating / One-handed mode" />
 
-**One-handed mode** shrinks the keyboard toward one edge for reach with a single thumb: Off (the default), Left, or Right. Unlike the per-shape sizing above, it's tuned separately per **orientation** (Portrait and Landscape), not per fold state, since a one-handed keyboard cares about which way you're holding the phone, not whether it's unfolded.
+**One-handed mode** shrinks the keyboard toward one edge for reach with a single thumb: Off (the default), Left, or Right. Unlike the per-shape sizing above, it's tuned separately per **orientation**, Portrait and Landscape, rather than per fold state. A one-handed keyboard cares about which way you're holding the phone, not whether it's unfolded.
 
 Each orientation gets its own three controls:
 
-- **Width** — the keyboard's share of the screen while one-handed is active, 40% to 85%. Default is **78% in portrait**, **55% in landscape**: landscape starts narrower because a landscape keyboard is already very wide, so 78% there would barely help.
-- **Height** — scales the key height down for reach, 60% to 100%, default **100%** in both orientations.
-- **Side** — which edge it docks to, Left or Right, default **Right** in both orientations.
+- **Width** is the keyboard's share of the screen while one-handed is active, 40% to 85%. The default is **78% in portrait** and **55% in landscape**. Landscape starts narrower because a landscape keyboard is already very wide, so 78% there would barely help.
+- **Height** scales the key height down for reach, 60% to 100%, default **100%** in both orientations.
+- **Side** is which edge it docks to, Left or Right, default **Right** in both orientations.
 
 <PhoneFrame caption="One-handed mode docked to the right edge, with the flip and exit rail.">
   ![One-handed mode docked to the right edge, with the flip and exit rail.](@assets/screens/typing/size-position-one-handed.webp)
 </PhoneFrame>
 
-On the keyboard itself, a narrow rail fills the space one-handed mode leaves behind, with two buttons: an arrow that flips the keyboard to the other edge (live, and remembered as that orientation's new default side) and a fullscreen icon that exits one-handed mode entirely. If you've pinned the **One-handed** tool to your toolbar, tapping it toggles one-handed on using that orientation's preferred side, or off if it's already on. It has no default letter binding on a physical keyboard, but the leader key still reaches it (bind it a letter in **Tool shortcuts list**, or press <KeyCap>T</KeyCap> for the toolbox if you've pinned it there); see [Hardware keyboards](/typing/hardware-keyboard/).
+On the keyboard itself, a narrow rail fills the space one-handed mode leaves behind. It carries two buttons: an arrow that flips the keyboard to the other edge (live, and remembered as that orientation's new default side) and a fullscreen icon that exits one-handed mode entirely.
+
+Pin the **One-handed** tool to your toolbar and tapping it toggles one-handed on using that orientation's preferred side, or off if it's already on. It has no default letter binding on a physical keyboard, but the leader key still reaches it. Bind it a letter in **Tool shortcuts list**, or press <KeyCap>T</KeyCap> for the toolbox if you've pinned it there. See [Hardware keyboards](/typing/hardware-keyboard/).
 
 ## Splitting the keyboard in half
 
 <SettingsPath path="Layout & size / One-handed, split & floating / Split keyboard" />
 
-**Split keyboard** divides every row down the middle with a gap between the halves, so your thumbs travel less on a wide screen: most useful on tablets, foldables, and phones turned to landscape. It's off by default; turn it on and two more controls appear. **Split gap** is 5% to 40% of the keyboard's width, default **12%**; a bigger gap pushes the halves further toward the edges but narrows each key. The spacebar splits between the two halves along with everything else, and (like one-handed mode) the setting is global rather than tied to a particular screen shape.
+**Split keyboard** divides every row down the middle with a gap between the halves, so your thumbs travel less on a wide screen. It's most useful on tablets, foldables, and phones turned to landscape. It's off by default, and turning it on reveals two more controls. **Split gap** runs from 5% to 40% of the keyboard's width, default **12%**; a bigger gap pushes the halves further toward the edges but narrows each key. The spacebar splits between the two halves along with everything else, and, like one-handed mode, the setting is global rather than tied to a screen shape.
 
-**Split only on wide screens** is the second one, off by default. Because split is a single global switch, turning it on in landscape leaves the keyboard split after you rotate back, where half a phone-width keyboard is close to unusable. Turn this on and the split only happens in landscape or on an unfolded screen, and portrait on an ordinary phone stays whole.
+**Split only on wide screens** is the second one, off by default. Split is a single global switch, so turning it on in landscape leaves the keyboard split after you rotate back, where half a phone-width keyboard is close to unusable. Turn this on and the split only happens in landscape or on an unfolded screen. Portrait on an ordinary phone stays whole.
 
-<PhoneFrame caption="Split keyboard: each row divided into left and right halves with a centre gap.">
-  ![Split keyboard: each row divided into left and right halves with a centre gap.](@assets/screens/typing/size-position-split.webp)
+<PhoneFrame caption="Split keyboard: each row divided into left and right halves with a center gap.">
+  ![Split keyboard: each row divided into left and right halves with a center gap.](@assets/screens/typing/size-position-split.webp)
 </PhoneFrame>
 
 ## Floating the keyboard
 
 <SettingsPath path="Layout & size / One-handed, split & floating / Floating keyboard" />
 
-**Floating keyboard** detaches the keyboard from the bottom of the screen into a small, movable panel that hovers over whatever app is open. It's off by default; turn it on and a **Floating keyboard width** slider appears, 240dp to 500dp, default **320dp**. The panel's own resize grip shares its 240dp floor, but not its ceiling: see the edge case below. There's no separate height slider; height is drag-only, clamped between 60% and 160% of the keyboard's normal height.
+**Floating keyboard** detaches the keyboard from the bottom of the screen into a small, movable panel that hovers over whatever app is open. It's off by default. Turn it on and a **Floating keyboard width** slider appears, 240dp to 500dp, default **320dp**. The panel's own resize grip shares its 240dp floor, but not its ceiling: see the edge case below. There's no separate height slider. Height is drag-only, clamped between 60% and 160% of the keyboard's normal height.
 
 The panel's handle bar carries three controls, left to right:
 
 - **Dock button**, a fullscreen icon that returns the keyboard to its normal, docked position.
-- **Drag pill**. Dragging anywhere across the middle of the handle bar, not just the small pill drawn there, moves the panel. Its position is saved as a fraction of the free space around it rather than a pixel coordinate, so it survives rotation; by default that's centred horizontally and pinned to the bottom of the available space.
-- **Resize grip**, drawn as two short diagonal lines rather than a diagonal-arrows icon, deliberately, so it doesn't read as another fullscreen button. Dragging it resizes width and height together: width tracks your finger directly, height tracks it inverted, because the grip sits on the panel's *top* bar, so drag up to grow the panel and down to shrink it.
+- **Drag pill**. Dragging anywhere across the middle of the handle bar moves the panel, not just the small pill drawn there. Its position is saved as a fraction of the free space around it rather than as a pixel coordinate, so it survives rotation. By default that's centered horizontally and pinned to the bottom of the available space.
+- **Resize grip**, drawn as two short diagonal lines rather than a diagonal-arrows icon, deliberately, so it doesn't read as another fullscreen button. Dragging it resizes width and height together: width tracks your finger directly, height tracks it inverted, because the grip sits on the panel's *top* bar. Drag up to grow the panel and down to shrink it.
 
 <PhoneFrame caption="The floating panel's handle bar: dock button, drag pill, and resize grip.">
   ![The floating panel's handle bar: dock button, drag pill, and resize grip.](@assets/screens/typing/size-position-floating.webp)
@@ -138,11 +140,11 @@ The panel's handle bar carries three controls, left to right:
 
 Floating mode replaces the normal layout logic rather than combining with it. While it's on:
 
-- The one-handed rail and edge-docking don't render: your one-handed setting is untouched but has nothing to apply to.
-- Keyboard width, keyboard position, and bottom padding from the sections above don't apply either; the panel's size and position come entirely from its own width slider, drag position, and resize grip.
-- **Split keyboard still works while floating**: the two features aren't mutually exclusive, since split rendering happens inside the same keyboard body the floating panel wraps.
+- The one-handed rail and edge-docking don't render. Your one-handed setting is untouched but has nothing to apply to.
+- Keyboard width, keyboard position and bottom padding from the sections above don't apply either. The panel's size and position come entirely from its own width slider, drag position and resize grip.
+- **Split keyboard still works while floating.** The two features aren't mutually exclusive, since split rendering happens inside the same keyboard body the floating panel wraps.
 
-Touches outside the panel pass straight through to the app underneath it, and the keyboard forces full-screen (extract) mode off for as long as it's floating. If you've pinned the **Floating** tool to your toolbar, tapping it toggles floating on or off directly.
+Touches outside the panel pass straight through to the app underneath, and the keyboard forces full-screen (extract) mode off for as long as it's floating. Pin the **Floating** tool to your toolbar and tapping it toggles floating on or off directly.
 
 ## Options
 
@@ -168,16 +170,16 @@ Touches outside the panel pass straight through to the app underneath it, and th
 | Floating keyboard | Off |
 | Floating keyboard width | 320 dp |
 
-Related but not part of this settings screen: **Key label font size** lives under [Appearance settings](/reference/settings/appearance/). The **Number row** toggle itself (as opposed to its height slider above) lives in its own group at the top of this same Layout & size screen.
+Related but not part of this settings screen: **Key label font size** lives under [Appearance settings](/reference/settings/appearance/). The **Number row** toggle itself, as opposed to its height slider above, lives in its own group at the top of this same Layout & size screen.
 
-Accessibility settings has its own **Key size & spacing** shortcut that opens this exact screen: see [Accessibility](/accessibility/overview/) if you got here looking for bigger, easier-to-hit keys rather than a specific size.
+Accessibility settings has its own **Key size & spacing** shortcut that opens this exact screen. See [Accessibility](/accessibility/overview/) if you got here looking for bigger, easier-to-hit keys rather than a specific size.
 
 ## Details & edge cases
 
-- **Keyboard scale has no portrait equivalent.** It only exists on the three override screen shapes; portrait is sized entirely by its own key-height and number-row-height sliders, with no multiplier on top.
-- **"Unfolded" is a screen-size check, not a fold-sensor read.** Any device with a smallest dimension of 600dp or more counts, including a tablet that never folds; the label describes what the screen currently looks like, not the hardware.
-- **One-handed mode's width setting is a live override, not a rewrite.** Turning it on temporarily overrides the keyboard-width and position settings while active; turning it off returns to whatever those were set to.
+- **Keyboard scale has no portrait equivalent.** It exists only on the three override screen shapes. Portrait is sized entirely by its own key-height and number-row-height sliders, with no multiplier on top.
+- **"Unfolded" is a screen-size check, not a fold-sensor read.** Any device with a smallest dimension of 600dp or more counts, a tablet that never folds included. The label describes what the screen currently looks like, not the hardware.
+- **One-handed mode's width setting is a live override, not a rewrite.** Turning it on temporarily overrides the keyboard-width and position settings while active. Turning it off returns to whatever those were set to.
 - **A very wide screen can let the floating panel's resize grip briefly exceed 500dp mid-drag.** It snaps back to the 500dp maximum once you release it.
-- **No edition split.** Every setting on this page (sizing, one-handed, split, and floating) works identically on the full and lite builds.
+- **No edition split.** Every setting on this page (sizing, one-handed, split and floating) works identically on the full and lite builds.
 
-For haptics and sound on each keystroke, see [Sound & vibration](/typing/feedback/). For the physical-keyboard leader key that can toggle one-handed, split, and floating without touching the screen, see [Hardware keyboards](/typing/hardware-keyboard/).
+For haptics and sound on each keystroke, see [Sound & vibration](/typing/feedback/). For the physical-keyboard leader key that can toggle one-handed, split and floating without touching the screen, see [Hardware keyboards](/typing/hardware-keyboard/).

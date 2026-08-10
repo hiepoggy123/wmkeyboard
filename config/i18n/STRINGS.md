@@ -87,7 +87,7 @@ report parseable.
 Resolve a string **where it is drawn**, not where the value is produced. That is
 what makes a per-app language setting and a locale change work.
 
-`stringResource` cannot be called inside `remember { }`, `LaunchedEffect { }`, a
+You cannot call `stringResource` inside `remember { }`, `LaunchedEffect { }`, a
 click lambda, or any other non-composable lambda. Hoist it to a `val` above. A
 slider's `display: (Float) -> String` is an ordinary lambda, so hoist the format
 string and call `.format()` inside:
@@ -117,8 +117,8 @@ resolves it. Each module that needs this has one such type, all the same shape:
 | `:feature:ime` | `SpokenLabel` for the accessibility name of a key |
 
 Each holds a `@StringRes` id, an optional `@PluralsRes` id with a quantity, and
-up to two arguments, plus `resolve(context)`. Do not invent a seventh shape;
-copy the one in the module you are working in.
+up to two arguments, plus `resolve(context)`. Do not invent a seventh shape.
+Copy the one in the module you are working in.
 
 ## Writing the XML
 
@@ -141,7 +141,7 @@ copy the one in the module you are working in.
   or `many`: English does not use them, and a translator adds the ones their
   language needs. Lint enforces this (`PluralsCandidate`), so a number followed
   by a countable noun fails the build until it is a plural. A number followed by
-  a unit symbol is not a plural; mark it `tools:ignore="PluralsCandidate"` with
+  a unit symbol is not a plural. Mark it `tools:ignore="PluralsCandidate"` with
   a one-line reason.
 - Mark a brand name, a code sample or a unit symbol `translatable="false"`.
 - Put a comment above every string with a format argument saying what each one
@@ -201,13 +201,13 @@ Use the left column, never the alternatives.
 
 ## Adding a translation
 
-Add `res/values-<lang>/strings*.xml` to the module whose strings you are
-translating, with only the keys you translate. Anything missing falls back to
-the English in `values/`. `MissingTranslation` and `ExtraTranslation` are turned
-off in `config/lint/lint.xml`, so a partial translation does not fail the build.
+Add `res/values-<lang>/strings*.xml` to the module whose strings you translate.
+Include only the keys you translate. Anything missing falls back to the English
+in `values/`. Lint has `MissingTranslation` and `ExtraTranslation` turned off in
+`config/lint/lint.xml`, so a partial translation does not fail the build.
 
 Two things the settings search depends on, which a translation must not break:
 `SettingsSearch.kt` builds its index from the same resource ids the screens draw,
 and `SettingsHighlight` matches a row by resource id rather than by its words.
-Both keep working in any language on their own; neither needs a translator to do
+Both keep working in any language on their own. Neither needs a translator to do
 anything.

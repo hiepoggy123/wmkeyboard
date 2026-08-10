@@ -7,10 +7,10 @@ sidebar:
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-WM Keyboard doesn't have a formal contribution process, issue templates, or a CI
-pipeline yet: there's no bot to satisfy, only a codebase to fit into cleanly.
-This page covers how the repository is organized and styled, and where a first
-change is easiest to land, so a pull request needs as little back-and-forth as
+WM Keyboard has CI but no formal contribution process, issue templates or
+`CODEOWNERS` yet. Mostly there's just a codebase to fit into cleanly. This page
+covers how the repository is organized and styled, and where a first change is
+easiest to land, so your pull request needs as little back-and-forth as
 possible.
 
 ## Finding your way around the modules
@@ -20,19 +20,19 @@ under `:core:*` (`config`, `common`, `language`, `input`, `prediction`,
 `emoji`, `theme`, `icons`, `tools`, `content`, `addons`, `voice`, `settings`,
 `feedback`, `plugins`, `intelligence`) and 3 under `:feature:*` (`tools`,
 `addons`, `ime`). A class's module is visible from its file path, not its
-package: everything still lives under `com.wasimaster.wmkeyboard.*`.
+package. Everything still lives under `com.wasimaster.wmkeyboard.*`.
 
-Dependencies only point downward, and it's a real Gradle project graph, not
-just a convention:
+Dependencies only point downward, and that's a real Gradle project graph rather
+than a convention people remember to follow:
 
-- `:core:config` sits at the very bottom: it carries build flags and API keys
-  that every other library reads.
+- `:core:config` sits at the very bottom. It carries the build flags and API
+  keys every other library reads.
 - `:core:common` builds on `:core:config` for shared utilities every module
   needs.
 - The rest of `:core:*` is one engine or store per feature area, each
-  depending on only the lower modules it actually needs: `:core:settings`,
-  for instance, depends on eleven other `:core:*` modules because the settings
-  screens surface controls for all of them, while `:core:feedback` needs just
+  depending on only the lower modules it actually needs. `:core:settings`
+  depends on eleven other `:core:*` modules because the settings screens
+  surface controls for all of them, while `:core:feedback` needs just
   `:core:settings` and `:core:common`.
 - `:feature:*` sits above `:core:settings`, since the feature modules read
   the settings repository. `:feature:ime` (the keyboard runtime itself)
@@ -40,17 +40,19 @@ just a convention:
 - `:app` sits on top of everything: the settings activity, manifest, and
   assets, wired to all 19 library modules.
 
-No module declares a dependency on anything above it in this list: there's
-no dedicated boundary-checking task, the constraint is just the Gradle project
-graph itself. `:app/build.gradle.kts` and each module's own `build.gradle.kts`
-are the ground truth if a dependency direction ever looks surprising.
+No module declares a dependency on anything above it in that list. There's no
+dedicated boundary-checking task either, because the Gradle project graph is
+the constraint. If a dependency direction ever looks surprising, read
+`:app/build.gradle.kts` and the module's own `build.gradle.kts`.
 
-One module breaks the pattern deliberately: `:tools:dictc`, the host-side
-(pure JVM, no Android) dictionary compiler, doesn't depend on `:core:prediction`
-as a project: its `build.gradle.kts` pulls five specific files
-(`Main.kt`, `Trie.kt`, `PackedTrie.kt`, `PackedTrieCodec.kt`, `DictionaryLoader.kt`)
-straight out of that module's source directory instead, so the compiler and
-the reader share one literal implementation and can never drift apart.
+One module breaks the pattern deliberately. `:tools:dictc`, the host-side
+dictionary compiler (pure JVM, no Android), doesn't depend on
+`:core:prediction` as a project. Its `build.gradle.kts` adds that module's
+source directory as an extra Kotlin source directory and filters it to the six
+files it needs (`Trie.kt`, `TrieWalker.kt`, `TrieCompleter.kt`,
+`PackedTrie.kt`, `PackedTrieCodec.kt`, `DictionaryLoader.kt`), alongside its
+own `Main.kt`. The compiler and the reader share one literal implementation,
+so they can never drift apart.
 
 <LinkCard
   title="Architecture"
@@ -60,23 +62,23 @@ the reader share one literal implementation and can never drift apart.
 
 ## Matching the code style
 
-There's no autoformatter run over the codebase: `.editorconfig` at the repo
-root notes that a mass reformat of a codebase this size would bury every real
-finding in diff noise, so it documents the style the code already follows
-rather than enforcing one. The values that matter most: 4-space indent,
+No autoformatter runs over this codebase. `.editorconfig` at the repo root
+explains why: a mass reformat of a codebase this size would bury every real
+finding in diff noise. So it documents the style the code already follows
+instead of enforcing one. The values that matter most are a 4-space indent, a
 140-character line length, Android Studio's ktlint code style, and unlimited
-star-import thresholds (star imports are allowed). New code should just look
-like the code around it.
+star-import thresholds (star imports are allowed). New code should look like
+the code around it.
 
 Static analysis runs in two layers, both configured under `config/`:
 
 - **detekt** (`config/detekt/detekt.yml`), layered on detekt's own defaults.
   `maxIssues` is `0` and `excludeCorrectable` is `false`, but the rule weights
-  are deliberately uneven: complexity, comment, and deprecation rules are
-  turned down to zero weight, while correctness rules (the ones that catch
-  actual bugs) stay at full weight. The input-dispatch and layout-resolution
-  code is genuinely branchy, so style metrics like cyclomatic complexity
-  aren't a useful signal there.
+  are deliberately uneven. Complexity, comment and deprecation rules are turned
+  down to zero weight, while correctness rules stay at full weight, because
+  those are the ones that catch actual bugs. The input-dispatch and
+  layout-resolution code is genuinely branchy, so style metrics like cyclomatic
+  complexity aren't a useful signal there.
 - **Android Lint** (`config/lint/lint.xml`). The app module turns on
   `checkAllWarnings` (roughly 200 checks that are off by default) and
   `abortOnError`, and escalates specific checks (`NewApi`, `WrongThread`,
@@ -89,13 +91,12 @@ One task runs everything:
 ./gradlew staticAnalysis
 ```
 
-This runs Android Lint against the full flavor of the app module, detekt (with
-full type resolution) against both the full and lite flavors of the app
-module plus its unit tests, and per-module detekt across 18 of the 19 library
-modules (`:core:config` has no Kotlin sources to check, and `:tools:dictc` is
-skipped deliberately; see below). Nothing currently runs this automatically
-on a pull request; treat it as the check to run yourself before asking for
-review, not as a gate that will catch a miss for you.
+That runs Android Lint against the app module's full flavor, detekt with full
+type resolution against both the full and lite flavors of the app module plus
+its unit tests, and per-module detekt across 18 of the 19 library modules.
+(`:core:config` has no Kotlin sources to check, and `:tools:dictc` is skipped
+deliberately. See below.) CI doesn't run this task, so run it yourself before
+you ask for review.
 
 ## Picking a first contribution
 
@@ -125,26 +126,26 @@ A few things worth knowing before you start on any of these:
   The much larger catalog of downloadable word lists is fetched at runtime
   from a separate repository,
   [wasi-master/wmkeyboard-data](https://github.com/wasi-master/wmkeyboard-data),
-  per `DictionaryCatalog.kt`. Contributing a new or improved word list for an
-  existing language almost always means a pull request to that companion
-  repository, not this one: the [dictionary pipeline](/development/dictionaries/)
+  per `DictionaryCatalog.kt`. A new or improved word list for an existing
+  language almost always means a pull request to that companion repository
+  rather than this one. The [dictionary pipeline](/development/dictionaries/)
   page covers the format.
 - **Emoji keyword packs follow the same split.** The 125 downloadable packs
-  (per `EmojiDictCatalog.kt`) also come from `wmkeyboard-data`; what lives in
+  (per `EmojiDictCatalog.kt`) also come from `wmkeyboard-data`. What lives in
   *this* repo is the generation tooling under `tools/emoji/`
   (`generate_gemoji.py`, `export_keyword_pack.py`, `generate_catalog.py`,
   `add_names.py`, `generate_dict_catalog.py`).
 - **Built-in themes are Kotlin, not data files.** The eight built-in themes
-  are `ThemeSpec(...)` object literals in `core/theme/.../PaletteThemes.kt`:
-  contributing one means a Kotlin change to `:core:theme`. The `.wmtheme.json`
-  format you may have seen is the *export* format a user gets from sharing a
-  theme they built in the app, and doesn't require touching this codebase at
-  all. See [sharing themes](/themes/sharing/) and, for distributing one more
-  widely, [addon repositories](/development/addon-repos/).
+  are `ThemeSpec(...)` object literals in `core/theme/.../PaletteThemes.kt`, so
+  contributing one means a Kotlin change to `:core:theme`. The
+  `.wmtheme.json` format you may have seen is the *export* format a user gets
+  from sharing a theme they built in the app, and it requires no change to this
+  codebase at all. See [sharing themes](/themes/sharing/) and, for distributing
+  one more widely, [addon repositories](/development/addon-repos/).
 - **Docs are this site.** Everything under `docs/src/content/docs/` is an
-  Astro/Starlight site with its own house rules (page anatomy, component
-  usage, and the "verify every claim in code" ground rule) written down in
-  the docs project's own `CONTENT_GUIDE.md`. Read that first if you're adding
+  Astro/Starlight site with its own house rules, written down in the docs
+  project's own `CONTENT_GUIDE.md`: page anatomy, component usage, and the
+  "verify every claim in code" ground rule. Read that first if you're adding
   or editing a page.
 
 ## Opening a pull request
@@ -153,12 +154,12 @@ Commits in this repo follow [Conventional Commits](https://www.conventionalcommi
 `type(scope): summary`, lowercase, present or imperative tense, for example
 `fix(addons): validate repo URL scheme` or `docs(tools): rewrite the search
 page`. The common types are `feat`, `fix`, `docs`, `test`, `refactor`,
-`chore`, `style`, and `build`; scopes generally track a module or doc section
+`chore`, `style`, and `build`. Scopes generally track a module or doc section
 name (`addons`, `plugins`, `tools`, `icons`, `emoji`, `typing`, `lint`,
 `about`, and so on). Repo-wide changes drop the scope entirely (`docs: ...`,
 `feat: ...`).
 
-Before opening a pull request, run the checks a reviewer would otherwise have
+Before you open a pull request, run the checks a reviewer would otherwise have
 to run for you:
 
 ```sh
@@ -170,16 +171,17 @@ See [Testing](/development/testing/) for what that second task covers and
 where its tests live.
 
 :::note
-None of this is enforced by a bot today: there's no GitHub Actions workflow,
-pull request template, or `CODEOWNERS` file in the repository yet. The
-checklist above is a recommendation, not a gate; treat it as what review would
-ask for anyway.
+GitHub Actions runs the unit tests, a full and lite debug assemble, the
+advisory evals and a docs link-check on every pull request
+(`.github/workflows/ci.yml`). `staticAnalysis` is not in CI, and there's no
+pull request template or `CODEOWNERS` file, so the static-analysis half of the
+checklist above is still a recommendation rather than a gate.
 :::
 
-The app's own About screen links back to its source at
-[github.com/wasi-master/WMKeyboard](https://github.com/wasi-master/WMKeyboard):
-that's the repository issues and pull requests belong on. Changes to word
-lists or emoji keyword packs belong on
+Issues and pull requests belong on
+[github.com/wasi-master/wmkeyboard](https://github.com/wasi-master/wmkeyboard),
+the repository the app's own About screen points at. Changes to word lists or
+emoji keyword packs belong on
 [wasi-master/wmkeyboard-data](https://github.com/wasi-master/wmkeyboard-data)
 instead, per the "Picking a first contribution" section above.
 
@@ -187,26 +189,26 @@ instead, per the "Picking a first contribution" section above.
 
 - **Lite-flavor detekt only runs where lite actually differs.** `staticAnalysis`
   runs a separate lite-flavor detekt pass for just `:core:voice`,
-  `:core:intelligence`, and `:feature:ime`: the only modules whose `src/lite`
+  `:core:intelligence` and `:feature:ime`, the only modules whose `src/lite`
   source set replaces real implementations (ML Kit, LiteRT) with stubs. Every
   other module's full and lite sources are identical, so a second pass over
-  them would just repeat the first.
-- **`:tools:dictc` is excluded from `staticAnalysis` on purpose.** Since its
-  whole source set is symlinked from `:core:prediction`, analyzing it would
-  report the same five files a second time under a different module name.
+  them would repeat the first.
+- **`:tools:dictc` is excluded from `staticAnalysis` on purpose.** Its source
+  set adds `:core:prediction`'s source directory, so analyzing it would report
+  those same six files a second time under a different module name.
 - **A stricter local pass exists, but it's Kotlin-only.** Every module's
   `build.gradle.kts` gates `allWarningsAsErrors` on a `warningsAsErrors`
   Gradle project property (`./gradlew build -PwarningsAsErrors=true`), off by
   default. Android Lint's own `warningsAsErrors` flag is hardcoded to `false`
-  in `app/build.gradle.kts` and doesn't read that property: the two are
-  separate switches, even though they share a name.
+  in `app/build.gradle.kts` and doesn't read that property. The two are
+  separate switches that happen to share a name.
 - **Third-party licenses and attribution** for bundled dependencies, data-pack
   sources, and online services the app calls are listed on the in-app
   [About & licenses screen](/reference/settings/about/). Check there before
   adding a new third-party dependency or data source, since it needs an entry
   too.
-- **The docs site's own GitHub links are still placeholders.** `astro.config.mjs`'s
-  `site` value and its GitHub-icon/edit-link URLs use a different casing of
-  the repo path than the one the app's About screen links to; both resolve to
-  the same place today, but the docs project's own handoff notes flag this as
-  unresolved, so don't treat either URL in `astro.config.mjs` as final.
+- **One repo URL is cased differently in the app.** `SOURCE_URL` in
+  `core/common/.../Support.kt` is `github.com/wasi-master/WMKeyboard`, while
+  the docs site and the F-Droid recipe use the canonical lowercase
+  `github.com/wasi-master/wmkeyboard`. Both resolve, but the lowercase form is
+  the canonical one.

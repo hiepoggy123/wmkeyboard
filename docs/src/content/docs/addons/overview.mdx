@@ -1,6 +1,6 @@
 ---
 title: "What are addons?"
-description: "Eleven kinds of installable content, published by anyone with a static file host, installed with nothing more than a URL."
+description: "Twelve kinds of installable content, published by anyone with a static file host, installed with nothing more than a URL."
 sidebar:
   label: "Overview"
   order: 1
@@ -9,7 +9,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-Addons are how the keyboard grows past what ships in the app: themes, layouts, dictionaries, fonts, sounds and more, published by anyone who can host a JSON file. You add a repository by its URL, browse what it lists, and install straight from the phone: no app store, no build step, no account.
+Addons are how the keyboard grows past what ships in the app. Themes, layouts, dictionaries, fonts and sounds can all come from anyone who can host a JSON file. You add a repository by its URL, browse what it lists, and install straight from the phone. No app store, no build step, no account.
 
 <PhoneFrame caption="The Addons screen: repositories you've added, plus everything you've installed from them.">
   {/* shot: addons/addons-home */}
@@ -17,31 +17,32 @@ Addons are how the keyboard grows past what ships in the app: themes, layouts, d
 
 ## What you can install
 
-There are eleven addon types, and every one of them maps onto something the app already knows how to produce or import on its own:
+There are twelve addon types, and every one of them maps onto something the app already knows how to produce or import on its own:
 
 | Type | Max download | Live preview before installing |
 |---|---|---|
-| Theme | 4 MB | — |
-| Layout | 4 MB | — |
+| Theme | 16 MB | No |
+| Layout | 4 MB | No |
 | Dictionary | 32 MB | Yes |
 | Emoji keyword pack | 8 MB | Yes |
 | Snippet pack | 4 MB | Yes |
 | Sticker pack | 64 MB | Yes |
-| Icon pack | 8 MB | — |
-| Font | 32 MB | — |
-| Emoji font | 32 MB | — |
+| Icon pack | 8 MB | No |
+| Font | 32 MB | No |
+| Emoji font | 32 MB | No |
 | Key sound | 4 MB | Yes |
+| Sound pack | 16 MB | Yes |
 | Plugin | 1 MB | Yes |
 
-The types without a preview column checkmark are the ones you judge by wearing rather than by looking at in isolation: a theme or a font only really makes sense on the keyboard itself, so their detail page has no content preview to offer, just whatever screenshots the publisher chose to include. Dictionaries, sticker packs, snippet packs, key sounds and plugins preview their actual content, because the content itself is the thing you're deciding on.
+Some types you judge by wearing rather than by looking at in isolation. A theme or a font only makes sense on the keyboard itself, so its detail page has no content preview to offer, just whatever screenshots the publisher chose to include. Dictionaries, sticker packs, snippet packs, key sounds, sound packs and plugins preview their actual content, because the content is the thing you're deciding on.
 
 For the type-by-type walkthrough of what each one looks like once installed, see [Installing addons](/addons/installing/) and [Managing addons](/addons/managing/).
 
 ## How installing works
 
-A repository is nothing more than an index over files the app already knows how to read. The theme, layout, dictionary or plugin you install from a repository is in exactly the same file format the app writes when you export one from the app itself. Opening a `.wmtheme.json` you found on a forum and installing a theme from a repository both end up running the same import code. There's no packaging, no signing, and no build step on the publisher's side.
+A repository is an index over files the app already knows how to read, and nothing more. The theme, layout, dictionary or plugin you install from one arrives in exactly the file format the app writes when you export the same thing yourself. Opening a `.wmtheme.json` you found on a forum and installing a theme from a repository both end up running the same import code. Publishers do no packaging, no signing and no building.
 
-Installing and applying are two separate steps. Downloading an addon only puts the file on your device: it doesn't repaint your keyboard, swap your icon pack, or start a plugin running. For addon types with an obvious "slot" to fill (theme, icon pack, emoji font, key sound, layout, plugin), the app asks you afterward whether to switch to what you just installed. Fonts, dictionaries, emoji keyword packs, snippet packs and sticker packs skip that prompt because installing already is the whole effect: a font waits for you in a picker, and the rest are live the moment they land.
+Installing and applying are two separate steps. Downloading an addon only puts the file on your device. It doesn't repaint your keyboard, swap your icon pack, or start a plugin running. For addon types with an obvious "slot" to fill (theme, icon pack, emoji font, key sound, sound pack, layout, plugin), the app asks you afterward whether to switch to what you just installed. Fonts, dictionaries, emoji keyword packs, snippet packs and sticker packs skip that prompt, because installing already is the whole effect: a font waits for you in a picker, and the rest are live the moment they land.
 
 :::note
 Browsing a repository, or even opening a `wmkeyboard://` link from someone else's page, can never change what your keyboard does on its own. Every install still ends on a screen where you tap Install yourself.
@@ -49,32 +50,32 @@ Browsing a repository, or even opening a `wmkeyboard://` link from someone else'
 
 ## What a repository can and can't do
 
-With one exception, every addon type is plain data: no code runs when you install or use one. A theme is colors and shapes, a dictionary is a word list, a sound is an audio file. There's nothing in any of those formats capable of doing anything besides being read.
+With one exception, every addon type is plain data. No code runs when you install or use one. A theme is colors and shapes, a dictionary is a word list, a sound is an audio file. Nothing in any of those formats can do anything besides be read.
 
 A few rules keep that trust model intact even before an addon reaches your device:
 
-- **HTTPS only.** A repository or asset URL that isn't https fails outright rather than silently upgrading; a link that was supposed to be intercepted fails visibly instead of loading anyway.
-- **Assets stay where the manifest says they are.** A repository can't point an asset at a different host than its own manifest, and can't walk outside its own folder with a `../` path, so one manifest can't quietly serve files it doesn't own.
-- **Checksums, verified when present.** A repository can publish a `sha256` for any file; if it does, the app verifies it after download and refuses the install on a mismatch.
-- **Size caps enforced during download**, not just advertised: a download that exceeds its type's limit (the table above) is aborted mid-stream, not just flagged after the fact.
+- **HTTPS only.** A repository or asset URL that isn't https fails outright rather than silently upgrading. A link that was supposed to be intercepted fails visibly instead of loading anyway.
+- **Assets stay where the manifest says they are.** A repository can't point an asset at a different host than its own manifest, and can't walk outside its own folder with a `../` path. One manifest can't quietly serve files it doesn't own.
+- **Checksums, verified when present.** A repository can publish a `sha256` for any file. If it does, the app verifies it after download and refuses the install on a mismatch.
+- **Size caps are enforced mid-download.** A download that exceeds its type's limit (the table above) is aborted in flight rather than flagged after the fact.
 
 <PhoneFrame caption="A plugin's detail page shows what it can do before you install it. This is the one addon type that isn't pure data.">
   {/* shot: addons/plugin-trust-preview */}
 </PhoneFrame>
 
-Plugins are the sole exception: they carry Lua that actually runs. That code is sandboxed with no way to read what you type, no access to the text field, the clipboard, or the network: not a permission you can withhold, just an API that doesn't exist inside the sandbox. A plugin can ask for local on-device storage and nothing else, and because nothing in the sandbox can reach the network, whatever it stores can't leave the device either.
+Plugins are the sole exception: they carry Lua that actually runs. That code is sandboxed with no way to read what you type and no access to the text field, the clipboard, or the network. The sandbox has no such API to withhold in the first place. A plugin can ask for local on-device storage and nothing else, and because nothing in the sandbox can reach the network, whatever it stores can't leave the device either.
 
-Because a plugin runs code, it's held to stricter rules than the other ten types:
+Because a plugin runs code, it's held to stricter rules than the other eleven types:
 
-- A plugin **must** publish a checksum: installing one with no `sha256` is refused before any network call happens at all, unlike every other type where a checksum is optional.
+- A plugin **must** publish a checksum. Installing one with no `sha256` is refused before any network call happens at all, unlike every other type where a checksum is optional.
 - A plugin you install from a repository always lands switched off. Installing never doubles as "run this," so it doesn't even appear where plugins run until you turn it on yourself.
 - Installing is refused outright if plugins are switched off at the subsystem level. See [Options](#options) below.
 
-A `wmkeyboard://` link (from a repository's README, a chat message, wherever) can only navigate to a screen that shows you the repository address and the addon before you decide anything; it can't add a repository or install anything by itself.
+A `wmkeyboard://` link (from a repository's README, a chat message, wherever) can only navigate to a screen that shows you the repository address and the addon before you decide anything. It can't add a repository or install anything by itself.
 
 ## Finding repositories to add
 
-WM Keyboard ships pointed at one sample repository so the Addons screen isn't empty the first time you open it: [`wmkeyboard-addon-repository`](https://github.com/wasi-master/wmkeyboard-addon-repository) on GitHub. It's a plain repository (a `wmkeyboard-repo.json` index plus the addon files it lists, served over https with no build step), so forking it is the fastest way to start publishing your own. It also doubles as the canonical copy of the repository spec and JSON Schema.
+WM Keyboard ships pointed at one sample repository, so the Addons screen isn't empty the first time you open it: [`wmkeyboard-addon-repository`](https://github.com/wasi-master/wmkeyboard-addon-repository) on GitHub. It's a plain repository (a `wmkeyboard-repo.json` index plus the addon files it lists, served over https with no build step), so forking it is the fastest way to start publishing your own. It also doubles as the canonical copy of the repository spec and JSON Schema.
 
 If you remove the sample repository, the app won't add it back on its own. It's only seeded once, the first time you ever open Addons.
 
@@ -84,19 +85,19 @@ For the technical side of writing your own (the manifest schema, hosting require
 
 <SettingsPath path="Tools / Plugins / Allow plugins" />
 
-Plugins have their own subsystem switch, off by default. With it off, no plugin (installed locally or from a repository) can run, and installing a new plugin from a repository is refused outright rather than silently landing disabled. Turn it on before installing your first plugin.
+Plugins have their own subsystem switch, off by default. With it off, no plugin can run, whether you installed it locally or from a repository. Installing a new plugin from a repository is refused outright rather than silently landing disabled. Turn this on before you install your first plugin.
 
 :::caution
-The **Plugins tool** you can add to the toolbar is a separate setting from this switch: it only decides whether a Plugins panel shows up on the toolbar, not whether plugins are allowed to run at all. Turning the subsystem off here doesn't remove the toolbar tool, and adding the toolbar tool doesn't turn plugins on.
+The **Plugins tool** you can add to the toolbar is a separate setting from this switch. It only decides whether a Plugins panel shows up on the toolbar, not whether plugins are allowed to run at all. Turning the subsystem off here doesn't remove the toolbar tool, and adding the toolbar tool doesn't turn plugins on.
 :::
 
 ## Details & edge cases
 
 - An addon can declare a minimum app version. If your build is older than what it needs, its detail page still shows it, but installing is refused until you update.
-- A repository's manifest is capped at 1 MB to fetch: a repository that's mostly index and little payload stays cheap to add and refresh.
+- A repository's manifest is capped at 1 MB to fetch, so a repository that's mostly index and little payload stays cheap to add and refresh.
 - You can add up to 30 repositories at once.
 - A `github.com/user/repo` link resolves to that repository's `wmkeyboard-repo.json` automatically (from its default branch, or a specific branch if the link points at one), so you don't need to type the raw file path yourself.
 - Removing every repository doesn't uninstall anything you've already installed from them. Installed content and the repository list are tracked separately. See [Managing addons](/addons/managing/) for uninstalling and update checks.
-- Config backup and restore includes your repository list (not the addons you've installed from it), and restoring merges it into whatever you already have rather than replacing it. See [Backup & restore](/reference/settings/backup/) for the full picture.
+- Config backup and restore includes your repository list, though not the addons you've installed from it. Restoring merges the list into whatever you already have rather than replacing it. See [Backup & restore](/reference/settings/backup/) for the full picture.
 
 Related reading: [Installing addons](/addons/installing/) for the browse-and-install flow, [Managing addons](/addons/managing/) for updates and uninstalling, the [Addons settings reference](/reference/settings/addons/) for a screen-by-screen breakdown, and [Addon repositories](/development/addon-repos/) for publishing your own.

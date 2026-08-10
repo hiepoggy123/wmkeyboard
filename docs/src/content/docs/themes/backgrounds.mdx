@@ -20,12 +20,12 @@ This page covers a picture from your own device. A photo from Unsplash or Pexels
 
 <SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Board" />
 
-Open a theme for editing and scroll to the **Board** section. **Background image** opens a **Select a background** dialog; **Add from this device** is the system photo picker (image files only). The picture you choose is copied into the app's own storage, it isn't read from the original file again later.
+Open a theme for editing. Scroll to the **Board** section. Tap **Background image** to open the **Select a background** dialog. **Add from this device** opens the system photo picker, which offers image files only. The app copies the picture you choose into its own storage, and it never reads the original file again.
 
 Picking an image changes two things about the theme so the photo is actually visible, both of which stay editable afterward:
 
 - **The board color's opacity drops to zero**, so the photo shows at full strength rather than being hidden under an opaque background. Raise it again if you want to tint or dim the photo.
-- **Fully opaque key and modifier colors drop to about 62% opacity.** A keyboard is mostly keys, so leaving them solid means the photo is only visible around the edges. Keys you had already made see-through are left alone.
+- **Fully opaque key and modifier colors drop to 62% opacity**, or to whatever [How solid the keys stay](/themes/online-photos/#how-a-photo-changes-the-keyboard) is set to, anywhere from 20% to 100%. A keyboard is mostly keys, so leaving them solid means the photo is only visible around the edges. Keys you had already made see-through are left alone.
 
 See [Editing a theme](/themes/editor/) for both color controls.
 
@@ -33,13 +33,14 @@ The photo also joins your [photo collection](/themes/online-photos/#the-photo-co
 
 ### Cropping to fit
 
-Once an image is set, a **Crop image** row appears. The crop dialog lets you pinch to zoom and drag to reposition, and it's always scaled to cover the frame so there's never a gap at the edges. Three aspect-ratio presets are available:
+Once an image is set, a **Crop image** row appears. In the crop dialog, pinch to zoom and drag to reposition. The image always scales to cover the frame, so there's never a gap at the edges. Four crop ratios are available:
 
 - **Keyboard** (2.4:1): matches the keyboard's own proportions, and is selected by default
 - **Wide** (1.7:1)
 - **Square** (1:1)
+- **Free**: keeps the picture's own shape. The other three are all wider-than-tall keyboard shapes, which crop a split or floating keyboard down.
 
-Confirming the crop saves a new file and discards the original. Cropping is optional (an uncropped image still renders correctly, scaled to cover the board), but cropping is how you control exactly what part of the photo lines up with the keys.
+Confirm the crop and the app saves a new file, then discards the original. Cropping is optional, and an uncropped image still renders correctly, scaled to cover the board. Crop when you want to control which part of the photo lines up with the keys.
 
 <PhoneFrame caption="Cropping a background image to the keyboard's 2.4:1 aspect ratio.">
   ![Cropping a background image to the keyboard's 2.4:1 aspect ratio.](@assets/screens/themes/background-crop-dialog.webp)
@@ -51,9 +52,9 @@ A photo behind your keys can easily fight with legibility, so two sliders and a 
 
 - **Image opacity** fades the image itself, from fully transparent to fully opaque (the default).
 - **Image blur** softens the image from sharp (the default) up to a heavy blur.
-- **Play animated image** plays the background when it's a GIF or an animated WebP. Turning it on zeroes the blur, and raising the blur turns it off: blurring a running animation would re-render the effect on every frame. The animation also stays still under reduce motion or power saving, and on app versions from before this feature the same file simply shows its first frame.
+- **Play animated image** plays the background when it's a GIF or an animated WebP. Turning it on zeroes the blur, and raising the blur turns it off: blurring a running animation would re-render the effect on every frame. The animation also stays still under reduce motion or power saving, and on app versions from before this feature the same file shows its first frame.
 
-There's no separate "dim" control. Instead, the board's own background color is drawn as a layer on top of the image, so raising that color's opacity acts as a tint or dim scrim over the photo (the same **Background** color row you'd use for a solid-color theme). Combining a soft blur with a translucent board color is usually enough to keep key labels legible over a busy photo.
+There's no separate "dim" control. The board's own background color draws as a layer on top of the image, so raising that color's opacity tints or dims the photo. It's the same **Background** color row you'd use for a solid-color theme. A soft blur plus a translucent board color is usually enough to keep key labels legible over a busy photo.
 
 :::note
 Turning on **High contrast keys** in accessibility settings strips background images (and gradients and animation) from every theme while it's active, since a photo behind the keys works against the contrast that setting is trying to guarantee.
@@ -72,9 +73,9 @@ Opacity and blur are shared between both images rather than set per orientation,
 ## Details and edge cases
 
 - **No image by default.** A freshly created theme, every built-in gallery theme, and the Default (system) theme all start with no background image, so the board is a flat color or gradient until you add one.
-- **Switching themes crossfades the rest of the theme, but not the image.** Colors and gradients blend smoothly between themes; the background image itself switches over abruptly partway through the transition rather than cross-dissolving, since blending two unrelated photos frame-by-frame wouldn't look right anyway. Blur switches over at the same moment for the same reason.
+- **Switching themes crossfades the rest of the theme, but not the image.** Colors and gradients blend smoothly between themes. The background image switches over abruptly partway through the transition rather than cross-dissolving, since blending two unrelated photos frame-by-frame wouldn't look right anyway. Blur switches at the same moment for the same reason.
 - **Changing the seed color keeps your photo visible.** Picking a seed swatch, or flipping the light and dark switch, rebuilds every color in the theme. When the theme has a background image, how see-through the board and keys are is carried across, so the new palette does not bury the photo under a fresh opaque color.
-- **Images are decoded at the size they are drawn.** A photo straight off a camera is far larger than the strip behind your keys, so it is sampled down before it is drawn rather than held at full size.
+- **Images are decoded at the size they are drawn.** A photo straight off a camera is far larger than the strip behind your keys, so the app samples it down first rather than holding it at full size.
 - **The gallery preview card only shows the portrait image.** The small theme thumbnail in the theme list never shows the landscape variant, even if one is set.
 - **Background images travel with exports.** Both a single-theme export and a full settings backup embed the image data directly in the file, so restoring the export or importing the theme on another device brings the photo with it; you don't need to re-pick the image after importing. See [Sharing themes](/themes/sharing/) for what else a theme export contains.
 - **This page is about a single theme's own image.** Switching between two different themes automatically by time of day or by system light/dark mode (where each half of the pair might have its own background image) is covered in [Themes overview](/themes/overview/). A single theme whose *photo* changes on a schedule is [Online photos and rotation](/themes/online-photos/).

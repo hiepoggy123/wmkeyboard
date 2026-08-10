@@ -13,17 +13,17 @@ Most keyboard problems trace back to one of a handful of causes: a permission An
 
 ## The keyboard doesn't appear, or won't stay selected
 
-This is fully covered by the setup card on the app's Home screen, which polls Android's own input-method state and tells you which of three situations you're in: not enabled, enabled but not selected, or active. See [Enable the keyboard](/start/setup/) for the exact steps; **Enable keyboard** and **Switch keyboard** are the only two buttons involved, and the card is always there, not just on first run.
+The setup card on the app's Home screen covers this fully. It polls Android's own input-method state and tells you which of three situations you're in: not enabled, enabled but not selected, or active. See [Enable the keyboard](/start/setup/) for the exact steps. Only two buttons are involved, **Enable keyboard** and **Switch keyboard**, and the card is always there, not just on first run.
 
-If WM Keyboard *was* selected and something knocked you back to a different keyboard on its own, that's not a settings problem. It's a crash. Android quietly swaps in another input method when an IME's process dies, with no visible error. Head to [the Diagnostics screen](#the-diagnostics-screen) below and check the Crashes section.
+If WM Keyboard *was* selected and something knocked you back to a different keyboard on its own, look for a crash rather than a setting. Android quietly swaps in another input method when an IME's process dies, with no visible error. Open [the Diagnostics screen](#the-diagnostics-screen) below and check the Crashes section.
 
 ## A language's suggestions look empty
 
-This is almost always dictionary state, not a language that's gone missing: WM Keyboard can't drop your last enabled layout entirely from the [language settings](/languages/overview/), so if suggestions vanish, look here first.
+This is almost always dictionary state. A language hasn't gone missing, because WM Keyboard can't drop your last enabled layout entirely from the [language settings](/languages/overview/). If suggestions vanish, look at the dictionary first.
 
-Only English and Bengali ship a built-in dictionary. Every other language starts with nothing but what you've typed yourself, until you download a wordlist or import your own. See [Downloadable dictionaries](/languages/dictionaries/) for the four states a language's Dictionary section can be in, the three size tiers, and why a failed download shows **Retry** instead of leaving you guessing.
+Only English and Bangla ship a built-in dictionary. Every other language starts with nothing but what you've typed yourself, until you download a wordlist or import your own. See [Downloadable dictionaries](/languages/dictionaries/) for the four states a language's Dictionary section can be in, the three size tiers, and why a failed download shows **Retry** instead of leaving you guessing.
 
-<PhoneFrame caption="A language with no built-in or downloaded dictionary yet — suggestions come only from what you've typed.">
+<PhoneFrame caption="A language with no built-in or downloaded dictionary yet. Suggestions come only from what you've typed.">
   {/* shot: reference/troubleshooting-empty-dictionary-state */}
 </PhoneFrame>
 
@@ -31,33 +31,35 @@ One setting can also hide suggestions everywhere at once, which is worth ruling 
 
 <SettingsPath path="Typing / Suggestions" />
 
-- **Suggestions** — on by default. The master switch for the whole strip; turning it off also stops correction candidates and next-word prediction, though [autocorrect](/smart/autocorrect/) itself keeps working. See [Suggestions & prediction](/smart/suggestions/) for the rest of that screen.
+- **Suggestions**, on by default. This is the master switch for the whole strip. Turning it off also stops correction candidates and next-word prediction, though [autocorrect](/smart/autocorrect/) itself keeps working. See [Suggestions & prediction](/smart/suggestions/) for the rest of that screen.
 
 Password fields and structured keypads (number, phone, and similar) never show suggestions, regardless of this setting.
 
 ## A permission prompt stopped appearing
 
-Camera, microphone, and calendar access all work the same way, because an IME service can't show Android's runtime-permission dialog itself. Tapping **Allow** in a tool's panel opens a small, invisible activity just long enough to show the system prompt, then closes itself the instant you answer, and the keyboard rechecks the grant automatically the next time it's in the foreground, so you never need to reopen the panel afterward. This pattern is documented per-tool on [Camera](/tools/camera/), [Voice typing](/tools/voice/), and [Calendar](/tools/calendar/).
+Camera, microphone, and calendar access all work the same way, because an IME service can't show Android's runtime-permission dialog itself. Tap **Allow** in a tool's panel and a small, invisible activity opens just long enough to show the system prompt. It closes itself the instant you answer. The keyboard then rechecks the grant the next time it's in the foreground, so you never need to reopen the panel. Each tool documents the pattern on its own page: [Camera](/tools/camera/), [Voice typing](/tools/voice/), and [Calendar](/tools/calendar/).
 
-Contacts access is requested differently, because it's asked for from the Settings app rather than from a tool's panel: turning on **Suggest contact names** or **Suggest contact emails** under <SettingsPath path="Typing / Suggestions" /> asks for the Contacts permission right there, the ordinary way any Android app would: no invisible activity involved, since the Settings app is already a regular activity and can show the system prompt itself. Granting it for one of the two toggles covers the other automatically. See [Contact-aware typing](/smart/contacts/) for what each toggle does.
+Contacts access is different, because the Settings app asks for it rather than a tool's panel. Turn on **Suggest contact names** or **Suggest contact emails** under <SettingsPath path="Typing / Suggestions" /> and the Contacts prompt appears right there, the ordinary way any Android app would ask. No invisible activity is involved, since the Settings app is already a regular activity and can show the system prompt itself. Granting it for one of the two toggles covers the other automatically. See [Contact-aware typing](/smart/contacts/) for what each toggle does.
 
-The one case where nothing happens when you tap **Allow**, or turn one of these toggles on, is a permanently denied permission: Android stops showing its own prompt once you've denied a permission twice ("Don't ask again"). When that happens, the fix is the same regardless of how the permission was first requested; grant it from your device's own app settings, outside the keyboard:
+The one case where nothing happens when you tap **Allow**, or turn one of these toggles on, is a permanently denied permission. Android stops showing its own prompt once you've denied a permission twice ("Don't ask again"). The fix is then the same regardless of how the permission was first requested. Grant it from your device's own app settings, outside the keyboard.
 
 :::tip[Recovering a permanently denied permission]
-Go to your device's Settings → Apps → WM Keyboard → Permissions, and turn on the one that's missing (Camera, Microphone, or Contacts). For Camera, Microphone, and Calendar, that's the whole fix: the tool's panel rechecks the grant as soon as it regains focus, so there's no need to restart the keyboard or reopen the panel afterward, just switch back to whatever you were typing in. Contacts is the one exception: its toggle only checks permission at the moment you tap it, so head back to **Suggest contact names** or **Suggest contact emails** under <SettingsPath path="Typing / Suggestions" /> and turn it on again; it'll succeed silently this time, with no prompt.
+Open your device's Settings → Apps → WM Keyboard → Permissions. Turn on the one that's missing: Camera, Microphone, or Contacts. For Camera, Microphone, and Calendar, that's the whole fix. The tool's panel rechecks the grant as soon as it regains focus, so you don't need to restart the keyboard or reopen the panel. Switch back to whatever you were typing in.
+
+Contacts is the one exception, because its toggle only checks permission at the moment you tap it. Go back to **Suggest contact names** or **Suggest contact emails** under <SettingsPath path="Typing / Suggestions" /> and turn it on again. It succeeds silently this time, with no prompt.
 :::
 
 Granting Camera access from the Camera tool also covers the [OCR and QR/document scanners](/tools/scanner/), since all three request the same permission.
 
-Media controls use a different mechanism (notification-listener access rather than a runtime permission), granted from **Settings → Apps → Special app access → Notification access**, where WM Keyboard is listed as **"WM Keyboard media controls."** The same rule applies: revoke or re-grant it there, and [Media controls](/tools/media/) picks up the change the next time the keyboard comes to the foreground.
+Media controls use a different mechanism: notification-listener access rather than a runtime permission. Grant it from **Settings → Apps → Special app access → Notification access**, where WM Keyboard is listed as **"WM Keyboard media controls."** The same rule applies afterward. Revoke or re-grant it there, and [Media controls](/tools/media/) picks up the change the next time the keyboard comes to the foreground.
 
-None of the Camera, Voice typing, Calendar, or Media controls grants above are keyboard settings in their own right: each of those tools has its own **Enabled** switch under <SettingsPath path="Tools" />, which is a separate thing from whether the OS has granted the tool the access it asked for. Contacts is the exception once more: **Suggest contact names** and **Suggest contact emails** are both the setting and the permission trigger in one, with no separate Tools entry.
+None of the Camera, Voice typing, Calendar, or Media controls grants above are keyboard settings in their own right. Each of those tools has its own **Enabled** switch under <SettingsPath path="Tools" />, which is a separate thing from whether the OS has granted the tool the access it asked for. Contacts is the exception once more: **Suggest contact names** and **Suggest contact emails** are both the setting and the permission trigger in one, with no separate Tools entry.
 
 ## A tool panel isn't responding to key presses
 
-This one is by design, not a bug. Most tools that need typed input (search boxes, the AI prompt, the typing-test scorer, a plugin's own field) open a panel that **captures the keyboard**: what you type goes into the panel's own box, not into the app behind it. Backspace works the same way, deliberately, so it can't word-delete text in the field behind a panel you can't currently see.
+This one is by design. Most tools that need typed input (search boxes, the AI prompt, the typing-test scorer, a plugin's own field) open a panel that **captures the keyboard**: what you type goes into the panel's own box, not into the app behind it. Backspace works the same way, deliberately, so it can't word-delete text in the field behind a panel you can't currently see.
 
-<PhoneFrame caption="An open tool panel capturing input — the toolbox button has become a back arrow.">
+<PhoneFrame caption="An open tool panel capturing input. The toolbox button has become a back arrow.">
   {/* shot: reference/troubleshooting-panel-captures-input */}
 </PhoneFrame>
 
@@ -66,7 +68,7 @@ Sensor and generator tools (Compass, Level, Calculator, Camera, the scanners, an
 Three ways back out of any open panel:
 
 - Tap the back arrow that replaces the toolbox button while a panel is open.
-- Press the system **Back** button or gesture: it closes the panel, not the keyboard.
+- Press the system **Back** button or gesture. It closes the panel and leaves the keyboard up.
 - On a hardware keyboard, press <KeyCap>Esc</KeyCap>, if "Esc closes the tool" is on (it is by default).
 
 See [The toolbar](/tools/overview/#panels-and-captured-keys) for the full explanation, including which tools are panels and which replace the key rows.
@@ -75,7 +77,7 @@ See [The toolbar](/tools/overview/#panels-and-captured-keys) for the full explan
 
 <SettingsPath path="About / Diagnostics" />
 
-Diagnostics is what the keyboard has recorded about itself, kept specifically because a keyboard's failures are usually invisible: a crash swaps in a different IME with no on-screen error, a panel comes up empty, a model silently fails to load. Nothing you actually type is ever recorded here; every entry is what happened, not what you wrote.
+Diagnostics is what the keyboard has recorded about itself, kept specifically because a keyboard's failures are usually invisible: a crash swaps in a different IME with no on-screen error, a panel comes up empty, a model silently fails to load. Nothing you actually type is ever recorded here. Every entry is what happened, not what you wrote.
 
 <PhoneFrame caption="The Diagnostics screen: report actions at the top, the filterable app log below.">
   {/* shot: reference/troubleshooting-diagnostics-screen */}
@@ -83,10 +85,10 @@ Diagnostics is what the keyboard has recorded about itself, kept specifically be
 
 The screen has four parts:
 
-- **Report** — **Share diagnostics** hands the full report to Android's share sheet as a file, not inline text, because a report can run to tens of kilobytes and a share intent that size gets silently dropped by many receiving apps. **Copy to clipboard** puts the same report on the clipboard as plain text instead. **Include the system log** (off by default) adds this process's own Android log (everything printed by every library in the app, not just what the keyboard itself chose to record), which is more useful for a hard-to-reproduce bug but worth reading before you send it anywhere, since the keyboard doesn't control what a dependency logs.
-- **Crashes** — only shown when at least one exists. Keeps the last 10 crash records, each with its time, thread, build info, full stack trace, and the 40 log entries leading up to it. Written to disk (not memory) specifically so a crash survives the process that produced it, and readable even before you've unlocked the device once after a restart. Has its own **Clear crashes** button.
-- **App log** — a filter text field (matches message or tag) plus a filter chip per severity level (Debug, Info, Warn, Error) that acts as a minimum floor, defaulting to Debug so nothing is hidden until you narrow it. A **Refresh** button re-reads the log on demand. Entries show newest first, color-coded by severity.
-- **System log** — appears only while "Include the system log" is on; the same content that gets attached to a shared or copied report, shown here so you can read it first.
+- **Report.** **Share diagnostics** hands the full report to Android's share sheet as a file rather than inline text. A report can run to tens of kilobytes, and many receiving apps silently drop a share intent that size. **Copy to clipboard** puts the same report on the clipboard as plain text instead. **Include the system log** (off by default) adds this process's own Android log, meaning everything printed by every library in the app, not only what the keyboard itself chose to record. That's the most useful attachment for a hard-to-reproduce bug, but read it before you send it anywhere, since the keyboard doesn't control what a dependency logs.
+- **Crashes.** Shown only when at least one exists. It keeps the last 10 crash records, each with its time, thread, build info, full stack trace, and the 40 log entries leading up to it. The records go to disk rather than memory, specifically so a crash survives the process that produced it. They're readable even before you've unlocked the device once after a restart. This section has its own **Clear crashes** button.
+- **App log.** A filter text field (it matches message or tag) plus a filter chip per severity level (Debug, Info, Warn, Error) that acts as a minimum floor. It defaults to Debug, so nothing is hidden until you narrow it. A **Refresh** button re-reads the log on demand. Entries show newest first, color-coded by severity.
+- **System log.** Appears only while "Include the system log" is on. It's the same content that gets attached to a shared or copied report, shown here so you can read it first.
 
 A **Clear app log** button at the bottom empties the in-memory log (separate from **Clear crashes**, which only touches the crash file).
 
@@ -99,8 +101,8 @@ The **Feedback** group on the [About screen](/reference/settings/about/#reportin
 A couple of things worth knowing beyond that quick answer:
 
 - The report already includes version, edition, Android, and device info in its header. You don't need to hand-type any of that alongside it.
-- If a model wrote something wrong or offensive, that's not a bug report: use the **Report** button on the AI panel instead, described in [Reporting a result](/tools/ai/#reporting-a-result). It quotes the generation itself, which an issue about the keyboard wouldn't.
-- Whether to turn on **Include the system log** before sharing is your call: it's the most useful thing you can attach for a bug that's hard to reproduce, but it's also the one part of the report the keyboard doesn't control the contents of, so skim it first.
+- If a model wrote something wrong or offensive, don't file that as a bug. Use the **Report** button on the AI panel instead, described in [Reporting a result](/tools/ai/#reporting-a-result). It quotes the generation itself, which an issue about the keyboard wouldn't.
+- Whether to turn on **Include the system log** before sharing is your call. It's the most useful thing you can attach for a bug that's hard to reproduce, but it's also the one part of the report whose contents the keyboard doesn't control. Skim it first.
 - If the keyboard crashed, the Crashes section of Diagnostics is usually more useful on its own than a description of what happened: it already has the stack trace and the log leading up to it.
 
 ## Details & edge cases
@@ -110,14 +112,14 @@ A couple of things worth knowing beyond that quick answer:
 - The app log and crash file are two different stores for a reason: the in-memory log is cheap enough to always be on (no switch to remember to flip before reproducing a bug), while the crash file is the one thing written to disk, because the in-memory log dies along with the process that crashed.
 
 :::danger[Clearing app storage is destructive]
-Clearing storage from Android's own app settings wipes downloaded dictionaries, addons, and themes, along with learned words and everything else covered in [Your data on device](/privacy/data/). There's no undo. It's a last resort, not a routine fix, and Android's own settings screen does it, not WM Keyboard.
+Clearing storage from Android's own app settings wipes downloaded dictionaries, addons, and themes, along with learned words and everything else covered in [Your data on device](/privacy/data/). There's no undo. Treat it as a last resort rather than a routine fix. Android's own settings screen does it, not WM Keyboard.
 :::
 
 ## Related pages
 
-- [Enable the keyboard](/start/setup/) — the full walkthrough for getting WM Keyboard selected as your active input method.
-- [Downloadable dictionaries](/languages/dictionaries/) and [Suggestions & prediction](/smart/suggestions/) — what controls whether a language shows completions at all.
-- [The toolbar](/tools/overview/) — pinning, panels, and everything else about how tools behave.
-- [Camera](/tools/camera/), [Voice typing](/tools/voice/), [Calendar](/tools/calendar/), and [Media controls](/tools/media/) — the individual permission flows referenced above.
-- [Contact-aware typing](/smart/contacts/) — the two contact-suggestion toggles and how their permission request differs from a tool panel's.
-- [FAQ](/start/faq/) — quick answers, including how to report a bug.
+- [Enable the keyboard](/start/setup/): the full walkthrough for getting WM Keyboard selected as your active input method.
+- [Downloadable dictionaries](/languages/dictionaries/) and [Suggestions & prediction](/smart/suggestions/): what controls whether a language shows completions at all.
+- [The toolbar](/tools/overview/): pinning, panels, and everything else about how tools behave.
+- [Camera](/tools/camera/), [Voice typing](/tools/voice/), [Calendar](/tools/calendar/), and [Media controls](/tools/media/): the individual permission flows referenced above.
+- [Contact-aware typing](/smart/contacts/): the two contact-suggestion toggles and how their permission request differs from a tool panel's.
+- [FAQ](/start/faq/): quick answers, including how to report a bug.

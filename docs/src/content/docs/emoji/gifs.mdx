@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-The GIF tool searches Klipy and GIPHY from a panel inside the keyboard and sends the result straight into the field you're typing in: no switching apps, no copy-paste. It needs a free API key from at least one provider before it can search anything.
+The GIF tool searches Klipy and GIPHY from a panel inside the keyboard, then sends the result straight into the field you're typing in. No switching apps, no copy-paste. It needs a free API key from at least one provider before it can search anything.
 
 <PhoneFrame caption="The GIF panel, showing trending results on open.">
   {/* shot: emoji/gif-panel-trending */}
@@ -20,7 +20,7 @@ Open the GIF tool and it fetches trending GIFs immediately, before you type anyt
 
 Results appear as a 3-column grid of animated previews. A header line reads "via Klipy · GIPHY" (or whichever providers are actually active) so you know where a result came from.
 
-Before you've typed anything, a scrollable row of **category chips** sits above the grid: Trending first, then Reactions, Love, Happy, Dance and so on. Tapping one runs it as a search, so it's a way to browse without thinking of a word; tapping the active chip, or Trending, goes back. The chips come from the provider itself when it publishes categories, and from a built-in list when it doesn't, so the row is there offline too. It's a default-view thing: type anything and it steps aside for the results. On a keyboard with only three rows of keys it's hidden as well, where it would cost the last row of the grid.
+Before you've typed anything, a scrollable row of **category chips** sits above the grid: Trending first, then Reactions, Love, Happy, Dance and so on. Tap one to run it as a search, which is a way to browse without thinking of a word. Tap the active chip, or Trending, to go back. The chips come from the provider itself when it publishes categories, and from a built-in list when it doesn't, so the row is there offline too. It belongs to the default view only. Type anything and it steps aside for the results. On a keyboard with only three rows of keys it's hidden as well, where it would cost the last row of the grid.
 
 If neither provider has a key configured, the panel shows a "needs an API key" notice with a shortcut into settings instead of a grid.
 
@@ -28,13 +28,13 @@ If neither provider has a key configured, the panel shows a "needs an API key" n
 
 Tap a result and it downloads and lands in the field in one step. There's no separate "insert" confirmation. What happens next depends on what the field will accept:
 
-1. **The field doesn't take images at all.** Plain text boxes can't receive a GIF through Android's `commitContent` mechanism. The panel shows a standing notice, "This field doesn't accept GIFs — try a chat or notes app", and tapping a result does nothing (a short vibration, no download). This is a pre-send check, not a failed attempt.
-2. **The field takes images.** The full-size file downloads and commits using a MIME type the field advertises it can accept. With <SettingsPath path="Tools / GIFs / Send GIFs as" /> set to Sticker, a WebP result first offers WhatsApp's private sticker MIME (`image/webp.wasticker`) before falling back to plain `image/webp`. Android has no official "this is a sticker" flag, so this is a best-effort convention rather than a documented API. That PNG fallback only ever applies to a WebP-format download in the first place: if the field won't take `image/webp` but does accept PNG, it re-encodes to a still PNG rather than failing outright (a still WebP only; an animated one is skipped, since a PNG can't hold the animation). A plain `image/gif` download (what most GIF-panel results actually are) has no such fallback; if the field doesn't accept `image/gif`, it goes straight to the clipboard fallback below.
-3. **Nothing matches.** If the field won't take any form the tool can produce, the file goes to the system clipboard instead, with a toast: "This app doesn't accept images here — image copied, paste it instead." Paste it in manually from there.
+1. **The field doesn't take images at all.** Plain text boxes can't receive a GIF through Android's `commitContent` mechanism. The panel shows a standing notice, "This field does not accept GIFs. Try a chat app or a notes app.", and tapping a result does nothing beyond a short vibration. Nothing downloads. This is a pre-send check, not a failed attempt.
+2. **The field takes images.** The full-size file downloads and commits using a MIME type the field advertises it can accept. With <SettingsPath path="Tools / GIFs / Send GIFs as" /> set to Sticker, a WebP result first offers WhatsApp's private sticker MIME (`image/webp.wasticker`) before falling back to plain `image/webp`. Android has no official "this is a sticker" flag, so this is a best-effort convention rather than a documented API. The PNG fallback only ever applies to a WebP-format download. If the field won't take `image/webp` but does accept PNG, a still WebP is re-encoded to a still PNG rather than failing outright. An animated WebP is skipped, since a PNG can't hold the animation. A plain `image/gif` download (what most GIF-panel results actually are) has no such fallback. If the field doesn't accept `image/gif`, it goes straight to the clipboard fallback below.
+3. **Nothing matches.** If the field won't take any form the tool can produce, the file goes to the system clipboard instead, with a toast: "This app does not accept images here. The keyboard copied the image. Paste it instead." Paste it in manually from there.
 
 Animated GIFs can never actually become stickers. Android has no animated-WebP encoder, so a GIF-format result keeps sending as a plain image no matter what `Send GIFs as` is set to. Only sources that already provide WebP can take the Sticker path.
 
-<PhoneFrame caption="A field that can't accept images — the panel dims and shows the standing notice.">
+<PhoneFrame caption="A field that can't accept images. The panel dims and shows the standing notice.">
   {/* shot: emoji/gif-no-rich-media */}
 </PhoneFrame>
 
@@ -42,8 +42,8 @@ Animated GIFs can never actually become stickers. Android has no animated-WebP e
 
 Long-press a GIF instead of tapping it and a small menu opens over the grid:
 
-- **Copy** downloads the GIF and puts it on the system clipboard, so you can paste it wherever you like rather than into the field you happen to be in. Same thing the fallback in step 3 above does, except you asked for it instead of finding out afterwards that the field wouldn't take the file.
-- **Report** opens a mail draft to the maintainer naming the provider, your search term, and the result's id and URL, with room at the top to say what's wrong with it. Nothing is sent from the keyboard: the draft lands in your mail app, and you can read, edit, or abandon it. Klipy and GIPHY answer a search out of their own catalogues, so a result nobody vetted can come back; this is where that goes.
+- **Copy** downloads the GIF and puts it on the system clipboard, so you can paste it wherever you like rather than into the field you happen to be in. It's the same thing the fallback in step 3 above does, except you asked for it instead of finding out afterwards that the field wouldn't take the file.
+- **Report** opens a mail draft to the maintainer naming the provider, your search term, and the result's id and URL, with room at the top to say what's wrong with it. Nothing is sent from the keyboard. The draft lands in your mail app, and you can read, edit, or abandon it. Klipy and GIPHY answer a search out of their own catalogues, so a result nobody vetted can come back. This is where that goes.
 
 Back (or tapping outside the menu) closes it without doing anything.
 
@@ -67,16 +67,16 @@ Saving to a pack is sticker-only, since a GIF can't become one. That row shows o
 | Content filter | Medium | Four levels (Off, Low, Medium, High) mapped to each provider's own content rating (High maps to G-rated results, Off to R). Shared with the sticker tool. |
 | Results for each search | 24 | A slider from 6 to 48. How many GIFs one search or the trending view loads. Shared with the sticker tool. |
 
-You only need one working key (Klipy or GIPHY) for the tool to function; configuring both just adds a second source to search. **Send GIFs as** is only shown here, and the sticker tool's **Send stickers as** only on its own page — each governs the panel it sits under, so neither page offers the other's setting. See [Stickers](/emoji/stickers/) for that one.
+You only need one working key, Klipy or GIPHY, for the tool to work. Configuring both adds a second source to search. **Send GIFs as** is only shown here, and the sticker tool's **Send stickers as** only on its own page. Each governs the panel it sits under, so neither page offers the other's setting. See [Stickers](/emoji/stickers/) for that one.
 
 ## Details & edge cases
 
 - **Not pinned to the toolbar by default.** The onboarding wizard turns the GIF tool on by default, but the out-of-the-box pinned toolbar only holds Emoji, Clipboard and Settings. GIF sits in the [toolbox](/tools/overview/) until you drag it onto the bar or open it from there.
 - **Trending, not random.** An empty search box always shows each provider's trending feed, not a blank grid, useful as a starting point before you type a query.
 - **24 results per fetch, and you can change it.** That's the number each provider is asked for on a search or a trending call, and the **Results for each search** slider moves it anywhere from 6 to 48. In Mixed mode every provider is asked for that many and the merged grid is then cut back down to it, so the number is what the grid holds in total, not what each source contributes.
-- **Two of these rows never grow a restore button.** Settings you've moved off their shipped value normally pick up [a small restore button](/reference/settings/#putting-one-setting-back) next to the control. **Multiple sources** and **Content filter** are the exception on this screen: they're drawn as a bare segmented row under a heading rather than as full setting rows, so there's nowhere for the button to sit and you put them back by picking Tabs and the middle filter level yourself. (The two API key fields don't have one either, but there the shipped value is just an empty box.)
-- **No size cap on downloads.** Unlike stickers, which cap the source file size, a GIF download has no maximum: a very large or very long GIF still downloads in full before sending.
-- **Recently sent files are cached, not stored permanently.** Downloaded files are kept in a local cache so re-picking the same GIF skips re-downloading it. The cache keeps only the 30 most recently touched files and deletes the rest, so it isn't a place to go looking for something you sent a while ago.
+- **Two of these rows never grow a restore button.** Settings you've moved off their shipped value normally pick up [a small restore button](/reference/settings/#putting-one-setting-back) next to the control. **Multiple sources** and **Content filter** are the exception on this screen. They're drawn as a bare segmented row under a heading rather than as full setting rows, so there's nowhere for the button to sit. Put them back by picking Tabs and the middle filter level yourself. (The two API key fields don't have one either, but there the shipped value is an empty box.)
+- **No size cap on downloads.** Stickers cap the source file size. A GIF download has no maximum, so a very large or very long GIF still downloads in full before sending.
+- **Recently sent files are cached, not stored permanently.** Downloaded files are kept in a local cache, so re-picking the same GIF skips re-downloading it. The cache keeps only the 30 most recently touched files and deletes the rest, so it isn't a place to go looking for something you sent a while ago.
 - **Network use is opt-in and tool-scoped.** Klipy and GIPHY are only contacted while the GIF panel is open: trending on open, live search as you type, and the download on tap. Nothing happens in the background. See [Network policy](/privacy/network/) for the full breakdown of what each online tool sends.
 
 For custom sticker packs, long-press-to-save, and the Local tab, see [Stickers](/emoji/stickers/). For the toolbar and toolbox in general, see [The toolbar](/tools/overview/).

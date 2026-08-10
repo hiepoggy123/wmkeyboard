@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-The theme editor is where a single custom theme gets built: every color, the key shape, optional gradients, corner-radius overrides, and a live-animated background if you want one. Every field here applies and saves the instant you touch it; there's no separate save step.
+The theme editor is where a single custom theme gets built: every color, the key shape, optional gradients, corner-radius overrides, and a live-animated background if you want one. Every field here applies and saves the instant you touch it. There's no separate save step.
 
 <PhoneFrame caption="The theme editor, with the live preview pinned above the color and shape controls.">
   ![The theme editor, with the live preview pinned above the color and shape controls.](@assets/screens/themes/editor-live-preview.webp)
@@ -18,9 +18,9 @@ The theme editor is where a single custom theme gets built: every color, the key
 
 <SettingsPath path="Appearance / Keyboard themes" />
 
-**Create theme** on the gallery screen makes a brand-new custom theme (named "My theme", seeded from a blue swatch, generated as a dark theme) and immediately makes it the active keyboard theme before opening the editor on it.
+**Create theme** on the gallery screen makes a new custom theme called "My theme". It's seeded from a blue swatch and generated light or dark to match whatever the phone is set to right now. The new theme becomes the active keyboard theme, then the editor opens on it.
 
-Built-in themes can't be edited in place. Their card shows a pencil instead, which copies the built-in into a new custom theme named "*(theme) copy*", makes the copy active, and opens the editor on the copy; the original built-in is untouched. The **Default (system)** card has no pencil at all: it isn't a stored theme, it's generated live from your device's Material You color scheme, so there's nothing to open in this editor. See [Theming overview](/themes/overview/) for the gallery itself and how Default, Material You, and the built-in set fit together.
+Built-in themes can't be edited in place. Their card shows a pencil instead, which copies the built-in into a new custom theme named "*(theme) copy*", makes the copy active, and opens the editor on the copy. The original built-in is untouched. The **Default (system)** card has no pencil at all. It's generated live from your device's Material You color scheme rather than stored anywhere, so there's nothing for this editor to open. See [Theming overview](/themes/overview/) for the gallery itself and how Default, Material You, and the built-in set fit together.
 
 Importing a `.wmtheme.json` file (from the gallery's Import button or by opening the file itself) adds it to Your themes and switches the keyboard to it immediately, without opening this editor. See [Sharing themes](/themes/sharing/) for both ways to import.
 
@@ -40,7 +40,7 @@ At the top of the editor, a **Dark theme** switch and a row of swatches let you 
   ![Start from a color: the Dark theme switch and seed swatch row.](@assets/screens/themes/editor-seed-swatches.webp)
 </PhoneFrame>
 
-Tapping a swatch, or flipping Dark theme, recomputes the board, key, accent, and popup colors from that seed and shade. It deliberately preserves everything that isn't seed-derived, so a reseed doesn't erase work you've already done elsewhere in the editor: your background image and its opacity/blur, both gradients, the key shape, the key border color and width, the gesture-trail color, all three corner-radius overrides, and the animation type and speed all carry over untouched. Anything you hand-picked that *is* seed-derived (like a manually recolored key-text or popup color) gets overwritten by the reseed, since there's no way to tell "kept the default" apart from "picked to match."
+Tapping a swatch, or flipping Dark theme, recomputes the board, key, accent, and popup colors from that seed and shade. It preserves everything that isn't seed-derived, so a reseed doesn't erase work you've done elsewhere in the editor. Your background image and its opacity/blur, both gradients, the key shape, the key border color and width, the gesture-trail color, all three corner-radius overrides, and the animation type and speed all carry over untouched. Anything you hand-picked that *is* seed-derived (a manually recolored key-text or popup color, say) gets overwritten, since there's no way to tell "kept the default" apart from "picked to match."
 
 ## Options
 
@@ -50,16 +50,16 @@ The rest of the editor is grouped into sections, each opening a standard color p
 
 ### Board
 
-- **Background** — the board's base color. Supports alpha, which matters once a background image is set: see [Image backgrounds](/themes/backgrounds/) for the image picker, crop, opacity, and blur controls that live in this same section.
-- **Gradient background** — see [Gradients](#gradients) below.
+- **Background** is the board's base color. It supports alpha, which starts to matter once a background image is set. See [Image backgrounds](/themes/backgrounds/) for the image picker, crop, opacity, and blur controls that live in this same section.
+- **Gradient background** is covered under [Gradients](#gradients) below.
 
 ### Keys
 
 - **Key shape**: a row that opens a picker with all twelve shapes listed by name, each drawn beside its name at key proportions and at this theme's own corner radius, so you can see what you're choosing before you choose it. The full list, and which shapes react to the radius slider, is under [Key shapes](#key-shapes) below.
-- **Letter keys** — the color, plus an optional **Key gradient**, a subtle sheen painted over letter keys only (see [Gradients](#gradients)).
+- **Letter keys** sets their color, and carries an optional **Key gradient**, a subtle sheen painted over letter keys only (see [Gradients](#gradients)).
 - **Key text**, **Modifier keys**, **Modifier key text** (falls back to Key text when left on Auto), **Enter key**, **Enter key icon**.
-- **Pressed key** — the color a key flashes while held; Auto derives it from Letter keys.
-- **Key border** — off (Auto, no visible border) until you pick a color. Once a border color is set, a **Border width** slider (0–3dp) appears; it starts at 0dp, so turning on a border color alone doesn't show one until you also raise the width.
+- **Pressed key** is the color a key flashes while held. Auto derives it from Letter keys.
+- **Key border** stays off (Auto, no visible border) until you pick a color. A **Border width** slider (0–3dp) then appears, starting at 0dp. Picking a border color on its own shows nothing until you raise the width too.
 
 ### Key shapes
 
@@ -80,11 +80,11 @@ Twelve shapes, in the order the picker lists them. The four plain outlines come 
 | Ticket | Corners bitten inwards by a circle, like a cinema ticket | No |
 | Circle | A round cap centred in the key, like a typewriter's; wide keys (space, enter) keep a stadium | No |
 
-The shapes that ignore the slider aren't being lazy about it. Their whole look is a proportion of the key rather than a corner size, so they measure themselves off the key's own width and height: the arch is always half the key's height, the hexagon's points are always a sixth of its width, the scallops always count out at roughly the same size whether it's a letter key or a spacebar. Wire them to a 0–28dp slider instead and one end of it flattens them into plain rectangles.
+The shapes that ignore the slider aren't being lazy about it. Their whole look is a proportion of the key rather than a corner size, so they measure themselves off the key's own width and height. The arch is always half the key's height. The hexagon's points are always a sixth of its width. The scallops count out at roughly the same size whether it's a letter key or a spacebar. Wire them to a 0–28dp slider instead and one end of it flattens them into plain rectangles.
 
 Only the drawing changes. Touch targets stay rectangular for every shape, so the gap between two hexagons still belongs to one key or the other, and nothing gets harder to hit.
 
-Slanted is the one shape that draws slightly outside its key. A parallelogram kept inside the key would lose about a third of the width at the top and the bottom, which on a phone-sized key reads as a row of thin straps, so it leans half its slant into the gap on each side instead. Every key stays exactly as wide as it would be with any other shape, and the gap between two keys stays the same width; it just runs on a diagonal. Where there is no gap to lean into, the lean is trimmed to fit.
+Slanted is the one shape that draws slightly outside its key. A parallelogram kept inside the key would lose about a third of the width at the top and the bottom, which on a phone-sized key reads as a row of thin straps. So it leans half its slant into the gap on each side instead. Every key stays exactly as wide as it would be with any other shape, and the gap between two keys keeps its width. The gap just runs on a diagonal. Where there is no gap to lean into, the lean is trimmed to fit.
 
 :::note
 Shapes past the first four are new. A theme exported with one of them won't import into a version of the app that predates it: the importer drops a theme whose shape name it doesn't recognise rather than guessing. Stick to Rounded, Pill, Cut, or Squircle in a theme you plan to share widely.
@@ -92,19 +92,19 @@ Shapes past the first four are new. A theme exported with one of them won't impo
 
 ### Key textures
 
-Keys can wear an image instead of just a color. One picture for the letter keys is enough to theme the whole board; the modifier keys, the enter key, the space bar, the pressed state and the key-preview popup each take an optional image of their own, and fall back sensibly when you don't set one (space reuses the letter texture, pressed draws the press tint over it; the popup draws color-only rather than borrowing a key's image).
+Keys can wear an image instead of a flat color. One picture for the letter keys is enough to theme the whole board. The modifier keys, the enter key, the space bar, the pressed state and the key-preview popup each take an optional image of their own, and each falls back sensibly when you don't set one: space reuses the letter texture, pressed draws the press tint over it, and the popup draws color-only rather than borrowing a key's image.
 
-- Each texture row picks an image from your gallery; it's stored downscaled to 512px, so a camera photo won't bloat the theme file. Rows that have an image show it as a small thumbnail, the same way the background and press-effect image rows do.
-- **Crop / Stretch / Tile** decides how the image fits a key. Crop keeps its proportions, stretch fills the key exactly, tile repeats it at its natural size — the right choice for pixel-art.
-- **Texture opacity** blends the image over the key color underneath, which stays the base coat (and what high-contrast accessibility falls back to — textures don't draw there at all).
+- Each texture row picks an image from your gallery. It's stored downscaled to 512px, so a camera photo won't bloat the theme file. Rows that have an image show it as a small thumbnail, the same way the background and press-effect image rows do.
+- **Crop / Stretch / Tile** decides how the image fits a key. Crop keeps its proportions, stretch fills the key exactly, and tile repeats it at its natural size. Tile is the one you want for pixel-art.
+- **Texture opacity** blends the image over the key color underneath. That color stays the base coat, and it's what high-contrast accessibility falls back to, since textures don't draw there at all.
 
 Textures travel inside the theme file when you export it. An older app version imports the same file as a plain color theme and loses nothing else.
 
 ### Single-key styles
 
-One key can carry its own colors: its face, its label, its border, and the popup bubble it shows. Add a letter (the style follows that letter onto every layout that has it) or one of the special keys (Enter, Space, Shift, Delete, Symbols…), then set any of the five colors; the rest keep following the theme.
+One key can carry its own colors: its face, its label, its border, and the popup bubble it shows. Add a letter (the style follows that letter onto every layout that has it) or one of the special keys (Enter, Space, Shift, Delete, Symbols…). Then set any of the five colors. The rest keep following the theme.
 
-An armed or locked modifier still shows the accent/pressed face whatever color you gave it — state has to stay visible.
+An armed or locked modifier still shows the accent or pressed face whatever color you gave it, because state has to stay visible.
 
 ### Stickers
 
@@ -112,11 +112,11 @@ Up to six images laid over the keys, purely for decoration: typing goes straight
 
 ### Key press effect
 
-A small particle burst under every key press: **Stars**, **Hearts**, **Sparkle**, **Confetti**, **Emoji** with a field for the emoji to throw (each one becomes its own particle kind), or **Images** — up to six of your own pictures from the gallery, each one a particle kind the same way. Transparent PNGs look best; they're stored small and keep their proportions in flight. An **Intensity** slider scales how many particles a press throws. The effect never plays under reduce motion or power saving, and high-contrast accessibility drops it with the rest of the decoration.
+A small particle burst under every key press. Pick **Stars**, **Hearts**, **Sparkle**, **Confetti**, **Emoji** with a field for the emoji to throw (each one becomes its own particle kind), or **Images**, which takes up to six of your own pictures from the gallery, each a particle kind the same way. Transparent PNGs look best. They're stored small and keep their proportions in flight. An **Intensity** slider scales how many particles a press throws. The effect never plays under reduce motion or power saving, and high-contrast accessibility drops it with the rest of the decoration.
 
 ### Font and sound
 
-The theme can bring its own key font and key sound. Both are picked from what's on the device — the styles the app ships plus anything installed from the font and sound libraries — and referenced by name, never copied into the theme file. If someone imports your theme without that font or sound installed, their keyboard quietly uses their own global choice instead; publish the font and sound as their own add-ons and list them under the theme's `requires` in a [repository manifest](/development/addon-repos/repo-format/) so the install screen offers to fetch them together.
+The theme can bring its own key font and key sound. You pick both from what's on the device: the styles the app ships, plus anything installed from the font and sound libraries. They're referenced by name and never copied into the theme file. If someone imports your theme without that font or sound installed, their keyboard quietly uses their own global choice instead. Publish the font and sound as their own add-ons and list them under the theme's `requires` in a [repository manifest](/development/addon-repos/repo-format/), so the install screen offers to fetch them together.
 
 **Key font** covers Latin, Cyrillic and Greek. Every other script keeps its own face, because a Latin-only display font draws a Bengali board as empty boxes.
 
@@ -124,53 +124,53 @@ The theme can bring its own key font and key sound. Both are picked from what's 
 
 Your own per-script pick in Appearance → Fonts still beats the theme's. You chose that font on purpose, and a theme doesn't get to overrule it.
 
-For a theme you plan to share: Google Font ids (`google:Caveat`) resolve the same on every device, and an installed sound or font can be named by its catalogue name — "Typewriter" for a sound, `installed:Bloxat` for a font — the ids the libraries mint locally differ per phone, so those forms are the ones that travel.
+For a theme you plan to share, use the forms that travel. Google Font ids (`google:Caveat`) resolve the same on every device, and an installed sound or font can be named by its catalogue name: "Typewriter" for a sound, `installed:Bloxat` for a font. The ids the libraries mint locally differ from phone to phone.
 
 ### Accent & popups
 
-- **Accent** — the shift-on tint, active-tool color, and buttons across the panels.
-- **Gesture trail** — the color of the swipe-typing trail; Auto falls back to Accent. Supports alpha.
-- **Popup background** and **Popup text** — the bubble that appears above a key on press; both support Auto fallbacks (deriving from the board/key colors and Key text respectively). Popup background supports alpha.
-- **Popup shape** — the outline of every popup surface the keyboard draws: the character bubble, the long-press alternates, the language list, the panel menus. Same picker and same twelve shapes as Key shape, drawn at this theme's popup radius. Until you pick one, the theme follows <SettingsPath path="Key press / Popup shape" />.
-- **Popup placement** — whether the character bubble grows out of the pressed key (the stock style) or floats detached above it. **Default** leaves the choice to <SettingsPath path="Key press" />; the other two make it part of the theme, so a bubble-popup theme looks right on every phone it lands on.
-- **Popup outline** and its width row — a border around the bubble, off until you pick a color, exactly like the key border. It draws on every popup surface the keyboard opens: the character bubble, the long-press alternates, the spacebar language picker, the clipboard and emoji menus, and the small pickers inside the tool panels.
+- **Accent** paints the shift-on tint, the active-tool color, and the buttons across the panels.
+- **Gesture trail** is the color of the swipe-typing trail. Auto falls back to Accent, and the field supports alpha.
+- **Popup background** and **Popup text** color the bubble that appears above a key on press. Both support Auto fallbacks, deriving from the board and key colors and from Key text respectively. Popup background supports alpha.
+- **Popup shape** sets the outline of every popup surface the keyboard draws: the character bubble, the long-press alternates, the language list, the panel menus. It's the same picker and the same twelve shapes as Key shape, drawn at this theme's popup radius. Until you pick one, the theme follows <SettingsPath path="Key press / Popup shape" />.
+- **Popup placement** decides whether the character bubble grows out of the pressed key (the stock style) or floats detached above it. **Default** leaves the choice to <SettingsPath path="Key press" />. The other two make it part of the theme, so a bubble-popup theme looks right on every phone it lands on.
+- **Popup outline** and its width row draw a border around the bubble, off until you pick a color, exactly like the key border. It draws on every popup surface the keyboard opens: the character bubble, the long-press alternates, the spacebar language picker, the clipboard and emoji menus, and the small pickers inside the tool panels.
 - The popup can also wear an image: the **Key preview popup** row under [Key textures](#key-textures) paints one inside the bubble, clipped to the popup shape, using the same Crop/Stretch/Tile mode and opacity as the key textures.
-- **Menu shape** — the list menus (the spacebar language picker, the clipboard and emoji menus) don't blindly follow the popup shape. On **Automatic** they take a safe derivative: the plain outlines (Rounded, Square, Cut, Squircle) pass through, the decorative ones fall back to Rounded — a slanted character bubble is charming, a slanted menu clips its own rows. Pick a shape here only to overrule that judgement.
+- **Menu shape** exists because the list menus (the spacebar language picker, the clipboard and emoji menus) don't blindly follow the popup shape. On **Automatic** they take a safe derivative: the plain outlines (Rounded, Square, Cut, Squircle) pass through, and the decorative ones fall back to Rounded. A slanted character bubble is charming. A slanted menu clips its own rows. Pick a shape here only to overrule that judgement.
 
 ### Toolbar
 
-- **Tool background shape** — the outline of the background behind each toolbar tool, from the same twelve shapes. It follows <SettingsPath path="Appearance / Toolbar / Tool background shape" /> until you pick one here, and it draws nothing at all while the tool radius is 0, which is the setting for bare icons.
-- **Tool icons** — the toolbar's icon color, Auto by default.
-- **Tool circles** and **Active tool circle** — the background behind a toolbar icon, at rest and while pressed/active. Both support alpha.
-- **Tool outline** and **Tool outline width** — a border around that background, off until you pick a color, exactly like the key border in [Keys](#keys). The width row appears once a color is set, and nothing draws until it's above 0. A theme that sets one keeps it even with the accessibility **Key outlines** toggle on.
+- **Tool background shape** is the outline of the background behind each toolbar tool, from the same twelve shapes. It follows <SettingsPath path="Appearance / Toolbar / Tool background shape" /> until you pick one here. Nothing draws at all while the tool radius is 0, which is the setting for bare icons.
+- **Tool icons** sets the toolbar's icon color, Auto by default.
+- **Tool circles** and **Active tool circle** paint the background behind a toolbar icon, at rest and while pressed or active. Both support alpha.
+- **Tool outline** and **Tool outline width** put a border around that background, off until you pick a color, exactly like the key border in [Keys](#keys). The width row appears once a color is set, and nothing draws until it's above 0. A theme that sets one keeps it even with the accessibility **Key outlines** toggle on.
 
 ### Panels & suggestions
 
-- **Cards & search bar** — the `chipBackground` field; covers suggestion chips and the search-bar surface across the tool panels. Auto falls back to Modifier keys. Supports alpha.
-- **Suggestion text** — the color of suggestion-strip text and the panels' body text; Auto falls back to Key text, contrast-guarded against the board. A theme whose keys invert against its board (dark ink on cream keys over a near-black board) gets a legible strip either way, and an explicit choice here is honoured as written.
+- **Cards & search bar** is the `chipBackground` field. It covers suggestion chips and the search-bar surface across the tool panels. Auto falls back to Modifier keys, and the field supports alpha.
+- **Suggestion text** colors the suggestion strip and the panels' body text. Auto falls back to Key text, contrast-guarded against the board, so a theme whose keys invert against its board (dark ink on cream keys over a near-black board) still gets a legible strip. An explicit choice here is honoured as written.
 
 ### Chips & buttons
 
-Chips are the small tappable surfaces inside the tool panels — style pickers, tab strips, converter controls, dictionary suggestions, search bars, the cards in the clipboard, snippet, weather, calendar, grammar and plugin lists, and the buttons and fields a [plugin](/plugins/overview/) draws. They take the card color above as their background, and this group styles the rest. The panels' own keypads (calculator, numpad, the converters, the text-editing pad, the handwriting and voice rails) are keys, not chips: they follow the theme's key shape and key border instead, so a circle-key theme gets circular calculator keys for free.
+Chips are the small tappable surfaces inside the tool panels: style pickers, tab strips, converter controls, dictionary suggestions, search bars, the cards in the clipboard, snippet, weather, calendar, grammar and plugin lists, and the buttons and fields a [plugin](/plugins/overview/) draws. They take the card color above as their background, and this group styles the rest. The panels' own keypads (calculator, numpad, the converters, the text-editing pad, the handwriting and voice rails) count as keys rather than chips. They follow the theme's key shape and key border, so a circle-key theme gets circular calculator keys for free.
 
-- **Chip text** and **Selected chip** / **Selected chip text** — the resting label, and the fill and label of the chip that's currently active. Auto derives all three from the theme (the selected fill follows the active tool circle).
-- **Chip outline** and its width row — a border around every chip, off until you pick a color.
-- **Chip shape** and **Chip corner radius** — the same twelve-shape picker as everywhere else. The default is the 12dp soft rectangle chips have always drawn.
-- **Card shape** — the bigger surfaces (clipboard and snippet cards, plugin rows, search bars, the converters' displays) follow the chip shape only through the same safety rule as the menu shape: plain outlines pass through, decorative ones fall back to Rounded, and an explicit pick here overrules it.
+- **Chip text** and **Selected chip** / **Selected chip text** cover the resting label, plus the fill and label of the chip that's currently active. Auto derives all three from the theme, and the selected fill follows the active tool circle.
+- **Chip outline** and its width row draw a border around every chip, off until you pick a color.
+- **Chip shape** and **Chip corner radius** use the same twelve-shape picker as everywhere else. The default is the 12dp soft rectangle chips have always drawn.
+- **Card shape** governs the bigger surfaces: clipboard and snippet cards, plugin rows, search bars, the converters' displays. They follow the chip shape through the same safety rule as the menu shape, so plain outlines pass through, decorative ones fall back to Rounded, and an explicit pick here overrules both.
 
 Any row left on Auto shows an "Auto" label under its name instead of a fixed value. Once you've overridden it, that row's color picker gains an **Auto** button (next to Apply) that clears the override and puts it back on Auto.
 
 ### Gradients
 
-Both **Board** and **Keys** can carry an optional gradient instead of (technically, painted over) their solid color, toggled on with a switch next to each. Turning one on seeds it with a sensible default (the board gradient starts as a 135° linear blend from Background to Accent, the key gradient as a subtle 90° white sheen), which you can then reshape:
+Both **Board** and **Keys** can carry an optional gradient, painted over their solid color and toggled on with a switch next to each. Turning one on seeds it with a sensible default that you can then reshape. The board gradient starts as a 135° linear blend from Background to Accent, and the key gradient as a subtle 90° white sheen.
 
 <PhoneFrame caption="A board gradient turned on: type, angle, and color-stop controls.">
   ![A board gradient turned on: type, angle, and color-stop controls.](@assets/screens/themes/editor-gradient.webp)
 </PhoneFrame>
 
-- **Type** — Linear, Radial, or Sweep.
-- **Angle** — 0–360°, shown for Linear and Sweep only (Radial ignores it).
-- **Color stops** — 2 to 4, each with its own color and alpha, with **Add color** / **Remove color** buttons to grow or shrink the list.
+- **Type**: Linear, Radial, or Sweep.
+- **Angle**: 0–360°, shown for Linear and Sweep only (Radial ignores it).
+- **Color stops**: 2 to 4, each with its own color and alpha. **Add color** and **Remove color** grow and shrink the list.
 
 ### Corners
 
@@ -180,9 +180,9 @@ Off by default, so keys everywhere follow the global sliders (two under Appearan
   ![Theme-specific corner radii, with the Key, Popup, and Tool circle sliders.](@assets/screens/themes/editor-corners-animation.webp)
 </PhoneFrame>
 
-- **Key corner radius** — 0–28dp, seeded from the global Key corner radius slider (default 8dp) when you turn the switch on.
+- **Key corner radius**: 0–28dp, seeded from the global Key corner radius slider (default 8dp) when you turn the switch on.
 - **Popup corner radius**: 0–40dp, seeded from the global **Popup corner radius** slider under <SettingsPath path="Key press" /> (default 12dp).
-- **Tool circle radius** — 0–20dp ("off," i.e. square, at 0), seeded from the global Tool circle radius slider (default 20dp).
+- **Tool circle radius**: 0–20dp, where 0 means square, seeded from the global Tool circle radius slider (default 20dp).
 
 ### Layout
 
@@ -202,10 +202,10 @@ Only three built-in themes ship with animation turned on: Sunset drift and Cyber
 
 ## Live preview while you edit
 
-A miniature keyboard preview is pinned at the top of the editor and redraws on every change you make: colors, shape, gradients, corners, all of it, immediately, without leaving the screen.
+A miniature keyboard preview is pinned at the top of the editor. It redraws on every change you make: colors, shape, gradients, corners, all of it, without leaving the screen.
 
 :::note
-The preview's gradient rendering is intentionally static. If you turn on Flow or Hue cycle animation, you won't see it move in this preview; it only animates on the real keyboard, once you switch to it or open a text field to test.
+The preview's gradient rendering is deliberately static. Turn on Flow or Hue cycle animation and you won't see it move here. It only animates on the real keyboard, once you switch to it or open a text field to test.
 :::
 
 ## Duplicating and deleting
@@ -224,9 +224,9 @@ Delete (and export) aren't offered for built-in themes or the Default theme, onl
 
 ## Details and edge cases
 
-- **Editing an existing custom theme doesn't switch to it.** Tapping the pencil on a theme already in Your Themes opens the editor without changing your active keyboard theme. Only Create, Duplicate (from a built-in), and Import set the edited theme as active, and only as a side effect of those specific actions, not of editing generally.
+- **Editing an existing custom theme doesn't switch to it.** Tapping the pencil on a theme already in Your Themes opens the editor without changing your active keyboard theme. Only Create, Duplicate (from a built-in), and Import set the edited theme as active, as a side effect of those actions rather than of editing.
 - **Typography isn't part of a theme.** The key-label typeface, key-label font size, and hint font size all live outside `ThemeSpec` entirely. See [Keyboard fonts](/themes/fonts/) for the font picker, and Appearance → Keys for the two font-size sliders, which apply keyboard-wide rather than per theme.
-- **Two "Auto" swatches don't perfectly match the real keyboard.** Pressed key and Active tool circle, when left on Auto, are approximated slightly differently in the editor's preview swatch than in the formula the real keyboard uses at render time. The difference is subtle and only shows up if you're comparing pixel-for-pixel; every other Auto fallback (popup background, tool circles at rest, and so on) matches exactly.
+- **Two "Auto" swatches don't perfectly match the real keyboard.** Pressed key and Active tool circle, when left on Auto, are approximated slightly differently in the editor's preview swatch than in the formula the real keyboard uses at render time. The difference is subtle and only shows up if you compare pixel-for-pixel. Every other Auto fallback (popup background, tool circles at rest, and so on) matches exactly.
 - **A theme's background image lives in this same editor**, under Board, but the picker, crop dialog, and opacity/blur sliders are covered in full on [Image backgrounds](/themes/backgrounds/) rather than here.
 - **Corner-radius overrides here are theme-specific**; the sliders they inherit from and the global key-shape basics are covered in [Theming overview](/themes/overview/).
 - **Exporting, importing, and installing a theme from a repository** are covered in [Sharing themes](/themes/sharing/), including what happens to a theme's colors and images when it travels as a file.

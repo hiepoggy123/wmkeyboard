@@ -10,7 +10,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import GestureDemo from '@components/GestureDemo.astro';
 
-Once more than one layout is enabled, WM Keyboard gives you four independent ways to move between them: swipe the spacebar, hold the spacebar and drag through a list, use a dedicated key, or reach for Android's own input-method switcher. All four end up calling the same underlying switch, so which one you use is purely a matter of habit; nothing about what a switch *does* changes.
+Once more than one layout is enabled, there are four ways to move between them: swipe the spacebar, hold the spacebar and drag through a list, use a dedicated key, or reach for Android's own input-method switcher. All four call the same underlying switch. Pick whichever suits your hands, because nothing about what a switch *does* changes.
 
 <PhoneFrame caption="The resting spacebar shows the current language's name, with switch-direction arrows on either side.">
   {/* shot: languages/spacebar-resting-label */}
@@ -22,31 +22,31 @@ Once more than one layout is enabled, WM Keyboard gives you four independent way
 
 The spacebar has two independent swipe slots, each set under <SettingsPath path="Typing / Gestures" />:
 
-- **Quick swipe on spacebar** — a swipe that starts moving right away. Defaults to **Language**.
-- **Hold + swipe on spacebar** — hold briefly, *then* swipe. Defaults to **Cursor**.
+- **Quick swipe on spacebar**: a swipe that starts moving right away. Defaults to **Language**.
+- **Hold + swipe on spacebar**: hold briefly, *then* swipe. Defaults to **Cursor**.
 
-Each slot can be set to Nothing, Language, Cursor, or Numpad. Which slot fires isn't decided by how far you drag; it's decided by *when* the drag starts relative to the long-press delay (300ms by default): a swipe that crosses the touch-slop threshold before that delay elapses uses the quick-swipe slot; one that starts after uses the hold + swipe slot. Once the language preview or the picker list has appeared, though, any further drag switches language regardless of which slot is configured for it. At that point you're looking at a language chooser, so the drag should do what it looks like it does.
+Each slot can be set to Nothing, Language, Cursor, or Numpad. Which slot fires depends on *when* the drag starts, not on how far you drag. The reference point is the long-press delay, 300ms by default. A swipe that crosses the touch-slop threshold before that delay uses the quick-swipe slot, and one that starts after it uses the hold + swipe slot. Once the language preview or the picker list is up, any further drag switches language whatever the slot is set to. You are looking at a language chooser by then, so the drag does what it looks like it does.
 
-With exactly two layouts enabled, a swipe simply toggles to the other one: dragging further in the same direction doesn't toggle again, you have to reverse direction to switch back. With three or more, each 44dp of horizontal drag steps to the next layout in your switch order; reaching either end of the list resists wrapping around (it costs 2.5× as much travel to wrap as to take a normal step), so the boundary layout "parks" before a deliberate extra pull cycles you back to the start. (Two layouts of the same language still toggle rather than cycle; the count that matters here is enabled layouts, not distinct languages.)
+With exactly two layouts enabled, a swipe toggles to the other one. Dragging further in the same direction doesn't toggle again. Reverse direction to switch back. With three or more layouts, each 44dp of horizontal drag steps to the next one in your switch order. Either end of the list resists wrapping around, since a wrap costs 2.5× the travel of a normal step, so the boundary layout "parks" until a deliberate extra pull cycles you back to the start. (Two layouts of the same language still toggle rather than cycle. The count that matters is enabled layouts, not distinct languages.)
 
-While a language swipe is in progress, a preview pops up above the spacebar showing every enabled layout as a row of chips: the current selection bold and highlighted, the rest dimmed. With more than five layouts enabled it shows a five-chip window centered on your selection instead of the whole list. Release to commit the highlighted layout; a tap with no movement always just types a space.
+While a language swipe is in progress, a preview pops up above the spacebar showing every enabled layout as a row of chips: the current selection bold and highlighted, the rest dimmed. With more than five layouts enabled it shows a five-chip window centered on your selection instead of the whole list. Release to commit the highlighted layout. A tap with no movement always types a space.
 
 <PhoneFrame caption="Mid-swipe: the language preview shows every enabled layout, current selection highlighted.">
   {/* shot: languages/spacebar-language-preview */}
 </PhoneFrame>
 
-The resting spacebar label follows **Spacebar shows** (also under Typing → Gestures): Language (the default), Layout, or Both, and automatically falls back to showing the layout name alongside the language whenever two enabled layouts share a language, so you can tell them apart. The ◀▶ hint arrows only appear when **Arrows on spacebar** is on (default) *and* one of the two swipe slots is actually set to Language *and* more than one layout is enabled.
+The resting spacebar label follows **Spacebar shows** (also under Typing → Gestures), which offers Language (the default), Layout, or Both. Whenever two enabled layouts share a language, the label adds the layout name alongside it so you can tell them apart. The ◀▶ hint arrows need three things at once: **Arrows on spacebar** on (the default), one of the two swipe slots set to Language, and more than one layout enabled.
 
 ## Holding to drag through the list
 
 <GestureDemo type="space-hold" caption="Hold the spacebar, then drag to pick a language without lifting." />
 
-Press and hold the spacebar (with more than one layout enabled) and, shortly before the long-press delay would fire (250ms, or your long-press delay if it's shorter), one of two things opens:
+Press and hold the spacebar with more than one layout enabled. Shortly before the long-press delay would fire (250ms, or your long-press delay if that is shorter), one of two things opens:
 
 - **The inline preview** from the section above, if you have four or fewer layouts enabled and the quick-swipe slot is set to Language. This is what a fresh install shows: seeding never turns on more than four layouts, and quick swipe already defaults to Language.
 - **A scrollable picker list**, once you have more than four layouts enabled, or if you've reassigned the quick-swipe slot to something other than Language.
 
-Once the list is open, dragging vertically walks it one row at a time; the very first bit of finger movement after the list appears is absorbed as calibration and doesn't count as a step, so drift from before the hold fired never accidentally selects a neighbor. Lift your finger after moving and the highlighted row is selected; lift without ever moving and the list simply stays open so you can tap the row you want directly.
+Once the list is open, drag vertically to walk it one row at a time. The first bit of finger movement after the list appears is absorbed as calibration, so drift from before the hold fired never selects a neighbor by accident. Lift your finger after moving and the highlighted row is selected. Lift without moving at all and the list stays open, so you can tap the row you want.
 
 <PhoneFrame caption="More than four layouts enabled: holding the spacebar opens a scrollable list instead of the inline preview.">
   {/* shot: languages/hold-drag-picker-list */}
@@ -55,7 +55,7 @@ Once the list is open, dragging vertically walks it one row at a time; the very 
 ## Using the globe key
 
 :::caution[Not shown by default]
-A fresh install replaces the bottom-row <KeyCap>🌐</KeyCap> key with an emoji key. Every built-in layout defines that key, but the **Emoji key instead of 🌐** setting is on by default, so it opens the emoji panel instead of switching language until you turn it off. Language switching still works the whole time; it just lives on the spacebar (above) and the Languages screen (below) instead.
+A fresh install replaces the bottom-row <KeyCap>🌐</KeyCap> key with an emoji key. Every built-in layout defines that key, but the **Emoji key instead of 🌐** setting is on by default, so it opens the emoji panel instead of switching language until you turn it off. Language switching still works the whole time. It lives on the spacebar (above) and the Languages screen (below) instead.
 :::
 
 <SettingsPath path="Layout & size / Bottom-row keys / Emoji key instead of 🌐" />
@@ -77,15 +77,15 @@ There's a separate **Comma key opens emoji** toggle (off by default) that replac
 
 <SettingsPath path="Languages" />
 
-Every key and gesture above cycles through the same ordered list: your enabled layouts, in switch order. A fresh install seeds that list from your phone's own language settings: one layout per language it recognises, up to four, always including QWERTY. A phone set to Bangla and English starts with Avro and QWERTY; a phone set to English alone starts with QWERTY on its own, and has nothing to cycle to yet. Everything else in the catalogue sits inactive until you add it. See [Languages overview](/languages/overview/) for how the full catalogue works and what's in it.
+Every key and gesture above cycles through the same ordered list: your enabled layouts, in switch order. A fresh install seeds that list from your phone's own language settings, taking one layout per language it recognises, up to four, always including QWERTY. A phone set to Bangla and English starts with Avro and QWERTY. A phone set to English alone starts with QWERTY on its own and has nothing to cycle to yet. Everything else in the catalogue sits inactive until you add it. See [Languages overview](/languages/overview/) for how the full catalogue works and what's in it.
 
 On the **Languages** screen:
 
-- **Your languages** lists each enabled language once; tap one to enable or disable its individual layouts, or to remove the language entirely (only available once you have more than one language enabled, so you can never empty the list).
+- **Your languages** lists each enabled language once. Tap one to enable or disable its individual layouts, or to remove the language entirely (only available once you have more than one language enabled, so you can never empty the list).
 - **Add language** searches the whole catalogue and enables an unadded language's first layout immediately.
-- **Switch order** appears once you have more than one layout enabled and lets you drag to reorder the raw layout list, so two English layouts (say QWERTY and AZERTY) keep independent slots in the ring even though they're both "English."
+- **Switch order** appears once you have more than one layout enabled. Drag to reorder the raw layout list, so two English layouts (QWERTY and AZERTY, say) keep independent slots in the ring even though they're both "English."
 
-There's no separate "recent languages" or "maximum visible" setting: the size of the ring is entirely a function of how many layouts you've enabled, and reordering or removing is the only way to shorten it. The four-layout threshold that switches the hold-drag gesture from an inline preview to a full list (see above) is the main place that ring length changes behavior on its own.
+There's no separate "recent languages" or "maximum visible" setting. The ring is exactly as long as your enabled-layout list, so reordering or removing is the only way to shorten it. Ring length changes behavior on its own in one place: the four-layout threshold that turns the hold-drag gesture from an inline preview into a full list.
 
 <PhoneFrame caption="The Languages screen: Your languages, Add language, and Switch order.">
   {/* shot: languages/languages-screen-order */}
@@ -95,21 +95,25 @@ There's no separate "recent languages" or "maximum visible" setting: the size of
 
 The **System language switcher** group on the Languages screen connects your switch ring to Android itself:
 
-- **List languages in the Android switcher** (off by default) registers every enabled layout as an Android input-method subtype, so the system's "Choose input method" sheet lists each one and can switch to it directly. An explicit switch made inside the keyboard is mirrored out to Android, and a switch made from the system sheet is followed back into the keyboard; the two stay in sync either way. It ships off because the sheet prints a subtype's label where it would otherwise print the keyboard's name, so one language name in that row reads as if the keyboard were called that. Left off, switching stays entirely inside the keyboard and Android sees no subtypes at all.
+- **List languages in the Android switcher** (off by default) registers every enabled layout as an Android input-method subtype, so the system's "Choose input method" sheet lists each one and can switch to it directly. The two stay in sync either way: a switch you make inside the keyboard is mirrored out to Android, and a switch made from the system sheet is followed back into the keyboard. It ships off because the sheet prints a subtype's label where it would otherwise print the keyboard's name, so one language name in that row reads as if the keyboard were called that. Left off, switching stays entirely inside the keyboard and Android sees no subtypes at all.
 - **Show app name first** (off by default, shown only while the toggle above is on) puts "WM Keyboard" ahead of the language in the switcher's label instead of after it. Android still controls which part of the label is bold or greyed; this only changes the text order.
 - **Select languages in the system settings** (also shown only while the first toggle is on) opens Android's own list of this keyboard's languages, where each one can be ticked or unticked. See the callout below for when you actually need it.
 
 :::caution[On Android 13 and older you have to tick the languages yourself]
 Registering a language with Android and that language being *switchable* are two different things. Android only lists the subtypes it considers enabled, and if nothing has enabled any, it picks them itself from your phone's system languages, which normally means exactly one. That is why the switcher can show a single entry however many layouts you have on.
 
-Android 14 added an API that lets a keyboard enable its own subtypes, so on Android 14 and newer WM Keyboard enables all of them for you and the switcher lists the lot with nothing to configure. Below that there is no such API: open **Select languages in the system settings** and tick each language you want in the sheet.
+Android 14 added an API that lets a keyboard enable its own subtypes. On Android 14 and newer, WM Keyboard enables all of them for you and the switcher lists the lot with nothing to configure. Below that there is no such API. Open **Select languages in the system settings**. Tick each language you want in the sheet.
 :::
 
 <PhoneFrame caption="Languages → System language switcher: register every enabled layout as an Android input-method subtype.">
   {/* shot: languages/system-switcher-toggle */}
 </PhoneFrame>
 
-A separate, unrelated toggle (**Remember language per app**, under Per-app language, off by default) has the keyboard remember whichever layout you last explicitly switched to in a given app and restore it the next time you type there. Apps you haven't switched languages in yet just follow whatever you last used globally, and a field that demands Latin input or advertises its own language still overrides the memory either way.
+A separate, unrelated toggle, **Remember language per app** (under Per-app language, off by default), has the keyboard remember whichever layout you last explicitly switched to in a given app and restore it the next time you type there. Apps you haven't switched languages in yet follow whatever you last used globally, and a field that demands Latin input or advertises its own language still overrides the memory either way.
+
+**Forget remembered apps**, further down the Languages screen under Language data, clears that whole map after a confirmation. The row only appears once something is in it, and its subtitle counts how many apps have a language pinned. The feature itself stays on, so apps start being remembered again as you switch language inside them.
+
+**Link romanized languages automatically** sits in the same group and is on by default. It pairs a romanized language such as Banglish with the languages that share its script, so suggestions come from both. The pairing re-runs every time you add a language, which used to bring back a link you had removed by hand. Turn it off to keep your own choices.
 
 ## Options
 
@@ -126,15 +130,17 @@ A separate, unrelated toggle (**Remember language per app**, under Per-app langu
 | Comma key opens emoji | Layout & size → Bottom-row keys | Off |
 | Your languages / Switch order | Languages | Seeded from your phone's language list, plus QWERTY (max 4 layouts) |
 | Remember language per app | Languages → Per-app language | Off |
+| Forget remembered apps | Languages → Language data | A button, shown once apps are remembered |
+| Link romanized languages automatically | Languages → Language data | On |
 | List languages in the Android switcher | Languages → System language switcher | Off |
 | Show app name first | Languages → System language switcher | Off |
 
 ## Details & edge cases
 
-- **A fresh install shows an emoji key where you might expect the globe.** This is the single most common point of confusion with switching; see the callout above. Language switching itself is never disabled by this; only the dedicated key's icon and behavior change.
+- **A fresh install shows an emoji key where you might expect the globe.** It's the most common point of confusion with switching, and the callout above covers it. Switching itself is never disabled by the setting. Only the dedicated key's icon and behavior change.
 - **The globe key's tap cycles layouts, not languages.** If a language has three enabled layouts, tapping the key visits all three as separate stops rather than skipping straight to the next language.
-- **With exactly two layouts enabled, swiping doesn't wrap-cycle**: it toggles. Piling on more drag distance in the same direction won't toggle a second time; you have to reverse direction, which starts a fresh toggle. (The count that matters is enabled layouts, not distinct languages; two layouts of the same language toggle too.)
-- **A held-but-unmoved spacebar or globe-key long-press leaves the picker list open for a direct tap** rather than dismissing it; there's no need to drag precisely if you'd rather just tap the language you want.
-- **Reordering affects layouts, not languages.** If you've added a second layout for the same language (AZERTY alongside QWERTY, say), Switch order treats them as independent stops; moving one doesn't move the other.
-- **A subtype that Android hasn't enabled stays invisible.** Registering is ours to do, enabling is Android's, and before Android 14 only the user could bridge the gap. If the system sheet lists one language on an older phone, nothing is broken; the languages just haven't been ticked in system settings yet.
-- **The Android system switcher and per-app memory are independent settings.** You can have Android list every layout as a subtype while per-app memory stays off, or the reverse; turning one off doesn't touch the other.
+- **With exactly two layouts enabled, swiping toggles instead of wrap-cycling.** Piling on more drag distance in the same direction won't toggle a second time. Reverse direction and you start a fresh toggle. (The count that matters is enabled layouts, so two layouts of the same language toggle too.)
+- **A held-but-unmoved spacebar or globe-key long-press leaves the picker list open for a direct tap** rather than dismissing it. There's no need to drag precisely if you'd rather tap the language you want.
+- **Reordering affects layouts, not languages.** If you've added a second layout for the same language (AZERTY alongside QWERTY, say), Switch order treats them as independent stops, and moving one doesn't move the other.
+- **A subtype that Android hasn't enabled stays invisible.** Registering is ours to do and enabling is Android's, and before Android 14 only you could bridge the gap. If the system sheet lists one language on an older phone, nothing is broken. Those languages just haven't been ticked in system settings yet.
+- **The Android system switcher and per-app memory are independent settings.** You can have Android list every layout as a subtype while per-app memory stays off, or the reverse. Turning one off doesn't touch the other.

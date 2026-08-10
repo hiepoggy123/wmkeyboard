@@ -11,7 +11,7 @@ import Flavor from '@components/Flavor.astro';
 
 The Permissions screen is an inventory, not a setup wizard. Every feature that needs a permission still asks for it where the feature lives, so nothing funnels you through here. What this screen answers is "what can this keyboard reach, and what does it hold right now?", without you having to read a manifest. It's also the one place you can grant something ahead of the feature that wants it.
 
-This page is the field reference. For what each permission is actually used for and what refusing costs you, see [Permissions](/privacy/permissions/).
+This page is the field reference. For what each permission is actually used for, and what refusing costs you, see [Permissions](/privacy/permissions/).
 
 <PhoneFrame caption="The Permissions screen: runtime permissions, special access, and the ones that come with the install.">
   {/* shot: reference/settings/permissions-screen */}
@@ -23,7 +23,7 @@ This page is the field reference. For what each permission is actually used for 
 
 The top row of the [Privacy](/reference/settings/privacy/) screen opens it. Settings search finds it too, under "permissions".
 
-The screen opens on a caption: the keyboard works without all of these, each one unlocks a single optional feature, press a row to give the permission, press a granted row to open the system settings where you can take it back. Then three groups, none of which holds a toggle. Every row is either a link out or a plain label.
+The screen opens on a caption. The keyboard works without all of these, and each one unlocks a single optional feature. Press a row to give the permission. Press a granted row to open the system settings, where you can take it back. Then come three groups, none of which holds a toggle. Every row is either a link out or a plain label.
 
 ### Permissions
 
@@ -40,15 +40,15 @@ The ones Android shows a prompt for. Each row reads **Granted** or **Not granted
 | Photos and images | Show your new screenshots in the clipboard | always |
 | Storage | Save images from the keyboard to your gallery | Android 9 and older only |
 
-Tapping a row that isn't granted shows that permission's own explanation and then Android's prompt, exactly the same flow the feature itself would run. Tapping a row that *is* granted opens the app's page in Android's Settings instead, since that's the only place a grant can be handed back.
+Tap a row that isn't granted and you get that permission's own explanation, then Android's prompt. It's exactly the flow the feature itself would run. Tap a row that *is* granted and the app's page opens in Android's Settings instead, since that's the only place a grant can be handed back.
 
-**Storage** is the one row that isn't always there. From Android 10 the app writes to your gallery with no permission at all, so the row would be a control wired to nothing and it isn't drawn.
+**Storage** is the one row that isn't always there. From Android 10 the app writes to your gallery with no permission at all, so the row would be a control wired to nothing. It isn't drawn.
 
 ### Special access
 
 <SettingsPath path="Privacy / Permissions / Special access" />
 
-The three grants Android won't prompt for. Each one is a switch on a system screen, so all the app can do is explain itself and then take you there. Same **Granted** / **Not granted** labels.
+The three grants Android won't prompt for. Each one is a switch on a system screen, so all the app can do is explain itself and then take you there. The **Granted** and **Not granted** labels work the same way here.
 
 | Row | Subtitle | Where it sends you |
 |---|---|---|
@@ -62,7 +62,7 @@ These three go through the explanation every time, granted or not, because the s
 
 <SettingsPath path="Privacy / Permissions / Included with the app" />
 
-Three permissions Android hands every app at install. They can't be asked for and they can't be given back, so these rows do nothing when tapped and read **Automatic** on the right rather than a grant state.
+Three permissions the app holds from the moment you install it. They can't be asked for and they can't be given back, so these rows do nothing when tapped. They read **Automatic** on the right rather than a grant state.
 
 | Row | Subtitle |
 |---|---|
@@ -70,15 +70,16 @@ Three permissions Android hands every app at install. They can't be asked for an
 | Network state | The model downloads first check that the connection is not metered |
 | Vibration | Haptic feedback when you press a key |
 
-The screen closes on a caption saying as much: Android gives that last group out at install, an app can't ask for them or give them back, and every other permission on the screen can be taken back at any time, at which point the feature using it stops and the rest of the keyboard carries on.
+The screen closes on a caption saying as much. Android gives that last group out at install, and an app can't ask for them or give them back. Every other permission on the screen can be taken back at any time. The feature using it then stops, and the rest of the keyboard carries on.
 
 ## Details & edge cases
 
+- **The "Included with the app" group lists three rows, not every install-time permission in the APK.** These are the three the app declares for itself. A full build carries three more that never show up here and never produce a prompt: `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` and `FOREGROUND_SERVICE`. They arrive in the merged manifest from androidx.work, which ML Kit pulls in, and the app schedules no WorkManager job of its own. Lite builds don't declare them at all.
 - **The labels re-read themselves every time the screen comes back.** Both directions of a change happen on a system screen this one sends you to, so a row would otherwise be stale the moment you pressed Back. Grant something in Android's Settings, return to the keyboard, and the row already says **Granted**.
 - **Nothing on this screen is a setting**, so no row grows the usual restore button. What a row reflects is a grant held by Android, not a value stored by the app; see [Putting one setting back](/reference/settings/#putting-one-setting-back) for where that button does apply.
-- **Contacts is one permission behind two features.** Contact-name suggestions and contact-email suggestions both read the same grant. This screen asks for it once, with the name-suggestions wording; the two settings on the [Typing](/reference/settings/typing/) screen each have their own.
-- **The notification row's explanation covers both of its features.** It says the listener reads nothing at all for media controls, and that the optional one-time-code chip is the only thing that ever reads notification text, on the device, looking for a code. Turning the chip on is a separate decision on the Typing screen; see [One-time codes](/smart/one-time-codes/).
-- **A permission Android has stopped prompting for still works from here.** Refuse the same one twice and Android silently stops showing the dialog. The disclosure notices and turns the button into **Open settings** rather than firing a request that would do nothing visible. See [If Android stops asking](/privacy/permissions/#if-android-stops-asking).
+- **Contacts is one permission behind two features.** Contact-name suggestions and contact-email suggestions both read the same grant. This screen asks for it once, with the name-suggestions wording. The two settings on the [Typing](/reference/settings/typing/) screen each have their own.
+- **The notification row's explanation covers both of its features.** It says the listener reads nothing at all for media controls. The optional one-time-code chip is the only thing that ever reads notification text, on the device, looking for a code. Turning that chip on is a separate decision on the Typing screen. See [One-time codes](/smart/one-time-codes/).
+- **A permission Android has stopped prompting for still works from here.** Refuse the same one twice and Android quietly stops showing the dialog. The disclosure notices, and turns the button into **Open settings** rather than firing a request that would do nothing visible. See [If Android stops asking](/privacy/permissions/#if-android-stops-asking).
 - **No edition differences.** The same rows appear on both the full and lite builds, even though a few of the features behind them are <Flavor edition="full" /> only.
 
 ## Related pages

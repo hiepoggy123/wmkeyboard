@@ -18,18 +18,18 @@ The keyboard doesn't have to draw its key labels in the system font. Pick from d
 
 Every picker is a scrollable list of `SettingsGroup` rows, and every row renders its own label live in the face it names: nothing to imagine from a font name alone. Fonts are fetched once through the Google Play Services downloadable-fonts provider and cached on-device after that, so the second time you pick one there's no download at all.
 
-On a device with no Play Services (a de-Googled ROM, most commonly), the Google Font rows don't appear at all. Picking one there would resolve to the system face and change nothing on screen, so instead of a list of rows that all look identical, you get one paragraph at the top of the screen saying Play Services supplies those fonts and the lists below hold the system font, your imports and anything you installed from the store. The theme editor's own font picker drops its Google list on the same devices, for the same reason.
+On a device with no Play Services (a de-Googled ROM, most commonly), the Google Font rows don't appear at all. Picking one there would resolve to the system face and change nothing on screen. Rather than a list of rows that all look identical, you get one paragraph at the top of the screen: Play Services supplies those fonts, and the lists below hold the system font, your imports, and anything you installed from the store. The theme editor's own font picker drops its Google list on the same devices, for the same reason.
 
 - **English** gets 20 curated faces: Roboto, Inter, Open Sans, Lato, Montserrat, Poppins, Nunito, Rubik, Ubuntu, Source Sans 3, Merriweather, Lora, Playfair Display, Roboto Slab, Roboto Mono, JetBrains Mono, Comfortaa, Pacifico, Caveat, and Orbitron. This same picker also draws Cyrillic and Greek keys, since neither script has one of its own.
 - **Bengali** gets 9 faces: Hind Siliguri, Noto Sans Bengali, Noto Serif Bengali, Anek Bangla, Baloo Da 2, Tiro Bangla, Atma, Mina, and Galada, shown only while a Bengali-script language is enabled.
 - **21 other scripts** (Arabic, Hebrew, Armenian, Georgian, Devanagari, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Sinhala, Thai, Lao, Khmer, Myanmar, Ethiopic, Korean, Japanese, and Chinese) each get their own short curated list (from a single alternative for Armenian or Georgian, up to nine for Thai, Chinese, Korean, or Japanese), plus an **Automatic (Noto)** default row. A script's section only appears while a language using that script is enabled, so the settings screen never shows pickers for scripts you don't type in.
 - A handful of remaining scripts (Thaana, music notation, Braille) draw with an automatic Noto face too, but don't get a picker at all, since there's no second well-supported face to offer.
 
-Selecting a font applies it immediately: the English face governs English mode, the Bengali face governs Avro, প্রভাত, and জাতীয় modes, and each script face governs typing in that script: across key labels, the suggestion strip, and the keyboard's own panels.
+Selecting a font applies it immediately. The English face governs English mode, the Bengali face governs Avro, প্রভাত, and জাতীয় modes. Each script face governs typing in that script, across key labels, the suggestion strip, and the keyboard's own panels.
 
 ## Importing your own font file
 
-The English and Bengali sections each have an **Import font file (.ttf / .otf)** button that adds a file to a shared library rather than overwriting a single slot: importing a second font doesn't evict the first, and a file with no declared script coverage shows up in both sections' Installed-fonts lists. Other-script sections don't have an import button, and don't have an Installed-fonts list at all. They offer only the automatic Noto default and their own short curated list, so a font you want for, say, Devanagari can't currently be applied there no matter how it ends up in the library.
+Every script section has an **Import font file (.ttf / .otf)** button and its own **Installed fonts** list. The button adds the file to one shared library rather than overwriting a single slot, so importing a second font doesn't evict the first. Each list is filtered to the fonts that declare that script, plus any that declare no coverage at all. Import a Devanagari or Thai font from any section, or install one from an addon repository, and it turns up in that script's own picker. English and Bengali additionally keep a legacy single-file slot from older builds.
 
 A picked file goes through two checks before it's accepted:
 
@@ -39,24 +39,24 @@ A picked file goes through two checks before it's accepted:
 Two limits apply: **50 fonts** in the library at once, and **32 MB** per file. Hitting either shows a plain-language dialog instead of a silent failure. Imported fonts live in the app's private storage under a generated id, never the file's original name, and if two fonts share a display name the newer one becomes "Name (2)".
 
 :::note
-Older builds stored one custom English file and one custom Bengali file directly, before the multi-font library existed. Those two legacy files still work and still show up as selectable rows for anyone who set one before upgrading; new imports always go into the library instead.
+Older builds stored one custom English file and one custom Bengali file directly, before the multi-font library existed. Those two legacy files still work, and they still show up as selectable rows for anyone who set one before upgrading. New imports always go into the library instead.
 :::
 
 ## Installing fonts from an addon repository
 
 Fonts are one of the addon types repositories can ship: a text font (`font`) and an emoji font (`emoji_font`) are distinct types, each capped at 32 MB, matching the manual-import limit. Neither type is previewable in the catalogue: a font can only really be judged by looking at the keyboard wearing it, so there's no static preview image, just an install-and-try workflow.
 
-Installing a text font addon adds it straight to the library with no follow-up question: the catalogue's **Use** button takes you to the Keyboard font screen, scrolled to the English section's Installed-fonts list. That happens regardless of what the font actually declares: only the English and Bengali sections have an Installed-fonts list at all, so a font that covers Bengali surfaces there instead, and one that only declares some other script doesn't currently surface in any built-in picker. Installing an emoji font addon works differently: it asks whether to start drawing emoji with it right away (see below). Uninstalling a text font removes it from the library outright; if it was your selected English or Bengali font, rendering quietly falls back to the system font, but the setting itself is only reset to the automatic default when you delete the font from its row on the Keyboard font screen, not when you uninstall it from the Addons screen.
+Installing a text font addon adds it straight to the library with no follow-up question. The catalogue's **Use** button takes you to the Keyboard font screen, scrolled to the **Installed fonts** list under English. That's where it drops you whatever the font declares, so a Devanagari face is a scroll further down, in the Devanagari section's own installed list. An emoji font addon works differently, and asks whether to start drawing emoji with it right away (see below). Uninstalling a text font removes it from the library outright. If it was the font you had selected, rendering quietly falls back to the system font. The setting itself is only reset to the automatic default when you delete the font from its row on the Keyboard font screen, not when you uninstall it from the Addons screen.
 
 See [Installing addons](/addons/installing/) for the general install flow, and [Addon repository format](/development/addon-repos/repo-format/) if you're building a repository of your own.
 
 ## Why a font only shows up where it fits
 
-A font can declare which languages it covers. That claim is what keeps a Latin-only display face out of the Bengali picker's Installed-fonts list, where selecting it would draw every key as an empty box. English and Bengali are the only sections with an Installed-fonts list, and each lists a font only if it declares no coverage at all (offered in both) or if one of its declared languages matches that section's script. A font imported manually through the English or Bengali button makes no coverage claim by default, so it's offered in both; a font's coverage claim for an addon font comes from the repository's own manifest. The other 21 script sections don't have an Installed-fonts list yet, so a font's declared coverage for, say, Devanagari doesn't currently do anything; there's no picker for it to surface in beyond that script's automatic Noto face and its own curated list.
+A font can declare which languages it covers. That claim is what keeps a Latin-only display face out of the Bengali picker's installed list, where selecting it would draw every key as an empty box. A section lists a font when one of its declared languages matches that section's script, or when the font declares no coverage at all. A font you import by hand makes no claim, so every section offers it. An addon font's claim comes from the repository's own manifest, which is how a Devanagari face lands in the Devanagari section and stays out of the others.
 
-That filter only curates which fonts a picker *offers*; it isn't what keeps keys from going blank. Rendering falls back per glyph to the system font automatically, regardless of any coverage claim, so an exotic display face never leaves a key empty even if you select it somewhere its coverage claim didn't anticipate.
+The filter only curates which fonts a picker *offers*. It isn't what keeps keys from going blank. Rendering falls back per glyph to the system font automatically, whatever a font claims, so an exotic display face never leaves a key empty.
 
-<PhoneFrame caption="A script-specific picker (Devanagari): the automatic Noto face and a short curated list, since script sections don't offer installed or addon fonts yet.">
+<PhoneFrame caption="A script-specific picker (Devanagari): the automatic Noto face, a short curated list, and any installed fonts that cover the script.">
   ![A script-specific picker (Devanagari): the automatic Noto face, a short curated list, and any installed fonts that declare coverage for the script.](@assets/screens/themes/font-picker-script.webp)
 </PhoneFrame>
 
@@ -68,14 +68,14 @@ The font you pick here never touches emoji: key labels and emoji are two indepen
 
 <SettingsPath path="Appearance / Keyboard font" />
 
-- **English font** — system default, or one of 20 Google Fonts, or an imported/installed file. Also governs Cyrillic and Greek. Default: system default.
-- **One section per enabled script** — the script's Automatic (Noto) face, or one of its curated Google Fonts. Default: Automatic (Noto). Bengali is one of these sections like any other, and is additionally the one script whose section also takes an imported file and lists the shared library.
-- **Installed fonts** — the shared library; listed under the English and Bengali sections, each filtered to fonts that declare that section's script or declare none. Delete a font from either section that lists it.
+- **English font** takes the system default, one of 20 Google Fonts, or an imported or installed file. It also governs Cyrillic and Greek. Default: system default.
+- **One section per enabled script**: the script's Automatic (Noto) face, one of its curated Google Fonts, or anything in the library that covers it. Default: Automatic (Noto). English and Bengali additionally keep a legacy single-file slot.
+- **Installed fonts** is the shared library. Every section lists it, filtered to fonts that declare that section's script or declare none. Delete a font from any section that lists it.
 
 A related but separate control: <SettingsPath path="Accessibility / Readable font" /> is a one-tap shortcut that sets the English font to Atkinson Hyperlegible, the Braille Institute's low-vision face where lookalike characters (capital I, lowercase l, digit 1) are drawn distinctly. It's the same setting as the English font picker above, just reached from Accessibility instead.
 
 :::note
-**Font face and font size are different settings.** The size of the labels on the keys (a 0.7×–1.5× scale, independent of typeface) lives on the main Appearance screen, not here.
+**Font face and font size are different settings.** The size of the labels on the keys (a 0.7×–2.0× scale, independent of typeface) lives on the main Appearance screen, not here.
 :::
 
 ## Details & edge cases

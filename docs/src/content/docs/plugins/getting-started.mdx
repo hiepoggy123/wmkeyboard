@@ -1,6 +1,6 @@
 ---
 title: "Writing your first plugin"
-description: "Build the Cipher Tool — a two-tab plugin panel — with nothing but a text editor."
+description: "Build the Cipher Tool: a plugin panel with two tabs, made with nothing but a text editor."
 sidebar:
   label: "Getting started"
   order: 2
@@ -25,7 +25,7 @@ You need a text editor and a way to make a ZIP file. That is the whole toolchain
 
 </FileTree>
 
-**`plugin.json`** — who your plugin is:
+**`plugin.json`** says who your plugin is:
 
 ```json title="plugin.json"
 {
@@ -42,11 +42,11 @@ You need a text editor and a way to make a ZIP file. That is the whole toolchain
 }
 ```
 
-The `id` has to be unique, lowercase, and look like a reverse domain name — it
+The `id` has to be unique, lowercase, and look like a reverse domain name. It
 becomes the folder your plugin lives in on the device. `permissions` is empty
-because this plugin does not need anything; most do not.
+because this plugin does not need anything, and most do not.
 
-**`main.lua`** — what it does:
+**`main.lua`** says what it does:
 
 ```lua title="main.lua"
 function render()
@@ -62,17 +62,17 @@ A `.wmplugin` is a ZIP with those two files at the top level:
 cd cipher && zip ../cipher.wmplugin plugin.json main.lua
 ```
 
-Nothing else to it. Put `cipher.wmplugin` on your phone, open it from a file
-manager, and confirm the install. Turn plugins on first:
+Nothing else to it. Plugins stay off until you turn them on, so start there:
 
 <SettingsPath path="Tools / Plugins" />
 
-Open the **Plugins** tool on the keyboard, tap Cipher Tool, and you should see
-your greeting.
+Copy `cipher.wmplugin` to your phone. Open it from a file manager. Confirm the
+install. Then open the **Plugins** tool on the keyboard and tap Cipher Tool.
+Your greeting appears.
 
 :::tip[Keep the file manager open]
-You will be replacing the ZIP and reinstalling as you go, which takes about ten
-seconds each time.
+You will replace the ZIP and reinstall it as you go. Each round takes about ten
+seconds.
 :::
 
 ## How a plugin actually works
@@ -88,8 +88,8 @@ The keyboard calls `render()`, draws what it returns, and waits. When the user
 taps something, it calls `on_event(e)`, then calls `render()` again and redraws.
 
 So you never update the screen yourself. You change a variable and describe the
-result. If you have used React this will feel familiar; if you have not, the
-rule is simply *`render()` says what things look like, `on_event` says what
+result. If you have used React, this will feel familiar. If you have not, the
+whole rule is *`render()` says what things look like, `on_event` says what
 changes*.
 
 `render()` returns tables. The `ui.*` helpers just build them for you:
@@ -124,11 +124,11 @@ end
 `ui.column` stacks things vertically. `..` joins strings in Lua. Every control
 needs an `id`, which is what comes back to you in `e.id`.
 
-Rebuild, reinstall, tap the button a few times.
+Rebuild the ZIP. Reinstall it. Tap the button a few times.
 
 ## Getting text from the user
 
-A plugin cannot read what you are typing in your messaging app — there is no API
+A plugin cannot read what you are typing in your messaging app. There is no API
 for it, on purpose. Instead you draw your own box, and the user types or pastes
 into it:
 
@@ -149,9 +149,9 @@ function render()
 end
 ```
 
-Tap the box and the keyboard starts typing into it instead of into your app;
-there is a **Paste** button beside it for text you already have. You get an
-`input_changed` event with the new contents each time it changes.
+Tap the box and the keyboard types into it instead of into your app. A **Paste**
+button sits beside it for text you already have. You get an `input_changed`
+event with the new contents each time it changes.
 
 ## The actual cipher
 
@@ -171,7 +171,7 @@ Reading that: `gsub` replaces every match of a pattern. `%a` means "any letter",
 `%u` means "an uppercase letter". `base` is 65 for uppercase and 97 for
 lowercase (the character codes for `A` and `a`), so the arithmetic wraps within
 the right case. The outer brackets around `text:gsub(...)` throw away the second
-value `gsub` returns — Lua functions can return several, and here we only want
+value `gsub` returns. Lua functions can return several, and here we only want
 the string.
 
 Now wire it up:
@@ -213,12 +213,12 @@ function render()
 end
 ```
 
-`ui.row` puts things side by side. `ui.output` is a result block — and it is the
-important one: it comes with an **Insert** button that puts the text into
-whatever the user is writing in. That is the only way a plugin's output reaches
-their text. A plugin cannot type on its own; the user taps Insert.
+`ui.row` puts things side by side. `ui.output` is the one to know: it is a result
+block, and the keyboard draws an **Insert** button under it that puts the text
+into whatever the user is writing in. That is the only way a plugin's output
+reaches their text. A plugin cannot type on its own. The user taps Insert.
 
-Rebuild, reinstall, type something, tap Encode, tap Insert.
+Rebuild the ZIP. Reinstall it. Type something. Tap Encode, then Insert.
 
 ## Two tabs
 
@@ -253,14 +253,20 @@ window into a running plugin, so use it freely. Read it here:
 
 <SettingsPath path="Tools / Plugins / your plugin" />
 
-If the script fails, the panel shows the error and the plugin stays loaded — fix
-it, rebuild, reinstall.
+If the script fails, the panel shows the error and the plugin stays loaded. Fix
+the script. Rebuild the ZIP. Reinstall it.
 
 :::caution[Two limits worth knowing before you hit them]
-Your code gets a few million instructions and a couple of seconds per event; an
-accidental infinite loop is stopped and reported rather than hanging the
-keyboard. And if a plugin becomes unresponsive twice, it is switched off until
-you turn it back on.
+Your code gets a few million instructions and a couple of seconds per event. An
+accidental infinite loop is stopped and reported rather than left to hang the
+keyboard.
+
+A plugin that becomes unresponsive twice is switched off until you turn it back
+on. You can stop that from happening: turn **Switch off a plugin that hangs**
+off under <SettingsPath path="Tools / Plugins" />, where it is on by default.
+The strikes are still counted and still shown, so you keep the evidence and give
+up only the automatic switch-off. That is the trade you want while you are
+writing plugins, or when a slow device is the real cause.
 :::
 
 ## Publishing
@@ -283,7 +289,7 @@ repository, add an entry pointing at the file:
 }
 ```
 
-The `sha256` is **required** for plugins, unlike every other addon type — the app
+The `sha256` is **required** for plugins, unlike every other addon type. The app
 will not install code it cannot verify. `tools/build_index.py` in the sample
 repository fills it in for you, and `tools/validate.py` checks it.
 
@@ -302,5 +308,5 @@ repository fills it in for you, and `tools/validate.py` checks it.
 	/>
 </CardGrid>
 
-Also worth a look: the **UI Kitchen Sink** demo — every widget on screen at
-once, with a live log of the events they produce.
+Also worth a look: the **UI Kitchen Sink** demo. It puts every widget on screen
+at once, with a live log of the events they produce.

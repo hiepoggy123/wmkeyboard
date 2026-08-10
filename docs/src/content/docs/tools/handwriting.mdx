@@ -1,6 +1,6 @@
 ---
 title: "Handwriting"
-description: "Write with your finger or stylus; on-device recognition turns ink into text."
+description: "Write with your finger or stylus, and on-device recognition turns the ink into text."
 sidebar:
   order: 5
   badge:
@@ -13,7 +13,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import Flavor from '@components/Flavor.astro';
 
-Handwriting turns a full-width canvas into a keyboard: write a letter or word with a finger or stylus and it's recognized on-device and dropped into your text. <Flavor edition="full" />: it runs on Google ML Kit's digital ink models, which only ship in the full build.
+Handwriting turns a full-width canvas into a keyboard. Write a letter or a word with a finger or a stylus, and the keyboard recognizes it on-device and drops it into your text. <Flavor edition="full" />: it runs on Google ML Kit's digital ink models, which only ship in the full build.
 
 <PhoneFrame caption="The handwriting panel: a writing canvas with a delete, space, enter, and close key down the right side.">
   {/* shot: tools/handwriting-panel-writing */}
@@ -25,7 +25,7 @@ Open **Handwriting** from the toolbar (or the toolbox if you haven't pinned it) 
 
 Write anywhere on the canvas. Strokes render live as you draw, and dim to partial opacity while recognition is running. A single tap still counts as a stroke (enough to register a period or the dot on an "i"), so short marks aren't lost.
 
-If you have two or more enabled languages with a handwriting model, a small chip appears in the top-left corner showing the active one; tap it to cycle through the rest. With only one language available, no chip is shown.
+If two or more of your enabled languages have a handwriting model, a small chip in the top-left corner shows the active one. Tap it to cycle through the rest. With only one language available, no chip appears.
 
 ### Fixing a stroke
 
@@ -38,11 +38,11 @@ Two different controls undo ink, and they don't do the same thing:
 
 <SettingsPath path="Typing / Gestures / Handwrite with swipes" />
 
-There's a second way to write by hand that doesn't need the panel at all. With **Gesture typing** turned on, a **Handwrite with swipes** choice appears underneath it. Set it to "Handwrite" and a swipe across the letter keys draws a stroke on the keyboard itself instead of gliding a word. Recognition and insertion work exactly like the panel; a plain tap still types its key normally. This is off by default (set to "Type words").
+There's a second way to write by hand that doesn't need the panel at all. Turn on **Gesture typing** and a **Handwrite with swipes** choice appears underneath it. Set that choice to "Handwrite". A swipe across the letter keys then draws a stroke on the keyboard itself instead of gliding a word. Recognition and insertion work exactly like the panel, and a plain tap still types its key. The default is "Type words", so this is off until you change it.
 
 Two extra options only appear once handwriting-by-swipe is selected:
 
-- **Dot leeway after drawing** — default **700 ms**, adjustable from 0–1500 ms. Letters like i, j, and t need a second mark after the main stroke; for this long after you finish a stroke, a tap over the letters is folded into that same character (the dot or cross) instead of typing the key underneath it. Setting it to 0 turns the leeway off.
+- **Dot leeway after drawing**: default **700 ms**, adjustable from 0–1500 ms. Letters like i, j, and t need a second mark after the main stroke. For this long after you finish a stroke, a tap over the letters is folded into that same character, as the dot or the cross, instead of typing the key underneath it. Set it to 0 to turn the leeway off.
 - Turning handwriting off here also removes the **Glide across spacebar** and **Cooldown after typing** options, since both only make sense for word-gliding.
 
 If the language you're typing in has no downloaded model yet, a one-time notice points you at the Handwriting settings screen instead of silently failing.
@@ -53,7 +53,7 @@ If the language you're typing in has no downloaded model yet, a one-time notice 
 
 The **Recognition models** section lists one row per enabled language that ML Kit can recognize, with its own status: not downloaded (with a download button), downloading, downloaded and working offline (with a delete/trash icon), or download failed. Recognition runs entirely on-device once a model is on your phone: each language needs a one-time download of about 20 MB, and after that handwriting for that language works without a network connection. See [network policy](/privacy/network/) for what else does and doesn't touch the network.
 
-The list of available models isn't hardcoded in WM Keyboard: it's read straight out of ML Kit's own digital ink library, then filtered down to the languages you actually have enabled. That means enabling a new keyboard language surfaces its handwriting model automatically, with nothing WM-Keyboard-specific to configure; it does mean the underlying catalog of *which languages have a model at all* only grows when ML Kit itself does.
+The list of available models isn't hardcoded in WM Keyboard. It's read straight out of ML Kit's own digital ink library, then filtered down to the languages you have enabled. So enabling a new keyboard language surfaces its handwriting model on its own, with nothing WM-Keyboard-specific to configure. The flip side: the catalog of *which languages have a model at all* only grows when ML Kit itself grows.
 
 If an enabled language has no ink model, it's called out separately: writing in that language falls back to the nearest language that does have one, rather than failing outright. And if none of your enabled languages has a model, the whole section is replaced with a prompt to add a language under Languages & layouts first.
 
@@ -65,22 +65,22 @@ If an enabled language has no ink model, it's called out separately: writing in 
 
 <SettingsPath path="Tools / Handwriting / Input" />
 
-- **Stylus only** — off by default. When on, only a stylus (S Pen or similar) draws on the canvas; finger touches are ignored completely. Even with this off, a finger touch is briefly ignored right after a stylus stroke, so a palm resting on the screen while you write doesn't add stray ink.
-- **Auto space** — on by default. Inserts a space between words you write one after another, but never before punctuation.
-- **Recognition pause** — default **700 ms**, adjustable from 300–2000 ms. How long the canvas waits after your last stroke before sending the word off for recognition. Shorter feels snappier but can cut a multi-stroke letter or a Bengali conjunct in half if you pause mid-letter; longer gives you more breathing room between strokes.
+- **Stylus only**: off by default. With it on, only a stylus (S Pen or similar) draws on the canvas, and finger touches are ignored completely. Even with it off, a finger touch is briefly ignored right after a stylus stroke, so a palm resting on the screen while you write doesn't add stray ink.
+- **Auto space**: on by default. Inserts a space between words you write one after another, but never before punctuation.
+- **Recognition pause**: default **700 ms**, adjustable from 300–2000 ms. How long the canvas waits after your last stroke before it sends the word off for recognition. Shorter feels snappier. It can also cut a multi-stroke letter or a Bengali conjunct in half if you pause mid-letter, where a longer wait gives you room to breathe between strokes.
 
-:::note[Bengali gets a higher floor]
-Whatever the Recognition pause slider is set to, Bengali handwriting never commits sooner than 1200 ms after the last stroke. Bengali glyphs are frequently built from several separate strokes (conjuncts, the matra, vowel signs), and a natural pause between them would otherwise trigger an early, wrong commit.
+:::note[Bangla gets a higher floor]
+Whatever the Recognition pause slider is set to, Bangla handwriting never commits sooner than 1200 ms after the last stroke. Bengali glyphs are frequently built from several separate strokes (conjuncts, the matra, vowel signs), and a natural pause between them would otherwise trigger an early, wrong commit.
 :::
 
 ## Details & edge cases
 
 - **Palm rejection** happens automatically and isn't a setting: once the canvas sees a stylus point, it ignores finger touches for 800 ms afterward.
 - There's no hover preview, no air-gesture support, and no S Pen side-button handling. The only stylus-specific behavior is palm rejection.
-- Auto-capitalization at the start of a sentence only applies when you're writing in American English with Auto-capitalize on, and never in a password or other secure field. Bengali and other languages without letter case are skipped entirely.
+- Auto-capitalization at the start of a sentence only applies when you're writing in American English with Auto-capitalize on, and never in a password or other secure field. Bangla and other languages without letter case are skipped entirely.
 - The recognizer only sees the last 20 characters of text before your cursor as context (a limit set by ML Kit itself, not WM Keyboard).
 - Handwriting has no direct-boot support: neither the panel nor handwriting-by-swipe works before you've unlocked your device once after a restart, unlike some other tools. If [Power Saving mode](/typing/power-saving/) is set to drop on-device models to save battery, handwriting-by-swipe is switched back to plain gesture typing until you turn it back on.
 
 ## Why full only
 
-Digital ink recognition depends on `com.google.mlkit:digital-ink-recognition`, which is compiled into the full build and never included in the lite build at all; it isn't just hidden behind a toggle. The Handwriting tool itself doesn't appear in the toolbar or toolbox on lite, and the "Handwrite with swipes" choice under Gesture typing is likewise only shown on full. See [Full vs Lite](/start/editions/) if you're deciding between builds.
+Digital ink recognition depends on `com.google.mlkit:digital-ink-recognition`. That library is compiled into the full build and left out of the lite build entirely, rather than hidden behind a toggle. So the Handwriting tool doesn't appear in the toolbar or toolbox on lite, and the "Handwrite with swipes" choice under Gesture typing is full-only too. See [Full vs Lite](/start/editions/) if you're deciding between builds.

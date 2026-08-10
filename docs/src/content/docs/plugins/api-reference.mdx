@@ -15,19 +15,19 @@ Everything a plugin can use. If it is not here, it does not exist.
 | Field | Required | Meaning |
 |---|---|---|
 | `format` | yes | Always `"wmkeyboard-plugin"`. The one tag that identifies the file. |
-| `version` | — | Container format version. `1`. |
+| `version` | no | Container format version. `1`. |
 | `id` | yes | Unique, lowercase, 3–64 characters of `a-z 0-9 . _ -`, starting alphanumeric. Becomes the plugin's folder on the device. Reverse-DNS by convention. |
 | `name` | yes | Shown everywhere. Trimmed to 40 characters, control and direction-override characters removed. |
 | `pluginVersion` | yes | Your version, e.g. `"1.2.0"`. |
-| `author` | — | Shown on the install screen. |
-| `description` | — | One or two sentences. |
-| `apiVersion` | — | The API level you need. `1`. A higher number than the app knows is refused. |
-| `entry` | — | The script inside the archive. Defaults to `main.lua`. |
-| `permissions` | — | See [Permissions](/plugins/permissions/). Usually `[]`. |
+| `author` | no | Shown on the install screen. |
+| `description` | no | One or two sentences. |
+| `apiVersion` | no | The API level you need. `1`. A higher number than the app knows is refused. |
+| `entry` | no | The script inside the archive. Defaults to `main.lua`. |
+| `permissions` | no | See [Permissions](/plugins/permissions/). Usually `[]`. |
 
 :::note[Refused, not repaired]
-A manifest this build does not fully understand is **refused** — including any
-permission string it does not recognise. Half-understood code does not get to
+A manifest this build does not fully understand is **refused**. That includes any
+permission string it does not recognize. Half-understood code does not get to
 run.
 :::
 
@@ -46,8 +46,8 @@ Both are plain globals. There is no registration step.
 
 ## Widgets
 
-Built by `ui.*`, which are pure-Lua helpers that return tables — you can write
-the tables yourself if you prefer.
+Built by `ui.*`, which are pure-Lua helpers that return tables. You can write the
+tables yourself if you prefer.
 
 ### Layout
 
@@ -79,7 +79,7 @@ ui.output {
 ```
 
 **`ui.output` is how your results reach the user's text.** The keyboard draws
-Insert and Copy buttons under it; tapping Insert puts the text where they are
+Insert and Copy buttons under it. A tap on Insert puts the text where they are
 writing. There is no function that types for them.
 
 ### Controls
@@ -90,13 +90,14 @@ ui.toggle { id = "caps", label = "Uppercase", checked = false }
 ui.input  { id = "msg", label = "Message", placeholder = "Type here" }
 ```
 
-`style = "primary"` highlights a button; anything else is plain. `enabled =
-false` greys one out.
+`style = "primary"` highlights a button. Anything else is plain. `enabled =
+false` grays one out.
 
-**`ui.input` carries no value.** The keyboard owns what is in the box: tapping it
+**`ui.input` carries no value.** The keyboard owns what is in the box: a tap
 points the keys at it, and you are told the contents through an `input_changed`
 event. Use `wm.ui.set_input(id, text)` to write to one. This is why a plugin
-never sees a keystroke — only the finished contents of its own box.
+never sees a keystroke. It sees the finished contents of its own box, nothing
+else.
 
 ### Tabs
 
@@ -108,8 +109,8 @@ ui.tabs {
 }
 ```
 
-Top level only, up to 8 pages. Which page is showing is the keyboard's business;
-you get a `tab_selected` event if you care.
+Top level only, up to 8 pages. Which page is showing is the keyboard's business.
+You get a `tab_selected` event if you care.
 
 ### Progress
 
@@ -119,18 +120,18 @@ ui.progress()   -- an indeterminate bar
 
 ## Events
 
-`on_event(e)` receives a table. Always `e.type` and `e.id`; some carry more.
+`on_event(e)` receives a table. Always `e.type` and `e.id`. Some carry more.
 
 | `e.type` | Extra | Fired when |
 |---|---|---|
-| `"click"` | — | A button was tapped. |
+| `"click"` | none | A button was tapped. |
 | `"toggle"` | `e.value` (boolean) | A toggle was flipped. |
 | `"input_changed"` | `e.value` (string) | The contents of one of *your* boxes changed. |
 | `"tab_selected"` | `e.index` (number, 1-based) | A tab was picked. |
 
 `input_changed` fires per keystroke into your own input widget. That is how a
-live preview works, and it is bounded to your panel — you are told what is in
-your box, never what is typed anywhere else.
+live preview works. It is bounded to your panel: you are told what is in your
+box, never what is typed anywhere else.
 
 ## `wm.*`
 
@@ -169,18 +170,18 @@ wm.storage.remove(key)
 wm.storage.keys()        --> list of strings
 ```
 
-Strings only — use `wm.json` for anything structured. Local to your plugin, local
-to the device, deleted when the user uninstalls you. `set` returns `nil` and a
-reason when you are over quota; say something rather than losing the data
+Strings only, so use `wm.json` for anything structured. Local to your plugin,
+local to the device, deleted when the user uninstalls you. `set` returns `nil`
+and a reason when you are over quota. Say something rather than losing the data
 silently.
 
-If the manifest did not declare `storage`, `wm.storage` is simply `nil`.
+If the manifest did not declare `storage`, `wm.storage` is `nil`.
 
 ### Not present, and never will be
 
-`wm.text`, `wm.clipboard`, `wm.http`, `wm.net`, `wm.files` — there is no API for
-reading what the user types, reading the field, reading the clipboard, or
-reaching the network. See [Security](/plugins/security/).
+`wm.text`, `wm.clipboard`, `wm.http`, `wm.net`, `wm.files`. None of these exists.
+There is no API for reading what the user types, reading the field, reading the
+clipboard, or reaching the network. See [Security](/plugins/security/).
 
 ## The Lua you get
 
@@ -191,10 +192,11 @@ Lua 5.2 via [LuaJ](https://github.com/luaj/luaj), with these libraries:
 `xpcall`, `rawget`, `rawset`, `rawequal`, `rawlen`, `select`, `tonumber`,
 `tostring`, `type`, `_G`, `_VERSION`), `print`, and a reduced `os`.
 
-**`os`** has `os.time()`, `os.clock()` and `os.date(format, time)` — with `"*t"`
-and a strftime subset (`%Y %y %m %d %H %M %S %j %p %A %a %B %b %c %x %X %%`), and
-a leading `!` for UTC. Nothing else: no `getenv`, `execute`, `exit`, `remove`,
-`rename` or `tmpname`.
+**`os`** has `os.time()`, `os.clock()` and `os.date(format, time)`. `os.date`
+takes `"*t"` and a strftime subset
+(`%Y %y %m %d %H %M %S %j %p %A %a %B %b %c %x %X %%`), plus a leading `!` for
+UTC. Nothing else: no `getenv`, `execute`, `exit`, `remove`, `rename` or
+`tmpname`.
 
 **Absent:** `io`, `require`, `package`, `coroutine`, `debug`, `luajava`, `load`,
 `loadstring`, `loadfile`, `dofile`. You cannot load code at runtime, and
@@ -230,3 +232,6 @@ where noted.
 
 A plugin that runs out of instructions or time is stopped and the user is told.
 One that becomes unresponsive twice is switched off until they turn it back on.
+That last part is a setting: **Switch off a plugin that hangs**, on the
+Tools / Plugins screen, on by default. With it off the strikes are still counted
+and still shown, and only the automatic switch-off goes away.

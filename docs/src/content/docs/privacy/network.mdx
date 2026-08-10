@@ -9,11 +9,11 @@ import SettingsPath from '@components/SettingsPath.astro';
 import PhoneFrame from '@components/PhoneFrame.astro';
 import Flavor from '@components/Flavor.astro';
 
-The core typing engine (prediction, autocorrect, gesture typing, layouts)
-has no network code anywhere in it; it works the same with the radio off.
-A set of optional tools do reach the internet, each one only while you're
-actively using it, plus automatic backup on a timer if you set that up. This
-page is the complete list of what goes where.
+The core typing engine has no network code anywhere in it. Prediction,
+autocorrect, gesture typing and layouts all behave the same with the radio
+off. A set of optional tools do reach the internet, each one only while
+you're actively using it. Automatic backup runs on a timer too, if you set
+one up. This page is the complete list of what goes where.
 
 <PhoneFrame caption="The Tools screen: every tool has its own Enabled switch, on by default.">
   ![The Tools screen: every tool has its own Enabled switch, on by default.](@assets/screens/privacy/tools-enabled-switches.webp)
@@ -21,60 +21,59 @@ page is the complete list of what goes where.
 
 ## What each tool sends, and when
 
-Every network-touching tool makes a plain `HttpURLConnection` request: there's
-no analytics SDK, no ad network, and no background sync sitting underneath
-any of this.
+Every network-touching tool makes a plain `HttpURLConnection` request. No
+analytics SDK, no ad network and no background sync sits underneath any of
+it.
 
 | Tool | Endpoint | Sends | Fires when |
 |---|---|---|---|
 | Translate | `translate.googleapis.com` (no key) or `translation.googleapis.com` (with a key) | the text in the panel, up to 2,500 characters, plus the target language | as you type, about 400ms after you stop, only while the panel is open |
 | GIF search | `api.klipy.com`, `api.giphy.com` | your search text, or nothing for the trending feed | immediately when you open the panel (trending), then live as you type |
 | Sticker search | same clients as GIF search | same | same |
-| GIF/sticker — reporting a result | none of the app's own | nothing: it builds a mail draft naming the provider, your search term, and the result's id and URL | only when you tap Report in the long-press menu, and only your mail app sends it |
+| Reporting a GIF or sticker result | none of the app's own | nothing: it builds a mail draft naming the provider, your search term, and the result's id and URL | only when you tap Report in the long-press menu, and only your mail app sends it |
 | Web search | `api.search.brave.com` | your search query | only when you submit a search, never as you type |
 | Image search | `api.search.brave.com` | your search query | same (submit only) |
 | Dictionary | `api.dictionaryapi.dev` | one English word: your selection, or the word at the cursor | on panel open, if "Look up the word at the cursor" is on (the default); also on manual search |
 | Wikipedia | `wikipedia.org` | your search text or an article title | only when you search or open an article, never on panel open |
-| Currency converter | `open.er-api.com`, falling back to `frankfurter.app`; the source is yours to pick, and `cdn.jsdelivr.net` and `api.coinbase.com` are the other two | nothing identifying: it fetches the whole rate table, converted locally | on panel open, or the first time a smart chip sees an amount; cached for hours, not fetched per conversion |
+| Currency converter | `open.er-api.com`, falling back to `api.frankfurter.app`; the source is yours to pick, and `cdn.jsdelivr.net` and `api.coinbase.com` are the other two | nothing identifying: it fetches the whole rate table, converted locally | on panel open, or the first time a smart chip sees an amount; cached for hours, not fetched per conversion |
 | Cryptocurrency prices | `api.coinbase.com`, falling back to `cdn.jsdelivr.net`; `api.coingecko.com` is the other choice | nothing identifying: it fetches prices for the coins you have turned on, converted locally | only when you type a coin amount or select a coin on the panel, never on a plain panel open; cached for a few minutes |
 | Weather | `api.open-meteo.com`, `geocoding-api.open-meteo.com` | the location you typed or searched, or nothing beyond a saved lat/long | on panel open, cached for a while; geocoding only fires while you're editing the location |
-| AI — cloud provider | the provider you picked, on its own API: Anthropic, OpenAI, Gemini, Grok (xAI) or DeepSeek | the text you ran the action on, plus a system prompt | only when you tap an action, never in the background |
-| AI — any other OpenAI-compatible service | whatever address you type in, for instance OpenRouter, Groq, Together or Mistral | same | same |
-| AI — self-hosted (Ollama/LM Studio) | a server address you enter on your own network | same | same, over plain HTTP |
-| AI — on-device <Flavor edition="full" /> | none | nothing leaves the phone | never: this provider has no network path at all |
-| AI — reporting a result | none of the app's own | nothing: it builds a mail draft and hands it to your mail app | only when you tap Report, and only your mail app sends it |
+| AI (cloud provider) | the provider you picked, on its own API: Anthropic, OpenAI, Gemini, Grok (xAI) or DeepSeek | the text you ran the action on, plus a system prompt | only when you tap an action, never in the background |
+| AI (any other OpenAI-compatible service) | whatever address you type in, for instance OpenRouter, Groq, Together or Mistral | same | same |
+| AI (self-hosted Ollama or LM Studio) | a server address you enter on your own network | same | same, over plain HTTP |
+| AI (on-device) <Flavor edition="full" /> | none | nothing leaves the phone | never: this provider has no network path at all |
+| Reporting an AI result | none of the app's own | nothing: it builds a mail draft and hands it to your mail app | only when you tap Report, and only your mail app sends it |
 | Clipboard link previews | whatever URL you copied | a GET request to that page | off by default; when on, right after you copy a new link |
 | QR scan link previews <Flavor edition="full" /> | whatever URL a scanned code contains | a GET request to that page | off by default; when on, right after a QR code decodes to a URL |
 | Voice typing (system recognizer) | Android's platform speech service (not WM Keyboard's own code) | your speech audio | whenever the on-device model for that language isn't installed: always, below Android 12 |
 | Voice typing (Whisper) <Flavor edition="full" /> | none | nothing leaves the phone during dictation | never: fully offline once the model is downloaded |
 
 The AI panel's **Report** button is the one row that quotes your own text
-without any network of its own: it opens a draft in your mail app holding the
-generation and the text it ran on, and you read and send it (or don't). See
-[Reporting a result](/tools/ai/#reporting-a-result).
+without any network of its own. It opens a draft in your mail app holding
+the generation and the text it ran on, and you read and send it, or don't.
+See [Reporting a result](/tools/ai/#reporting-a-result).
 
-A few of these are worth calling out specifically. GIF and sticker search
-fetch a trending feed the instant you open the panel, before you've typed
-anything; see [GIFs](/emoji/gifs/) for that behavior in full. Currency and
-weather are the two tools that touch the network without you typing a query
-first, but neither sends anything you typed: currency pulls a public rate
-table and converts locally, and weather sends only the location you already
-saved or searched. Voice typing's network path isn't literally WM Keyboard's
-own HTTP code (it's Android's `SpeechRecognizer`, used transparently as a
-fallback), but audio still leaves the device that way; see
-[Voice typing](/tools/voice/) for the full breakdown,
-or [Offline voice (Whisper)](/tools/whisper/) for the fully on-device
-alternative.
+A few of these are worth calling out. GIF and sticker search fetch a
+trending feed the instant you open the panel, before you've typed anything.
+See [GIFs](/emoji/gifs/) for that behavior in full. Currency and weather are
+the two tools that touch the network without you typing a query first.
+Neither sends anything you typed. Currency pulls a public rate table and
+converts locally, and weather sends only the location you already saved or
+searched. Voice typing's network path isn't literally WM Keyboard's own HTTP
+code, since it's Android's `SpeechRecognizer` used as a silent fallback, but
+audio still leaves the device that way. See [Voice typing](/tools/voice/)
+for the full breakdown, or [Offline voice (Whisper)](/tools/whisper/) for
+the fully on-device alternative.
 
-**Photo backgrounds** are not a toolbox tool but they do reach the network,
-so they belong in this list. Opening the picker and typing a word sends that
-word, plus the subject, color and orientation filters, to Unsplash and
-Pexels; nothing else about you goes with it. Thumbnails load from each
+**Photo backgrounds** are not a toolbox tool, but they do reach the network,
+so they belong in this list. Open the picker, type a word, and that word
+goes to Unsplash and Pexels along with the subject, color and orientation
+filters. Nothing else about you goes with it. Thumbnails load from each
 service's own servers rather than being copied through anything of ours,
 which is how a photographer is credited with the view. Choosing a photo
-downloads that one file at keyboard size, and tells Unsplash once that it was
-taken, which is how its download counts stay honest. A **rotating
-background** is the one part that fetches without you watching: it tops up a
+downloads that one file at keyboard size, and tells Unsplash once that it
+was taken, which is how its download counts stay honest. A **rotating
+background** is the one part that fetches without you watching. It tops up a
 small set of photos as the keyboard closes, never while you type, and skips
 that entirely while the device is locked, under power saving, on mobile data
 unless you allow it, and when High contrast keys is on. See
@@ -95,44 +94,58 @@ confirmations of that.
 </PhoneFrame>
 
 "Google Translate" is really two different endpoints, and it's worth being
-precise about which one you're using: with no key, WM Keyboard calls
+precise about which one you're using. With no key, WM Keyboard calls
 `translate.googleapis.com`, the same unofficial public endpoint browser
-translate extensions use: fine for personal volumes, but rate-limited and
-with no uptime guarantee. Add a Cloud Translation API key and it switches to
-`translation.googleapis.com`, the official, billed Google Cloud API instead.
-See [Translate](/tools/translate/#options) for that switch in detail.
+translate extensions use. That's fine for personal volumes, but it's
+rate-limited and carries no uptime guarantee. Add a Cloud Translation API
+key and it switches to `translation.googleapis.com`, the official, billed
+Google Cloud API. See [Translate](/tools/translate/#options) for that switch
+in detail.
 
 The full set of third-party hosts a WM Keyboard install can reach, beyond
 what's already in the table above:
 
-- **`raw.githubusercontent.com/wasi-master/wmkeyboard-data`** — the project's
-  own data repository, source for downloadable dictionaries, emoji keyword
-  packs, and CJK conversion tables. See
-  [Downloads](#downloads-dictionaries-models-and-addons) below.
-- **`huggingface.co`** — source for offline Whisper speech models and
-  on-device AI models. Most are public; a couple of gated on-device models
+- **`raw.githubusercontent.com/wasi-master/wmkeyboard-data`** is the
+  project's own data repository, source for downloadable dictionaries,
+  word-pair (n-gram) packs, emoji keyword packs, and CJK conversion tables.
+  See [Downloads](#downloads-dictionaries-models-and-addons) below.
+- **`raw.githubusercontent.com/wasi-master/wmkeyboard-addon-repository`** is
+  the sample addon repository, and also where the one-tap **Noto Color
+  Emoji** font on the Emoji screen is fetched from (about 10 MB, plus a few
+  hundred bytes of version manifest beside it). That one tap doesn't require
+  adding a repository first.
+- **`huggingface.co`** is the source for offline Whisper speech models and
+  on-device AI models. Most are public. A couple of gated on-device models
   need your own Hugging Face account token.
-- **`fonts.gstatic.com`** — Google's Noto animated emoji. Long-pressing an
-  emoji that has an animated version fetches a small WebP to loop in the
-  popup, and tapping Send fetches the full GIF. Nothing about you goes with
-  either request, and it only happens when Animated emoji is on and you're in
-  a field that accepts images. See
+- **`fonts.gstatic.com`** serves Google's Noto animated emoji. Long-press an
+  emoji that has an animated version and the keyboard fetches a small WebP
+  to loop in the popup, then fetches the full GIF when you tap Send. Nothing
+  about you goes with either request. It only happens when Animated emoji is
+  on and you're in a field that accepts images. See
   [Animated emoji](/emoji/picker/#animated-emoji).
-- **Your backup destination, if you set one up** — Google Drive
+- **Google's downloadable-font provider (`com.google.android.gms.fonts`)**
+  supplies the Noto face the keyboard draws every non-Latin script in, and
+  the **Noto Color Emoji** font choice arrives the same way. Play services
+  makes that request, not the app, and nothing about you travels with it: a
+  font is asked for by family name only. It happens the first time a script
+  needs a face the device hasn't already cached, without you choosing
+  anything. A device with no Play services falls back to the system font per
+  glyph instead.
+- **Your backup destination, if you set one up.** That's Google Drive
   (`www.googleapis.com`), Dropbox (`www.dropbox.com` to sign in, then
   `api.dropbox.com`, `api.dropboxapi.com` and `content.dropboxapi.com`),
   OneDrive (`login.microsoftonline.com` to sign in, then
   `graph.microsoft.com`), or the S3, WebDAV or FTP server whose address you
   typed in yourself. Backups are off until you pick a destination, so none of
   these are contacted on a fresh install. What travels is your settings file
-  and nothing else; see [Backup & restore](/privacy/backup/).
-- **Whatever addon repository you add** — one is pre-added to the Addons
+  and nothing else. See [Backup & restore](/privacy/backup/).
+- **Whatever addon repository you add.** One is pre-added to the Addons
   screen on first run (`github.com/wasi-master/wmkeyboard-addon-repository`),
-  but adding that reference doesn't fetch anything by itself; see
+  but adding that reference doesn't fetch anything by itself. See
   [Installing addons](/addons/installing/) for when a repo actually gets
   contacted.
-- **Ollama and LM Studio** are whatever address you point them at: there's
-  no fixed host. Traffic to a self-hosted server is plain HTTP, and the app
+- **Ollama and LM Studio** are whatever address you point them at, with no
+  fixed host. Traffic to a self-hosted server is plain HTTP, and the app
   allows cleartext traffic app-wide to support it, so keep that server on a
   network you trust. See [AI tools](/tools/ai/#self-hosted-servers) for the
   full setup.
@@ -152,10 +165,10 @@ and Image search's Brave key, photo backgrounds' Unsplash and Pexels keys,
 and the AI tool's per-provider keys
 (Anthropic, OpenAI, Gemini, Grok, DeepSeek, and whatever key the
 OpenAI-compatible service you pointed it at wants) plus its Hugging Face
-token for gated on-device models. Leave any of them blank and that tool either falls back to a free
-endpoint (Translate) or shows a "needs an API key" state (GIF, search, AI);
-see each tool's own page under [Tools](/tools/overview/) for exactly where
-its field lives.
+token for gated on-device models. Leave any of them blank and that tool
+either falls back to a free endpoint (Translate) or shows a "needs an API
+key" state (GIF, search, AI). See each tool's own page under
+[Tools](/tools/overview/) for exactly where its field lives.
 
 Every key you enter lives in the same place as the rest of your settings: a
 plain, unencrypted Android DataStore preferences file, protected by Android's
@@ -164,14 +177,14 @@ adds on top.
 
 Keys are excluded from a manual backup export unless you turn on **Include
 API keys**, and from Android's own device backup path they're excluded
-unconditionally; see
+unconditionally. See
 [Secrets stay out by default](/privacy/backup/#secrets-stay-out-by-default)
 for the full export mechanics, including the exact warning text the app
 shows you.
 
 :::note[One gap worth knowing about]
 Ollama and LM Studio server addresses aren't treated as secrets the way API
-keys are: they're not excluded from a manual export, even with "Include API
+keys are. They're not excluded from a manual export, even with "Include API
 keys" off. That's usually just a LAN address, but if you've folded a token
 or password into that URL yourself, it travels in plain exports. Keep that
 in mind before sharing a backup file.
@@ -180,7 +193,7 @@ in mind before sharing a backup file.
 ## Downloads: dictionaries, models, and addons
 
 Every downloadable asset comes over HTTPS, but the integrity check behind
-it isn't uniform: don't assume every download is checksummed just because
+it isn't uniform. Don't assume every download is checksummed just because
 some are.
 
 | Download | Source | Integrity check | Confirms before using mobile data? |
@@ -188,44 +201,70 @@ some are.
 | Dictionaries and wordlists | the project's GitHub data repository | none beyond the gzip stream's own format check | No |
 | Emoji keyword packs | same data repository | none beyond decode success | No |
 | CJK conversion tables (pinyin, kana, stroke, cangjie, jyutping) | same data repository | **SHA-256 verified** before the file is used | No |
-| Offline Whisper speech models | Hugging Face | none — a file-size floor only | Yes, around 150 MB — see [Offline voice (Whisper)](/tools/whisper/#downloading-and-managing-models) |
-| On-device AI models | Hugging Face, per model | none — a file-size floor only | Yes, at 500 MB — see [AI tools](/tools/ai/#local-models) |
-| Addons (themes, icon packs, plugins, sounds, layouts, sticker packs) | whichever repository you added | **SHA-256 verified when the manifest supplies one** — mandatory for plugins specifically, since they run code | No |
-| Addon repository manifests themselves | the repository URL you added | none — it's the trust root, so there's nothing to check it against; capped at a fixed size instead | No |
+| Offline Whisper speech models | Hugging Face | no checksum, a file-size floor only | Yes, around 150 MB. See [Offline voice (Whisper)](/tools/whisper/#downloading-and-managing-models) |
+| On-device AI models | Hugging Face, per model | no checksum, a file-size floor only | Yes, at 500 MB. See [AI tools](/tools/ai/#local-models) |
+| Addons (themes, icon packs, plugins, sounds, layouts, sticker packs) | whichever repository you added | **SHA-256 verified when the manifest supplies one**, and mandatory for plugins specifically, since they run code | No |
+| Addon repository manifests themselves | the repository URL you added | none: it's the trust root, so there's nothing to check it against. Capped at a fixed size instead | No |
 
 Only CJK packs and addons with a declared hash get cryptographic
 verification. Wordlists, emoji packs, Whisper models, and on-device AI
-models rely on HTTPS transport integrity plus a basic size check, not a
-checksum, which is worth knowing if you're deciding how much to trust a
+models rely on HTTPS transport integrity plus a basic size check rather than
+a checksum. That's worth knowing if you're deciding how much to trust a
 third-party addon repository versus the project's own data feed. See
 [Installing addons](/addons/installing/#where-each-type-lands) for how
 that mandatory plugin checksum is enforced.
+
+## Google components, and what they report
+
+Everything above is WM Keyboard's own code making its own request. Three
+Google libraries the app is built on top of talk to Google on their own
+schedule, and this is the honest list of them. None of them can see what you
+type. None of them can be switched off from inside the app either, so the
+choice is whether to use the feature.
+
+| Component | In which build | Reaches Google when | What it sends |
+|---|---|---|---|
+| **ML Kit** (handwriting, OCR, QR/barcode scanning, document scanning, sticker background removal) | full edition only | when you use one of those features | Per [Google's own disclosure](https://developers.google.com/ml-kit/android-data-disclosure): device make, model, OS build and available ML accelerators; the app's package name and version; a per-install identifier; latency figures, the API settings and input/output sizes; the SDK version, the kind of event (init, model download, detection) and any error codes. Google describes this as diagnostics and usage analytics, says it's encrypted in transit and not passed to third parties, and provides no switch to disable it. |
+| **Downloadable fonts** | every build with Play services present | the first time a script's default keyboard font is needed, and whenever you pick a Google font in the theme editor | the font family name and this app's package name, asked of the Play services font provider. Play services makes the actual request, not this app. |
+| **Play Store libraries** (in-app updates, and the on-demand download of the on-device AI runtime) | Play Store builds only | on the update check, and when you first use an on-device AI model | the app's package and version, handled by the Play Store app that installed it |
+
+Google Drive as a backup destination adds a fourth, but only if you connect
+it: signing in is a Google sign-in, and after that the app talks to Drive
+directly over ordinary HTTPS. Nothing is connected by default.
+
+The lite edition ships no ML Kit at all, so the first row doesn't exist
+there, and the F-Droid build carries no Play Store libraries either.
+The font row is the one that survives everywhere. It's an AndroidX API
+talking to whatever font provider the device has, so a phone with Play
+services (or microG) on it has that path no matter which build you
+installed. A phone without one falls back to the bundled Noto faces and
+never asks anybody anything.
 
 ## Options
 
 <SettingsPath path="Tools" />
 
-- **Per-tool Enabled switch** — default **on** for every tool, including the
-  networked ones. Turning a tool off here (or from the "Enabled" toggle at
-  the top of that tool's own settings screen) removes it from the toolbar,
-  the toolbox, and its hardware leader-key letter all at once: a disabled
+- **Per-tool Enabled switch** (default **on** for every tool, including the
+  networked ones). Turning a tool off here, or from the "Enabled" toggle at
+  the top of that tool's own settings screen, removes it from the toolbar,
+  the toolbox, and its hardware leader-key letter all at once. A disabled
   tool can't be opened, so it can't reach the network.
 
 <SettingsPath path="Tools / Power saving" />
 
-- **Background network** — on by default *whenever Power Saving itself is
-  active* (Power Saving is off by default). It stops the fetches that
-  happen without you asking for them (clipboard link previews, QR scan
-  link previews, and the dictionary's look-up-on-selection) while leaving
-  every tool you open by hand, including translate, search, and AI, working
-  normally. See [Power saving](/typing/power-saving/#what-gets-dropped) for
-  the complete list of what else it drops.
+- **Background network** is on by default *whenever Power Saving itself is
+  active*, and Power Saving is off by default. It stops the fetches that
+  happen without you asking for them: clipboard link previews, QR scan link
+  previews, and the dictionary's look-up-on-selection. Every tool you open
+  by hand keeps working normally, translate, search and AI included. See
+  [Power saving](/typing/power-saving/#what-gets-dropped) for the complete
+  list of what else it drops.
 
-There's no single "airplane mode for the keyboard" switch beyond those two:
-turning off every networked tool individually, plus Background network for
-the unsolicited fetches, is the closest equivalent. The typing engine itself
-needs no switch at all: prediction, autocorrect, gesture typing, and layouts
-have no network code to disable in the first place.
+There's no single "airplane mode for the keyboard" switch beyond those two.
+The closest equivalent is turning off every networked tool individually,
+plus Background network for the unsolicited fetches. The typing engine
+itself needs no switch at all, because prediction, autocorrect, gesture
+typing and layouts have no network code to disable in the first place.
 
 ## Details & edge cases
 
@@ -242,24 +281,24 @@ have no network code to disable in the first place.
   the tool shows a "needs an API key" state out of the box rather than
   silently trying a provider that isn't configured.
 - **Currency and weather cache their results** rather than fetching on every
-  open (currency for a few hours, coin prices for a few minutes, weather for
-  about fifteen minutes), so most opens after the first don't touch the
-  network at all.
+  open. Currency holds for a few hours, coin prices for a few minutes, and
+  weather for about fifteen minutes, so most opens after the first don't
+  touch the network at all.
 - **Coin prices are fetched lazily.** Cryptocurrency is on by default, but
   the coin source is only asked when you actually type a coin amount or pick
   a coin on the panel. If you never do, your keyboard never talks to it.
 - **Dictionary and Wikipedia never read your field the way Translate does.**
   Wikipedia and both search tools only ever send what you type into the
-  panel's own search bar; Dictionary is the one exception, reading the
+  panel's own search bar. Dictionary is the one exception, reading the
   selected or cursor word when auto-lookup is on.
 - **Addon repository manifests aren't fetched proactively.** Adding the
-  pre-seeded repository reference on first run doesn't contact it: a
+  pre-seeded repository reference on first run doesn't contact it. A
   manifest only downloads when you actually open or refresh the Addons
   screen.
 - **Cleartext traffic is allowed app-wide**, not scoped to Ollama and LM
   Studio specifically, which is what makes plain-HTTP requests to a
   self-hosted AI server possible at all. It doesn't weaken HTTPS to the
-  services above; every one of them is contacted over HTTPS.
+  services above. Every one of them is contacted over HTTPS.
 
 See [Data collection](/privacy/data/) for what the keyboard learns from you
 locally, and [Backup & restore](/privacy/backup/) for how API keys and the

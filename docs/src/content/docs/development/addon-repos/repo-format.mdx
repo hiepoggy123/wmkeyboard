@@ -1,6 +1,6 @@
 ---
 title: "Addon repository format"
-description: "The published spec for wmkeyboard-repo.json — what a repository author writes."
+description: "The published spec for wmkeyboard-repo.json: what a repository author writes."
 sidebar:
   label: "Repository format"
   order: 2
@@ -11,15 +11,15 @@ sidebar:
 
 import { FileTree, Steps } from '@astrojs/starlight/components';
 
-Version 1 · status: **implemented** — shipping in WM Keyboard
+Version 1 · status: **implemented** and shipping in WM Keyboard
 
-WM Keyboard can install extra **themes, layouts, dictionaries, snippet packs, sticker packs, icon packs, fonts, emoji fonts, key sounds and sound packs** from the web. Anyone can publish these by putting a small **manifest** and the addon files in a public Git repository (GitHub, GitLab, a raw host — anything that serves files over `https`). Users add a repository by pasting its URL into the app.
+WM Keyboard can install extra **themes, layouts, dictionaries, emoji keyword packs, snippet packs, sticker packs, icon packs, fonts, emoji fonts, key sounds, sound packs and plugins** from the web. Anyone can publish these by putting a small **manifest** and the addon files in a public Git repository (GitHub, GitLab, a raw host, or anything else that serves files over `https`). Users add a repository by pasting its URL into the app.
 
-A repository is nothing more than an **index over files the app already knows how to import** — the addon files are the same formats the app produces when you export a theme/layout/etc. from the app itself. There is no packaging, signing or build step.
+A repository is nothing more than an **index over files the app already knows how to import**. The addon files are the same formats the app produces when you export a theme or a layout from the app itself. There is no packaging, signing or build step.
 
 :::tip[Start from the sample]
 The full, forkable sample lives at
-**https://github.com/wasi-master/wmkeyboard-addon-repository** — clone it as a
+**https://github.com/wasi-master/wmkeyboard-addon-repository**. Clone it as a
 starting point.
 :::
 
@@ -27,7 +27,7 @@ starting point.
 
 <FileTree>
 
-- wmkeyboard-repo.json required — the manifest, at the repo root
+- wmkeyboard-repo.json required, the manifest at the repo root
 - icon.png optional repo icon
 - README.md optional but recommended
 - themes/
@@ -51,9 +51,9 @@ starting point.
 
 </FileTree>
 
-Folder names are a convention, not a rule — the manifest's `path` fields are what actually locate files.
+Folder names are a convention, not a rule. The manifest's `path` fields are what actually locate files.
 
-## 2. The manifest — `wmkeyboard-repo.json`
+## 2. The manifest: `wmkeyboard-repo.json`
 
 Must sit at the repository root and validate against
 [`wmkeyboard-repo.schema.json`](/schemas/wmkeyboard-repo.schema.json) (JSON Schema draft 2020-12).
@@ -117,18 +117,18 @@ Unknown fields are ignored, so future versions can add fields without breaking o
 | `type` | ✔ | `theme` \| `layout` \| `dictionary` \| `emoji_keywords` \| `snippets` \| `stickers` \| `icon_pack` \| `font` \| `emoji_font` \| `sound` \| `sound_pack` \| `plugin`. |
 | `name` | ✔ | Display name. |
 | `version` | ✔ | **Semver** string. Bump it to offer an update. |
-| `path` | ✔ | Payload location — relative to the manifest, or an absolute `https` URL (§4). |
+| `path` | ✔ | Payload location, either relative to the manifest or an absolute `https` URL (§4). |
 | `author`, `description`, `tags` | | Display / search metadata. |
-| `sha256` | | Lowercase hex SHA-256 of the payload; verified before install when present. **Optional** — an addon without one installs normally and is shown as unverified. |
+| `sha256` | | Lowercase hex SHA-256 of the payload, verified before install when present. **Optional**: an addon without one installs normally and is shown as unverified. |
 | `sizeBytes` | | Payload size, for the UI and a pre-download guard. Optional; the client caps every download regardless. |
 | `previews` | | Screenshot images (relative or absolute). |
 | `minAppVersion` | | App `versionCode` floor; older apps hide/disable the addon. |
-| `langId` | *dict* | **Required for `dictionary` and `emoji_keywords`** — both install into a per-language folder — and an optional hint for `layout`. Must be a registered language id (§5). |
+| `langId` | *dict* | **Required for `dictionary` and `emoji_keywords`**, since both install into a per-language folder. An optional hint for `layout`. Must be a registered language id (§5). |
 | `langIds` | | Languages this addon covers, when one id isn't enough. See [Language coverage](#language-coverage). |
-| `license` | | Licence identifier — SPDX where one fits (`MIT`, `OFL-1.1`, `CC0-1.0`, `CC-BY-4.0`), otherwise any short name. Shown on the addon's page. |
+| `license` | | Licence identifier. Use SPDX where one fits (`MIT`, `OFL-1.1`, `CC0-1.0`, `CC-BY-4.0`), otherwise any short name. Shown on the addon's page. |
 | `licenseText` | | Full licence text, inline. |
 | `licenseFile` | | Licence text as a file, relative or absolute; fetched when the user opens it. |
-| `requires` | | Ids of other entries **in this same manifest** the addon was designed with — a theme naming its font and sound. Soft: the install screen offers to download them together, and skipping them still installs a working addon that falls back to the user's global choices. Ids that don't resolve in the manifest are ignored. Only the addon the user actually tapped is offered as something to switch to afterwards; its dependencies install quietly, and the theme is what turns them on. |
+| `requires` | | Ids of other entries **in this same manifest** the addon was designed with, such as a theme naming its font and sound. Soft: the install screen offers to download them together, and skipping them still installs a working addon that falls back to the user's global choices. Ids that don't resolve in the manifest are ignored. Only the addon the user actually tapped is offered as something to switch to afterwards. Its dependencies install quietly, and the theme is what turns them on. |
 
 ### Licensing
 
@@ -139,17 +139,17 @@ absent.
 
 Use whichever fits:
 
-- **`license` alone** — enough for a well-known licence. `"license": "MIT"`.
-- **`license` + `licenseFile`** — the usual choice. The identifier shows on the
-  addon's page; tapping it fetches and displays the full text. Point it at the
-  licence file already sitting beside your payload:
+- **`license` alone** is enough for a well-known licence. `"license": "MIT"`.
+- **`license` + `licenseFile`** is the usual choice. The identifier shows on the
+  addon's page, and a tap on it fetches and displays the full text. Point it at
+  the licence file already sitting beside your payload:
   `"licenseFile": "fonts/OFL-LICENSE.txt"`.
-- **`licenseText`** — the whole text inline, for a short custom licence with no
-  identifier worth quoting. It travels in the manifest, so keep it short: every
-  client downloads it whether or not anyone reads it.
+- **`licenseText`** carries the whole text inline, for a short custom licence
+  with no identifier worth quoting. It travels in the manifest, so keep it
+  short: every client downloads it whether or not anyone reads it.
 
 The app shows the identifier in the addon's Details, and opens the text in a
-dialog when there is one. Nothing is enforced — this is metadata for the person
+dialog when there is one. Nothing is enforced. This is metadata for the person
 deciding whether to install, not a licence check.
 
 ### Language coverage
@@ -166,8 +166,8 @@ font picker offers a keyboard of empty boxes.
 The app groups the pickers by script, so a font is offered wherever any of its
 languages is written: `en` reaches the English picker (which also drives Cyrillic
 and Greek), `bn` the Bengali one. **Omitting `langIds` makes no claim**, and the
-font is offered everywhere — the right default for a face with broad coverage,
-and what every font published before this field existed gets.
+font is offered everywhere. That is the right default for a face with broad
+coverage, and it is what every font published before this field existed gets.
 
 Dictionaries use the singular `langId` instead, and must: a word list has exactly
 one language. `langIds` is ignored for them.
@@ -176,8 +176,8 @@ one language. `langIds` is ignored for them.
 
 `path`, `previews[]` and `repo.icon` are each **either**:
 
-- a path **relative to the manifest URL's directory** — e.g. `themes/midnight.wmtheme.json`; or
-- an absolute `https://` URL — point anywhere (a GitHub Release asset, a CDN, another repo).
+- a path **relative to the manifest URL's directory**, for example `themes/midnight.wmtheme.json`; or
+- an absolute `https://` URL, which can point anywhere (a GitHub Release asset, a CDN, another repo).
 
 The app derives the raw manifest URL from what the user pastes:
 
@@ -191,30 +191,30 @@ The app derives the raw manifest URL from what the user pastes:
 Relative paths resolve against that manifest URL's directory.
 
 :::caution[https only]
-Plain `http` and non-URL schemes are rejected — for the manifest and for every
+Plain `http` and non-URL schemes are rejected. That covers the manifest and every
 payload, preview and licence file it references.
 :::
 
 ## 5. Payload formats
 
-These **are** the app's native import/export formats — to make a
-theme/layout/snippet/sticker/icon payload, export it from the app and drop the
-file into your repo.
+These **are** the app's native import/export formats. To make a theme, layout,
+snippet, sticker or icon payload, export it from the app. Then drop the file
+into your repo.
 
 | `type` | File | Format |
 |---|---|---|
-| `theme` | `*.wmtheme.json` | One `ThemeSpec` object (the app's theme export). **The only payload with no `format`/`version` envelope** — it is the bare object, so a theme file is identified by its extension rather than a magic tag. Background images travel base64-embedded inside the JSON, so the file is self-contained. Colors are decimal ARGB longs (`0xAARRGGBB`). |
-| `layout` | `*.wmlayout.json` | Envelope `{ "format":"wmkeyboard-layout", "version":1, "layout": { …LayoutSpec… } }` — the app's layout export. |
+| `theme` | `*.wmtheme.json` | One `ThemeSpec` object (the app's theme export). **The only payload with no `format`/`version` envelope**: it is the bare object, so a theme file is identified by its extension rather than a magic tag. Background images travel base64-embedded inside the JSON, so the file is self-contained. Colors are decimal ARGB longs (`0xAARRGGBB`). |
+| `layout` | `*.wmlayout.json` | Envelope `{ "format":"wmkeyboard-layout", "version":1, "layout": { …LayoutSpec… } }`, which is the app's layout export. |
 | `dictionary` | `<langId>.txt` | Plain UTF-8, one entry per line: `word<space>frequency` (frequency optional, default 1). `#` starts a comment. May be gzipped (`.txt.gz`) for transport. |
-| `emoji_keywords` | `<langId>.tsv` | Plain UTF-8, tab-separated, one row per emoji: `emoji<TAB>keyword,keyword,…<TAB>name`. The name column is optional and becomes the emoji's long-press description. `# ` (hash **and space**) starts a comment — a bare `#` does not, because `#️⃣` is an emoji. May be gzipped (`.tsv.gz`) for transport. Packs stack on the bundled English and Bengali keywords rather than replacing them, so search finds an emoji under every language installed for it. `tools/emoji/export_keyword_pack.py` converts CLDR annotations into this format. |
-| `snippets` | `*.wmsnippets.json` | `{ "format":"wmkeyboard-snippets", "version":1, "snippets":[ { "id":1, "label":"…", "text":"…", "trigger":"…"?, "triggerPattern":"…"?, "triggerWords":3?, "confirm":true? }, … ] }`. Ids are reassigned on import. `trigger` is one exact word; `triggerPattern` is an anchored regular expression over the last `triggerWords` words before the cursor (default 3, max 8), whose captures reach `text` as `$1`…`$9` — see [Snippets](/tools/snippets/#pattern-triggers). A snippet carrying both keeps the word. `confirm` makes the trigger offer itself as a suggestion-bar chip instead of rewriting what the user typed, which is what a pack of canned replies should do — see [Ask before it expands](/tools/snippets/#ask-before-it-expands). All three are written only when set, so a pack of plain snippets looks exactly as it always did. |
+| `emoji_keywords` | `<langId>.tsv` | Plain UTF-8, tab-separated, one row per emoji: `emoji<TAB>keyword,keyword,…<TAB>name`. The name column is optional and becomes the emoji's long-press description. `# ` (hash **and space**) starts a comment. A bare `#` does not, because `#️⃣` is an emoji. May be gzipped (`.tsv.gz`) for transport. Packs stack on the bundled English and Bangla keywords rather than replacing them, so search finds an emoji under every language installed for it. `tools/emoji/export_keyword_pack.py` converts CLDR annotations into this format. |
+| `snippets` | `*.wmsnippets.json` | `{ "format":"wmkeyboard-snippets", "version":1, "snippets":[ { "id":1, "label":"…", "text":"…", "trigger":"…"?, "triggerPattern":"…"?, "triggerWords":3?, "confirm":true? }, … ] }`. Ids are reassigned on import. `trigger` is one exact word. `triggerPattern` is an anchored regular expression over the last `triggerWords` words before the cursor (default 3, max 8), whose captures reach `text` as `$1`…`$9`. See [Snippets](/tools/snippets/#pattern-triggers). A snippet carrying both keeps the word. `confirm` makes the trigger offer itself as a suggestion-bar chip instead of rewriting what the user typed, which is what a pack of canned replies should do. See [Ask before it expands](/tools/snippets/#ask-before-it-expands). All three are written only when set, so a pack of plain snippets looks exactly as it always did. |
 | `stickers` | `*.wmstickers` | ZIP archive containing a `pack.json` envelope (`"format":"wmkeyboard-stickers"`, `"version":1`, `pack` metadata with its `stickers[]`) and the image files under `stickers/`. See [Sticker packs](#sticker-packs). |
 | `icon_pack` | `*.wmicons` | ZIP archive containing a `pack.json` envelope (`"format":"wmkeyboard-icons"`, `"version":1`, `pack` metadata) and one SVG per replaced icon under `icons/`, named for its slot. See [Icon packs](#icon-packs). |
 | `font` | `*.ttf`, `*.otf` | Standard TrueType or OpenType font file used for keyboard key labels and text typography. Declare `langIds` when the face only covers some scripts. |
-| `emoji_font` | `*.ttf`, `*.otf` | A font whose glyphs are emoji — Twemoji, OpenMoji and the like. Same file format as `font`, kept a separate type because it is chosen in a different place (Emoji settings, not the key-label pickers) and because a colour emoji font on the key labels is not a choice anyone makes on purpose. Colour builds (`COLR`/`CBDT`) draw in colour on Android 8+; a monochrome outline build takes the keyboard's text colour. There is exactly one emoji slot, and the app offers to fill it once the font is installed. |
+| `emoji_font` | `*.ttf`, `*.otf` | A font whose glyphs are emoji, like Twemoji or OpenMoji. Same file format as `font`, kept a separate type because it is chosen in a different place (Emoji settings, not the key-label pickers) and because a colour emoji font on the key labels is not a choice anyone makes on purpose. Colour builds (`COLR`/`CBDT`) draw in colour on Android 8+. A monochrome outline build takes the keyboard's text colour. There is exactly one emoji slot, and the app offers to fill it once the font is installed. |
 | `sound` | `*.mp3` | A single short key-press sound. Keep it under ~300 ms and a few tens of KB: it is loaded into a `SoundPool` and replayed on every keystroke. |
 | `sound_pack` | `*.wmsoundpack` | ZIP archive containing a `pack.json` envelope (`"format":"wmkeyboard-sound-pack"`, `"version":1`) and the recordings under `sounds/`. Many recordings of one keyboard, one picked per key press and optionally another when the finger lifts, with an optional separate set for the spacebar and the other key roles. Set `minAppVersion`: older builds have no way to install this type. See [Sound packs](/development/addon-repos/sound-packs/). |
-| `plugin` | `*.wmplugin` | ZIP archive containing a `plugin.json` manifest (`"format":"wmkeyboard-plugin"`) and a Lua script. **The only payload that is code rather than data** — see [Plugins](#plugins). |
+| `plugin` | `*.wmplugin` | ZIP archive containing a `plugin.json` manifest (`"format":"wmkeyboard-plugin"`) and a Lua script. **The only payload that is code rather than data**. See [Plugins](#plugins). |
 
 ### Plugins
 
@@ -243,7 +243,7 @@ file into your repo.
 
 A plugin is a Lua script that draws a small tool panel. It runs in a sandbox
 with no way to read what the user types, read the text field, read the
-clipboard, or use the network — see the [plugin developer guide](/plugins/overview/)
+clipboard, or use the network. See the [plugin developer guide](/plugins/overview/)
 and the full [security model](/plugins/security/).
 
 Three things differ from every other type, all because the payload is code:
@@ -251,14 +251,14 @@ Three things differ from every other type, all because the payload is code:
 - **`sha256` is required.** The app refuses to install a plugin it cannot
   verify. `tools/build_index.py` fills it in; `tools/validate.py` fails without
   it.
-- **The id must be a safe path segment** — lowercase, 3–64 characters of
-  `a-z 0-9 . _ -`, starting alphanumeric — because it becomes the plugin's
-  directory on the device.
+- **The id must be a safe path segment**, because it becomes the plugin's
+  directory on the device. That means lowercase, 3–64 characters of
+  `a-z 0-9 . _ -`, starting alphanumeric.
 - **Unknown `permissions` values refuse the install.** That is also how an older
   app version safely declines a plugin built against a newer API: it does not
   install something whose capabilities it cannot describe to the user.
 
-The script must be plain source; precompiled Lua is refused. Build archives with
+The script must be plain source. Precompiled Lua is refused. Build archives with
 `tools/build_plugins.py`, which zips `plugins-src/<name>/` deterministically so
 rebuilds do not churn the index.
 
@@ -291,12 +291,12 @@ rebuilds do not churn the index.
 }
 ```
 
-Unlike icon packs, sticker entry names **are** listed explicitly — `id` keys the sticker,
+Unlike icon packs, sticker entry names **are** listed explicitly. `id` keys the sticker,
 `name` is what the user searches, and `fileName` locates the image inside the archive.
 
 `stickers[]` belongs **inside `pack`**: that is what the app writes on export and what it
 reads back. Three near-misses are accepted anyway, because they are what hand-written packs
-actually do — `stickers[]` beside `pack` rather than inside it, `file` instead of `fileName`,
+actually do: `stickers[]` beside `pack` rather than inside it, `file` instead of `fileName`,
 and a path (`stickers/airplane.png`) instead of a bare name. None of those values is ever
 used as a path: every image is written under a name the app derives from a freshly minted
 id, so a `..` in one finds no image and is reported rather than escaping anywhere.
@@ -305,12 +305,12 @@ A pack whose list is empty, or whose every entry names an image the archive does
 **refused** with the reason for each. An empty pack would otherwise install, appear in the
 list and contain nothing, which reads as the app having lost the images.
 
-`mime` is informational — images are re-encoded into the app's own sticker storage on import,
+`mime` is informational. Images are re-encoded into the app's own sticker storage on import,
 so any common raster format works. Limits: at most 500 entries and 64 MB per archive,
 200 stickers per pack and 50 packs installed.
 
-`appVersion` / `appVersionName` record the app build that wrote the file. They are informational
-— import ignores them — and both are optional in a hand-built pack.
+`appVersion` / `appVersionName` record the app build that wrote the file. They are
+informational and import ignores them. Both are optional in a hand-built pack.
 
 ### Icon packs
 
@@ -341,30 +341,30 @@ so any common raster format works. Limits: at most 500 entries and 64 MB per arc
 ```
 
 `appVersion` / `appVersionName` record the app build that exported the pack. They are
-informational — import ignores them — and can be left out of a hand-built pack.
+informational and import ignores them. Both are optional in a hand-built pack.
 
 **Slot ids are the file names.** An icon for `tool.clipboard` is
 `icons/tool.clipboard.svg`. The four slot groups are:
 
 | Group | Ids | Count |
 |---|---|---|
-| Tools | `tool.<toolbar tool>` — `tool.clipboard`, `tool.gif`, `tool.sticker`, `tool.voice`, … | 60 |
+| Tools | `tool.<toolbar tool>`, for example `tool.clipboard`, `tool.gif`, `tool.sticker`, `tool.voice` | 60 |
 | Keys | `key.shift`, `key.shift_on`, `key.shift_lock`, `key.backspace`, `key.forward_delete`, `key.globe`, `key.emoji`, and `key.enter` plus `key.enter_{search,send,go,next,previous,done}` | 14 |
 | Toolbar chrome | `chrome.toolbox`, `chrome.panel_back`, `chrome.suggestions_expand`, `chrome.emoji_shortcut`, `chrome.search_close`, `chrome.incognito` | 6 |
 | Emoji tabs | `emoji_tab.search`, `emoji_tab.recent`, `emoji_tab.most_used`, and one per category (`smileys`, `people`, `animals`, `nature`, `food`, `travel`, `activities`, `objects`, `symbols`, `flags`) | 13 |
 
 The Tools row is derived from the app's tool list, so its count grows with
-every new tool; the other three groups are fixed lists in the app.
+every new tool. The other three groups are fixed lists in the app.
 
 A pack does **not** have to be complete: any slot it leaves out keeps the app's
-built-in icon. The `slots` list is advisory — the app walks the archive's
+built-in icon. The `slots` list is advisory. The app walks the archive's
 entries and keeps every one whose name matches a slot it knows, so a pack
 assembled by hand still works if the manifest is out of date. Files naming a
 slot the installed version has no idea about are dropped and reported, never
 stored.
 
-**Colour.** An SVG that declares no colours — `fill="none"`, `currentColor`, or
-nothing at all — is drawn in the theme's colour and picks up the per-tool accent
+**Colour.** An SVG that declares no colours (`fill="none"`, `currentColor`, or
+nothing at all) is drawn in the theme's colour and picks up the per-tool accent
 colours, exactly like a built-in icon. An SVG that sets real colours keeps them
 and stops following the theme. Prefer the first unless the pack is deliberately
 a colour set.
@@ -373,19 +373,19 @@ a colour set.
 `<polyline>`, `<polygon>`, `<g transform>` (translate/scale/rotate/matrix),
 presentation attributes and inline `style`, and `#rgb`/`#rrggbb`/`#rrggbbaa`/
 `rgb()`/named colours. Text, embedded images, `<use>`, gradients, filters, masks
-and CSS `<style>` blocks are skipped — an icon that leans on them renders as
+and CSS `<style>` blocks are skipped. An icon that leans on them renders as
 whatever is left rather than failing to import. Each SVG must be under 256 KB,
 and the archive under 8 MB with at most 400 entries.
 
 :::danger[No DOCTYPE declarations]
 A DOCTYPE causes the file to be **rejected outright**: packs are untrusted
 input, and an external entity there would be a file-disclosure hole. Do not ship
-SVGs with one — most exporters can be told to omit it.
+SVGs with one. Most exporters can be told to omit it.
 :::
 
 ### The registered-language constraint
 
-Dictionaries and layouts attach to a language by `langId` (e.g. `en`, `fr`, `bn`). The app can only accept a `langId` that is **already built into it**. A dictionary for a brand-new language the app has never heard of cannot be added as data alone today — that needs an app update that registers the language. So: pick a `langId` the current app supports.
+Dictionaries and layouts attach to a language by `langId` (e.g. `en`, `fr`, `bn`). The app can only accept a `langId` that is **already built into it**. A dictionary for a brand-new language the app has never heard of cannot be added as data alone today. That needs an app update that registers the language. So pick a `langId` the current app supports.
 
 ## 6. Install links
 
@@ -399,42 +399,41 @@ app:
 | `wmkeyboard://addon?repo=<repo or manifest URL>&id=<addonId>` | that addon's page |
 
 The URL is percent-encoded and resolved by the same rules as pasted input
-(§4) — **`https` only**.
+(§4). **`https` only.**
 
 :::note[A link is a shortcut, not an install button]
 A link can never install anything or add a repository on its own. It navigates
 to a page showing the repository's host, the addon and its author, and the user
-taps Install; that tap is also what adds the repository to their list.
+taps Install. That tap is also what adds the repository to their list.
 :::
 
 ## 7. Versioning & updates
 
-- Bump an addon's `version` (semver) to publish an update; the app compares it against the installed version and offers **Update**.
+- Bump an addon's `version` (semver) to publish an update. The app compares it against the installed version and offers **Update**.
 - Bump `repo.updatedAt` when you change the manifest.
-- Never recycle an `id` for a different addon — ids are how installs are tracked.
+- Never recycle an `id` for a different addon. Ids are how installs are tracked.
 
 ## 8. Publishing checklist
 
 <Steps>
 
-1. Put `wmkeyboard-repo.json` at the repo root; list every addon.
+1. Put `wmkeyboard-repo.json` at the repo root. List every addon in it.
 
-2. Add the payload files; set each `path`.
+2. Add the payload files. Set each `path`.
 
-3. Optionally fill `sha256` and `sizeBytes`. **Neither is required** — a
-   manifest without them is valid and its addons install normally, just marked
-   unverified. If you do want them, don't compute them by hand; run
-   `python3 tools/build_index.py` (in the
+3. Optionally fill `sha256` and `sizeBytes`. **Neither is required.** A manifest
+   without them is valid, and its addons install normally, marked unverified. Do
+   not compute them by hand. Run `python3 tools/build_index.py` (in the
    [sample repo](https://github.com/wasi-master/wmkeyboard-addon-repository/blob/main/tools/build_index.py))
-   after every payload change and it keeps them current.
+   after every payload change, and it keeps them current.
 
-4. State a licence on every addon — `license`, and `licenseFile` when you have
-   the text.
+4. State a licence on every addon. Set `license`, and `licenseFile` when you
+   have the text.
 
-5. Validate: `python3 tools/validate.py` runs the JSON Schema plus the
-   file-existence and checksum checks a schema can't express.
+5. Validate the repository with `python3 tools/validate.py`. It runs the JSON
+   Schema, plus the file-existence and checksum checks a schema can't express.
 
-6. Push to a public `https` host and share the repo URL.
+6. Push to a public `https` host. Share the repo URL.
 
 </Steps>
 

@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import Flavor from '@components/Flavor.astro';
 
-Switching keyboards is mostly muscle memory, and WM Keyboard was built with that in mind: dozens of its behaviors are deliberately modeled on Gboard and SwiftKey conventions, right down to code comments that say so. This page maps the features you already rely on to their WM Keyboard equivalent, and calls out the handful of places migration isn't a straight swap.
+Switching keyboards is mostly muscle memory, and WM Keyboard was built with that in mind. Dozens of its behaviors deliberately follow Gboard and SwiftKey conventions, right down to code comments that say so. This page maps the features you already rely on to their WM Keyboard equivalent, and calls out the handful of places where migration isn't a straight swap.
 
 <PhoneFrame caption="Suggestions default to the top pick in the center slot, the same layout Gboard uses.">
   {/* shot: start/migrating-suggestion-center */}
@@ -26,23 +26,23 @@ If a term below doesn't match what your old keyboard called it, this is where to
 | Clipboard manager | The Clipboard tool: history with pinning, and a paste chip for your last copy | History on, entries expire after 24 hours or once you pass 100 items |
 | Theme store / custom themes | A full theme editor: 26 built-in themes (including ports of well-known editor palettes like Dracula, Nord and Solarized), custom colors, background images (including a landscape-specific one), scheduled light/dark, and `.wmtheme.json` import/export | Follows system light/dark, Material You colors on |
 | Voice typing / dictation | The Voice tool: a full-screen panel by default, or a compact bar over the keys | Full panel; continuous listening and spoken punctuation both on |
-| Autocorrect strength | A confidence multiplier you can tune, not just an on/off switch | On, ×4 (adjustable ×1.5–×10) |
+| Autocorrect strength | A confidence multiplier you can tune, rather than a plain on/off switch | On, ×4 (adjustable ×1.5–×10) |
 | Emoji suggestions replacing the typed word | Emoji insert mode set to replace the word | On |
 | "Virtual key" haptic feel | Haptic style set to match a physical key press | On |
 
-Voice typing, glide typing, and several tools are covered in their own pages: [Voice typing](/tools/voice/), [Glide typing](/typing/glide-typing/), [Clipboard](/tools/clipboard/), and [Themes](/themes/overview/). Autocorrect and gesture settings live under [Typing settings](/reference/settings/typing/); tune the confidence multiplier there if the default feels too aggressive or too quiet.
+Voice typing, glide typing, and several tools are covered in their own pages: [Voice typing](/tools/voice/), [Glide typing](/typing/glide-typing/), [Clipboard](/tools/clipboard/), and [Themes](/themes/overview/). Autocorrect and gesture settings live under [Typing settings](/reference/settings/typing/). Tune the confidence multiplier there if the default feels too eager or too quiet.
 
-If your old keyboard covered handwriting, OCR text scanning, QR scanning, document scanning, offline dictation, or an on-device AI model, check you're running the <Flavor edition="full" /> build; <Flavor edition="lite" /> leaves those out to save space. See [Full vs Lite](/start/editions/) for the complete comparison.
+Did your old keyboard cover handwriting, OCR text scanning, QR scanning, document scanning, offline dictation, or an on-device AI model? Check that you're running the <Flavor edition="full" /> build. <Flavor edition="lite" /> leaves those out to save space. See [Full vs Lite](/start/editions/) for the complete comparison.
 
 :::note[Coming from FUTO Keyboard or something similar?]
-There's no built-in comparison against FUTO Keyboard specifically here: the two projects don't share code or settings. If offline-first, no-telemetry behavior is what drew you to it, the [What WM Keyboard does differently](#what-wm-keyboard-does-differently) section below covers what it actually does and doesn't send anywhere, verified against its own source rather than restated from memory.
+There's no built-in comparison against FUTO Keyboard here, because the two projects share no code and no settings. If offline-first, no-telemetry behavior is what drew you to it, read [What WM Keyboard does differently](#what-wm-keyboard-does-differently) below. It covers what this keyboard does and doesn't send anywhere, checked against its own source rather than restated from memory.
 :::
 
 ## Bringing your dictionary across
 
 There's no one-click "import my personal dictionary" button. No keyboard exposes its learned-word list in a format another app can read, and WM Keyboard is no exception. Here's what actually happens, and your two real options.
 
-Words you've typed build up in an on-device dictionary automatically, the same way any predictive keyboard learns your vocabulary. There's nothing to migrate here beyond typing normally with [Learn from typing](#options) switched on. You can also add a handful of words one at a time from the personal dictionary screen; anything added that way is marked "Added by you," while words the keyboard picked up from typing show "Seen N×" instead.
+Words you've typed build up in an on-device dictionary automatically, the same way any predictive keyboard learns your vocabulary. There's nothing to migrate beyond typing normally with [Learn from typing](#options) switched on. You can also add words one at a time from the personal dictionary screen. Anything added that way is marked "Added by you." Words the keyboard picked up from typing show "Seen N×" instead.
 
 <PhoneFrame caption="The personal dictionary screen: words you add show 'Added by you'; words picked up from typing show a use count. There's no bulk-import button here.">
   {/* shot: start/migrating-personal-dictionary */}
@@ -55,7 +55,7 @@ For seeding a large vocabulary at once (brand names, jargon, a whole word list y
 - Words imported this way are never autocorrected away.
 - Files are capped at 32 MiB per import.
 
-So if your old keyboard can export a plain word list, format it this way and import it here. WM Keyboard doesn't ship a converter for any other keyboard's proprietary export format; that reformatting step is on you. See [Dictionaries & words](/reference/settings/dictionaries/) for the full screen reference.
+So if your old keyboard can export a plain word list, reformat it this way and import it here. WM Keyboard ships no converter for any other keyboard's proprietary export format. That reformatting step is on you. See [Dictionaries & words](/reference/settings/dictionaries/) for the full screen reference.
 
 :::note
 Android's own system dictionary (the one some keyboards share words through) isn't a bridge here either. WM Keyboard can optionally *write* learned words into it for other apps to see, but it never *reads* plain words back out of it to seed its own suggestions; only dictionary-shortcut expansions (like "omw" → "on my way") round-trip that way.
@@ -63,27 +63,27 @@ Android's own system dictionary (the one some keyboards share words through) isn
 
 ## Settings worth changing on day one
 
-The first-run wizard covers most of this already (see [Enable the keyboard](/start/setup/) for the full walkthrough), but there's no way to reopen it once you've been through it, so if you skipped or rushed past pages, these are worth doing manually:
+The first-run wizard covers most of this already (see [Enable the keyboard](/start/setup/) for the full walkthrough). If you skipped or rushed past its pages, these four are worth doing by hand:
 
-- **Add every language you actually type in.** A fresh install only enables what your phone's own language list told it to, plus English; add the rest from Settings → Languages, where a **Suggested for you** group offers the likely ones first.
-- **Trim the toolbox.** Every tool ships switched on by default (around 60 of them). The wizard's Tools page narrows that to a curated 17-tool set the first time you visit it, but only if you reach that page during setup. That **Recommended** shortcut lives in the wizard only. If you skipped it, there's no equivalent bulk switch afterward: open Settings → Tools and flip off the ones you don't want, one at a time.
-- **Check your spacebar swipe directions**, if cursor-on-a-quick-swipe is what you're used to. The wizard's gesture page labels that pairing "recommended," but a fresh install actually ships with the opposite one (quick swipe switches language, hold-and-swipe moves the cursor) until you pick otherwise. See [Gestures](/typing/gestures/).
-- **Revisit autocorrect strength** if your old keyboard's felt looser or tighter. WM Keyboard's confidence multiplier defaults to ×4 out of a ×1.5–×10 range: closer to the eager end than the conservative one, but well short of the most aggressive setting.
+- **Add every language you actually type in.** A fresh install enables only what your phone's own language list told it to, plus English. Add the rest from Settings → Languages, where a **Suggested for you** group offers the likely ones first.
+- **Trim the toolbox.** Every tool ships switched on by default, around 60 of them. The wizard's Tools page narrows that to a curated 21-tool set, but only if you reach that page during setup. The **Recommended** shortcut lives in the wizard only. On the Settings → Tools screen there's no equivalent bulk switch, so flip off the ones you don't want one at a time. To get the shortcut back, replay the wizard from **About / Run setup again**.
+- **Check your spacebar swipe directions**, if cursor-on-a-quick-swipe is what you're used to. The wizard's gesture page labels that pairing "recommended," but a fresh install ships with the opposite one until you pick otherwise: a quick swipe switches language, and hold-and-swipe moves the cursor. See [Gestures](/typing/gestures/).
+- **Revisit autocorrect strength** if your old keyboard's felt looser or tighter. WM Keyboard's confidence multiplier defaults to ×4 out of a ×1.5–×10 range. That sits nearer the eager end than the conservative one, but well short of the most aggressive setting.
 
-<PhoneFrame caption="Settings → Tools: every tool starts on, toggled individually. The wizard's Recommended shortcut (a curated 17 tools) doesn't carry over to this screen.">
-  ![Settings → Tools: every tool starts on. Recommended switches to the curated 17-tool set the setup wizard offers.](@assets/screens/start/migrating-tools-recommended.webp)
+<PhoneFrame caption="Settings → Tools: every tool starts on, toggled individually. The wizard's Recommended shortcut (a curated 21 tools) doesn't appear on this screen.">
+  ![Settings → Tools: every tool starts on. Recommended switches to the curated 21-tool set the setup wizard offers.](@assets/screens/start/migrating-tools-recommended.webp)
 </PhoneFrame>
 
 ## What WM Keyboard does differently
 
 WM Keyboard is MIT-licensed, ships no analytics or crash-reporting SDK, and its core (dictionaries, prediction, transliteration, emoji search) runs fully on-device with no network connection required at all. That's the part that doesn't change no matter what you toggle.
 
-What does reach the network is a long list of individually optional tools, each of which only calls out when you open it or explicitly configure it with your own API key: weather, dictionary lookups, translation, GIF and sticker search, web and image search, currency conversion, the AI writing tools, downloadable dictionaries and emoji-keyword packs, addon repositories, and clipboard link previews (off by default). None of it runs in the background or while you're just typing. See [Privacy at a glance](/privacy/overview/) and the full [tool-by-tool network table](/privacy/network/) for exactly what each one sends and when.
+What does reach the network is a long list of individually optional tools. Each one calls out only when you open it, or when you configure it with your own API key: weather, dictionary lookups, translation, GIF and sticker search, web and image search, currency conversion, the AI writing tools, downloadable dictionaries and emoji-keyword packs, addon repositories, and clipboard link previews (off by default). None of it runs in the background, and none of it runs while you're just typing. See [Privacy at a glance](/privacy/overview/) and the full [tool-by-tool network table](/privacy/network/) for exactly what each one sends and when.
 
-Two more things some migrating users specifically look for:
+Two more things migrating users tend to look for:
 
-- **Incognito mode** pauses learning and clipboard capture on demand, and a Follow private browsing toggle engages it automatically for fields the app flags as private (Chrome incognito tabs and similar), though it can't detect apps that don't send that flag.
-- **Backup is opt-in and local by default.** Android backup is switched off out of the box; turning it on carries settings, themes, layouts, learned words, and saved API keys through Android's own encrypted backup, but explicitly leaves out voice/AI models, downloaded dictionaries, and emoji keyword packs since those are too large.
+- **Incognito mode** pauses learning and clipboard capture on demand. A Follow private browsing toggle engages it by itself for fields the app flags as private, like Chrome incognito tabs. It can't detect apps that never send that flag.
+- **Backup is opt-in and local by default.** Android backup is switched off out of the box. Turn it on and settings, themes, layouts, learned words and saved API keys travel through Android's own encrypted backup. Voice and AI models, downloaded dictionaries and emoji keyword packs are left out, because they're too large.
 
 ## Options
 
@@ -93,22 +93,22 @@ Two more things some migrating users specifically look for:
 - Personal dictionary lists every word the keyboard has learned, with a button to add one manually and a way to remove any entry.
 - Custom dictionaries import word lists per language, from a file or a URL, as described above.
 
-<SettingsPath path="Features / Tools" />
+<SettingsPath path="Tools" />
 
-- Every tool is switched on by default; flip each one off individually here. The **Recommended**/**Everything** shortcuts only appear on the first-run wizard's Tools page, not on this screen.
+- Every tool is switched on by default. Flip each one off individually here. The **Recommended** and **Everything** shortcuts appear only on the setup wizard's Tools page, not on this screen.
 
-<SettingsPath path="Data / Privacy" />
+<SettingsPath path="Privacy" />
 
-- **Learn from typing** (on by default) — personalizes suggestions from what you type, entirely on-device; turning it off is why a rebuilt dictionary would stop growing.
-- **Add words to the system dictionary** (off by default) — mirrors learned words into Android's own dictionary for other apps to see.
-- **Follow private browsing** (on by default) — auto-engages incognito mode for fields the app flags as private.
-- **Back up with Android** (off by default) — opts into Android's encrypted backup for settings, themes, and learned words.
+- **Learn from typing** (on by default). Personalizes suggestions from what you type, entirely on-device. Turn it off and a rebuilt dictionary stops growing.
+- **Add words to the system dictionary** (off by default). Mirrors learned words into Android's own dictionary for other apps to see.
+- **Follow private browsing** (on by default). Engages incognito mode by itself for fields the app flags as private.
+- **Back up with Android** (off by default). Opts into Android's encrypted backup for settings, themes, and learned words.
 
 See the [Privacy settings reference](/reference/settings/privacy/) for the rest of that screen.
 
 ## Details & edge cases
 
-- The setup wizard can be replayed any time from **About / Run setup again**; a replay never rewrites settings on its own. Reopening the app otherwise just goes to the Home screen: reinstalling over an existing install (same signing key) keeps the `onboardingDone` flag, so only a clean reinstall or a fresh phone without a settings backup shows the wizard unasked.
-- **Backup & restore** can move your learned-word dictionary between two phones that are both already running WM Keyboard, but it's WM-Keyboard-to-WM-Keyboard only (not an import path from another app), and the dictionary section is left out of an export unless you turn it on explicitly.
-- Custom dictionaries and the personal dictionary are two separate features that both feed suggestions: personal dictionary is for words you've typed or added one at a time, custom dictionaries are for bulk lists layered on top of (or standing in for) a language's bundled dictionary.
-- On a <Flavor edition="lite" /> build, tools that need on-device ML (handwriting, OCR, QR/barcode and document scanning, grammar checking, offline Whisper dictation, and the on-device AI model) simply don't appear as options; there's nothing to disable because they're not built into that edition at all.
+- The setup wizard can be replayed any time from **About / Run setup again**, and a replay never rewrites settings on its own. Reopening the app otherwise just goes to the Home screen. Reinstalling over an existing install (same signing key) keeps the `onboardingDone` flag, so only a clean reinstall, or a fresh phone with no settings backup, shows the wizard unasked.
+- **Backup & restore** can move your learned-word dictionary between two phones that both already run WM Keyboard. It's a WM-Keyboard-to-WM-Keyboard path only, never an import from another app, and an export leaves the dictionary section out unless you turn it on yourself.
+- Custom dictionaries and the personal dictionary are two separate features that both feed suggestions. The personal dictionary holds words you've typed or added one at a time. Custom dictionaries hold bulk lists, layered on top of a language's bundled dictionary or standing in for it.
+- On a <Flavor edition="lite" /> build, tools that need on-device ML never appear as options: handwriting, OCR, QR/barcode and document scanning, grammar checking, offline Whisper dictation, and the on-device AI model. There's nothing to disable, because that edition doesn't contain them.

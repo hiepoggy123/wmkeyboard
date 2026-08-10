@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-WM Keyboard quietly builds a private, on-device vocabulary from what you actually type (names, slang, abbreviations, anything the bundled dictionary doesn't know) and every word in it becomes permanently safe from autocorrect. You can review that vocabulary, add to it or remove from it by hand, and wipe it entirely, all from Settings.
+WM Keyboard quietly builds a private, on-device vocabulary out of what you actually type: names, slang, abbreviations, anything the bundled dictionary doesn't know. Every word in it becomes permanently safe from autocorrect. You can review that vocabulary, add to it or remove from it by hand, and wipe it entirely, all from Settings.
 
 <PhoneFrame caption="The Personal dictionary screen: learned and manually-added words, most-used first.">
   ![The Personal dictionary screen: learned and manually-added words, most-used first.](@assets/screens/smart/personal-dictionary-list.webp)
@@ -18,30 +18,32 @@ WM Keyboard quietly builds a private, on-device vocabulary from what you actuall
 
 A word only joins your personal dictionary if every one of these holds at the moment you commit it:
 
-- **"Learn from typing" is on** — on by default.
-- **Incognito isn't currently pausing learning.** Incognito is active either because you switched it on yourself, or because the focused field asked not to be learned from (Chrome's incognito tabs, private-browsing fields elsewhere) and "Follow private browsing" let that request through (on by default). Whether active incognito actually *pauses* learning is a separate switch, "Pause learning," and it's on by default too, but it doesn't live on the Privacy screen with the rest of these. It's under the Incognito tool's own settings (<SettingsPath path="Tools / Incognito / While incognito" />).
+- **"Learn from typing" is on.** It is by default.
+- **Incognito isn't currently pausing learning.** Incognito goes active for one of two reasons. Either you switched it on yourself, or the focused field asked not to be learned from (Chrome's incognito tabs, private-browsing fields elsewhere) and "Follow private browsing" let that request through, which it does by default. Whether active incognito actually *pauses* learning is a separate switch, "Pause learning," and it's on by default too. That one doesn't live on the Privacy screen with the rest of these. It's under the Incognito tool's own settings (<SettingsPath path="Tools / Incognito / While incognito" />).
 - **The field allows it.** Password fields and PIN entry are excluded, and so is every structured field (email, web address, number, phone, date, time, datetime), deliberately independent of whether the app is also hiding the suggestion strip. Only plain text fields qualify.
 
 Within a plain text field, how hard a word is taught depends on how it was committed:
 
-- **Tapped from the suggestion strip** — twice the weight of a plain commit, since choosing a candidate deliberately counts for more than just typing it out.
-- **Typed and committed normally** — the default weight.
-- **Autocorrected into place** — the corrected word itself is *not* added (an autocorrect target earns no credit for being typed), though the word pair around it is still recorded for next-word prediction either way.
-- **Backspaced right after an autocorrect fires** — restoring your original spelling teaches that original word a weight of 5, the equivalent of typing it five times over and the strongest of these four signals, even ahead of tapping a suggestion, on the reasoning that deleting a fix is the clearest possible "I meant what I typed." See [Autocorrect](/smart/autocorrect/#undoing-a-correction) for the rest of that flow.
+- **Tapped from the suggestion strip.** Twice the weight of a plain commit, since choosing a candidate deliberately counts for more than just typing it out.
+- **Typed and committed normally.** The default weight.
+- **Autocorrected into place.** The corrected word itself is *not* added, because an autocorrect target earns no credit for being typed. The word pair around it is still recorded for next-word prediction either way.
+- **Backspaced right after an autocorrect fires.** Restoring your original spelling teaches that original word a weight of 5, the equivalent of typing it five times over. That's the strongest of these four signals, ahead of even tapping a suggestion, because deleting a fix is the clearest possible "I meant what I typed." See [Autocorrect](/smart/autocorrect/#undoing-a-correction) for the rest of that flow.
 
-A word needs at least two letters to be auto-learned this way; adding one yourself (see below) has no such floor.
+A word needs at least two letters to be auto-learned this way. Adding one yourself (see below) has no such floor.
 
 ## Why a learned word matters
 
 Once a word has been learned even a single time, it's permanently exempt from autocorrect. The correction engine treats anything in your personal dictionary the same as a word from the bundled dictionary, and never "fixes" it away. It also carries a heavy weight in suggestion ranking, so it competes with genuinely common words in the strip almost immediately rather than needing to be typed dozens of times first. See [Autocorrect](/smart/autocorrect/) and [Suggestions & prediction](/smart/suggestions/) for how those two mechanisms work in full.
 
-Alongside single words, the same learning pass builds word-to-word pairs (so typing "good" after "have a" can predict "morning") and word-to-emoji pairs (so a phrase that's usually followed by 🎉 can offer it). A separate, bundled set of generic word pairs gives next-word prediction something to work with before you have any typing history of your own. Those aren't part of your personal dictionary: they're not stored in it, don't show up on this screen, and can't be edited or cleared, and your own learned pairs always outrank them once you have some.
+Alongside single words, the same learning pass builds word-to-word pairs, so typing "good" after "have a" can predict "morning". It builds word-to-emoji pairs too, so a phrase that's usually followed by 🎉 can offer it. A separate, bundled set of generic word pairs gives next-word prediction something to work with before you have any typing history of your own. None of those pairs are part of your personal dictionary. They aren't stored in it, don't show up on this screen, and can't be edited or cleared, and your own learned pairs always outrank the bundled ones once you have some.
 
 ## Adding and removing words
 
 <SettingsPath path="Typing / Suggestions / Personal dictionary" />
 
-Every word you've typed or added sits in one list, sorted by how often it's been reinforced. Each row reads "Added by you" once its weight reaches 200, and "Seen N×" below that. **Add word** opens a dialog with a single field. Confirm and 200 is *added* to whatever weight that word already had, so a word the keyboard has never seen lands at exactly 200 and reads "Added by you", while one you'd already typed 50 times ends up at 250. Either way it's immediately safe from autocorrect, like anything else in the list. A trash icon on each row removes that word (and drops it out of any word pairs it was part of).
+Every word you've typed or added sits in one list, sorted by how often it's been reinforced. Once the list passes a dozen entries, a search field appears above it. Each row reads "You added this word" once its weight reaches 200, and "Seen N times" below that.
+
+**Add word** opens a dialog with a single field. Confirm and 200 is *added* to whatever weight that word already had. A word the keyboard has never seen lands at exactly 200 and reads "You added this word", while one you'd already typed 50 times ends up at 250. Either way it's immediately safe from autocorrect, like anything else in the list. A trash icon on each row removes that word, and drops it out of any word pairs it was part of.
 
 Words are capped at 32 characters, counted after the word is lowercased. Anything longer is dropped on the floor by both paths: typing it teaches nothing, and **Add word** closes the dialog as though it worked while the list stays exactly as it was. There's no error and no warning, so if a long entry never turns up in the list, count the characters.
 
@@ -49,32 +51,32 @@ Words are capped at 32 characters, counted after the word is lowercased. Anythin
   ![Adding a word by hand from the Add word dialog.](@assets/screens/smart/personal-dictionary-add.webp)
 </PhoneFrame>
 
-Every add or remove here updates a version marker the running keyboard watches, so if the keyboard is open in another app while you edit the list, it reloads your change instead of silently overwriting it the next time it saves. Before you've typed or added anything, the screen reads "Nothing here yet — words appear as you type (with 'Learn from typing' on under Privacy), or add one above."
+Every add or remove here updates a version marker the running keyboard watches. If the keyboard is open in another app while you edit the list, it reloads your change instead of silently overwriting it the next time it saves. Before you've typed or added anything, the screen reads "Nothing here yet. Words appear as you type, if 'Learn from typing' is on in Privacy. You can also add a word above."
 
-Two related screens are easy to confuse with this one but do something different: the [suggestion blacklist](/smart/blacklist/) is a separate never-suggest list with no link to this one, and **Custom dictionaries** is for importing a bulk word list per language rather than words you've typed (see [Downloadable dictionaries](/languages/dictionaries/) for that).
+Two related screens are easy to confuse with this one but do something different. The [suggestion blacklist](/smart/blacklist/) is a separate never-suggest list with no link to this one. **Custom dictionaries** is for importing a bulk word list per language rather than words you've typed (see [Downloadable dictionaries](/languages/dictionaries/) for that).
 
 ## Clearing everything at once
 
 <SettingsPath path="Privacy / Your data / Clear learned words" />
 
-One tap, no confirmation prompt. It's broader than just this word list: it also wipes emoji-usage learning and CJK candidate-pick history, three separate files cleared together because each learning store lives on its own.
+One tap, no confirmation prompt. It reaches wider than this word list: it also wipes emoji-usage learning and CJK candidate-pick history. Three separate files are cleared together, because each learning store lives on its own.
 
 <PhoneFrame caption="The 'Your data' group on the Privacy screen, with the one-tap clear button.">
   {/* shot: smart/personal-dictionary-clear */}
 </PhoneFrame>
 
 :::note
-Unlike adding or removing a single word, this button doesn't signal a running keyboard session to reload. In the ordinary case (opening Settings on its own), the files are simply gone. But if the keyboard happens to be actively open elsewhere at that exact moment, its already-loaded copy of your vocabulary isn't invalidated, and a save from that session could write the deleted file back. Reopening the keyboard after using this button avoids the edge case entirely.
+Unlike adding or removing a single word, this button doesn't signal a running keyboard session to reload. In the ordinary case, where you opened Settings on its own, the files are gone. But if the keyboard happens to be actively open elsewhere at that exact moment, its already-loaded copy of your vocabulary isn't invalidated, and a save from that session could write the deleted file back. Reopen the keyboard after using this button and the edge case disappears.
 :::
 
 ## Where it lives, and who else can see it
 
 Your personal dictionary is a single JSON file in the app's private storage, never uploaded anywhere on its own. Two things are true by default, and two are opt-in:
 
-- **It's inert during direct boot.** Between a restart and your first unlock, the file is unreachable (it lives in credential-encrypted storage), so the keyboard runs with an empty, in-memory-only vocabulary: nothing is read, and nothing you type in that state is written anywhere. Once you unlock, the real file is reattached and the temporary in-memory copy is simply discarded, not merged in.
-- **Nothing mirrors outside the app by default.** An opt-in toggle can additionally copy newly-learned words (not autocorrect targets) into Android's own shared personal dictionary, so other keyboards and spell checkers can see them too (off by default, one-directional, and forced off automatically during direct boot regardless of how you've set it), since nothing typed on a lock screen should be learned anywhere. A separate, also-off-by-default toggle does the reverse for a different field of that same system list: it reads back any shortcut entries you've defined there (like "omw" → "on my way") and offers the full phrase as you type the shortcut.
+- **It's inert during direct boot.** Between a restart and your first unlock, the file is unreachable, since it lives in credential-encrypted storage. The keyboard runs with an empty, in-memory-only vocabulary: nothing is read, and nothing you type in that state is written anywhere. Once you unlock, the real file is reattached and the temporary in-memory copy is discarded rather than merged in.
+- **Nothing mirrors outside the app by default.** An opt-in toggle can additionally copy newly-learned words (not autocorrect targets) into Android's own shared personal dictionary, so other keyboards and spell checkers can see them too. It's off by default, one-directional, and forced off automatically during direct boot however you've set it, since nothing typed on a lock screen should be learned anywhere. A separate, also-off-by-default toggle does the reverse for a different field of that same system list. It reads back any shortcut entries you've defined there (like "omw" → "on my way") and offers the full phrase as you type the shortcut.
 - **Android's own backup is opt-in.** Turning on "Back up with Android" includes your whole keyboard, learned words included, in Android's standard app-data backup and phone-to-phone transfer.
-- **A manual export leaves it out by default.** The Backup & restore screen's "Dictionary" section (your personal vocabulary and next-word patterns) starts unchecked, so a settings file you export and share out of habit doesn't carry your typing data along unless you deliberately opt in. Restoring that section does signal a running keyboard to reload, the same as adding or removing a word does.
+- **A manual export leaves it out by default.** The Backup & restore screen's "Dictionary" section covers your personal vocabulary and next-word patterns, and it starts unchecked. A settings file you export and share out of habit carries no typing data along unless you deliberately opt in. Restoring that section does signal a running keyboard to reload, the same as adding or removing a word does.
 
 <PhoneFrame caption="The Dictionary section of a manual export, off by default.">
   {/* shot: smart/personal-dictionary-backup-toggle */}
@@ -97,15 +99,15 @@ See [Incognito & secure fields](/privacy/incognito/) for the rest of how incogni
 | Back up with Android | Off | Privacy / Android backup |
 | Include "Dictionary" in export | Off | Backup & restore / Include in export |
 
-The dictionary screen itself has no settings beyond the word list. Every toggle that controls *whether* something gets learned lives on the Privacy screen (or, for pausing learning specifically during incognito, under the Incognito tool's own settings) rather than here.
+The dictionary screen itself has no settings beyond the word list. Every toggle that controls *whether* something gets learned lives on the Privacy screen rather than here, with one exception: pausing learning during incognito is under the Incognito tool's own settings.
 
 ## Details & edge cases
 
-- **The in-app description undersells the gate.** "Learn from typing" describes itself as skipping "password fields," but the real gate is broader: every structured field (email, web address, number, phone, date, time, datetime) opts out too, not just secured ones.
-- **The backspace-revert path checks slightly different conditions than ordinary learning.** Restoring a word by backspacing right after an autocorrect only checks that the field isn't a secure one. It doesn't require a plain text field the way normal learning does, so it can fire in a structured field (say, an email address box) where ordinary typing would never get learned at all.
-- **A blacklisted word can still be learned.** The personal dictionary and the [suggestion blacklist](/smart/blacklist/) are independent stores; the blacklist wins as a *candidate* (it's never offered or autocorrected to), but if you type that exact word yourself, learning it here doesn't fight the blacklist; it's simply never offered back regardless.
-- **Manually-added words and heavily-reinforced ones can look identical.** The list shows "Added by you" once a word's weight crosses the same 200 that **Add word** hands out, so a word that reached that weight purely through repeated typing reads the same way. Adding a word that's already well reinforced just stacks another 200 on top, which changes nothing you can see.
+- **The in-app description undersells the gate.** "Learn from typing" describes itself as skipping "password fields," but the real gate is broader. Every structured field (email, web address, number, phone, date, time, datetime) opts out too, not only the secured ones.
+- **The backspace-revert path checks slightly different conditions than ordinary learning.** Restoring a word by backspacing right after an autocorrect only checks that the field isn't a secure one. It doesn't require a plain text field the way normal learning does, so it can fire in a structured field, say an email address box, where ordinary typing would never get learned at all.
+- **A blacklisted word can still be learned.** The personal dictionary and the [suggestion blacklist](/smart/blacklist/) are independent stores. The blacklist wins as a *candidate*, so the word is never offered or autocorrected to. Type that exact word yourself and learning it here doesn't fight the blacklist. It's never offered back either way.
+- **Manually-added words and heavily-reinforced ones can look identical.** The list shows "You added this word" once a word's weight crosses the same 200 that **Add word** hands out, so a word that reached that weight purely through repeated typing reads the same way. Adding a word that's already well reinforced just stacks another 200 on top, which changes nothing you can see.
 - **The list is capped, and stale words go first.** It holds 10,000 words before it starts trimming, and words you added by hand outlast the ones the keyboard picked up on its own. See [Dictionaries & words](/reference/settings/dictionaries/#the-list-is-capped-at-10000-words) for how it chooses.
-- **A backspace-revert word doesn't read "Added by you," even though it's just as protected.** Its weight of 5 shows as "Seen 5×"; it's fully exempt from autocorrect the moment it's learned, the on-screen label just reflects the weight, not the protection.
+- **A backspace-revert word doesn't read "You added this word," even though it's just as protected.** Its weight of 5 shows as "Seen 5 times". It's fully exempt from autocorrect the moment it's learned, and the on-screen label reflects the weight rather than the protection.
 
 For the rest of the suggestion strip (completions, corrections and next-word prediction), see [Suggestions & prediction](/smart/suggestions/). To keep a word out of suggestions entirely instead of teaching it, see the [suggestion blacklist](/smart/blacklist/). For how contact names interact with this same learning path, see [Contact-aware typing](/smart/contacts/).

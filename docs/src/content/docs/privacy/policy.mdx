@@ -15,10 +15,16 @@ links to.
 
 ## The summary
 
-WM Keyboard collects nothing. There is no account, no analytics, no crash
-reporting, no advertising, no tracking, and no server belonging to this
-project that the app sends anything to. What you type is processed on your
-device and stays there.
+WM Keyboard collects nothing. There is no account, no advertising, no
+tracking, no analytics or crash reporting that this project receives, and no
+server belonging to this project that the app sends anything to. What you
+type is processed on your device and stays there.
+
+One caveat, stated up front rather than buried: some features are built on
+Google's ML Kit and on Google Play services, and those libraries send their
+own diagnostics to Google when you use the features they power. That is
+Google's collection, not this project's, and it is spelled out in full under
+[Google components inside the app](#google-components-inside-the-app).
 
 The app does not sell, rent or share personal information, because it does not
 receive any in the first place.
@@ -39,9 +45,10 @@ is transmitted anywhere by the app.
 - **Downloaded data**, such as dictionaries, emoji keyword packs and voice
   models.
 
-You can delete all of it. Clearing learned data, clipboard history and
-statistics are each one tap in the app's Privacy screen, and uninstalling
-removes everything the app ever wrote.
+You can delete all of it. Learned data is one confirmed tap on the app's
+Privacy screen, and clipboard history and typing statistics each have a clear
+action of their own on the storage screen under About. Uninstalling removes
+everything the app ever wrote.
 
 Password fields, and any field an app marks as sensitive, are excluded from
 learning, suggestions and clipboard capture automatically. Incognito mode
@@ -79,10 +86,12 @@ providers: those only work if you supply your own.
 
 ## Backups
 
-Backups are optional, encrypted with AES-GCM, and written to the destination
-you choose, which may be local storage, a cloud drive you connect, or a WebDAV
-server you run. Nothing is uploaded anywhere by default and no copy is sent to
-the developer. See [Backup and restore](/privacy/backup/).
+Backups are optional and written to the destination you choose, which may be
+local storage, a cloud drive you connect, or a WebDAV server you run. By
+default the file is plain JSON. Turn on a backup passphrase and it is
+encrypted with AES-GCM under a PBKDF2-derived key. Nothing is uploaded
+anywhere by default and no copy is sent to the developer. See
+[Backup and restore](/privacy/backup/).
 
 ## Children
 
@@ -90,7 +99,37 @@ WM Keyboard is not directed at children and collects no data from anyone,
 including children. There is nothing to delete on request because nothing is
 ever received.
 
-## Third-party components
+## Google components inside the app
+
+Three Google libraries the app is built on report to Google on their own,
+without going through any code here. They cannot see what you type, and this
+project receives nothing from them. None of them can be switched off from
+inside the app either, so your only choice is whether to use the feature.
+
+- **ML Kit** powers handwriting input, OCR, QR and barcode scanning, the
+  document scanner and sticker background removal, in the full edition only.
+  Google
+  [states](https://developers.google.com/ml-kit/android-data-disclosure) that
+  its SDK sends device information (make, model, OS build, available ML
+  accelerators), this app's package name and version, a per-installation
+  identifier, timing and error information, and the size and settings of what
+  was processed. That happens whenever you use one of those features. Google
+  describes it as diagnostics and usage analytics, encrypted in transit and
+  not passed to third parties. The content of the image, ink or document is
+  not part of it.
+- **Downloadable fonts.** Some scripts' default keyboard font, and every
+  Google font in the theme editor, are fetched by Google Play services' font
+  provider. It receives the font name and this app's package name.
+- **Google Play libraries** in the Play Store build check for app updates and
+  fetch the on-device AI runtime when you first use it.
+
+Connecting Google Drive as a backup destination adds a Google sign-in and
+ordinary Drive API calls, and only if you connect it.
+
+The lite edition has no ML Kit; the F-Droid build additionally has no Play
+libraries.
+
+## Other third-party components
 
 The app bundles open-source libraries and data (dictionaries, emoji
 annotations, fonts). None of them phone home. The full list, with licences,

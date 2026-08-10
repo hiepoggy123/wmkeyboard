@@ -1,5 +1,5 @@
 ---
-title: "Addon Repositories — Client Handling Design"
+title: "Addon repositories: client handling design"
 description: "How the app fetches, verifies and installs addons from a repository."
 sidebar:
   label: "Client design"
@@ -7,7 +7,7 @@ sidebar:
 ---
 
 How the app should fetch, resolve, validate and install addons from a repository.
-Companion to [REPO_FORMAT.md](/development/addon-repos/repo-format/). Status: **implemented** — this describes what the app does.
+Companion to the [repository format](/development/addon-repos/repo-format/). Status: **implemented**. This page describes what the app does.
 
 Guiding principle: **reuse everything.** Every addon payload is already a native import
 format, so install = *download the file, hand it to the existing importer*. The only new
@@ -67,14 +67,14 @@ Accept a pasted string and normalise to the raw manifest URL (§4 of the format 
 Keep the resolved **manifest URL's directory** as the base for resolving relative
 `path` / `previews` / `icon`. Enforce **`https` only**.
 
-## 3. Persistence — a file-backed store, not DataStore
+## 3. Persistence: a file-backed store, not DataStore
 
 `filesDir/addons/`, following the same contract as `IconPackStore` / `StickerPackStore`:
 
-- `repos.json` — `[{ url, manifestUrl, addedAt, cachedManifest, fetchedAt, seeded }]`.
-- `installed.json` — `{ "<repoId>/<addonId>": { version, type, localRef, installedAt } }` where
-  `localRef` is the created custom-theme/layout id, dictionary file path, pack id, font id or
-  sound id. Drives the Installed / Update-available / Uninstall states.
+- `repos.json` holds `[{ url, manifestUrl, addedAt, cachedManifest, fetchedAt, seeded }]`.
+- `installed.json` holds `{ "<repoId>/<addonId>": { version, type, localRef, installedAt } }`,
+  where `localRef` is the created custom-theme/layout id, dictionary file path, pack id, font id
+  or sound id. Drives the Installed / Update-available / Uninstall states.
 
 The store's directory getter returns **null** when `!DirectBoot.isUserUnlocked`, so it reads as
 empty before first unlock; `attach(context)` re-points it afterwards. A `reconcile()` sweep drops
@@ -83,7 +83,7 @@ entries whose local target the user has since deleted by hand.
 > This is a deliberate change from the original design, which put `addon_repos` /
 > `installed_addons` in DataStore next to `custom_themes` / `custom_layouts`. Cached manifests
 > run to several KB each, and `KeyboardSettings` is re-emitted to the IME on every settings
-> change — parking manifests there would push that payload through the keyboard's hot path for
+> change. Parking manifests there would push that payload through the keyboard's hot path for
 > no benefit, and `KeyboardSettings` is already near the JVM's 255-argument `copy$default`
 > ceiling. Net new `KeyboardSettings` fields for the addon layer: zero.
 
@@ -96,26 +96,26 @@ entries whose local target the user has since deleted by hand.
   `core/localllm/LocalLlmDownloadManager.kt`. Accept optional `.txt.gz`.
 - `sha256` is **optional**. When present, hash the bytes as they stream in and verify **before**
   install, aborting on mismatch. When absent, install proceeds and the UI marks the addon
-  unverified — a beginner hand-writing a manifest must not be blocked on computing hashes.
-  `sizeBytes` is likewise a pre-download guard only; the mid-stream cap does the real work.
+  unverified. A beginner hand-writing a manifest must not be blocked on computing hashes.
+  `sizeBytes` is likewise a pre-download guard only. The mid-stream cap does the real work.
 - If `minAppVersion > BuildConfig.VERSION_CODE`, disable install with an "update the app" note.
 
 ## 5. Install dispatch
 
-Six of the nine types route straight to an importer that already existed. Three did not, and
-were built as part of this work — the rows are marked.
+Most types route straight to an importer that already existed. Three did not, and were built
+as part of this work. Those rows are marked **new**.
 
 | type | Install path |
 |---|---|
 | `theme` | `ThemeCodec.decode` → `copy(id = "custom_" + now)` → `ThemeSpec.withExtractedImages(themeImagesDir(ctx))` → `SettingsRepository.upsertCustomTheme` |
 | `layout` | `LayoutFile.decode` → `LayoutCodec.migrateLayout` → `LayoutSpec.repair` → fresh id → `SettingsRepository.upsertCustomLayout` |
-| `dictionary` | `CustomDictionaries.import(filesDir, langId, name, stream)` — validates ≥1 word, 32 MiB cap. Guard: `langId` must exist in `LanguageRegistry` (else surface a clear "unsupported language" error). |
-| `emoji_keywords` | `EmojiKeywordPacks.import(filesDir, langId, name, stream)` — per-language TSV of emoji keywords, validated to ≥1 emoji, 8 MiB cap, gzip tolerated. Same `langId`-must-exist-in-`LanguageRegistry` guard as `dictionary`. Merged into the bundled catalogue by `EmojiKeywordPack.merge` at load, so the pack feeds emoji search, the inline `:name:` search, emoji prediction and the long-press description in one step. |
+| `dictionary` | `CustomDictionaries.import(filesDir, langId, name, stream)`. Validates ≥1 word, 32 MiB cap. Guard: `langId` must exist in `LanguageRegistry` (else surface a clear "unsupported language" error). |
+| `emoji_keywords` | `EmojiKeywordPacks.import(filesDir, langId, name, stream)`. Per-language TSV of emoji keywords, validated to ≥1 emoji, 8 MiB cap, gzip tolerated. Same `langId`-must-exist-in-`LanguageRegistry` guard as `dictionary`. Merged into the bundled catalogue by `EmojiKeywordPack.merge` at load, so the pack feeds emoji search, the inline `:name:` search, emoji prediction and the long-press description in one step. |
 | `snippets` | **new** `SnippetFile.decode` (the `.wmsnippets.json` codec was specified but never written) → for each entry `SnippetStore.add(snippet)`, ids reassigned (the whole snippet, so a field added to the format later cannot be silently dropped on the way in). The same codec gives the app snippet export/import, so anything a repo can ship the app can also produce. |
-| `stickers` | `StickerPackFile.import(input, store)` — extracts `*.wmstickers` ZIP archive, validates `wmkeyboard-stickers` envelope in `pack.json`, normalizes images to app-private sticker storage, and registers pack in `StickerPackStore`. |
-| `icon_pack` | `IconPackFile.import(input, store)` — extracts `*.wmicons`, validates the `wmkeyboard-icons` envelope in `pack.json`, keeps every entry naming a slot `IconSlots` knows (parsing each SVG to prove it renders), and registers the pack in `IconPackStore`. |
+| `stickers` | `StickerPackFile.import(input, store)`. Extracts the `*.wmstickers` ZIP archive, validates the `wmkeyboard-stickers` envelope in `pack.json`, normalizes images to app-private sticker storage, and registers the pack in `StickerPackStore`. |
+| `icon_pack` | `IconPackFile.import(input, store)`. Extracts `*.wmicons`, validates the `wmkeyboard-icons` envelope in `pack.json`, keeps every entry naming a slot `IconSlots` knows (parsing each SVG to prove it renders), and registers the pack in `IconPackStore`. |
 | `font` | **new subsystem.** The app had three fixed custom-font slots, each overwritten on import, so a *library* of installed fonts had to be built first: `FontStore` (`filesDir/fonts/installed/`, `fonts.json` index, 50-font cap) + `FontFile.import(stream, store, name)` validating the sfnt magic and proving the face actually loads. `KeyboardFonts` resolves an `installed:<id>` font id through the store, so installed faces appear in the font picker beside the Google Fonts. |
-| `emoji_font` | Same `FontFile.import` as `font`, flagged `emoji = true` in the store. Kept a separate type because it is chosen somewhere else entirely — `EmojiFontChoice.INSTALLED` under Emoji settings, not the key-label pickers — and because a colour emoji font on the key labels is not a choice anyone makes on purpose. There is exactly one emoji slot, which `AddonApply` offers to fill once the font has landed. |
+| `emoji_font` | Same `FontFile.import` as `font`, flagged `emoji = true` in the store. Kept a separate type because it is chosen somewhere else entirely (`EmojiFontChoice.INSTALLED` under Emoji settings, not the key-label pickers), and because a colour emoji font on the key labels is not a choice anyone makes on purpose. There is exactly one emoji slot, which `AddonApply` offers to fill once the font has landed. |
 | `sound` | **new subsystem.** Key sounds were five synthesised waveforms behind a `KeySoundStyle` enum with no import path at all. Adds a `CUSTOM` style, `SoundStore` (`filesDir/keysounds/`, `sounds.json`, 30-sound cap) and `SoundFile.import(stream, store, name)` validating the MPEG frame header; `KeySoundPlayer` loads the chosen file into its `SoundPool` instead of a synthesised buffer. |
 
 Record the result in `installed_addons`. Uninstall reverses the local action
@@ -123,9 +123,9 @@ Record the result in `installed_addons`. Uninstall reverses the local action
 
 Installing puts the payload on the device and stops there. Nothing is selected, switched to or
 turned on: browsing a repository and tapping the download arrow on three themes must not leave
-the user wearing the third one. `AddonApply` asks instead — the types with one obvious slot
+the user wearing the third one. `AddonApply` asks instead. The types with one obvious slot
 (`theme`, `icon_pack`, `emoji_font`, `sound`, `layout`, `plugin`) raise a one-question dialog the
-moment the install lands, and the rest have nothing to ask about, being either live already
+moment the install lands. The rest have nothing to ask about: they are either live already
 (`dictionary`, `emoji_keywords`, `snippets`, `stickers`) or bound for a picker with several slots (`font`).
 
 Updating is the exception: an addon that *was* the active theme, sound or layout is re-selected
@@ -141,20 +141,20 @@ Languages → Your layouts, while Key layouts lists only layouts that are alread
 ### Reconciliation
 
 Nothing forces a user through the Addons screen to get rid of something. A theme deleted from
-the Themes gallery, a font from the font picker, an icon pack from the Icons screen — each
-leaves `installed.json` still claiming the addon is there, which shows as *Uninstall* for
-something already gone and later offers an *Update* for it. So `AddonReconciler.reconcile()`
+the Themes gallery, a font from the font picker, an icon pack from the Icons screen: each of
+those leaves `installed.json` still claiming the addon is there. That shows as *Uninstall* for
+something already gone, and later offers an *Update* for it. So `AddonReconciler.reconcile()`
 runs when each addon screen appears: it asks every record's own subsystem whether its
 `localRef` still resolves, and drops the ones that don't. It runs **before** the status
 recompute, so a deleted theme reads as available again rather than installed.
 
 ## 5b. Previewing without installing
 
-For the four types whose *content* is the choice — `snippets`, `dictionary`, `sound`,
-`stickers` — the detail page offers **Preview**: it downloads the payload to `cacheDir` (a
-12 MiB ceiling, under every install cap) and reads it into a summary — the snippets in the
+Four types have *content* that is itself the choice: `snippets`, `dictionary`, `sound` and
+`stickers`. Their detail pages offer **Preview**. It downloads the payload to `cacheDir` (a
+12 MiB ceiling, under every install cap) and reads it into a summary: the snippets in the
 pack, a sample of the word list with a count, a play button, the first two dozen sticker
-images. Nothing is installed and no setting changes; the path touches neither the status map
+images. Nothing is installed and no setting changes. The path touches neither the status map
 nor the single-install lock, so a preview can't interfere with a download in flight.
 
 `theme`, `layout`, `font` and `emoji_font` deliberately offer no preview: they are judged by
@@ -169,18 +169,19 @@ stored version → show **Update**. Re-running install overwrites in place.
 
 ## 7. Security & privacy
 
-Every addon type but one is **pure data — no code runs**. The exception is
-`plugin`, which ships Lua and is covered separately below. Residual surface +
+Every addon type but one is **pure data**, and no code runs. The exception is
+`plugin`, which ships Lua and is covered separately below. Residual surface and
 mitigations:
 
 - **Transport:** `https` only. Size caps on manifest and every payload type (theme image cap,
   32 MiB dict cap). Optional but recommended `sha256` verification.
-- **Images & Stickers:** theme backgrounds and sticker images decode through `BitmapFactory` — the parser exposed to
-  untrusted bytes. Cap dimensions/bytes; decode off the main thread. Import already nulls any
-  local absolute `backgroundImage` path and re-extracts to app-private storage — keep that.
+- **Images & Stickers:** theme backgrounds and sticker images decode through `BitmapFactory`,
+  which is the parser exposed to untrusted bytes. Cap dimensions and bytes. Decode off the main
+  thread. Import already nulls any local absolute `backgroundImage` path and re-extracts to
+  app-private storage. Keep that.
 - **Layouts:** the `send_key` / `mod` key actions are a capability, but they only inject into the
   field the user is typing in (no exfiltration, no off-device effect). Already part of the trusted
-  layout format; note in review, no extra gate needed for v1.
+  layout format. Note it in review. No extra gate is needed for v1.
 - **Privacy:** manifests are fetched only from user-added URLs. No telemetry, no phone-home.
   Previews and licence texts are fetched only when the user asks for them.
 - **Licences:** `license` / `licenseText` / `licenseFile` are metadata shown on the addon's
@@ -198,15 +199,15 @@ mitigations:
 true for it and a different set of guarantees takes over.
 
 A plugin's Lua runs in a sandbox with **no API for reading typed text, the text
-field, the clipboard, or the network** — not gated behind a permission, not
-prompted for at use: absent. It also cannot load code at runtime, reach Android,
-see other apps, or run while its panel is closed. The one thing it can declare is
+field, the clipboard, or the network**. Those are not gated behind a permission
+and not prompted for at use. They are absent. It also cannot load code at
+runtime, reach Android, see other apps, or run while its panel is closed. The one thing it can declare is
 local storage, which cannot leave the device because nothing in the sandbox can
 send anything anywhere.
 
 That capability set is deliberate rather than minimal-for-now. A keyboard sees
 everything its user types, and third-party code that could read that *and* reach
-the network is a keylogger with extra steps — which no consent dialog makes
+the network is a keylogger with extra steps. No consent dialog makes that
 untrue, since the user cannot audit what a script does with a permission after
 granting it. Play's Device and Network Abuse policy asks the same question of
 runtime-loaded interpreted code, naming Lua specifically: it "must not allow
@@ -222,15 +223,15 @@ Rules this type does not share with the others:
 - **The subsystem is off by default.** Nothing installs or runs until the user
   turns plugins on.
 - **The preview is a capability list**, shown before Install and built from the
-  manifest alone — the script is never read to work out what a plugin claims it
+  manifest alone. The script is never read to work out what a plugin claims it
   can do.
 
-Full detail: `docs/plugins/SECURITY.md` in the app repository.
+Full detail: [the plugin sandbox](/plugins/security/).
 
 ## 8. Future work
 
-- **Data-driven languages** — a downloadable dictionary/layout for a *new* language currently
+- **Data-driven languages.** A downloadable dictionary or layout for a *new* language currently
   needs a compiled `LanguageDef` in `LanguageRegistry.all` (`core/script/Language.kt:54`). Making
-  that registry data-driven would let repos ship whole new languages; larger effort, tracked
+  that registry data-driven would let repos ship whole new languages. Larger effort, tracked
   separately.
-- **Curated index** — an optional list of known repos the app suggests when the user has none added.
+- **Curated index.** An optional list of known repos the app suggests when the user has none added.

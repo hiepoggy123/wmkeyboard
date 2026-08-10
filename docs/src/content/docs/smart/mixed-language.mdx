@@ -44,7 +44,7 @@ Once the field has clearly gone one way, the detected language gets a ranking bo
 | Balanced (default) | Lets a clearly detected language take the lead in ranking, and autocorrect follows for everything but the most common rival words. The ×4 confidence gate absorbs the contested middle. |
 | Aggressive | A full role swap. Autocorrect fixes typos in the detected language even against top-frequency words of the language the keyboard is set to. |
 
-Balanced is the shipped default and the one to leave alone unless something specific is annoying you. Go Gentle if autocorrect keeps reaching into the other language when you only wanted better suggestions; go Aggressive if you write whole messages in the language that isn't your keyboard's and you want it treated as the real one.
+Balanced is the shipped default and the one to leave alone unless something specific is annoying you. Go Gentle if autocorrect keeps reaching into the other language when all you wanted was better suggestions. Go Aggressive if you write whole messages in the language that isn't your keyboard's and you want it treated as the real one.
 
 Whichever strength is set, the swing scales with the evidence. One classified word moves the mix about halfway, three make it certain, and a field split evenly between the two languages moves nothing at all.
 
@@ -61,7 +61,7 @@ Both rows sit under Automatic corrections rather than Suggestions, because detec
 
 ## Details & edge cases
 
-- **It is per field, and per field only.** Switching apps, or just tapping into a different box, starts the reading from scratch. There is no memory of "you write Banglish to this person"; that's a different feature, the long-run per-language weighting described under [Suggestions & prediction](/smart/suggestions/#learning-from-what-you-type).
+- **It is per field, and per field only.** Switching apps, or just tapping into a different box, starts the reading from scratch. There is no memory of "you write Banglish to this person". That's a different feature, the long-run per-language weighting described under [Suggestions & prediction](/smart/suggestions/#learning-from-what-you-type).
 - **Detection never changes the keyboard.** The layout, the language name on the spacebar and the script you're typing all stay exactly where you put them. Only ranking and autocorrect targets move. To actually switch language, see [Switching languages](/languages/switching/).
-- **A language has to clearly lead before it counts as the field's language.** For the learned-word weighting in particular, the detected language needs about a third more share than the language you're on before it takes over, so a genuinely mixed field stays with the keyboard's own.
-- **It's a different question from "which languages do you use".** The long-run mix moves over weeks and would never notice that this message switched to romanised Bengali three words ago. This one is the fast signal, and the two run side by side.
+- **A language has to clearly lead before it counts as the field's language.** For the learned-word weighting in particular, the detected language needs about a third more share than the language you're on before it takes over. A genuinely mixed field stays with the keyboard's own.
+- **It's a different question from "which languages do you use".** The long-run mix moves over weeks and would never notice that this message switched to Banglish three words ago. This one is the fast signal, and the two run side by side.

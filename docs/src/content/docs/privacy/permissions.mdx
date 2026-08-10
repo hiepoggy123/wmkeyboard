@@ -8,13 +8,13 @@ sidebar:
 import SettingsPath from '@components/SettingsPath.astro';
 import Flavor from '@components/Flavor.astro';
 
-A fresh install asks for nothing. Every permission on this page belongs to exactly one optional feature, and none of them is requested until the first time you actually use that feature. Typing, prediction, autocorrect, gesture typing, emoji search and learning need no permission at all, so a keyboard you never point at a tool never sees a single prompt.
+A fresh install asks for nothing. Every permission on this page belongs to exactly one optional feature, and none is requested until the first time you use that feature. Typing needs no permission at all, and neither do prediction, autocorrect, gesture typing, emoji search or learning. Point the keyboard at no tool and you'll never see a single prompt.
 
 ## The explanation always comes first
 
 Before Android's own permission dialog appears, the keyboard shows its own: what it's about to ask for, which feature wants it, what happens to the data, and whether any of it leaves the phone. Two buttons, **Continue** and **Not now**.
 
-**Not now** is a real answer. It closes the dialog without asking Android for anything, and the feature stays in whatever state it was in: a tool that needs the permission keeps showing its "needs permission" panel, and a setting that needs one stays off. Nothing is silently enabled behind the dialog, and dismissing it with Back or a tap outside counts the same as **Not now**.
+**Not now** is a real answer. It closes the dialog without asking Android for anything, and the feature stays where it was. A tool that needs the permission keeps showing its "needs permission" panel, and a setting that needs one stays off. Nothing is silently enabled behind the dialog. Dismissing it with Back, or with a tap outside, counts the same as **Not now**.
 
 The same explanation appears whichever direction you came from, so the microphone text is identical whether you reached it from the voice panel on the keyboard or from a settings screen.
 
@@ -31,21 +31,21 @@ These are the ones that produce a system prompt the first time.
 | Photos | Screenshots in the [clipboard](/tools/clipboard/) | Spots newly taken screenshots so they turn up in the clipboard ready to insert. Android has no screenshots-only permission, so granting it opens your photo library as a whole even though the keyboard only ever looks at new screenshots. |
 | Storage | Save an image to your gallery | Android 9 and older only. Newer versions let an app write its own media with no permission, so nothing is asked for there. |
 
-Three more are granted at install with no prompt, because Android doesn't consider them sensitive: vibration (for haptics), internet, and the "is this connection metered?" check the model downloaders use before pulling hundreds of megabytes. What the internet permission is actually used for, tool by tool, is on [Network policy](/privacy/network/).
+Three more are granted at install with no prompt, because Android doesn't consider them sensitive: vibration (for haptics), internet, and the "is this connection metered?" check the model downloaders use before pulling hundreds of megabytes. Full builds list three more that never produce a prompt either: `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` and `FOREGROUND_SERVICE`. They aren't there for anything the keyboard does. They arrive in the merged manifest from androidx.work, which ML Kit pulls in, and the app schedules no WorkManager job of its own. Lite builds don't declare them at all. What the internet permission is actually used for, tool by tool, is on [Network policy](/privacy/network/).
 
 ## If Android stops asking
 
-Refuse the same permission twice and Android stops showing that prompt entirely. It doesn't tell the app, and it doesn't tell you: the next tap just returns "denied" with nothing on screen, which normally leaves you tapping a button that appears to do nothing.
+Refuse the same permission twice and Android stops showing that prompt entirely. It tells neither the app nor you. The next tap just returns "denied" with nothing on screen, which normally leaves you pressing a button that appears to do nothing.
 
-The keyboard checks for that case and changes what the button does. You get the same explanation as before, plus a line saying Android has stopped asking, and the button becomes **Open settings**, which drops you on the app's own permission page where the choice still lives. Grant it there and the feature works the next time you open it.
+The keyboard checks for that case and changes what the button does. You get the same explanation as before, plus a line saying Android has stopped asking. The button becomes **Open settings** and drops you on the app's own permission page, where the choice still lives. Grant it there and the feature works the next time you open it.
 
-One rough edge worth knowing: if you granted a permission and later revoked it from that same settings page, the keyboard will send you back to Settings rather than showing the prompt, even though the prompt would have worked. It errs toward the screen that always works over the one that might silently do nothing.
+One rough edge is worth knowing about. If you granted a permission and later revoked it from that same settings page, the keyboard sends you back to Settings rather than showing the prompt, even though the prompt would have worked. It errs toward the screen that always works over the one that might silently do nothing.
 
 ## The three that aren't permissions
 
-Notification access, usage access and the accessibility service aren't permissions Android will prompt for. Each is a switch on a system Settings screen, and all the app can do is take you there. The keyboard shows the same kind of explanation first, for the same reason, and each of these three is off until you turn it on yourself.
+Notification access, usage access and the accessibility service aren't permissions Android will prompt for. Each is a switch on a system Settings screen, and all the app can do is take you there. The keyboard shows the same kind of explanation first, for the same reason. All three stay off until you turn them on yourself.
 
-The system screens for all three carry broad, alarming warnings, because the *categories* are genuinely powerful. What this app actually uses is much narrower:
+The system screens for all three carry broad, alarming warnings, because the *categories* are genuinely powerful. What this app uses is much narrower:
 
 | Access | Feature | What the keyboard uses it for |
 |---|---|---|
@@ -59,17 +59,17 @@ All three are revoked the same way they were granted, from the relevant system S
 
 <SettingsPath path="Privacy / Permissions" />
 
-The app has a permissions screen of its own, at the top of **Privacy**. It's an inventory rather than a funnel: every permission the keyboard can hold, in three groups (the ones Android prompts for, the three special-access grants, and the three that come with the install), each row showing **Granted**, **Not granted** or **Automatic** on the right.
+The app has a permissions screen of its own, at the top of **Privacy**. It's an inventory rather than a funnel. Every permission the keyboard can hold appears there in three groups: the ones Android prompts for, the three special-access grants, and the three install-time ones the screen lists. Each row shows **Granted**, **Not granted** or **Automatic** on the right.
 
-Tapping a row you haven't granted runs the same explanation-then-prompt flow the feature itself would, so this is the one place you can grant something ahead of the feature that wants it. Tapping a row that's already granted opens the app's own page in Android's Settings, since that's the only place a grant can be taken back. Field by field, it's on [Permissions settings](/reference/settings/permissions/).
+Tap a row you haven't granted and you get the same explanation-then-prompt flow the feature itself would run, so this is the one place you can grant something ahead of the feature that wants it. Tap a row that's already granted and the app's own page in Android's Settings opens, because that's the only place a grant can be taken back. Field by field, it's on [Permissions settings](/reference/settings/permissions/).
 
 Nothing stops you going to Android's page directly instead: **Settings → Apps → WM Keyboard → Permissions**. Notification access, usage access and accessibility each sit on their own system screen rather than in that list, which is why the in-app screen keeps them in a group of their own.
 
 ## Details & edge cases
 
-- **Revoking a permission never breaks the keyboard.** Every feature behind one is optional and checks at the moment it's used, so a revoked permission turns that one panel back into its "needs permission" state and leaves everything else alone. Typing is never affected.
+- **Revoking a permission never breaks the keyboard.** Every feature behind one is optional and checks at the moment it's used. A revoked permission turns that one panel back into its "needs permission" state and leaves everything else alone. Typing is never affected.
 - **Two dictionary permissions are declared but do nothing on any current phone.** The app lists `READ_USER_DICTIONARY` and `WRITE_USER_DICTIONARY` for the "Add words to the system dictionary" setting described on [Your data on device](/privacy/data/#options). Since Android 6, the system grants the *active* keyboard access to that provider without a permission, so these are inert on anything modern and only matter on much older releases.
-- **Reading your SIM's country isn't a permission either.** The **Suggested for you** group on the Languages screens asks Android for the SIM's and the network's country code (`getSimCountryIso` and `getNetworkCountryIso`), which any app may do without asking, alongside your phone's system language list. Both are used only to order that list, both are read on the spot rather than stored, and neither leaves the device. Nothing else about the SIM — number, carrier account, IMEI, or anything identifying — is touched, and a phone with no SIM simply falls back to the region on its locale. See [Suggested languages](/languages/overview/#suggested-languages).
-- **Listing your installed apps isn't a permission.** The keyboard-mode editor can bind a mode to specific apps, and app names can be offered as suggestions, both of which need to see the list of launcher activities. Android 11 and later hide that list unless an app declares which kinds of apps it wants to see, which this app does narrowly (launcher activities, plus mail apps for the bug-report row). It doesn't use the blanket "query all packages" permission.
+- **Reading your SIM's country isn't a permission either.** The **Suggested for you** group on the Languages screens asks Android for the SIM's and the network's country code (`getSimCountryIso` and `getNetworkCountryIso`), which any app may do without asking, alongside your phone's system language list. Both are used only to order that list, both are read on the spot rather than stored, and neither leaves the device. Nothing else about the SIM is touched, not the number, the carrier account, the IMEI or anything else identifying. A phone with no SIM falls back to the region on its locale. See [Suggested languages](/languages/overview/#suggested-languages).
+- **Listing your installed apps isn't a permission.** The keyboard-mode editor can bind a mode to specific apps, and app names can be offered as suggestions. Both need to see the list of launcher activities. Android 11 and later hide that list unless an app declares which kinds of apps it wants to see, which this app does narrowly: launcher activities, mail apps for the bug-report row, and two entries naming Google Play services itself (the `com.google.android.gms` package and its `com.google.android.gms.fonts` provider) so the document scanner and the downloadable Noto fonts can be left out cleanly on a phone that has no Play services. It doesn't use the blanket "query all packages" permission.
 - **The camera permission covers the scanners, but the document scanner is Google's own screen.** OCR and QR scanning <Flavor edition="full" /> run in a keyboard panel and use the permission above. Document scanning hands off to the full-screen scanner supplied by Google Play services, which manages its own camera access and returns the pages when it's done.
-- **Nothing here is asked for on behalf of a third party.** No permission on this page is requested by an SDK, an analytics library or an ad network, because the app contains none. See [Privacy at a glance](/privacy/overview/) for what that claim rests on and how to check it yourself.
+- **Nothing here is asked for on behalf of an analytics or ad SDK.** No permission on this page is requested by an analytics library or an ad network, because the app contains none. The only permissions a third-party library contributes at all are the three install-time ones described above, which arrive in full builds from androidx.work as a transitive dependency of ML Kit. See [Privacy at a glance](/privacy/overview/) for what that claim rests on and how to check it yourself.

@@ -20,9 +20,9 @@ Offline Whisper is a second dictation engine that runs entirely on your phone. I
 
 ## Why offline dictation
 
-The system recognizer (covered in [Voice typing](/tools/voice/)) is fast and shows words as you speak, but it depends on your OS, its installed languages, and (unless the on-device language pack is installed) sending audio to a recognizer service. Offline Whisper trades that for a hard privacy guarantee: it works across many languages and never sends audio anywhere.
+The system recognizer, covered in [Voice typing](/tools/voice/), is fast and shows words as you speak. It also leans on your OS and its installed languages, and without the on-device language pack it sends audio to a recognizer service. Offline Whisper trades all of that away for a hard guarantee: it works across many languages and never sends audio anywhere.
 
-The trade-off shows up as a real UX difference, not just a privacy footnote: Whisper isn't streaming. It records into a buffer and transcribes the whole clip only once you stop talking (or hit the 30-second cap; see [Details & edge cases](#details--edge-cases)), so the panel shows "Listening. Press when you are done." instead of live partial words.
+You feel that trade every time you dictate, because Whisper doesn't stream. It records into a buffer and transcribes the whole clip once you stop talking, or once you hit the 30-second cap (see [Details & edge cases](#details--edge-cases)). The panel shows "Listening. Press when you are done." rather than live partial words.
 
 Bigger models trade download size and speed for accuracy:
 
@@ -35,13 +35,13 @@ Bigger models trade download size and speed for accuracy:
 
 ## The model catalog
 
-The catalog has 29 downloadable models: 10 multilingual graphs (7 that auto-detect the spoken language, and 3 grouped models you can pin to one language) plus 19 single-language models covering 13 languages (English, German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Tamil, Telugu, Urdu, and Chinese, several with more than one size). A single-language model only appears in the catalog once you've enabled that language on the Languages screen.
+The catalog has 29 downloadable models. Ten are multilingual graphs: seven auto-detect the spoken language, and three are grouped models you can pin to one language. The other 19 are single-language models covering 13 languages, several at more than one size: English, German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Tamil, Telugu, Urdu, and Chinese. A single-language model only appears in the catalog once you've enabled that language on the Languages screen.
 
 <PhoneFrame caption="Model catalog with size and language filters, grouped by tier.">
 ![Model catalog with size and language filters, grouped by tier.](@assets/screens/tools/whisper-catalog.webp)
 </PhoneFrame>
 
-Turbo and Large v3 need a 128-band mel spectrogram where every older Whisper model needs 80, so each one downloads a different filterbank file alongside the graph and the audio pipeline reads the band count from that file. If the two files ever disagree, dictation fails with a message instead of decoding noise into confident-looking words.
+Turbo and Large v3 need a 128-band mel spectrogram, where every older Whisper model needs 80. Each one downloads a different filterbank file alongside its graph, and the audio pipeline reads the band count from that file. If the two files ever disagree, dictation fails with a message instead of decoding noise into confident-looking words.
 
 ### When a language can only be guessed at
 
@@ -52,7 +52,7 @@ For those languages, and Bangla is one of them, a model can decide you're speaki
 - The model-per-language list says so on any affected language, and points at Turbo and Large v3, which get the language right far more often than the small models do.
 - When the wrong language happens to be written in a different alphabet, WM Keyboard converts it back. Bangla read as Hindi is the common case: the model still transcribed the Bangla words it heard, it just spelled them in Devanagari, and the two alphabets line up closely enough to map across. You get readable Bangla instead of a line you can't read at all. It can't rescue a genuinely wrong language, only a wrong alphabet.
 
-Whisper itself has an "initial prompt" that biases spelling and vocabulary, and its own way of forcing a language. Neither is available here. The community `.tflite` conversions this app uses were exported with the entire generation loop traced inside the graph, so the only inputs left are the spectrogram and, on the grouped models, a number selecting one of the languages it was built with.
+Whisper itself has an "initial prompt" that biases spelling and vocabulary, and its own way of forcing a language. Neither is available here. The community `.tflite` conversions this app uses were exported with the entire generation loop traced inside the graph. That leaves two inputs: the spectrogram, and on a grouped model a number selecting one of the languages it was built with.
 
 ### Picking a model per language
 
@@ -60,7 +60,7 @@ Rather than one global model for every language, WM Keyboard resolves a model pe
 
 1. A model you've explicitly pinned to that language, if it's downloaded and covers it.
 2. The largest downloaded single-language model for that language.
-3. The app's own fallback model, if it's downloaded and covers the language. You don't pick this one; see [Options](#options).
+3. The model that **Model for other languages** names, if it's downloaded and covers the language. See [Options](#options).
 4. The best-ranked downloaded model that covers the language at all.
 5. As a last resort, that same fallback or the first downloaded model, even if it can't actually transcribe that language.
 
@@ -72,11 +72,11 @@ That last step is deliberate: it produces wrong words rather than a dead microph
 
 ## Downloading and managing models
 
-Each catalog row carries its own **Download** button on the right. Tapping the row itself does something else: it expands the row to show what the model is and which languages it covers, so you can read up before spending the bandwidth. Once a model is on disk that button becomes a delete icon; a failed attempt offers **Retry** and an interrupted one offers **Resume**.
+Each catalog row carries its own **Download** button on the right. Tapping the row itself does something else. It expands the row to show what the model is and which languages it covers, so you can read up before spending the bandwidth. Once a model is on disk, that button becomes a delete icon. A failed attempt offers **Retry**, and an interrupted one offers **Resume**.
 
 Each model downloads as two files (the `.tflite` graph and a companion vocabulary/filterbank file), with the smaller vocabulary file fetched first so a broken connection fails fast. Downloads are resumable: if you lose connection or leave the app, the next attempt picks up where it left off instead of restarting.
 
-Only one model downloads at a time. Before it starts, WM Keyboard checks that you have enough free space (the remaining bytes plus a safety margin); if you don't, the download stops with a message telling you roughly how much space to free up. On a metered connection, any model at or above roughly 150 MB asks you to confirm before using mobile data.
+Only one model downloads at a time. Before it starts, WM Keyboard checks that you have enough free space: the remaining bytes plus a safety margin. If you don't, the download stops with a message telling you roughly how much to free up. On a metered connection, any model at or above roughly 150 MB asks you to confirm before it uses mobile data.
 
 <PhoneFrame caption="A model mid-download, with progress and the storage summary below the list.">
 ![A model mid-download, with progress and the storage summary below the list.](@assets/screens/tools/whisper-download-progress.webp)
@@ -90,36 +90,39 @@ When exactly one model is on disk, the app quietly adopts it as that fallback, s
 
 <SettingsPath path="Tools / Voice typing" />
 
-The Whisper-specific controls live inside the same **Voice typing** screen as the system-recognizer settings: there's no separate settings destination. The **Recognition engine** picker below appears <Flavor edition="full" /> (it's what lets you switch to Whisper in the first place); the rest of the table (translation and model routing) only appears once you've already selected the offline engine there.
+The Whisper-specific controls live inside the same **Voice typing** screen as the system-recognizer settings. There's no separate destination for them. The **Recognition engine** picker appears <Flavor edition="full" />, since it's what lets you switch to Whisper in the first place. The rest of the table only shows up once you've selected the offline engine there.
 
 | Setting | Default | What it does |
 |---|---|---|
 | Recognition engine | System recognizer | Switches dictation between the system speech recognizer and offline Whisper. Hidden entirely on the lite edition: there's no disabled option, dictation is always the system recognizer. |
 | Translate to English | Off | Speaks any language and types its English translation instead of a transcription, when the routed model supports it. |
 | Model per language | Automatic | Pins a specific downloaded model to a language, overriding automatic routing. One row per enabled language, each with a **Change** button. |
+| Model for other languages | Automatic | The fallback step 3 of the routing order uses. Only shown once more than one model is on disk. |
 
-There's deliberately no "use this model for everything" picker. Dictation resolves a model from the language of the active layout, the same way the system recognizer follows the layout's locale, so the only choice worth offering is the per-language one. The fallback that step 3 of the routing order refers to is something the app keeps for itself: it adopts a model when that model is the only one on disk, and clears it if you delete that model. You never set it by hand.
+**Model for other languages** sets that fallback by hand. It sits under **Your models**, below the per-language list, and it only appears once you have more than one model on disk, where the choice means something. **Automatic** is the default and keeps the old behaviour: the best downloaded model that covers the language you're typing in. Pick a model instead and every unpinned language uses that one.
 
-Nine of the 10 multilingual models support translation; Turbo doesn't, because large-v3-turbo was trained for transcription only, and none of the 19 single-language models do. If a language routes to one of those, the translate toggle has no visible effect for that language.
+Dictation still resolves per language, from the language of the active layout, the same way the system recognizer follows the layout's locale. The app also fills the fallback in for you when a model is the only one on disk, and clears the choice if you delete that model.
+
+Nine of the 10 multilingual models support translation. Turbo doesn't, because large-v3-turbo was trained for transcription only, and none of the 19 single-language models do either. If a language routes to one of those, the translate toggle has no visible effect for it.
 
 ## Details & edge cases
 
 **Every clip is a fixed 30-second window.** Whisper always processes a full 30-second spectrogram: a short utterance is padded, and hitting the 30-second mark auto-triggers transcription of whatever was captured. This makes transcription latency roughly constant per phrase rather than scaling with how long you spoke.
 
-**Only two rows here can be reset.** **Recognition engine** and **Translate to English** are ordinary settings, so each grows the usual restore button once you move it off the default; see [Putting one setting back](/reference/settings/#putting-one-setting-back). The per-language routing rows and the catalog aren't settings rows at all, so they have no button. You undo a pin by opening that language's dialog and picking **Automatic** again.
+**Only three rows here can be reset.** **Recognition engine**, **Translate to English** and **Model for other languages** are ordinary settings, so each grows the usual restore button once you move it off the default. See [Putting one setting back](/reference/settings/#putting-one-setting-back). The per-language routing rows and the catalog aren't settings rows at all, so they have no button. You undo a pin by opening that language's dialog and picking **Automatic** again.
 
-**Speed has no benchmarked numbers.** There's no measured per-device timing table in the app; the only official speed guidance is the relative sizing above (Tiny fastest, the two Large graphs slowest and heaviest on RAM) plus a general note that bigger models are more accurate but slower to both download and transcribe.
+**Speed has no benchmarked numbers.** The app carries no measured per-device timing table. The only official guidance is the relative sizing above, with Tiny fastest and the two Large graphs slowest and heaviest on RAM, plus a general note that bigger models are more accurate and slower to download and to transcribe.
 
 **Full edition only.** Offline Whisper is unavailable on the lite edition: the "Recognition engine" section doesn't render at all, so dictation always uses the system recognizer there. See [Full vs Lite](/start/editions/) if you're not sure which one you have.
 
-**Power saving can silently override your choice.** When power saving is active and its "On-device models" option is on (which is the default, and which arms automatically whenever Android's own battery saver turns on), dictation falls back to the system recognizer even if Whisper is selected and a model is downloaded. If dictation seems to have quietly switched engines, check your power-saving settings first.
+**Power saving can silently override your choice.** Its "On-device models" option is on by default, and power saving arms itself whenever Android's own battery saver turns on. While both of those are true, dictation falls back to the system recognizer even with Whisper selected and a model downloaded. If dictation seems to have switched engines on its own, check your power-saving settings first.
 
-**No mic opens without a model.** If Whisper is selected but nothing is downloaded yet, the panel says so and offers both ways forward instead of opening the microphone: one chip opens this screen to download a model, the other switches back to the system recognizer and starts listening right away. That switch is saved, the same as changing the engine in settings. The compact bar has room for one line, so it points you at settings, where both choices live.
+**No mic opens without a model.** With Whisper selected and nothing downloaded, the panel says so and offers both ways forward rather than opening the microphone. One chip opens this screen so you can download a model. The other switches back to the system recognizer and starts listening right away, and that switch is saved, the same as changing the engine in settings. The compact bar has room for one line, so it points you at settings, where both choices live.
 
-**Panel keys don't end a recording.** Space, backspace and enter on the voice panel's right-hand rail edit the text while the microphone stays open, so you can add a space or fix a character without losing what you've said. The same goes for a keystroke that lands while a clip is being transcribed: the audio is already captured, so the words still arrive, they just land after whatever you typed. Typing on the keyboard itself during a system-recognizer dictation still ends that utterance, because its live partial text sits in the editor and a keystroke inside it would corrupt it.
+**Panel keys don't end a recording.** Space, backspace and enter on the voice panel's right-hand rail edit the text while the microphone stays open, so you can add a space or fix a character without losing what you've said. A keystroke that lands while a clip is being transcribed behaves the same way. The audio is already captured, so the words still arrive. They just land after whatever you typed. Typing on the keyboard itself during a system-recognizer dictation still ends that utterance, because its live partial text sits in the editor and a keystroke inside it would corrupt it.
 
 **Privacy and downloads are separate concerns.** Transcription itself makes no network calls. The only network activity Whisper causes is fetching a model file over HTTPS from its public repository when you tap download (see [Network policy](/privacy/network/) for the full picture of what WM Keyboard can send and when).
 
-**Attribution.** The engine is TensorFlow Lite, branded LiteRT (Apache-2.0, Google); the model architecture and weights are OpenAI's Whisper (MIT); the `.tflite` graphs themselves are third-party conversions hosted on Hugging Face, not built by this project. Full credits are in the app's About screen.
+**Attribution.** The engine is TensorFlow Lite, branded LiteRT (Apache-2.0, Google). The model architecture and weights are OpenAI's Whisper (MIT). The `.tflite` graphs themselves are third-party conversions hosted on Hugging Face, not built by this project. Full credits are in the app's About screen.
 
 Related: [Voice typing](/tools/voice/) covers starting dictation, strip vs. panel mode, continuous mode, and spoken punctuation, all shared behavior between the system recognizer and Whisper.

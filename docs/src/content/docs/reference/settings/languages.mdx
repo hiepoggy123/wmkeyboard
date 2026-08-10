@@ -19,13 +19,19 @@ The Languages screen is where you enable languages and layouts, reorder the swit
 
 <SettingsPath path="Languages / Your languages" />
 
-The **Your languages** group lists each enabled language once, in switch order, one row per entry in `enabledLanguages`. A row's subtitle is a comma-joined list of that language's currently-enabled layout names (Bengali, for example, reads "Avro phonetic, প্রভাত (Probhat), জাতীয় (National)" once all three are on); if only one layout is enabled the subtitle is just that layout's name, and tapping any row opens that language's own screen (below).
+The **Your languages** group lists each enabled language once, in switch order, one row per entry in `enabledLanguages`. A row's subtitle is a comma-joined list of that language's currently-enabled layout names. Bangla, for example, reads "Avro phonetic, প্রভাত (Probhat), জাতীয় (National)" once all three are on. With one layout enabled the subtitle is just that layout's name. Tap any row to open that language's own screen (below).
 
 A trailing **Add language** row always closes the group, subtitled "Type in any of 352 languages" (that's the size of the whole catalogue, not just what's installed).
 
 Immediately below it, a **Suggested for you** group offers up to four languages worked out from the device: every language in your phone's own language list first, then languages widely typed in your region. Four things can say what your region is, and only the first of them with anything to offer is read: the SIM's country, the network's country, your phone's time zone, and last the region attached to your locale. Each row's subtitle is the reason ("One of your phone's languages", or "Widely typed in *(country)*"), and tapping one asks about its data (below), then enables its first layout and opens its detail screen, exactly as the search results do. Languages already enabled never appear, so the group empties out as you add them and disappears when nothing is left to suggest. The narrative version, including what is deliberately *not* read, is on [Languages overview](/languages/overview/#suggested-languages).
 
-Below that sits a **Language data** group with one toggle, **Download data automatically** (<SettingsPath path="Languages / Language data / Download data automatically" />, default **on**). It's the master switch over every download the keyboard would otherwise start by itself: emoji keyword packs, so emoji search answers in your own language, and word-pair data, which sharpens predictions. Both are small, in the hundreds of kilobytes to about a megabyte. Word lists are never in that set, whichever way the toggle is set, because those run to megabytes and stay a deliberate tap. Turn it off and nothing at all is fetched until you ask for it, either on the prompt below or from a language's own screen.
+Below that sits a **Language data** group with three toggles, all on by default.
+
+**Download data automatically** (<SettingsPath path="Languages / Language data / Download data automatically" />) is the master switch over every download the keyboard would otherwise start by itself: emoji keyword packs, so emoji search answers in your own language, and word-pair data, which sharpens predictions. Both are small, in the hundreds of kilobytes to about a megabyte. Word lists are never in that set, whichever way the toggle is set, because those run to megabytes and stay a deliberate tap. Turn it off and nothing at all is fetched until you ask for it, either on the prompt below or from a language's own screen.
+
+**Ask before downloading on mobile data** (<SettingsPath path="Languages / Language data / Ask before downloading on mobile data" />) confirms a language download when you're not on Wi-Fi, and the dialog names the size before you commit. Turn it off and downloads start on whatever connection is up.
+
+**Link romanized languages automatically** (<SettingsPath path="Languages / Language data / Link romanized languages automatically" />) runs the pairing pass described under **Also suggest from** below, once each time you add a language. Turn it off and a link you unlinked by hand stays unlinked.
 
 Adding a language, from anywhere (the search list, Suggested for you, or the setup wizard), first asks **Download language data?**, naming the language and roughly what the download costs. Three answers: **Download** fetches its word list, emoji keywords and word-pair data and adds the language; **Not now** adds the language and downloads nothing; **Cancel** backs out of the whole thing, so a mis-tap on a long list costs nothing. A language with nothing to download skips the question entirely.
 
@@ -36,11 +42,11 @@ Tapping **Add language** opens a full-screen search:
 </PhoneFrame>
 
 - The search box matches (case-insensitively, as a substring) against a language's endonym, English name, id, and locale tag, so "german", "deutsch", "de", and "de-DE" all find German.
-- **An empty query lists the catalogue in registry order, not alphabetically:** English first, then Bengali, then French, and so on. Don't assume the unfiltered list is A-to-Z; search to jump to a specific language instead of scrolling. The same **Suggested for you** group appears here too, above the catalogue, and only while the query is empty, so it gets out of the way as soon as you start typing.
-- Each row's subtitle is the language's script name (for example "Latin" or "Bengali") plus " · dictionary included" for the two languages that bundle one (English and Bengali are the only ones). A row already added shows "Added" next to its chevron, which stays put either way.
+- **An empty query lists the catalogue in registry order, not alphabetically:** English first, then Bangla, then French, and so on. Don't assume the unfiltered list is A-to-Z. Search to jump to a specific language instead of scrolling. The same **Suggested for you** group appears here too, above the catalogue, and only while the query is empty, so it gets out of the way as soon as you start typing.
+- Each row's subtitle is the language's script name (for example "Latin" or "Bengali") plus " · dictionary included" for the two languages that bundle one. English and Bangla are the only two. A row already added shows "Added" next to its chevron, which stays put either way.
 - Tapping an unadded language asks the **Download language data?** question first, then (on Download or Not now) enables its first layout and opens that language's detail screen. Tapping an already-added one just opens its detail screen; it doesn't re-enable anything.
 
-Further down the screen (after Switch order, covered next, if it's showing) sits a **Your layouts** group, listing toggles for your own custom key layouts specifically: layouts you've built or copied on the Key layouts screen, not an edited copy of a shipped layout (those stay attached to their original language instead of appearing twice). On a fresh install this group has no toggles at all, since no custom layouts exist yet. It's left with just its trailing **Key layouts** row, which opens <SettingsPath path="Settings / Key layouts" />, documented in full on [Custom layouts & the layout editor](/languages/custom-layouts/). Its subtitle changes once you've built something: "Design your own key grid, or start from a built-in one" before, "Edit, add and remove layouts" after.
+Further down the screen (after Switch order, covered next, if it's showing) sits a **Your layouts** group, listing toggles for your own custom key layouts specifically: layouts you've built or copied on the Key layouts screen, not an edited copy of a shipped layout (those stay attached to their original language instead of appearing twice). On a fresh install this group has no toggles at all, since no custom layouts exist yet. It's left with just its trailing **Key layouts** row, which opens <SettingsPath path="Key layouts" />, documented in full on [Custom layouts & the layout editor](/languages/custom-layouts/). Its subtitle changes once you've built something: "Design your own key grid, or start from a built-in one" before, "Edit, add and remove layouts" after.
 
 :::note[Two different "Your layouts" groups]
 The Key layouts screen has its own, differently-scoped **Your layouts** section: layouts you've made or edited there, each with its own edit button. This screen's group of the same name is enable/disable toggles only, and only for layouts that don't shadow a built-in or bundled one. Don't conflate the two when cross-referencing.
@@ -65,7 +71,7 @@ Conjunct-aware backspace used to sit here too, as a single **Complex scripts** s
 
 Tapping a language (from Your languages or straight after adding one) opens a screen titled with that language's own name, built from up to ten groups depending on what it supports. They're listed below in the order the screen draws them.
 
-<PhoneFrame caption="Bengali's own screen: Layouts, Numerals, Also suggest from, Dictionary, and Emoji.">
+<PhoneFrame caption="Bangla's own screen: Layouts, Numerals, Also suggest from, Dictionary, and Emoji.">
   {/* shot: reference/settings/language-detail-bengali */}
 </PhoneFrame>
 
@@ -73,30 +79,32 @@ Tapping a language (from Your languages or straight after adding one) opens a sc
 
 **Style**: Fancy Text only, and no other language gets it. One choice, **Fancy style** (<SettingsPath path="Languages / Fancy Text / Style / Fancy style" />), subtitled "The lettering the fancy keyboard types. Also switchable from the strip over the keys." Each option draws itself in its own lettering, so you pick 𝔉𝔯𝔞𝔨𝔱𝔲𝔯 by reading it rather than by name. The strip over the keys writes the same value; this row exists so it's findable from Settings and readable as a plain list. Full detail on [Fancy text](/languages/fancy-text/).
 
-**Clusters**: shown only for a language whose script forms conjunct clusters (Bengali, Devanagari, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Sinhala, Khmer, Myanmar, Tibetan and others). One toggle, **Conjunct-aware backspace** (<SettingsPath path="Languages / (a language) / Clusters / Conjunct-aware backspace" />, default **off**), deletes a whole cluster in a single press instead of one code point at a time. The subtitle shows a cluster from that language's own script, so the Bengali row reads ক্ষ and the Hindi one क्ष. Set per language: turning it on for one leaves the others alone.
+**Clusters**: shown only for a language whose script forms conjunct clusters (Bengali, Devanagari, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Sinhala, Khmer, Myanmar, Tibetan and others). One toggle, **Conjunct-aware backspace** (<SettingsPath path="Languages / (a language) / Clusters / Conjunct-aware backspace" />, default **off**), deletes a whole cluster in a single press instead of one code point at a time. The subtitle shows a cluster from that language's own script, so the Bangla row reads ক্ষ and the Hindi one क्ष. It's set per language, so turning it on for one leaves the others alone.
 
-**Spellings**: Bengali only, since it's the one language that ships the lists. One toggle, **Use known spellings** (<SettingsPath path="Languages / Bangla / Spellings / Use known spellings" />, default **on**), subtitled `Type "tmr" to get তোমার, and "table" to get টেবিল`. On, a curated list of spellings people actually write outranks the letter-for-letter phonetic reading, so `table` commits টেবিল rather than তাবলে. Turn it off if you want the literal reading and can't otherwise get it. Kept per language, so a second language that ships a list later keeps its own answer. Full detail on [Bengali](/languages/bengali/#spellings-the-rules-cant-reach).
+**Spellings**: Bangla only, since it's the one language that ships the lists. One toggle, **Use known spellings** (<SettingsPath path="Languages / Bangla / Spellings / Use known spellings" />, default **on**), subtitled `Type "tmr" to get তোমার, and "table" to get টেবিল`. On, a curated list of spellings people actually write outranks the letter-for-letter phonetic reading, so `table` commits টেবিল rather than তাবলে. Turn it off if you want the literal reading and can't otherwise get it. It's kept per language, so a second language that ships a list later keeps its own answer. Full detail on [Bangla](/languages/bengali/#spellings-the-rules-cant-reach).
 
-**Numerals**: a single choice, **Numeral system** (<SettingsPath path="Languages / (a language) / Numerals / Numeral system" />), shown as two short segmented options: the language's own digits, or `0-9`. The language's own digits is the default. So Arabic offers `٠-٩` or `0-9`, Hindi offers `०-९` or `0-9`, Bengali offers `০-৯` or `0-9`, and so on:
+**Numerals**: a single choice, **Numeral system** (<SettingsPath path="Languages / (a language) / Numerals / Numeral system" />), shown as two short segmented options: the language's own digits, or `0-9`. The language's own digits is the default. So Arabic offers `٠-٩` or `0-9`, Hindi offers `०-९` or `0-9`, Bangla offers `০-৯` or `0-9`, and so on:
 
-| Language's script | The two options |
+| Language | The two options |
 |---|---|
 | Arabic | ٠-٩ (default) or 0-9 |
 | Persian, Urdu | ۰-۹ (default) or 0-9 |
-| Bengali, Assamese, Sylheti | ০-৯ (default) or 0-9 |
+| Bangla, Assamese, Sylheti | ০-৯ (default) or 0-9 |
 | Hindi, Marathi, Nepali and the other Devanagari languages | ०-९ (default) or 0-9 |
 
 A language whose own digits are already `0-9` (English, and every other Latin-script language) has nothing to choose here, so it gets no Numerals group at all.
 
 :::note
-Older versions listed all six numeral systems for every language, so Bengali could be set to Persian digits. That combination isn't something anyone writes, and the extra buttons were mostly a way to get the keyboard into a state you didn't mean. If you set one of them before the change, the keyboard still types those digits, and the row shows whichever of the two buttons it behaves like until you press one.
+Older versions listed all six numeral systems for every language, so Bangla could be set to Persian digits. Nobody writes that combination, and the extra buttons were mostly a way to get the keyboard into a state you didn't mean. If you set one of them before the change, the keyboard still types those digits, and the row shows whichever of the two buttons it behaves like until you press one.
 :::
 
 This only changes which glyphs the number row and keypad draw and (depending on the field) commit; it never touches the layout, script, or dictionary. Where a non-Latin choice actually gets typed into text fields versus kept as ASCII is a separate, global setting: <SettingsPath path="Layout & size / Numerals" />, not per-language.
 
 **Also suggest from**: appears once at least one other language is enabled, which on a fresh install depends on whether your phone's languages seeded more than English. One toggle per other enabled language (<SettingsPath path="Languages / (a language) / Also suggest from" />). Turning one on blends that language's words into suggestions while you type this one, and words pulled in this way are never autocorrected away.
 
-Most of these start **off**, but not all: adding a romanized language (Banglish, Hinglish, Arabizi, any of the `_rom` entries) cross-wires it with the other enabled languages on the same script, in both directions, the moment it's added. Add Banglish next to English and both toggles are already on, with a toast saying so. The pairing is by script, not by language family, so Banglish links to English (both Latin) and not to Bengali, which is on its own script and its own keyboard. The reason is that nobody switches layouts to type Banglish: it lives on the same QWERTY as your English, and unpaired, English autocorrect treats every Banglish word as a typo. Plain multilingual pairs (English and French) are left alone. A link you switch off by hand stays off until the next time you add a language, since adding is the one moment the pairing runs. (Installs that already had a romanized pair before this existed get one silent catch-up pass, once.)
+Most of these start **off**, but not all. Adding a romanized language (Banglish, Hinglish, Arabizi, any of the `_rom` entries) cross-wires it with the other enabled languages on the same script, in both directions, the moment it's added. Add Banglish next to English and both toggles are already on, with a toast saying so. The pairing goes by script rather than by language family, so Banglish links to English, both Latin, and not to Bangla, which has its own script and its own keyboard. The reason is that nobody switches layouts to type Banglish. It lives on the same QWERTY as your English, and unpaired, English autocorrect treats every Banglish word as a typo. Plain multilingual pairs (English and French) are left alone.
+
+A link you switch off by hand stays off until the next time you add a language, since adding is the one moment the pairing runs. To stop even that, turn **Link romanized languages automatically** off under Languages → Language data. Installs that already had a romanized pair before this existed get one silent catch-up pass, once.
 
 **Language data**: shown whenever the language has anything to download at all. One button, **Download all data (about *n* MB)**, which fetches its word list, its emoji keywords and its word-pair data in one tap, skipping anything already on the device. Pressing the button is the consent, so there's no confirmation after it. It's the way back for a language added before this prompt existed, or added with **Download data automatically** off. The two groups below still do the same files one at a time.
 
@@ -120,7 +128,8 @@ Three languages, `zh`, `ja`, and `yue`, get an extra group named after themselve
 - **Traditional characters** (<SettingsPath path="Languages / (a CJK language) / (language) options / Traditional characters" />, default **off**) converts candidates to Traditional script. This toggle renders on all three languages' screens, including Japanese's, even though it only has an effect on Chinese and Cantonese.
 - With Traditional on, a **Standard / Taiwan (臺灣) / Hong Kong (香港)** region choice appears, defaulting to **Standard**; it adjusts regional wording, not just characters.
 - Cantonese only: **Lazy pronunciation (懶音)**, default **off**, matches common sound mergers (n↔l, ng↔∅, and others) when spelling out a reading.
-- Chinese only: **Fuzzy Pinyin** (default **off**) matches confusable sounds (zh↔z, ch↔c, an↔ang, and others), and there's also a **Double Pinyin** scheme list: Off (the default, full Pinyin) plus five two-key schemes (Microsoft, Sogou, Xiaohe, Ziranma, and Pinyin++). All five ship their key tables, so all five are selectable.
+- Chinese only: **Fuzzy Pinyin** (default **off**) matches confusable sounds. Turn it on and the eleven confusable groups appear individually below it: zh↔z, ch↔c, sh↔s, n↔l, r↔l, f↔h, an↔ang, en↔eng, in↔ing, ian↔iang and uan↔uang. All eleven are on to begin with, and a **Reset** row joins them as soon as you switch any one off. The six initial groups cost precision on every syllable that starts with those sounds; the five nasal endings are closer to a regional accent.
+- Chinese only: a **Double Pinyin** scheme list sits below that. Off is the default, meaning full Pinyin, and five two-key schemes follow (Microsoft, Sogou, Xiaohe, Ziranma and Pinyin++). All five ship their key tables, so all five are selectable.
 
 ## Options
 
@@ -138,10 +147,12 @@ Three languages, `zh`, `ja`, and `yue`, get an extra group named after themselve
 | Conjunct-aware backspace | Languages → *(a language)* → Clusters | Off, per language |
 | Layouts (per layout) | Languages → *(a language)* → Layouts | On for the one layout that language was added with (its first); off for the rest |
 | Fancy style | Languages → Fancy Text → Style | Bold (𝐁𝐨𝐥𝐝); the same value the strip over the keys writes |
-| Use known spellings | Languages → Bangla → Spellings | On (Bengali is the only language with the group) |
+| Use known spellings | Languages → Bangla → Spellings | On (Bangla is the only language with the group) |
 | Numeral system | Languages → *(a language)* → Numerals | The language's own digits |
 | Also suggest from (per other language) | Languages → *(a language)* → Also suggest from | Off, except romanized pairs on the same script, which are linked both ways when you add one |
 | Download data automatically | Languages → Language data | On |
+| Ask before downloading on mobile data | Languages → Language data | On |
+| Link romanized languages automatically | Languages → Language data | On |
 | Download all data | Languages → *(a language)* → Language data | A button (no stored value) |
 | Dictionary size tier (per download) | Languages → *(a language)* → Dictionary | Large (up to 300,000 words) |
 | Download automatically (emoji keywords) | Emoji → Emoji keywords | On |
@@ -149,6 +160,7 @@ Three languages, `zh`, `ja`, and `yue`, get an extra group named after themselve
 | Region (Standard / Taiwan / Hong Kong) | Languages → *(zh/ja/yue)* → *(language) options* | Standard |
 | Lazy pronunciation (懶音) | Languages → *yue* → Cantonese options | Off |
 | Fuzzy Pinyin | Languages → *zh* → Chinese options | Off |
+| Fuzzy Pinyin groups | Languages → *zh* → Chinese options | All eleven on |
 | Double Pinyin scheme | Languages → *zh* → Chinese options | Off (full Pinyin) |
 
 Two related settings live outside this screen entirely: **where** a numeral choice gets typed, not just drawn, is <SettingsPath path="Layout & size / Numerals" />; custom word-list import is <SettingsPath path="Typing / Suggestions / Custom dictionaries" /> (also reachable from a language's own Dictionary group above).
@@ -160,8 +172,8 @@ Two related settings live outside this screen entirely: **where** a numeral choi
 - **352 is the catalogue size, not the enabled count.** A fresh install enables at most four layouts, seeded from your phone's language list; everything else in the catalogue sits inactive, loaded on demand, until you add it.
 - **Your region suggests, it never enables.** The SIM, the network, the time zone and your locale's region feed the Suggested for you list and nothing else. Seeding a fresh install uses only your phone's *language* list, so landing in a country doesn't rearrange your keyboard.
 - **Seeding runs once, and only over an untouched set.** It happens when the setup wizard opens, and only if the enabled layouts are still exactly the built-in fallback. If you enabled the keyboard from Android's settings and typed for a while before ever opening the app, whatever you set up there is kept.
-- **Only English and Bengali bundle a dictionary.** Every other language starts with zero built-in suggestions until you download or import a wordlist on its Dictionary group.
+- **Only English and Bangla bundle a dictionary.** Every other language starts with zero built-in suggestions until you download or import a wordlist on its Dictionary group.
 - **Removing a language removes every layout that belongs to it**, not just the one you last used. If you've enabled two English layouts (QWERTY and AZERTY, say), removing English takes both out of the switch ring at once.
-- **Nothing here waits for Wi-Fi.** Every download on this screen, and every automatic one behind **Download data automatically**, starts on whatever connection you have. See [Downloads & mobile data](/languages/downloads/) for what that actually costs and which downloads do ask first.
+- **Downloads ask before spending mobile data.** With **Ask before downloading on mobile data** on, which is the default, a download you start on a metered connection confirms first and the dialog names the size. Turn it off and every download on this screen, plus every automatic one behind **Download data automatically**, starts on whatever connection you have. See [Downloads & mobile data](/languages/downloads/) for what each one actually costs.
 - **Any row here you've changed grows a restore button.** Same as everywhere else in Settings; see [Putting one setting back](/reference/settings/#putting-one-setting-back).
 - **Add language's list order is registry order, not alphabetical**, and it never re-sorts based on your search term either. It's a filter over a fixed order, so identical prefixes stay in the same relative order regardless of what you typed.

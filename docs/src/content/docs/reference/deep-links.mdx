@@ -20,14 +20,14 @@ and **Themes**. They're drawn bottom-up, so on most launchers **Themes**
 lands closest to the icon and **Tools** furthest away, even though this list
 states them in the order they're declared.
 
-Each shortcut is a static entry: the platform publishes them at install
-time, and there's no runtime code involved. They only exist on Android 7.1
-(API 25) and above; WM Keyboard's minimum supported version is Android 7.0
+Each shortcut is a static entry. The platform publishes them at install
+time, and no runtime code is involved. They only exist on Android 7.1
+(API 25) and above. WM Keyboard's minimum supported version is Android 7.0
 (API 24), where the platform ignores the shortcuts file entirely and
 long-pressing the icon does nothing extra.
 
 <PhoneFrame caption="A settings screen reached from a launcher shortcut. This one opened straight to Themes.">
-  ![A settings screen reached from a launcher shortcut — this one opened straight to Themes.](@assets/screens/reference/settings-deep-link-destination.webp)
+  ![A settings screen reached from a launcher shortcut. This one opened straight to Themes.](@assets/screens/reference/settings-deep-link-destination.webp)
 </PhoneFrame>
 
 ## Opening a settings screen with a link
@@ -53,7 +53,7 @@ Only six routes are recognized:
 | `search` | In-app settings search |
 
 A route outside this list, or a link with a different host entirely, goes
-nowhere; nothing crashes, the app just doesn't navigate. Matching is
+nowhere. Nothing crashes. The app just doesn't navigate. Matching is
 case-insensitive, ignores anything after a `?`, and accepts either the
 regular form (`wmkeyboard://settings/themes`) or the opaque form
 (`wmkeyboard:settings/themes`, no slashes after the colon).
@@ -108,11 +108,11 @@ happens after that.
 
 ## Opening files WM Keyboard made
 
-WM Keyboard registers a file association for each of its own formats, most
-of them things it exports itself, plus a couple it only ever reads (a
-plugin file is built by its author, not the app, and the settings-only
-backup has no export button left), so tapping one of these in a file
-manager offers to import it instead of opening it as plain text:
+WM Keyboard registers a file association for each of its own formats. Most
+are things it exports itself, plus a couple it only ever reads: a plugin
+file is built by its author rather than the app, and the settings-only
+backup has no export button left. Tapping any of these in a file manager
+offers to import the file instead of opening it as plain text.
 
 | Extension | What it holds |
 |---|---|
@@ -130,28 +130,28 @@ tapping a theme in a file manager shouldn't drop you into full settings. It
 always shows exactly one confirmation dialog before doing anything, and the
 dialog tells you what happens next:
 
-- **Theme** — added to your themes and applied immediately as the active
+- **Theme.** Added to your themes and applied immediately as the active
   keyboard theme.
-- **Layout** — added to your layouts but not switched on; turn it on under
+- **Layout.** Added to your layouts but not switched on. Turn it on under
   Languages when you're ready.
-- **Snippets** — added alongside what you already have, with fresh IDs, so
+- **Snippets.** Added alongside what you already have, with fresh IDs, so
   importing the same pack twice creates two independent copies rather than
   overwriting.
-- **Stickers** — added to your own sticker packs, images copied onto the
-  device. Capped at 50 packs; past that the dialog tells you to delete one
+- **Stickers.** Added to your own sticker packs, images copied onto the
+  device. Capped at 50 packs. Past that, the dialog tells you to delete one
   first.
-- **Icons** — installed and switched on immediately, replacing the built-in
+- **Icons.** Installed and switched on immediately, replacing the built-in
   icon set (any icons you've set individually are kept).
-- **Config backup** (`.wmconfig.json`) — settings merge into your current
-  ones; dictionary, clipboard, and snippets replace what's already on the
+- **Config backup** (`.wmconfig.json`). Settings merge into your current
+  ones. Dictionary, clipboard, and snippets replace what's already on the
   device. If the file contains API keys, the dialog warns that they'll
   overwrite the ones you have set.
-- **Settings backup** (`.wmsettings.json`) — merges into your current
+- **Settings backup** (`.wmsettings.json`). Merges into your current
   settings the same way a config backup's settings do: entries named in the
   file overwrite the matching ones on the device, and anything the file
   doesn't mention (including a setting added in a version newer than the
   backup) is left untouched. Same warning for API keys.
-- **Plugin** (`.wmplugin`) — see below; this one has an extra gate.
+- **Plugin** (`.wmplugin`). This one has an extra gate. See below.
 
 <PhoneFrame caption="The one-time confirm dialog shown before any file import goes through.">
   {/* shot: reference/file-import-dialog */}
@@ -173,12 +173,12 @@ it's gated twice:
 </PhoneFrame>
 
 1. If the Plugins subsystem is off, the dialog just says plugins are turned
-   off and how to enable them; it doesn't show the plugin's name or
+   off and how to enable them. It doesn't show the plugin's name or
    anything else about it, and nothing installs.
-2. If it's on, the dialog reads the plugin's manifest and shows its name,
-   description, version, author, and the specific capabilities it declares
-   (or a line saying it asks for nothing beyond its own panel), plus an
-   unconditional line that plugins run in a sandbox and can't see what you
+2. If it's on, the dialog reads the plugin's manifest. It shows the name,
+   description, version, author, and the specific capabilities the plugin
+   declares, or a line saying it asks for nothing beyond its own panel. One
+   more line always follows: plugins run in a sandbox and can't see what you
    type, read your clipboard, or use the internet. Only after that do you get
    an **Import** button, the same confirm button every other file type on
    this page uses. Installs are capped at 50 plugins.
@@ -222,9 +222,9 @@ addon repository.
 
 ## Related pages
 
-- [Installing addons](/addons/installing/) — what happens after an addon
+- [Installing addons](/addons/installing/): what happens after an addon
   link lands you on a screen.
-- [Addons overview](/addons/overview/) — the broader safety model behind
+- [Addons overview](/addons/overview/): the broader safety model behind
   everything an addon can and can't do.
-- [File formats](/reference/file-formats/) — the structure of each exported
+- [File formats](/reference/file-formats/): the structure of each exported
   file.

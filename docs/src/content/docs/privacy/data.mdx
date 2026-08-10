@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import Flavor from '@components/Flavor.astro';
 
-Everything WM Keyboard remembers about you (words you've typed, things you've copied, dictionaries you've chosen to download) is written to the app's own private storage on this phone. Nothing here syncs anywhere unless you turn on a backup yourself, which is a separate page: see [Backup & restore](/privacy/backup/).
+Everything WM Keyboard remembers about you goes into the app's own private storage on this phone. That means words you've typed, things you've copied, and dictionaries you chose to download. None of it syncs anywhere unless you turn on a backup yourself, which has a page of its own: see [Backup & restore](/privacy/backup/).
 
 <PhoneFrame caption="The Privacy screen: on-device learning toggles above, the Clear learned words button below.">
   ![The Privacy screen: on-device learning toggles above, the Clear learned words button below.](@assets/screens/privacy/on-device-learning-toggles.webp)
@@ -17,7 +17,7 @@ Everything WM Keyboard remembers about you (words you've typed, things you've co
 
 ## What's stored, and where
 
-Everything below lives under the app's private storage: the same folder no other app, and nothing off the device, can read.
+Everything below lives under the app's private storage. No other app can read that folder, and nothing off the device can either.
 
 | What | Where | How it gets there |
 |---|---|---|
@@ -35,68 +35,72 @@ Everything below lives under the app's private storage: the same folder no other
 | Installed addons (themes, icon packs, fonts, sounds, layouts, plugins) | `addons/` | You install these yourself |
 | Your sticker packs, plus the photos you cut them out of and how you edited each one | `stickers/<pack>/` and `stickers/.originals/` | You add these yourself, from your gallery or from search results |
 
-A couple of things worth knowing about that table:
+A few things worth knowing about that table:
 
-- **Clipboard entries aren't always full copies.** A copied file, folder, or video is stored as a reference to the app that owns it, not as duplicated bytes. Only copied images actually land in `clipboard/images/`. Copying a multi-gigabyte video doesn't multiply it.
-- **AI history is the only row there that's off by default.** Nothing is written until you turn it on, nothing is written from a password field or in [incognito](/privacy/incognito/) even then, and turning the setting back off deletes the file rather than just hiding it. There's also a **Delete all history** button on the screen itself.
-- **The photos behind your stickers stay on the phone.** `stickers/.originals/` holds the picture each sticker was made from, plus the crop, the erased parts and the border, so the [sticker editor](/emoji/stickers/#the-sticker-editor) can reopen the edit later. Exporting a pack, backing settings up, and Android's own backup all skip that folder and carry the finished stickers only. <SettingsPath path="About / Storage / Sticker packs" /> shows how much space it's using and lets you delete it on its own.
-- **Downloaded dictionaries are a different folder from imported ones.** A wordlist you download from the [dictionaries catalog](/languages/dictionaries/) goes in `dict/`; a plain-text list you import yourself lives in a separate `dictionaries/` folder and is treated as configuration rather than a download. Both are covered on that page.
-- Word-by-word control over what's been learned (reviewing, deleting, or manually adding entries) is its own screen; see [Personal dictionary](/smart/personal-dictionary/).
+- **Clipboard entries aren't always full copies.** A copied file, folder or video is stored as a reference to the app that owns it, not as duplicated bytes. Only copied images actually land in `clipboard/images/`. Copying a multi-gigabyte video doesn't multiply it.
+- **AI history is the only row there that's off by default.** Nothing is written until you turn it on. Even then, nothing is written from a password field or in [incognito](/privacy/incognito/), and turning the setting back off deletes the file rather than hiding it. There's a **Delete all history** button on the screen itself too.
+- **The photos behind your stickers stay on the phone.** `stickers/.originals/` holds the picture each sticker was made from, plus the crop, the erased parts and the border, so the [sticker editor](/emoji/stickers/#the-sticker-editor) can reopen the edit later. Exporting a pack, backing settings up and Android's own backup all skip that folder and carry the finished stickers only. <SettingsPath path="About / Storage / Sticker packs" /> shows how much space it uses and lets you delete it on its own.
+- **Downloaded dictionaries are a different folder from imported ones.** A wordlist you download from the [dictionaries catalog](/languages/dictionaries/) goes in `dict/`. A plain-text list you import yourself lives in a separate `dictionaries/` folder, treated as configuration rather than a download. Both are covered on that page.
+- Word-by-word control over what's been learned is its own screen. Review, delete or add entries by hand from [Personal dictionary](/smart/personal-dictionary/).
 
 ## Before you unlock your phone
 
-Modern Android phones encrypt this app's storage under your device credential: your PIN, pattern, or biometric. Until you enter it once after a reboot, that storage (everything in the table above) simply cannot be read, by this app or any other. That's what makes it possible to type your own unlock PIN with this keyboard in the first place: the keyboard has to run in that window, so a small, separate area of storage (not covered by your credential, readable from the moment the phone powers on) holds just enough for it to look and behave correctly before you've unlocked anything.
+Modern Android phones encrypt this app's storage under your device credential, meaning your PIN, pattern or biometric. Until you enter it once after a reboot, nothing in the table above can be read, by this app or any other. That's also what makes it possible to type your own unlock PIN with this keyboard. The keyboard has to run in that window, so a small, separate area of storage holds just enough for it to look and behave correctly beforehand. That area isn't covered by your credential, and it's readable from the moment the phone powers on.
 
-What lives in that pre-unlock area is narrow by design: your keyboard's *appearance and behavior* (layout, theme, sizing, sounds) mirrored from your real settings. It explicitly excludes any API key you've entered (Translate, AI tools, and the rest). Everything else in the table above (learned words, CJK and emoji history, the language-mix tracker, clipboard history, snippets, and every download) stays in the normal, credential-encrypted storage and is simply unreachable pre-unlock: the keyboard types with no learned vocabulary, no clipboard history, and nothing it does in that window is written anywhere. The moment you unlock, it swaps back to your real files and everything resumes normally.
+What lives there is narrow by design: your keyboard's *appearance and behavior*, meaning layout, theme, sizing and sounds, mirrored from your real settings. Any API key you've entered is explicitly excluded, for Translate, the AI tools and the rest. Everything else in the table above stays in the normal, credential-encrypted storage and is unreachable until you unlock. That includes learned words, CJK and emoji history, the language-mix tracker, clipboard history, snippets and every download. So the keyboard types with no learned vocabulary and no clipboard history in that window, and nothing it does there is written anywhere. The moment you unlock, it swaps back to your real files.
 
-One consequence: a phone that's been unlocked once since it last rebooted counts as "unlocked" for this purpose, even if you lock the screen again: the relevant condition is whether the storage has been decrypted this boot, not whether the lock screen happens to be showing right now. For what the lock *screen* itself changes about typing, see [Incognito & secure fields](/privacy/incognito/).
+One consequence is worth spelling out. A phone that's been unlocked once since it last rebooted counts as "unlocked" here, even if you lock the screen again. What matters is whether the storage has been decrypted this boot, not whether the lock screen happens to be showing. For what the lock *screen* itself changes about typing, see [Incognito & secure fields](/privacy/incognito/).
 
 ## Clearing what's stored
 
-<SettingsPath path="Privacy / Your data / Clear learned words" />
+<SettingsPath path="Privacy / Your data / Learned words" />
 
-Open **Privacy** and tap **Clear learned words**. It deletes four files immediately: your word and word-pair history, your emoji-usage history, your autocorrect revert memory, and your Chinese/Japanese/Cantonese pick history. There's no confirmation prompt, so be sure before you tap it. It does **not** clear the language-mix tracker (`learning/language_mix.json`); if you want every trace of on-device learning gone, clear the **Learned words** row on the storage screen described below, which empties the whole `learning/` folder.
+Deleting the learned words cannot be undone.
 
-<PhoneFrame caption="Clear learned words, under Privacy → Your data.">
-  ![Clear learned words, under Privacy → Your data.](@assets/screens/privacy/clear-learned-words-button.webp)
+Open **Privacy**. Tap **Delete the learned words**. A dialog lists what goes and asks you to confirm.
+
+Confirming deletes five files: your word and word-pair history, your emoji-usage history, your autocorrect revert memory, your Chinese/Japanese/Cantonese pick history, and the language-mix tracker. Your personal dictionary, your snippets and your imported word lists all stay.
+
+<PhoneFrame caption="Learned words, under Privacy → Your data.">
+  ![The Learned words row, under Privacy → Your data.](@assets/screens/privacy/clear-learned-words-button.webp)
 </PhoneFrame>
 
 Beyond that one bulk action, clearing works two ways: per-item where the data lives, and per-category on the storage screen.
 
-- **Personal dictionary** has its own screen with per-word delete (and undoes the word's effect on the bigram map at the same time, so nothing orphaned survives); see [Personal dictionary](/smart/personal-dictionary/) for the full picker.
-- **Emoji usage** has no control on the Privacy screen itself, but two ways to trim it live elsewhere: long-press an emoji on the history tab for **Remove from recents**, which drops it from recents, usage counts and favourites in one go; and <SettingsPath path="Emoji / Emoji panel / Clear recents button" /> (off by default) adds a **Clear recents** button to the panel's Recent tab, which wipes the whole recents list at once but leaves usage counts and favourites untouched. See [Emoji picker](/emoji/picker/) for both.
-- **Clipboard** has per-item delete and pin in the panel itself, and history also shrinks on its own: entries expire and the list is capped. See [Clipboard](/tools/clipboard/) for the exact numbers and how to change them.
+- **Personal dictionary** has its own screen with per-word delete. Deleting a word also undoes its effect on the bigram map, so nothing orphaned survives. See [Personal dictionary](/smart/personal-dictionary/) for the full picker.
+- **Emoji usage** has no control of its own on the Privacy screen, though **Delete the learned words** takes it along with everything else. Two ways to trim it on its own live elsewhere. Long-press an emoji on the history tab for **Remove from recents**, which drops it from recents, usage counts and favourites in one go. Or turn on <SettingsPath path="Emoji / Emoji panel / Clear recents button" /> (off by default), which adds a **Clear recents** button to the panel's Recent tab. That button wipes the whole recents list at once and leaves usage counts and favourites untouched. See [Emoji picker](/emoji/picker/) for both.
+- **Clipboard** has per-item delete and pin in the panel itself. History also shrinks on its own, because entries expire and the list is capped. See [Clipboard](/tools/clipboard/) for the exact numbers and how to change them.
 - **Downloaded dictionaries, CJK packs, emoji-keyword packs and AI/speech models** each have a per-item remove action on their own settings screen, wherever you downloaded them from.
 
 ### Clearing by category
 
 <SettingsPath path="About / Storage" />
 
-The storage screen lists everything above as its own row, with what it costs you in megabytes, and every row has a clear action. That includes the rows the panels themselves give you no bulk control over: **Learned words** (the whole `learning/` folder, language-mix tracker included), **Clipboard**, **Typing statistics**, **AI history**, each download category, and your own themes, sticker packs and icon packs. Personal rows confirm once before deleting.
+The storage screen lists everything above as its own row, shows what it costs you in megabytes, and gives every row a clear action. That includes the rows the panels give you no bulk control over: **Learned words** (the whole `learning/` folder, language-mix tracker included), **Clipboard**, **Typing statistics**, **AI history**, each download category, and your own themes, sticker packs and icon packs. Personal rows confirm once before deleting.
 
-**Settings** is a row there too, and clearing it is the reset-to-defaults you're probably looking for: it wipes every stored preference plus the themes, layouts, keyboard modes, symbol sets and AI actions you made, and the keyboard comes back exactly as it was on install. It's the only row that confirms twice, and it can't be undone. If you only want one setting back rather than all of them, every row you've changed has its own small restore button; see [Putting one setting back](/reference/settings/#putting-one-setting-back).
+**Settings** is a row there too, and clearing it is the reset-to-defaults you're probably looking for. It wipes every stored preference, plus the themes, layouts, keyboard modes, symbol sets and AI actions you made, and the keyboard comes back exactly as it was on install. It's the only row that confirms twice, and it can't be undone. If you only want one setting back rather than all of them, every row you've changed has its own small restore button. See [Putting one setting back](/reference/settings/#putting-one-setting-back).
 
-What the storage screen has no single button for is wiping the lot at once: **Free up space** at the top only clears caches, and the personal and download rows go one at a time. For a genuine clean slate, go through Android instead: **Settings → Apps → WM Keyboard → Storage & cache → Clear storage** (or uninstall the app). Either one is destructive and cannot be undone for anything you haven't backed up; see the next section.
+The storage screen has no single button for wiping the lot at once. **Free up space** at the top only clears caches, and the personal and download rows go one at a time. For a genuine clean slate, go through Android instead: **Settings → Apps → WM Keyboard → Storage & cache → Clear storage**, or uninstall the app. Both are destructive, and neither can be undone for anything you haven't backed up. See the next section.
 
 ## What Android's own backup can include
 
-Turning on Android's own backup is a separate opt-in, off by default, covered in full on [Backup & restore](/privacy/backup/). This page only covers what that choice means for the data listed above. With it off, nothing in the table leaves the device this way at all. Turned on, a backup made by Android carries your settings and learned words along with everything else it covers; downloaded dictionaries, CJK packs, emoji-keyword packs, offline AI/speech models, and clipboard images are always left out regardless of the toggle, because they're large and easy to fetch again rather than because they're sensitive.
+Turning on Android's own backup is a separate opt-in, off by default, and covered in full on [Backup & restore](/privacy/backup/). This page only covers what that choice means for the data listed above. With it off, nothing in the table leaves the device this way. Turn it on and an Android backup carries your settings and learned words along with everything else it covers. Five things are always left out regardless of the toggle: downloaded dictionaries, CJK packs, emoji-keyword packs, offline AI and speech models, and clipboard images. They're excluded because they're large and easy to fetch again, not because they're sensitive.
 
 ## Options
 
 <SettingsPath path="Privacy / On-device learning" />
 
-- **Learn from typing** — default **on**. Personalizes suggestions from what you type; turning it off stops new words and pairs from being recorded (existing ones stay until you clear them).
-- **Add words to the system dictionary** — default **off**. Also writes learned words to Android's own system personal dictionary (System Settings → Languages & input → Dictionary), so other keyboards and the platform spell checker see them too. This is the one setting on this screen that writes data *outside* the app.
-- **Expand dictionary shortcuts** — default **off**. The mirror image of the setting above: it reads a shortcut you've defined in Android's own system dictionary (like "omw" for "on my way") and offers the full phrase as a suggestion when you type the shortcut.
-- **Incognito mode** and **Follow private browsing** live in the same group and pause learning and clipboard capture entirely; see [Incognito & secure fields](/privacy/incognito/) for how those work.
+- **Learn from typing** (default **on**). Personalizes suggestions from what you type. Turn it off and no new words or pairs are recorded, though existing ones stay until you clear them.
+- **Add words to the system dictionary** (default **off**). Also writes learned words to Android's own system personal dictionary (System Settings → Languages & input → Dictionary), so other keyboards and the platform spell checker see them too. This is the one setting on this screen that writes data *outside* the app.
+- **Expand dictionary shortcuts** (default **off**). The mirror image of the setting above. It reads a shortcut you've defined in Android's own system dictionary, like "omw" for "on my way", and offers the full phrase as a suggestion when you type the shortcut.
+- **Incognito mode** and **Follow private browsing** live in the same group and pause learning and clipboard capture entirely. See [Incognito & secure fields](/privacy/incognito/) for how those work.
 
 <SettingsPath path="Privacy / Android backup / Back up with Android" />
 
-- **Back up with Android** — default **off**. Covered in [Backup & restore](/privacy/backup/).
+- **Back up with Android** (default **off**). Covered in [Backup & restore](/privacy/backup/).
 
 ## Details & edge cases
 
-- **"Add words to the system dictionary" and "Expand dictionary shortcuts" point in opposite directions.** The first writes learned words out to Android's system dictionary; the second reads shortcuts back in from it. They're independent; turning one on doesn't affect the other.
-- **The in-app privacy caption is about the network side, not the storage side.** The note at the bottom of the Privacy screen names the tools that reach the network by hand: translate, weather, web and image search, GIFs, stickers, dictionary lookup and the AI tools, each one only on the tap that uses it. Its list is a per-tap list rather than a complete one, though, so it doesn't mention link previews or the download screens. None of that changes what's described on this page, since none of it is stored beyond what's already listed above; see [Network policy](/privacy/network/) for the complete list.
-- **Voice input can leave the device even though nothing on this page tracks it as "stored."** For a language without an on-device speech model, dictation transparently falls back to Android's network-based recognizer for that session. Nothing about that fallback is saved by WM Keyboard itself.
+- **"Add words to the system dictionary" and "Expand dictionary shortcuts" point in opposite directions.** The first writes learned words out to Android's system dictionary. The second reads shortcuts back in from it. They're independent, so turning one on doesn't affect the other.
+- **The in-app privacy caption covers the network side rather than storage.** The note at the bottom of the Privacy screen names the tools that reach the network by hand. That's translate, weather, web and image search, GIFs, stickers, dictionary lookup and the AI tools, each one only on the tap that uses it. It's a per-tap list rather than a complete one, so it leaves out link previews and the download screens. None of that changes what's described on this page, because none of it is stored beyond what's already listed above. See [Network policy](/privacy/network/) for the complete list.
+- **Voice input can leave the device even though nothing on this page tracks it as "stored."** For a language without an on-device speech model, dictation falls back to Android's network-based recognizer for that session, without announcing it. Nothing about that fallback is saved by WM Keyboard itself.

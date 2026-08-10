@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-The Calendar tool opens a full month grid inside the keyboard, not just a today list: browse any month, and up to two non-Gregorian calendars ride alongside the Gregorian dates in the header and inside each day cell. Tap a day to see its date across every calendar you've picked, plus whatever's on your device calendar for that day.
+The Calendar tool opens a full month grid inside the keyboard rather than a today list. Browse any month, and up to two non-Gregorian calendars ride alongside the Gregorian dates in the header and inside each day cell. Tap a day to see its date across every calendar you've picked, plus whatever's on your device calendar for that day.
 
 <PhoneFrame caption="The Calendar panel: month grid with Bengali day numbers, today's events listed below.">
   {/* shot: tools/calendar-month-grid */}
@@ -16,9 +16,11 @@ The Calendar tool opens a full month grid inside the keyboard, not just a today 
 
 ## Browsing the month
 
-Open **Calendar** from the toolbar (or the toolbox if you haven't pinned it). The `<` and `>` arrows step a month at a time; a **Today** chip appears next to the month label whenever you've navigated away from the current month, and tapping it jumps straight back and reselects today. The weekday row along the top tints your weekend in the accent color — which days those are is a setting, started off from your phone's region (see [Options](#options)).
+Open **Calendar** from the toolbar, or from the toolbox if you haven't pinned it. The `<` and `>` arrows step a month at a time. Navigate away from the current month and a **Today** chip appears next to the month label. Tap it to jump straight back and reselect today. The weekday row along the top tints your weekend in the accent color, and which days those are is a setting that starts off from your phone's region (see [Options](#options)).
 
-Tapping a day cell doesn't leave the panel: it just updates the summary and event list below the grid. Today's cell gets an accent-colored outline; the day you've selected gets a filled pill. If either of your two chosen calendars has day numbers that don't line up one-to-one with the Gregorian grid, its day number rides inside the cell as a small second number next to the Gregorian one; Bengali dates render in Bengali numerals (০–৯), and the first day of a Chinese lunar month shows the month name instead of a bare "1", since that's the only cue in the grid that a lunar month just turned over.
+Tapping a day cell doesn't leave the panel. It updates the summary and event list below the grid. Today's cell gets an accent-colored outline, and the day you've selected gets a filled pill.
+
+If either of your two chosen calendars has day numbers that don't line up one-to-one with the Gregorian grid, its day number rides inside the cell as a small second number next to the Gregorian one. Bengali dates render in Bengali numerals (০–৯). The first day of a Chinese lunar month shows the month name instead of a bare "1", since that's the only cue in the grid that a lunar month just turned over.
 
 Below the grid, the selected day shows its full Gregorian date, weekday, a relative label (Today, Tomorrow, Yesterday, "in N days," or "N days ago"), and then the same date in whichever alternate calendars you've picked.
 
@@ -34,22 +36,22 @@ Each event card shows a colored stripe down the left edge (the calendar's own di
 
 ## Calendar permission
 
-The keyboard only asks for calendar access the first time you tap **Allow** in the panel, never at install or first launch. Because an on-screen keyboard service can't request runtime permissions directly, tapping Allow briefly opens an invisible trampoline activity that shows the system permission dialog and closes itself the instant you answer; the same pattern the [camera tool](/tools/camera/) uses for its own permission. If you revoke calendar access in system Settings and come back to the keyboard, the panel notices as soon as it regains focus and drops back to the Allow prompt.
+The keyboard only asks for calendar access the first time you tap **Allow** in the panel, never at install or first launch. An on-screen keyboard service can't request runtime permissions directly. So tapping Allow briefly opens an invisible trampoline activity, which shows the system permission dialog and closes itself the instant you answer. The [camera tool](/tools/camera/) uses the same pattern for its own permission. If you revoke calendar access in system Settings and come back to the keyboard, the panel notices as soon as it regains focus and drops back to the Allow prompt.
 
-Access is read-only in both directions: the tool only ever issues a read query against the calendar provider and has no code path that inserts, edits, or deletes anything on your calendar.
+Access is read-only in both directions. The tool only ever issues a read query against the calendar provider, and it has no code path that inserts, edits or deletes anything on your calendar.
 
 :::note[Not available before you unlock]
-Calendar is left out of the keyboard's direct-boot-safe tool set, because it has to query a content provider that isn't available before your first unlock after a restart. If you open the toolbox on a still-locked device, Calendar won't work there yet: the arithmetic-only tools (sensors, calculators, the built-in clock tools) keep working, but anything that reads the calendar provider doesn't.
+Calendar is left out of the keyboard's direct-boot-safe tool set. It has to query a content provider that isn't available before your first unlock after a restart. Open the toolbox on a still-locked device and Calendar won't work there yet. The arithmetic-only tools (sensors, calculators, the built-in clock tools) keep working, but anything that reads the calendar provider doesn't.
 :::
 
 ## Options
 
 <SettingsPath path="Tools / Calendar" />
 
-- **First calendar** — default depends on your phone's region: the Bengali calendar in Bangladesh, era years in Japan, Hindu (Saka) in India, Hijri across much of the Arab world, and **None** where no second calendar is in common use. Choose from Bengali, Hijri, Chinese, Hebrew, Hindu (Saka), Persian (Solar Hijri), Buddhist (Thai solar), Japanese (era years), or None. Its day number is the one that also shows up inside each day cell, unless it's Buddhist or Japanese (whose days line up one-to-one with Gregorian, so there's nothing extra to show), in which case the cell falls back to Second calendar's day number if that one has its own.
-- **Second calendar** — same nine choices, also region-defaulted (Hijri alongside the Bengali calendar in Bangladesh, the Chinese calendar alongside Japanese era years, **None** in most places); shown in the month header and under the selected day, alongside First calendar.
-- **Weekend** — which weekday initials the month grid tints. Seven presets: Saturday & Sunday, Friday & Saturday, Thursday & Friday, Friday, Saturday, Sunday, or no weekend at all. The default comes from your phone's region — Friday and Saturday across much of the Middle East, Friday in Bangladesh, Thursday and Friday in Iran, Saturday in Nepal, Saturday and Sunday most other places.
-- **Hijri day adjustment** — a slider from **−2 to +2 days**, default **0**. Only appears when First or Second calendar is set to Hijri. The tool computes Hijri dates with the tabular (arithmetic) calendar rather than real moon sighting, so real Islamic months can start a day or two off from the tables; use this to match your local authority's sighting-based calendar.
+- **First calendar**: the default depends on your phone's region. That's the Bengali calendar in Bangladesh, era years in Japan, Hindu (Saka) in India, Hijri across much of the Arab world, and **None** where no second calendar is in common use. Choose from Bengali, Hijri, Chinese, Hebrew, Hindu (Saka), Persian (Solar Hijri), Buddhist (Thai solar), Japanese (era years), or None. Its day number is the one that also shows up inside each day cell. Buddhist and Japanese days line up one-to-one with Gregorian, so if you pick either the cell falls back to Second calendar's day number instead, where that one has its own.
+- **Second calendar**: the same nine choices, also region-defaulted. Bangladesh gets Hijri alongside the Bengali calendar, Japan gets the Chinese calendar alongside era years, and most places get **None**. It shows in the month header and under the selected day, alongside First calendar.
+- **Weekend**: which weekday initials the month grid tints. Seven presets: Saturday & Sunday, Friday & Saturday, Thursday & Friday, Friday, Saturday, Sunday, or no weekend at all. The default comes from your phone's region: Friday and Saturday across much of the Middle East, Friday in Bangladesh, Thursday and Friday in Iran, Saturday in Nepal, Saturday and Sunday most other places.
+- **Hijri day adjustment**: a slider from **−2 to +2 days**, default **0**. It only appears when First or Second calendar is set to Hijri. The tool computes Hijri dates with the tabular (arithmetic) calendar rather than real moon sighting, so real Islamic months can start a day or two off from the tables. Use this to match your local authority's sighting-based calendar.
 
 Accuracy varies by calendar: Chinese dates are computed astronomically (real new-moon and solar-longitude calculations), so they're exact for the modern era. Hebrew, Persian, Hindu (Saka), Buddhist, and Japanese are all exact arithmetic conversions. Hijri is the only one that's an approximation, which is why it's the only one with an adjustment slider.
 
@@ -61,8 +63,8 @@ The same First calendar / Second calendar / Weekend pickers also appear on the f
 
 ## Details & edge cases
 
-- Calendar has no text-insertion path of its own: tapping a day only changes what the panel displays. There's no way to insert a date from any of the eight calendar systems into your text field; the tool is a viewer, not a picker.
+- Calendar has no text-insertion path of its own. Tapping a day only changes what the panel displays. There's no way to insert a date from any of the eight calendar systems into your text field, because the tool is a viewer rather than a picker.
 - Calendar isn't pinned to the toolbar out of the box, and it's only in the "show me everything" starter set that setup lands, not the minimal or the recommended one. Pick either of those two simpler answers and Calendar starts switched off, so you'll want to turn it on yourself under Settings → Tools.
 - Reopening Calendar from the toolbar while the panel is already open closes it, same as most other panel tools.
-- **The region defaults are a guess, and only ever a starting one.** They come from the same permission-free signals as [suggested languages](/languages/overview/#suggested-languages) — the SIM's country, then the network's, then your locale's region — and are consulted only until you pick something. Once you have, your pick is what sticks, wherever the phone travels.
-- Nothing about the Calendar tool touches the network; see [network policy](/privacy/network/) for what does.
+- **The region defaults are a guess, and only ever a starting one.** They come from the same permission-free signals as [suggested languages](/languages/overview/#suggested-languages): the SIM's country, then the network's, then your locale's region. Those are consulted only until you pick something. Once you have, your pick is what sticks, wherever the phone travels.
+- Nothing about the Calendar tool touches the network. See [network policy](/privacy/network/) for what does.

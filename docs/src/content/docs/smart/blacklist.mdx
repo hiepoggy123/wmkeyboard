@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-The suggestion blacklist is a list of words you never want offered back to you: a nickname you don't want autocompleted for a stranger, a correction you're tired of seeing, anything. Add a word to it and the keyboard keeps it out of the suggestion strip and out of autocorrect for good, while still letting you type and send it yourself whenever you choose to.
+The suggestion blacklist is a list of words you never want offered back to you. A nickname you don't want autocompleted for a stranger, a correction you're tired of seeing, anything at all. Add a word to it and the keyboard keeps it out of the suggestion strip and out of autocorrect for good, while still letting you type and send it yourself whenever you choose to.
 
 <PhoneFrame caption="The suggestion blacklist editor, reached from Typing settings.">
   ![The suggestion blacklist editor, reached from Typing settings.](@assets/screens/smart/blacklist-editor.webp)
@@ -18,37 +18,37 @@ The suggestion blacklist is a list of words you never want offered back to you: 
 
 <SettingsPath path="Typing / Suggestions / Suggestion blacklist" />
 
-Open the editor and tap **Add word**, which pops a dialog with a single "Word" field. Type the word and confirm with **Add** (the button stays disabled until you type something). The word is stored lowercased and trimmed, so capitalization and stray spaces in what you type don't matter.
+Tap **Add word** at the top of the editor. A dialog opens with a single **Word** field. Type the word, then confirm with **Add**. The **Add** button stays disabled until the field has something in it. The word is stored lowercased and trimmed, so capitalization and stray spaces in what you type don't matter.
 
-The list itself is sorted alphabetically, with a plain trash icon on each row to remove it. There's no long-press-to-blacklist gesture from the suggestion strip itself; the editor screen is the only way in or out.
+The list itself is sorted alphabetically, with a plain trash icon on each row to remove one. Once the list has at least one word in it, a **Clear the blacklist** row appears above it, which empties the whole list after a confirmation. There's no long-press-to-blacklist gesture on the suggestion strip. The editor screen is the only way in or out.
 
 <PhoneFrame caption="Adding a word to the blacklist from the Add word dialog.">
   ![Adding a word to the blacklist from the Add word dialog.](@assets/screens/smart/blacklist-add-dialog.webp)
 </PhoneFrame>
 
-Before you add anything, the screen shows "Nothing blacklisted yet — add a word above," and the row back on the Typing screen reads "Words to never suggest or autocorrect to." Once the list has entries, that row's subtitle switches to a running count instead, like "3 words never suggested."
+Before you add anything, the screen shows "No words in this list yet. Add a word above." The row back on the Typing screen reads "Words to never suggest or autocorrect to." Once the list has entries, that row's subtitle switches to a running count instead, like "3 words never suggested."
 
 ## What gets filtered
 
-A blacklisted word is matched case-insensitively and kept out of every place the keyboard offers a word back to you, not just the ordinary English suggestion strip:
+A blacklisted word is matched case-insensitively and kept out of every place the keyboard offers a word back to you, well beyond the ordinary English suggestion strip:
 
-- **Completions** — dictionary, custom dictionary, secondary-language, personal-dictionary, contact-name, contact-email, and app-name completions, plus missing-space split suggestions, are all filtered before they reach the strip.
-- **Bengali (Avro) suggestions** — loanword-map hits, phonetic siblings, and the phonetic transliteration itself are filtered the same way, so the blacklist reaches transliterated composing too, not just plain-English typing.
-- **Next-word predictions** — the empty-composing bigram predictions that appear before you've typed anything are filtered as well.
-- **Autocorrect targets** — a blacklisted word is never chosen as the word autocorrect replaces your typo with, even if it would otherwise be the best-scoring candidate.
+- **Completions**: dictionary, custom dictionary, secondary-language, personal-dictionary, contact-name, contact-email, and app-name completions, plus missing-space split suggestions, are all filtered before they reach the strip.
+- **Bangla (Avro) suggestions**: loanword-map hits, phonetic siblings, and the phonetic transliteration itself are filtered the same way, so the blacklist reaches transliterated composing too, not only plain-English typing.
+- **Next-word predictions**: the empty-composing bigram predictions that appear before you've typed anything are filtered as well.
+- **Autocorrect targets**: a blacklisted word is never chosen as the word autocorrect replaces your typo with, even if it would otherwise be the best-scoring candidate.
 
-What the blacklist never touches is the word itself as text: typing it, editing it, and sending it work exactly as normal. Blacklisting only removes a word from being *offered*; it's a suggestion filter, not a content filter.
+The blacklist never touches the word itself as text. Typing it, editing it, and sending it all work exactly as normal. Blacklisting only removes a word from being *offered*, which makes it a suggestion filter rather than a content filter.
 
 :::note
-"Block offensive words," a separate toggle under <SettingsPath path="Typing / Automatic corrections / Block offensive words" />, uses this exact same filtering mechanism against a bundled list of profanity and slurs instead of words you typed in yourself. It's on by default, but only shows up in the Typing screen while autocorrect is turned on (even though, like the blacklist, it also affects plain suggestions, not just autocorrect). See [Autocorrect](/smart/autocorrect/) for the rest of the automatic-corrections settings.
+"Block offensive words," a separate toggle under <SettingsPath path="Typing / Automatic corrections / Block offensive words" />, uses this exact same filtering mechanism. It runs against a bundled list of profanity and slurs instead of words you typed in yourself. It's on by default, but it only shows up in the Typing screen while autocorrect is turned on, even though (like the blacklist) it also affects plain suggestions. See [Autocorrect](/smart/autocorrect/) for the rest of the automatic-corrections settings.
 :::
 
 ## Details & edge cases
 
-- **Nothing is blacklisted by default.** The list starts empty; you build it entry by entry.
-- **It's independent of your personal dictionary.** The blacklist and the [personal dictionary](/smart/personal-dictionary/) of learned words are two separate stores with no link between them; neither screen offers a shortcut to push a word from one into the other. A word can sit in both at once: as a *candidate* (something offered to complete another word, or something autocorrect would replace a typo with), the blacklist always wins, so it stays suppressed either way. But if you type that exact word yourself, autocorrect leaves it alone regardless of the blacklist, the same as it would for any word already known to the keyboard.
+- **Nothing is blacklisted by default.** The list starts empty and you build it entry by entry.
+- **It's independent of your personal dictionary.** The blacklist and the [personal dictionary](/smart/personal-dictionary/) of learned words are two separate stores with no link between them, and neither screen offers a shortcut to push a word from one into the other. A word can sit in both at once. As a *candidate*, meaning something offered to complete another word or something autocorrect would replace a typo with, the blacklist always wins, so the word stays suppressed either way. But if you type that exact word yourself, autocorrect leaves it alone regardless of the blacklist, the same as it would for any word already known to the keyboard.
 - **Removing a word un-blocks it immediately.** If it's also sitting in your personal dictionary, it goes right back to being suggested. You don't need to touch the personal dictionary at all.
-- **A word doesn't need history to be blacklisted.** You can blacklist any word, learned or not; the blacklist doesn't check whether the word exists in any dictionary first.
-- **Backed up like any other setting.** The list lives in the same settings store as everything else in the app, so it's included automatically in a [settings backup](/privacy/backup/); there's no separate export step for it.
+- **A word doesn't need history to be blacklisted.** You can blacklist any word, learned or not. The blacklist doesn't check whether the word exists in any dictionary first.
+- **Backed up like any other setting.** The list lives in the same settings store as everything else in the app, so it's included automatically in a [settings backup](/privacy/backup/). There's no separate export step for it.
 
 For the rest of the suggestion strip (completions, corrections, and next-word prediction), see [Suggestions & prediction](/smart/suggestions/). For teaching the keyboard new words instead of blocking them, see [Personal dictionary](/smart/personal-dictionary/).

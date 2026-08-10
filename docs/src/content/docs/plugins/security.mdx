@@ -14,15 +14,15 @@ what third-party code on a keyboard is allowed to reach.
 
 ## The invariants
 
-Each of these is a property of what was built, not a policy that could be
-configured differently. Each has a test.
+Each of these is a property of what was built. None of them is a policy that
+could be configured differently. Each has a test.
 
 1. **Plugins cannot read what you type.** There is no key-event API. The IME's
-   typing, prediction and autocorrect paths have no plugin hook at all — a
+   typing, prediction and autocorrect paths have no plugin hook at all. A
    plugin cannot observe, alter or delay a single keystroke on its way to your
    app.
 2. **Plugins cannot read the text field.** No `InputConnection` read path is
-   exposed; no function returns the contents of what you are writing in.
+   exposed. No function returns the contents of what you are writing in.
 3. **Plugins cannot read the clipboard.** No API.
 4. **Plugins cannot reach the network.** No HTTP client, no sockets, no URL
    handling. The sandbox has zero egress.
@@ -42,7 +42,7 @@ configured differently. Each has a test.
    host-drawn title bar, and cannot alter keyboard behaviour, request
    permissions, or affect any other feature.
 
-Anything a plugin holds, you gave it on purpose — and it has nowhere to send it.
+Anything a plugin holds, you gave it on purpose. It also has nowhere to send it.
 
 :::note[Data safety]
 The app collects and shares nothing new because of this feature.
@@ -59,19 +59,19 @@ with no native code. Each plugin session gets a fresh environment holding only
 The omissions matter more than the inclusions:
 
 - **`PackageLib` is never installed.** Its `require` resolves module names
-  through `Class.forName` and instantiates the result — a straight line from a
-  script to arbitrary JVM classes. This is the single most important library not
-  to install.
+  through `Class.forName` and instantiates the result, which is a straight line
+  from a script to arbitrary JVM classes. This is the single most important
+  library not to install.
 - **`CoroutineLib` is never installed.** LuaJ implements coroutines as real,
   non-daemon Java threads and reclaims them only when they yield, so a script
   spawning non-yielding coroutines would leak OS threads that outlive the
   keyboard.
 - **`IoLib` and `OsLib` are never installed.** `os` is replaced by a
   pure-Kotlin table that can tell the time and nothing else.
-- **`LuajavaLib` is never installed** — and, because nothing references it, R8
-  strips it from the shipped APK entirely, along with the JVM-coercion helpers,
-  the bytecode backend and the JSR-223 engine. Verified against the release
-  build's mapping file: the reflective interop surface is not in the binary.
+- **`LuajavaLib` is never installed.** Nothing references it, so R8 strips it
+  from the shipped APK entirely, along with the JVM-coercion helpers, the
+  bytecode backend and the JSR-223 engine. Verified against the release build's
+  mapping file: the reflective interop surface is not in the binary.
 
 The `debug` library *is* loaded, because the interpreter's per-instruction hook
 lives on it, and then removed from the environment so no script can reach it.
@@ -83,38 +83,45 @@ Two mechanisms, because one is not enough.
 The interpreter calls a hook before every bytecode instruction. That hook spends
 an instruction budget and checks a wall-clock deadline, and throws when either
 runs out. The abort extends `java.lang.Error` rather than `Exception`
-specifically because LuaJ's `pcall` catches `LuaError` and `Exception` only — so
-a script cannot swallow its own termination in a `pcall` loop. There is a test
-that proves exactly that.
+specifically because LuaJ's `pcall` catches `LuaError` and `Exception` only. A
+script therefore cannot swallow its own termination in a `pcall` loop. There is
+a test that proves exactly that.
 
 What the hook cannot catch is a thread inside LuaJ's own Java code, where no
-bytecode boundary is crossed — a pathological `string.gsub` is the realistic
-case. A watchdog covers that: it notices a call past its deadline with the hook
-plainly not firing, and *abandons* the thread.
+bytecode boundary is crossed. A pathological `string.gsub` is the realistic
+case. A watchdog covers it: the watchdog notices a call past its deadline with
+the hook plainly not firing, and *abandons* the thread.
 
 Abandoning is not killing, and it is worth being precise. `Thread.stop` is gone
 from the platform and LuaJ never polls for interrupts, so a thread spinning in
-Java keeps spinning. What abandonment does is sever it — the session is revoked
-so every host call it might still make throws instead of acting, its executor is
-shut down, its priority is dropped to minimum, and the runtime forgets it. It
-burns CPU as a background daemon until the process ends, and can affect nothing
-else. A plugin that does this twice is switched off until the user re-enables
-it.
+Java keeps spinning. What abandonment does is sever it. The session is revoked,
+so every host call the thread might still make throws instead of acting. Its
+executor is shut down, its priority is dropped to minimum, and the runtime
+forgets it. It burns CPU as a background daemon until the process ends, and can
+affect nothing else.
+
+A plugin that does this twice is switched off until the user re-enables it. The
+one exception is a user who has turned **Switch off a plugin that hangs** off
+(Tools / Plugins, on by default). With it off, the strikes are still counted and
+still shown, so the user keeps the evidence and gives up only the automatic
+switch-off. That is the trade you want if you write plugins, or if a slow device
+is the real cause.
 
 ### Memory
 
 There is no per-thread heap limit on Android, so this is layered rather than
-absolute: the script is capped at 256 KB, the instruction budget bounds the
-allocation *rate*, `string.rep` and the pattern functions and `table.concat` are
-wrapped with output caps, every string crossing the API boundary is capped, the
+absolute. The script is capped at 256 KB, and the instruction budget bounds the
+allocation *rate*. `string.rep`, the pattern functions and `table.concat` are
+wrapped with output caps. Every string crossing the API boundary is capped, the
 widget tree is capped, storage is quota'd, and only one plugin runs at a time.
 
 Honest residual: repeated string doubling (`s = s .. s`) reaches gigabytes in
 about twenty instructions, and concatenation is not something the hook can price.
-The allocating thread gets an `OutOfMemoryError`, which is caught at the session
-boundary and drops the environment; worst case the OS kills the keyboard process
-and it restarts clean. That is a crash, not a leak — no data crosses any
-boundary — and the strike system disables a plugin that does it repeatedly.
+The allocating thread gets an `OutOfMemoryError`, caught at the session boundary,
+which drops the environment. Worst case, the OS kills the keyboard process and it
+restarts clean. That is a crash rather than a leak: no data crosses any boundary.
+The strike system then disables a plugin that does it repeatedly, unless the user
+has turned that automatic switch-off off.
 
 ### Cross-plugin isolation
 
@@ -132,8 +139,8 @@ discarded when the panel closes.
 
 The one mechanism that could break invariant 1 if it were wrong.
 
-A plugin's text box is not a real text field — there are no `TextField`s anywhere
-in the keyboard UI, since they fight the `InputConnection`. Tapping one instead
+A plugin's text box is not a real text field. There are no `TextField`s anywhere
+in the keyboard UI, since they fight the `InputConnection`. A tap on one instead
 makes the keyboard route keystrokes into a host-owned buffer, and hand the
 plugin the resulting *contents*. While that routing is on, what the user types
 goes to a script rather than to their app, so:
@@ -154,13 +161,13 @@ Archive entry names are never used as filesystem paths, the plugin id is proven
 to be a single safe lowercase path segment before it becomes a directory, and
 archives are capped in size and entry count.
 
-For plugins alone, a **SHA-256 is mandatory** — for every other addon type a
-missing checksum only means "unverified", but the app will not install code it
+For plugins alone, a **SHA-256 is mandatory**. For every other addon type a
+missing checksum only means "unverified". The app will not install code it
 cannot verify.
 
 The whole subsystem is **off until the user turns it on**, and while it is off
 nothing installs and nothing runs. Before any install, the user is shown what the
-plugin says it is and what it would be allowed to do; only the manifest is read
+plugin says it is and what it would be allowed to do. Only the manifest is read
 to build that screen, never the script.
 
 ## What this does not protect against
@@ -173,8 +180,8 @@ useful.
   reflection surface, no class loading, minimal host objects (plain functions
   over immutable strings and numbers), and a pinned version whose relevant
   internals were audited. The runtime is kept behind an interface so it could be
-  moved into an `isolatedProcess` later; that is not done today.
-- **A plugin that wastes CPU.** Contained, not prevented — see abandonment
+  moved into an `isolatedProcess` later. That is not done today.
+- **A plugin that wastes CPU.** Contained rather than prevented. See abandonment
   above. A determined script can burn one background thread until the process
   ends.
 - **A plugin that lies about what it does.** Nothing stops a plugin called
@@ -187,6 +194,6 @@ useful.
 ## Reporting
 
 Found something wrong with any of this? Please open an issue on the
-[WM Keyboard repository](https://github.com/wasi-master/WMKeyboard) — a way for a
-plugin to reach text, the clipboard or the network is a security bug, not a
-feature request, and will be treated as one.
+[WM Keyboard repository](https://github.com/wasi-master/WMKeyboard). A way for a
+plugin to reach text, the clipboard or the network is a security bug rather than
+a feature request, and it will be treated as one.

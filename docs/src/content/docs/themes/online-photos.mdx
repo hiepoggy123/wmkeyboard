@@ -18,10 +18,10 @@ Besides picking a picture from your gallery, a theme can take its background fro
 
 Everything starts from the same **Background image** row you use for a gallery picture. Tapping it opens **Select a background** with four choices:
 
-- **Add from this device** — the system photo picker, exactly as before.
-- **Find a photo online** — search Unsplash and Pexels.
-- **Photo collection** — photos you already kept.
-- **Remove** — only shown when the slot already has an image.
+- **Add from this device** opens the system photo picker, exactly as before.
+- **Find a photo online** searches Unsplash and Pexels.
+- **Photo collection** lists the photos you already kept.
+- **Remove** only appears when the slot already has an image.
 
 Two more rows can appear in the same **Board** section, and both stay hidden until you have actually started using photos:
 
@@ -56,7 +56,7 @@ After it is applied the page does not close. It swaps in **Undo**, **Done**, and
 Putting a photo behind your keys changes three theme values, all of which stay editable afterwards:
 
 1. **The board color's opacity drops to zero**, so the photo shows at full strength rather than sitting under an opaque color.
-2. **Fully opaque key and modifier colors drop to about 62% opacity.** A keyboard is mostly keys, so leaving them solid means the photo is only visible around the edges. Keys you had already made see-through are left alone.
+2. **Fully opaque key and modifier colors drop to whatever How solid the keys stay says**, 62% by default and adjustable from 20% to 100%. A keyboard is mostly keys, so leaving them solid means the photo is only visible around the edges. Keys you had already made see-through are left alone.
 3. **The photographer's credit is stored on the theme**, so it survives an export and shows with no network.
 
 If the keys end up hard to read over a busy or bright photo, the page says so and offers a one-tap fix. See [Keeping keys readable](/themes/backgrounds/#keeping-keys-readable).
@@ -81,32 +81,36 @@ Turned off, this screen is one explanation and one button. Turned on, it fills i
 
 **Schedule**
 
-- **Change the background** — the on/off switch.
-- **How frequently** — every time the keyboard opens, every hour, every 6 hours, every day, every week, or only when you press Change.
-- **Change the background of** — the theme in use, every theme, or themes you select.
+- **Change the background** is the on/off switch.
+- **How frequently**: every time the keyboard opens, every hour, every 6 hours, every day, every week, or only when you press Change.
+- **Change the background of**: the theme in use, every theme, or themes you select.
 
 Because the override happens as a theme is drawn rather than being written into it, a **built-in theme can rotate too**, even though a built-in has nowhere to store an image of its own.
 
 **Sources**
 
-- **Photo collection** — the photos you added yourself.
-- **Online photos** — new photos fetched by subject and search word.
+- **Photo collection** means the photos you added yourself.
+- **Online photos** means new photos fetched by subject and search word.
 
-Turning a source off hides its photos immediately, it does not merely stop new ones arriving. The files stay on disk, so turning it back on brings them back rather than fetching them again.
+Turning a source off hides its photos immediately rather than only stopping new ones from arriving. The files stay on disk, so turning it back on brings them back instead of fetching them again.
 
 **Online photos** (shown only when that source is on) holds subjects, search words, **Wide photos only**, **Safe photos only**, **Use mobile data**, and a link to **Photo services**.
 
-**Photos and storage** holds **Photos to keep ready** (3 to 20), a link to the collection, and **Delete the photos that the app got**.
+**Photos and storage** holds **Photos to keep ready** (3 to 20), **Space for ready photos** (8 to 128 MB, default 24), a link to the collection, and **Delete the photos that the app got**. Once the pool passes that size, the app drops photos you have already seen, least-recently-shown first. A photo you have not seen yet, or one you chose yourself, is never dropped.
 
-## Two things rotation does that have no switch
+## How a photo changes the keyboard
 
-A rotating photo is laid over the theme as it's drawn, and two adjustments ride along with it. Neither has a row on the Rotating background screen, so this is the only place they're written down.
+Three rows under **Rotating background** decide what a photo does to the rest of the keyboard.
 
-**Every rotated photo can get a scrim.** When a photo is downloaded, the app measures how bright the strip behind the keys is and works out how opaque the board colour would have to be for key labels to clear a 4.5:1 contrast ratio over it. If the answer is "more opaque than it currently is", that opacity is applied while the photo is showing, up to a ceiling of 65% (past that you've stopped seeing the photo you asked for). A photo that already reads fine gets nothing. This is on, and there's no way to turn it off, so a rotation that looks dimmer than the same photo set by hand is this and not your imagination.
+**Take colours from each photo** is off by default. Turn it on and every new picture rebuilds the theme's colours, which is the same thing **Match the colors to the photo** does by hand on the photo page.
 
-The measurement is taken once, when the photo lands, against a standard dark board rather than against your theme's own colours. That keeps a rotation from re-measuring on every draw, but it does mean a very light theme can get a scrim it didn't strictly need.
+**Dim a photo that hides the keys** is on by default, and it's the scrim. When a photo is downloaded, the app measures how bright the strip behind the keys is. It then works out how opaque the board colour would have to be for key labels to clear a 4.5:1 contrast ratio over it. If that's more opaque than the board already is, the extra opacity applies while the photo shows, up to a ceiling of 65%. Past that you've stopped seeing the photo you asked for. A photo that already reads fine gets nothing, so a rotation that looks dimmer than the same photo set by hand is this and not your imagination.
 
-**Rebuilding the palette from each photo is off.** There's a switch in the settings store for having every new photo reseed the theme's colours, the same thing **Match the colors to the photo** does by hand on the photo page. It ships off and nothing in the app turns it on, so today a rotation only ever changes the picture and the scrim. Your colours are safe from it either way: the override happens as the theme is drawn, so nothing a rotation does is written back into the theme you built.
+The measurement is taken once, when the photo lands, against a standard dark board rather than against your theme's own colours. That keeps a rotation from re-measuring on every draw, and it does mean a very light theme can get a scrim it didn't strictly need.
+
+**How solid the keys stay** is the opacity that applying a photo gives fully opaque keys, 62% by default and adjustable from 20% to 100%. It's read at the moment a photo is applied, so it covers a picture from your gallery and one from a service alike.
+
+Your colours are safe from the first two rows. A rotation lays them over the theme as it's drawn, so nothing it does is written back into the theme you built.
 
 ## When the background actually changes
 
@@ -147,6 +151,6 @@ Both services require the photographer to be named wherever their photo is shown
 
 ## See also
 
-- [Image backgrounds](/themes/backgrounds/) — cropping, opacity, blur, and the separate landscape image
-- [Editing a theme](/themes/editor/) — the color controls a photo interacts with
-- [Sharing themes](/themes/sharing/) — what a theme export contains
+- [Image backgrounds](/themes/backgrounds/) for cropping, opacity, blur, and the separate landscape image
+- [Editing a theme](/themes/editor/) for the color controls a photo interacts with
+- [Sharing themes](/themes/sharing/) for what a theme export contains

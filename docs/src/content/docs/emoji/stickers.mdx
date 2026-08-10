@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-The sticker tool searches Klipy and GIPHY, sends results as real stickers where the app on the other end supports them, and lets you build your own packs from photos already on your phone. It sits right next to [GIFs](/emoji/gifs/) in the toolbox and shares most of its settings.
+The sticker tool searches Klipy and GIPHY. Where the app on the other end supports them, results go out as real stickers, and you can build your own packs from photos already on your phone. It sits right next to [GIFs](/emoji/gifs/) in the toolbox and shares most of its settings.
 
 <PhoneFrame caption="Sticker search results, with the My stickers tab for your own packs.">
   {/* shot: emoji/sticker-panel-search */}
@@ -16,13 +16,13 @@ The sticker tool searches Klipy and GIPHY, sends results as real stickers where 
 
 ## Searching and sending
 
-Open the tool from the toolbar and type to search Klipy and GIPHY, or switch to **My stickers** for packs you've built yourself. Tapping a result downloads and inserts it; while it's downloading the tile shows a spinner in its place.
+Open the tool from the toolbar. Type to search Klipy and GIPHY, or switch to **My stickers** for packs you've built yourself. Tap a result to download and insert it. While it downloads, the tile shows a spinner in its place.
 
-With the search box empty, a scrollable row of category chips (Trending, Love, Happy, Cute, Funny…) sits above the grid; tapping one runs it as a search, and tapping the active chip goes back to trending. It works the same as the [GIF panel's row](/emoji/gifs/#searching-for-a-gif), and like that one it steps aside as soon as you type. **My stickers** doesn't get it: its pack chips already fill that job.
+With the search box empty, a scrollable row of category chips (Trending, Love, Happy, Cute, Funny…) sits above the grid. Tap one to run it as a search, and tap the active chip to go back to trending. It works the same as the [GIF panel's row](/emoji/gifs/#searching-for-a-gif), and like that one it steps aside as soon as you type. **My stickers** doesn't get the row, because its pack chips already fill that job.
 
-Android has no dedicated "this is a sticker" flag: the only signal a receiving app gets is the file's MIME type, and WhatsApp in particular only recognizes its own private `image/webp.wasticker` type, not plain `image/webp`. So when the **Send stickers as** setting is set to Sticker, the keyboard offers that WhatsApp type first and falls back to a normal image if the field doesn't advertise it. A source that isn't WebP (an animated GIF result, say) can never go out with the sticker MIME (Android has no animated-WebP encoder), so it always sends as a plain image regardless of that setting.
+Android has no dedicated "this is a sticker" flag. The only signal a receiving app gets is the file's MIME type, and WhatsApp in particular only recognizes its own private `image/webp.wasticker` type, not plain `image/webp`. So with **Send stickers as** set to Sticker, the keyboard offers that WhatsApp type first and falls back to a normal image if the field doesn't advertise it. A source that isn't WebP, an animated GIF result say, can never go out with the sticker MIME, because Android has no animated-WebP encoder. Those always send as a plain image whatever that setting says.
 
-If the field can't take images at all, the tool doesn't bother downloading first and failing after: it vibrates once and shows a standing notice instead, with results still visible underneath at 45% opacity so you can still long-press one to save or copy it (see [Long-pressing a sticker](#long-pressing-a-sticker) below). If the field does take images but rejects this particular file even after the WebP→PNG fallback, the file lands on the system clipboard instead, with a toast telling you to paste it, the same thing the clipboard tool's own image and file commits do when a field refuses them.
+If the field can't take images at all, the tool doesn't download first and fail after. It vibrates once and shows a standing notice. Results stay visible underneath at 45% opacity, so you can still long-press one to save or copy it (see [Long-pressing a sticker](#long-pressing-a-sticker) below). If the field does take images but rejects this particular file, even after the WebP to PNG fallback, the file lands on the system clipboard with a toast telling you to paste it. That's the same thing the clipboard tool's own image and file commits do when a field refuses them.
 
 <PhoneFrame caption="The standing notice a field that can't take images shows, with results dimmed underneath.">
   {/* shot: emoji/sticker-panel-unsupported-field */}
@@ -32,11 +32,11 @@ If the field can't take images at all, the tool doesn't bother downloading first
 
 Long-pressing a Klipy or GIPHY result opens a menu with three kinds of row:
 
-- **Save to a pack** — "Save to a new pack" if you have none yet, or "Save to `<pack name>`" for each pack you've made. This is the only save path: there's no way to pull a sticker back out of a chat someone sent you, only to keep one you were about to send yourself.
+- **Save to a pack**, shown as "Save to a new pack" if you have none yet, or "Save to `<pack name>`" for each pack you've made. This is the only save path. There's no way to pull a sticker back out of a chat someone sent you, only to keep one you were about to send yourself.
 - **Copy** puts the sticker on the system clipboard instead of into the field, to paste wherever you like.
-- **Report** opens a mail draft to the maintainer naming the provider, your search term, and the sticker's id and URL, with room at the top to say what's wrong with it. Nothing leaves the device on its own: the draft sits in your mail app for you to read, edit, or drop. Klipy and GIPHY search their own catalogues, so results arrive unvetted; this is where a bad one goes. [GIFs](/emoji/gifs/) have the same menu, minus the save rows.
+- **Report** opens a mail draft to the maintainer naming the provider, your search term, and the sticker's id and URL, with room at the top to say what's wrong with it. Nothing leaves the device on its own. The draft sits in your mail app for you to read, edit, or drop. Klipy and GIPHY search their own catalogues, so results arrive unvetted, and this is where a bad one goes. [GIFs](/emoji/gifs/) have the same menu, minus the save rows.
 
-Long-pressing a sticker from **My stickers** shows "Manage packs" (which jumps straight to the pack management screen covered below) and **Copy**. There's no save row — you already have it — and no report row, since it's your own file and there's nobody to report it to.
+Long-pressing a sticker from **My stickers** shows "Manage packs" (which jumps straight to the pack management screen covered below) and **Copy**. There's no save row, since you already have it, and no report row, since it's your own file and there's nobody to report it to.
 
 <PhoneFrame caption="Long-press menu over a Klipy result: save to a pack, copy, or report.">
   {/* shot: emoji/sticker-long-press-save */}
@@ -44,16 +44,16 @@ Long-pressing a sticker from **My stickers** shows "Manage packs" (which jumps s
 
 ## My stickers and your own packs
 
-**My stickers** is always its own tab or chip; your packs are never interleaved into the Klipy/GIPHY grid, in either source layout mode. With more than one pack, a second row of filter chips (All, then one per pack name) appears above the grid, and search there matches a sticker's search words and its pack name together.
+**My stickers** is always its own tab or chip. Your packs are never interleaved into the Klipy or GIPHY grid, in either source layout mode. With more than one pack, a second row of filter chips (All, then one per pack name) appears above the grid, and search there matches a sticker's search words and its pack name together.
 
-Building and managing packs happens in the app, not the keyboard: <SettingsPath path="Tools / Stickers / Your stickers / Sticker packs" />.
+Building and managing packs happens in the app, not the keyboard, under <SettingsPath path="Tools / Stickers / Your stickers / Sticker packs" />.
 
-- **New pack** starts one empty; **Import a pack** reads a `.wmstickers` file.
-- Inside a pack, **Add stickers** opens the photo picker for up to 30 images in one trip. Each one is processed automatically: a still image is resized to 512×512 and re-encoded as WebP, trying progressively lower quality (90 down to 50) until it lands under 100 KB, matching WhatsApp's static sticker spec. An animated source (GIF or animated WebP) is stored byte-for-byte instead, since Android has no animated-WebP encoder to re-compress it with; those are capped at 2 MB rather than the 100 KB still budget. Any single source file over 12 MB is refused before processing even starts.
-- Pick exactly **one** still image and it opens in the [sticker editor](#the-sticker-editor) first, instead of being added as-is. Pick several and they're all added the old way; an editor thirty times over isn't a flow anyone wants. Either way the photo behind each sticker is kept for later editing, as described below.
+- **New pack** starts one empty. **Import a pack** reads a `.wmstickers` file.
+- Inside a pack, **Add stickers** opens the photo picker for up to 30 images in one trip. Each one is processed automatically. A still image is resized to 512×512 and re-encoded as WebP, trying progressively lower quality (90 down to 50) until it lands under 100 KB, matching WhatsApp's static sticker spec. An animated source, GIF or animated WebP, is stored byte-for-byte instead, since Android has no animated-WebP encoder to re-compress it with. Those are capped at 2 MB rather than the 100 KB still budget. Any single source file over 12 MB is refused before processing even starts.
+- Pick exactly **one** still image and it opens in the [sticker editor](#the-sticker-editor) first, instead of being added as-is. Pick several and they're all added the old way, because an editor thirty times over isn't a flow anyone wants. Either way the photo behind each sticker is kept for later editing, as described below.
 - Per sticker, you can set its **search words**, reorder it within the pack, move it to a different pack, or delete it. Search words are one space-separated list of anything you'd want to type to find that sticker later, emoji included ("cat 😂 happy"). The first word doubles as the sticker's name, which is what a screen reader reads out for it.
-- Per pack, you can rename it, **export** it as a `.wmstickers` file to share or back up, or delete it; deleting warns you to export first if you want to keep a copy.
-- A pack tops out at 200 stickers; you can have up to 50 packs total.
+- Per pack, you can rename it, **export** it as a `.wmstickers` file to share or back up, or delete it. Deleting warns you to export first if you want to keep a copy.
+- A pack tops out at 200 stickers. You can have up to 50 packs in total.
 
 <PhoneFrame caption="A sticker pack's management screen, with reorder and export controls.">
   ![A sticker pack's management screen, with reorder and export controls.](@assets/screens/emoji/sticker-pack-manage.webp)
@@ -65,35 +65,35 @@ The editor opens two ways: picking a single still image from **Add stickers**, o
 
 Everything happens on the 512×512 sticker canvas, and there are four tabs:
 
-- **Crop** — drag to move the picture, pinch to zoom. The part inside the square is what's kept; anything that isn't square gets transparent bars rather than being stretched.
-- **Erase** and **Restore** — a round brush with a size slider. Erase clears pixels to transparent, Restore paints them back. A ring the size of the brush appears in the middle of the canvas when you switch to either tab or move the slider, and fades once you stop, so you can see what you're about to paint with before you paint with it. **Undo** goes back one stroke at a time, twelve deep.
-- **Border** — the white or black outline that hugs the cut-out shape, WhatsApp-style, with a width slider from 0 (off) up to 24px. It traces whatever is left after erasing, so it's most useful once the background is gone. The border is a setting rather than a stroke: sliding it back to 0 is its own undo, which is why the Undo button doesn't touch it.
+- **Crop**: drag to move the picture, pinch to zoom. The part inside the square is what's kept. Anything that isn't square gets transparent bars rather than being stretched.
+- **Erase** and **Restore**: a round brush with a size slider. Erase clears pixels to transparent, and Restore paints them back. A ring the size of the brush appears in the middle of the canvas when you switch to either tab or move the slider, then fades once you stop, so you can see what you're about to paint with before you paint with it. **Undo** goes back one stroke at a time, twelve deep.
+- **Border**: the white or black outline that hugs the cut-out shape, WhatsApp-style, with a width slider from 0 (off) up to 24px. It traces whatever is left after erasing, so it's most useful once the background is gone. The border is a setting rather than a stroke. Sliding it back to 0 is its own undo, which is why the Undo button doesn't touch it.
 
-**Remove the background** does the cutout in one tap. It's in the full build only, and even there the model isn't in the APK: it comes from Google Play services on demand, so the first tap offers a download with a progress bar and then runs. If it can't be fetched, the brushes still work and the screen says so. If it finds nothing recognizable as a subject (or would keep the entire image), it says that too and leaves your picture alone rather than erasing everything. In the lite build the button simply isn't there.
+**Remove the background** does the cutout in one tap. It's in the full build only, and even there the model isn't in the APK. It comes from Google Play services on demand, so the first tap offers a download with a progress bar and then runs. If the model can't be fetched, the brushes still work and the screen says so. If it finds nothing recognizable as a subject, or would keep the entire image, it says that too and leaves your picture alone rather than erasing everything. In the lite build the button isn't there at all.
 
-Within one editing session an edit is destructive: cropping again after you've erased something warns you first, because a new crop throws the erasing away. Nothing is written until you press Save.
+Within one editing session an edit is destructive. Cropping again after you've erased something warns you first, because a new crop throws the erasing away. Nothing is written until you press Save.
 
 Between sessions it isn't. When you add a sticker from a photo, the keyboard keeps that photo (resized to 1536px on its long edge, as WebP) alongside your packs, together with the edit you made: where you cropped, what you erased, the border, and even the brush size you were using. **Edit the image** reopens the photo with all of that still on it, so a second pass picks up where you left off instead of starting over. Change the border, widen the crop, erase a bit more, then save again.
 
-A resumed edit opens on the **Erase** tab rather than **Crop**, since the crop is already made and a stray pan there is the one gesture that would throw the erasing away. **Undo** starts empty each time you open the editor: it covers the strokes of this session, and "Crop again" is what clears an old cut-out (it asks first).
+A resumed edit opens on the **Erase** tab rather than **Crop**, since the crop is already made and a stray pan there is the one gesture that would throw the erasing away. **Undo** starts empty each time you open the editor, because it only covers the strokes of this session. "Crop again" is what clears an old cut-out, and it asks first.
 
 Stickers that arrived some other way (saved from Klipy or GIPHY, imported in a pack) have no separate photo behind them, so they reopen as themselves. The first time you edit one, the version you're replacing is kept as its original, and from then on it resumes like any other.
 
-None of this leaves the phone. Exporting a `.wmstickers` pack writes the manifest and the finished stickers only, the settings backup's sticker section walks the same list, and Android's own cloud backup and device transfer skip the folder entirely. It does take up space, so <SettingsPath path="About / Storage / Sticker packs" /> lists it as its own row ("Images you made stickers from") and you can delete just that row to get the space back, keeping every sticker. Deleting it costs the resumable edits too: those stickers go back to reopening as themselves.
+None of this leaves the phone. Exporting a `.wmstickers` pack writes the manifest and the finished stickers only, the settings backup's sticker section walks the same list, and Android's own cloud backup and device transfer skip the folder entirely. It does take up space, so <SettingsPath path="About / Storage / Sticker packs" /> lists it as its own row ("Images you made stickers from"). Delete just that row to get the space back while keeping every sticker. Deleting it costs the resumable edits too, and those stickers go back to reopening as themselves.
 
 ### Importing a `.wmstickers` file
 
-A `.wmstickers` file is a ZIP with a `pack.json` manifest and one image per sticker. Import is deliberately forgiving of hand-written or slightly malformed manifests (it repairs what it can rather than rejecting the whole file) and reports what happened:
+A `.wmstickers` file is a ZIP with a `pack.json` manifest and one image per sticker. Import forgives hand-written or slightly malformed manifests, repairing what it can rather than rejecting the whole file, and it reports what happened:
 
 - Imported successfully, with a note of anything it had to fix along the way.
-- "No stickers could be read out of that pack" if the manifest named stickers but none of them survived; this is reported rather than silently importing an empty pack.
+- "No stickers could be read out of that pack" if the manifest named stickers but none of them survived. Import reports that rather than quietly creating an empty pack.
 - "That file is not a WMKeyboard sticker pack" if the format tag doesn't match.
 - "You already have 50 packs. Delete one first" if you're at the pack limit.
 
 An import is also capped against oversized or booby-trapped files: at most 500 entries and 64 MB total per archive.
 
 :::note[Sticker packs are excluded from backups by default]
-Sticker packs are an optional section of the app's full settings backup, but they're off by default because images make the backup file large. Turn them on in the Backup screen if you want packs included, or export a pack individually from its own screen instead.
+Sticker packs are an optional section of the app's full settings backup. They're off by default, because images make the backup file large. Turn them on in the Backup screen if you want packs included, or export a pack individually from its own screen instead.
 :::
 
 ## Options
@@ -102,24 +102,24 @@ Sticker packs are an optional section of the app's full settings backup, but the
 
 Stickers isn't pinned to the toolbar by default. It lives in the toolbox alongside GIFs until you pin it. Reach the settings below from **Tools** in the app.
 
-- **Sticker packs** — jumps to the pack management screen above. Only shown under Stickers, not under GIFs.
-- **Full-screen picker** — <SettingsPath path="Tools / Stickers / Layout" /> — default **on**. The toolbar, emoji row, and symbol row step aside and the search box moves into the row they leave behind, so the grid gets the full keyboard height. Shared with the GIF tool.
-- **Klipy API key** and **GIPHY API key** — <SettingsPath path="Tools / Stickers / Sources & API keys" /> — both blank by default, shared with the GIF tool. Either one alone is enough; every source you've configured a key for shows up as a chip in the panel. Klipy replaced Tenor after Tenor's API was retired.
-- **Send stickers as** — <SettingsPath path="Tools / Stickers / Sending" /> — Sticker or Image, default **Sticker**. Only shown under Stickers: it governs what the sticker panel commits, and the GIF panel has its own **Send GIFs as** on its own page.
-- **Multiple sources** — Tabs or Mixed, default **Tabs**. Tabs gives every configured source its own chip, including My stickers. Mixed collapses Klipy/GIPHY into one "Online" chip and keeps My stickers as a second chip.
-- **Content filter** — Off/Low/Medium/High, default **Medium**. Maps to Klipy's and GIPHY's own content rating.
-- **Results for each search**, under <SettingsPath path="Tools / Stickers / Results" />: a slider from 6 to 48, default **24**. How many stickers one search or the trending view loads. Your own packs ignore it, so **My stickers** always shows everything that matches, however long the list. Shared with the GIF tool.
+- **Sticker packs** jumps to the pack management screen above. Only shown under Stickers, not under GIFs.
+- **Full-screen picker**, under <SettingsPath path="Tools / Stickers / Layout" />, default **on**. The toolbar, emoji row, and symbol row step aside and the search box moves into the row they leave behind, so the grid gets the full keyboard height. Shared with the GIF tool.
+- **Klipy API key** and **GIPHY API key**, under <SettingsPath path="Tools / Stickers / Sources & API keys" />, both blank by default and shared with the GIF tool. Either one alone is enough. Every source you've configured a key for shows up as a chip in the panel. Klipy replaced Tenor after Tenor's API was retired.
+- **Send stickers as**, under <SettingsPath path="Tools / Stickers / Sending" />, Sticker or Image, default **Sticker**. Only shown under Stickers, since it governs what the sticker panel commits. The GIF panel has its own **Send GIFs as** on its own page.
+- **Multiple sources**, Tabs or Mixed, default **Tabs**. Tabs gives every configured source its own chip, including My stickers. Mixed collapses Klipy and GIPHY into one "Online" chip and keeps My stickers as a second chip.
+- **Content filter**, Off/Low/Medium/High, default **Medium**. Maps to Klipy's and GIPHY's own content rating.
+- **Results for each search**, under <SettingsPath path="Tools / Stickers / Results" />: a slider from 6 to 48, default **24**. It sets how many stickers one search or the trending view loads. Your own packs ignore it, so **My stickers** always shows everything that matches, however long the list. Shared with the GIF tool.
 
-Both tools are among the ones the setup wizard suggests enabling, and neither needs a particular edition: the gating here is an API key, not the build.
+Both tools are among the ones the setup wizard suggests enabling, and neither needs a particular edition. What gates them is an API key, not the build.
 
 ## Details and edge cases
 
-- **The WhatsApp sticker MIME is an unofficial, undocumented contract.** `image/webp.wasticker` appears in no public spec; it's a private convention both WhatsApp and Gboard happen to implement. It can change without notice, which is why there's a fallback chain rather than a single hardcoded rule.
-- **A field that only takes images, not stickers, still gets a normal image.** The sticker-vs-image choice is best-effort on top of whatever the field actually advertises; nothing is ever silently dropped over MIME mismatch alone: the clipboard fallback only kicks in when every image MIME candidate is rejected.
-- **Save and report don't apply to your own stickers.** Long-pressing something from My stickers offers pack management and Copy only; there's nothing to save (you already have it) and nothing to report (nobody served it to you).
+- **The WhatsApp sticker MIME is an unofficial, undocumented contract.** `image/webp.wasticker` appears in no public spec. It's a private convention both WhatsApp and Gboard happen to implement, and it can change without notice, which is why there's a fallback chain rather than a single hardcoded rule.
+- **A field that only takes images, not stickers, still gets a normal image.** The sticker-versus-image choice is best-effort on top of whatever the field actually advertises. Nothing is dropped over a MIME mismatch alone. The clipboard fallback only kicks in when every image MIME candidate is rejected.
+- **Save and report don't apply to your own stickers.** Long-pressing something from My stickers offers pack management and Copy only. There's nothing to save (you already have it) and nothing to report (nobody served it to you).
 - **A source already at spec is left alone.** If a picked image is already a 512×512 WebP under 100 KB, it's stored as-is rather than re-encoded.
-- **One process, one store, but two independent views of it.** The keyboard and the settings app run in the same app process and share the same on-disk pack store, so every mutator saves immediately rather than batching. Each side still caches its own snapshot of the packs, though, so the keyboard checks a cheap size-and-timestamp signal against the manifest and only reloads when it's actually changed, rather than re-parsing it on every keystroke.
-- **Multiple sources and Content filter don't get a restore button.** Every other row on this screen grows [a small restore button](/reference/settings/#putting-one-setting-back) once you move it off its shipped value. Those two are drawn as a bare segmented row under a heading rather than as full setting rows, so there's nowhere to hang one, and undoing them means picking Tabs and the middle filter level back yourself. The Klipy and GIPHY key fields have no button either, though clearing the box does the same job there.
+- **One process, one store, but two independent views of it.** The keyboard and the settings app run in the same app process and share the same on-disk pack store, so every mutator saves immediately rather than batching. Each side still caches its own snapshot of the packs. The keyboard checks a cheap size-and-timestamp signal against the manifest and only reloads when that changed, rather than re-parsing it on every keystroke.
+- **Multiple sources and Content filter don't get a restore button.** Every other row on this screen grows [a small restore button](/reference/settings/#putting-one-setting-back) once you move it off its shipped value. Those two are drawn as a bare segmented row under a heading rather than as full setting rows, so there's nowhere to hang one. Undo them by picking Tabs and the middle filter level back yourself. The Klipy and GIPHY key fields have no button either, though clearing the box does the same job there.
 - **Packs need the device unlocked.** Sticker packs live in app-private storage that isn't available before you unlock the device after a restart, so the sticker tool isn't usable from a locked-screen field the way some other tools are.
 
 See also [GIFs](/emoji/gifs/) for the tool this one shares its settings and layout with, and [Emoji picker & search](/emoji/picker/) for the other route into expressive content on this keyboard.

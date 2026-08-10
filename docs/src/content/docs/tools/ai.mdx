@@ -10,7 +10,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import Flavor from '@components/Flavor.astro';
 
-The AI tool runs a fixed set of one-tap writing actions (rewrite, summarize, translate, and more) against whatever text is in the field you're typing in. Where those actions actually run is up to you: a cloud provider with your own API key, a self-hosted Ollama or LM Studio server on your network, or a model that downloads once and answers entirely on the device.
+The AI tool runs a fixed set of one-tap writing actions against whatever text is in the field you're typing in: rewrite, summarize, translate, and more. Where they run is up to you. Pick a cloud provider with your own API key, a self-hosted Ollama or LM Studio server on your network, or a model that downloads once and answers entirely on the device.
 
 <PhoneFrame caption="The AI panel's action chips, ready to run against the text in the field.">
   {/* shot: tools/ai-panel-idle */}
@@ -18,24 +18,24 @@ The AI tool runs a fixed set of one-tap writing actions (rewrite, summarize, tra
 
 ## Using it
 
-Open **AI** from the [toolbar or the toolbox](/tools/overview/). It isn't pinned by default, so the first time you'll likely reach it through the toolbox, by typing its `ai` keyword on the suggestion strip, or, on a hardware keyboard, through the [leader key](/reference/shortcuts/): double-tap <KeyCap>Ctrl</KeyCap>, then press <KeyCap>A</KeyCap>.
+Open **AI** from the [toolbar or the toolbox](/tools/overview/). It isn't pinned by default, so the first time you'll probably reach it through the toolbox. Typing its `ai` keyword on the suggestion strip works too. On a hardware keyboard, use the [leader key](/reference/shortcuts/): double-tap <KeyCap>Ctrl</KeyCap>, then press <KeyCap>A</KeyCap>.
 
 The panel opens on a row of action chips. Eight ship with the keyboard, and the list is yours to change: rename them, rewrite their prompts, turn off the ones you never use, reorder them, or add your own. See [Your own actions](#your-own-actions) below.
 
 - **Rewrite**, **Summarize**, **Translate**, **Improve**, **Fix grammar**, **Explain**, **Continue**: each needs text to work on and is greyed out on an empty field.
-- **Custom** — the one chip that stays live on an empty field. Tapping it opens an instruction box on the keyboard itself; whatever you type is the prompt for that run, so it can write brand-new text from nothing rather than transform existing text.
+- **Custom**: the one chip that stays live on an empty field. Tapping it opens an instruction box on the keyboard itself. Whatever you type there is the prompt for that run, so Custom can write brand-new text from nothing instead of transforming what's already in the field.
 
-If nothing is configured yet, the panel shows a short explanation instead of the chip row: an **Open settings** shortcut if no provider is set up (the default on a fresh install), or a **Download a model** shortcut if On-device is selected but nothing has been downloaded yet. If a model is downloading right now, that empty state shows the download's progress instead — and once you're past it, a one-line progress strip sits above the chips so a download you started in Settings stays visible while you carry on typing.
+If nothing is configured yet, the panel shows a short explanation in place of the chip row. You get an **Open settings** shortcut when no provider is set up, which is where a fresh install starts, or a **Download a model** shortcut when On-device is selected and nothing has come down yet. A model that's downloading right now takes over that empty state with its progress. Once you're past the empty state, a one-line progress strip sits above the chips, so a download you started in Settings stays visible while you carry on typing.
 
 <PhoneFrame caption="The empty state shown before any provider or local model is set up.">
-  {/* shot: tools/ai-need-setup */}
+  ![The AI panel's empty state, before any provider or local model is set up.](@assets/screens/tools/ai-need-setup.webp)
 </PhoneFrame>
 
-**What gets sent:** selected text wins if you've selected any; otherwise the whole field. **Continue** is the exception: it always uses the text before the cursor (up to 4,000 characters), since continuing needs to know what came before, not what comes after. Tapping a chip on a truly empty field (and no selection) shows "Nothing to work on — type some text first" instead of sending a request.
+**What gets sent:** selected text wins if you've selected any, and otherwise the whole field goes. **Continue** is the exception. It always reads back from the cursor, since continuing needs to know what came before rather than what comes after, and **How much the AI reads back** sets how far: 500 to 32,000 characters, default 4,000. That limit only applies with nothing selected. A selection is always sent as it is. Tap a chip on a truly empty field with no selection and you get "There is nothing to work on. Type some text first." instead of a request.
 
-While a request is running, the panel reports which step it's on (Preparing, Connecting, Waiting for the model, and Reasoning for a model that thinks before answering) rather than a bare spinner, since a request can spend most of its time waiting on a slow connection or a long field. **Waiting for the model** is the one you'll see most: it starts the moment your text is on its way and lasts until the first words come back, which for a cloud provider is nearly the whole run.
+While a request runs, the panel names the step it's on instead of showing a bare spinner: Preparing, Connecting, Waiting for the model, and Reasoning for a model that thinks before it answers. A request can spend most of its time waiting on a slow connection or a long field, so the step is worth seeing. **Waiting for the model** is the one you'll meet most. It starts the moment your text is on its way and lasts until the first words come back, which for a cloud provider is nearly the whole run.
 
-Once a result streams in, two buttons commit it: **Replace** swaps the field's text for the result, and **Insert** drops it in at the cursor instead. Continue is the one exception to Replace: since deleting the text you just asked it to continue would defeat the point, Replace appends there rather than overwriting. A **strip markdown** checkbox (checked by default when the result contains any) removes headings, bullets, quotes, code fences/inline code, links, and bold/italic syntax from what gets committed; unchecking it keeps the raw markdown. Reasoning output between `<think>` tags is filtered out of both Replace and Insert either way; only the answer itself lands in your field.
+Once a result streams in, two buttons commit it. **Replace** swaps the field's text for the result. **Insert** drops it in at the cursor instead. Continue is the one exception to Replace: deleting the text you just asked it to continue would defeat the point, so Replace appends there. A **strip markdown** checkbox, checked by default when the result contains any, removes headings, bullets, quotes, code fences, inline code, links, and bold/italic syntax from what gets committed. Uncheck it to keep the raw markdown. Reasoning output between `<think>` tags is filtered out of both Replace and Insert either way, so only the answer itself lands in your field.
 
 If a model stops mid-answer because it hit the length ceiling, the panel says so and points at the setting to raise. That's worth knowing about: a truncated answer otherwise looks exactly like a finished one, and you'd only find out by reading your own half-rewritten text.
 
@@ -47,9 +47,9 @@ If a model stops mid-answer because it hit the length ceiling, the panel says so
 
 A finished result gets a **Result** / **Changes** pair of chips. Changes compares the answer against the text the action ran on and marks what the model added and what it took out, the way `git diff` does. It's the one thing the plain result can't show you: after a Fix grammar run, the spelling it corrected is simply gone from the screen.
 
-Deleted text is struck through, added text is underlined and slightly bolder. That's deliberate rather than colour alone, so it stays readable on a photo-background theme, in a high-contrast theme, and if you're colour-blind. A changed space or paragraph break is drawn with a visible mark, since an empty highlight tells you nothing. Under the text sits a count of how many parts changed — "parts", because they're words in prose and single characters in a language that doesn't put spaces between words.
+Deleted text is struck through, added text is underlined and slightly bolder. Shape rather than colour alone is deliberate, so the view stays readable on a photo-background theme, in a high-contrast theme, and if you're colour-blind. A changed space or paragraph break is drawn with a visible mark, since an empty highlight tells you nothing. Under the text sits a count of how many parts changed. "Parts" because they're words in prose and single characters in a language that doesn't put spaces between words.
 
-Two cases can't be compared and don't offer the chips: **Continue**, which only ever read the text before your cursor, and any run that wrote from an empty field, where there's no original to compare against. Very long pairs of texts aren't compared either; the panel shows the plain result and says why. The comparison also waits until the answer has finished streaming, since half an answer reads as "everything after this was deleted".
+Two cases can't be compared, so they don't offer the chips: **Continue**, which only ever read the text before your cursor, and any run that wrote from an empty field, where there's no original to compare against. Very long pairs of texts aren't compared either. The panel shows the plain result and says why. The comparison also waits until the answer has finished streaming, since half an answer reads as "everything after this was deleted".
 
 The chips are on by default. **Open a result on the changes** (off by default) makes the panel start there instead.
 
@@ -68,39 +68,39 @@ Nothing is uploaded when you tap it. The report is a draft in your own mail app,
 - The app version, Android version, and device model.
 - The text that went in and the text that came out, each trimmed to the first 4,000 characters.
 
-That last one is the part worth a second look before you hit send, since it quotes whatever was in the field. The button only appears once a result has finished streaming; half an answer isn't the thing you'd be reporting anyway.
+That last one is worth a second look before you hit send, since it quotes whatever was in the field. The button only appears once a result has finished streaming. Half an answer isn't the thing you'd be reporting anyway.
 
 For bugs in the keyboard itself rather than something a model wrote, use the **Feedback** rows in [About](/reference/settings/about/) instead.
 
 ## Choosing where it runs
 
-A row of provider chips sits at the top of the tool's settings: **Claude**, **OpenAI**, **Gemini**, **Grok**, **DeepSeek**, **Ollama**, **LM Studio**, **Other service**, and **On-device**. You're not limited to picking one forever; switching providers is just another tap.
+A row of provider chips sits at the top of the tool's settings: **Claude**, **OpenAI**, **Gemini**, **Grok**, **DeepSeek**, **Ollama**, **LM Studio**, **Other service**, and **On-device**. The pick isn't for life. Switching providers is another tap.
 
 <PhoneFrame caption="The provider row and a cloud provider's API key and model fields.">
-  {/* shot: tools/ai-settings-providers */}
+  ![The AI settings screen's provider list.](@assets/screens/tools/ai-settings-providers.webp)
 </PhoneFrame>
 
 ### Cloud providers
 
-Claude (Anthropic), OpenAI, Gemini, Grok, and DeepSeek are bring-your-own-key only; WM Keyboard ships no built-in or proxied key for any of them, unlike some of the other network tools. Paste your own key into the provider's field:
+Claude (Anthropic), OpenAI, Gemini, Grok, and DeepSeek are bring-your-own-key only. Unlike some of the other network tools, WM Keyboard ships no built-in or proxied key for any of them. Paste your own key into the provider's field:
 
-- **Claude** — from `console.anthropic.com` → API keys
-- **OpenAI** — from `platform.openai.com` → API keys
-- **Gemini** — has a free tier at `aistudio.google.com`
-- **Grok** — from `console.x.ai` → API keys
-- **DeepSeek** — from `platform.deepseek.com` → API keys
+- **Claude**: from `console.anthropic.com` → API keys
+- **OpenAI**: from `platform.openai.com` → API keys
+- **Gemini**: has a free tier at `aistudio.google.com`
+- **Grok**: from `console.x.ai` → API keys
+- **DeepSeek**: from `platform.deepseek.com` → API keys
 
-Each provider also has a **Model** field; leave it blank to fall back to the app's built-in default (`claude-sonnet-5` for Claude, `gpt-5.6-luna` for OpenAI, `gemini-3.5-flash` for Gemini, `grok-4.5` for Grok, `deepseek-v4-flash` for DeepSeek), shown right in the field's hint, so fill in a model name here if you want something else.
+Each provider also has a **Model** field. Leave it blank and the app falls back to a built-in default, shown right in the field's hint: `claude-sonnet-5` for Claude, `gpt-5.6-luna` for OpenAI, `gemini-3.5-flash` for Gemini, `grok-4.5` for Grok, `deepseek-v4-flash` for DeepSeek. Type a model name here to use something else.
 
-DeepSeek's reasoning models stream their thinking on a separate field, which the app folds into the same `<think>` handling everything else uses, so **Show model reasoning** and the reasoning progress readout work there exactly as they do elsewhere.
+DeepSeek's reasoning models stream their thinking on a separate field. The app folds that into the same `<think>` handling everything else uses, so **Show model reasoning** and the reasoning progress readout behave there exactly as they do elsewhere.
 
 ### Any other OpenAI-compatible service
 
-**Other service** is the escape hatch, and it covers far more than the named chips do: anything that speaks OpenAI's chat-completions shape works, including OpenRouter, Groq, Together, Mistral, Cerebras, and self-hosted vLLM. Three fields:
+**Other service** is the escape hatch, and it reaches far more than the named chips do. Anything that speaks OpenAI's chat-completions shape works: OpenRouter, Groq, Together, Mistral, Cerebras, self-hosted vLLM. Three fields:
 
-- **Service address** — the address up to and including the version segment, for example `https://openrouter.ai/api/v1`. The app adds `/chat/completions` itself. That split exists because services genuinely disagree about the prefix (`/v1`, `/openai/v1`, `/api/v1`), so guessing it would break half of them.
-- **Model** — required here, unlike the named providers. There's no sensible default to guess for a service the app knows nothing about.
-- **API key** — optional. A gateway on your own network often wants none.
+- **Service address**: the address up to and including the version segment, for example `https://openrouter.ai/api/v1`. The app adds `/chat/completions` itself. That split exists because services genuinely disagree about the prefix (`/v1`, `/openai/v1`, `/api/v1`), so guessing it would break half of them.
+- **Model**: required here, unlike the named providers. There's no sensible default to guess for a service the app knows nothing about.
+- **API key**: optional. A gateway on your own network often wants none.
 
 :::note
 An `http://` address works, for a service on your own network, and that traffic is plain HTTP. Keep the server on a network you trust.
@@ -108,7 +108,7 @@ An `http://` address works, for a service on your own network, and that traffic 
 
 ### Self-hosted servers
 
-**Ollama** and **LM Studio** point at a server on your own network instead of a cloud API: no key needed, just an address like `http://192.168.0.10:11434` (Ollama) or `http://192.168.0.10:1234` (LM Studio). Ollama needs `OLLAMA_HOST=0.0.0.0` set so it listens beyond localhost; LM Studio needs its local-server option turned on. Both fields are blank by default. Ollama defaults its model field to `qwen3` when left blank. LM Studio has no default model to fall back to. It uses whatever model the server currently has loaded.
+**Ollama** and **LM Studio** point at a server on your own network instead of a cloud API. No key is needed, only an address like `http://192.168.0.10:11434` (Ollama) or `http://192.168.0.10:1234` (LM Studio). Set `OLLAMA_HOST=0.0.0.0` so Ollama listens beyond localhost. Turn on LM Studio's local-server option. Both address fields are blank by default. Ollama defaults its model field to `qwen3` when you leave it blank. LM Studio has no default model to fall back to, so it uses whatever the server currently has loaded.
 
 :::note
 Traffic to a self-hosted server is plain HTTP, and the app allows cleartext traffic app-wide to support it. Keep the server on a network you trust.
@@ -137,45 +137,47 @@ The catalog is eight models, ordered best-first rather than smallest-first:
 | Gemma 3 270M | 270M | 304 MB | Untested | Yes |
 | SmolLM2 135M | 135M | 143 MB | Experimental | |
 
-"Gated" models (2 of the 8) need a Hugging Face account: paste a token into the **Access token** field under **Hugging Face account** above the catalog, then accept the model's license on its Hugging Face page once. Every model also carries an advisory minimum-RAM figure behind the scenes: the app appends "May be too large for this device" to a model's subtitle when your phone's total RAM falls under it, but it never blocks the download outright and never shows the raw RAM number. That comparison is the only per-device signal the catalog gives you up front: there's no published speed benchmark, since how fast a model actually responds depends on the phone as much as the model, and a progress readout with elapsed seconds is what you get once a request is running rather than an estimate beforehand.
+Two of the eight are gated and need a Hugging Face account. Paste a token into the **Access token** field under **Hugging Face account**, above the catalog. Then accept the model's license on its Hugging Face page, once per model.
 
-Tapping **Download** starts a resumable download: cancel it, lose signal, or background the app, and resuming picks the transfer back up from where it left off rather than restarting. Only one download runs at a time. A model 500 MB or larger asks for confirmation first if you're on a metered connection.
+Every model carries an advisory minimum-RAM figure behind the scenes. When your phone's total RAM falls under it, the app appends "May be too large for this device" to that model's subtitle. It never blocks the download and never shows you the raw number. That warning is the only per-device signal the catalog gives you up front. There's no published speed benchmark, because how fast a model answers depends on the phone as much as on the model. What you get instead is a progress readout with elapsed seconds, once a request is actually running.
 
-Don't need the catalog? **Import your own** takes any `.litertlm` or `.task` file (the two container formats the on-device engine actually loads), for instance one you converted yourself or downloaded elsewhere in a browser. There's no GGUF support; a file with any other extension is rejected on import.
+Tapping **Download** starts a resumable download. Cancel it, lose signal, or background the app, and the next attempt picks the transfer up where it left off rather than restarting. Only one download runs at a time. On a metered connection, a model of 500 MB or more asks for confirmation first.
 
-A **Compute** row picks **CPU** or **GPU** for inference; CPU is the default. GPU is best-effort: if it fails to initialize, or crashes partway through an answer, the engine falls back to CPU on its own and remembers not to retry GPU for that model file again this session.
+Don't need the catalog? **Import your own** takes any `.litertlm` or `.task` file, the two container formats the on-device engine loads. That covers one you converted yourself or downloaded elsewhere in a browser. There's no GGUF support. A file with any other extension is rejected on import.
 
-A **Context size** row sets how much text the model is loaded with, prompt and answer together, in tokens. It defaults to the model's own value. This is the only length lever on-device: unlike a cloud API there's no per-response ceiling to set, so the window is what bounds an answer. A larger window costs memory, and changing it reloads the model.
+A **Compute** row picks **CPU** or **GPU** for inference, and CPU is the default. GPU is best-effort. If it fails to initialize, or crashes partway through an answer, the engine falls back to CPU on its own and remembers not to retry GPU for that model file again this session.
+
+A **Context size** row sets how much text the model is loaded with, prompt and answer together, in tokens. It defaults to the model's own value. This is the only length lever on-device. Unlike a cloud API there's no per-response ceiling to set, so the window is what bounds an answer. A larger window costs memory, and changing it reloads the model.
 
 ## Your own actions
 
 <SettingsPath path="Tools / AI writing tools / Actions on the panel" />
 
-The eight chips on the panel are a list you own. The screen lists them in panel order, with a checkbox to turn one off, an edit button, and a **New action** row at the bottom. Drag the handles in **Order of the actions** to rearrange them; the panel follows that order exactly.
+The eight chips on the panel are a list you own. The screen lists them in panel order, with a checkbox to turn one off, an edit button, and a **New action** row at the bottom. Drag the handles in **Order of the actions** to rearrange them. The panel follows that order exactly.
 
 An action that ships with the keyboard is never deleted, only changed. Editing one saves your version under the same identity, so **Reset** in its editor drops your version and the original comes straight back. Turning one off leaves it on this screen, greyed on the panel and one checkbox away from returning. Only actions you wrote yourself get a **Delete**.
 
 The editor holds a name, the prompt, and a handful of behaviour switches:
 
-- **Type the prompt at every run** — the keyboard asks you for the prompt instead of using a saved one. This is what makes **Custom** work the way it does.
-- **Start from the saved prompt** — only shown under the switch above, and it brings the prompt field back. The instruction box then opens with that text already in it, so you adjust a template rather than retype it. Useful for something you run often with a small variation each time: "reply to this politely, and mention that…". The saved text wins every time the box opens, not just the first, since a template you only see once isn't a template. Leave it off and the box reopens on whatever you typed last instead.
-- **Works with an empty field** — with nothing in the field, the action writes new text instead of changing text.
-- **Read the text before the cursor** — the action reads only what's in front of the cursor rather than the whole field. A selection always wins over this.
-- **Add the result to the end** — Replace appends rather than overwriting. Together with the previous switch, this is what **Continue** is; separating them means "append but read the whole field" is now something you can build.
-- **Answer with the text only** — on for everything except **Explain**, whose answer is prose about your text rather than a replacement for it.
+- **Type the prompt at every run**: the keyboard asks you for the prompt instead of using a saved one. This is what makes **Custom** work the way it does.
+- **Start from the saved prompt**: only shown under the switch above, and it brings the prompt field back. The instruction box then opens with that text already in it, so you adjust a template rather than retype it. Useful for something you run often with a small variation each time: "reply to this politely, and mention that…". The saved text wins every time the box opens, not only the first, since a template you see once isn't a template. Leave it off and the box reopens on whatever you typed last.
+- **Works with an empty field**: with nothing in the field, the action writes new text instead of changing text.
+- **Read the text before the cursor**: the action reads only what's in front of the cursor rather than the whole field. A selection always wins over this.
+- **Add the result to the end**: Replace appends rather than overwriting. Pair it with the switch above and you have **Continue**. Keeping them separate is what makes "append but read the whole field" something you can build.
+- **Answer with the text only**: on for everything except **Explain**, whose answer is prose about your text rather than a replacement for it.
 
 ### About the prompt field
 
-You write the *task*, not the whole prompt. The app wraps what you write in a fixed frame: who the model is, the rule that your field's text is material to work on and never instructions to obey, and (unless you turn it off) the rule to answer with the result and nothing else.
+You write the *task*, not the whole prompt. The app wraps what you write in a fixed frame. That frame says who the model is, and it says your field's text is material to work on and never instructions to obey. Unless you turn it off, it also says to answer with the result and nothing else.
 
-That's on purpose. The middle part is what stops a model treating text in your field — an email you're replying to, a message someone sent you — as commands aimed at it, and it isn't something a text box should be able to delete by accident. **The prompt that the app sends** below the editor shows you the assembled result, so it's visible without being editable.
+That's on purpose. The middle part is what stops a model from treating text in your field as commands aimed at it, and that text is often an email you're replying to or a message someone sent you. A text box shouldn't be able to delete that rule by accident. **The prompt that the app sends** below the editor shows you the assembled result, so it's visible without being editable.
 
 Write `{target}` anywhere in a prompt and it becomes the translate target language, which is how the shipped **Translate** action works. Because the token is stored rather than the language, changing the target language updates every prompt that mentions it.
 
-**Write the whole prompt** is the deliberate way out for anyone who wants to write the safety wording themselves; the app then sends your text exactly as you typed it.
+**Write the whole prompt** is the deliberate way out for anyone who wants to write the safety wording themselves. The app then sends your text exactly as you typed it.
 
 :::note
-Prompts you'd already customised are carried over automatically, and the app checks its own work: a prompt it recognises is unpicked back into a task, and anything it doesn't recognise is kept verbatim under this switch rather than guessed at.
+Prompts you'd already customised carry over automatically, and the app checks its own work. A prompt it recognises is unpicked back into a task. Anything it doesn't recognise is kept verbatim under this switch rather than guessed at.
 :::
 
 ## Chatting instead of transforming
@@ -188,7 +190,7 @@ The panel's actions all do the same shape of thing: take the text in a field, ha
 
 <SettingsPath path="Tools / AI writing tools / History" />
 
-Off by default. Turned on, the keyboard keeps a record of each run: what you sent, what came back, which action and model, how long it took, how much of that was reasoning, and whether you actually used the answer. The screen searches across the input, the answer and the model name, filters by action, and expands a row to copy either side or delete it.
+Off by default. Turn it on and the keyboard keeps a record of each run: what you sent, what came back, which action and model, how long it took, how much of that was reasoning, and whether you used the answer. The screen searches across the input, the answer and the model name. It filters by action, and expands a row so you can copy either side or delete it.
 
 Failed runs are recorded too, with the error the panel showed, since "it keeps failing" is the most likely reason to open the screen at all.
 
@@ -199,9 +201,9 @@ Four things have to be true before anything is written down, and any one of them
 3. The field isn't a password box.
 4. [Incognito](/privacy/incognito/) isn't in force, from either the setting or a field that asked for it, like a private browser tab.
 
-API keys are never part of a record; it carries the model's name and nothing about the connection.
+API keys are never part of a record. It carries the model's name and nothing about the connection.
 
-**Number of records to keep** defaults to 100 and tops out at 500; the oldest falls off when it's full, and each side of a record is capped at 4,000 characters. **Delete all history** clears it, and so does turning the setting off — an off switch that quietly leaves the log on disk isn't an off switch.
+**Number of records to keep** defaults to 100 and tops out at 500. The oldest falls off once it's full, and each side of a record is capped at 4,000 characters. **Delete all history** clears the lot, and so does turning the setting off. An off switch that quietly leaves the log on disk isn't an off switch.
 
 ## Options
 
@@ -211,7 +213,7 @@ Like every tool, AI has an **Enabled** toggle (on by default) and, if [colorful 
 
 - **Keyword**: the word that offers this tool on the suggestion strip when you type it alone. Defaults to `ai`.
 - **Provider**: which of the nine providers above is active. Defaults to **Claude**, though with no key entered yet a fresh install lands on the empty-state screen until you add one.
-- **Max response length**: a token ceiling, roughly ¾ of a word each, picked from steps rather than a slider: 1k through 128k, plus **Provider maximum**. Default **8,192**. A model the app guesses is a reasoning model (by a substring match against its model ID, e.g. containing "thinking", "qwen3", "grok-4" or "deepseek-v4") automatically gets 4× this ceiling, capped at 131,072, since reasoning tokens are spent from the same budget before the answer even starts. Replaced by **Context size** for the On-device provider.
+- **Max response length**: a token ceiling, roughly ¾ of a word each, picked from steps rather than a slider: 1k through 128k, plus **Provider maximum**. Default **8,192**. A model the app takes for a reasoning model gets 4× this ceiling on its own, capped at 131,072, because reasoning tokens come out of the same budget before the answer starts. That guess is a substring match on the model ID, for strings like "thinking", "qwen3", "grok-4" or "deepseek-v4". The On-device provider swaps this row for **Context size**.
 - **Translate action's target language**: free text, defaults to **English**.
 - **Show model reasoning**: off by default. Turning it on streams a reasoning model's raw `<think>` passages instead of the step-by-step progress readout.
 - **Model picker on the panel**: on by default. Adds a horizontally-scrolling row to the panel itself for switching between every configured provider and downloaded local model in one tap. It's hidden automatically whenever there are fewer than two to choose from.
@@ -219,6 +221,15 @@ Like every tool, AI has an **Enabled** toggle (on by default) and, if [colorful 
 - **Chat with the model**: opens the conversation screen, see [AI chat](/tools/ai-chat/).
 - **Actions on the panel**: the whole action list, see [Your own actions](#your-own-actions).
 - **History**: off by default, see [History](#history).
+
+### On the History screen
+
+<SettingsPath path="Tools / AI writing tools / History" />
+
+Two more rows live on the History screen, under a **Downloading models** heading:
+
+- **Only download over Wi-Fi**: off by default. The metered prompt is keyed on size, at 500 MB for a language model and 150 MB for a Whisper one, so a 400 MB model used to come down on mobile data without a word. Turn this on and size stops mattering: every model download waits for Wi-Fi.
+- **How much the AI reads back**: 4,000 characters by default, anywhere from 500 to 32,000. This is how far back from the cursor a carry-on action such as **Continue** reads. More characters give the model more of your writing to follow, and cost more tokens and more time on every run. It has no effect when you've selected something, because a selection is always sent as it is.
 
 ### What the On-device provider adds
 
@@ -236,9 +247,9 @@ Above that sits a line reporting how much storage your models take in total, par
 
 This one is worth understanding, because the old default was the reason a long **Improve** used to come back with only the first part rewritten. **Provider maximum** leaves the ceiling out of the request entirely and lets the service apply its own, which for a modern model is far more than any number you'd pick by hand. It's the right choice for long text.
 
-Anthropic is the one exception: its API requires the field, so the app asks for a large number there instead. If the model you picked allows less, Anthropic rejects the request and names its real limit in the error, and the app retries once at that number — nothing has streamed at that point, so you just see the answer.
+Anthropic is the one exception: its API requires the field, so the app asks for a large number there instead. If the model you picked allows less, Anthropic rejects the request and names its real limit in the error. The app retries once at that number. Nothing has streamed at that point, so all you see is the answer.
 
-Ollama had never been sent a limit at all before this; it now gets one, and **Provider maximum** there means what it always did.
+Ollama had never been sent a limit at all before this. It gets one now, and **Provider maximum** there means what it always did.
 
 ## What leaves your phone
 
@@ -247,20 +258,20 @@ The panel itself sends nothing until you actually tap an action chip: opening th
 - **On-device**: the text you run an action on never leaves the phone. Response length is bounded by the local model's own context window instead of a server-side limit.
 - **Any other provider** (cloud or self-hosted): the text you run an action on is sent to that provider, only at the moment you tap the action. API keys and server addresses are stored on the device, not in any WM Keyboard service. See [Privacy at a glance](/privacy/overview/) for how this fits the keyboard's broader per-tool approach to anything that leaves the device.
 - **Report**: builds a draft in your mail app and hands it over. The app has no reporting server and sends nothing itself, so a report only exists if you send the mail. API keys are never part of it.
-- **History**: goes nowhere. It's a file in the app's private storage, off unless you turn it on, never written from a password field or in incognito, and deleted when you turn it off. It's deliberately left out of settings backups too, so it can't ride along in a file you export and mail to yourself — the same reasoning that keeps the learned dictionary out. See [Your data](/privacy/data/).
-- **The changes view**: is computed on your phone. Comparing two pieces of text is arithmetic, not a request; nothing is sent to build it.
+- **History**: goes nowhere. It's a file in the app's private storage, off unless you turn it on, never written from a password field or in incognito, and deleted when you turn it off. It's deliberately left out of settings backups too, so it can't ride along in a file you export and mail to yourself. That's the same reasoning that keeps the learned dictionary out. See [Your data](/privacy/data/).
+- **The changes view**: is computed on your phone. Comparing two pieces of text is arithmetic, not a request, so nothing is sent to build it.
 
 ## Details & edge cases
 
-- **Not every row here can be reset.** The four switches (Show model reasoning, Model picker on the panel, Show a changes view, Open a result on the changes) and the Translate target-language field each grow a restore button once you move them off the default listed above; see [Putting one setting back](/reference/settings/#putting-one-setting-back). The provider row, Max response length and Context size are drawn as chip rows rather than settings rows, so none of them has one, and the shipped value of an API key or address field is an empty box you clear yourself.
+- **Not every row here can be reset.** Four switches grow a restore button once you move them off the default listed above: Show model reasoning, Model picker on the panel, Show a changes view, and Open a result on the changes. So does the Translate target-language field. See [Putting one setting back](/reference/settings/#putting-one-setting-back). The provider row, Max response length and Context size are drawn as chip rows rather than settings rows, so none of them has a button. The shipped value of an API key or address field is an empty box, which you clear yourself.
 - **AI isn't pinned to the toolbar or the onboarding wizard's starter set by default.** You add it yourself from the toolbox once you want it, the same as most non-essential tools.
 - **Not available on the lock screen.** AI needs credentials the direct-boot-safe mirror of your data deliberately doesn't carry, so it's one of the tools that only works after you've unlocked the device once since restart.
-- **The Writing keyboard mode pins AI first** on its toolbar for apps it recognizes as writing-heavy (see [Keyboard modes](/typing/modes/)). The pin shows in both editions, same as the tool itself; only the On-device provider is Full-only.
-- **A reasoning model's guess is just a substring match** against the model ID (things like "thinking", "-r1", "qwen3", "gpt-5", "grok-4", "deepseek-v4"), so it can be wrong in either direction: a false positive only costs a larger token ceiling, a false negative risks a response that gets cut off mid-thought.
-- **Custom has no stored default prompt.** Every other action's prompt can be edited but always has a built-in fallback; Custom's instruction only ever exists for the run you type it for.
+- **The Writing keyboard mode pins AI first** on its toolbar for apps it recognizes as writing-heavy (see [Keyboard modes](/typing/modes/)). The pin shows in both editions, same as the tool itself. Only the On-device provider is Full-only.
+- **A reasoning model's guess is a substring match** against the model ID, on strings like "thinking", "-r1", "qwen3", "gpt-5", "grok-4", "deepseek-v4". It can be wrong in either direction. A false positive only costs a larger token ceiling. A false negative risks a response cut off mid-thought.
+- **Custom has no stored default prompt.** Every other action's prompt can be edited and still has a built-in fallback. Custom's instruction only ever exists for the run you type it for.
 - **On-device answers never claim to have been cut off.** The local engine reports no stop reason, so there's nothing to read, and the app says nothing rather than guessing. Every other provider does report it.
-- **The changes view can't spot moved text.** A paragraph the model relocated reads as a deletion where it was and an insertion where it went. Detecting moves properly needs a second pass that git only does on request, and the actions that move text (Summarize, Rewrite) reword it at the same time, so it would fire rarely and mislead when it did.
+- **The changes view can't spot moved text.** A paragraph the model relocated reads as a deletion where it was and an insertion where it went. Detecting moves properly needs a second pass that git only does on request. The actions that move text, Summarize and Rewrite, reword it at the same time, so that pass would fire rarely and mislead when it did.
 - **Comparisons drop to whole characters for scripts without spaces** (Chinese, Japanese, Thai, and others). Word-sized pieces would make an entire sentence a single highlight there. Mixed text uses characters throughout, which is noisier but never wrong.
-- **Local models are advisory about RAM, never a hard gate.** A phone under a model's stated minimum can still download and run it; you just get a warning in the catalog first.
-- **No shared or built-in key for any cloud provider.** Every one of Claude, OpenAI, Gemini, Grok, and DeepSeek requires your own API key; there's no free built-in quota the way some of the other network tools offer.
-- **A model download dies with the app's process.** It resumes rather than restarting, but it isn't a foreground service, so backgrounding the app for long enough can stop it. That hasn't changed; the panel just shows you it's happening now.
+- **Local models are advisory about RAM, never a hard gate.** A phone under a model's stated minimum can still download and run it. You get a warning in the catalog first.
+- **No shared or built-in key for any cloud provider.** Claude, OpenAI, Gemini, Grok, and DeepSeek each need your own API key. There's no free built-in quota here, the way some of the other network tools offer one.
+- **A model download dies with the app's process.** It resumes rather than restarting, but it isn't a foreground service, so backgrounding the app for long enough can stop it. That hasn't changed. The panel just shows you it's happening now.

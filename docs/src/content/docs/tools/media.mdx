@@ -17,19 +17,19 @@ Media controls turns the keyboard into a transport for whatever is playing elsew
 
 ## Opening the panel
 
-Open **Media controls** from the [toolbar, or the toolbox](/tools/overview/) if you haven't pinned it. It isn't pinned to the toolbar out of the box, so the first time you'll likely reach it through the toolbox. On a hardware keyboard, use the [leader key](/reference/shortcuts/): double-tap <KeyCap>Ctrl</KeyCap>, then press <KeyCap>M</KeyCap>. Unlike many other tools, it has no suggestion-strip keyword shortcut: there's no word you can type to have the keyboard offer to open it.
+Open **Media controls** from the [toolbar, or the toolbox](/tools/overview/) if you haven't pinned it. It isn't pinned out of the box, so the first time you'll likely reach it through the toolbox. On a hardware keyboard, use the [leader key](/reference/shortcuts/): double-tap <KeyCap>Ctrl</KeyCap>, then press <KeyCap>M</KeyCap>. Unlike many other tools it has no suggestion-strip keyword shortcut, so there's no word you can type to summon it.
 
 The panel shows one of three things:
 
-- **Now playing** — album art (or a music-note placeholder if the app didn't publish any), title, artist, and album, with a seek bar and Previous / Play-Pause / Next buttons.
-- **"Nothing playing right now"** — shown when no app currently holds an active media session. Start audio or video in any app and its controls appear here automatically.
-- **A one-time access prompt** — shown until you grant notification access; see below.
+- **Now playing**: album art (or a music-note placeholder if the app didn't publish any), title, artist and album, with a seek bar and Previous / Play-Pause / Next buttons.
+- **"Nothing playing right now"**: shown when no app currently holds an active media session. Start audio or video in any app and its controls appear here automatically.
+- **A one-time access prompt**: shown until you grant notification access. See below.
 
 ### The transport
 
-- **Play/Pause** toggles playback; **Previous** and **Next** skip a track. Previous and Next are dimmed and unresponsive if the current app's session doesn't advertise that action: some players don't expose a "next track" action for the current content, for instance during a live stream or a single long file.
-- The **seek bar** only appears once the session reports a track duration; dragging it and releasing jumps playback to that point. It's disabled the same way the skip buttons are, whenever the session doesn't support seeking.
-- Controls act on whichever app currently owns the active media session, usually the one you left playing, or the one actively playing if more than one app is publishing a session at once. There's no in-panel app switcher; open the source app directly if you need to switch what's playing.
+- **Play/Pause** toggles playback. **Previous** and **Next** skip a track. Both go dim and unresponsive if the current app's session doesn't advertise that action. Some players don't expose a "next track" action for the current content, during a live stream or a single long file for instance.
+- The **seek bar** only appears once the session reports a track duration. Drag it and release to jump playback to that point. It's disabled the same way the skip buttons are, whenever the session doesn't support seeking.
+- Controls act on whichever app currently owns the active media session, usually the one you left playing. If more than one app is publishing a session at once, it's the one actively playing. There's no in-panel app switcher, so open the source app directly to change what's playing.
 
 ## Options
 
@@ -37,14 +37,14 @@ The panel shows one of three things:
 
 There's nothing to tune beyond the tool's own visibility:
 
-- **Enabled** — which way this starts depends on how you answered the setup wizard. Media controls is only in the "show me everything" starter set, so if you picked either of the two simpler answers it arrives switched off and you turn it on here. Turning it off removes Media controls from both the toolbar and the toolbox.
-- **Icon colour** — only shown if [colorful tool icons](/reference/settings/tools/) are turned on globally (on by default); lets you override this tool's icon colour, purple by default.
+- **Enabled**: which way this starts depends on how you answered the setup wizard. Media controls is only in the "show me everything" starter set. Pick either of the two simpler answers and it arrives switched off, so you turn it on here. Turning it off removes Media controls from both the toolbar and the toolbox.
+- **Icon colour**: only shown if [colorful tool icons](/reference/settings/tools/) are turned on globally (on by default). It overrides this tool's icon colour, purple out of the box.
 
-The transport itself has no settings screen of its own: there's nothing to configure beyond showing or hiding the tool.
+The transport itself has no settings screen of its own. There's nothing to configure beyond showing or hiding the tool.
 
 ## Granting notification access
 
-The Android APIs that hand over another app's media session (`MediaSessionManager`) are gated behind notification-listener access (the same permission class notification-reading apps use), even though this tool never reads a single notification. One other feature shares that grant: the [one-time code chip](/smart/one-time-codes/), which does read notification text, and only while you have it switched on. See [privacy at a glance](/privacy/overview/) for how this fits the keyboard's broader per-tool, opt-in approach to anything that touches data outside the keyboard itself. The panel explains the grant up front:
+The Android API that hands over another app's media session is `MediaSessionManager`, and it's gated behind notification-listener access, the same permission class notification-reading apps use. This tool never reads a single notification anyway. One other feature shares that grant: the [one-time code chip](/smart/one-time-codes/), which does read notification text, and only while you have it switched on. See [privacy at a glance](/privacy/overview/) for how this fits the keyboard's per-tool, opt-in approach to anything that touches data outside the keyboard itself. The panel explains the grant up front:
 
 > WM Keyboard needs notification access to show and control the media. This tool reads no notification content, only the media session. The same access powers the optional one-time code chip, which reads notification text only while you have that turned on.
 
@@ -52,12 +52,14 @@ The Android APIs that hand over another app's media session (`MediaSessionManage
   {/* shot: tools/media-access-prompt */}
 </PhoneFrame>
 
-Tapping **Grant access** opens your device's Notification access screen directly to WM Keyboard's row (on older Android versions, it opens the full list instead and you find WM Keyboard yourself). Look for **"WM Keyboard media controls."** That's the label the system will list. Since an IME cannot show its own permission dialog, this detour through system Settings is required; it's a one-time step, but you can revoke it at any time from the same Settings screen. The keyboard re-checks the grant every time it comes back to the foreground, so if you grant it in Settings and return to the keyboard, the panel picks it up without needing to be reopened.
+Tap **Grant access**. Your device's Notification access screen opens on WM Keyboard's row. On older Android versions it opens the full list instead, so find WM Keyboard yourself. Look for **"WM Keyboard media controls."** That's the label the system lists it under.
+
+An IME cannot show its own permission dialog, which is why this detour through system Settings is needed. You do it once, and you can revoke it at any time from the same Settings screen. The keyboard re-checks the grant every time it returns to the foreground, so grant it in Settings and come back: the panel picks it up without being reopened.
 
 ## Details & edge cases
 
-- **Works with anything that publishes an Android media session** — music players, YouTube, podcast apps, and similar; not literally every app that makes sound. An app has to implement the platform's Media Session API for its controls to show up here; one that plays audio without publishing a session won't appear.
+- **Works with anything that publishes an Android media session**: music players, YouTube, podcast apps and the like. That isn't every app that makes sound. An app has to implement the platform's Media Session API for its controls to show up here. One that plays audio without publishing a session won't appear.
 - The **empty listener service** that unlocks this (`MediaNotificationListener`) exists purely to satisfy the platform's access check. It has no code path that reads notification content. It exists and does nothing else.
 - The transport is **touch-only**: it doesn't participate in hardware-keyboard focus-ring navigation the way search results or a list panel does, so <KeyCap>Tab</KeyCap>/arrow-key cycling skips over it.
-- Media controls has **no direct-boot support**: it isn't available on the lock screen before you've unlocked your device once after a restart, since the notification-listener grant and session data aren't available that early.
-- This tool ships in both the full and lite editions; there's no edition gating to worry about here.
+- Media controls has **no direct-boot support**. It isn't available on the lock screen before you've unlocked your device once after a restart, since the notification-listener grant and session data aren't available that early.
+- This tool ships in both the full and lite editions. There's no edition gating to worry about here.

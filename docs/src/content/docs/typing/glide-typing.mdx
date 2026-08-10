@@ -11,7 +11,7 @@ import KeyCap from '@components/KeyCap.astro';
 import Flavor from '@components/Flavor.astro';
 import GestureDemo from '@components/GestureDemo.astro';
 
-Glide typing lets you write a word by sliding one finger from letter to letter without lifting, instead of tapping each key in turn. WM Keyboard watches the shape of the stroke rather than which keys it happens to cross, so a loose, fast swipe still lands the right word.
+Glide typing lets you write a word by sliding one finger from letter to letter without lifting it. WM Keyboard watches the shape of the stroke rather than which keys it happens to cross, so a loose, fast swipe still lands the right word.
 
 <GestureDemo type="glide" caption="Slide from letter to letter; lift to commit the word." />
 
@@ -23,18 +23,18 @@ Glide typing lets you write a word by sliding one finger from letter to letter w
 
 <SettingsPath path="Typing / Gestures / Glide typing" />
 
-Glide typing is on by default, and it isn't tied to one language. What it needs is a layout that types the letters you press rather than converting them, and a word list that covers enough of that layout's alphabet. English gets it on every layout registered under English, not just QWERTY: AZERTY, Dvorak, Colemak, Workman and Halmak all glide, because the check is per-language rather than per-layout. Other languages glide as soon as their word list is installed and covers the keys.
+Glide typing is on by default, and it isn't tied to one language. What it needs is a layout that types the letters you press rather than converting them, plus a word list covering enough of that layout's alphabet. English gets it on every layout registered under English, QWERTY or otherwise: AZERTY, Dvorak, Colemak, Workman and Halmak all glide, because the check is per-language rather than per-layout. Other languages glide as soon as their word list is installed and covers the keys.
 
 A swipe only turns into a glide when several things line up at once:
 
-- You're on the **letters layer**: glide typing doesn't apply to the symbols or number pages.
+- You're on the **letters layer**. Glide typing doesn't apply to the symbols or number pages.
 - No panel (emoji, clipboard, tools) is open over the keyboard.
-- The layout **types letters rather than converting them**. Avro, Hangul, Vietnamese and the CJK input methods all turn keystrokes into something other than the keys pressed, so a stroke over them spells a reading, not a word. Bengali phonetic is the exception: it converts, but into a script the keyboard has a romanisation for, so a stroke can still be read back into words.
-- The active word list **covers enough of the layout's letters**. If you've edited a layout in the [layout editor](/languages/custom-layouts/) and dropped letters the language needs, glide typing quietly turns itself off for that layout rather than guessing at a key that isn't there, so it's worth checking first if swiping stops working after an edit. A finished dictionary download re-asks the same question, so a language can start gliding a minute after you add it.
+- The layout **types letters rather than converting them**. Avro, Hangul, Vietnamese and the CJK input methods all turn keystrokes into something other than the keys pressed, so a stroke over them spells a reading, not a word. Bangla phonetic is the exception. It converts too, but into a script the keyboard has a romanization for, so a stroke can still be read back into words.
+- The active word list **covers enough of the layout's letters**. Edit a layout in the [layout editor](/languages/custom-layouts/) and drop letters the language needs, and glide typing quietly turns itself off for that layout rather than guessing at a key that isn't there. It's worth checking first if swiping stops working after an edit. A finished dictionary download re-asks the same question, so a language can start gliding a minute after you add it.
 - You're not in the middle of a [typing-test tool](/tools/overview/) run.
-- The field allows it at all: secure fields (password boxes) and structured keypads (email, URL, number, phone, date/time) skip glide typing the same way they skip autocorrect: there's no dictionary word to guess on a PIN pad.
+- The field allows it at all. Secure fields (password boxes) and structured keypads (email, URL, number, phone, date/time) skip glide typing the same way they skip autocorrect: there's no dictionary word to guess on a PIN pad.
 
-The word list behind a glide is whatever dictionary is active for the language you're typing: the bundled one, or a bigger downloaded list if you've installed one under [Dictionaries](/languages/dictionaries/), since a larger downloaded list for a language always takes over from the bundled copy. Words you've typed and had WM Keyboard learn are folded in too, and weighted heavily, so a word you've typed even once becomes an easy swipe target the next time.
+The word list behind a glide is whatever dictionary is active for the language you're typing. That's the bundled one, or a bigger downloaded list if you've installed one under [Dictionaries](/languages/dictionaries/), since a larger downloaded list always takes over from the bundled copy. Words you've typed and had WM Keyboard learn are folded in too, and weighted heavily, so a word you've typed even once becomes an easy swipe target next time.
 
 :::note
 A letter-area swipe can do something other than glide a word: <Flavor edition="full" /> lets you set it to **handwrite** instead, drawing letters over the keys for on-device recognition. That's a separate feature with its own page: see [Handwriting](/tools/handwriting/#handwriting-without-opening-the-panel). Glide typing itself, the "Type words" mode, ships in both editions.
@@ -42,9 +42,9 @@ A letter-area swipe can do something other than glide a word: <Flavor edition="f
 
 ## The trail
 
-While you swipe, a comet-style trail follows your finger: thick and opaque at the head, thinning and fading toward the tail so the stroke dissolves behind you instead of leaving the whole path drawn on screen. It's colored from your [theme](/themes/overview/)'s accent color by default, or a color the theme sets specifically for it. Lifting your finger doesn't clear the trail instantly; it's left in place to finish fading out on its own.
+While you swipe, a comet-style trail follows your finger: thick and opaque at the head, thinning and fading toward the tail, so the stroke dissolves behind you instead of leaving the whole path drawn on screen. It takes its color from your [theme](/themes/overview/)'s accent color by default, or from a color the theme sets specifically for it. Lifting your finger doesn't clear it instantly. The trail stays where it is and finishes fading on its own.
 
-Three sliders under the same Gestures group tune it (trail width, how long it lingers, and its opacity); see [Options](#options) for their ranges and defaults.
+Three sliders under the same Gestures group tune it (trail width, how long it lingers, and its opacity). See [Options](#options) for their ranges and defaults.
 
 :::tip
 Power Saving mode drops the trail's opacity to zero to save battery while leaving glide typing itself working: see [Details & edge cases](#details--edge-cases).
@@ -52,7 +52,7 @@ Power Saving mode drops the trail's opacity to zero to save battery while leavin
 
 ## Live preview while you swipe
 
-You don't have to wait until you lift your finger to see what WM Keyboard thinks you're writing: partway through a swipe, the suggestion strip already fills in with the current best guesses, updated continuously as you keep moving. It's decoded against the exact same word list used for the final commit, so the word you see mid-swipe is never a preview of something different from what actually lands when you lift.
+You don't have to wait until you lift your finger to see what WM Keyboard thinks you're writing. Partway through a swipe, the suggestion strip already fills in with the current best guesses, and it updates as you keep moving. Those guesses are decoded against the same word list used for the final commit, so the word you see mid-swipe is never a preview of something different from what lands when you lift.
 
 <PhoneFrame caption="Mid-swipe: the suggestion strip already shows the leading candidate before the finger lifts.">
   {/* shot: typing/glide-live-preview */}
@@ -60,63 +60,63 @@ You don't have to wait until you lift your finger to see what WM Keyboard thinks
 
 ## Alternates, and fixing a wrong guess
 
-The moment you lift your finger, the best-scoring word commits to the field. The suggestion strip then holds up to three alternates the decoder also considered, with the word that just committed bolded in the center slot by default (this follows the same "best suggestion in the middle" layout autocorrect and normal typing use), its next-best rival to the left, and a third option to the right. Tap any of them to swap it in for the word that just landed.
+The moment you lift your finger, the best-scoring word commits to the field. The suggestion strip then holds up to three alternates the decoder also considered. The word that just committed is bolded in the center slot by default, following the same "best suggestion in the middle" layout that autocorrect and normal typing use, with its next-best rival to the left and a third option to the right. Tap any of them to swap it in for the word that just landed.
 
 <PhoneFrame caption="After the swipe lands, alternates sit either side of the committed word in the suggestion strip.">
   {/* shot: typing/glide-alternates */}
 </PhoneFrame>
 
-That tap-to-replace only works while your cursor is still sitting exactly where the glide left it: moving the caret away, or typing something else first, retires the alternates for that word. The same guard governs a plain backspace: press it right after a glide and it deletes the **whole swiped word** in one go rather than one character at a time, since a wrong swipe shouldn't cost a letter-by-letter cleanup. That takes the trailing space with it, so one press puts the cursor back exactly where the swipe found it.
+Tap-to-replace only works while your cursor is still sitting exactly where the glide left it. Move the caret away, or type something else first, and the alternates for that word retire. The same guard governs a plain backspace: press it right after a glide and it deletes the **whole swiped word** in one go rather than a character at a time, since a wrong swipe shouldn't cost a letter-by-letter cleanup. That takes the trailing space with it, so one press puts the cursor back where the swipe found it.
 
 ## When a swipe is a genuine toss-up
 
-Some strokes have no single right answer. On a fixed Bengali layout ক and খ share a key, so a word and its aspirated twin are drawn in exactly the same shape, and on any layout a hurried stroke can fit two words equally well. Rather than commit the likelier one and leave you to notice, **Ask when a glide is unclear** (on by default) offers the choice while your finger is still down.
+Some strokes have no single right answer. On a fixed Bangla layout ক and খ share a key, so a word and its aspirated twin are drawn in exactly the same shape, and on any layout a hurried stroke can fit two words equally well. Rather than commit the likelier one and leave you to notice, **Ask when a glide is unclear** (on by default) offers the choice while your finger is still down.
 
-When a stroke's best candidate barely leads its runner-up, keep your finger down and hold it still for a moment. The closest words appear under your fingertip; slide onto one and lift to type it. Lift without choosing and the keyboard commits its best guess exactly as it always did, and the same words are on the suggestion strip either way, so ignoring the picker costs nothing.
+When a stroke's best candidate barely leads its runner-up, keep your finger down and hold it still for a moment. The closest words appear under your fingertip. Slide onto one and lift to type it. Lift without choosing and the keyboard commits its best guess exactly as it always did, and the same words are on the suggestion strip either way, so ignoring the picker costs nothing.
 
-The picker only arms on the strokes that are actually in doubt: a confident decode never shows it. It's shown only in the "Type words" swipe mode, since a handwritten stroke resolves through a different path.
+The picker only arms on the strokes that are genuinely in doubt. A confident decode never shows it, and it appears only in the "Type words" swipe mode, since a handwritten stroke resolves through a different path.
 
 ## The space after a glided word
 
 Lifting your finger commits the word *and* a space, so you can glide the next word or tap it out without the two running together. The space belongs to the keyboard rather than to you, which is what makes the next three things work:
 
 - **Punctuation takes it back.** Type `.` `,` `?` `!` `;` `:` straight after a glide, or a closing `)` `]` `}` `"`, and the space steps aside, so you get "hello." and not "hello .". Opening brackets keep it, because "hello (world)" is what you meant.
-- **A space press is spent on it.** Reaching for the spacebar out of habit doesn't leave a double gap; the press confirms the space that's already there. Press space *again* and you get the usual double-space full stop, exactly as if you'd typed the word out.
+- **A space press is spent on it.** Reaching for the spacebar out of habit doesn't leave a double gap. The press confirms the space that's already there. Press space *again* and you get the usual double-space full stop, exactly as if you'd typed the word out.
 - **Backspace still undoes the whole thing.** The word and its space come out together.
 
 A word glided back into the middle of a sentence, where a space already follows, doesn't get a second one. The space is skipped in structured fields too: passwords, email addresses, web addresses and number pads, the same set that turns off every other typing courtesy.
 
-Turn this off with **Space after a glided word** (see [Options](#options)) and a glided word commits bare. Words chained in one stroke are still spaced from each other either way; the setting only governs the space after the last one.
+Turn this off with **Space after a glided word** (see [Options](#options)) and a glided word commits bare. Words chained in one stroke are still spaced from each other either way. The setting only governs the space after the last one.
 
 ## Gliding a whole phrase
 
-You don't have to lift your finger between words. Start a glide, cross the spacebar without pausing, and keep gliding straight into the next word: each crossing commits the word-so-far plus a space and starts decoding the next one, so a whole short phrase can land from a single unbroken stroke.
+You don't have to lift your finger between words. Start a glide, cross the spacebar without pausing, and keep gliding straight into the next word. Each crossing commits the word so far plus a space and starts decoding the next one, so a whole short phrase can land from a single unbroken stroke.
 
 <PhoneFrame caption="One continuous stroke crossing the spacebar mid-glide, committing a full phrase.">
   {/* shot: typing/glide-multiword */}
 </PhoneFrame>
 
-Only the final word of a multi-word glide gets alternates in the suggestion strip and the backspace-whole-word undo; the earlier words in the phrase have already committed and moved on. This behavior has its own toggle, **Glide across spacebar**: turn it off and a swipe that crosses the spacebar is read as a single word instead (see [Options](#options)).
+Only the final word of a multi-word glide gets alternates in the suggestion strip and the backspace-whole-word undo. The earlier words in the phrase have already committed and moved on. This behavior has its own toggle, **Glide across spacebar**: turn it off and a swipe that crosses the spacebar is read as a single word instead (see [Options](#options)).
 
 ## How it picks a word
 
 The decoder scores every dictionary word that could plausibly match your stroke and returns the best one, weighing three things:
 
-- **Shape** — how closely the drawn path matches the ideal path through that word's letters, resampled to the same number of points so a fast, loose swipe compares fairly against a careful one.
-- **Start and end anchoring** — how close your stroke actually started and ended to that word's first and last letter keys. A word is thrown out early if the stroke doesn't begin and end near its endpoints at all.
-- **Word frequency** — how common the word is, as a small tiebreaker. It's what makes "the" win out over similarly-shaped rivals like "they" or "them" when the early part of the stroke looks the same.
+- **Shape.** How closely the drawn path matches the ideal path through that word's letters. Both are resampled to the same number of points, so a fast, loose swipe compares fairly against a careful one.
+- **Start and end anchoring.** How close your stroke actually started and ended to that word's first and last letter keys. A word is thrown out early if the stroke doesn't begin and end near its endpoints at all.
+- **Word frequency**, as a small tiebreaker. It's what makes "the" win out over similarly-shaped rivals like "they" or "them" when the early part of the stroke looks the same.
 
-There's no notion of the word that came *before* in this scoring: the gesture decoder only looks at the stroke itself and how common the candidate word is on its own, not what you already typed. (Context from previous words does feed ordinary next-word prediction; see [Autocorrect and learning](#autocorrect-and-learning) below.)
+There's no notion of the word that came *before* in this scoring. The gesture decoder looks only at the stroke itself and at how common the candidate word is on its own, never at what you already typed. (Context from previous words does feed ordinary next-word prediction; see [Autocorrect and learning](#autocorrect-and-learning) below.)
 
-A couple of shape quirks worth knowing: double letters only need one pass over the key ("good" traces g-o-d, not g-o-o-d), since drawing a letter twice in a row adds nothing a shape comparison can see. And a word needing a character with no key on your current layout (an accented letter your layout doesn't have, say) is silently left out of the running rather than causing an error.
+A couple of shape quirks are worth knowing. Double letters only need one pass over the key, so "good" traces g-o-d, because drawing a letter twice in a row adds nothing a shape comparison can see. And a word needing a character with no key on your current layout, an accented letter your layout doesn't have, say, is quietly left out of the running rather than causing an error.
 
 ## Autocorrect and learning
 
-Autocorrect never runs a second pass over a glided word: the decoder only ever returns real dictionary words in the first place, so there's no typo to fix. What it does share with normal typing is learning: every word a glide commits goes through the same learning path a tapped-out word does, reinforcing it in your personal dictionary and recording it as following whatever word came before, which is what powers next-word prediction later. That's also true the other direction: a word you've recently typed or had autocorrected becomes swipeable right away, since learning a word immediately refreshes the list glide typing decodes against.
+Autocorrect never runs a second pass over a glided word. The decoder only ever returns real dictionary words in the first place, so there's no typo to fix. What glide typing does share with normal typing is learning: every word a glide commits goes through the same learning path a tapped-out word does. It's reinforced in your personal dictionary and recorded as following whatever word came before, which is what powers next-word prediction later. It works the other direction too. A word you've recently typed or had autocorrected becomes swipeable right away, since learning a word immediately refreshes the list glide typing decodes against.
 
-Learning from a glide follows the exact same rules as any other typing: it respects the "Learn from typing" toggle, pauses under incognito the same way, and skips entirely in fields that don't allow typing intelligence. There's no glide-specific exception.
+Learning from a glide follows the same rules as any other typing. It respects the "Learn from typing" toggle, pauses under incognito, and skips entirely in fields that don't allow typing intelligence. There's no glide-specific exception.
 
-One more shift-related detail: only the **first** word of a multi-word glide honors a held <KeyCap>Shift</KeyCap> (capitalizing it, or the whole word under caps lock); words chained afterward in the same stroke always land lowercase.
+One more shift-related detail: only the **first** word of a multi-word glide honors a held <KeyCap>Shift</KeyCap>, capitalizing it or, under caps lock, the whole word. Words chained afterward in the same stroke always land lowercase.
 
 ## Options
 
@@ -142,12 +142,12 @@ One more shift-related detail: only the **first** word of a multi-word glide hon
 
 ## Details & edge cases
 
-**Power Saving mode splits glide typing into two independent switches.** By default, power saving drops only the trail: it forces trail opacity to zero so nothing is drawn while you swipe, but decoding and committing keep working normally. Turning off glide typing entirely under power saving is a separate option that's **off by default**, because decoding a swipe is genuinely the most expensive thing the keyboard does, but it's also a big part of why people install a gesture keyboard in the first place, so the cheap fix (drop the trail) is the one that's on by default, and the expensive one (drop gliding) is opt-in. See [Power saving](/typing/power-saving/).
+**Power Saving mode splits glide typing into two independent switches.** By default, power saving drops only the trail: it forces trail opacity to zero, so nothing is drawn while you swipe, and decoding and committing carry on as normal. Turning glide typing off altogether under power saving is a separate option, and it's **off by default**. Decoding a swipe really is the most expensive thing the keyboard does, but it's also why many people installed a gesture keyboard, so the cheap fix ships on and the expensive one is opt-in. See [Power saving](/typing/power-saving/).
 
-**A layout that can't spell the language doesn't break glide typing: it just turns it off.** The decoder throws out any word holding a character the grid can't produce, so a layout covering a fraction of a language wouldn't fail loudly, it would decode against that fraction and commit confident nonsense. Instead WM Keyboard takes the language's most common words and counts how many the layout can draw end to end, and gliding needs at least 90% of them. The threshold sits short of 100% on purpose: real word lists carry a few loanwords and proper nouns in other scripts, and demanding every one of them would fail layouts that handle everything people actually type.
+**A layout that can't spell the language turns glide typing off rather than breaking it.** The decoder throws out any word holding a character the grid can't produce, so a layout covering only a fraction of a language would never fail loudly. It would decode against that fraction and commit confident nonsense. Instead, WM Keyboard takes the language's most common words, counts how many the layout can draw end to end, and wants at least 90% of them before it will glide. The threshold sits short of 100% on purpose: real word lists carry a few loanwords and proper nouns in other scripts, and demanding every one of them would fail layouts that handle everything people actually type.
 
-**Multi-word glides only leave the last word revertible.** If a phrase-length glide gets one word wrong, tap-to-fix and the backspace-whole-word shortcut only apply to the final word in the stroke; the earlier words in the phrase are ordinary committed text at that point.
+**Multi-word glides only leave the last word revertible.** If a phrase-length glide gets one word wrong, tap-to-fix and the backspace-whole-word shortcut apply only to the final word in the stroke. The earlier words are ordinary committed text by then.
 
-**The bigram context updates correctly when you swap an alternate.** Tapping an alternate to replace a glide's word re-links the "what word came before" tracking to the word before the one you just replaced, not to the discarded guess, so next-word prediction stays accurate even after a correction.
+**The bigram context updates correctly when you swap an alternate.** Tap an alternate to replace a glide's word and the "what word came before" tracking re-links to the word before the one you just replaced, rather than to the discarded guess. Next-word prediction stays accurate after a correction.
 
 See also the [gesture cheat sheet](/reference/gestures/) for every gesture on one page, and [Reference → Settings → Typing](/reference/settings/typing/) for the full Typing screen.

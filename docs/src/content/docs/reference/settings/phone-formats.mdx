@@ -48,7 +48,7 @@ A mask that is nothing but a dial code won't save either: there'd be no number l
 
 ## Why `+XX` isn't a country
 
-A dial code written as wildcards names no country, so a mask like `+XX 1XXX-XXXXXX` can't hold you to one. Rather than reject it, the mask keeps the part that still means something: the wildcards where the code was are dropped and what's left becomes a national mask. It behaves exactly as though you'd written `1XXX-XXXXXX`, which is a real filter (ten digits starting with a 1, from any country) and not the one you might have thought you were writing. The row still reads back the way you typed it, `+` and all, so the plus sign in it is doing nothing.
+A dial code written as wildcards names no country, so a mask like `+XX 1XXX-XXXXXX` can't hold you to one. Rather than reject it, the app keeps the part that still means something. It drops the wildcards where the code was, and what's left becomes a national mask. That behaves exactly as though you'd written `1XXX-XXXXXX`: a real filter for ten digits starting with a 1, from any country, and probably not the one you thought you were writing. The row still reads back the way you typed it, `+` and all, so the plus sign in it is doing nothing.
 
 ## What counts as a match
 

@@ -20,7 +20,7 @@ This is **off by default** and it needs notification access, which is a broad gr
 
 <SettingsPath path="Typing / One-time codes / Codes from notifications" />
 
-Flip the switch and you get a plain-language disclosure of what the feature reads and why, then the system's notification-listener screen to grant it on. If you back out without granting, an **Allow notification access** row appears under the switch as the way back; it disappears once access is there.
+Turn the switch on. A plain-language disclosure explains what the feature reads and why. The system's notification-listener screen opens next, where you grant the access. If you back out without granting it, an **Allow notification access** row appears under the switch as the way back. That row disappears once access is there.
 
 The grant is the same notification-listener permission the [media control tool](/tools/media/) uses, but the two features are asked for separately, because they read very different things. Media control reads no notification content at all; the code chip reads notification text to find a code. Granting one doesn't turn the other on.
 
@@ -53,13 +53,13 @@ The chip is drawn with a dashed outline, the same visual language the clipboard 
 
 It ranks high in the strip, above the clipboard and snippet chips, because the code is usually the whole reason you're in that field and it expires while everything else can wait. Only the [password-manager lane](/smart/autofill/) beats it, since the platform may be offering the same code with more context.
 
-The chip is hidden, without the code being dropped, when the current field doesn't qualify: **Only in number fields** is on and this field isn't a number field, or you're in [incognito mode](/privacy/incognito/) (globally or for this field). Hidden rather than dropped, because you're often one tap away from the box the code belongs in.
+The chip hides itself, without dropping the code, when the current field doesn't qualify. Two cases do that: **Only in number fields** is on and this field isn't a number field, or you're in [incognito mode](/privacy/incognito/), globally or for this field. It hides rather than drops, because you're often one tap away from the box the code belongs in.
 
 ## Typing into a row of boxes
 
 Plenty of apps and websites split a code across a row of single-character boxes that advance the focus for you. A code committed whole lands entirely in the first of them, which keeps one character and drops the rest.
 
-**Type codes one character at a time** (on by default) handles that: the code is typed character by character, about 40 ms apart, with the input connection re-read between each one, because the focus moving to the next box is exactly what replaces it. In an ordinary single field the result is identical, just spread over a few frames.
+**Type codes one character at a time** (on by default) handles that. The keyboard sends one character every 40 ms or so, and re-reads the input connection between each one, because the focus moving to the next box is exactly what replaces it. In an ordinary single field the result is identical, just spread over a few frames.
 
 This setting sits outside the rest of the group on purpose. It governs every path that types a code, including a code tapped from a [clipboard chip](/smart/chips/#pulling-fragments-out-of-your-clipboard), which needs no notification access at all.
 
@@ -70,7 +70,7 @@ This setting sits outside the rest of the group on purpose. It governs every pat
 | Setting | Default | Shown when |
 | --- | --- | --- |
 | Codes from notifications | Off | always |
-| Allow notification access | — | Codes from notifications on, and access not granted yet |
+| Allow notification access | Action row | Codes from notifications on, and access not granted yet |
 | Only in number fields | On | Codes from notifications on |
 | Offer a code for | 3 min (range 1–10 min) | Codes from notifications on |
 | Clear the notification | Off | Codes from notifications on |

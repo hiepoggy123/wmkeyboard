@@ -1,6 +1,6 @@
 ---
-title: "Bengali"
-description: "First-class Bengali: Avro-style phonetic typing, the Probhat and Jatiya layouts, and the spellings phonetic rules can't reach."
+title: "Bangla"
+description: "First-class Bangla: Avro-style phonetic typing, the Probhat and Jatiya layouts, and the spellings phonetic rules can't reach."
 sidebar:
   order: 3
 ---
@@ -9,7 +9,7 @@ import KeyCap from '@components/KeyCap.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import PhoneFrame from '@components/PhoneFrame.astro';
 
-Bengali is one of only two languages (English is the other) with a bundled dictionary, bundled emoji keywords, and a purpose-built phonetic engine, and it ships three layouts: Avro phonetic, Probhat, and Jatiya. Adding Bengali turns on Avro; the other two are a tap away on its own screen. A phone whose Android language list already includes Bangla gets it enabled from the first run. Type romanized Bengali and the keyboard converts it to script as you go, or pick one of two fixed Bengali keyboards if you'd rather type the script directly.
+Bangla is one of only two languages with a bundled dictionary, bundled emoji keywords, and a purpose-built phonetic engine. English is the other. It ships three layouts: Avro phonetic, Probhat, and Jatiya. Adding Bangla turns on Avro, and the other two are a tap away on its own screen. A phone whose Android language list already includes Bangla gets it enabled from the first run. Type romanized Bangla and the keyboard converts it to script as you go, or pick one of the two fixed keyboards if you'd rather type the script directly.
 
 <PhoneFrame caption={`Avro phonetic typing: "ami valo asi" commits as আমি ভালো আছি.`}>
   {/* shot: languages/avro-lenient-spelling */}
@@ -17,11 +17,11 @@ Bengali is one of only two languages (English is the other) with a bundled dicti
 
 ## Typing phonetically with Avro
 
-**Avro phonetic** is a fixed QWERTY grid underneath (every key is exactly where it is on the English layout) with a rule-based transliteration engine layered on top. Type a romanized syllable and it renders in Bengali script directly in the composing text, no separate conversion step: "ami" becomes আমি, "kolokata" becomes কলকাতা, "dhorrmo" becomes ধর্ম. The engine handles conjuncts, reph, khanda-ta, and the vowel/consonant context that decides whether a vowel is a standalone letter or a kar sign automatically, so you type the sounds and don't have to think about the script mechanics.
+**Avro phonetic** is a fixed QWERTY grid underneath (every key is exactly where it is on the English layout) with a rule-based transliteration engine layered on top. Type a romanized syllable and it renders in Bengali script directly in the composing text, no separate conversion step: "ami" becomes আমি, "kolokata" becomes কলকাতা, "dhorrmo" becomes ধর্ম. The engine handles conjuncts, reph, khanda-ta, and the vowel/consonant context that decides whether a vowel is a standalone letter or a kar sign. All of that is automatic, so you type the sounds and leave the script mechanics alone.
 
-Where it goes further than a plain transliterator is lenient spelling. Bengali speakers write the same word several different ways in Latin letters (আছি comes out as "asi", "achi", or "achhi" depending on the person), and Avro accepts all of them. This isn't a hardcoded list of corrections: both your romanized input and every word in the Bengali dictionary are folded to a lenient phonetic key where confusable sounds collapse (স/শ/ষ/ছ/চ all fold to the same sound, aspiration like "kh" or "bh" drops to "k"/"b", and so on), so "asi", "achi", and "achhi" all land on the same key as আছি. Whichever dictionary word sharing that key is used more often becomes what commits when you hit space, which is why "ami valo asi" becomes আমি ভালো আছি rather than the more literal আমি ভালো আসি.
+Where it goes further than a plain transliterator is lenient spelling. Bangla speakers write the same word several different ways in Latin letters (আছি comes out as "asi", "achi", or "achhi" depending on the person), and Avro accepts all of them. None of that is a hardcoded list of corrections. Both your romanized input and every word in the Bangla dictionary are folded to a lenient phonetic key where confusable sounds collapse (স/শ/ষ/ছ/চ all fold to the same sound, aspiration like "kh" or "bh" drops to "k"/"b", and so on), so "asi", "achi", and "achhi" all land on the same key as আছি. Whichever dictionary word sharing that key is used more often becomes what commits when you hit space, which is why "ami valo asi" becomes আমি ভালো আছি rather than the more literal আমি ভালো আসি.
 
-That correction only steps in when a dictionary word is clearly more common than the literal transliteration; a near-tie never overrides what the composing text already showed you. "holO" transliterates to হলো, and although হল is a separate, valid dictionary word, it doesn't steal the commit because the two are close enough in frequency that swapping would look like a bug, not a correction. The literal transliteration is always in the suggestion strip as a fallback either way, so you can pick it if the substitution guesses wrong.
+That correction only steps in when a dictionary word is clearly more common than the literal transliteration. A near-tie never overrides what the composing text already showed you. "holO" transliterates to হলো, and although হল is a separate, valid dictionary word, it doesn't steal the commit because the two are close enough in frequency that swapping would look like a bug, not a correction. The literal transliteration is always in the suggestion strip as a fallback either way, so you can pick it if the substitution guesses wrong.
 
 :::note
 This substitution isn't part of autocorrect and isn't controlled by the autocorrect toggle. Avro's phonetic commit runs regardless of whether [Autocorrect](/smart/autocorrect/) is on or off. There's no separate switch to turn it off.
@@ -53,7 +53,7 @@ Both of Avro's spellings for the marks work, and so do the ones Ridmik uses: ঁ
 Some words just aren't spelled the way they sound, so a list of them is checked before the phonetic engine runs. A match there always wins over whatever the transliterator would have produced. Two kinds of word need this:
 
 - **English loanwords.** "Keyboard" is written কিবোর্ড and "chair" চেয়ার by convention, not by sound. Left to the rules, "table" would come out তাবলে instead of টেবিল. About 2,300 of these are listed by hand.
-- **Banglish as people actually type it.** Chat spelling drops vowels wholesale, and no phonetic rule can put back a vowel that was never typed. `tmr` is তোমার, `amk` is আমাকে, `trpr` is তারপর. Colloquial and regional inflections like `boltiso` (বলতিসো) are in the same list, which covers about 12,000 spellings drawn from a corpus of real Bengali chat.
+- **Banglish as people actually type it.** Chat spelling drops vowels wholesale, and no phonetic rule can put back a vowel that was never typed. `tmr` is তোমার, `amk` is আমাকে, `trpr` is তারপর. Colloquial and regional inflections like `boltiso` (বলতিসো) are in the same list, which covers about 12,000 spellings drawn from a corpus of real Bangla chat.
 
 | you type | you get | without the list |
 | --- | --- | --- |
@@ -64,23 +64,23 @@ Some words just aren't spelled the way they sound, so a list of them is checked 
 
 A listed spelling shows up in the composing text as soon as you finish typing it, not when you hit space: `tmr` reads তোমার at the r. That's the same answer the space would have committed, so nothing changes under you at the last moment.
 
-You can switch this off per language if you'd rather have the letter-for-letter reading (see **Spellings** under [Options](#options) below). See [Downloadable dictionaries](/languages/dictionaries/) for how Bengali's dictionary and these lists fit into suggestions generally.
+You can switch this off per language if you'd rather have the letter-for-letter reading (see **Spellings** under [Options](#options) below). See [Downloadable dictionaries](/languages/dictionaries/) for how Bangla's dictionary and these lists fit into suggestions generally.
 
 ## Choosing a layout: Avro, Probhat, or Jatiya
 
-Bengali ships three layouts. A fresh install turns on one of them, Avro, and only if your phone's own language list has Bangla in it: what starts enabled is read off the phone rather than fixed (see [What ships](/languages/overview/#what-ships)). Turn the other two on whenever you want them, from Bangla's own screen under **Languages**. The exception is a keyboard you enabled from Android's settings and typed on without ever opening the app: the setup wizard never ran, so the built-in fallback stands and all three Bengali layouts are on alongside English QWERTY.
+Bangla ships three layouts. A fresh install turns on one of them, Avro, and only if your phone's own language list has Bangla in it. What starts enabled is read off the phone rather than fixed (see [What ships](/languages/overview/#what-ships)). Turn the other two on whenever you want them, from Bangla's own screen under **Languages**. There's one exception: a keyboard you enabled from Android's settings and then typed on without ever opening the app. The setup wizard never ran, so the built-in fallback stands and all three Bangla layouts are on alongside English QWERTY.
 
-- **Avro phonetic** — the QWERTY grid described above; the default layout when you add Bengali by searching for it.
-- **প্রভাত (Probhat)** — the fixed Bengali layout popular on Linux, following the standard desktop keymap as shipped by Avro Keyboard and OpenBangla. You type Bengali letters directly; nothing is transliterated.
-- **জাতীয় (National / Jatiya)** — the Bangladesh national standard fixed layout, also following its desktop keymap.
+- **Avro phonetic**: the QWERTY grid described above, and the default layout when you add Bangla by searching for it.
+- **প্রভাত (Probhat)**: the fixed Bangla layout popular on Linux, following the standard desktop keymap as shipped by Avro Keyboard and OpenBangla. You type Bengali letters directly, with nothing transliterated.
+- **জাতীয় (National / Jatiya)**: the Bangladesh national standard fixed layout, also following its desktop keymap.
 
 <PhoneFrame caption="প্রভাত (Probhat) active: Bengali letters typed directly, no phonetic conversion.">
   {/* shot: languages/probhat-key-grid */}
 </PhoneFrame>
 
-On Probhat, shift mostly gives you the aspirated partner of a consonant (দ→ধ, ট→ঠ, গ→ঘ, ক→খ) but not uniformly: some shift pairs are vowel-length pairs (ি→ই, ু→উ, ী→ঈ) and a few are unrelated letters that just share a key for space reasons (র→ড়, ন→ণ, স→ষ). The 10th key on the home row carries ে with ো on shift and ৈ/ৌ on long-press. A handful of less common marks (ৎ, ঞ, ঁ, ৃ, ৗ, ঽ) live as long-press alternates on a phonetically related key rather than getting a dedicated slot.
+On Probhat, shift mostly gives you the aspirated partner of a consonant (দ→ধ, ট→ঠ, গ→ঘ, ক→খ) but not uniformly. Some shift pairs are vowel-length pairs (ি→ই, ু→উ, ী→ঈ) and a few are unrelated letters that just share a key for space reasons (র→ড়, ন→ণ, স→ষ). The 10th key on the home row carries ে with ো on shift and ৈ/ৌ on long-press. A handful of less common marks (ৎ, ঞ, ঁ, ৃ, ৗ, ঽ) live as long-press alternates on a phonetically related key rather than getting a dedicated slot.
 
-Jatiya's letter keys also match its desktop layout; independent vowels that sit on a desktop AltGr key are reached here as long-press on their matching kar sign instead: long-press ু for উ or ঊ, long-press ি for ই or ঈ, and so on.
+Jatiya's letter keys also match its desktop layout. Independent vowels that sit on a desktop AltGr key are reached here as a long-press on their matching kar sign: long-press ু for উ or ঊ, long-press ি for ই or ঈ, and so on.
 
 All three layouts type দাঁড়ি (।) from the key next to the spacebar rather than a full stop, with the ASCII `.` moved to that key's long-press for numbers, file names and web addresses.
 
@@ -92,9 +92,9 @@ Bengali script builds conjuncts (যুক্তবর্ণ) by joining consona
 
 <SettingsPath path="Languages / Bangla / Clusters / Conjunct-aware backspace" />
 
-Turning on **Conjunct-aware backspace** changes this: a whole conjunct cluster is deleted in a single press instead. স্ত্রী (a triple conjunct) disappears as one unit, ক্ষ as one unit, and a bare trailing hasant with nothing joined to it yet still deletes alone. The setting is **off by default**, and it applies to committed Bengali text across all three Bengali layouts (Avro, Probhat, and Jatiya alike) since they share the same cluster logic. It only affects text already committed to the field; deleting through your still-composing Avro romanization always removes one Latin character per press.
+Turning on **Conjunct-aware backspace** changes this: a whole conjunct cluster is deleted in a single press instead. স্ত্রী (a triple conjunct) disappears as one unit, ক্ষ as one unit, and a bare trailing hasant with nothing joined to it yet still deletes alone. The setting is **off by default**, and it applies to committed Bengali-script text across all three Bangla layouts (Avro, Probhat, and Jatiya alike), which share the same cluster logic. It only affects text already committed to the field. Deleting through your still-composing Avro romanization always removes one Latin character per press.
 
-This toggle isn't Bengali-exclusive: every language on a cluster-forming script gets its own copy of it (Devanagari, Tamil, Khmer and others work the same way). It's set per language, so Bengali deleting whole conjuncts doesn't commit you to Hindi doing the same.
+This toggle isn't unique to Bangla. Every language on a cluster-forming script gets its own copy of it, and Devanagari, Tamil, Khmer and others work the same way. It's set per language, so Bangla deleting whole conjuncts doesn't commit you to Hindi doing the same.
 
 <PhoneFrame caption="Conjunct-aware backspace, under the Bangla language's own Clusters group. Off by default.">
   {/* shot: languages/conjunct-backspace-toggle */}
@@ -102,39 +102,39 @@ This toggle isn't Bengali-exclusive: every language on a cluster-forming script 
 
 ## Emoji search in Bangla
 
-Bengali is one of the two languages (with English) whose search keywords are baked directly into the bundled emoji catalog, so searching emoji by their Bengali name works with nothing to download. A separate, larger downloadable keyword pack for Bengali is also available and stacks on top of the bundled set rather than replacing it. See [Emoji search in your language](/emoji/customization/#emoji-search-in-your-language) and [Emoji picker](/emoji/picker/) for how the ranking and language-merging work.
+Bangla is one of the two languages (with English) whose search keywords are baked directly into the bundled emoji catalog, so searching emoji by their Bangla name works with nothing to download. A larger keyword pack for Bangla is downloadable too, and it stacks on top of the bundled set rather than replacing it. See [Emoji search in your language](/emoji/customization/#emoji-search-in-your-language) and [Emoji picker](/emoji/picker/) for how the ranking and language-merging work.
 
 ## Options
 
 <SettingsPath path="Languages / বাংলা · Bangla" />
 
-Open Bengali's own screen from **Languages** in the app, or search for it from **Add language**:
+Open Bangla's own screen from **Languages** in the app, or search for it from **Add language**:
 
-<PhoneFrame caption="Bengali's language screen: layout toggles, numeral system, and dictionary/emoji status.">
+<PhoneFrame caption="Bangla's language screen: layout toggles, numeral system, and dictionary/emoji status.">
   {/* shot: languages/bengali-language-screen */}
 </PhoneFrame>
 
-- **Layouts** — toggle Avro, Probhat, and Jatiya independently. At least one layout has to stay enabled somewhere across your whole keyboard, so you can't switch off the last one from here.
-- **Numerals** — two buttons, **০-৯** and **0-9**, and Bengali digits win by default. Switch to `0-9` if you'd rather see Latin digits on the number row while typing Bengali. Where the digits you pick actually get typed (versus staying plain 0-9 in fields like phone numbers) is a separate, global setting under Layout & size → Numerals (default: native digits in text fields only, plain ASCII in number/phone/date/time fields).
-- **Also suggest from** — pick other enabled languages to draw secondary suggestions from alongside Bengali.
-- **Dictionary** — Bengali ships with a bundled dictionary, and a downloadable wordlist (about 451,000 words) is available for better suggestions; you can also import your own list. See [Downloadable dictionaries](/languages/dictionaries/) for how sizes compare across languages.
-- **Emoji** — download the larger Bengali emoji-keyword pack here (about 3,900 emoji named; the bundled catalog's Bengali keywords already work without it). Downloads automatically if [Download automatically](/emoji/customization/) is on.
+- **Layouts**: toggle Avro, Probhat, and Jatiya independently. At least one layout has to stay enabled somewhere across your whole keyboard, so you can't switch off the last one from here.
+- **Numerals**: two buttons, **০-৯** and **0-9**, and Bengali digits win by default. Switch to `0-9` if you'd rather see Latin digits on the number row while typing Bangla. Where the digits you pick actually get typed is a separate, global setting under Layout & size → Numerals. It defaults to native digits in text fields only, and plain ASCII in number, phone, date and time fields.
+- **Also suggest from**: pick other enabled languages to draw secondary suggestions from alongside Bangla.
+- **Dictionary**: Bangla ships with a bundled dictionary, and a downloadable wordlist of about 451,000 words gives better suggestions. You can import your own list too. See [Downloadable dictionaries](/languages/dictionaries/) for how sizes compare across languages.
+- **Emoji**: download the larger Bangla emoji-keyword pack here, which names about 3,900 emoji. The bundled catalog's Bangla keywords already work without it. The pack arrives on its own if [Download automatically](/emoji/customization/) is on.
 
-- **Spellings** — <SettingsPath path="Languages / Bangla / Spellings / Use known spellings" />, on by default. This is the list described above: it's what makes `table` commit টেবিল rather than তাবলে, and `tmr` commit তোমার rather than ত্ম্র. Switch it off if you want the letter-for-letter reading instead, which is otherwise unreachable because the list outranks every other suggestion source. The setting is per language, so turning it off for Bengali says nothing about any other script.
-- **Clusters** — <SettingsPath path="Languages / Bangla / Clusters / Conjunct-aware backspace" />, covered above, off by default.
+- **Spellings**: <SettingsPath path="Languages / Bangla / Spellings / Use known spellings" />, on by default. This is the list described above, and it's what makes `table` commit টেবিল rather than তাবলে, and `tmr` commit তোমার rather than ত্ম্র. Switch it off if you want the letter-for-letter reading instead, which is otherwise unreachable because the list outranks every other suggestion source. The setting is per language, so turning it off for Bangla says nothing about any other script.
+- **Clusters**: <SettingsPath path="Languages / Bangla / Clusters / Conjunct-aware backspace" />, covered above, off by default.
 
-One more Bengali-relevant setting lives outside this screen:
+One more setting for Bangla lives outside this screen:
 
-- <SettingsPath path="Appearance / Keyboard font / Bengali font" /> — one of the per-script font sections, shown only while a Bengali-script language is enabled and separate from the general keyboard font. It applies to all three Bengali layouts at once (Avro, Probhat, Jatiya use the same choice), with several Bengali-focused Google Fonts to pick from plus your own imported font file — Bengali is the one script section that also takes an import.
+- The **Bengali font** row, at <SettingsPath path="Appearance / Keyboard font / Bengali font" />, is one of the per-script font sections. It shows only while a Bengali-script language is enabled, and it's separate from the general keyboard font. Your choice applies to all three Bangla layouts at once, with several Bengali-focused Google Fonts to pick from plus your own imported font file. Bengali is the one script section that also takes an import.
 
 ## Details & edge cases
 
-**"Banglish" is a different language, not a mode of this one.** Selecting Banglish · Bangla (Romanized) from the language catalogue gives you a plain Latin QWERTY that stays in Latin script (it never converts to Bengali script) and pulls suggestions from its own romanized word list. That's for people who want to text in Bengali using Latin letters and keep it that way. Avro, covered on this page, is the opposite: it converts what you type into Bengali script. Don't confuse the two if you're looking for one and land on the other in search results.
+**"Banglish" is a different language, not a mode of this one.** Selecting Banglish · Bangla (Romanized) from the language catalogue gives you a plain Latin QWERTY that stays in Latin script (it never converts to Bengali script) and pulls suggestions from its own romanized word list. That's for people who want to text in Bangla using Latin letters and keep it that way. Avro, covered on this page, is the opposite: it converts what you type into Bengali script. Don't confuse the two if you're looking for one and land on the other in search results.
 
-**A few other languages share the Bengali script** but aren't the same language entry: Assamese, Bishnupriya Manipuri, and Sylheti all use Bengali-script layouts and Bengali-style numerals, but none of them bundle a dictionary the way Bengali does. If you're typing one of those, look for it by its own name in the language catalogue rather than under Bengali.
+**A few other languages share the Bengali script** but aren't the same language entry: Assamese, Bishnupriya Manipuri, and Sylheti all use Bengali-script layouts and Bengali-style numerals, but none of them bundle a dictionary the way Bangla does. If you're typing one of those, look for it by its own name in the language catalogue rather than under Bangla.
 
 **The near-tie protection can feel inconsistent if you don't know it's there.** Because a phonetic sibling only overrides the literal transliteration when it's clearly more common, two words that are close in frequency (হলো vs. হল for "holO") won't always resolve the way you expect. This is deliberate, so the keyboard never silently swaps in a different word than what the composing preview showed you a moment before you hit space.
 
 **The layout editor shows both shift labels at once for Probhat and Jatiya keys**, even though the real keyboard only shows one label per key state. Many fonts render a bare vowel sign (া, ি) as an orphaned, hard-to-read mark on its own, so the editor shows the base and shift labels side by side purely so you can tell keys apart while editing. This doesn't change what's drawn on the actual keyboard.
 
-**A rearranged Bengali layout still types Bengali.** If you open Probhat, Jatiya, or Avro in the [layout editor](/languages/custom-layouts/) and move keys around, the result still draws suggestions from the Bengali dictionary and still composes Bengali script: a layout's language comes from what it's based on, not from its key arrangement.
+**A rearranged Bangla layout still types Bangla.** If you open Probhat, Jatiya, or Avro in the [layout editor](/languages/custom-layouts/) and move keys around, the result still draws suggestions from the Bangla dictionary and still composes Bengali script. A layout's language comes from what it's based on, not from its key arrangement.

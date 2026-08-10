@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-Fixing a typo three lines up, selecting a whole paragraph, or nudging the cursor one character at a time is fiddly on a touchscreen with no physical arrow keys. WM Keyboard adds a dedicated text-editing panel, a set of one-tap cursor tools for the toolbar, and one-tap undo/redo, all standing in for the arrow keys and Ctrl-shortcuts a hardware keyboard would give you.
+Fixing a typo three lines up, selecting a whole paragraph, or nudging the cursor one character at a time is fiddly on a touchscreen with no physical arrow keys. WM Keyboard adds a dedicated text-editing panel, a set of one-tap cursor tools for the toolbar, and one-tap undo/redo. Together they stand in for the arrow keys and Ctrl-shortcuts a hardware keyboard would give you.
 
 <PhoneFrame caption="The text-editing panel: a d-pad for moving the cursor, Select/Select all/Copy/Paste on the right, and Home/End/Backspace along the bottom.">
   {/* shot: tools/text-edit-panel */}
@@ -19,9 +19,9 @@ Fixing a typo three lines up, selecting a whole paragraph, or nudging the cursor
 
 Open **Text editing** from the toolbar, or from the toolbox if you haven't pinned it there (see [the toolbar](/tools/overview/) for pinning and the toolbox in general). On a hardware keyboard, use the [leader key](/reference/shortcuts/): double-tap <KeyCap>Ctrl</KeyCap>, then press <KeyCap>X</KeyCap>.
 
-The panel is a d-pad cluster: <KeyCap>◀</KeyCap> and <KeyCap>▶</KeyCap> span the full height on either side, with <KeyCap>▲</KeyCap>, a <KeyCap>Select</KeyCap> toggle, and <KeyCap>▼</KeyCap> stacked in the middle. A bottom row adds <KeyCap>Home</KeyCap>, <KeyCap>End</KeyCap>, and <KeyCap>Backspace</KeyCap>. Every arrow key, Home, End, and Backspace is sent to the field as a real key event (the same event a hardware arrow key would send) rather than computed by the keyboard itself, so cursor movement behaves exactly the way it would with a physical keyboard plugged in.
+The panel is a d-pad cluster: <KeyCap>◀</KeyCap> and <KeyCap>▶</KeyCap> span the full height on either side, with <KeyCap>▲</KeyCap>, a <KeyCap>Select</KeyCap> toggle, and <KeyCap>▼</KeyCap> stacked in the middle. A bottom row adds <KeyCap>Home</KeyCap>, <KeyCap>End</KeyCap>, and <KeyCap>Backspace</KeyCap>. Each of those keys sends the field a real key event, the same one a hardware arrow key would send, rather than a movement the keyboard computed itself. So the cursor behaves exactly as it would with a physical keyboard plugged in.
 
-Tap <KeyCap>Select</KeyCap> to turn selection mode on; the key lights up while it's active. With Select on, every arrow, Home, or End move extends the selection instead of just moving the caret. The panel wraps each move in a real Shift press rather than a background modifier flag, since some editors only pick up Shift state from the key events themselves. Tap <KeyCap>Select</KeyCap> again to turn it off, or see below for the two actions that flip it automatically.
+Tap <KeyCap>Select</KeyCap> to turn selection mode on. The key lights up while it's active. With Select on, every arrow, Home, or End move extends the selection instead of just moving the caret. The panel wraps each move in a real Shift press rather than a background modifier flag, since some editors only pick up Shift state from the key events themselves. Tap <KeyCap>Select</KeyCap> again to turn it off, or see below for the two actions that flip it automatically.
 
 Holding <KeyCap>◀</KeyCap>, <KeyCap>▶</KeyCap>, <KeyCap>▲</KeyCap>, <KeyCap>▼</KeyCap>, or <KeyCap>Backspace</KeyCap> auto-repeats after a fixed 400 ms delay, then keeps repeating at an interval you can tune (see [Options](#options) below).
 
@@ -33,7 +33,7 @@ The panel's second column holds <KeyCap>Select all</KeyCap>, <KeyCap>Copy</KeyCa
 - **Copy** copies the current selection and turns selection mode back off.
 - **Paste** inserts the clipboard content at the cursor (replacing any selection) and doesn't touch selection mode either way.
 
-Copy and paste run through the target field's own copy/paste handling (the same as if you'd triggered them from that app's own text-selection menu), so behavior (what exactly gets copied, whether a "Copied" system toast appears) follows the app you're typing into. WM Keyboard can add its own **"Copied"** confirmation on top, off by default, under <SettingsPath path="Tools / Clipboard / History" /> (see [Clipboard manager](/tools/clipboard/)).
+Copy and paste run through the target field's own handling, the same as if you'd triggered them from that app's text-selection menu. What exactly gets copied, and whether a "Copied" system toast appears, therefore follows the app you're typing into. WM Keyboard can add its own **"Copied"** confirmation on top, off by default, under <SettingsPath path="Tools / Clipboard / History" /> (see [Clipboard manager](/tools/clipboard/)).
 
 Pasting into a password field clears the system clipboard afterward by default, so a copied password doesn't linger (also configured on the [Clipboard manager](/tools/clipboard/) page, not here).
 
@@ -51,11 +51,11 @@ The panel above costs one tap to open and another to act. If you reach for the s
 | Select word | Select the word at the cursor |
 | Select line | Select the entire line at the cursor |
 
-**Select word** and **Select line** aren't Ctrl+Shift+Arrow shortcuts: the keyboard works out the word or line boundaries around the cursor itself and sets the selection directly. Both turn selection mode on afterward, and both do nothing if the cursor sits on whitespace or punctuation with no word to grab, or on an empty line.
+**Select word** and **Select line** don't send Ctrl+Shift+Arrow. The keyboard works out the word or line boundaries around the cursor itself and sets the selection directly. Both turn selection mode on afterward. Both do nothing if the cursor sits on whitespace or punctuation with no word to grab, or on an empty line.
 
 A **Hide keyboard** tool sits in the toolbox right beside these (one tap dismisses the keyboard), but it's grouped with the cursor tools rather than being one itself.
 
-None of these tools, or Text editing itself, are pinned to the toolbar out of the box: the default pinned row is just Emoji, Clipboard, and Settings, with everything else waiting in the toolbox. If you picked "Recommended" during onboarding rather than "Everything," note that the recommended set includes Text editing, Undo, and Redo, but leaves the numpad, Hide keyboard, and every cursor tool above out. Head to <SettingsPath path="Tools" /> to turn them back on if you don't see them.
+None of these tools, or Text editing itself, are pinned to the toolbar out of the box. The default pinned row is just Emoji, Clipboard, and Settings, with everything else waiting in the toolbox. The onboarding answer matters too. "Recommended" turns on Text editing, Undo and Redo, but leaves out the numpad, Hide keyboard and every cursor tool above. If you don't see one, open <SettingsPath path="Tools" /> and turn it on.
 
 ## Undo and redo
 
@@ -65,7 +65,7 @@ This isn't a typing history WM Keyboard keeps of its own. It has no way to reach
 
 ## The numeric keypad
 
-**Numpad** opens a dedicated 4×4 number pad over whatever field you're in (not to be confused with the keyboard automatically switching to a numeric layout in a field that's already typed as a phone or number field). That auto-switch happens on its own in the right field type; Numpad is a panel you open by hand, and works over any field, numeric or not.
+**Numpad** opens a dedicated 4×4 number pad over whatever field you're in. Don't confuse it with the keyboard switching to a numeric layout on its own, which happens in a field already typed as a phone or number field. Numpad is a panel you open by hand, and it works over any field, numeric or not.
 
 <PhoneFrame caption="The numpad panel: a 4×4 grid in phone or calculator digit order, with Backspace repeating on hold.">
   {/* shot: tools/numpad-panel */}
@@ -88,19 +88,19 @@ You don't have to open a panel at all for the most common move: sliding the curs
 
 <SettingsPath path="Tools / Text editing / Options" />
 
-**Key repeat interval** — default **60 ms**, adjustable from 30–200 ms. Sets the pause between repeats while holding an arrow key or Backspace in the panel; lower is faster. The initial 400 ms delay before repeating starts isn't adjustable.
+**Key repeat interval**: default **60 ms**, adjustable from 30–200 ms. It sets the pause between repeats while you hold an arrow key or Backspace in the panel. Lower is faster. The initial 400 ms delay before repeating starts isn't adjustable.
 
 ### Numpad layout
 
 <SettingsPath path="Tools / Numpad / Options" />
 
-**Calculator-style layout** — off by default. Puts 7 8 9 on the top row like a desk keypad instead of 1 2 3 like a dialer.
+**Calculator-style layout**: off by default. It puts 7 8 9 on the top row like a desk keypad instead of 1 2 3 like a dialer.
 
 ### Undo/redo shortcut
 
 <SettingsPath path="Tools / Undo / Options" />
 
-**Redo sends Ctrl+Y** — off by default, so Redo sends Ctrl+Shift+Z. The same toggle appears on both the Undo and Redo tool's own settings screen. Both are standard redo shortcuts; which one an app responds to varies, so if redo does nothing, try flipping this.
+**Redo sends Ctrl+Y**: off by default, so Redo sends Ctrl+Shift+Z. The same toggle appears on both the Undo and Redo tool's own settings screen. Both are standard redo shortcuts, and which one an app responds to varies. If redo does nothing, flip this.
 
 ### Long-press letter shortcuts
 
@@ -109,18 +109,18 @@ You don't have to open a panel at all for the most common move: sliding the curs
 Six shortcuts, each off by default, each replacing that letter key's accent popup while it's on:
 
 - **Hold A to select all**
-- **Hold C to copy** — copies the current selection, or selects everything first if nothing is selected
-- **Hold X to cut** — same rule as copy, but cuts
-- **Hold V to paste** — pastes the clipboard at the cursor, replacing any selection
-- **Hold Z to undo** — same shortcut as the toolbar's Undo tool
-- **Hold Y to redo** — same shortcut as the toolbar's Redo tool
+- **Hold C to copy**: copies the current selection. If nothing is selected, it selects everything first.
+- **Hold X to cut**: the same rule as copy, but it cuts.
+- **Hold V to paste**: pastes the clipboard at the cursor, replacing any selection.
+- **Hold Z to undo**: the same shortcut as the toolbar's Undo tool.
+- **Hold Y to redo**: the same shortcut as the toolbar's Redo tool.
 
 This is the only place cut lives: there's no Cut button in the text-editing panel itself, and no Cut toolbar tool.
 
 ## Details & edge cases
 
-- **Two Typing-screen toggles change what Select mode does elsewhere on the keyboard**, even though they're not on this page's own settings screens: typing a bracket or quote with text selected wraps the selection in the pair instead of replacing it (on by default), and tapping Shift with text selected cycles its case instead of arming Shift for the next letter (also on by default, and a no-op in caseless scripts like Bengali). Both live under <SettingsPath path="Typing / Automatic corrections" />.
-- **Every tool on this page works before you've unlocked your device for the first time after a restart** (direct boot): the panel, the cursor tools, undo/redo, and the numpad all only touch the input connection, not stored data, so none of them wait on your device being unlocked. Compare [Media controls](/tools/media/), which can't.
+- **Two Typing-screen toggles change what Select mode does elsewhere on the keyboard**, even though neither is on this page's own settings screens. Typing a bracket or quote with text selected wraps the selection in the pair instead of replacing it (on by default). Tapping Shift with text selected cycles its case instead of arming Shift for the next letter (also on by default, and a no-op in caseless scripts like Bengali). Both live under <SettingsPath path="Typing / Automatic corrections" />.
+- **Every tool on this page works before you've unlocked your device for the first time after a restart** (direct boot). The panel, the cursor tools, undo/redo and the numpad only touch the input connection, never stored data, so none of them wait on your device being unlocked. Compare [Media controls](/tools/media/), which can't.
 - **Nothing here is edition-gated.** The panel, every cursor tool, undo/redo, and the numpad all work identically on the full and lite builds.
-- The hardware [leader key](/reference/shortcuts/) reaches Text editing (<KeyCap>X</KeyCap>) and Numpad (<KeyCap>N</KeyCap>) as panels, and fires Undo (<KeyCap>Z</KeyCap>) directly; there's no leader-key letter for Redo or for any individual cursor tool.
+- The hardware [leader key](/reference/shortcuts/) reaches Text editing (<KeyCap>X</KeyCap>) and Numpad (<KeyCap>N</KeyCap>) as panels, and fires Undo (<KeyCap>Z</KeyCap>) directly. There's no leader-key letter for Redo or for any individual cursor tool.
 - All copy and paste actions here go through the target app's own text-selection handling, not a WM-Keyboard-side clipboard bypass (see [Clipboard manager](/tools/clipboard/) for the separate clipboard history panel these actions feed into).

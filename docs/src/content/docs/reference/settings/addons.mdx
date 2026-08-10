@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-The **Addons** screen is where WM Keyboard reaches past what ships in the app: themes, layouts, dictionaries, fonts, sounds and more, browsed and installed straight from a repository URL. This page is the field reference for every screen in that tree, plus the separate sticker-pack and plugin managers that live alongside it; for the reasoning behind any of it, start with [What are addons?](/addons/overview/) and [WM Keyboard plugins](/plugins/overview/) instead.
+The **Addons** screen is where WM Keyboard reaches past what ships in the app. Themes, layouts, dictionaries, fonts, sounds and more get browsed and installed straight from a repository URL. This page is the field reference for every screen in that tree, plus the separate sticker-pack and plugin managers that live alongside it. For the reasoning behind any of it, start with [What are addons?](/addons/overview/) and [WM Keyboard plugins](/plugins/overview/) instead.
 
 <PhoneFrame caption="The Addons screen: repositories you've added, plus everything installed from them.">
   {/* shot: reference/settings/addons-home */}
@@ -16,20 +16,21 @@ The **Addons** screen is where WM Keyboard reaches past what ships in the app: t
 
 ## Repositories and installed addons
 
-The Addons screen opens with a caption explaining the trust model in plain terms: "Addon repositories are ordinary web pages listing themes, layouts, dictionaries, snippets, sticker packs, icon packs, fonts, emoji fonts and key sounds. Everything they hold is plain data — installing an addon never runs code." Two buttons follow: **Add repository** and **Refresh** (disabled while refreshing, or when the repository list is empty).
+The Addons screen opens with a caption explaining the trust model in plain terms: an addon repository is an ordinary web page listing themes, layouts, dictionaries, snippets, sticker packs, icon packs, fonts, emoji fonts and key sounds, and an addon holds plain data, so installing one never runs code. Two buttons follow: **Add repository** and **Refresh**. Refresh is disabled while a refresh is running, and while the repository list is empty.
 
 Below that:
 
-- **Repositories**: one row per repository you've added: its name (or the raw URL if the manifest doesn't name itself), a subtitle showing the addon count and author, or "Not loaded yet" / "Couldn't be read" while a fetch is pending or failed. An overflow menu (⋮) offers Refresh, Open homepage (only if the manifest declares an `https://` one), and Remove. Tapping a loaded row opens its catalogue; a row with no manifest yet doesn't respond to taps.
-- **Installed**: only shown once you've installed at least one addon: name, then "Type · version · repository name" underneath, tinted by type.
+- **Repositories**: one row per repository you've added. It shows the repository's name, or the raw URL if the manifest doesn't name itself. The subtitle carries the addon count and author, or says the app hasn't loaded it yet, or that it can't read it. An overflow menu (⋮) offers Refresh, Open the homepage (only if the manifest declares an `https://` one), and Remove. Tapping a loaded row opens its catalogue. A row with no manifest yet doesn't respond to taps.
+- **Installed**: only shown once you've installed at least one addon. Name, then "Type · version · repository name" underneath, tinted by type.
+- **Checking for new addons**: two switches over the fetch-every-visit behaviour. **Check when you open this screen** is on by default and fetches each repository's list on every visit. **Only on Wi-Fi** appears under it, off by default, and skips that check on a metered connection. **Refresh** fetches whatever either switch says, because pressing it is the request.
 
-The first time you ever open this screen, it seeds one sample repository automatically (tracked with a marker so it never comes back once removed), and every visit refreshes every repository's manifest once in the background. An empty repository list shows "No repositories yet. Add one with its URL to browse what it offers."
+The first time you ever open this screen, it seeds one sample repository automatically. A marker keeps it from coming back once you remove it. An empty repository list says there are no repositories yet, and invites you to add one by address.
 
-**Add repository** opens a single text field. As you type, a line underneath live-resolves what will actually be fetched, showing "Will read: `<url>`", or, if it can't be resolved, "That isn't an https address this app can read."; the **Add** button stays disabled until it resolves. A `github.com/user/repo` address resolves to that repository's `wmkeyboard-repo.json` on its default branch (or the branch/tag from a `/tree/<ref>` or `/blob/<ref>` path); a URL ending in `.json` is used as-is; anything else has `wmkeyboard-repo.json` appended. Confirming with an address that can't be parsed at all shows "That doesn't look like a repository URL. It has to be an https link — a GitHub repository, or a direct link to a wmkeyboard-repo.json file."; one that parses but can't be fetched removes the repository again and shows "Couldn't read an addon repository at that address." You can have up to **30 repositories** in your list at once.
+**Add repository** opens a single text field, labelled **Repository URL**. A line underneath resolves as you type and names the address the app will actually read, or says it can't read that address and that the address must be https. The **Add** button stays disabled until the address resolves. A `github.com/user/repo` address resolves to that repository's `wmkeyboard-repo.json` on its default branch, or on the branch or tag from a `/tree/<ref>` or `/blob/<ref>` path. A URL ending in `.json` is used as-is. Anything else has `wmkeyboard-repo.json` appended. Confirm with an address that can't be parsed at all and the dialog explains that it has to be an https link, either to a GitHub repository or straight to a `wmkeyboard-repo.json` file. One that parses but can't be fetched is removed again, with a message saying the app cannot read an addon repository at that address. You can have up to **30 repositories** in your list at once.
 
 ## Browsing a repository and an addon's page
 
-Tapping a loaded repository opens its catalogue: a **Search** field matching name, description, author and tags case-insensitively, and a row of type filter chips: **All**, plus one chip per addon type the manifest actually contains. Results render as a two-column card grid; each card shows the addon's first screenshot (or a centered type glyph if it has none), its name, type, a "vX.Y · size · author" line, and a status badge in the corner that doubles as the install button: a download arrow when not installed, a check when installed, an "Update" chip when a newer version exists, a spinner while downloading, or an X on failure. Tapping the badge installs directly from the grid without opening the addon's own page. An empty result set says "Nothing here matches that."; a repository that can't be read at all says "This repository couldn't be read. Try refreshing it from the Addons list."
+Tapping a loaded repository opens its catalogue. At the top is a **Search** field matching name, description, author and tags case-insensitively, then a row of type filter chips: **All**, plus one chip per addon type the manifest actually contains. Results render as a two-column card grid. Each card shows the addon's first screenshot, or a centered type glyph if it has none, then its name, type, and a "vX.Y · size · author" line. A status badge in the corner doubles as the install button: a download arrow when not installed, a check when installed, an "Update" chip when a newer version exists, a spinner while downloading, or an X on failure. Tapping the badge installs directly from the grid without opening the addon's own page. An empty result set says nothing matches your search. A repository that can't be read at all tells you so, and points you at Refresh on the Addons screen.
 
 <PhoneFrame caption="An addon's detail page: previews, description, licence, and the install action.">
   {/* shot: reference/settings/addon-detail-page */}
@@ -37,14 +38,14 @@ Tapping a loaded repository opens its catalogue: a **Search** field matching nam
 
 Tapping a card opens its detail page, which shows, top to bottom:
 
-1. **Previews**, if the manifest has any: a single screenshot renders full-width capped at 340dp tall; more than one renders as a fixed-height horizontal strip. Tapping either opens a full-screen viewer.
+1. **Previews**, if the manifest has any. A single screenshot renders full-width, capped at 340dp tall. More than one renders as a fixed-height horizontal strip. Tapping either opens a full-screen viewer.
 2. Name, then "Type · version · author", then the description, then a row of non-interactive tag chips if the manifest declares any.
-3. A **Preview** button, shown only for addon types the app knows how to preview without installing (see the table below). It downloads the payload to cache and shows it inline: a snippet list, a dictionary's word count and first words, an emoji-keyword count and sample rows, a "Play the sound" row, a sticker thumbnail strip, or, for a plugin, the declared permission list under "What this plugin can do", with the reassurance that "Plugins run in a sandbox. This one cannot see what you type, read your clipboard, or use the internet — those aren't things a plugin can ask for."
+3. A **Preview** button, shown only for addon types the app knows how to preview without installing (see the table below). It downloads the payload to cache and shows it inline. That means a snippet list, a dictionary's word count and first words, an emoji-keyword count and sample rows, a "Play the sound" row, or a sticker thumbnail strip. For a plugin it's the declared permission list under "What this plugin can do", alongside the reassurance that a plugin runs in a sandbox and cannot see what you type, read your clipboard, or use the internet, and cannot ask for any of it.
 4. A **Details** group: Repository (name, host, and a note that installing will add it if you haven't already), Size, Language(s) if declared, and Licence. Tapping the licence row opens the full text in a scrolling dialog.
 5. If the addon declares a minimum app version newer than your build, a caption says so and disables Install. If the addon is a plugin and "Allow plugins" is off, a caption points you at the switch with an "Open Plugins" shortcut, and Install stays disabled until you turn it on.
-6. **Actions**: Install / Update / Installed (disabled once current); an error-tinted Uninstall once installed; a progress bar with Cancel while downloading; and, once installed, an outlined "Use — open `<Type>`" button that jumps straight to where the addon lives (see the table below).
+6. **Actions**: Install, Update, or Installed (disabled once current). An error-tinted Uninstall shows once installed. A progress bar with Cancel shows while downloading. And once installed, an outlined "Use it: open `<Type>`" button jumps straight to where the addon lives (see the table below).
 
-If a repository has changed or gone offline since you installed something from it, the detail page falls back to what was saved locally at install time: name, type, version, author, description, and an Uninstall button, with no update comparison available. Reaching a detail page for an addon that no longer exists anywhere shows "That addon couldn't be found. The repository may have changed."
+If a repository has changed or gone offline since you installed something from it, the detail page falls back to what was saved locally at install time: name, type, version, author, description, and an Uninstall button. No update comparison is available there. Reaching a detail page for an addon that no longer exists anywhere tells you the app can't find it, and that the repository has possibly changed.
 
 ### After installing
 
@@ -65,9 +66,9 @@ For types with an obvious slot to fill, finishing an install shows a prompt aski
 | Sound pack | 16 MB | Yes | Key press → Sound pack |
 | Plugin | 1 MB | Yes (capabilities only) | Plugins → Allow plugins |
 
-**Sound** and **Sound pack** are two different types. A sound is one recording the whole keyboard uses; a pack is a set of them, one keyboard's worth of individually recorded keys, which is why it gets four times the size budget (each recording inside it is still held to the same 4 MB a lone sound gets). Both offer a preview, and both land in Key press, just in different rows.
+**Sound** and **Sound pack** are two different types. A sound is one recording the whole keyboard uses. A pack is a set of them, one keyboard's worth of individually recorded keys, which is why it gets four times the size budget. Each recording inside a pack is still held to the same 4 MB a lone sound gets. Both offer a preview, and both land in Key press, just in different rows.
 
-A repository manifest can declare an "Unknown" type too, but the app filters those entries out before they're ever shown, since it's a defensive fallback and not something you'll see as an installable card. See [Deep links](/reference/deep-links/#opening-addon-links) for the `wmkeyboard://addons`, `wmkeyboard://repo` and `wmkeyboard://addon` links that can open any of these screens directly; none of them install or add a repository on their own.
+A repository manifest can declare an "Unknown" type too, but the app filters those entries out before they're ever shown. It's a defensive fallback, not something you'll see as an installable card. See [Deep links](/reference/deep-links/#opening-addon-links) for the `wmkeyboard://addons`, `wmkeyboard://repo` and `wmkeyboard://addon` links that can open any of these screens directly. None of them install anything or add a repository on their own.
 
 ## Managing sticker packs
 
@@ -75,13 +76,13 @@ A repository manifest can declare an "Unknown" type too, but the app filters tho
   {/* shot: reference/settings/sticker-packs-list */}
 </PhoneFrame>
 
-The **Sticker packs** screen opens with a caption: "Your own stickers, sent from the sticker tool's 'My stickers' tab. Stills are resized to 512×512 WebP so they arrive as real stickers in WhatsApp; animated GIFs are kept as they are and send as images."
+The **Sticker packs** screen opens with a caption. These are your own stickers, sent from the "My stickers" tab of the sticker tool. Still images become 512×512 WebP files, so WhatsApp receives them as real stickers. Animated GIFs are kept as they are and send as images.
 
-- **Your packs**: one row per pack: name, "Empty" or a sticker count, a strip of up to six thumbnails, and trailing Export (shares a `.wmstickers` file) and Delete buttons. Deleting asks "Delete `<name>`? Its N sticker(s) are deleted from this device. Export the pack first if you want to keep a copy."
-- **New pack**: a name dialog, then drops you straight into the new pack. At the cap it instead says "You already have N packs."
-- **Import a pack**: a file picker for `.wmstickers` archives, reporting "Imported `<name>` — N stickers." on success (plus any repair notes), "That file is not a WMKeyboard sticker pack." or "No stickers could be read out of that pack." on a bad file, "You already have N packs. Delete one first." at the cap, or "That file could not be read." on any other failure.
+- **Your packs**: one row per pack. Name, then "Empty" or a sticker count, a strip of up to six thumbnails, and trailing Export (shares a `.wmstickers` file) and Delete buttons. Deleting asks first and says how many stickers go with the pack.
+- **New pack**: a name dialog, then you land straight in the new pack. At the cap it tells you how many packs you already have.
+- **Import a pack**: a file picker for `.wmstickers` archives. On success it reports how many stickers came in, plus any repair notes. A bad file gets either "That file is not a WM Keyboard sticker pack." or a note that the app cannot read any sticker in it. At the cap it asks you to delete a pack first, and any other failure reports that the file could not be read.
 
-You can have up to **50 packs**, and up to **200 stickers per pack**. Opening a pack (route `sticker_pack/{packId}`, title "Edit sticker pack") shows its name (tap to rename), an **Add stickers** row (a photo picker, up to 30 images per trip) with a "N of 200 used" subtitle, and a grid of what's already inside. An empty pack says "No stickers in this pack — Add some from your photos, or long-press a Klipy or GIPHY sticker in the keyboard." Tapping a sticker opens an edit dialog: rename, edit its space-separated emoji tags, move it up/down, move it to another pack, or delete it. Adding photos reports how many were added, how many were rejected for being over 2 MB (the animated-file cap) or unreadable as an image, and whether the pack is now full; any source file over 12 MB is rejected before it's even processed, and a still is always re-encoded down to roughly 100 KB.
+You can have up to **50 packs**, and up to **200 stickers per pack**. Opening a pack (route `sticker_pack/{packId}`, title "Edit sticker pack") shows its name, which you tap to rename. Under that is an **Add stickers** row, a photo picker taking up to 30 images per trip, with an "N of 200 used" subtitle, then a grid of what's already inside. An empty pack tells you to add stickers from your photos, or to press and hold a Klipy or GIPHY sticker in the keyboard. Tapping a sticker opens an edit dialog: rename it, edit its space-separated search words, move it up or down, move it to another pack, or delete it. Adding photos reports how many were added, how many were rejected for being over 2 MB (the animated-file cap) or unreadable as an image, and whether the pack is now full. Any source file over 12 MB is rejected before it's even processed, and a still is always re-encoded down to roughly 100 KB.
 
 Sticker packs have two separate ways to end up in **Your packs**: the manual New-pack / Add-stickers flow described here, and installing an addon of the `Stickers` type, which lands in this same list. If a pack appears here that you don't remember creating, it likely came in through Addons rather than through this screen.
 
@@ -91,9 +92,11 @@ Sticker packs have two separate ways to end up in **Your packs**: the manual New
   {/* shot: reference/settings/plugins-screen */}
 </PhoneFrame>
 
-**Allow plugins** is a subsystem-wide switch, **off by default**. Its subtitle explains the scope: "Plugins are small tools written by other people that run inside a sandbox on this keyboard. Separate from the Plugins tool on the toolbar, which only decides where the panel appears." Below it, a static "What a plugin can and can't do" group lists six facts that never change and aren't settings: a plugin can't see what you type, can't read the field you're writing in, can't read your clipboard, and can't use the internet, but it can draw its own panel and it can save its own data if it declared that permission before you installed it.
+**Allow plugins** is a subsystem-wide switch, **off by default**. Its subtitle explains the scope: a plugin is a small tool that other people write, running inside a sandbox on this keyboard, and this switch is not the Plugins tool on the toolbar, which only sets where the panel appears. Under it sits **Switch off a plugin that hangs**, on by default. It is what turns a plugin off after two strikes. Turn it off and the keyboard still counts and shows the strikes, but never disables the plugin for you.
 
-With plugins allowed, two more groups appear: **Installed** (a "Manage `<name>`" link per plugin, showing "turned off" in its subtitle if disabled, or "No plugins installed yet." if you have none) and **Add** ("Install from a file", restricted to zip/archive file types, with a note that plugins also install from Addons). Either install path shows the same confirmation dialog first: name, description, version, author, and either "It doesn't ask for anything beyond its own panel." or a bulleted "It can:" list of the permissions it declared. Installing reports "Installed `<name>`.", "That file isn't a WM Keyboard plugin.", "You already have N plugins." at the cap, or "That plugin could not be installed." on any other failure. The cap is **50 plugins**.
+Below those, a static "What a plugin can and cannot do" group lists six facts that never change and aren't settings. A plugin can't see what you type, can't read the text field you write in, can't read your clipboard, and can't use the internet. It can draw its own panel and do its own maths, and it can save its own data if it told you so before you installed it.
+
+With plugins allowed, two more groups appear. **Installed** carries a "Manage `<name>`" link per plugin, with "Turned off" in the subtitle of a disabled one, or a line saying no plugins are installed yet. **Add** carries **Install from a file**, which asks for a `.wmplugin` file, plus a note that plugins also install from Addons. Either install path shows the same confirmation dialog first: name, description, version, author, and either a line saying it doesn't ask for anything outside its own panel or an "It can:" list of the permissions it declared. Installing reports success by name. A wrong file reports that it isn't a WM Keyboard plugin, the cap reports how many plugins you already have, and anything else reports that the plugin could not be installed. The cap is **50 plugins**.
 
 <PhoneFrame caption="A plugin's own screen: enabled switch, capabilities, stored data, and the log.">
   {/* shot: reference/settings/plugin-detail-screen */}
@@ -101,37 +104,43 @@ With plugins allowed, two more groups appear: **Installed** (a "Manage `<name>`"
 
 Opening a plugin (route `plugin/{pluginId}`, title "Plugin") shows its name, description, version and author, then:
 
-- **Enabled**: a per-plugin switch, independent of "Allow plugins" above. Its subtitle normally reads "Show this plugin in the Plugins panel", but flips to "Turned off because it stopped responding twice." once the plugin has been auto-disabled, since WM Keyboard tracks failures per plugin and switches it off on its own after **two** in a row, rather than leaving a broken panel in your toolbar.
+- **Turned on**: a per-plugin switch, independent of "Allow plugins" above. Its subtitle normally reads "Show this plugin in the Plugins panel". Once the plugin has been auto-disabled it says the app turned the plugin off because it stopped responding two times. WM Keyboard tracks failures per plugin and switches one off after **two** in a row, rather than leaving a broken panel in your toolbar.
 - **What it can do**: its declared permissions, or "Nothing outside its own panel" if it asked for none.
-- **Stored data**: "Using X KB of Y KB", where the ceiling is **64 KB** per plugin, plus a "Clear stored data" button.
-- **Log**: shown only once the plugin has printed something or errored; the last 40 lines, plus a "Clear log" button.
-- **Uninstall**: a red button that confirms with "Uninstall `<name>`? Its script and anything it saved are deleted from this device."
+- **Stored data**: "Uses X KB of Y KB", where the ceiling is **64 KB** per plugin, plus a button to delete the stored data.
+- **Log**: shown only once the plugin has printed something or errored. It holds the last 40 lines, plus a button to delete the log.
+- **Uninstall**: a red button that confirms first, and says the app deletes the plugin's script and everything it saved.
 
 ## Options
 
 <SettingsPath path="Addons" />
 
-The Addons, catalogue, and addon-detail screens hold no separate preferences of their own: a repository list and an installed-addon record are files, not toggles, so there's nothing here to reset to a default beyond removing the entries themselves.
+| Setting | Control | Default |
+|---|---|---|
+| Check when you open this screen | Toggle | **On** |
+| Only on Wi-Fi *(shown only while the switch above is on)* | Toggle | Off |
+
+Those two are the only preferences in this part of the tree. A repository list and an installed-addon record are files rather than toggles, so nothing else here has a default to go back to. You remove the entries instead.
 
 <SettingsPath path="Tools / Plugins" />
 
 | Setting | Control | Default |
 |---|---|---|
 | Allow plugins | Toggle | **Off** |
+| Switch off a plugin that hangs | Toggle | **On** |
 
-Unlike most of this app's settings, **Allow plugins** is stored in the plugin subsystem's own file-backed store rather than the shared `KeyboardSettings`/DataStore preferences, but it behaves like any other switch from the settings screen.
+Unlike most of this app's settings, both of these are stored in the plugin subsystem's own file-backed store rather than the shared `KeyboardSettings`/DataStore preferences. They behave like any other switch from the settings screen.
 
 <SettingsPath path="Tools / Plugins / your plugin" />
 
 | Setting | Control | Default |
 |---|---|---|
-| Enabled | Toggle | On (per plugin, until auto-disabled) |
+| Turned on | Toggle | On (per plugin, until auto-disabled) |
 
 ## Details & edge cases
 
-- **Settings search doesn't reach most of this tree.** The top-level "Addons" entry is indexed, along with "Plugins", "Allow plugins", "Manage plugins" and "Install from a file" under Tools › Plugins, and "Stickers", "Sticker packs", "New pack" and "Import a pack" under Tools › Stickers (plus a second "Sticker packs" entry under Backup). The catalogue, an addon's own detail page, and a plugin's own detail page have no search entry, so you always reach them by tapping through, not by typing their name into settings search.
-- **The per-plugin Enabled switch is separate from the subsystem-wide Allow plugins switch.** Turning off Allow plugins hides the whole Plugins panel; turning off one plugin's Enabled switch (by hand, or automatically after two failures) only hides that plugin, leaving the rest running.
-- **A plugin is the one addon type that must carry a checksum.** Every other type's `sha256` is optional and only checked when present; a plugin manifest entry without one is refused outright, because it's the only type that runs code rather than just being read.
-- **No edition differences.** Nothing in the Addons, sticker-pack, or plugin screens, or the caps above, is gated to the full or lite build; both editions install and run the same twelve addon types.
+- **Settings search doesn't reach most of this tree.** The top-level "Addons" entry is indexed, along with "Plugins", "Allow plugins", "Manage plugins" and "Install from a file" under Tools › Plugins, and "Stickers", "Sticker packs", "New pack" and "Import a pack" under Tools › Stickers (plus a second "Sticker packs" entry under Backup). The catalogue, an addon's own detail page, and a plugin's own detail page have no search entry. You always reach them by tapping through, never by typing their name into settings search.
+- **The per-plugin switch is separate from the subsystem-wide Allow plugins switch.** Turning off Allow plugins hides the whole Plugins panel. Turning off one plugin's own switch, by hand or automatically after two failures, only hides that plugin and leaves the rest running.
+- **A plugin is the one addon type that must carry a checksum.** Every other type's `sha256` is optional and only checked when present. A plugin manifest entry without one is refused outright, because it's the only type that runs code rather than just being read.
+- **No edition differences.** Nothing in the Addons, sticker-pack, or plugin screens is gated to the full or lite build, and neither are the caps above. Both editions install and run the same twelve addon types.
 
-See [What are addons?](/addons/overview/) for the trust model behind repositories, [Installing addons](/addons/installing/) and [Updates & management](/addons/managing/) for the install and update flow in narrative form, and [WM Keyboard plugins](/plugins/overview/) with [Plugin permissions](/plugins/permissions/) and [Plugin security](/plugins/security/) for what a plugin can build and what stops it from doing anything else.
+See [What are addons?](/addons/overview/) for the trust model behind repositories. [Installing addons](/addons/installing/) and [Updates & management](/addons/managing/) cover the install and update flow in narrative form. For what a plugin can build and what stops it from doing anything else, read [WM Keyboard plugins](/plugins/overview/) with [Plugin permissions](/plugins/permissions/) and [Plugin security](/plugins/security/).

@@ -8,10 +8,10 @@ sidebar:
 import SettingsPath from '@components/SettingsPath.astro';
 import PhoneFrame from '@components/PhoneFrame.astro';
 
-WM Keyboard backs itself up two ways: a config file you export and move
-yourself, and Android's own backup system, which is off until you turn it on.
-Both exist so that a reinstall or a new phone doesn't mean retyping every
-setting and rebuilding every theme from scratch.
+WM Keyboard backs itself up two ways. One is a config file you export and
+move yourself. The other is Android's own backup system, off until you turn
+it on. Both exist so a reinstall or a new phone doesn't mean retyping every
+setting and rebuilding every theme.
 
 <PhoneFrame caption="Backup & restore: pick what to include, then export or import a file.">
   ![Backup & restore: pick what to include, then export or import a file.](@assets/screens/privacy/backup-restore-screen.webp)
@@ -19,8 +19,8 @@ setting and rebuilding every theme from scratch.
 
 ## Exporting a config file
 
-Open **Backup & restore** and choose which sections go in the file. Each one
-is its own switch:
+Open **Backup & restore**. Choose which sections go in the file. Each one is
+its own switch:
 
 | Section | Default | What it covers |
 |---|---|---|
@@ -37,36 +37,36 @@ is its own switch:
 | Emoji history | On | Your recent emoji, your favourites and the skin tone you last picked for each |
 | Typing statistics | On | Your daily typing counts and your all-time speed |
 
-Sticker packs and icon packs default off only because their images make the
-file large, not because there's anything private about them: turn them on
-and a restore on another phone gets working packs, not empty shells. The
-personal ones (dictionary, clipboard) default off because they're your typing
-history rather than configuration. Emoji history and typing statistics are
-personal too but default on: both are small, and neither can be downloaded
-again if you lose it. The statistics are counts only, never anything you
-typed.
+Sticker packs and icon packs default off because their images make the file
+large, not because there's anything private about them. Turn them on and a
+restore on another phone gets working packs rather than empty shells. The
+personal ones, dictionary and clipboard, default off because they're your
+typing history rather than configuration. Emoji history and typing statistics
+are personal too but default on, since both are small and neither can be
+downloaded again if you lose it. The statistics are counts only, never
+anything you typed.
 
 Tap **Export backup** to write a `wmkeyboard-backup-<date>-<time>.wmconfig.json`
-file through Android's own save dialog: it goes wherever you choose, not to
-any WM Keyboard server. What you pick here is remembered, and it is the same
+file through Android's own save dialog. It goes wherever you choose, not to
+any WM Keyboard server. What you pick here is remembered, and it's the same
 list the automatic backup uses, so changing it changes both.
 
 :::note[Addon repositories, not addons]
-The addon repositories section is just the list of repository addresses
+The addon repositories section is only the list of repository addresses
 you've added, so a restore can point back at them. The addons you installed
-*from* those repositories already travel inside their own sections: an
+*from* those repositories already travel inside their own sections. An
 installed theme is in Themes, an installed icon pack is in Icon packs. See
 [Installing addons](/addons/installing/) for how that catalogue works.
 :::
 
 ## Importing a file
 
-**Import backup** opens a file picker and reads the file before touching
-anything. You get a confirmation dialog listing exactly what's inside (for
-example "Themes: 3 custom themes") before anything is applied, and importing
-is refused outright if the file isn't a WM Keyboard backup.
+Tap **Import backup**. A file picker opens, and the app reads your chosen
+file before it touches anything. A confirmation dialog lists exactly what's
+inside, for example "Themes: 3 custom themes". If the file isn't a WM
+Keyboard backup, the app refuses it outright.
 
-Opening a `.wmconfig.json` file from a file manager works the same way: it
+Opening a `.wmconfig.json` file from a file manager works the same way. It
 launches the same confirmation dialog rather than importing silently.
 
 <PhoneFrame caption="The import confirmation, listing what a backup file contains before anything is applied.">
@@ -87,10 +87,10 @@ more than the in-app dialog's one-line summary suggests:
 If the file includes API keys, the dialog warns you before you confirm; see
 [Secrets stay out by default](#secrets-stay-out-by-default) below.
 
-Settings import specifically is rollback-safe: after writing, the keyboard
-re-reads its own settings to make sure they still parse. If a hand-edited
-file breaks that, the whole write is undone and you see "That backup could
-not be applied — your settings are unchanged" rather than ending up with a
+Settings import is rollback-safe. After writing, the keyboard re-reads its
+own settings to make sure they still parse. If a hand-edited file breaks
+that, the whole write is undone and you see "The app could not apply that
+backup. Your settings did not change." rather than ending up with a
 half-applied preference set. The other sections in a full-config bundle still
 apply even if the settings portion rolls back.
 
@@ -102,27 +102,28 @@ while the Settings section itself is included. That covers the Grok, DeepSeek
 and other-service keys as well as the older ones.
 
 [AI history](/tools/ai/#history) never travels, with or without that switch.
-The two settings that control it do, because they're configuration, but the
-records are your own writing, and an off-by-default log of it is the last
-thing that should ride along in a file you mail to yourself. The learned
-dictionary is left out for the same reason. Leaving it off means the file
-is safe to store in a synced folder or hand to someone else; turning it on
-means the opposite: the keys sit in the file as plain text, and the app
-warns you about it after export: "Backup exported, API keys included. Treat
-that file as a password." An incoming file with keys in it gets the same
-warning before you confirm the import, since those keys will overwrite the
-ones already set on the device.
+The two settings that control it do, because they're configuration. The
+records themselves are your own writing, and an off-by-default log of it is
+the last thing that should ride along in a file you mail to yourself. The
+learned dictionary is left out for the same reason.
+
+Leave **Include API keys** off and the file is safe to store in a synced
+folder or hand to someone else. Turn it on and the keys sit in the file as
+plain text. The app warns you after export: "Backup exported, API keys
+included. Treat that file as a password." An incoming file with keys in it
+gets the same warning before you confirm the import, because those keys will
+overwrite the ones already set on the device.
 
 This redaction is specific to the file you export yourself. It doesn't apply
-to Android's own backup below: turning that on does copy your saved API keys
-along with everything else, because the whole settings store travels as one
-piece there.
+to Android's own backup below. Turn that on and it copies your saved API keys
+along with everything else, because the whole settings store travels there as
+one piece.
 
 ## Automatic backup
 
 Exporting by hand only helps if you remember to do it. **Automatic backup**
-writes the same file for you, on a schedule, by default while your device
-charges and on Wi-Fi. You pick where it goes:
+writes the same file for you on a schedule, by default while your device
+charges and sits on Wi-Fi. You pick where it goes:
 
 | Destination | What it needs | Works without Google |
 |---|---|---|
@@ -135,44 +136,46 @@ charges and on Wi-Fi. You pick where it goes:
 | **OneDrive** | Signing in. The app gets a folder of its own under Apps | Yes |
 
 None of these send anything to a WM Keyboard server. There is no account with
-us and nothing of yours passes through anything we run.
+us, and nothing of yours passes through anything we run.
 
 **Two conditions guard the scheduled job, and you own both.** **Only while
 charging** is on by default, so a backup waits for the charger. **Only on
 Wi-Fi** is on by default too, so it waits for a connection Android doesn't
-count as metered. Most backups are small, but one carrying sticker packs or
-icon packs is not, and it goes out every interval, which is why Wi-Fi is the
+count as metered. Most backups are small. One carrying sticker packs or icon
+packs is not, and it goes out every interval, which is why Wi-Fi is the
 default. Turn it off and a backup uploads over mobile data as soon as it's
-due. The Wi-Fi toggle only appears for destinations that actually need a
-connection: a **Folder** is storage on your own device, so it backs up
-offline either way.
+due. The Wi-Fi toggle only appears for destinations that need a connection.
+A **Folder** is storage on your own device, so it backs up offline either
+way.
 
 Turning **Only while charging** off is worth knowing about for the opposite
-reason. A phone that's only ever charged in the car may never be plugged in at
-the end of an interval, and a backup that never finds a charger simply never
-runs, without anything telling you so.
+reason. A phone that's only ever charged in the car may never be plugged in
+at the end of an interval. A backup that never finds a charger never runs,
+and nothing tells you so.
 
 **The app keeps a few backups and deletes the oldest.** You choose how many. It
 never deletes the newest one, and it never deletes an older backup until the
 new one has been written, read back and checked. A backup that fails halfway
 costs you the new copy and never an old one.
 
-**Backups can carry a passphrase.** The file is then encrypted, and you need
-the passphrase to restore it. The app stores the passphrase on your device,
-because a backup that runs while you are asleep has nobody to type it. So this
-protects the file where it lands, for example in a cloud folder, and not
-against a person holding your unlocked device. Write it down: without it, a
-backup cannot be restored.
+**Backups can carry a passphrase.** Set one and the file is encrypted, and
+you need the passphrase to restore it. The app stores that passphrase on your
+device, because a backup that runs while you're asleep has nobody to type it.
+So it protects the file where it lands, in a cloud folder for instance, and
+not against a person holding your unlocked device. Write it down. Without it,
+a backup cannot be restored.
 
 **Some destinations send your password with every upload.** WebDAV over plain
 `http` is refused for that reason, and so is an S3 endpoint on plain `http`.
-FTP without TLS is allowed, because some older servers offer nothing else, and
-the screen says plainly what it costs. Turn on a passphrase if you use it.
+FTP without TLS is allowed, because some older servers offer nothing else,
+and the screen says plainly what it costs. Turn on a passphrase if you use
+it.
 
 **Nothing is backed up while your device is locked.** The parts that matter
-most, like your learned words, live in storage that only exists once you have
-unlocked the device after a restart. A backup taken before then would be nearly
-empty, and rotating that in would push out a real one, so the app waits.
+most, like your learned words, live in storage that only exists once you've
+unlocked the device after a restart. A backup taken before then would be
+nearly empty, and rotating that in would push out a real one, so the app
+waits.
 
 ## Android's own backup
 
@@ -188,16 +191,15 @@ made this way restores settings, themes, layouts, snippets, learned words,
 sticker and icon packs, and plugins on a new device or after a reinstall.
 
 A few things are always left out of an Android backup, regardless of the
-toggle, because they're large and the keyboard can simply fetch them again:
-on-device speech and AI models, downloaded dictionaries, emoji keyword packs,
-and the scratch files the camera and document scanner write while you're
-using them. Clipboard images are excluded too, though the clip text itself
-travels, and so are the photos your own stickers were cut out of, which the
+toggle. They're large, and the keyboard can fetch them again: on-device
+speech and AI models, downloaded dictionaries, emoji keyword packs, and the
+scratch files the camera and document scanner write while you're using them. Clipboard images are excluded too, though the clip text itself
+travels. So are the photos your own stickers were cut out of, which the
 [sticker editor](/emoji/stickers/#the-sticker-editor) keeps on the phone so
-you can edit a sticker again later; the stickers themselves still travel.
-None of this is a secrecy decision, it's Android's own backup quota,
-which is only a few tens of megabytes per app and drops the whole backup if
-it's exceeded.
+you can edit a sticker again later. The stickers themselves still travel.
+None of this is a secrecy decision. It's Android's own backup quota, which is
+only a few tens of megabytes per app and drops the whole backup if you exceed
+it.
 
 Two more conditions apply only to this path, not to a manual `.wmconfig.json`
 export:
@@ -206,73 +208,74 @@ export:
   encrypt it under your own screen lock. If the device can't, no backup is
   written even with the toggle on.
 - **Restore isn't gated by the toggle.** If you ever receive a backup made
-  while the switch was on (after a reinstall, say), it restores regardless
-  of the switch's current state. The reasoning: a restore can only replay
-  data an earlier install was allowed to back up in the first place, so
-  blocking it on a fresh install would just discard a backup you already
-  opted into.
+  while the switch was on, after a reinstall say, it restores regardless of
+  the switch's current state. The reasoning is simple. A restore can only
+  replay data an earlier install was allowed to back up, so blocking it on a
+  fresh install would discard a backup you already opted into.
 
 ## Options
 
 <SettingsPath path="Data / Backup & restore" />
 
-Reach it from the home screen or by searching "Backup & restore" in settings
+Reach it from the home screen, or search "Backup & restore" in settings
 search. Its export switches are the ones described in
-[Exporting a config file](#exporting-a-config-file) above, and they are
-ordinary stored settings: what you tick stays ticked when you come back. They
-have to, because the automatic backup reads the same list and there is nobody
+[Exporting a config file](#exporting-a-config-file) above, and they're
+ordinary stored settings, so what you tick stays ticked when you come back.
+They have to. The automatic backup reads the same list, and there's nobody
 there to set it. Field by field, they're on
 [Backup & restore settings](/reference/settings/backup/).
 
 <SettingsPath path="Privacy / Android backup / Back up with Android" />
 
-- **Back up with Android** — default **off**. Folds the keyboard into
+- **Back up with Android** (default **off**). Folds the keyboard into
   Android's own backup and phone-to-phone transfer system, subject to the
   exclusions and the encryption requirement covered in
   [Android's own backup](#androids-own-backup) above.
 
 ## Moving to a new phone
 
-1. On the old phone, open **Backup & restore**, choose the sections you want,
-   and export a `.wmconfig.json` file.
-2. Move that file to the new phone however you like: it's a plain file you
-   control, so email, a cable, or any file-sync app all work.
-3. Install WM Keyboard on the new phone and either open the file from a file
-   manager, or open **Backup & restore** and use **Import backup**.
+Themes, sticker packs, icon packs and custom word lists all *replace* rather
+than merge on import. Restore onto a phone that already has its own
+customizations in those categories and they're discarded in favor of what's
+in the file. Do this on a fresh install where you can, or go in expecting the
+overwrite.
+
+1. On the old phone, open **Backup & restore**. Choose the sections you want.
+   Export a `.wmconfig.json` file.
+2. Move that file to the new phone however you like. It's a plain file you
+   control, so email, a cable or any file-sync app all work.
+3. Install WM Keyboard on the new phone. Open the file from a file manager,
+   or open **Backup & restore** and tap **Import backup**.
 4. Optionally, turn on <SettingsPath path="Privacy / Android backup / Back up with Android" />
    for ongoing coverage between manual exports.
 
-Do this on a fresh install where you can, or at least go in expecting an
-overwrite: because themes, sticker packs, icon packs and custom word lists
-all *replace* rather than merge on import, restoring onto a phone that
-already has its own customizations in those categories discards them in
-favor of what's in the file. A manual export is also the more complete of
-the two paths for anything it includes: it isn't subject to Android's size
-quota or its encryption requirement, so a set of sticker packs too large for
-an Android backup still moves fine as a file you export by hand.
+A manual export is the more complete of the two paths for anything it
+includes. It isn't subject to Android's size quota or its encryption
+requirement, so a set of sticker packs too large for an Android backup still
+moves fine as a file you export by hand.
 
 ## Details & edge cases
 
-- **File formats.** Export currently produces one file type,
-  `.wmconfig.json`: the full-bundle format described above. An older,
-  settings-only `.wmsettings.json` format still exists and is still accepted
-  on import, for backups made by earlier versions of the app; nothing in the
-  current app writes one anymore. Opening either from a file manager prompts
-  you to import it; it doesn't install anything the way tapping a theme or
-  plugin file does.
+- **File formats.** Export produces one file type, `.wmconfig.json`, the
+  full-bundle format described above. An older, settings-only
+  `.wmsettings.json` format still exists and is still accepted on import,
+  for backups made by earlier versions of the app. Nothing in the current app
+  writes one anymore. Opening either from a file manager prompts you to
+  import it. It doesn't install anything the way tapping a theme or plugin
+  file does.
 - **Theme backgrounds do travel.** A custom theme's background image is
   embedded in the export file and written back to local storage on import,
-  so a restore on a different phone gets a working theme, image included,
-  not just the color settings.
+  so a restore on a different phone gets a working theme with the image
+  included rather than just the color settings.
 - **A failed write leaves nothing behind.** If the app can't write to the
-  file you chose, you get "Could not write that file" rather than a
-  half-written export. An automatic backup goes further: it writes the file
+  file you chose, you get "The app could not write that file." rather than a
+  half-written export. An automatic backup goes further. It writes the file
   locally, reads it back and parses it, and only copies it to your folder if
   that worked. Nothing older is deleted until the new one is safely there, so
   a backup that fails halfway costs you the new copy and never an old one.
 - **Backups don't cover installed addons directly.** What travels in the
-  Addons section is the repository list, not the addon files themselves;
-  those are already accounted for in Themes, Icon packs, and the rest. See
+  Addons section is the repository list, not the addon files themselves.
+  Those are already accounted for in Themes, Icon packs and the rest. See
   [What are addons?](/addons/overview/) for how repositories and installed
   addons relate.
 - **The reference page for every field and default** on the Backup & restore
