@@ -1225,6 +1225,7 @@ internal fun ImageSearchPanel(
                         results = ui.results,
                         downloadingId = state.mediaDownloadingId,
                         progress = state.mediaDownloadProgress,
+                        columnCount = state.settings.emoji.mediaGridColumns,
                         onResult = onResult,
                         onResultLink = onResultLink,
                         focused = state.focusedIndex(),
@@ -1240,6 +1241,8 @@ private fun ImageGrid(
     results: List<ImageResult>,
     downloadingId: String?,
     progress: Float?,
+    /** Columns, from the user's setting. Two gives a bigger look before sending. */
+    columnCount: Int,
     onResult: (ImageResult) -> Unit,
     onResultLink: (ImageResult) -> Unit,
     focused: Int? = null,
@@ -1254,7 +1257,7 @@ private fun ImageGrid(
     PanelFocusTarget(
         panel = PanelMode.IMAGE_SEARCH,
         count = uniqueResults.size,
-        columns = 3,
+        columns = columnCount,
         onActivate = { index ->
             if (downloadingId == null) uniqueResults.getOrNull(index)?.let(onResult)
         },
@@ -1262,7 +1265,7 @@ private fun ImageGrid(
     ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
     LazyVerticalGrid(
         state = gridState,
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Fixed(columnCount),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),

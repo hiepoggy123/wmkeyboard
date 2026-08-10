@@ -2642,6 +2642,16 @@ data class EmojiSettings(
      */
     val recentsLimit: Int = 32,
     /**
+     * Columns in the image-search grid.
+     *
+     * The only media grid with a fixed column count: GIF results are laid out
+     * as justified rows so each preview keeps its aspect ratio, and stickers
+     * size themselves to the pack. Three suits a phone; a tablet or a
+     * landscape screen can take more, and two gives bigger previews to look
+     * at before sending.
+     */
+    val mediaGridColumns: Int = 3,
+    /**
      * Size the emoji panel's grids draw each emoji at, in sp — the category
      * tabs, history and search results alike. The long-press popup keeps its
      * own fixed size. See [EmojiGridEmojiSizeRange].
@@ -3809,6 +3819,7 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_KEYWORD_PACK_VERSION = intPreferencesKey("emoji_keyword_pack_version")
         private val EMOJI_USAGE_VERSION = intPreferencesKey("emoji_usage_version")
         private val EMOJI_RECENTS_LIMIT = intPreferencesKey("emoji_recents_limit")
+        private val MEDIA_GRID_COLUMNS = intPreferencesKey("media_grid_columns")
         private val EMOJI_ANIMATED = booleanPreferencesKey("emoji_animated")
         private val EMOJI_SEND_AS_STICKER = booleanPreferencesKey("emoji_send_as_sticker")
         private val EMOJI_AUTO_DOWNLOAD_KEYWORDS =
@@ -4713,6 +4724,8 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.emoji.gridEmojiSize,
                 recentsLimit = p[EMOJI_RECENTS_LIMIT]?.coerceIn(EmojiRecentsRange)
                     ?: defaults.emoji.recentsLimit,
+                mediaGridColumns = p[MEDIA_GRID_COLUMNS]?.coerceIn(2, 5)
+                    ?: defaults.emoji.mediaGridColumns,
                 kaomojiTabs = p[EMOJI_KAOMOJI_TABS] ?: defaults.emoji.kaomojiTabs,
                 keywordPackVersion = p[EMOJI_KEYWORD_PACK_VERSION]
                     ?: defaults.emoji.keywordPackVersion,
@@ -6890,6 +6903,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEmojiRecentsLimit(value: Int) =
         editPrefs { it[EMOJI_RECENTS_LIMIT] = value.coerceIn(EmojiRecentsRange) }
+
+    suspend fun setMediaGridColumns(value: Int) =
+        editPrefs { it[MEDIA_GRID_COLUMNS] = value.coerceIn(2, 5) }
 
     /**
      * Wipes the emoji history file: recents, usage counts, favourites and the

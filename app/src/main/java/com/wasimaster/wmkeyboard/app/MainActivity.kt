@@ -10638,6 +10638,19 @@ private fun ToolDetailSettings(
                         default = SettingsDefaults.searchResultCount.toFloat(),
                     ) { scope.launch { repository.setSearchResultCount(it.roundToInt()) } }
                 }
+                if (tool == ToolbarTool.IMAGE_SEARCH) {
+                    item {
+                        SliderSetting(
+                            R.string.tooldetail_image_columns_title,
+                            subtitle = stringResource(R.string.tooldetail_image_columns_subtitle),
+                            value = settings.emoji.mediaGridColumns.toFloat(),
+                            range = 2f..5f,
+                            display = { numberFormat.format(it.roundToInt()) },
+                            info = stringResource(R.string.tooldetail_image_columns_info),
+                            default = SettingsDefaults.emoji.mediaGridColumns.toFloat(),
+                        ) { scope.launch { repository.setMediaGridColumns(it.roundToInt()) } }
+                    }
+                }
             }
         }
         ToolbarTool.OCR -> {
