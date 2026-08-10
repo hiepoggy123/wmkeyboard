@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Tune
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.ime.R
 
@@ -78,7 +79,7 @@ internal fun SmartSuggestionChip(
     }
     val tint = kb.accent
     val fill = tint.copy(alpha = if (kb.dark) 0.20f else 0.11f)
-    val keyword = hit.kind == SmartSuggest.Kind.TOOL
+    val keyword = hit.kind in SmartSuggest.narrowKinds
 
     // The accent tint is this chip's identity (it is an *answer*, not a word),
     // so the colours stay accent-based; only the outline follows the theme's
@@ -121,11 +122,13 @@ internal fun SmartSuggestionChip(
             }
             if (keyword) {
                 Text(
-                    text = stringResource(R.string.ime_smart_open_tool, toolLabel(hit.tool)),
+                    text = narrowChipLabel(hit),
                     color = tint,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 220.dp),
                 )
                 Icon(
                     Icons.AutoMirrored.Outlined.KeyboardArrowRight,
@@ -222,6 +225,36 @@ internal fun SmartSuggestionChip(
             }
         }
     }
+}
+
+/**
+ * What a narrow chip says. A keyword chip names the tool it opens; a lookup
+ * chip names the term it will look up; an intent chip names the job — "Check
+ * grammar" rather than "Open Grammar", because the chip is answering the
+ * text, not labelling a button.
+ */
+@Composable
+private fun narrowChipLabel(hit: SmartSuggest.SmartHit): String = when (hit.kind) {
+    SmartSuggest.Kind.LOOKUP -> stringResource(
+        if (hit.tool == ToolbarTool.DICTIONARY) {
+            R.string.ime_smart_define_word
+        } else {
+            R.string.ime_smart_wiki_word
+        },
+        hit.query,
+    )
+    SmartSuggest.Kind.INTENT -> stringResource(
+        when (hit.tool) {
+            ToolbarTool.AI -> R.string.ime_smart_ask_ai
+            ToolbarTool.GRAMMAR -> R.string.ime_smart_check_grammar
+            ToolbarTool.TRANSLATE -> R.string.ime_smart_translate_offer
+            ToolbarTool.GIF, ToolbarTool.STICKER -> R.string.ime_smart_gif_offer
+            ToolbarTool.PASSWORD_GEN -> R.string.ime_smart_password_offer
+            else -> R.string.ime_smart_open_tool
+        },
+        toolLabel(hit.tool),
+    )
+    else -> stringResource(R.string.ime_smart_open_tool, toolLabel(hit.tool))
 }
 
 /**

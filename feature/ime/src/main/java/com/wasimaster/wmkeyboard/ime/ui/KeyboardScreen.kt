@@ -2567,7 +2567,7 @@ private fun TopBar(
             // chip ("wiki" → open Wikipedia) only claims the space it needs,
             // because the word being typed may simply be that word.
             val smart = state.smart
-            val keywordChip = smart != null && smart.kind == SmartSuggest.Kind.TOOL
+            val keywordChip = smart != null && smart.kind in SmartSuggest.narrowKinds
             if (smart != null) {
                 // Opening runs in two halves: the service clears the trigger
                 // text and stages the prefill, then the tool is tapped the
@@ -2587,7 +2587,9 @@ private fun TopBar(
                             .weight(1f)
                             .padding(horizontal = 4.dp)
                     },
-                    onAccept = { if (keywordChip) open() else onSmartAccept() },
+                    // A wide chip with nothing to type (the weather answer)
+                    // opens its tool instead: the whole face is one door.
+                    onAccept = { if (keywordChip || smart.insert == null) open() else onSmartAccept() },
                     onOpen = open,
                 )
             }
@@ -6562,7 +6564,13 @@ private fun KeyboardBody(
                     state, stringResource(R.string.ime_tool_calendar),
                     onClose = { onPanelChange(PanelMode.CALENDAR) },
                     extraHeight = 140.dp,
-                ) { CalendarPanel(state, onRequestPermission = onCalendarPermissionRequest) }
+                ) {
+                    CalendarPanel(
+                        state,
+                        onRequestPermission = onCalendarPermissionRequest,
+                        onPrefillConsumed = onToolPrefillConsumed,
+                    )
+                }
                 PanelMode.THEMES -> ThemesPanel(
                     state,
                     onThemeSelect,

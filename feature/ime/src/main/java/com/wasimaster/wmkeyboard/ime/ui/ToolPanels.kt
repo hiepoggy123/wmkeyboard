@@ -125,6 +125,7 @@ import com.wasimaster.wmkeyboard.core.tools.DeviceCalendar
 import com.wasimaster.wmkeyboard.core.tools.DeviceCalendarEvent
 import com.wasimaster.wmkeyboard.core.tools.MoonPhase
 import com.wasimaster.wmkeyboard.core.tools.Qibla
+import com.wasimaster.wmkeyboard.core.tools.ToolPrefill
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.ime.FocusRegion
@@ -954,6 +955,7 @@ internal fun WeatherPanel(
 internal fun CalendarPanel(
     state: KeyboardUiState,
     onRequestPermission: () -> Unit,
+    onPrefillConsumed: () -> Unit = {},
 ) {
     val kb = LocalKbTheme.current
     val today = remember {
@@ -963,9 +965,17 @@ internal fun CalendarPanel(
             )
         }
     }
-    var shownYear by remember { mutableIntStateOf(today.year) }
-    var shownMonth by remember { mutableIntStateOf(today.month) }
-    var selected by remember { mutableStateOf(today) }
+    // Opened from a "next friday" chip: land on that day, selected, so the
+    // panel answers "am I free then" without a tap. Snapshotted at first
+    // composition because the service clears the prefill immediately after.
+    val prefill = remember { state.toolPrefill as? ToolPrefill.Calendar }
+    LaunchedEffect(Unit) { if (prefill != null) onPrefillConsumed() }
+    val opened = remember {
+        prefill?.let { CalendarSystems.SimpleDate(it.year, it.month, it.day) } ?: today
+    }
+    var shownYear by remember { mutableIntStateOf(opened.year) }
+    var shownMonth by remember { mutableIntStateOf(opened.month) }
+    var selected by remember { mutableStateOf(opened) }
 
     val monthFormat = remember { SimpleDateFormat("MMMM yyyy", Locale.getDefault()) }
     val monthLabel = remember(shownYear, shownMonth) {

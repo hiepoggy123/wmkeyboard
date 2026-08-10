@@ -84,6 +84,59 @@ class WeatherClientTest {
     }
 
     @Test
+    fun `parses tomorrow from a two-day response`() {
+        val body = """
+            {
+              "current": {
+                "temperature_2m": 31.4,
+                "relative_humidity_2m": 78,
+                "apparent_temperature": 38.2,
+                "is_day": 1,
+                "weather_code": 80,
+                "wind_speed_10m": 11.5
+              },
+              "daily": {
+                "temperature_2m_max": [33.1, 29.5],
+                "temperature_2m_min": [27.0, 24.2],
+                "uv_index_max": [8.5, 7.0],
+                "precipitation_probability_max": [65, 80],
+                "weather_code": [80, 95],
+                "sunrise": ["2026-07-19T05:16"],
+                "sunset": ["2026-07-19T18:49"]
+              }
+            }
+        """.trimIndent()
+        val info = WeatherClient.parse(body, now = 1L)
+        assertEquals(29.5, info.tomorrowHighC!!, 1e-9)
+        assertEquals(24.2, info.tomorrowLowC!!, 1e-9)
+        assertEquals(95, info.tomorrowCode)
+        assertEquals(80, info.tomorrowPrecipProbabilityPercent)
+    }
+
+    @Test
+    fun `one-day response leaves tomorrow null`() {
+        val body = """
+            {
+              "current": {
+                "temperature_2m": 10.0,
+                "relative_humidity_2m": 50,
+                "apparent_temperature": 9.0,
+                "is_day": 0,
+                "weather_code": 3,
+                "wind_speed_10m": 5.0
+              },
+              "daily": {
+                "temperature_2m_max": [12.0],
+                "temperature_2m_min": [4.0]
+              }
+            }
+        """.trimIndent()
+        val info = WeatherClient.parse(body, now = 1L)
+        assertEquals(null, info.tomorrowHighC)
+        assertEquals(null, info.tomorrowCode)
+    }
+
+    @Test
     fun `wind cardinal`() {
         assertEquals("N", WeatherClient.windCardinal(0))
         assertEquals("SE", WeatherClient.windCardinal(135))

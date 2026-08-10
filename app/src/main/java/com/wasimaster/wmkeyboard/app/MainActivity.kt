@@ -2967,6 +2967,47 @@ private fun TypingSettings(
                     default = SettingsDefaults.smartToolKeywords,
                 ) { scope.launch { repository.setSmartToolKeywords(it) } }
             }
+            item {
+                ToggleSetting(
+                    R.string.typing_smart_dates_title,
+                    stringResource(R.string.typing_smart_dates_subtitle),
+                    settings.smartChips.dates,
+                    default = SettingsDefaults.smartChips.dates,
+                ) { scope.launch { repository.setSmartChipDates(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_smart_weather_title,
+                    stringResource(R.string.typing_smart_weather_subtitle),
+                    settings.smartChips.weather,
+                    default = SettingsDefaults.smartChips.weather,
+                ) { scope.launch { repository.setSmartChipWeather(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_smart_lookups_title,
+                    stringResource(R.string.typing_smart_lookups_subtitle),
+                    settings.smartChips.lookups,
+                    default = SettingsDefaults.smartChips.lookups,
+                ) { scope.launch { repository.setSmartChipLookups(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_smart_intents_title,
+                    stringResource(R.string.typing_smart_intents_subtitle),
+                    settings.smartChips.intents,
+                    info = stringResource(R.string.typing_smart_intents_info),
+                    default = SettingsDefaults.smartChips.intents,
+                ) { scope.launch { repository.setSmartChipIntents(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_smart_gifs_title,
+                    stringResource(R.string.typing_smart_gifs_subtitle),
+                    settings.smartChips.gifs,
+                    default = SettingsDefaults.smartChips.gifs,
+                ) { scope.launch { repository.setSmartChipGifs(it) } }
+            }
         }
     }
 

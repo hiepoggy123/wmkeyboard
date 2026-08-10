@@ -624,4 +624,210 @@ class SmartSuggestTest {
             assertNull("\"$typed\" should not raise a chip", hit(typed))
         }
     }
+
+    // ---- spoken arithmetic ----
+
+    @Test
+    fun percentPhrasesComputeTheShare() {
+        val of = hit("15% of 200")
+        assertEquals(SmartSuggest.Kind.CALC, of?.kind)
+        assertEquals("30", of?.result)
+        assertEquals("15% of 200".length, of?.replaceSpan)
+        assertEquals("30", hit("15% tip on 200")?.result)
+        assertEquals("1200", hit("20% off 1500")?.result)
+    }
+
+    @Test
+    fun splitPhrasesDivide() {
+        assertEquals("1500", hit("split 4500 3 ways")?.result)
+        assertEquals("1500", hit("split 4500 between 3")?.result)
+        assertEquals("1500", hit("4500 split 3 ways")?.result)
+        assertNull(hit("split 4500 0 ways"))
+    }
+
+    @Test
+    fun calcPhraseOpensTheCalculatorWithAnEquivalentExpression() {
+        val prefill = hit("15% of 200")?.prefill as? ToolPrefill.Calc
+        assertEquals("15/100*200", prefill?.expression)
+    }
+
+    // ---- dates ----
+
+    /** Monday, 10 August 2026. */
+    private val monday = CalendarSystems.gregorianToJdn(2026, 8, 10)
+    private val dateCtx = ctx.copy(todayJdn = monday)
+
+    @Test
+    fun datePhrasesResolveAgainstToday() {
+        val h = hit("lets meet next friday", dateCtx)
+        assertEquals(SmartSuggest.Kind.DATE, h?.kind)
+        assertEquals("Fri, 14 Aug", h?.result)
+        assertEquals("next friday (14 Aug)", h?.insert)
+        assertEquals("next friday".length, h?.replaceSpan)
+        assertEquals(ToolbarTool.CALENDAR, h?.tool)
+        val prefill = h?.prefill as? ToolPrefill.Calendar
+        assertEquals(2026, prefill?.year)
+        assertEquals(8, prefill?.month)
+        assertEquals(14, prefill?.day)
+    }
+
+    @Test
+    fun tomorrowAnnotatesWithDayAndDate() {
+        assertEquals("tomorrow (Tue 11 Aug)", hit("free tomorrow", dateCtx)?.insert)
+    }
+
+    @Test
+    fun explicitDatesAnnotateTheWeekday() {
+        assertEquals("aug 14 (Friday)", hit("lets do aug 14", dateCtx)?.insert)
+    }
+
+    @Test
+    fun datesStayOffWithoutTodayOrTheirToggleOrTheTool() {
+        assertNull(hit("free tomorrow"))
+        assertNull(hit("free tomorrow", dateCtx.copy(dateChips = false)))
+        assertNull(
+            hit("free tomorrow", dateCtx.copy(enabledTools = ToolbarTool.entries - ToolbarTool.CALENDAR)),
+        )
+    }
+
+    @Test
+    fun sumsStillOutrankDates() {
+        // "12/4" is a division (or a fraction) before it is ever a date.
+        assertEquals(SmartSuggest.Kind.CALC, hit("12/4", dateCtx)?.kind)
+    }
+
+    // ---- weather ----
+
+    private fun weatherInfo(
+        tomorrowHigh: Double? = 29.5,
+    ) = WeatherInfo(
+        temperatureC = 31.4, feelsLikeC = 38.2, humidityPercent = 78,
+        windKmh = 11.5, windDirectionDeg = 135, pressureHpa = 1004.2,
+        cloudCoverPercent = 75, precipitationMm = 0.4, weatherCode = 2,
+        isDay = true, highC = 33.1, lowC = 27.0, uvIndexMax = 8.5,
+        precipProbabilityPercent = 65, sunrise = "05:16", sunset = "18:49",
+        fetchedAtMillis = 0L,
+        tomorrowHighC = tomorrowHigh, tomorrowLowC = 24.2,
+        tomorrowCode = 95, tomorrowPrecipProbabilityPercent = 80,
+    )
+
+    @Test
+    fun weatherQuestionAnswersFromTheFetchedConditions() {
+        val h = hit("will it rain", ctx.copy(weather = weatherInfo()))
+        assertEquals(SmartSuggest.Kind.WEATHER, h?.kind)
+        assertEquals("⛅ 31°C · 27–33°C · ☔65%", h?.result)
+        assertNull(h?.insert)
+        assertEquals(0, h?.replaceSpan)
+    }
+
+    @Test
+    fun weatherTomorrowUsesTheSecondForecastDay() {
+        val h = hit("will it rain tomorrow", ctx.copy(weather = weatherInfo()))
+        assertEquals("⛈️ 24–30°C · ☔80%", h?.result)
+        // Without a second day there is nothing truthful to say.
+        assertNull(hit("will it rain tomorrow", ctx.copy(weather = weatherInfo(tomorrowHigh = null))))
+    }
+
+    @Test
+    fun weatherWithoutDataPendsOnlyWhenALocationExists() {
+        val pending = hit("will it rain", ctx.copy(weatherAvailable = true))
+        assertEquals(true, pending?.pendingWeather)
+        assertNull(pending?.result)
+        assertNull(hit("will it rain", ctx.copy(weatherAvailable = false)))
+    }
+
+    @Test
+    fun fahrenheitFollowsTheSetting() {
+        val h = hit("will it rain", ctx.copy(weather = weatherInfo(), weatherFahrenheit = true))
+        assertEquals("⛅ 89°F · 81–92°F · ☔65%", h?.result)
+    }
+
+    // ---- lookups ----
+
+    @Test
+    fun defineOffersTheDictionaryWithTheWord() {
+        val h = hit("define serendipity")
+        assertEquals(SmartSuggest.Kind.LOOKUP, h?.kind)
+        assertEquals(ToolbarTool.DICTIONARY, h?.tool)
+        assertEquals("serendipity", h?.query)
+        assertEquals(ToolPrefill.Lookup("serendipity"), h?.prefill)
+        assertEquals(0, h?.replaceSpan)
+        assertEquals("ubiquitous", hit("what does ubiquitous mean")?.query)
+    }
+
+    @Test
+    fun whoIsOffersWikipediaWithTheTerm() {
+        val h = hit("who is nikola tesla")
+        assertEquals(ToolbarTool.WIKIPEDIA, h?.tool)
+        assertEquals("nikola tesla", h?.query)
+        assertEquals("who was napoleon?", "napoleon", hit("who was napoleon?")?.query)
+    }
+
+    @Test
+    fun halfSaidQuestionsWaitForTheNoun() {
+        assertNull(hit("what is the"))
+        assertNull(hit("what is it"))
+    }
+
+    // ---- intents ----
+
+    @Test
+    fun writingChoresHintTheAiTool() {
+        val h = hit("can you draft an email")
+        assertEquals(SmartSuggest.Kind.INTENT, h?.kind)
+        assertEquals(ToolbarTool.AI, h?.tool)
+        assertEquals(0, h?.replaceSpan)
+        assertEquals(ToolbarTool.AI, hit("make this shorter")?.tool)
+        assertEquals(ToolbarTool.AI, hit("summarize this")?.tool)
+    }
+
+    @Test
+    fun sayingItInAnotherLanguageHintsTheTranslator() {
+        assertEquals(ToolbarTool.TRANSLATE, hit("how do you say")?.tool)
+        assertEquals(ToolbarTool.TRANSLATE, hit("in spanish")?.tool)
+    }
+
+    @Test
+    fun celebrationsOfferAGifSearch() {
+        val h = hit("happy birthday")
+        assertEquals(SmartSuggest.Kind.INTENT, h?.kind)
+        assertEquals(ToolbarTool.GIF, h?.tool)
+        assertEquals(ToolPrefill.Gif("happy birthday"), h?.prefill)
+        // Trailing punctuation and emoji do not hide the phrase.
+        assertEquals(ToolPrefill.Gif("congratulations"), hit("congrats!! 🎉")?.prefill)
+        // Bengali greetings search in English, where the GIF catalogs live.
+        assertEquals(ToolPrefill.Gif("eid mubarak"), hit("ঈদ মোবারক")?.prefill)
+    }
+
+    @Test
+    fun gifsFallBackToStickersAndRespectTheirToggle() {
+        val noGif = ctx.copy(enabledTools = ToolbarTool.entries - ToolbarTool.GIF)
+        assertEquals(ToolbarTool.STICKER, hit("happy birthday", noGif)?.tool)
+        assertNull(hit("happy birthday", ctx.copy(gifChips = false)))
+    }
+
+    @Test
+    fun grammarHintNeedsALongFormFieldAndRealProse() {
+        // Two finished sentences inside the 48-character lookbehind window.
+        val prose = "Hi there. This is fine. See you soon. Bye for now everyone"
+        val h = hit(prose, ctx.copy(longFormField = true))
+        assertEquals(SmartSuggest.Kind.INTENT, h?.kind)
+        assertEquals(ToolbarTool.GRAMMAR, h?.tool)
+        // Same text without the field shape, or too little of it: no chip.
+        assertNull(hit(prose))
+        assertNull(hit("Short. Bits. Here", ctx.copy(longFormField = true)))
+    }
+
+    @Test
+    fun intentAndLookupFamiliesCanBeTurnedOff() {
+        assertNull(hit("can you draft an email", ctx.copy(intentChips = false)))
+        assertNull(hit("define serendipity", ctx.copy(lookupChips = false)))
+        assertNull(hit("will it rain", ctx.copy(weatherChips = false, weather = weatherInfo())))
+    }
+
+    @Test
+    fun intentChipsRespectTheToolBeingEnabled() {
+        val noAi = ctx.copy(enabledTools = ToolbarTool.entries - ToolbarTool.AI)
+        assertNull(hit("can you draft an email", noAi))
+    }
 }

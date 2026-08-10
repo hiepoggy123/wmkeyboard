@@ -39,6 +39,11 @@ data class WeatherInfo(
     val sunrise: String,
     val sunset: String,
     val fetchedAtMillis: Long,
+    /** Tomorrow's forecast, null when the response carried only one day. */
+    val tomorrowHighC: Double? = null,
+    val tomorrowLowC: Double? = null,
+    val tomorrowCode: Int? = null,
+    val tomorrowPrecipProbabilityPercent: Int? = null,
 )
 
 /** One geocoding hit: a place the user can pick as the weather location. */
@@ -67,8 +72,9 @@ object WeatherClient {
                 "is_day,weather_code,wind_speed_10m,wind_direction_10m," +
                 "surface_pressure,cloud_cover,precipitation" +
                 "&daily=temperature_2m_max,temperature_2m_min,uv_index_max," +
-                "precipitation_probability_max,sunrise,sunset" +
-                "&timezone=auto&forecast_days=1",
+                "precipitation_probability_max,sunrise,sunset,weather_code" +
+                // Two days: the second feeds the "weather tomorrow" smart chip.
+                "&timezone=auto&forecast_days=2",
             latitude,
             longitude,
         )
@@ -131,8 +137,17 @@ object WeatherClient {
             sunset = daily.optFirstOfArray("sunset")?.jsonPrimitive?.content
                 ?.substringAfter('T', "").orEmpty(),
             fetchedAtMillis = now,
+            tomorrowHighC = daily.optAt("temperature_2m_max", 1),
+            tomorrowLowC = daily.optAt("temperature_2m_min", 1),
+            tomorrowCode = daily.optAt("weather_code", 1)?.toInt(),
+            tomorrowPrecipProbabilityPercent = daily.optAt("precipitation_probability_max", 1)?.toInt(),
         )
     }
+
+    /** The [index]th element of a daily array, absent or null tolerated. */
+    private fun JsonObject.optAt(key: String, index: Int): Double? =
+        this[key]?.takeIf { it !is JsonNull }?.jsonArray?.getOrNull(index)
+            ?.takeIf { it !is JsonNull }?.jsonPrimitive?.doubleOrNull
 
     private fun JsonObject.optString(key: String): String? =
         this[key]?.takeIf { it !is JsonNull }?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }

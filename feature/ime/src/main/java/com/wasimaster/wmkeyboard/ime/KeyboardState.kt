@@ -1250,6 +1250,11 @@ data class KeyboardUiState(
     /** Field class/variation of the focused editor, from EditorInfo. */
     val fieldKind: FieldKind = FieldKind.TEXT,
     /**
+     * The focused editor is a multi-line text box — a composer or document
+     * body rather than a one-line form field. Gates the ambient grammar chip.
+     */
+    val fieldMultiline: Boolean = false,
+    /**
      * The field asked the keyboard to hide the *suggestion strip*
      * (TYPE_TEXT_FLAG_NO_SUGGESTIONS, or an email/URI/filter/password
      * variation). Strip visibility only — autocorrect, gesture typing,

@@ -1541,6 +1541,8 @@ data class KeyboardSettings(
     val smartUnits: Boolean = true,
     /** Offer to open a tool when one of its keywords is typed. */
     val smartToolKeywords: Boolean = true,
+    /** The contextual chip families (dates, weather, lookups, intents, GIFs). */
+    val smartChips: SmartChipSettings = SmartChipSettings(),
     /**
      * Per-tool keyword overrides, "TOOL=a,b;TOOL=c". Tools missing from the
      * string use [com.wasimaster.wmkeyboard.core.tools.SmartSuggest.defaultKeywords].
@@ -2136,6 +2138,24 @@ data class PasswordGeneratorSettings(
  * one-or-many list rather than a second setting. Ids are
  * `CurrencyClient.Provider` names.
  */
+/**
+ * The contextual chip families — text that is not a sum or a keyword but
+ * still sounds like a job a tool does. All under the same master switch as
+ * the other smart chips ([KeyboardSettings.smartSuggestions]).
+ */
+data class SmartChipSettings(
+    /** "next friday" → the date it lands on, and the calendar opened there. */
+    val dates: Boolean = true,
+    /** "will it rain" → the forecast on the strip. */
+    val weather: Boolean = true,
+    /** "define X" / "who is X" → the dictionary or Wikipedia lookup. */
+    val lookups: Boolean = true,
+    /** Writing chores → AI/grammar/translate hints, plus the password offer. */
+    val intents: Boolean = true,
+    /** "happy birthday" → a GIF search. */
+    val gifs: Boolean = true,
+)
+
 data class RateSourceSettings(
     val fiatProviders: List<String> = listOf("ER_API", "FRANKFURTER"),
     /** Read coin amounts ("1 btc") and show coins in the converter. */
@@ -3761,6 +3781,11 @@ class SettingsRepository(private val context: Context) {
         private val SMART_CURRENCY = booleanPreferencesKey("smart_currency")
         private val SMART_UNITS = booleanPreferencesKey("smart_units")
         private val SMART_TOOL_KEYWORDS = booleanPreferencesKey("smart_tool_keywords")
+        private val SMART_CHIP_DATES = booleanPreferencesKey("smart_chip_dates")
+        private val SMART_CHIP_WEATHER = booleanPreferencesKey("smart_chip_weather")
+        private val SMART_CHIP_LOOKUPS = booleanPreferencesKey("smart_chip_lookups")
+        private val SMART_CHIP_INTENTS = booleanPreferencesKey("smart_chip_intents")
+        private val SMART_CHIP_GIFS = booleanPreferencesKey("smart_chip_gifs")
         private val TOOL_KEYWORDS = stringPreferencesKey("tool_keywords")
         private val TOOL_KEYWORD_CASE = stringPreferencesKey("tool_keyword_case")
         private val CALC_DEGREES = booleanPreferencesKey("calc_degrees")
@@ -4693,6 +4718,13 @@ class SettingsRepository(private val context: Context) {
             smartCurrency = p[SMART_CURRENCY] ?: defaults.smartCurrency,
             smartUnits = p[SMART_UNITS] ?: defaults.smartUnits,
             smartToolKeywords = p[SMART_TOOL_KEYWORDS] ?: defaults.smartToolKeywords,
+            smartChips = SmartChipSettings(
+                dates = p[SMART_CHIP_DATES] ?: defaults.smartChips.dates,
+                weather = p[SMART_CHIP_WEATHER] ?: defaults.smartChips.weather,
+                lookups = p[SMART_CHIP_LOOKUPS] ?: defaults.smartChips.lookups,
+                intents = p[SMART_CHIP_INTENTS] ?: defaults.smartChips.intents,
+                gifs = p[SMART_CHIP_GIFS] ?: defaults.smartChips.gifs,
+            ),
             toolKeywords = p[TOOL_KEYWORDS] ?: defaults.toolKeywords,
             toolKeywordCase = p[TOOL_KEYWORD_CASE] ?: defaults.toolKeywordCase,
             calcDegrees = p[CALC_DEGREES] ?: defaults.calcDegrees,
@@ -7879,6 +7911,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSmartToolKeywords(value: Boolean) =
         editPrefs { it[SMART_TOOL_KEYWORDS] = value }
+
+    suspend fun setSmartChipDates(value: Boolean) =
+        editPrefs { it[SMART_CHIP_DATES] = value }
+
+    suspend fun setSmartChipWeather(value: Boolean) =
+        editPrefs { it[SMART_CHIP_WEATHER] = value }
+
+    suspend fun setSmartChipLookups(value: Boolean) =
+        editPrefs { it[SMART_CHIP_LOOKUPS] = value }
+
+    suspend fun setSmartChipIntents(value: Boolean) =
+        editPrefs { it[SMART_CHIP_INTENTS] = value }
+
+    suspend fun setSmartChipGifs(value: Boolean) =
+        editPrefs { it[SMART_CHIP_GIFS] = value }
 
     /** Replaces one tool's trigger words; an empty list silences that tool. */
     suspend fun setToolKeywords(tool: ToolbarTool, words: List<String>) =

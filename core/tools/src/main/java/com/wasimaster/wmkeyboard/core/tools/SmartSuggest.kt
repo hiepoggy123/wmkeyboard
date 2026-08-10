@@ -18,6 +18,15 @@ sealed interface ToolPrefill {
     ) : ToolPrefill
 
     data class Currency(val from: String, val to: String, val amount: String) : ToolPrefill
+
+    /** The calendar opens showing (and selecting) this Gregorian day. */
+    data class Calendar(val year: Int, val month: Int, val day: Int) : ToolPrefill
+
+    /** A term the dictionary or Wikipedia panel looks up as it opens. */
+    data class Lookup(val term: String) : ToolPrefill
+
+    /** A search the GIF/sticker panel opens on. */
+    data class Gif(val query: String) : ToolPrefill
 }
 
 /**
@@ -33,7 +42,17 @@ sealed interface ToolPrefill {
  */
 object SmartSuggest {
 
-    enum class Kind { CALC, CURRENCY, UNIT, TOOL }
+    /**
+     * What a hit is, which decides how the strip draws it. [CALC], [CURRENCY],
+     * [UNIT], [DATE] and [WEATHER] are answers and take the whole strip;
+     * [TOOL] (a typed keyword), [LOOKUP] (a term to look up) and [INTENT]
+     * (text that sounds like a job a tool does) stay narrow beside the word
+     * candidates.
+     */
+    enum class Kind { CALC, CURRENCY, UNIT, DATE, WEATHER, TOOL, LOOKUP, INTENT }
+
+    /** The kinds that only claim the space their label needs. */
+    val narrowKinds: Set<Kind> = setOf(Kind.TOOL, Kind.LOOKUP, Kind.INTENT)
 
     /**
      * One way of drawing an answer chip, verbose first. The strip walks the
@@ -71,6 +90,8 @@ object SmartSuggest {
         val pending: Boolean = false,
         /** True when what is missing is the coin table rather than the fiat one. */
         val pendingCrypto: Boolean = false,
+        /** True while a weather chip is waiting on a forecast fetch. */
+        val pendingWeather: Boolean = false,
         /** Width-tiered renderings of query → result; empty for keyword chips. */
         val tiers: List<ChipTier> = emptyList(),
     )
@@ -104,6 +125,24 @@ object SmartSuggest {
         val keywordOverrides: String = "",
         /** Tools whose keywords must match the typed capitals exactly. */
         val caseSensitiveKeywords: String = "",
+        // ---- contextual chips ----
+        val dateChips: Boolean = true,
+        /** Today as a Julian Day Number; date chips stay off at the default. */
+        val todayJdn: Long = -1,
+        val weatherChips: Boolean = true,
+        /** The last fetched conditions, or null when none are fresh. */
+        val weather: WeatherInfo? = null,
+        /** Whether a weather location is configured, so a fetch could succeed. */
+        val weatherAvailable: Boolean = false,
+        val weatherFahrenheit: Boolean = false,
+        val lookupChips: Boolean = true,
+        val intentChips: Boolean = true,
+        val gifChips: Boolean = true,
+        /**
+         * A multi-line free-text field with room to write — the one place the
+         * ambient grammar hint is worth the strip space it takes.
+         */
+        val longFormField: Boolean = false,
     )
 
     /** Characters of context the scanners look back over. */
@@ -111,20 +150,30 @@ object SmartSuggest {
 
     /**
      * The first trigger that matches the tail of [text], in priority order:
-     * currency, units, arithmetic, then tool keywords. Currency and units
-     * both start with a number so they can never both match; arithmetic is
-     * tried last of the three because "12/04" style text should lose to a
-     * real unit or currency reading.
+     * the answer chips first (currency, units, arithmetic — phrase forms
+     * before symbol forms — dates, weather), then the narrow ones (lookups,
+     * intents, tool keywords), and the ambient grammar hint dead last since
+     * it matches no text at all. Currency and units both start with a number
+     * so they can never both match; arithmetic is tried after them because
+     * "12/04" style text should lose to a real unit or currency reading.
      */
     fun detect(text: String, ctx: Context): SmartHit? {
         if (text.isEmpty()) return null
         val tail = text.takeLast(LOOKBEHIND)
         if (ctx.currencyEnabled) detectCurrency(tail, ctx)?.let { return it }
         if (ctx.unitsEnabled) detectUnit(tail, ctx)?.let { return it }
+        if (ctx.calcEnabled) detectCalcPhrase(tail, ctx)?.let { return it }
         if (ctx.calcEnabled) detectCalc(tail, ctx)?.let { return it }
+        if (ctx.dateChips) detectDate(tail, ctx)?.let { return it }
+        if (ctx.weatherChips) detectWeather(tail, ctx)?.let { return it }
+        if (ctx.lookupChips) detectLookup(tail, ctx)?.let { return it }
+        if (ctx.intentChips) detectIntent(tail, ctx)?.let { return it }
         if (ctx.keywordsEnabled) detectKeyword(tail, ctx)?.let { return it }
+        if (ctx.intentChips) detectGrammarHint(tail, ctx)?.let { return it }
         return null
     }
+
+    private fun toolOn(tool: ToolbarTool, ctx: Context): Boolean = tool in ctx.enabledTools
 
     // ---- numbers ----
 
@@ -922,6 +971,334 @@ object SmartSuggest {
             if (parts.size == 2 && parts.all { it.isNotEmpty() && it.all(Char::isDigit) }) return false
         }
         return true
+    }
+
+    // ---- spoken arithmetic ----
+
+    /** "15% of 200", "15% tip on 4500" — a share of an amount. */
+    private val PERCENT_OF = Regex(
+        """(?<![\w.,])($NUM)\s?%\s(?:tip\s)?(?:of|on)\s($NUM)$""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** "20% off 1500" — the amount after the discount. */
+    private val PERCENT_OFF = Regex(
+        """(?<![\w.,])($NUM)\s?%\soff\s(?:of\s)?($NUM)$""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** "split 4500 between 3", "split 4500 3 ways", "4500 split 3 ways". */
+    private val SPLIT_LEAD = Regex(
+        """(?<![\p{L}])split\s($NUM)\s(?:(?:between|among|by)\s)?($NUM)(?:\s?(?:ways|people|persons|friends))?$""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val SPLIT_TRAIL = Regex(
+        """(?<![\w.,])($NUM)\ssplit\s(?:(?:between|among|by)\s)?($NUM)(?:\s?(?:ways|people|persons|friends))?$""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /**
+     * The arithmetic people write as prose rather than as a sum: percentages
+     * of an amount, discounts, and bills split between friends. Same chip as
+     * [detectCalc]; only the trigger's spelling differs, so the calculator
+     * still opens with an equivalent expression.
+     */
+    private fun detectCalcPhrase(tail: String, ctx: Context): SmartHit? {
+        data class Phrase(val expression: String, val value: Double, val span: Int)
+
+        val hit = run {
+            PERCENT_OF.find(tail)?.let { m ->
+                val p = parseNumber(m.groupValues[1]) ?: return@run null
+                val base = parseNumber(m.groupValues[2]) ?: return@run null
+                return@run Phrase("${digits(p)}/100*${digits(base)}", p / 100 * base, m.value.length)
+            }
+            PERCENT_OFF.find(tail)?.let { m ->
+                val p = parseNumber(m.groupValues[1]) ?: return@run null
+                val base = parseNumber(m.groupValues[2]) ?: return@run null
+                return@run Phrase(
+                    "${digits(base)}-${digits(p)}/100*${digits(base)}",
+                    base - p / 100 * base,
+                    m.value.length,
+                )
+            }
+            val split = SPLIT_LEAD.find(tail) ?: SPLIT_TRAIL.find(tail) ?: return@run null
+            val total = parseNumber(split.groupValues[1]) ?: return@run null
+            val parts = parseNumber(split.groupValues[2]) ?: return@run null
+            if (parts == 0.0) return@run null
+            Phrase("${digits(total)}/${digits(parts)}", total / parts, split.value.length)
+        } ?: return null
+
+        if (hit.value.isNaN() || hit.value.isInfinite()) return null
+        val result = CalcEngine.format(hit.value, ctx.precision)
+        val query = tail.takeLast(hit.span)
+        val short = CalcEngine.format(hit.value, 2)
+        return SmartHit(
+            kind = Kind.CALC,
+            query = query,
+            result = result,
+            insert = result,
+            replaceSpan = hit.span,
+            tool = ToolbarTool.CALCULATOR,
+            prefill = ToolPrefill.Calc(hit.expression),
+            tiers = buildList {
+                add(ChipTier(query, result))
+                if (short != result) add(ChipTier(query, "~$short"))
+            },
+        )
+    }
+
+    /** A parsed amount back as plain digits for a calculator expression. */
+    private fun digits(value: Double): String = CalcEngine.format(value, 8)
+
+    // ---- dates ----
+
+    private fun detectDate(tail: String, ctx: Context): SmartHit? {
+        if (ctx.todayJdn <= 0 || !toolOn(ToolbarTool.CALENDAR, ctx)) return null
+        val d = DateSuggest.find(tail, ctx.todayJdn) ?: return null
+        val date = CalendarSystems.jdnToGregorian(d.jdn)
+        return SmartHit(
+            kind = Kind.DATE,
+            query = d.phrase,
+            result = d.display,
+            // "next friday" becomes "next friday (21 Aug)": the phrase stays —
+            // it is what the recipient reads — and the date it means lands
+            // beside it.
+            insert = "${d.phrase} (${d.annotation})",
+            replaceSpan = tail.length - d.start,
+            tool = ToolbarTool.CALENDAR,
+            prefill = ToolPrefill.Calendar(date.year, date.month, date.day),
+            tiers = listOf(ChipTier(d.phrase, d.display), ChipTier(d.phrase, d.annotation)),
+        )
+    }
+
+    // ---- weather ----
+
+    private val WEATHER_PHRASE = Regex(
+        "(?:will it rain|is it (?:going to |gonna )?rain(?:ing)?|gonna rain|" +
+            "how(?:'s| is) the weather|hows the weather|what(?:'s| is) the weather(?: like)?|" +
+            "how (?:hot|cold|warm) is it(?: outside)?|" +
+            "temperature (?:outside|now|today|tomorrow)|chance of rain)" +
+            "(?:\\s(?:today|tomorrow|tonight))?\\s?\\??$",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /**
+     * A question the weather tool can answer on the spot. The chip never
+     * types into the field on its own — the question was probably meant for
+     * the person on the other end — so a tap opens the tool instead, and the
+     * answer sits on the strip for the asker meanwhile.
+     */
+    private fun detectWeather(tail: String, ctx: Context): SmartHit? {
+        if (!toolOn(ToolbarTool.WEATHER, ctx)) return null
+        val match = WEATHER_PHRASE.find(tail) ?: return null
+        val query = match.value.trimEnd(' ', '?')
+        val tomorrow = match.value.lowercase(Locale.ROOT).contains("tomorrow")
+        val info = ctx.weather ?: return if (ctx.weatherAvailable) {
+            SmartHit(
+                kind = Kind.WEATHER, query = query, result = null, insert = null,
+                replaceSpan = 0, tool = ToolbarTool.WEATHER, prefill = null,
+                pending = true, pendingWeather = true,
+            )
+        } else {
+            null
+        }
+
+        val unit = if (ctx.weatherFahrenheit) "°F" else "°C"
+        fun deg(celsius: Double) = "${WeatherClient.toDisplay(celsius, ctx.weatherFahrenheit)}"
+        val tiers: List<ChipTier>
+        if (tomorrow) {
+            val high = info.tomorrowHighC ?: return null
+            val low = info.tomorrowLowC ?: return null
+            val emoji = WeatherClient.emoji(info.tomorrowCode ?: info.weatherCode, isDay = true)
+            val range = "${deg(low)}–${deg(high)}$unit"
+            val rain = info.tomorrowPrecipProbabilityPercent?.takeIf { it >= 0 }
+            tiers = buildList {
+                add(ChipTier("$query?", "$emoji $range" + (rain?.let { " · ☔$it%" } ?: "")))
+                add(ChipTier("$query?", "$emoji $range"))
+            }
+        } else {
+            val emoji = WeatherClient.emoji(info.weatherCode, info.isDay)
+            val now = "${deg(info.temperatureC)}$unit"
+            val range = "${deg(info.lowC)}–${deg(info.highC)}$unit"
+            val rain = info.precipProbabilityPercent.takeIf { it >= 0 }
+            tiers = buildList {
+                add(ChipTier("$query?", "$emoji $now · $range" + (rain?.let { " · ☔$it%" } ?: "")))
+                add(ChipTier("$query?", "$emoji $now · $range"))
+                add(ChipTier("$query?", "$emoji $now"))
+            }
+        }
+        return SmartHit(
+            kind = Kind.WEATHER,
+            query = query,
+            result = tiers.first().result,
+            insert = null,
+            replaceSpan = 0,
+            tool = ToolbarTool.WEATHER,
+            prefill = null,
+            tiers = tiers,
+        )
+    }
+
+    // ---- lookups ----
+
+    private val DEFINE_TAIL = Regex(
+        """(?<![\p{L}])(?:define|definition of|meaning of)\s+([\p{L}]{2,24})\s?\??$""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val WHAT_MEAN_TAIL = Regex(
+        """(?<![\p{L}])what does\s+([\p{L}]{2,24})\s+mean\s?\??$""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val WIKI_TAIL = Regex(
+        """(?<![\p{L}])(?:who (?:is|was)|what (?:is|are)|tell me about)\s+([\p{L}][\p{L} .'\-]{1,40}?)\s?\??$""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /**
+     * Words a "what is …" has not finished saying yet. Not stopwords in
+     * general — only the ones that read as the start of a longer phrase, so
+     * the chip waits for the noun instead of offering to look up "the".
+     */
+    private val lookupNoise = setOf(
+        "the", "a", "an", "it", "this", "that", "your", "my", "his", "her",
+        "their", "our", "its", "up", "so", "he", "she", "you", "there",
+    )
+
+    /**
+     * A typed question with a term in it: the dictionary forms first since
+     * they are more specific, then the encyclopedia ones. The chip never eats
+     * the question — it may well be meant for the other person — it just
+     * offers the lookup alongside.
+     */
+    private fun detectLookup(tail: String, ctx: Context): SmartHit? {
+        val dictOn = toolOn(ToolbarTool.DICTIONARY, ctx)
+        if (dictOn) {
+            val word = DEFINE_TAIL.find(tail)?.groupValues?.get(1)
+                ?: WHAT_MEAN_TAIL.find(tail)?.groupValues?.get(1)
+            if (word != null && word.lowercase(Locale.ROOT) !in lookupNoise) {
+                return lookupHit(ToolbarTool.DICTIONARY, word)
+            }
+        }
+        if (toolOn(ToolbarTool.WIKIPEDIA, ctx)) {
+            val term = WIKI_TAIL.find(tail)?.groupValues?.get(1)?.trim()
+            if (term != null && term.length >= 3 &&
+                term.last().isLetter() &&
+                term.lowercase(Locale.ROOT) !in lookupNoise &&
+                term.count { it == ' ' } <= 3
+            ) {
+                return lookupHit(ToolbarTool.WIKIPEDIA, term)
+            }
+        }
+        return null
+    }
+
+    private fun lookupHit(tool: ToolbarTool, term: String): SmartHit = SmartHit(
+        kind = Kind.LOOKUP,
+        query = term,
+        result = null,
+        insert = null,
+        replaceSpan = 0,
+        tool = tool,
+        prefill = ToolPrefill.Lookup(term),
+    )
+
+    // ---- intents ----
+
+    private val AI_TAIL = Regex(
+        "(?:(?:draft|write|compose)\\s(?:me\\s)?(?:an?\\s)?" +
+            "(?:email|e-?mail|message|reply|response|poem|essay|letter|tweet|caption|paragraph|cover letter)|" +
+            "summari[sz]e (?:this|it)|rewrite (?:this|it)|rephrase (?:this|it)|" +
+            "make (?:this|it) (?:shorter|longer|formal|casual|polite|better|professional)|" +
+            "help me write)\\s?\\??$",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private val TRANSLATE_TAIL = Regex(
+        "(?:how do (?:you|i) say|translate (?:this|it)|" +
+            "in (?:english|bengali|bangla|hindi|urdu|arabic|spanish|french|german|" +
+            "chinese|japanese|korean|italian|portuguese|russian|turkish))\\s?\\??$",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** A celebratory phrase → the search the GIF panel opens on. */
+    private val gifPhrases: List<Pair<String, String>> = listOf(
+        "happy birthday" to "happy birthday",
+        "hbd" to "happy birthday",
+        "শুভ জন্মদিন" to "happy birthday",
+        "happy anniversary" to "happy anniversary",
+        "congratulations" to "congratulations",
+        "congrats" to "congratulations",
+        "অভিনন্দন" to "congratulations",
+        "well done" to "well done",
+        "good luck" to "good luck",
+        "get well soon" to "get well soon",
+        "happy new year" to "happy new year",
+        "merry christmas" to "merry christmas",
+        "eid mubarak" to "eid mubarak",
+        "ঈদ মোবারক" to "eid mubarak",
+    )
+
+    /**
+     * Text that sounds like a job a tool does: writing chores for the AI
+     * panel, "how do you say" for the translator, a celebration for the GIF
+     * search. All of them keep what was typed — the chip is a door, not an
+     * autocorrect.
+     */
+    private fun detectIntent(tail: String, ctx: Context): SmartHit? {
+        if (ctx.gifChips) {
+            // Trailing punctuation and emoji off first: "congrats!! 🎉" still
+            // ends in a celebration.
+            val trimmed = tail.trimEnd { !it.isLetter() }
+            val lower = trimmed.lowercase(Locale.ROOT)
+            for ((phrase, search) in gifPhrases) {
+                if (!lower.endsWith(phrase)) continue
+                val start = trimmed.length - phrase.length
+                if (start > 0 && trimmed[start - 1].isLetter()) continue
+                val tool = when {
+                    toolOn(ToolbarTool.GIF, ctx) -> ToolbarTool.GIF
+                    toolOn(ToolbarTool.STICKER, ctx) -> ToolbarTool.STICKER
+                    else -> continue
+                }
+                return intentHit(tool, phrase, ToolPrefill.Gif(search))
+            }
+        }
+        if (toolOn(ToolbarTool.AI, ctx)) {
+            AI_TAIL.find(tail)?.let { return intentHit(ToolbarTool.AI, it.value.trimEnd(' ', '?')) }
+        }
+        if (toolOn(ToolbarTool.TRANSLATE, ctx)) {
+            TRANSLATE_TAIL.find(tail)?.let {
+                return intentHit(ToolbarTool.TRANSLATE, it.value.trimEnd(' ', '?'))
+            }
+        }
+        return null
+    }
+
+    private fun intentHit(tool: ToolbarTool, query: String, prefill: ToolPrefill? = null): SmartHit =
+        SmartHit(
+            kind = Kind.INTENT,
+            query = query,
+            result = null,
+            insert = null,
+            replaceSpan = 0,
+            tool = tool,
+            prefill = prefill,
+        )
+
+    // ---- ambient grammar hint ----
+
+    private val SENTENCE_ENDS = Regex("""[.!?]\s""")
+
+    /**
+     * Long-form prose under way: a full lookbehind window with at least two
+     * finished sentences in it. No text shape triggers this — it is the one
+     * ambient chip, which is why it runs after everything else and only in
+     * fields with room to write (see [Context.longFormField]).
+     */
+    private fun detectGrammarHint(tail: String, ctx: Context): SmartHit? {
+        if (!ctx.longFormField || !toolOn(ToolbarTool.GRAMMAR, ctx)) return null
+        if (tail.length < LOOKBEHIND) return null
+        if (SENTENCE_ENDS.findAll(tail).count() < 2) return null
+        return intentHit(ToolbarTool.GRAMMAR, query = "")
     }
 
     // ---- tool keywords ----

@@ -284,7 +284,9 @@ import com.wasimaster.wmkeyboard.core.tools.scoreTypingTest
 import com.wasimaster.wmkeyboard.core.tools.typingConfigKey
 import com.wasimaster.wmkeyboard.core.tools.typingConfigLabel
 import com.wasimaster.wmkeyboard.core.tools.WikipediaClient
+import com.wasimaster.wmkeyboard.core.tools.CalendarSystems
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
+import com.wasimaster.wmkeyboard.core.tools.WeatherInfo
 import com.wasimaster.wmkeyboard.core.tools.WebResult
 import com.wasimaster.wmkeyboard.core.mlkit.MlKitInit
 import com.wasimaster.wmkeyboard.core.media.MediaControlManager
@@ -371,6 +373,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
+import java.util.Calendar
 import java.util.EnumMap
 import java.util.concurrent.atomic.AtomicInteger
 import com.wasimaster.wmkeyboard.common.R as CommonR
@@ -2802,6 +2805,9 @@ open class WMKeyboardService : InputMethodService() {
         }
         smartMutedAfter = null
         patternMutedAfter = null
+        // A new field is a fresh audience for the intent chips; a restart is
+        // the same field talking, where a retired hint stays retired.
+        if (!restarting) intentChipsRetired.clear()
         // A chip offering to rewrite a span of the last field has no business
         // being up over this one.
         clearSnippetOffer()
@@ -2936,6 +2942,7 @@ open class WMKeyboardService : InputMethodService() {
                 // same field keeps whatever layer the user was on.
                 layoutMode = if (restarting) it.layoutMode else LayoutMode.LETTERS,
                 fieldKind = fieldKind,
+                fieldMultiline = info.isMultiLineText(),
                 fieldNoSuggestions = fieldNoSuggestions,
                 fieldIncognito = fieldIncognito,
                 emojiSearchActive = false,
@@ -7182,22 +7189,47 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var smartMutedAfter: String? = null
 
+    /**
+     * Intent chips this field has already shown and moved past. An intent
+     * chip is a hint, and a hint repeated is a nag: once the chip stops
+     * matching (the user typed on, opened the tool, or a panel came up), the
+     * same tool does not get to hint again until the next field.
+     */
+    private val intentChipsRetired = mutableSetOf<ToolbarTool>()
+
+    /** Records [next] replacing (or clearing) a shown intent or lookup chip. */
+    private fun retireIntentChip(next: SmartSuggest.SmartHit?) {
+        val prev = _uiState.value.smart ?: return
+        if (prev.kind != SmartSuggest.Kind.INTENT && prev.kind != SmartSuggest.Kind.LOOKUP) return
+        if (next != null && next.kind == prev.kind && next.tool == prev.tool) return
+        intentChipsRetired += prev.tool
+    }
+
+    private fun clearSmartChip() {
+        retireIntentChip(null)
+        if (_uiState.value.smart != null) _uiState.update { it.copy(smart = null) }
+    }
+
     private fun refreshSmartSuggestion() {
         val state = _uiState.value
+        if (state.secureField) {
+            refreshPasswordOffer(state)
+            return
+        }
         val enabled = state.settings.smartSuggestions &&
-            !state.secureField && !state.fieldNoSuggestions &&
+            !state.fieldNoSuggestions &&
             state.panel == PanelMode.NONE &&
             // A smart chip takes the whole strip, and in a conversion IME that
             // strip is the candidate list — losing it mid-reading would leave
             // the user with a composing buffer and nothing to commit it with.
             !state.composer.isConversion
         if (!enabled) {
-            if (state.smart != null) _uiState.update { it.copy(smart = null) }
+            clearSmartChip()
             return
         }
         val ic = currentInputConnection
         if (ic == null) {
-            if (state.smart != null) _uiState.update { it.copy(smart = null) }
+            clearSmartChip()
             return
         }
         // The lookbehind is a synchronous editor round-trip and this runs on
@@ -7230,22 +7262,81 @@ open class WMKeyboardService : InputMethodService() {
                 // a chip take the row the candidate list needs.
                 still.composer.isConversion
             ) {
-                if (still.smart != null) _uiState.update { it.copy(smart = null) }
+                clearSmartChip()
                 return@launch
             }
             val before = withContext(Dispatchers.Default) {
                 ic.getTextBeforeCursor(SmartSuggest.LOOKBEHIND, 0)?.toString().orEmpty()
             }
             if (before == smartMutedAfter) {
-                if (_uiState.value.smart != null) _uiState.update { it.copy(smart = null) }
+                clearSmartChip()
                 return@launch
             }
             smartMutedAfter = null
-            val hit = SmartSuggest.detect(before, smartContext(_uiState.value))
+            var hit = SmartSuggest.detect(before, smartContext(_uiState.value))
+            // A retired hint stays down; answers (calc, dates, weather) are
+            // immune — they carry information, not advice.
+            if (hit != null &&
+                (hit.kind == SmartSuggest.Kind.INTENT || hit.kind == SmartSuggest.Kind.LOOKUP) &&
+                hit.tool in intentChipsRetired
+            ) {
+                hit = null
+            }
+            retireIntentChip(hit)
             if (hit != _uiState.value.smart) _uiState.update { it.copy(smart = hit) }
-            // An amount was recognised but there are no rates to convert it
-            // with: fetch them, and the collector below redraws the chip.
-            if (hit?.pending == true) refreshCurrencyRates(wantCrypto = hit.pendingCrypto)
+            // Recognised but missing data: fetch it, and the completion
+            // redraws the chip.
+            when {
+                hit?.pendingWeather == true -> refreshWeather()
+                hit?.pending == true -> refreshCurrencyRates(wantCrypto = hit.pendingCrypto)
+            }
+        }
+    }
+
+    /**
+     * The one chip that runs in a password box: the field is empty, the
+     * generator is on the keyboard — offer it. The field's text is never
+     * read beyond "is there any", and the offer retires like any intent chip
+     * the moment it stops applying, so a login box with a saved password
+     * never sees it twice.
+     */
+    private fun refreshPasswordOffer(state: KeyboardUiState) {
+        val eligible = state.settings.smartSuggestions && state.settings.smartChips.intents &&
+            state.panel == PanelMode.NONE &&
+            ToolbarTool.PASSWORD_GEN in usableTools(state.settings) &&
+            ToolbarTool.PASSWORD_GEN !in intentChipsRetired
+        val ic = currentInputConnection
+        if (!eligible || ic == null) {
+            clearSmartChip()
+            return
+        }
+        smartJob?.cancel()
+        smartJob = serviceScope.launch {
+            delay(SMART_SUGGEST_DEBOUNCE_MS)
+            val still = _uiState.value
+            if (still.panel != PanelMode.NONE || !still.secureField) {
+                clearSmartChip()
+                return@launch
+            }
+            val empty = withContext(Dispatchers.Default) {
+                ic.getTextBeforeCursor(1, 0)?.isEmpty() != false &&
+                    ic.getTextAfterCursor(1, 0)?.isEmpty() != false
+            }
+            val hit = if (empty) {
+                SmartSuggest.SmartHit(
+                    kind = SmartSuggest.Kind.INTENT,
+                    query = "",
+                    result = null,
+                    insert = null,
+                    replaceSpan = 0,
+                    tool = ToolbarTool.PASSWORD_GEN,
+                    prefill = null,
+                )
+            } else {
+                null
+            }
+            retireIntentChip(hit)
+            if (hit != _uiState.value.smart) _uiState.update { it.copy(smart = hit) }
         }
     }
 
@@ -7270,7 +7361,35 @@ open class WMKeyboardService : InputMethodService() {
             enabledTools = usableTools(state.settings),
             keywordOverrides = state.settings.toolKeywords,
             caseSensitiveKeywords = state.settings.toolKeywordCase,
+            dateChips = state.settings.smartChips.dates,
+            todayJdn = todayJdn(),
+            weatherChips = state.settings.smartChips.weather,
+            weather = freshWeather(state),
+            // A failed fetch must not leave the chip spinning forever, so a
+            // weather error counts as "not available" until something else
+            // refreshes it.
+            weatherAvailable = state.settings.weatherLatitude != null &&
+                state.settings.weatherLongitude != null &&
+                state.weather !is WeatherUi.Error,
+            weatherFahrenheit = state.settings.weatherFahrenheit,
+            lookupChips = state.settings.smartChips.lookups,
+            intentChips = state.settings.smartChips.intents,
+            gifChips = state.settings.smartChips.gifs,
+            longFormField = state.fieldMultiline && state.fieldKind == FieldKind.TEXT &&
+                !state.secureField && !state.incognitoOn,
         )
+
+    private fun todayJdn(): Long = Calendar.getInstance().let {
+        CalendarSystems.gregorianToJdn(
+            it.get(Calendar.YEAR), it.get(Calendar.MONTH) + 1, it.get(Calendar.DAY_OF_MONTH),
+        )
+    }
+
+    /** The fetched conditions, only while still within the cache window. */
+    private fun freshWeather(state: KeyboardUiState): WeatherInfo? =
+        (state.weather as? WeatherUi.Ready)?.info?.takeIf {
+            System.currentTimeMillis() - it.fetchedAtMillis < WEATHER_CACHE_MS
+        }
 
     /**
      * Chip tapped: swap the recognised text for the answer. The span is
@@ -7308,6 +7427,10 @@ open class WMKeyboardService : InputMethodService() {
      */
     fun onSmartSuggestionOpen() {
         val hit = _uiState.value.smart ?: return
+        // A hint that was taken has done its job for this field.
+        if (hit.kind == SmartSuggest.Kind.INTENT || hit.kind == SmartSuggest.Kind.LOOKUP) {
+            intentChipsRetired += hit.tool
+        }
         val ic = currentInputConnection
         if (ic != null) {
             ic.beginBatchEdit()
@@ -8282,9 +8405,17 @@ open class WMKeyboardService : InputMethodService() {
                 dictionarySearchActive = false,
                 clipboardSearchActive = false,
                 clipboardQuery = "",
-                // GIF/sticker reopen on their last search; everything else
-                // starts blank.
-                mediaQuery = restored.query,
+                // GIF/sticker reopen on their last search — unless a
+                // celebration chip staged one, which outranks it; everything
+                // else starts blank. A Wikipedia lookup chip seeds the search
+                // box the same way.
+                mediaQuery = when (next) {
+                    PanelMode.GIF, PanelMode.STICKER ->
+                        (it.toolPrefill as? ToolPrefill.Gif)?.query ?: restored.query
+                    PanelMode.WIKIPEDIA ->
+                        (it.toolPrefill as? ToolPrefill.Lookup)?.term ?: restored.query
+                    else -> restored.query
+                },
                 // Web/image search and translate open straight into their
                 // search box (there is nothing to show yet); gif/sticker
                 // open on their previous search, or trending. Wikipedia
@@ -8310,7 +8441,11 @@ open class WMKeyboardService : InputMethodService() {
                     PanelMode.CURRENCY -> (it.toolPrefill as? ToolPrefill.Currency)?.amount ?: "1"
                     else -> "1"
                 },
-                toolPrefill = if (next == PanelMode.CALCULATOR) null else it.toolPrefill,
+                toolPrefill = when (next) {
+                    // Consumed above, into the expression or the search box.
+                    PanelMode.CALCULATOR, PanelMode.GIF, PanelMode.STICKER -> null
+                    else -> it.toolPrefill
+                },
                 mediaAction = null,
                 mediaCategories = emptyList(),
                 mediaCategory = restored.category,
@@ -8343,10 +8478,23 @@ open class WMKeyboardService : InputMethodService() {
         mediaCategoryJob?.cancel()
         when (_uiState.value.panel) {
             PanelMode.WEATHER -> refreshWeather()
-            PanelMode.DICTIONARY -> openDictionary()
+            PanelMode.DICTIONARY -> {
+                openDictionary()
+                // A "define serendipity" chip: straight to the word.
+                (_uiState.value.toolPrefill as? ToolPrefill.Lookup)?.let {
+                    onDictionaryLookup(it.term)
+                    onToolPrefillConsumed()
+                }
+            }
             PanelMode.GIF, PanelMode.STICKER -> {
                 refreshMedia(_uiState.value.mediaQuery.trim())
                 refreshMediaCategories()
+            }
+            // A "who is …" chip: the search runs as the panel opens. The
+            // query is already in the search box (see the copy above).
+            PanelMode.WIKIPEDIA -> (_uiState.value.toolPrefill as? ToolPrefill.Lookup)?.let {
+                runWikiSearch(it.term)
+                onToolPrefillConsumed()
             }
             PanelMode.WEB_SEARCH -> _uiState.update {
                 it.copy(webSearch = if (hasSearchKey()) WebSearchUi.Idle else WebSearchUi.NeedKey)
@@ -9906,6 +10054,9 @@ open class WMKeyboardService : InputMethodService() {
             _uiState.update {
                 it.copy(weather = if (info != null) WeatherUi.Ready(info) else WeatherUi.Error)
             }
+            // A weather chip may be sitting on the strip waiting for exactly
+            // this — redraw it with the numbers (or drop it on an error).
+            if (_uiState.value.smart?.pendingWeather == true) refreshSmartSuggestion()
         }
     }
 
@@ -15852,6 +16003,17 @@ open class WMKeyboardService : InputMethodService() {
                 typeClass == InputType.TYPE_CLASS_NUMBER &&
                     variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD
                 )
+        }
+
+        /**
+         * A text field with the multi-line flag: a chat composer, an email
+         * body, a document. The one field shape the ambient grammar chip is
+         * allowed to speak up in.
+         */
+        private fun EditorInfo?.isMultiLineText(): Boolean {
+            val inputType = this?.inputType ?: return false
+            return inputType and InputType.TYPE_MASK_CLASS == InputType.TYPE_CLASS_TEXT &&
+                inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0
         }
     }
 }

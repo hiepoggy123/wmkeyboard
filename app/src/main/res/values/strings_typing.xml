@@ -200,6 +200,22 @@
     <string name="typing_smart_tool_keywords_subtitle">Type \"wiki\" and the strip offers to open Wikipedia</string>
     <string name="typing_smart_tool_keywords_info">Each tool has a few keywords. Type one keyword alone and the suggestion strip offers to open that tool and delete the word you typed. The settings of each tool list its keywords, where you can change them or clear them.</string>
 
+    <string name="typing_smart_dates_title">Resolve dates</string>
+    <string name="typing_smart_dates_subtitle">\"next friday\" offers the date it lands on, and the calendar opened there</string>
+
+    <string name="typing_smart_weather_title">Answer weather questions</string>
+    <string name="typing_smart_weather_subtitle">\"will it rain\" shows the forecast on the strip. Needs a weather location</string>
+
+    <string name="typing_smart_lookups_title">Offer lookups</string>
+    <string name="typing_smart_lookups_subtitle">\"define serendipity\" offers the dictionary, \"who is Tesla\" offers Wikipedia</string>
+
+    <string name="typing_smart_intents_title">Tool hints</string>
+    <string name="typing_smart_intents_subtitle">\"draft an email\" hints the AI tool, long text hints the grammar check, an empty password box offers the generator</string>
+    <string name="typing_smart_intents_info">A hint chip appears when what you type sounds like a job a keyboard tool does: writing chores hint the AI tool, \"how do you say\" hints the translator, a few finished sentences hint the grammar check, and an empty new-password box offers a generated password. Each hint shows at most once per text field, and using it or typing past it puts it away.</string>
+
+    <string name="typing_smart_gifs_title">GIFs for celebrations</string>
+    <string name="typing_smart_gifs_subtitle">\"happy birthday\" offers a matching GIF search</string>
+
     <!-- ==== Typing settings: one-time codes ==== -->
     <string name="typing_group_otp_title">One-time codes</string>
     <string name="typing_otp_chip_title">Codes from notifications</string>
