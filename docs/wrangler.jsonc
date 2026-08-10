@@ -1,0 +1,18 @@
+{
+  // Cloudflare Pages project config. The site is a plain static build: Astro
+  // emits dist/ and Pages serves it, with no adapter and no Worker in front.
+  //
+  // This file exists because the newer "Connect to Git" flow defaults to a
+  // Workers project and runs `wrangler deploy`, which auto-configures the
+  // project by running `astro add cloudflare`. That adapter does not support
+  // Astro 7 yet (it imports `beginContentEntryCollection`, which Astro 7 no
+  // longer exports) and the build dies. Declaring the project as Pages here
+  // stops the auto-configuration from running at all.
+  //
+  // The name is load-bearing: it decides the *.pages.dev hostname, and
+  // https://wmkeyboard.pages.dev is baked into the app (DOCS_URL in
+  // AboutScreens.kt), every absolute og: URL, and the sitemap.
+  "name": "wmkeyboard",
+  "compatibility_date": "2026-08-10",
+  "pages_build_output_dir": "./dist"
+}

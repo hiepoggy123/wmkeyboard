@@ -50,12 +50,28 @@ include(":core:intelligence")
 include(":feature:tools")
 include(":feature:addons")
 include(":feature:ime")
-// Dynamic feature module (Play channel only): the on-demand home of the
-// LiteRT-LM runtime. Included unconditionally so the IDE always sees it, but
-// only Play builds reference it — :app adds it to `dynamicFeatures` behind
-// the wmkb.enablePlayStore flag, and nothing else depends on it, so F-Droid
-// and direct-download builds never even configure its tasks.
-include(":feature:llm")
+// Dynamic feature module, Play channel only: the on-demand home of the
+// LiteRT-LM runtime. :app adds it to `dynamicFeatures` behind the same flag,
+// and a dynamic-feature module that no app registers cannot resolve its own
+// `featureName`, so including it unconditionally breaks every non-Play build
+// the moment an unqualified task name (`assembleFullDebug`, and so the whole
+// of CI) fans out across every project. It is therefore in the build only
+// when the channel that consumes it is. Developers who want it in the IDE
+// have wmkb.enablePlayStore=true in local.properties already, since that is
+// what building for Play needs.
+val playStoreChannel: Boolean = run {
+    val local = java.util.Properties()
+    file("local.properties").takeIf { it.exists() }?.inputStream()?.use(local::load)
+    // Same precedence as `flag()` in app/build.gradle.kts: -P, then
+    // local.properties, then the environment, then off.
+    (providers.gradleProperty("wmkb.enablePlayStore").orNull
+        ?: local.getProperty("wmkb.enablePlayStore")
+        ?: System.getenv("WMKB_ENABLE_PLAY_STORE")
+        ?: "false").toBoolean()
+}
+if (playStoreChannel) {
+    include(":feature:llm")
+}
 // Host-side dictionary compiler: turns dictionaries-src/*.txt into the .wmdict
 // binary assets at build time, sharing the app's own trie/codec sources so the
 // written format can never drift from the reader.

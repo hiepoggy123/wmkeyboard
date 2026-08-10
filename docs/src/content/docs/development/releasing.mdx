@@ -210,16 +210,28 @@ source of truth.
 ## Deploying the docs
 
 The site at [wmkeyboard.pages.dev](https://wmkeyboard.pages.dev) is a
-Cloudflare Pages project connected to this repository, so a push to `main`
+Cloudflare **Pages** project connected to this repository, so a push to `main`
 that touches `docs/` deploys itself. The settings are:
 
 | Setting | Value |
 |---|---|
+| Project type | Pages, not Workers |
+| Project name | `wmkeyboard` (this is what makes the hostname) |
 | Framework preset | Astro |
 | Build command | `npm run build` |
 | Build output directory | `dist` |
 | Root directory | `docs` |
 | Node version | 22 (set `NODE_VERSION=22` if the default is older) |
+
+:::caution[Pages, not Workers]
+Cloudflare's newer "Connect to Git" flow creates a *Worker* and deploys with
+`npx wrangler deploy`. Two things go wrong if you take it. A Worker is served
+from `workers.dev`, not `pages.dev`, and the `pages.dev` URL is compiled into
+the app. And `wrangler deploy` on an unconfigured project runs
+`astro add cloudflare`, whose adapter does not support Astro 7 yet: the build
+fails on `beginContentEntryCollection` missing from Astro's exports.
+`docs/wrangler.jsonc` declares the project as Pages so that never runs.
+:::
 
 CI builds the site with `npm run check` on every pull request, which turns on
 the link validator, so a broken internal link fails there rather than shipping.
