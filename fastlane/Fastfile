@@ -1,0 +1,150 @@
+# Every Gradle invocation here passes the channel flags as -P project
+# properties, not environment variables. flag() in app/build.gradle.kts reads
+# gradle properties before local.properties before the environment, so -P is
+# the only form that beats whatever a developer machine has in
+# local.properties. An env var would silently lose to it.
+
+opt_out_usage
+
+default_platform(:android)
+
+# Channel property sets. These mirror the table in
+# docs/src/content/docs/development/releasing.mdx — keep them in step.
+PLAY_PROPS = {
+  "wmkb.enablePlayStore" => "true",
+  "wmkb.enableGms" => "true",
+}.freeze
+
+SIDELOAD_PROPS = {
+  "wmkb.enablePlayStore" => "false",
+  "wmkb.enableGms" => "true",
+  "wmkb.splitApks" => "true",
+}.freeze
+
+# gradle.properties is the single source of version truth (both :app and
+# :core:config read it), so fastlane reads it too rather than keeping a copy.
+def gradle_prop(name)
+  path = File.expand_path("../gradle.properties", __dir__)
+  line = File.readlines(path).find { |l| l.start_with?("#{name}=") }
+  UI.user_error!("#{name} not found in gradle.properties") unless line
+  line.split("=", 2).last.strip
+end
+
+def version_code
+  gradle_prop("wmkb.versionCode")
+end
+
+def version_name
+  gradle_prop("wmkb.versionName")
+end
+
+# The release build produces an *unsigned* AAB/APK when the keystore is not
+# configured (deliberate, see the signing block in app/build.gradle.kts), and
+# Play rejects unsigned uploads with a much less helpful error than this one.
+def ensure_signing!
+  local_props = File.expand_path("../local.properties", __dir__)
+  configured = ENV["RELEASE_STORE_FILE"].to_s != "" ||
+    (File.exist?(local_props) &&
+      File.readlines(local_props).any? { |l| l.start_with?("RELEASE_STORE_FILE=") && l.split("=", 2).last.strip != "" })
+  UI.user_error!(
+    "Release signing is not configured. Set RELEASE_STORE_FILE / " \
+    "RELEASE_STORE_PASSWORD / RELEASE_KEY_ALIAS / RELEASE_KEY_PASSWORD in " \
+    "local.properties or the environment."
+  ) unless configured
+end
+
+# Release notes come from the same changelog file F-Droid reads; a release
+# without one would go out with silently empty notes.
+def ensure_changelog!
+  changelog = File.expand_path("metadata/android/en-US/changelogs/#{version_code}.txt", __dir__)
+  UI.user_error!(
+    "No changelog for versionCode #{version_code}. Write " \
+    "fastlane/metadata/android/en-US/changelogs/#{version_code}.txt — " \
+    "F-Droid and Play both read it, it is the only place the release notes live."
+  ) unless File.exist?(changelog)
+end
+
+platform :android do
+  desc "Verify version, changelog and signing are consistent before a release"
+  lane :preflight do
+    ensure_changelog!
+    ensure_signing!
+    UI.success("#{version_name} (#{version_code}) — changelog present, signing configured")
+  end
+
+  desc "Build the Play AAB (bundleFullRelease with the Play channel flags)"
+  lane :bundle_play do
+    ensure_signing!
+    gradle(task: "bundleFullRelease", properties: PLAY_PROPS)
+  end
+
+  desc "Build the sideload/GitHub-release APKs: full + lite, one APK per ABI"
+  lane :apks do
+    ensure_signing!
+    gradle(task: "assembleFullRelease assembleLiteRelease", properties: SIDELOAD_PROPS)
+    UI.success("APKs under app/build/outputs/apk/*/release/")
+  end
+
+  desc "Upload to the Play internal track. Builds the AAB unless aab:path is given"
+  lane :internal do |options|
+    ensure_changelog!
+    aab = options[:aab]
+    if aab
+      # Prebuilt (CI hands over the bundle-job artifact); signing already
+      # happened wherever it was built, so no keystore is needed here.
+      UI.user_error!("No AAB at #{aab}") unless File.exist?(aab)
+    else
+      bundle_play
+      aab = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+    end
+    upload_to_play_store(
+      track: "internal",
+      aab: aab,
+      release_status: "completed",
+      # Binary and release notes only. The listing (text, images) has its own
+      # lanes below so a routine release can never half-rewrite the store page.
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      # First uploads and some policy states cannot be auto-submitted for
+      # review; land the change in the Console instead of failing the lane.
+      rescue_changes_not_sent_for_review: true,
+    )
+    UI.success("#{version_name} (#{version_code}) is on the internal track")
+  end
+
+  desc "Promote internal → production. Options: rollout:0.2 to:beta from:internal"
+  lane :promote do |options|
+    upload_to_play_store(
+      track: options[:from] || "internal",
+      track_promote_to: options[:to] || "production",
+      track_promote_release_status: "completed",
+      rollout: options[:rollout],
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      version_code: version_code.to_i,
+    )
+    UI.success("Promoted #{options[:from] || 'internal'} → #{options[:to] || 'production'}")
+  end
+
+  desc "Push the store-listing text and changelogs to Play (no binaries, no images)"
+  lane :listing do
+    upload_to_play_store(
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+    )
+    UI.success("Listing text synced from fastlane/metadata/android/en-US/")
+  end
+
+  desc "Validate the service-account key against the Play API without changing anything"
+  lane :check_key do
+    validate_play_json_key
+    UI.success("Play API key works")
+  end
+end

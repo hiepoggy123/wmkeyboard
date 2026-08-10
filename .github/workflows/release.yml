@@ -155,13 +155,54 @@ jobs:
         if: always()
         run: rm -f release.keystore
 
-      # Deliberately not attached to the GitHub release: an AAB is not
-      # installable, and uploading to Play stays a decision you make by hand.
+      # Not attached to the GitHub release: an AAB is not installable. The
+      # play job below picks it up and uploads it to the internal track.
       - uses: actions/upload-artifact@v4
         with:
           name: play-bundle
           path: app/build/outputs/bundle/fullRelease/*.aab
           retention-days: 30
+
+  # Uploads the AAB to the Play *internal* track via fastlane; promoting to
+  # production stays a decision you make by hand (`bundle exec fastlane
+  # android promote`, or the Console). Skips itself with a warning when the
+  # service-account secret is absent, so tagging a release still works before
+  # Play API access is configured.
+  play:
+    name: Upload to Play (internal track)
+    needs: [verify, bundle]
+    if: github.ref_type == 'tag' && !inputs.dry_run
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: play-bundle
+          path: dist
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+
+      - name: Upload to internal track
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::warning::PLAY_SERVICE_ACCOUNT_JSON is not set; skipping the Play upload. Grab the play-bundle artifact and upload it by hand, or add the secret (see docs/development/releasing)."
+            exit 0
+          fi
+          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > play-key.json
+          aab=$(ls dist/*.aab | head -n1)
+          WMKB_PLAY_JSON_KEY=play-key.json bundle exec fastlane android internal "aab:$aab"
+
+      - name: Wipe key
+        if: always()
+        run: rm -f play-key.json
 
   publish:
     name: Publish GitHub release

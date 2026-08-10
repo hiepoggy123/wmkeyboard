@@ -89,9 +89,11 @@ attaches one APK per ABI plus a `SHA256SUMS.txt` to the release.
    ```
 
 4. **Watch the run.** It builds the APKs, builds the Play AAB as a separate
-   artifact, and publishes the release. The AAB is deliberately not attached
-   to the public release: an AAB is not installable, and pushing to Play stays
-   a decision you make by hand.
+   artifact, and publishes the release. The AAB is not attached to the public
+   release (an AAB is not installable); instead the `play` job uploads it to
+   the Play *internal* track through fastlane, or skips itself with a warning
+   if the `PLAY_SERVICE_ACCOUNT_JSON` secret is not set. Promoting to
+   production stays a decision you make by hand.
 
 </Steps>
 
@@ -197,31 +199,90 @@ listing on the next build, with no metadata merge request.
    screens are what the policy asks for, and they exist for every runtime
    permission already.
 
-5. **Build the bundle.** The `Release` workflow produces it as the
-   `play-bundle` artifact, or locally:
+5. **Build and upload to internal testing.** Tagging a release does this for
+   you (the `play` job in the workflow), or run it locally:
 
    ```sh
-   ./gradlew bundleFullRelease -Pwmkb.enablePlayStore=true -Pwmkb.enableGms=true
+   bundle exec fastlane android internal
    ```
 
-6. **Upload to internal testing first.** Play's own device catalogue will tell
-   you within minutes if the on-demand `:feature:llm` module or the unbundled
-   ML Kit path is misconfigured, and that is much cheaper to learn there than
-   in production.
+   Internal first, always: Play's own device catalogue will tell you within
+   minutes if the on-demand `:feature:llm` module or the unbundled ML Kit
+   path is misconfigured, and that is much cheaper to learn there than in
+   production.
 
-7. **Promote when it looks right.** Play signs with its own upload key flow,
-   so the APK a user installs is not byte-identical to anything you built.
-   That is expected, and it is why the GitHub release exists for people who
-   want to verify a checksum.
+6. **Promote when it looks right.**
+
+   ```sh
+   bundle exec fastlane android promote
+   ```
+
+   Add `rollout:0.2` for a staged rollout. Play signs with its own upload key
+   flow, so the APK a user installs is not byte-identical to anything you
+   built. That is expected, and it is why the GitHub release exists for
+   people who want to verify a checksum.
 
 </Steps>
 
-:::caution[The store listing lives in two places]
-Play does not read `fastlane/metadata/` unless you drive it with
-[Fastlane supply](https://docs.fastlane.tools/actions/supply/). Until then,
-paste the same text into the Console by hand and keep this repo's copy as the
-source of truth.
-:::
+### Fastlane
+
+The lanes live in `fastlane/Fastfile` and run through Bundler so the version
+is pinned by `Gemfile.lock` (CI installs the same one). One-time setup on a
+new machine:
+
+```sh
+brew install ruby@3.4
+export PATH="/opt/homebrew/opt/ruby@3.4/bin:$PATH"   # add to ~/.zshrc
+bundle install
+```
+
+| Lane | What it does |
+|---|---|
+| `preflight` | checks the changelog for the current `versionCode` exists and signing is configured |
+| `bundle_play` | `bundleFullRelease` with the Play channel flags |
+| `apks` | sideload APKs, full + lite, one per ABI |
+| `internal` | preflight, build (or take `aab:path`), upload to the internal track |
+| `promote` | move the internal release to production (`to:`, `from:`, `rollout:` options) |
+| `listing` | push the store-listing text and changelogs to Play, nothing else |
+| `check_key` | validate the service-account key against the Play API |
+
+Every lane passes the channel flags as `-P` properties, which beat whatever
+your `local.properties` has, so a machine set up for Play builds still
+produces a correct sideload build and the other way round.
+
+`internal` and the tag-triggered upload only touch the binary and the release
+notes. The listing text is a separate, deliberate `listing` run, and images
+are never pushed at all: the Play screenshots live in `play/store-listing/`
+and the F-Droid set in `fastlane/metadata/.../images/`, and they are not the
+same assets. Upload Play imagery in the Console.
+
+### One-time setup: the Play API key
+
+<Steps>
+
+1. **Link a Cloud project.** Play Console → Setup → API access, link (or
+   create) a Google Cloud project.
+
+2. **Create a service account** in that Cloud project (IAM & Admin → Service
+   accounts). No project roles are needed. Create a JSON key for it and
+   download it.
+
+3. **Invite the service account** in Play Console → Users and permissions,
+   using its `...@...iam.gserviceaccount.com` address. Grant it release
+   permission for this app (releases to testing tracks; add production if
+   `promote` should work from the CLI too).
+
+4. **Put the key where fastlane looks.** Locally that is
+   `fastlane/play-service-account.json` (git-ignored). For CI, paste the whole
+   JSON as a repository secret named `PLAY_SERVICE_ACCOUNT_JSON`.
+
+5. **Prove it works:**
+
+   ```sh
+   bundle exec fastlane android check_key
+   ```
+
+</Steps>
 
 ## Deploying the docs
 

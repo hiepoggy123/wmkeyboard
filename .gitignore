@@ -70,3 +70,14 @@ docs/SONNET_PROMPT.md
 build-out/
 .claude/
 .github/modernize/
+
+# Fastlane (runtime artifacts and the Play service-account key; the Fastfile,
+# Appfile and metadata/ ARE committed)
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/test_output/
+fastlane/README.md
+fastlane/play-service-account.json
+fastlane/.env*
+.bundle/
+vendor/bundle/

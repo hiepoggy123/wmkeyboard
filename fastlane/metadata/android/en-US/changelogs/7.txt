@@ -1,0 +1,6 @@
+First public release.
+
+Offline typing core: prediction, autocorrect, glide typing and learning, all
+on the device. 352 languages, Avro-style Bengali phonetic input, the theme
+editor, the toolbox, emoji search, voice and handwriting input, and the addon
+and plugin system.

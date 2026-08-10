@@ -1,0 +1,5 @@
+# The Play service-account key never lives in the repo. Locally it sits at the
+# git-ignored default path below; CI writes the PLAY_SERVICE_ACCOUNT_JSON
+# secret to a file and points WMKB_PLAY_JSON_KEY at it.
+json_key_file(ENV["WMKB_PLAY_JSON_KEY"] || "fastlane/play-service-account.json")
+package_name("com.wasimaster.wmkeyboard")
