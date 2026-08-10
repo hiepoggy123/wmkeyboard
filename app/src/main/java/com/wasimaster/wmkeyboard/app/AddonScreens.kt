@@ -399,6 +399,8 @@ internal fun AddonsScreen(
     val store = remember { AddonStore.get(context) }
     val revision by store.revision.collectAsStateWithLifecycle()
     val repos = remember(revision) { store.repos() }
+    val autoRefresh = remember(revision) { store.autoRefresh() }
+    val refreshUnmeteredOnly = remember(revision) { store.refreshUnmeteredOnly() }
     val installed = remember(revision, typeFilter) {
         store.installed().filter { (_, record) -> typeFilter == null || record.type == typeFilter }
     }
@@ -439,8 +441,13 @@ internal fun AddonsScreen(
     }
 
     // One fetch per visit, so a repository that published something new shows
-    // it without the user having to know to pull to refresh.
-    LaunchedEffect(Unit) { refreshAll() }
+    // it without the user having to know to pull to refresh. Both gates are the
+    // user's; the Refresh button ignores them, because pressing it is the ask.
+    LaunchedEffect(Unit) {
+        if (!store.autoRefresh()) return@LaunchedEffect
+        if (store.refreshUnmeteredOnly() && isMeteredNow(context)) return@LaunchedEffect
+        refreshAll()
+    }
 
     // Resolved here rather than in the coroutine below: a background lambda is
     // not a composable, so it cannot read a resource itself.
@@ -531,6 +538,32 @@ internal fun AddonsScreen(
             item {
                 ScrollAnchor(ref.manifestUrl == returnTo) {
                     RepositoryRow(ref, store, typeFilter, onNavigate)
+                }
+            }
+        }
+    }
+
+    // Only worth showing once there is a repository to fetch from; with none,
+    // the auto-fetch has nothing to do and the rows explain nothing.
+    if (repos.isNotEmpty()) {
+        SettingsGroup(stringResource(R.string.addon_refresh_section_title)) {
+            item {
+                ToggleSetting(
+                    R.string.addon_auto_refresh_title,
+                    stringResource(R.string.addon_auto_refresh_subtitle),
+                    autoRefresh,
+                    info = stringResource(R.string.addon_auto_refresh_info),
+                    default = true,
+                ) { store.setAutoRefresh(it) }
+            }
+            if (autoRefresh) {
+                item {
+                    ToggleSetting(
+                        R.string.addon_refresh_unmetered_title,
+                        stringResource(R.string.addon_refresh_unmetered_subtitle),
+                        refreshUnmeteredOnly,
+                        default = false,
+                    ) { store.setRefreshUnmeteredOnly(it) }
                 }
             }
         }

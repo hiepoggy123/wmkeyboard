@@ -79,6 +79,9 @@ class PluginStore(private var baseDir: File?) {
         val version: Int = FORMAT_VERSION,
         val plugins: List<InstalledPlugin> = emptyList(),
         val subsystemEnabled: Boolean = false,
+        // Defaults true so an index written before this existed keeps the
+        // behaviour it was written under.
+        val autoDisableOnAbandon: Boolean = true,
     )
 
     private val pluginList = ArrayList<InstalledPlugin>()
@@ -89,6 +92,8 @@ class PluginStore(private var baseDir: File?) {
 
     /** Bumped on every change, so Compose and the IME re-read the store. */
     val revision: StateFlow<Int> = _revision.asStateFlow()
+
+    private var autoDisable = true
 
     init {
         reload()
@@ -160,6 +165,31 @@ class PluginStore(private var baseDir: File?) {
     fun setSubsystemEnabled(enabled: Boolean) {
         if (subsystem == enabled) return
         subsystem = enabled
+        save()
+    }
+
+    /**
+     * Whether [recordAbandon] may switch a plugin off once it reaches
+     * [MAX_ABANDONS]. On, which is what the store always did.
+     *
+     * Off is for the plugin's author, and for anyone on a phone slow enough to
+     * be the real cause. Two timeouts permanently disable a plugin that works,
+     * and from in here there is no telling "this script hangs" from "this
+     * device was busy". The strikes are counted either way, so turning this off
+     * gives up the intervention and keeps the evidence.
+     *
+     * Stored beside [subsystemEnabled] and for the same reasons: it belongs to
+     * the plugin subsystem, only its own screen reads it, and `KeyboardSettings`
+     * is close enough to the JVM `copy$default` limit that a flag no hot path
+     * touches has no business being pushed through it.
+     */
+    @Synchronized
+    fun autoDisableOnAbandon(): Boolean = autoDisable
+
+    @Synchronized
+    fun setAutoDisableOnAbandon(enabled: Boolean) {
+        if (autoDisable == enabled) return
+        autoDisable = enabled
         save()
     }
 
@@ -277,6 +307,9 @@ class PluginStore(private var baseDir: File?) {
      * Records that this plugin's thread had to be abandoned, disabling it once
      * it reaches [MAX_ABANDONS]. Returns the plugin as it now stands, or null if
      * it is not installed.
+     *
+     * The strike is counted even with [autoDisableOnAbandon] off, so the count
+     * on the plugin's own screen still says what has been happening.
      */
     @Synchronized
     fun recordAbandon(id: String): InstalledPlugin? {
@@ -285,7 +318,8 @@ class PluginStore(private var baseDir: File?) {
         val count = pluginList[index].abandonedCount + 1
         pluginList[index] = pluginList[index].copy(
             abandonedCount = count,
-            enabled = pluginList[index].enabled && count < MAX_ABANDONS,
+            enabled = pluginList[index].enabled &&
+                (!autoDisable || count < MAX_ABANDONS),
         )
         save()
         return pluginList[index]
@@ -318,7 +352,11 @@ class PluginStore(private var baseDir: File?) {
             writeAtomically(
                 File(dir, INDEX_FILE),
                 json.encodeToString(
-                    Snapshot(plugins = pluginList.toList(), subsystemEnabled = subsystem),
+                    Snapshot(
+                        plugins = pluginList.toList(),
+                        subsystemEnabled = subsystem,
+                        autoDisableOnAbandon = autoDisable,
+                    ),
                 ),
             )
         }
@@ -349,12 +387,14 @@ class PluginStore(private var baseDir: File?) {
     fun reload() {
         pluginList.clear()
         subsystem = false
+        autoDisable = true
         val dir = baseDir ?: run { _revision.value++; return }
         val index = File(dir, INDEX_FILE)
         if (index.exists()) {
             runCatching {
                 val snapshot = json.decodeFromString<Snapshot>(index.readText())
                 subsystem = snapshot.subsystemEnabled
+                autoDisable = snapshot.autoDisableOnAbandon
                 pluginList.addAll(
                     snapshot.plugins
                         .filter { SAFE_ID.matches(it.id) }

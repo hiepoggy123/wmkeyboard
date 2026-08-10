@@ -2033,6 +2033,17 @@ val AutoBackupSettings.sectionSet: Set<ConfigBackup.Section>
     get() = ConfigBackup.Section.entries.filterTo(LinkedHashSet()) { it.id in sections }
 
 /**
+ * What [KeyboardSettings.fontScale] can be set to, on the Accessibility screen
+ * and per screen variant.
+ *
+ * The ceiling used to be 150%, which is not enough for severe low vision: key
+ * height lives on another screen, so a label that still cannot be read has
+ * nowhere left to go. Past 200% a label stops fitting its key on a phone, which
+ * is a real limit rather than a chosen one.
+ */
+val KeyFontScaleRange = 0.7f..2.0f
+
+/**
  * Every file under `filesDir` that holds something learned from typing, for
  * [SettingsRepository.clearLearnedData].
  *
@@ -6183,7 +6194,7 @@ class SettingsRepository(private val context: Context) {
         )
 
     suspend fun setVariantFontScale(variant: ScreenVariant, value: Float?) =
-        editVariant(variant, FONT_SCALE, fontScaleKey(variant), value?.coerceIn(0.7f, 1.5f))
+        editVariant(variant, FONT_SCALE, fontScaleKey(variant), value?.coerceIn(KeyFontScaleRange))
 
     suspend fun setVariantAlignment(variant: ScreenVariant, value: KeyboardAlignment?) =
         editVariant(variant, KEYBOARD_ALIGNMENT, alignmentKey(variant), value?.name)
@@ -6304,7 +6315,7 @@ class SettingsRepository(private val context: Context) {
         editPrefs { it[KEY_GAP_SCALE] = value.coerceIn(0f, 2f) }
 
     suspend fun setFontScale(value: Float) =
-        editPrefs { it[FONT_SCALE] = value.coerceIn(0.7f, 1.5f) }
+        editPrefs { it[FONT_SCALE] = value.coerceIn(KeyFontScaleRange) }
 
     suspend fun setKeyFontId(value: String) =
         editPrefs { it[KEY_FONT_ID] = value }

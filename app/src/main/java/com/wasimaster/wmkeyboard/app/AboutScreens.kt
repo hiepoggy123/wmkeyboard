@@ -28,6 +28,9 @@ import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.app.updates.UpdateSettings
+import com.wasimaster.wmkeyboard.core.settings.OnboardingSettings
+import com.wasimaster.wmkeyboard.core.settings.PersonaDepth
+import com.wasimaster.wmkeyboard.core.settings.PersonaLanguages
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.support.Support
 import kotlinx.coroutines.Dispatchers
@@ -435,8 +438,34 @@ private val serviceAttributions: List<Attribution> = listOf(
     ),
 )
 
+/**
+ * "A good middle · Several languages", or "Not answered".
+ *
+ * Depth first, because it is the answer that changes the most: it decides how
+ * many tools are pinned, how many wizard pages exist and whether the theme
+ * gallery groups families. The privacy answer is left out — it wrote its
+ * settings once and they are visible on the Privacy screen, so repeating it
+ * here would imply this row still governs them.
+ */
+@Composable
+private fun personaSummary(persona: OnboardingSettings): String {
+    val depth = when (persona.personaDepth) {
+        PersonaDepth.MINIMAL -> R.string.about_persona_depth_minimal
+        PersonaDepth.BALANCED -> R.string.about_persona_depth_balanced
+        PersonaDepth.POWER -> R.string.about_persona_depth_power
+        PersonaDepth.UNSET -> return stringResource(R.string.about_persona_unset)
+    }
+    val languages = when (persona.personaLanguages) {
+        PersonaLanguages.ONE -> R.string.about_persona_languages_one
+        PersonaLanguages.MANY -> R.string.about_persona_languages_many
+        PersonaLanguages.UNSET -> return stringResource(depth)
+    }
+    return stringResource(R.string.about_persona_value, stringResource(depth), stringResource(languages))
+}
+
 @Composable
 internal fun AboutSettings(
+    persona: OnboardingSettings,
     onOpenLicenses: () -> Unit,
     onOpenLicenseText: (String) -> Unit,
     onOpenDebugLog: () -> Unit = {},
@@ -564,6 +593,19 @@ internal fun AboutSettings(
                 stringResource(R.string.about_diagnostics_subtitle),
                 route = "debug_log",
                 onClick = onOpenDebugLog,
+            )
+        }
+        item {
+            // The quiz answers still decide how many tools are pinned, how the
+            // theme gallery is laid out and which pages the wizard even has,
+            // and until this row existed there was nowhere in settings that
+            // said so or showed what had been answered. Tapping goes to the
+            // wizard, whose first question is this one.
+            NavRow(
+                R.string.about_persona_title,
+                stringResource(R.string.about_persona_subtitle),
+                value = personaSummary(persona),
+                onClick = onReplayOnboarding,
             )
         }
         item {

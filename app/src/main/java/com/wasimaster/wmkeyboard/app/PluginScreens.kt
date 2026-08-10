@@ -57,6 +57,7 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
     val store = remember { PluginStore.get(context) }
     val revision by store.revision.collectAsStateWithLifecycle()
     val enabled = remember(revision) { store.subsystemEnabled() }
+    val autoDisable = remember(revision) { store.autoDisableOnAbandon() }
     val plugins = remember(revision) { store.plugins() }
     var importMessage by remember { mutableStateOf<String?>(null) }
     var pending by remember { mutableStateOf<Uri?>(null) }
@@ -95,6 +96,17 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
                         }
                     },
                 )
+            }
+        }
+        if (enabled) {
+            item {
+                ToggleSetting(
+                    R.string.plugins_auto_disable_title,
+                    stringResource(R.string.plugins_auto_disable_subtitle),
+                    autoDisable,
+                    info = stringResource(R.string.plugins_auto_disable_info),
+                    default = true,
+                ) { store.setAutoDisableOnAbandon(it) }
             }
         }
     }

@@ -85,6 +85,10 @@ class AddonStore(private var baseDir: File?) {
     private data class Snapshot(
         val version: Int = FORMAT_VERSION,
         val repos: List<AddonRepoRef> = emptyList(),
+        // Both default to the behaviour a file written before they existed was
+        // written under: fetch on every visit, over any connection.
+        val autoRefresh: Boolean = true,
+        val refreshUnmeteredOnly: Boolean = false,
     )
 
     @Serializable
@@ -94,6 +98,8 @@ class AddonStore(private var baseDir: File?) {
     )
 
     private val repoList = ArrayList<AddonRepoRef>()
+    private var refreshOnOpen = true
+    private var unmeteredRefresh = false
     private val installedMap = LinkedHashMap<String, InstalledAddon>()
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
@@ -167,6 +173,40 @@ class AddonStore(private var baseDir: File?) {
 
     @Synchronized
     fun repos(): List<AddonRepoRef> = repoList.toList()
+
+    /**
+     * Whether opening the Addons screen re-fetches every repository manifest.
+     *
+     * On, because a repository that published something new should show it
+     * without the user having to know to pull down. Worth being able to turn
+     * off: the screen fetches every manifest on every visit, which on a metered
+     * connection is somebody's data spent on a screen they opened to look at
+     * what they already have.
+     *
+     * Stored here rather than in `KeyboardSettings` for the reason
+     * `PluginStore.subsystemEnabled` gives: it belongs to this subsystem, only
+     * this screen reads it, and nothing on the keyboard's hot path wants it.
+     */
+    @Synchronized
+    fun autoRefresh(): Boolean = refreshOnOpen
+
+    @Synchronized
+    fun setAutoRefresh(enabled: Boolean) {
+        if (refreshOnOpen == enabled) return
+        refreshOnOpen = enabled
+        save()
+    }
+
+    /** Whether [autoRefresh] waits for a connection Android does not meter. */
+    @Synchronized
+    fun refreshUnmeteredOnly(): Boolean = unmeteredRefresh
+
+    @Synchronized
+    fun setRefreshUnmeteredOnly(enabled: Boolean) {
+        if (unmeteredRefresh == enabled) return
+        unmeteredRefresh = enabled
+        save()
+    }
 
     @Synchronized
     fun repo(manifestUrl: String): AddonRepoRef? =
@@ -329,7 +369,16 @@ class AddonStore(private var baseDir: File?) {
     fun save() {
         val dir = baseDir
         if (dir != null) {
-            writeAtomically(File(dir, REPOS_FILE), json.encodeToString(Snapshot(repos = repoList.toList())))
+            writeAtomically(
+                File(dir, REPOS_FILE),
+                json.encodeToString(
+                    Snapshot(
+                        repos = repoList.toList(),
+                        autoRefresh = refreshOnOpen,
+                        refreshUnmeteredOnly = unmeteredRefresh,
+                    ),
+                ),
+            )
             writeAtomically(
                 File(dir, INSTALLED_FILE),
                 json.encodeToString(InstalledSnapshot(installed = LinkedHashMap(installedMap))),
@@ -361,6 +410,8 @@ class AddonStore(private var baseDir: File?) {
     @Synchronized
     fun reload() {
         repoList.clear()
+        refreshOnOpen = true
+        unmeteredRefresh = false
         installedMap.clear()
         val dir = baseDir ?: run { _revision.value++; return }
 
@@ -369,6 +420,8 @@ class AddonStore(private var baseDir: File?) {
             runCatching {
                 val snapshot = json.decodeFromString<Snapshot>(reposFile.readText())
                 repoList.addAll(snapshot.repos.take(MAX_REPOS))
+                refreshOnOpen = snapshot.autoRefresh
+                unmeteredRefresh = snapshot.refreshUnmeteredOnly
             }
         }
 

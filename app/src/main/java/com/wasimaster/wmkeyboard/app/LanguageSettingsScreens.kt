@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.Context
 import android.net.ConnectivityManager
 import android.widget.Toast
 import androidx.compose.foundation.clickable
@@ -439,13 +440,19 @@ internal fun languageData(langId: String): LanguageData {
 internal fun rememberMeteredGuard(settings: KeyboardSettings): () -> Boolean {
     val context = LocalContext.current
     return remember(settings.confirmMeteredDownloads) {
-        {
-            settings.confirmMeteredDownloads &&
-                (context.getSystemService(ConnectivityManager::class.java)
-                    ?.isActiveNetworkMetered ?: false)
-        }
+        { settings.confirmMeteredDownloads && isMeteredNow(context) }
     }
 }
+
+/**
+ * Whether the connection in use right now is one Android counts as metered.
+ *
+ * Assumes not metered when the service is missing, which is the same direction
+ * the platform errs: a wrong "metered" would block a download on a connection
+ * that costs nothing, and the user has no way to see why.
+ */
+internal fun isMeteredNow(context: Context): Boolean =
+    context.getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered ?: false
 
 /**
  * Fetches everything [data] offers, as the prompt's Download does.

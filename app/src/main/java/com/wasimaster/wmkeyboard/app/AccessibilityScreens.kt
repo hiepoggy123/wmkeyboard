@@ -8,6 +8,7 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
+import com.wasimaster.wmkeyboard.core.settings.KeyFontScaleRange
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
@@ -102,7 +103,7 @@ internal fun AccessibilitySettings(
                 title = R.string.accessibility_text_size_title,
                 subtitle = stringResource(R.string.accessibility_text_size_subtitle),
                 value = settings.fontScale,
-                range = 0.7f..1.5f,
+                range = KeyFontScaleRange,
                 display = { "${(it * 100).toInt()}%" },
                 info = stringResource(R.string.accessibility_text_size_info),
                 default = SettingsDefaults.fontScale,

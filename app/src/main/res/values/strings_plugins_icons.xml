@@ -21,6 +21,10 @@
     <string name="plugins_allow_title">Allow plugins</string>
     <string name="plugins_allow_subtitle">A plugin is a small tool that other people write. It runs inside a sandbox on this keyboard. This setting is not the Plugins tool on the toolbar, which only sets where the panel appears.</string>
 
+    <string name="plugins_auto_disable_title">Switch off a plugin that hangs</string>
+    <string name="plugins_auto_disable_subtitle">Turn a plugin off after it stops responding twice</string>
+    <string name="plugins_auto_disable_info">A plugin gets a short time to answer. When it runs past that, the keyboard abandons its thread and counts a strike. At two strikes the keyboard switches the plugin off, so that a broken script cannot keep freezing the panel. Turn this off if you write plugins, or if your device is slow enough to be the real cause, because the keyboard cannot tell a script that hangs from a device that was busy. The keyboard still counts the strikes and still shows them, so you keep the evidence and give up only the switching off. This setting is on by default.</string>
+
     <string name="plugins_facts_title">What a plugin can and cannot do</string>
     <!-- Six list rows. Each one has a tick or a cross beside it. -->
     <string name="plugins_fact_no_typing">It cannot see what you type</string>

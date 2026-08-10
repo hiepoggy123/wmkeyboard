@@ -174,7 +174,9 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
 import com.wasimaster.wmkeyboard.core.settings.restrictedToDirectBoot
 import com.wasimaster.wmkeyboard.core.settings.PowerSavingSettings
+import com.wasimaster.wmkeyboard.core.settings.SystemMotion
 import com.wasimaster.wmkeyboard.core.settings.underPowerSaving
+import com.wasimaster.wmkeyboard.core.settings.withSystemMotion
 import com.wasimaster.wmkeyboard.core.power.PowerSaver
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
@@ -1656,8 +1658,13 @@ open class WMKeyboardService : InputMethodService() {
                 val unlockedSettings =
                     if (userUnlocked) formed else formed.restrictedToDirectBoot()
                 val saving = unlockedSettings.powerSaving.appliesTo(power)
-                val settings =
+                // Re-read per emission rather than once at startup, so turning
+                // the device's animation scale off in developer options or
+                // accessibility reaches the keyboard at the next settings
+                // change instead of at the next process start.
+                val settings = (
                     if (saving) unlockedSettings.underPowerSaving() else unlockedSettings
+                    ).withSystemMotion(SystemMotion.animationsOff(this@WMKeyboardService))
                 val nextHiddenKey = Triple(
                     settings.emoji.hideUnrenderable,
                     settings.emojiFont,

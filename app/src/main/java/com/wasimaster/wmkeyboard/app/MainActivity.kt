@@ -310,6 +310,7 @@ import com.wasimaster.wmkeyboard.core.settings.BackupDestination
 import com.wasimaster.wmkeyboard.core.settings.FtpConfig
 import com.wasimaster.wmkeyboard.core.settings.S3Config
 import com.wasimaster.wmkeyboard.core.settings.DEFAULT_LONG_PRESS_LETTERS
+import com.wasimaster.wmkeyboard.core.settings.KeyFontScaleRange
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.LongPressLetterActions
 import com.wasimaster.wmkeyboard.core.settings.destinationConfigured
@@ -1228,6 +1229,7 @@ private fun SettingsNavGraph(
                 route = "about",
             ) {
                 AboutSettings(
+                    persona = settings.onboarding,
                     onOpenLicenses = { navController.navigate("licenses") },
                     onOpenLicenseText = { navController.navigate("license_text/$it") },
                     onOpenDebugLog = { navController.navigate("debug_log") },
@@ -5139,7 +5141,7 @@ private fun AppearanceSettings(
                 R.string.appearance_key_label_size_title,
                 subtitle = stringResource(R.string.appearance_key_label_size_subtitle),
                 value = settings.fontScale,
-                range = 0.7f..1.5f,
+                range = KeyFontScaleRange,
                 display = { multiplierFormat.format(it) },
                 info = stringResource(R.string.appearance_key_label_size_info),
                 default = SettingsDefaults.fontScale,
@@ -5716,7 +5718,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     SliderSetting(
                         R.string.layout_font_size_title,
                         value = values.fontScale ?: settings.fontScale,
-                        range = 0.7f..1.5f,
+                        range = KeyFontScaleRange,
                         display = { multiplierFormat.format(it) },
                     ) { scope.launch { repository.setVariantFontScale(variant, it) } }
                 }
