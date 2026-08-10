@@ -88,7 +88,7 @@
 
     <string name="typing_auto_capitalize_title">Automatic capital letters</string>
     <string name="typing_auto_capitalize_subtitle">Put a capital letter at the start of each sentence</string>
-    <string name="typing_auto_capitalize_info">Shift turns on by itself at the start of a text field, and after the punctuation that ends a sentence (. ! ? ।). This happens only in the fields that ask for sentence capitals, and only in English mode. The keyboard never changes caps lock by itself.</string>
+    <string name="typing_auto_capitalize_info">Shift turns on by itself at the start of a text field, and after the punctuation that ends a sentence (. ! ? ।). This happens only in the fields that ask for sentence capitals, and only in the scripts that have capital letters, which are Latin, Cyrillic, Greek and Armenian. Nothing changes in Bengali or any other script without letter case. The keyboard never changes caps lock by itself.</string>
 
     <string name="typing_double_space_period_title">Double space for a full stop</string>
     <string name="typing_double_space_period_subtitle">Press space two times to type a full stop and a space</string>
@@ -400,4 +400,9 @@
     <string name="typing_backspace_step_subtitle">How far you swipe backspace to delete the first word</string>
     <string name="typing_backspace_step_info">Later words come off faster than the first on a fixed curve, so this one distance tunes the whole gesture. Raise it if words disappear by accident, lower it if clearing a sentence takes too long a pull. This setting is 72 dp by default.</string>
 
+    <string name="typing_learn_threshold_title">Learn a word after</string>
+    <string name="typing_learn_threshold_subtitle">How many times you type a word before autocorrect leaves it alone</string>
+    <string name="typing_learn_threshold_info">The keyboard never corrects a word it has learned from you. That protects your names and slang, but it also means one typo you commit once is protected forever. Raise this to make the keyboard wait until it has seen the word more than once. Suggestions are not affected: a word below this count can still be offered, it is just not shielded from correction. This setting is once by default.</string>
+    <!-- Shown in place of a number at the lowest point of the learn threshold slider. -->
+    <string name="typing_learn_threshold_once">Once</string>
 </resources>

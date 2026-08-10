@@ -227,6 +227,22 @@ class UserLexicon(private val storageFile: File?) {
     @Synchronized
     fun contains(word: String): Boolean = trie.contains(WordKey.of(word))
 
+    /**
+     * Whether the word has been seen often enough to be treated as one the
+     * user really means, rather than one they typed once.
+     *
+     * The difference matters for autocorrect: a learned word is exempt from
+     * correction, so at a threshold of 1 a single committed typo is
+     * permanently protected. Suggestion ranking is unaffected either way, so a
+     * word below the threshold can still be offered, just not shielded.
+     */
+    @Synchronized
+    fun isEstablished(word: String, minCount: Int): Boolean {
+        val key = WordKey.of(word)
+        if (!trie.contains(key)) return false
+        return minCount <= 1 || (words[key] ?: 0) >= minCount
+    }
+
     @Synchronized
     fun frequencyOf(word: String): Int = trie.frequencyOf(WordKey.of(word))
 

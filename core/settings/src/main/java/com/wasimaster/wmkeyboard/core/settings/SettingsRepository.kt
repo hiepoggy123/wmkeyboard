@@ -3121,6 +3121,18 @@ data class SuggestionStripSettings(
      * suggestions they still could not read.
      */
     val textScale: Float = 1f,
+    /**
+     * How many times a word has to be typed before being learned protects it
+     * from autocorrect.
+     *
+     * 1 is what the keyboard always did, and it means a typo committed once is
+     * exempt from correction forever. Raising it asks for a second sighting
+     * before the word is treated as deliberate. Suggestion ranking is
+     * unaffected: a word below the threshold is still offered, just not
+     * shielded. Lives here rather than beside the other autocorrect flags only
+     * to stay under the settings class's JVM field ceiling.
+     */
+    val learnedWordMinCount: Int = 1,
     /** Keep the suggestion strip as the default top bar even with nothing typed. */
     val suggestionsFirst: Boolean = false,
     /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */
@@ -3892,6 +3904,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBOX_PAGE_SIZE = intPreferencesKey("toolbox_page_size")
         private val TOOLBOX_LABEL_SIZE = intPreferencesKey("toolbox_label_size")
         private val SUGGESTION_TEXT_SCALE = floatPreferencesKey("suggestion_text_scale")
+        private val LEARNED_WORD_MIN_COUNT = intPreferencesKey("learned_word_min_count")
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
         private val GRAMMAR_DIALECT = stringPreferencesKey("grammar_dialect")
@@ -4517,6 +4530,8 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.suggestionStrip.punctuationChips,
                 slotCount = p[SUGGESTION_SLOT_COUNT] ?: defaults.suggestionStrip.slotCount,
                 textScale = p[SUGGESTION_TEXT_SCALE] ?: defaults.suggestionStrip.textScale,
+                learnedWordMinCount = p[LEARNED_WORD_MIN_COUNT]
+                    ?: defaults.suggestionStrip.learnedWordMinCount,
                 suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionStrip.suggestionsFirst,
                 suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
                     ?: defaults.suggestionStrip.suggestionPrimaryCenter,
@@ -5474,6 +5489,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSuggestionTextScale(value: Float) =
         editPrefs { it[SUGGESTION_TEXT_SCALE] = value.coerceIn(0.8f, 1.6f) }
+
+    suspend fun setLearnedWordMinCount(value: Int) =
+        editPrefs { it[LEARNED_WORD_MIN_COUNT] = value.coerceIn(1, 5) }
 
     suspend fun setEmojiRowAboveToolbar(value: Boolean) =
         editPrefs { it[EMOJI_ROW_ABOVE_TOOLBAR] = value }
@@ -7222,6 +7240,10 @@ class SettingsRepository(private val context: Context) {
             it[SUGGESTION_BLACKLIST] = (it[SUGGESTION_BLACKLIST].orEmpty() - normalized)
         }
     }
+
+    /** Empties the blacklist in one edit; per-word removal is the only other way out. */
+    suspend fun clearSuggestionBlacklist() =
+        editPrefs { it.remove(SUGGESTION_BLACKLIST) }
 
     suspend fun setInlineEmojiSearch(value: Boolean) =
         editPrefs { it[INLINE_EMOJI_SEARCH] = value }

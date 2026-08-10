@@ -318,4 +318,10 @@
     <string name="backup_auto_oauth_no_browser">The app could not open a browser to sign in.</string>
     <string name="backup_auto_dropbox_info">The app gets a folder of its own inside your Dropbox and can see nothing else. You can find the folder under Apps, and you can delete it. To take this permission back, open the connected apps list in your Dropbox account.</string>
     <string name="backup_auto_onedrive_info">The app gets a folder of its own inside your OneDrive and can see nothing else. You can find the folder under Apps. To take this permission back, open the list of apps in your Microsoft account.</string>
+    <string name="backup_blacklist_clear_title">Clear the blacklist</string>
+    <plurals name="backup_blacklist_clear_subtitle">
+        <item quantity="one">Remove the one blocked word</item>
+        <item quantity="other">Remove all %1$d blocked words</item>
+    </plurals>
+    <string name="backup_blacklist_clear_confirm">Every word on the blacklist is removed and can be suggested again. Words you have taught the keyboard are not affected.</string>
 </resources>

@@ -2852,6 +2852,18 @@ private fun TypingSettings(
             ) { scope.launch { repository.setSuggestionSlotCount(it.toInt()) } }
         }
         item {
+            val once = stringResource(R.string.typing_learn_threshold_once)
+            SliderSetting(
+                R.string.typing_learn_threshold_title,
+                subtitle = stringResource(R.string.typing_learn_threshold_subtitle),
+                value = settings.suggestionStrip.learnedWordMinCount.toFloat(),
+                range = 1f..5f,
+                display = { if (it.toInt() <= 1) once else it.toInt().toString() },
+                info = stringResource(R.string.typing_learn_threshold_info),
+                default = SettingsDefaults.suggestionStrip.learnedWordMinCount.toFloat(),
+            ) { scope.launch { repository.setLearnedWordMinCount(it.toInt()) } }
+        }
+        item {
             ToggleSetting(
                 R.string.typing_suggestions_all_fields_title,
                 stringResource(R.string.typing_suggestions_all_fields_subtitle),
@@ -6757,6 +6769,23 @@ private fun BlacklistSettings(repository: SettingsRepository, settings: Keyboard
     Spacer(Modifier.height(12.dp))
     if (words.isEmpty()) {
         CaptionText(stringResource(R.string.backup_blacklist_empty))
+    } else {
+        // Per-row deletion is the only other way out of here, and the list is
+        // DataStore-backed so the Storage screen has nothing to offer either.
+        SettingsGroup {
+            item {
+                ActionRow(
+                    title = R.string.backup_blacklist_clear_title,
+                    subtitle = pluralStringResource(
+                        R.plurals.backup_blacklist_clear_subtitle,
+                        words.size,
+                        words.size,
+                    ),
+                    action = stringResource(CommonR.string.common_clear),
+                    confirm = stringResource(R.string.backup_blacklist_clear_confirm),
+                ) { scope.launch { repository.clearSuggestionBlacklist() } }
+            }
+        }
     }
     SettingsGroup {
         for (word in words) {

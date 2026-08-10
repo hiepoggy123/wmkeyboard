@@ -355,6 +355,18 @@ class SuggestionEngine(
     var skipAllCapsAutocorrect: Boolean = true
 
     /**
+     * How many times a word has to be typed before being learned protects it
+     * from autocorrect. Set from the user's setting.
+     *
+     * 1 is what the keyboard always did: one committed word was permanently
+     * exempt, which is fine for a name and wrong for a typo. Raising it means
+     * a word has to be typed more than once before autocorrect leaves it
+     * alone. Ranking is unaffected either way.
+     */
+    @Volatile
+    var learnedWordMinCount: Int = 1
+
+    /**
      * Autocorrect's memory of its own mistakes: per-pair revert penalties and
      * the fired/reverted ratio behind [adaptiveConfidence]. The default is a
      * memory-only instance (null file), so tests and locked-boot sessions get
@@ -1436,7 +1448,9 @@ class SuggestionEngine(
         // An all-caps word is a deliberate acronym or shout, not a typo of a
         // lowercase word — don't "correct" it away when the user asked us not to.
         if (skipAllCapsAutocorrect && isAllCaps(word)) return null
-        if (inDictionaries(lower) || userLexicon.contains(lower)) return null
+        if (inDictionaries(lower) || userLexicon.isEstablished(lower, learnedWordMinCount)) {
+            return null
+        }
         // Contact and app names are known words too — never "corrected" away.
         if (contacts.contains(lower) || apps.contains(lower)) return null
         // Digits: exactly one digit may be a number-row slip (when the IME

@@ -1847,6 +1847,8 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.blockOffensiveWords =
                     settings.suggestionStrip.blockOffensiveWords
                 suggestionEngine?.skipAllCapsAutocorrect = settings.autocorrectSkipAllCaps
+                suggestionEngine?.learnedWordMinCount =
+                    settings.suggestionStrip.learnedWordMinCount
                 suggestionEngine?.autocorrectSplits = settings.suggestionStrip.autocorrectSplits
                 suggestionEngine?.digitSlipCorrections =
                     settings.numberRow && settings.suggestionStrip.numberRowCorrections
@@ -2201,6 +2203,8 @@ open class WMKeyboardService : InputMethodService() {
                 offensiveWords = offensiveSet
                 blockOffensiveWords = _uiState.value.settings.suggestionStrip.blockOffensiveWords
                 skipAllCapsAutocorrect = _uiState.value.settings.autocorrectSkipAllCaps
+                learnedWordMinCount =
+                    _uiState.value.settings.suggestionStrip.learnedWordMinCount
                 autocorrectSplits = _uiState.value.settings.suggestionStrip.autocorrectSplits
                 digitSlipCorrections = _uiState.value.settings.numberRow &&
                     _uiState.value.settings.suggestionStrip.numberRowCorrections
