@@ -2,7 +2,7 @@ import React from "react";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { fade } from "@remotion/transitions/fade";
 import { slide } from "@remotion/transitions/slide";
-import { Audio, interpolate, staticFile, useVideoConfig } from "remotion";
+import { Audio, Sequence, interpolate, staticFile, useVideoConfig } from "remotion";
 import { MUSIC } from "./clips";
 import { SceneAddons } from "./scenes/SceneAddons";
 import { SceneEmoji } from "./scenes/SceneEmoji";
@@ -14,6 +14,12 @@ import { SceneThemes } from "./scenes/SceneThemes";
 import { SceneTools } from "./scenes/SceneTools";
 
 const T = 12; // transition overlap frames
+const DURATIONS = [70, 150, 120, 200, 120, 140, 130, 120];
+// Each transition starts where the next sequence begins.
+const TRANSITION_STARTS = DURATIONS.slice(0, -1).reduce<number[]>((acc, d) => {
+  const prev = acc.length ? acc[acc.length - 1] : 0;
+  return [...acc, prev + d - T];
+}, []);
 
 export const Trailer: React.FC = () => {
   const { durationInFrames, fps } = useVideoConfig();
@@ -26,12 +32,17 @@ export const Trailer: React.FC = () => {
             interpolate(
               f,
               [0, fps, durationInFrames - 2 * fps, durationInFrames],
-              [0, 0.9, 0.9, 0],
+              [0, 0.72, 0.72, 0],
               { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
             )
           }
         />
       ) : null}
+      {TRANSITION_STARTS.map((f) => (
+        <Sequence key={f} from={f - 3}>
+          <Audio src={staticFile("sfx/whoosh.wav")} volume={0.4} />
+        </Sequence>
+      ))}
       <TransitionSeries>
         <TransitionSeries.Sequence durationInFrames={70} name="Intro">
           <SceneIntro />

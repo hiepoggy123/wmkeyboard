@@ -2,6 +2,7 @@ import React from "react";
 import { Series } from "remotion";
 import { AVAILABLE_CLIPS } from "../clips";
 import { PhoneFrame } from "../components/PhoneFrame";
+import { Sfx } from "../components/Sfx";
 import { AMBER, CYAN, LIME } from "../theme";
 import { SceneSplit } from "./SceneSplit";
 
@@ -34,6 +35,7 @@ export const SceneTools: React.FC = () => {
       <Series>
         {cuts.map((cut) => (
           <Series.Sequence key={cut.clip} durationInFrames={per} layout="none">
+            <Sfx name="swap" volume={0.45} />
             <PhoneFrame clip={cut.clip} width={400} delay={0} label={cut.label} />
           </Series.Sequence>
         ))}

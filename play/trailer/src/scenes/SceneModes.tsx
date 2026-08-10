@@ -1,6 +1,7 @@
 import React from "react";
 import { Series } from "remotion";
 import { PhoneFrame } from "../components/PhoneFrame";
+import { Sfx } from "../components/Sfx";
 import { CYAN, VIOLET } from "../theme";
 import { SceneSplit } from "./SceneSplit";
 
@@ -27,6 +28,7 @@ export const SceneModes: React.FC = () => {
           />
         </Series.Sequence>
         <Series.Sequence durationInFrames={60} layout="none">
+          <Sfx name="swap" volume={0.45} />
           <PhoneFrame
             clip="fieldkinds"
             still="kb-english-dark.png"

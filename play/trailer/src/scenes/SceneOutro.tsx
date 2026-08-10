@@ -11,6 +11,7 @@ import {
 import { Backdrop } from "../components/Backdrop";
 import { Chip } from "../components/Chip";
 import { GradientHeadline } from "../components/GradientHeadline";
+import { Sfx } from "../components/Sfx";
 import { INTER } from "../fonts";
 import { AMBER, BODY, CYAN, LIME, MAGENTA, VIOLET, WHITE } from "../theme";
 
@@ -53,6 +54,9 @@ export const SceneOutro: React.FC = () => {
 
   return (
     <Backdrop>
+      <Sfx name="riser" at={8} volume={0.45} />
+      <Sfx name="impact" at={48} volume={0.55} />
+      <Sfx name="pop" at={80} volume={0.4} />
       <AbsoluteFill style={{ opacity: fadeOut }}>
         {/* chip rows drift outward as the logo takes over */}
         <div

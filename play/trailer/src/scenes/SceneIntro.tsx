@@ -10,6 +10,7 @@ import {
 } from "remotion";
 import { Backdrop } from "../components/Backdrop";
 import { GradientHeadline } from "../components/GradientHeadline";
+import { Sfx } from "../components/Sfx";
 import { INTER } from "../fonts";
 import { BODY } from "../theme";
 
@@ -24,6 +25,8 @@ export const SceneIntro: React.FC = () => {
   });
   return (
     <Backdrop>
+      <Sfx name="impact" at={4} volume={0.55} />
+      <Sfx name="pop" at={34} volume={0.35} />
       <AbsoluteFill
         style={{
           alignItems: "center",
