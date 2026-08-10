@@ -1308,6 +1308,7 @@ data class KeyboardSettings(
     val onboarding: OnboardingSettings = OnboardingSettings(),
     /** Settings-app screen preferences (see [AppUiSettings]). */
     val appUi: AppUiSettings = AppUiSettings(),
+    val rows: RowSettings = RowSettings(),
     /**
      * Language ids whose conjunct clusters backspace as one unit. Per language,
      * not global: someone who types both Bengali and Hindi may well want whole
@@ -2578,6 +2579,42 @@ data class AppUiSettings(
         DictionaryCatalog.DictionarySize.LARGE,
 )
 
+/** What the symbol row's height slider offers, matching the number row's. */
+val SymbolRowHeightRange = 28..64
+
+/** How long a mode picked by hand from the Modes tool stays on. */
+enum class ManualModeDuration {
+    /** Until the user moves to another app. What the keyboard always did. */
+    UNTIL_APP_CHANGES,
+
+    /** Until the user picks a different mode, or none. */
+    UNTIL_CHANGED,
+}
+
+/**
+ * The rows above the keys, and the modes that dress them. Grouped for the
+ * ceiling reason on [KeyboardSettings.photoBackground] — the flat list is three
+ * or four fields from the JVM limit on `copy$default`, so this domain takes one
+ * slot once and future row and mode settings cost nothing.
+ */
+data class RowSettings(
+    /**
+     * Height of the symbol row.
+     *
+     * Hard-coded at 40 dp while the number row beside it had a 32-100 dp
+     * slider, so the two rows could not be made to match.
+     */
+    val symbolRowHeightDp: Int = 40,
+    /**
+     * How long a mode picked by hand from the Modes tool lasts.
+     *
+     * The keyboard cleared it on the next app switch with no way to say
+     * otherwise, which is right for a mode that was picked in passing and
+     * wrong for one picked deliberately.
+     */
+    val manualModeDuration: ManualModeDuration = ManualModeDuration.UNTIL_APP_CHANGES,
+)
+
 /**
  * Whether the theme gallery groups families into one card with a swatch per
  * look, or lists every look as its own card. AUTO resolves from the persona
@@ -3792,6 +3829,8 @@ class SettingsRepository(private val context: Context) {
         private val ONBOARDING_PERSONA_PRIVACY = stringPreferencesKey("onboarding_persona_privacy")
         private val THEME_GALLERY_STYLE = stringPreferencesKey("theme_gallery_style")
         private val DEFAULT_WORDLIST_SIZE = stringPreferencesKey("default_wordlist_size")
+        private val SYMBOL_ROW_HEIGHT = intPreferencesKey("symbol_row_height")
+        private val MANUAL_MODE_DURATION = stringPreferencesKey("manual_mode_duration")
         private val CONJUNCT_BACKSPACE_LANGUAGES = stringPreferencesKey("conjunct_backspace_languages")
 
         /**
@@ -4592,6 +4631,12 @@ class SettingsRepository(private val context: Context) {
                         runCatching { DictionaryCatalog.DictionarySize.valueOf(it) }.getOrNull()
                     }
                     ?: defaults.appUi.defaultWordlistSize,
+            ),
+            rows = RowSettings(
+                symbolRowHeightDp = p[SYMBOL_ROW_HEIGHT] ?: defaults.rows.symbolRowHeightDp,
+                manualModeDuration = p[MANUAL_MODE_DURATION]
+                    ?.let { runCatching { ManualModeDuration.valueOf(it) }.getOrNull() }
+                    ?: defaults.rows.manualModeDuration,
             ),
             conjunctBackspaceLanguages = conjunctLanguagesFromPrefs(p, layoutSelection.enabledLanguages),
             cjk = CjkSettings(
@@ -7794,6 +7839,13 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setDefaultWordlistSize(value: DictionaryCatalog.DictionarySize) =
         editPrefs { it[DEFAULT_WORDLIST_SIZE] = value.name }
+
+    suspend fun setSymbolRowHeightDp(value: Int) = editPrefs {
+        it[SYMBOL_ROW_HEIGHT] = value.coerceIn(SymbolRowHeightRange.first, SymbolRowHeightRange.last)
+    }
+
+    suspend fun setManualModeDuration(value: ManualModeDuration) =
+        editPrefs { it[MANUAL_MODE_DURATION] = value.name }
 
     /** Turns cluster-aware backspace on or off for one language. */
     suspend fun setConjunctBackspace(languageId: String, value: Boolean) =

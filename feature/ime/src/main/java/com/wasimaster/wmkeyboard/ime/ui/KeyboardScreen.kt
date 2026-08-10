@@ -3694,7 +3694,13 @@ private fun EmojiBarCell(
     }
 }
 
-/** Height of the dedicated symbol row (chips are text, not emoji). */
+/**
+ * Height of the dedicated symbol row (chips are text, not emoji).
+ *
+ * The shipped value, and still the fallback for the Fancy Text strip, which
+ * mirrors this row but is not the same row. The symbol row itself reads
+ * [RowSettings.symbolRowHeightDp] so it can be matched to the number row.
+ */
 internal val SymbolRowHeight = 40.dp
 
 /**
@@ -3731,7 +3737,7 @@ private fun SymbolRowStrip(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(SymbolRowHeight),
+            .height(settings.rows.symbolRowHeightDp.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Only offer the picker when there is something to switch to.
@@ -6118,7 +6124,7 @@ private fun isFullBleedPanel(panel: PanelMode, settings: KeyboardSettings): Bool
 internal fun fullBleedHiddenRows(state: KeyboardUiState): Dp =
     topBarHeight(state.settings) +
         (if (state.settings.emojiBarMode == EmojiBarMode.ALWAYS) EmojiBarHeight else 0.dp) +
-        (if (state.settings.symbolRowEnabled) SymbolRowHeight else 0.dp) +
+        (if (state.settings.symbolRowEnabled) state.settings.rows.symbolRowHeightDp.dp else 0.dp) +
         // The fancy style strip hides under a full-bleed panel like the rows
         // above it, so its height rides along — it depends on the active
         // layout, which is why this takes the state and not just settings.

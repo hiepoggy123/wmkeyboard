@@ -311,6 +311,8 @@ import com.wasimaster.wmkeyboard.core.settings.FtpConfig
 import com.wasimaster.wmkeyboard.core.settings.S3Config
 import com.wasimaster.wmkeyboard.core.settings.DEFAULT_LONG_PRESS_LETTERS
 import com.wasimaster.wmkeyboard.core.settings.KeyFontScaleRange
+import com.wasimaster.wmkeyboard.core.settings.ManualModeDuration
+import com.wasimaster.wmkeyboard.core.settings.SymbolRowHeightRange
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.LongPressLetterActions
 import com.wasimaster.wmkeyboard.core.settings.destinationConfigured
@@ -13542,6 +13544,20 @@ private fun RowsSettings(
                 default = SettingsDefaults.symbolRowEnabled,
             ) { scope.launch { repository.setSymbolRowEnabled(it) } }
         }
+        if (settings.symbolRowEnabled) {
+            item {
+                val dpFormat = stringResource(R.string.typing_value_dp)
+                SliderSetting(
+                    R.string.rows_symbol_row_height_title,
+                    subtitle = stringResource(R.string.rows_symbol_row_height_subtitle),
+                    value = settings.rows.symbolRowHeightDp.toFloat(),
+                    range = SymbolRowHeightRange.first.toFloat()..SymbolRowHeightRange.last.toFloat(),
+                    display = { dpFormat.format(it.roundToInt()) },
+                    info = stringResource(R.string.rows_symbol_row_height_info),
+                    default = SettingsDefaults.rows.symbolRowHeightDp.toFloat(),
+                ) { scope.launch { repository.setSymbolRowHeightDp(it.roundToInt()) } }
+            }
+        }
     }
     SettingsGroup(stringResource(R.string.rows_row_order_title)) {
         val order = settings.barOrder
@@ -14360,6 +14376,23 @@ private fun ModesSettings(
     // set up, and the delete button sits on the row you tap to open it. Both
     // delete paths ask first; the editor's own button does the same below.
     var confirmDelete by remember { mutableStateOf<KeyboardMode?>(null) }
+    SettingsGroup {
+        item {
+            ChoiceSetting(
+                R.string.modes_manual_duration_title,
+                subtitle = stringResource(R.string.modes_manual_duration_subtitle),
+                options = listOf(
+                    ManualModeDuration.UNTIL_APP_CHANGES to
+                        stringResource(R.string.modes_manual_duration_app_label),
+                    ManualModeDuration.UNTIL_CHANGED to
+                        stringResource(R.string.modes_manual_duration_changed_label),
+                ),
+                selected = settings.rows.manualModeDuration,
+                info = stringResource(R.string.modes_manual_duration_info),
+                default = SettingsDefaults.rows.manualModeDuration,
+            ) { scope.launch { repository.setManualModeDuration(it) } }
+        }
+    }
     SettingsGroup(stringResource(R.string.modes_group_title)) {
         for (mode in settings.keyboardModes) {
             item {
@@ -14503,6 +14536,57 @@ private fun ModeEditor(
                 ),
                 selected = mode.symbolRowEnabled,
             ) { save(mode.copy(symbolRowEnabled = it)) }
+        }
+        // Typing behaviour. A mode dressed the keyboard but never changed what
+        // it did to the text, so Coding mode still corrected identifiers into
+        // English words — the one thing a mode for a code editor is for.
+        item {
+            val inherit = stringResource(R.string.modes_inherit_label)
+            val on = stringResource(CommonR.string.common_on)
+            val off = stringResource(CommonR.string.common_off)
+            ChoiceSetting(
+                title = R.string.modes_autocorrect_title,
+                subtitle = stringResource(R.string.modes_active_subtitle),
+                options = listOf(null to inherit, true to on, false to off),
+                selected = mode.autocorrect,
+            ) { save(mode.copy(autocorrect = it)) }
+        }
+        item {
+            val inherit = stringResource(R.string.modes_inherit_label)
+            val on = stringResource(CommonR.string.common_on)
+            val off = stringResource(CommonR.string.common_off)
+            ChoiceSetting(
+                title = R.string.modes_autocapitalize_title,
+                options = listOf(null to inherit, true to on, false to off),
+                selected = mode.autoCapitalize,
+            ) { save(mode.copy(autoCapitalize = it)) }
+        }
+        item {
+            val inherit = stringResource(R.string.modes_inherit_label)
+            val on = stringResource(CommonR.string.common_on)
+            val off = stringResource(CommonR.string.common_off)
+            ChoiceSetting(
+                title = R.string.modes_suggestions_title,
+                options = listOf(null to inherit, true to on, false to off),
+                selected = mode.suggestions,
+            ) { save(mode.copy(suggestions = it)) }
+        }
+        // Only the layouts the user actually has switched on: a mode naming one
+        // they have since removed would pin the keyboard to something that
+        // cannot be drawn, which applyMode also guards against at read time.
+        item {
+            val layoutOptions = listOf(
+                null to stringResource(R.string.modes_inherit_label),
+            ) + settings.enabledLayoutIds.map { id ->
+                id to resolveLayout(settings.customLayouts, id).name
+            }
+            ChoiceSetting(
+                title = R.string.modes_layout_title,
+                subtitle = stringResource(R.string.modes_layout_subtitle),
+                options = layoutOptions,
+                selected = mode.layoutId?.takeIf { it in settings.enabledLayoutIds },
+                info = stringResource(R.string.modes_layout_info),
+            ) { save(mode.copy(layoutId = it)) }
         }
         item {
             var themePickerOpen by remember { mutableStateOf(false) }

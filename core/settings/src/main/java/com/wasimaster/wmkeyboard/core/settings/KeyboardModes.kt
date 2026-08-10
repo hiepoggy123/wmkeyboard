@@ -96,6 +96,32 @@ data class KeyboardMode(
      * the default); null inherits the globally enabled sets.
      */
     val symbolSetIds: List<String>? = null,
+    /**
+     * Autocorrect while active; null inherits.
+     *
+     * The mode system overrode the theme, the toolbar and the rows but nothing
+     * about typing, so Coding mode still corrected identifiers into English
+     * words. That is the one thing a mode for a code editor exists to stop.
+     */
+    val autocorrect: Boolean? = null,
+    /** Automatic capitalisation while active; null inherits. */
+    val autoCapitalize: Boolean? = null,
+    /** Suggestions while active; null inherits. */
+    val suggestions: Boolean? = null,
+    /**
+     * Layout worn while this mode is active; null inherits whichever layout the
+     * user last switched to.
+     *
+     * A hard override in the same sense [themeId] is, and for the same reason:
+     * a bilingual user pinning a Latin layout to their code editor means it,
+     * and the switch ring is untouched — the layout they were on comes back
+     * when the mode ends.
+     *
+     * The id namespace is [KeyboardSettings.enabledLayoutIds]'. A layout that
+     * has since been removed or switched off resolves to no override, which is
+     * the same thing null means.
+     */
+    val layoutId: String? = null,
     /** Package names this mode activates for automatically. */
     val apps: List<String> = emptyList(),
     /** Input-field kinds this mode activates for automatically. */
@@ -490,5 +516,12 @@ fun KeyboardSettings.applyMode(mode: KeyboardMode?): KeyboardSettings {
         symbolRowEnabled = mode.symbolRowEnabled ?: symbolRowEnabled,
         symbolRowSetIds = mode.symbolSetIds ?: symbolRowSetIds,
         symbolRowActiveSetId = mode.symbolSetIds?.firstOrNull() ?: symbolRowActiveSetId,
+        autocorrect = mode.autocorrect ?: autocorrect,
+        autoCapitalize = mode.autoCapitalize ?: autoCapitalize,
+        suggestions = mode.suggestions ?: suggestions,
+        // Only honoured while the layout is actually available. A mode naming a
+        // layout the user has since switched off would otherwise pin the
+        // keyboard to something that cannot be drawn.
+        activeLayoutId = mode.layoutId?.takeIf { it in enabledLayoutIds } ?: activeLayoutId,
     )
 }

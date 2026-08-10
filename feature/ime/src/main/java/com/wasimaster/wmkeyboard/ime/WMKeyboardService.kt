@@ -74,6 +74,7 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.clipboard.ClipSensitivity
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
+import com.wasimaster.wmkeyboard.core.settings.ManualModeDuration
 import com.wasimaster.wmkeyboard.core.settings.SensitiveClipHandling
 import com.wasimaster.wmkeyboard.core.settings.activeThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
@@ -2853,10 +2854,15 @@ open class WMKeyboardService : InputMethodService() {
         hwGeneration++
         val secure = info.isSecureField()
         val fieldKind = info.fieldKind()
-        // Keyboard-mode resolution: a manual pick from the Modes tool lives
-        // as long as the user stays in the same app.
+        // Keyboard-mode resolution: a manual pick from the Modes tool lives as
+        // long as the user stays in the same app, unless they asked for it to
+        // last until they change it. Clearing on the next app was right for a
+        // mode picked in passing and wrong for one picked deliberately, and the
+        // keyboard could not tell the two apart.
         val pkg = info?.packageName
-        if (pkg != null && pkg != currentPackage) manualModeId = null
+        val manualSticks = _uiState.value.settings.rows.manualModeDuration ==
+            ManualModeDuration.UNTIL_CHANGED
+        if (pkg != null && pkg != currentPackage && !manualSticks) manualModeId = null
         // A pick still waiting to be stored belongs to the app it was made in:
         // per-app memory reads a different id in the next app, which the pending
         // one would otherwise outrank for as long as the write took to land.

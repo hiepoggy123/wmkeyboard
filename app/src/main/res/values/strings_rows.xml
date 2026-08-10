@@ -66,6 +66,9 @@
     <string name="rows_symbol_row_title">Symbol row</string>
     <string name="rows_symbol_row_subtitle">A row of special characters and snippets above the keys</string>
     <string name="rows_symbol_row_info">The row shows one symbol set at a time. It can be @gmail.com and similar for email, https:// for the web, or brackets for coding. The chip at the left edge of the row changes the set. A keyboard mode can select a set for each app automatically.</string>
+    <string name="rows_symbol_row_height_title">Symbol row height</string>
+    <string name="rows_symbol_row_height_subtitle">How tall the symbol row is</string>
+    <string name="rows_symbol_row_height_info">The number row has its own height setting under Layout &amp; size. This is the same setting for the symbol row, so you can make the two rows match, or make this one shorter to give the keys below more room.</string>
 
     <string name="rows_row_order_title">Row order</string>
     <string name="rows_row_order_caption">The rows stack from top to bottom in this order. A hidden row keeps its slot.</string>
