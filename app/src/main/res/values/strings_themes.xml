@@ -83,6 +83,13 @@
     <!-- Field for the name of the whole group of looks, shown on the card. -->
     <string name="theme_family_name_label">Group name</string>
 
+    <!-- Dialog when the pencil is pressed on a card with several looks. -->
+    <string name="theme_copy_scope_title">Make a copy</string>
+    <!-- %1$s is the name of the look the card is showing. -->
+    <string name="theme_copy_scope_body">Copy only <xliff:g id="look_name" example="Ocean">%1$s</xliff:g>, or the whole group of looks?</string>
+    <string name="theme_copy_scope_one">Only this look</string>
+    <string name="theme_copy_scope_all">All looks</string>
+
     <!-- Theme cards in the gallery. -->
     <string name="theme_default_card_subtitle">Material You, follows light and dark</string>
     <!-- Content description on the tick of the theme that is in use. -->

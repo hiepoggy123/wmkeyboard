@@ -855,13 +855,9 @@ fun themeFromSeed(id: String, name: String, seed: Long, dark: Boolean): ThemeSpe
 }
 
 /**
- * The Ocean family's other looks: the flat colorways first, then the gradient
- * cousins that share their seeds (Deep sea = Ocean's, Sunset drift = Sunset's,
- * Aurora = Forest's). Every id predates the family grouping and stays stable.
- *
- * Gradient themes' keys are translucent so the gradient shows through; their
- * flattened (opaque) versions still contrast with the key text, which matters
- * because panel surfaces flatten alpha (see schemeFor).
+ * The Ocean family's other looks: the flat colorways, then Pitch black —
+ * which is the same idea taken all the way down rather than a design of its
+ * own. Every id predates the family grouping and stays stable.
  */
 private val OceanVariants: List<ThemeSpec> = listOf(
     themeFromSeed("builtin_forest", "Forest", 0xFF3E8E5A, dark = true),
@@ -869,16 +865,24 @@ private val OceanVariants: List<ThemeSpec> = listOf(
     themeFromSeed("builtin_berry", "Berry", 0xFFB84A8E, dark = true),
     themeFromSeed("builtin_crimson", "Crimson", 0xFFCE4257, dark = true),
     themeFromSeed("builtin_slate", "Slate", 0xFF7A8699, dark = true),
-    themeFromSeed("builtin_deep_sea", "Deep sea", 0xFF3B82C4, dark = true).copy(
-        boardGradient = GradientSpec(
-            listOf(0xFF0E2A4A, 0xFF071523), GradientType.RADIAL, 0f,
-        ),
-        keyBackground = 0x591E4568,
-        modifierKeyBackground = 0x4014304A,
-        popupBackground = 0xFF1B3C5C,
-        toolCircleBackground = 0x591E4568,
-        chipBackground = 0x4014304A,
+    // Pitch black: AMOLED-friendly, near-black keys on true black.
+    themeFromSeed("builtin_pitch", "Pitch black", 0xFF4C8DF6, dark = true).copy(
+        boardBackground = 0xFF000000,
+        keyBackground = 0xFF1A1C21,
+        modifierKeyBackground = 0xFF101216,
+        toolCircleBackground = 0xFF1E2025,
+        chipBackground = 0xFF15171B,
+        popupBackground = 0xFF24262C,
     ),
+)
+
+/**
+ * The gradient family's other looks; Deep sea heads it. Keys are translucent
+ * so the gradient shows through; their flattened (opaque) versions still
+ * contrast with the key text, which matters because panel surfaces flatten
+ * alpha (see schemeFor).
+ */
+private val GradientVariants: List<ThemeSpec> = listOf(
     themeFromSeed("builtin_sunset_drift", "Sunset drift", 0xFFE07B39, dark = true).copy(
         boardGradient = GradientSpec(
             listOf(0xFF3B1035, 0xFF7A1E3C, 0xFFC2542B), GradientType.LINEAR, 100f,
@@ -906,6 +910,20 @@ private val OceanVariants: List<ThemeSpec> = listOf(
         chipBackground = 0x40163830,
         animation = ThemeAnimation.HUE_CYCLE,
         animationSpeed = 0.6f,
+    ),
+    themeFromSeed("builtin_nebula", "Nebula", 0xFF8E5AC8, dark = true).copy(
+        boardGradient = GradientSpec(
+            listOf(0xFF2A1758, 0xFF15306B, 0xFF0B1B3A), GradientType.LINEAR, 135f,
+        ),
+        keyBackground = 0x59453076,
+        modifierKeyBackground = 0x40311F5C,
+        keyText = 0xFFF2ECFF,
+        enterKeyBackground = 0xFF8E5AC8,
+        enterKeyText = 0xFFF6F0FF,
+        accent = 0xFFB79CFF,
+        popupBackground = 0xFF352759,
+        toolCircleBackground = 0x59453076,
+        chipBackground = 0x40311F5C,
     ),
 )
 
@@ -939,31 +957,19 @@ val BuiltInThemes: List<ThemeSpec> = listOf(
     themeFromSeed("builtin_ocean", "Ocean", 0xFF3B82C4, dark = true).copy(
         variants = OceanVariants,
     ),
-    // Pitch black: AMOLED-friendly, near-black keys on true black.
-    themeFromSeed("builtin_pitch", "Pitch black", 0xFF4C8DF6, dark = true).copy(
-        boardBackground = 0xFF000000,
-        keyBackground = 0xFF1A1C21,
-        modifierKeyBackground = 0xFF101216,
-        toolCircleBackground = 0xFF1E2025,
-        chipBackground = 0xFF15171B,
-        popupBackground = 0xFF24262C,
-    ),
     themeFromSeed("builtin_snow", "Snow", 0xFF5B7DB1, dark = false).copy(
         variants = SnowVariants,
     ),
-    themeFromSeed("builtin_nebula", "Nebula", 0xFF8E5AC8, dark = true).copy(
+    themeFromSeed("builtin_deep_sea", "Deep sea", 0xFF3B82C4, dark = true).copy(
         boardGradient = GradientSpec(
-            listOf(0xFF2A1758, 0xFF15306B, 0xFF0B1B3A), GradientType.LINEAR, 135f,
+            listOf(0xFF0E2A4A, 0xFF071523), GradientType.RADIAL, 0f,
         ),
-        keyBackground = 0x59453076,
-        modifierKeyBackground = 0x40311F5C,
-        keyText = 0xFFF2ECFF,
-        enterKeyBackground = 0xFF8E5AC8,
-        enterKeyText = 0xFFF6F0FF,
-        accent = 0xFFB79CFF,
-        popupBackground = 0xFF352759,
-        toolCircleBackground = 0x59453076,
-        chipBackground = 0x40311F5C,
+        keyBackground = 0x591E4568,
+        modifierKeyBackground = 0x4014304A,
+        popupBackground = 0xFF1B3C5C,
+        toolCircleBackground = 0x591E4568,
+        chipBackground = 0x4014304A,
+        variants = GradientVariants,
     ),
     // Shape showcases: pill keys with a soft radial glow, cut-corner steel.
     themeFromSeed("builtin_bubble", "Bubble", 0xFF00897B, dark = true).copy(
@@ -1032,6 +1038,7 @@ fun builtInThemeNameRes(id: String): Int? = BuiltInThemeNameRes[id]
 private val BuiltInThemeFamilyNameRes: Map<String, Int> = mapOf(
     "builtin_ocean" to R.string.core_theme_family_ocean_label,
     "builtin_snow" to R.string.core_theme_family_snow_label,
+    "builtin_deep_sea" to R.string.core_theme_family_gradient_label,
 ) + PaletteThemeFamilyNameRes
 
 /**

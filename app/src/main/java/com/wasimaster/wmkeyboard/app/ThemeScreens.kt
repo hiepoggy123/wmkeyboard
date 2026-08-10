@@ -81,6 +81,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.asImageBitmap
@@ -702,11 +703,29 @@ fun ThemesScreen(
         scope.launch {
             val id = "custom_${System.currentTimeMillis()}"
             val copyName = context.getString(R.string.theme_duplicate_name, base.name)
-            // The copy is of one look, never of the family: carrying the
-            // variants over would smuggle built-in (or another device's) ids
-            // into the custom store, where they must never exist.
+            // The copy is of one look alone: carrying the variants over
+            // as-is would smuggle built-in (or another device's) ids into
+            // the custom store, where they must never exist.
             repository.upsertCustomTheme(
                 base.copy(id = id, name = copyName, variants = emptyList(), familyName = null),
+            )
+            repository.setKeyboardThemeId(id)
+            onEditTheme(id)
+        }
+    }
+    fun duplicateFamilyAndEdit(entry: ThemeSpec) {
+        scope.launch {
+            val id = "custom_${System.currentTimeMillis()}"
+            // withFreshIds remints the whole family, so the "no foreign ids
+            // in the custom store" rule holds for every look. The looks keep
+            // their names; the copy marker goes on the group label, which is
+            // what the card shows.
+            val groupName = context.getString(
+                R.string.theme_duplicate_name,
+                themeFamilyName(context, entry),
+            )
+            repository.upsertCustomTheme(
+                entry.withFreshIds(id).copy(familyName = groupName),
             )
             repository.setKeyboardThemeId(id)
             onEditTheme(id)
@@ -918,6 +937,8 @@ fun ThemesScreen(
     // Which look each family's card is showing, when the user tapped a dot.
     // Falls back to the selected member, then the parent, in the card logic.
     val shownVariant = remember { mutableStateMapOf<String, String>() }
+    // A pencil tap on a family card asks what to copy: (family, shown look).
+    var copyScopeFor by remember { mutableStateOf<Pair<ThemeSpec, ThemeSpec>?>(null) }
     val customs = settings.customThemes.sortedBy { it.name.lowercase() }
     val customEntries = if (grouped) customs else customs.flattenedThemes()
     if (customEntries.isNotEmpty()) {
@@ -956,17 +977,14 @@ fun ThemesScreen(
                             },
                             onDelete = {
                                 scope.launch {
+                                    // Image files are always left to the sweep:
+                                    // "Add look" and family copies share paths
+                                    // between specs, and only the sweep knows
+                                    // what else still points at a file.
                                     val parent = settings.customThemes.findThemeFamily(entry.id)
                                     if (parent != null && parent.id != entry.id) {
-                                        // One look of a family. Its image files
-                                        // stay for the sweep: a look made with
-                                        // "Add look" shares them with siblings.
                                         repository.deleteCustomThemeVariant(parent.id, entry.id)
                                     } else {
-                                        (parent?.selfAndVariants() ?: listOf(entry)).forEach { m ->
-                                            m.backgroundImage?.let { File(it).delete() }
-                                            m.backgroundImageLandscape?.let { File(it).delete() }
-                                        }
                                         repository.deleteCustomTheme(entry.id)
                                     }
                                 }
@@ -1014,7 +1032,11 @@ fun ThemesScreen(
                         theme = shown,
                         selected = members.any { it.id == settings.keyboardThemeId },
                         onSelect = { scope.launch { repository.setKeyboardThemeId(shown.id) } },
-                        onEdit = { duplicateAndEdit(shown) },
+                        // A family card asks whether the copy is of the shown
+                        // look or of the whole set; a lone card just copies.
+                        onEdit = {
+                            if (isFamily) copyScopeFor = entry to shown else duplicateAndEdit(shown)
+                        },
                         onExport = {
                             export(
                                 if (grouped) entry
@@ -1062,6 +1084,34 @@ fun ThemesScreen(
             },
         )
     }
+    copyScopeFor?.let { (entry, shown) ->
+        AlertDialog(
+            onDismissRequest = { copyScopeFor = null },
+            title = { Text(stringResource(R.string.theme_copy_scope_title)) },
+            text = { Text(stringResource(R.string.theme_copy_scope_body, themeName(shown))) },
+            confirmButton = {
+                TextButton(onClick = {
+                    copyScopeFor = null
+                    duplicateFamilyAndEdit(entry)
+                }) {
+                    Text(stringResource(R.string.theme_copy_scope_all))
+                }
+            },
+            dismissButton = {
+                // Two actions in the dismiss slot on purpose — same shape as
+                // the addon requires dialog (AlertDialogFlowRow takes both).
+                TextButton(onClick = {
+                    copyScopeFor = null
+                    duplicateAndEdit(shown)
+                }) {
+                    Text(stringResource(R.string.theme_copy_scope_one))
+                }
+                TextButton(onClick = { copyScopeFor = null }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
+    }
 }
 
 /** The label of one [ThemeGalleryStyle] choice. */
@@ -1072,9 +1122,12 @@ private fun themeGalleryStyleLabelRes(style: ThemeGalleryStyle): Int = when (sty
 }
 
 /**
- * One dot per look of a family, in the family's own colors. Tapping a dot
- * both turns the card's preview to that look and applies it — the card is the
- * whole picker, with no second level to open.
+ * One dot per look of a family. Each dot is the look's board — its gradient
+ * when it has one, its board colour otherwise, so Pitch black reads black and
+ * the light looks read light — with the accent as a small core so same-board
+ * colorways still tell apart. Tapping a dot both turns the card's preview to
+ * that look and applies it — the card is the whole picker, with no second
+ * level to open.
  */
 @Composable
 private fun VariantSwatchRow(
@@ -1090,6 +1143,10 @@ private fun VariantSwatchRow(
         family.selfAndVariants().forEach { variant ->
             val shown = variant.id == shownId
             val label = themeName(variant)
+            // Opaque even when the theme's own board is see-through over a
+            // photo — a transparent dot would read as a hole in the card.
+            val fill = variant.boardGradient?.brush()
+                ?: SolidColor(Color(variant.boardBackground or 0xFF000000L))
             Box(
                 modifier = Modifier
                     .size(24.dp)
@@ -1105,10 +1162,18 @@ private fun VariantSwatchRow(
                     )
                     .semantics { contentDescription = label }
                     .clickable { onPick(variant) }
-                    .padding(4.dp)
+                    .padding(3.dp)
                     .clip(CircleShape)
-                    .background(Color(variant.accent)),
-            )
+                    .background(fill),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(Color(variant.accent)),
+                )
+            }
         }
     }
 }

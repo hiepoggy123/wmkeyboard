@@ -94,10 +94,12 @@
     <!-- more than one look; the label names the group, not one look.       -->
     <!-- ================================================================== -->
 
-    <!-- The family of the dark colour themes (Ocean, Forest, Sunset, ...). -->
+    <!-- The family of the dark colour themes (Ocean, Forest, ..., Pitch black). -->
     <string name="core_theme_family_ocean_label">Nightfall</string>
     <!-- The family of the light colour themes (Snow, Mint, Rose, Sand, ...). -->
     <string name="core_theme_family_snow_label">Pastel</string>
+    <!-- The family of the themes that paint a gradient behind the keys. -->
+    <string name="core_theme_family_gradient_label">Gradients</string>
     <!-- The names of these two families are project names. Keep in English. -->
     <string name="core_theme_family_solarized_label" translatable="false">Solarized</string>
     <string name="core_theme_family_catppuccin_label" translatable="false">Catppuccin</string>
