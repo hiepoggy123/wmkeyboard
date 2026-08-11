@@ -163,6 +163,11 @@ F-Droid reads `fastlane/metadata/android/en-US/` directly out of the source
 tree: `title.txt`, `short_description.txt`, `full_description.txt`, the
 `changelogs/` folder and `images/`. Editing them here updates the F-Droid
 listing on the next build, with no metadata merge request.
+
+**Play reads the same files**, which is why nothing in them may describe one
+edition as though it were both. `full_description.txt` names the two builds
+and links a privacy policy for each rather than asserting anything about ML
+Kit, because the F-Droid build does not contain it.
 :::
 
 ## Publishing to Play
@@ -176,7 +181,15 @@ listing on the next build, with no metadata merge request.
    gate the release. A keyboard is a sensitive category and reviewers do read
    them:
 
-   - **Privacy policy URL**: `https://wmkeyboard.pages.dev/privacy/policy/`.
+   - **Privacy policy URL**: `https://wmkeyboard.pages.dev/privacy/policy/`,
+     the *Play* one. There are two, one per edition, because the two builds
+     are not the same app underneath: the full edition carries ML Kit and the
+     Play libraries and has to disclose what they report, and the lite edition
+     F-Droid builds carries neither. F-Droid's own policy is at
+     [`/privacy/policy-fdroid/`](/privacy/policy-fdroid/). Never point the Play
+     listing at that one, because it would under-disclose. The About screen picks the
+     right page from `BuildConfig.FLAVOR`, so a user always reads the policy
+     for the APK they actually installed.
    - **Data safety**: this project collects nothing and shares nothing. The
      optional network tools send what you typed into that tool to the service
      you chose, which belongs under that tool's own disclosure rather than as
@@ -201,16 +214,17 @@ listing on the next build, with no metadata merge request.
      Families policy, which this app is not built for.
    - **Ads**: none. **Financial features**: none. **News**: no.
 
-3. **Answer the four declarations this manifest forces.** Each one has its own
-   form, and a missing or vague answer is the most common reason a keyboard
-   sits in review:
+3. **Fill the two declaration forms this manifest forces.** Only two of the
+   four sensitive surfaces have a form of their own; the other two are judged
+   on the in-app disclosure and the Data safety answers instead. Knowing which
+   is which saves hunting the Console for a page that does not exist.
 
-   | Declaration | Why it applies | What to say |
+   | Surface | Console form? | What to say |
    |---|---|---|
-   | Accessibility API | `TouchPassthroughService` binds `BIND_ACCESSIBILITY_SERVICE` | It exists to carve the key grid out of TalkBack's touch exploration so screen-reader users can type. It is inert unless the user turns pass-through on, and it reads no screen content. |
-   | Photo and video permissions | `READ_MEDIA_IMAGES` | It feeds the screenshot observer that offers a just-taken screenshot on the strip. The Photo Picker cannot replace it: a picker returns a file the user chose, and this needs to notice that a new one appeared. |
-   | Notification access | `MediaNotificationListener` | Two jobs, both user-facing: the media-control tool needs the active media session, and one-time-code capture reads codes to offer them on the strip. Both are off until the user enables them. |
-   | `PACKAGE_USAGE_STATS` | the clipboard's "Show source app" setting | On a copy it reads which app was in the foreground in the ten seconds before, so the clip can say where it came from. It reads no history and no time-in-app, keeps the answer with the clip on the device, and the setting is off until the user turns it on. |
+   | Accessibility API, from `TouchPassthroughService` binding `BIND_ACCESSIBILITY_SERVICE` | **Yes**, and because `isAccessibilityTool="true"` it also wants a **video** of the feature and the disability audience | It carves the key grid out of TalkBack's touch exploration so screen-reader users can still use the keyboard's gestures. It subscribes to no accessibility events, cannot read window content, and is inert unless pass-through is switched on. |
+   | Photo and video permissions, from `READ_MEDIA_IMAGES` | **Yes** | It feeds the screenshot observer that offers a just-taken screenshot on the strip. The Photo Picker cannot replace it: a picker returns a file the user chose, and this needs to notice that a new one appeared. FUTO Keyboard ships the same permission for the same reason on Play, so this is a well-trodden justification rather than a novel one. |
+   | Notification access, from `MediaNotificationListener` | No form. Prominent disclosure plus Data safety is the whole requirement | Two jobs, both user-facing: the media-control tool needs the active media session, and one-time-code capture reads codes to offer them on the strip. Both are off until the user enables them, and `SpecialAccessActivity` shows the disclosure before the system screen opens. |
+   | `PACKAGE_USAGE_STATS`, for the clipboard's "Show source app" setting | No form. Same as above | On a copy it reads which app was in the foreground in the ten seconds before, so the clip can say where it came from. It reads no history and no time-in-app, keeps the answer with the clip on the device, and the setting is off until the user turns it on. |
 
 4. **Check the sensitive-permission story matches what the app says.** The
    label on the notification listener is what a user reads in Settings before

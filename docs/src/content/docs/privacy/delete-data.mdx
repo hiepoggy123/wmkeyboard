@@ -1,0 +1,93 @@
+---
+title: "Deleting your data"
+description: "Every piece of data WM Keyboard holds, where the button that erases it is, and how long anything is kept."
+sidebar:
+  label: "Deleting your data"
+  order: 9
+---
+
+import SettingsPath from '@components/SettingsPath.astro';
+
+**WM Keyboard**, by **Wasi Master**, has no account and no server. There is no
+request to send and nobody to send it to, because nothing about you is ever
+transmitted to this project in the first place. Everything the keyboard
+remembers is a file in its own private storage on your phone, and you can
+erase any of it, or all of it, from inside the app.
+
+This page is the deletion route for the app published on Google Play as
+**WM Keyboard** (`com.wasimaster.wmkeyboard`), and for the F-Droid and
+GitHub builds of the same app.
+
+## Delete everything at once
+
+Uninstalling WM Keyboard removes every file it ever wrote: learned words,
+clipboard history, statistics, settings, themes, downloaded dictionaries and
+models, and the app's own cache. Android deletes the app's private storage
+with the app, and there is no copy anywhere else.
+
+If you turned on **Back up with Android** under
+<SettingsPath path="Privacy" />, a copy may exist in your own Google account's
+Android backup. That backup belongs to you, not to this project. Delete it
+from [Google One → Storage → Backups](https://one.google.com/storage), or turn
+the switch off before uninstalling and no backup is made.
+
+If you set up **Backup & restore** yourself, delete the files wherever you
+pointed it: your own storage, your own Dropbox, OneDrive, Google Drive or
+WebDAV server. This project has no access to any of them.
+
+## Delete one thing at a time
+
+You do not have to uninstall to erase something. Each of these is a button in
+the app, and each takes effect immediately and permanently.
+
+| What | Where | Erases |
+|---|---|---|
+| Learned words and word pairs | <SettingsPath path="Privacy" />, **Delete the learned words** | every word, bigram and trigram the keyboard picked up from your typing, plus your emoji history, the corrections you undid, and your Chinese, Japanese and Cantonese picks. Your personal dictionary, snippets and imported word lists are left alone |
+| Clipboard history | <SettingsPath path="About / Storage" />, the **Clipboard** row | saved clips, pinned clips, and copied images |
+| Typing statistics | <SettingsPath path="Typing / Statistics" />, **Delete all statistics**, or the **Typing statistics** row under <SettingsPath path="About / Storage" /> | daily counts and all-time speed records |
+| Emoji history and favourites | <SettingsPath path="Emoji" />, the clear-history row | recent emoji, usage counts, favourites and remembered skin tones |
+| AI results history | <SettingsPath path="Tools / AI" />, **Delete all history** | every prompt and answer the AI tools kept |
+| AI chat conversations | <SettingsPath path="Tools / AI" />, **Delete all chats** | every saved conversation |
+| Personal dictionary entries | <SettingsPath path="Personal dictionary" /> | words you added by hand, one at a time or all |
+| Saved API keys | each tool's own settings screen | the keys you pasted for translate, search, GIF and AI providers |
+| Downloaded data | <SettingsPath path="About / Storage" /> | dictionaries, emoji keyword packs, speech and AI models. Re-downloadable at any time |
+| Every setting, back to factory | <SettingsPath path="About / Storage" />, the reset action | the whole configuration, after a second confirmation |
+
+## What is kept, and for how long
+
+Nothing is kept anywhere but your device, and nothing has a retention period
+set by this project. Data stays until you delete it or uninstall.
+
+Two things expire on their own, and both are held only in memory:
+
+- A **one-time code** captured from a notification is offered for three
+  minutes by default and then dropped. It is never written to storage.
+- **Tool results** that are cached (exchange rates, weather, search results)
+  are cached for minutes to hours and are not personal data.
+
+Some things are never recorded at all: anything typed in a password field or a
+field an app marks as sensitive is excluded from learning, suggestions and
+clipboard capture automatically, and **incognito mode** applies the same
+exclusions to everything for as long as it is on.
+
+## Data held by anyone else
+
+When you use one of the optional network tools, the text you put into that
+tool goes to the service you chose: Brave Search, GIPHY, KLIPY, Open-Meteo,
+Wikipedia, Unsplash, Pexels, or whichever AI provider you supplied a key for.
+That data is held by them under their own privacy policies and their own
+deletion routes, not this one. WM Keyboard keeps no record of it and cannot
+delete it on your behalf.
+
+The full edition on Google Play is built on Google's ML Kit for handwriting
+and scanning, which sends its own diagnostics to Google. That collection is
+Google's, and Google offers no deletion path for it; the only way to avoid it
+is not to use those features, or to use the lite edition, which does not
+contain ML Kit. See the
+[Google Play edition privacy policy](/privacy/policy/) and the
+[F-Droid edition privacy policy](/privacy/policy-fdroid/).
+
+## Questions
+
+Email `arianmollik323@gmail.com`, or open an issue at
+[github.com/wasi-master/wmkeyboard/issues](https://github.com/wasi-master/wmkeyboard/issues).
