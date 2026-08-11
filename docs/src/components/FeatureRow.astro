@@ -41,6 +41,16 @@ const { title, href, linkText = 'Learn more', kicker, flip = false } = Astro.pro
 	.wm-feature-media {
 		min-width: 0;
 	}
+	/* Phone screenshots are supporting visuals here, not the content. Keep them
+	   thumbnail-sized so they don't dominate the row; starlight-image-zoom
+	   already gives the full-size view on click. */
+	.wm-feature-media :global(.phone) {
+		max-width: 10rem;
+		margin: 0.5rem auto;
+	}
+	.wm-feature-media :global(.phone figcaption) {
+		font-size: var(--sl-text-xs);
+	}
 	.wm-feature-copy {
 		display: flex;
 		flex-direction: column;

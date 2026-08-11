@@ -29,17 +29,17 @@ import LayoutExplorer from '@components/LayoutExplorer.astro';
 import PhoneFrame from '@components/PhoneFrame.astro';
 import languages from '@data/languages.json';
 import wordlists from '@data/wordlists.json';
-import bengali from '../../../../app/src/main/assets/layouts/bpy_bengali.wmlayout.json';
+import bengali from '@assets/layouts/bn_jatiya.wmlayout.json';
 
 {/* 352 and 333 are computed from the generated data files; the rest are the
-    code-verified figures from CONTENT_GUIDE.md (checked 2026-07-28). */}
+    code-verified figures from CONTENT_GUIDE.md (checked 2026-08-11). */}
 
 <div class="wm-stats not-content">
 	<a href="/languages/overview/"><strong>{languages.length}</strong> languages</a>
-	<a href="/languages/custom-layouts/"><strong>393</strong> layouts</a>
+	<a href="/languages/custom-layouts/"><strong>372</strong> layouts</a>
 	<a href="/languages/dictionaries/"><strong>{wordlists.length}</strong> wordlists</a>
-	<a href="/tools/overview/"><strong>60</strong> toolbar tools</a>
-	<a href="/tools/whisper/"><strong>27</strong> Whisper models</a>
+	<a href="/tools/overview/"><strong>63</strong> toolbar tools</a>
+	<a href="/tools/whisper/"><strong>29</strong> Whisper models</a>
 	<a href="/tools/ai/"><strong>8</strong> local LLMs</a>
 </div>
 
@@ -81,16 +81,17 @@ import bengali from '../../../../app/src/main/assets/layouts/bpy_bengali.wmlayou
 			![The Whisper model catalog inside WM Keyboard settings](../../assets/screens/tools/whisper-catalog.webp)
 		</PhoneFrame>
 	</Fragment>
-	Dictate with Whisper running entirely on device. Pick from 27 models, tiny ones
+	Dictate with Whisper running entirely on device. Pick from 29 models, tiny ones
 	for older phones up to big multilingual ones, and nothing you say leaves the
 	device. There is a lighter online engine too, if you want it.
 </FeatureRow>
 
 <FeatureRow kicker="Languages" title="352 languages, one keyboard" href="/languages/overview/" linkText="Browse the languages">
 	<Fragment slot="media"><LayoutExplorer layout={bengali} /></Fragment>
-	This layout is rendered from the same file the app ships, live on this page.
-	Hover any key to peek at its long-press alternates. Custom layouts, phonetic
-	typing and per-field language detection are all part of the same system.
+	This is the Bangla National (Jatiya) layout, rendered live from the same key
+	data the app ships. Hover any key to peek at its long-press alternates, or tap
+	shift for the second layer. Avro phonetic typing, custom layouts and per-field
+	language detection are all part of the same system.
 </FeatureRow>
 
 <FeatureRow kicker="Privacy" title="Private by construction" href="/privacy/overview/" linkText="Read the privacy tour" flip>
