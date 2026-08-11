@@ -14,7 +14,7 @@ import brailleChord from '../../../../../app/src/main/assets/layouts/braille_cho
 import morse from '../../../../../app/src/main/assets/layouts/morse.wmlayout.json';
 import ipa from '../../../../../app/src/main/assets/layouts/ipa.wmlayout.json';
 
-Four entries in the language catalogue don't represent spoken languages at all: musical notation, chorded braille, Morse code, and the International Phonetic Alphabet. Each behaves exactly like a language (its own layout, its own switch-ring slot, its own settings screen), but what you're typing is notation, not prose.
+Four entries in the language catalogue are notation systems rather than spoken languages: musical notation, chorded braille, Morse code, and the International Phonetic Alphabet. Each behaves exactly like a language (its own layout, its own switch-ring slot, its own settings screen), but what you're typing is notation, not prose. [Fancy text](/languages/fancy-text/) is the one other entry that isn't a language, and it gets its own page.
 
 <PhoneFrame caption="Musical notation active in a text field: note durations, rests, and clefs on the key grid.">
   {/* shot: languages/notation-music-field */}
@@ -22,11 +22,11 @@ Four entries in the language catalogue don't represent spoken languages at all: 
 
 ## Musical notation
 
-Turn on **♪ · Music notation** and the keys commit symbols from Unicode's Musical Symbols block plus the everyday BMP note characters (♩♪♫♬): durations, rests, clefs, sharps and flats, barlines, and a fermata on the main layer:
+Turn on **♪ · Music notation** and the keys commit symbols from Unicode's Musical Symbols block plus the everyday BMP note characters (♩♪♫♬): durations, rests, an augmentation dot, the three clefs, sharps, flats and naturals (single and double), a barline, and a fermata on the main layer:
 
 <LayoutExplorer layout={music} />
 
-A second layer, reached with the <KeyCap>Fn</KeyCap> key, holds dynamics markings (𝆏 through 𝆘), ornaments, repeat signs, and the double-sharp/double-flat symbols. A <KeyCap>♪</KeyCap> key on that layer returns you to the main letters layer:
+A second layer, reached with the <KeyCap>Fn</KeyCap> key, holds the dynamics and hairpins (𝆏 through 𝆓), ornaments (grace notes, the trill, the turns), navigation marks (segno, coda, dal segno, da capo), breath and caesura, pedal marks, repeat signs, the double and final barlines, and the quarter-tone accidentals. A <KeyCap>♪</KeyCap> key on that layer returns you to the main letters layer:
 
 <LayoutExplorer layout={music} layer="fn" title="Music notation: the Fn layer (dynamics, ornaments, repeats)" />
 
@@ -64,7 +64,7 @@ Tap dots and dashes to build up a sequence. Stop for a moment and it decodes and
   {/* shot: languages/notation-morse-strip */}
 </PhoneFrame>
 
-While a sequence is pending, it takes over the suggestion strip: a centered readout of the sequence in ·/− glyphs, with the letter it currently decodes to spelled out alongside it once the sequence is unambiguous (for example `··   i`). It's the same idea as the accent hint that appears above a dead-key in progress on other layouts, just for Morse. Pressing any key other than dot, dash, backspace, or shift flushes whatever's pending first, so the timer never races your next keystroke.
+While a sequence is pending, it takes over the suggestion strip: a centered readout of the sequence in ·/− glyphs, with the letter it currently decodes to spelled out alongside it whenever the sequence so far is itself a valid code (for example `··   i`, one dot short of `s`). It's the same idea as the accent hint that appears above a dead-key in progress on other layouts, just for Morse. Pressing any key other than dot, dash, backspace, or shift flushes whatever's pending first, so the timer never races your next keystroke.
 
 Backspace while a sequence is pending edits the sequence itself, dropping its last signal rather than deleting already-committed text. Only once the sequence is empty does backspace fall back to a normal delete.
 
@@ -121,6 +121,6 @@ There's no edition restriction on any of the four: all ship as ordinary bundled 
 
 **Font pinning is the real distinguishing feature of Music and Braille.** Both exist as their own script chiefly so the keyboard can force a specific Google font (Noto Music, Noto Sans Symbols 2) that reliably covers their Unicode blocks. Most device fonts don't. IPA and Morse need no such pin because they draw from ranges the Latin font faces already cover.
 
-**Braille's chord has no tap-vs-long-press ambiguity on its dot keys**: pressing fires the dot on the down-stroke, not after the usual long-press timer, which is why the digit shortcut needs an explicit long-press instead. Every other key on the braille layout (the bottom row) behaves normally.
+**Braille's chord has no tap-vs-long-press ambiguity on its dot keys**: pressing fires the dot on the down-stroke, not after the usual long-press timer. Holding a dot key does nothing extra, so digits come from the dots-3-4-5-6 number indicator or from the <KeyCap>?123</KeyCap> layer. Every other key on the braille layout (the bottom row) behaves normally.
 
 **A half-typed braille chord or pending Morse sequence never survives a context change.** Switching fields, switching layouts, or opening any panel drops it, so you never come back to a stray dot or signal you don't remember starting.

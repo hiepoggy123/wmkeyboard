@@ -12,9 +12,12 @@ WM Keyboard is a multi-module Gradle build with strict layering: `:app` on
 top, `:feature:*` in the middle, `:core:*` at the bottom. Package names keep
 their original `com.wasimaster.wmkeyboard.*` layout, and module boundaries
 follow the packages. A class's module is visible from its path, not its
-package. The `core` engines are plain Kotlin, with no Android framework types
-beyond the `Context` that on-disk storage demands, which keeps the interesting
-logic unit-testable on the JVM.
+package. Every `:core:*` and `:feature:*` module is an Android module,
+so the split that matters is per file rather than per module: the engines
+themselves (tries, transliterators, layout compilers, parsers) avoid
+`android.*`/`androidx.*` entirely and stay unit-testable on the JVM, while the
+stores, the settings DataStore and the whole UI layer sit alongside them and
+do not. See [testing](/development/testing/) for what that means in practice.
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -63,16 +66,26 @@ approach used by production Compose keyboards (e.g. FlorisBoard).
 
 The service owns a single `MutableStateFlow<KeyboardUiState>`. The Compose tree
 collects it and renders. Every interaction calls back into the service
-(`onKey`, `onSuggestion`, `onEmoji`, …), which mutates state through `copy()`.
-No state lives in the view layer beyond per-key press animation.
+(`onKey`, `onSuggestion`, `onEmoji`, …), which mutates state through `copy()`,
+so anything the text field or the engines can see lives in that one object. The
+view layer keeps its own transient state on top (press, measured panel sizes,
+which bar is expanded, a drag in progress), but none of it survives the
+composition or reaches the service.
 
 ### Composing region as the source of truth
 
-English and Avro modes type into an `InputConnection` composing region. In Avro
-mode the composing preview is the live transliteration, so the user watches
-বাংলা appear as they type romanized text. On commit (space, or a suggestion
-tap) the top phonetic-index candidate wins. Probhat mode commits characters
-directly, because fixed layouts don't compose.
+A `Composer`, picked from the active layout's script, decides what a keystroke
+does. Latin layouts type into an `InputConnection` composing region purely to
+feed suggestions, so the region is dropped in password fields and with the
+strip off. A transliterating composer (Avro, Hangul, Vietnamese) has to compose
+everywhere, because its buffer *is* the input method: the composing preview is
+the live transliteration, so the user watches বাংলা appear as they type
+romanized text. Avro is the one that commits through the dictionary, where the
+top phonetic-index candidate wins on space or a suggestion tap. Hangul and
+Vietnamese commit the composed text straight out, with no dictionary pass. A
+cluster-shaping composer (Probhat, Jatiya, fixed Devanagari) types its script
+straight into the field and never starts a buffer of its own, though it will
+keep composing one the caret handed back to it.
 
 ### Bangla phonetics: two engines, one job
 
@@ -89,11 +102,15 @@ deliberately, rather than inside the transliterator.
 ### Prediction
 
 `Trie` is frequency-weighted and serves prefix completions. `UserLexicon`
-overlays the user's learned words, heavily boosted, plus bigrams for next-word
-prediction. `SuggestionEngine` merges, ranks and case-matches those sources,
-and generates Norvig-style edit-distance-1 corrections when the typed word is
-unknown. Learning is skipped for secure fields and in incognito mode.
-Everything is JSON on private storage, with one-tap clearing.
+overlays the user's learned words, heavily boosted, plus bigrams and trigrams
+for next-word prediction. `SuggestionEngine` merges, ranks and case-matches
+those sources. Corrections come from `FuzzyBeamSearch`, one best-first walk
+down the tries themselves rather than Norvig generate-and-test: only strings
+the dictionary can actually reach are ever considered, which is what makes
+two-edit corrections affordable and lets substitutions come from a script's
+own edge labels instead of an ASCII table. Learning is skipped for secure
+fields and in incognito mode. Everything is JSON on private storage, with
+one-tap clearing.
 
 ### Emoji search
 
@@ -156,8 +173,8 @@ waiting for the process to be restarted.
 Power saving reuses direct boot's shape rather than inventing one. A pure
 function, `KeyboardSettings.underPowerSaving()`, returns the settings *as they
 apply* while it is on. The service combines the DataStore flow with
-`core/power/PowerSaver`'s device state and applies the view on the way out, so
-the renderer, the suggestion engine and the tool handlers all see one
+`core/settings/.../power/PowerSaver`'s device state and applies the view on the
+way out, so the renderer, the suggestion engine and the tool handlers all see one
 already-reduced settings object, and none of them knows power saving exists.
 Nothing is persisted, which is what makes it reversible: the user's own
 settings are never rewritten, only hidden, so ending power saving restores them
@@ -183,7 +200,8 @@ hover-and-activate) and `PASSTHROUGH`.
 
 `PASSTHROUGH` uses the one supported escape hatch,
 `AccessibilityService.setTouchExplorationPassthroughRegion` (API 30). Only an
-accessibility service may call it, which is why `core/accessibility/` exists:
+accessibility service may call it, which is why the `core.accessibility`
+package in `:core:common` exists:
 
 - `TouchPassthroughService` is an accessibility service that exists solely to
   publish that region. It subscribes to no events, cannot retrieve window
@@ -208,21 +226,32 @@ announce nor explore.
 
 - Dictionaries and the emoji catalog load on `Dispatchers.Default` after
   `onCreate`; the keyboard renders immediately and suggestions attach when
-  ready (~10k trie inserts, tens of ms).
+  ready. The bundled word lists are compiled `.wmdict` binaries, so loading one
+  is a single `mmap` call rather than tens of thousands of trie inserts, and
+  the trie never enters the Java heap.
 - Suggestion computation runs off the main thread with job cancellation on
   each keystroke.
-- The layout model is immutable data; recomposition is limited to the pressed
-  key and the suggestion bar.
+- The layout model is immutable data, and the rule everywhere in the key grid
+  is that touch state is never read at composition scope. A key's face is
+  painted inside a `drawWithCache` lambda, so a press invalidates the draw
+  without recomposing or re-measuring the key; a glide stroke keeps its points
+  in plain arrays Compose cannot observe, and the head position is read from a
+  placement lambda so the floating word pill re-places instead.
 
 ## Extension points
 
-- **Layouts.** Add a `KeyboardLayout` and a case in `currentLayout()`
-  (`feature/ime/.../ime/ui/KeyboardScreen.kt`), or ship a `.wmlayout.json`
-  under `app/src/main/assets/layouts/`. Keys are data, so there's no drawing
-  code to write.
-- **Languages.** Drop a `<lang>.txt` wordlist (word plus frequency per line)
-  into `app/dictionaries-src/`, where `compileBundledDictionaries` turns it
-  into a `.wmdict` asset. Then register an `InputMode`. See
+- **Layouts.** Add a `LayoutSpec` to `BuiltInLayouts`
+  (`core/language/.../layout/BuiltInLayouts.kt`), or ship a `.wmlayout.json`
+  under `app/src/main/assets/layouts/`. Nothing in the renderer changes:
+  `currentLayout()` picks a layer out of the already-resolved layout set, so
+  keys are data and there's no drawing code to write.
+- **Languages.** Add a `LanguageDef` to `LanguageRegistry`
+  (`core/language/.../script/Language.kt`), which is what a layout, a
+  dictionary and a subtype all key off. The old `InputMode` enum is gone;
+  `LegacyModes.kt` only survives to translate preferences written before the
+  registry existed. For a bundled word list, drop a `<lang>.txt` (word plus
+  frequency per line) into `app/dictionaries-src/`, where
+  `compileBundledDictionaries` turns it into a `.wmdict` asset. See
   [the dictionary pipeline](/development/dictionaries/).
 - **Emoji.** Append lines to `emoji/catalog.tsv`. Add synonym rows to
   `EmojiSearch.SYNONYMS` for concept queries.

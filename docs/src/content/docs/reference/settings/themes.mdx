@@ -56,7 +56,7 @@ Both apply to the settings app itself and to the **Default (system)** theme only
 
 | Control | What it does |
 |---|---|
-| Create theme | Makes a new custom theme named "My theme", seeded from the first swatch in the theme editor's color row, generated as a dark theme, sets it active, and opens the editor on it right away |
+| Create theme | Makes a new custom theme named "My theme", seeded from the first swatch in the theme editor's color row, generated dark or light to match what your phone is showing right now, sets it active, and opens the editor on it right away |
 | Import | Opens a file picker for a theme file, adds it to Your themes under a fresh id, and switches to it immediately (the editor doesn't open) |
 | FlorisBoard | Reads a FlorisBoard `.flex` theme file and converts it into a custom theme. See [Importing other keyboards](/reference/importing-other-keyboards/) |
 | Card tap | Applies that theme to the keyboard immediately. On a family card, tapping a dot applies that look and turns the card's preview to it |
@@ -73,7 +73,7 @@ The grid runs two cards per row. **Default (system)** comes first, with no edit,
 ![Deleting a custom theme asks for confirmation before removing it.](@assets/screens/reference/settings/themes-delete-confirm.webp)
 </PhoneFrame>
 
-There are 28 built-in themes: 18 original WM Keyboard designs, plus 10 ports of well-known editor colour schemes (Dracula, Nord, Solarized Dark, Solarized Light, Catppuccin Mocha, Catppuccin Latte, Catppuccin Frappé, Catppuccin Macchiato, Tokyo Night, Cyberpunk). Twenty-two of them sit in five families, so the grouped grid shows eleven built-in cards. See [Theming overview](/themes/overview/#choosing-a-theme) for the full list and what each one showcases.
+There are 28 built-in themes: 19 original WM Keyboard designs, plus 9 ports of well-known editor colour schemes (Dracula, Nord, Solarized Dark, Solarized Light, Catppuccin Mocha, Catppuccin Latte, Catppuccin Frappé, Catppuccin Macchiato, Tokyo Night). Cyberpunk sits with the ports in the source but isn't one: it's ours, and it's the theme that uses the whole feature set at once (animated board gradient, cut keys, translucent faces, neon outline). Twenty-two of the 28 sit in five families (Ocean, Snow, Deep sea, Solarized, Catppuccin), so the grouped grid shows eleven built-in cards. See [Theming overview](/themes/overview/#choosing-a-theme) for the full list and what each one showcases.
 
 ## Theme editor
 
@@ -313,7 +313,7 @@ A small particle burst under every key press. With **Emoji**, each character you
 | Add a font for a script | Row → script picker, then a font picker | n/a |
 | Key sound | Row → picker of the sounds on this device | Follow settings |
 
-Both are referenced by name, never copied into the theme file. Import a theme without the font or sound installed and it falls back to your own global choice. **Key font** covers Latin, Cyrillic and Greek only. Every other script keeps its automatic Noto face unless the theme names one for it. Your own pick in <SettingsPath path="Appearance / Keyboard font" /> always beats the theme's. See [Theme editor](/themes/editor/#font-and-sound) for the id forms that travel between devices.
+Both are referenced by name, never copied into the theme file. Import a theme without the font or sound installed and it falls back to your own global choice. **Key font** covers Latin, Cyrillic and Greek only. Every other script keeps its automatic Noto face unless the theme names one for it. The theme sits between your two kinds of pick in <SettingsPath path="Appearance / Keyboard font" />: a per-script face you chose yourself beats the theme's face for that script, and the theme's own **Key font** beats your English pick. See [Theme editor](/themes/editor/#font-and-sound) for the id forms that travel between devices.
 
 ### Gradients
 
@@ -331,7 +331,7 @@ The **Gradient background** (Board) and **Key gradient** (Keys) rows share one e
 ![Cropping a background image: pinch to zoom, drag to reposition, three aspect presets.](@assets/screens/reference/settings/themes-editor-crop.webp)
 </PhoneFrame>
 
-Pinch to zoom. Drag to pan. The image always scales to fill the frame, so there's never a gap at the edges. Three aspect presets: **Keyboard** (2.4:1, the default), **Wide** (1.7:1), and **Square** (1:1). Confirming writes a new JPEG and deletes the source file. The crop isn't reversible from inside the editor, so re-picking the original photo starts a fresh crop.
+Pinch to zoom, up to 6×. Drag to pan. The image always scales to fill the frame, so there's never a gap at the edges. Four aspect presets: **Keyboard** (2.4:1, the default), **Wide** (1.7:1), **Square** (1:1), and **Free**, which takes the picture's own ratio so nothing is cut. Free is the one for a split or floating keyboard, which is none of the three fixed shapes. Confirming writes a new JPEG and deletes the source file. The crop isn't reversible from inside the editor, so re-picking the original photo starts a fresh crop.
 
 ### The color picker
 
@@ -358,4 +358,4 @@ Tapping any color row opens the same dialog. At the top is a hex field, labelled
 - [Online photos and rotation](/themes/online-photos/): searching Unsplash and Pexels, the photo collection, and the background that changes on a schedule.
 - [Sharing themes](/themes/sharing/): exporting, importing, and installing a theme from an addon repository.
 - [Appearance](/reference/settings/appearance/): the Style group Keyboard themes opens from, alongside Keyboard font and Icons.
-- [Keyboard font](/reference/settings/fonts/) and [Icons](/reference/settings/icons/): the two other Style rows. Typography and icon glyphs sit outside `ThemeSpec` entirely.
+- [Keyboard font](/reference/settings/fonts/) and [Icons](/reference/settings/icons/): the two other Style rows, holding the global choices a theme's own font, key label size and bold-label settings sit on top of. Icon glyphs are the one part of the look a theme has no say over.

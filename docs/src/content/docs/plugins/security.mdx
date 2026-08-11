@@ -120,8 +120,9 @@ about twenty instructions, and concatenation is not something the hook can price
 The allocating thread gets an `OutOfMemoryError`, caught at the session boundary,
 which drops the environment. Worst case, the OS kills the keyboard process and it
 restarts clean. That is a crash rather than a leak: no data crosses any boundary.
-The strike system then disables a plugin that does it repeatedly, unless the user
-has turned that automatic switch-off off.
+No strike is counted for it, though. Strikes come from the instruction and
+deadline aborts and from the watchdog, so a plugin that runs the heap out ends
+its session and stays switched on.
 
 ### Cross-plugin isolation
 
@@ -146,9 +147,11 @@ plugin the resulting *contents*. While that routing is on, what the user types
 goes to a script rather than to their app, so:
 
 - it requires both the Plugins panel to be open *and* a widget to be focused;
-- it is gated at all five keystroke entry points (characters, backspace, space,
-  enter, gesture typing), each returning before the `InputConnection` is
-  touched;
+- it is gated at every keystroke entry point that could reach the field:
+  characters, backspace, the backspace swipe, forward delete, space and enter
+  each return before the `InputConnection` is touched, and a hardware keyboard
+  runs through the same handlers. Gesture typing needs no gate here, because
+  glide is only armed while no panel is open at all;
 - it is switched off when the panel closes, when the keyboard hides, when the
   focused field changes, and when the plugin stops drawing that widget;
 - the runtime is torn down at the same moment, so afterwards there is no plugin

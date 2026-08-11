@@ -24,11 +24,11 @@ If a term below doesn't match what your old keyboard called it, this is where to
 | Glide typing / Flow | Gesture typing: drag through letters instead of tapping | On |
 | Swipe-to-handwrite | A gesture-typing sub-option that recognizes handwritten letters instead of a glide path | Off (glide path) |
 | Clipboard manager | The Clipboard tool: history with pinning, and a paste chip for your last copy | History on, entries expire after 24 hours or once you pass 100 items |
-| Theme store / custom themes | A full theme editor: 26 built-in themes (including ports of well-known editor palettes like Dracula, Nord and Solarized), custom colors, background images (including a landscape-specific one), scheduled light/dark, and `.wmtheme.json` import/export | Follows system light/dark, Material You colors on |
+| Theme store / custom themes | A full theme editor: 28 built-in themes (including ports of well-known editor palettes like Dracula, Nord and Solarized), custom colors, background images (including a landscape-specific one), scheduled light/dark, and `.wmtheme.json` import/export | Follows system light/dark, Material You colors on |
 | Voice typing / dictation | The Voice tool: a full-screen panel by default, or a compact bar over the keys | Full panel; continuous listening and spoken punctuation both on |
 | Autocorrect strength | A confidence multiplier you can tune, rather than a plain on/off switch | On, ×4 (adjustable ×1.5–×10) |
 | Emoji suggestions replacing the typed word | Emoji insert mode set to replace the word | On |
-| "Virtual key" haptic feel | Haptic style set to match a physical key press | On |
+| "Virtual key" haptic feel | A Haptic style picker. **Tap**, the default, asks the platform for its keyboard-tap effect, which is the one an OEM tunes for its own keyboard. **Key** is the generic virtual-key buzz | On, style Tap |
 
 Voice typing, glide typing, and several tools are covered in their own pages: [Voice typing](/tools/voice/), [Glide typing](/typing/glide-typing/), [Clipboard](/tools/clipboard/), and [Themes](/themes/overview/). Autocorrect and gesture settings live under [Typing settings](/reference/settings/typing/). Tune the confidence multiplier there if the default feels too eager or too quiet.
 
@@ -42,9 +42,9 @@ There's no built-in comparison against FUTO Keyboard here, because the two proje
 
 There's no one-click "import my personal dictionary" button. No keyboard exposes its learned-word list in a format another app can read, and WM Keyboard is no exception. Here's what actually happens, and your two real options.
 
-Words you've typed build up in an on-device dictionary automatically, the same way any predictive keyboard learns your vocabulary. There's nothing to migrate beyond typing normally with [Learn from typing](#options) switched on. You can also add words one at a time from the personal dictionary screen. Anything added that way is marked "Added by you." Words the keyboard picked up from typing show "Seen N×" instead.
+Words you've typed build up in an on-device dictionary automatically, the same way any predictive keyboard learns your vocabulary. There's nothing to migrate beyond typing normally with [Learn from typing](#options) switched on. You can also add words one at a time from the personal dictionary screen. Anything added that way reads "You added this word." Words the keyboard picked up from typing read "Seen 4 times" instead.
 
-<PhoneFrame caption="The personal dictionary screen: words you add show 'Added by you'; words picked up from typing show a use count. There's no bulk-import button here.">
+<PhoneFrame caption="The personal dictionary screen: words you add read 'You added this word'; words picked up from typing show a use count. There's no bulk-import button here.">
   {/* shot: start/migrating-personal-dictionary */}
 </PhoneFrame>
 
@@ -66,12 +66,12 @@ Android's own system dictionary (the one some keyboards share words through) isn
 The first-run wizard covers most of this already (see [Enable the keyboard](/start/setup/) for the full walkthrough). If you skipped or rushed past its pages, these four are worth doing by hand:
 
 - **Add every language you actually type in.** A fresh install enables only what your phone's own language list told it to, plus English. Add the rest from Settings → Languages, where a **Suggested for you** group offers the likely ones first.
-- **Trim the toolbox.** Every tool ships switched on by default, around 60 of them. The wizard's Tools page narrows that to a curated 21-tool set, but only if you reach that page during setup. The **Recommended** shortcut lives in the wizard only. On the Settings → Tools screen there's no equivalent bulk switch, so flip off the ones you don't want one at a time. To get the shortcut back, replay the wizard from **About / Run setup again**.
-- **Check your spacebar swipe directions**, if cursor-on-a-quick-swipe is what you're used to. The wizard's gesture page labels that pairing "recommended," but a fresh install ships with the opposite one until you pick otherwise: a quick swipe switches language, and hold-and-swipe moves the cursor. See [Gestures](/typing/gestures/).
+- **Trim the toolbox.** Every tool ships switched on by default, 63 of them on a <Flavor edition="full" /> build. Setup narrows that for you, and the persona quiz's "how much do you want" answer is what picks the size: "Keep it simple" lands 8 tools, "A good middle" 21, "Show me everything" 35. Answering applies the set on the spot, before the Tools page shows up, and that page's **Recommended** button puts the same set back if you've been toggling. On the Settings → Tools screen there's no bulk switch at all, so flip off the ones you don't want one at a time. To get the buttons back, replay the wizard from **About / Run setup again**.
+- **Check your spacebar swipe directions**, if cursor-on-a-quick-swipe is what you're used to. Untouched, a quick swipe switches language and a hold-and-swipe moves the cursor. The wizard's gesture page offers four pairings and puts a "Recommended" badge on whichever one matches your persona answer: say you type several languages and it marks Language on both slots, say you type one and it marks Cursor on both. That answer has already written the pairing by the time you reach the page, so the badge is a description rather than an offer. Set it to what your thumbs expect. See [Gestures](/typing/gestures/).
 - **Revisit autocorrect strength** if your old keyboard's felt looser or tighter. WM Keyboard's confidence multiplier defaults to ×4 out of a ×1.5–×10 range. That sits nearer the eager end than the conservative one, but well short of the most aggressive setting.
 
-<PhoneFrame caption="Settings → Tools: every tool starts on, toggled individually. The wizard's Recommended shortcut (a curated 21 tools) doesn't appear on this screen.">
-  ![Settings → Tools: every tool starts on. Recommended switches to the curated 21-tool set the setup wizard offers.](@assets/screens/start/migrating-tools-recommended.webp)
+<PhoneFrame caption="Settings → Tools: one switch per tool, grouped, with no bulk shortcut. The wizard's Recommended and Everything buttons don't appear on this screen.">
+  ![Settings → Tools: one switch per tool, grouped, with no bulk shortcut.](@assets/screens/start/migrating-tools-recommended.webp)
 </PhoneFrame>
 
 ## What WM Keyboard does differently
@@ -95,7 +95,7 @@ Two more things migrating users tend to look for:
 
 <SettingsPath path="Tools" />
 
-- Every tool is switched on by default. Flip each one off individually here. The **Recommended** and **Everything** shortcuts appear only on the setup wizard's Tools page, not on this screen.
+- Every tool this build ships is switched on before setup runs. Flip each one off individually here. The **Recommended** and **Everything** buttons appear only on the setup wizard's Tools page, not on this screen.
 
 <SettingsPath path="Privacy" />
 

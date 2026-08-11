@@ -10,8 +10,8 @@ import SettingsPath from '@components/SettingsPath.astro';
 
 Every theme, yours or a built-in, exports to a single self-contained file. Any `.wmtheme.json` file imports back in, no matter where it came from. An addon repository serves that same format, so publishing a theme takes no extra packaging step.
 
-<PhoneFrame caption="The theme gallery, with export and import actions above the cards.">
-  ![The theme gallery, with export and import actions above the cards.](@assets/screens/themes/gallery-export-import.webp)
+<PhoneFrame caption="The theme gallery: the create and import actions above the cards, and an export icon on each card.">
+  ![The theme gallery: the create and import actions above the cards, and an export icon on each card.](@assets/screens/themes/gallery-export-import.webp)
 </PhoneFrame>
 
 ## Exporting a theme
@@ -24,23 +24,23 @@ Tap export and the system "Save as" picker opens, so you choose the destination 
 
 What a card exports depends on how the gallery is drawing it. A grouped family card exports the whole family, every look in one file. A separate card exports the single look it shows, with the other looks and the group name stripped out, so the person you send it to gets one theme rather than a family with holes in it. Flip **Theme gallery style** if you want the other one; see [Theme families and looks](/themes/families/).
 
-The exported file is the theme's full set of colors, gradients, and radii, written as plain JSON with no wrapper or format tag around it. Unlike a layout or settings export, a theme file identifies itself by its `.wmtheme.json` extension rather than by a marker inside. If the theme has a background image, the app reads that image off disk and embeds it as base64 instead of leaving behind a path that only exists on your device. The export is self-contained, so opening it on another phone doesn't mean re-picking the photo. A theme with no background image has empty image fields. There's no size limit on a local export, so a theme with a large background photo makes a correspondingly large file.
+The exported file is the whole theme, written as plain JSON with no wrapper or format tag around it: colors, gradients and radii, but also the typeface, sound and key-texture choices the theme carries. Unlike a layout or settings export, a theme file identifies itself by its `.wmtheme.json` extension rather than by a marker inside. If the theme has a background image, the app reads that image off disk and embeds it as base64 instead of leaving behind a path that only exists on your device. The export is self-contained, so opening it on another phone doesn't mean re-picking the photo. A theme with no background image has empty image fields. There's no size limit on a local export, so a theme with a large background photo makes a correspondingly large file.
 
 ## Importing a theme
 
-There are three ways a theme gets imported, and they don't all behave the same way: two apply the theme immediately, one doesn't. A fourth button on the same row, **FlorisBoard**, reads someone else's format rather than this one. It's covered separately below.
+There are three ways a theme gets imported, and they don't all behave the same way: two apply the theme immediately, one doesn't. A third button on the same row, **FlorisBoard**, reads someone else's format rather than this one. It's covered separately below.
 
 ### From the Import button
 
 <SettingsPath path="Appearance / Keyboard themes" />
 
-The **Import** button next to Export opens a file picker scoped to JSON-ish files. It's intentionally permissive about the exact MIME type, since file providers report a `.json` file as `text/plain` or `application/octet-stream` about as often as they get it right. Pick a `.wmtheme.json` file and it's added to Your themes under a freshly generated ID. The ID stored inside the file itself is discarded, so importing the same file twice creates two separate custom themes rather than updating one in place. Any embedded background image is written back out to local storage as part of the import.
+The **Import** button, sitting between **Create theme** and **FlorisBoard** above the cards, opens a file picker scoped to JSON-ish files. It's intentionally permissive about the exact MIME type, since file providers report a `.json` file as `text/plain` or `application/octet-stream` about as often as they get it right. Pick a `.wmtheme.json` file and it's added to Your themes under a freshly generated ID. The ID stored inside the file itself is discarded, so importing the same file twice creates two separate custom themes rather than updating one in place. Any embedded background image is written back out to local storage as part of the import.
 
 Importing this way both adds the theme **and switches the keyboard to it immediately**: there's no separate confirmation step for "use it now."
 
 ### By opening the file elsewhere
 
-Tapping a `.wmtheme.json` file in a file manager, or choosing "open with" on one from a chat app, hands it to a small confirmation dialog rather than dropping you into the settings app. It asks "Import *theme name*?" with the note that the theme is added to your themes and applied to the keyboard, then a single **Import** button. Confirming has the same immediate-apply effect as the in-app Import button: added to Your themes and switched on right away.
+Tapping a `.wmtheme.json` file in a file manager, or choosing "open with" on one from a chat app, hands it to a small confirmation dialog rather than dropping you into the settings app. It asks "Import *theme name*?" with the note that the theme is added to your themes and applied to the keyboard, then **Import** and **Cancel**. Confirming has the same immediate-apply effect as the in-app Import button: added to Your themes and switched on right away.
 
 :::caution
 This file association is matched by filename, since a theme file carries no internal tag to identify it: a `.wmtheme.json` extension is the only signal. If you rename the file and drop that suffix (keeping just `.json`), Android stops offering WM Keyboard as a handler for it. The in-app Import button above isn't affected, since it doesn't check the filename.
@@ -52,13 +52,13 @@ This file association is matched by filename, since a theme file carries no inte
 
 ### From an addon repository
 
-See [Addon repositories](/development/addon-repos/) for how repositories work generally. Installing a theme from one behaves differently from the two file-based flows above: it's added to Your themes but **not** switched on automatically. Browsing a repository shouldn't repaint your keyboard behind your back, so after the install finishes you get a separate, dismissable prompt: "Installed *theme name*", asking "Use it as your keyboard theme now?" with a **Switch to it** button and a **Not now** dismiss option. Declining leaves the theme sitting in Your themes, installed but not worn, until you tap it yourself.
+See [Addon repositories](/development/addon-repos/) for how repositories work generally. Installing a theme from one behaves differently from the two file-based flows above: it's added to Your themes but **not** switched on automatically. Browsing a repository shouldn't repaint your keyboard behind your back, so after the install finishes you get a separate, dismissable prompt: "*Theme name* is installed", asking "Use it as your keyboard theme now?" with a **Switch to it** button and a **Not now** dismiss option. Declining leaves the theme sitting in Your themes, installed but not worn, until you tap it yourself.
 
 A theme listing in a repository also isn't previewable in the addon browser the way a dictionary or sticker pack is. You judge a theme by seeing the keyboard wearing it, which a static preview panel can't honestly show. Unlike a plugin, a theme's checksum in the repository manifest is optional rather than enforced, since a theme isn't executable code. A theme with no checksum installs exactly like one that has it, with no extra warning either way.
 
 ### From a FlorisBoard file
 
-The gallery's third import button reads FlorisBoard's own `.flex` theme packages instead of `.wmtheme.json`, and converts every theme inside one into a custom theme here. You can open a `.flex` straight from a file manager too. A file that carries both a day and a night version becomes one theme with two looks rather than two entries. What converts cleanly, what gets reported instead of guessed at, and why a FlorisBoard 0.4 theme is refused outright are all in [Importing other keyboards](/reference/importing-other-keyboards/).
+The gallery's **FlorisBoard** button reads FlorisBoard's own `.flex` theme packages instead of `.wmtheme.json`, and converts every theme inside one into a custom theme here. A converted theme is saved without being switched on, so you can look at it before wearing it. You can open a `.flex` straight from a file manager too. A file that carries both a day and a night version becomes one theme with two looks rather than two entries. What converts cleanly, what gets reported instead of guessed at, and why a FlorisBoard 0.4 theme is refused outright are all in [Importing other keyboards](/reference/importing-other-keyboards/).
 
 ## Publishing a theme
 
@@ -68,6 +68,6 @@ Publishing requires no extra packaging. A repository serves the exact `.wmtheme.
 
 - **No limit on custom themes.** Unlike sticker packs or plugins, there's no cap on how many themes you can import or create.
 - **Re-importing a file always creates a new theme.** Because the ID inside the file is discarded on import, editing a file externally and re-importing it adds another entry rather than replacing the original; delete the old one yourself if you don't want both.
-- **Deleting the active theme falls back to Default.** If you delete a custom theme that's currently applied, the keyboard falls back to the Default (system) theme. Deleting a theme from the gallery also removes its background image file(s) from storage.
+- **Deleting the active theme falls back to Default.** If you delete a custom theme that's currently applied, the keyboard falls back to the Default (system) theme. Its background image files stay on disk for now: two themes can share an image file, so only a later housekeeping pass removes the ones nothing points at any more, and only once they've gone a full day unreferenced.
 - **Import and export work the same in both editions.** There's no feature gap between the full and lite builds for exporting, importing, or installing themes from a repository.
 - **A background image travels with every export**, portrait and landscape both, so restoring a theme on a new device doesn't require re-picking either photo. See [Image backgrounds](/themes/backgrounds/) for how those images are set in the first place.

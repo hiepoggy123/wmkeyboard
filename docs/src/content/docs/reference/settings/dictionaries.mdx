@@ -14,9 +14,11 @@ WM Keyboard keeps your words in four separate screens, reached from two differen
 
 <SettingsPath path="Typing / Suggestions / Personal dictionary" />
 
-Every word the keyboard has learned from your typing, plus any you add by hand, sorted with the most-reinforced word first. Each row reads "Added by you" once its weight reaches 200, and "Seen N×" below that.
+Every word the keyboard has learned from your typing, plus any you add by hand, sorted with the most-reinforced word first. Each row reads "You added this word" once its weight reaches 200, and "Seen N times" below that.
 
-**Add word** opens a single-field dialog and adds 200 to the word's weight. A word the keyboard has never seen lands at exactly 200 and reads "Added by you" straight away. A word you'd already typed 50 times goes to 250 rather than back down to 200. The trash icon on a row removes that word, and drops it from any word pairs it was part of. Every add and every remove signals a running keyboard session to reload the list, so your edit isn't silently overwritten.
+Past 12 words the list grows a search box above it, with a clear button in the field. Type into it and only the matching words stay on screen; a term that matches nothing says so rather than showing an empty list. Below 12 words there's no box, since the list is short enough to read.
+
+**Add word** opens a single-field dialog and adds 200 to the word's weight. A word the keyboard has never seen lands at exactly 200 and reads "You added this word" straight away. A word you'd already typed 50 times goes to 250 rather than back down to 200. The trash icon on a row removes that word, and drops it from any word pairs it was part of. Every add and every remove signals a running keyboard session to reload the list, so your edit isn't silently overwritten.
 
 The dialog takes anything you type, but the store won't: a word over 32 characters (measured after lowercasing) is dropped silently, so the dialog closes and the list is exactly as it was. The same limit applies to words learned from typing.
 
@@ -38,7 +40,9 @@ Smaller caps sit alongside it, on the next-word data rather than on the words: 5
 
 <SettingsPath path="Typing / Suggestions / Custom dictionaries" />
 
-One group per enabled language, each listing the word lists you've imported for it. A row's headline is the filename without its extension, its subtitle is the word count, and a trash icon removes it. **Import word list** (or **Import another**, once one exists) opens a file picker. **From URL** opens a dialog to pull one down instead. A language with no lists yet still gets its own group and both buttons, ready for a first import. A language that isn't currently enabled gets no group here at all, even with imported files already sitting on disk.
+A **Download more** row leads, opening the add-on repositories' dictionaries. Under it, one group per enabled language, each listing the word lists you've imported for it. A row's headline is the filename without its extension, its subtitle is the word count, and it carries two controls: a switch and a trash icon. The switch turns a list off without deleting it (the file is renamed, not removed), and a switched-off row reads "Switched off, still on the device" in place of its word count. That's the cheap way to find out whether a bad import is what's polluting your suggestions. **Import word list** (or **Import another**, once one exists) opens a file picker. **From URL** opens a dialog to pull one down instead. A language with no lists yet still gets its own group and both buttons, ready for a first import.
+
+A language you've since switched off keeps its group, headed "*language* (language switched off)", so its lists stay reachable rather than sitting on disk with nothing pointing at them. That group has no import buttons, since a list imported there wouldn't be read, but the switches and trash icons still work.
 
 <PhoneFrame caption="Custom dictionaries, grouped by language, with Import and From URL actions.">
   ![Custom dictionaries, grouped by language, with Import and From URL actions.](@assets/screens/reference/settings/dictionary-custom.webp)
@@ -46,7 +50,7 @@ One group per enabled language, each listing the word lists you've imported for 
 
 The format, per the screen's own description: one word per line, optionally followed by a space and a frequency number. Lines starting with `#` are ignored. Imported words are never autocorrected away.
 
-A local-file import over 32 MiB is turned down before it's even read, with "That file is too large to import." A URL import enforces the same 32 MiB cap mid-download, but every failure there, oversized file or dead link or network error alike, surfaces as "The app cannot download that list. Check the URL and try again." Only `http://` and `https://` URLs are accepted. A successful import reports "The app added N words to `<language>`." An empty file reports "The app found no words in that file. Make sure that it is a word list." Every successful import or removal signals a running keyboard session to reload.
+A local-file import over 32 MiB is turned down before it's even read, with "That file is too large to import." A URL import enforces the same 32 MiB cap mid-download, but every failure there, oversized file or dead link or network error alike, surfaces as "The app cannot download that list. Check the URL and try again." Only `http://` and `https://` URLs are accepted, and anything else is caught before the download starts with its own message, "The app accepts only http:// and https:// links." A successful import reports "The app added N words to `<language>`." An empty file reports "The app found no words in that file. Make sure that it is a word list." Every successful import or removal signals a running keyboard session to reload.
 
 Lists are additive, so several can sit under one language, and for English and Bangla they stack on top of the bundled dictionary rather than replacing it. That's a different mechanism from the downloadable wordlists reached from a language's own Dictionary section, which *do* replace the built-in English or Bangla list. See [Downloadable dictionaries](/languages/dictionaries/) for that pipeline, its size tiers, and the full list of every available wordlist.
 
@@ -54,7 +58,7 @@ Lists are additive, so several can sit under one language, and for English and B
 
 <SettingsPath path="Typing / Suggestions / Suggestion blacklist" />
 
-Words the keyboard must never suggest or autocorrect to, listed alphabetically with a trash icon per row. **Add word** opens the same single-field dialog shape as the personal dictionary; whatever you type is stored trimmed and lowercased, so capitalization and stray spaces don't create duplicate entries. The list is empty by default, and nothing is blacklisted until you add something yourself.
+Words the keyboard must never suggest or autocorrect to, listed alphabetically with a trash icon per row. **Add word** opens the same single-field dialog shape as the personal dictionary; whatever you type is stored trimmed and lowercased, so capitalization and stray spaces don't create duplicate entries. The list is empty by default, and nothing is blacklisted until you add something yourself. Once it has entries, a **Clear the blacklist** row appears above them and empties the lot behind a confirmation. Clearing only unblocks the words; nothing you've taught the keyboard is touched.
 
 <PhoneFrame caption="The Suggestion blacklist editor, empty until you add a word.">
   ![The Suggestion blacklist editor, empty until you add a word.](@assets/screens/reference/settings/dictionary-blacklist.webp)
@@ -66,13 +70,13 @@ Before you add anything, the screen reads "No words in this list yet. Add a word
 
 <SettingsPath path="Emoji / Emoji panel / Emoji keywords" />
 
-The densest of the four screens. A single **Download automatically** toggle sits up top, then one group per language, each holding up to two kinds of row.
+The densest of the four screens. A **Downloads** group sits up top, holding the **Download automatically** toggle and a **Download more** row into the add-on repositories' keyword packs. Under it, one group per language, each holding up to two kinds of row.
 
 **Download automatically** (<SettingsPath path="Emoji / Emoji panel / Emoji keywords / Downloads" />) defaults to **on**, so turning a language on fetches its keywords in the background, around 100 KB, once. Off leaves the per-language Download buttons below as the only way to get them.
 
 Each language group can carry a bundled-catalog row (only shown for the 125 languages the [wmkeyboard-data](https://github.com/wasi-master/wmkeyboard-data) repo covers) and any number of user-imported packs below it:
 
-- **Bundled catalog row**: reads "N emoji · size download" before you download it (for example "3,943 emoji · 74 KB download"), then a progress bar and a Cancel button while it downloads, then "N emoji · size" plus a delete icon once it's there. A failure leaves an error message and a Retry button.
+- **Bundled catalog row**: reads "N emoji, size to download" before you download it (for example "3,943 emoji, 74 KB to download"), "Waiting…" while it's queued, then a progress bar and a Cancel button while it transfers, then "N emoji, size" plus a delete icon once it's there. A failure leaves an error message and a Retry button.
 - **Imported packs**: one row per file, headline the filename minus extension, subtitle "N emoji", trash to remove. **Import pack**/**Import another** and **From URL** buttons work exactly as they do on Custom dictionaries.
 
 <PhoneFrame caption="Emoji keywords: the Downloads toggle, a bundled-catalog row, and an imported pack for one language.">
@@ -81,14 +85,14 @@ Each language group can carry a bundled-catalog row (only shown for the 125 lang
 
 A language's group appears here if it's currently enabled, has a downloaded catalog, or has an imported pack. So you can still delete a pack for a language you've since turned off.
 
-The import format is a tab-separated file: one emoji per line, then its comma-separated keywords, then optionally another tab and a display name. Lines starting with `"# "` are ignored. A bare `#` isn't a comment here, since it starts the keycap row. The repo's own JSON dictionaries import as-is too. The size cap is 8 MiB, smaller than Custom dictionaries' 32 MiB, and it's enforced the same way for local files and URL downloads. Every URL-import failure collapses onto one code path, so a dead link or a network error reports the same "That file is too large to import." as a genuinely oversized file. A successful import reports "The app added keywords for N emoji to `<language>`." An empty file reports "The app found no emoji in that file. Make sure that it is a keyword pack."
+The import format is a tab-separated file: one emoji per line, then its comma-separated keywords, then optionally another tab and a display name. Lines starting with `"# "` are ignored. A bare `#` isn't a comment here, since it starts the keycap row. The repo's own JSON dictionaries import as-is too. The size cap is 8 MiB, smaller than Custom dictionaries' 32 MiB, and it's enforced the same way for local files and URL downloads. Once the download starts, every failure collapses onto one code path, so a dead link or a network error reports the same "That file is too large to import." as a genuinely oversized file. A URL with the wrong scheme is the exception, since it never gets that far. A successful import reports "The app added keywords for N emoji to `<language>`." An empty file reports "The app found no emoji in that file. Make sure that it is a keyword pack."
 
 See [Emoji search in your language](/emoji/customization/#emoji-search-in-your-language) for why 125 languages, what auto-download does in practice, and how a pack changes what you see while typing.
 
 ## Details & edge cases
 
 - **Custom dictionaries truncates malformed lines silently rather than skipping them.** The parser splits each line on its *last* space. If that trailing token isn't a number the frequency defaults to 1, but the line is still cut at that last space. A genuine multi-word phrase, or any word with a trailing non-numeric token, loses everything after the final space instead of importing as written. Check a hand-written list for stray trailing words before you import it.
-- **Emoji-pack URL imports report the wrong error more often than not.** Custom dictionaries tells a too-large file apart from a failed download. The emoji-pack importer doesn't. Any URL failure, for any reason, shows "That file is too large to import."
+- **Emoji-pack URL imports report the wrong error more often than not.** Custom dictionaries tells a too-large file apart from a failed download. The emoji-pack importer doesn't. A dead link, a network error and a genuinely oversized file all show "That file is too large to import." The one failure it names correctly is a URL that isn't `http://` or `https://`, which is caught before the download and says so.
 - **The two import screens share a shape but not their limits.** Custom dictionaries caps at 32 MiB, Emoji keywords at 8 MiB. Both accept only `http://`/`https://` URLs, and both stack multiple lists per language rather than replacing what's there.
 - **None of these four screens are gated by edition.** Full and lite builds show identical dictionary, blacklist and emoji-keyword screens.
 - **Three separate stores, easy to conflate.** The personal dictionary is what you've typed. Custom dictionaries are lists you import. The blacklist is what to withhold. A word can sit in more than one at once, and the blacklist always wins as a candidate, whatever is learned or imported.

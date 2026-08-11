@@ -52,6 +52,8 @@ Type in the box and hit send. While the answer streams, the send button becomes 
 - **A failed turn** shows the error in its own bubble with a **Retry** button. Only the newest failed message gets one, because retrying something from the middle of a transcript would answer out of order. Retry re-sends the message the failure was answering, so nothing is duplicated.
 - **Leaving doesn't cancel anything.** Navigate away mid-answer and the generation carries on. Come back and it's either still streaming or already in the transcript.
 
+Every finished answer also carries a **Report** button along its bottom edge, the same route the panel offers under [Reporting a result](/tools/ai/#reporting-a-result). It opens a draft in your own mail app holding the provider, the model, the message the answer replied to, and the answer itself, with a blank line at the top for what went wrong. Nothing is uploaded when you tap it, so a report only exists once you send the mail. Your own messages carry no button, and neither does a failed turn, because neither one is a generated answer. With no mail app installed, a message says so instead.
+
 Reasoning models follow the same **Show model reasoning** setting the keyboard panel uses. With it on, the raw stream renders with the thinking part dimmed. With it off, you get a "Reasoning…" line until real answer text starts arriving.
 
 An on-device model gets a live session per conversation, seeded with the saved transcript, so it keeps the context of what you've already said. Switching conversation, model, [compute backend or context size](/tools/ai/#local-models) closes that session and opens a fresh one, seeded the same way.
@@ -94,7 +96,7 @@ Exactly what the AI tool sends, and only when you hit send:
 - **Max response length applies here too.** For a cloud or self-hosted model, the AI tool's ceiling bounds a chat reply the same way it bounds a panel result, reasoning-model multiplier included. See [About "Provider maximum"](/tools/ai/#about-provider-maximum). On-device, the **Context size** row is what bounds it, exactly as on the panel.
 - **The chat prompt isn't one of your actions.** The panel's [action prompts](/tools/ai/#your-own-actions) are for transforming text in a field, which is a different job. Chat has its own fixed prompt and nothing on this screen edits it.
 - **Nothing here is written to the AI history.** That log records panel runs. A conversation is only in the chat file.
-- **The launcher shortcut is one of seven.** Long-pressing the app icon can drop you into Typing, Appearance, Themes, Languages, Tools, Search, or this. See [Deep links & launcher shortcuts](/reference/deep-links/).
+- **The launcher shortcut is one of four.** Long-pressing the app icon offers Tools, Languages, AI chat and Themes, and nothing else. The `wmkeyboard://settings/` scheme behind those four reaches three more screens (Typing, Appearance and Search) that no shortcut points at. See [Deep links & launcher shortcuts](/reference/deep-links/).
 - **Deleting a chat mid-answer is handled.** If a generation finishes for a conversation you've already deleted, the answer is dropped rather than resurrecting the row.
 - **Reasoning is stripped from what's saved.** Only the answer lands in the transcript, the same way the keyboard panel only commits the answer.
 

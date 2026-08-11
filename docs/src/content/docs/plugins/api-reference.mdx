@@ -96,8 +96,8 @@ false` grays one out.
 **`ui.input` carries no value.** The keyboard owns what is in the box: a tap
 points the keys at it, and you are told the contents through an `input_changed`
 event. Use `wm.ui.set_input(id, text)` to write to one. This is why a plugin
-never sees a keystroke. It sees the finished contents of its own box, nothing
-else.
+never sees a keystroke. It is handed the whole contents of its own box after
+each one, and nothing else.
 
 ### Tabs
 
@@ -127,7 +127,10 @@ ui.progress()   -- an indeterminate bar
 | `"click"` | none | A button was tapped. |
 | `"toggle"` | `e.value` (boolean) | A toggle was flipped. |
 | `"input_changed"` | `e.value` (string) | The contents of one of *your* boxes changed. |
-| `"tab_selected"` | `e.index` (number, 1-based) | A tab was picked. |
+| `"tab_selected"` | `e.index` (number, 0-based) | A tab was picked. |
+
+`tab_selected` counts from 0, not from 1 the way the rest of Lua does. The
+first page is 0.
 
 `input_changed` fires per keystroke into your own input widget. That is how a
 live preview works. It is bounded to your panel: you are told what is in your
@@ -212,8 +215,8 @@ cannot rewrite string handling for every other one.
 
 ## Limits
 
-Exceeding one of these is an error you can see, not a silent truncation, except
-where noted.
+Exceeding one of these is something you can see: either an error, or a note on
+the panel saying what had to be dropped. Two are quiet, and the table says which.
 
 | | |
 |---|---|
@@ -221,17 +224,19 @@ where noted.
 | Archive size | 1 MB, 16 entries |
 | Instructions | 30M on load, 20M per event, 4M per render |
 | Time | 3 s on load, 2 s per event, 0.5 s per render |
-| Widgets | 256 nodes, 12 deep, 8 tabs |
+| Widgets | 256 nodes, 12 deep, 8 tabs *(dropped, and reported)* |
 | Widget text | 2 KB per node, 64 KB per tree *(truncated, and reported)* |
 | `string.rep` output | 256 KB |
 | Pattern subject / pattern | 256 KB / 256 bytes |
 | `table.concat` output | 1 MB |
 | Storage | 128 keys, 64 chars per key, 8 KB per value, 64 KB total |
-| Log | 200 lines of 512 characters |
-| Input box | 8 KB |
+| Log | 200 lines of 512 characters *(truncated quietly)* |
+| Input box | 8 KB *(truncated quietly)* |
 
-A plugin that runs out of instructions or time is stopped and the user is told.
-One that becomes unresponsive twice is switched off until they turn it back on.
-That last part is a setting: **Switch off a plugin that hangs**, on the
-Tools / Plugins screen, on by default. With it off the strikes are still counted
-and still shown, and only the automatic switch-off goes away.
+A plugin that runs out of instructions or time is stopped, the user is told, and
+it takes a strike. So does one the watchdog has to abandon for going
+unresponsive. Two strikes and the plugin is switched off until they turn it back
+on, which also forgives the strikes. That last part is a setting: **Switch off a
+plugin that hangs**, on the Plugins screen, on by default. With it off the
+strikes are still counted and still shown, and only the automatic switch-off
+goes away.

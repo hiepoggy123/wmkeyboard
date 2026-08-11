@@ -17,9 +17,9 @@ Plug in a Bluetooth or USB keyboard and WM Keyboard keeps running underneath rat
 
 ## Typing on a physical keyboard
 
-<SettingsPath path="Typing / Physical keyboard / Process hardware keys" />
+<SettingsPath path="Typing / Physical keyboard / Process the physical keys" />
 
-With **Process hardware keys** on (the default), a key you press on a physical keyboard runs through the same code path as a tap on the screen. Phonetic layouts transliterate as you go, words compose for suggestions, autocorrect fires on <KeyCap>Space</KeyCap>, and <KeyCap>⌫</KeyCap> undoes a swipe or a correction instead of just deleting a character. Wrap-around-selection carries over too, if you've turned it on: select some text, type an opening bracket or quote on the physical keyboard, and it wraps the selection the same way a tap would.
+With **Process the physical keys** on (the default), a key you press on a physical keyboard runs through the same code path as a tap on the screen. Phonetic layouts transliterate as you go, words compose for suggestions, autocorrect fires on <KeyCap>Space</KeyCap>, and <KeyCap>⌫</KeyCap> undoes a swipe or a correction instead of just deleting a character. **Wrap the selection with brackets** carries over too, and it's on by default: select some text, type an opening bracket or quote on the physical keyboard, and it wraps the selection the same way a tap would.
 
 Turn the toggle off and physical keys type their raw characters straight into the field. The keyboard's own layout owns input entirely from there, and correction is the system's business rather than WM Keyboard's.
 
@@ -41,7 +41,7 @@ The badges cover everything on screen:
 | Where | Key |
 | --- | --- |
 | Toolbar icons | <KeyCap>1</KeyCap> onward, counting from the toolbox button at the start |
-| Toolbox tools | the tool's own letter, or <KeyCap>Shift</KeyCap>+a letter for the ones with no letter |
+| Toolbox tools | the tool's own letter, or <KeyCap>Shift</KeyCap>+a spare key for the ones with no letter (all 26 letters first, then the digits) |
 | Symbol row | <KeyCap>Shift</KeyCap>+a letter |
 | Emoji row | <KeyCap>Shift</KeyCap>+<KeyCap>1</KeyCap> onward, counting from the left like the toolbar |
 | Suggestions | <KeyCap>1</KeyCap> to <KeyCap>9</KeyCap>, left to right (see below) |
@@ -93,7 +93,7 @@ Open **Tool shortcuts list** to change any of it. (The screen is reachable only 
 
 <KeyCap>T</KeyCap> and <KeyCap>?</KeyCap> are reserved and can never be bound to a tool: they always open the toolbox and the cheat sheet, respectively. The full binding table and cheat sheet also live in [Hardware shortcuts](/reference/shortcuts/).
 
-There are far more tools than there are letters, so the ones with no letter of their own get a <KeyCap>Shift</KeyCap>+key assigned automatically while the toolbox is open. That's what the badges in the grid are showing. They follow the grid's order, so they stay put unless you rearrange the toolbox itself.
+There are dozens of tools and only 25 bindable letters on the bare tier (<KeyCap>T</KeyCap> is spoken for), so "give everything its own key" is arithmetically impossible on one tier. The ones with no letter of their own get a <KeyCap>Shift</KeyCap>+key assigned automatically while the toolbox is open, drawing on the letters first and then the digits. The Shift tier uses all 26 letters, <KeyCap>Shift</KeyCap>+<KeyCap>T</KeyCap> included, because only the bare <KeyCap>T</KeyCap> is reserved. That's what the badges in the grid are showing. They follow the grid's order, so they stay put unless you rearrange the toolbox itself.
 
 ## Symbols and emoji from the keyboard
 
@@ -155,15 +155,15 @@ A few tools work by typing rather than highlighting. The calculator and the unit
 
 ## Picking a suggestion from the keyboard
 
-<SettingsPath path="Typing / Physical keyboard / Number keys pick suggestions" />
+<SettingsPath path="Typing / Physical keyboard / Number keys select suggestions" />
 
-The suggestion strip can't be tapped while you're typing on a physical keyboard, so **Number keys pick suggestions** gives you a keystroke instead. It has three modes:
+The suggestion strip can't be tapped while you're typing on a physical keyboard, so **Number keys select suggestions** gives you a keystroke instead. It has three modes:
 
 - **Off.** Number keys always type digits.
 - **Alt + number**, the default. <KeyCap>Alt</KeyCap>+<KeyCap>1</KeyCap> through <KeyCap>Alt</KeyCap>+<KeyCap>9</KeyCap> commit directly, with no leader key first. Browsers and chat apps sometimes claim Alt+number for tab switching, so this is the one to change if that bites.
 - **After the shortcut key.** Double-tap the shortcut key, then press <KeyCap>1</KeyCap> through <KeyCap>9</KeyCap>. Nothing else uses it, at the cost of one extra keystroke. In this mode the bare numbers belong to the strip, so the toolbar's tools rely on the <KeyCap>Ctrl</KeyCap>+number chord above.
 
-Either way there's no slot for suggestion "10": only the first nine entries in the strip are reachable by number.
+In practice the strip is what sets the ceiling, not the digits. It draws between two and six chips (<SettingsPath path="Typing / Suggestions" />, **Number of suggestions**, three out of the box), so the numbers only ever run as far as the words you can actually see.
 
 <SettingsPath path="Typing / Physical keyboard / Show the suggestion numbers" />
 
@@ -177,7 +177,7 @@ The numbers count **slots, left to right**, not the engine's ranking. That matte
 
 | Setting | Default |
 | --- | --- |
-| Process hardware keys | On |
+| Process the physical keys | On |
 | Tool shortcuts | On |
 | Shortcut key | Double-tap Ctrl |
 | Ctrl + number opens a toolbar tool | On |
@@ -185,7 +185,7 @@ The numbers count **slots, left to right**, not the engine's ranking. That matte
 | Time to press a key | 8.0s |
 | Arrow keys move a highlight | On |
 | Esc closes the tool | On |
-| Number keys pick suggestions | Alt + number |
+| Number keys select suggestions | Alt + number |
 | Show the suggestion numbers | On |
 | macOS shortcuts | Off |
 | Ctrl+Space changes the language | On |
@@ -193,7 +193,7 @@ The numbers count **slots, left to right**, not the engine's ranking. That matte
 
 **Show the keyboard for shortcuts** covers the case where a physical keyboard is attached and there's no reason for the on-screen keyboard to be up. Press a shortcut that opens a tool and the keyboard comes up anyway, because the tool needs somewhere to draw. It hides again once you close the tool.
 
-A related setting lives elsewhere. <SettingsPath path="Appearance / Only toolbar with hardware keyboard" /> hides the key grid entirely, leaving just the suggestion strip and toolbar, whenever a physical keyboard is attached. You're typing on the physical keys anyway. It's off by default and doesn't affect anything documented on this page.
+A related setting lives elsewhere. <SettingsPath path="Appearance / Only the toolbar with a hardware keyboard" /> hides the key grid entirely, leaving just the suggestion strip and toolbar, whenever a physical keyboard is attached. You're typing on the physical keys anyway. It's off by default and doesn't affect anything documented on this page.
 
 ## Details and edge cases
 
@@ -201,8 +201,8 @@ A related setting lives elsewhere. <SettingsPath path="Appearance / Only toolbar
 - **The badges never resize the keyboard.** They're drawn over the buttons rather than added beside them, so double-tapping <KeyCap>Ctrl</KeyCap> can't shove the app's text out from under your hands.
 - **Toolbar badges only show when the toolbar does.** With suggestions occupying the strip instead, <KeyCap>Ctrl</KeyCap>+number still opens the same tools, with nothing on screen to label them. The cheat sheet lists them either way.
 - **Reserved chords still work as a shortcut key, with a warning.** Capture a chord like Ctrl+C, Ctrl+V, Ctrl+S or Ctrl+Tab as your shortcut key and the picker warns you it's "usually the app's own shortcut", then lets you use it anyway. It's a nudge, not a block.
-- **Process hardware keys only governs typed characters.** Turning it off stops physical keys from running through autocorrect and suggestions. Tool shortcuts, panel navigation and Esc keep working regardless, since none of them touch typed text.
+- **Process the physical keys only governs typed characters.** Turning it off stops physical keys from running through autocorrect and suggestions. Tool shortcuts, panel navigation and Esc keep working regardless, since none of them touch typed text.
 - **No edition split.** Everything on this page works the same on both the full and lite builds.
-- **Presence detection is automatic.** The keyboard notices a physical keyboard attaching and detaching through the system's own configuration, which is also what drives the separate "Only toolbar with hardware keyboard" setting above.
+- **Presence detection is automatic.** The keyboard notices a physical keyboard attaching and detaching through the system's own configuration, which is also what drives the separate "Only the toolbar with a hardware keyboard" setting above.
 
 For the complete shortcut and cheat-sheet reference in one table, see [Hardware shortcuts](/reference/shortcuts/). For the toolbar setting that hides the key grid when a keyboard is attached, see [Appearance settings](/reference/settings/appearance/).

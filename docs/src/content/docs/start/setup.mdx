@@ -10,27 +10,31 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import { Steps } from '@astrojs/starlight/components';
 
-Installing WM Keyboard doesn't make it your keyboard. Android keeps every installed input method switched off until you enable it and then pick it as the active one. The app's Home screen has a card that walks you through both steps and tells you the moment you're done.
+Installing WM Keyboard doesn't make it your keyboard. Android keeps every installed input method switched off until you enable it and then pick it as the active one. The app's Home screen has a card that walks you through both steps, and it disappears the moment you're done.
 
-<PhoneFrame caption="The setup card before WM Keyboard is enabled: 'Enable keyboard' opens system settings, 'Switch keyboard' opens the picker.">
+<PhoneFrame caption="The setup card before WM Keyboard is enabled: 'Turn on keyboard' opens system settings, 'Switch keyboard' waits its turn.">
   {/* shot: start/setup-card-not-enabled */}
 </PhoneFrame>
 
 ## Using the setup card
 
-The card sits at the top of the app's Home screen, always. It isn't a first-run-only banner, so you can come back to it any time. While it's on screen it checks Android's input-method state about once a second. There's no callback for "the user switched keyboards" while your app sits behind a system dialog, so polling is the only way to notice. The card shows one of three states:
+The card sits at the top of the app's Home screen until both steps are done, and it isn't a first-run-only banner: leave setup half finished and it's still there on the next launch. While it's on screen it checks Android's input-method state about once a second. There's no callback for "the user switched keyboards" while your app sits behind a system dialog, so polling is the only way to notice.
 
-1. **Not enabled.** The card reads "Enable WM Keyboard in system settings, then select it as your input method." It offers two buttons. **Enable keyboard** opens Android's input-method settings list. **Switch keyboard** opens the system's keyboard picker directly.
-2. **Enabled, not selected.** The card reads "WM Keyboard is enabled. Use the button below to switch to it." Only **Switch keyboard** shows now.
-3. **Enabled and selected.** A checkmark icon appears, tinted with the app's accent color. It isn't necessarily green, because it follows your theme. The card reads "WM Keyboard is your active keyboard." Nothing left to do.
+Both steps are always drawn, stacked, with only the one still to do live as a button:
 
-Tap **Enable keyboard** to open the system screen. Turn WM Keyboard's toggle on there. Tap **Switch keyboard** to open Android's "Change keyboard" sheet, which lists every enabled input method on the device. Tap WM Keyboard in that sheet to make it active. Both screens are also reachable through Android's own Settings app, if you'd rather not use the card at all.
+1. **Not enabled.** The card reads "Turn on WM Keyboard in the system settings. Then select it as your keyboard." **Turn on keyboard** is the live button. **Switch keyboard** sits under it as a grayed-out outline, because there is nothing to switch to yet.
+2. **Enabled, not selected.** The card reads "WM Keyboard is turned on. Press the button below to switch to it." **Turn on keyboard** now carries a checkmark and goes quiet. **Switch keyboard** becomes the live button.
+3. **Enabled and selected.** The card goes away entirely. A green checkmark and "Your active keyboard" appear under the app name at the top of the Home screen instead. Nothing left to do.
+
+Tap **Turn on keyboard** to open the system screen. Turn WM Keyboard's toggle on there. Tap **Switch keyboard** to open Android's "Change keyboard" sheet, which lists every enabled input method on the device. Tap WM Keyboard in that sheet to make it active. Both screens are also reachable through Android's own Settings app, if you'd rather not use the card at all.
+
+The setup wizard's first page embeds the same card. There it stays put once you're done, as a short "WM Keyboard is your active keyboard" row with a checkmark in your app accent color.
 
 ## What the system permission warning means here
 
 Enable any third-party keyboard and Android shows its own warning about keyboards being able to see everything you type. That text is the stock OS wording. WM Keyboard doesn't write it and can't customize it, and it reads a little differently on each Android version. The warning exists because *some* keyboards phone data home, which makes it worth knowing what this one does.
 
-Core typing runs entirely on-device: the spelling dictionaries, transliteration, emoji search, prediction, everything you actually type with. All of it works with no network connection at all. A handful of optional toolbox features do reach the network, and only when you open them yourself. Weather, the word-definition lookup, translate, GIF and sticker search, and web and image search each call their own service, and several want your own API key before they work at all. None of that runs in the background, and none of it runs while you're just typing. See [Privacy at a glance](/privacy/overview/) for the full breakdown.
+Core typing runs entirely on-device: the spelling dictionaries, transliteration, emoji search, prediction, everything you actually type with. All of it works with no network connection at all. A handful of optional toolbox features do reach the network, and only when you open them yourself. Weather, the word-definition lookup, translate, GIF and sticker search, web and image search, Wikipedia, and the AI writing tools pointed at a cloud provider each call their own service, and several want your own API key before they work at all. None of that runs in the background, and none of it runs while you're just typing. See [Privacy at a glance](/privacy/overview/) for the full breakdown.
 
 ## Running the setup wizard
 
@@ -44,9 +48,9 @@ The wizard tailors itself to a short quiz on its second page, so not everyone se
 
 2. **Make it yours.** Three quick questions, all optional. How many languages you type in, whether you want a simple or a fully loaded keyboard, and how private it should be. Each answer's subtitle spells out what picking it changes. Answers apply their defaults on the spot, and the rest of the wizard trims itself to match. Leave all three alone and you get the short version. [What the quiz changes](#what-the-quiz-changes) below lists every setting each answer writes.
 
-3. **Your languages** *(hidden if you answered "just one" language and only one is enabled)*. Your currently enabled languages come first, each with its layouts individually switchable, then a short **Suggested for you** list, then a search box for the other 350-odd. The suggestions come from your phone's own language settings and region. See [Suggested languages](/languages/overview/#suggested-languages) for exactly what's read. Adding a language during setup enables its first layout only. Add the other layouts later from Settings.
+3. **Your languages** *(hidden if you answered "just one" language and only one is enabled)*. Your currently enabled languages come first, each with its layouts individually switchable, then a short **Suggested for you** list, then a search box for the other 350-odd. The suggestions come from your phone's own language settings and region. See [Suggested languages](/languages/overview/#suggested-languages) for exactly what's read. A language that ships one layout is added on the spot. A language that ships several (Bangla ships Avro, Probhat and National) opens a picker first, with its first layout already checked and a miniature of each key grid. Check as many as you want, but at least one.
 
-4. **Look & feel.** Theme mode (Auto/Light/Dark/AMOLED), a Material You colors toggle, a keyboard theme picker, an emoji-row mode choice, and a symbol row toggle.
+4. **Look & feel.** Two controls only: theme mode (Auto/Light/Dark/AMOLED), then a grid of keyboard themes that match the mode you picked. Choose Auto and the grid splits into a Light tab and a Dark tab, so you pick one theme for each half.
 
 5. **Emoji font** *(only if your phone's emoji font can't draw everything, or if the phone ships an emoji set of its own)*. Pick which emoji you want to see, with a live preview of each option. A toggle hides emoji your device would otherwise draw as blank boxes, and it appears only when there are any. A pointer to importing a full emoji font sits alongside it. Samsung phones get this step even though nothing is missing on them: everything draws, but it draws in Samsung's set rather than the images most other phones show.
 
@@ -58,9 +62,9 @@ The wizard tailors itself to a short quiz on its second page, so not everyone se
 
 9. **Your tools** *(only for "show me everything" answers)*. Every toolbar tool, each with its own switch, plus quick "Recommended" and "Everything" buttons.
 
-10. **Tool setup** *(only for "show me everything" answers with Calendar, Weather, or Compass enabled)*. First-run choices for whichever of those you kept: alternate calendars, a saved place and temperature unit, or a qibla toggle.
+10. **Tool setup** *(only for "show me everything" answers with Calendar, Weather, or Compass enabled)*. First-run choices for whichever of those you kept: alternate calendars and which days count as the weekend, a saved place and a temperature unit, or a qibla toggle.
 
-11. **Try your keyboard.** A live text field, so the keyboard appears in the theme you just picked. Two or three "try this" prompts come with it, drawn from what you enabled. Type `12*8=` for a smart chip, type a tool's name for its hotword chip, or open the toolbox.
+11. **Try your keyboard.** A live text field, so the keyboard appears in the theme you just picked. Up to three "try this" prompts come with it, drawn from what you enabled. Type `12*8=` for a smart chip, type `translate` for its hotword chip, or open the toolbox.
 
 </Steps>
 
@@ -76,8 +80,8 @@ Each answer does two things: it writes a few settings there and then, and it dec
 
 | Answer | What it writes | What it does to the wizard |
 |---|---|---|
-| Just one | Both spacebar swipes (short and long) move the cursor, and the <KeyCap>🌐</KeyCap> key becomes an emoji key | Your languages is skipped, unless you already have two or more enabled |
-| Two or more | Both spacebar swipes change the language, and the <KeyCap>🌐</KeyCap> key stays a language key | Your languages appears |
+| Just one | Both spacebar swipes (short and long) move the cursor, and the <KeyCap>🌐</KeyCap> key stays an emoji key, which is what a fresh install ships | Your languages is skipped, unless you already have two or more enabled |
+| Two or more | Both spacebar swipes change the language, and the emoji key next to the spacebar turns back into the <KeyCap>🌐</KeyCap> language key | Your languages appears |
 
 Neither is a one-way door: the Spacebar & keys page later offers the same choice again, with a **Recommended** badge on whichever one matches your answer.
 
@@ -104,18 +108,18 @@ Leave the quiz alone entirely and you get the short page list, the same one "kee
 
 Once WM Keyboard is set up, there are a few ways to change which keyboard is active, or which of WM Keyboard's own languages is:
 
-- **The Home screen's Switch keyboard button** is always there, not just during setup. Tap it any time to reopen the system picker.
-- **Android's own switcher notification** shows up automatically, as a "select input method" notification, whenever two or more keyboards are enabled on the device. Tap it to open the same system picker.
-- **The <KeyCap>🌐</KeyCap> key and spacebar swipes** cycle between WM Keyboard's *own* enabled languages. They don't open the system keyboard picker, so they can't switch you to a different keyboard app.
+- **The Home screen's Switch keyboard button** comes back whenever WM Keyboard stops being the active keyboard, because the whole setup card returns with it. While WM Keyboard *is* active the card is gone, and the Home screen says "Your active keyboard" instead. Reach the picker from Android's own settings in that case.
+- **The <KeyCap>🌐</KeyCap> key and spacebar swipes** cycle between WM Keyboard's *own* enabled languages. They don't open the system keyboard picker, so they can't switch you to a different keyboard app. A fresh install draws the emoji key in the <KeyCap>🌐</KeyCap> key's slot, so spacebar swipes are the language switch until you put the globe back.
 
-The option below lists WM Keyboard's languages individually in Android's own switcher sheet, rather than as one generic "WM Keyboard" entry. It's on by default. Turn it off to keep every switch inside the keyboard.
+The option below lists WM Keyboard's languages individually in Android's own switcher sheet, rather than as one generic "WM Keyboard" entry. It's off by default. Turn it on if you want to jump straight to one language from the system sheet.
 
 ## Options
 
 <SettingsPath path="Typing / Languages / System language switcher" />
 
-- **List languages in Android's switcher** (on by default). Registers each of your enabled layouts as an Android input-method subtype, so the system's "Choose input method" sheet lists them individually and can jump straight to one. Turn it off to keep switching entirely inside the keyboard and expose no subtypes to the system.
+- **List languages in the Android switcher** (off by default). Registers each of your enabled layouts as an Android input-method subtype, so the system's "Choose input method" sheet lists them individually and can jump straight to one. Left off, the keyboard exposes no subtypes and the sheet lists it under its own name, the way keyboards without subtypes appear.
 - **Show app name first** (off by default, and only shown while the option above is on). Prefixes each subtype's label with "WM Keyboard ·" instead of just the language name.
+- **Select languages in the system settings** (also only shown while the first option is on). Opens Android's own subtype list. On Android 14 and newer the keyboard turns them on for you, so this is a repair tool. On Android 13 and older you have to turn them on here yourself, or the sheet shows only one.
 
 <SettingsPath path="Privacy" />
 
@@ -125,7 +129,7 @@ See [Privacy at a glance](/privacy/overview/) and the [Privacy settings referenc
 
 ## Running it again
 
-The wizard isn't a one-shot. <SettingsPath path="About / Run setup again" /> replays it whenever you like. A replay never rewrites your settings on its own, because the quiz remembers your old answers and only changes what you actually tap. The Welcome page stays out of the way when the keyboard is already enabled and selected. Finishing a replay drops you back on the About screen.
+The wizard isn't a one-shot. <SettingsPath path="About / Run setup again" /> replays it whenever you like. A replay presets nothing and seeds nothing, so walking through with Next writes no settings at all. It skips the Welcome page outright when the keyboard is already enabled and selected. Finishing a replay drops you back on the About screen.
 
 ## Details & edge cases
 

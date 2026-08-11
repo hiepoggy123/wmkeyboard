@@ -52,11 +52,13 @@ The three grants Android won't prompt for. Each one is a switch on a system scre
 
 | Row | Subtitle | Where it sends you |
 |---|---|---|
-| Notification access | Media controls on the keyboard, and one-time codes from your notifications | The notification-listener page, on the app's own row where Android has one (API 30 and up), otherwise the full listener list |
+| Notification access | Media controls on the keyboard, and one-time codes from your notifications | Android's full notification-listener list, where you find WM Keyboard yourself |
 | Usage access | Show which app a clipboard entry was copied from | Android's usage-access list |
 | Accessibility service | Keep the keyboard gestures while TalkBack is on | Android's accessibility list |
 
 These three go through the explanation every time, granted or not, because the system screen you land on is also where you turn them off.
+
+Notification access is the one place a row from this screen lands somewhere broader than the equivalent row inside the keyboard. Asked for from here, it opens the whole listener list. Asked for by the media tool on the keyboard itself, it opens WM Keyboard's own row on the per-app listener page where Android has one (API 30 and up).
 
 ### Included with the app
 

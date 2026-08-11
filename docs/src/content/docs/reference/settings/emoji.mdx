@@ -41,11 +41,11 @@ Two more emoji-access toggles live on a different screen. See [Details & edge ca
 | Setting | Control | Options / range | Default |
 |---|---|---|---|
 | Emoji suggestions | Toggle | On / Off | On |
-| Emoji suggestion tap *(shown only when Emoji suggestions is on)* | Choice | Replace word / Keep word | Replace word |
+| Press an emoji suggestion *(shown only when Emoji suggestions is on)* | Choice | Replace word / Keep word | Replace word |
 
-**Emoji suggestions** appends matching emoji to the end of the suggestion strip as you finish typing a whole word, in English or Bangla. "birthday" offers 🎂🎉🥳.
+**Emoji suggestions** appends matching emoji to the end of the suggestion strip as you finish typing a whole word. "birthday" offers 🎂🎉🥳. It works in English, and in any other language whose keyword pack you have. English and Bangla keywords are built in, so those two work with nothing downloaded.
 
-**Emoji suggestion tap** decides what happens when you tap one. **Replace word** swaps the typed word for the emoji entirely, Gboard-style: "birthday" plus a tap on 🎂 leaves just 🎂. **Keep word** adds the emoji after it instead, giving you "birthday 🎂".
+**Press an emoji suggestion** decides what happens when you tap one. **Replace word** swaps the typed word for the emoji entirely, Gboard-style: "birthday" plus a tap on 🎂 leaves just 🎂. **Keep word** adds the emoji after it instead, giving you "birthday 🎂".
 
 :::note
 Typing `:cat:` to search or auto-commit an emoji from the suggestion strip is a separate toggle on the [Typing](/reference/settings/typing/) screen, not this one. See [Details & edge cases](#details--edge-cases).
@@ -74,7 +74,7 @@ Typing `:cat:` to search or auto-commit an emoji from the suggestion strip is a 
 | Emoji size | Slider | 20–36 | 28 |
 | Recent emoji kept | Slider | 8–96 | 32 |
 | Clear emoji history | Button (confirms first) | n/a | n/a |
-| Return to keyboard after inserting | Toggle | On / Off | Off |
+| Return to the keyboard after you insert | Toggle | On / Off | Off |
 | History tab | Choice | Recent / Most used | Recent |
 | Clear recents button | Toggle | On / Off | Off |
 | Kaomoji and Emoticons | Toggle | On / Off | Off |
@@ -91,7 +91,7 @@ Typing `:cat:` to search or auto-commit an emoji from the suggestion strip is a 
 
 **Clear emoji history** empties the history tab, unpins your favourites, and puts each emoji's skin tone back to the default. It confirms first, and it can't be undone. The emoji themselves are untouched.
 
-**Return to keyboard after inserting** closes the emoji panel the moment you insert a single emoji, instead of leaving it open to pick several in a row. The clipboard panel shares this setting, so a single paste closes it the same way.
+**Return to the keyboard after you insert** closes the emoji panel the moment you insert a single emoji, instead of leaving it open to pick several in a row. The clipboard panel shares this setting, so a single paste closes it the same way.
 
 **History tab** sets what the panel's first tab shows. **Recent** lists emoji in the order you last used them, and **Most used** ranks by frequency. Favourited emoji are pinned to the front of either list.
 
@@ -117,14 +117,14 @@ Typing `:cat:` to search or auto-commit an emoji from the suggestion strip is a 
 |---|---|---|---|
 | Emoji row | Choice | Off / Button / Own row | Off |
 | Emoji row content *(hidden when Emoji row is Off)* | Choice | Most used / Recent / Favourites | Most used |
-| Emojis in the row *(same visibility gate)* | Slider | 3–16 | 8 |
+| Emoji in the row *(same visibility gate)* | Slider | 3–16 | 8 |
 | Scroll the emoji row *(same visibility gate)* | Toggle | On / Off | Off |
 
 **Emoji row** controls a dedicated strip of your own emoji, similar to Gboard's. **Off** (default) hides it entirely. **Button** adds a toggle to the toolbar that swaps the suggestion strip for the emoji row on tap. **Own row** keeps it permanently visible between the toolbar and the keys.
 
 **Emoji row content** picks what fills the row: Favourites always sort first regardless of which of the three you choose.
 
-**Emojis in the row** splits the row's width into this many slots and shrinks the emoji to fit, so a higher number packs more, smaller emoji across. With **Scroll the emoji row** off, anything past the last slot isn't shown at all. Turn it on and the rest are a sideways swipe away.
+**Emoji in the row** splits the row's width into this many slots and shrinks the emoji to fit, so a higher number packs more, smaller emoji across. With **Scroll the emoji row** off, anything past the last slot isn't shown at all. Turn it on and the rest are a sideways swipe away.
 
 When Emoji row is set to **Own row**, a caption on this screen points to **Rows & bars** for where the row sits relative to the toolbar and symbol row; by default it's first, above both.
 
@@ -141,7 +141,7 @@ When Emoji row is set to **Own row**, a caption on this screen points to **Rows 
 | Emoji font | Choice | System / Google / Installed / Custom | System |
 | Get the newest emoji *(only while there's something to download)* | Card with a Download button | n/a | n/a |
 | Download more | Opens the addon catalogue, filtered to emoji fonts | n/a | n/a |
-| Hide emoji this phone can't display | Toggle | On / Off | Off |
+| Hide emoji that your device cannot show | Toggle | On / Off | Off |
 
 **Emoji font** decides which font draws emoji on the keyboard itself. WM Keyboard ships no emoji font of its own. A live preview row (😀😂🥰😎🤔👍❤️🎉) runs through the real shaping pipeline, so it shows exactly what the panel will draw. **System** uses your phone's own emoji pack. **Google** fetches Noto Color Emoji once through the system font provider and caches it. **Installed** picks from an emoji font installed via [Addons](/addons/installing/). **Custom** uses a single font file you import through a document picker. Whichever you choose, the text you send stays plain Unicode, and other apps and phones draw it with their own emoji font.
 
@@ -157,7 +157,7 @@ While the download runs the button becomes a progress bar, and a failure leaves 
 
 **Download more** opens the addon catalogue filtered to emoji fonts, for faces like Twemoji or OpenMoji from whichever repositories you've added. See [Installing addons](/addons/installing/).
 
-**Hide emoji this phone can't display** is off by default. It hides an emoji from the panel, search, and suggestions only when *neither* the chosen font *nor* the phone's own system font can draw it. An emoji missing from just the chosen font is drawn quietly in the system font instead, in a different style.
+**Hide emoji that your device cannot show** is off by default. It hides an emoji from the panel, search, and suggestions only when *neither* the chosen font *nor* the phone's own system font can draw it. An emoji missing from just the chosen font is drawn quietly in the system font instead, in a different style.
 
 <PhoneFrame caption="The Emoji style group, with the live font preview row and font choices.">
   {/* shot: reference/settings/emoji-style-group */}
@@ -198,9 +198,9 @@ Each enabled language's own settings screen also carries a matching **Emoji** gr
 
 ## Details & edge cases
 
-- **Two more emoji-access shortcuts live on a different screen.** **Emoji key instead of 🌐** (on by default) turns the <KeyCap>🌐</KeyCap> key into an emoji-panel launcher. **Comma key opens emoji** (off by default) does the same to the comma key. Both are under <SettingsPath path="Layout & size / Bottom-row keys" />, not here. Turning on the comma-key version also removes the emoji tool from the toolbar, per its own info text.
+- **Two more emoji-access shortcuts live on a different screen.** **Emoji key instead of 🌐** (on by default) turns the <KeyCap>🌐</KeyCap> key into an emoji-panel launcher. **Comma key opens emoji** (off by default) does the same to the comma key. Both are under <SettingsPath path="Layout & size / Bottom row keys" />, not here. Turning on the comma-key version also removes the emoji tool from the toolbar, per its own info text.
 - **Inline `:word:` emoji search is a Typing setting, not an Emoji one.** <SettingsPath path="Typing / Suggestions / Inline emoji search" /> (on by default) turns a colon at a word boundary into a live emoji search in the suggestion strip, and auto-commits exact shortcode matches like `:tada:`. It's unrelated to the **Emoji suggestions** toggle above.
-- **Emoji suggestion tap only appears while Emoji suggestions is on.** Turning suggestions off hides the choice entirely rather than disabling it.
+- **Press an emoji suggestion only appears while Emoji suggestions is on.** Turning suggestions off hides the choice entirely rather than disabling it.
 - **Emoji row content, count, and scrolling only appear while Emoji row is not Off.**
 - **Installed and Custom emoji fonts each reveal their own extra controls.** A font list pulled from Addons for Installed, an import button for Custom, shows only while that choice is selected.
 - **Kaomoji and emoticons insert as plain text.** Tapping one from those two tabs types it directly. It never joins your emoji recents or most-used history.

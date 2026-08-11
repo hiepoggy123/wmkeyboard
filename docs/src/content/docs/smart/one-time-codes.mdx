@@ -34,7 +34,7 @@ If a code is found, it goes into a single in-memory slot: the code, the posting 
 
 ## What counts as a code
 
-The detector is deliberately hard to trigger. There is no "any six digits" rule, because delivery slots, order numbers and flight times all arrive as notifications too. Every pattern is anchored to a word that promises a code is next: `otp`, `verification code`, `security code`, `login code`, `2fa`, `passcode`, `pin`, and similar.
+The detector is deliberately hard to trigger. There is no "any six digits" rule, because delivery slots, order numbers and flight times all arrive as notifications too. Every pattern is anchored to a word that promises a code is next: `otp`, `passcode`, `verification`, `code`, `pin` on their own, and `verification code`, `security code`, `login code`, `sign-in code`, `2fa code` and similar pairings.
 
 Four anchored shapes run in precision order, so a message with several numbers gives up the right one:
 
@@ -49,7 +49,7 @@ A few guards apply throughout. A code has to be 4 to 8 characters. A bare four-d
 
 ## The chip
 
-The chip is drawn with a dashed outline, the same visual language the clipboard fragment chips use: this is something lifted out of somewhere else, not text you typed. It shows a **CODE** badge, the code itself, and the posting app's name, so you can see whose code you're about to trust before you trust it. The ✕ on the right dismisses it, which drops the code everywhere rather than just hiding the chip.
+The chip is drawn with a dashed outline, the same visual language the clipboard fragment chips use: this is something lifted out of somewhere else, not text you typed. It shows a small **Code** badge, the code itself, and the posting app's name, so you can see whose code you're about to trust before you trust it. The ✕ on the right dismisses it, which drops the code everywhere rather than just hiding the chip.
 
 It ranks high in the strip, above the clipboard and snippet chips, because the code is usually the whole reason you're in that field and it expires while everything else can wait. Only the [password-manager lane](/smart/autofill/) beats it, since the platform may be offering the same code with more context.
 
@@ -86,5 +86,6 @@ This setting sits outside the rest of the group on purpose. It governs every pat
 
 - **The code never leaves the device and is never stored.** It lives in memory until it's used, dismissed, replaced by a newer code, or ages out. There's no history of past codes anywhere in the app.
 - **An app updating the same notification doesn't re-raise a dismissed chip.** Recently processed notifications are remembered by key and post time, so progress ticks and group re-sorts don't bring back a chip you just closed.
-- **The clipboard has its own, separate code path.** Copying a verification text offers a **CODE** chip too, covered under [Smart chips](/smart/chips/#pulling-fragments-out-of-your-clipboard). It needs no notification access, and it has its own setting under the Clipboard tool.
+- **The clipboard has its own, separate code path.** Copying a verification text offers a **Code** chip too, covered under [Smart chips](/smart/chips/#pulling-fragments-out-of-your-clipboard). It needs no notification access, and it has its own setting under the Clipboard tool. Pasting a whole clip that is nothing but a code goes in character by character as well, on the same reasoning.
 - **Turning the feature off is immediate, not on next launch.** The flag the notification listener reads is flipped at the same moment as the setting, and any captured code is dropped with it.
+- **Nothing runs before your first unlock.** Between a restart and the first time you enter your device credential, the feature behaves as off whatever the switch says. The lock screen still redacts notification content at that point, and a chip printing a code out of one would put exactly that on the keyboard.

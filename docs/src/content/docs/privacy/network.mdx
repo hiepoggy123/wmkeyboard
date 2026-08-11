@@ -27,7 +27,7 @@ it.
 
 | Tool | Endpoint | Sends | Fires when |
 |---|---|---|---|
-| Translate | `translate.googleapis.com` (no key) or `translation.googleapis.com` (with a key) | the text in the panel, up to 2,500 characters, plus the target language | as you type, about 400ms after you stop, only while the panel is open |
+| Translate | `translate.googleapis.com` (no key) or `translation.googleapis.com` (with a key) | the text you typed into the panel, up to 2,500 characters, plus the target language | as you type, about 400ms after you stop, only while the panel is open |
 | GIF search | `api.klipy.com`, `api.giphy.com` | your search text, or nothing for the trending feed | immediately when you open the panel (trending), then live as you type |
 | Sticker search | same clients as GIF search | same | same |
 | Reporting a GIF or sticker result | none of the app's own | nothing: it builds a mail draft naming the provider, your search term, and the result's id and URL | only when you tap Report in the long-press menu, and only your mail app sends it |
@@ -114,6 +114,9 @@ what's already in the table above:
   Emoji** font on the Emoji screen is fetched from (about 10 MB, plus a few
   hundred bytes of version manifest beside it). That one tap doesn't require
   adding a repository first.
+- **`raw.githubusercontent.com/wasi-master/wmkeyboard-monkeytype-sounds`** is
+  the second pre-added addon repository, a set of key-sound packs. Like the
+  one above it is removable, and removing it is permanent.
 - **`huggingface.co`** is the source for offline Whisper speech models and
   on-device AI models. Most are public. A couple of gated on-device models
   need your own Hugging Face account token.
@@ -139,11 +142,10 @@ what's already in the table above:
   typed in yourself. Backups are off until you pick a destination, so none of
   these are contacted on a fresh install. What travels is your settings file
   and nothing else. See [Backup & restore](/privacy/backup/).
-- **Whatever addon repository you add.** One is pre-added to the Addons
-  screen on first run (`github.com/wasi-master/wmkeyboard-addon-repository`),
-  but adding that reference doesn't fetch anything by itself. See
-  [Installing addons](/addons/installing/) for when a repo actually gets
-  contacted.
+- **Whatever addon repository you add.** Two are pre-added the first time you
+  open the Addons screen, the two named above, but adding a reference doesn't
+  fetch anything by itself. See [Installing addons](/addons/installing/) for
+  when a repo actually gets contacted.
 - **Ollama and LM Studio** are whatever address you point them at, with no
   fixed host. Traffic to a self-hosted server is plain HTTP, and the app
   allows cleartext traffic app-wide to support it, so keep that server on a
@@ -198,8 +200,8 @@ some are.
 
 | Download | Source | Integrity check | Confirms before using mobile data? |
 |---|---|---|---|
-| Dictionaries and wordlists | the project's GitHub data repository | none beyond the gzip stream's own format check | No |
-| Emoji keyword packs | same data repository | none beyond decode success | No |
+| Dictionaries and wordlists | the project's GitHub data repository | none beyond the gzip stream's own format check | Only from the "download everything for this language" button, which asks while [Data saver](/privacy/data-saver/)'s **Downloads** row is set to *Ask each time* (the default) |
+| Emoji keyword packs | same data repository | none beyond decode success | Same button, same setting |
 | CJK conversion tables (pinyin, kana, stroke, cangjie, jyutping) | same data repository | **SHA-256 verified** before the file is used | No |
 | Offline Whisper speech models | Hugging Face | no checksum, a file-size floor only | Yes, around 150 MB. See [Offline voice (Whisper)](/tools/whisper/#downloading-and-managing-models) |
 | On-device AI models | Hugging Face, per model | no checksum, a file-size floor only | Yes, at 500 MB. See [AI tools](/tools/ai/#local-models) |
@@ -260,11 +262,23 @@ never asks anybody anything.
   [Power saving](/typing/power-saving/#what-gets-dropped) for the complete
   list of what else it drops.
 
-There's no single "airplane mode for the keyboard" switch beyond those two.
-The closest equivalent is turning off every networked tool individually,
-plus Background network for the unsolicited fetches. The typing engine
-itself needs no switch at all, because prediction, autocorrect, gesture
-typing and layouts have no network code to disable in the first place.
+<SettingsPath path="Data saver" />
+
+- **Data saver** is the network-shaped version of the same idea, and the one
+  to reach for if what you're protecting is a data allowance rather than a
+  battery. Each feature that fetches gets its own answer: allow it, ask
+  first, or turn it off while the connection is metered. The fetches that
+  happen on their own default to off, and the ones you start yourself
+  default to asking, so a GIF grid on mobile data explains itself and offers
+  a **Use mobile data** button rather than coming up empty. See
+  [Data saver](/privacy/data-saver/) for the full table.
+
+There's no single "airplane mode for the keyboard" switch beyond those.
+The closest equivalent is turning off every networked tool individually, or
+turning every Data saver row off and leaving the manual switch on. The
+typing engine itself needs no switch at all, because prediction, autocorrect,
+gesture typing and layouts have no network code to disable in the first
+place.
 
 ## Details & edge cases
 
@@ -287,18 +301,22 @@ typing and layouts have no network code to disable in the first place.
 - **Coin prices are fetched lazily.** Cryptocurrency is on by default, but
   the coin source is only asked when you actually type a coin amount or pick
   a coin on the panel. If you never do, your keyboard never talks to it.
-- **Dictionary and Wikipedia never read your field the way Translate does.**
-  Wikipedia and both search tools only ever send what you type into the
-  panel's own search bar. Dictionary is the one exception, reading the
+- **Only one tool reads your field rather than its own search box.**
+  Translate, Wikipedia and both search tools send what you type into the
+  panel, and nothing else: the translate panel is its own window and never
+  looks at the field behind it. Dictionary is the exception, reading the
   selected or cursor word when auto-lookup is on.
-- **Addon repository manifests aren't fetched proactively.** Adding the
-  pre-seeded repository reference on first run doesn't contact it. A
-  manifest only downloads when you actually open or refresh the Addons
-  screen.
+- **Addon repository manifests aren't fetched proactively.** Seeding the two
+  pre-added references doesn't contact them. A manifest only downloads when
+  you actually open or refresh the Addons screen, which is also the visit
+  that seeds them.
 - **Cleartext traffic is allowed app-wide**, not scoped to Ollama and LM
   Studio specifically, which is what makes plain-HTTP requests to a
-  self-hosted AI server possible at all. It doesn't weaken HTTPS to the
-  services above. Every one of them is contacted over HTTPS.
+  self-hosted AI server possible at all. It doesn't weaken HTTPS anywhere
+  the app picks the address: every tool in the table above is contacted over
+  HTTPS, and an addon repository URL on plain `http` is rejected rather than
+  quietly upgraded. The two places a plain address is your own choice are the
+  self-hosted AI server and an S3 backup endpoint you type with `http://`.
 
 See [Data collection](/privacy/data/) for what the keyboard learns from you
 locally, and [Backup & restore](/privacy/backup/) for how API keys and the

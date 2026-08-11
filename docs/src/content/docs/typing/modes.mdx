@@ -24,11 +24,11 @@ Tapping <KeyCap>?123</KeyCap> steps through the symbol pages. <KeyCap>ABC</KeyCa
 - **Symbols 2 → Symbols.** The same corner now reads <KeyCap>?123</KeyCap> again and goes back one page. There's no page 3, so it just bounces between the two.
 - **Letters key wins from anywhere**, including from the Fn layer. Pressing <KeyCap>ABC</KeyCap> while Fn is active leaves Fn entirely and drops any Fn lock, rather than returning to whatever Fn was layered over.
 
-Pressing <KeyCap>?123</KeyCap> to leave letters also drops any in-progress handwriting ink on the writing surface, since letters is the only layer that hosts it. The keyboard's height doesn't jump when you cycle: its row count is fixed to the tallest of the letters, symbols, symbols-2 and Fn layouts, so shorter pages pad rather than resize.
+Pressing <KeyCap>?123</KeyCap> to leave letters also drops any in-progress handwriting ink on the writing surface, since letters is the only layer that hosts it. The keyboard's height doesn't jump when you cycle: its row count is fixed to the tallest reachable grid (letters, symbols, symbols-2, Fn and the field's own keypad), so shorter pages pad rather than resize.
 
-<SettingsPath path="Key press / Hold ?123 for numpad" />
+<SettingsPath path="Key press / Press and hold ?123 for the number pad" />
 
-**Hold ?123 for numpad** turns a long press on <KeyCap>?123</KeyCap> into a shortcut straight to the number pad, skipping the symbol pages. It's off by default. A quick tap always cycles the layers as described above, whatever this setting says; only the long press changes.
+**Press and hold ?123 for the number pad** turns a long press on <KeyCap>?123</KeyCap> into a shortcut straight to the number pad panel, skipping the symbol pages. It's on by default. A quick tap always cycles the layers as described above, whatever this setting says; only the long press changes.
 
 ### Coming back automatically
 
@@ -38,7 +38,7 @@ Most trips to ?123 are one character long: a full stop, a question mark, a comma
 
 Digits stay off the list on purpose, because typing "12" is exactly when you want the symbols to stay. Only single-character keys count either way, so a `.com` key won't send you back, and both symbol pages behave the same. Full detail is in the [Layout & size reference](/reference/settings/layout/#symbols-layer).
 
-The emoji panel has had the same setting for a while, under Emoji → Return to keyboard after inserting.
+The emoji panel has had the same setting for a while, under Emoji → Return to the keyboard after you insert.
 
 ## The symbol row
 
@@ -97,7 +97,7 @@ If an existing install already had its own mode list saved before Chat and Writi
 
 ### Editing a mode
 
-Tap a mode in **Keyboard modes** to open its editor. It holds a name and an icon, then **What this mode changes**: Emoji row (Inherit/Off/Button/Row), Symbol row (Inherit/On/Off), a theme picker with a Clear button, a **Layout** picker offering the layouts you've switched on, and the **Autocorrect**, **Automatic capitals** and **Suggestions** switches, each inheriting until you set it. Further toggles give the mode its own pinned toolbar tools, toolbox order and symbol sets, each with its own reorderable chip list. Below that, **Activate automatically for** holds the field-type chips and app picker that decide when the mode kicks in.
+Tap a mode in **Keyboard modes** to open its editor. It holds a name and an icon, then **What this mode changes**: Emoji row (Inherit/Off/Button/Row), Symbol row (Inherit/On/Off), a theme picker with a Clear button, a **Layout** picker offering the layouts you've switched on, and the **Autocorrect**, **Automatic capitals** and **Suggestions** switches, each inheriting until you set it. Further toggles give the mode its own pinned toolbar tools, toolbox order and symbol sets, each with its own reorderable chip list. Below that, **Turn on automatically for** holds the field-type chips and app picker that decide when the mode kicks in.
 
 Edits save immediately as you make them, so there's no save button, though a brand-new mode isn't written to disk until its first edit. Only the six built-in modes have anything to reset to. A mode you create from scratch has no default to fall back on.
 
@@ -111,7 +111,7 @@ A mode's **apps** list and **field-type** chips combine as an AND when both are 
 
 When more than one mode's bindings match, the one that names a field type wins over one that only names apps, so a password box inside a coding app still gets the Passwords mode rather than Coding. Beyond that, the first match in your mode list wins.
 
-You can also override the automatic pick from the keyboard itself. Open the **Modes** tool, from the toolbar or the toolbox, for a list starting with **Automatic** and its "Follow each mode's app and field bindings" subtitle, then one row per mode. Tapping a mode pins it by hand. How long that pin lasts is **A mode you pick by hand**, under Keyboard modes: **Until you change app**, the default, or **Until you change it**, which keeps the mode on until you pick another or turn it off.
+You can also override the automatic pick from the keyboard itself. Open the **Modes** tool, from the toolbar or the toolbox, for a list starting with **Automatic** and its "Follow the app and field bindings of each mode" subtitle, then one row per mode. Tapping a mode pins it by hand. How long that pin lasts is **A mode you pick by hand**, under Keyboard modes: **Until you change app**, the default, or **Until you change it**, which keeps the mode on until you pick another or turn it off.
 
 <PhoneFrame caption="The Modes tool open, showing the manual override list.">
   {/* shot: typing/modes-manual-picker */}
@@ -121,7 +121,7 @@ You can also override the automatic pick from the keyboard itself. Open the **Mo
 
 <SettingsPath path="Keyboard modes / Rearranging tools" />
 
-When a mode prescribes its own pinned toolbar tools or toolbox order, a tool you drag on the keyboard while that mode is active needs somewhere to go. **Drags edit the active mode**, on by default, sends that drag into the mode itself. The rearrangement then sticks for apps that resolve to that mode, and every other app keeps its own arrangement. The first time this happens you'll see a one-off toast naming the mode. For the Chat mode it reads "Saved for Chat mode", then adds that other apps keep their own tool order.
+When a mode prescribes its own pinned toolbar tools or toolbox order, a tool you drag on the keyboard while that mode is active needs somewhere to go. **Drags edit the active mode**, on by default, sends that drag into the mode itself. The rearrangement then sticks for apps that resolve to that mode, and every other app keeps its own arrangement. The first time this happens you'll see a one-off toast naming the mode. For the Chat mode it reads "The keyboard saved the tool order only for the Chat mode. Other apps keep their own order."
 
 Turn the toggle off and drags always edit the global tool order instead. If the active mode still prescribes its own list, though, that list keeps winning on screen whatever you just dragged, because the mode's fixed list is applied on every recomposition. Turning this off doesn't make a mode's tool order editable from the keyboard. It only stops on-keyboard drags from targeting modes at all.
 
@@ -135,7 +135,7 @@ These settings live on four separate screens.
 
 | Setting | Default |
 | --- | --- |
-| Hold ?123 for numpad | Off |
+| Press and hold ?123 for the number pad | On |
 
 <SettingsPath path="Layout & size" />
 
@@ -163,7 +163,7 @@ These settings live on four separate screens.
 ## Details and edge cases
 
 - **A custom or hand-edited layout can't get stuck on a symbol page.** If a symbols/symbols-2/Fn layer in a layout file has no key that leads back to letters or symbols, WM Keyboard silently appends an <KeyCap>ABC</KeyCap> key to it so the layer always has a way out.
-- **Picking a set from the row's chip usually becomes the new default.** It's written back to the same setting the row opens on next time, so there's no separate settings entry for it beyond the enabled-sets list. The one exception: if the active keyboard mode prescribes its own symbol sets, a pick from the chip is session-only and reverts the moment you leave that app or mode, so it never overwrites the mode's own list.
+- **Picking a set from the row's chip usually becomes the new default.** It's written back to the same setting the row opens on next time, so there's no separate settings entry for it beyond the enabled-sets list. The one exception: if the active keyboard mode prescribes its own symbol sets, a pick from the chip is session-only. It never overwrites the mode's own list, and it lasts only until the next field, since focusing a field resets the session pick either way.
 - **A mode's symbol-row override only sets on/off and which sets.** It can't reorder the emoji/toolbar/symbol stack, which stays global no matter which mode is active.
 - **The manual mode pick is never written to disk.** It lives only in the running keyboard service. On the default **Until you change app** it also clears the instant the focused app's package changes, so closing and reopening the keyboard in the same app keeps it while switching apps doesn't. Set to **Until you change it**, the pick survives an app switch and waits for you to choose another mode.
 - **No edition split.** Symbol pages, the symbol row and keyboard modes all work the same on both the full and lite builds.

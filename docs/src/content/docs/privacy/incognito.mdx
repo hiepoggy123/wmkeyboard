@@ -27,7 +27,7 @@ Incognito is one boolean, flipped from either of two places:
   learn what you type.` or `Incognito is off`. The tool isn't pinned to the
   toolbar by default, so open the toolbox (the grid button) to find it the
   first time.
-- <SettingsPath path="Privacy / On-device learning / Incognito mode" />, which
+- <SettingsPath path="Privacy / Learning on this device / Incognito mode" />, which
   is the same switch, off by default.
 
 Both control one underlying setting, so toggling either place flips the
@@ -39,7 +39,7 @@ and switches back off the moment you leave it. A Chrome incognito tab sets
 that flag on every field inside it, and other browsers and some password
 managers do the same for their own private screens. This never touches the
 manual switch, so a private tab can't leave incognito on everywhere else.
-It's controlled by <SettingsPath path="Privacy / On-device learning / Follow private browsing" />,
+It's controlled by <SettingsPath path="Privacy / Learning on this device / Follow private browsing" />,
 on by default.
 
 That automatic trigger relies entirely on a flag the host app has to set. An
@@ -50,37 +50,46 @@ turn off, so you get a toast instead: `This field is always incognito`.
 
 ## What incognito pauses
 
-Turning incognito on does exactly six things (nothing more):
+Turning incognito on does eight things:
 
 1. **Pauses clipboard capture.** Nothing you copy joins clipboard history
    while it's on.
 2. **Pauses learning.** The on-device word and phrase lexicon stops picking
    up anything new, and so does the CJK pick history. The two go quiet
-   together.
+   together. "Add words to the system dictionary" rides on the same gate, so
+   it stops writing out to Android's dictionary too.
 3. **Pauses emoji history.** Emoji you tap stop joining the panel's Recent
    and Most used tabs, under the same **Pause learning** switch as the
    lexicon. Emoji favourites and the skin tone you picked for each are
    unaffected.
-4. **Blocks inline chips, both kinds.** The saved-login chips a password
+4. **Stops the typing counters.** [Typing statistics](/reference/settings/statistics/)
+   record nothing while incognito is on, and the paused stretch is kept out
+   of the active-time sums rather than counted as idle. Same **Pause
+   learning** switch again.
+5. **Blocks inline chips, both kinds.** The saved-login chips a password
    manager can draw above the keyboard don't appear, and neither do the
    system's [smart replies](/smart/autofill/). A proposed reply means the
    system read the conversation, which is what incognito is there to stop.
-5. **Pauses AI history.** If you've turned [AI history](/tools/ai/#history)
+6. **Pauses AI history.** If you've turned [AI history](/tools/ai/#history)
    on, nothing is recorded while incognito is: not the text you send, not
    the answer. This one has no switch of its own, because a record of what
    you wrote in incognito is the exact thing incognito exists to prevent.
-6. **Shows a badge.** A small icon appears next to the toolbar, and the
+7. **Holds back the code chips.** Neither the
+   [one-time-code chip](/smart/one-time-codes/) read out of a notification
+   nor the "you just copied a code" chip is offered while incognito is on.
+   Both put a code on screen without being asked for it.
+8. **Shows a badge.** A small icon appears next to the toolbar, and the
    Incognito tool itself lights up as active, so you can tell at a glance
    that it's on.
 
-Three of those six answer to switches of their own, tucked away from the
-Privacy screen under <SettingsPath path="Tools / Incognito" />. **Pause
-learning** covers the lexicon and the emoji history together, and **Pause
-clipboard capture** covers the clipboard. Both are on by default. Turn both
-off there and flipping "Incognito mode" on Privacy still blocks inline chips,
-still pauses AI history, and still shows the badge. The chip block is the one
-effect neither switch can reach, because it follows incognito
-unconditionally.
+The first four of those eight answer to switches of their own, tucked away
+from the Privacy screen under <SettingsPath path="Tools / Incognito" />.
+**Pause learning** covers the lexicon, the emoji history and the typing
+counters together, and **Pause clipboard capture** covers the clipboard. Both
+are on by default. Turn both off there and flipping "Incognito mode" on
+Privacy still blocks inline chips, still pauses AI history, still holds back
+the code chips, and still shows the badge. Those four are the effects neither
+switch can reach, because they follow incognito unconditionally.
 
 :::note[What incognito leaves alone]
 Incognito never turns off the suggestion strip, autocorrect or gesture
@@ -113,7 +122,7 @@ A secure field switches off, for as long as it has focus:
   shortcuts).
 - Learning. The same lexicon incognito pauses is paused here too.
 - **Voice dictation, entirely.** Tap the voice tool in a password field and
-  you get `Voice typing is unavailable in password fields` instead of a
+  you get `You cannot use voice typing in a password field` instead of a
   recording. That's a hard block rather than a hidden strip.
 
 What a secure field does *not* switch off is character entry itself.
@@ -132,16 +141,16 @@ depending on whether you're copying or pasting.
 When you **copy** something, a clip can be flagged sensitive two ways. The
 app it came from can mark it: Android lets an app label what it puts on the
 clipboard, and a password manager does exactly that when you copy a login.
-Or, if you turn on **Recognise them yourself**, an on-device check can flag
+Or, while **Let the keyboard find them** is on, an on-device check can flag
 it. That check only counts a clip when the *whole* thing is one token that
 reads as generated rather than typed, meaning a short one-time-code shape or
 a longer mix of cases, digits and symbols. A code quoted inside a message,
 or a copied link, is left alone.
 
 <SettingsPath path="Tools / Clipboard / Sensitive clips" /> decides what
-happens to a flagged clip: keep it like any other, hide it and expire it
-quickly (the default), or never save it at all. A hidden clip renders masked
-behind a lock icon, with a character count in place of the text. Tap it and
+happens to a flagged clip: keep it like any other, hide it and delete it
+quickly (the default), or never save it at all. A hidden clip renders as a row
+of dots behind a lock icon, with a character count under them. Tap it and
 it pastes straight into the field, the same as any other clip, so there's no
 reveal-in-place. Pinning one overrides all of that, because pinning is an
 explicit "keep this."
@@ -158,7 +167,7 @@ and the keyboard deletes that entry from history *and* clears the system
 clipboard behind it. Nothing is left sitting there for every other app on
 the device to read. This only fires for pastes the keyboard itself makes, so
 a paste through the field's own long-press menu isn't covered. It's
-controlled by **Forget after pasting a password**, on by default, under
+controlled by **Forget after you paste a password**, on by default, under
 <SettingsPath path="Tools / Clipboard / History" />. That switch sits with
 the rest of clipboard history rather than beside the sensitive-clip options
 below.
@@ -204,7 +213,7 @@ incognito or secure fields at all.
 
 ## Options
 
-<SettingsPath path="Privacy / On-device learning" />
+<SettingsPath path="Privacy / Learning on this device" />
 
 - **Incognito mode** (default **off**). Pauses learning and clipboard
   capture until you turn it off again.
@@ -219,20 +228,20 @@ incognito or secure fields at all.
 - **Follow private browsing** is the same setting as above, shown again here
   because this is also where you'd look for it.
 
-<SettingsPath path="Tools / Clipboard / Passwords & codes" />
+<SettingsPath path="Tools / Clipboard / Passwords and codes" />
 
-- **Sensitive clips** (default **Hide and forget quickly**). The other
-  options are "Keep like any clip" and "Never save."
-- **Recognise them yourself** (default **on**). Only shown once Sensitive
-  clips isn't set to "Keep like any clip." Extends the app's own
+- **Sensitive clips** (default **Hide it and delete it quickly**). The other
+  options are "Keep it like any other clip" and "Never save it".
+- **Let the keyboard find them** (default **on**). Only shown once Sensitive
+  clips isn't set to "Keep it like any other clip". Extends the app's own
   sensitive-clip flag with an on-device shape check.
-- **Forget sensitive clips after** (default **5 minutes**). Only shown while
-  Sensitive clips is "Hide and forget quickly." Independent of the ordinary
-  clipboard history expiry.
+- **Forget sensitive clips after** (default **5 minutes**, adjustable from 1
+  to 120). Only shown while Sensitive clips is "Hide it and delete it
+  quickly". Independent of the ordinary clipboard history expiry.
 
 <SettingsPath path="Tools / Clipboard / History" />
 
-- **Forget after pasting a password** (default **on**). Deletes a clip from
+- **Forget after you paste a password** (default **on**). Deletes a clip from
   history and from the system clipboard the moment it's pasted into a
   password field.
 

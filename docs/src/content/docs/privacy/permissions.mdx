@@ -2,7 +2,7 @@
 title: "Permissions"
 description: "Every permission the keyboard can ask for, which feature wants it, and what happens if you say no."
 sidebar:
-  order: 6
+  order: 7
 ---
 
 import SettingsPath from '@components/SettingsPath.astro';
@@ -16,7 +16,7 @@ Before Android's own permission dialog appears, the keyboard shows its own: what
 
 **Not now** is a real answer. It closes the dialog without asking Android for anything, and the feature stays where it was. A tool that needs the permission keeps showing its "needs permission" panel, and a setting that needs one stays off. Nothing is silently enabled behind the dialog. Dismissing it with Back, or with a tap outside, counts the same as **Not now**.
 
-The same explanation appears whichever direction you came from, so the microphone text is identical whether you reached it from the voice panel on the keyboard or from a settings screen.
+The explanation belongs to the feature, not to the entry point, so the microphone text is identical whether you reached it from the voice panel on the keyboard or from a settings screen. Two permissions serve two features apiece and so have two texts each: Contacts reads differently for name suggestions and for email suggestions, and notification access reads differently for media controls and for the one-time-code chip. Each one describes what that feature actually does with it.
 
 ## What each permission is for
 
@@ -37,7 +37,7 @@ Three more are granted at install with no prompt, because Android doesn't consid
 
 Refuse the same permission twice and Android stops showing that prompt entirely. It tells neither the app nor you. The next tap just returns "denied" with nothing on screen, which normally leaves you pressing a button that appears to do nothing.
 
-The keyboard checks for that case and changes what the button does. You get the same explanation as before, plus a line saying Android has stopped asking. The button becomes **Open settings** and drops you on the app's own permission page, where the choice still lives. Grant it there and the feature works the next time you open it.
+The keyboard checks for that case and changes what the button does. You get the same explanation as before, plus a line saying Android has stopped asking. The button becomes **Open system settings** and drops you on the app's own permission page, where the choice still lives. Grant it there and the feature works the next time you open it.
 
 One rough edge is worth knowing about. If you granted a permission and later revoked it from that same settings page, the keyboard sends you back to Settings rather than showing the prompt, even though the prompt would have worked. It errs toward the screen that always works over the one that might silently do nothing.
 
@@ -59,7 +59,7 @@ All three are revoked the same way they were granted, from the relevant system S
 
 <SettingsPath path="Privacy / Permissions" />
 
-The app has a permissions screen of its own, at the top of **Privacy**. It's an inventory rather than a funnel. Every permission the keyboard can hold appears there in three groups: the ones Android prompts for, the three special-access grants, and the three install-time ones the screen lists. Each row shows **Granted**, **Not granted** or **Automatic** on the right.
+The app has a permissions screen of its own, at the top of **Privacy**. It's an inventory rather than a funnel. Every permission that does something you can turn on or off appears there in three groups: the ones Android prompts for, the three special-access grants, and the three install-time ones the app declares for itself. Each row shows **Granted**, **Not granted** or **Automatic** on the right. What the screen leaves out is the handful of manifest entries with no control behind them, listed under [Details & edge cases](#details--edge-cases) below.
 
 Tap a row you haven't granted and you get the same explanation-then-prompt flow the feature itself would run, so this is the one place you can grant something ahead of the feature that wants it. Tap a row that's already granted and the app's own page in Android's Settings opens, because that's the only place a grant can be taken back. Field by field, it's on [Permissions settings](/reference/settings/permissions/).
 

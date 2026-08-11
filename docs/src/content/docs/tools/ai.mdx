@@ -35,7 +35,7 @@ If nothing is configured yet, the panel shows a short explanation in place of th
 
 While a request runs, the panel names the step it's on instead of showing a bare spinner: Preparing, Connecting, Waiting for the model, and Reasoning for a model that thinks before it answers. A request can spend most of its time waiting on a slow connection or a long field, so the step is worth seeing. **Waiting for the model** is the one you'll meet most. It starts the moment your text is on its way and lasts until the first words come back, which for a cloud provider is nearly the whole run.
 
-Once a result streams in, two buttons commit it. **Replace** swaps the field's text for the result. **Insert** drops it in at the cursor instead. Continue is the one exception to Replace: deleting the text you just asked it to continue would defeat the point, so Replace appends there. A **strip markdown** checkbox, checked by default when the result contains any, removes headings, bullets, quotes, code fences, inline code, links, and bold/italic syntax from what gets committed. Uncheck it to keep the raw markdown. Reasoning output between `<think>` tags is filtered out of both Replace and Insert either way, so only the answer itself lands in your field.
+Once a result streams in, two buttons commit it. **Replace** swaps the field's text for the result. **Insert** drops it in at the cursor instead. Continue is the one exception to Replace: deleting the text you just asked it to continue would defeat the point, so Replace appends there. A **Delete markdown** checkbox, shown only when the result contains any and checked to start with, removes headings, bullets, quotes, code fences, inline code, links, and bold/italic syntax from what gets committed. Uncheck it to keep the raw markdown. Reasoning output between `<think>` tags is filtered out of both Replace and Insert either way, so only the answer itself lands in your field.
 
 If a model stops mid-answer because it hit the length ceiling, the panel says so and points at the setting to raise. That's worth knowing about: a truncated answer otherwise looks exactly like a finished one, and you'd only find out by reading your own half-rewritten text.
 
@@ -59,7 +59,7 @@ The chips are on by default. **Open a result on the changes** (off by default) m
 
 ### Reporting a result
 
-Every finished result also carries a **Report** button, at the bottom right of the panel next to the strip-markdown checkbox. Tap it if a model produced something offensive, dangerous, or plainly wrong, and it opens a pre-filled email to the developer with a blank line at the top for what went wrong.
+Every finished result also carries a **Report** button, at the bottom right of the panel next to the Delete markdown checkbox. Tap it if a model produced something offensive, dangerous, or plainly wrong, and it opens a pre-filled email to the developer with a blank line at the top for what went wrong.
 
 Nothing is uploaded when you tap it. The report is a draft in your own mail app, and you can read every line, edit it, or throw it away before sending. What it fills in for you:
 
@@ -226,9 +226,8 @@ Like every tool, AI has an **Enabled** toggle (on by default) and, if [colorful 
 
 <SettingsPath path="Tools / AI writing tools / History" />
 
-Two more rows live on the History screen, under a **Downloading models** heading:
+One more row lives on the History screen, under a **Downloading models** heading. Model downloads on a metered connection are set in [Data saver](/privacy/data-saver/) now, on the **Downloads** row, which starts at **Ask each time**: the size-keyed prompt (500 MB for a language model, 150 MB for a Whisper one) still fires on top, so a smaller model asks too rather than coming down without a word. Set the row to **Turn off** and no model downloads on mobile data at all.
 
-- **Only download over Wi-Fi**: off by default. The metered prompt is keyed on size, at 500 MB for a language model and 150 MB for a Whisper one, so a 400 MB model used to come down on mobile data without a word. Turn this on and size stops mattering: every model download waits for Wi-Fi.
 - **How much the AI reads back**: 4,000 characters by default, anywhere from 500 to 32,000. This is how far back from the cursor a carry-on action such as **Continue** reads. More characters give the model more of your writing to follow, and cost more tokens and more time on every run. It has no effect when you've selected something, because a selection is always sent as it is.
 
 ### What the On-device provider adds
@@ -258,12 +257,12 @@ The panel itself sends nothing until you actually tap an action chip: opening th
 - **On-device**: the text you run an action on never leaves the phone. Response length is bounded by the local model's own context window instead of a server-side limit.
 - **Any other provider** (cloud or self-hosted): the text you run an action on is sent to that provider, only at the moment you tap the action. API keys and server addresses are stored on the device, not in any WM Keyboard service. See [Privacy at a glance](/privacy/overview/) for how this fits the keyboard's broader per-tool approach to anything that leaves the device.
 - **Report**: builds a draft in your mail app and hands it over. The app has no reporting server and sends nothing itself, so a report only exists if you send the mail. API keys are never part of it.
-- **History**: goes nowhere. It's a file in the app's private storage, off unless you turn it on, never written from a password field or in incognito, and deleted when you turn it off. It's deliberately left out of settings backups too, so it can't ride along in a file you export and mail to yourself. That's the same reasoning that keeps the learned dictionary out. See [Your data](/privacy/data/).
+- **History**: goes nowhere. It's a file in the app's private storage, off unless you turn it on, never written from a password field or in incognito, and deleted when you turn it off. It's deliberately left out of the backup file too, so it can't ride along in something you export and mail to yourself. There's no section for it to travel in, unlike the learned dictionary, which is a section of its own that you tick or leave alone. See [Your data](/privacy/data/).
 - **The changes view**: is computed on your phone. Comparing two pieces of text is arithmetic, not a request, so nothing is sent to build it.
 
 ## Details & edge cases
 
-- **Not every row here can be reset.** Four switches grow a restore button once you move them off the default listed above: Show model reasoning, Model picker on the panel, Show a changes view, and Open a result on the changes. So does the Translate target-language field. See [Putting one setting back](/reference/settings/#putting-one-setting-back). The provider row, Max response length and Context size are drawn as chip rows rather than settings rows, so none of them has a button. The shipped value of an API key or address field is an empty box, which you clear yourself.
+- **Not every row here can be reset.** The **Enabled** switch and four of the AI switches (Show model reasoning, Model picker on the panel, Show a changes view, Open a result on the changes) grow a restore button once you move them off the default listed above, and so does the Translate target-language field. See [Putting one setting back](/reference/settings/#putting-one-setting-back). **Keyword** does it differently: change the word and a **Reset to defaults** row appears under the field, naming the word it would put back. The provider row, Max response length and Context size are drawn as chip rows rather than settings rows, so none of them has a button. The shipped value of an API key or address field is an empty box, which you clear yourself.
 - **AI isn't pinned to the toolbar or the onboarding wizard's starter set by default.** You add it yourself from the toolbox once you want it, the same as most non-essential tools.
 - **Not available on the lock screen.** AI needs credentials the direct-boot-safe mirror of your data deliberately doesn't carry, so it's one of the tools that only works after you've unlocked the device once since restart.
 - **The Writing keyboard mode pins AI first** on its toolbar for apps it recognizes as writing-heavy (see [Keyboard modes](/typing/modes/)). The pin shows in both editions, same as the tool itself. Only the On-device provider is Full-only.

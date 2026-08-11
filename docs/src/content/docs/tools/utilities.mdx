@@ -1,6 +1,6 @@
 ---
 title: "Utility tools"
-description: "Calculator, unit and currency converters, a symbol picker, QR and password generators, and a typing-speed test: seven related tools split across Create & convert and Online tools in the toolbox."
+description: "Calculator, unit and currency converters, a symbol picker, QR and password generators, and a typing-speed test: seven related tools, six of them entirely offline."
 sidebar:
   order: 12
 ---
@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-This page covers seven tools that share a theme: arithmetic, conversion and generation. The toolbox doesn't file them all in the same place. A scientific **Calculator**, a **Unit converter**, a **Special symbols** picker, a **QR code generator** and a **Password generator** sit under **Create & convert**, alongside **Typing speed test**, which measures rather than generates but lands in the same group. **Currency converter** is filed under **Online tools**, because it's the only one that has to touch the network for live exchange rates. The other six run their math or generation entirely on the device.
+This page covers seven tools that share a theme: arithmetic, conversion and generation. The toolbox draws every tool as one ranked grid with no sections, so the split shows up on the <SettingsPath path="Tools" /> screen instead. A scientific **Calculator**, a **Unit converter**, a **Special symbols** picker, a **QR code generator** and a **Password generator** sit under **Create and convert**, alongside **Typing speed test**, which measures rather than generates but lands in the same group. **Currency converter** is filed under **Online tools**, because it's the only one that has to touch the network for live exchange rates. The other six run their math or generation entirely on the device.
 
 <PhoneFrame caption="The Calculator panel: live expression and result, the scientific function row, and the custom digit keypad.">
   {/* shot: tools/calculator-panel */}
@@ -24,7 +24,7 @@ Open **Calculator** from the toolbar or toolbox. It isn't pinned by default. On 
 The panel evaluates your expression live as you type. It takes `+ - × ÷ * / mod % ^ ( )`, implicit multiplication (`2π`, `3(4+1)`), and the constants `π`/`pi` and `e`. A scrolling function row offers `C`, `sin`, `cos`, `tan`, `π`, `e`, `^`, `√`, `ln`, `log` (base 10), `abs` and `mod` as one-tap chips. Typed out by name, `asin`/`acos`/`atan`/`sinh`/`cosh`/`tanh`/`sqrt`/`cbrt`/`exp`/`floor`/`ceil`/`round` all work too. A trailing `%` divides by 100, and a `%` followed by a number is modulo, same as `mod`. Permutations and combinations use the keypad shorthand, `5p3` and `4c2`.
 
 - The **deg**/**rad** chip in the scrolling function row flips trig between degrees and radians, and remembers your choice.
-- **=** collapses the expression down to its result in place, so `12*4=` becomes `12*4=48` rather than clearing the display.
+- **=** replaces the expression with its result, so `12*4` becomes `48` and the next thing you type carries on from that number.
 - An **Insert** chip appears next to the live result whenever it evaluates successfully, and types the formatted number at the cursor.
 - Opening Calculator from a [smart chip](/smart/chips/) (the inline `96` that appears when you type `12*8` on the strip) prefills the expression with what you already typed.
 
@@ -48,7 +48,7 @@ The custom keypad (`7 8 9 ÷ ⌫`, `4 5 6 × (`, `1 2 3 − )`, `0 . % + =`) rep
 
 **Unit converter** covers 14 categories, all converted locally: length, mass, temperature, area, volume, speed, time, data, energy, power, pressure, angle, frequency, and fuel economy. Pick a category. Pick a From and a To unit. Type a value, then tap **Insert**. The panel remembers the unit pair you used last *per category*, so switching to Volume and back to Length restores each one's own last pair rather than sharing a single memory slot.
 
-**Currency converter** needs live exchange rates. It fetches from `open.er-api.com` (roughly 160 currencies, updated daily) and falls back to `frankfurter.app` (European Central Bank, roughly 30 currencies) if that fails. Both are free and need no key. Rates are quoted against USD and cross-converted locally, so one fetch covers every pair. A refresh icon on the panel forces a new fetch. Otherwise it only refetches once the cached rates are older than the refresh interval set below, and that cache doesn't survive the keyboard process restarting, so the first open after a while can show a brief "Fetching exchange rates…" message.
+**Currency converter** needs live exchange rates. It fetches from `open.er-api.com` (roughly 160 currencies, updated daily) and falls back to `frankfurter.app` (European Central Bank, roughly 30 currencies) if that fails. Both are free and need no key. Rates are quoted against USD and cross-converted locally, so one fetch covers every pair. A refresh icon on the panel forces a new fetch. Otherwise it only refetches once the cached rates are older than the refresh interval set below, and that cache doesn't survive the keyboard process restarting, so the first open after a while can show a brief "Downloading the exchange rates…" message.
 
 <PhoneFrame caption="The Currency converter panel: a From/To currency pair, live converted amount, and the refresh icon.">
   {/* shot: tools/currency-converter-panel */}
@@ -56,9 +56,9 @@ The custom keypad (`7 8 9 ÷ ⌫`, `4 5 6 × (`, `1 2 3 − )`, `0 . % + =`) rep
 
 The currency picker pins 15 common codes to the front of the list: USD, EUR, BDT, GBP, INR, JPY, CNY, AUD, CAD, SGD, AED, SAR, MYR, TRY, PKR. Everything else the current rate table has follows, sorted alphabetically.
 
-**Cryptocurrency** rides in the same panel. With coins on (they are by default) the picker grows a **Crypto** section between the pinned codes and the alphabetical tail. Picking a coin on either side converts against it exactly like a currency. Coin prices come from `api.coinbase.com`, with the jsDelivr `currency-api` behind it and CoinGecko as the other choice, and they're only fetched when you actually pick a coin or type a coin amount. Coin results keep five meaningful digits instead of the two decimals a currency gets, since a fraction of a bitcoin at two decimals is just `0.00`.
+**Cryptocurrency** rides in the same panel. With coins on (they are by default) the picker grows a **Crypto** section between the pinned codes and the alphabetical tail. Picking a coin on either side converts against it exactly like a currency. Coin prices come from `api.coinbase.com`, with the jsDelivr `currency-api` behind it and CoinGecko as the other choice, and they're only fetched when you actually pick a coin or type a coin amount. Coin results keep far more of the number than the two decimals a currency gets, since a fraction of a bitcoin at two decimals is just `0.00`. In the panel that means up to twelve decimal places with the trailing zeros stripped. The inline strip chip settles for five significant digits instead, because it has a chip's worth of room.
 
-Both converters are also reachable inline. Typing `1 ft` or `150 usd` on the strip offers a [smart chip](/smart/chips/) with the converted amount, and its gear icon opens the matching panel with the category or pair already set. That inline mechanism is covered on the smart chips page, not here.
+Both converters are also reachable inline. Typing `1 ft` or `150 usd` on the strip offers a [smart chip](/smart/chips/) with the converted amount, and the sliders icon at the end of the chip opens the matching panel with the category or pair already set. That inline mechanism is covered on the smart chips page, not here.
 
 ### Options
 
@@ -77,7 +77,7 @@ Both converters are also reachable inline. Typing `1 ft` or `150 usd` on the str
 <SettingsPath path="Tools / Currency converter / Cryptocurrency" />
 
 - **Convert coins**: on by default. Reads amounts like `1 btc` and shows the Crypto section on the panel.
-- **Coin decimal places**: a slider from Auto to 12, defaulting to **Auto**, which keeps five meaningful digits whatever the size of the number.
+- **Coin decimal places**: a slider from Auto to 12, defaulting to **Auto**. On Auto the panel keeps up to twelve decimal places and trims the trailing zeros, and the inline chip keeps five significant digits. Pick a number instead and both work to that count.
 - **Refresh coin prices every**: a slider from 1 to 60 minutes, defaulting to **5**.
 - **Coin prices from**: Coinbase (the default), the jsDelivr currency-api, or CoinGecko, with the same **Try the other sources** switch.
 - **Coins**: a chip for each of the 39 coins the keyboard knows, 20 of them on to begin with, plus **Add a ticker** for anything else your source quotes. At least one coin always stays on.
@@ -104,7 +104,7 @@ This tool is separate from the **symbol row** (off by default), a strip of one-t
 
 ## Making a QR code
 
-**QR code generator** turns whatever you type into a scannable code and sends it as an image. It's the one tool on this page that keeps the letter rows on screen instead of replacing them. Opening it seeds its own editable buffer with the focused field's text as a starting point. From there it's independent: your keystrokes route into the QR content rather than the field, and the field itself is never touched until you send.
+**QR code generator** turns whatever you type into a scannable code and sends it as an image. Like the typing test below, it keeps the letter rows on screen instead of replacing them, because you type into it. Opening it seeds its own editable buffer with the focused field's text as a starting point. From there it's independent: your keystrokes route into the QR content rather than the field, and the field itself is never touched until you send.
 
 <PhoneFrame caption="The QR generator panel: editable content line, live QR preview, and Send as image.">
   {/* shot: tools/qr-generator-panel */}
@@ -152,7 +152,7 @@ The preview updates as you type, up to **Longest text** characters (500 to 4,000
 
 ## Testing your typing speed
 
-**Typing speed test** is the one tool on this page that doesn't replace the key rows. You type the prompt on the real keys while the panel scores it from above. Shift is forced off the moment a run starts, so a field's auto-capitalization can't turn your first keystroke into a false miss. The clock doesn't start until you type your first character either, so time spent reading the prompt costs you nothing.
+**Typing speed test** leaves the key rows alone while a run is going, the same way the QR generator does. You type the prompt on the real keys while the panel scores it from above. The results screen needs no keys, so the panel takes their height back for the scores. Shift is forced off the moment a run starts, so a field's auto-capitalization can't turn your first keystroke into a false miss. The clock doesn't start until you type your first character either, so time spent reading the prompt costs you nothing.
 
 <PhoneFrame caption="A typing test in progress: the prompt with per-character correctness coloring, above the live key rows.">
   {/* shot: tools/typing-test-panel */}

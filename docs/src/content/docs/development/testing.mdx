@@ -31,7 +31,7 @@ Almost all of it lives in one place:
 | `core/emoji` | 2 |
 | `core/intelligence` | 1 (in `src/testFull/`, full-flavor only) |
 
-205 of 248 test files (about 8 in 10) sit in `app/src/test/`, and the other 12 core/feature modules have no `src/test` directory at all. That's a leftover of how the codebase was split into modules rather than a rule anyone enforces. Tests mostly stayed where they were written. It also means `./gradlew testFullDebugUnitTest` is the command you want almost all the time, since scoping to a single module rarely saves you much.
+205 of 248 test files (about 8 in 10) sit in `app/src/test/`, and 13 of the 20 `core/*`/`feature/*` modules have no test source set at all. That's a leftover of how the codebase was split into modules rather than a rule anyone enforces. Tests mostly stayed where they were written. It also means `./gradlew testFullDebugUnitTest` is the command you want almost all the time, since scoping to a single module rarely saves you much.
 
 ## Instrumented and Compose UI tests
 
@@ -57,11 +57,11 @@ Two tests today. One asserts that a sentence with obvious errors ("He go to the 
 
 ## Why the engine logic is JVM-testable at all
 
-It would be easy to assume "core modules don't touch Android," but that isn't quite right. Every `core/*` and `feature/*` module is an Android library module: they all apply the Android Gradle plugin and declare a `minSdk`, and most of them mix framework-coupled code with framework-free logic in the same module. What makes a class testable on the JVM is that *it specifically* avoids `android.*`/`androidx.*` imports, not that its module does.
+It would be easy to assume "core modules don't touch Android," but that isn't quite right. Every one of them is an Android module: the 16 `core/*` and three of the four `feature/*` apply `com.android.library`, the Play-only `feature/llm` applies `com.android.dynamic-feature`, and all of them declare a `minSdk`. Most mix framework-coupled code with framework-free logic in the same module. What makes a class testable on the JVM is that *it specifically* avoids `android.*`/`androidx.*` imports, not that its module does.
 
-Even the modules that look closest to framework-free aren't. `core/icons`, `core/addons` and `core/plugins` (the Lua sandbox) are almost entirely free of `android.*`/`androidx.*` references, but each has exactly one file (`IconPackStore.kt`, `AddonStore.kt` and `PluginStore.kt`) whose companion object takes an `android.content.Context` to resolve its on-disk storage directory. Everything else in those three modules is plain Kotlin.
+Even the modules that look closest to framework-free aren't. `core/icons`, `core/addons` and `core/plugins` (the Lua sandbox) are light on `android.*`/`androidx.*` references, but each has one file (`IconPackStore.kt`, `AddonStore.kt` and `PluginStore.kt`) whose companion object takes an `android.content.Context` to resolve its on-disk storage directory, and a few more that reach for `androidx.annotation.StringRes` or a `Context` to resolve a label. Everything else in those three modules is plain Kotlin, which is why the parsers and the sandbox are JVM-testable while the stores are not.
 
-`core/tools` shows the same pattern. `WeatherClient.kt` and `DictionaryClient.kt`, the two classes in that module with unit tests, are also the two with no Android imports, while the rest of the module reaches into `android.*` for things like the calendar provider. So does the [dictionary compiler](/development/dictionaries/): `tools/dictc` is the one genuinely pure-JVM module in the tree (plain `kotlin("jvm")`, no Android plugin). It works because it reuses `core/prediction`'s trie and codec source files directly. Those were already framework-free, so the same `.kt` files compile standalone into the offline tool that builds `.wmdict` files.
+`core/tools` shows the same split at a different ratio: 19 of its 41 source files import `android.*` or `androidx.*`, mostly for things like the calendar provider, and the five classes with unit tests sit on both sides of the line. `DictionaryClient.kt` has no Android imports at all; `WeatherClient.kt` and `CalendarDefaults.kt` pull in `androidx.annotation.StringRes` and the module's own `R` for their user-facing strings, which the JVM suite is happy with because neither touches a `Context`. The [dictionary compiler](/development/dictionaries/) is the clean case: `tools/dictc` is the one genuinely pure-JVM module in the tree (plain `kotlin("jvm")`, no Android plugin). It works because it reuses `core/prediction`'s trie and codec source files directly. Those were already framework-free, so the same `.kt` files compile standalone into the offline tool that builds `.wmdict` files.
 
 ## Testing on a device
 
@@ -73,7 +73,7 @@ Once you've [built and installed](/development/building/) a flavor, set WM Keybo
 
 When something breaks while you're testing by hand, check <SettingsPath path="About / Diagnostics" /> before you go looking for a logcat. It's an always-on, in-memory ring buffer the keyboard writes to itself, so there's no debug flag to remember to flip before you reproduce the problem. Alongside it sits a small crash record kept in device-protected storage, which means a crash on the lock screen survives the process dying.
 
-The screen's own caption is exact about what's in it: "Nothing you type is ever recorded here." Call sites pass what happened, never what you typed, which is what makes the report safe to paste into an issue without reading it line by line first. There's also an opt-in **Include the system log** toggle, off by default, that adds this process's own logcat output, meaning everything the app's libraries printed rather than only what the keyboard chose to record. Turn it on for a hard-to-reproduce bug. Leave it off otherwise, since the keyboard doesn't control what ends up in it.
+The screen's own intro line is exact about what's in it: "The keyboard never records what you type." Call sites pass what happened, never what you typed, which is what makes the report safe to paste into an issue without reading it line by line first. There's also an opt-in **Include the system log** toggle, off by default, that adds this process's own logcat output, meaning everything the app's libraries printed rather than only what the keyboard chose to record. Turn it on for a hard-to-reproduce bug. Leave it off otherwise, since the keyboard doesn't control what ends up in it.
 
 ## Details & edge cases
 

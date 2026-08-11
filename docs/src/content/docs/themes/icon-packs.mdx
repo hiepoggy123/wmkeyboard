@@ -17,11 +17,11 @@ Every glyph the keyboard draws around your keys (toolbar tools, the <KeyCap>Shif
 
 ## What you can replace
 
-There are 93 replaceable slots, split into four groups:
+There are 96 replaceable slots, split into four groups:
 
 | Group | Covers | Count |
 |---|---|---|
-| Tools | Every toolbar tool's own icon (clipboard, GIF, voice, and so on) | 60 |
+| Tools | Every toolbar tool's own icon (clipboard, GIF, voice, and so on) | 63 |
 | Keys | Shift (off/on/locked), backspace, forward delete, globe, emoji key, and Enter in each of its wordings (search, send, go, next, previous, done) | 14 |
 | Toolbar chrome | Toolbox, back-to-keys, show-tools, emoji shortcut, close search, incognito badge | 6 |
 | Emoji tabs | Search, recent, most used, and one per emoji category | 13 |
@@ -32,7 +32,7 @@ One thing icon packs deliberately don't touch: the per-key glyphs a language lay
 
 **Colour.** An icon that sets no colour of its own (`none`, `currentColor`, or nothing at all) is drawn in the current theme's colour, and picks up that tool's own accent colour if **Colorful tool icons** (under <SettingsPath path="Tools" />) is on. An icon that sets real colours draws exactly as authored and stops following the theme. Most packs should lean on the first behaviour; only go colourful on purpose.
 
-These are ordinary SVGs, read by a small built-in parser rather than a full SVG engine. It supports paths, basic shapes, and simple color and transform attributes. Gradients, filters, embedded images, and `<use>` references are skipped quietly rather than rejected. See [Icon packs](/development/addon-repos/repo-format/#icon-packs) in the addon repository format for the exact supported subset, the size limits, and why a `<!DOCTYPE>` in an SVG gets a pack rejected outright.
+These are ordinary SVGs, read by a small built-in parser rather than a full SVG engine. It supports paths, basic shapes, and simple color and transform attributes. Gradients, filters, embedded images, and `<use>` references are skipped quietly rather than rejected. A `<!DOCTYPE>` is the one thing that isn't forgiven: that file is refused, dropped from the pack with a note saying so, and the rest of the pack installs around it. See [Icon packs](/development/addon-repos/repo-format/#icon-packs) in the addon repository format for the exact supported subset, the size limits, and why the declaration is refused.
 
 ## Replacing a single icon
 

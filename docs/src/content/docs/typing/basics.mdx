@@ -20,18 +20,18 @@ While you hold a key, its character floats in a bubble above your finger. That b
 
 <GestureDemo type="long-press" caption="Hold a key past the long-press delay to open its alternates." />
 
-Hold past the **long-press delay** (300&nbsp;ms by default) and the key's alternates pop up, if it has any. `Q`–`P` lead with the digits 1–0. `A`–`L` and `Z`–`M` lead with a symbol (`@`, `#`, `$`, `&`…). Some letters carry accented forms after that first alternate: `e`, `u`, `i`, `o` after their digit (`e` → è é ê ë, `u` → ù ú û ü, and so on), and `a`, `s`, `z`, `c`, `n` after their symbol. The first alternate also prints as a small corner hint on the key itself, so you can see what a hold will lead with before you commit to it. That's the **Long-press hints** toggle, on by default.
+Hold past the **long-press delay** (300&nbsp;ms by default) and the key's alternates pop up, if it has any. `Q`–`P` lead with the digits 1–0. `A`–`L` and `Z`–`M` lead with a symbol (`@`, `#`, `$`, `&`…). Some letters carry accented forms after that first alternate: `e`, `u`, `i`, `o` after their digit (`e` → è é ê ë, `u` → ù ú û ü, and so on), and `a`, `s`, `z`, `c`, `n` after their symbol. The first alternate also prints as a small corner hint on the key itself, so you can see what a hold will lead with before you commit to it. That's the **Press and hold hints** toggle, on by default.
 
 <PhoneFrame caption="Holding a letter opens its accent and symbol alternates.">
   ![Holding a letter opens its accent and symbol alternates.](@assets/screens/typing/long-press-popup.webp)
 </PhoneFrame>
 
-A few more long-press behaviors live under the same **Long-press shortcuts** settings group:
+A few more long-press behaviors live under the same **Press and hold shortcuts** settings group:
 
-<SettingsPath path="Key press / Long-press shortcuts" />
+<SettingsPath path="Key press / Press and hold shortcuts" />
 
-- **All accents on long-press** (off by default) adds each Latin letter's complete accent set to its long-press popup. Nothing is taken away to make room: the digit or symbol stays, with every accent beside it.
-- **Hold ?123 for numpad** (off by default) makes a long press on the symbols key open a full numeric keypad panel over the current field. A quick tap still switches to the symbols layer as usual.
+- **All accents on press and hold** (off by default) adds each Latin letter's complete accent set to its long-press popup. Nothing is taken away to make room: the digit or symbol stays, with every accent beside it.
+- **Press and hold ?123 for the number pad** (on by default) makes a long press on the symbols key open a full numeric keypad panel over the current field. A quick tap still switches to the symbols layer as usual.
 - **Currency keys** lets you reorder or replace the glyphs the <KeyCap>$</KeyCap> key's popup offers (৳ € £ ¥ ₹ ₿ by default). Type them space-separated, with the one you use most first.
 
 ## Shift, caps lock, and auto-capitalization
@@ -44,7 +44,7 @@ A few more long-press behaviors live under the same **Long-press shortcuts** set
   ![Shift off, one-shot Shift, and Caps Lock: the three states the key cycles through.](@assets/screens/typing/shift-states.webp)
 </PhoneFrame>
 
-Auto-capitalization arms Shift for you at the start of a sentence, but only when three things line up: **Auto-capitalize** is on (the default), the field is a plain text field rather than a structured keypad, and the active language's script has letter case at all. Bangla, for instance, doesn't, so auto-capitalize never fires while you type it. It re-checks after every sentence-ending mark (`.`, `!`, `?`, `।`) and whenever you move the cursor or switch fields. Caps Lock is off limits to it, so an all-caps line you locked in stays locked in.
+Auto-capitalization arms Shift for you at the start of a sentence, but only when three things line up: **Automatic capital letters** is on (the default), the field is a plain text field rather than a structured keypad, and the active language's script has letter case at all. Bangla, for instance, doesn't, so auto-capitalize never fires while you type it. It re-checks after every sentence-ending mark (`.`, `!`, `?`, `।`) and whenever you move the cursor or switch fields. Caps Lock is off limits to it, so an all-caps line you locked in stays locked in.
 
 <SettingsPath path="Typing / Automatic corrections" />
 
@@ -52,12 +52,14 @@ That toggle lives on the Typing screen rather than here. See [Autocorrect](/smar
 
 ## Hold a letter for a quick edit
 
-<SettingsPath path="Key press / Long-press shortcuts" />
+<SettingsPath path="Key press / Press and hold shortcuts" />
 
 Six letters can each be armed to run an editing command on long-press instead of opening their accent popup: <KeyCap>A</KeyCap> selects all, <KeyCap>C</KeyCap> copies, <KeyCap>X</KeyCap> cuts, <KeyCap>V</KeyCap> pastes, <KeyCap>Z</KeyCap> undoes, <KeyCap>Y</KeyCap> redoes. All six are **off by default**, and you turn on the ones you want one at a time. Once a letter's shortcut is on, it **replaces** that letter's accent popup on long-press. The two never combine, so a hold on `C` either shows `'çć` or copies, never both. Copy and cut select everything first if nothing is already selected, so a bare hold on `C` in an untouched field copies the whole field.
 
-<PhoneFrame caption="With Hold C to copy turned on, holding C copies the selection instead of opening its accent popup.">
-  ![With Hold C to copy turned on, holding C copies the selection instead of opening its accent popup.](@assets/screens/typing/hold-letter-clipboard.webp)
+Those six keys are `a c v x z y` only because that is the QWERTY answer. Switch any of the shortcuts on and a **Shortcut keys** row joins the group, where you move all six onto keys your own layout actually draws. A Bengali or Russian grid has no `a` to hold, so without that row the switches would do nothing at all.
+
+<PhoneFrame caption="With Press and hold C to copy turned on, holding C copies the selection instead of opening its accent popup.">
+  ![With Press and hold C to copy turned on, holding C copies the selection instead of opening its accent popup.](@assets/screens/typing/hold-letter-clipboard.webp)
 </PhoneFrame>
 
 :::note
@@ -74,7 +76,7 @@ The key's icon and behavior follow whatever the focused field asks for: Search, 
   ![Enter drawing a field's own action icon.](@assets/screens/typing/enter-action-icons.webp)
 </PhoneFrame>
 
-**Shift + Enter types a newline** (off by default) lets you press <KeyCap>Shift</KeyCap> then <KeyCap>Enter</KeyCap>, or hold Shift on a physical keyboard, to force a line break in a field that would otherwise send or search. The key itself changes to the newline symbol while Shift is armed, so it never promises a Send it isn't about to do. Only a Shift you pressed yourself counts. The one-shot Shift that auto-capitalize arms at the start of a message is ignored, so the first line of a chat still sends normally, and Caps Lock is ignored too.
+**Shift and Enter type a new line** (off by default) lets you press <KeyCap>Shift</KeyCap> then <KeyCap>Enter</KeyCap>, or hold Shift on a physical keyboard, to force a line break in a field that would otherwise send or search. The key itself changes to the newline symbol while Shift is armed, so it never promises a Send it isn't about to do. Only a Shift you pressed yourself counts. The one-shot Shift that auto-capitalize arms at the start of a message is ignored, so the first line of a chat still sends normally, and Caps Lock is ignored too.
 
 ## Number row and numerals
 
@@ -96,13 +98,13 @@ This screen's **Type native digits in** setting answers a different question: wh
 
 <SettingsPath path="Typing / Suggestions" />
 
-**Smart key-hit detection** (off by default) quietly widens a key's touch target toward whichever letter the dictionary expects next as you type a word. A tap that lands just inside a neighboring key can still commit the letter you meant, but only near the shared edge. A deliberate press in the middle of a key is never second-guessed. It applies to the letters layer only, and it needs [Suggestions](/smart/suggestions/) turned on to have anything to predict from. See [Autocorrect](/smart/autocorrect/#reducing-typos-before-they-happen) for how it sits alongside autocorrect as an earlier line of defense against typos.
+**Smart detection of key hits** (off by default) quietly widens a key's touch target toward whichever letter the dictionary expects next as you type a word. A tap that lands just inside a neighboring key can still commit the letter you meant, but only near the shared edge. A deliberate press in the middle of a key is never second-guessed. It applies to the letters layer only, and it needs [Suggestions](/smart/suggestions/) turned on to have anything to predict from. See [Autocorrect](/smart/autocorrect/#reducing-typos-before-they-happen) for how it sits alongside autocorrect as an earlier line of defense against typos.
 
 ## Multi-touch and key repeat
 
 Every finger on the keyboard is tracked on its own, so pressing a second key before you release the first works correctly. Both register, whether that's rollover typing across the letters or two fast taps on the very same key.
 
-On the default layout, <KeyCap>⌫</KeyCap> and <KeyCap>Space</KeyCap> are the two keys that auto-repeat on a hold. After the long-press delay they fire again every **key repeat interval** (50&nbsp;ms by default, adjustable 20–200&nbsp;ms) for as long as you hold them, and a held backspace stops on its own once there's nothing left to delete. A forward-delete key (<KeyCap>⌦</KeyCap>) repeats the same way if you add one to a [custom layout](/languages/custom-layouts/). No built-in layout places one, and a physical keyboard's Delete-forward key goes straight to the system rather than through this engine. Every other key long-presses into its popup or shortcut instead of repeating.
+On the default layout, <KeyCap>⌫</KeyCap> and <KeyCap>Space</KeyCap> are the two keys that auto-repeat on a hold. Repeating has its own wait, **Time before a key repeats** (300&nbsp;ms by default, adjustable 150–800&nbsp;ms), separate from the long-press delay above. The two used to be one number, which meant lengthening the wait before accent popups also slowed backspace down. Past that wait each key fires again on its own cadence, **Delete repeat interval** and **Space repeat interval** (both 50&nbsp;ms by default, adjustable 20–200&nbsp;ms), because a runaway row of spaces costs more to undo than a fast delete does. A held backspace stops on its own once there's nothing left to delete. A forward-delete key (<KeyCap>⌦</KeyCap>) repeats the same way if you add one to a [custom layout](/languages/custom-layouts/). No built-in layout places one, and a physical keyboard's Delete-forward key goes straight to the system rather than through this engine. Every other key long-presses into its popup or shortcut instead of repeating.
 
 <SettingsPath path="Accessibility / Touch" />
 
@@ -122,21 +124,23 @@ Backspace also has a drag-to-delete-whole-words gesture, on by default, separate
 | Minimum / maximum popup duration | 140&nbsp;ms / 750&nbsp;ms |
 | Popup font size | ×1.00 |
 | Popup height | 110&nbsp;dp |
-| Long-press delay | 300&nbsp;ms (150–700&nbsp;ms) |
-| Key repeat interval | 50&nbsp;ms (20–200&nbsp;ms) |
-| Caps-lock double-tap | 350&nbsp;ms (150–600&nbsp;ms) |
-| Long-press hints | On |
-| All accents on long-press | Off |
-| Hold ?123 for numpad | Off |
+| Press and hold delay | 300&nbsp;ms (150–700&nbsp;ms) |
+| Time before a key repeats | 300&nbsp;ms (150–800&nbsp;ms) |
+| Delete repeat interval | 50&nbsp;ms (20–200&nbsp;ms) |
+| Space repeat interval | 50&nbsp;ms (20–200&nbsp;ms) |
+| Caps lock double press | 350&nbsp;ms (150–600&nbsp;ms) |
+| Press and hold hints | On |
+| All accents on press and hold | Off |
+| Press and hold ?123 for the number pad | On |
 | Currency keys | ৳ € £ ¥ ₹ ₿ |
-| Hold A/C/X/V/Z/Y for select all/copy/cut/paste/undo/redo | Off (each) |
+| Press and hold A/C/X/V/Z/Y for select all/copy/cut/paste/undo/redo | Off (each) |
 
-Open the **Key press** tile on the settings home grid, or search "Key press" in settings search. This table covers the Key popup, Timing and Long-press shortcuts groups. The same screen's Haptic feedback and Key press sound groups are covered on [Sound & vibration](/typing/feedback/). For the field-by-field breakdown see [Key press settings](/reference/settings/keypress/).
+Open the **Key press** tile on the settings home grid, or search "Key press" in settings search. This table covers the Key popup, Timing and Press and hold shortcuts groups. The same screen's Haptic feedback and Key press sound groups are covered on [Sound & vibration](/typing/feedback/). For the field-by-field breakdown see [Key press settings](/reference/settings/keypress/).
 
 A handful of related settings live elsewhere:
 
-- **Auto-capitalize** is on by default, under <SettingsPath path="Typing / Automatic corrections" />.
-- **Smart key-hit detection** (<SettingsPath path="Typing / Suggestions" />) and **Shift + Enter types a newline** (<SettingsPath path="Typing / Enter key" />) are both off by default.
+- **Automatic capital letters** is on by default, under <SettingsPath path="Typing / Automatic corrections" />.
+- **Smart detection of key hits** (<SettingsPath path="Typing / Suggestions" />) and **Shift and Enter type a new line** (<SettingsPath path="Typing / Enter key" />) are both off by default.
 - **Swipe to delete words** is on by default, under <SettingsPath path="Typing / Backspace" />.
 - **Number row** (<SettingsPath path="Layout & size / Number row" />) is on, and the numeral commit scope (<SettingsPath path="Layout & size / Numerals" />) starts on "Text fields". Full breakdown at [Layout & size settings](/reference/settings/layout/).
 - **Numeral system per language** starts on Auto, under <SettingsPath path="Languages / (a language) / Numerals" />. See [Languages](/languages/overview/).
@@ -144,7 +148,7 @@ A handful of related settings live elsewhere:
 
 ## Details & edge cases
 
-- **A hold-shortcut on A/C/X/V/Z/Y replaces that letter's accent popup rather than adding to it.** With "Hold C to copy" on, `c` no longer offers `'çć` on long-press at all.
+- **A hold-shortcut on A/C/X/V/Z/Y replaces that letter's accent popup rather than adding to it.** With "Press and hold C to copy" on, `c` no longer offers `'çć` on long-press at all.
 - **Exiting Caps Lock only takes one tap.** The double-tap window matters only on the way *into* Caps Lock. Any single tap while Shift or Caps Lock is already active turns it off.
 - **The Enter key never lies about what it's about to do.** With Shift + Enter's newline override active, the key visibly redraws to the newline symbol first. It doesn't swap behavior behind an unchanged icon.
 - **The long-press delay is duplicated in two places.** It's a Key press → Timing slider (150–700&nbsp;ms), and again, framed for hand tremor, under Accessibility → Touch (150–800&nbsp;ms, a slightly wider range). Both sliders move the same underlying setting.

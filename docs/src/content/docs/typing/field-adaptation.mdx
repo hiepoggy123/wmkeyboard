@@ -42,7 +42,7 @@ The swap only touches the bottom row on purpose. A Dvorak layout has real `.` an
   ![A phone-number field: a 4-by-4 dial pad in phone order, not calculator order.](@assets/screens/typing/field-adaptation-numpad.webp)
 </PhoneFrame>
 
-The five numeric-pad field kinds each get their own 4-column keypad. Digits are arranged phone-pad style, 1-2-3 on top rather than 7-8-9 like a calculator, with delete in the top-right corner and enter in the bottom-right. The remaining two keys are tailored to what that field type needs:
+The five numeric-pad field kinds each get their own 4-column keypad. Digits are arranged phone-pad style, 1-2-3 on top rather than 7-8-9 like a calculator, with 0 sitting under the 8 and enter anchoring the bottom-right. Delete takes the top-right corner on four of the five. The Number pad swaps it down a row and puts space on top, since deleting is the frequent correction while typing a figure. The remaining keys are tailored to what that field type needs:
 
 | Field kind | Right column | Bottom-left | Bottom-right | Notes |
 | --- | --- | --- | --- | --- |
@@ -72,11 +72,11 @@ Don't confuse this with the standalone **Numpad** tool in the toolbox, which is 
 
 `secureField` drives a wider set of behavior than just hiding the suggestion strip:
 
-- **Suggestions never show.** Password variations force the suggestion strip off unconditionally. It's the one case <SettingsPath path="Typing / Suggestions / Suggestions in every field" /> can't override, since that setting exists specifically to make hidden strips show anyway on ordinary fields.
+- **Suggestions never show.** Password variations force the suggestion strip off unconditionally. <SettingsPath path="Typing / Suggestions / Suggestions in every field" /> can't override it, since that setting exists specifically to make hidden strips show anyway on ordinary fields. Only one other thing is beyond that setting's reach: a field whose class isn't text at all, whose keypad has no words to offer.
 - **Autocorrect and gesture typing turn off too, and not only in password fields.** These, along with on-device learning, are gated on a broader check than `secureField` alone. It also excludes every structured field kind (`EMAIL`, `URI`, `NUMBER`, `PHONE`, `DATE`, `TIME`, `DATETIME`). A keypad has no words to autocorrect, and an email address shouldn't be second-guessed either. Only a plain `TEXT` field that also isn't secure gets the full typing-intelligence treatment.
 - **Phonetic (Avro) composing is the one exception: it keeps running everywhere, password fields included.** Avro turns roman key presses into Bangla as you type, and that step isn't gated on the same check at all. Turning it off in a secure or structured field would mean the roman keys commit untransliterated rather than no Bangla being produced. Only the suggestion-feeding side of composing, plain English composing, which exists purely to feed autocorrect and suggestions, is gated alongside autocorrect and gesture typing.
-- **Nothing is learned.** The same gate feeds <SettingsPath path="Privacy / On-device learning / Learn from typing" />. Typing in a password field, or any structured field, never reaches the on-device learning dictionary.
-- **Voice typing refuses to start.** Both the voice panel and the toolbar strip's dictation toggle decline while a secure field is focused. The toolbar toggle shows a toast reading "Voice typing is unavailable in password fields," while the panel shows its own inline notice instead ("Voice input is unavailable in password fields.").
+- **Nothing is learned.** The same gate feeds <SettingsPath path="Privacy / Learning on this device / Learn from typing" />. Typing in a password field, or any structured field, never reaches the on-device learning dictionary.
+- **Voice typing refuses to start.** Both the voice panel and the toolbar strip's dictation toggle decline while a secure field is focused. The toolbar toggle shows a toast reading "You cannot use voice typing in a password field", the panel shows its own inline notice ("Voice typing does not work in password fields."), and the voice bar reads "Not available in password fields".
 - **Clipboard history stops recording** while a secure field has focus, so new copies (and screenshot-to-clipboard captures) are skipped for as long as it's focused.
 - **Pasting into a password field can wipe the clip afterward.** See [Clipboard: passwords are handled deliberately](/tools/clipboard/#passwords-are-handled-deliberately) for the full paste-time purge behavior and its setting.
 
@@ -93,7 +93,7 @@ Two related things exist, but neither is a correction for a misreporting app:
 - **`FORCE_ASCII`**: if a field sets this flag and your current layout isn't Latin-script, the keyboard switches to your first enabled Latin layout for that field. That's the app declaring a hard constraint, not a workaround for bad detection.
 - **`hintLocales`**: an app can hint which language a field expects. It's honored only if you already have that language enabled, and it's advisory. It never overrides field-kind detection.
 
-[Keyboard modes](/typing/modes/) look like an override at first glance, since you can manually pin the built-in **Passwords** mode over any field. But a manually pinned mode only changes cosmetic and toolbar state: theme, toolbar tools, symbol row, emoji row. It does **not** touch `secureField`, so it can't turn on suggestion-hiding, learning-off or clipboard purging for a field an app has genuinely mislabeled. If a login field is reported as plain text, pinning Passwords dresses the keyboard for it without restoring the actual privacy protections. Those come only from the field's real, correctly-reported type.
+[Keyboard modes](/typing/modes/) look like an override at first glance, since you can manually pin the built-in **Passwords** mode over any field. But a mode only replaces settings: the theme, the toolbar tools, the symbol row, the emoji row, the layout, and the autocorrect, automatic-capitals and suggestions switches. It does **not** touch `secureField`, so it can't turn on learning-off or clipboard purging for a field an app has genuinely mislabeled. The shipped Passwords mode doesn't set the three typing switches either, so pinning it changes nothing about what the keyboard does to your text. If a login field is reported as plain text, pinning Passwords dresses the keyboard for it without restoring the actual privacy protections. Those come only from the field's real, correctly-reported type.
 
 ## Options
 
@@ -103,9 +103,9 @@ Two related things exist, but neither is a correction for a misreporting app:
 | Contact emails in email fields too | On | <SettingsPath path="Typing / Suggestions / Contact emails in email fields too" /> |
 | Password manager suggestions | On (Android 11+) | <SettingsPath path="Typing / Suggestions / Password manager suggestions" /> |
 | Popup on number pads | Off | <SettingsPath path="Key press / Key popup / Popup on number pads" /> |
-| Forget after pasting a password | On | <SettingsPath path="Tools / Clipboard / History / Forget after pasting a password" /> |
-| Learn from typing | On | <SettingsPath path="Privacy / On-device learning / Learn from typing" /> |
-| Add words to the system dictionary | Off | <SettingsPath path="Privacy / On-device learning / Add words to the system dictionary" /> |
+| Forget after you paste a password | On | <SettingsPath path="Tools / Clipboard / History / Forget after you paste a password" /> |
+| Learn from typing | On | <SettingsPath path="Privacy / Learning on this device / Learn from typing" /> |
+| Add words to the system dictionary | Off | <SettingsPath path="Privacy / Learning on this device / Add words to the system dictionary" /> |
 
 **Contact emails in email fields too** only shows up once **Suggest contact emails** itself is on. When it is, a contact-email completion still appears in an email field even if the app asked for a hidden strip there, while other suggestions in that field stay hidden.
 

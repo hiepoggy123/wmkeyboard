@@ -20,8 +20,8 @@ install one addon at a time.
 ## Adding a repository
 
 Open **Add repository**. Paste an address into the field. As you type, the
-dialog shows what the address resolved to (`Will read: <url>`), so you can see
-where the data comes from before anything is fetched:
+dialog shows what the address resolved to (`The app reads <url>`), so you can
+see where the data comes from before anything is fetched:
 
 | You paste | It fetches |
 |---|---|
@@ -69,9 +69,9 @@ the fuller description and licence live.
 
 If the manifest declares a licence, the detail page shows it as its own row:
 the identifier (`MIT`, `OFL-1.1`, and so on) inline where there is one, or
-"Tap to read the licence" when there's only full text to show. Tapping opens
-the complete text in a scrolling dialog. An addon with no licence information
-at all just says "Not stated."
+"Press to read the licence" when there's only full text to show. Tapping opens
+the complete text in a scrolling dialog. An addon that declares no licence
+information at all gets no licence row, rather than a row saying it has none.
 
 ## Installing an addon
 
@@ -135,7 +135,7 @@ Downloads end up identical:
 | Font | Added to your font library | Fonts → Installed fonts |
 | Emoji font | Added to your font library | Emoji → Emoji font |
 | Key sound | Added to your sound library | Key press → Sound style |
-| Sound pack | Added to your sound library as a whole pack | Key press → Sound style |
+| Sound pack | Added to your sound library as a whole pack | Key press → Sound pack |
 | Plugin | Lands on disk switched off | Plugins → Allow plugins |
 
 A dictionary or emoji keyword pack that doesn't say which language it's for
@@ -176,14 +176,15 @@ the manifest declares one), and **Remove**.
 
 Removing a repository only removes it from that list. Anything you already
 installed from it keeps working. You just stop getting update checks for it.
-The app adds one sample repository automatically the first time you open the
-Addons screen, so there's something to browse before you've found one of your
-own. Removing it is permanent, and it won't come back.
+The app adds two repositories automatically the first time you open the Addons
+screen (a sample one and a repository of typing sounds), so there's something
+to browse before you've found one of your own. Removing either is permanent,
+and it won't come back.
 
 Repositories refresh every time you open the Addons screen, as long as **Check
 when you open this screen** is on (it is by default). **Only on Wi-Fi**, under
 it and off by default, skips that check on a metered connection. **Refresh**
-always fetches whatever those two say, because pressing it is the request. A
+ignores both of those switches, because pressing it is the request. A
 repository that's briefly unreachable keeps showing what it last had rather
 than emptying out.
 
@@ -193,9 +194,10 @@ than emptying out.
 
 Reach the Add-ons screen from the home grid, or find it through settings
 search. Adding and browsing repositories, and installing from them, all happen
-on this one screen and the ones you navigate to from it. Nothing
-addon-specific is tucked away anywhere else in settings, aside from the plugin
-subsystem switch above. See the
+on this one screen and the ones you navigate to from it. Two addon-related
+switches sit elsewhere: the plugin subsystem switch above, and **Add-on
+repositories** on the Backup screen, which decides whether your repository
+list rides along in a settings export. See the
 [Addons settings reference](/reference/settings/addons/) for a full
 screen-by-screen breakdown, and [Updates & management](/addons/managing/#options)
 for the repository cap and what backup covers.

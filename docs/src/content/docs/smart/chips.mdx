@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-Smart chips watch the text right before your cursor. The moment it looks like something a tool can answer, that answer lands on the suggestion strip in place of word candidates. Tap the chip to type the answer, or its gear button to open the full tool with the same numbers already loaded.
+Smart chips watch the last 48 characters before your cursor. The moment that text looks like something a tool can answer, the answer lands on the suggestion strip in place of word candidates. Tap the chip to type the answer, or its gear button to open the full tool with the same numbers already loaded. A few chips have nothing to type and only ever open a tool. Those carry no gear, and the whole chip is the door.
 
 <PhoneFrame caption="Typing 12*8 puts a calc chip on the suggestion strip.">
   {/* shot: smart/calc-chip */}
@@ -20,7 +20,9 @@ Type an expression like `12*8` and the strip offers `96` as a tappable chip. It 
 
 Permutations and combinations use the shorthand a calculator keypad uses: `5p3` offers `60` and `4c2` offers `6`. Both letters have to sit tight between two digits, so `page 5 c 2` stays a sentence.
 
-A few things deliberately don't trigger a chip. A bare number on its own isn't a sum, and a trailing `%` reads as "percent" rather than an instruction to divide by 100. Named functions and word-operators like `sin`, `sqrt`, `log`, or `mod` never show up as an inline chip either. Apart from `p` and `c`, the trigger only looks for digits, operators, and the two symbols `π`/`e`. Anything with more letters than that works only by opening the Calculator tool itself.
+A few things deliberately don't trigger a chip. A bare number on its own isn't a sum, and a trailing `%` reads as "percent" rather than an instruction to divide by 100. Named functions and word-operators like `sin`, `sqrt`, `log`, or `mod` never show up as an inline chip either. Apart from `p` and `c`, the symbol scanner only looks for digits, operators, and the two symbols `π`/`e`. Anything with more letters than that works only by opening the Calculator tool itself.
+
+Some arithmetic gets written as a sentence, though, and a second scanner catches three shapes of it: a share of an amount (`15% of 200`, `15% on 200`, `15% tip on 4500`), a discount (`20% off 1500`, `20% off of 1500`), and a bill split (`split 4500 between 3`, `split 4500 3 ways`, `4500 split 3 ways`; `among` and `by` work as well as `between`, and `people`, `persons` or `friends` as well as `ways`). Each one produces an ordinary calc chip, and the gear opens the Calculator on the equivalent sum.
 
 The chip's gear icon opens **Calculator** with your expression prefilled. Result precision (decimal places) is shared with the unit converter, and there's a separate degrees/radians switch for trig, set below in [Options](#options).
 
@@ -44,17 +46,29 @@ Unit chips walk the same ladder. `1609.344 km` rounds to `1609.34 km` and then `
   {/* shot: smart/currency-chip */}
 </PhoneFrame>
 
-Both chip types share the same wide look (`[icon] query → result [gear]`) and take the full width of the strip, since a recognized calculation or conversion is a better use of that space than word candidates.
+Both chip types share the same wide look (`[icon] query → result [gear]`) and take the full width of the strip, since a recognized calculation or conversion is a better use of that space than word candidates. The date and weather chips further down this page are drawn the same way.
 
 ## Keyword chips open a tool
 
-Type a tool's keyword on its own (`wiki`, `calc`, and so on) and a narrower chip offers to open that tool, dropping the word you typed. This one stays narrow instead of filling the strip, because the word you're typing might genuinely just be that word, and word candidates keep the rest of the row.
+Type a tool's keyword on its own (`wiki`, `calc`, and so on) and a narrower chip offers to open that tool, dropping the word you typed. The text-editing tool is the one exception: `edit` stays in the field, since that tool works on the text that's already there. This chip stays narrow instead of filling the strip, because the word you're typing might genuinely just be that word, and word candidates keep the rest of the row.
 
 <PhoneFrame caption="Typing wiki offers a narrow chip to open Wikipedia, leaving room for word candidates.">
   {/* shot: smart/keyword-chip */}
 </PhoneFrame>
 
-Each tool's own settings list the words that open it, and let you change or clear them.
+Each tool's own settings list the words that open it, and let you change or clear them. Matching ignores capitals by default, and a per-tool **Match capitals** switch makes that tool compare literally instead, which is how `AI` can open the AI tool without every auto-capitalised "Ai" doing the same.
+
+## Chips that read the sentence
+
+Five more families watch for text that isn't a sum or a keyword but still sounds like a job a tool does. They ride the same master switch and each has its own toggle in [Options](#options).
+
+- **Resolve dates.** A forward-pointing phrase (`tomorrow`, `next friday`, `aug 14`, `the 15th`) gets a wide chip showing the date it lands on. A tap keeps your phrase and appends the date in brackets, so "next friday" becomes "next friday (21 Aug)". The gear opens the Calendar on that day. Only forward dates count, because "last friday" needs no annotating.
+- **Answer weather questions.** `will it rain`, `how's the weather`, `how hot is it` and similar get a wide chip with the conditions on it. This one never types into your field, since the question was probably meant for the person you're writing to. Tapping it opens the Weather tool instead. It needs a weather location set, and shows a spinner while the forecast fetches.
+- **Offer lookups.** `define serendipity` or `what does X mean` offers the Dictionary; `who is Tesla`, `what is X` or `tell me about X` offers Wikipedia. Narrow chip, and it leaves your question alone.
+- **Translate hints.** `how do you say`, `translate this`, or `in spanish` (sixteen language names are recognised) offers the Translate tool. Narrow, and it leaves your text alone.
+- **GIFs for celebrations.** `happy birthday`, `congrats`, `eid mubarak`, `শুভ জন্মদিন` and a handful more offer a GIF search already pointed at the occasion. It falls back to the sticker panel when the GIF tool is off.
+
+All five only fire when the tool they would open is switched on under Tools. The narrow ones are hints rather than answers, so each gets one shot per field: once you type past a lookup or intent chip, that tool won't hint again until you move to another field. One wiring quirk is worth knowing. **GIFs for celebrations** sits inside **Translate hints** rather than beside it, so turning the translate hints off takes the celebration GIFs with them, while turning the GIFs off leaves translate alone.
 
 ## Pulling fragments out of your clipboard
 
@@ -64,9 +78,9 @@ Open the [Clipboard](/tools/clipboard/) tool and a row of dashed-outline chips s
   {/* shot: smart/clipboard-entity-strip */}
 </PhoneFrame>
 
-One fast path doesn't need the panel at all. If the thing you just copied contains a one-time code, the idle suggestion strip offers a dashed **CODE** chip for the code alone, in place of the usual "paste your last copy" chip. That's the quick way to pull six digits out of a verification text without pasting the whole message. The fast path is OTP-only. A freshly copied phone number or link still shows as the ordinary full-clip paste chip until you open the Clipboard panel for the fragment version.
+One fast path doesn't need the panel at all. Copy a bare one-time code, then tap into a field that asks for digits, and the strip offers it as a dashed **Code** chip in place of the usual "paste your last copy" chip. It's deliberately that narrow. A copied code counts as a secret, so it stays off the strip in an ordinary message field, and a code quoted inside a longer message never becomes a chip there at all: pulling a fragment out of a message is what the Clipboard panel above is for. The fast path is also OTP-only, so a freshly copied phone number or link shows as the ordinary full-clip paste chip until you open the panel for the fragment version.
 
-<PhoneFrame caption="Copying a verification text offers just the code, not the whole message, right on the suggestion strip.">
+<PhoneFrame caption="A copied verification code offered as a Code chip in a field that asks for digits.">
   {/* shot: smart/otp-fresh-copy-chip */}
 </PhoneFrame>
 
@@ -85,37 +99,42 @@ Each detector has guards against the shapes of text that look like a trigger but
 - A code needs a nearby keyword (`otp`, `verification`, `code`, `pin`, `2fa`, and similar) within 40 characters. A deny-list (`zip`, `postal`, `hex`, `swift`, `ifsc`, and others) stops things like "zip code 90210" from qualifying anyway.
 - **`try`** in lowercase reads as the English verb, not Turkish lira. Type `TRY` in capitals to convert it.
 - Short unit abbreviations (`c`, `f`, `in`, `s`, `k`, and others) only count glued to the number, so "meet me in 5" or "about 30 c out" stay quiet.
-- Unpunctuated digit runs longer than 11 digits aren't treated as phone numbers unless they start with `+`.
+- Unpunctuated digit runs longer than 11 digits aren't treated as phone numbers unless they start with `+`. That shape rule is what stands in for knowing where you live, so it steps aside once you've listed your own [phone formats](/reference/settings/phone-formats/) and the masks decide the length instead.
 
 ## Options
 
 <SettingsPath path="Typing / Smart chips" />
 
-- **Smart chips**: the master switch, default **on**. Turn it off and all four chip families below go at once.
+- **Smart chips**: the master switch, default **on**. Turn it off and all nine chip families below go at once.
 - **Calculate as you type**: default **on**.
 - **Convert currencies**: default **on**.
 - **Convert units**: default **on**.
 - **Tool keywords**: default **on**.
+- **Resolve dates**: default **on**.
+- **Answer weather questions**: default **on**.
+- **Offer lookups**: default **on**.
+- **Translate hints**: default **on**.
+- **GIFs for celebrations**: default **on**.
 
 The same three toggles (calculate/currencies/units) reappear inside each tool's own Options screen (<SettingsPath path="Tools / Calculator / Options" />, <SettingsPath path="Tools / Unit converter / Options" />, <SettingsPath path="Tools / Currency converter / Options" />) as "Calculate as you type" / "Convert as you type". Each pair is one setting surfaced in two places for convenience, so changing it in either place changes both.
 
 A few related settings live under each tool instead:
 
 - **Degrees** (Calculator, default **on**) and **Result precision** (0–12 decimal places, default **8**). Precision also shapes the unit converter's output.
-- **Decimal places** for currency (0–6, default **2**) and **Refresh rates every** (1–48 hours, default **6**), under <SettingsPath path="Tools / Currency converter / Options" />.
+- **Decimal places** for currency (0–6, default **2**) and **Refresh the rates every** (1–48 hours, default **6**), under <SettingsPath path="Tools / Currency converter / Options" />.
 - **Convert coins** (default **on**), **Coin decimal places** (Auto to 12, default **Auto**), **Refresh coin prices every** (1–60 minutes, default **5**) and the **Coins** chip grid, under <SettingsPath path="Tools / Currency converter / Cryptocurrency" />. The same screen picks which source each kind of rate is fetched from.
-- **Detect codes, numbers & links** (default **on**), under <SettingsPath path="Tools / Clipboard" />, turns off both the Clipboard panel's entity strip and the fresh-copy code chip together. **Suggest recent copy** (also default **on**, same screen) has to be on too for the fresh-copy code chip to appear at all, since it's a variant of that chip.
+- **Detect codes, numbers and links** (default **on**), under <SettingsPath path="Tools / Clipboard" />, governs the Clipboard panel's entity strip. The fresh-copy code chip is a separate pair of switches on that same screen: **Suggest the last copy** (default **on**), since the code chip is a variant of that chip, and **Suggest copied codes in code boxes** (also default **on**), which is what allows a copied code onto the strip at all.
 
-<PhoneFrame caption="Smart chips settings under Typing: master switch and the four per-family toggles.">
-  ![Smart chips settings under Typing: master switch and the four per-family toggles.](@assets/screens/smart/options.webp)
+<PhoneFrame caption="Smart chips settings under Typing: master switch and the per-family toggles.">
+  ![Smart chips settings under Typing: master switch and the per-family toggles.](@assets/screens/smart/options.webp)
 </PhoneFrame>
 
 ## Details & edge cases
 
 - A chip won't reconsider text it just inserted. After you tap one, the strip mutes until you edit the field again, so converting 150 USD to Taka doesn't immediately offer to convert the Taka amount right back.
 - Smart chips step aside for secure fields, fields that ask for no suggestions, any open panel, and CJK-style conversion composing, since a chip would otherwise steal the space a pinyin reading needs for its own candidates.
-- They're independent of word prediction. Turning off suggestions elsewhere doesn't turn off calc, currency, unit, or keyword chips.
-- [Power saving mode](/typing/power-saving/) drops the whole calc/currency/unit/keyword chip family by default (its own toggle lives under Power saving), but leaves clipboard entity detection alone. Codes, numbers, and links keep getting pulled out of your clips even while chips elsewhere are dimmed.
+- They're independent of word prediction. Turning off suggestions elsewhere doesn't turn off any of the smart chips.
+- [Power saving mode](/typing/power-saving/) flips the master switch off by default (its own toggle lives under Power saving), so every chip family goes at once, but it leaves clipboard entity detection alone. Codes, numbers, and links keep getting pulled out of your clips even while chips elsewhere are dimmed.
 - Exchange rates come from open.er-api.com (about 160 currencies, updated daily), with frankfurter.app (European Central Bank, about 30 currencies) as a fallback. Coin prices come from Coinbase with the jsDelivr currency-api behind it. All of them are free, with no account or key required, and any of them can be swapped for another under the tool's settings. See [network policy](/privacy/network/) for what else touches the network.
 - A coin chip shows the ticker (`BTC`) where a currency chip shows a name (`Taka`), because coin names shorten badly. It also keeps five meaningful digits rather than two decimals, so a small fraction of a coin still reads as a number instead of `0.00`.
 - The currency and unit pair a chip converts into isn't set from a Settings screen. It's remembered from whichever pair you last used inside the [Currency converter](/tools/utilities/) or [Unit converter](/tools/utilities/) panel itself.

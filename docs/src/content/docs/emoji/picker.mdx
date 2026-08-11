@@ -23,7 +23,7 @@ The most direct route is the emoji button in the toolbar (on by default). Tap it
 
 Two more toggles replace a bottom-row key outright with an emoji key, so opening the panel takes one less tap:
 
-<SettingsPath path="Layout & size / Bottom-row keys / Emoji key instead of 🌐" />
+<SettingsPath path="Layout & size / Bottom row keys / Emoji key instead of 🌐" />
 
 **Emoji key instead of 🌐** is on by default, so the <KeyCap>🌐</KeyCap> key opens the emoji panel instead of switching language. Language switching doesn't disappear. It moves to a spacebar swipe, set to Language by default, so you get it back for free. See [Gestures](/typing/gestures/).
 
@@ -35,9 +35,9 @@ Typing `:cat:` is a different feature entirely: it searches or auto-commits an e
 
 ## Searching for an emoji
 
-Tap the magnifying-glass tab at the start of the tab strip. The panel switches into search mode. The search pill appears under the results, just above the keys that type into it, so the emoji stay at the top of the panel where your thumb left them.
+Tap the magnifying-glass tab at the start of the tab strip. The panel switches into search mode and a search pill appears. With the full-screen panel on (the default) the pill takes the header row beside the back button, in place of the tab strip. With it off, the pill sits under the results instead, just above the keys that type into it, so the emoji stay at the top of the panel where your thumb left them.
 
-The pill is not a text field you type into directly. Tap it, and the letter keys underneath become a query editor: what you type appends to the pill instead of going to your document. A small backspace icon next to the pill deletes from your actual text field without leaving search. To go back to browsing, tap the search icon again or switch to any category tab.
+The pill is not a text field you type into directly. Tap it, and the letter keys underneath become a query editor: what you type appends to the pill instead of going to your document, and the keyboard's own backspace key deletes from the pill. A small backspace icon inside the pill deletes from your actual text field instead, without leaving search. Tapping the pill again unlatches typing, and the tab strip returns once the query is empty, so backspacing your query away is the way back to browsing.
 
 <PhoneFrame caption="Typing 'cat' and 'বিড়াল' in the panel's search field, both surfacing the same cat emoji.">
   {/* shot: emoji/panel-search */}
@@ -76,7 +76,7 @@ Whichever variant you tap becomes that emoji's new default. The picker remembers
 
 **Default skin tone** sets the tone every toned emoji gets when you haven't picked one for it yourself. That covers the panel grid, the suggestion strip and search results alike. **Override with last used** (on by default) keeps your per-emoji memory ahead of that default, so an emoji you've already toned by hand stays the way you left it. Turn it off if you'd rather the default tone win everywhere and your per-emoji picks only apply to that one insertion.
 
-Emoji with gender or role variants (a runner shown as 🏃‍♀️ or 🏃‍♂️, a doctor as 👨‍⚕️ or 👩‍⚕️) collapse into the same long-press popup, so the grid isn't cluttered with every combination as its own cell. Pick the member you want at the top of the popup, then its tone below.
+Emoji with gender or role variants (a runner shown as 🏃‍♀️ or 🏃‍♂️, a doctor as 👨‍⚕️ or 👩‍⚕️) collapse into the same long-press popup, so the grid isn't cluttered with every combination as its own cell. The popup then stacks one six-cell row per member, so a single tap picks the member and its tone together. The two-person emoji are the exception: their dual-tone picker puts the members in a row of their own at the top, above the two tone rows.
 
 ## Favourites, recents, and most used
 
@@ -148,9 +148,9 @@ The animations are **Noto Animated Emoji** by Google, licensed [CC BY 4.0](https
 
 ## Details & edge cases
 
-- **Inserting doesn't close the panel by default.** <SettingsPath path="Emoji / Emoji panel / Return to keyboard after inserting" /> is off, so you can tap several emoji in a row (including several results from the same search) without the panel folding away after each one. Turn it on to jump straight back to the keys after a single insert. The same setting also governs the clipboard panel.
+- **Inserting doesn't close the panel by default.** <SettingsPath path="Emoji / Emoji panel / Return to the keyboard after you insert" /> is off, so you can tap several emoji in a row (including several results from the same search) without the panel folding away after each one. Turn it on to jump straight back to the keys after a single insert. The same setting also governs the clipboard panel.
 - **Full-screen panel is the default, not an opt-in.** <SettingsPath path="Emoji / Access / Full-screen emoji panel" /> is on out of the box: the toolbar, emoji row, and symbol row all step aside, and the category tabs move into the row they leave behind next to a back button. Turn it off to keep the toolbar within reach while picking emoji.
-- **Search and the panel grid both respect "Hide emoji this phone can't display."** An emoji neither your chosen font nor the phone's system font can draw is filtered out everywhere: panel, search, and suggestions alike. See [Fixing emoji that won't display](/emoji/customization/#fixing-emoji-that-wont-display).
+- **Search and the panel grid both respect "Hide emoji that your device cannot show."** An emoji neither your chosen font nor the phone's system font can draw is filtered out everywhere: panel, search, and suggestions alike. See [Fixing emoji that won't display](/emoji/customization/#fixing-emoji-that-wont-display).
 - **Kaomoji and emoticons are a separate, unsearched system.** If you've turned on their two extra tabs, they sit after the last Unicode category, but the panel's search field never indexes them, since it only searches the Unicode emoji catalog. See [Kaomoji & text art](/emoji/kaomoji/).
 - **The panel has its own compact bottom row** (a key back to letters, a spacebar, and a hold-to-repeat backspace) so you can type a word, drop in an emoji, and keep typing without leaving the panel.
 - **Both editions.** Search, skin tones, and favourites aren't gated to one edition: the same emoji panel ships in both.

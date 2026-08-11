@@ -39,7 +39,7 @@ Open **Grammar check** from the toolbox to check whatever's in the field you're 
 
 The panel sits in a fixed strip above the key rows rather than covering them, so you can fix an issue by editing the text directly just as easily as by tapping a fix chip. Open the panel and it checks the field's current text immediately, with no wait. After that, edits re-check after a short pause (see [Fully offline](#fully-offline-in-process) below).
 
-Each issue is a card: a colored dot and category label, the flagged text struck through, an arrow to up to five suggested fixes, and Harper's explanation underneath. From there:
+Each issue is a card: a colored dot and category label, the flagged text struck through, an arrow to up to five suggested fixes, and Harper's explanation underneath. An issue Harper has no fix for shows the explanation in the chips' place instead. From there:
 
 - **Tap a fix chip** to apply that one fix. The field re-checks straight after.
 - **Tap the card itself**, meaning neither a chip nor the dismiss icon, to jump the field's cursor to the issue. A multi-word span parks the cursor at its start. A single word with a real replacement gets selected, so you can type over it. Anything else parks the cursor right after the issue.
@@ -83,7 +83,7 @@ A **System-wide** group sits below these two, with a **Use Harper everywhere** b
 - **English only.** Harper doesn't check any other language, and the dialect setting is global. It applies no matter which typing language or layout is currently active. Grammar check has nothing to do while you're typing in a non-English language.
 - **Full edition only.** Grammar check doesn't exist at all in the lite build. It's absent from both the toolbar customization list and the toolbox, rather than sitting there disabled or grayed out, because lite ships without Harper's native library. If you're on lite and don't see it, that's expected.
 - **A missing engine fails safely.** If `libharper_jni.so` somehow didn't load, the panel opens normally and says the grammar engine isn't in this build, rather than crashing or hanging on "checking."
-- **A fix only touches the words it flagged.** Applying a chip (or "Fix all") replaces the flagged spans and nothing else, so the rest of what you wrote is never re-typed into the field. That's what keeps formatting alive in apps that have any: bold, colour, a checklist item in Google Keep.
+- **A fix only touches the words it flagged.** Applying a chip (or "Fix all") replaces the flagged spans and nothing else, so the rest of what you wrote isn't re-typed into the field. That's what keeps formatting alive in apps that have any: bold, colour, a checklist item in Google Keep. The one exception is an editor that won't tell the keyboard where its text starts. There's no way to address a span in one of those, so the fix falls back to rewriting the whole field, which flattens any styling it was carrying.
 - **Dismissing an issue is temporary.** A dismissed card comes back if you edit the text again and it re-lints to the same issue. There's no permanent "ignore this" list.
 - **"Fix all" only uses each issue's first suggestion.** For an issue with several possible fixes, use its individual fix chips instead if you want a different one applied.
 - **Re-check delay only paces this panel.** It has no effect on [the system spell checker](/smart/spell-checker/), which always answers synchronously when another app's text field asks it to.

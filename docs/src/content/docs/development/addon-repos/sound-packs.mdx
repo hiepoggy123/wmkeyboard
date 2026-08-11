@@ -34,17 +34,18 @@ cherrymx-blue-abs.wmsoundpack
     └── …
 ```
 
-Two rules, both enforced on install:
+One rule is enforced: `pack.json` sits at the archive root. The importer looks
+for the entry named exactly `pack.json` and reads nothing else as a manifest.
 
-- `pack.json` sits at the archive root.
-- Every audio file lives under `sounds/`.
+Putting the audio under `sounds/` is convention, not a rule. A manifest path is
+matched against the exact entry name first and then against the bare file name,
+so `sounds/1.wav` and a flat `1.wav` both resolve.
 
-A path that's absolute, contains `..`, or uses a backslash is rejected rather
-than sanitized. More precisely: the importer never treats an archive entry name
-as a path at all. It reads each entry into memory under that name as a *map
-key*, then writes the bytes to a file it names itself (`s000.snd`, `s001.snd`,
-…), rewriting `pack.json` to match. So neither a `../` entry name nor a `../`
-inside the manifest has anywhere to go.
+Nothing in the archive is ever treated as a path. The importer reads each entry
+into memory under its name as a *map key*, then writes the bytes to a file it
+names itself (`s000.snd`, `s001.snd`, …), rewriting `pack.json` to match. So a
+`../` in an entry name or in the manifest resolves to bytes already in memory or
+to nothing at all, and has nowhere to go either way.
 
 ## `pack.json`
 
@@ -77,7 +78,7 @@ inside the manifest has anywhere to go.
 | --- | :-: | --- |
 | `format` | ✔ | Must be exactly `wmkeyboard-sound-pack`. Anything else is refused. |
 | `version` | ✔ | Format version, currently `1`. A higher number is refused rather than guessed at. |
-| `id` | ✔ | `[A-Za-z0-9._-]+`, at most 64 characters. **Frozen once published**, because it's how installs are keyed. |
+| `id` | ✔ | `[A-Za-z0-9._-]+`, at most 64 characters. Informational on the device: the store mints its own `pack_<timestamp>` id and keys the install on that. Keep it stable anyway, because your own tooling and the repository manifest both read it. |
 | `name` | ✔ | What the user sees in the picker. |
 | `press` | ✔ | At least one path. The default key-down recordings. |
 | `author` | | Shown on the row. |
@@ -174,12 +175,17 @@ third of the time, and a repeat is the exact thing variants exist to prevent.
 | Audio files per pack | 64 | Every file is decoded into the `SoundPool` when the pack is selected. Key-up recordings count toward it. |
 | Variants per list | 32 | |
 | Bytes per audio file | 4 MB | Same ceiling a single-sound addon gets. |
+| Archive entries | 128 | Counted while reading, so a directory of junk stops the import. |
 | Unzipped bytes per pack | 16 MB | Counted while extracting, not read from the ZIP header, so a zip bomb stops mid-stream. |
 | Installed packs | 20 | |
 
-Going over any of these refuses the install with a message naming the limit. It
-never truncates the pack to fit: a pack quietly missing half its recordings is
-worse than one that didn't install.
+The last three are refusals: going over the entry count, the unzipped size or
+the installed-pack count fails the install with a message naming the limit.
+
+The first three are not. A list longer than 32 keeps its first 32 entries, a
+sample past the 64th file is dropped, and a single recording over 4 MB is
+dropped on its own. The pack still installs with what fits, so check the
+variant count on the detail page after publishing a large pack.
 
 One thing that *isn't* fatal is a `press` entry naming a file that isn't in the
 archive. That variant is dropped and the rest of the pack is kept, because
@@ -238,16 +244,21 @@ In a repository manifest, a pack is `type: "sound_pack"`:
 
 Notes:
 
-- **Set `minAppVersion`.** `sound_pack` didn't always exist, and an older app
-  reads an unknown type as `unknown` and offers no way to install it. The floor
-  turns that into a message that says why.
+- **`minAppVersion` won't rescue the oldest builds.** An app that has never
+  heard of `sound_pack` reads the type as unknown and drops the whole entry
+  while decoding the manifest, before any version check runs, so the pack just
+  doesn't appear for those users. Set the floor anyway: a build that does know
+  the type shows the addon and refuses the install with a note saying to update
+  the app.
 - The manifest `id` and the `pack.json` `id` don't have to match, and the app
   keys the install on the manifest's. Making them the same is still sensible.
 - The addon entry's `version` drives update detection.
 
-Installing a pack **selects it**, the same as a theme or a single sound: a pack
-that installs without the keyboard making its noise reads as an install that did
-nothing.
+Installing from a repository does not select the pack. It lands on the device
+and a one-question dialog offers to switch to it, the same as a theme or a
+single sound. Opening a `.wmsoundpack` file from the sound-pack screen does
+select it right away and plays it once, because there the user picked that one
+file and nothing else.
 
 The detail page offers a **Preview** before installing, which extracts up to
 eight variants of each half and gives every one its own Play row. One button that

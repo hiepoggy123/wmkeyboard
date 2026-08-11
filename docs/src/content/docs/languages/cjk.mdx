@@ -23,7 +23,7 @@ Chinese and Japanese aren't typed directly: you type a *reading* (pinyin, bopomo
 
 ## Chinese input schemes
 
-Enable **Chinese** from the language catalogue and you get six layouts, switchable per your typing style:
+Chinese carries six layouts. Adding it from the language catalogue turns on Pinyin alone, and the other five are a tap away on Chinese's own screen:
 
 | Layout | Reading unit | Buffer commits |
 |---|---|---|
@@ -44,7 +44,7 @@ Zhuyin and T9 Pinyin don't need their own dictionary. They reuse the Pinyin pack
 
 ### Cantonese: Jyutping
 
-Cantonese is a separate language entry (not a Chinese sub-option) with one layout: standard QWERTY plus a digit row for tone numbers 1–6. It's a prefix-commit conversion scheme like Pinyin, with its own 163k-entry Jyutping→Hanzi dictionary.
+Cantonese is a separate language entry (not a Chinese sub-option) with one layout: standard QWERTY plus a permanent digit row, so the tone numbers 1 to 6 are one tap away. It's a prefix-commit conversion scheme like Pinyin, with its own 163k-entry Jyutping→Hanzi dictionary.
 
 ## Double Pinyin
 
@@ -55,7 +55,7 @@ For Pinyin typists who want fewer keystrokes, Double Pinyin encodes every syllab
 Two independent toggles relax reading matching for imprecise typing:
 
 - **Fuzzy Pinyin** treats commonly-confused sounds as equivalent, so a syllable typed loosely still finds its characters. It's eleven switches rather than one: six initial groups (zh↔z, ch↔c, sh↔s, n↔l, r↔l, f↔h) and five nasal-ending groups (an↔ang, en↔eng, in↔ing, ian↔iang, uan↔uang), each with a row of its own and all on once the master switch is on. That way you can take the regional nasal endings without paying for n↔l on every syllable that starts with either. Switch one off and a **Match every pair again** row appears to put them all back.
-- **Lazy pronunciation (懶音)**, Cantonese-only, matches the sound mergers common in Hong Kong speech: n↔l, an initial ng- that can drop entirely (我 *ngo5* → *o5*), gw→g before -o, and the -ng/-n and -k/-t final pairs.
+- **Lazy pronunciation (懶音)**, Cantonese-only, matches the sound mergers common in Hong Kong speech: n↔l, an initial ng- that can drop entirely (我 *ngo5* → *o5*), gw→g and kw→k before a rounded final only (國 *gwok3* → *gok3*, but never 誇 *kwaa1* → *kaa1*), and the coda mergers toward the alveolar place (-ng/-n, -m/-n, -k/-t and -p/-t). It also takes z↔j and c↔ch, which aren't 懶音 at all but Yale-era romanization habit. Every merger works in both directions, because hypercorrection is as common as the merger itself.
 
 Both are off by default, and they change ranking rather than what you can type. A precisely-typed reading still works exactly as before.
 
@@ -95,13 +95,13 @@ If a reading has no dictionary match at all, it always falls back to committing 
 
 ## Learning from your picks
 
-Every time you tap a candidate other than the top-ranked one, the keyboard remembers it. The next time the same reading comes up, your previously-chosen candidates move to the front (most-picked first) while everything else keeps the order the dictionary gave it. It's a reordering of your own history, not a blended relevance score, so a candidate you've never picked never gets promoted just because it's common in general.
+Every candidate you pick from the strip or the grid is remembered against the reading you typed, and so is the one a space press commits. Two paths teach nothing: the flush that happens when you leave the buffer some other way (punctuation, Enter, moving the cursor), and a reading the dictionary couldn't convert at all, since the raw-reading fallback is in no ranked list. The next time the same reading comes up, your previously-chosen candidates move to the front (most-picked first) while everything else keeps the order the dictionary gave it. It's a reordering of your own history, not a blended relevance score, so a candidate you've never picked never gets promoted just because it's common in general.
 
 Learning is scoped separately per reading system (pinyin, T9 Pinyin, zhuyin, jyutping, and Japanese kana readings each keep their own history), because the same word can be spelled several different ways depending on which Chinese scheme you're using. **Cangjie, Cangjie Quick, and Stroke don't participate in learning at all**: their radical and stroke codes map deterministically to one character, so there's no ambiguity to learn from.
 
 This history is governed by the same setting as ordinary word learning:
 
-<SettingsPath path="Privacy / On-device learning / Learn from typing" />
+<SettingsPath path="Privacy / Learning on this device / Learn from typing" />
 
 Turning it off, using incognito mode, or typing into a field that opts out of learning all stop new picks from being recorded, exactly as they do for the regular word suggestion history.
 
@@ -123,13 +123,13 @@ Opening a Chinese, Cantonese, or Japanese entry from the Languages screen shows 
 
 To clear everything the keyboard has learned from your CJK picks:
 
-<SettingsPath path="Privacy / Your data / Clear learned words" />
+<SettingsPath path="Privacy / Your data / Learned words" />
 
-This also clears your regular typed-word history and emoji usage in the same action: CJK picks live in their own file, so a future "clear learned words" tap intentionally names it explicitly rather than leaving it behind by accident.
+CJK picks live in a file of their own, but the **Delete the learned words** button clears the lot in one action: your typed-word history, emoji usage, autocorrect statistics, the CJK pick history and the per-app language-mix record. There's no way to clear the CJK half on its own.
 
 ### Conversion dictionaries are downloads, not bundled data
 
-None of the conversion dictionaries ship in the app. Until you download the matching pack, a conversion layout still composes and shows the buffer, but the candidate list stays empty.
+None of the conversion dictionaries ship in the app. Until you download the matching pack, a Chinese or Cantonese layout still composes and shows the buffer, but the candidate list stays empty. Japanese is the exception: its plain hiragana, katakana and half-width katakana forms are appended to every ranking, so they're on offer with no pack at all.
 
 | Language | Pack | Approx. size | Coverage |
 |---|---|---|---|

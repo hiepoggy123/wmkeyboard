@@ -25,12 +25,13 @@ WM Keyboard writes several file formats: themes, layouts, snippet packs, sticker
 | `.wmicons` | An icon pack (ZIP) | Icons screen → export |
 | `.wmplugin` | A Lua tool plugin (ZIP) | Not produced by the app; built by plugin authors |
 | `.wmconfig.json` | A full settings-and-data backup | **Data / Backup & restore** → export |
+| `.wmconfig.enc` | The same bundle, encrypted under a passphrase | Only the automatic backup writes this, and only with encryption switched on |
 | `.wmsettings.json` | A settings-only backup (legacy) | No export path anymore; still accepted on import |
 | `.wmdict` | A compiled binary dictionary | Never exported; internal to the app, see [below](#wmdict-the-one-format-you-never-touch) |
 | `.txt` word lists, `.tsv` emoji keywords | Custom dictionaries and keyword packs | Import-only; not produced by the app |
 | `.flex` | A FlorisBoard theme extension | Another keyboard's format, read and converted. See [Importing from other keyboards](/reference/importing-other-keyboards/) |
 
-Every format except `.wmdict` is registered as a file association, so tapping any of these in a file manager, downloads app, or chat attachment opens WM Keyboard's import dialog directly. See [Opening a file](#opening-a-file).
+Ten extensions are registered as file associations, so tapping one in a file manager, downloads app, or chat attachment opens WM Keyboard's import dialog directly: everything in the table above except `.wmdict`, `.txt` and `.tsv`. Those three are reached from inside the app instead. `.wmdict` never faces you at all, and word lists and keyword packs are picked from their own import buttons. See [Opening a file](#opening-a-file).
 
 ## Opening a file
 
@@ -39,10 +40,11 @@ A tap on any recognized file (from a file manager, a browser download, or a chat
 Behind that dialog, the app has to figure out what kind of file it's looking at:
 
 - If the file starts with a ZIP signature, the app opens it as an archive and scans up to 400 entries (capped at 64 KB of manifest content) for a `pack.json`, `plugin.json`, or `extension.json`. The `format` tag inside tells sticker packs, icon packs, and plugins apart. File structure alone can't do it, since sticker and icon packs both use a `pack.json` manifest. An `extension.json` tagged as a FlorisBoard theme is converted rather than installed. See [Importing from other keyboards](/reference/importing-other-keyboards/).
+- If it isn't a ZIP but its first bytes are an encrypted-backup header, the app stops there and asks for a passphrase. Nothing can be said about the contents until it opens, and decoding megabytes of ciphertext as text to find that out would be wasted work.
 - Otherwise, the app reads the file as text and tries each tagged format's decoder in order: full config backup, then legacy settings backup, then layout, then snippets, stopping at the first one whose `format` field matches.
 - A theme file has no `format` tag at all (every `ThemeSpec` field has a default, so *any* JSON object decodes successfully as an all-defaults theme). The `.wmtheme.json` extension on the file name is the only signal that a file was meant to be a theme, so it's checked last and only by name.
 
-Layout files are deliberately tolerant past their format tag. A hand-edited `.wmlayout.json` with a typo doesn't get refused, it gets repaired, and the confirm dialog lists what changed under "Changed on the way in." Plugins take the opposite approach. Nothing about a plugin is auto-repaired, and any problem is a refusal with a reason, because a plugin is code running on assumptions nobody checked.
+Layout files are deliberately tolerant past their format tag. A hand-edited `.wmlayout.json` with a typo doesn't get refused, it gets repaired, and the confirm dialog lists what changed under "The app changed these items during the import". Plugins take the opposite approach. Nothing about a plugin is auto-repaired, and any problem is a refusal with a reason, because a plugin is code running on assumptions nobody checked.
 
 Importing a `.wmsettings.json` or `.wmconfig.json` backup is rollback-safe. The app re-reads the settings it just wrote, and if they don't come back correctly it reverts the whole settings section rather than leaving you half-migrated.
 
@@ -80,10 +82,11 @@ One distinction is worth knowing. An addon repository's index requires a `sha256
 
 WM Keyboard has two backup formats, and only one of them is still current:
 
-- **`.wmconfig.json`** is the format the app writes today. It bundles several independent, opt-in sections (settings, themes, the learned dictionary, clipboard history, snippets, sticker packs, icon packs, imported word lists, and your list of addon repositories), each one embedded as the same JSON its own store already produces. A section you leave unchecked isn't in the file at all. The default export file name is timestamped, like `wmkeyboard-backup-20260728-143012.wmconfig.json`.
+- **`.wmconfig.json`** is the format the app writes today. It bundles eleven independent, opt-in sections (settings, themes, the learned dictionary, clipboard history, snippets, sticker packs, icon packs, imported word lists, emoji history, your list of addon repositories, and your typing statistics), each one embedded as the same JSON its own store already produces. A section you leave unchecked isn't in the file at all. The default export file name is timestamped, like `wmkeyboard-backup-20260728-143012.wmconfig.json`.
+- **`.wmconfig.enc`** is that same bundle sealed under a passphrase. Only the [automatic backup](/privacy/backup/) writes it, and only when you switch encryption on, so the manual export button always produces plain `.wmconfig.json`. Automatic backups carry their own `wmkeyboard-auto-` prefix rather than `wmkeyboard-backup-`, which is what keeps rotation from ever deleting a file you made by hand.
 - **`.wmsettings.json`** is the older, settings-only format it replaced: a generic dump of every stored preference, with no dedicated export button left in the app. It's still accepted on import, so an old file keeps working, but new backups are always `.wmconfig.json`.
 
-Both formats exclude API keys and access tokens (translate, GIF, search, AI provider, and Hugging Face) by default. A settings file is the kind of thing people email themselves or drop in a shared folder. Turn on "Include API keys" explicitly if you want them in that export.
+Both formats exclude credentials by default: the API keys for translate, GIFs, search, every AI provider, Hugging Face and the two photo services, plus the passwords and tokens for wherever your automatic backup uploads to (WebDAV, S3, FTP, Dropbox, OneDrive) and the backup passphrase itself. A settings file is the kind of thing people email themselves or drop in a shared folder. Turn on "Include API keys" explicitly if you want them in that export.
 
 <SettingsPath path="Data / Backup & restore" />
 
@@ -111,4 +114,4 @@ An addon repository is a `wmkeyboard-repo.json` manifest plus the addon files it
 
 `.wmdict` is the app's internal binary dictionary format: the compiled form of a bundled or downloaded word list, memory-mapped directly so the keyboard can look up completions without parsing anything at load time. It's here for completeness. Unlike the others it never faces you, with no export button, no file association, and no reason to ever see one on disk unless you go looking in the app's own storage.
 
-The format itself is a fixed big-endian header (a `WMDC` magic number, a version, and word/node/edge counts) followed by six 4-byte-aligned arrays that together encode a compressed trie. That's the same structure `PackedTrie` uses in memory, laid out so it can be traversed straight off the mapped file. Bundled dictionaries (English and Bangla) are inflated once out of the APK into app storage the first time they're needed. Downloaded dictionaries are converted and written the same way, atomically, so a partial download never leaves a broken file behind. For the dictionary experience itself (what's built in, what you can download, and in what sizes), see [Downloadable dictionaries](/languages/dictionaries/).
+The format itself is a fixed big-endian header (a `WMDC` magic number, a version, a flags word, word/node/edge counts, and a table of section offsets) followed by seven 4-byte-aligned sections that together encode a compressed trie. Version 3 is the current one, and it trades a little decode work for a lot of file: edge labels shrink to one-byte indices into a symbol table when the alphabet is small enough, and the per-node child offsets aren't stored at all. Instead each node keeps a one-byte child count, with a running total checkpointed every so often, and the offset is added back at read time. Queries still answer exactly as `PackedTrie` does in memory. Bundled dictionaries (English and Bangla) are inflated once out of the APK into app storage the first time they're needed. Downloaded dictionaries are converted and written the same way, atomically, so a partial download never leaves a broken file behind. For the dictionary experience itself (what's built in, what you can download, and in what sizes), see [Downloadable dictionaries](/languages/dictionaries/).

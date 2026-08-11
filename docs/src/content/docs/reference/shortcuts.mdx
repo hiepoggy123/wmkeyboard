@@ -41,7 +41,7 @@ The default letter is the tool's own initial, wherever that letter was still fre
 | <KeyCap>G</KeyCap> | GIFs | <KeyCap>V</KeyCap> | Voice typing |
 | <KeyCap>H</KeyCap> | Hide keyboard | <KeyCap>W</KeyCap> | Web search |
 | <KeyCap>I</KeyCap> | Image search | <KeyCap>X</KeyCap> | Text editing |
-| <KeyCap>J</KeyCap> | Apps | <KeyCap>Y</KeyCap> | Special symbols |
+| <KeyCap>J</KeyCap> | App launcher | <KeyCap>Y</KeyCap> | Special symbols |
 | <KeyCap>K</KeyCap> | Stickers | <KeyCap>Z</KeyCap> | Undo |
 | <KeyCap>L</KeyCap> | Calculator | | |
 | <KeyCap>M</KeyCap> | Media controls | | |
@@ -104,15 +104,15 @@ Hold <KeyCap>Shift</KeyCap> with a move to select. <KeyCap>Ctrl</KeyCap> is unto
 
 ## Picking a suggestion from the keyboard
 
-<SettingsPath path="Typing / Physical keyboard / Number keys pick suggestions" />
+<SettingsPath path="Typing / Physical keyboard / Number keys select suggestions" />
 
 | Mode | Keys | Default |
 | --- | --- | --- |
 | Off | No keys | |
 | Alt + number | <KeyCap>Alt</KeyCap>+<KeyCap>1</KeyCap>–<KeyCap>Alt</KeyCap>+<KeyCap>9</KeyCap> | Yes |
-| After the shortcut key | Double-tap the shortcut key, then <KeyCap>1</KeyCap>–<KeyCap>9</KeyCap> | |
+| After the shortcut key | Double-tap the shortcut key, then <KeyCap>1</KeyCap>–<KeyCap>0</KeyCap> | |
 
-There's no slot for suggestion "10": only the first nine entries in the strip are reachable by number. In **Alt + number** mode the strip shows its keys under the words whenever a physical keyboard is attached, which <SettingsPath path="Typing / Physical keyboard / Show the suggestion numbers" /> turns off. **After the shortcut key** takes the bare numbers for itself, so the toolbar's tools then rely on the <KeyCap>Ctrl</KeyCap>+number chord.
+The two modes reach different depths. **Alt + number** stops at nine, so a tenth entry has no key. **After the shortcut key** counts the same way the toolbar does, <KeyCap>1</KeyCap> to <KeyCap>9</KeyCap> and then <KeyCap>0</KeyCap> for the tenth, which matters on a CJK candidate strip far more than on the word strip (that one holds at most six). In **Alt + number** mode the strip shows its keys under the words whenever a physical keyboard is attached, which <SettingsPath path="Typing / Physical keyboard / Show the suggestion numbers" /> turns off. **After the shortcut key** takes the bare numbers for itself, so the toolbar's tools then rely on the <KeyCap>Ctrl</KeyCap>+number chord.
 
 The numbers count slots from the left, not the engine's ranking, so with <SettingsPath path="Typing / Best suggestion in the middle" /> on the strip still reads 1 2 3 across and <KeyCap>1</KeyCap> commits the leftmost word.
 
@@ -122,27 +122,40 @@ The numbers count slots from the left, not the engine's ranking, so with <Settin
 
 Once a tool is open, the arrow keys move a highlighted ring over its search box, category chips or results. Press <KeyCap>Enter</KeyCap> to activate whatever the ring is on. Press <KeyCap>Tab</KeyCap> to cycle between the panel's sections once the ring exists, or <KeyCap>Shift</KeyCap>+<KeyCap>Tab</KeyCap> to go backward. Press <KeyCap>Esc</KeyCap> to close the panel. See [Options](#options) below.
 
-Not every panel offers the same sections, and some offer none at all:
+Not every panel offers the same sections, and a few offer none at all. "Actions" means a panel's command buttons (Replace, Insert, Retry, Send, the mic, the shutter, Restart), which is often the only thing a panel needs a ring for:
 
 | Panel | Sections |
 | --- | --- |
-| Emoji, GIFs, Stickers, Clipboard | Search, chips, results |
-| Special symbols | Chips, results |
+| GIFs, Stickers | Search, chips, categories, results |
+| Emoji, Clipboard, App launcher | Search, chips, results |
+| Translate | Search, chips, results, actions |
 | Dictionary, Web search, Image search, Wikipedia | Search, results |
-| Toolbox, Snippets, Themes, Modes, suggestion candidates | Results only |
-| Everything else (sensors, cameras, ink input, button grids, plugin panels, and any tool the field's own keys already drive) | None (hardware navigation doesn't reach these) |
+| Special symbols, Themes, Grammar check | Chips, results |
+| AI writing tools | Actions, chips, results |
+| Password generator | Chips, actions, results |
+| Unit converter | Categories, chips, actions |
+| Calculator, Currency converter | Chips, actions |
+| Sound & haptics | Actions, chips |
+| Calendar, Text scan (OCR) | Actions, results |
+| Toolbox, Snippets, Keyboard modes, Media controls, Plugins, the candidate grid | Results only |
+| Voice typing, Camera, QR and barcode scanner, QR code generator, Weather, Typing speed test | Actions only |
+| Text editing, Numpad, Handwriting, Compass, Bubble level, Moon phase | None |
 
-Plugin panels have no fixed set of sections to cycle, so hardware navigation inside one is a known gap for now.
+The last row is the deliberate gap. Text editing and Numpad re-implement keys a physical keyboard already sends to the field, so ringing them would capture the very arrows they duplicate. Handwriting's canvas is pointer-only, and the sensor trio has no controls to move between. Everything else on the list does answer to the arrows.
+
+A plugin panel is navigable too. Its buttons, toggles, and input boxes are enumerated in order and make up its results section, so the ring walks whatever that plugin drew.
+
+Grammar check is the one panel where an arrow press won't summon the ring. It sits alongside live editing in the field, so the arrows keep moving the caret. Open it with its tool shortcut and the ring is already there.
 
 <KeyCap>Tab</KeyCap> only belongs to the keyboard once the ring is already up: before that, it's still normal field navigation (or terminal completion), so an armed picker never steals it. The same goes for <KeyCap>Enter</KeyCap>: with no ring on screen it keeps its ordinary meaning, running the panel's search or the field's own editor action, instead of being swallowed.
 
 ## What always reaches the app
 
-WM Keyboard doesn't reimplement the app's editing shortcuts. Any <KeyCap>Ctrl</KeyCap> or <KeyCap>Meta</KeyCap> combination (copy, paste, undo, save, whatever the app binds it to) is passed straight through, whether or not **Process hardware keys** is on. <KeyCap>AltGr</KeyCap> is the one combination that looks like a shortcut but isn't: it arrives as Ctrl+Alt held together, so it falls through to the normal character path instead (a German keyboard's AltGr+Q still types "@").
+WM Keyboard doesn't reimplement the app's editing shortcuts. Any <KeyCap>Ctrl</KeyCap> or <KeyCap>Meta</KeyCap> combination (copy, paste, undo, save, whatever the app binds it to) is passed straight through, whether or not **Process the physical keys** is on. <KeyCap>AltGr</KeyCap> is the one combination that looks like a shortcut but isn't: it arrives as Ctrl+Alt held together, so it falls through to the normal character path instead (a German keyboard's AltGr+Q still types "@").
 
 Three settings are the exceptions, and each says so on its own row. **Ctrl + number opens a toolbar tool** claims <KeyCap>Ctrl</KeyCap>+<KeyCap>1</KeyCap> through <KeyCap>Ctrl</KeyCap>+<KeyCap>0</KeyCap>, on by default. **Ctrl+Space changes the language** claims <KeyCap>Ctrl</KeyCap>+<KeyCap>Space</KeyCap> and <KeyCap>Ctrl</KeyCap>+<KeyCap>Shift</KeyCap>+<KeyCap>Space</KeyCap>, on by default, and only while you have two or more layouts enabled. **macOS shortcuts** claims the Command and Option chords in the table above, off by default. Nothing else is intercepted.
 
-The physical-key behavior WM Keyboard adds on top is all on this page: the leader and its picker, <KeyCap>Esc</KeyCap> closing an open panel, the focus ring, and the suggestion hotkeys. They work regardless of the **Process hardware keys** toggle, since none of them touch typed text. That toggle only governs typing itself. See [Hardware keyboards](/typing/hardware-keyboard/#typing-on-a-physical-keyboard) for what typing on a physical keyboard does and doesn't intercept.
+The physical-key behavior WM Keyboard adds on top is all on this page: the leader and its picker, <KeyCap>Esc</KeyCap> closing an open panel, the focus ring, and the suggestion hotkeys. They work regardless of the **Process the physical keys** toggle, since none of them touch typed text. That toggle only governs typing itself. See [Hardware keyboards](/typing/hardware-keyboard/#typing-on-a-physical-keyboard) for what typing on a physical keyboard does and doesn't intercept.
 
 ## Options
 
@@ -150,7 +163,7 @@ The physical-key behavior WM Keyboard adds on top is all on this page: the leade
 
 | Setting | Default |
 | --- | --- |
-| Process hardware keys | On |
+| Process the physical keys | On |
 | Tool shortcuts | On |
 | Shortcut key | Double-tap Ctrl |
 | Ctrl + number opens a toolbar tool | On |
@@ -158,7 +171,7 @@ The physical-key behavior WM Keyboard adds on top is all on this page: the leade
 | Time to press a key | 8.0s |
 | Arrow keys move a highlight | On |
 | Esc closes the tool | On |
-| Number keys pick suggestions | Alt + number |
+| Number keys select suggestions | Alt + number |
 | Show the suggestion numbers | On |
 | macOS shortcuts | Off |
 | Ctrl+Space changes the language | On |
@@ -168,18 +181,18 @@ A related pair of settings lives in the same **Typing** screen's <SettingsPath p
 
 | Setting | Default |
 | --- | --- |
-| Volume cursor control | Off |
-| Release while audio plays | On |
+| Volume keys move the cursor | Off |
+| Release the keys while audio plays | On |
 
-With **Volume cursor control** on, volume down and up move the text cursor one character left or right while the keyboard is open. Everywhere else, and as soon as the keyboard closes, the volume keys behave normally. **Release while audio plays** (shown only while the setting above is on) gives the volume keys back to actual volume control whenever something is playing, so replying to a message never costs you the ability to turn the sound down.
+With **Volume keys move the cursor** on, volume down and up move the text cursor one character left or right while the keyboard is open. Everywhere else, and as soon as the keyboard closes, the volume keys behave normally. **Release the keys while audio plays** (shown only while the setting above is on) gives the volume keys back to actual volume control whenever something is playing, so replying to a message never costs you the ability to turn the sound down.
 
 ## Details and edge cases
 
 - **Reserved chords still work as a shortcut key, with a warning.** Capturing one of the eleven reserved combinations above just gets you a caution in the capture dialog. It isn't blocked.
 - **The double-tap fires on the second tap's release, not its press**, and any other key pressed in between resets it: Ctrl-tap, Ctrl+C, Ctrl-tap never arms the picker. A held, auto-repeating modifier doesn't count as a tap either.
-- **Process hardware keys only governs typed characters.** Turning it off stops physical keys from running through autocorrect and suggestions, but the leader, tool shortcuts, panel navigation and Esc keep working regardless.
-- **A letter can only ever open one tool.** Capturing a letter that's already bound offers to reassign it: the other tool loses that letter the moment you confirm, so two tools can never share one.
-- **A tool you've turned off in Tools keeps its letter, but the letter does nothing.** The row in the shortcuts list still shows the binding, labeled "Turned off in Tools," and pressing it from the picker just vibrates instead of opening anything. The letter also drops off the cheat sheet while the tool stays disabled.
+- **Process the physical keys only governs typed characters.** Turning it off stops physical keys from running through autocorrect and suggestions, but the leader, tool shortcuts, panel navigation and Esc keep working regardless.
+- **A letter can only ever open one tool.** Capturing a letter that's already bound offers to reassign it: the other tool loses that letter the moment you confirm, so two tools can never share one. A capture takes a digit too, not only a letter, and an X on the row unbinds a tool without opening the dialog.
+- **A tool you've turned off in Tools keeps its letter, but the letter does nothing.** The row in the shortcuts list still shows the binding, labeled "This tool is off in Tools," and pressing it from the picker just vibrates instead of opening anything. The letter also drops off the cheat sheet while the tool stays disabled. A tool whose API key is missing counts as off the same way.
 - **No edition split for the mechanism itself.** The leader, the default 25-letter table and panel navigation work identically on full and lite builds. Only the five tools gated to <Flavor edition="full" /> (handwriting, the three scanners, and grammar checking) are absent from the picker on lite, the same as everywhere else in the app.
 - **Presence detection is automatic.** WM Keyboard notices a physical keyboard attaching and detaching through the system's own configuration; nothing here needs to be told which mode it's in.
 

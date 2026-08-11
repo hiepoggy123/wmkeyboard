@@ -137,7 +137,7 @@ Rows are repaired rather than rejected when something's off. A snippet with no t
 
 <SettingsPath path="Tools / Snippets" />
 
-- **Enabled**: on by default, like every tool. Turning it off removes Snippets from both the toolbar and the toolbox.
+- **Enabled**: which way this starts depends on how you answered the setup wizard. Snippets is in the "recommended" and "show me everything" starter sets, so only the simplest answer leaves it switched off. Turning it off removes Snippets from both the toolbar and the toolbox.
 - **Icon colour**: only shown if [colorful tool icons](/tools/overview/) is turned on globally. Overrides just this tool's icon color.
 - **Keyword shortcut**: the words that make the [Smart chips](/smart/chips/) suggestion offer to open this panel. "Snippet" and "snippets" out of the box, editable or clearable here. This only controls opening the panel, and it's unrelated to a snippet's own trigger word (above).
 
@@ -158,6 +158,6 @@ That's a different mechanism from the whole-app [config backup](/privacy/backup/
 - `{uuid}` generates a new value on every insertion, including inserting the same snippet twice in a row. It isn't fixed per snippet.
 - Tapping a **pattern** snippet in the panel inserts its text with the captures left blank and puts the cursor in the first gap, since a tap has no words to capture. `Hello, $1! Nice to meet you.` goes in as "Hello, ! Nice to meet you." with the cursor after "Hello, ". A plain snippet is unaffected: a `$1` in its text is a dollar sign and a one.
 - Capture text is spliced in exactly as you typed it. A template variable that lands inside a capture stays literal rather than expanding. Type "note remember `{clip}`" into a `^note (.+)$` pattern and the token goes in as written, so text in the field you're typing into can never pull your clipboard in behind you.
-- A snippet whose text ends at a `{cursor}` marker swallows the key that triggered it, so the space or full stop you pressed doesn't land in the middle of what was just inserted.
-- Triggers only fire where the keyboard keeps a composing buffer, which means they're skipped in password fields, in fields that ask for no suggestions, and when you've turned suggestions off entirely.
+- A snippet that parks the caret inside itself with a `{cursor}` marker swallows the key that triggered it, so the space or full stop you pressed doesn't land in the middle of what was just inserted. A marker at the very end leaves the caret at the end, and the key you pressed goes in as usual.
+- Word triggers only fire where the keyboard keeps a composing buffer, so they're skipped in password fields and when you've turned suggestions off entirely. Patterns are stricter: they also stay out of fields that ask for no suggestions, where a word trigger still works.
 - Swiping a word with gesture typing, or tapping one from the suggestion strip, doesn't fire a pattern. The next word you type by hand does.

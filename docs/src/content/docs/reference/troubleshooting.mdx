@@ -13,7 +13,7 @@ Most keyboard problems trace back to one of a handful of causes: a permission An
 
 ## The keyboard doesn't appear, or won't stay selected
 
-The setup card on the app's Home screen covers this fully. It polls Android's own input-method state and tells you which of three situations you're in: not enabled, enabled but not selected, or active. See [Enable the keyboard](/start/setup/) for the exact steps. Only two buttons are involved, **Enable keyboard** and **Switch keyboard**, and the card is always there, not just on first run.
+The setup card on the app's Home screen covers this fully. It polls Android's own input-method state and tells you which of three situations you're in: not enabled, enabled but not selected, or active. See [Enable the keyboard](/start/setup/) for the exact steps. Only two buttons are involved, **Turn on keyboard** and **Switch keyboard**, and the card comes back whenever you need it rather than only on first run. Once WM Keyboard *is* the active keyboard the card shrinks to a one-line "WM Keyboard is your active keyboard" with no buttons at all, since there is nothing left to press.
 
 If WM Keyboard *was* selected and something knocked you back to a different keyboard on its own, look for a crash rather than a setting. Android quietly swaps in another input method when an IME's process dies, with no visible error. Open [the Diagnostics screen](#the-diagnostics-screen) below and check the Crashes section.
 
@@ -31,7 +31,7 @@ One setting can also hide suggestions everywhere at once, which is worth ruling 
 
 <SettingsPath path="Typing / Suggestions" />
 
-- **Suggestions**, on by default. This is the master switch for the whole strip. Turning it off also stops correction candidates and next-word prediction, though [autocorrect](/smart/autocorrect/) itself keeps working. See [Suggestions & prediction](/smart/suggestions/) for the rest of that screen.
+- **Suggestions**, on by default. This is the master switch for the whole strip. Turning it off stops completions, correction candidates and next-word prediction. On an ordinary Latin layout it takes [autocorrect](/smart/autocorrect/) with it, because the keyboard then stops composing the word you're typing and there is nothing left for autocorrect to inspect when you press space. Autocorrect keeps its own toggle, but leave Suggestions on if you want it to fire. A phonetic layout such as Avro still transliterates either way, since its composing buffer is how it types at all. See [Suggestions & prediction](/smart/suggestions/) for the rest of that screen.
 
 Password fields and structured keypads (number, phone, and similar) never show suggestions, regardless of this setting.
 
@@ -49,11 +49,11 @@ Open your device's Settings → Apps → WM Keyboard → Permissions. Turn on th
 Contacts is the one exception, because its toggle only checks permission at the moment you tap it. Go back to **Suggest contact names** or **Suggest contact emails** under <SettingsPath path="Typing / Suggestions" /> and turn it on again. It succeeds silently this time, with no prompt.
 :::
 
-Granting Camera access from the Camera tool also covers the [OCR and QR/document scanners](/tools/scanner/), since all three request the same permission.
+Granting Camera access from the Camera tool also covers [text scan and the QR scanner](/tools/scanner/), since those two ask for the same permission. The document scanner is the odd one out: it hands the job to Google's own scanning activity, which asks for whatever it needs on its own account, so WM Keyboard's camera grant has nothing to do with it.
 
-Media controls use a different mechanism: notification-listener access rather than a runtime permission. Grant it from **Settings → Apps → Special app access → Notification access**, where WM Keyboard is listed as **"WM Keyboard media controls."** The same rule applies afterward. Revoke or re-grant it there, and [Media controls](/tools/media/) picks up the change the next time the keyboard comes to the foreground.
+Media controls use a different mechanism: notification-listener access rather than a runtime permission. Grant it from **Settings → Apps → Special app access → Notification access**, where WM Keyboard is listed as **"WM Keyboard media controls and one-time codes."** One service backs both features, so that single grant covers the media transport and the [one-time-code chips](/smart/one-time-codes/) together. The same rule applies afterward. Revoke or re-grant it there, and [Media controls](/tools/media/) picks up the change the next time the keyboard comes to the foreground.
 
-None of the Camera, Voice typing, Calendar, or Media controls grants above are keyboard settings in their own right. Each of those tools has its own **Enabled** switch under <SettingsPath path="Tools" />, which is a separate thing from whether the OS has granted the tool the access it asked for. Contacts is the exception once more: **Suggest contact names** and **Suggest contact emails** are both the setting and the permission trigger in one, with no separate Tools entry.
+None of the Camera, Voice typing, Calendar, or Media controls grants above are keyboard settings in their own right. Each of those tools has its own **Turn on** switch on its page under <SettingsPath path="Tools" />, which is a separate thing from whether the OS has granted the tool the access it asked for. Contacts is the exception once more: **Suggest contact names** and **Suggest contact emails** are both the setting and the permission trigger in one, with no separate Tools entry.
 
 ## A tool panel isn't responding to key presses
 
@@ -63,7 +63,9 @@ This one is by design. Most tools that need typed input (search boxes, the AI pr
   {/* shot: reference/troubleshooting-panel-captures-input */}
 </PhoneFrame>
 
-Sensor and generator tools (Compass, Level, Calculator, Camera, the scanners, and others) don't capture keys at all: they replace the key rows entirely, so there's no letter row to intercept in the first place.
+Sensor and generator tools don't capture keys at all: Compass, Level, Moon phase, Weather, Calendar, Password generator, Media controls, Camera and the scanners replace the key rows entirely, so there's no letter row to intercept in the first place.
+
+Calculator, Unit converter and Currency converter sit between the two. Each draws its own keypad where the key rows were, and each also takes a physical keyboard's keystrokes into its own display rather than into the field behind. If you're wondering why typing does nothing in the app while one of those is up, that's why.
 
 Three ways back out of any open panel:
 
@@ -86,11 +88,11 @@ Diagnostics is what the keyboard has recorded about itself, kept specifically be
 The screen has four parts:
 
 - **Report.** **Share diagnostics** hands the full report to Android's share sheet as a file rather than inline text. A report can run to tens of kilobytes, and many receiving apps silently drop a share intent that size. **Copy to clipboard** puts the same report on the clipboard as plain text instead. **Include the system log** (off by default) adds this process's own Android log, meaning everything printed by every library in the app, not only what the keyboard itself chose to record. That's the most useful attachment for a hard-to-reproduce bug, but read it before you send it anywhere, since the keyboard doesn't control what a dependency logs.
-- **Crashes.** Shown only when at least one exists. It keeps the last 10 crash records, each with its time, thread, build info, full stack trace, and the 40 log entries leading up to it. The records go to disk rather than memory, specifically so a crash survives the process that produced it. They're readable even before you've unlocked the device once after a restart. This section has its own **Clear crashes** button.
+- **Crashes.** Shown only when at least one exists. It keeps the last 10 crash records, each with its time, thread, build info, full stack trace, and the 40 log entries leading up to it. The records go to disk rather than memory, specifically so a crash survives the process that produced it. They're readable even before you've unlocked the device once after a restart. This section has its own **Delete crashes** button.
 - **App log.** A filter text field (it matches message or tag) plus a filter chip per severity level (Debug, Info, Warn, Error) that acts as a minimum floor. It defaults to Debug, so nothing is hidden until you narrow it. A **Refresh** button re-reads the log on demand. Entries show newest first, color-coded by severity.
 - **System log.** Appears only while "Include the system log" is on. It's the same content that gets attached to a shared or copied report, shown here so you can read it first.
 
-A **Clear app log** button at the bottom empties the in-memory log (separate from **Clear crashes**, which only touches the crash file).
+A **Delete the app log** button at the bottom empties the in-memory log (separate from **Delete crashes**, which only touches the crash file). The ring holds the last 500 entries and drops the oldest as new ones land.
 
 The report itself always opens with the build version, edition, Android release and API level, and device manufacturer and model, so if you share or copy diagnostics, you don't need to separately look up or type any of that for a bug report.
 

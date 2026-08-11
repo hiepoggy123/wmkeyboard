@@ -9,7 +9,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 
 Switching keyboards usually means leaving your layouts and themes behind. WM Keyboard reads FlorisBoard and HeliBoard files directly and converts them into its own, so the grid you built and the theme you picked come with you.
 
-Conversion is honest about being lossy. Every import ends on a confirm dialog that lists what changed and what could not be carried, and nothing is written until you accept it.
+Conversion is honest about being lossy. A layout import always ends on a confirm dialog that lists what changed and what could not be carried, and nothing is written until you accept it. A `.flex` theme opened from a file manager gets the same treatment. The **FlorisBoard** button inside Settings is the one route without a confirm step: it saves the theme straight away and then tells you what it saved. Saved is not switched on, so you still get to look first.
 
 ## What can be imported
 
@@ -17,7 +17,7 @@ Conversion is honest about being lossy. Every import ends on a confirm dialog th
 |---|---|---|
 | `.json` layout | FlorisBoard, HeliBoard | A custom layout |
 | `.txt` layout | HeliBoard | A custom layout |
-| `.flex` theme | FlorisBoard 0.5 and later | One or two themes |
+| `.flex` theme | FlorisBoard 0.5 and later | One theme, one look per theme in the file |
 
 HeliBoard's JSON layouts use FlorisBoard's format, so one reader handles both.
 
@@ -35,7 +35,9 @@ That matters more here than it sounds. The language picks the dictionary, the au
 
 ### It adds the bottom row
 
-A foreign layout file holds the letters and nothing else: the keyboard that reads it draws its own delete, space and enter keys, and its own symbols and number layers. So the app supplies those, and the imported layout uses WM Keyboard's built-in symbols and number grids.
+A foreign layout file carries one grid, and the keyboard that reads it draws the symbols and number layers itself. So the app supplies those, and the imported layout uses WM Keyboard's built-in symbols and number grids.
+
+The bottom row gets the same treatment, one key at a time. A delete, space or enter key the file did spell out converts like any other key. Any of the three the file left out is added back, and the dialog names the ones it added. HeliBoard's text format has no way to write any of them, so a `.txt` layout always gets all three.
 
 ### Keys that cannot come across
 
@@ -53,20 +55,20 @@ Some letters can be written two ways in Unicode: a base letter plus a mark, or a
 
 A `.flex` file is FlorisBoard's theme package. Pick one and the app converts every theme inside it. You can also open a `.flex` straight from a file manager.
 
-A FlorisBoard theme that holds both a day and a night version becomes **one** theme with two looks, not two separate entries. The first look heads the family, the second becomes a variant of it, and the family takes its name from the file. Auto theme addresses the looks individually, so you can still put the day one in one slot and the night one in the other under <SettingsPath path="Appearance / Keyboard themes / Auto theme" />. The result message says so too: "The app saved *name* with 2 looks."
+A FlorisBoard extension that holds both a day and a night version becomes **one** theme with two looks, not two separate entries, and an extension with more themes than that becomes one theme with that many looks. The first look heads the family and the rest become variants of it. The family takes the title the extension declares for itself, or the first look's own name when it declares none. Auto theme addresses the looks individually, so you can still put the day one in one slot and the night one in the other under <SettingsPath path="Appearance / Keyboard themes / Auto theme" />. The result message says so too: "The app saved *name* with 2 looks."
 
 **Converted themes are saved but not turned on.** They go into your themes list for you to look at first, and the theme editor is where you finish the parts that did not carry over.
 
 ### How much comes across
 
-The dialog puts a number on it: *"The app can use 34 of the 52 style rules in this file."*
+Open the `.flex` from a file manager and the dialog puts a number on it: *"The app can use 34 of the 52 style rules in this file."* That dialog is also where the list below shows up, one line per thing that had nowhere to go.
 
-Colours mostly land. The board, the keys, the pressed key, the enter key, borders, popups, the suggestion text, and per-key colours all have somewhere to go. FlorisBoard styles a much larger set of keyboard parts than this app draws, so the rest is reported rather than approximated:
+Colours mostly land. The board, the keys, the pressed key, the enter key, borders, popups, the glide trail, the suggestion text, and per-key colours all have somewhere to go, and so do a board background image and a key texture. FlorisBoard styles a much larger set of keyboard parts than this app draws, so the rest is reported rather than approximated:
 
 - **Key shadows.** This app draws keys without one.
 - **Per-corner radii.** Keys here have a single corner size.
 - **Spacing on single elements.** The key gap is set for the whole keyboard.
-- **Fonts.** A font is a separate add-on here, so a theme cannot carry one. The dialog says so, and you can install the font yourself.
+- **Fonts.** A theme here does name a font, but it names one that is already installed as a separate add-on, so there is nothing for a font file inside a `.flex` to become. The dialog says so. Install the font yourself and pick it in the theme editor.
 - **Wallpaper-following colours.** Turn on Material You in <SettingsPath path="Appearance / Keyboard themes" /> for the same effect.
 - **Elements this keyboard does not have.** FlorisBoard's suggestion bar is built from more parts than this one.
 
@@ -78,9 +80,9 @@ FlorisBoard changed its style format in 0.5, and the two are not compatible. A 0
 
 ## Details & edge cases
 
-- **Nothing is decided by the file extension.** A file is read and then judged. A layout renamed `.wmtheme.json` is refused rather than imported as an empty theme.
+- **Almost nothing is decided by the file extension.** A file is read and then judged by the format tag inside it. The one exception is this app's own theme file, which carries no tag, so a `.wmtheme.json` name is the only evidence a file was meant to be a theme. Tagged formats are checked first, so a layout from another keyboard renamed `.wmtheme.json` is still refused rather than imported as an empty theme.
 - **Opening a `.flex` from a file manager** works because the app registers that extension. If FlorisBoard is installed too, Android asks which app should open it.
-- **Layout files are not auto-detected from a file manager.** They carry no marker that identifies them, so they go through <SettingsPath path="Key layouts / Import from another keyboard" />, where you have already said what the file is.
+- **Foreign layout files are not auto-detected from a file manager.** They carry no marker that identifies them, so they go through <SettingsPath path="Key layouts / Import from another keyboard" />, where you have already said what the file is. This app's own `.wmlayout.json` files do open from a file manager, because they carry a format tag.
 - **A foreign layout over 4 MB is refused.** The whole file is decoded as one string, so there is a cap, and the cap is 4 MB. Past it you get the same "The app cannot read that file as a layout" message a genuinely unreadable file gets, with nothing to say the size was the problem. No real grid is anywhere near it, so in practice this only catches a file that is not a layout at all.
 - **Add-on repositories stay native.** Repository payloads are always WM Keyboard's own formats; conversion applies to files you pick yourself.
 - **Nothing is sent anywhere.** Conversion runs on the phone. There is no upload and no server.
@@ -89,4 +91,4 @@ FlorisBoard changed its style format in 0.5, and the two are not compatible. A 0
 
 WM Keyboard reads these formats from their published descriptions. No code from either project is used: FlorisBoard is Apache-2.0 and HeliBoard is GPL-3.0, while WM Keyboard is MIT.
 
-A converted theme keeps the author and licence its file records, and both are shown on the import dialog. If you publish a converted theme in an [add-on repository](/development/addon-repos/repo-format/), keep them with it.
+A `.flex` records its author and its licence, and the confirm dialog reads both out when you open one from a file manager. A theme here has no field to hold them in, so that dialog is where they stop. Write them down while they are in front of you. If you publish a converted theme in an [add-on repository](/development/addon-repos/repo-format/), keep them with it.

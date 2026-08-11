@@ -52,11 +52,13 @@ Tap is the app's own default, but it may well not be the style you find selected
 
 ### Per-event vibration
 
-Four more toggles, visible only while Key press haptics is on, let you keep the buzz everywhere except one event, rather than trading it all for silence:
+Six more toggles, visible only while Key press haptics is on, let you keep the buzz everywhere except one event, rather than trading it all for silence:
 
 - **Vibrate on space** (on) is the <KeyCap>Space</KeyCap> bar's own press buzz. Turning it off doesn't silence the space key outright, since the key press sound still plays if it's on.
 - **Vibrate on delete swipe** (on) buzzes on each word a <KeyCap>⌫</KeyCap> swipe removes. Off turns clearing a sentence into one smooth pull instead of a buzz-saw. A plain backspace tap is unaffected either way.
-- **Vibrate on key repeat** (on) buzzes on every auto-repeat while <KeyCap>⌫</KeyCap> or <KeyCap>Space</KeyCap> is held. Off keeps only the first press buzzing, and the repeats' key sound still plays if it's on.
+- **Vibrate on key repeat** (on) buzzes on every auto-repeat while <KeyCap>⌫</KeyCap> or <KeyCap>Space</KeyCap> is held. Off keeps only the first press buzzing.
+- **Click on key repeat** (on) is the sound half of the same thing: every auto-repeat plays the key sound too. Off leaves only the first press audible, which is worth having if you hold backspace with the sound on. It does nothing unless the key sound is on.
+- **Follow the system touch feedback setting** (off) is the odd one out, since it isn't per event. By default the keyboard keeps buzzing even when Android's own touch-feedback switch is off, because the keyboard has its own switch for that. Turn this on and the system switch silences the keyboard too.
 - **Mute haptics in Do Not Disturb** (off) is covered in [Silent and Do Not Disturb](#silent-and-do-not-disturb) below.
 
 ## Key press sound
@@ -79,7 +81,7 @@ Four more toggles, visible only while Key press haptics is on, let you keep the 
 
 Click and Standard come from the device's own system sound pack, so they vary phone to phone the way the stock keyboard's clicks do. Pop, Thock and Chime are synthesized in-app and sound the same everywhere.
 
-Custom and Sound pack only show up as chips once one is actually selected, since neither means anything until you've installed something. Pick them from the settings screen rather than the keyboard's own sound panel.
+All seven chips are on the settings screen. On the keyboard's own Sound & haptics panel, Custom and Sound pack appear only once one of them is already selected, since neither names a fixed waveform and there's no file picker on the keyboard. Pick them from the settings screen the first time.
 
 <PhoneFrame caption="Sound style chips with the volume slider below.">
   ![Sound style chips with the volume slider below.](@assets/screens/typing/keysound-style-chips.webp)
@@ -89,7 +91,7 @@ Custom and Sound pack only show up as chips once one is actually selected, since
 
 ### Installing more key sounds
 
-Pick the Custom chip to reveal your installed sound library and an **Import sound file (.mp3)** button that also accepts `.ogg` and `.wav`. A sound you haven't chosen falls back to the system click rather than staying silent, so a key press never goes unheard because a file went missing.
+Pick the Custom chip to reveal your installed sound library and an **Import a sound file (.mp3)** button that also accepts `.ogg` and `.wav`. A sound you haven't chosen falls back to the system click rather than staying silent, so a key press never goes unheard because a file went missing.
 
 You can grow that library two ways: import a file directly here, or install a key sound addon from an addon repository. Both land in the same list. See [Installing addons](/addons/installing/) for the general install flow. A key sound addon lands under **Key press → Sound style** and, like themes and layouts, offers to switch to it right after install.
 
@@ -129,7 +131,7 @@ If a pack goes missing while it's selected, the key press falls back to the syst
 
 The ringer switch and Do Not Disturb are handled differently, and it's worth knowing which is which:
 
-- **Key press sound follows the ringer switch automatically, with no setting for it.** It plays through the same system sound-effect stream the rest of Android uses, so silent and vibrate mode mute it the way they'd mute any other system sound. The toolbar "Sound & haptics" panel (see below) shows a live warning whenever the sound is on but the ringer would swallow it. That's either "Phone is on vibrate", or a note that the phone is silenced and key press sounds won't play.
+- **Key press sound follows the ringer switch automatically, with no setting for it.** It plays through the same system sound-effect stream the rest of Android uses, so silent and vibrate mode mute it the way they'd mute any other system sound. The toolbar "Sound & haptics" panel (see below) shows a live warning whenever the sound is on but the ringer would swallow it: "Your device is on vibrate. The key press sounds do not play.", or the same line with "silent" in place of "on vibrate".
 - **Haptics do not follow Do Not Disturb, by default.** DND targets notifications rather than touch feedback, so the keyboard keeps buzzing under DND unless you turn on **Mute haptics in Do Not Disturb**. With that on, every keyboard vibration stays silent for as long as DND is active, down to the long-press and per-event buzzes.
 
 Ringer mode and DND are independent Android states. Sound only checks the ringer, haptics only check DND, and neither one looks at the other.
@@ -142,7 +144,7 @@ Sound and haptics settings are reachable straight from the keyboard, without ope
   ![The Sound & haptics toolbar panel, with the ringer warning banner shown.](@assets/screens/typing/sound-haptics-toolbar-panel.webp)
 </PhoneFrame>
 
-It isn't part of the recommended onboarding set, so depending on what you picked during setup it may need enabling from <SettingsPath path="Tools" /> first. Either way, drag it from the toolbox up onto the toolbar to pin it. See [The toolbar](/tools/overview/) for how pinning works.
+No onboarding answer switches it on, not even "Show me everything", so if you finished the setup wizard you'll need to enable it from <SettingsPath path="Tools" /> first. Either way, drag it from the toolbox up onto the toolbar to pin it. See [The toolbar](/tools/overview/) for how pinning works.
 
 ## Options
 
@@ -159,6 +161,8 @@ It isn't part of the recommended onboarding set, so depending on what you picked
 | Vibrate on space | On |
 | Vibrate on delete swipe | On |
 | Vibrate on key repeat | On |
+| Click on key repeat | On |
+| Follow the system touch feedback setting | Off |
 | Mute haptics in Do Not Disturb | Off |
 | Key sound | Off |
 | Sound style | Click |
@@ -168,9 +172,9 @@ Open the **Key press** tile on the settings home grid, or search "Key press" in 
 
 ## Details & edge cases
 
-- **You'll see a slimmed-down version of this during setup.** The onboarding wizard's "Typing feedback" page offers Key press haptics with style chips, plus plain on/off toggles for Key press sound and Key popup. The finer controls (strength, per-event toggles, DND) live only on the full settings screen.
-- **A held key won't sound like a smear.** Rapid presses coalesce with a short minimum gap between vibrations, so fast rollover typing still reads as distinct clicks rather than one continuous buzz.
-- **Power saving turns both off.** When [Power saving](/typing/power-saving/) is active, it forces haptics and key sound off whatever you've set here, and restores your choices when it deactivates.
+- **You'll see a slimmed-down version of this during setup.** The onboarding wizard's "Typing feedback" page is three plain on/off switches: Key press haptics, Key press sound and Key popup. Turning either of the first two on plays what you just chose. Everything finer (the style chips, strength, per-event toggles, DND) lives only on the full settings screen.
+- **Fast typing won't feel like a smear.** Rapid presses coalesce with a short minimum gap between vibrations, so rollover typing still reads as distinct taps rather than one continuous buzz. The key sound skips that coalescing deliberately, since two clicks overlapping is not the problem two vibrations overlapping is.
+- **Power saving turns both off out of the box.** While [Power saving](/typing/power-saving/) is active, its **Key vibration** and **Key sounds** switches override whatever you've set here, and your choices come back the moment it deactivates. Both of those switches ship on, and each can be turned off on its own under <SettingsPath path="Tools / Power saving" /> if you would rather keep the buzz or the click while the battery is low.
 - **Nothing on this page is edition-gated.** Haptics, key sounds and sound addons all work identically on the full and lite builds.
 
 See [Accessibility](/accessibility/overview/) for how touch feedback interacts with screen-reader use, and [Installing addons](/addons/installing/) for the general addon install flow that key sound packs go through.

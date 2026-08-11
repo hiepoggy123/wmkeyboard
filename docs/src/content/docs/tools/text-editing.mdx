@@ -27,7 +27,7 @@ Holding <KeyCap>◀</KeyCap>, <KeyCap>▶</KeyCap>, <KeyCap>▲</KeyCap>, <KeyCa
 
 ## Copying, pasting, and cutting
 
-The panel's second column holds <KeyCap>Select all</KeyCap>, <KeyCap>Copy</KeyCap>, and <KeyCap>Paste</KeyCap>. There's no Cut button in the panel: cutting lives elsewhere, as a long-press letter shortcut (see [below](#long-press-letter-shortcuts)).
+The panel's second column holds <KeyCap>Select all</KeyCap>, <KeyCap>Copy</KeyCap>, and <KeyCap>Paste</KeyCap>. There's no Cut button in the panel: cutting lives elsewhere, as a press-and-hold letter shortcut (see [below](#press-and-hold-shortcuts)).
 
 - **Select all** selects the whole field and turns selection mode on, so a follow-up arrow key shrinks the selection from whichever end you move.
 - **Copy** copies the current selection and turns selection mode back off.
@@ -53,9 +53,9 @@ The panel above costs one tap to open and another to act. If you reach for the s
 
 **Select word** and **Select line** don't send Ctrl+Shift+Arrow. The keyboard works out the word or line boundaries around the cursor itself and sets the selection directly. Both turn selection mode on afterward. Both do nothing if the cursor sits on whitespace or punctuation with no word to grab, or on an empty line.
 
-A **Hide keyboard** tool sits in the toolbox right beside these (one tap dismisses the keyboard), but it's grouped with the cursor tools rather than being one itself.
+A **Hide keyboard** tool (one tap dismisses the keyboard) shares the **Cursor** section with these on the <SettingsPath path="Tools" /> screen, but it isn't a cursor move itself.
 
-None of these tools, or Text editing itself, are pinned to the toolbar out of the box. The default pinned row is just Emoji, Clipboard, and Settings, with everything else waiting in the toolbox. The onboarding answer matters too. "Recommended" turns on Text editing, Undo and Redo, but leaves out the numpad, Hide keyboard and every cursor tool above. If you don't see one, open <SettingsPath path="Tools" /> and turn it on.
+None of the cursor tools is pinned to the toolbar out of the box, and Text editing is pinned only on a large tablet. A phone's default row is Emoji, Clipboard and Settings, a small tablet adds GIF and Voice, and a large tablet adds Translate and Text edit on top of those. A pinned tool that setup left switched off is dropped from the row rather than drawn dead, so the "keep it simple" answer on a large tablet gets five of the seven. Everything else waits in the toolbox. The onboarding answer matters too. "Recommended" turns on Text editing, Undo and Redo, but leaves out the numpad, Hide keyboard and every cursor tool above. If you don't see one, open <SettingsPath path="Tools" /> and turn it on.
 
 ## Undo and redo
 
@@ -102,18 +102,20 @@ You don't have to open a panel at all for the most common move: sliding the curs
 
 **Redo sends Ctrl+Y**: off by default, so Redo sends Ctrl+Shift+Z. The same toggle appears on both the Undo and Redo tool's own settings screen. Both are standard redo shortcuts, and which one an app responds to varies. If redo does nothing, flip this.
 
-### Long-press letter shortcuts
+### Press and hold shortcuts
 
-<SettingsPath path="Key press / Long-press shortcuts" />
+<SettingsPath path="Key press / Press and hold shortcuts" />
 
 Six shortcuts, each off by default, each replacing that letter key's accent popup while it's on:
 
-- **Hold A to select all**
-- **Hold C to copy**: copies the current selection. If nothing is selected, it selects everything first.
-- **Hold X to cut**: the same rule as copy, but it cuts.
-- **Hold V to paste**: pastes the clipboard at the cursor, replacing any selection.
-- **Hold Z to undo**: the same shortcut as the toolbar's Undo tool.
-- **Hold Y to redo**: the same shortcut as the toolbar's Redo tool.
+- **Press and hold A to select all**
+- **Press and hold C to copy**: copies the current selection. If nothing is selected, it selects everything first.
+- **Press and hold X to cut**: the same rule as copy, but it cuts.
+- **Press and hold V to paste**: pastes the clipboard at the cursor, replacing any selection.
+- **Press and hold Z to undo**: the same shortcut as the toolbar's Undo tool.
+- **Press and hold Y to redo**: the same shortcut as the toolbar's Redo tool.
+
+Turn any of the six on and a **Shortcut keys** row appears under them. A, C, V, X, Z and Y are the QWERTY answer, so on a layout with no Latin letters that row is where you move the six onto keys you actually have.
 
 This is the only place cut lives: there's no Cut button in the text-editing panel itself, and no Cut toolbar tool.
 

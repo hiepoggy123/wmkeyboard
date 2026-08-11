@@ -63,7 +63,7 @@ The rest of the editor is grouped into sections, each opening a standard color p
 
 ### Key shapes
 
-Twelve shapes, in the order the picker lists them. The four plain outlines come first, then the decorative ones:
+Twelve shapes, in the order the picker lists them. The five simple ones come first, then the seven decorative ones:
 
 | Shape | What it looks like | Reads the radius slider? |
 |---|---|---|
@@ -87,7 +87,7 @@ Only the drawing changes. Touch targets stay rectangular for every shape, so the
 Slanted is the one shape that draws slightly outside its key. A parallelogram kept inside the key would lose about a third of the width at the top and the bottom, which on a phone-sized key reads as a row of thin straps. So it leans half its slant into the gap on each side instead. Every key stays exactly as wide as it would be with any other shape, and the gap between two keys keeps its width. The gap just runs on a diagonal. Where there is no gap to lean into, the lean is trimmed to fit.
 
 :::note
-Shapes past the first four are new. A theme exported with one of them won't import into a version of the app that predates it: the importer drops a theme whose shape name it doesn't recognise rather than guessing. Stick to Rounded, Pill, Cut, or Squircle in a theme you plan to share widely.
+Only Rounded, Pill, Cut and Squircle shipped with the first version of the format. The other eight, Square among them, came later, and a theme exported with one of them won't import into a version of the app that predates it: the importer drops a theme whose shape name it doesn't recognise rather than guessing. Stick to Rounded, Pill, Cut, or Squircle in a theme you plan to share widely.
 :::
 
 ### Key textures
@@ -158,7 +158,7 @@ Chips are the small tappable surfaces inside the tool panels: style pickers, tab
 - **Chip shape** and **Chip corner radius** use the same twelve-shape picker as everywhere else. The default is the 12dp soft rectangle chips have always drawn.
 - **Card shape** governs the bigger surfaces: clipboard and snippet cards, plugin rows, search bars, the converters' displays. They follow the chip shape through the same safety rule as the menu shape, so plain outlines pass through, decorative ones fall back to Rounded, and an explicit pick here overrules both.
 
-Any row left on Auto shows an "Auto" label under its name instead of a fixed value. Once you've overridden it, that row's color picker gains an **Auto** button (next to Apply) that clears the override and puts it back on Auto.
+Any row left on Auto shows an "Automatic" label under its name instead of a fixed value. Once you've overridden it, that row's color picker gains an **Automatic** button (next to Apply) that clears the override and puts the row back on Auto.
 
 ### Gradients
 
@@ -174,15 +174,15 @@ Both **Board** and **Keys** can carry an optional gradient, painted over their s
 
 ### Corners
 
-Off by default, so keys everywhere follow the global sliders (two under Appearance, one under Key press). Turning on **Theme-specific corner radii** seeds three independent sliders for this theme alone, each starting at whatever its global counterpart is set to:
+Off by default, so keys everywhere follow the global sliders (two under Appearance, one under Key press). Turning on **Corner radii for this theme** seeds three independent sliders for this theme alone, each starting at whatever its global counterpart is set to:
 
-<PhoneFrame caption="Theme-specific corner radii, with the Key, Popup, and Tool circle sliders.">
-  ![Theme-specific corner radii, with the Key, Popup, and Tool circle sliders.](@assets/screens/themes/editor-corners-animation.webp)
+<PhoneFrame caption="Corner radii for this theme, with the Key, Popup, and Tool circle sliders.">
+  ![Corner radii for this theme, with the Key, Popup, and Tool circle sliders.](@assets/screens/themes/editor-corners-animation.webp)
 </PhoneFrame>
 
 - **Key corner radius**: 0–28dp, seeded from the global Key corner radius slider (default 8dp) when you turn the switch on.
 - **Popup corner radius**: 0–40dp, seeded from the global **Popup corner radius** slider under <SettingsPath path="Key press" /> (default 12dp).
-- **Tool circle radius**: 0–20dp, where 0 means square, seeded from the global Tool circle radius slider (default 20dp).
+- **Tool circle radius**: 0–20dp, where 0 draws no background behind the icon at all (the slider reads "Off" there), seeded from the global Tool circle radius slider (default 20dp).
 
 ### Layout
 
@@ -214,19 +214,19 @@ There's no Save or Apply button anywhere in this screen: every field write goes 
 
 **Duplicating** an existing custom theme isn't available from inside the editor itself; the copy-then-edit flow described in [Creating a theme](#creating-a-theme) only applies to built-ins, from the gallery.
 
-**Deleting** a custom theme is a gallery action too: tap the trash icon on its card. A confirmation dialog asks "Delete theme?" with a note that it will be removed permanently, and deleting also removes the theme's background image file(s) (portrait and landscape) from storage so they don't linger as orphaned files:
+**Deleting** a custom theme is a gallery action too: tap the trash icon on its card. A confirmation dialog asks "Delete this theme?" with a note that it will be removed permanently. The theme's image files (background, textures, stickers, particles) are not deleted with it. A housekeeping pass clears them once nothing in any theme still points at them, and only after they have been unreferenced for a day, because looks in the same family share their files:
 
 <PhoneFrame caption="Deleting a custom theme asks for confirmation before removing it.">
   ![Deleting a custom theme asks for confirmation before removing it.](@assets/screens/themes/editor-delete-confirm.webp)
 </PhoneFrame>
 
-Delete (and export) aren't offered for built-in themes or the Default theme, only for themes in Your Themes.
+Delete isn't offered for built-in themes or for the Default theme, only for themes in Your themes. Export is offered on built-in cards as well, so you can hand someone a copy of one as a file; only the Default card has no export button, since it's generated live rather than stored.
 
 ## Details and edge cases
 
 - **Editing an existing custom theme doesn't switch to it.** Tapping the pencil on a theme already in Your Themes opens the editor without changing your active keyboard theme. Only Create, Duplicate (from a built-in), and Import set the edited theme as active, as a side effect of those actions rather than of editing.
-- **Typography isn't part of a theme.** The key-label typeface, key-label font size, and hint font size all live outside `ThemeSpec` entirely. See [Keyboard fonts](/themes/fonts/) for the font picker, and Appearance → Keys for the two font-size sliders, which apply keyboard-wide rather than per theme.
-- **Two "Auto" swatches don't perfectly match the real keyboard.** Pressed key and Active tool circle, when left on Auto, are approximated slightly differently in the editor's preview swatch than in the formula the real keyboard uses at render time. The difference is subtle and only shows up if you compare pixel-for-pixel. Every other Auto fallback (popup background, tool circles at rest, and so on) matches exactly.
+- **Typography is part of a theme, but only once you set it.** The key font, the per-script fonts, key label size, bold key labels and corner hint size are all theme fields. Each one is empty until you touch it, and an empty field follows your global setting instead. So a theme you never gave a font to picks up whatever [Keyboard fonts](/themes/fonts/) is set to, and changing that global font changes how the theme looks. Give the theme its own font and the global one stops applying to it. The sizes work the same way through the **Layout for this theme** switch.
+- **Two "Auto" swatches don't match the real keyboard.** Pressed key and Active tool circle, when left on Auto, are worked out by a different formula in the editor's swatch than on the board itself. The swatch blends the key colour 40% toward the accent; the keyboard blends it 25% toward the key text. On a theme with a strong accent the two are visibly different colours, so trust the live preview over the swatch. Every other Auto fallback (popup background, tool circles at rest, and so on) matches exactly.
 - **A theme's background image lives in this same editor**, under Board, but the picker, crop dialog, and opacity/blur sliders are covered in full on [Image backgrounds](/themes/backgrounds/) rather than here.
 - **Corner-radius overrides here are theme-specific**; the sliders they inherit from and the global key-shape basics are covered in [Theming overview](/themes/overview/).
 - **Exporting, importing, and installing a theme from a repository** are covered in [Sharing themes](/themes/sharing/), including what happens to a theme's colors and images when it travels as a file.

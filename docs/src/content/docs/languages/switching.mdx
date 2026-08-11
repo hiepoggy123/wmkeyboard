@@ -10,7 +10,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import GestureDemo from '@components/GestureDemo.astro';
 
-Once more than one layout is enabled, there are four ways to move between them: swipe the spacebar, hold the spacebar and drag through a list, use a dedicated key, or reach for Android's own input-method switcher. All four call the same underlying switch. Pick whichever suits your hands, because nothing about what a switch *does* changes.
+Once more than one layout is enabled, there are four ways to move between them on the touchscreen: swipe the spacebar, hold the spacebar and drag through a list, use a dedicated key, or reach for Android's own input-method switcher. All four call the same underlying switch. Pick whichever suits your hands, because nothing about what a switch *does* changes. A physical keyboard adds a fifth: its own language key, or <KeyCap>Ctrl</KeyCap>+<KeyCap>Space</KeyCap>. See [Hardware keyboards](/typing/hardware-keyboard/#switching-language) for those.
 
 <PhoneFrame caption="The resting spacebar shows the current language's name, with switch-direction arrows on either side.">
   {/* shot: languages/spacebar-resting-label */}
@@ -22,8 +22,8 @@ Once more than one layout is enabled, there are four ways to move between them: 
 
 The spacebar has two independent swipe slots, each set under <SettingsPath path="Typing / Gestures" />:
 
-- **Quick swipe on spacebar**: a swipe that starts moving right away. Defaults to **Language**.
-- **Hold + swipe on spacebar**: hold briefly, *then* swipe. Defaults to **Cursor**.
+- **Quick swipe on the spacebar**: a swipe that starts moving right away. Defaults to **Language**.
+- **Press and hold, then swipe**: hold briefly, *then* swipe. Defaults to **Cursor**.
 
 Each slot can be set to Nothing, Language, Cursor, or Numpad. Which slot fires depends on *when* the drag starts, not on how far you drag. The reference point is the long-press delay, 300ms by default. A swipe that crosses the touch-slop threshold before that delay uses the quick-swipe slot, and one that starts after it uses the hold + swipe slot. Once the language preview or the picker list is up, any further drag switches language whatever the slot is set to. You are looking at a language chooser by then, so the drag does what it looks like it does.
 
@@ -35,7 +35,7 @@ While a language swipe is in progress, a preview pops up above the spacebar show
   {/* shot: languages/spacebar-language-preview */}
 </PhoneFrame>
 
-The resting spacebar label follows **Spacebar shows** (also under Typing → Gestures), which offers Language (the default), Layout, or Both. Whenever two enabled layouts share a language, the label adds the layout name alongside it so you can tell them apart. The ◀▶ hint arrows need three things at once: **Arrows on spacebar** on (the default), one of the two swipe slots set to Language, and more than one layout enabled.
+The resting spacebar label follows **The spacebar shows** (also under Typing → Gestures), which offers Language (the default), Layout, or Both. Whenever two enabled layouts share a language, the label adds the layout name alongside it so you can tell them apart. The ◀▶ hint arrows need three things at once: **Arrows on the spacebar** on (the default), one of the two swipe slots set to Language, and more than one layout enabled.
 
 ## Holding to drag through the list
 
@@ -43,7 +43,7 @@ The resting spacebar label follows **Spacebar shows** (also under Typing → Ges
 
 Press and hold the spacebar with more than one layout enabled. Shortly before the long-press delay would fire (250ms, or your long-press delay if that is shorter), one of two things opens:
 
-- **The inline preview** from the section above, if you have four or fewer layouts enabled and the quick-swipe slot is set to Language. This is what a fresh install shows: seeding never turns on more than four layouts, and quick swipe already defaults to Language.
+- **The inline preview** from the section above, if you have four or fewer layouts enabled and the quick-swipe slot is set to Language. This is what a fresh install shows: seeding never turns on more than four layouts, and the quick swipe already defaults to Language.
 - **A scrollable picker list**, once you have more than four layouts enabled, or if you've reassigned the quick-swipe slot to something other than Language.
 
 Once the list is open, drag vertically to walk it one row at a time. The first bit of finger movement after the list appears is absorbed as calibration, so drift from before the hold fired never selects a neighbor by accident. Lift your finger after moving and the highlighted row is selected. Lift without moving at all and the list stays open, so you can tap the row you want.
@@ -58,14 +58,14 @@ Once the list is open, drag vertically to walk it one row at a time. The first b
 A fresh install replaces the bottom-row <KeyCap>🌐</KeyCap> key with an emoji key. Every built-in layout defines that key, but the **Emoji key instead of 🌐** setting is on by default, so it opens the emoji panel instead of switching language until you turn it off. Language switching still works the whole time. It lives on the spacebar (above) and the Languages screen (below) instead.
 :::
 
-<SettingsPath path="Layout & size / Bottom-row keys / Emoji key instead of 🌐" />
+<SettingsPath path="Layout & size / Bottom row keys / Emoji key instead of 🌐" />
 
-Turn this toggle off in <SettingsPath path="Layout & size / Bottom-row keys" /> to get the language key back. With it off, the bottom-row key behaves as a dedicated language switcher:
+Turn this toggle off in <SettingsPath path="Layout & size / Bottom row keys" /> to get the language key back. With it off, the bottom-row key behaves as a dedicated language switcher:
 
 - **Tap** cycles to the next enabled *layout* (not language) in your switch order, wrapping from the last back to the first. Three layouts of the same language still count as three separate stops.
 - **Long-press** opens the same picker list used by the spacebar hold-drag, regardless of how many languages you have enabled.
 
-<PhoneFrame caption="Layout & size → Bottom-row keys: turning off Emoji key instead of 🌐 restores the language-switch key.">
+<PhoneFrame caption="Layout & size → Bottom row keys: turning off Emoji key instead of 🌐 restores the language-switch key.">
   {/* shot: languages/globe-key-toggle */}
 </PhoneFrame>
 
@@ -77,15 +77,15 @@ There's a separate **Comma key opens emoji** toggle (off by default) that replac
 
 <SettingsPath path="Languages" />
 
-Every key and gesture above cycles through the same ordered list: your enabled layouts, in switch order. A fresh install seeds that list from your phone's own language settings, taking one layout per language it recognises, up to four, always including QWERTY. A phone set to Bangla and English starts with Avro and QWERTY. A phone set to English alone starts with QWERTY on its own and has nothing to cycle to yet. Everything else in the catalogue sits inactive until you add it. See [Languages overview](/languages/overview/) for how the full catalogue works and what's in it.
+Every key and gesture above cycles through the same ordered list: your enabled layouts, in switch order. A fresh install seeds that list from your phone's own language settings, taking one layout per language it recognises, and then adds QWERTY. The whole list is capped at four layouts, so a phone set to four other languages fills up before QWERTY gets a slot. A phone set to Bangla and English starts with Avro and QWERTY. A phone set to English alone starts with QWERTY on its own and has nothing to cycle to yet. Everything else in the catalogue sits inactive until you add it. See [Languages overview](/languages/overview/) for how the full catalogue works and what's in it.
 
 On the **Languages** screen:
 
 - **Your languages** lists each enabled language once. Tap one to enable or disable its individual layouts, or to remove the language entirely (only available once you have more than one language enabled, so you can never empty the list).
-- **Add language** searches the whole catalogue and enables an unadded language's first layout immediately.
+- **Add language** searches the whole catalogue and enables an unadded language's first layout. A language with data to fetch asks about the download first (see [Downloads & mobile data](/languages/downloads/)), and its Cancel backs out of the language too.
 - **Switch order** appears once you have more than one layout enabled. Drag to reorder the raw layout list, so two English layouts (QWERTY and AZERTY, say) keep independent slots in the ring even though they're both "English."
 
-There's no separate "recent languages" or "maximum visible" setting. The ring is exactly as long as your enabled-layout list, so reordering or removing is the only way to shorten it. Ring length changes behavior on its own in one place: the four-layout threshold that turns the hold-drag gesture from an inline preview into a full list.
+There's no separate "recent languages" or "maximum visible" setting. The ring is exactly as long as your enabled-layout list, so reordering or removing is the only way to shorten it. Ring length changes behavior on its own at three thresholds: two layouts swipe as a toggle rather than a cycle, more than four turn the hold-drag gesture from an inline preview into a full list, and more than five shrink the swipe preview to a sliding five-chip window.
 
 <PhoneFrame caption="The Languages screen: Your languages, Add language, and Switch order.">
   {/* shot: languages/languages-screen-order */}
@@ -121,14 +121,14 @@ A separate, unrelated toggle, **Remember language per app** (under Per-app langu
 
 | Setting | Where | Default |
 |---|---|---|
-| Quick swipe on spacebar | Typing → Gestures | Language |
-| Hold + swipe on spacebar | Typing → Gestures | Cursor |
-| Arrows on spacebar | Typing → Gestures | On |
-| Spacebar shows | Typing → Gestures | Language |
+| Quick swipe on the spacebar | Typing → Gestures | Language |
+| Press and hold, then swipe | Typing → Gestures | Cursor |
+| Arrows on the spacebar | Typing → Gestures | On |
+| The spacebar shows | Typing → Gestures | Language |
 | Spacebar text | Typing → Gestures | Blank (live name) |
-| Emoji key instead of 🌐 | Layout & size → Bottom-row keys | On |
-| Comma key opens emoji | Layout & size → Bottom-row keys | Off |
-| Your languages / Switch order | Languages | Seeded from your phone's language list, plus QWERTY (max 4 layouts) |
+| Emoji key instead of 🌐 | Layout & size → Bottom row keys | On |
+| Comma key opens emoji | Layout & size → Bottom row keys | Off |
+| Your languages / Switch order | Languages | Seeded from your phone's language list, then QWERTY, capped at 4 layouts |
 | Remember language per app | Languages → Per-app language | Off |
 | Forget remembered apps | Languages → Language data | A button, shown once apps are remembered |
 | Link romanized languages automatically | Languages → Language data | On |

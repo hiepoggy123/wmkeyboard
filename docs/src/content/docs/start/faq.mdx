@@ -34,7 +34,7 @@ Tapping "Enable keyboard" during setup opens Android's input method settings dir
 
 Ordinarily very little, and there's a dedicated mode if you want it to use even less.
 
-There's no background service. The keyboard runs only while you're typing, as a normal Android input method process the system can pause or reclaim like any other app. The two heaviest things it can hold in memory are an offline Whisper voice model and a local LLM. Both are released the moment Android signals memory pressure, and both reload the next time you use them. Word lists use compact, mostly on-disk structures rather than big in-memory maps, so even large downloaded dictionaries barely touch the Java heap.
+Nothing runs in the background out of the box. The keyboard is a normal Android input method process, alive while you're typing and free for the system to pause or reclaim like any other app. Three service components ship in the app, and every one of them is inert until you switch it on: a notification listener (feeds the media-control tool and the one-time-code chip, and needs the notification-access grant), an accessibility service that keeps the keyboard's own gestures working while a screen reader runs (it reads nothing, and needs its own grant), and a scheduled job for the automatic backup, which is off by default. Turn none of them on and the keyboard exists only while a text field has focus. The two heaviest things it can hold in memory are an offline Whisper voice model and a local LLM. Both are released the moment Android signals memory pressure, and both reload the next time you use them. Word lists use compact, mostly on-disk structures rather than big in-memory maps, so even large downloaded dictionaries barely touch the Java heap.
 
 If you're on a storage- or RAM-constrained device, two things help further:
 
@@ -43,11 +43,11 @@ If you're on a storage- or RAM-constrained device, two things help further:
 
 <SettingsPath path="Tools / Power saving" />
 
-By default, power saving switches on whenever Android's own battery saver is on, and it's ignored while the charger is plugged in. It deliberately doesn't trigger at a fixed battery percentage, so the keyboard changing how it feels is always an answer to something you did. Gesture typing and the key‑press popup stay on even under power saving, for opposite reasons. The popup is cheap to draw. Gesture typing is the most CPU-expensive thing the keyboard does, and it stays on anyway, because dropping it would be the most noticeable loss for the people who installed the keyboard for it. Every item here is its own switch, so keep what matters to you and drop the rest.
+By default, power saving switches on whenever Android's own battery saver is on, and it's ignored while the charger is plugged in. That default deliberately isn't a battery percentage, so the keyboard changing how it feels is always an answer to something you did. A percentage trigger is there if you want one ("The battery is low", 20% out of the box, on its own or paired with the system saver), it just isn't what ships. Gesture typing and the key‑press popup stay on even under power saving, for opposite reasons. The popup is cheap to draw. Gesture typing is the most CPU-expensive thing the keyboard does, and it stays on anyway, because dropping it would be the most noticeable loss for the people who installed the keyboard for it. Every item here is its own switch, so keep what matters to you and drop the rest.
 
 ## Where are my learned words stored, and how do I wipe them?
 
-In a plain JSON file in the app's private storage, and nowhere else. It's `user_lexicon.json`, alongside similar files for CJK picks, emoji usage, and language‑mix confidence. Before the phone's first unlock there's no file to write to at all. Anything typed in that window stays in memory for the session and is thrown away once the device unlocks, never queued up to save later.
+In a plain JSON file in the app's private storage, and nowhere else. It's `user_lexicon.json`, alongside four similar files: emoji usage, the corrections you undid, CJK picks, and language‑mix confidence. Before the phone's first unlock there's no file to write to at all. Anything typed in that window stays in memory for the session and is thrown away once the device unlocks, never queued up to save later.
 
 Two different screens manage it, depending on whether you want to edit individual words or wipe everything:
 
@@ -57,11 +57,13 @@ Two different screens manage it, depending on whether you want to edit individua
 
 <SettingsPath path="Typing / Personal dictionary" />
 
-Lists every word the keyboard has learned, with a per‑word delete and a button to add your own. Words you add here show as "Added by you." Words picked up from typing show how many times they've been seen. Changes take effect immediately, even if the keyboard is already open.
+Lists every word the keyboard has learned, with a per‑word delete and a button to add your own. Words you add here read "You added this word." Words picked up from typing read "Seen 4 times" instead. Changes take effect immediately, even if the keyboard is already open.
 
-<SettingsPath path="Privacy / Your data / Clear learned words" />
+<SettingsPath path="Privacy / Your data / Learned words" />
 
-The bulk wipe. One button deletes the learned‑words file along with the emoji‑usage and CJK‑history files in a single pass. It doesn't touch language‑mix confidence, so that one signal survives a clear. If the keyboard's process is still running with words loaded in memory, the change won't show there until that process is torn down and rebuilt. Switching apps a few times does it, or the system reclaiming the process. Closing and reopening the app you're typing in is usually enough.
+The bulk wipe. **Delete the learned words** takes out all five files in a single pass: the learned words, your emoji usage, the corrections you undid, your CJK picks, and language‑mix confidence. Nothing personal is left behind for the keyboard to keep guessing from. Words you added by hand go with them, because the Personal dictionary screen above writes into that same learned-words file rather than a list of its own. Snippets and imported word lists are separate files and stay put.
+
+A running keyboard follows along rather than needing to be restarted. The settings app bumps a version number the keyboard service watches, and the service drops its in‑memory copies the moment it sees the change, so the words it was holding can't be written straight back over the emptied files.
 
 Learning itself can be switched off entirely, or paused for a while, from the same Privacy screen:
 

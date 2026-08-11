@@ -9,9 +9,9 @@ import KeyCap from '@components/KeyCap.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import PhoneFrame from '@components/PhoneFrame.astro';
 
-Bangla is one of only two languages with a bundled dictionary, bundled emoji keywords, and a purpose-built phonetic engine. English is the other. It ships three layouts: Avro phonetic, Probhat, and Jatiya. Adding Bangla turns on Avro, and the other two are a tap away on its own screen. A phone whose Android language list already includes Bangla gets it enabled from the first run. Type romanized Bangla and the keyboard converts it to script as you go, or pick one of the two fixed keyboards if you'd rather type the script directly.
+Bangla is one of only two languages that ship a dictionary and emoji keywords inside the app itself. English is the other, and Bangla is the only one of the two with a purpose-built phonetic engine on top. It ships three layouts: Avro phonetic, Probhat, and Jatiya. Adding Bangla turns on Avro, and the other two are a tap away on its own screen. A phone whose Android language list already includes Bangla gets it enabled from the first run. Type romanized Bangla and the keyboard converts it to script as you go, or pick one of the two fixed keyboards if you'd rather type the script directly.
 
-<PhoneFrame caption={`Avro phonetic typing: "ami valo asi" commits as আমি ভালো আছি.`}>
+<PhoneFrame caption={`Avro phonetic typing: "ami valo achi" commits as আমি ভালো আছি.`}>
   {/* shot: languages/avro-lenient-spelling */}
 </PhoneFrame>
 
@@ -19,12 +19,16 @@ Bangla is one of only two languages with a bundled dictionary, bundled emoji key
 
 **Avro phonetic** is a fixed QWERTY grid underneath (every key is exactly where it is on the English layout) with a rule-based transliteration engine layered on top. Type a romanized syllable and it renders in Bengali script directly in the composing text, no separate conversion step: "ami" becomes আমি, "kolokata" becomes কলকাতা, "dhorrmo" becomes ধর্ম. The engine handles conjuncts, reph, khanda-ta, and the vowel/consonant context that decides whether a vowel is a standalone letter or a kar sign. All of that is automatic, so you type the sounds and leave the script mechanics alone.
 
-Where it goes further than a plain transliterator is lenient spelling. Bangla speakers write the same word several different ways in Latin letters (আছি comes out as "asi", "achi", or "achhi" depending on the person), and Avro accepts all of them. None of that is a hardcoded list of corrections. Both your romanized input and every word in the Bangla dictionary are folded to a lenient phonetic key where confusable sounds collapse (স/শ/ষ/ছ/চ all fold to the same sound, aspiration like "kh" or "bh" drops to "k"/"b", and so on), so "asi", "achi", and "achhi" all land on the same key as আছি. Whichever dictionary word sharing that key is used more often becomes what commits when you hit space, which is why "ami valo asi" becomes আমি ভালো আছি rather than the more literal আমি ভালো আসি.
+Where it goes further than a plain transliterator is lenient spelling. Bangla speakers write the same word several different ways in Latin letters (আছি gets typed "achi", "achhi" or "asi" depending on the person), and Avro takes them all. Two layers do that, in this order.
 
-That correction only steps in when a dictionary word is clearly more common than the literal transliteration. A near-tie never overrides what the composing text already showed you. "holO" transliterates to হলো, and although হল is a separate, valid dictionary word, it doesn't steal the commit because the two are close enough in frequency that swapping would look like a bug, not a correction. The literal transliteration is always in the suggestion strip as a fallback either way, so you can pick it if the substitution guesses wrong.
+First a hand-built list of about 12,000 romanized spellings, described under [Spellings the rules can't reach](#spellings-the-rules-cant-reach) below. It covers most of the everyday vocabulary, and a spelling it names is settled there and nowhere else, because the list outranks both the dictionary and the literal transliteration. Both `achi` and `asi` are on it, and they're listed separately: `achi` commits আছি, `asi` commits আসি.
+
+Anything the list has never heard of falls to a phonetic fold. Both your romanized input and every word in the Bangla dictionary are reduced to a lenient key where confusable sounds collapse (স/শ/ষ/ছ/চ all fold to the same sound, aspiration like "kh" or "bh" drops to "k"/"b", and so on), so an unlisted spelling still finds the dictionary word it sounds like. Words sharing a key are phonetic siblings, and the most frequent sibling leads. Two things you wrote down are weighed before frequency, because the fold throws them away: a sibling that contradicts an "h" you actually typed is pushed down, and so is one that ends in ও when you typed no final o. The "ch" of চ and the "ph" of ফ are exempt, since those are ordinary English-influenced spellings rather than claims about aspiration.
+
+A sibling only takes the commit from the literal transliteration when it is at least twice as frequent. A near-tie leaves what the composing text already showed you, because a silent swap between two words of roughly equal currency reads as a bug rather than a correction. The exception is a literal that isn't a dictionary word at all: with nothing to protect, the siblings lead. The literal transliteration is always in the suggestion strip as a fallback either way, so you can pick it if the substitution guesses wrong.
 
 :::note
-This substitution isn't part of autocorrect and isn't controlled by the autocorrect toggle. Avro's phonetic commit runs regardless of whether [Autocorrect](/smart/autocorrect/) is on or off. There's no separate switch to turn it off.
+Neither layer is part of autocorrect, and neither is controlled by the autocorrect toggle. Avro's phonetic commit runs regardless of whether [Autocorrect](/smart/autocorrect/) is on or off. The fixed-spelling list has its own switch (see **Spellings** under [Options](#options) below). The phonetic fold has none.
 :::
 
 A few more of the rules worth knowing:
@@ -52,15 +56,15 @@ Both of Avro's spellings for the marks work, and so do the ones Ridmik uses: ঁ
 
 Some words just aren't spelled the way they sound, so a list of them is checked before the phonetic engine runs. A match there always wins over whatever the transliterator would have produced. Two kinds of word need this:
 
-- **English loanwords.** "Keyboard" is written কিবোর্ড and "chair" চেয়ার by convention, not by sound. Left to the rules, "table" would come out তাবলে instead of টেবিল. About 2,300 of these are listed by hand.
+- **English loanwords.** "Keyboard" is written কিবোর্ড and "chair" চেয়ার by convention, not by sound. Left to the rules, "table" would come out তাব্লে instead of টেবিল. About 2,400 of these are listed by hand.
 - **Banglish as people actually type it.** Chat spelling drops vowels wholesale, and no phonetic rule can put back a vowel that was never typed. `tmr` is তোমার, `amk` is আমাকে, `trpr` is তারপর. Colloquial and regional inflections like `boltiso` (বলতিসো) are in the same list, which covers about 12,000 spellings drawn from a corpus of real Bangla chat.
 
 | you type | you get | without the list |
 | --- | --- | --- |
 | `tmr` | তোমার | ত্ম্র |
 | `amk` | আমাকে | আম্ক |
-| `tmi` | তুমি | টমি |
-| `table` | টেবিল | তাবলে |
+| `tmi` | তুমি | ত্মি |
+| `table` | টেবিল | তাব্লে |
 
 A listed spelling shows up in the composing text as soon as you finish typing it, not when you hit space: `tmr` reads তোমার at the r. That's the same answer the space would have committed, so nothing changes under you at the last moment.
 
@@ -120,12 +124,12 @@ Open Bangla's own screen from **Languages** in the app, or search for it from **
 - **Dictionary**: Bangla ships with a bundled dictionary, and a downloadable wordlist of about 451,000 words gives better suggestions. You can import your own list too. See [Downloadable dictionaries](/languages/dictionaries/) for how sizes compare across languages.
 - **Emoji**: download the larger Bangla emoji-keyword pack here, which names about 3,900 emoji. The bundled catalog's Bangla keywords already work without it. The pack arrives on its own if [Download automatically](/emoji/customization/) is on.
 
-- **Spellings**: <SettingsPath path="Languages / Bangla / Spellings / Use known spellings" />, on by default. This is the list described above, and it's what makes `table` commit টেবিল rather than তাবলে, and `tmr` commit তোমার rather than ত্ম্র. Switch it off if you want the letter-for-letter reading instead, which is otherwise unreachable because the list outranks every other suggestion source. The setting is per language, so turning it off for Bangla says nothing about any other script.
+- **Spellings**: <SettingsPath path="Languages / Bangla / Spellings / Use known spellings" />, on by default. This is the list described above, and it's what makes `table` commit টেবিল rather than তাব্লে, and `tmr` commit তোমার rather than ত্ম্র. Switch it off if you want the letter-for-letter reading instead, which is otherwise unreachable because the list outranks every other suggestion source. The setting is per language, so turning it off for Bangla says nothing about any other script.
 - **Clusters**: <SettingsPath path="Languages / Bangla / Clusters / Conjunct-aware backspace" />, covered above, off by default.
 
 One more setting for Bangla lives outside this screen:
 
-- The **Bengali font** row, at <SettingsPath path="Appearance / Keyboard font / Bengali font" />, is one of the per-script font sections. It shows only while a Bengali-script language is enabled, and it's separate from the general keyboard font. Your choice applies to all three Bangla layouts at once, with several Bengali-focused Google Fonts to pick from plus your own imported font file. Bengali is the one script section that also takes an import.
+- The **Bengali font** row, at <SettingsPath path="Appearance / Keyboard font / Bengali font" />, is one of the per-script font sections. It shows only while a Bengali-script language is enabled, and it's separate from the general keyboard font. Your choice applies to all three Bangla layouts at once. The section offers the automatic Noto face, eight Bengali-focused Google Fonts, anything in your font library that covers Bengali, and an import button for a `.ttf` or `.otf` of your own. Every script section takes an import, so this isn't Bengali's alone.
 
 ## Details & edge cases
 
@@ -133,7 +137,7 @@ One more setting for Bangla lives outside this screen:
 
 **A few other languages share the Bengali script** but aren't the same language entry: Assamese, Bishnupriya Manipuri, and Sylheti all use Bengali-script layouts and Bengali-style numerals, but none of them bundle a dictionary the way Bangla does. If you're typing one of those, look for it by its own name in the language catalogue rather than under Bangla.
 
-**The near-tie protection can feel inconsistent if you don't know it's there.** Because a phonetic sibling only overrides the literal transliteration when it's clearly more common, two words that are close in frequency (হলো vs. হল for "holO") won't always resolve the way you expect. This is deliberate, so the keyboard never silently swaps in a different word than what the composing preview showed you a moment before you hit space.
+**The near-tie protection can feel inconsistent if you don't know it's there.** Because a phonetic sibling only overrides the literal transliteration when it's at least twice as frequent, two words that are close in frequency won't always resolve the way you expect. This is deliberate, so the keyboard never silently swaps in a different word than what the composing preview showed you a moment before you hit space. It only applies to spellings the fixed list doesn't already name, since a listed spelling settles the commit before frequency is consulted at all.
 
 **The layout editor shows both shift labels at once for Probhat and Jatiya keys**, even though the real keyboard only shows one label per key state. Many fonts render a bare vowel sign (া, ি) as an orphaned, hard-to-read mark on its own, so the editor shows the base and shift labels side by side purely so you can tell keys apart while editing. This doesn't change what's drawn on the actual keyboard.
 

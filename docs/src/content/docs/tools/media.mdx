@@ -22,7 +22,7 @@ Open **Media controls** from the [toolbar, or the toolbox](/tools/overview/) if 
 The panel shows one of three things:
 
 - **Now playing**: album art (or a music-note placeholder if the app didn't publish any), title, artist and album, with a seek bar and Previous / Play-Pause / Next buttons.
-- **"Nothing playing right now"**: shown when no app currently holds an active media session. Start audio or video in any app and its controls appear here automatically.
+- **"Nothing plays now"**: shown when no app currently holds an active media session, with a line underneath telling you to start a song, video or podcast in any app. Do that and its controls appear here automatically.
 - **A one-time access prompt**: shown until you grant notification access. See below.
 
 ### The transport
@@ -52,14 +52,14 @@ The Android API that hands over another app's media session is `MediaSessionMana
   {/* shot: tools/media-access-prompt */}
 </PhoneFrame>
 
-Tap **Grant access**. Your device's Notification access screen opens on WM Keyboard's row. On older Android versions it opens the full list instead, so find WM Keyboard yourself. Look for **"WM Keyboard media controls."** That's the label the system lists it under.
+Tap **Allow access**. A short explanation appears first, restating what the access is for. Tap **Open system settings** on it. Your device's Notification access screen then opens on WM Keyboard's row. On Android 10 and older it opens the full list instead, so find WM Keyboard yourself. Look for **"WM Keyboard media controls and one-time codes."** That's the label the system lists it under, and it names both features because both ride on the one grant.
 
 An IME cannot show its own permission dialog, which is why this detour through system Settings is needed. You do it once, and you can revoke it at any time from the same Settings screen. The keyboard re-checks the grant every time it returns to the foreground, so grant it in Settings and come back: the panel picks it up without being reopened.
 
 ## Details & edge cases
 
 - **Works with anything that publishes an Android media session**: music players, YouTube, podcast apps and the like. That isn't every app that makes sound. An app has to implement the platform's Media Session API for its controls to show up here. One that plays audio without publishing a session won't appear.
-- The **empty listener service** that unlocks this (`MediaNotificationListener`) exists purely to satisfy the platform's access check. It has no code path that reads notification content. It exists and does nothing else.
-- The transport is **touch-only**: it doesn't participate in hardware-keyboard focus-ring navigation the way search results or a list panel does, so <KeyCap>Tab</KeyCap>/arrow-key cycling skips over it.
+- The **listener service** that unlocks this (`MediaNotificationListener`) is one component worn by two features. For media controls it is an empty stub: the tool needs the grant, not the notifications, and nothing on that path reads a notification. The service's one working method belongs to the [one-time code chip](/smart/one-time-codes/), and it returns immediately unless that chip is switched on. Never renamed, because Android stores the grant against the component name.
+- The **seek bar is touch-only**: it doesn't participate in hardware-keyboard focus-ring navigation, so <KeyCap>Tab</KeyCap>/arrow-key cycling skips over it. The three transport buttons do take the ring, and <KeyCap>Enter</KeyCap> on a dimmed Previous or Next does nothing, exactly like a tap.
 - Media controls has **no direct-boot support**. It isn't available on the lock screen before you've unlocked your device once after a restart, since the notification-listener grant and session data aren't available that early.
 - This tool ships in both the full and lite editions. There's no edition gating to worry about here.

@@ -9,8 +9,8 @@ import { Steps } from '@astrojs/starlight/components';
 
 WM Keyboard ships through three channels, and they are not the same build. The
 differences are real: a Play build carries Google libraries that an F-Droid
-build must not have. But two flags and a flavor drive all of it, so nothing
-here needs a branch or a patched source tree.
+build must not have. But a handful of boolean flags and one flavor drive all
+of it, so nothing here needs a branch or a patched source tree.
 
 ## What the channels actually differ on
 
@@ -19,6 +19,7 @@ here needs a branch or a patched source tree.
 | Flavor | `full` **and** `lite` | `lite` | `full` |
 | `wmkb.enablePlayStore` | `false` | `false` | `true` |
 | `wmkb.enableGms` | `true` | `false` | `true` |
+| `wmkb.enableFdroid` | `false` | `true` | `false` |
 | `wmkb.splitApks` | `true` | not used | ignored by `bundle*` |
 | Artifact | one APK per ABI, for both flavors, plus `SHA256SUMS.txt` | one APK, built by F-Droid | one AAB |
 | ML Kit | bundled in the APK | absent | unbundled, fetched from Play services |
@@ -30,6 +31,12 @@ the environment, then default to `false`. `-P` winning is what lets a fastlane
 lane or CI override a developer machine's `local.properties`. A clean checkout
 has no `local.properties` at all, which is why an F-Droid builder gets the
 right answer without being told.
+
+`wmkb.enableFdroid` is the odd one out: it changes no dependency, only the
+channel line on bug reports and diagnostics, and it hides the "get it on
+F-Droid" row in About that would otherwise send an F-Droid user to their own
+install. The F-Droid recipe sets it explicitly, since `false` is the default
+everywhere else.
 
 :::caution[Keep the flags matched to the channel]
 `wmkb.enablePlayStore=true` links Play's in-app update library. That library
@@ -121,12 +128,15 @@ recipe and the build stay in step.
 <Steps>
 
 1. **Check the app is buildable as-is.** Nothing generated may be missing from
-   source. The dictionaries are fine here: `.wmdict` and `.wmng` files are
-   compiled at build time by `:tools:dictc`, and no binary dictionary is
-   committed. The only prebuilt binaries in the tree are the Harper `.so`
-   files under `core/intelligence/src/full/` and the LLM module's, both of
-   which belong to variants a `lite` build never assembles. The recipe deletes
-   them before building so the scanner has nothing to complain about.
+   source. The dictionaries are fine here: the two bundled `.wmdict` files are
+   compiled at build time by `:tools:dictc` from the plain-text lists in
+   `app/dictionaries-src/`, and `.wmng` n-gram packs are downloaded at runtime
+   rather than built at all. No binary dictionary is committed. Apart from
+   `gradle/wrapper/gradle-wrapper.jar`, which F-Droid checks against its own
+   known-good list, the only prebuilt binaries in the tree are the Harper
+   `.so` files under `core/intelligence/src/full/` and the LLM module's, both
+   of which belong to variants a `lite` build never assembles. The recipe
+   deletes them before building so the scanner has nothing to complain about.
 
 2. **Test the exact build locally** before you submit, because a failed build
    on their side means a round trip:
@@ -171,8 +181,8 @@ The two editions are not the same app, so they do not share a description.
 
 | Tree | Read by | Holds |
 |---|---|---|
-| `fastlane/metadata/android/en-US/` | **F-Droid**, and the shared source for images and changelogs | the **lite** description, `images/`, `changelogs/` |
-| `fastlane/play/metadata/android/en-US/` | **Play**, via supply's `metadata_path` | the **full** description only |
+| `fastlane/metadata/android/en-US/` | **F-Droid**, and the shared source for images and changelogs | the **lite** edition's `title.txt`, `short_description.txt` and `full_description.txt`, plus `images/` and `changelogs/` |
+| `fastlane/play/metadata/android/en-US/` | **Play**, via supply's `metadata_path` | the same three text files, written for the **full** edition, and nothing else |
 
 F-Droid scans a fixed set of paths inside the source repo and there is no way
 to point it somewhere else, so the default tree has to be the F-Droid one.

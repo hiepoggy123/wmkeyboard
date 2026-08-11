@@ -16,7 +16,7 @@ WM Keyboard's settings app opens on a Home screen: fifteen rows, sorted into six
 
 ## Browsing the six groups
 
-Home has no toggles of its own. It's pure navigation, plus the [setup card](/start/setup/) pinned above the groups. Each row below opens one screen, and each screen has its own page in this section:
+Home has no toggles of its own. It's pure navigation, plus the [setup card](/start/setup/) above the groups, which stays there until the keyboard is enabled and active and then goes away. Each row below opens one screen, and each screen has its own page in this section:
 
 **Typing**
 - [Typing](/reference/settings/typing/): autocorrect, suggestions, gestures
@@ -46,13 +46,14 @@ Home has no toggles of its own. It's pure navigation, plus the [setup card](/sta
 **Data**
 - [Privacy](/reference/settings/privacy/): on-device learning, incognito
   - [Permissions](/reference/settings/permissions/): everything the keyboard can reach and what it holds right now. A sub-screen off the top row of Privacy, not a Home row of its own
+- [Data saver](/reference/settings/data-saver/): what the keyboard may fetch while the connection is metered, feature by feature
 - [Backup & restore](/reference/settings/backup/): export your settings to a file, restore one, or set up the automatic backup that does it on a timer
 
 **About**
 - [About & diagnostics](/reference/settings/about/): version, licence, open-source notices, updates, storage, diagnostics
   - [Statistics](/reference/settings/statistics/): how much you type, and the switch that stops the counting
 
-That's 22 screens in total: the 15 Home rows, plus seven sub-screens (Dictionaries, Themes, Fonts, Icons, Permissions, Statistics, Phone number formats) that earned their own page instead of folding into a parent's.
+That's 23 screens in total: the 16 Home rows, plus seven sub-screens (Dictionaries, Themes, Fonts, Icons, Permissions, Statistics, Phone number formats) that earned their own page instead of folding into a parent's.
 
 ## Searching instead of browsing
 
@@ -62,19 +63,20 @@ Tap the magnifier on Home. A full-screen search field opens and takes focus, so 
   ![Typing a query in Settings search. Each result carries a breadcrumb to the screen it lives on.](@assets/screens/reference/settings/search-results.webp)
 </PhoneFrame>
 
-Every word you type has to match something. Search "emoji row" and you get back only the rows that match both words, not every row that mentions emoji. Results rank exact and prefix title matches above description-only matches, and each result carries a breadcrumb under its title (like "Tools › Camera") so you know where a row lives before you tap it.
+Rows that carry every word of your query win outright. When nothing carries all of them, the rows carrying the most words answer instead, as long as that's at least half the query, so "emoji row" still finds the emoji rows rather than emptying the screen. Results rank exact and prefix title matches above description-only matches, and each result carries a breadcrumb under its title (like "Tools › Camera") so you know where a row lives before you tap it.
 
-Tap a result and the owning screen opens, scrolled to that row, with a brief highlight on it. You never have to hunt for the setting you searched for. Toolbar tools are searchable too: every enabled tool gets an entry automatically, so a newly shipped tool is findable straight away, with no docs or search-index update behind it.
+Tap a result and the owning screen opens, scrolled to that row, with a brief highlight on it. You never have to hunt for the setting you searched for. Toolbar tools are searchable too: every tool this build ships gets an entry automatically, whether or not you've turned it on, so a newly shipped tool is findable straight away, with no docs or search-index update behind it.
 
 ## Putting one setting back
 
-Any row you've moved off its shipped value grows a small restore button next to its control. Tap it and that one setting goes back to the default, without touching anything else on the screen.
+Almost any row you've moved off its shipped value grows a small restore button next to its control. Tap it and that one setting goes back to the default, without touching anything else on the screen.
 
 The button only appears on rows you've actually changed, so it doubles as a map of what you've customised. Scroll a screen, and the rows carrying a restore button are the ones that no longer match the app's own defaults.
 
 A few rows work differently, because "the default" means something else there:
 
-- Per-screen sizes (landscape, unfolded, tablet) don't reset one slider at a time. The whole override goes back with **Follow portrait** at the bottom of that screen's group, since the default for those screens is "whatever portrait does".
+- A handful of hand-built controls carry no restore button at all: the Haptic style chips, the Sound style chips, the Popup shape picker and the Currency keys field on [Key press](/reference/settings/keypress/), and the Characters that go back field on [Layout & size](/reference/settings/layout/). Clearing one of those two text fields back to blank is what restores its built-in list.
+- Per-screen sizes (landscape, unfolded, tablet) don't reset one slider at a time. The whole override goes back with **Follow portrait again** at the bottom of that screen's editor, since the default for those screens is "whatever portrait does".
 - Keyboard modes, AI actions and custom layouts are things you made, not settings the app shipped. A mode's inherited values come back by switching its own override toggles off, and a custom layout or action is reverted by deleting it.
 - Lists you built (pinned tools, enabled languages, sticker packs) have their own reset actions where one exists, like **Reset pinned tools** on the Tools screen.
 - The whole app goes back at once from [Backup & restore](/reference/settings/backup/).
@@ -89,5 +91,5 @@ Two related topics live on their own pages rather than here:
 ## Details & edge cases
 
 - Per-tool settings live on each tool's own guide page under [Tools](/tools/overview/), cross-linked from [the Tools screen page](/reference/settings/tools/). Three screens are exceptions. The sticker-pack manager and plugin manager both open from a tool's detail screen *and* from Addons, since installing a sticker pack or a plugin addon lands you in the same manager, so they're covered under [Addons](/reference/settings/addons/) instead. The clipboard's [Phone number formats](/reference/settings/phone-formats/) gets a page of its own because its mask syntax is reference material rather than a guide.
-- Screen transitions are a quick 220&nbsp;ms slide-and-fade. Turn on reduced motion under [Accessibility](/reference/settings/accessibility/) and that collapses to an instant cut with no animation at all.
-- Every screen in this section is reachable from Home in one or two taps. Nothing here needs a hidden gesture or a developer option.
+- Screen transitions are a 340&nbsp;ms horizontal push: the arriving screen slides the whole way in from the right while the one behind it drifts a third of the way left. Both surfaces are opaque, so nothing cross-fades. Turn on reduced motion under [Accessibility](/reference/settings/accessibility/) and that collapses to an instant cut with no animation at all.
+- Every screen in this section is reachable from Home in three taps at most, and most of them in one or two. [Phone number formats](/reference/settings/phone-formats/) is the deepest, at Home → Tools → Clipboard → Phone number formats. Nothing here needs a hidden gesture or a developer option.

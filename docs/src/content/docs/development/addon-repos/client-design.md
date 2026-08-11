@@ -61,8 +61,10 @@ throwing.
 Accept a pasted string and normalise to the raw manifest URL (§4 of the format doc):
 
 - `github.com/USER/REPO` → `raw.githubusercontent.com/USER/REPO/HEAD/wmkeyboard-repo.json`
-- `github.com/USER/REPO/tree/BRANCH` → same on `BRANCH`
-- a direct `raw.githubusercontent.com/.../wmkeyboard-repo.json` or any `https` manifest URL → as-is
+- `github.com/USER/REPO/tree/BRANCH` (or `/blob/BRANCH`) → same on `BRANCH`
+- any other `https` URL ending in `.json` → as-is
+- any other `https` URL → read as a directory, with `wmkeyboard-repo.json` appended
+- a pasted address with no scheme at all → assumed `https`, then the rules above
 
 Keep the resolved **manifest URL's directory** as the base for resolving relative
 `path` / `previews` / `icon`. Enforce **`https` only**.
@@ -116,7 +118,9 @@ as part of this work. Those rows are marked **new**.
 | `icon_pack` | `IconPackFile.import(input, store)`. Extracts `*.wmicons`, validates the `wmkeyboard-icons` envelope in `pack.json`, keeps every entry naming a slot `IconSlots` knows (parsing each SVG to prove it renders), and registers the pack in `IconPackStore`. |
 | `font` | **new subsystem.** The app had three fixed custom-font slots, each overwritten on import, so a *library* of installed fonts had to be built first: `FontStore` (`filesDir/fonts/installed/`, `fonts.json` index, 50-font cap) + `FontFile.import(stream, store, name)` validating the sfnt magic and proving the face actually loads. `KeyboardFonts` resolves an `installed:<id>` font id through the store, so installed faces appear in the font picker beside the Google Fonts. |
 | `emoji_font` | Same `FontFile.import` as `font`, flagged `emoji = true` in the store. Kept a separate type because it is chosen somewhere else entirely (`EmojiFontChoice.INSTALLED` under Emoji settings, not the key-label pickers), and because a colour emoji font on the key labels is not a choice anyone makes on purpose. There is exactly one emoji slot, which `AddonApply` offers to fill once the font has landed. |
-| `sound` | **new subsystem.** Key sounds were five synthesised waveforms behind a `KeySoundStyle` enum with no import path at all. Adds a `CUSTOM` style, `SoundStore` (`filesDir/keysounds/`, `sounds.json`, 30-sound cap) and `SoundFile.import(stream, store, name)` validating the MPEG frame header; `KeySoundPlayer` loads the chosen file into its `SoundPool` instead of a synthesised buffer. |
+| `sound` | **new subsystem.** Key sounds were five synthesised waveforms behind a `KeySoundStyle` enum with no import path at all. Adds a `CUSTOM` style, `SoundStore` (`filesDir/keysounds/`, `sounds.json`, 30-sound cap) and `SoundFile.import(stream, store, name)` sniffing the header for MP3, OGG or WAV; `KeySoundPlayer` loads the chosen file into its `SoundPool` instead of a synthesised buffer. |
+| `sound_pack` | `SoundPackFile.import(input, store)`. Extracts the `*.wmsoundpack` ZIP, validates the `wmkeyboard-sound-pack` envelope in `pack.json`, sniffs every recording's header, rewrites the manifest onto file names it chose itself, and registers the pack in `SoundPackStore` under a `PACK` style beside `CUSTOM`. |
+| `plugin` | `PluginFile.import(input, store)` into `PluginStore`, refused outright when the plugin subsystem is off. Then `setEnabled(id, false)`: a `.wmplugin` opened from a file lands enabled, one that arrived from a repository lands switched off and is offered. See §7a. |
 
 Record the result in `installed_addons`. Uninstall reverses the local action
 (`deleteCustomTheme` / `deleteCustomLayout` / delete the dict or keyword-pack file / remove snippets / delete sticker pack / etc.).
@@ -124,8 +128,8 @@ Record the result in `installed_addons`. Uninstall reverses the local action
 Installing puts the payload on the device and stops there. Nothing is selected, switched to or
 turned on: browsing a repository and tapping the download arrow on three themes must not leave
 the user wearing the third one. `AddonApply` asks instead. The types with one obvious slot
-(`theme`, `icon_pack`, `emoji_font`, `sound`, `layout`, `plugin`) raise a one-question dialog the
-moment the install lands. The rest have nothing to ask about: they are either live already
+(`theme`, `icon_pack`, `emoji_font`, `sound`, `sound_pack`, `layout`, `plugin`) raise a one-question
+dialog the moment the install lands. The rest have nothing to ask about: they are either live already
 (`dictionary`, `emoji_keywords`, `snippets`, `stickers`) or bound for a picker with several slots (`font`).
 
 Updating is the exception: an addon that *was* the active theme, sound or layout is re-selected
@@ -133,8 +137,8 @@ under its new local id without asking, because every importer mints a fresh id a
 revoked the choice.
 
 Separately, the detail page offers **Use**, which navigates to whichever settings screen owns
-that type (`themes`, `languages`, `customdictionaries`, `tool/SNIPPETS`, `sticker_packs`,
-`icons`, `fonts`, `emoji`, `keypress`, `plugins`). Layouts go to Languages rather than Key
+that type (`themes`, `languages`, `customdictionaries`, `emojikeywords`, `tool/SNIPPETS`,
+`sticker_packs`, `icons`, `fonts`, `emoji`, `keypress`, `plugins`). Layouts go to Languages rather than Key
 layouts: an installed layout arrives switched off, and the switch that turns it on is under
 Languages → Your layouts, while Key layouts lists only layouts that are already on.
 
@@ -150,15 +154,20 @@ recompute, so a deleted theme reads as available again rather than installed.
 
 ## 5b. Previewing without installing
 
-Four types have *content* that is itself the choice: `snippets`, `dictionary`, `sound` and
-`stickers`. Their detail pages offer **Preview**. It downloads the payload to `cacheDir` (a
-12 MiB ceiling, under every install cap) and reads it into a summary: the snippets in the
-pack, a sample of the word list with a count, a play button, the first two dozen sticker
-images. Nothing is installed and no setting changes. The path touches neither the status map
-nor the single-install lock, so a preview can't interfere with a download in flight.
+Six types have *content* that is itself the choice: `snippets`, `dictionary`, `emoji_keywords`,
+`sound`, `sound_pack` and `stickers`. Their detail pages offer **Preview**. It downloads the
+payload to `cacheDir` (a 12 MiB ceiling, under every install cap) and reads it into a summary:
+the snippets in the pack, a sample of the word list with a count, two dozen emoji beside their
+keywords, a play button, up to eight play rows per half of a sound pack, the first two dozen
+sticker images. Nothing is installed and no setting changes. The path touches neither the status
+map nor the single-install lock, so a preview can't interfere with a download in flight.
 
-`theme`, `layout`, `font` and `emoji_font` deliberately offer no preview: they are judged by
-looking at the keyboard wearing them, which a panel in the settings app cannot honestly
+`plugin` previews too, for the opposite reason: not to judge the content but to read what the
+thing would be allowed to do before any of its code lands. That one is built from the manifest
+alone and never reads the script.
+
+`theme`, `layout`, `icon_pack`, `font` and `emoji_font` deliberately offer no preview: they are
+judged by looking at the keyboard wearing them, which a panel in the settings app cannot honestly
 reproduce. Those rely on `previews[]` screenshots instead.
 
 ## 6. Update detection

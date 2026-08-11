@@ -82,10 +82,19 @@ Must sit at the repository root and validate against
 | `format` | ✔ | Magic tag, exactly `"wmkeyboard-repo"`. The client rejects anything else. |
 | `version` | ✔ | Manifest schema version. Currently `1`. |
 | `repo.id` | ✔ | Stable id, reverse-DNS recommended. Namespaces installed addons. |
+| `repo.name` | ✔ | What the repository is called in the app's list. |
 | `repo.{description,author,homepage,icon,updatedAt}` | | Optional metadata. `icon` is relative or absolute (see §4). |
 | `addons` | ✔ | Array of addon entries (§3). May be empty. |
 
 Unknown fields are ignored, so future versions can add fields without breaking old clients.
+
+:::caution[The published schema lags the format]
+The schema's `type` enum does not list `sound_pack` yet, so a schema validator
+rejects an entry that uses it. `requires` is not described either, though it
+passes because the schema allows extra keys. The app accepts both. Fix the
+schema upstream before reading a validator failure on those two as a real
+problem with your manifest.
+:::
 
 ## 3. Addon entry
 
@@ -119,10 +128,10 @@ Unknown fields are ignored, so future versions can add fields without breaking o
 | `version` | ✔ | **Semver** string. Bump it to offer an update. |
 | `path` | ✔ | Payload location, either relative to the manifest or an absolute `https` URL (§4). |
 | `author`, `description`, `tags` | | Display / search metadata. |
-| `sha256` | | Lowercase hex SHA-256 of the payload, verified before install when present. **Optional**: an addon without one installs normally and is shown as unverified. |
+| `sha256` | *plugin* | Lowercase hex SHA-256 of the payload, verified before install when present. **Optional for every type but `plugin`**: an addon without one installs normally and is shown as unverified, while a plugin without one is refused. |
 | `sizeBytes` | | Payload size, for the UI and a pre-download guard. Optional; the client caps every download regardless. |
 | `previews` | | Screenshot images (relative or absolute). |
-| `minAppVersion` | | App `versionCode` floor; older apps hide/disable the addon. |
+| `minAppVersion` | | App `versionCode` floor. An older app still lists the addon and refuses the install with a note saying to update the app. |
 | `langId` | *dict* | **Required for `dictionary` and `emoji_keywords`**, since both install into a per-language folder. An optional hint for `layout`. Must be a registered language id (§5). |
 | `langIds` | | Languages this addon covers, when one id isn't enough. See [Language coverage](#language-coverage). |
 | `license` | | Licence identifier. Use SPDX where one fits (`MIT`, `OFL-1.1`, `CC0-1.0`, `CC-BY-4.0`), otherwise any short name. Shown on the addon's page. |
@@ -186,9 +195,12 @@ The app derives the raw manifest URL from what the user pastes:
 | `https://github.com/USER/REPO` | `https://raw.githubusercontent.com/USER/REPO/HEAD/wmkeyboard-repo.json` |
 | `https://github.com/USER/REPO/tree/BRANCH` | …/`BRANCH`/wmkeyboard-repo.json |
 | a direct `raw.githubusercontent.com/.../wmkeyboard-repo.json` | used as-is |
-| any other `https` URL to a manifest | used as-is |
+| any other `https` URL ending in `.json` | used as-is |
+| any other `https` URL | read as a directory, with `wmkeyboard-repo.json` appended |
 
-Relative paths resolve against that manifest URL's directory.
+A pasted address with no scheme is assumed to be `https`, because that is how
+people write them down. Relative paths resolve against the manifest URL's
+directory.
 
 :::caution[https only]
 Plain `http` and non-URL schemes are rejected. That covers the manifest and every
@@ -203,11 +215,11 @@ into your repo.
 
 | `type` | File | Format |
 |---|---|---|
-| `theme` | `*.wmtheme.json` | One `ThemeSpec` object (the app's theme export). **The only payload with no `format`/`version` envelope**: it is the bare object, so a theme file is identified by its extension rather than a magic tag. Background images travel base64-embedded inside the JSON, so the file is self-contained. Colors are decimal ARGB longs (`0xAARRGGBB`). |
+| `theme` | `*.wmtheme.json` | One `ThemeSpec` object (the app's theme export). **The only JSON payload with no `format`/`version` envelope**: it is the bare object, so a theme file is identified by its extension rather than a magic tag. Background images travel base64-embedded inside the JSON, so the file is self-contained. Colors are decimal ARGB longs (`0xAARRGGBB`). |
 | `layout` | `*.wmlayout.json` | Envelope `{ "format":"wmkeyboard-layout", "version":1, "layout": { …LayoutSpec… } }`, which is the app's layout export. |
 | `dictionary` | `<langId>.txt` | Plain UTF-8, one entry per line: `word<space>frequency` (frequency optional, default 1). `#` starts a comment. May be gzipped (`.txt.gz`) for transport. |
 | `emoji_keywords` | `<langId>.tsv` | Plain UTF-8, tab-separated, one row per emoji: `emoji<TAB>keyword,keyword,…<TAB>name`. The name column is optional and becomes the emoji's long-press description. `# ` (hash **and space**) starts a comment. A bare `#` does not, because `#️⃣` is an emoji. May be gzipped (`.tsv.gz`) for transport. Packs stack on the bundled English and Bangla keywords rather than replacing them, so search finds an emoji under every language installed for it. `tools/emoji/export_keyword_pack.py` converts CLDR annotations into this format. |
-| `snippets` | `*.wmsnippets.json` | `{ "format":"wmkeyboard-snippets", "version":1, "snippets":[ { "id":1, "label":"…", "text":"…", "trigger":"…"?, "triggerPattern":"…"?, "triggerWords":3?, "confirm":true? }, … ] }`. Ids are reassigned on import. `trigger` is one exact word. `triggerPattern` is an anchored regular expression over the last `triggerWords` words before the cursor (default 3, max 8), whose captures reach `text` as `$1`…`$9`. See [Snippets](/tools/snippets/#pattern-triggers). A snippet carrying both keeps the word. `confirm` makes the trigger offer itself as a suggestion-bar chip instead of rewriting what the user typed, which is what a pack of canned replies should do. See [Ask before it expands](/tools/snippets/#ask-before-it-expands). All three are written only when set, so a pack of plain snippets looks exactly as it always did. |
+| `snippets` | `*.wmsnippets.json` | `{ "format":"wmkeyboard-snippets", "version":1, "snippets":[ { "id":1, "label":"…", "text":"…", "trigger":"…"?, "triggerPattern":"…"?, "triggerWords":3?, "confirm":true? }, … ] }`. Ids are reassigned on import. `trigger` is one exact word. `triggerPattern` is an anchored regular expression over the last `triggerWords` words before the cursor (default 3, max 8), whose captures reach `text` as `$1`…`$9`. See [Snippets](/tools/snippets/#pattern-triggers). A snippet carrying both keeps the word. `confirm` makes the trigger offer itself as a suggestion-bar chip instead of rewriting what the user typed, which is what a pack of canned replies should do. See [Ask before it expands](/tools/snippets/#ask-before-it-expands). `triggerPattern`, `triggerWords` and `confirm` are written only when set, so a pack of plain snippets looks exactly as it always did. |
 | `stickers` | `*.wmstickers` | ZIP archive containing a `pack.json` envelope (`"format":"wmkeyboard-stickers"`, `"version":1`, `pack` metadata with its `stickers[]`) and the image files under `stickers/`. See [Sticker packs](#sticker-packs). |
 | `icon_pack` | `*.wmicons` | ZIP archive containing a `pack.json` envelope (`"format":"wmkeyboard-icons"`, `"version":1`, `pack` metadata) and one SVG per replaced icon under `icons/`, named for its slot. See [Icon packs](#icon-packs). |
 | `font` | `*.ttf`, `*.otf` | Standard TrueType or OpenType font file used for keyboard key labels and text typography. Declare `langIds` when the face only covers some scripts. |
@@ -348,7 +360,7 @@ informational and import ignores them. Both are optional in a hand-built pack.
 
 | Group | Ids | Count |
 |---|---|---|
-| Tools | `tool.<toolbar tool>`, for example `tool.clipboard`, `tool.gif`, `tool.sticker`, `tool.voice` | 60 |
+| Tools | `tool.<toolbar tool>`, for example `tool.clipboard`, `tool.gif`, `tool.sticker`, `tool.voice` | 63 |
 | Keys | `key.shift`, `key.shift_on`, `key.shift_lock`, `key.backspace`, `key.forward_delete`, `key.globe`, `key.emoji`, and `key.enter` plus `key.enter_{search,send,go,next,previous,done}` | 14 |
 | Toolbar chrome | `chrome.toolbox`, `chrome.panel_back`, `chrome.suggestions_expand`, `chrome.emoji_shortcut`, `chrome.search_close`, `chrome.incognito` | 6 |
 | Emoji tabs | `emoji_tab.search`, `emoji_tab.recent`, `emoji_tab.most_used`, and one per category (`smileys`, `people`, `animals`, `nature`, `food`, `travel`, `activities`, `objects`, `symbols`, `flags`) | 13 |
@@ -370,7 +382,7 @@ and stops following the theme. Prefer the first unless the pack is deliberately
 a colour set.
 
 **Supported SVG.** `<path>`, `<rect>`, `<circle>`, `<ellipse>`, `<line>`,
-`<polyline>`, `<polygon>`, `<g transform>` (translate/scale/rotate/matrix),
+`<polyline>`, `<polygon>`, `<g transform>` (translate/scale/rotate/matrix/skew),
 presentation attributes and inline `style`, and `#rgb`/`#rrggbb`/`#rrggbbaa`/
 `rgb()`/named colours. Text, embedded images, `<use>`, gradients, filters, masks
 and CSS `<style>` blocks are skipped. An icon that leans on them renders as
@@ -421,8 +433,9 @@ taps Install. That tap is also what adds the repository to their list.
 
 2. Add the payload files. Set each `path`.
 
-3. Optionally fill `sha256` and `sizeBytes`. **Neither is required.** A manifest
-   without them is valid, and its addons install normally, marked unverified. Do
+3. Optionally fill `sha256` and `sizeBytes`. **Neither is required, except that
+   a `plugin` entry must carry a `sha256`.** A manifest without them is
+   otherwise valid, and its addons install normally, marked unverified. Do
    not compute them by hand. Run `python3 tools/build_index.py` (in the
    [sample repo](https://github.com/wasi-master/wmkeyboard-addon-repository/blob/main/tools/build_index.py))
    after every payload change, and it keeps them current.

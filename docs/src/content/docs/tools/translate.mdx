@@ -31,15 +31,16 @@ The panel has its own search bar at the top. What you type there is what gets tr
 Long input is capped: anything past 2,500 characters is silently cut off before it's sent, with no on-screen warning that it happened.
 
 :::note
-The Translate panel doesn't support hardware-keyboard focus-ring navigation: <KeyCap>Tab</KeyCap>/arrow-key cycling won't reach the target-language chip or the two action buttons the way it does in the GIF or search panels. Typing into the search bar itself still works from a hardware keyboard.
+Hardware-keyboard focus-ring navigation reaches the whole panel: <KeyCap>Tab</KeyCap> and arrow-key cycling take in the target-language chip, the picker's rows while it's open, and both action buttons, the same way they do in the GIF or search panels. One rough edge is left. <KeyCap>Esc</KeyCap> while the language picker is open closes the whole panel rather than just the picker, so press <KeyCap>Enter</KeyCap> on the chip to bring the list back.
 :::
 
 ## Options
 
 <SettingsPath path="Tools / Translate" />
 
-- **Enabled**: on by default, like every tool. Turning it off removes Translate from both the toolbar and the toolbox.
+- **Turn on**: already on, like every tool. Switching it off removes Translate from both the toolbar and the toolbox.
 - **Icon colour**: only shown if [colorful tool icons](/tools/overview/) are turned on globally. It overrides Translate's icon color.
+- **Keyword shortcut**: a **Trigger words** field pre-filled with "translate", plus a **Match capitals** switch that's off by default. Type the word on its own and the suggestion strip offers to open the tool. See [smart suggestion chips](/smart/chips/).
 - **Translate into**: the target language, from the same 33-language list as the panel's picker. Defaults to **English**. Changing it here also changes what the panel opens to next time.
 - **Cloud Translation API key (optional)**: blank by default. Paste a Google Cloud Translation API key here to use the official API instead of the free endpoint (see below). The field saves as you type, with no separate save button. Under it you'll read "The app uses your key" once you've typed one, "This field is blank. The app uses the key that is built into the app." if this build ships one, or "Without a key, translation uses the free public endpoint of Google" otherwise.
 

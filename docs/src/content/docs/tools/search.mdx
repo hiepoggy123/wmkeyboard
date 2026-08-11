@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-This page covers four separate tools, each with its own panel and its own settings screen: **Web search** and **Image search** (both backed by Brave), a three-tab **Wikipedia** reader, and an **English dictionary**. Web search, Image search, and Wikipedia never read what's already in your field. You type a query into the panel's own search bar, and nothing goes anywhere until you tap a result. Dictionary is the one exception. With its auto-lookup setting on, which is the default, opening the tool reads your current selection or the word at the cursor and looks that up. See [Looking up definitions](#looking-up-definitions) below.
+This page covers four separate tools, each with its own panel and its own settings screen: **Web search** and **Image search** (both backed by Brave), a three-tab **Wikipedia** reader, and an **English dictionary**. Web search, Image search, and Wikipedia never read what's already in your field. You type a query into the panel's own search bar, and nothing out of the field you're typing in is sent anywhere. Dictionary is the one exception. With its auto-lookup setting on, which is the default, opening the tool reads your current selection or the word at the cursor and looks that up. See [Looking up definitions](#looking-up-definitions) below.
 
 <PhoneFrame caption="Web search results. Tap a row to insert its link, or tap the open icon to launch it in your browser.">
 {/* shot: tools/web-search-results */}
@@ -40,14 +40,14 @@ Without a usable key, neither tool appears on the keyboard at all. There's no bu
 
 Web search and image search are two separate tool screens, reached from **Tools / Web search** and **Tools / Image search**. They share almost the same settings block:
 
-- **Enabled**: on by default, like every tool. Turning it off removes that tool from both the toolbar and the toolbox. The switch can't be pressed while there's no key. With nothing to search with, there's nothing to turn on.
+- **Turn on**: already on, like every tool. Switching it off removes that tool from both the toolbar and the toolbox. The switch can't be pressed while there's no key. With nothing to search with, there's nothing to turn on.
 - **Icon colour**: only shown if [colorful tool icons](/reference/settings/tools/) are turned on globally.
 - **Brave API key**: blank by default. Paste a key from `api-dashboard.search.brave.com` to use your own quota. Leave it blank and the app falls back to a key baked into the build, if this build ships one. The field saves as you type, with no separate save button. Under it you'll read "The app uses your key", "This field is blank. The app uses the key that is built into the app.", or "From api-dashboard.search.brave.com, with a free monthly credit", depending on which applies.
 - **SafeSearch**: on by default. It filters explicit results. Web search maps it to Brave's "moderate" filter. Image search only offers strict or off, so the same toggle maps to "strict" there.
 - **Results for each search**: a slider from 1 to 10, defaulting to **8**. ("Each search uses one API request either way," the app notes.) The Brave API itself allows up to 20 results per request. The app's slider stops lower, at 10.
 - **Results per row**: image search only, and 3 by default. How many image results sit side by side, from 2 to 5. Fewer columns means bigger previews, which is easier to judge before you send one.
 
-The settings page's own caption: "Web and image search share everything here. They search the whole web. The Brave plan includes a free monthly credit of about a thousand searches. Brave asks for attribution, so the panel shows 'via Brave'." That attribution is a small **"via Brave"** label next to the search bar, shown whenever a usable key exists.
+The settings page's own caption: "Web and image search share everything here. They search the whole web. The Brave plan includes a free monthly credit of about a thousand searches. Brave asks for attribution, so the panel shows 'via Brave'." That attribution is a small **"via Brave"** label inside the search bar, at its right end, shown whenever a usable key exists.
 
 ## Reading Wikipedia
 
@@ -69,7 +69,7 @@ Once you've opened an article from a results list, a back arrow appears and retu
 
 <SettingsPath path="Tools / Wikipedia" />
 
-- **Enabled**: on by default.
+- **Turn on**: already on.
 - **Icon colour**: only shown if colorful tool icons are on globally.
 - **Wikipedia language**: a free-text subdomain code (`en`, `bn`, `de`, `fr`, `es`…), defaulting to **`en`**. It changes which language's Wikipedia every request in the tool reads from. Search, summaries, links, and the full article all follow it.
 - **Markdown links**: off by default. Turn it on to insert links as `[Title](url)` instead of a bare URL, in both the Summary tab's "Insert link" chip and every Links-tab chip.
@@ -95,7 +95,7 @@ The dictionary looks up English words with the Free Dictionary API (dictionaryap
 
 <SettingsPath path="Tools / Dictionary" />
 
-- **Enabled**: on by default.
+- **Turn on**: already on.
 - **Icon colour**: only shown if colorful tool icons are on globally.
 - **Look up the word at the cursor**: on by default. Its description on the settings screen reads "The tool searches the selected word or the current word when it opens". Turn it off and Dictionary always opens on its own empty search field.
 

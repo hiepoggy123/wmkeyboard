@@ -20,8 +20,9 @@ import midnight from '@assets/themes/midnight.wmtheme.json';
 import FilterTable from '@components/FilterTable.astro';
 import languages from '@data/languages.json';
 
-Every custom component the docs can use, rendered live. Import them from
-`@components/*`. The conventions live in
+Every component in `CONTENT_GUIDE.md`'s table, rendered live. Import them from
+`@components/*`. (The rest of `src/components/` is Starlight overrides and
+homepage furniture, not building blocks for a page.) The conventions live in
 [CONTENT_GUIDE.md](https://github.com/wasi-master/wmkeyboard/blob/main/docs/CONTENT_GUIDE.md).
 
 ## Inline
@@ -44,8 +45,9 @@ Left empty, it renders the screenshot-pending placeholder. Given an image (or a
 ## LayoutExplorer
 
 Renders any `.wmlayout.json` straight from `app/src/main/assets/layouts/`.
-Import the file, then pass it in. Tap a dotted key to see its long-press
-characters. Layouts with a shift layer get a toggle:
+Import the file, then pass it in. Keys with alternates show the first one as a
+corner hint; hover or tap that key for the full long-press set. A layout whose
+keys carry shift labels gets a ⇧ toggle:
 
 <LayoutExplorer layout={qwertyAfar} />
 

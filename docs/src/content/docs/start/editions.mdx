@@ -27,7 +27,9 @@ Both flavors come from one Gradle flavor dimension (`capabilities`) that flips f
 | Document scanner | Scan a document with Google's scanner and send it as an image | Not available |
 | Grammar check | Check your writing for grammar issues, fully offline (Harper) | Not available |
 
-There's no toggle to flip in Lite. The setting never renders at all. The same check hides these tools everywhere they could otherwise show up: the toolbox panel, [settings search](/reference/settings/), the hardware-keyboard tool shortcuts, and the onboarding tool picker. A Lite build also declares no Harper spell-checker service, so it never appears as an option under Android's system spell checker.
+There's no toggle to flip in Lite. The setting never renders at all. The same check hides these tools everywhere they could otherwise show up: the toolbox panel, the Tools settings screen, [settings search](/reference/settings/), the hardware-keyboard tool shortcuts, and the onboarding tool picker. A Lite build also declares no Harper spell-checker service, so it never appears as an option under Android's system spell checker.
+
+The document scanner has a second condition on top of the flavor. It's an activity inside Google Play services rather than this app's own code, so the same check drops it on a Full build running on a phone without Play services. Text scan and QR scanning stay on such a phone, because their models are in the APK.
 
 Handwriting carries one nuance of its own. Even on Full, its "Handwrite with swipes" option (draw letters instead of gliding) appears only once you've turned on gesture typing, because handwriting a swipe needs the same recognition model.
 
@@ -42,19 +44,21 @@ See [Handwriting](/tools/handwriting/), [Scanner](/tools/scanner/), and [Grammar
 Two more features are Full-only without being toolbox tools of their own. Both are options nested inside tools that exist in both editions:
 
 - **Offline Whisper voice dictation.** The [Voice typing](/tools/voice/) tool always exists, but its "Recognition engine" choice (system recognizer versus offline Whisper) appears only on Full. Lite users see the system recognizer and nothing else, and Whisper never comes up. Even on Full, the system recognizer stays the default until you switch it. The [Whisper](/tools/whisper/) tool page covers its full model catalog.
-- **On-device local LLM.** The [AI writing tools](/tools/ai/) provider picker filters out the "On-device" chip unless the Full flags are set, leaving the cloud and self-hosted-server providers (Claude, OpenAI, Gemini, Ollama, LM Studio). On Full, on-device is one option among several. Claude (Anthropic) is still the default provider until you change it.
+- **On-device local LLM.** The [AI writing tools](/tools/ai/) provider picker filters out the "On your device" chip unless the Full flags are set, leaving the eight that reach a server: Claude, OpenAI, Gemini, Grok, DeepSeek, Ollama, LM Studio and "Other service" for anything else that speaks the OpenAI chat-completions shape. On Full, on-device is a ninth chip beside them. Claude (Anthropic) is still the default provider until you change it.
 
 ## Why the download is smaller
 
 The build's own comment on the flavor split calls it out directly: Lite "removes roughly 100 MB of ML Kit + Harper native libraries for low-storage devices." That figure covers the handwriting, scanning, and grammar libraries specifically. The LiteRT and LiteRT-LM runtimes behind offline Whisper and the local LLM are also Full-only native dependencies and add to the same gap.
 
-What gets cut is runtime *library code*, not language data. The models these features use (handwriting recognition per language, Whisper's transcription graphs, LLM weights) download on demand into app storage in whichever edition supports the feature. None of them are bundled into the APK. Lite is smaller because it never links the ML Kit, Harper and LiteRT native libraries at all. No bundled model is being skipped.
+Most of what gets cut is runtime *library code*, not language data. The biggest models these features use (handwriting recognition per language, Whisper's transcription graphs, LLM weights) download on demand into app storage on Full, so none of those sit in the APK.
 
-Measuring the real release APKs (arm64-v8a) tells the same story, with a smaller gap than that code comment's rough number. Full lands around 65 MB and Lite around 15 MB, so roughly 50 MB apart rather than 100. Figures shift as dependencies update, same as noted on [Installation](/start/installation/#choosing-an-edition).
+Two do ship inside it, though. The direct-download builds pull in ML Kit's bundled text-recognition and barcode-scanning libraries, which carry their models with them, so OCR and QR scanning work on a phone with no Google services at all. Play builds swap both for the unbundled versions, which fetch their models through Play services instead. Either way it's a Full-only dependency, so Lite carries neither the libraries nor the models.
+
+Measuring the real 0.3.0 release APKs tells the same story, with a smaller gap than that code comment's rough number. On `arm64-v8a`, Full lands at 63.2 MB and Lite at 8.25 MB, so about 55 MB apart rather than 100. Figures shift as dependencies update, same as noted on [Installation](/start/installation/#choosing-an-edition).
 
 ## Privacy doesn't change between editions
 
-Lite is a smaller build, not a more private one. Every Full-only feature already runs on-device and says so in its own settings caption: handwriting recognition "runs fully on-device," OCR decoding runs "offline, nothing is uploaded," document scanning is "on-device," Harper grammar checking is "offline, nothing you type is uploaded," Whisper "never sends audio anywhere," and on-device LLM says the text you run an action on "never leaves" the phone. Everything Full adds follows the same offline-first posture as the rest of the keyboard.
+Lite is a smaller build, not a more private one. Every Full-only feature already runs on-device and says so in its own settings caption. Handwriting recognition "runs fully on your device with Google ML Kit." Text scan says "no photo and no text leaves your device, and it works offline." Document scanning says "the processing runs on your device." Harper grammar checking "works offline and uploads nothing that you type." Whisper "runs fully on your device across many languages and sends no audio anywhere." The on-device AI caption says the text you run an action on "stays on your device." Everything Full adds follows the same offline-first posture as the rest of the keyboard.
 
 ## Telling which edition you have
 

@@ -2,7 +2,7 @@
 title: "Backup & restore"
 description: "Export everything, restore anywhere, and control what Android's own backup may take."
 sidebar:
-  order: 5
+  order: 6
 ---
 
 import SettingsPath from '@components/SettingsPath.astro';
@@ -83,36 +83,41 @@ more than the in-app dialog's one-line summary suggests:
 | Dictionary, clipboard, snippets | **Replaces.** The on-device copy is overwritten by what's in the file. |
 | Sticker packs, icon packs, custom word lists | **Replaces.** The whole local collection is cleared and rebuilt from the file. |
 | Addon repositories | **Merges.** Incoming addresses are added to your existing list rather than replacing it (duplicates are skipped). |
+| Emoji history, typing statistics | **Replaces.** The counts in the file overwrite the ones on the device. |
 
 If the file includes API keys, the dialog warns you before you confirm; see
 [Secrets stay out by default](#secrets-stay-out-by-default) below.
 
 Settings import is rollback-safe. After writing, the keyboard re-reads its
 own settings to make sure they still parse. If a hand-edited file breaks
-that, the whole write is undone and you see "The app could not apply that
-backup. Your settings did not change." rather than ending up with a
+that, the whole write is undone and you see "The app could not apply the
+settings. Your settings did not change." rather than ending up with a
 half-applied preference set. The other sections in a full-config bundle still
 apply even if the settings portion rolls back.
 
 ## Secrets stay out by default
 
-API keys for Translate, GIF search, web search and the AI tools are excluded
-from every export unless you turn on **Include API keys**, which only appears
-while the Settings section itself is included. That covers the Grok, DeepSeek
-and other-service keys as well as the older ones.
+Every secret is excluded from an export unless you turn on **Include API
+keys**, which only appears while the Settings section itself is included.
+That's more than the tool keys: Translate, Klipy, GIPHY, Brave, Unsplash,
+Pexels, every AI provider key including Grok, DeepSeek and the
+OpenAI-compatible one, the Hugging Face token, and the passwords and tokens
+for your backup destinations (WebDAV, S3, FTP, Dropbox, OneDrive) plus your
+backup passphrase.
 
-[AI history](/tools/ai/#history) never travels, with or without that switch.
-The two settings that control it do, because they're configuration. The
-records themselves are your own writing, and an off-by-default log of it is
-the last thing that should ride along in a file you mail to yourself. The
-learned dictionary is left out for the same reason.
+[AI history](/tools/ai/#history) never travels, with or without that switch,
+and there is no section for it to travel in. The two settings that control it
+do, because they're configuration. The records themselves are your own
+writing, and an off-by-default log of it is the last thing that should ride
+along in a file you mail to yourself. The learned dictionary has a section of
+its own but it's off by default, for the same reason.
 
 Leave **Include API keys** off and the file is safe to store in a synced
 folder or hand to someone else. Turn it on and the keys sit in the file as
-plain text. The app warns you after export: "Backup exported, API keys
-included. Treat that file as a password." An incoming file with keys in it
-gets the same warning before you confirm the import, because those keys will
-overwrite the ones already set on the device.
+plain text. The app warns you after export: "The app exported the backup with
+your API keys in it. Keep that file as safe as a password." An incoming file
+with keys in it gets a warning before you confirm the import, because those
+keys will overwrite the ones already set on the device.
 
 This redaction is specific to the file you export yourself. It doesn't apply
 to Android's own backup below. Turn that on and it copies your saved API keys
@@ -146,7 +151,10 @@ packs is not, and it goes out every interval, which is why Wi-Fi is the
 default. Turn it off and a backup uploads over mobile data as soon as it's
 due. The Wi-Fi toggle only appears for destinations that need a connection.
 A **Folder** is storage on your own device, so it backs up offline either
-way.
+way. There is one ceiling you don't set: when the sticker packs, icon packs
+and imported word lists would push the file past 16 MB, an automatic run
+drops those three sections and backs up everything else. A manual export
+never does.
 
 Turning **Only while charging** off is worth knowing about for the opposite
 reason. A phone that's only ever charged in the car may never be plugged in
@@ -163,13 +171,19 @@ you need the passphrase to restore it. The app stores that passphrase on your
 device, because a backup that runs while you're asleep has nobody to type it.
 So it protects the file where it lands, in a cloud folder for instance, and
 not against a person holding your unlocked device. Write it down. Without it,
-a backup cannot be restored.
+a backup cannot be restored. It also decides one thing you might not expect:
+an automatic backup carries your API keys only when **Include API keys** is
+on *and* the file is encrypted, because a file anybody can read should not be
+carrying them. A manual export has no such rule, and puts them in plain.
 
-**Some destinations send your password with every upload.** WebDAV over plain
-`http` is refused for that reason, and so is an S3 endpoint on plain `http`.
-FTP without TLS is allowed, because some older servers offer nothing else,
-and the screen says plainly what it costs. Turn on a passphrase if you use
-it.
+**Some destinations send a credential with every upload.** WebDAV sends your
+password on every request, so a WebDAV address on plain `http` is refused
+outright. FTP without TLS is allowed, because some older servers offer
+nothing else, and the screen says plainly what it costs. An S3 endpoint on
+plain `http` is allowed too, for the MinIO box on your own network: the
+request is signed rather than carrying the secret key, but the signature and
+the file both go over the wire in the clear, and the screen says so under the
+endpoint field. Turn on a passphrase if you use either.
 
 **Nothing is backed up while your device is locked.** The parts that matter
 most, like your learned words, live in storage that only exists once you've

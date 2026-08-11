@@ -34,7 +34,7 @@ There are twelve addon types, and every one of them maps onto something the app 
 | Sound pack | 16 MB | Yes |
 | Plugin | 1 MB | Yes |
 
-Some types you judge by wearing rather than by looking at in isolation. A theme or a font only makes sense on the keyboard itself, so its detail page has no content preview to offer, just whatever screenshots the publisher chose to include. Dictionaries, sticker packs, snippet packs, key sounds, sound packs and plugins preview their actual content, because the content is the thing you're deciding on.
+Some types you judge by wearing rather than by looking at in isolation. A theme or a font only makes sense on the keyboard itself, so its detail page has no content preview to offer, just whatever screenshots the publisher chose to include. Dictionaries, emoji keyword packs, sticker packs, snippet packs, key sounds, sound packs and plugins preview their actual content, because the content is the thing you're deciding on.
 
 For the type-by-type walkthrough of what each one looks like once installed, see [Installing addons](/addons/installing/) and [Managing addons](/addons/managing/).
 
@@ -55,7 +55,7 @@ With one exception, every addon type is plain data. No code runs when you instal
 A few rules keep that trust model intact even before an addon reaches your device:
 
 - **HTTPS only.** A repository or asset URL that isn't https fails outright rather than silently upgrading. A link that was supposed to be intercepted fails visibly instead of loading anyway.
-- **Assets stay where the manifest says they are.** A repository can't point an asset at a different host than its own manifest, and can't walk outside its own folder with a `../` path. One manifest can't quietly serve files it doesn't own.
+- **A relative path stays inside the repository.** A reference written relative to the manifest resolves under the manifest's own folder and nowhere else: a `../` walking up, a `/`-rooted path, or a protocol-relative `//host/path` are all refused, so one manifest can't quietly serve files that belong to somebody else on the same host. A publisher can still name an absolute `https://` URL, on any host, which is how a release asset or a CDN gets used.
 - **Checksums, verified when present.** A repository can publish a `sha256` for any file. If it does, the app verifies it after download and refuses the install on a mismatch.
 - **Size caps are enforced mid-download.** A download that exceeds its type's limit (the table above) is aborted in flight rather than flagged after the fact.
 
@@ -75,9 +75,9 @@ A `wmkeyboard://` link (from a repository's README, a chat message, wherever) ca
 
 ## Finding repositories to add
 
-WM Keyboard ships pointed at one sample repository, so the Addons screen isn't empty the first time you open it: [`wmkeyboard-addon-repository`](https://github.com/wasi-master/wmkeyboard-addon-repository) on GitHub. It's a plain repository (a `wmkeyboard-repo.json` index plus the addon files it lists, served over https with no build step), so forking it is the fastest way to start publishing your own. It also doubles as the canonical copy of the repository spec and JSON Schema.
+WM Keyboard ships pointed at two repositories, so the Addons screen isn't empty the first time you open it. The first is the sample: [`wmkeyboard-addon-repository`](https://github.com/wasi-master/wmkeyboard-addon-repository) on GitHub. It's a plain repository (a `wmkeyboard-repo.json` index plus the addon files it lists, served over https with no build step), so forking it is the fastest way to start publishing your own. It also doubles as the canonical copy of the repository spec and JSON Schema. The second is `wmkeyboard-monkeytype-sounds`, a companion repository of typing sounds.
 
-If you remove the sample repository, the app won't add it back on its own. It's only seeded once, the first time you ever open Addons.
+If you remove either one, the app won't add it back on its own. The seeding pass remembers which addresses it has already offered, so a repository you removed stays gone, and a new default shipped in a later version still turns up on your next visit.
 
 For the technical side of writing your own (the manifest schema, hosting requirements, and what each addon type's payload format looks like), see the [addon repository format](/development/addon-repos/repo-format/) reference.
 

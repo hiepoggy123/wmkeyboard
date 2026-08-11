@@ -29,13 +29,15 @@ A word that matches a known contact name or a known app name is never "corrected
 
 ### Contact names in the strip
 
-Turn on **Suggest contact names** and start typing a contact's first or last name. It completes like any other word, ranked above ordinary dictionary and learned words. It works in every language mode, not only English, since all it does is match against words extracted from your address book.
+Turn on **Suggest contact names** and start typing a contact's first or last name. It completes like any other word, ranked above ordinary dictionary and learned words. It works in almost every language mode, not only English, since all it does is match against words extracted from your address book.
+
+The Bangla phonetic (Avro) layout is the exception. While you're composing a romanized buffer there, the strip is the Bengali candidate list and nothing else, so contact names, contact emails and app names aren't offered as completions. The name chaining still works: finish a name and the next part of it is still offered as the next word, because that path runs before the Bengali one takes over.
 
 ### Contact email completion
 
-Turn on **Suggest contact emails** and type the start of an address anywhere in ordinary text. The strip offers matching full addresses from your contacts, ranked above everything else in the strip.
+Turn on **Suggest contact emails** and type the start of an address anywhere in ordinary text. Two characters are enough to trigger it, and a single letter deliberately isn't, or one keystroke would dump the whole address book onto the strip. The strip offers matching full addresses from your contacts, ranked above everything else in the strip.
 
-A second setting, **Contact emails in email fields too**, extends this into fields the keyboard recognizes as email inputs specifically. Those fields keep no composing buffer the way an ordinary text field does, because letters you type there commit straight to the field one at a time. That leaves the everyday word-completion engine with nothing to work with, independently of <SettingsPath path="Typing / Suggestions in every field" />. This setting carves out an exception just for contact-email completions. It reads the address-in-progress straight from the field instead of from a composing buffer, so the one place you're most likely to want an email address offered is the one place ordinary suggestions can't reach. It only has an effect while **Suggest contact emails** itself is on, and its row only appears in the settings list once that parent toggle is on too.
+A second setting, **Contact emails in email fields too**, extends this into fields the keyboard recognizes as email inputs specifically. Those fields keep no composing buffer the way an ordinary text field does, because letters you type there commit straight to the field one at a time. That leaves the everyday word-completion engine with nothing to work with, independently of <SettingsPath path="Typing / Suggestions / Suggestions in every field" />. This setting carves out an exception just for contact-email completions. It reads the address-in-progress straight from the field instead of from a composing buffer, so the one place you're most likely to want an email address offered is the one place ordinary suggestions can't reach. It only has an effect while **Suggest contact emails** itself is on, and its row only appears in the settings list once that parent toggle is on too. It also needs the master **Suggestions** switch on, and it stands down in a password field like everything else.
 
 Tapping a suggested email in an email field commits the whole address with no trailing space, since an address is usually the entire field. It also stays out of your personal dictionary, because an address isn't treated as a word to learn.
 
@@ -45,7 +47,7 @@ Turn on **Suggest app names** and installed-app labels complete the same way con
 
 ## Options
 
-<SettingsPath path="Typing / Suggest contact names" />
+<SettingsPath path="Typing / Suggestions / Suggest contact names" />
 
 | Setting | Default | Needs |
 | --- | --- | --- |

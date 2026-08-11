@@ -10,7 +10,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-Every accessibility option lives on one settings screen, grouped into vision, motion, screen reader and touch. Turn on only what you need, whether that's a colour filter, a screen-reader mode or a slower long-press delay. Nothing is buried elsewhere in the app.
+The Accessibility screen gathers the options into four groups: vision, motion, screen reader and touch. Turn on only what you need, whether that's a colour filter, a screen-reader mode or a slower press-and-hold delay. Two related settings live on their own screens, key size on **Layout & size** and feedback on **Key press**, and this screen has a link straight to each.
 
 <PhoneFrame caption="The Vision group at the top of the Accessibility screen.">
   ![The Vision group at the top of the Accessibility screen.](@assets/screens/accessibility/vision-group.webp)
@@ -45,7 +45,7 @@ This service is deliberately narrow. It requests no accessibility events and can
   {/* shot: accessibility/gestures-service-required */}
 </PhoneFrame>
 
-Tap that row to open Android's own Accessibility settings. Turn the service on there, like any other. Turning it back off is safe at any time, as is leaving it off. The keyboard falls back to Explore-by-touch for as long as TalkBack support is set to Gestures.
+Tap that row. A disclosure sheet explains what the service does and what it can't do. Tap **Open system settings** on it to reach Android's own Accessibility screen, then turn the service on there like any other. Turning it back off is safe at any time, as is leaving it off. The keyboard falls back to Explore-by-touch for as long as TalkBack support is set to Gestures.
 
 ## Seeing the keys clearly
 
@@ -93,12 +93,12 @@ The keyboard also follows the device's own **Remove animations** (Android's Acce
 
 **Ignore repeated presses** discards a second press of the *same* key when it lands inside a window after the first. The window runs from 0 ms (off, so every press registers) up to 500 ms, and defaults to off. It's aimed at hand tremor or spasticity, where one intended tap shouldn't turn into two characters. Only a repeat of the same key is filtered, so typing two different keys quickly is never blocked. Set the window too high and it starts eating deliberate double letters like "ll" or "ee".
 
-**Long-press delay** controls how long you hold a key before its alternate-character popup opens, from 150 ms up to 800 ms, defaulting to 300 ms. Raise it if you trigger long-press popups by accident. Lower it if holding a key feels sluggish.
+**Press and hold delay** controls how long you hold a key before its alternate-character popup opens, from 150 ms up to 800 ms, defaulting to 300 ms. Raise it if you trigger the popups by accident. Lower it if holding a key feels sluggish.
 
-Two links round out the group. **Key size & spacing** opens [Size, position & one-handed use](/typing/size-position/) for taller keys and wider gaps. **Haptics & sound** opens [Sound & vibration](/typing/feedback/) for feedback on every press.
+Two links round out the group. **Key size and spacing** opens [Size, position & one-handed use](/typing/size-position/) for taller keys and wider gaps. **Haptics and sound** opens the Key press screen, covered on [Sound & vibration](/typing/feedback/), for feedback on every press.
 
-<PhoneFrame caption="The Touch group: ignore repeated presses and long-press delay.">
-  ![The Touch group: ignore repeated presses and long-press delay.](@assets/screens/accessibility/touch-group.webp)
+<PhoneFrame caption="The Touch group: ignore repeated presses and press and hold delay.">
+  ![The Touch group: ignore repeated presses and press and hold delay.](@assets/screens/accessibility/touch-group.webp)
 </PhoneFrame>
 
 ## One-handed and floating keyboards

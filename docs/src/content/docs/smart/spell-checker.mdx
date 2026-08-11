@@ -27,7 +27,7 @@ Installing WM Keyboard doesn't make it your spell checker. That's a separate, OS
 
 1. Open the Grammar check tool's settings.
 
-2. Tap **Use Harper everywhere**, under the **System-wide** group. Android's own Spell checker screen opens. On OEM builds that hide that screen, the Language & input screen opens instead.
+2. Tap **Use Harper everywhere**, under the **System-wide** group. Android's own Spell checker screen opens. On OEM builds that hide that screen, the input-method settings screen opens instead.
 
 3. Select **WM Keyboard (Harper)**.
 
@@ -45,7 +45,7 @@ The whole feature is full-edition only: the settings entry, the service, and the
 
 The system spell checker and WM Keyboard's own suggestion strip are separate mechanisms that happen to share the same Harper engine underneath. They don't always agree, and one can be available when the other isn't:
 
-- **Where it runs.** The spell checker runs in its own process, independent of the active keyboard. It works in any app, with any input method, and keeps working when WM Keyboard isn't your current keyboard at all. In-keyboard [autocorrect and suggestions](/smart/autocorrect/) only run while WM Keyboard itself is the active keyboard.
+- **Where it runs.** The spell checker is a service of its own inside the WM Keyboard app, wired to Android's text-service framework rather than to the keyboard. It works in any app, with any input method, and keeps working when WM Keyboard isn't your current keyboard at all. In-keyboard [autocorrect and suggestions](/smart/autocorrect/) only run while WM Keyboard itself is the active keyboard.
 - **Language coverage.** The spell checker is English-only, because Harper is English-only. Typing suggestions and autocorrect work in every language you've enabled, each with its own dictionary.
 - **Editions.** The spell checker is full-edition only. Typing suggestions and autocorrect ship in both full and lite. Dropping Harper on lite doesn't touch ordinary typing prediction.
 - **Reactive vs. proactive.** The spell checker only answers when the host app's text-service framework asks it to, underlining and offering fixes on request. [Autocorrect](/smart/autocorrect/) works the other way round. It fixes typos the moment you press space and offers next-word predictions as you type, gated by its own confidence threshold.
@@ -56,7 +56,7 @@ The system spell checker and WM Keyboard's own suggestion strip are separate mec
 Turn on **Suggest contact names** under Typing settings and the spell checker loads the same contact index the in-keyboard suggestion strip uses. It then treats that index specially in two ways:
 
 - A word that matches a contact's name or a contact's email address is never flagged as a typo. No underline appears under a name it recognizes, in any app.
-- A mistyped word close to a contact's name or address (a one-letter typo, or a partial match) is offered first in the correction menu, ahead of Harper's own grammar-based suggestions.
+- A mistyped word close to a contact's *name* (a one-letter typo, or a prefix of one) is offered first in the correction menu, ahead of Harper's own grammar-based suggestions. Addresses are only used to suppress the underline. A mistyped address is never corrected toward the right one.
 
 One toggle covers both: **Suggest contact names** loads names and email addresses for the spell checker. The separate **Suggest contact emails** toggle, also under Typing, only affects the in-keyboard suggestion strip. It has no effect here, which is easy to miss when the two settings sound like they'd overlap. See [Contact-aware typing](/smart/contacts/) for both toggles in full, including what gets read and how.
 
@@ -79,7 +79,7 @@ One toggle covers both: **Suggest contact names** loads names and email addresse
 ## Details & edge cases
 
 - **Re-check delay doesn't apply here.** The Grammar check screen also has a **Re-check delay** slider (100–1500 ms, default 350 ms). That only paces how often the in-panel Grammar tool re-lints while you're actively writing. The system spell checker has no debounce. It answers synchronously whenever the host app's framework calls in.
-- **Runs even when WM Keyboard isn't your keyboard.** The checker lives in its own process and loads Harper (and, if enabled, your contacts) independently of the IME, so it keeps working with any other keyboard app in front. It only needs to be selected as the system spell checker. Which on-screen keyboard you're using doesn't matter.
+- **Runs even when WM Keyboard isn't your keyboard.** The checker loads Harper (and, if enabled, your contacts) itself, on its own schedule, rather than borrowing anything the IME set up, so it keeps working with any other keyboard app in front. It only needs to be selected as the system spell checker. Which on-screen keyboard you're using doesn't matter.
 - **Runs locally, like everything else.** Harper is a native library loaded on-device, and there's no network client anywhere in the spell-checker code path. Contacts are read into memory the moment the toggle is on and dropped again the moment it's off, never written to disk. See [Privacy at a glance](/privacy/overview/) for what does and doesn't touch the network elsewhere in the app.
-- **Not fully covered by Settings search.** "English dialect," "Re-check delay," and "Use Harper everywhere" all turn up in Settings search. "Underline only, no fix popup" currently doesn't. If you're hunting for that one, go to Tools → Grammar check directly.
+- **All four rows are in Settings search.** "English dialect," "Re-check delay," "Use Harper everywhere," and "Underline only, no fix popup" each turn up there, and each search result lands on the Grammar check screen.
 - **Lite has none of this.** The manifest entry, the service, and the picker listing are all absent on lite builds, genuinely not shipped rather than hidden, because lite doesn't include Harper's native library at all.

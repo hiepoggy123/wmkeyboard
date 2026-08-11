@@ -21,7 +21,9 @@ Tap **Clipboard** on the toolbar. If you unpinned it, open the toolbox and tap i
 
 Cards lay out in a staggered two-column grid rather than a fixed one, so a short text clip doesn't get stretched to match a tall image beside it. Pinned clips sort first by default ([flip that](#options) to put them last instead). Tap any card to insert it. Copying the same content again moves the existing card back to the top rather than adding a duplicate.
 
-A swipe has no confirmation and no undo, so a stray one is permanent. To remove a single clip, swipe its card left or right until it slides off. To see a clip's info popup instead, press and hold its card. The popup gives the time it was copied, its type and size, and (if [source tracking](#options) is on) the app it came from.
+Every card carries two small circles along its bottom edge: a pin and a delete. Tap the pin to keep a clip out of reach of the expiry and the entry cap. Tap the bin to drop it. Swiping a card left or right until it slides off deletes it too, and a swipe has no confirmation and no undo, so a stray one is permanent.
+
+To see a clip's info popup instead, press and hold its card. The popup gives the time it was copied, its type and size, and (if [source tracking](#options) is on) the app it came from. An image clip gets one extra line there: **Send as sticker**, which runs the picture through the sticker processor before it goes.
 
 <PhoneFrame caption="Long-pressing a clip: the info popup shows when it was copied, its type, size, and source app.">
   {/* shot: tools/clipboard-info-popup */}
@@ -31,7 +33,7 @@ A swipe has no confirmation and no undo, so a stray one is permanent. To remove 
 
 Turning [clipboard history](#options) off stops capture entirely. Even with it on, two things skip a copy: incognito being active and [set to pause the clipboard](/privacy/incognito/), and a copy taken from a password field. Neither one reaches history, whatever else you have configured.
 
-Five kinds of clip are stored, each shown differently in the panel:
+Clips are stored under seven kinds. The panel groups them like this:
 
 - **Text and rich text**: the plain content, shown as-is.
 - **Links**: shown as the raw URL, or as a fetched title and description if [link previews](#options) are on.
@@ -45,7 +47,7 @@ Five kinds of clip are stored, each shown differently in the panel:
 
 ### Pasting rich media
 
-Tapping an image, file, or video card negotiates a MIME type with the focused field. It tries the field's accepted types in order and sends the first match via `commitContent`. If the field wants PNG but the clip is a static WebP, it converts on the fly. Animated WebP is left alone, so an animation is never silently flattened into a still. If nothing matches, the item goes back onto the system clipboard and a toast tells you to paste it there. That happens when the field takes no rich content at all, or when the permission to read the file has lapsed.
+Tapping an image, file, or video card negotiates a MIME type with the focused field. The keyboard offers the clip's own type, and sends it via `commitContent` when the field advertises that it takes one. If the field wants PNG but the clip is a static WebP, it converts on the fly. Animated WebP is left alone, so an animation is never silently flattened into a still. If nothing matches, the item goes back onto the system clipboard and a toast tells you to paste it there. That happens when the field takes no rich content at all, or when the permission to read the file has lapsed.
 
 ### Expiry and the entry cap
 
@@ -55,7 +57,7 @@ Unpinned clips fall off two ways. <SettingsPath path="Tools / Clipboard" /> sets
 
 Turn on the search bar and a search pill appears at the top of the panel, once you have at least one clip. Tap it and your keystrokes go to the search field instead of into your document, the same trick the emoji panel uses. The panel shrinks to just the field and its results while you type.
 
-Matching is a case-insensitive substring search, and it reaches past a clip's own text. An image or video with no text of its own is still found by typing "image," "screenshot," or its file format, because those are indexed alongside the file name and any link preview's title.
+Matching is a case-insensitive substring search, and it reaches past a clip's own text. A clip with no text of its own is still found by what it is: "image", "picture" or "screenshot" for a copied picture, "video", "movie" or "recording" for a clip, "folder" for a folder. The file format works too, because all of that is indexed alongside the file name, the source app and any link preview's title and description.
 
 ## Pulling codes and links out of a clip
 
@@ -65,7 +67,7 @@ Turn on entity detection and the panel scans your recent clips for one-time code
   {/* shot: tools/clipboard-entity-chips */}
 </PhoneFrame>
 
-Detection is conservative on purpose. A 4-digit year is never mistaken for a code, and a run of digits after a currency symbol or a `#` is never mistaken for a phone number. Google's `G-123456` verification prefix is stripped, so only the code itself pastes. The same detection drives the ordinary paste chip on the suggestion strip: if your most recent copy is a message that *contains* a code rather than *being* one, the strip offers the code alone instead of the whole message.
+Detection is conservative on purpose. A 4-digit year is never mistaken for a code, and a run of digits after a currency symbol or a `#` is never mistaken for a phone number. Google's `G-123456` verification prefix is stripped, so only the code itself pastes. Pulling a fragment out of a longer message is the panel's job alone. The suggestion strip only ever offers a copied code when the clip *is* the bare code and the field you are in asks for digits, which is the **Suggest copied codes in code boxes** rule under [Options](#options).
 
 Phone numbers are the one fragment with no shape of their own, so they get an extra setting. Without it, anything with 7 to 15 digits counts, which is how an invoice total or a tracking number ends up wearing a phone chip. Open **Phone number formats** from the clipboard settings. Give it a number you copy often. The screen turns that into a format like `+880 1XXX-XXXXXX`: it keeps the dial code and makes the rest wildcards, and you can type digits back over a wildcard to pin it. After that, only numbers matching one of your formats become chips.
 
@@ -77,22 +79,22 @@ This entity strip is a different mechanism from [Smart chips](/smart/chips/), wh
 
 The clipboard tool treats a copied password or code as sensitive in two independent ways: at copy time, and at paste time.
 
-**At copy time**, <SettingsPath path="Tools / Clipboard / Passwords & codes" /> chooses what happens to a clip Android itself marks sensitive. That's the flag a password manager sets when you copy a login. You can keep it like any other clip, hide it and forget it quickly, or never save it at all. The default hides and forgets. Never saving would trade away the everyday "I pasted a password into the wrong field" recovery, and it closes a risk a short timer already closes. Turn on recognizing sensitive clips yourself and the same handling covers anything that merely *looks* like a password or a bare code. That's for managers older than the flag, or a code you copied by hand, and it's narrow enough that a sentence, a link or an email address never qualifies.
+**At copy time**, <SettingsPath path="Tools / Clipboard / Passwords and codes" /> chooses what happens to a clip Android itself marks sensitive. That's the flag a password manager sets when you copy a login. You can keep it like any other clip, hide it and forget it quickly, or never save it at all. The default hides and forgets. Never saving would trade away the everyday "I pasted a password into the wrong field" recovery, and it closes a risk a short timer already closes. Turn on recognizing sensitive clips yourself and the same handling covers anything that merely *looks* like a password or a bare code. That's for managers older than the flag, or a code you copied by hand, and it's narrow enough that a sentence, a link or an email address never qualifies.
 
 A hidden clip shows as a row of dots and a character count in the panel, and it's never revealable there. It's also left out of the strip's paste chip, the entity strip and the settings backup. It expires on its own timer, independent of the ordinary history expiry above and not capped by it. Pinning a sensitive clip overrides all of that, the same as pinning anything else.
 
-**At paste time**, turn on forgetting after a password paste. The clip is then deleted from history the moment you paste into a password field, and from the system clipboard too if that still holds exactly what you pasted. Every paste route fires it: a tap on a card, the strip's paste chip, a pasted entity chip, and a hardware <KeyCap>Ctrl</KeyCap>+<KeyCap>V</KeyCap>. So the rest of an SMS can't sit on the clipboard after you've pasted only its code.
+**At paste time**, turn on forgetting after a password paste. The clip is then deleted from history the moment you paste into a password field, and from the system clipboard too if that still holds exactly what you pasted. Every paste route fires it: a tap on a card, the strip's paste chip, a pasted entity chip, a long-pressed <KeyCap>V</KeyCap>, the text-editing panel's Paste, and a hardware <KeyCap>Ctrl</KeyCap>+<KeyCap>V</KeyCap>. So the rest of an SMS can't sit on the clipboard after you've pasted only its code.
 
 :::note
-Locking the keyboard out of the clipboard panel entirely while the device is locked is a separate, [Appearance](/reference/settings/appearance/) setting (hiding the toolbar when locked), not part of this group.
+The clipboard is already out of reach while the lock screen is showing, and no setting controls that. History reads as empty, the paste chip is cleared, and the panel refuses to open. Hiding the whole top strip there, suggestions and toolbar together, is a separate [Appearance](/reference/settings/appearance/) setting and not part of this group.
 :::
 
 ## Options
 
 <SettingsPath path="Tools / Clipboard" />
 
-<PhoneFrame caption="Clipboard settings: the History group and, below it, Passwords & codes.">
-  ![Clipboard settings: the History group and, below it, Passwords & codes.](@assets/screens/tools/clipboard-settings.webp)
+<PhoneFrame caption="Clipboard settings: the History group and, below it, Passwords and codes.">
+  ![Clipboard settings: the History group and, below it, Passwords and codes.](@assets/screens/tools/clipboard-settings.webp)
 </PhoneFrame>
 
 **History**, in the order the rows appear:

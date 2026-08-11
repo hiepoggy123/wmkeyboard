@@ -77,7 +77,7 @@ Setting TalkBack support to **Gestures** reveals the **Keyboard gestures service
 | Not granted | "Keyboard gestures service required" | `Turn on "WM Keyboard gestures" in Settings › Accessibility` |
 | Granted | "Keyboard gestures service" | "On. The keys get your touches. TalkBack keeps the rest of the screen" |
 
-Tap the row to open Android's Accessibility settings directly. Without the service granted, Gestures mode falls back to behaving like Explore.
+Tap the row and a disclosure appears first, explaining what the service reads (nothing) and what it does. Continue from there and the app opens Android's Accessibility settings. Without the service granted, Gestures mode falls back to behaving like Explore.
 
 <PhoneFrame caption="TalkBack support set to Gestures, with the Keyboard gestures service row asking to be granted.">
   {/* shot: reference/settings/accessibility-screen-reader-group */}
@@ -90,7 +90,7 @@ Tap the row to open Android's Accessibility settings directly. Without the servi
 | Setting | Control | Options / range | Default |
 |---|---|---|---|
 | Ignore repeated presses | Slider | 0–500 ms | Off (0 ms) |
-| Long-press delay | Slider | 150–800 ms | 300 ms |
+| Press and hold delay | Slider | 150–800 ms | 300 ms |
 | Key size & spacing | Opens **Layout & size** | n/a | n/a |
 | Haptics & sound | Opens **Key press** | n/a | n/a |
 
@@ -109,13 +109,13 @@ Tap the row to open Android's Accessibility settings directly. Without the servi
 - **The on-screen label for the greyscale colour-vision filter reads "Grey."** The setting's internal name is `GRAYSCALE`, but nothing you see in the app spells it that way.
 - **Text size here and the key-preview popup's font scale are two different settings.** Both scale text, but changing one doesn't change the other.
 - **Ignore repeated presses only filters a repeat of the same key.** It cannot slow down typing in general by blocking different keys pressed close together.
-- **The gesture pass-through service needs Android 11 (API 30).** WM Keyboard's minimum supported version is Android 7.0 (API 24). On Android 9 or 10 you can still grant the "WM Keyboard gestures" service, but the system call it depends on is unavailable. Gestures mode quietly behaves like Explore even with the service on.
+- **The gesture pass-through service needs Android 11 (API 30).** WM Keyboard's minimum supported version is Android 7.0 (API 24). Anywhere from Android 7 through Android 10 you can still grant the "WM Keyboard gestures" service, but the system call it depends on is unavailable, so the service does nothing. Gestures mode quietly behaves like Explore even with the service on.
 - **No edition differences.** Every setting on this screen, and the pass-through service behind it, works the same on both the full and lite builds.
 
 ## Related pages
 
 - [Accessibility overview](/accessibility/overview/): the why behind every option here, plus one-handed and floating-keyboard accommodations that live on the [Layout & size](/reference/settings/layout/) screen instead.
-- [Fonts](/themes/fonts/): the full font browser that **Keyboard font** and **Readable font** both open into.
+- [Fonts](/themes/fonts/): the full font browser the **Keyboard font** row opens into. **Readable font** is a toggle, not a navigation row, and it writes the same setting without opening anything.
 - [Size, position & one-handed use](/typing/size-position/): for making the keys themselves bigger, not just their labels.
 - [Sound & vibration](/typing/feedback/): the destination of the **Haptics & sound** row.
 - [Power saving mode](/typing/power-saving/): another path to reduced motion, independent of the toggle on this screen.

@@ -23,9 +23,9 @@ Don't confuse this with [Layout & size](/reference/settings/layout/), a differen
 
 <SettingsPath path="Key layouts" />
 
-Reach it from Settings home's Keyboard group, or by searching "Key layouts" in settings search. The screen opens with a one-line caption: a layout types the language it's based on, so a rearranged Bangla grid still uses the Bangla dictionary. Below that sit two named groups, with a pair of import rows between them:
+Reach it from Settings home's Keyboard group, from the **Key layouts** row at the foot of <SettingsPath path="Languages / Your layouts" />, or by searching "Key layouts" in settings search. The screen opens with a one-line caption: a layout types the language it's based on, so a rearranged Bangla grid still uses the Bangla dictionary. Below that sit two named groups, with a pair of import rows between them:
 
-- **Your layouts**: every layout you've made or edited yourself, on or off. Addon-installed layouts stay out of this group even when enabled. They're grids you installed rather than grids you built here, so they live under [Languages](/languages/switching/) instead. Empty, the group reads "No layouts of your own yet," with "Copy a layout below to start from a grid that already works" underneath.
+- **Your layouts**: leads with a **Start a new layout** row ("Begin from an empty grid with the usual rows"), which makes a layout called "My layout" from the default letters grid with every character key blanked out, then opens it. Enter, shift, space and delete are left in place, since re-adding them is nobody's idea of a start. Below that row sits every layout you've made or edited yourself, on or off. Addon-installed layouts stay out of this group even when enabled. They're grids you installed rather than grids you built here, so they live under [Languages](/languages/switching/) instead. With nothing of your own yet, one row reads "No layouts of your own yet," with "Copy a layout below to start from a grid that already works" underneath.
 - **Import a layout**: an ungrouped row that opens a file picker for a `.wmlayout.json` file.
 - **Import from another keyboard**: a second ungrouped row directly below it, for a FlorisBoard or HeliBoard layout file (`.json` or `.txt`). Subtitle: "Read a layout file from FlorisBoard or HeliBoard." See [Importing from other keyboards](/reference/importing-other-keyboards/) for what survives the conversion.
 - **Built in**: the enabled shipped layouts, only shown at all once at least one is on.
@@ -36,7 +36,7 @@ Each row shows the layout's name, then a summary line: on/off state, language, l
 
 | Button | What it does |
 |---|---|
-| Export | Writes the layout to a `.wmlayout.json` file you name. Reports "Saved `<name>`." or "Could not write that file." |
+| Export | Writes the layout to a `.wmlayout.json` file you name. Reports "The app saved `<name>`." or "The app could not write that file." |
 | Duplicate | Creates a copy (id `custom_<timestamp>`) and opens it in the editor, but **without switching to it**. A half-finished copy becoming the live keyboard mid-edit is exactly the situation that could leave you unable to type well enough to undo it. |
 | Delete / Reset | Removes a layout you made, or drops an override on a shipped one. See below. |
 
@@ -44,10 +44,12 @@ Tapping the row itself (not a button) opens the visual editor.
 
 **Import** asks to confirm before adding anything. The dialog is headed `Import <name>?` and reads "The app adds the layout to your layouts, but it does not turn it on. Turn it on under Languages when you are ready to type with it." If the file needed automatic repairs to become usable, a bulleted "Changed during the import:" list joins that same dialog. A file that isn't a WM Keyboard layout shows "That file is not a WM Keyboard layout." and no confirm dialog at all. A successful import always gets a fresh `custom_<timestamp>` id, never the id inside the file, and reports "The app imported `<name>`."
 
+**Import from another keyboard** gets a confirm dialog of its own, because neither FlorisBoard nor HeliBoard states a language in a layout file and a layout stored without one reads back as English. The dialog carries a **Language** row, pre-filled with a guess from the letters on the keys, that opens the same searchable language picker the editor uses. Set it before importing: it decides the dictionary, the autocorrect, the script rules, dictation and how shift behaves.
+
 **Delete or Reset**, depending on which group the row came from:
 
-- On a layout under **Your layouts**, the button is always Delete: `Delete <name>?`, which reads "This layout is removed. If it is switched on under Languages it is switched off, and the keyboard falls back to QWERTY."
-- On a **Built in** row, editing a shipped layout doesn't fork a new one, since your changes are stored as an override under that same built-in id. So the button only appears once there's an override to drop, and it reads Reset instead of Delete: `Reset <name>?`, which reads "Your changes to this built-in layout are discarded and the original grid comes back. Nothing else changes." An untouched built-in row has no button here at all.
+- On a layout under **Your layouts**, the button is always Delete: `Delete <name>?`, which reads "The app deletes this layout. If the layout is on under Languages, the app turns it off and the keyboard goes back to QWERTY."
+- On a **Built in** row, editing a shipped layout doesn't fork a new one, since your changes are stored as an override under that same built-in id. So the button only appears once there's an override to drop, and it reads Reset instead of Delete: `Reset <name>?`, which reads "The app discards your changes to this built-in layout. The original grid comes back. Nothing else changes." An untouched built-in row has no button here at all.
 
 <PhoneFrame caption="Confirming a reset on an edited built-in layout.">
   {/* shot: reference/settings/key-layouts-delete-confirm */}
@@ -63,11 +65,21 @@ Tap any enabled layout's row to open **Edit layout**. The grid is rendered with 
   {/* shot: reference/settings/layout-editor-grid */}
 </PhoneFrame>
 
+### The layout's identity
+
+Three rows sit above the layer chips, and between them they cover everything about the layout that isn't a key:
+
+- **Name**: opens a rename dialog. This is the fix for "Probhat copy copy" after a second duplicate.
+- **Language**: opens a searchable picker over the whole language registry, and shows "Not set" until one is chosen. It decides the dictionary, autocorrect, script rules, dictation and shift behaviour, so re-language a duplicate here if you rearranged its grid into another language.
+- **Typing method**: a choice, defaulting to **Follow the language**, over every composer the app has (plain keys, dead keys, phonetic, Indic clusters, Hangul, Telex, VNI, romaji, Pinyin and the rest). Leave it alone unless this layout types the same language a different way, which is the difference between a phonetic grid and a direct grid for one script.
+
+### Layers
+
 A layout has up to **nine layers**, switchable with a row of chips across the top: Letters, Symbols, Symbols 2, Number, Phone, Date, Time, Date & time, and Fn. The editor opens on Letters. None of the nine has to be defined. Any layer you leave untouched falls back to the built-in grid for that layer, so a layout that only rearranges letters still gets a working number pad without you drawing three hundred keys yourself. A pencil icon on a chip marks a layer this layout has authored its own copy of. Tap an unauthored chip and a caption explains that changing anything there forks a copy just for this layout. Fn is the one exception. Nothing ships an Fn layer, so there's no built-in to show, and the screen offers an **Add an Fn layer** row instead, which seeds a starting grid (<KeyCap>Esc</KeyCap>, F1–F12, <KeyCap>Tab</KeyCap>, the arrows, Home/End).
 
-Undo and redo icon buttons sit above the grid, next to a "Saved automatically" label, because every edit writes immediately. Undo holds up to **30** whole-layout snapshots, for the current session only. They aren't persisted and they aren't diffs: restoring a full snapshot per step is simpler than giving every edit an inverse. Editing inside one key's bottom sheet coalesces into a single undo step for that sheet rather than one step per keystroke.
+Undo and redo icon buttons sit above the grid, next to a "The app saves every change" label, because every edit writes immediately. Undo holds up to **30** whole-layout snapshots, for the current session only. They aren't persisted and they aren't diffs: restoring a full snapshot per step is simpler than giving every edit an inverse. Editing inside one key's bottom sheet coalesces into a single undo step for that sheet rather than one step per keystroke.
 
-Tap a key to select it and open its edit sheet (below). Selecting also reveals a **row action bar**: a "Row N" label, then three icon buttons that add a key to the row, duplicate the row, and delete the row. Delete is disabled once only one row is left. If that row's total key width disagrees with the rest of the layer, a red warning reads "*X* wide, grid is *Y*". Right below the bar, a **row height** slider covers the selected row specifically.
+Tap a key to select it and open its edit sheet (below). Selecting also reveals a **row action bar**: a "Row N" label, then three icon buttons that add a key to the row, duplicate the row, and delete the row. Delete is disabled once only one row is left. If that row's total key width disagrees with the rest of the layer, a red warning reads "This row is *X* wide. The grid is *Y*." Right below the bar, a **row height** slider covers the selected row specifically, with preset chips at ×0.75, ×1, ×1.25, ×1.5 and ×2.
 
 Below the grid:
 
@@ -75,8 +87,9 @@ Below the grid:
 |---|---|
 | Add a row | Appends an empty row to the current layer |
 | Reorder rows | Opens a drag-to-reorder dialog, each item labeled "Row N · *X* keys" |
-| Reorder keys in row N | Only shown once a row with more than one key is selected |
+| Reorder the keys in row N | Only shown once a row with more than one key is selected |
 | Show the shift plane | Redraws every key with its shifted label instead of the primary one, so you can check the shift layer without switching to it |
+| Preview at your key height | A toggle, **default Off**. The preview normally clamps key height so the whole grid fits the screen. On, it draws your real proportions instead, which matters at a tall key height and can push the grid off screen |
 | Add tablet keys automatically | A toggle, **default On**. Covers the whole layout rather than the current layer, like the JSON row below it. On a tablet it lets the keyboard widen this grid by a column each side and fill the space with Tab, backslash, caps lock, a second shift and the arrows. The widening declines on some grids anyway (flick pads, Braille, Morse, anything with no shift key). There the subtitle says the setting has no effect, though the switch still records your answer in case the layout changes later |
 | Edit as JSON | Opens [Layout JSON](#the-raw-json-editor) for this same layout |
 | Reset this layer | Only shown once the current layer is authored. Drops it back to the built-in grid |
@@ -89,7 +102,7 @@ A closing caption sits under the whole screen, and which one you get depends on 
   {/* shot: reference/settings/key-edit-sheet */}
 </PhoneFrame>
 
-Tapping a key opens a bottom sheet with, in order:
+Tapping a key opens a bottom sheet headed "Row *N*, key *M*", with, in order:
 
 - **Label**: what's drawn on the key.
 - **Output**: blank by default, meaning the key types its label.
@@ -98,12 +111,12 @@ Tapping a key opens a bottom sheet with, in order:
   - Choosing **Broadcast intent** adds a "Broadcast action" field for the intent-action string an automation app (like Tasker) listens for.
   - Choosing **Braille dot** adds a "Dot number" field, **default 1**, valid range **1–6**. Type anything outside that range and it's ignored silently, with no error.
 - **Width**: a quarter-step slider from **0.5 to 5.0**, default **1.0**, with preset chips at 1 / 1.25 / 1.5 / 2 / 4. A "Fill the row" button appears whenever there's at least half a unit of slack left in the row and the key isn't already sized to it.
-- For keys whose action is "Types text" only: **Icon** and **Icon hint** (both blank by default, with live feedback if the name you type doesn't match a known icon), **Long-press alternates** (space-separated, with a live preview strip), and **Field adaptation**, a choice of **None / Comma slot / Period slot** (**default None**). Comma slot swaps this key for `@` in an email field or `/` in a web address field. Period slot keeps its own character and gains extra long-press alternates for domain endings in those same two field kinds.
+- For keys whose action is "Types text" only: **Icon** and **Icon hint** (both blank by default, with live feedback if the name you type doesn't match a known icon), **Alternates for press and hold** (space-separated, with a live preview strip that badges the first entry "hint", since that's the one the keyboard draws in the key's corner), and **Field adaptation**, a choice of **None / Comma slot / Full stop slot** (**default None**). Comma slot swaps this key for `@` in an email field or `/` in a web address field. Full stop slot keeps its own character and gains extra long-press alternates for domain endings in those same two field kinds.
 - A bottom row: **Delete key**, move left/right (disabled at the row's edges), and duplicate key.
 
 ### Problems
 
-While you edit, the screen continuously lists anything wrong with the current layout under a **Problems** group. This never rewrites your grid, it only reports. Findings are either **blocking** ("Has to be fixed before this layout can be switched on") or a **warning** ("Worth a look, but the layout still works"):
+While you edit, the screen continuously lists anything wrong with the current layout under a **Problems** group, blocking findings first. This never rewrites your grid, it only reports. Findings are either **blocking** ("You must fix this before you turn this layout on") or a **warning** ("Look at this, but the layout still works"):
 
 | Finding | Severity |
 |---|---|
@@ -121,7 +134,7 @@ While you edit, the screen continuously lists anything wrong with the current la
 | An empty row | Warning |
 | A row wider than the rest of its layer | Warning |
 
-A missing shift key is the one deliberate exception to blocking, since a symbols-forward layout may not want one, and its alternates still reach capitals through long-press.
+Of the four keys the Letters layer is checked for, shift is the one that only warns, since a symbols-forward layout may not want one, and its alternates still reach capitals through long-press.
 
 This list is also the gate. Turning a layout on under Languages runs the same check, and a layout with any blocking finding refuses. You get a "Cannot turn on *name*" dialog, headed "Fix these problems in the layout editor first:" and listing every blocking reason, and the switch stays off. It's the same list the editor shows, so the two can never disagree. Turning a layout *off* is never gated.
 
@@ -133,10 +146,10 @@ Behind that sits a second, separate pass that repairs rather than reports. It fo
   {/* shot: reference/settings/layout-json */}
 </PhoneFrame>
 
-**Layout JSON** opens from the editor's "Edit as JSON" row, and it covers anything the grid editor has no control for. It's a single text field, syntax-highlighted and at least 240dp tall, pre-filled with the layout exactly as it's stored.
+**Layout JSON** opens from the editor's "Edit as JSON" row, and it covers anything the grid editor has no control for. It's a single text field, syntax-highlighted, between 240dp and 420dp tall and scrolling inside itself, pre-filled with the layout exactly as it's stored.
 
-:::caution[Three things live only here]
-The grid editor has no control for a layout's **name**, its **language** (`langId`), or its **composer**, so the JSON screen is the only way to change any of them. This is the wall most people hit straight after duplicating a layout. The copy is called "Probhat copy" and types Bangla, because that's what it inherited, and there's no rename button on the list screen or in the editor. Open Edit as JSON. Change `"name"`. Then tap Apply. `"langId"` takes a language id such as `"en"`, `"bn"` or `"fr"`, and it decides the dictionary, autocorrect, script rules, dictation and shift behaviour, so change it if you rearranged a grid into a different language. `"composer"` overrides how keystrokes combine (`TRANSLITERATE` for Avro-style Bangla, `TELEX` or `VNI` for Vietnamese, `PINYIN`, `ROMAJI` and so on). Leave it out and the script's own default applies.
+:::note[Name, language and composer moved out of here]
+A layout's **name**, its **language** (`langId`) and its **composer** used to be reachable only through this screen, which was the wall most people hit straight after duplicating a layout. They're now three rows at the top of the grid editor: **Name**, **Language** and **Typing method**. This screen still edits all three as text, and it's still where you paste a whole layout someone sent you, but you no longer have to come here to rename a copy. In the JSON, `"langId"` takes a language id such as `"en"`, `"bn"` or `"fr"`, and `"composer"` takes a value like `TRANSLITERATE`, `TELEX`, `VNI`, `PINYIN` or `ROMAJI`. Leave `"composer"` out and the language's own default applies.
 :::
 
 Tap **Apply** to parse what you wrote. Text that isn't valid layout JSON shows "That is not valid layout JSON." and nothing changes. Otherwise the id inside the pasted text is discarded and replaced with the id of the layout you're editing, so pasting another layout's JSON here can never overwrite that other layout by accident. The result then runs through the same repair pass import uses. If nothing needed fixing, the screen closes on its own. If something did, it stays open and lists each repair line under an "Applied, with changes" group.
@@ -163,11 +176,13 @@ The list screen itself holds no toggles: it manages a layout registry, not prefe
 | Setting | Control | Default |
 |---|---|---|
 | Layer shown | Layer chips | Letters |
+| Typing method | Choice, per layout | Follow the language |
 | Show the shift plane | Toggle | Off |
+| Preview at your key height | Toggle | Off |
 | Add tablet keys automatically | Toggle, per layout | On |
 | Row height (selected row) | Slider, 0.5–2.0 in quarter steps | 1.00 |
 | Key width (selected key) | Slider, 0.5–5.0 in quarter steps | 1.0 |
-| Field adaptation (text keys) | Choice: None / Comma slot / Period slot | None |
+| Field adaptation (text keys) | Choice: None / Comma slot / Full stop slot | None |
 | Braille dot number | 1–6 | 1 |
 
 <SettingsPath path="Key layouts / Edit layout / Layout JSON" />
@@ -180,7 +195,7 @@ No separate settings: it edits the same stored layout the visual editor does, ju
 - **Duplicating never switches to the copy.** The new copy opens for editing and never becomes the active grid, and that holds for a shipped layout and one of your own alike.
 - **Addon-installed layouts don't appear under "Your layouts."** A layout you installed from an [addon repository](/addons/installing/) lives under Languages, and it's uninstalled from Addons rather than from this screen. Editing it here would only produce changes a future update silently discards.
 - **What the JSON screen shows you is shorter than what's stored.** Its caption says re-opening it leaves out the values that match the default, and it means it. The editor uses its own encoder with defaults omitted. Storage uses the other one, writing every field every time, which is what lets a downgrade read what an upgrade wrote. The difference isn't small. A plain four-row QWERTY comes to about 33 kB stored, almost all of it `"output":null,"shiftLabel":null` repeated a few hundred times, and roughly a tenth of that on screen. Nothing is lost either way, since every omitted field has a default. Re-opening also reformats, so your own spacing doesn't survive.
-- **No per-setting restore button here.** The [restore control](/reference/settings/#putting-one-setting-back) that appears on a settings row once its value differs from the shipped default isn't wired up on these screens. "Show the shift plane" is editor state rather than a preference, and "Add tablet keys automatically" is stored on the layout itself, so neither declares a default to the row and neither grows the icon. The way back on a layout is Reset this layer, or Reset on the row of an edited built-in.
+- **No per-setting restore button here.** The [restore control](/reference/settings/#putting-one-setting-back) that appears on a settings row once its value differs from the shipped default isn't wired up on these screens. "Show the shift plane" and "Preview at your key height" are editor state rather than preferences, and "Add tablet keys automatically" and "Typing method" are stored on the layout itself, so none of them declares a default to its row and none grows the icon. The way back on a layout is Reset this layer, or Reset on the row of an edited built-in.
 - **No edition restriction.** Everything on all three screens behaves the same on both editions of the app.
 
 ## Related pages

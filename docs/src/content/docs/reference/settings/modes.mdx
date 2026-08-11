@@ -14,7 +14,7 @@ import SettingsPath from '@components/SettingsPath.astro';
   {/* shot: reference/settings/modes-list */}
 </PhoneFrame>
 
-You reach this screen three ways: Home → **Keyboard modes**, the settings search index, or the on-keyboard **Modes** tool's own settings entry (**Edit keyboard modes**, which shows the live mode count as its value). All three land on the same list.
+You reach this screen three ways: Home → **Keyboard modes**, the settings search index, or the on-keyboard **Modes** tool's own settings entry (**Edit the keyboard modes**, which shows the live mode count as its value). All three land on the same list.
 
 ## The modes list
 
@@ -42,18 +42,26 @@ Every override here defaults to **Inherit** (unset, so the mode falls through to
 | --- | --- |
 | Emoji row | Inherit / Off / Button / Row |
 | Symbol row | Inherit / On / Off |
+| Autocorrect | Inherit / On / Off |
+| Automatic capitals | Inherit / On / Off |
+| Suggestions | Inherit / On / Off |
+| Layout | Inherit, or any layout you currently have switched on |
 | Theme | Inherit, or any built-in or custom theme |
 | Custom pinned tools | Off, or a toolbar tool list of its own |
 | Custom toolbox order | Off, or a toolbox order of its own |
 | Custom symbol sets | Off, or a symbol-set list of its own |
 
-**Theme** opens a picker: Inherit, Default (system), the built-in themes, then your own custom themes alphabetically. A **Clear** button appears once a theme is set. Picking one adds a note about what that means. While the mode is active the keyboard wears that theme whatever is set elsewhere, and an auto light/dark pair stands down for the mode's lifetime. Your own choice comes back unchanged the moment the mode ends.
+**Autocorrect**, **Automatic capitals** and **Suggestions** are the three typing overrides, and they're why a Coding mode is worth having: a mode that only redressed the keyboard would still correct your identifiers into English words.
 
-**Custom pinned tools**, once turned on, reveals a **Pinned tools behaviour** choice: **Add to mine** appends to your global pins, **Replace mine** pins only these tools. It also adds a chip picker over your currently enabled, build-supported tools, and a **Modify pinned tool order** drag-to-reorder dialog. Switch to "Add to mine" and any tool that's already one of your global pins drops out, so it doesn't appear twice.
+**Layout** pins the mode to one layout while it's on, whichever layout you were typing on before. Only layouts you've switched on are offered, and the spacebar swipe order is left alone. Switch that layout off later and the mode falls back to Inherit, since the keyboard won't pin itself to something it can't draw.
 
-**Custom toolbox order** works the same way minus the append/replace choice. Turning it on seeds an empty list, a chip picker adds tools, and **Modify toolbox order** reorders them. The picked tools lead the toolbox panel, and everything else keeps its usual place behind them.
+**Theme** opens a picker: Inherit, Default (system), the built-in themes (a theme with variants gets a heading and its variants under it), then your own custom themes alphabetically. A **Clear** button appears once a theme is set. Picking one adds a note about what that means. While the mode is active the keyboard wears that theme whatever is set elsewhere, and an auto light/dark pair stands down for the mode's lifetime. Your own choice comes back unchanged the moment the mode ends.
 
-**Custom symbol sets** seeds from your current symbol-row sets (or the built-in defaults if none are enabled), offers every set (built-in and custom) as toggle chips, guards against emptying the list to zero, and reorders with **Modify symbol set order**. The first set in that order is what the symbol row opens on while the mode is active.
+**Custom pinned tools**, once turned on, reveals a **Pinned tools behaviour** choice: **Add to mine** appends to your global pins, **Replace mine** pins only these tools. It also adds a chip picker over your currently enabled, build-supported tools, and a **Change the pinned tool order** drag-to-reorder dialog. Switch to "Add to mine" and any tool that's already one of your global pins drops out, so it doesn't appear twice.
+
+**Custom toolbox order** works the same way minus the append/replace choice. Turning it on seeds an empty list, a chip picker adds tools, and **Change the toolbox order** reorders them. The picked tools lead the toolbox panel, and everything else keeps its usual place behind them.
+
+**Custom symbol sets** seeds from your current symbol-row sets (or the built-in defaults if none are enabled), offers every set (built-in and custom) as toggle chips, guards against emptying the list to zero, and reorders with **Change the symbol set order**. The first set in that order is what the symbol row opens on while the mode is active.
 
 <PhoneFrame caption="A mode's Custom pinned tools turned on, with its own tool chips and reorder option.">
   {/* shot: reference/settings/mode-editor-custom-tools */}
@@ -89,7 +97,7 @@ Six modes are seeded on first run. You can edit or delete any of them freely.
 | **Email** | Inherit | On (Email, Punctuation) | Inherit | Clipboard, snippets, text edit, voice, symbols | None | Email |
 | **Browser** | Inherit | On (Web) | Inherit | Clipboard, web search, snippets, QR scan, voice, incognito | None | URL |
 | **Chat** | Always on | Inherit | Added: emoji, GIF, sticker, voice | Grammar, translate, camera, image search, clipboard, snippets, then the pinned four | 15: Messenger, Instagram, Telegram, WhatsApp, Signal, Discord, Facebook, Facebook Lite, TikTok, Snapchat, Viber, LINE, KakaoTalk, WeChat, Beeper | Text, Notification replies |
-| **Writing** | Inherit | On (Punctuation) | Replaced: AI, text edit, voice, clipboard, emoji | Grammar, dictionary, OCR, doc scan, calendar, clipboard, snippets, translate, undo, redo, then the pinned five | Keep, Google Docs, Samsung Notes, Word, OneNote, Obsidian, Notion, Evernote, Joplin, Gmail, Outlook, Yahoo Mail, ProtonMail, K-9 Mail | Text |
+| **Writing** | Inherit | On (Punctuation) | Replaced: AI, text edit, voice, clipboard, emoji | Grammar, dictionary, OCR, doc scan, calendar, clipboard, snippets, translate, undo, redo, then AI, text edit, voice and emoji (clipboard is already in the list) | Keep, Google Docs, Samsung Notes, Word, OneNote, Obsidian, Notion, Evernote, Joplin, Gmail, Outlook, Yahoo Mail, ProtonMail, K-9 Mail | Text |
 | **Coding** | Inherit | On (Coding, Math) | Inherit | Snippets, clipboard, text edit, symbols, calculator, numpad, undo, redo, cursor keys | Termux, Acode, RK Editor, Spck | None |
 
 Passwords and Writing replace the toolbar outright rather than adding to it. Chat appends its four tools to whatever you already have pinned.
@@ -111,9 +119,9 @@ This choice sits at the top of the modes list screen and covers every mode at on
 
 ## Rearranging tools
 
-<SettingsPath path="Keyboard modes / Rearranging tools" />
+<SettingsPath path="Keyboard modes / Rearrange tools / Drags edit the active mode" />
 
-This toggle also lives on the modes list screen rather than inside an editor. It governs what happens when you drag a tool on the keyboard itself while a mode with its own pinned tools or toolbox order is active.
+This toggle sits in the **Rearrange tools** group at the foot of the modes list screen rather than inside an editor. It governs what happens when you drag a tool on the keyboard itself while a mode with its own pinned tools or toolbox order is active.
 
 **Drags edit the active mode** is on by default. It sends that drag into the currently active mode, so the rearrangement sticks for apps that resolve to that mode, and every other app keeps its own arrangement. Turn it off and drags edit the global tool order instead. If the active mode still prescribes its own list, that list keeps winning on screen, since a mode's fixed list applies on every redraw. A mode with no pinned tools or toolbox order of its own is unaffected either way, because there's nothing for it to own.
 
@@ -135,9 +143,13 @@ Tool order can differ per app: whichever mode an app resolves to decides the arr
 | --- | --- |
 | Name | Mode-specific (see table above) |
 | Icon | Mode-specific |
-| Emoji row | Inherit, except the six built-ins listed above |
-| Symbol row | Inherit, except the six built-ins listed above |
-| Theme | Inherit |
+| Emoji row | Inherit, except Passwords (Off) and Chat (Row) |
+| Symbol row | Inherit, except Passwords (Off) and Email/Browser/Writing/Coding (On) |
+| Autocorrect | Inherit, on every built-in too |
+| Automatic capitals | Inherit, on every built-in too |
+| Suggestions | Inherit, on every built-in too |
+| Layout | Inherit, on every built-in too |
+| Theme | Inherit, on every built-in too |
 | Custom pinned tools | Off, except Passwords/Chat/Writing |
 | Custom toolbox order | Off; all six built-ins define their own toolbox order |
 | Custom symbol sets | Off, except Email/Browser/Writing/Coding |

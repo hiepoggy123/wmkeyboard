@@ -62,9 +62,10 @@ A `.wmplugin` is a ZIP with those two files at the top level:
 cd cipher && zip ../cipher.wmplugin plugin.json main.lua
 ```
 
-Nothing else to it. Plugins stay off until you turn them on, so start there:
+Nothing else to it. Plugins stay off until you turn them on, so start there and
+switch **Allow plugins** on:
 
-<SettingsPath path="Tools / Plugins" />
+<SettingsPath path="Tools / Plugins / Manage plugins" />
 
 Copy `cipher.wmplugin` to your phone. Open it from a file manager. Confirm the
 install. Then open the **Plugins** tool on the keyboard and tap Cipher Tool.
@@ -249,24 +250,27 @@ in the addon repository.
 ## Debugging
 
 `print()` and `wm.log()` both write to your plugin's log. That is your only
-window into a running plugin, so use it freely. Read it here:
+window into a running plugin, so use it freely. Tap your plugin in the installed
+list and read the last 40 lines there:
 
-<SettingsPath path="Tools / Plugins / your plugin" />
+<SettingsPath path="Tools / Plugins / Manage plugins / your plugin" />
 
 If the script fails, the panel shows the error and the plugin stays loaded. Fix
 the script. Rebuild the ZIP. Reinstall it.
 
 :::caution[Two limits worth knowing before you hit them]
-Your code gets a few million instructions and a couple of seconds per event. An
-accidental infinite loop is stopped and reported rather than left to hang the
-keyboard.
+Your code gets 20 million instructions and two seconds per event, and a tighter
+4 million and half a second for each render. An accidental infinite loop is
+stopped and reported rather than left to hang the keyboard.
 
-A plugin that becomes unresponsive twice is switched off until you turn it back
-on. You can stop that from happening: turn **Switch off a plugin that hangs**
-off under <SettingsPath path="Tools / Plugins" />, where it is on by default.
-The strikes are still counted and still shown, so you keep the evidence and give
-up only the automatic switch-off. That is the trade you want while you are
-writing plugins, or when a slow device is the real cause.
+Running out of instructions or time counts a strike, and so does going
+unresponsive for long enough that the watchdog gives up. Two strikes and the
+plugin is switched off until you turn it back on. You can stop that from
+happening: turn **Switch off a plugin that hangs** off under
+<SettingsPath path="Tools / Plugins / Manage plugins" />, where it is on by
+default. The strikes are still counted and still shown, so you keep the evidence
+and give up only the automatic switch-off. That is the trade you want while you
+are writing plugins, or when a slow device is the real cause.
 :::
 
 ## Publishing

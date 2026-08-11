@@ -15,7 +15,7 @@ import KeyCap from '@components/KeyCap.astro';
   ![The Utilities group under Settings → Tools: Flashlight, Compass, Bubble level, Calendar, Weather and Moon phase.](@assets/screens/tools/instruments-settings-utilities-group.webp)
 </PhoneFrame>
 
-Open any of the five from the toolbar if you've pinned it, or from the toolbox. None ships pinned by default, and none is part of the onboarding wizard's recommended starter set, so the first time you want one you'll probably find it in the toolbox. The toolbox doesn't label a "Utilities" section the way Settings does. Its default ranking does keep these five clustered together near the end of the grid though, along with Calendar and Wikipedia, after the everyday text tools.
+Open any of the five from the toolbar if you've pinned it, or from the toolbox. None ships pinned by default, and none is in the onboarding wizard's Recommended set, so the first time you want one you'll probably find it in the toolbox. Weather is the one the "show me everything" answer does turn on, next to Calendar. The toolbox doesn't label a "Utilities" section the way Settings does, and it doesn't keep the five together either. Flashlight, Compass, Bubble level and Moon phase sit as a block near the end of the default ranking, after the scanners and the camera and just before the one-tap cursor moves. Weather is much earlier, right after Calendar in the everyday run.
 
 None of the five needs an Android runtime permission. The torch doesn't need the `CAMERA` permission (that's only for the separate [camera tool](/tools/camera/)), and Weather's location is typed or searched rather than read from the device's GPS. Neither edition is short-changed either: Full and Lite behave identically across all five.
 
@@ -33,7 +33,7 @@ The toolbox tile mirrors the torch's real state. Flip the torch on from the syst
 
 <SettingsPath path="Tools / Flashlight" />
 
-- **Auto-off with keyboard**: on by default. On, closing the keyboard or switching apps switches the torch off with it, so it's never left burning in your pocket. Off, the torch stays on until you toggle it again from the tool or the system quick-settings tile.
+- **Turn off with the keyboard**: on by default. On, closing the keyboard or switching apps switches the torch off with it, so it's never left burning in your pocket. Off, the torch stays on until you toggle it again from the tool or the system quick-settings tile.
 
 ## Compass, with an optional qibla bearing
 
@@ -113,6 +113,6 @@ Those three rows are the whole screen. The settings screen carries its own priva
 - **None have a default hardware-keyboard letter.** Tools such as web search (<KeyCap>W</KeyCap>) and dictionary (<KeyCap>D</KeyCap>) ship with a leader-key letter, and none of these five do. Reach them through the toolbox shortcut (double-tap <KeyCap>Ctrl</KeyCap>, then <KeyCap>T</KeyCap>) or [rebind a letter to one yourself](/reference/shortcuts/).
 - **Four keep working before your first unlock. Weather doesn't.** Flashlight, Compass, Bubble level and Moon phase are all direct-boot safe. They're pure sensor readings or arithmetic, so they work right after a restart, before you've entered your PIN or pattern for the first time. Weather is the exception: it needs network access and reads a location saved in credential-encrypted storage, and neither is available until you unlock.
 - **Every tool here has more than a bare switch.** Each of the five gets a "Tune" icon in <SettingsPath path="Tools" />, meaning it has real options beyond the shared Enabled toggle. None of them is one of the toggle-only tools on that screen.
-- Turning colored tool icons on under <SettingsPath path="Tools" /> tints each of these five with its own accent color in the toolbox, and in the Tools list itself. The pinned toolbar row keeps the theme's plain icon color regardless, same as every other tool.
+- **Colored tool icons** under <SettingsPath path="Tools" /> is on out of the box, so each of these five already wears its own accent color in the toolbox and in the Tools list itself. The pinned toolbar row keeps the theme's plain icon color regardless, same as every other tool.
 
 For the toolbar and toolbox mechanics these five share with every other tool (pinning, the toolbox drag, and what "direct-boot safe" means more broadly), see [the toolbar](/tools/overview/).

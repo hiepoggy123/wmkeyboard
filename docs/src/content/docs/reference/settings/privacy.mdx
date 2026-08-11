@@ -56,7 +56,7 @@ An unnamed group holding one navigation row, sitting above everything else on th
 |---|---|---|
 | Back up with Android | Toggle | Off |
 
-**Back up with Android** folds the keyboard into Android's own backup and phone-to-phone transfer system. It's off by default, so nothing this keyboard stores is copied anywhere until you turn it on. Once on, it includes settings, themes, layouts, snippets, learned words, sticker and icon packs, and plugins, plus any saved API keys (Translate, AI tools, and the rest). Voice and AI models, downloaded dictionaries, and emoji-keyword packs are left out, because the keyboard can fetch them again on its own. A cloud backup is only made on devices that can encrypt it with your screen lock.
+**Back up with Android** folds the keyboard into Android's own backup and phone-to-phone transfer system. It's off by default, so nothing this keyboard stores is copied anywhere until you turn it on. Once on, it includes settings, themes, layouts, snippets, learned words, sticker and icon packs, plugins, imported fonts and the word lists you imported yourself, plus any saved API keys (Translate, AI tools, and the rest). Voice and AI models, downloaded dictionaries, and emoji-keyword packs are left out, because the keyboard can fetch them again on its own. So are four smaller things, all for size: the camera and document-scanner scratch folders, the images behind clipboard entries (the clipboard's text history stays), and the uncropped originals behind your stickers (the stickers themselves stay). A cloud backup is only made on devices that can encrypt it with your screen lock.
 
 <PhoneFrame caption="The info dialog for Back up with Android, listing what's included and excluded.">
   {/* shot: reference/settings/privacy-backup-info-dialog */}
@@ -68,7 +68,9 @@ This is a different screen from the sibling **Backup & restore** item on the Set
 
 <SettingsPath path="Privacy / Your data" />
 
-A single row, **Learned words**, with a **Delete the learned words** button that asks to confirm first. Confirming deletes five files: your word and word-pair lexicon, your emoji-usage history, autocorrect's revert memory (which corrections you undid), your Chinese/Japanese/Cantonese pick history, and the language-mix tracker that remembers which language you tend to reach for. The dialog names the first four and promises that your personal dictionary, your snippets and your imported word lists stay.
+A single row, **Learned words**, with a **Delete the learned words** button that asks to confirm first. Confirming deletes five files: your word and word-pair lexicon, your emoji-usage history, autocorrect's revert memory (which corrections you undid), your Chinese/Japanese/Cantonese pick history, and the language-mix tracker that remembers which language you tend to reach for. The dialog names the first four, warns that your personal dictionary goes with them, and promises that your snippets and your imported word lists stay.
+
+Your personal dictionary really does go. The [Personal dictionary](/reference/settings/dictionaries/) screen edits the same word and word-pair lexicon file the keyboard learns into, so a word you added by hand and a word the keyboard picked up sit side by side, and this button takes both.
 
 <PhoneFrame caption="Learned words, the only control in the Your data group.">
   {/* shot: reference/settings/privacy-clear-learned-words */}

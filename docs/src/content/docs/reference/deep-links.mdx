@@ -14,8 +14,8 @@ tap in a file manager. This page lists every form each one takes.
 
 ## Jumping in from the home screen
 
-Long-press the app icon to get four shortcuts straight into settings, without
-passing through the home page first: **Tools**, **Languages**, **Typing**,
+Long-press the app icon to get four shortcuts straight into the app, without
+passing through the home page first: **Tools**, **Languages**, **AI chat**,
 and **Themes**. They're drawn bottom-up, so on most launchers **Themes**
 lands closest to the icon and **Tools** furthest away, even though this list
 states them in the order they're declared.
@@ -41,7 +41,7 @@ adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity \
   -a android.intent.action.VIEW -d "wmkeyboard://settings/themes"
 ```
 
-Only six routes are recognized:
+Only seven routes are recognized:
 
 | Route | Opens |
 |---|---|
@@ -51,6 +51,7 @@ Only six routes are recognized:
 | `languages` | Languages & layouts |
 | `tools` | Tools |
 | `search` | In-app settings search |
+| `ai_chat` | The AI chat screen |
 
 A route outside this list, or a link with a different host entirely, goes
 nowhere. Nothing crashes. The app just doesn't navigate. Matching is
@@ -58,10 +59,10 @@ case-insensitive, ignores anything after a `?`, and accepts either the
 regular form (`wmkeyboard://settings/themes`) or the opaque form
 (`wmkeyboard:settings/themes`, no slashes after the colon).
 
-Only four of these six routes have a home-screen shortcut. **Appearance**
-and **search** are recognized by the parser but nothing in the app links to
-them today: reaching them means constructing the explicit intent yourself,
-as above.
+Only four of these seven routes have a home-screen shortcut. **Typing**,
+**appearance** and **search** are recognized by the parser but nothing in the
+app links to them today: reaching them means constructing the explicit intent
+yourself, as above.
 
 :::note[Not reachable from the web]
 Settings links only work as the explicit intent inside a launcher shortcut:
@@ -108,11 +109,11 @@ happens after that.
 
 ## Opening files WM Keyboard made
 
-WM Keyboard registers a file association for each of its own formats. Most
-are things it exports itself, plus a couple it only ever reads: a plugin
-file is built by its author rather than the app, and the settings-only
-backup has no export button left. Tapping any of these in a file manager
-offers to import the file instead of opening it as plain text.
+WM Keyboard registers a file association for ten extensions. Most are things
+it exports itself, plus three it only ever reads: a plugin file is built by
+its author rather than the app, the settings-only backup has no export button
+left, and a `.flex` belongs to FlorisBoard. Tapping any of these in a file
+manager offers to import the file instead of opening it as plain text.
 
 | Extension | What it holds |
 |---|---|
@@ -123,7 +124,9 @@ offers to import the file instead of opening it as plain text.
 | `.wmicons` | An icon pack (ZIP) |
 | `.wmplugin` | A Lua plugin package (ZIP) |
 | `.wmconfig.json` | A full backup: any combination of settings, themes, dictionary, clipboard, snippets, stickers, icons, custom word lists, and addon repositories, whichever you chose to include when it was exported |
+| `.wmconfig.enc` | The same backup, passphrase-encrypted |
 | `.wmsettings.json` | An older, settings-only backup format |
+| `.flex` | A FlorisBoard theme extension, converted rather than installed. Not WM Keyboard's own format at all, and claiming it is the point: someone moving over opens the file they already have |
 
 This opens a separate, minimal activity, not the settings app itself, since
 tapping a theme in a file manager shouldn't drop you into full settings. It
@@ -146,11 +149,22 @@ dialog tells you what happens next:
   ones. Dictionary, clipboard, and snippets replace what's already on the
   device. If the file contains API keys, the dialog warns that they'll
   overwrite the ones you have set.
+- **Encrypted config backup** (`.wmconfig.enc`). The dialog draws a passphrase
+  field instead of the usual "this file contains…" summary, because nothing
+  inside can be read until it opens. Type the passphrase and confirm, and it
+  imports exactly as the plain `.wmconfig.json` above does. A wrong passphrase
+  and a damaged file are indistinguishable, so the failure message names both.
 - **Settings backup** (`.wmsettings.json`). Merges into your current
   settings the same way a config backup's settings do: entries named in the
   file overwrite the matching ones on the device, and anything the file
   doesn't mention (including a setting added in a version newer than the
   backup) is left untouched. Same warning for API keys.
+- **FlorisBoard theme** (`.flex`). Converted, never installed as one of ours.
+  The dialog leads with how many of the file's style rules found a home,
+  credits the author and licence, and lists what got dropped. The converted
+  themes are saved but not switched to, which is the opposite of a native
+  theme import. A FlorisBoard extension that is a language pack rather than a
+  theme, or that uses the older Snygg v1 syntax, is refused with a reason.
 - **Plugin** (`.wmplugin`). This one has an extra gate. See below.
 
 <PhoneFrame caption="The one-time confirm dialog shown before any file import goes through.">
@@ -208,9 +222,11 @@ addon repository.
   activity, excluded from the recents list, so a stray import screen doesn't
   linger in your app switcher.
 - **Content URIs only.** File-association matching is by content URI and file
-  name, not MIME type: every export uses a compound extension like
+  name, not MIME type. Every JSON format uses a compound extension like
   `.wmtheme.json` specifically so it doesn't claim every plain `.json` file
-  on the device. Bare `file://` links aren't matched.
+  on the device. The ZIP formats (`.wmstickers`, `.wmicons`, `.wmplugin`) need
+  no such trick, since the extension is already ours alone. Bare `file://`
+  links aren't matched.
 - **A repeated link is harmless.** Because the app launches in single-top
   mode, tapping the same addon link twice, or tapping one while the app is
   already open, delivers it to the running instance rather than opening a

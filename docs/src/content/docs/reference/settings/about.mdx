@@ -17,7 +17,7 @@ About has its own group on the Settings home screen: one tap gets you the build 
 
 ## Sharing the app
 
-The **Share** group at the top has up to three rows: **Share Play Store link**, **Share F-Droid link**, and **Share GitHub link**. Play Store builds omit the F-Droid and GitHub links. Each row opens the Android share sheet rather than the destination itself, pre-filled with a one-line pitch and the matching link (`play.google.com/store/apps/details?id=com.wasimaster.wmkeyboard`, `f-droid.org/packages/com.wasimaster.wmkeyboard`, or the GitHub repository). Pick whichever app you want to send the recommendation through.
+The **Share** group at the top has up to three rows: **Share the Play Store link**, **Share the F-Droid link**, and **Share the GitHub link**. Which of them you get depends on where the build came from. A Play Store build drops the F-Droid and GitHub rows. An F-Droid build drops the Play Store row. A sideloaded build belongs to neither store and shows all three. Each row opens the Android share sheet rather than the destination itself, pre-filled with a one-line pitch and the matching link (`play.google.com/store/apps/details?id=com.wasimaster.wmkeyboard`, `f-droid.org/packages/com.wasimaster.wmkeyboard`, or the GitHub repository). Pick whichever app you want to send the recommendation through.
 
 ## Checking version, licence, and source
 
@@ -56,11 +56,11 @@ Below the row is **Ask me about updates**, on by default. It lets the Play Store
 
 <SettingsPath path="About / Storage" />
 
-**Storage** breaks the app's disk use into named pieces and lets you delete them one at a time. At the top is a ring split three ways, App / Data / Cache, with your device's own free space underneath. Then the pieces themselves, in six groups: **The app itself**, **Downloads**, **Looks and add-ons**, **Your data**, **Caches**, and **The rest**. Rows with nothing in them are hidden until you tap **Show all**.
+**Storage** breaks the app's disk use into named pieces and lets you delete them one at a time. At the top is a ring split three ways, App / Data / Cache, with your device's own free space underneath. Then the pieces themselves, in six groups: **The app itself**, **Downloads**, **Looks and add-ons**, **Your data**, **Caches**, and **The rest**. Rows with nothing in them are hidden until you tap **Show what uses nothing**.
 
-The figures come from Android's own storage stats rather than from adding up file sizes, so they match what Settings → Apps → WM Keyboard reports, down to the block rounding. Every size on the screen is a multiple of 4 KB, which is why a thousand tiny sticker files "cost" more than their bytes. A device too old to report exact numbers gets an estimate, and says so.
+The figures come from Android's own storage stats rather than from adding up file sizes, so they match what Settings → Apps → WM Keyboard reports, down to the block rounding. Every size on the screen is rounded up to your filesystem's block size, which the app reads from the device and which is 4 KB almost everywhere. That's why a thousand tiny sticker files "cost" more than their bytes. A device too old to report exact numbers gets an estimate, and says so.
 
-Tap a row to open that piece on its own: what it holds, how big each item in it is, and a delete button per item. **Free up** at the top clears every cache in one go and never touches anything you made. Deleting anything else asks first, in wording that matches what you'd lose. A cache is free to delete. A download can be fetched again. Something you made, or the keyboard learned, is gone for good.
+Tap a row to open that piece on its own: what it holds, how big each item in it is, and a delete button per item. **Free up N MB** at the top, which names the amount it would recover, clears every cache in one go and never touches anything you made. Deleting anything else asks first, in wording that matches what you'd lose. A cache is free to delete. A download can be fetched again. Something you made, or the keyboard learned, is gone for good.
 
 A few rows worth knowing about:
 
@@ -85,7 +85,7 @@ Something a model wrote isn't a bug in the app, and it has its own button. See [
 
 Two more single-purpose groups round out the screen:
 
-- **Documentation** links to this documentation site (**User guide**) and to the [Privacy policy](/privacy/overview/) page, both opening directly in your browser.
+- **Documentation** links to this documentation site (**User guide**) and to the privacy policy, both opening directly in your browser. The policy row goes to the page that is true of the APK you're holding, so a full build opens [Privacy policy (Google Play edition)](/privacy/policy/) and a lite build opens [Privacy policy (F-Droid edition)](/privacy/policy-fdroid/).
 - **Third party** has one row, **Open-source licences**, which opens the [licence browser](#browsing-the-licences) below.
 - **Word lists** has one row, **Dictionaries**, explaining that the seed bigrams, loanword map, and offensive-word list are hand-curated for this project and covered by its licence, while downloadable wordlists keep their own sources' licences, listed under Open-source licences. Like Version, this row is informational only and doesn't navigate anywhere. See [Every wordlist](/languages/dictionaries/#every-wordlist) for the full, filterable list of what's downloadable per language.
 
@@ -97,11 +97,11 @@ Tapping **Open-source licences** opens a three-group screen: everything bundled 
   {/* shot: reference/settings/licenses-screen */}
 </PhoneFrame>
 
-**Bundled in the app** always lists AndroidX & Jetpack Compose, Kotlin/coroutines/serialization, Coil, OkHttp & Okio, ZXing, and LuaJ, all Apache-2.0 or MIT. <Flavor edition="full" /> adds Harper and its Rust dependencies (grammar checking), Google ML Kit (handwriting and scanning), LiteRT-LM (the local AI models), and LiteRT plus OpenAI Whisper and whisper_android (offline speech-to-text). The <Flavor edition="lite" /> build doesn't link those features, so their licences don't apply to it. A Play build adds one more, Play In-App Updates. It isn't open source, so it opens Google's SDK terms in your browser rather than a bundled text. Both editions also list Unicode CLDR & emoji data, gemoji, OpenCC, the LSHK Jyutping table, the bundled editor colour palettes (Dracula, Nord, Solarized, Catppuccin, Tokyo Night), Google Fonts, and Inter & Manrope. Those last two are the faces the settings app itself is set in. They ship as files in the APK, so they carry their own notice rather than the generic one.
+**Inside the app** always lists AndroidX & Jetpack Compose, Kotlin/coroutines/serialization, Coil, OkHttp & Okio, ZXing, and LuaJ, all Apache-2.0 or MIT. <Flavor edition="full" /> adds Harper and its Rust dependencies (grammar checking), Google ML Kit (handwriting and scanning), LiteRT-LM (the local AI models), and LiteRT plus OpenAI Whisper and whisper_android (offline speech-to-text). The <Flavor edition="lite" /> build doesn't link those features, so their licences don't apply to it. A Play build adds one more, Play In-App Updates. It isn't open source, so it opens Google's SDK terms in your browser rather than a bundled text. Both editions also list Unicode CLDR & emoji data, gemoji, OpenCC, the LSHK Jyutping table, the bundled editor colour palettes (Dracula, Nord, Solarized, Catppuccin, Tokyo Night), Google Fonts, and Inter & Manrope. Those last two are the faces the settings app itself is set in. They ship as files in the APK, so they carry their own notice rather than the generic one.
 
 That makes 21 bundled components on a full Play build and 13 on a lite F-Droid one. The gap is the seven entries gated behind grammar checking, ML Kit, the local LLM and Whisper, plus the Play updates entry. So a full F-Droid build lists 20, and a lite Play build 14.
 
-**Downloadable data packs** (not edition-gated, since any build can fetch them) covers the frequency wordlists, offensive word lists, emoji keyword dictionaries and Noto Animated Emoji served from the WM Keyboard data repository, plus the CJK-specific conversion data: CC-CEDICT, mozc, rime-cantonese & CC-Canto, a Chinese stroke code table, and the Unicode Unihan database. Nine rows in all. A caption underneath notes these keep their upstream licences whether or not they're actually installed on your device.
+**Data packs you can download** (not edition-gated, since any build can fetch them) covers the frequency wordlists, offensive word lists, emoji keyword dictionaries and Noto Animated Emoji served from the WM Keyboard data repository, plus the CJK-specific conversion data: CC-CEDICT, mozc, rime-cantonese & CC-Canto, a Chinese stroke code table, and the Unicode Unihan database. Nine rows in all. A caption underneath notes these keep their upstream licences whether or not they're actually installed on your device.
 
 **Online services** lists what each network tool talks to and under what terms: Brave Search, KLIPY & GIPHY, Wikipedia, Google Translate, Open-Meteo, Frankfurter & ExchangeRate-API, Coinbase & the other coin-price sources, the Free Dictionary API, Hugging Face, and the bring-your-own-key AI providers (Anthropic, OpenAI, Google AI, xAI, DeepSeek, and whichever OpenAI-compatible service you point the escape hatch at). None of their code or data ships inside the app; see [Network policy](/privacy/network/) for what each one actually sends and when.
 
@@ -117,11 +117,11 @@ The **Report** group has three controls:
 
 - **Share diagnostics** writes the full report to a file and sends it through the share sheet. A file rather than inline text is deliberate: a report can run to tens of kilobytes, and some receiving apps quietly drop share intents that large.
 - **Copy to clipboard** copies the same report as plain text instead, with a confirmation toast.
-- **Include the system log** is a toggle, off by default. It adds this process's own Android log to the report, meaning everything it printed, its libraries included. An info button next to it explains why it's opt-in. Unlike the app log, the keyboard doesn't control what ends up in the system log, so read it before you send it anywhere.
+- **Include the system log** is a toggle, off by default. It adds this process's own Android log to the report, meaning everything it printed, its libraries included. An info button next to it explains why it's opt-in. Unlike the app log, the keyboard doesn't control what ends up in the system log, so read it before you send it anywhere. This one isn't stored anywhere at all. It belongs to the screen, so it goes back to off every time you leave and come back, and it carries no restore control.
 
 If the app has crashed since it was last cleared, a **Crashes** group appears above the app log with the crash record and a **Clear crashes** button. It only shows up when there's something to show.
 
-The **app log** itself is a free-text filter field plus one level chip per severity (Debug, Info, Warn, Error). A chip keeps entries at or above the level you pick, and all four are shown by default. Entries list newest first, with a timestamp and tag above each monospaced message, colour-coded by severity. A **Refresh** button re-reads the log without leaving the screen. Turning on **Include the system log** above adds another group underneath showing that raw log: the third group on the screen if no Crashes section is showing, the fourth if one is. A **Clear app log** button sits at the very bottom, on its own.
+The **app log** itself is a free-text filter field plus one level chip per severity (Debug, Info, Warn, Error). The chips pick one level at a time rather than combining, and the chosen one keeps every entry at or above it. Debug is selected when you arrive, which shows the lot. Entries list newest first, with a timestamp and tag above each monospaced message, colour-coded by severity. A **Refresh** button re-reads the log without leaving the screen. Turning on **Include the system log** above adds another group underneath showing that raw log: the third group on the screen if no Crashes section is showing, the fourth if one is. A **Clear app log** button sits at the very bottom, on its own.
 
 ## Options
 
@@ -137,9 +137,9 @@ There are only two switches in this whole tree. Everything else is either a disp
 
 | Setting | Control | Default |
 |---|---|---|
-| Include the system log | Toggle | Off |
+| Include the system log | Toggle | Off, and off again on every visit |
 
-See [Privacy policy](/privacy/overview/) and [Network policy](/privacy/network/) for what the app does and doesn't send over the network in general. Diagnostics itself never touches the network on its own, since sharing or copying the report is something you trigger and send yourself.
+See [Privacy at a glance](/privacy/overview/) and [Network policy](/privacy/network/) for what the app does and doesn't send over the network in general. Diagnostics itself never touches the network on its own, since sharing or copying the report is something you trigger and send yourself.
 
 ## Details & edge cases
 

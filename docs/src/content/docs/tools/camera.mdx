@@ -57,7 +57,7 @@ Tapping **Send** inserts the photo the same way clipboard images, GIFs, and stic
 
 Either way, the send closes the panel and hands you back the keys.
 
-By default that's the *only* copy that persists anywhere. The private file used to hand the image off is scratch storage, not a saved photo. On each panel open, anything beyond the four most recent capture files is deleted, which only matters if the app was killed mid-confirm. Want a permanent copy? Turn on **Save to gallery**, off by default, and every capture is also written to `Pictures/WM Keyboard` in your device's shared gallery. See [your data on device](/privacy/data/) for how WM Keyboard's on-device storage is organized more generally. The camera tool never touches the network in any of this: capture, crop, save, and send are all local. [Network policy](/privacy/network/) has the wider picture.
+By default that's the *only* copy that persists anywhere. The private file used to hand the image off is scratch storage, not a saved photo. On each panel open, anything beyond the four most recent capture files is deleted, which only matters if the app was killed mid-confirm. Want a permanent copy? Turn on **Save to the gallery**, off by default, and every capture is also written to `Pictures/WM Keyboard` in your device's shared gallery. See [your data on device](/privacy/data/) for how WM Keyboard's on-device storage is organized more generally. The camera tool never touches the network in any of this: capture, crop, save, and send are all local. [Network policy](/privacy/network/) has the wider picture.
 
 ## Granting camera access
 
@@ -69,12 +69,12 @@ The first time you open Camera, you'll likely see a short message instead of a l
 
 > The camera tool needs permission to use the camera. The app takes a photo only when you press the shutter.
 
-Tapping **Allow camera** starts a tiny, invisible activity that exists for one reason. An IME service cannot show Android's runtime permission dialog itself, so this activity pops up just long enough to show the system's camera-permission prompt, then closes the moment you answer. The keyboard re-checks the permission as soon as it regains focus. Answering the system dialog is enough, and you don't need to reopen the panel.
+Tapping **Allow camera** starts a small trampoline activity that exists for one reason. An IME service cannot show Android's runtime permission dialog itself, so this activity comes up instead. It shows a disclosure first, headed "Camera access for the camera tool", spelling out that the camera only runs while the tool is on screen and that no photo is uploaded anywhere. **Continue** hands you Android's own permission prompt. **Not now** leaves without asking for anything. Either way the activity closes the moment you answer, and the keyboard re-checks the permission as soon as it regains focus. You don't need to reopen the panel.
 
 This same trampoline is shared by the [OCR and QR scanner tools](/tools/scanner/): granting camera access from any one of the three covers all three, since they all request the same `android.permission.CAMERA`.
 
 :::note[If you've permanently denied the permission]
-Android stops showing its own prompt once you've denied camera access twice ("Don't ask again"). If that has happened, tapping **Allow camera** brings up no dialog at all. Grant Camera permission for WM Keyboard from your device's app settings instead, outside the keyboard.
+Android stops showing its own prompt once you've denied camera access twice ("Don't ask again"). The disclosure still appears if that has happened, with a line saying so, and its button reads **Open system settings** instead of Continue. That takes you to WM Keyboard's permission page, which is the only place left to grant it.
 :::
 
 On a device with no camera at all, the panel shows "Your device has no camera." in place of the viewfinder. WM Keyboard installs and runs fine either way. Nothing about the app requires a camera.
@@ -87,7 +87,7 @@ On a device with no camera at all, the panel shows "Your device has no camera." 
   ![Camera's Options screen: selfie camera, mirroring, gallery saving, shutter sound and haptics.](@assets/screens/tools/camera-options.webp)
 </PhoneFrame>
 
-Like every tool on the [full tool list](/reference/settings/tools/), this screen opens with an **Enabled** toggle. An **Icon colour** override follows it, but only while [colorful tool icons](/tools/overview/) are on globally. It's pink by default, and it becomes two rows instead of one if gradient tool colours are on as well.
+Like every tool on the [full tool list](/reference/settings/tools/), this screen opens with a **Turn on** switch. An **Icon colour** override follows it, but only while [colorful tool icons](/tools/overview/) are on globally. It's pink by default, and it becomes two rows instead of one if gradient tool colours are on as well.
 
 Under those sits the **Keyword shortcut** group, which every tool that ships a built-in keyword gets:
 
@@ -103,7 +103,7 @@ The tool's own settings, split into two groups:
 - **Photo size**: 1600 px by default, from a choice of 1000, 1600, 2400 and 3200. It's the longest edge of the photos you take, and the camera picks the closest size its sensor offers. Larger photos hold more detail, which matters for a picture of a document somebody has to read, and they take longer to capture and to send.
 - **Mirror selfies**: on by default. See [Confirm, retake, or send](#confirm-retake-or-send) above for what this does and why it exists.
 - **Send the whole photo**: off by default. It skips the crop described in [What you see is what you get](#what-you-see-is-what-you-get) and sends the full 4:3 frame, including the strips that ran off the top and bottom of the screen. The live viewfinder is unchanged, so this is the one case where the photo holds more than you framed. The confirm step fits the whole picture inside the panel so you can see what you're about to send.
-- **Save to gallery**: off by default. Also copies every capture into `Pictures/WM Keyboard`, on top of sending it.
+- **Save to the gallery**: off by default. Also copies every capture into `Pictures/WM Keyboard`, on top of sending it.
 
 **Feedback**
 - **Shutter sound**: on by default. Plays the camera click when a photo is taken.

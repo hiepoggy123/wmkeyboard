@@ -16,9 +16,9 @@ The sticker tool searches Klipy and GIPHY. Where the app on the other end suppor
 
 ## Searching and sending
 
-Open the tool from the toolbar. Type to search Klipy and GIPHY, or switch to **My stickers** for packs you've built yourself. Tap a result to download and insert it. While it downloads, the tile shows a spinner in its place.
+Open the tool from the toolbox, or from the toolbar once you've pinned it there. Type to search Klipy and GIPHY, or switch to **My stickers** for packs you've built yourself. Tap a result to download and insert it. While it downloads, the tile dims and shows a spinner over the preview.
 
-With the search box empty, a scrollable row of category chips (Trending, Love, Happy, Cute, Funny…) sits above the grid. Tap one to run it as a search, and tap the active chip to go back to trending. It works the same as the [GIF panel's row](/emoji/gifs/#searching-for-a-gif), and like that one it steps aside as soon as you type. **My stickers** doesn't get the row, because its pack chips already fill that job.
+With the search box empty, a scrollable row of category chips (Trending, Love, Happy, Sad, Cute…) sits above the grid. Tap one to run it as a search, and tap the active chip to go back to trending. It works the same as the [GIF panel's row](/emoji/gifs/#searching-for-a-gif), and like that one it steps aside as soon as you type. **My stickers** doesn't get the row, because its pack chips already fill that job.
 
 Android has no dedicated "this is a sticker" flag. The only signal a receiving app gets is the file's MIME type, and WhatsApp in particular only recognizes its own private `image/webp.wasticker` type, not plain `image/webp`. So with **Send stickers as** set to Sticker, the keyboard offers that WhatsApp type first and falls back to a normal image if the field doesn't advertise it. A source that isn't WebP, an animated GIF result say, can never go out with the sticker MIME, because Android has no animated-WebP encoder. Those always send as a plain image whatever that setting says.
 
@@ -86,9 +86,9 @@ None of this leaves the phone. Exporting a `.wmstickers` pack writes the manifes
 A `.wmstickers` file is a ZIP with a `pack.json` manifest and one image per sticker. Import forgives hand-written or slightly malformed manifests, repairing what it can rather than rejecting the whole file, and it reports what happened:
 
 - Imported successfully, with a note of anything it had to fix along the way.
-- "No stickers could be read out of that pack" if the manifest named stickers but none of them survived. Import reports that rather than quietly creating an empty pack.
-- "That file is not a WMKeyboard sticker pack" if the format tag doesn't match.
-- "You already have 50 packs. Delete one first" if you're at the pack limit.
+- "The app cannot read any sticker in that pack." if the manifest named stickers but none of them survived. Import reports that rather than quietly creating an empty pack.
+- "That file is not a WM Keyboard sticker pack." if the format tag doesn't match.
+- "You already have 50 sticker packs. Delete one first." if you're at the pack limit.
 
 An import is also capped against oversized or booby-trapped files: at most 500 entries and 64 MB total per archive.
 
@@ -104,13 +104,13 @@ Stickers isn't pinned to the toolbar by default. It lives in the toolbox alongsi
 
 - **Sticker packs** jumps to the pack management screen above. Only shown under Stickers, not under GIFs.
 - **Full-screen picker**, under <SettingsPath path="Tools / Stickers / Layout" />, default **on**. The toolbar, emoji row, and symbol row step aside and the search box moves into the row they leave behind, so the grid gets the full keyboard height. Shared with the GIF tool.
-- **Klipy API key** and **GIPHY API key**, under <SettingsPath path="Tools / Stickers / Sources & API keys" />, both blank by default and shared with the GIF tool. Either one alone is enough. Every source you've configured a key for shows up as a chip in the panel. Klipy replaced Tenor after Tenor's API was retired.
+- **Klipy API key** and **GIPHY API key**, under <SettingsPath path="Tools / Stickers / Sources and API keys" />, both blank by default and shared with the GIF tool. Either one alone is enough. Every source you've configured a key for shows up as a chip in the panel. Klipy replaced Tenor after Tenor's API was retired.
 - **Send stickers as**, under <SettingsPath path="Tools / Stickers / Sending" />, Sticker or Image, default **Sticker**. Only shown under Stickers, since it governs what the sticker panel commits. The GIF panel has its own **Send GIFs as** on its own page.
 - **Multiple sources**, Tabs or Mixed, default **Tabs**. Tabs gives every configured source its own chip, including My stickers. Mixed collapses Klipy and GIPHY into one "Online" chip and keeps My stickers as a second chip.
 - **Content filter**, Off/Low/Medium/High, default **Medium**. Maps to Klipy's and GIPHY's own content rating.
 - **Results for each search**, under <SettingsPath path="Tools / Stickers / Results" />: a slider from 6 to 48, default **24**. It sets how many stickers one search or the trending view loads. Your own packs ignore it, so **My stickers** always shows everything that matches, however long the list. Shared with the GIF tool.
 
-Both tools are among the ones the setup wizard suggests enabling, and neither needs a particular edition. What gates them is an API key, not the build.
+Both tools are among the ones the setup wizard suggests enabling, and neither needs a particular edition. What an API key gates is the online half. The GIF panel has nothing to show without one, while **My stickers** needs no key at all, so the sticker tool never lands on a "needs an API key" notice the way the GIF tool can.
 
 ## Details and edge cases
 

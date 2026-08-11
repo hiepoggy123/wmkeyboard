@@ -20,12 +20,12 @@ WM Keyboard's language catalogue holds 352 entries. Alongside the languages you'
 
 ## Suggested languages
 
-Both the Languages screen and the Add language screen open with a short **Suggested for you** group, so the language you came for is usually already on screen. Each row says why it's there: "One of your phone's languages", or "Widely typed in Bangladesh". Tapping one adds it exactly like tapping a search result does.
+Both the Languages screen and the Add language screen open with a short **Suggested for you** group, so the language you came for is usually already on screen. Each row says why it's there: "One of the languages on your device", or "Many people type this language in Bangladesh". Tapping one adds it exactly like tapping a search result does.
 
 Two things on the device feed that list, in this order:
 
 - **Your phone's language list** (Settings → System → Languages), in your own preference order. Anything you've told Android you read is a strong signal that you type it too.
-- **Your region**, which maps to the languages widely typed there. A Bangladeshi SIM suggests Bangla and Sylheti, an Indian one Hindi, Bangla, Tamil, Marathi and so on.
+- **Your region**, which maps to the languages widely typed there. A Bangladeshi SIM suggests Bangla and Sylheti, an Indian one Hindi, Bangla, Tamil, Telugu, Marathi and so on.
 
 Where a language has a [Romanized variant](#adding-a-language), it sits directly under its own language: Banglish under Bangla, Hinglish under Hindi. Wanting one is a good reason to be shown the other. That holds even when the language itself is already on, because somebody typing Bangla is exactly the person who'd want Banglish offered.
 
@@ -37,13 +37,13 @@ Suggestions stay suggestions: nothing is enabled until you tap it. A brand-new i
 
 ## Adding a language
 
-Below the suggestions, tap **Add language** to search the whole registry. The search box matches on endonym, English name, id, and locale tag, so "german", "Deutsch", "de", and "de-DE" all find the same entry. Tap an unadded language and it's enabled immediately on its first layout, then that language's own screen opens so you can pick a different layout or turn on suggestions from another enabled language.
+Below the suggestions, tap **Add language** to search the whole registry. The search box matches on endonym, English name, id, locale tag, and the names and ids of the layouts the language ships, so "german", "Deutsch", "de", "de-DE" and "QWERTZ" all find the same entry. Tap an unadded language and it's enabled immediately on its first layout, then that language's own screen opens so you can pick a different layout or turn on suggestions from another enabled language.
 
-If the language has data to download (a word list, emoji keywords, or both) you're asked once, right there, with the rough size on the dialog. **Download** starts both in the background. **Not now** adds the language without them. **Cancel** backs out of the whole thing, for the tap that landed on the wrong row. Nothing is enabled until you answer, so Cancel really does leave your language list as it was. You can start either download by hand later from the language's own screen. Emoji keywords also have an automatic download of their own, covered in [Emoji search in your language](/emoji/customization/#emoji-search-in-your-language), but the prompt is the one chance to get the word list at the same time.
+If the language has data to download (a word list, emoji keywords, an n-gram pack of word pairs, or any mix of the three) you're asked once, right there, with the rough size for the lot on the dialog. **Download** starts all of them in the background. **Not now** adds the language without them. **Cancel** backs out of the whole thing, for the tap that landed on the wrong row. Nothing is enabled until you answer, so Cancel really does leave your language list as it was. You can start any of them by hand later from the language's own screen. Emoji keywords also have an automatic download of their own, covered in [Emoji search in your language](/emoji/customization/#emoji-search-in-your-language), but the prompt is the one chance to get the word list at the same time.
 
 Removing a language asks the mirror question when it has files on disk: delete its downloaded word list and keywords to get the storage back, or keep them for next time. The language goes either way, because the dialog is only about the files. Deleting the keywords also tells the automatic download to leave that language alone, so they don't quietly come back.
 
-Every language's name in the list is shown as `endonym · English`, for example "বাংলা · Bangla" or "Русский · Russian". The native name comes first and the English name after it, so you can find a language whether or not you can already read its script.
+Language names in the list are shown as `endonym · English`, for example "বাংলা · Bangla" or "Русский · Russian". The native name comes first and the English name after it, so you can find a language whether or not you can already read its script. English itself is just "English", since repeating it would say nothing.
 
 <PhoneFrame caption="Add language: search matches endonym, English name, id, and locale.">
   {/* shot: languages/add-language-search */}
@@ -55,12 +55,15 @@ Fourteen languages (including Bangla, Hindi, Arabic, and Russian) have a separat
 
 ## Each language has its own screen
 
-Tap any enabled language to reach its screen. It holds up to four sections, depending on what that language supports:
+Tap any enabled language to reach its screen. **Layouts**, **Dictionary** and **Emoji** are always there. The rest of the groups appear only where they mean something, so most languages show four or five in all:
 
 - **Layouts**: a toggle per layout the language ships. Bangla offers Avro, Probhat, and Jatiya. At least one layout has to stay enabled somewhere across your whole set, so the last one can't be switched off from here.
 - **Numerals**: which digits the number row and keypad show while this language is active. Two options: the language's own digits (the default) or plain `0-9`. This is set per language, so Arabic can show `٠-٩` while English next to it stays on `0-9`. Languages that already use `0-9` don't get the group at all, and no language offers another language's digits, since nobody writes Bangla with Persian numerals.
 - **Also suggest from**: appears once you have more than one language enabled. Toggle other enabled languages on to blend their words into suggestions while you type this one. Words pulled in this way are never autocorrected away.
 - **Dictionary**, **Emoji**, and, for Chinese, Japanese, and Cantonese, a conversion-dictionary group. Between them they cover downloadable word lists, emoji keyword packs, and for those three languages a larger conversion dictionary plus script and input-scheme options. [Downloadable dictionaries](/languages/dictionaries/) covers all three in full, and [Chinese, Japanese & Korean](/languages/cjk/) covers Chinese and Japanese input specifically.
+- **Language data**, a single button that fetches everything the language has to download at once, with the size for the lot printed on it. It's there for any language that has something to download, and the download managers skip whatever is already on disk.
+
+Three more groups turn up on the languages that have them: **Clusters** on a conjunct script (see the note below), **Spellings** on Bangla, whose "Use known spellings" switch turns "tmr" into তোমার and "table" into টেবিল, and **Style** on the Fancy Text entry, which is where its 22 styles are listed.
 
 <PhoneFrame caption="A language's own screen: layout toggles, numeral system, and other enabled languages to suggest from.">
   {/* shot: languages/language-detail-screen */}

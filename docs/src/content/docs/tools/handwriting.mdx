@@ -38,12 +38,12 @@ Two different controls undo ink, and they don't do the same thing:
 
 <SettingsPath path="Typing / Gestures / Handwrite with swipes" />
 
-There's a second way to write by hand that doesn't need the panel at all. Turn on **Gesture typing** and a **Handwrite with swipes** choice appears underneath it. Set that choice to "Handwrite". A swipe across the letter keys then draws a stroke on the keyboard itself instead of gliding a word. Recognition and insertion work exactly like the panel, and a plain tap still types its key. The default is "Type words", so this is off until you change it.
+There's a second way to write by hand that doesn't need the panel at all. Turn on **Glide typing** and a **Handwrite with swipes** choice appears underneath it. Set that choice to "Handwrite". A swipe across the letter keys then draws a stroke on the keyboard itself instead of gliding a word. Recognition and insertion work exactly like the panel, and a plain tap still types its key. The default is "Type words", so this is off until you change it.
 
-Two extra options only appear once handwriting-by-swipe is selected:
+Picking "Handwrite" swaps one set of options for another:
 
-- **Dot leeway after drawing**: default **700 ms**, adjustable from 0–1500 ms. Letters like i, j, and t need a second mark after the main stroke. For this long after you finish a stroke, a tap over the letters is folded into that same character, as the dot or the cross, instead of typing the key underneath it. Set it to 0 to turn the leeway off.
-- Turning handwriting off here also removes the **Glide across spacebar** and **Cooldown after typing** options, since both only make sense for word-gliding.
+- **Extra time for a dot or a cross** appears: default **700 ms**, adjustable from 0–1500 ms. Letters like i, j, and t need a second mark after the main stroke. For this long after you finish a stroke, a tap over the letters is folded into that same character, as the dot or the cross, instead of typing the key underneath it. Set it to 0 to turn the leeway off.
+- Four glide-only rows go away: **Glide across the spacebar**, **Ask when a glide is unclear**, **Space after a glided word** and **Delay after typing**. None of them means anything once a swipe draws ink rather than a word.
 
 If the language you're typing in has no downloaded model yet, a one-time notice points you at the Handwriting settings screen instead of silently failing.
 
@@ -55,7 +55,7 @@ The **Recognition models** section lists one row per enabled language that ML Ki
 
 The list of available models isn't hardcoded in WM Keyboard. It's read straight out of ML Kit's own digital ink library, then filtered down to the languages you have enabled. So enabling a new keyboard language surfaces its handwriting model on its own, with nothing WM-Keyboard-specific to configure. The flip side: the catalog of *which languages have a model at all* only grows when ML Kit itself grows.
 
-If an enabled language has no ink model, it's called out separately: writing in that language falls back to the nearest language that does have one, rather than failing outright. And if none of your enabled languages has a model, the whole section is replaced with a prompt to add a language under Languages & layouts first.
+If an enabled language has no ink model, it's called out separately underneath the list: writing in that language falls back to the nearest language that does have one, rather than failing outright. And if none of your enabled languages has a model, the list itself is replaced by a note asking you to add a language on the Languages screen first. A **Languages and layouts** row at the bottom of the section takes you straight there either way.
 
 <PhoneFrame caption="Recognition models: one row per enabled language, each with its own download status.">
   ![Recognition models: one row per enabled language, each with its own download status.](@assets/screens/tools/handwriting-model-manager.webp)
@@ -66,7 +66,7 @@ If an enabled language has no ink model, it's called out separately: writing in 
 <SettingsPath path="Tools / Handwriting / Input" />
 
 - **Stylus only**: off by default. With it on, only a stylus (S Pen or similar) draws on the canvas, and finger touches are ignored completely. Even with it off, a finger touch is briefly ignored right after a stylus stroke, so a palm resting on the screen while you write doesn't add stray ink.
-- **Auto space**: on by default. Inserts a space between words you write one after another, but never before punctuation.
+- **Automatic space**: on by default. Inserts a space between words you write one after another, but never before punctuation.
 - **Recognition pause**: default **700 ms**, adjustable from 300–2000 ms. How long the canvas waits after your last stroke before it sends the word off for recognition. Shorter feels snappier. It can also cut a multi-stroke letter or a Bengali conjunct in half if you pause mid-letter, where a longer wait gives you room to breathe between strokes.
 
 :::note[Bangla gets a higher floor]

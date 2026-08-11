@@ -11,7 +11,7 @@ import KeyCap from '@components/KeyCap.astro';
 
 The Layout & size screen collects every physical dimension WM Keyboard's keys can take: a digit row, key and row heights, per-screen-shape overrides, and one-handed, split and floating modes. The groups below appear in the same order they do on screen. This page is the field reference. The linked guides carry the reasoning and walk through each group in more depth.
 
-<PhoneFrame caption="The Layout & size screen, opening on the Number row and Numerals groups.">
+<PhoneFrame caption="The Layout & size screen, opening on the Number row and Symbols layer groups.">
   {/* shot: reference/settings/layout-overview */}
 </PhoneFrame>
 
@@ -79,13 +79,13 @@ Only single-character keys count, so a `.com` key or an emoticon key never trigg
 
 These sliders set the everyday shape of the keyboard: how tall the keys and the space/enter row are, how much air sits around each key and along the edges, and whether the keyboard docks narrower than the full screen width. For the full breakdown of each one, including how they interact with one-handed mode and split, see [Size, position & one-handed use](/typing/size-position/).
 
-Once you've moved anything in this group, a **Reset size and position** row appears at the bottom of it. It asks first, then puts every slider here back at once, plus **Key corner radius** over on [Appearance](/reference/settings/appearance/), which is sizing even though it doesn't live here. The per-screen overrides below are left alone.
+Once you've moved anything in this group, a **Reset size and position** row appears at the bottom of it. It asks first, then puts every slider here back at once. Two sliders it reaches that don't sit in this group come with them: **Number row height** from the top of this screen, and **Key corner radius** over on [Appearance](/reference/settings/appearance/), which is sizing even though it doesn't live here. The per-screen overrides below are left alone.
 
 ### Per-screen sizing
 
 <SettingsPath path="Layout & size / Per-screen sizing" />
 
-The Size & position values above are your portrait sizes, and the in-app caption calls them your "portrait (folded)" sizes. Three more screen shapes can each override any of them, plus the **Number row** toggle from the top of the screen, or scale the whole keyboard at once: **Landscape**, **Portrait, unfolded**, and **Landscape, unfolded**. A shape counts as "unfolded" by a live check on the screen's smallest dimension (≥ 600 dp) rather than a fold-sensor read, so a tablet that never folds still counts. Each row reads "Following portrait" until you set an override. Tap a row to open its own editor:
+The Size & position values above are your portrait sizes, and the in-app caption calls them your "portrait (folded)" sizes. Three more screen shapes can each override any of them, plus the **Number row** toggle from the top of the screen, or scale the whole keyboard at once: **Landscape**, **Portrait, unfolded**, and **Landscape, unfolded**. A shape counts as "unfolded" by a live check on the screen's smallest dimension (≥ 600 dp) rather than a fold-sensor read, so a tablet that never folds still counts. Each row reads "Follows portrait" until you set an override, and its own key height and width once you have. Tap a row and its editor unfolds in place:
 
 | Field | Range | Falls back to |
 |---|---|---|
@@ -101,7 +101,7 @@ The Size & position values above are your portrait sizes, and the in-app caption
 | Number row | On / Off | base Number row (On) |
 | Keyboard position *(only if resolved width < 100%)* | Left / Centre / Right | base Keyboard position |
 
-A **Follow portrait again** row appears at the bottom of the editor once any field is set, clearing the whole override back to "Following portrait" in one tap.
+A **Follow portrait again** row appears at the bottom of the editor once any field is set, clearing the whole override back to "Follows portrait" in one tap.
 
 <PhoneFrame caption="A Per-screen sizing row expanded, with Keyboard scale and the other override sliders.">
   {/* shot: reference/settings/layout-per-screen-editor */}
@@ -149,7 +149,7 @@ Full detail on all three (plus the floating panel's drag pill and resize grip) i
 
 **Emoji key instead of 🌐** is on by default. The bottom-row <KeyCap>🌐</KeyCap> key opens the emoji panel instead of switching language, and language switching moves to a spacebar swipe (Language, by default). **Comma key opens emoji** takes over the comma key the same way, with comma demoted to a long-press alternate. Turning it on also removes the emoji tool from the toolbar, since the key is meant to replace it.
 
-**Swap the comma and 🌐 keys** is on by default. It trades the two keys on each side of the spacebar, so the bottom row reads `?123` · 🌐 · `,` · space · `.` · ⏎. It moves the keys rather than the emoji function, so whichever of the two you turned into an emoji key moves with it. The emoji key ends up in the outer slot, and the comma keeps the place next to the spacebar. It applies to every layout, imported and custom ones included, and to the symbol layers too, so the row doesn't reshuffle on the way into `?123`.
+**Swap the comma and 🌐 keys** is on by default. Without it the bottom row reads `?123` · `,` · 🌐 · space · `.` · ⏎; with it the two keys either side of the spacebar trade places, so it reads `?123` · 🌐 · `,` · space · `.` · ⏎. It's a straight positional swap and it runs after the emoji rewrites, so whichever of the two you turned into an emoji key travels with its slot. On the default settings that puts the emoji key in the outer position and the comma next to the spacebar. It applies to every layout, imported and custom ones included, and to the symbol layers too, so the row doesn't reshuffle on the way into `?123`.
 
 <PhoneFrame caption="The Bottom-row keys group: Comma key opens emoji and Emoji key instead of the globe key.">
   {/* shot: reference/settings/layout-bottom-row-keys */}
@@ -159,12 +159,13 @@ See [Switching languages](/languages/switching/#using-the-globe-key) and [Openin
 
 ## Details & edge cases
 
+- **Both emoji-key toggles sit out the expanded tablet grid.** A tablet-width grid draws a real emoji key of its own, so applying either toggle there would give you two, and turning the globe into an emoji key would take language switching off the board entirely. On that grid the keyboard ignores both switches, whatever they say here.
 - **Bottom padding goes a lot higher than it looks like it needs to.** The slider runs to 160 dp because the inline **Resize** tool drives the same value, and dragging the keyboard well up the screen has to land somewhere.
 - **Per-screen sizing has no "folded" shape.** Portrait itself is the base folded size. "Unfolded" is decided live by screen width rather than a fold sensor, so it can flip mid-session on a foldable device.
 - **"Type native digits in" is not the digit-glyph picker.** Which glyphs a language's digits use (Latin, Arabic-Indic, Bengali, Devanagari and so on) is set per language under [Languages](/languages/overview/). This screen only controls where the resulting glyphs get committed.
 - **Bottom row height's 0 value reads as "Follow keys," not "0 dp."** It's the default, and it means the space/enter row matches the letter-key height exactly.
 - **Bottom padding's default depends on your Android version.** It's 32 dp on Android 15 and up, where the IME window can draw behind the gesture bar, and 8 dp on older versions.
-- **Per-screen overrides don't reset one field at a time.** **Follow portrait again** clears a whole shape instead. Everything else on this screen has the usual [per-setting restore button](/reference/settings/#putting-one-setting-back).
+- **Per-screen overrides don't reset one field at a time.** **Follow portrait again** clears a whole shape instead. **Characters that go back** has no restore button either, since it's a plain text field: empty it and the built-in `!?.,;:` comes back. Everything else on this screen has the usual [per-setting restore button](/reference/settings/#putting-one-setting-back).
 - **No edition differences.** Every control on this screen behaves the same on the full and lite builds.
 
 ## Related pages

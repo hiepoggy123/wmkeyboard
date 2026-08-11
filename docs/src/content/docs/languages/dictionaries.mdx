@@ -49,7 +49,7 @@ The gap can be wide on a smaller language. Welsh's list is 123,099 lines, but on
 
 Tiers that would all keep the same words collapse into one, and the picker disappears entirely for a language whose whole list is already smaller than Small, since there is nothing to trim.
 
-The size you pick isn't a saved setting. It resets to Large every time you open the screen, and only the finished download remembers what you chose, shown afterward as an exact word count and file size. To use a different tier later, delete the dictionary and download it again. There's no separate "update" action or size switch.
+The tier you pick is remembered, so it carries to the next language and survives leaving the screen. It starts at Large. Changing it doesn't touch a dictionary you've already fetched: to use a different tier for one that's already down, delete it and download it again. There's no separate "update" action or size switch on a downloaded row. A finished download reports what it actually kept, as an exact word count and file size.
 
 :::note[Portuguese has two lists, not two dictionaries]
 Portuguese is the one language with two downloadable entries (European and Brazilian), but they share a single download slot. Fetching the Brazilian list after the European one replaces it. Only one variant can be active for Portuguese at a time, and the row for the other one goes back to showing "Download."
@@ -67,7 +67,7 @@ Once a dictionary is downloaded, the row's only action is delete. Deleting remov
 
 You don't need to restart the keyboard for a download to take effect. It goes live the next time you focus a text field after the download finishes.
 
-A download can fail for a few distinct reasons, each with its own message: no network connection, not enough free storage ("free up some space first"), a malformed or empty response, or an unexpected server error. A failed row shows **Retry** in place of Download.
+A download can fail for a few distinct reasons, each with its own message: no network connection, not enough free storage ("Delete some files, then try again"), an empty or unreadable word list, or a server that answered with an HTTP error code, which the row prints. A failed row shows **Retry** in place of Download.
 
 ## Emoji keyword packs
 
@@ -81,7 +81,7 @@ There's no global dictionary settings screen. Each language's own screen has its
 
 - **Download data automatically**, at <SettingsPath path="Languages / Language data / Download data automatically" />, is **on** by default. It's the master switch over everything the keyboard fetches by itself: emoji keyword packs and word-pair data. Word dictionaries aren't in that set, so it never downloads one.
 - **Emoji keywords auto-download**, at <SettingsPath path="Emoji / Emoji keywords / Download automatically" />, is **on** by default. It's the emoji half of the switch above, and both have to be on for a pack to arrive by itself. It governs the emoji keyword packs, not word dictionaries.
-- **Download all data**, at <SettingsPath path="Languages / (a language) / Language data / Download all data" />, is one button per language that fetches its word list, emoji keywords and word-pair data together. Unlike the two toggles, it *does* pull the word list, at the Large tier. Off Wi-Fi it confirms first and names the size, unless you've turned **Ask before downloading on mobile data** off.
+- **Download all data**, at <SettingsPath path="Languages / (a language) / Language data / Download all data" />, is one button per language that fetches its word list, emoji keywords and word-pair data together. Unlike the two toggles, it *does* pull the word list, at the Large tier. Off Wi-Fi it confirms first and names the size, unless you've set [Data saver](/privacy/data-saver/)'s **Downloads** row to **Allow**.
 - **Custom dictionaries** (import your own word list), under <SettingsPath path="Typing / Suggestions / Custom dictionaries" />. The same screen is also one tap from a language's own Dictionary section, above.
 - **Personal dictionary** (words the keyboard has learned from your typing), under <SettingsPath path="Typing / Suggestions / Personal dictionary" />. This is a different, unrelated store from anything on this page.
 
@@ -93,7 +93,7 @@ There's no global dictionary settings screen. Each language's own screen has its
 - **Romanized languages are their own catalog entries, not a toggle.** Fourteen languages (including Bangla, Hindi, Arabic, and Russian in Latin transliteration) have their own separate dictionary entry and their own selectable language (Banglish, Hinglish, Arabizi, and so on), distinct from the native-script version.
 - **Downloads come from one place.** Every wordlist and every emoji keyword pack downloads from the same public data repository over a plain HTTPS connection, and nothing else is contacted. Once a file is written to disk, using it needs no further network access. See [Network policy](/privacy/network/) for the full picture of what this keyboard sends and when.
 - **Downloadable wordlists keep their own licenses.** The bundled seed data (bigrams, the loanword map, the offensive-word filter) is hand-curated for this project, but each downloadable wordlist carries whatever license its own upstream source uses.
-- **One download here asks before spending mobile data.** **Ask before downloading on mobile data** (Languages → Language data, on by default) puts a size-naming confirmation in front of the one-tap **Download all data** button whenever you're not on Wi-Fi. The individual Download buttons on a wordlist or emoji-pack row don't consult it, and neither do the automatic packs. They start on whatever connection is up. [Downloads & mobile data](/languages/downloads/) has the full picture, including which downloads elsewhere in the app ask first.
+- **One download here asks before spending mobile data.** The **Downloads** row in [Data saver](/privacy/data-saver/), set to **Ask each time** by default, puts a size-naming confirmation in front of the one-tap **Download all data** button whenever you're not on Wi-Fi. The individual Download buttons on a wordlist or emoji-pack row don't consult it, and neither do the automatic packs. They start on whatever connection is up. [Downloads & mobile data](/languages/downloads/) has the full picture, including which downloads elsewhere in the app ask first.
 
 ## Every wordlist
 
