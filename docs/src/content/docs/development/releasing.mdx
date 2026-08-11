@@ -163,11 +163,38 @@ F-Droid reads `fastlane/metadata/android/en-US/` directly out of the source
 tree: `title.txt`, `short_description.txt`, `full_description.txt`, the
 `changelogs/` folder and `images/`. Editing them here updates the F-Droid
 listing on the next build, with no metadata merge request.
+:::
 
-**Play reads the same files**, which is why nothing in them may describe one
-edition as though it were both. `full_description.txt` names the two builds
-and links a privacy policy for each rather than asserting anything about ML
-Kit, because the F-Droid build does not contain it.
+### Two listings, one repo
+
+The two editions are not the same app, so they do not share a description.
+
+| Tree | Read by | Holds |
+|---|---|---|
+| `fastlane/metadata/android/en-US/` | **F-Droid**, and the shared source for images and changelogs | the **lite** description, `images/`, `changelogs/` |
+| `fastlane/play/metadata/android/en-US/` | **Play**, via supply's `metadata_path` | the **full** description only |
+
+F-Droid scans a fixed set of paths inside the source repo and there is no way
+to point it somewhere else, so the default tree has to be the F-Droid one.
+Play is the side that can be redirected, so Play is the side that moved.
+
+Only the three text files diverge. Images and changelogs stay in the shared
+tree, uploaded by `graphics` and `internal`, which read the default path. One
+copy of each, nothing to keep in step.
+
+:::caution[The lite description must not promise what lite does not ship]
+The lite flavour has no ML Kit, no Whisper and no Harper, so it has no
+handwriting, no text or QR scanning, no offline dictation and no on-device AI
+models. `fastlane/metadata/android/en-US/full_description.txt` names those as
+*absent* and links [`/privacy/policy-fdroid/`](/privacy/policy-fdroid/); the
+Play copy describes them as present and links
+[`/privacy/policy/`](/privacy/policy/). Adding a feature to one description
+means deciding, deliberately, whether it belongs in the other.
+
+`preflight` runs `ensure_listing_limits!`, which checks both trees against
+Play's caps (30 / 80 / 4000 characters). It reads as UTF-8 explicitly rather
+than in the machine's locale, because the description quotes Bengali and a
+non-UTF-8 locale otherwise raises rather than counting.
 :::
 
 ## Publishing to Play
@@ -271,12 +298,12 @@ bundle install
 
 | Lane | What it does |
 |---|---|
-| `preflight` | checks the changelog for the current `versionCode` exists and signing is configured |
+| `preflight` | checks the changelog for the current `versionCode` exists, signing is configured, and both listing trees are within Play's character limits |
 | `bundle_play` | `bundleFullRelease` with the Play channel flags |
 | `apks` | sideload APKs, full + lite, one per ABI |
 | `internal` | checks the changelog, builds the AAB (or takes `aab:path`), uploads to the internal track. Only the build path checks signing, since a prebuilt `aab:` is assumed already signed |
 | `promote` | move the internal release to production (`to:`, `from:`, `rollout:` options) |
-| `listing` | push the store-listing text and changelogs to Play, nothing else |
+| `listing` | push the **Play** store-listing text, from `fastlane/play/metadata/`, nothing else |
 | `graphics` | push the icon, feature graphic and screenshots to Play, nothing else |
 | `check_key` | validate the service-account key against the Play API |
 

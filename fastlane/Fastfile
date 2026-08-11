@@ -21,6 +21,49 @@ SIDELOAD_PROPS = {
   "wmkb.splitApks" => "true",
 }.freeze
 
+# Play and F-Droid read different metadata trees, because the two editions are
+# not the same app.
+#
+# F-Droid scans `fastlane/metadata/android/<locale>/` out of the source repo and
+# there is no way to point it somewhere else, so that tree is the *lite* one.
+# Its description must not promise handwriting, text and QR scanning, offline
+# Whisper dictation or the on-device AI models: the lite flavour contains none
+# of them, and F-Droid's readers are exactly the people who check.
+#
+# Play's tree is the one below, chosen with supply's `metadata_path`. Only the
+# three text files diverge. Images and changelogs stay in the shared tree and
+# are uploaded by the `graphics` and `internal` lanes, which read the default
+# path, so there is one copy of each and nothing to keep in step.
+PLAY_METADATA_PATH = File.expand_path("play/metadata/android", __dir__)
+PLAY_LISTING_DIR = File.join(PLAY_METADATA_PATH, "en-US")
+FDROID_LISTING_DIR = File.expand_path("metadata/android/en-US", __dir__)
+
+# Play rejects an over-length listing rather than truncating it, and the error
+# names neither the field nor the limit. Both trees are checked, not just the
+# one being uploaded, so an edit that overruns on the F-Droid side is caught
+# here rather than on an F-Droid build weeks later.
+LISTING_LIMITS = { "title.txt" => 30, "short_description.txt" => 80, "full_description.txt" => 4000 }.freeze
+
+def ensure_listing_limits!
+  { "Play" => PLAY_LISTING_DIR, "F-Droid" => FDROID_LISTING_DIR }.each do |label, dir|
+    LISTING_LIMITS.each do |name, limit|
+      path = File.join(dir, name)
+      UI.user_error!("#{label} listing is missing #{name} (#{path})") unless File.exist?(path)
+      # Explicit UTF-8, not the locale's encoding. The description quotes
+      # Bengali ("ami valo achi" becomes আমি ভালো আছি), so a machine whose
+      # locale is not UTF-8 — which fastlane itself warns about — reads those
+      # bytes as US-ASCII and raises Encoding::CompatibilityError on `strip`
+      # instead of checking anything. `length` then also counts characters
+      # rather than bytes, which is what Play's limit is measured in.
+      length = File.read(path, encoding: "UTF-8").strip.length
+      next if length <= limit
+
+      UI.user_error!("#{label} #{name} is #{length} characters; Play allows #{limit}.")
+    end
+  end
+  UI.success("Listing text is within Play's limits on both trees")
+end
+
 # gradle.properties is the single source of version truth (both :app and
 # :core:config read it), so fastlane reads it too rather than keeping a copy.
 def gradle_prop(name)
@@ -69,6 +112,7 @@ platform :android do
   lane :preflight do
     ensure_changelog!
     ensure_signing!
+    ensure_listing_limits!
     UI.success("#{version_name} (#{version_code}) — changelog present, signing configured")
   end
 
@@ -131,15 +175,24 @@ platform :android do
     UI.success("Promoted #{options[:from] || 'internal'} → #{options[:to] || 'production'}")
   end
 
-  desc "Push the store-listing text and changelogs to Play (no binaries, no images)"
+  desc "Push the Play store-listing text (no binaries, no images, no changelogs)"
   lane :listing do
+    ensure_listing_limits!
     upload_to_play_store(
+      # The Play tree, not the shared one. See PLAY_METADATA_PATH above for why
+      # the two differ; uploading the F-Droid text here would advertise
+      # handwriting and scanning as missing on a build that has them.
+      metadata_path: PLAY_METADATA_PATH,
       skip_upload_aab: true,
       skip_upload_apk: true,
       skip_upload_images: true,
       skip_upload_screenshots: true,
+      # Release notes live in the shared tree and ride along with the binary in
+      # `internal`. Uploading them from here would need a second copy of every
+      # changelog under the Play tree, and two copies drift.
+      skip_upload_changelogs: true,
     )
-    UI.success("Listing text synced from fastlane/metadata/android/en-US/")
+    UI.success("Listing text synced from fastlane/play/metadata/android/en-US/")
   end
 
   desc "Push the icon, feature graphic and screenshots to Play (no binaries, no text)"
