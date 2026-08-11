@@ -45,7 +45,7 @@ Two more emoji-access toggles live on a different screen. See [Details & edge ca
 
 **Emoji suggestions** appends matching emoji to the end of the suggestion strip as you finish typing a whole word. "birthday" offers 🎂🎉🥳. It works in English, and in any other language whose keyword pack you have. English and Bangla keywords are built in, so those two work with nothing downloaded.
 
-**Press an emoji suggestion** decides what happens when you tap one. **Replace word** swaps the typed word for the emoji entirely, Gboard-style: "birthday" plus a tap on 🎂 leaves just 🎂. **Keep word** adds the emoji after it instead, giving you "birthday 🎂".
+**Press an emoji suggestion** decides what happens when you tap one. **Replace word** swaps the typed word for the emoji entirely, Gboard-style: "birthday" plus a tap on 🎂 leaves just 🎂. **Keep word** adds the emoji after it instead, giving you "birthday 🎂". Long-pressing a suggestion runs whichever of the two this setting didn't pick, so the other behaviour is one hold away rather than a trip back to this screen.
 
 :::note
 Typing `:cat:` to search or auto-commit an emoji from the suggestion strip is a separate toggle on the [Typing](/reference/settings/typing/) screen, not this one. See [Details & edge cases](#details--edge-cases).
@@ -118,13 +118,15 @@ Typing `:cat:` to search or auto-commit an emoji from the suggestion strip is a 
 | Emoji row | Choice | Off / Button / Own row | Off |
 | Emoji row content *(hidden when Emoji row is Off)* | Choice | Most used / Recent / Favourites | Most used |
 | Emoji in the row *(same visibility gate)* | Slider | 3–16 | 8 |
-| Scroll the emoji row *(same visibility gate)* | Toggle | On / Off | Off |
+| Scroll the emoji row *(same visibility gate)* | Toggle | On / Off | On |
 
 **Emoji row** controls a dedicated strip of your own emoji, similar to Gboard's. **Off** (default) hides it entirely. **Button** adds a toggle to the toolbar that swaps the suggestion strip for the emoji row on tap. **Own row** keeps it permanently visible between the toolbar and the keys.
 
 **Emoji row content** picks what fills the row: Favourites always sort first regardless of which of the three you choose.
 
-**Emoji in the row** splits the row's width into this many slots and shrinks the emoji to fit, so a higher number packs more, smaller emoji across. With **Scroll the emoji row** off, anything past the last slot isn't shown at all. Turn it on and the rest are a sideways swipe away.
+**Emoji in the row** splits the row's width into this many slots and shrinks the emoji to fit, so a higher number packs more, smaller emoji across. **Scroll the emoji row** is on by default, so the emoji past the last slot are a sideways swipe away. Turn it off and anything past the last slot isn't shown at all, which also means the row can't slide under a tap.
+
+Until you've used enough emoji to fill the row from your own history, it falls back to a fixed set of 24 common ones, drawn in your **Default skin tone**.
 
 When Emoji row is set to **Own row**, a caption on this screen points to **Rows & bars** for where the row sits relative to the toolbar and symbol row; by default it's first, above both.
 

@@ -54,11 +54,17 @@
     <!-- Name of the Android colour system. It is a brand name. -->
     <string name="onboarding_keyboard_theme_material_you_label" translatable="false">Material You</string>
 
-    <!-- Onboarding, emoji page. It appears when the font of the device cannot
-         draw some emoji, and on the devices that draw emoji in the set of the
-         manufacturer. -->
+    <!-- Onboarding, emoji page. The skin tone question appears for everybody.
+         The part about the emoji images appears when the font of the device
+         cannot draw some emoji, and on the devices that draw emoji in the set
+         of the manufacturer. -->
     <string name="onboarding_emoji_title">Emoji</string>
-    <string name="onboarding_emoji_subtitle">Each device has its own emoji images. Old devices cannot draw the newest emoji, and they show an empty box instead.</string>
+    <string name="onboarding_emoji_subtitle">Choose the skin tone for the emoji of people and hands.</string>
+    <string name="onboarding_emoji_tone_title">Default skin tone</string>
+    <string name="onboarding_emoji_tone_body">Every emoji of a person or a hand uses this tone. To give one emoji a different tone, hold it in the emoji panel and select a tone there.</string>
+    <!-- Heading above the emoji font part of the page, which only some devices
+         see. It separates that part from the skin tone question above it. -->
+    <string name="onboarding_emoji_font_section_title">Emoji images</string>
     <!-- %1$d is how many emoji in the catalog the font of the device cannot draw. -->
     <plurals name="onboarding_emoji_missing_count">
         <item quantity="one">Your device cannot draw %1$d emoji in the catalog. It shows an empty box instead.</item>

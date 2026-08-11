@@ -12,24 +12,19 @@ import org.junit.Test
 class OnboardingGraphTest {
 
     private fun pages(
-        missingEmoji: Int? = 0,
-        samsungEmoji: Boolean = false,
         persona: OnboardingSettings = OnboardingSettings(),
         enabledTools: Collection<ToolbarTool> = emptyList(),
         enabledLanguageCount: Int = 2,
         replay: Boolean = false,
         imeReady: Boolean = false,
-    ) = onboardingPages(
-        missingEmoji, samsungEmoji, persona, enabledTools,
-        enabledLanguageCount, replay, imeReady,
-    )
+    ) = onboardingPages(persona, enabledTools, enabledLanguageCount, replay, imeReady)
 
     @Test
     fun `fresh run with unanswered quiz takes the short path`() {
         assertEquals(
             listOf(
-                OnboardingPage.WELCOME, OnboardingPage.PERSONA,
-                OnboardingPage.LOOK, OnboardingPage.DISCOVER, OnboardingPage.TRY,
+                OnboardingPage.WELCOME, OnboardingPage.PERSONA, OnboardingPage.LOOK,
+                OnboardingPage.EMOJI, OnboardingPage.DISCOVER, OnboardingPage.TRY,
             ),
             pages(enabledLanguageCount = 1),
         )
@@ -113,12 +108,17 @@ class OnboardingGraphTest {
         assertTrue(OnboardingPage.LANGUAGES in pages(persona = one, enabledLanguageCount = 2))
     }
 
+    // The skin tone question is asked of everyone, so the page is no longer
+    // gated on the device's emoji font — the font half of it is what the page
+    // itself hides. Every persona sees it, including the shortest path.
     @Test
-    fun `emoji page waits for the count and shows for missing glyphs or samsung`() {
-        assertFalse(OnboardingPage.EMOJI in pages(missingEmoji = null))
-        assertFalse(OnboardingPage.EMOJI in pages(missingEmoji = 0))
-        assertTrue(OnboardingPage.EMOJI in pages(missingEmoji = 3))
-        assertTrue(OnboardingPage.EMOJI in pages(missingEmoji = 0, samsungEmoji = true))
+    fun `emoji page is asked of every persona`() {
+        for (depth in PersonaDepth.entries) {
+            assertTrue(
+                "$depth lost the emoji page",
+                OnboardingPage.EMOJI in pages(persona = OnboardingSettings(personaDepth = depth)),
+            )
+        }
     }
 
     @Test

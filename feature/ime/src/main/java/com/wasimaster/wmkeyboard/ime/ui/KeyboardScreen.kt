@@ -26,6 +26,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -289,6 +290,7 @@ import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.LatinAccents
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
+import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
@@ -731,7 +733,13 @@ fun KeyboardScreen(
     onEmoji: (String) -> Unit,
     onEmojiVariant: (String, String) -> Unit = { _, v -> onEmoji(v) },
     onEmojiFavourite: (String) -> Unit = {},
-    onEmojiSuggestion: (String) -> Unit = onEmoji,
+    /**
+     * An emoji candidate from the strip. The flag is true when it was *held*
+     * rather than tapped, which runs the opposite of the configured insert
+     * mode — hold to keep the word when tapping would replace it, and the
+     * other way round. See `WMKeyboardService.onEmojiSuggestionTapped`.
+     */
+    onEmojiSuggestion: (String, Boolean) -> Unit = { emoji, _ -> onEmoji(emoji) },
     onPunctuation: (String) -> Unit = {},
     onEmojiQueryTap: () -> Unit,
     onEmojiRecentsClear: () -> Unit = {},
@@ -1920,7 +1928,7 @@ private fun TopBar(
     /** Open the expanded candidate grid. */
     onCandidatesExpand: () -> Unit = {},
     onEmoji: (String) -> Unit,
-    onEmojiSuggestion: (String) -> Unit,
+    onEmojiSuggestion: (String, Boolean) -> Unit,
     onPunctuation: (String) -> Unit = {},
     onPanelChange: (PanelMode) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
@@ -2742,20 +2750,45 @@ private fun TopBar(
             // Emoji candidates ride along after the words: typing "birthday"
             // puts 🎂 🎉 🥳 🎁 one tap away. Held set, so they fade out with
             // the words rather than vanishing; taps gated to the live ones.
-            for (emoji in shownEmojiSuggestions.take(4)) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .graphicsLayer { alpha = stripContentFade() }
-                        .clickable(enabled = suggestionsShowing) { onEmojiSuggestion(emoji) }
-                        .padding(horizontal = 5.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = LocalEmojiShaper.current.shape(emoji),
-                        fontSize = 22.sp,
-                        fontFamily = emojiFamilyFor(emoji),
-                    )
+            //
+            // Holding one runs the *other* insert mode: the setting decides
+            // which of "replace the word" and "keep the word" a tap does, and
+            // the hold is the escape hatch for the one time you want the other,
+            // without a trip to settings. The label says which, read from the
+            // live setting, so TalkBack announces the action rather than "long
+            // press".
+            //
+            // The label is resolved inside the guard, not above it: the strip
+            // recomposes on every keystroke, and most of those have no emoji
+            // candidates to label.
+            if (shownEmojiSuggestions.isNotEmpty()) {
+                val holdLabel = stringResource(
+                    if (state.settings.emojiInsertMode == EmojiInsertMode.APPEND) {
+                        R.string.ime_emoji_suggestion_hold_replace
+                    } else {
+                        R.string.ime_emoji_suggestion_hold_keep
+                    },
+                )
+                for (emoji in shownEmojiSuggestions.take(4)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .graphicsLayer { alpha = stripContentFade() }
+                            .combinedClickable(
+                                enabled = suggestionsShowing,
+                                onLongClickLabel = holdLabel,
+                                onLongClick = { onEmojiSuggestion(emoji, true) },
+                                onClick = { onEmojiSuggestion(emoji, false) },
+                            )
+                            .padding(horizontal = 5.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = LocalEmojiShaper.current.shape(emoji),
+                            fontSize = 22.sp,
+                            fontFamily = emojiFamilyFor(emoji),
+                        )
+                    }
                 }
             }
             // Replies ride the tail once there are words to share with, capped
@@ -3573,9 +3606,19 @@ private fun SnippetOfferChip(
 /** Any run of spaces, tabs or newlines, folded to one space for a preview. */
 private val WHITESPACE_RUN = Regex("""\s+""")
 
-/** Fallback content for the dedicated emoji row before any usage exists. */
+/**
+ * Fallback content for the dedicated emoji row before any usage exists.
+ *
+ * Longer than the row fits on purpose: the row scrolls by default
+ * ([EmojiSettings.barScrollable]), so a starter set the length of one screen
+ * would leave nothing to swipe to and make a fresh install look like scrolling
+ * was broken. Written as neutral bases — [visibleEmojiBarItems] applies the
+ * default skin tone to this list, and only to this list, because history
+ * entries are already exact sequences.
+ */
 private val DEFAULT_BAR_EMOJIS = listOf(
-    "😂", "❤️", "😊", "👍", "🙏", "😭", "🎉", "🥰", "😅", "🔥", "🤔", "👏",
+    "😂", "❤️", "🤣", "👍", "😭", "🙏", "😍", "🥰", "😊", "🎉", "😅", "🔥",
+    "🥺", "😁", "💯", "✨", "🙌", "👏", "🤔", "😎", "😢", "🤗", "💪", "👌",
 )
 
 /**
@@ -6244,7 +6287,7 @@ private fun KeyboardBody(
     onEmoji: (String) -> Unit,
     onEmojiVariant: (String, String) -> Unit,
     onEmojiFavourite: (String) -> Unit,
-    onEmojiSuggestion: (String) -> Unit,
+    onEmojiSuggestion: (String, Boolean) -> Unit,
     onPunctuation: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
     onEmojiRecentsClear: () -> Unit,

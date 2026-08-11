@@ -1135,6 +1135,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Shortcodes only at 3+ chars — Two-letter codes are flags and enclosed letters, so :it:/:us: never fire on ordinary words
   - Learned bigrams that end in an emoji `RARE` — A next-word prediction that is emoji-only is routed to the emoji slot of the strip.
   - Replace vs append on tap — REPLACE (default, Gboard style) swaps the typed word; APPEND keeps it and adds the emoji.
+    - Long press runs the other mode — A held suggestion inverts the setting for that one insert; the TalkBack long-click label names the action it will take
   - Inline :colon search `uncommon` — A colon at a word boundary turns the whole strip into emoji search; backspacing the colon ends it.
     - Mode is the buffer — "composing starts with a colon" is the entire state; nothing else tracks it
     - Closing colon auto-commits — Exact shortcodes only — :tada: becomes 🎉, an unknown name stays literal text
@@ -1174,8 +1175,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Three modes `uncommon` — Off (default), Button (toolbar toggle swaps the strip), or its own permanent row.
   - Content choice `uncommon` — Most used, Recent or Favourites; favourites always sort to the front.
   - Density slider `RARE` — 3–16 slots (default 8); glyphs shrink into their slot, capped at 24sp against font scale.
-  - Scrolling is opt-in `RARE` — Off by default so a sideways swipe cannot slide the row out from under a tap.
-  - Seeded before any history exists `uncommon` — 12 default emoji, drawn with the user's default skin tone.
+  - Scrolling `RARE` — On by default so the seeded set past the visible slots is reachable; off pins the row so a sideways swipe cannot slide it out from under a tap.
+  - Seeded before any history exists `uncommon` — 24 default emoji, more than fit across a phone, drawn with the user's default skin tone.
   - Row order configurable `RARE` — Emoji row, toolbar and symbol row can be arranged in any order via barOrder.
   - Hardware hotkey badges `RARE` — Row cells can carry hint badges from the hardware-keyboard hint plan.
 - **Kaomoji & ASCII emoticons** `uncommon` — Two optional panel tabs, off by default, compiled in as plain data.
@@ -3042,7 +3043,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Finishing from any page lands the persona's set — Only when the enabled set is still the untouched everything-on default; unanswered gets the middle set
   - Page gating — OnboardingPage enum of 11; the unanswered short path is deliberate
     - Languages page appears for "two or more" or when a second language is already enabled
-    - Emoji page only when the phone's own font is missing catalog emoji, or on Samsung
+    - Emoji page shown to everyone for the default skin tone; its emoji-font half only when the phone's own font is missing catalog emoji, or on Samsung
     - Welcome page skipped on a replay where the keyboard is already enabled and selected
     - Tool-setup page only for Power and only if Calendar, Weather or Compass is on
     - A page vanishing under the user falls back to the nearest earlier surviving page

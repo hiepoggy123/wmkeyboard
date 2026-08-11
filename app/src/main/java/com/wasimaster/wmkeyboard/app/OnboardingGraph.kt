@@ -39,14 +39,11 @@ internal val ToolSetupTools = setOf(
  * or "show me everything" adds the pages that answer earns, which the progress
  * row animates in.
  *
- * The emoji page has nothing to say on a phone whose font already draws the
- * whole catalog (and is held back until the count lands, so it never flashes in
- * and out). On a replay the welcome page only appears when the keyboard
- * actually needs setting up again.
+ * The emoji page is asked of everyone, for the default skin tone alone; the
+ * font half of it is what's conditional, inside the page. On a replay the
+ * welcome page only appears when the keyboard actually needs setting up again.
  */
 internal fun onboardingPages(
-    missingEmoji: Int?,
-    samsungEmoji: Boolean,
     persona: OnboardingSettings,
     enabledTools: Collection<ToolbarTool>,
     enabledLanguageCount: Int,
@@ -62,7 +59,6 @@ internal fun onboardingPages(
         // to manage, so the page has something to say.
         OnboardingPage.LANGUAGES ->
             persona.personaLanguages == PersonaLanguages.MANY || enabledLanguageCount > 1
-        OnboardingPage.EMOJI -> (missingEmoji ?: 0) > 0 || samsungEmoji
         OnboardingPage.FEEDBACK, OnboardingPage.GESTURES ->
             persona.personaDepth == PersonaDepth.BALANCED ||
                 persona.personaDepth == PersonaDepth.POWER

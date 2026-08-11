@@ -13787,13 +13787,19 @@ open class WMKeyboardService : InputMethodService() {
      * (Gboard semantics) committing over the active composing region swaps
      * the typed word for the emoji; in [EmojiInsertMode.APPEND] the word is
      * kept ("birthday 🎂") and learned like a normal commit.
+     *
+     * [held] flips that for one insert: holding a candidate runs whichever of
+     * the two the setting did *not* pick, so the less-usual one is a long press
+     * away instead of a trip to settings. With nothing composing the two modes
+     * do the same thing, so a hold there is an ordinary insert.
      */
-    fun onEmojiSuggestionTapped(emoji: String) {
+    fun onEmojiSuggestionTapped(emoji: String, held: Boolean = false) {
         vibrate()
         val ic = currentInputConnection ?: return
         lastGestureWord = null
         val word = composing.toString()
-        if (_uiState.value.settings.emojiInsertMode == EmojiInsertMode.APPEND && word.isNotEmpty()) {
+        val append = (_uiState.value.settings.emojiInsertMode == EmojiInsertMode.APPEND) != held
+        if (append && word.isNotEmpty()) {
             ic.finishComposingText()
             ic.commitText(" $emoji", 1)
             learn(word)

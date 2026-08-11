@@ -2934,10 +2934,12 @@ data class EmojiSettings(
     val hideUnrenderable: Boolean = false,
     /**
      * Let the emoji row scroll sideways to reach the emoji past its visible
-     * slots. Off (the default) shows exactly [barCount] emoji and drops the
-     * rest, so a sideways swipe can't slide the row out from under a tap.
+     * slots. On by default: the row is seeded with more emoji than fit across a
+     * phone, and dropping the rest silently is worse than a swipe that can
+     * occasionally slide the row under a tap. Off shows exactly [barCount]
+     * emoji and drops the rest, so the row never moves.
      */
-    val barScrollable: Boolean = false,
+    val barScrollable: Boolean = true,
     /**
      * How many emoji the row fits across its width — equally, how tightly it
      * packs them, since each glyph shrinks to its slot. Beyond this the emoji

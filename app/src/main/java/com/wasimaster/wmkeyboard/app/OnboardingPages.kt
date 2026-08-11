@@ -88,6 +88,7 @@ import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolOrder
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
+import com.wasimaster.wmkeyboard.core.settings.EmojiSkinTone
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.RecommendedTools
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -746,18 +747,59 @@ private fun OnboardingThemeCard(
 }
 
 /**
- * Only reached when the phone's font is actually missing emoji — [missing] is
- * which ones, and the wizard drops this page entirely when there are none.
+ * Skin tone for everyone, plus the emoji-font repair for the phones that need
+ * it. [missing] is which catalog emoji this phone's font can't draw (empty on
+ * a phone that draws them all), and [ownEmojiSet] is the other way onto the
+ * font half — a maker that ships a complete set of its own.
+ *
+ * The skin tone is why this page is no longer conditional: it is a question
+ * about the person, not about the device, and the one place a keyboard can ask
+ * it before the first emoji is inserted is here.
  */
 @Composable
 internal fun EmojiPage(
     repository: SettingsRepository,
     settings: KeyboardSettings,
     missing: List<String>,
+    ownEmojiSet: Boolean,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val missingCount = missing.size
+    Text(
+        stringResource(R.string.onboarding_emoji_tone_title),
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+    )
+    // The tone is drawn on the raised hand, which is the emoji the settings
+    // screen uses for the same choice — one glyph, six versions of it, so the
+    // difference between the options is the only thing that varies.
+    ChoiceControl(
+        options = listOf(
+            EmojiSkinTone.NONE to "✋",
+            EmojiSkinTone.LIGHT to "✋🏻",
+            EmojiSkinTone.MEDIUM_LIGHT to "✋🏼",
+            EmojiSkinTone.MEDIUM to "✋🏽",
+            EmojiSkinTone.MEDIUM_DARK to "✋🏾",
+            EmojiSkinTone.DARK to "✋🏿",
+        ),
+        selected = settings.emoji.defaultSkinTone,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    ) { tone -> scope.launch { repository.setEmojiDefaultSkinTone(tone) } }
+    Text(
+        stringResource(R.string.onboarding_emoji_tone_body),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+    )
+    // Everything below is the font repair, which most phones never see.
+    if (missingCount == 0 && !ownEmojiSet) return
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+    Text(
+        stringResource(R.string.onboarding_emoji_font_section_title),
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
     Text(
         if (missingCount > 0) {
             pluralStringResource(

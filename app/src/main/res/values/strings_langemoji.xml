@@ -74,8 +74,8 @@
          example "জন্মদিন". -->
     <string name="langemoji_emoji_prediction_info">Emoji that match appear at the end of the suggestion strip while you type. This works in English and in any language whose keywords you have. <xliff:g id="word" example="জন্মদিন">%1$s</xliff:g> also suggests 🎂.</string>
     <string name="langemoji_emoji_insert_mode_title">Press an emoji suggestion</string>
-    <string name="langemoji_emoji_insert_mode_subtitle">What happens to the word that you typed</string>
-    <string name="langemoji_emoji_insert_mode_info">\"Replace word\" changes the word that you typed to the emoji. If you type birthday and press 🎂, only 🎂 stays, as in Gboard. \"Keep word\" adds the emoji after the word: birthday 🎂.</string>
+    <string name="langemoji_emoji_insert_mode_subtitle">What happens to the word that you typed. Hold the suggestion for the other one</string>
+    <string name="langemoji_emoji_insert_mode_info">\"Replace word\" changes the word that you typed to the emoji. If you type birthday and press 🎂, only 🎂 stays, as in Gboard. \"Keep word\" adds the emoji after the word: birthday 🎂.\n\nHold an emoji suggestion to do the other one this time. With \"Replace word\" selected, a hold keeps the word. With \"Keep word\" selected, a hold replaces it.</string>
     <string name="langemoji_emoji_insert_replace_label">Replace word</string>
     <string name="langemoji_emoji_insert_append_label">Keep word</string>
 
@@ -136,7 +136,7 @@
     <string name="langemoji_emoji_bar_count_info">The row divides its width into this many slots and makes the emoji small enough to fit them. A higher number gives smaller emoji that are closer together. When scrolling is off, the row hides the emoji after the last slot. When scrolling is on, a swipe shows them.</string>
     <string name="langemoji_emoji_bar_scroll_title">Scroll the emoji row</string>
     <string name="langemoji_emoji_bar_scroll_subtitle">Swipe sideways for the emoji after the visible ones</string>
-    <string name="langemoji_emoji_bar_scroll_info">When this is off, and it is off by default, the row does not move. It shows only the emoji that fit, so a sideways swipe cannot move it under your finger. When this is on, you can scroll to the other emoji.</string>
+    <string name="langemoji_emoji_bar_scroll_info">When this is on, and it is on by default, you can swipe the row sideways to reach the emoji after the visible ones. When this is off, the row does not move. It shows only the emoji that fit, so a sideways swipe cannot move it under your finger.</string>
     <!-- "Rows &amp; bars" is the name of another settings screen. -->
     <string name="langemoji_emoji_row_position_body">You set the position of the emoji row against the toolbar and the symbol row in Rows &amp; bars, on the home screen of the settings.</string>
 

@@ -116,11 +116,9 @@ internal fun OnboardingScreen(
     // scan is still running.
     val missingEmoji = rememberUnrenderableEmoji()
     val pages = remember(
-        missingEmoji, settings.enabledTools, settings.onboarding, settings.enabledLanguages.size,
+        settings.enabledTools, settings.onboarding, settings.enabledLanguages.size,
     ) {
         onboardingPages(
-            missingEmoji = missingEmoji?.size,
-            samsungEmoji = shipsOwnEmojiSet(),
             persona = settings.onboarding,
             enabledTools = settings.enabledTools,
             enabledLanguageCount = settings.enabledLanguages.size,
@@ -255,8 +253,11 @@ internal fun OnboardingScreen(
                         )
                         OnboardingPage.LANGUAGES -> LanguagesPage(repository, settings)
                         OnboardingPage.LOOK -> LookPage(repository, settings)
-                        OnboardingPage.EMOJI ->
-                            EmojiPage(repository, settings, missingEmoji.orEmpty())
+                        OnboardingPage.EMOJI -> EmojiPage(
+                            repository, settings,
+                            missing = missingEmoji.orEmpty(),
+                            ownEmojiSet = shipsOwnEmojiSet(),
+                        )
                         OnboardingPage.FEEDBACK -> FeedbackPage(repository, settings)
                         OnboardingPage.GESTURES -> GesturesPage(repository, settings)
                         OnboardingPage.DISCOVER -> DiscoverPage(repository, settings)
