@@ -138,7 +138,7 @@ def hero():
     f_c = font("Inter", 30, 560)
     left = [
         ("Works before unlock", None, 810),
-        ("40+ toolbox tools", VIOLET, 960),
+        ("60+ toolbox tools", VIOLET, 960),
         ("Optional number row", None, 1110),
         ("Glide in any language", CYAN, 1260),
         ("Typo-model key nudge", None, 1410),
