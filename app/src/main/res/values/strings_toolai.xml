@@ -159,6 +159,13 @@
     <string name="toolai_ai_chat_stop">Stop</string>
     <string name="toolai_ai_chat_stopped">Stopped</string>
     <string name="toolai_ai_chat_retry">Retry</string>
+    <!--
+         Reporting a model answer. Play asks for a route like this on any
+         surface that shows generated content, and the chat screen is the one
+         place in the settings app that does. Mirrors the keyboard AI panel's
+         ime_ai_report_action.
+    -->
+    <string name="toolai_ai_chat_report_action">Report</string>
     <!-- Progress caption while a reasoning model thinks before it answers. -->
     <string name="toolai_ai_chat_thinking">Reasoning…</string>
     <string name="toolai_ai_chat_delete_title">Delete this chat?</string>

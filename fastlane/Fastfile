@@ -142,6 +142,32 @@ platform :android do
     UI.success("Listing text synced from fastlane/metadata/android/en-US/")
   end
 
+  desc "Push the icon, feature graphic and screenshots to Play (no binaries, no text)"
+  lane :graphics do
+    # Play refuses a screenshot whose long side is more than twice its short
+    # side, and the phone slides are composed on a 1080x2400 device canvas, so
+    # they are padded to 1200x2400 by play/pipeline/pad_phone_shots.py before
+    # they land here. Checked rather than assumed: the upload fails with a
+    # generic API error that says nothing about which file or which rule.
+    Dir[File.expand_path("metadata/android/en-US/images/*Screenshots/*.png", __dir__)].each do |shot|
+      w, h = FastImage.size(shot)
+      next if [w, h].max <= [w, h].min * 2
+
+      UI.user_error!(
+        "#{File.basename(File.dirname(shot))}/#{File.basename(shot)} is #{w}x#{h}. " \
+        "Play caps a screenshot's long side at twice its short side. Run " \
+        "`python3 play/pipeline/pad_phone_shots.py` for the phone set."
+      )
+    end
+    upload_to_play_store(
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+    )
+    UI.success("Images and screenshots synced from fastlane/metadata/android/en-US/images/")
+  end
+
   desc "Validate the service-account key against the Play API without changing anything"
   lane :check_key do
     validate_play_store_json_key

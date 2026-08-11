@@ -48,11 +48,17 @@ Builds:
     # this variant has no Google artifact on its compile classpath at all.
     gradle:
       - lite
-    # Both flags default to false when local.properties is absent, which it is
-    # in a clean checkout. Stated anyway so the recipe does not depend on that.
+    # The first two default to false when local.properties is absent, which it
+    # is in a clean checkout. Stated anyway so the recipe does not depend on
+    # that. The third is not a default and has to be set here: it is what tells
+    # the built app it is an F-Droid install, which decides the channel line on
+    # bug reports and diagnostics, and which suppresses the "get it on F-Droid"
+    # row in About that would otherwise point an F-Droid user at their own
+    # install.
     gradleprops:
       - wmkb.enablePlayStore=false
       - wmkb.enableGms=false
+      - wmkb.enableFdroid=true
     # Prebuilt native libraries that belong to variants this build does not
     # produce: the Harper grammar engine lives in the full source set (its
     # Rust sources are under native/harper-jni), and the LLM module is only

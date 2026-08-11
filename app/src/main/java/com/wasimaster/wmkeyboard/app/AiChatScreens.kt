@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.Context
 import android.text.format.DateUtils
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -64,6 +67,7 @@ import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.support.Support
 import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiThinking
 import com.wasimaster.wmkeyboard.app.AiChatController.ModelChoice
@@ -314,7 +318,7 @@ internal fun AiChatScreen(
                 run?.takeIf { it.conversationId == activeId }?.let { live ->
                     item(key = "live") { StreamingBubble(live, settings.ai.showThinking) }
                 }
-                items(messages.asReversed()) { message ->
+                itemsIndexed(messages.asReversed()) { reversedIndex, message ->
                     MessageBubble(
                         message = message,
                         onRetry = retryFor(message, messages) { userText ->
@@ -324,6 +328,14 @@ internal fun AiChatScreen(
                                 )
                             }
                         },
+                        onReport = reportFor(
+                            context = context,
+                            message = message,
+                            messages = messages,
+                            // asReversed() is a view, so the position in the
+                            // stored transcript is the mirror of this one.
+                            index = messages.lastIndex - reversedIndex,
+                        ),
                     )
                 }
                 if (messages.isEmpty() && run == null) {
@@ -390,6 +402,73 @@ private fun retryFor(
     return { onRetry(user.content) }
 }
 
+/**
+ * The Report action for an answer the model produced.
+ *
+ * Play's AI-generated content policy asks for an in-app route to report a bad
+ * generation on every surface that shows one, and this screen is the settings
+ * app's only such surface — the keyboard's own AI panel has its own button
+ * (`WMKeyboardService.onAiReport`), and this mirrors it so both reports arrive
+ * in the same shape. Nothing is sent from here: [Support.email] opens a draft
+ * in the user's mail app, quoting the prompt and the answer, which the user
+ * reads and can edit or abandon before it goes anywhere.
+ *
+ * Null for anything that is not a finished answer: the user's own messages are
+ * not generated content, and a failed turn has an error where the answer would
+ * be.
+ */
+private fun reportFor(
+    context: Context,
+    message: AiChatMessage,
+    messages: List<AiChatMessage>,
+    index: Int,
+): (() -> Unit)? {
+    if (message.role != AiChatMessage.ROLE_ASSISTANT) return null
+    if (message.failed || message.content.isBlank()) return null
+    return {
+        val sent = Support.email(
+            context,
+            "WM Keyboard: AI chat report",
+            Support.aiGenerationReport(
+                action = "Chat",
+                provider = providerLabel(context, message.provider),
+                model = message.model,
+                input = promptFor(messages, index),
+                output = message.content,
+            ),
+        )
+        if (!sent) {
+            Toast.makeText(
+                context,
+                context.getString(R.string.about_no_email_app_error, Support.EMAIL),
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
+}
+
+/**
+ * The user message the answer at [index] replies to. Walks backwards rather
+ * than assuming `index - 1`: a retried turn can leave a failed assistant
+ * message between the prompt and the answer that finally worked.
+ */
+private fun promptFor(messages: List<AiChatMessage>, index: Int): String =
+    (index - 1 downTo 0).asSequence()
+        .map(messages::get)
+        .firstOrNull { it.role == AiChatMessage.ROLE_USER }
+        ?.content
+        .orEmpty()
+
+/**
+ * The stored provider name as the user sees it. A stored record keeps the enum
+ * *name* so it survives a rename, so a provider this build no longer knows
+ * falls back to the raw string rather than dropping out of the report.
+ */
+private fun providerLabel(context: Context, stored: String): String =
+    AiProvider.entries.firstOrNull { it.name == stored }
+        ?.let { context.getString(it.labelRes) }
+        ?: stored.ifBlank { "(unknown)" }
+
 @Composable
 private fun ModelChips(
     localModels: List<String>,
@@ -430,7 +509,11 @@ private fun localModelLabel(id: String): String =
         ?: id.removePrefix(LocalLlmStore.CUSTOM_PREFIX).substringBeforeLast('.')
 
 @Composable
-private fun MessageBubble(message: AiChatMessage, onRetry: (() -> Unit)?) {
+private fun MessageBubble(
+    message: AiChatMessage,
+    onRetry: (() -> Unit)?,
+    onReport: (() -> Unit)? = null,
+) {
     val fromUser = message.role == AiChatMessage.ROLE_USER
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -475,6 +558,16 @@ private fun MessageBubble(message: AiChatMessage, onRetry: (() -> Unit)?) {
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                    // Only ever on an answer; reportFor returns null for the
+                    // user's own messages, which are not generated content.
+                    onReport?.let {
+                        TextButton(onClick = it, modifier = Modifier.align(Alignment.End)) {
+                            Text(
+                                stringResource(R.string.toolai_ai_chat_report_action),
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
                     }
                 }
             }

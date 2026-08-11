@@ -52,7 +52,27 @@ import kotlinx.coroutines.withContext
 
 internal const val SOURCE_URL = Support.SOURCE_URL
 internal const val DOCS_URL = "https://wmkeyboard.pages.dev"
-private const val PRIVACY_POLICY_URL = "$DOCS_URL/privacy/overview/"
+/**
+ * The privacy policy for *this* build, not for the project in general.
+ *
+ * The two editions are different apps underneath — lite has no ML Kit, no Play
+ * libraries and no Google sign-in compiled into it — so they carry one policy
+ * each, and this row has to open the one that is true of the APK the reader is
+ * holding. Opening the wrong one would disclose collection that does not
+ * happen, or worse, fail to disclose collection that does.
+ *
+ * Keyed on the flavour rather than on `BuildConfig.ENABLE_FDROID`: the F-Droid
+ * build recipe sets `wmkb.enablePlayStore=false` and `wmkb.enableGms=false`
+ * but not `wmkb.enableFdroid`, so that flag is false in an F-Droid install.
+ * The flavour is also the more honest key — a lite APK downloaded from GitHub
+ * wants exactly the same page as an F-Droid install, because it is the same
+ * binary.
+ */
+private val PRIVACY_POLICY_URL = if (BuildConfig.FLAVOR == "lite") {
+    "$DOCS_URL/privacy/policy-fdroid/"
+} else {
+    "$DOCS_URL/privacy/policy/"
+}
 private const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=${BuildConfig.APPLICATION_ID}"
 private const val FDROID_URL = "https://f-droid.org/packages/${BuildConfig.APPLICATION_ID}/"
 

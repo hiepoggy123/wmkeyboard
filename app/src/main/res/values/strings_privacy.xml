@@ -97,7 +97,17 @@
     <string name="privacy_delete_learned_words_confirm">This deletes every word that the keyboard learned from you, your emoji history, the corrections that you undid, and your Chinese, Japanese and Cantonese picks. Your personal dictionary, your snippets and your imported word lists stay. This cannot be undone.</string>
 
     <!-- Caption at the end of the Privacy screen. -->
-    <string name="privacy_on_device_info">Typing works fully on this device. The word lists, prediction, autocorrect, transliteration and emoji search are part of the app, and none of them needs a network connection. The app has no telemetry and no analytics. Only a tool uses the network, and only at the moment that you press it: translate, weather, web search, image search, GIFs, stickers, dictionary lookup and the AI tools. You can turn off each one of them on the Tools screen.</string>
+    <!--
+         Reads as a promise, so it has to be one the app keeps. It used to say
+         "no telemetry and no analytics" flat out, which is true of this
+         project's own code and not true of Google's ML Kit underneath
+         handwriting, OCR and scanning: that library reports device, app and
+         timing data to Google whenever one of those features runs, with no
+         switch to stop it. Play compares an in-app claim like this against
+         the Data safety form and against the SDKs in the bundle, so the
+         sentence names the exception rather than inviting the mismatch.
+    -->
+    <string name="privacy_on_device_info">Typing works fully on this device. The word lists, prediction, autocorrect, transliteration and emoji search are part of the app, and none of them needs a network connection. The app collects nothing about you and has no analytics of its own. Handwriting, text scanning and QR scanning are built on Google\'s ML Kit, which reports its own diagnostics to Google while you use them. Only a tool uses the network, and only at the moment that you press it: translate, weather, web search, image search, GIFs, stickers, dictionary lookup and the AI tools. You can turn off each one of them on the Tools screen.</string>
 
     <!-- ================================================================== -->
     <!-- Permissions: every permission the app can hold, in one place.      -->
