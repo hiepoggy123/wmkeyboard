@@ -53,25 +53,38 @@ const { caption } = Astro.props;
 		gap: 0.6rem;
 		margin: 1.5rem auto;
 		max-width: 20rem;
+		container-type: inline-size;
 	}
+	/* Bezel geometry is written twice: rem values first as a fallback, then
+	   cqw values that scale with the frame's rendered width. 1cqw = 0.2rem at
+	   the default 20rem, so the cqw numbers reproduce the rem look exactly
+	   there and shrink proportionally when a page renders the frame smaller
+	   (the homepage feature rows cap it at 10rem). */
 	.phone-body {
 		width: 100%;
 		padding: 0.9rem 0.55rem 0.7rem;
+		padding: 4.5cqw 2.75cqw 3.5cqw;
 		border: 1px solid var(--sl-color-gray-5);
 		border-radius: 1.8rem;
+		border-radius: 9cqw;
 		background: linear-gradient(180deg, var(--sl-color-gray-6), var(--sl-color-black));
 		box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+		box-shadow: 0 3.75cqw 12.5cqw rgba(0, 0, 0, 0.25);
 	}
 	.phone-speaker {
 		width: 5rem;
+		width: 25cqw;
 		height: 0.32rem;
+		height: 1.6cqw;
 		margin: 0 auto 0.6rem;
+		margin: 0 auto 3cqw;
 		border-radius: 999px;
 		background: var(--sl-color-gray-5);
 	}
 	.phone-screen {
 		overflow: hidden;
 		border-radius: 1.1rem;
+		border-radius: 5.5cqw;
 		background: var(--sl-color-gray-6);
 	}
 	.phone-screen :global(img),
