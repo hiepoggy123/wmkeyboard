@@ -32,7 +32,7 @@ export const Trailer: React.FC = () => {
           volume={(f) =>
             interpolate(
               f,
-              [0, fps, durationInFrames - 2 * fps, durationInFrames],
+              [0, fps, durationInFrames - 2.5 * fps, durationInFrames - 8],
               [0, 0.72, 0.72, 0],
               { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
             )

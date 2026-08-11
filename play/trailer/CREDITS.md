@@ -1,6 +1,6 @@
 # Trailer audio credits
 
-- Music: "Voxel Revolution" by Kevin MacLeod (incompetech.com), trimmed and
+- Music: "Latin Industries" by Kevin MacLeod (incompetech.com), trimmed and
   loudness-normalized. Licensed under Creative Commons: By Attribution 4.0
   (https://creativecommons.org/licenses/by/4.0/).
   **This attribution must accompany the published video** (e.g. in the YouTube
