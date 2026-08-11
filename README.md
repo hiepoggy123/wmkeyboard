@@ -21,14 +21,13 @@ and a prediction stack that never phones home.
 
 <table>
 <tr>
-<td width="33%"><img src=".github/media/kb-bengali-typing.png" width="100%" alt="Bangla phonetic typing"></td>
-<td width="33%"><img src=".github/media/toolbox-grid.png" width="100%" alt="The toolbox"></td>
-<td width="33%"><img src=".github/media/emoji-search.png" width="100%" alt="Emoji search"></td>
-</tr>
-<tr>
-<td align="center"><sub><b>Type <code>ami valo achi</code>, get আমি ভালো আছি</b></sub></td>
-<td align="center"><sub><b>A whole toolbox behind one button</b></sub></td>
-<td align="center"><sub><b>Search emoji without leaving the keys</b></sub></td>
+
+
+
+https://github.com/user-attachments/assets/3bd063a9-6701-4ccd-82ef-edd40a42b8e0
+
+
+
 </tr>
 </table>
 
