@@ -110,8 +110,86 @@
     <string name="privacy_on_device_info">Typing works fully on this device. The word lists, prediction, autocorrect, transliteration and emoji search are part of the app, and none of them needs a network connection. The app collects nothing about you and has no analytics of its own. Handwriting, text scanning and QR scanning are built on Google\'s ML Kit, which reports its own diagnostics to Google while you use them. Only a tool uses the network, and only at the moment that you press it: translate, weather, web search, image search, GIFs, stickers, dictionary lookup and the AI tools. You can turn off each one of them on the Tools screen.</string>
 
     <!-- ================================================================== -->
+    <!-- App lock: a fingerprint in front of the settings the user picked.  -->
+    <!-- ================================================================== -->
+
+    <!--
+         Every one of these has to stay honest about what the lock is. It hides
+         screens inside this app. It does not encrypt anything, and it cannot:
+         the same data sits in a settings export, in the Android backup, and in
+         the app directory that adb or a rooted phone reads. Say that in the
+         subtitle, say it in full in the info dialog, and say it again in the
+         caption at the end of the screen, so nobody reads more into it than it
+         does. The escape hatch belongs in the same breath: remove every
+         fingerprint and the lock stands aside, because a settings screen that
+         can shut its owner out for good is a bug and not a feature.
+    -->
+
+    <string name="privacy_lock_group_title">Lock</string>
+    <string name="privacy_lock_title">Fingerprint lock</string>
+    <string name="privacy_lock_subtitle">Ask for your fingerprint before the screens and the delete buttons that you pick</string>
+
+    <string name="privacy_lock_state_on">On</string>
+    <string name="privacy_lock_state_off">Off</string>
+    <string name="privacy_lock_state_unavailable">Not available</string>
+
+    <string name="privacy_lock_enabled_title">Use the fingerprint lock</string>
+    <string name="privacy_lock_enabled_subtitle">Turning this on and off also asks for your fingerprint</string>
+    <string name="privacy_lock_enabled_info">The keyboard asks for your fingerprint before it opens the screens that you tick below, and before it runs the delete buttons that you tick. It asks again before you can turn this setting off, so somebody holding your unlocked phone cannot simply switch it off.\n\nThis is a lock on the screens, not encryption. It does not change how anything is stored. A settings export, the Android backup, a computer with USB debugging on, and a rooted phone all still reach the same data, and the keyboard itself keeps working as before. What the lock stops is the case it is for: somebody who picks up your unlocked phone for half a minute.\n\nIf you remove every fingerprint from this phone, the lock stands aside and the screens open normally. There is then nothing to check against, and you must never be shut out of your own settings.</string>
+
+    <string name="privacy_lock_group_content">Screens</string>
+    <string name="privacy_lock_group_destructive">Delete and reset</string>
+    <string name="privacy_lock_group_export">Data that leaves the app</string>
+
+    <string name="privacy_lock_kind_screen">Ask before this screen opens</string>
+    <string name="privacy_lock_kind_action">Ask before this runs</string>
+
+    <!-- Three targets are dialogs or a plain button, so they have no row
+         title of their own to borrow. These name the thing being locked. -->
+    <string name="privacy_lock_storage_delete_title">Delete files from Storage</string>
+    <string name="privacy_lock_factory_reset_title">Delete every setting</string>
+    <string name="privacy_lock_export_title">Export a backup file</string>
+
+    <string name="privacy_lock_behaviour_group_title">How the lock behaves</string>
+
+    <string name="privacy_lock_relock_title">Ask again</string>
+    <string name="privacy_lock_relock_info">One check opens every locked screen until this time is up. A delete button always asks again, however recently you answered, because that check is the last step before something goes away for good.</string>
+    <string name="privacy_lock_relock_immediate">Every time</string>
+    <string name="privacy_lock_relock_1min">After 1 minute</string>
+    <string name="privacy_lock_relock_5min">After 5 minutes</string>
+    <string name="privacy_lock_relock_on_leave">When you leave the app</string>
+    <string name="privacy_lock_relock_session">When the app closes</string>
+
+    <string name="privacy_lock_credential_title">Allow the screen lock instead</string>
+    <string name="privacy_lock_credential_subtitle">Accept the PIN, pattern or password of this phone as well as a fingerprint</string>
+    <string name="privacy_lock_credential_info">Keep this on unless you have a reason not to. It is the way back in when the fingerprint reader locks itself out after too many tries, and it is the only way this works at all on a phone with no reader. Turn it off and a fingerprint is the only answer the lock accepts.</string>
+
+    <string name="privacy_lock_prompt_title">Fingerprint lock</string>
+    <string name="privacy_lock_prompt_subtitle">Confirm that this is you</string>
+
+    <string name="privacy_lock_gate_title">Locked</string>
+    <string name="privacy_lock_gate_body">You chose to lock this. Confirm that this is you to open it.</string>
+    <string name="privacy_lock_gate_action">Unlock</string>
+
+    <string name="privacy_lock_error_lockout">Too many tries. Wait about 30 seconds, then try again.</string>
+    <string name="privacy_lock_error_lockout_permanent">Too many tries. Unlock this phone with your PIN, pattern or password, then come back.</string>
+    <string name="privacy_lock_error_generic">The check did not work. Try again.</string>
+
+    <string name="privacy_lock_unavailable_none_enrolled">This phone has no fingerprint and no screen lock set up, so there is nothing to check against. The lock stands aside until you add one.</string>
+    <string name="privacy_lock_unavailable_no_hardware">This phone has no fingerprint reader that the app can use, so the lock stands aside.</string>
+    <string name="privacy_lock_unavailable_temporary">The fingerprint reader is busy. Try again in a moment.</string>
+
+    <string name="privacy_lock_enroll_title">Set up a fingerprint</string>
+    <string name="privacy_lock_enroll_subtitle">Open the system settings to add a fingerprint or a screen lock</string>
+
+    <string name="privacy_lock_threat_info">The lock hides these screens inside this app. It does not encrypt them. A settings export, the Android backup, a computer with USB debugging on and a rooted phone all still read the same data.</string>
+
+    <!-- ================================================================== -->
     <!-- Permissions: every permission the app can hold, in one place.      -->
     <!-- ================================================================== -->
+
+    <string name="privacy_permissions_biometric_title">Fingerprint</string>
+    <string name="privacy_permissions_biometric_subtitle">Ask the system to check a fingerprint for the lock in Privacy. The app never sees the fingerprint itself</string>
 
     <string name="privacy_permissions_title">Permissions</string>
     <string name="privacy_permissions_subtitle">See what the keyboard can reach, and give or take back a permission</string>

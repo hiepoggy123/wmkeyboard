@@ -83,6 +83,7 @@ import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.FilterAlt
+import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.FlashlightOff
 import androidx.compose.material.icons.outlined.Flip
 import androidx.compose.material.icons.outlined.Folder
@@ -155,7 +156,9 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Reorder
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Replay
+import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Restore
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.RoundedCorner
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.School
@@ -510,8 +513,22 @@ internal object SettingsRowIcons {
         put(R.string.privacy_backup_title) { Icons.Outlined.CloudUpload }
         put(R.string.privacy_delete_learned_words_title) { Icons.Outlined.DeleteSweep }
 
+        // ---- Privacy: the fingerprint lock ----
+        // The per-target rows on the configurator are absent on purpose: each
+        // borrows the glyph of the screen or row it guards, so the list reads
+        // as the places it names rather than as a column of padlocks.
+        put(R.string.privacy_lock_title) { Icons.Outlined.Fingerprint }
+        put(R.string.privacy_lock_enabled_title) { Icons.Outlined.Lock }
+        put(R.string.privacy_lock_relock_title) { Icons.Outlined.Timer }
+        put(R.string.privacy_lock_credential_title) { Icons.Outlined.Password }
+        put(R.string.privacy_lock_enroll_title) { Icons.Outlined.Fingerprint }
+        put(R.string.privacy_lock_storage_delete_title) { Icons.Outlined.DeleteSweep }
+        put(R.string.privacy_lock_factory_reset_title) { Icons.Outlined.RestartAlt }
+        put(R.string.privacy_lock_export_title) { Icons.Outlined.Save }
+
         // ---- Privacy: permissions ----
         put(R.string.privacy_permissions_title) { Icons.Outlined.Key }
+        put(R.string.privacy_permissions_biometric_title) { Icons.Outlined.Fingerprint }
         put(R.string.privacy_permissions_mic_title) { Icons.Outlined.MicNone }
         put(R.string.privacy_permissions_camera_title) { Icons.Outlined.PhotoCamera }
         put(R.string.privacy_permissions_contacts_title) { Icons.Outlined.Contacts }

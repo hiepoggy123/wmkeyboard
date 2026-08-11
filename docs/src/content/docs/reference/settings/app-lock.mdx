@@ -1,0 +1,162 @@
+---
+title: "Fingerprint lock"
+description: "Every row on the Fingerprint lock screen: the master switch, the list of screens and buttons you can lock, how long one check lasts, and what the lock does not protect."
+sidebar:
+  order: 18.6
+---
+
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+
+The Fingerprint lock puts a system fingerprint prompt in front of the settings screens and the delete buttons that you choose. You pick which ones. Nothing is locked until you turn the feature on, and the list starts on a small set of sensible picks that you can change.
+
+This page is the field reference. For what the keyboard stores and where, see [Your data on device](/privacy/data/).
+
+<PhoneFrame caption="The Fingerprint lock screen: the master switch, then the screens, the delete buttons and the behaviour groups.">
+  {/* shot: reference/settings/app-lock-screen */}
+</PhoneFrame>
+
+## What the lock does and does not do
+
+Read this first. The rest of the page is easier to use once this is clear.
+
+The lock hides screens inside the settings app. It does not encrypt anything, and it does not change how anything is stored. All of the following still read the same data:
+
+- a backup file that you export from [Backup & restore](/reference/settings/backup/)
+- the Android backup, if you turned it on
+- a computer with USB debugging enabled
+- a rooted phone
+- the keyboard itself, which keeps working exactly as before
+
+What the lock stops is the case it is for. Somebody picks up your unlocked phone, opens the keyboard settings, and reads your word list or deletes your themes. That person now needs your fingerprint.
+
+## Turn the lock on
+
+To turn the lock on, do these steps:
+
+1. Open <SettingsPath path="Privacy / Fingerprint lock" />.
+2. Set **Use the fingerprint lock** to on.
+3. Put your finger on the sensor when the system asks.
+
+The switch moves only after the check passes. If the check fails, or if you cancel it, the switch goes back to off.
+
+The first time you turn the lock on, the keyboard ticks a starter set for you: the personal dictionary, the AI history, the AI chats, the backup screen, and the four delete buttons that cannot be undone. Change the ticks below the switch at any time.
+
+To turn the lock off, set the same switch to off and pass the check again. The lock asks in both directions. A lock that anybody can switch off is not a lock.
+
+Turning the lock off keeps your ticks. Turn it on again later and the same items are still locked.
+
+## Options
+
+<SettingsPath path="Privacy / Fingerprint lock" />
+
+### The master switch
+
+| Setting | Control | Default |
+|---|---|---|
+| Use the fingerprint lock | Toggle | Off |
+
+Both directions ask for a check. The switch is greyed out when this phone cannot answer a prompt. See [When the lock is not available](#when-the-lock-is-not-available).
+
+### Screens
+
+<SettingsPath path="Privacy / Fingerprint lock / Screens" />
+
+Each row locks one settings screen. The keyboard asks for a check before the screen opens.
+
+| Screen | Locked by default |
+|---|---|
+| Personal dictionary | **Yes** |
+| AI history | **Yes** |
+| AI chats | **Yes** |
+| Privacy | No |
+| Typing statistics | No |
+| Suggestion blacklist | No |
+| Diagnostics | No |
+
+A locked screen still shows its title and its icon. Only the body of the screen is replaced, by a fingerprint panel with an **Unlock** button. Press back, or cancel the prompt, and the keyboard returns you to the screen you came from.
+
+Deep links follow the same rule. A launcher shortcut or a link that opens a locked screen lands on the lock, not past it.
+
+### Delete and reset
+
+<SettingsPath path="Privacy / Fingerprint lock / Delete and reset" />
+
+Each row locks one button that throws data away. The keyboard asks for a check after you confirm and before it deletes.
+
+| Button | Where it lives | Locked by default |
+|---|---|---|
+| Learned words | Privacy | **Yes** |
+| Delete chats | AI history | **Yes** |
+| Delete files from Storage | Storage | **Yes** |
+| Delete every setting | Storage | **Yes** |
+| Storage | Screen, in this group | No |
+| Clear emoji history | Emoji | No |
+| Clear the blacklist | Suggestion blacklist | No |
+| Forget per-app languages | Languages | No |
+
+### Data that leaves the app
+
+<SettingsPath path="Privacy / Fingerprint lock / Data that leaves the app" />
+
+| Item | Where it lives | Locked by default |
+|---|---|---|
+| Backup & restore | Screen | **Yes** |
+| Export a backup file | Backup & restore | **Yes** |
+
+The export button is the one control in the settings app that copies your data into a file you can move. That file holds your API keys when you ask it to.
+
+### How the lock behaves
+
+<SettingsPath path="Privacy / Fingerprint lock / How the lock behaves" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Ask again | Five choices | **When you leave the app** |
+| Allow the screen lock instead | Toggle | **On** |
+
+**Ask again** sets how long one check lasts:
+
+| Choice | One check opens the locked screens |
+|---|---|
+| Every time | Not at all. Each screen asks. |
+| After 1 minute | For one minute |
+| After 5 minutes | For five minutes |
+| When you leave the app | Until the settings app goes to the background |
+| When the app closes | Until the app stops |
+
+This applies to screens only. A delete button always asks again, however recently you answered. That check is the last step before something goes away for good, so it is the one that is worth making.
+
+**Allow the screen lock instead** lets the PIN, the pattern or the password of the phone answer the prompt as well as a fingerprint. Keep it on unless you have a reason not to. It is the way back in after the sensor locks itself out, and it is the only way the lock works at all on a phone with no reader.
+
+## When the lock is not available
+
+The keyboard checks what this phone can do each time the settings app comes to the front. Three answers are possible.
+
+**No fingerprint and no screen lock.** There is nothing to check against. The locked screens open normally and the master switch is greyed out. The screen shows a **Set up a fingerprint** row that opens the system settings.
+
+**No usable reader.** Same result. The screen says so.
+
+**The reader is busy.** This one is temporary, so the locked screens stay locked and the panel offers a **Retry** button.
+
+This is deliberate, and it is the most important rule in the feature. If you remove every fingerprint from the phone, the lock stands aside. A settings screen that can shut its owner out for good is a fault, not a security feature. The screen that holds the off switch is itself behind the lock, so the lock has to let go when it can no longer ask.
+
+## Details & edge cases
+
+- **The configurator locks itself.** Once the feature is on, this screen is behind the prompt too, and it asks every time. That is why none of the tick boxes on it ask a second time. You already proved who you are to see them.
+- **The lock is not in the launcher shortcuts on purpose.** A long press on the app icon does not offer a way into this screen. That shortcut would advertise the off switch to the person the lock is meant to stop.
+- **Settings search still finds locked rows.** A search for "personal dictionary" still returns the row, and opening it lands on the lock. Search results show the shipped name and the shipped description of a setting, never a value read from your data, so nothing leaks. The name of a setting is not the secret. Its contents are.
+- **A wrong finger does not close the prompt.** Android counts the tries itself. After too many, the prompt reports a lockout, and the panel keeps the reason on screen with a **Retry** button instead of sending you back.
+- **A rotation does not lose the prompt.** The prompt survives, and the check applies to the screen you rotated to.
+- **A restart does lose the unlock.** The keyboard never writes a passed check to disk. Close the app from recents and the lock is back.
+- **Your picks travel in a backup.** The four stored values are the switch, your list of ticks, the "Ask again" choice and the screen-lock choice. They are ordinary settings, not credentials, so an export carries them and a restore brings them back. Restore them onto a phone with no fingerprint and the lock stands aside, exactly as described above.
+- **A tick from a newer version is kept, not dropped.** If a backup names something this build does not know about, the keyboard keeps the entry and does not show it. Your picks survive going back a version and then forward again.
+- **No edition differences.** Every setting on this screen behaves the same on the full and the lite builds.
+
+## Related pages
+
+- [Privacy](/reference/settings/privacy/): the screen that holds the way in to this one.
+- [Permissions](/reference/settings/permissions/): the inventory, which lists the fingerprint permission the lock uses.
+- [Your data on device](/privacy/data/): everything stored locally, where it sits, and every way to clear it.
+- [Backup & restore](/privacy/backup/): what an export file holds, including the API keys.
+- [Storage](/reference/settings/about/): the screen behind the delete buttons in the second group.

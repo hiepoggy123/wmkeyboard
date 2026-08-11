@@ -26,7 +26,21 @@ The Privacy screen is four groups, in this order: the way into the permissions i
 |---|---|---|
 | Permissions | Opens a sub-screen | n/a |
 
-An unnamed group holding one navigation row, sitting above everything else on the screen: "See what the keyboard can reach, and give or take back a permission". It opens the permissions inventory, which is a screen of its own and has its own page here, [Permissions](/reference/settings/permissions/). Nothing on this row is a setting, so there's nothing to reset.
+An unnamed group holding two navigation rows, sitting above everything else on the screen. The first is "See what the keyboard can reach, and give or take back a permission". It opens the permissions inventory, which is a screen of its own and has its own page here, [Permissions](/reference/settings/permissions/). Nothing on this row is a setting, so there's nothing to reset.
+
+### Fingerprint lock
+
+<SettingsPath path="Privacy / Fingerprint lock" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Fingerprint lock | Opens a sub-screen | Off |
+
+The second row in the same group: "Ask for your fingerprint before the screens and the delete buttons that you pick". The right-hand side reads **On**, **Off**, or **Not available** when this phone has no fingerprint and no screen lock to check against.
+
+It opens a screen of its own, where you turn the lock on and choose what it covers. Turning it on and turning it off both ask for a check. See [Fingerprint lock](/reference/settings/app-lock/) for the full field list.
+
+Worth knowing before you turn it on: the lock hides screens inside the settings app, and it does not encrypt anything. An export file, the Android backup, USB debugging and a rooted phone all still reach the same data.
 
 ### Learning on this device
 
@@ -91,6 +105,7 @@ This is the only bulk clear on this screen. Personal dictionary entries, clipboa
 
 - [Privacy at a glance](/privacy/overview/): what leaves the device and what never does, with the receipts.
 - [Permissions](/reference/settings/permissions/): the field list for the sub-screen the top row on this page opens.
+- [Fingerprint lock](/reference/settings/app-lock/): the field list for the other sub-screen, including everything the lock does not protect.
 - [Your data on device](/privacy/data/): everything stored locally, where it sits, and every way to clear it. Not just the one button on this screen.
 - [Incognito & secure fields](/privacy/incognito/): incognito mode, private-browsing detection, and password/secure-field handling in full.
 - [Network policy](/privacy/network/): the complete tool-by-tool table of what reaches the network and why.

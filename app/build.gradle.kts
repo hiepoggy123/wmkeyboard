@@ -537,6 +537,9 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
+    // The fingerprint / device-credential prompt in front of the settings the
+    // user chose to lock. Also why MainActivity is a FragmentActivity.
+    implementation(libs.androidx.biometric)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

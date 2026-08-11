@@ -19,11 +19,11 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Toolbar and the tool set | 10 | 77 | 282 |
 | Clipboard, snippets, text expansion | 7 | 36 | 179 |
 | AI, voice, handwriting, scanning | 11 | 70 | 162 |
-| Privacy, backup, storage, statistics | 12 | 54 | 136 |
+| Privacy, backup, storage, statistics | 13 | 59 | 146 |
 | Accessibility, form factors, platform integration | 12 | 56 | 105 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 200 |
-| **Total** | **130** | **766** | **1986** |
+| **Total** | **131** | **771** | **1996** |
 
 ## Typing core: prediction, autocorrect, learning, spell check
 
@@ -2188,6 +2188,22 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 ## Privacy, backup, storage, statistics
 
+- **Fingerprint lock** — Optional BiometricPrompt in front of the settings screens and destructive buttons the user picks.
+  - Curated target registry — 17 lockable items (9 screens, 8 actions) in one file; a screen costs one entry, an action that entry plus a `lock =` argument.
+    - Labels borrow the guarded row's own string — Configurator reads in the same words as the thing it protects and inherits its glyph.
+    - Source-reading drift test — AppLockTargetsTest fails on a route with no destination or an action with no call site.
+  - Self-locking configurator — The `applock` route resolves to AppLockTargets.SELF, so the screen holding the off switch is behind the prompt.
+    - Both toggle directions authenticate — Controlled switch; the value is written only after a passed check.
+    - First enable seeds the defaults — Eight targets ticked once, on an empty selection; turning the feature off keeps the picks.
+  - One gate for every screen — SettingsScreen already carries the route, so the check covers deep links and EXTRA_OPEN_ROUTE with no per-screen wiring.
+    - Body-only replacement — Top bar, title and shared-element flight survive, so a locked screen still says where you are.
+    - Cancel pops, lockout explains — A cancel leaves the screen; ERROR_LOCKOUT keeps the panel and its reason with a Retry.
+  - Configurable re-lock — Immediately / 1 min / 5 min / on leaving / until the app closes, on elapsedRealtime so a clock change cannot extend a window.
+    - Screens share one grant, actions never do — An irreversible write asks every time, however recently the user answered.
+    - Session is memory only — Never written to disk, a Bundle or savedInstanceState; a rotation keeps it, a kill does not.
+  - Fails open when unanswerable — No enrolled biometric and no screen lock means the gates stand aside rather than shutting the owner out.
+    - BIOMETRIC_WEAK plus DEVICE_CREDENTIAL — The one combination legal on every API level, so there is no SDK fork; nothing here is encrypted, so weak is the honest class.
+    - PIN fallback on by default — The only route back after a sensor lockout, and the only thing that works with no reader.
 - **Incognito mode** — One boolean, toggled from a toolbar tool or Privacy settings; five defined effects.
   - Manual incognito toggle — Toolbox tool + Privacy switch drive the same setting; toast and haptic on toggle.
     - Toolbar badge while active — Badge next to the toolbar and the tool renders in its active state.

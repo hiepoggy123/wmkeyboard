@@ -37,6 +37,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.app.SectionHeader
+import com.wasimaster.wmkeyboard.app.lock.AppLockTargets
+import com.wasimaster.wmkeyboard.app.lock.LockTarget
+import com.wasimaster.wmkeyboard.app.rememberLockGuard
 import com.wasimaster.wmkeyboard.app.SettingsGroup
 import com.wasimaster.wmkeyboard.app.WmRow
 import com.wasimaster.wmkeyboard.app.formatBytes
@@ -183,6 +186,7 @@ internal fun StorageScreen(
         ConfirmDeleteDialog(
             title = stringResource(R.string.storage_confirm_title, stringResource(category.title)),
             body = stringResource(bodyFor(category.danger), formatBytes(bytes)),
+            lock = AppLockTargets["action_storage_delete"],
             onDismiss = { confirm = null },
             onConfirm = {
                 confirm = null
@@ -395,19 +399,27 @@ private fun StorageCategoryRow(
     )
 }
 
+/**
+ * [lock] names this dialog's confirm button in the fingerprint lock's
+ * registry. The check runs after the dialog, so the order the user sees is
+ * "are you sure" and then "prove it", which puts the fingerprint immediately
+ * before the deletion rather than in front of a dialog they may cancel.
+ */
 @Composable
 internal fun ConfirmDeleteDialog(
     title: String,
     body: String,
     confirmLabel: String = stringResource(CommonR.string.common_delete),
+    lock: LockTarget? = null,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
+    val guarded = rememberLockGuard(lock, onConfirm)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(body) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel) } },
+        confirmButton = { TextButton(onClick = guarded) { Text(confirmLabel) } },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
         },
@@ -434,6 +446,10 @@ private fun ResetSettingsDialog(bytes: Long, onDismiss: () -> Unit, onConfirm: (
         ConfirmDeleteDialog(
             title = stringResource(R.string.storage_confirm_reset_again_title),
             body = stringResource(R.string.storage_confirm_reset_again_body, formatBytes(bytes)),
+            // On the second dialog only, so the sequence reads: are you sure,
+            // are you certain, prove it, gone. The fingerprint stays the last
+            // step rather than becoming the first of three.
+            lock = AppLockTargets["action_factory_reset"],
             onDismiss = onDismiss,
             onConfirm = onConfirm,
         )

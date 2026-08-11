@@ -807,6 +807,10 @@ private fun Resources.otherRows(): List<SettingsSearchEntry> {
         title, subtitle, R.string.privacy_permissions_title, "permissions",
         screenParent = R.string.home_privacy_title,
     )
+    fun appLock(@StringRes title: Int, @StringRes subtitle: Int) = entry(
+        title, subtitle, R.string.privacy_lock_title, "applock",
+        screenParent = R.string.home_privacy_title,
+    )
     fun mode(@StringRes title: Int, @StringRes subtitle: Int = 0) =
         entry(title, subtitle, R.string.home_screen_mode_edit_title, "modes")
     fun access(@StringRes title: Int, @StringRes subtitle: Int = 0) =
@@ -860,6 +864,13 @@ private fun Resources.otherRows(): List<SettingsSearchEntry> {
         privacy(R.string.privacy_incognito_title, R.string.privacy_incognito_subtitle),
         privacy(R.string.privacy_auto_incognito_title, R.string.privacy_auto_incognito_subtitle),
         privacy(R.string.privacy_backup_title, R.string.privacy_backup_subtitle),
+        // The fingerprint lock's own three settings. The per-target checkboxes
+        // below them are deliberately absent: each is named after a screen or
+        // a row that already has its own entry here, and a second result for
+        // "Personal dictionary" that lands on a checkbox is worse than none.
+        appLock(R.string.privacy_lock_enabled_title, R.string.privacy_lock_enabled_subtitle),
+        appLock(R.string.privacy_lock_relock_title, R.string.privacy_lock_relock_info),
+        appLock(R.string.privacy_lock_credential_title, R.string.privacy_lock_credential_subtitle),
         // Data saver. Every row, because each one is a feature someone will
         // look for by name once it stops working on mobile data.
         dataSaver(R.string.datasaver_manual_title, R.string.datasaver_manual_subtitle),
@@ -896,6 +907,7 @@ private fun Resources.otherRows(): List<SettingsSearchEntry> {
         ),
         permission(R.string.privacy_permissions_internet_title, R.string.privacy_permissions_internet_subtitle),
         permission(R.string.privacy_permissions_vibrate_title, R.string.privacy_permissions_vibrate_subtitle),
+        permission(R.string.privacy_permissions_biometric_title, R.string.privacy_permissions_biometric_subtitle),
         entry(R.string.rows_symbol_row_title, R.string.rows_symbol_row_subtitle, R.string.home_rows_title, "rows"),
         entry(R.string.modes_drag_edits_title, R.string.modes_drag_edits_subtitle, R.string.home_modes_title, "modes"),
         mode(R.string.modes_name_label, R.string.modes_name_hint),
@@ -1086,6 +1098,10 @@ private fun Resources.sectionRows(): List<SettingsSearchEntry> {
         under(
             R.string.privacy_permissions_title, R.string.privacy_permissions_subtitle,
             R.string.home_privacy_title, "permissions", R.string.search_kw_permissions,
+        ),
+        under(
+            R.string.privacy_lock_title, R.string.privacy_lock_subtitle,
+            R.string.home_privacy_title, "applock", R.string.search_kw_applock,
         ),
     )
 }

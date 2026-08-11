@@ -50,6 +50,7 @@ import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.DataSaverOn
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.TouchApp
@@ -439,6 +440,7 @@ internal object SettingsRouteIcons {
         "accessibility" to { Icons.Outlined.Accessibility },
         "privacy" to { Icons.Outlined.Security },
         "permissions" to { Icons.Outlined.Key },
+        "applock" to { Icons.Outlined.Fingerprint },
         "datasaver" to { Icons.Outlined.DataSaverOn },
         "backup" to { Icons.Outlined.Save },
         "about" to { Icons.Outlined.Info },

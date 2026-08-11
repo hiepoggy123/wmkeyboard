@@ -1038,10 +1038,16 @@ data class KeyboardSettings(
      * Grouped rather than flat because of the ceiling: with N fields (none
      * `Long` or `Double`) the generated `copy$default` takes
      * `1 + N + ceil(N/32) + 1` of the JVM's 255 argument slots, capping N at
-     * 245. As of 2026-08-08 the class has 237 fields (247 slots, eight fields of
-     * headroom) — but that number goes stale, so recount before adding a flat
-     * field, prefer nesting regardless, and trust `testFullDebugUnitTest` over
-     * a green compile: an oversized class only fails at class load.
+     * 245. As of 2026-08-11 the class has **244** fields (254 slots) — one flat
+     * field left, and the field after that does not fail to compile, it fails
+     * to load. So: recount before adding a flat field, prefer nesting
+     * regardless, and trust `testFullDebugUnitTest` over a green compile.
+     *
+     * At this headroom the cheapest move for a whole new feature is often not
+     * to come here at all. Something the IME never reads can hang off
+     * [SettingsRepository] as its own flow for zero slots — see [appLock] and
+     * [photoRotationStates] — and still be backed up, because [SettingsBackup]
+     * walks the preference map rather than this class.
      */
     val photoBackground: PhotoBackgroundSettings = PhotoBackgroundSettings(),
     val keyHeightDp: Int = 48,
@@ -4312,6 +4318,14 @@ class SettingsRepository(private val context: Context) {
         private val CRYPTO_PROVIDERS = stringPreferencesKey("crypto_rate_providers")
         private val CRYPTO_CACHE_MINUTES = intPreferencesKey("crypto_cache_minutes")
         private val CRYPTO_TICKERS = stringSetPreferencesKey("crypto_tickers")
+
+        // The settings app's fingerprint lock; see [AppLockSettings]. Flat
+        // keys like everything else here, even though the in-memory shape is
+        // its own object rather than a KeyboardSettings field.
+        private val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
+        private val APP_LOCK_TARGETS = stringSetPreferencesKey("app_lock_targets")
+        private val APP_LOCK_RELOCK = stringPreferencesKey("app_lock_relock")
+        private val APP_LOCK_ALLOW_CREDENTIAL = booleanPreferencesKey("app_lock_allow_credential")
         private val CRYPTO_DECIMALS = intPreferencesKey("crypto_decimals")
         private val GRAMMAR_DEBOUNCE_MS = intPreferencesKey("grammar_debounce_ms")
         private val UNIT_CONVERT_LAST = stringPreferencesKey("unit_convert_last")
@@ -6601,6 +6615,66 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setPhotoReadabilityGuard(value: Boolean) =
         editPrefs { it[PHOTO_READABILITY_GUARD] = value }
+
+    /**
+     * The settings app's fingerprint lock; see [AppLockSettings] for what it
+     * does and does not protect.
+     *
+     * Its own flow, like [photoRotationStates] below, so it costs the
+     * [KeyboardSettings] data class none of its last argument slot.
+     *
+     * The locked branch reads the direct-boot mirror rather than publishing
+     * defaults the way [photoRotationStates] does: an empty [AppLockSettings]
+     * has `enabled = false`, so a locked session would answer "no lock" for
+     * every screen. The settings app cannot run on a lock screen at all today,
+     * which makes that unreachable rather than merely unlikely, but a
+     * fail-open written into a security feature on the strength of somewhere
+     * else's invariant is the kind of thing that stops being true quietly.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val appLock: Flow<AppLockSettings> = unlocked
+        .flatMapLatest { isUnlocked ->
+            if (isUnlocked) context.dataStore.data else locked.snapshots()
+        }
+        .map { p ->
+            AppLockSettings(
+                enabled = p[APP_LOCK_ENABLED] ?: AppLockDefaults.enabled,
+                lockedTargets = p[APP_LOCK_TARGETS] ?: AppLockDefaults.lockedTargets,
+                // An unreadable value falls back rather than throwing: this
+                // enum can lose a member across versions, and a restore from a
+                // newer build must not crash the screen that would fix it.
+                relock = p[APP_LOCK_RELOCK]
+                    ?.let { name -> AppLockRelock.entries.find { it.name == name } }
+                    ?: AppLockDefaults.relock,
+                allowDeviceCredential = p[APP_LOCK_ALLOW_CREDENTIAL]
+                    ?: AppLockDefaults.allowDeviceCredential,
+            )
+        }
+        .distinctUntilChanged()
+
+    suspend fun setAppLockEnabled(value: Boolean) =
+        editPrefs { it[APP_LOCK_ENABLED] = value }
+
+    suspend fun setAppLockTargets(value: Set<String>) =
+        editPrefs { it[APP_LOCK_TARGETS] = value }
+
+    /**
+     * Ticks or unticks one lockable thing.
+     *
+     * Reads the stored set rather than taking the caller's copy so two rows
+     * toggled in the same frame cannot overwrite each other.
+     */
+    suspend fun setAppLockTarget(id: String, locked: Boolean) =
+        editPrefs { prefs ->
+            val current = prefs[APP_LOCK_TARGETS].orEmpty()
+            prefs[APP_LOCK_TARGETS] = if (locked) current + id else current - id
+        }
+
+    suspend fun setAppLockRelock(value: AppLockRelock) =
+        editPrefs { it[APP_LOCK_RELOCK] = value.name }
+
+    suspend fun setAppLockAllowDeviceCredential(value: Boolean) =
+        editPrefs { it[APP_LOCK_ALLOW_CREDENTIAL] = value }
 
     /**
      * Which photo each rotating theme is showing.

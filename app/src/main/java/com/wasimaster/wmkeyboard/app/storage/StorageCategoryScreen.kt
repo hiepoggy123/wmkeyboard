@@ -35,6 +35,7 @@ import com.wasimaster.wmkeyboard.app.SettingsGroup
 import com.wasimaster.wmkeyboard.app.WmIconTile
 import com.wasimaster.wmkeyboard.app.WmRow
 import com.wasimaster.wmkeyboard.app.formatBytes
+import com.wasimaster.wmkeyboard.app.lock.AppLockTargets
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -142,6 +143,7 @@ internal fun StorageCategoryScreen(
         ConfirmDeleteDialog(
             title = stringResource(R.string.storage_confirm_item_title, item.label),
             body = stringResource(bodyForItem(category.danger), formatBytes(item.bytes)),
+            lock = AppLockTargets["action_storage_delete"],
             onDismiss = { confirmItem = null },
             onConfirm = {
                 confirmItem = null
@@ -155,6 +157,7 @@ internal fun StorageCategoryScreen(
         ConfirmDeleteDialog(
             title = stringResource(R.string.storage_confirm_title, stringResource(category.title)),
             body = stringResource(bodyForItem(category.danger), formatBytes(total)),
+            lock = AppLockTargets["action_storage_delete"],
             onDismiss = { confirmAll = false },
             onConfirm = {
                 confirmAll = false

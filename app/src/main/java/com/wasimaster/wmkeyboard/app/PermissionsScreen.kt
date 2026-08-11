@@ -138,6 +138,12 @@ internal fun PermissionsSettings() {
                 R.string.privacy_permissions_vibrate_subtitle,
             )
         }
+        item {
+            InstallPermissionRow(
+                R.string.privacy_permissions_biometric_title,
+                R.string.privacy_permissions_biometric_subtitle,
+            )
+        }
     }
 
     CaptionText(stringResource(R.string.privacy_permissions_footer_info))

@@ -37,6 +37,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.app.lock.AppLockTargets
 import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryEntry
 import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryStore
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -190,6 +191,7 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
                 subtitle = stringResource(R.string.toolai_delete_chats_subtitle),
                 action = stringResource(CommonR.string.common_delete),
                 confirm = stringResource(R.string.toolai_delete_chats_confirm),
+                lock = AppLockTargets["action_delete_ai_chats"],
             ) {
                 scope.launch {
                     withContext(Dispatchers.IO) {

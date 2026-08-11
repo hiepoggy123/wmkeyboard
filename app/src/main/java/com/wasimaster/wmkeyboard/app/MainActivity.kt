@@ -15,7 +15,7 @@ import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.core.content.ContextCompat
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -77,6 +77,12 @@ import com.wasimaster.wmkeyboard.app.storage.StorageCategoryScreen
 import com.wasimaster.wmkeyboard.app.statistics.StatisticsScreen
 import com.wasimaster.wmkeyboard.app.storage.StorageScreen
 import com.wasimaster.wmkeyboard.app.storage.storageRoute
+import com.wasimaster.wmkeyboard.app.lock.AppLockTargets
+import com.wasimaster.wmkeyboard.app.lock.BiometricAppLock
+import com.wasimaster.wmkeyboard.app.lock.LocalAppLock
+import com.wasimaster.wmkeyboard.app.lock.LockedRoute
+import com.wasimaster.wmkeyboard.app.lock.LockTarget
+import com.wasimaster.wmkeyboard.app.lock.AppLockSettingsScreen
 import com.wasimaster.wmkeyboard.app.updates.LocalAppUpdater
 import com.wasimaster.wmkeyboard.app.updates.UpdateCard
 import com.wasimaster.wmkeyboard.app.updates.rememberAppUpdater
@@ -391,7 +397,12 @@ import androidx.compose.ui.text.rememberTextMeasurer
  * Settings app: setup wizard plus every keyboard option, Material 3 +
  * dynamic color, all state backed by DataStore via [SettingsRepository].
  */
-class MainActivity : ComponentActivity() {
+// A FragmentActivity rather than a plain ComponentActivity, which it extends,
+// for one reason: androidx.biometric hosts its prompt in a retained fragment,
+// and that is what carries an open prompt across a rotation. See
+// [com.wasimaster.wmkeyboard.app.lock.BiometricAppLock]. Nothing else in this
+// app uses fragments, and appcompat already put them on the classpath.
+class MainActivity : FragmentActivity() {
 
     companion object {
         /**
@@ -407,6 +418,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private lateinit var repository: SettingsRepository
+
+    /**
+     * The fingerprint gate. Built in [onCreate] and not lazily: the library
+     * keeps its prompt in a retained fragment, and only a prompt constructed
+     * while the activity is being created finds its callback again after a
+     * rotation.
+     */
+    private lateinit var appLock: BiometricAppLock
 
     /** True once [AssetLayouts] has parsed; the first frame waits for it. */
     private val assetLayoutsReady = MutableStateFlow(false)
@@ -435,6 +454,7 @@ class MainActivity : ComponentActivity() {
         // before the first screen composes.
         PlayServices.prime(applicationContext)
         repository = SettingsRepository(applicationContext)
+        appLock = BiometricAppLock(this, repository)
         // The JSON asset layouts back the tail of the language list; the first
         // screen waits for them (below) so an enabled asset layout resolves to
         // its real language. Parsed off the main thread: this is ~350 files
@@ -474,7 +494,10 @@ class MainActivity : ComponentActivity() {
             val updater = rememberAppUpdater()
             settings?.applyDeviceForm(deviceForm)?.let { loaded ->
                 AppTheme(loaded) {
-                    CompositionLocalProvider(LocalAppUpdater provides updater) {
+                    CompositionLocalProvider(
+                        LocalAppUpdater provides updater,
+                        LocalAppLock provides appLock,
+                    ) {
                         SettingsNavHost(
                             repository = repository,
                             settings = loaded,
@@ -1150,6 +1173,18 @@ private fun SettingsNavGraph(
                 PermissionsSettings()
             }
         }
+        composable(AppLockTargets.ROUTE) {
+            SettingsScreen(
+                stringResource(R.string.privacy_lock_title),
+                { navController.popBackStack() },
+                route = AppLockTargets.ROUTE,
+            ) {
+                // Guarded like any other destination: SettingsScreen resolves
+                // this route to AppLockTargets.SELF, so the screen holding the
+                // off switch is itself behind the lock.
+                AppLockSettingsScreen(repository)
+            }
+        }
         composable("datasaver") {
             SettingsScreen(
                 stringResource(R.string.home_datasaver_title),
@@ -1186,28 +1221,37 @@ private fun SettingsNavGraph(
                 AiHistoryScreen(repository, settings)
             }
         }
+        // The two chat destinations draw their own scaffold rather than going
+        // through SettingsScreen, so they are the only places the fingerprint
+        // gate has to be written out by hand. Both answer to the same target:
+        // locking the list has to lock a deep link straight into one
+        // conversation, or it locks nothing.
         composable("ai_chat") {
-            AiChatListScreen(
-                onOpenChat = { id -> navController.navigate("ai_chat/$id") },
-                onNewChat = { navController.navigate("ai_chat/new") },
-                // First-ever open: replace the empty list with the chat, so
-                // back leaves the feature instead of landing on a blank list.
-                onAutoNew = {
-                    navController.navigate("ai_chat/new") {
-                        popUpTo("ai_chat") { inclusive = true }
-                    }
-                },
-                onBack = { navController.popBackStack() },
-            )
+            LockedRoute("ai_chat", onCancel = { navController.popBackStack() }) {
+                AiChatListScreen(
+                    onOpenChat = { id -> navController.navigate("ai_chat/$id") },
+                    onNewChat = { navController.navigate("ai_chat/new") },
+                    // First-ever open: replace the empty list with the chat, so
+                    // back leaves the feature instead of landing on a blank list.
+                    onAutoNew = {
+                        navController.navigate("ai_chat/new") {
+                            popUpTo("ai_chat") { inclusive = true }
+                        }
+                    },
+                    onBack = { navController.popBackStack() },
+                )
+            }
         }
         composable("ai_chat/{conversationId}") { backStackEntry ->
             val raw = backStackEntry.arguments?.getString("conversationId").orEmpty()
-            AiChatScreen(
-                settings = settings,
-                conversationId = raw.toLongOrNull() ?: -1L,
-                onBack = { navController.popBackStack() },
-                onOpenAiSettings = { navController.navigate("tool/${ToolbarTool.AI.name}") },
-            )
+            LockedRoute("ai_chat", onCancel = { navController.popBackStack() }) {
+                AiChatScreen(
+                    settings = settings,
+                    conversationId = raw.toLongOrNull() ?: -1L,
+                    onBack = { navController.popBackStack() },
+                    onOpenAiSettings = { navController.navigate("tool/${ToolbarTool.AI.name}") },
+                )
+            }
         }
         composable("ai_action_edit/{actionId}") { backStackEntry ->
             val actionId = backStackEntry.arguments?.getString("actionId").orEmpty()
@@ -1808,8 +1852,18 @@ private fun AnimatedVisibilityScope.SettingsScreen(
         subtitle = subtitle,
         subtitleInBar = subtitleInBar,
         anim = this,
-        content = content,
-    )
+    ) {
+        // The one place every settings destination passes through, and it
+        // already knows its own route, so the fingerprint gate needs no new
+        // parameter and no per-screen wiring. Only the body is replaced: the
+        // bar, the title and the shared element that flew it in stay, so a
+        // locked screen still says where you are.
+        //
+        // It also means a deep link or an EXTRA_OPEN_ROUTE lands on the gate
+        // rather than around it, because the gate is at the destination and
+        // not at the navigate() call.
+        if (route == null) content() else LockedRoute(route, onCancel = onBack, content = content)
+    }
 }
 
 /**
@@ -2392,6 +2446,13 @@ private fun ResetPinnedToolsSetting(repository: SettingsRepository, scope: Corou
  * throws away something the user cannot get back (a word list, a history, a
  * set of pins) and leave it null for anything that only restores a default,
  * which the user can simply set again.
+ *
+ * [lock] names this button in the fingerprint lock's registry, so the user can
+ * choose to put a check in front of it. The check comes *after* the confirm
+ * dialog, deliberately: nobody should scan a finger for a dialog they are
+ * about to cancel, and the dialog is what says what is about to go away. That
+ * makes the fingerprint the last thing before the write, which is where it is
+ * worth anything.
  */
 @Composable
 internal fun ActionRow(
@@ -2399,12 +2460,14 @@ internal fun ActionRow(
     subtitle: String?,
     action: String,
     confirm: String? = null,
+    lock: LockTarget? = null,
     icon: ImageVector? = SettingsRowIcons[title],
     enabled: Boolean = true,
     onAction: () -> Unit,
 ) {
     var asking by remember { mutableStateOf(false) }
     val label = stringResource(title)
+    val guarded = rememberLockGuard(lock, onAction)
     HighlightableRow(label, title) {
         WmRow(
             title = label,
@@ -2413,7 +2476,7 @@ internal fun ActionRow(
             trailing = {
                 OutlinedButton(
                     enabled = enabled,
-                    onClick = { if (confirm == null) onAction() else asking = true },
+                    onClick = { if (confirm == null) guarded() else asking = true },
                 ) { Text(action) }
             },
         )
@@ -2426,7 +2489,7 @@ internal fun ActionRow(
         confirmButton = {
             TextButton(onClick = {
                 asking = false
-                onAction()
+                guarded()
             }) { Text(action) }
         },
         dismissButton = {
@@ -2435,6 +2498,34 @@ internal fun ActionRow(
             }
         },
     )
+}
+
+/**
+ * Wraps [onAction] so that it runs only after the user answers the fingerprint
+ * prompt, when [lock] is one of the things they chose to protect.
+ *
+ * Returns [onAction] unchanged when there is nothing to check, so a row with
+ * no lock, or a lock the user left unticked, costs one map lookup and no
+ * behaviour change at all.
+ */
+@Composable
+internal fun rememberLockGuard(lock: LockTarget?, onAction: () -> Unit): () -> Unit {
+    if (lock == null) return onAction
+    val appLock = LocalAppLock.current
+    // No flow subscription here, unlike the screen gate. That one has to
+    // redraw when the answer changes; this one is asked at the moment of the
+    // press and reads the current values then, so watching them would only
+    // recompose a row whose behaviour has not changed.
+    return {
+        // Actions never ride the unlock session: [AppLock.isLocked] says so for
+        // an ACTION target, and [AppLock.authenticate] neither reads nor opens
+        // it. An irreversible write asks every time.
+        if (appLock.isLocked(lock)) {
+            appLock.authenticate { result -> if (result.succeeded) onAction() }
+        } else {
+            onAction()
+        }
+    }
 }
 
 /** [ChoiceSetting] for a row named by a string resource. */
@@ -6203,6 +6294,7 @@ private fun LanguageSettings(
                     ),
                     action = stringResource(CommonR.string.common_clear),
                     confirm = stringResource(R.string.langemoji_lang_forget_apps_confirm),
+                    lock = AppLockTargets["action_forget_app_languages"],
                 ) { scope.launch { repository.clearPerAppLayouts() } }
             }
         }
@@ -6474,6 +6566,7 @@ private fun EmojiSettings(
                 subtitle = stringResource(R.string.langemoji_emoji_clear_history_subtitle),
                 action = stringResource(CommonR.string.common_clear),
                 confirm = stringResource(R.string.langemoji_emoji_clear_history_confirm),
+                lock = AppLockTargets["action_clear_emoji_history"],
             ) { scope.launch { repository.clearEmojiHistory() } }
         }
         item {
@@ -6963,6 +7056,7 @@ private fun BlacklistSettings(repository: SettingsRepository, settings: Keyboard
                     ),
                     action = stringResource(CommonR.string.common_clear),
                     confirm = stringResource(R.string.backup_blacklist_clear_confirm),
+                    lock = AppLockTargets["action_clear_blacklist"],
                 ) { scope.launch { repository.clearSuggestionBlacklist() } }
             }
         }
@@ -8179,7 +8273,10 @@ private fun BackupSettings(repository: SettingsRepository, settings: KeyboardSet
         item {
             OutlinedButton(
                 enabled = sections.isNotEmpty(),
-                onClick = {
+                // The one control here that copies the user's data out of the
+                // app, API keys included, so it is one of the things the
+                // fingerprint lock can be pointed at.
+                onClick = rememberLockGuard(AppLockTargets["action_export_settings"]) {
                     // Datestamp the default name so successive backups don't
                     // overwrite each other and each file self-labels when it was made.
                     // Locale.US, not the default: on a Thai-Buddhist locale the
@@ -12985,6 +13082,26 @@ private fun PrivacySettings(
                 route = "permissions",
             ) { onNavigate("permissions") }
         }
+        item {
+            val lock = LocalAppLock.current
+            val lockStatus by lock.status.collectAsStateWithLifecycle()
+            val lockConfig by lock.config.collectAsStateWithLifecycle()
+            NavRow(
+                R.string.privacy_lock_title,
+                stringResource(R.string.privacy_lock_subtitle),
+                value = stringResource(
+                    when {
+                        // What the phone can do beats what the flag says; see
+                        // [AppLockSettings]. A row reading "On" next to gates
+                        // that are standing aside would be a lie.
+                        !lockStatus.canEnable -> R.string.privacy_lock_state_unavailable
+                        lockConfig?.enabled == true -> R.string.privacy_lock_state_on
+                        else -> R.string.privacy_lock_state_off
+                    },
+                ),
+                route = AppLockTargets.ROUTE,
+            ) { onNavigate(AppLockTargets.ROUTE) }
+        }
     }
     SettingsGroup(stringResource(R.string.privacy_learning_group_title)) {
         item {
@@ -13051,6 +13168,7 @@ private fun PrivacySettings(
                 subtitle = stringResource(R.string.privacy_delete_learned_words_subtitle),
                 action = stringResource(R.string.privacy_delete_learned_words_action),
                 confirm = stringResource(R.string.privacy_delete_learned_words_confirm),
+                lock = AppLockTargets["action_delete_learned_words"],
             ) {
                 scope.launch {
                     repository.clearLearnedData()
