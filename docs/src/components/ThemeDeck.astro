@@ -31,7 +31,9 @@ const DECK = [nebula, aurora, midnight, snow, ocean];
 				href="/themes/overview/"
 				aria-label={`${spec.name}, one of the built-in themes. Browse themes & appearance.`}
 			>
-				<ThemePreview specs={[spec]} />
+				<div class="wm-deck-zoom">
+					<ThemePreview specs={[spec]} />
+				</div>
 			</a>
 		))}
 	</div>
@@ -53,6 +55,14 @@ const DECK = [nebula, aurora, midnight, snow, ocean];
 		width: 100%;
 		height: 19rem;
 	}
+	/* Hover interaction contract: the <a> carries the fan placement and NEVER
+	   changes on hover, so the pointer hit area is static and hovering can't
+	   move the boundary out from under the cursor (which caused a
+	   hover-on/hover-off oscillation between overlapping cards). The visual
+	   grow/straighten lives on the inner .wm-deck-zoom, which takes no pointer
+	   decisions. z-index can't animate, so it flips instantly on hover-in but
+	   holds (via transition-delay) until the shrink-back finishes on
+	   hover-out; otherwise the still-large card dives under its neighbours. */
 	.wm-deck-card {
 		position: absolute;
 		top: 50%;
@@ -62,21 +72,26 @@ const DECK = [nebula, aurora, midnight, snow, ocean];
 		border-radius: 1rem;
 		transform: translate(-50%, -50%) rotate(var(--r, 0deg))
 			translate(var(--x, 0rem), var(--y, 0rem)) scale(var(--s, 0.56));
-		transition: transform 200ms ease;
-		filter: drop-shadow(0 18px 26px rgba(5, 8, 25, 0.45));
+		transition: z-index 0s 220ms;
 	}
-	.wm-deck-card:nth-child(1) { --r: -14deg; --x: -7.5rem; --y: 1.7rem; z-index: 1; }
-	.wm-deck-card:nth-child(2) { --r: -7deg; --x: -3.75rem; --y: 0.5rem; z-index: 2; }
+	.wm-deck-card:nth-child(1) { --r: -14deg; --x: -7rem; --y: 1.7rem; z-index: 1; }
+	.wm-deck-card:nth-child(2) { --r: -7deg; --x: -3.5rem; --y: 0.5rem; z-index: 2; }
 	.wm-deck-card:nth-child(3) { --s: 0.62; z-index: 3; }
-	.wm-deck-card:nth-child(4) { --r: 7deg; --x: 3.75rem; --y: 0.5rem; z-index: 2; }
-	.wm-deck-card:nth-child(5) { --r: 14deg; --x: 7.5rem; --y: 1.7rem; z-index: 1; }
+	.wm-deck-card:nth-child(4) { --r: 7deg; --x: 3.5rem; --y: 0.5rem; z-index: 2; }
+	.wm-deck-card:nth-child(5) { --r: 14deg; --x: 7rem; --y: 1.7rem; z-index: 1; }
 	.wm-deck-card:hover,
 	.wm-deck-card:focus-visible {
-		--r: 0deg;
-		--x: 0rem;
-		--y: 0rem;
-		--s: 0.66;
-		z-index: 5;
+		z-index: 6;
+		transition: z-index 0s;
+	}
+	.wm-deck-zoom {
+		transition: transform 220ms ease;
+		filter: drop-shadow(0 18px 26px rgba(5, 8, 25, 0.45));
+	}
+	.wm-deck-card:hover .wm-deck-zoom,
+	.wm-deck-card:focus-visible .wm-deck-zoom {
+		/* Counter-rotate to straighten in place; grow around its own centre. */
+		transform: rotate(calc(var(--r, 0deg) * -1)) scale(1.12);
 	}
 	.wm-deck-card:focus-visible {
 		outline: 2px solid var(--sl-color-accent);
@@ -96,7 +111,7 @@ const DECK = [nebula, aurora, midnight, snow, ocean];
 		color: var(--sl-color-accent-high);
 	}
 
-	:global([data-theme='light']) .wm-deck-card {
+	:global([data-theme='light']) .wm-deck-zoom {
 		filter: drop-shadow(0 14px 22px rgba(25, 28, 66, 0.2));
 	}
 
@@ -117,7 +132,8 @@ const DECK = [nebula, aurora, midnight, snow, ocean];
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.wm-deck-card {
+		.wm-deck-card,
+		.wm-deck-zoom {
 			transition: none;
 		}
 	}
