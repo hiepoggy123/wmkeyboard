@@ -52,8 +52,10 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -61,6 +63,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -85,6 +88,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
@@ -92,6 +96,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -113,7 +118,13 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.RotationInterval
+import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.slotFixedId
+import com.wasimaster.wmkeyboard.core.settings.slotPool
+import com.wasimaster.wmkeyboard.core.settings.slotRandom
+import com.wasimaster.wmkeyboard.core.settings.usesRandomSlot
 import com.wasimaster.wmkeyboard.core.settings.SidePadScaleRange
 import com.wasimaster.wmkeyboard.core.settings.ThemeGalleryStyle
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
@@ -226,65 +237,170 @@ internal fun themeDisplayName(settings: KeyboardSettings, id: String): String {
     }
 }
 
-/** One row of the theme pickers: a family heading or a selectable theme. */
-private sealed interface ThemePickerRow {
-    data class Header(val label: String) : ThemePickerRow
-    data class Choice(val id: String, val name: String) : ThemePickerRow
+/**
+ * What one half of the auto pair is set to, for the row that opens its picker:
+ * the theme's name, or how many themes it selects from.
+ */
+@Composable
+private fun autoSlotSummary(settings: KeyboardSettings, darkSlot: Boolean): String {
+    val auto = settings.autoTheme
+    if (!auto.slotRandom(darkSlot)) {
+        return themeDisplayName(settings, auto.slotFixedId(darkSlot))
+    }
+    val count = auto.slotPool(darkSlot).size
+    if (count == 0) return themeDisplayName(settings, auto.slotFixedId(darkSlot))
+    return pluralStringResource(R.plurals.theme_auto_slot_random_summary, count, count)
+}
+
+/** One row of the theme pickers: a heading or a selectable theme. */
+internal sealed interface ThemePickerRow {
+    /** Where built-in themes end and the user's own begin. */
+    data class Section(val label: String) : ThemePickerRow
+
+    /** A family, with the ids of every look under it. */
+    data class Family(val label: String, val memberIds: List<String>) : ThemePickerRow
+
+    /** A selectable theme. [indented] marks it as a look inside the family above. */
+    data class Choice(val id: String, val name: String, val indented: Boolean) : ThemePickerRow
 }
 
 /**
- * The selectable themes, in gallery order: the default row, then built-ins,
- * then the user's themes sorted by name. A family contributes a heading and
- * one row per look, so the radio list stays flat to tap while reading grouped.
+ * The selectable themes: the default row, then built-ins, then the user's own.
+ *
+ * Inside each section the themes that stand alone come first and the families
+ * follow, each under its own heading with its looks indented. Order matters
+ * here rather than being cosmetic: a family used to be followed by whatever
+ * came next in the list, so the four standalone built-ins after Deep sea read
+ * as looks of Deep sea, and the user's themes ran on from the built-ins with
+ * nothing to mark the join. Sorting the standalone ones to the front means a
+ * bare row can never trail a family heading.
  */
 @Composable
-private fun themePickerRows(settings: KeyboardSettings): List<ThemePickerRow> {
+internal fun themePickerRows(settings: KeyboardSettings): List<ThemePickerRow> {
+    val context = LocalContext.current
+    return themePickerRows(
+        builtIns = BuiltInThemes,
+        customs = settings.customThemes,
+        defaultName = stringResource(R.string.theme_default_name),
+        builtInLabel = stringResource(R.string.theme_picker_section_builtin_label),
+        customLabel = stringResource(R.string.theme_picker_section_custom_label),
+        familyName = { themeFamilyName(context, it) },
+        name = { themeName(context, it) },
+    )
+}
+
+/**
+ * [themePickerRows] without the resources, so the ordering rule it exists to
+ * hold can be tested. Names arrive as lambdas because a built-in resolves its
+ * through the resources and a custom one carries its own.
+ */
+internal fun themePickerRows(
+    builtIns: List<ThemeSpec>,
+    customs: List<ThemeSpec>,
+    defaultName: String,
+    builtInLabel: String,
+    customLabel: String,
+    familyName: (ThemeSpec) -> String,
+    name: (ThemeSpec) -> String,
+): List<ThemePickerRow> {
     val rows = mutableListOf<ThemePickerRow>()
-    rows += ThemePickerRow.Choice(DEFAULT_THEME_ID, stringResource(R.string.theme_default_name))
-    val entries = BuiltInThemes + settings.customThemes.sortedBy { it.name.lowercase() }
-    for (entry in entries) {
-        if (entry.variants.isEmpty()) {
-            rows += ThemePickerRow.Choice(entry.id, themeName(entry))
-        } else {
-            rows += ThemePickerRow.Header(themeFamilyName(entry))
-            entry.selfAndVariants().forEach { rows += ThemePickerRow.Choice(it.id, themeName(it)) }
+    rows += ThemePickerRow.Choice(DEFAULT_THEME_ID, defaultName, indented = false)
+    val sections = listOf(
+        builtInLabel to builtIns,
+        customLabel to customs.sortedBy { it.name.lowercase() },
+    )
+    for ((label, entries) in sections) {
+        if (entries.isEmpty()) continue
+        rows += ThemePickerRow.Section(label)
+        val (families, singles) = entries.partition { it.variants.isNotEmpty() }
+        singles.forEach { rows += ThemePickerRow.Choice(it.id, name(it), indented = false) }
+        for (family in families) {
+            val members = family.selfAndVariants()
+            rows += ThemePickerRow.Family(familyName(family), members.map { it.id })
+            members.forEach { rows += ThemePickerRow.Choice(it.id, name(it), indented = true) }
         }
     }
     return rows
 }
 
+/** The name of a family, above its looks. */
 @Composable
-private fun ThemePickerHeading(label: String) {
+private fun ThemePickerHeading(label: String, control: @Composable (() -> Unit)? = null) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (control != null) {
+            control()
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+/**
+ * Where one part of the list ends and the next begins. Quieter than a family
+ * heading and carries a rule above it, so the two never read as the same thing.
+ */
+@Composable
+private fun ThemePickerSectionHeading(label: String) {
+    HorizontalDivider(Modifier.padding(top = 16.dp))
     Text(
         label,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
     )
 }
 
 @Composable
-private fun ThemePickerChoiceRow(name: String, selected: Boolean, onClick: () -> Unit) {
+private fun ThemePickerChoiceRow(
+    name: String,
+    selected: Boolean,
+    indented: Boolean,
+    onClick: () -> Unit,
+    multiSelect: Boolean = false,
+    enabled: Boolean = true,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(start = if (indented) 12.dp else 0.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = onClick)
+        if (multiSelect) {
+            Checkbox(checked = selected, onCheckedChange = { onClick() }, enabled = enabled)
+        } else {
+            RadioButton(selected = selected, onClick = onClick)
+        }
         Spacer(Modifier.width(8.dp))
         Text(name)
     }
 }
 
-/** Radio-list of every selectable theme, for choosing an auto light/dark slot. */
+/**
+ * The list of every selectable theme, for one half of the auto pair.
+ *
+ * Two modes in one dialog rather than two dialogs: the half either shows one
+ * theme, which is what it has always done, or selects from a set. The control
+ * at the top swaps the radio buttons for checkboxes, so the list itself, and
+ * the reading of it, stay the same either way.
+ */
 @Composable
 private fun ThemePickerDialog(
     title: String,
     settings: KeyboardSettings,
     selectedId: String,
+    randomOn: Boolean,
+    poolIds: Set<String>,
+    onModeChange: (Boolean) -> Unit,
     onPick: (String) -> Unit,
+    onToggle: (String, Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val rows = themePickerRows(settings)
@@ -293,17 +409,45 @@ private fun ThemePickerDialog(
         title = { Text(title) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                ChoiceControl(
+                    options = listOf(
+                        false to stringResource(R.string.theme_auto_slot_mode_one_label),
+                        true to stringResource(R.string.theme_auto_slot_mode_random_label),
+                    ),
+                    selected = randomOn,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                    onChange = onModeChange,
+                )
+                if (randomOn) {
+                    Text(
+                        stringResource(R.string.theme_auto_slot_random_body),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                }
                 for (row in rows) {
                     when (row) {
-                        is ThemePickerRow.Header -> ThemePickerHeading(row.label)
+                        is ThemePickerRow.Section -> ThemePickerSectionHeading(row.label)
+                        is ThemePickerRow.Family -> ThemePickerHeading(row.label) {
+                            if (randomOn) FamilyPoolCheckbox(row.memberIds, poolIds, onToggle)
+                        }
                         // Opens on the theme it is already set to. The list is
                         // every built-in plus every theme the user made, so the
                         // row that is on is routinely well below the fold.
                         is ThemePickerRow.Choice -> ScrollAnchor(row.id == selectedId) {
+                            val inPool = row.id in poolIds
                             ThemePickerChoiceRow(
                                 name = row.name,
-                                selected = row.id == selectedId,
-                                onClick = { onPick(row.id) },
+                                selected = if (randomOn) inPool else row.id == selectedId,
+                                indented = row.indented,
+                                multiSelect = randomOn,
+                                // The set cannot be emptied: a half that selects
+                                // at random from nothing has nothing to show.
+                                enabled = !randomOn || !inPool || poolIds.size > 1,
+                                onClick = {
+                                    if (randomOn) onToggle(row.id, !inPool) else onPick(row.id)
+                                },
                             )
                         }
                     }
@@ -313,6 +457,34 @@ private fun ThemePickerDialog(
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_done)) }
         },
+    )
+}
+
+/**
+ * The checkbox on a family heading: adds every look in the family to the set,
+ * or takes them all out. Indeterminate while only some of them are in it, which
+ * is a state the per-look checkboxes can reach on their own.
+ */
+@Composable
+private fun FamilyPoolCheckbox(
+    memberIds: List<String>,
+    poolIds: Set<String>,
+    onToggle: (String, Boolean) -> Unit,
+) {
+    val inPool = memberIds.count { it in poolIds }
+    val state = when (inPool) {
+        0 -> ToggleableState.Off
+        memberIds.size -> ToggleableState.On
+        else -> ToggleableState.Indeterminate
+    }
+    val label = stringResource(R.string.theme_picker_family_select_desc)
+    TriStateCheckbox(
+        state = state,
+        onClick = {
+            val add = state != ToggleableState.On
+            memberIds.forEach { onToggle(it, add) }
+        },
+        modifier = Modifier.semantics { contentDescription = label },
     )
 }
 
@@ -338,16 +510,19 @@ internal fun ModeThemePickerDialog(
                     ThemePickerChoiceRow(
                         name = inheritLabel,
                         selected = selectedId == null,
+                        indented = false,
                         onClick = { onPick(null) },
                     )
                 }
                 for (row in rows) {
                     when (row) {
-                        is ThemePickerRow.Header -> ThemePickerHeading(row.label)
+                        is ThemePickerRow.Section -> ThemePickerSectionHeading(row.label)
+                        is ThemePickerRow.Family -> ThemePickerHeading(row.label)
                         is ThemePickerRow.Choice -> ScrollAnchor(row.id == selectedId) {
                             ThemePickerChoiceRow(
                                 name = row.name,
                                 selected = row.id == selectedId,
+                                indented = row.indented,
                                 onClick = { onPick(row.id) },
                             )
                         }
@@ -792,7 +967,7 @@ fun ThemesScreen(
             item {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.theme_auto_light_title)) },
-                    supportingContent = { Text(themeDisplayName(settings, auto.lightThemeId)) },
+                    supportingContent = { Text(autoSlotSummary(settings, darkSlot = false)) },
                     colors = transparentListColors(),
                     modifier = Modifier.clickable { pickerForLight = true },
                 )
@@ -800,10 +975,29 @@ fun ThemesScreen(
             item {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.theme_auto_dark_title)) },
-                    supportingContent = { Text(themeDisplayName(settings, auto.darkThemeId)) },
+                    supportingContent = { Text(autoSlotSummary(settings, darkSlot = true)) },
                     colors = transparentListColors(),
                     modifier = Modifier.clickable { pickerForLight = false },
                 )
+            }
+            if (auto.usesRandomSlot) {
+                item {
+                    ChoiceSetting(
+                        title = R.string.theme_shuffle_interval_title,
+                        subtitle = stringResource(R.string.theme_shuffle_interval_subtitle),
+                        options = RotationInterval.entries
+                            .map { it to stringResource(it.labelRes) },
+                        selected = auto.shuffleInterval,
+                        default = SettingsDefaults.autoTheme.shuffleInterval,
+                    ) { value -> scope.launch { repository.setAutoThemeShuffleInterval(value) } }
+                }
+                item {
+                    ActionRow(
+                        title = R.string.theme_shuffle_now_title,
+                        subtitle = stringResource(R.string.theme_shuffle_now_subtitle),
+                        action = stringResource(R.string.theme_shuffle_now_action),
+                    ) { scope.launch { repository.shuffleAutoThemeNow() } }
+                }
             }
             item {
                 ChoiceControl(
@@ -873,18 +1067,29 @@ fun ThemesScreen(
         )
     }
     pickerForLight?.let { forLight ->
+        val darkSlot = !forLight
         ThemePickerDialog(
             title = stringResource(
                 if (forLight) R.string.theme_auto_light_title else R.string.theme_auto_dark_title,
             ),
             settings = settings,
-            selectedId = if (forLight) auto.lightThemeId else auto.darkThemeId,
+            selectedId = auto.slotFixedId(darkSlot),
+            randomOn = auto.slotRandom(darkSlot),
+            poolIds = auto.slotPool(darkSlot),
+            onModeChange = { on ->
+                scope.launch { repository.setAutoThemeSlotRandom(darkSlot, on) }
+            },
             onPick = { id ->
                 scope.launch {
                     if (forLight) repository.setAutoThemeLightId(id)
                     else repository.setAutoThemeDarkId(id)
                 }
+                // Selecting one theme closes the dialog; assembling a set does
+                // not, because that takes more than one press.
                 pickerForLight = null
+            },
+            onToggle = { id, inPool ->
+                scope.launch { repository.setAutoThemePoolMember(darkSlot, id, inPool) }
             },
             onDismiss = { pickerForLight = null },
         )

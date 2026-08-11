@@ -155,6 +155,7 @@ import android.net.ConnectivityManager
 import com.wasimaster.wmkeyboard.core.settings.PhotoNetworkConditions
 import com.wasimaster.wmkeyboard.core.settings.RotationState
 import com.wasimaster.wmkeyboard.core.settings.isRotationDue
+import com.wasimaster.wmkeyboard.core.settings.isThemeShuffleDue
 import com.wasimaster.wmkeyboard.core.settings.rotates
 import com.wasimaster.wmkeyboard.core.tools.PhotoBackgroundManager
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -2835,6 +2836,8 @@ open class WMKeyboardService : InputMethodService() {
         // would be a leak waiting to happen. The swap itself is a local file
         // read and one preference write, so it costs nothing here.
         maybeRotateBackground()
+        // Same rule, same moment, for an auto theme half that selects at random.
+        maybeShuffleTheme()
         // Covers the OEMs where `zen_mode` is unreadable and the observer never
         // fires — see refreshDndState.
         refreshDndState()
@@ -3486,6 +3489,28 @@ open class WMKeyboardService : InputMethodService() {
                 sources = photos.sources,
             )
         }
+    }
+
+    /**
+     * Selects the next theme for an auto theme half that runs at random, if one
+     * is due.
+     *
+     * Called at the same moment as [maybeRotateBackground] and for the same
+     * reason: the theme changing under the keys mid-sentence reads as a fault,
+     * so a random half moves between sessions and never during one. The whole
+     * decision is a pure function over two stored clocks, and applying it is one
+     * preference write that the theme provider then crossfades.
+     */
+    private fun maybeShuffleTheme() {
+        val auto = _uiState.value.settings.autoTheme
+        val due = isThemeShuffleDue(
+            auto = auto,
+            nowEpochMs = System.currentTimeMillis(),
+            nowElapsedMs = SystemClock.elapsedRealtime(),
+            sessionStarted = true,
+        )
+        if (!due) return
+        serviceScope.launch { settingsRepository.shuffleAutoThemeNow() }
     }
 
     /**

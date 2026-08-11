@@ -83,6 +83,26 @@ class ThemeOverridesTest {
         assertSame(wide, settings.activeThemeSpec(darkSlot = true))
     }
 
+    @Test
+    fun `a random slot resolves to the theme it selected, and the other half does not`() {
+        val settings = KeyboardSettings(
+            keyboardThemeId = DEFAULT_THEME_ID,
+            customThemes = listOf(wide),
+            autoTheme = AutoThemeSettings(
+                enabled = true,
+                lightThemeId = DEFAULT_THEME_ID,
+                darkThemeId = "builtin_ocean",
+                lightRandom = true,
+                lightPoolIds = setOf("wide", "builtin_snow"),
+                shuffleLightId = "wide",
+            ),
+        )
+        assertEquals("wide", settings.effectiveThemeId(darkSlot = false))
+        assertSame(wide, settings.activeThemeSpec(darkSlot = false))
+        // The dark half is not random, so it still shows the one theme it names.
+        assertEquals("builtin_ocean", settings.effectiveThemeId(darkSlot = true))
+    }
+
     // ---- the overlay --------------------------------------------------
 
     @Test

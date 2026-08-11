@@ -36,11 +36,20 @@ Both apply to the settings app itself and to the **Default (system)** theme only
 | Auto theme | Toggle | On / Off | Off |
 | Light theme *(shown only while Auto theme is on)* | Picker row | Default, any built-in, or any custom theme | Default (system) |
 | Dark theme *(same)* | Picker row | Default, any built-in, or any custom theme | Default (system) |
-| Trigger *(same)* | Segmented row | System light/dark / Time of day / Sunrise & sunset | System light/dark |
+| One theme / Random *(inside each picker)* | Segmented row | One theme / Random | One theme |
+| The theme set *(Random only, inside each picker)* | Checkbox list | Any number of themes, at least one | The theme that half already showed |
+| Change the theme *(shown only while a half is Random)* | Segmented row | Every time the keyboard opens / Every hour / Every 6 hours / Every day / Every week / Only when I press Shuffle | Every time the keyboard opens |
+| Change the theme now *(same)* | Button | Selects a new theme for every random half | |
+| Trigger *(same as Light theme)* | Segmented row | System light/dark / Time of day / Sunrise & sunset | System light/dark |
 | Light theme from *(Time of day only)* | Time picker | Any clock time | 7:00 AM |
 | Dark theme from *(Time of day only)* | Time picker | Any clock time | 7:00 PM |
 
 **Sunrise & sunset** shows explanatory text instead of a control. It reads the location already saved in the weather tool and works the times out locally, with no network call. With no location saved, it falls back to System light/dark. While Auto theme is on, the Themes grid below still shows which card is selected, but tapping one only previews it. A note above the grid says so.
+
+Each half of the pair is independent: one can hold a single theme while the other selects from a set. A random half shows how many themes it selects from in place of a theme name. The picker's list is the same either way, with radio buttons for One theme and checkboxes for Random, and a checkbox on each family name that ticks or unticks every look in it.
+
+<PhoneFrame caption="The dark theme picker set to Random, with a family ticked whole.">
+</PhoneFrame>
 
 <PhoneFrame caption="Auto theme on, with Time of day chosen and both clock rows visible.">
 ![Auto theme on, with Time of day chosen and both clock rows visible.](@assets/screens/reference/settings/themes-auto-schedule.webp)
@@ -73,7 +82,7 @@ The grid runs two cards per row. **Default (system)** comes first, with no edit,
 ![Deleting a custom theme asks for confirmation before removing it.](@assets/screens/reference/settings/themes-delete-confirm.webp)
 </PhoneFrame>
 
-There are 28 built-in themes: 19 original WM Keyboard designs, plus 9 ports of well-known editor colour schemes (Dracula, Nord, Solarized Dark, Solarized Light, Catppuccin Mocha, Catppuccin Latte, Catppuccin Frappé, Catppuccin Macchiato, Tokyo Night). Cyberpunk sits with the ports in the source but isn't one: it's ours, and it's the theme that uses the whole feature set at once (animated board gradient, cut keys, translucent faces, neon outline). Twenty-two of the 28 sit in five families (Ocean, Snow, Deep sea, Solarized, Catppuccin), so the grouped grid shows eleven built-in cards. See [Theming overview](/themes/overview/#choosing-a-theme) for the full list and what each one showcases.
+There are 28 built-in themes: 19 original WM Keyboard designs, plus 9 ports of well-known editor colour schemes (Dracula, Nord, Solarized Dark, Solarized Light, Catppuccin Mocha, Catppuccin Latte, Catppuccin Frappé, Catppuccin Macchiato, Tokyo Night). Cyberpunk sits with the ports in the source but isn't one: it's ours, and it's the theme that uses the whole feature set at once (animated board gradient, cut keys, translucent faces, neon outline). Twenty-two of the 28 sit in five families (Nightfall, Pastel, Gradients, Solarized, Catppuccin), so the grouped grid shows eleven built-in cards. See [Theming overview](/themes/overview/#choosing-a-theme) for the full list and what each one showcases.
 
 ## Theme editor
 
@@ -342,7 +351,11 @@ Tapping any color row opens the same dialog. At the top is a hex field, labelled
 - **No per-row restore buttons on either screen.** The app-wide [putting one setting back](/reference/settings/#putting-one-setting-back) control doesn't appear here, because a theme is something you built rather than a setting the app shipped a default for. Undo works the way each thing itself works. A colour row goes back with its picker's **Auto** button. The two opt-in groups (theme-specific corner radii, layout for this theme) clear by switching the group off. A look, sticker or single-key style goes by deleting it. And the built-in you copied from is still sitting in the gallery if you want to start over.
 - **Editing an existing custom theme doesn't switch to it.** Opening the pencil on a theme already in Your themes just opens the editor. Only Create, the built-in pencil (duplicate), and Import set the opened theme as active, as a side effect of those specific actions.
 - **"Landscape background image" is reached only through a specific theme's editor**, not from the gallery screen itself. Its settings-search entry is filed under the gallery's breadcrumb anyway, because the editor needs a real theme open and search alone can't supply one.
-- **Mode, Material You colors, and the Auto trigger picker have no settings-search entry.** They're real rows on the gallery screen, but searching for "Mode" or "Trigger" won't surface them directly. Search "themes" or "auto theme" instead.
+- **Mode, Material You colors, and the Auto trigger picker have no settings-search entry.** They're real rows on the gallery screen, but searching for "Mode" or "Trigger" won't surface them directly. Search "themes" or "auto theme" instead. Light theme, Dark theme, Change the theme, and Change the theme now are all indexed.
+- **Deleting a theme takes it out of every set that named it.** The half falls back to another theme in its set, or to the single theme it was showing when the set empties. The Random setting itself stays on, so putting a set back together is a matter of ticking themes rather than finding the control again.
+- **The picker list is sorted, not stored order.** Themes that stand alone come before the families in each part of the list, so a theme with no family can never appear directly under a family's name. Your own themes sit under a heading of their own, sorted by name.
+- **The last ticked theme can't be unticked.** Its checkbox goes flat rather than clearing the set, because a random half with nothing in its set has nothing to show.
+- **A random half changes between sessions, never during one.** The new theme is selected as the keyboard comes up. Turning the interval down to Every hour does not mean the theme changes while a field is open: it means the next keyboard that opens after the hour is up gets a new one.
 - **The three corner radii are symmetric with the globals, but the globals aren't all on one screen.** Key corner radius and Tool circle radius come from Appearance. Popup corner radius comes from Key press, which is easy to miss when you're hunting for it under Appearance with the other two.
 - **Deleting or exporting is only offered for Your themes.** The Default card and every built-in card skip both buttons. A built-in's pencil makes an editable copy instead of opening it directly.
 - **Changing the seed keeps a photo visible.** A seed swatch or the light/dark switch rebuilds every color. But when the theme has a background image, how see-through the board and keys are carries across rather than resetting to opaque.

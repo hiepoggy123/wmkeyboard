@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.core.settings
 
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
 import androidx.annotation.StringRes
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
@@ -103,6 +104,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import java.io.File
+import kotlin.random.Random
 import com.wasimaster.wmkeyboard.settings.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 
@@ -141,6 +143,9 @@ enum class AutoThemeTrigger {
  * [enabled], this takes over from [KeyboardSettings.keyboardThemeId] entirely —
  * the theme tool shows the active one but can't change it.
  *
+ * Either half can hold one theme or a set to select from at random: see
+ * [lightRandom] and `slotThemeId` in AutoThemeShuffle.kt.
+ *
  * The ids are the same namespace as [KeyboardSettings.keyboardThemeId]:
  * [DEFAULT_THEME_ID], a built-in id, or a custom id. A nested class rather than
  * flat fields because the top-level [KeyboardSettings] count is near the JVM
@@ -155,6 +160,35 @@ data class AutoThemeSettings(
     val dayStartMinutes: Int = 7 * 60,
     /** Minutes past midnight the dark theme takes over ([AutoThemeTrigger.SCHEDULE]). */
     val nightStartMinutes: Int = 19 * 60,
+    /**
+     * Whether the light half selects from [lightPoolIds] instead of showing
+     * [lightThemeId].
+     *
+     * A flag of its own rather than "the pool is not empty", so turning the
+     * random slot off and on again keeps the set the user assembled, and
+     * [lightThemeId] keeps the one theme they had before.
+     */
+    val lightRandom: Boolean = false,
+    val darkRandom: Boolean = false,
+    /** Theme ids the light half selects from while [lightRandom]. */
+    val lightPoolIds: Set<String> = emptySet(),
+    val darkPoolIds: Set<String> = emptySet(),
+    /** How often a random half selects a new theme. */
+    val shuffleInterval: RotationInterval = RotationInterval.EVERY_OPEN,
+    /**
+     * The id the light half is showing now, rewritten when [shuffleInterval]
+     * comes due. Blank until the first selection.
+     *
+     * Stored rather than computed so `effectiveThemeId` stays a pure read: the
+     * keyboard resolves its theme on the typing hot path and in three places
+     * that are not composables, and none of them can own a random seed.
+     */
+    val shuffleLightId: String = "",
+    val shuffleDarkId: String = "",
+    /** Wall clock of the last selection, which survives a reboot but can jump. */
+    val shuffledAtEpochMs: Long = 0L,
+    /** Monotonic clock of the last selection, which cannot jump but restarts. */
+    val shuffledAtElapsedMs: Long = 0L,
 ) {
 
     /**
@@ -3709,6 +3743,18 @@ class SettingsRepository(private val context: Context) {
         private val AUTO_THEME_TRIGGER = stringPreferencesKey("auto_theme_trigger")
         private val AUTO_THEME_DAY_START = intPreferencesKey("auto_theme_day_start")
         private val AUTO_THEME_NIGHT_START = intPreferencesKey("auto_theme_night_start")
+        private val AUTO_THEME_LIGHT_RANDOM = booleanPreferencesKey("auto_theme_light_random")
+        private val AUTO_THEME_DARK_RANDOM = booleanPreferencesKey("auto_theme_dark_random")
+        private val AUTO_THEME_LIGHT_POOL = stringSetPreferencesKey("auto_theme_light_pool")
+        private val AUTO_THEME_DARK_POOL = stringSetPreferencesKey("auto_theme_dark_pool")
+        private val AUTO_THEME_SHUFFLE_INTERVAL =
+            stringPreferencesKey("auto_theme_shuffle_interval")
+        private val AUTO_THEME_SHUFFLE_LIGHT_ID =
+            stringPreferencesKey("auto_theme_shuffle_light_id")
+        private val AUTO_THEME_SHUFFLE_DARK_ID = stringPreferencesKey("auto_theme_shuffle_dark_id")
+        private val AUTO_THEME_SHUFFLED_AT = longPreferencesKey("auto_theme_shuffled_at")
+        private val AUTO_THEME_SHUFFLED_AT_ELAPSED =
+            longPreferencesKey("auto_theme_shuffled_at_elapsed")
         private val PHOTO_UNSPLASH_KEY = stringPreferencesKey("photo_unsplash_key")
         private val PHOTO_PEXELS_KEY = stringPreferencesKey("photo_pexels_key")
         private val PHOTO_ROTATE_ENABLED = booleanPreferencesKey("photo_rotate_enabled")
@@ -4566,6 +4612,20 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.autoTheme.trigger,
                 dayStartMinutes = p[AUTO_THEME_DAY_START] ?: defaults.autoTheme.dayStartMinutes,
                 nightStartMinutes = p[AUTO_THEME_NIGHT_START] ?: defaults.autoTheme.nightStartMinutes,
+                lightRandom = p[AUTO_THEME_LIGHT_RANDOM] ?: defaults.autoTheme.lightRandom,
+                darkRandom = p[AUTO_THEME_DARK_RANDOM] ?: defaults.autoTheme.darkRandom,
+                lightPoolIds = p[AUTO_THEME_LIGHT_POOL] ?: defaults.autoTheme.lightPoolIds,
+                darkPoolIds = p[AUTO_THEME_DARK_POOL] ?: defaults.autoTheme.darkPoolIds,
+                shuffleInterval = p[AUTO_THEME_SHUFFLE_INTERVAL]
+                    ?.let { runCatching { RotationInterval.valueOf(it) }.getOrNull() }
+                    ?: defaults.autoTheme.shuffleInterval,
+                shuffleLightId = p[AUTO_THEME_SHUFFLE_LIGHT_ID]
+                    ?: defaults.autoTheme.shuffleLightId,
+                shuffleDarkId = p[AUTO_THEME_SHUFFLE_DARK_ID] ?: defaults.autoTheme.shuffleDarkId,
+                shuffledAtEpochMs = p[AUTO_THEME_SHUFFLED_AT]
+                    ?: defaults.autoTheme.shuffledAtEpochMs,
+                shuffledAtElapsedMs = p[AUTO_THEME_SHUFFLED_AT_ELAPSED]
+                    ?: defaults.autoTheme.shuffledAtElapsedMs,
             ),
             photoBackground = PhotoBackgroundSettings(
                 unsplashApiKey = p[PHOTO_UNSPLASH_KEY] ?: defaults.photoBackground.unsplashApiKey,
@@ -6213,6 +6273,93 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAutoThemeNightStart(minutes: Int) =
         editPrefs { it[AUTO_THEME_NIGHT_START] = minutes.coerceIn(0, 24 * 60 - 1) }
 
+    /**
+     * Turns the random selection on or off for one half of the auto pair.
+     *
+     * Turning it on with an empty pool seeds the pool with the one theme that
+     * half was already showing, and selects straight away, so the half is never
+     * left in a state with nothing to show. Turning it off keeps the pool, so
+     * coming back does not mean assembling the set again.
+     */
+    suspend fun setAutoThemeSlotRandom(darkSlot: Boolean, on: Boolean) =
+        editPrefs { prefs ->
+            prefs[if (darkSlot) AUTO_THEME_DARK_RANDOM else AUTO_THEME_LIGHT_RANDOM] = on
+            if (!on) return@editPrefs
+            val poolKey = if (darkSlot) AUTO_THEME_DARK_POOL else AUTO_THEME_LIGHT_POOL
+            val fixedKey = if (darkSlot) AUTO_THEME_DARK_ID else AUTO_THEME_LIGHT_ID
+            val pool = prefs[poolKey].orEmpty().ifEmpty {
+                setOf(prefs[fixedKey] ?: DEFAULT_THEME_ID)
+            }
+            prefs[poolKey] = pool
+            prefs.shuffleAutoThemeSlots(onlyEmpty = true)
+        }
+
+    /** Adds one theme to a random half's pool, or takes it out. */
+    suspend fun setAutoThemePoolMember(darkSlot: Boolean, id: String, inPool: Boolean) =
+        editPrefs { prefs ->
+            val poolKey = if (darkSlot) AUTO_THEME_DARK_POOL else AUTO_THEME_LIGHT_POOL
+            val current = prefs[poolKey].orEmpty()
+            val next = if (inPool) current + id else current - id
+            // The last theme cannot be taken out: a random half with an empty
+            // pool has nothing to select, and the UI disables that checkbox.
+            if (next.isEmpty()) return@editPrefs
+            prefs[poolKey] = next
+            // A selection that has just left the pool is replaced now rather
+            // than at the next interval, so the board never shows a theme the
+            // user has removed from the set.
+            val shuffledKey =
+                if (darkSlot) AUTO_THEME_SHUFFLE_DARK_ID else AUTO_THEME_SHUFFLE_LIGHT_ID
+            if (prefs[shuffledKey].orEmpty() !in next) prefs[shuffledKey] = next.min()
+        }
+
+    suspend fun setAutoThemeShuffleInterval(value: RotationInterval) =
+        editPrefs { it[AUTO_THEME_SHUFFLE_INTERVAL] = value.name }
+
+    /** Selects a new theme for every random half of the pair, now. */
+    suspend fun shuffleAutoThemeNow(
+        nowEpochMs: Long = System.currentTimeMillis(),
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+        random: Random = Random,
+    ) = editPrefs { prefs ->
+        prefs.shuffleAutoThemeSlots(
+            onlyEmpty = false,
+            nowEpochMs = nowEpochMs,
+            nowElapsedMs = nowElapsedMs,
+            random = random,
+        )
+    }
+
+    /**
+     * Writes the next theme for each random half, and stamps both clocks.
+     *
+     * [onlyEmpty] leaves a half that has already selected alone, which is what
+     * turning the random selection on wants: it fills the blank without
+     * disturbing the other half's schedule.
+     */
+    private fun MutablePreferences.shuffleAutoThemeSlots(
+        onlyEmpty: Boolean,
+        nowEpochMs: Long = System.currentTimeMillis(),
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+        random: Random = Random,
+    ) {
+        var wrote = false
+        for (darkSlot in listOf(false, true)) {
+            val randomOn =
+                this[if (darkSlot) AUTO_THEME_DARK_RANDOM else AUTO_THEME_LIGHT_RANDOM] ?: false
+            if (!randomOn) continue
+            val pool = this[if (darkSlot) AUTO_THEME_DARK_POOL else AUTO_THEME_LIGHT_POOL].orEmpty()
+            if (pool.isEmpty()) continue
+            val key = if (darkSlot) AUTO_THEME_SHUFFLE_DARK_ID else AUTO_THEME_SHUFFLE_LIGHT_ID
+            val current = this[key].orEmpty()
+            if (onlyEmpty && current.isNotBlank()) continue
+            this[key] = nextShuffledId(pool, current, random)
+            wrote = true
+        }
+        if (!wrote) return
+        this[AUTO_THEME_SHUFFLED_AT] = nowEpochMs
+        this[AUTO_THEME_SHUFFLED_AT_ELAPSED] = nowElapsedMs
+    }
+
     /** Adds the theme or replaces the stored theme with the same id. */
     suspend fun upsertCustomTheme(theme: ThemeSpec) =
         editPrefs { prefs ->
@@ -6261,6 +6408,10 @@ class SettingsRepository(private val context: Context) {
     ) {
         val idSet = ids.toSet()
         if (this[KEYBOARD_THEME_ID] in idSet) this[KEYBOARD_THEME_ID] = fallbackThemeId
+        if (this[AUTO_THEME_LIGHT_ID] in idSet) this[AUTO_THEME_LIGHT_ID] = fallbackThemeId
+        if (this[AUTO_THEME_DARK_ID] in idSet) this[AUTO_THEME_DARK_ID] = fallbackThemeId
+        cleanupAutoThemePool(idSet, AUTO_THEME_LIGHT_POOL, AUTO_THEME_SHUFFLE_LIGHT_ID)
+        cleanupAutoThemePool(idSet, AUTO_THEME_DARK_POOL, AUTO_THEME_SHUFFLE_DARK_ID)
         this[PHOTO_ROTATION_STATE]?.let { stored ->
             val states = RotationStateCodec.decode(stored)
             if (states.keys.any { it in idSet }) {
@@ -6272,6 +6423,31 @@ class SettingsRepository(private val context: Context) {
                 this[PHOTO_ROTATE_SCOPE_THEMES] = selected - idSet
             }
         }
+    }
+
+    /**
+     * Takes deleted ids out of one random half's pool and its stored selection.
+     *
+     * A pool emptied by the deletion is removed rather than left blank, so the
+     * half falls back to the one theme it names and shows something instead of
+     * nothing. The random flag is left on: the user's set has gone, but their
+     * choice of how the half works has not.
+     */
+    private fun MutablePreferences.cleanupAutoThemePool(
+        idSet: Set<String>,
+        poolKey: Preferences.Key<Set<String>>,
+        shuffledKey: Preferences.Key<String>,
+    ) {
+        val pool = this[poolKey] ?: return
+        if (pool.none { it in idSet }) return
+        val next = pool - idSet
+        if (next.isEmpty()) {
+            remove(poolKey)
+            remove(shuffledKey)
+            return
+        }
+        this[poolKey] = next
+        if (this[shuffledKey].orEmpty() !in next) this[shuffledKey] = next.min()
     }
 
     // ---- Online photo backgrounds -------------------------------------

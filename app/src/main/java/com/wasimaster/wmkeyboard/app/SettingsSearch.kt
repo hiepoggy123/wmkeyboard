@@ -337,8 +337,12 @@ private fun Resources.appearanceRows(): List<SettingsSearchEntry> {
         // opens its own screen. They are indexed once in sectionRows,
         // pointing at that screen.
         theme(R.string.theme_auto_title, R.string.theme_auto_subtitle),
+        theme(R.string.theme_auto_light_title),
+        theme(R.string.theme_auto_dark_title),
         theme(R.string.theme_auto_light_from_title),
         theme(R.string.theme_auto_dark_from_title),
+        theme(R.string.theme_shuffle_interval_title, R.string.theme_shuffle_interval_subtitle),
+        theme(R.string.theme_shuffle_now_title, R.string.theme_shuffle_now_subtitle),
         theme(R.string.theme_background_image_landscape_title),
         icon(R.string.plugins_icons_pack_title),
         icon(R.string.plugins_icons_import_title, R.string.plugins_icons_import_subtitle),

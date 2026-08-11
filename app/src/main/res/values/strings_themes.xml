@@ -23,6 +23,22 @@
     <string name="theme_auto_subtitle">Use a light theme in the day and a dark theme at night</string>
     <string name="theme_auto_light_title">Light theme</string>
     <string name="theme_auto_dark_title">Dark theme</string>
+    <!-- The two modes of one half of the pair, in the theme picker. "One
+         theme" shows the same theme every time. "Random" selects from a set. -->
+    <string name="theme_auto_slot_mode_one_label">One theme</string>
+    <string name="theme_auto_slot_mode_random_label">Random</string>
+    <string name="theme_auto_slot_random_body">Select the themes you want. The keyboard shows one of them at a time.</string>
+    <!-- How many themes one half of the pair selects from. %1$d is the count. -->
+    <plurals name="theme_auto_slot_random_summary">
+        <item quantity="one">Random of <xliff:g id="count" example="1">%1$d</xliff:g> theme</item>
+        <item quantity="other">Random of <xliff:g id="count" example="4">%1$d</xliff:g> themes</item>
+    </plurals>
+    <string name="theme_shuffle_interval_title">Change the theme</string>
+    <string name="theme_shuffle_interval_subtitle">How often a random half selects a new theme</string>
+    <string name="theme_shuffle_now_title">Change the theme now</string>
+    <string name="theme_shuffle_now_subtitle">Select a new theme from your sets</string>
+    <!-- Button that selects a new theme immediately. -->
+    <string name="theme_shuffle_now_action">Change</string>
     <string name="theme_auto_trigger_system_body">The keyboard follows the light and dark setting of your device. This includes any schedule that Android runs for it.</string>
     <string name="theme_auto_light_from_title">Light theme from</string>
     <string name="theme_auto_dark_from_title">Dark theme from</string>
@@ -39,6 +55,12 @@
     <string name="theme_mode_picker_title">Theme for this mode</string>
     <!-- First row of the picker: this keyboard mode gets no theme of its own. -->
     <string name="theme_mode_inherit_label">Inherit: use the theme that is set</string>
+    <!-- Headings that divide the picker list. Themes that came with the app,
+         then the themes the user made or installed. -->
+    <string name="theme_picker_section_builtin_label">Built-in themes</string>
+    <string name="theme_picker_section_custom_label">Your themes</string>
+    <!-- Read out for the checkbox beside the name of a theme family. -->
+    <string name="theme_picker_family_select_desc">Select every look in this family</string>
 
     <!-- Themes screen: the gallery of themes. -->
     <string name="theme_gallery_section_title">Themes</string>

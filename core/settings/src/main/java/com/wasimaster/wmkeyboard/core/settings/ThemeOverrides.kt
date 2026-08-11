@@ -10,17 +10,17 @@ import com.wasimaster.wmkeyboard.core.theme.findThemeSpec
  * [darkSlot] is which half of that pair is currently due (the IME computes it
  * from the trigger — system dark mode, a schedule, or the sun).
  *
+ * A half that selects at random resolves through [slotThemeId] to the theme it
+ * selected last, which the keyboard rewrites between sessions rather than here:
+ * this stays a pure read that three non-composable callers can share.
+ *
  * This is the single definition of "which theme is active"; the theme
  * provider and the settings overlay both resolve through here so the spec
  * that paints the board and the spec whose overrides reshape it can never
  * disagree.
  */
 fun KeyboardSettings.effectiveThemeId(darkSlot: Boolean): String =
-    if (autoTheme.enabled) {
-        if (darkSlot) autoTheme.darkThemeId else autoTheme.lightThemeId
-    } else {
-        keyboardThemeId
-    }
+    if (autoTheme.enabled) autoTheme.slotThemeId(darkSlot) else keyboardThemeId
 
 /**
  * The stored [ThemeSpec] behind [effectiveThemeId], or null when the default

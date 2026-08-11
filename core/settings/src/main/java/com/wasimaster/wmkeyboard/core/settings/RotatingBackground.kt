@@ -55,7 +55,7 @@ object RotationStateCodec {
 private const val MAX_PLAUSIBLE_GAP_MS = 30L * 24 * 3_600_000
 
 /**
- * Whether [state] is due to move on to another photo.
+ * Whether something last done at [atEpochMs]/[atElapsedMs] is due again.
  *
  * Every reading of "now" is a parameter rather than a call, so a reboot, a
  * time-zone change and a user setting the date back a year are all one-line
@@ -71,33 +71,50 @@ private const val MAX_PLAUSIBLE_GAP_MS = 30L * 24 * 3_600_000
  * change when the monotonic clock has not gone backwards: the two look
  * identical from here, and guessing wrong in the direction of the wall clock
  * would let a corrected clock decide the schedule. The cost of the choice made
- * instead is that a photo set shortly before a reboot may wait one extra
+ * instead is that a change made shortly before a reboot may wait one extra
  * interval of uptime, which then corrects itself.
+ *
+ * Shared by the rotating photo background and the auto theme's random slots
+ * (see [isThemeShuffleDue]): a keyboard with two cadence models in it would be
+ * a source of bugs rather than of clarity.
  */
-fun isRotationDue(
+fun isIntervalDue(
     interval: RotationInterval,
-    state: RotationState,
+    atEpochMs: Long,
+    atElapsedMs: Long,
     nowEpochMs: Long,
     nowElapsedMs: Long,
     sessionStarted: Boolean,
 ): Boolean {
     if (interval == RotationInterval.MANUAL) return false
     if (interval == RotationInterval.EVERY_OPEN) return sessionStarted
-    // Never rotated: the first photo is always due.
-    if (state.rotatedAtEpochMs == 0L) return true
+    // Never changed: the first time is always due.
+    if (atEpochMs == 0L) return true
 
-    val rebooted = nowElapsedMs < state.rotatedAtElapsedMs
-    val elapsed = if (rebooted) {
-        nowEpochMs - state.rotatedAtEpochMs
-    } else {
-        nowElapsedMs - state.rotatedAtElapsedMs
-    }
+    val rebooted = nowElapsedMs < atElapsedMs
+    val elapsed = if (rebooted) nowEpochMs - atEpochMs else nowElapsedMs - atElapsedMs
     // A clock that moved backwards, or forwards by a month, says nothing about
     // how long the photo has been up. Rotating is the safe answer either way:
     // the alternative is a background frozen until a date in the future.
     if (elapsed < 0L || elapsed > MAX_PLAUSIBLE_GAP_MS) return true
     return elapsed >= interval.periodMs
 }
+
+/** Whether [state] is due to move on to another photo. See [isIntervalDue]. */
+fun isRotationDue(
+    interval: RotationInterval,
+    state: RotationState,
+    nowEpochMs: Long,
+    nowElapsedMs: Long,
+    sessionStarted: Boolean,
+): Boolean = isIntervalDue(
+    interval = interval,
+    atEpochMs = state.rotatedAtEpochMs,
+    atElapsedMs = state.rotatedAtElapsedMs,
+    nowEpochMs = nowEpochMs,
+    nowElapsedMs = nowElapsedMs,
+    sessionStarted = sessionStarted,
+)
 
 /** Whether [themeId] is one of the themes the rotation takes over. */
 fun PhotoBackgroundSettings.rotates(themeId: String, activeThemeId: String): Boolean {
