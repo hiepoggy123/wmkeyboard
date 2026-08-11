@@ -121,10 +121,14 @@ import com.wasimaster.wmkeyboard.core.addons.InstalledAddon
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import com.wasimaster.wmkeyboard.core.addons.resolve
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
+import com.wasimaster.wmkeyboard.core.settings.DeviceNetworkState
+import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.stopsBackgroundWork
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.ime.R as ImeR
 import com.wasimaster.wmkeyboard.ime.ui.rememberMediaImageLoader
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -446,6 +450,18 @@ internal fun AddonsScreen(
     LaunchedEffect(Unit) {
         if (!store.autoRefresh()) return@LaunchedEffect
         if (store.refreshUnmeteredOnly() && isMeteredNow(context)) return@LaunchedEffect
+        // Data saving is the third gate, and the same kind of thing: the store
+        // keeps its own switch for people who never open the data-saver screen,
+        // and either one holding is enough to skip the visit's fetch. Read off
+        // the repository rather than passed in — this screen is reached from a
+        // deep link as well as from settings, so it has no settings object.
+        val dataSaver = SettingsRepository(context).settings.first().dataSaver
+        val network = DeviceNetworkState(metered = isMeteredNow(context))
+        if (dataSaver.appliesTo(network) &&
+            dataSaver.addonRefresh.stopsBackgroundWork
+        ) {
+            return@LaunchedEffect
+        }
         refreshAll()
     }
 

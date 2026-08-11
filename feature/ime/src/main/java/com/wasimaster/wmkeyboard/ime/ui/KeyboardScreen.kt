@@ -298,6 +298,8 @@ import com.wasimaster.wmkeyboard.core.settings.KeyPopupSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyRepeatSettings
 import com.wasimaster.wmkeyboard.core.settings.TextEditingSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
+import com.wasimaster.wmkeyboard.core.settings.MeteredFeature
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
@@ -12619,6 +12621,11 @@ internal data class AnimatedEmojiOffer(
  */
 internal fun KeyboardUiState.animatedEmojiOffer(emoji: String): AnimatedEmojiOffer? {
     if (!settings.emoji.animated || !acceptsRichMedia) return null
+    // Data saving turned this one off outright: no offer at all, since there
+    // is nothing to say about it that a greyed-out button would say better.
+    // "Ask each time" still offers it — the press is the answer, and only the
+    // automatic preview is held back (see `onEmojiLongPressed`).
+    if (dataSaver.decide(MeteredFeature.ANIMATED_EMOJI) == MeteredDecision.BLOCKED) return null
     val key = animatedEmoji.keyFor(emoji) ?: return null
     val sending = mediaDownloadingId == key
     return AnimatedEmojiOffer(

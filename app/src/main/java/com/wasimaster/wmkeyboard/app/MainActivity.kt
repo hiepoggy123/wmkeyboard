@@ -113,6 +113,7 @@ import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Search
@@ -1146,6 +1147,15 @@ private fun SettingsNavGraph(
                 PermissionsSettings()
             }
         }
+        composable("datasaver") {
+            SettingsScreen(
+                stringResource(R.string.home_datasaver_title),
+                { navController.popBackStack() },
+                route = "datasaver",
+            ) {
+                DataSaverSettingsScreen(repository, settings)
+            }
+        }
         composable("rows") {
             SettingsScreen(
                 stringResource(R.string.home_rows_title),
@@ -1489,6 +1499,13 @@ private fun AnimatedVisibilityScope.HomeScreen(
                         "privacy", Icons.Outlined.Security,
                         stringResource(R.string.home_privacy_title),
                         stringResource(R.string.home_privacy_subtitle), onNavigate,
+                    )
+                }
+                item {
+                    HomeItem(
+                        "datasaver", Icons.Outlined.NetworkCheck,
+                        stringResource(R.string.home_datasaver_title),
+                        stringResource(R.string.home_datasaver_subtitle), onNavigate,
                     )
                 }
                 item {
@@ -6134,13 +6151,15 @@ private fun LanguageSettings(
             ) { scope.launch { repository.setAutoDownloadLanguageData(it) } }
         }
         item {
-            ToggleSetting(
+            // The metered-download confirmation moved to the data-saver
+            // screen, where it is one answer among three rather than a switch,
+            // and where it now covers the model downloads too. This row stays
+            // as the signpost for anyone who came here looking for it.
+            NavRow(
                 R.string.langemoji_lang_metered_title,
                 stringResource(R.string.langemoji_lang_metered_subtitle),
-                settings.confirmMeteredDownloads,
-                info = stringResource(R.string.langemoji_lang_metered_info),
-                default = SettingsDefaults.confirmMeteredDownloads,
-            ) { scope.launch { repository.setConfirmMeteredDownloads(it) } }
+                onClick = { onNavigate("datasaver") },
+            )
         }
         item {
             ToggleSetting(

@@ -7,6 +7,11 @@
     <!-- Button that types the result of a tool into the text the user is writing. -->
     <string name="ime_insert_action">Insert</string>
 
+    <!-- Shown in place of a panel's results when data saving is holding the fetch. -->
+    <string name="ime_metered_ask_body">Data saver is on. This uses mobile data.</string>
+    <string name="ime_metered_off_body">Turned off while you are on mobile data. You can change this in Settings, under Data saver.</string>
+    <string name="ime_metered_allow_action">Use mobile data</string>
+
     <!-- Action rail on the right of the voice and handwriting panels. Screen reader labels. -->
     <string name="ime_rail_space_desc">Space</string>
     <string name="ime_rail_enter_desc">Enter</string>

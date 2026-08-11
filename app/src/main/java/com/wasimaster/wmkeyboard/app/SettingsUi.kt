@@ -222,6 +222,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "privacy" to Color(0xFFEF5350),
     // A child of Privacy, so it keeps the parent's red.
     "permissions" to Color(0xFFEF5350),
+    "datasaver" to Color(0xFF00897B),
     "backup" to Color(0xFF78909C),
     "about" to Color(0xFF90A4AE),
     "licenses" to Color(0xFF90A4AE),

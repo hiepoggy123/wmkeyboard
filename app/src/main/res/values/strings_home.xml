@@ -70,6 +70,9 @@
     <string name="home_privacy_title">Privacy</string>
     <string name="home_privacy_subtitle">On-device learning, incognito</string>
 
+    <string name="home_datasaver_title">Data saver</string>
+    <string name="home_datasaver_subtitle">What the keyboard may fetch on mobile data</string>
+
     <string name="home_backup_title">Backup &amp; restore</string>
     <string name="home_backup_subtitle">Export your settings to a file, or restore them</string>
 

@@ -147,15 +147,6 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
 
     SettingsGroup(stringResource(R.string.toolai_models_group_title)) {
         item {
-            ToggleSetting(
-                R.string.toolai_download_wifi_title,
-                stringResource(R.string.toolai_download_wifi_subtitle),
-                settings.ai.downloadUnmeteredOnly,
-                info = stringResource(R.string.toolai_download_wifi_info),
-                default = SettingsDefaults.ai.downloadUnmeteredOnly,
-            ) { on -> scope.launch { repository.setAiDownloadUnmeteredOnly(on) } }
-        }
-        item {
             val charsFormat = stringResource(R.string.values_number)
             SliderSetting(
                 R.string.toolai_continue_context_title,

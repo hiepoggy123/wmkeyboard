@@ -421,6 +421,26 @@ private fun PanelNotice(
 }
 
 /**
+ * The panel is empty because data saving is holding the fetch.
+ *
+ * Two shapes, from the two answers the user can have given: "ask each time"
+ * offers the fetch here, and a tap on that chip allows this feature for the
+ * rest of the session; "turn off" says so and offers nothing, because they
+ * have already answered. Both name the connection rather than blaming the
+ * network, so an empty grid never reads as a bug.
+ */
+@Composable
+private fun MeteredNotice(canAllow: Boolean, onAllow: () -> Unit) {
+    PanelNotice(
+        message = stringResource(
+            if (canAllow) R.string.ime_metered_ask_body else R.string.ime_metered_off_body,
+        ),
+        actionLabel = stringResource(R.string.ime_metered_allow_action).takeIf { canAllow },
+        onAction = onAllow,
+    )
+}
+
+/**
  * Standing bar across the top of a media grid: this field takes no rich
  * content, so nothing here can be sent into it. Deliberately not a toast —
  * the limitation belongs to the field, not to the tap, so it stays visible
@@ -644,6 +664,7 @@ internal fun GifPanel(
                     actionLabel = stringResource(CommonR.string.common_retry),
                     onAction = onRetry,
                 )
+                is MediaUi.Metered -> MeteredNotice(ui.canAllow, onRetry)
                 is MediaUi.Ready -> {
                     if (ui.items.isEmpty()) {
                         LocalStickerEmptyNotice(
@@ -1120,6 +1141,7 @@ internal fun WebSearchPanel(
                 actionLabel = stringResource(CommonR.string.common_retry),
                 onAction = onRetry,
             )
+            is WebSearchUi.Metered -> MeteredNotice(ui.canAllow, onRetry)
             is WebSearchUi.Ready -> {
                 if (ui.results.isEmpty()) {
                     PanelNotice(stringResource(R.string.ime_web_search_empty, ui.query))
@@ -1217,6 +1239,7 @@ internal fun ImageSearchPanel(
                 actionLabel = stringResource(CommonR.string.common_retry),
                 onAction = onRetry,
             )
+            is ImageSearchUi.Metered -> MeteredNotice(ui.canAllow, onRetry)
             is ImageSearchUi.Ready -> {
                 if (ui.results.isEmpty()) {
                     PanelNotice(stringResource(R.string.ime_image_search_empty, ui.query))

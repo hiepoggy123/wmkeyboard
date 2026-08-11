@@ -59,6 +59,7 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCatalog
@@ -98,6 +99,7 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
     var storageUsed by remember { mutableLongStateOf(0L) }
     var orphanBytes by remember { mutableLongStateOf(0L) }
     var meteredPending by remember { mutableStateOf<WhisperModel?>(null) }
+    var meteredBlocked by remember { mutableStateOf(false) }
     var routingFor by remember { mutableStateOf<LanguageDef?>(null) }
     var browseOpen by remember { mutableStateOf(false) }
     var sizeFilter by remember { mutableStateOf<WhisperSize?>(null) }
@@ -121,14 +123,18 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
     fun requestDownload(model: WhisperModel) {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val metered = cm.isActiveNetworkMetered
-        // The size threshold only ever caught the big models, so a
-        // mid-sized one came down over mobile data without a word. With
-        // Wi-Fi only on, size stops mattering: every download waits.
-        val ask = metered && (settings.ai.downloadUnmeteredOnly || model.sizeBytes >= WHISPER_METERED_CONFIRM_BYTES)
-        if (ask) {
-            meteredPending = model
-        } else {
-            startDownload(model)
+        when (downloadDecisionNow(context, settings)) {
+            MeteredDecision.BLOCKED -> meteredBlocked = true
+            MeteredDecision.ASK -> meteredPending = model
+            // Data saving is not holding this one, so the old size threshold
+            // is still the guard: a 400 MB model over mobile data is worth a
+            // word even from someone who never set any of this up.
+            MeteredDecision.ALLOWED ->
+                if (metered && model.sizeBytes >= WHISPER_METERED_CONFIRM_BYTES) {
+                    meteredPending = model
+                } else {
+                    startDownload(model)
+                }
         }
     }
 
@@ -293,6 +299,7 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
             },
         )
     }
+    if (meteredBlocked) MeteredBlockedDialog { meteredBlocked = false }
 }
 
 /**

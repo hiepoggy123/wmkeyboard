@@ -68,6 +68,7 @@ import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.DataArray
 import androidx.compose.material.icons.outlined.DataObject
 import androidx.compose.material.icons.outlined.TabletAndroid
+import androidx.compose.material.icons.outlined.DataSaverOn
 import androidx.compose.material.icons.outlined.DataUsage
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Description
@@ -704,6 +705,24 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_power_drop_emoji_title) { Icons.Outlined.EmojiEmotions }
         put(R.string.tooldetail_power_drop_glide_title) { Icons.Outlined.Gesture }
         put(R.string.tooldetail_power_drop_stats_title) { Icons.Outlined.QueryStats }
+
+        // ---- Data saver ----
+        put(R.string.datasaver_manual_title) { Icons.Outlined.DataSaverOn }
+        put(R.string.datasaver_trigger_title) { Icons.Outlined.AutoMode }
+        put(R.string.datasaver_link_previews_title) { Icons.Outlined.Link }
+        put(R.string.datasaver_dictionary_title) { Icons.AutoMirrored.Outlined.MenuBook }
+        put(R.string.datasaver_photos_title) { Icons.Outlined.Wallpaper }
+        put(R.string.datasaver_weather_title) { Icons.Outlined.WbSunny }
+        put(R.string.datasaver_rates_title) { Icons.Outlined.CurrencyExchange }
+        put(R.string.datasaver_addons_title) { Icons.Outlined.Extension }
+        put(R.string.datasaver_media_title) { Icons.Outlined.Gif }
+        put(R.string.datasaver_search_title) { Icons.Outlined.Search }
+        put(R.string.datasaver_animated_emoji_title) { Icons.Outlined.EmojiEmotions }
+        put(R.string.datasaver_downloads_title) { Icons.Outlined.CloudDownload }
+        put(R.string.datasaver_ai_title) { Icons.Outlined.AutoAwesome }
+        // The signpost left behind on the languages screen, where the metered
+        // download confirmation used to live.
+        put(R.string.langemoji_lang_metered_title) { Icons.Outlined.DataSaverOn }
         put(R.string.statistics_toggle_title) { Icons.Outlined.QueryStats }
         put(R.string.tooldetail_power_drop_popup_title) { Icons.Outlined.Notifications }
         put(R.string.tooldetail_autocorrect_title) { Icons.Outlined.Spellcheck }
@@ -787,7 +806,6 @@ internal object SettingsRowIcons {
         put(R.string.toolai_ai_history_title) { Icons.Outlined.History }
         put(R.string.toolai_ai_history_nav_title) { Icons.Outlined.History }
         put(R.string.toolai_ai_history_max_title) { Icons.Outlined.Numbers }
-        put(R.string.toolai_download_wifi_title) { Icons.Outlined.Wifi }
         put(R.string.toolai_continue_context_title) { Icons.AutoMirrored.Outlined.TextSnippet }
         put(R.string.toolai_keep_chats_title) { Icons.AutoMirrored.Outlined.Chat }
         put(R.string.toolai_delete_chats_title) { Icons.Outlined.DeleteSweep }

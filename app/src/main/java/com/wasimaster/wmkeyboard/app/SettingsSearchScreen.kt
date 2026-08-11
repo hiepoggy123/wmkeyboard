@@ -47,6 +47,7 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.DataSaverOn
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Security
@@ -438,6 +439,7 @@ internal object SettingsRouteIcons {
         "accessibility" to { Icons.Outlined.Accessibility },
         "privacy" to { Icons.Outlined.Security },
         "permissions" to { Icons.Outlined.Key },
+        "datasaver" to { Icons.Outlined.DataSaverOn },
         "backup" to { Icons.Outlined.Save },
         "about" to { Icons.Outlined.Info },
         "storage" to { Icons.Outlined.PieChart },

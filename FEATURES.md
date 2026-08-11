@@ -2470,6 +2470,14 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Never registers for ACTION_BATTERY_CHANGED — A null receiver returns the last sticky intent instead.
     - Battery-full counts as charging
   - Toolbar tool and a settings screen `uncommon` — Also bound to hardware-shortcut letter B.
+- **Data saver** `RARE` — The same settings-view trick as power saving, keyed to what the connection costs instead of the battery.
+  - Five triggers `uncommon` — Off, metered (default), roaming only, Android's own Data Saver, any of these; plus a manual switch that holds on any connection.
+  - Three answers per feature `RARE` — Allow, ask each time, turn off. "Ask" shows the panel a notice with a "Use mobile data" action that grants that one feature for the session.
+    - Background rows get two of the three — Link previews, word look-ups, photo backgrounds, weather chip, exchange rates (allowed by default) and add-on refresh happen with no panel open, so there is nobody to ask.
+    - On-demand rows default to asking — GIF/sticker search, web and image search, animated emoji, downloads, cloud AI. Local sticker packs and on-device AI are never held.
+    - Grants are session state — Dropped whenever the network changes; the settings app asks separately from the keyboard.
+  - Default-network callback rather than polling `uncommon` — Metered, temporarily-not-metered and roaming come off NetworkCapabilities; Android's Data Saver has no capability bit, so it arrives as ACTION_RESTRICT_BACKGROUND_CHANGED and is re-read when the keyboard opens.
+  - Absorbed two older switches — "Ask before downloading on mobile data" (Languages) and "Only download over Wi-Fi" (AI models) migrate into the Downloads row on first read; their DataStore keys are still read once for the migration.
 - **Form factors: tablets and foldables** `RARE` — Two independent screen questions — device form (size) and screen variant (posture).
   - DeviceForm buckets `uncommon` — PHONE / SMALL_TABLET / LARGE_TABLET at AOSP's 600dp and 768dp smallest-width thresholds.
     - Read from smallestScreenWidthDp — A phone in landscape is still a phone; a tablet is a tablet either way up.

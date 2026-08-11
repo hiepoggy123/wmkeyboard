@@ -81,6 +81,7 @@ import com.wasimaster.wmkeyboard.core.script.SuggestedLanguage
 import com.wasimaster.wmkeyboard.core.script.SuggestionReason
 import com.wasimaster.wmkeyboard.core.script.resolveNumeralDigits
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -430,21 +431,6 @@ internal fun languageData(langId: String): LanguageData {
     )
 }
 
-/**
- * Whether a language download should stop and ask first: the user has asked
- * for the check and the connection is metered.
- *
- * Whisper and the local LLM already confirm before a large download. Language
- * packs and the 42 MB CJK dictionary did not check at all, so a phone on
- * mobile data could spend it without being asked.
- */
-@Composable
-internal fun rememberMeteredGuard(settings: KeyboardSettings): () -> Boolean {
-    val context = LocalContext.current
-    return remember(settings.confirmMeteredDownloads) {
-        { settings.confirmMeteredDownloads && isMeteredNow(context) }
-    }
-}
 
 /**
  * Whether the connection in use right now is one Android counts as metered.
@@ -868,17 +854,19 @@ internal fun LanguageDetailScreen(
     // rows below still fetch them one at a time. The size is on the button
     // because pressing it is the consent.
     val downloadable = remember(langId) { languageData(langId) }
-    val meteredGuard = rememberMeteredGuard(settings)
+    val downloadDecision = rememberDownloadDecision(settings)
     var confirmMetered by remember { mutableStateOf(false) }
+    var blockedMetered by remember { mutableStateOf(false) }
     if (!downloadable.isEmpty) {
         SettingsGroup(stringResource(R.string.languages_data_title)) {
             item {
                 OutlinedButton(
                     onClick = {
-                        if (meteredGuard()) {
-                            confirmMetered = true
-                        } else {
-                            startLanguageDataDownload(filesDir, downloadable)
+                        when (downloadDecision()) {
+                            MeteredDecision.ASK -> confirmMetered = true
+                            MeteredDecision.BLOCKED -> blockedMetered = true
+                            MeteredDecision.ALLOWED ->
+                                startLanguageDataDownload(filesDir, downloadable)
                         }
                     },
                     modifier = Modifier
@@ -921,6 +909,7 @@ internal fun LanguageDetailScreen(
             },
         )
     }
+    if (blockedMetered) MeteredBlockedDialog { blockedMetered = false }
 
     val wordlistEntries = DictionaryCatalog.forLanguage(langId)
     SettingsGroup(stringResource(R.string.languages_dictionary_title)) {

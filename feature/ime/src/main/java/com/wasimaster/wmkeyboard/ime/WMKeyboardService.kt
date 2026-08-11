@@ -178,7 +178,15 @@ import com.wasimaster.wmkeyboard.core.settings.PowerSavingSettings
 import com.wasimaster.wmkeyboard.core.settings.SystemMotion
 import com.wasimaster.wmkeyboard.core.settings.underPowerSaving
 import com.wasimaster.wmkeyboard.core.settings.withSystemMotion
+import com.wasimaster.wmkeyboard.core.settings.DataSaverSettings
+import com.wasimaster.wmkeyboard.core.settings.DataSaverStatus
+import com.wasimaster.wmkeyboard.core.settings.DevicePowerState
+import com.wasimaster.wmkeyboard.core.settings.DeviceNetworkState
+import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
+import com.wasimaster.wmkeyboard.core.settings.MeteredFeature
+import com.wasimaster.wmkeyboard.core.settings.onMeteredNetwork
 import com.wasimaster.wmkeyboard.core.power.PowerSaver
+import com.wasimaster.wmkeyboard.core.net.NetworkWatcher
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.layout.expandForTablet
@@ -479,6 +487,41 @@ open class WMKeyboardService : InputMethodService() {
      * while power saving is in force (see [underPowerSaving]).
      */
     private val powerSaver = PowerSaver(this)
+
+    /**
+     * What the connection costs, combined with the settings the same way the
+     * battery is: the background fetches are taken out of the settings object
+     * itself (see [onMeteredNetwork]), and everything the user starts by hand
+     * is decided against [dataSaverStatus] at the moment they start it.
+     */
+    private val networkWatcher = NetworkWatcher(this)
+
+    /**
+     * Data saving as it stands right now, including what the user has already
+     * said yes to this session. Published into the ui state so the panels can
+     * explain themselves; the grants are cleared whenever the network changes,
+     * since a yes is an answer about one connection.
+     */
+    private var dataSaverStatus = DataSaverStatus()
+
+    /** The network the [dataSaverStatus] grants were given on. */
+    private var grantedNetwork: DeviceNetworkState? = null
+
+    /**
+     * The four things the settings pipeline combines, in one value.
+     *
+     * A named class rather than nested pairs because there are now four of
+     * them: `Triple(stored, power, form)` was already at the edge of what a
+     * destructuring in the collector explains, and a fifth flow would have
+     * meant a pair of a triple.
+     */
+    private data class SettingsInputs(
+        val stored: KeyboardSettings,
+        val power: DevicePowerState,
+        val form: DeviceForm,
+        val network: DeviceNetworkState,
+    )
+
     /** Manual pick from the Modes tool; wins until the user switches app. */
     private var manualModeId: String? = null
     /** Package name of the app the focused field belongs to. */
@@ -1587,6 +1630,7 @@ open class WMKeyboardService : InputMethodService() {
         }
 
         powerSaver.start()
+        networkWatcher.start()
 
         // A downloaded emoji dictionary is inert until the merged catalogue is
         // rebuilt. Bumping the counter rather than reloading directly is what
@@ -1638,13 +1682,14 @@ open class WMKeyboardService : InputMethodService() {
                 powerSaver.state,
                 settingsRepository.photoRotationStates,
                 deviceForm,
-            ) { stored, power, rotation, form ->
+                networkWatcher.state,
+            ) { stored, power, rotation, form, network ->
                 // Published rather than folded into the settings object: the
                 // rotating photo is laid over a theme where it is drawn, not
                 // written into the theme the user saved.
                 PhotoBackgroundManager.publishRotationStates(rotation)
-                Triple(stored, power, form)
-            }.collect { (stored, power, form) ->
+                SettingsInputs(stored, power, form, network)
+            }.collect { (stored, power, form, network) ->
                 // Screen size first, because these are *defaults* — the least
                 // specific thing in the chain, and every overlay below is
                 // entitled to beat them. It also has to precede direct boot: a
@@ -1659,12 +1704,19 @@ open class WMKeyboardService : InputMethodService() {
                 val unlockedSettings =
                     if (userUnlocked) formed else formed.restrictedToDirectBoot()
                 val saving = unlockedSettings.powerSaving.appliesTo(power)
+                val savedSettings =
+                    if (saving) unlockedSettings.underPowerSaving() else unlockedSettings
+                // Data saving last of the three views: it is the one keyed to
+                // something outside the phone, and it should be able to take
+                // away a fetch that power saving was still happy to make.
+                val metered = savedSettings.dataSaver.appliesTo(network)
+                updateDataSaverStatus(savedSettings.dataSaver, network, metered)
                 // Re-read per emission rather than once at startup, so turning
                 // the device's animation scale off in developer options or
                 // accessibility reaches the keyboard at the next settings
                 // change instead of at the next process start.
                 val settings = (
-                    if (saving) unlockedSettings.underPowerSaving() else unlockedSettings
+                    if (metered) savedSettings.onMeteredNetwork() else savedSettings
                     ).withSystemMotion(SystemMotion.animationsOff(this@WMKeyboardService))
                 val nextHiddenKey = Triple(
                     settings.emoji.hideUnrenderable,
@@ -1812,6 +1864,11 @@ open class WMKeyboardService : InputMethodService() {
                         // only for the indicator and the tool's lit state —
                         // nothing gates on it.
                         powerSavingOn = saving,
+                        // Unlike power saving, this one *is* gated on: the
+                        // features it holds back are moments rather than
+                        // settings, so the panels read the status to know
+                        // whether to fetch, to explain, or to offer.
+                        dataSaver = dataSaverStatus,
                         language = activeSpec.language(),
                         script = activeSpec.script(),
                         composer = composerFor(activeSpec.script(), activeSpec.composerType()),
@@ -2768,6 +2825,10 @@ open class WMKeyboardService : InputMethodService() {
         // moment it can start mattering, and a keyboard that wakes on every
         // percentage point to decide whether to save power is self-defeating.
         powerSaver.refresh()
+        // Same reasoning for the network: the callback may have fired while
+        // this process was gone, and this is the moment the answer starts
+        // mattering again.
+        networkWatcher.refresh()
         // A rotating background moves on at the start of a session and never
         // during one: a photo changing under the keys while somebody is typing
         // reads as a glitch rather than a feature, and an in-session timer
@@ -3357,6 +3418,7 @@ open class WMKeyboardService : InputMethodService() {
         pluginRuntime = null
         KeyboardPassthrough.publishRegion(null)
         powerSaver.stop()
+        networkWatcher.stop()
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
             .removePrimaryClipChangedListener(clipboardListener)
         if (unlockReceiverRegistered) {
@@ -3424,6 +3486,62 @@ open class WMKeyboardService : InputMethodService() {
                 sources = photos.sources,
             )
         }
+    }
+
+    /**
+     * Recomputes [dataSaverStatus] for one settings or network emission.
+     *
+     * Grants are dropped whenever the network itself changes, and only then:
+     * a yes given on one connection is an answer about that connection, but
+     * re-asking every time a settings save happens to re-emit would make the
+     * offer worthless.
+     */
+    private fun updateDataSaverStatus(
+        config: DataSaverSettings,
+        network: DeviceNetworkState,
+        active: Boolean,
+    ) {
+        val networkChanged = grantedNetwork != network
+        grantedNetwork = network
+        dataSaverStatus = dataSaverStatus.copy(
+            active = active,
+            settings = config,
+            grants = if (networkChanged) emptySet() else dataSaverStatus.grants,
+        )
+    }
+
+    /**
+     * The user tapped "use mobile data": [feature] is allowed for the rest of
+     * this session, and the ui state is republished so the panel that asked
+     * stops asking.
+     */
+    private fun grantMetered(feature: MeteredFeature) {
+        if (dataSaverStatus.allows(feature)) return
+        dataSaverStatus = dataSaverStatus.granting(feature)
+        _uiState.update { it.copy(dataSaver = dataSaverStatus) }
+    }
+
+    /**
+     * Turns a retry on a data-saver notice into the grant it means.
+     *
+     * The notice reuses the panels' existing retry action rather than growing
+     * a callback of its own: [ui.KeyboardScreen]'s parameter list is already
+     * at the JVM's 64K method ceiling, and a retry on a panel that is only
+     * empty because of data saving can mean nothing else.
+     */
+    private fun grantMeteredForPanel(state: KeyboardUiState) {
+        val feature = when (state.panel) {
+            PanelMode.GIF -> MeteredFeature.MEDIA_SEARCH
+                .takeIf { (state.gif as? MediaUi.Metered)?.canAllow == true }
+            PanelMode.STICKER -> MeteredFeature.MEDIA_SEARCH
+                .takeIf { (state.sticker as? MediaUi.Metered)?.canAllow == true }
+            PanelMode.WEB_SEARCH -> MeteredFeature.WEB_SEARCH
+                .takeIf { (state.webSearch as? WebSearchUi.Metered)?.canAllow == true }
+            PanelMode.IMAGE_SEARCH -> MeteredFeature.WEB_SEARCH
+                .takeIf { (state.imageSearch as? ImageSearchUi.Metered)?.canAllow == true }
+            else -> null
+        } ?: return
+        grantMetered(feature)
     }
 
     /** Refills the rotation pool, if the settings and the network allow it. */
@@ -10210,6 +10328,11 @@ open class WMKeyboardService : InputMethodService() {
         val needCrypto = sources.cryptoEnabled && (force || wantCrypto) &&
             (force || ready == null || now - ready.cryptoFetchedAtMs >= cryptoTtlMs)
         if (!needFiat && !needCrypto) return
+        // Data saving, when the user has asked for it here: the rate table is
+        // small enough to be allowed by default, and a refusal costs nothing
+        // visible — whatever was last fetched stays on the panel and the chip
+        // keeps converting with it.
+        if (!dataSaverStatus.allows(MeteredFeature.CURRENCY_RATES)) return
         currencyJob?.cancel()
         // Only a fiat fetch with nothing cached blanks the panel: a coin
         // refresh must never take a working rate table off the screen.
@@ -11270,6 +11393,29 @@ open class WMKeyboardService : InputMethodService() {
         generated: Boolean = false,
     ) {
         aiJob?.cancel()
+        // Data saving, for the providers that are a request over the network.
+        // An on-device model costs nothing to reach, so it is never held.
+        val aiSettings = _uiState.value.settings.ai
+        if (aiSettings.provider != AiProvider.ON_DEVICE) {
+            val decision = dataSaverStatus.decide(MeteredFeature.CLOUD_AI)
+            if (decision != MeteredDecision.ALLOWED) {
+                _uiState.update {
+                    it.copy(
+                        ai = AiUi.Error(
+                            action,
+                            getString(
+                                if (decision == MeteredDecision.ASK) {
+                                    R.string.ime_ai_error_metered_ask
+                                } else {
+                                    R.string.ime_ai_error_metered_blocked
+                                },
+                            ),
+                        ),
+                    )
+                }
+                return
+            }
+        }
         val seq = ++aiRunSeq
         val startedAt = SystemClock.uptimeMillis()
         _uiState.update {
@@ -11571,7 +11717,14 @@ open class WMKeyboardService : InputMethodService() {
             }
             // A failed ask-each-run action reopens its input prefilled so the
             // user can adjust the instruction; onAiAction does exactly that.
-            is AiUi.Error -> onAiAction(ai.action)
+            // A retry on the data-saver message means the same thing it means
+            // on a media panel: yes, use the connection.
+            is AiUi.Error -> {
+                if (dataSaverStatus.decide(MeteredFeature.CLOUD_AI) == MeteredDecision.ASK) {
+                    grantMetered(MeteredFeature.CLOUD_AI)
+                }
+                onAiAction(ai.action)
+            }
             else -> {}
         }
     }
@@ -11902,6 +12055,9 @@ open class WMKeyboardService : InputMethodService() {
     /** Retry button on media/search panels: re-run whatever failed. */
     fun onMediaRetry() {
         vibrate()
+        // A retry on a data-saver notice is the user saying yes to the fetch,
+        // so it grants first and then falls through to make it.
+        grantMeteredForPanel(_uiState.value)
         when (_uiState.value.panel) {
             PanelMode.GIF, PanelMode.STICKER -> refreshMedia(_uiState.value.mediaQuery.trim())
             PanelMode.WEB_SEARCH -> runWebSearch(_uiState.value.mediaQuery.trim())
@@ -11940,6 +12096,17 @@ open class WMKeyboardService : InputMethodService() {
         if (tabs) {
             val selected = targets.first()
             if (selected != state.mediaSource) _uiState.update { it.copy(mediaSource = selected) }
+        }
+        // Data saving. Only the online providers count: the user's own sticker
+        // packs are files on disk, and a panel that refused to show them on
+        // mobile data would be refusing to open a folder.
+        if (targets.any { it != GifSource.LOCAL }) {
+            val decision = dataSaverStatus.decide(MeteredFeature.MEDIA_SEARCH)
+            if (decision != MeteredDecision.ALLOWED) {
+                mediaFetchJob?.cancel()
+                setUi(MediaUi.Metered(canAllow = decision == MeteredDecision.ASK))
+                return
+            }
         }
         mediaFetchJob?.cancel()
         setUi(MediaUi.Loading)
@@ -12094,6 +12261,18 @@ open class WMKeyboardService : InputMethodService() {
             _uiState.update { it.copy(webSearch = WebSearchUi.NeedKey) }
             return
         }
+        val decision = dataSaverStatus.decide(MeteredFeature.WEB_SEARCH)
+        if (decision != MeteredDecision.ALLOWED) {
+            webSearchJob?.cancel()
+            _uiState.update {
+                it.copy(
+                    webSearch = WebSearchUi.Metered(
+                        canAllow = decision == MeteredDecision.ASK,
+                    ),
+                )
+            }
+            return
+        }
         webSearchJob?.cancel()
         _uiState.update { it.copy(webSearch = WebSearchUi.Loading) }
         webSearchJob = serviceScope.launch {
@@ -12127,6 +12306,21 @@ open class WMKeyboardService : InputMethodService() {
         val settings = _uiState.value.settings
         if (!ToolApiKeys.hasSearchProvider(settings)) {
             _uiState.update { it.copy(imageSearch = ImageSearchUi.NeedKey) }
+            return
+        }
+        // Image results carry thumbnails, so this is the heavier of the two
+        // searches; both answer to one setting, since a user who does not want
+        // search over mobile data does not want half of it either.
+        val decision = dataSaverStatus.decide(MeteredFeature.WEB_SEARCH)
+        if (decision != MeteredDecision.ALLOWED) {
+            imageSearchJob?.cancel()
+            _uiState.update {
+                it.copy(
+                    imageSearch = ImageSearchUi.Metered(
+                        canAllow = decision == MeteredDecision.ASK,
+                    ),
+                )
+            }
             return
         }
         imageSearchJob?.cancel()
@@ -13323,6 +13517,10 @@ open class WMKeyboardService : InputMethodService() {
      */
     fun onEmojiLongPressed(emoji: String) {
         val key = animatedEmojiKey(emoji) ?: return
+        // The preview is the part nobody asked for — most long presses are
+        // after a skin tone — so data saving holds it unless it is outright
+        // allowed. The send button still works: pressing it is the answer.
+        if (!dataSaverStatus.allows(MeteredFeature.ANIMATED_EMOJI)) return
         val url = animatedEmoji.webpUrl(key)
         animatedEmojiJob?.cancel()
         _uiState.update { it.copy(animatedEmojiFile = null, animatedEmojiLoading = true) }
@@ -13360,6 +13558,15 @@ open class WMKeyboardService : InputMethodService() {
      */
     fun onAnimatedEmojiSend(emoji: String) {
         val key = animatedEmojiKey(emoji) ?: return
+        when (dataSaverStatus.decide(MeteredFeature.ANIMATED_EMOJI)) {
+            // Pressing send on a metered connection is the yes the setting
+            // asked for, and it holds for the rest of the session.
+            MeteredDecision.ASK -> grantMetered(MeteredFeature.ANIMATED_EMOJI)
+            // The button is not drawn in this case; guarded anyway, since a
+            // hardware shortcut could still reach here.
+            MeteredDecision.BLOCKED -> return
+            MeteredDecision.ALLOWED -> Unit
+        }
         recordEmojiUse(emoji)
         // The popup deliberately stays open, preview and all: sending one
         // animation is usually not the last thing someone wants to do with it,

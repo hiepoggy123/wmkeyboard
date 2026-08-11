@@ -188,9 +188,8 @@
     <string name="langemoji_emoji_clear_history_title">Clear emoji history</string>
     <string name="langemoji_emoji_clear_history_subtitle">Forget recents, usage counts, favourites and skin tone picks</string>
     <string name="langemoji_emoji_clear_history_confirm">The history tab empties, your favourites are unpinned, and the skin tone picked for each emoji goes back to the default. Emoji themselves are not affected. This cannot be undone.</string>
-    <string name="langemoji_lang_metered_title">Ask before downloading on mobile data</string>
-    <string name="langemoji_lang_metered_subtitle">Confirm language downloads when you are not on Wi-Fi</string>
-    <string name="langemoji_lang_metered_info">Word lists and dictionary packs can be tens of megabytes, and the Chinese dictionary alone is about 42 MB. With this on, a download over a metered connection asks first and tells you the size. Voice and AI models already ask separately. This setting is on by default.</string>
+    <string name="langemoji_lang_metered_title">Downloads on mobile data</string>
+    <string name="langemoji_lang_metered_subtitle">Set in Data saver, along with the other downloads</string>
 
     <string name="langemoji_lang_autopair_title">Link romanized languages automatically</string>
     <string name="langemoji_lang_autopair_subtitle">Pair a romanized language with the languages it is typed alongside</string>

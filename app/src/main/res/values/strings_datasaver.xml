@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Settings › Data saver. Each row says what one feature may do while the
+         connection is metered: allow it, ask first, or turn it off. -->
+
+    <string name="datasaver_when_group">When to save data</string>
+    <string name="datasaver_manual_title">Save data now</string>
+    <string name="datasaver_manual_subtitle">Keep data saving on, whatever the connection is</string>
+    <string name="datasaver_manual_info">Stays on until you turn it off, on Wi-Fi too. Use this when the network is not really free, such as a phone hotspot that Android counts as unmetered.</string>
+    <string name="datasaver_trigger_title">Turn on by itself</string>
+    <string name="datasaver_trigger_subtitle">What arms data saving without you</string>
+    <string name="datasaver_trigger_info">Metered covers mobile data and any Wi-Fi network you or your carrier marked as metered. Roaming is the strictest: it saves data only while you are on another network abroad.</string>
+
+    <string name="datasaver_background_group">Fetched on its own</string>
+    <string name="datasaver_link_previews_title">Link previews</string>
+    <string name="datasaver_link_previews_subtitle">Titles and thumbnails for copied links and scanned QR codes</string>
+    <string name="datasaver_dictionary_title">Word look-ups</string>
+    <string name="datasaver_dictionary_subtitle">The definition fetched when you select a word</string>
+    <string name="datasaver_photos_title">Photo backgrounds</string>
+    <string name="datasaver_photos_subtitle">Refilling the pool of rotating background photos</string>
+    <string name="datasaver_weather_title">Weather chip</string>
+    <string name="datasaver_weather_subtitle">The forecast behind the weather suggestion</string>
+    <string name="datasaver_rates_title">Exchange rates</string>
+    <string name="datasaver_rates_subtitle">Rate tables for the currency chip and converter. A few hundred bytes.</string>
+    <string name="datasaver_addons_title">Add-on updates</string>
+    <string name="datasaver_addons_subtitle">Re-reading add-on repositories to find new versions</string>
+
+    <string name="datasaver_ondemand_group">Started by you</string>
+    <string name="datasaver_media_title">GIFs and stickers</string>
+    <string name="datasaver_media_subtitle">Searching and loading the GIF and sticker grids. Your own packs always work.</string>
+    <string name="datasaver_search_title">Web and image search</string>
+    <string name="datasaver_search_subtitle">Search results and the thumbnails an image grid loads</string>
+    <string name="datasaver_animated_emoji_title">Animated emoji</string>
+    <string name="datasaver_animated_emoji_subtitle">Fetching the animated version of an emoji to send</string>
+    <string name="datasaver_downloads_title">Downloads</string>
+    <string name="datasaver_downloads_subtitle">Language data, dictionaries, add-ons and the on-device models</string>
+    <string name="datasaver_ai_title">Cloud AI</string>
+    <string name="datasaver_ai_subtitle">Chat and AI actions that run on a provider\'s servers. On-device models are never held.</string>
+
+    <string name="datasaver_info">Data saving never changes your settings. It hides features while the connection costs money, and everything you chose is back the moment you are on Wi-Fi again.</string>
+
+    <!-- Shown when a download is pressed and data saving has it turned off. -->
+    <string name="datasaver_blocked_title">Turned off on mobile data</string>
+    <string name="datasaver_blocked_body">Downloads are off while you are on mobile data. Change this in Settings, under Data saver, or connect to Wi-Fi.</string>
+
+</resources>

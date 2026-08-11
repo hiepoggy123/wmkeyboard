@@ -114,6 +114,20 @@
     <string name="core_settings_power_saving_trigger_either_label">Battery saver or a low battery</string>
 
     <!-- ================================================================== -->
+    <!-- Data saver: what turns it on, and what each feature may do.        -->
+    <!-- ================================================================== -->
+
+    <string name="core_settings_data_saver_trigger_off_label">Only when I turn it on</string>
+    <string name="core_settings_data_saver_trigger_metered_label">On mobile data or a metered network</string>
+    <string name="core_settings_data_saver_trigger_roaming_label">Only while roaming</string>
+    <string name="core_settings_data_saver_trigger_system_label">Android\'s Data Saver is on</string>
+    <string name="core_settings_data_saver_trigger_either_label">Any of these</string>
+
+    <string name="core_settings_metered_policy_allow_label">Allow</string>
+    <string name="core_settings_metered_policy_ask_label">Ask each time</string>
+    <string name="core_settings_metered_policy_block_label">Turn off</string>
+
+    <!-- ================================================================== -->
     <!-- Rotating photo backgrounds: how often, and which themes.           -->
     <!-- ================================================================== -->
 

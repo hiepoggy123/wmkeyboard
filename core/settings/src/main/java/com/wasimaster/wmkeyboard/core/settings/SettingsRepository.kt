@@ -1061,14 +1061,6 @@ data class KeyboardSettings(
      */
     val autoDownloadLanguageData: Boolean = true,
     /**
-     * Ask before fetching language data over a metered connection.
-     *
-     * On by default. Whisper and the local LLM already confirm before a large
-     * download; language packs and the 42 MB CJK dictionary did not check at
-     * all, so a phone on mobile data could spend it without being asked.
-     */
-    val confirmMeteredDownloads: Boolean = true,
-    /**
      * Re-link romanized languages with the languages of their own script
      * every time a language is added (see [RomanizedPairing]).
      *
@@ -1508,6 +1500,14 @@ data class KeyboardSettings(
      * [underPowerSaving] by the time anyone downstream sees it.
      */
     val powerSaving: PowerSavingSettings = PowerSavingSettings(),
+    /**
+     * What the keyboard may fetch on a metered connection, and what turns that
+     * restriction on (see [DataSaverSettings]). Read the *config* here too:
+     * the background fetches have already been taken out of the settings object
+     * by [onMeteredNetwork], and the rest is decided at the moment it happens
+     * through `DataSaverStatus`.
+     */
+    val dataSaver: DataSaverSettings = DataSaverSettings(),
     /** Number pad digits calculator-style (789 on top) instead of phone-style (123 on top). */
     val numpadCalculatorLayout: Boolean = false,
     /** Incognito stops the clipboard tool from capturing copies. */
@@ -2235,15 +2235,6 @@ data class AiSettings(
      * conversation is the longer and more revealing record of the two.
      */
     val keepChats: Boolean = true,
-    /**
-     * Wait for an unmetered connection before downloading a model.
-     *
-     * Off, so today's per-size prompt is unchanged for anyone who does not ask
-     * for this. That prompt only fires above 500 MB for a language model and
-     * 150 MB for a Whisper one, so a 400 MB model came down over mobile data
-     * without a word.
-     */
-    val downloadUnmeteredOnly: Boolean = false,
     /**
      * How much text before the cursor a "carry this on" action sends, in
      * characters.
@@ -3761,6 +3752,11 @@ class SettingsRepository(private val context: Context) {
         private const val DEFAULT_FONT_ID = "default"
         private val LEXICON_VERSION = intPreferencesKey("lexicon_version")
         private val CUSTOM_DICT_VERSION = intPreferencesKey("custom_dict_version")
+        /**
+         * Retired: the language-download confirmation, now one of the answers
+         * [DS_DOWNLOADS] can hold. Still read, once, so an existing "never ask"
+         * survives the move (see `loadDataSaver`).
+         */
         private val CONFIRM_METERED_DOWNLOADS =
             booleanPreferencesKey("confirm_metered_downloads")
         private val AUTO_PAIR_ROMANIZED = booleanPreferencesKey("auto_pair_romanized")
@@ -3908,6 +3904,19 @@ class SettingsRepository(private val context: Context) {
             booleanPreferencesKey("power_saving_drop_on_device_models")
         private val PS_DROP_TYPING_STATS =
             booleanPreferencesKey("power_saving_drop_typing_stats")
+        private val DS_MANUAL = booleanPreferencesKey("data_saver_manual")
+        private val DS_TRIGGER = stringPreferencesKey("data_saver_trigger")
+        private val DS_LINK_PREVIEWS = stringPreferencesKey("data_saver_link_previews")
+        private val DS_DICTIONARY_LOOKUP = stringPreferencesKey("data_saver_dictionary_lookup")
+        private val DS_PHOTO_BACKGROUNDS = stringPreferencesKey("data_saver_photo_backgrounds")
+        private val DS_WEATHER_CHIP = stringPreferencesKey("data_saver_weather_chip")
+        private val DS_CURRENCY_RATES = stringPreferencesKey("data_saver_currency_rates")
+        private val DS_ADDON_REFRESH = stringPreferencesKey("data_saver_addon_refresh")
+        private val DS_MEDIA_SEARCH = stringPreferencesKey("data_saver_media_search")
+        private val DS_WEB_SEARCH = stringPreferencesKey("data_saver_web_search")
+        private val DS_ANIMATED_EMOJI = stringPreferencesKey("data_saver_animated_emoji")
+        private val DS_DOWNLOADS = stringPreferencesKey("data_saver_downloads")
+        private val DS_CLOUD_AI = stringPreferencesKey("data_saver_cloud_ai")
         private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
         private val HARDWARE_KEYBOARD_INPUT = booleanPreferencesKey("hardware_keyboard_input")
         private val HW_SHORTCUTS_ENABLED = booleanPreferencesKey("hw_shortcuts_enabled")
@@ -4592,8 +4601,6 @@ class SettingsRepository(private val context: Context) {
             customDictVersion = p[CUSTOM_DICT_VERSION] ?: defaults.customDictVersion,
             autoDownloadLanguageData = p[AUTO_DOWNLOAD_LANGUAGE_DATA]
                 ?: defaults.autoDownloadLanguageData,
-            confirmMeteredDownloads = p[CONFIRM_METERED_DOWNLOADS]
-                ?: defaults.confirmMeteredDownloads,
             autoPairRomanized = p[AUTO_PAIR_ROMANIZED] ?: defaults.autoPairRomanized,
             morseCommitMs = p[MORSE_COMMIT_MS]?.coerceIn(MorseCommitMsRange)
                 ?: defaults.morseCommitMs,
@@ -5193,6 +5200,7 @@ class SettingsRepository(private val context: Context) {
                 dropTypingStats =
                     p[PS_DROP_TYPING_STATS] ?: defaults.powerSaving.dropTypingStats,
             ),
+            dataSaver = dataSaverFromPrefs(p, defaults),
             numpadCalculatorLayout = p[NUMPAD_CALCULATOR_LAYOUT]
                 ?: p[NUMPAD_PHONE_LAYOUT]?.not()
                 ?: defaults.numpadCalculatorLayout,
@@ -5364,8 +5372,6 @@ class SettingsRepository(private val context: Context) {
                 historyEnabled = p[AI_HISTORY_ENABLED] ?: defaults.ai.historyEnabled,
                 historyMax = p[AI_HISTORY_MAX] ?: defaults.ai.historyMax,
                 keepChats = p[AI_KEEP_CHATS] ?: defaults.ai.keepChats,
-                downloadUnmeteredOnly = p[AI_DOWNLOAD_UNMETERED]
-                    ?: defaults.ai.downloadUnmeteredOnly,
                 beforeCursorChars = p[AI_BEFORE_CURSOR_CHARS]
                     ?: defaults.ai.beforeCursorChars,
             ),
@@ -6658,6 +6664,51 @@ class SettingsRepository(private val context: Context) {
         return stored + (BENGALI_SCRIPT to legacy)
     }
 
+    /** One stored policy name, or [fallback] when it is missing or unreadable. */
+    private fun Preferences.policy(
+        key: Preferences.Key<String>,
+        fallback: MeteredPolicy,
+    ): MeteredPolicy = this[key]
+        ?.let { runCatching { MeteredPolicy.valueOf(it) }.getOrNull() }
+        ?: fallback
+
+    /**
+     * Data saving, with the two switches it replaced folded in.
+     *
+     * `confirm_metered_downloads` and `ai_download_unmetered_only` said exactly
+     * what [MeteredPolicy] says, one feature at a time, so they migrate to
+     * [DataSaverSettings.downloads] rather than being dropped: Wi-Fi-only wins
+     * (it was the stricter of the two), a switched-off confirmation means the
+     * user has already said they do not want to be asked, and anything else
+     * lands on the default. Read-time, like the Bengali font fold-in above, so
+     * nothing is rewritten and a downgrade finds its old keys intact.
+     */
+    private fun dataSaverFromPrefs(p: Preferences, defaults: KeyboardSettings): DataSaverSettings {
+        val d = defaults.dataSaver
+        val legacyDownloads = when {
+            p[AI_DOWNLOAD_UNMETERED] == true -> MeteredPolicy.BLOCK
+            p[CONFIRM_METERED_DOWNLOADS] == false -> MeteredPolicy.ALLOW
+            else -> d.downloads
+        }
+        return DataSaverSettings(
+            manual = p[DS_MANUAL] ?: d.manual,
+            trigger = p[DS_TRIGGER]
+                ?.let { runCatching { DataSaverTrigger.valueOf(it) }.getOrNull() }
+                ?: d.trigger,
+            linkPreviews = p.policy(DS_LINK_PREVIEWS, d.linkPreviews),
+            dictionaryLookup = p.policy(DS_DICTIONARY_LOOKUP, d.dictionaryLookup),
+            photoBackgrounds = p.policy(DS_PHOTO_BACKGROUNDS, d.photoBackgrounds),
+            weatherChip = p.policy(DS_WEATHER_CHIP, d.weatherChip),
+            currencyRates = p.policy(DS_CURRENCY_RATES, d.currencyRates),
+            addonRefresh = p.policy(DS_ADDON_REFRESH, d.addonRefresh),
+            mediaSearch = p.policy(DS_MEDIA_SEARCH, d.mediaSearch),
+            webSearch = p.policy(DS_WEB_SEARCH, d.webSearch),
+            animatedEmoji = p.policy(DS_ANIMATED_EMOJI, d.animatedEmoji),
+            downloads = p.policy(DS_DOWNLOADS, legacyDownloads),
+            cloudAi = p.policy(DS_CLOUD_AI, d.cloudAi),
+        )
+    }
+
     private fun customScriptFontNamesFromPrefs(
         p: Preferences,
         defaults: KeyboardSettings,
@@ -7272,9 +7323,6 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAutoDownloadLanguageData(value: Boolean) =
         editPrefs { it[AUTO_DOWNLOAD_LANGUAGE_DATA] = value }
 
-    suspend fun setConfirmMeteredDownloads(value: Boolean) =
-        editPrefs { it[CONFIRM_METERED_DOWNLOADS] = value }
-
     suspend fun setAutoPairRomanized(value: Boolean) =
         editPrefs { it[AUTO_PAIR_ROMANIZED] = value }
 
@@ -7696,9 +7744,6 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAiKeepChats(value: Boolean) = editPrefs { it[AI_KEEP_CHATS] = value }
 
-    suspend fun setAiDownloadUnmeteredOnly(value: Boolean) =
-        editPrefs { it[AI_DOWNLOAD_UNMETERED] = value }
-
     suspend fun setAiBeforeCursorChars(value: Int) =
         editPrefs { it[AI_BEFORE_CURSOR_CHARS] = value.coerceIn(500, 32_000) }
 
@@ -7904,6 +7949,47 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setPowerSavingDropTypingStats(value: Boolean) =
         editPrefs { it[PS_DROP_TYPING_STATS] = value }
+
+    // ---- data saving ----
+
+    suspend fun setDataSaverManual(value: Boolean) =
+        editPrefs { it[DS_MANUAL] = value }
+
+    suspend fun setDataSaverTrigger(value: DataSaverTrigger) =
+        editPrefs { it[DS_TRIGGER] = value.name }
+
+    suspend fun setDataSaverLinkPreviews(value: MeteredPolicy) =
+        editPrefs { it[DS_LINK_PREVIEWS] = value.name }
+
+    suspend fun setDataSaverDictionaryLookup(value: MeteredPolicy) =
+        editPrefs { it[DS_DICTIONARY_LOOKUP] = value.name }
+
+    suspend fun setDataSaverPhotoBackgrounds(value: MeteredPolicy) =
+        editPrefs { it[DS_PHOTO_BACKGROUNDS] = value.name }
+
+    suspend fun setDataSaverWeatherChip(value: MeteredPolicy) =
+        editPrefs { it[DS_WEATHER_CHIP] = value.name }
+
+    suspend fun setDataSaverCurrencyRates(value: MeteredPolicy) =
+        editPrefs { it[DS_CURRENCY_RATES] = value.name }
+
+    suspend fun setDataSaverAddonRefresh(value: MeteredPolicy) =
+        editPrefs { it[DS_ADDON_REFRESH] = value.name }
+
+    suspend fun setDataSaverMediaSearch(value: MeteredPolicy) =
+        editPrefs { it[DS_MEDIA_SEARCH] = value.name }
+
+    suspend fun setDataSaverWebSearch(value: MeteredPolicy) =
+        editPrefs { it[DS_WEB_SEARCH] = value.name }
+
+    suspend fun setDataSaverAnimatedEmoji(value: MeteredPolicy) =
+        editPrefs { it[DS_ANIMATED_EMOJI] = value.name }
+
+    suspend fun setDataSaverDownloads(value: MeteredPolicy) =
+        editPrefs { it[DS_DOWNLOADS] = value.name }
+
+    suspend fun setDataSaverCloudAi(value: MeteredPolicy) =
+        editPrefs { it[DS_CLOUD_AI] = value.name }
 
     /**
      * Picks [value] as [langId]'s numeral system. [NumeralSystem.AUTO] drops the

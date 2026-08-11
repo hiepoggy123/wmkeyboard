@@ -60,6 +60,7 @@ import com.wasimaster.wmkeyboard.core.localllm.LocalLlmModel
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
 import com.wasimaster.wmkeyboard.core.localllm.ModelTier
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.settings.LocalLlmBackend
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import java.io.File
@@ -88,6 +89,7 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
     var storageUsed by remember { mutableLongStateOf(0L) }
     var orphanBytes by remember { mutableLongStateOf(0L) }
     var meteredPending by remember { mutableStateOf<LocalLlmModel?>(null) }
+    var meteredBlocked by remember { mutableStateOf(false) }
     var importError by remember { mutableStateOf<String?>(null) }
     var importing by remember { mutableStateOf(false) }
 
@@ -115,14 +117,17 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
     fun requestDownload(model: LocalLlmModel) {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val metered = cm.isActiveNetworkMetered
-        // The size threshold only ever caught the big models, so a
-        // mid-sized one came down over mobile data without a word. With
-        // Wi-Fi only on, size stops mattering: every download waits.
-        val ask = metered && (settings.ai.downloadUnmeteredOnly || model.sizeBytes >= METERED_CONFIRM_BYTES)
-        if (ask) {
-            meteredPending = model
-        } else {
-            startDownload(model)
+        when (downloadDecisionNow(context, settings)) {
+            MeteredDecision.BLOCKED -> meteredBlocked = true
+            MeteredDecision.ASK -> meteredPending = model
+            // Not held by data saving, so the old size threshold still stands:
+            // these are the largest downloads the app makes.
+            MeteredDecision.ALLOWED ->
+                if (metered && model.sizeBytes >= METERED_CONFIRM_BYTES) {
+                    meteredPending = model
+                } else {
+                    startDownload(model)
+                }
         }
     }
 
@@ -299,6 +304,7 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
             },
         )
     }
+    if (meteredBlocked) MeteredBlockedDialog { meteredBlocked = false }
 }
 
 /**

@@ -23,6 +23,7 @@ import com.wasimaster.wmkeyboard.core.script.ScriptDef
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
+import com.wasimaster.wmkeyboard.core.settings.DataSaverStatus
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
@@ -674,6 +675,14 @@ sealed interface MediaUi {
     data object NeedKey : MediaUi
     data object Loading : MediaUi
     data class Error(val message: String) : MediaUi
+
+    /**
+     * Held back by data saving. [canAllow] is the difference between the two
+     * answers the user can have given: asking still offers the fetch on the
+     * panel, turning it off does not offer anything, because they already
+     * said no to this one.
+     */
+    data class Metered(val canAllow: Boolean) : MediaUi
     /** [query] is what produced [items]; blank means featured/trending. */
     data class Ready(
         val items: List<com.wasimaster.wmkeyboard.core.tools.GifItem>,
@@ -688,6 +697,8 @@ sealed interface WebSearchUi {
     data object Idle : WebSearchUi
     data object Loading : WebSearchUi
     data class Error(val message: String) : WebSearchUi
+    /** Held back by data saving; see [MediaUi.Metered]. */
+    data class Metered(val canAllow: Boolean) : WebSearchUi
     data class Ready(
         val results: List<com.wasimaster.wmkeyboard.core.tools.WebResult>,
         val query: String,
@@ -700,6 +711,8 @@ sealed interface ImageSearchUi {
     data object Idle : ImageSearchUi
     data object Loading : ImageSearchUi
     data class Error(val message: String) : ImageSearchUi
+    /** Held back by data saving; see [MediaUi.Metered]. */
+    data class Metered(val canAllow: Boolean) : ImageSearchUi
     data class Ready(
         val results: List<com.wasimaster.wmkeyboard.core.tools.ImageResult>,
         val query: String,
@@ -1012,6 +1025,16 @@ data class KeyboardUiState(
      * this. See `core.settings.underPowerSaving`.
      */
     val powerSavingOn: Boolean = false,
+    /**
+     * Data saving as it stands: whether it is in force, the policies it is
+     * applying, and what the user has already allowed this session.
+     *
+     * Unlike [powerSavingOn] this is not just an indicator. The features it
+     * covers are moments rather than settings — a search just run, a download
+     * just started — so the panels read it to decide between fetching,
+     * explaining, and offering. See `core.settings.DataSaverStatus`.
+     */
+    val dataSaver: DataSaverStatus = DataSaverStatus(),
     val shiftState: ShiftState = ShiftState.OFF,
     /**
      * The live [shiftState] came from the user pressing shift, not from

@@ -1,0 +1,116 @@
+---
+title: "Data saver"
+description: "Hold back what the keyboard fetches while you're on mobile data, feature by feature, with an ask-first option in the middle."
+sidebar:
+  order: 5
+---
+
+import SettingsPath from '@components/SettingsPath.astro';
+
+Data saver is the switch for people who pay by the megabyte. It doesn't
+change a single one of your settings. While the connection is metered, it
+hides the fetches you've told it to hide, and the moment you're back on
+Wi-Fi everything you chose is back, untouched. Same trick as
+[Power saving](/typing/power-saving/), pointed at the network instead of the
+battery.
+
+<SettingsPath path="Data saver" />
+
+## Three answers, not two
+
+Every feature on the screen gets one of three answers:
+
+- **Allow.** Data saver leaves it alone.
+- **Ask each time.** The feature still works, it just stops happening
+  without you saying so. Open the GIF panel on mobile data and the grid says
+  why it's empty, with a **Use mobile data** button under it. Tap that and
+  the feature is allowed for the rest of the session, until the network
+  changes or the keyboard restarts.
+- **Turn off.** The feature is off while data saver is on, and nothing is
+  offered.
+
+The rows in the first group only get two of those. They're the fetches the
+keyboard makes on its own, with no panel open, so there's nobody there to
+ask. An "ask each time" for a clipboard link preview would either be a
+notification or a silent no, and neither is worth having.
+
+## When it turns on
+
+| Trigger | Fires when |
+|---|---|
+| Only when I turn it on | never by itself: the manual switch is the whole story |
+| On mobile data or a metered network | the active connection is metered, which covers mobile data and any Wi-Fi you or your carrier marked as metered |
+| Only while roaming | the connection is metered *and* roaming |
+| Android's Data Saver is on | you turned on the system-wide Data Saver in Android's own settings |
+| Any of these | any of the three above |
+
+**On mobile data or a metered network** is the default. There's also a
+manual **Save data now** switch that holds on any connection, Wi-Fi
+included, which is what you want on a phone hotspot that Android thinks is
+free.
+
+## What it can hold back
+
+**Fetched on its own** (allow or turn off, all off by default except rates):
+
+| Feature | What it stops |
+|---|---|
+| Link previews | the title and thumbnail fetched for a copied link and for a scanned QR code |
+| Word look-ups | the definition fetched when you select a word |
+| Photo backgrounds | refilling the pool of rotating background photos, the largest automatic download the keyboard makes |
+| Weather chip | the forecast behind the weather suggestion |
+| Exchange rates | the rate table for the currency chip and converter. Allowed by default: a few hundred bytes, cached for hours |
+| Add-on updates | re-reading add-on repositories to find new versions |
+
+**Started by you** (all three answers, all set to ask by default):
+
+| Feature | What it asks about |
+|---|---|
+| GIFs and stickers | searching and loading the GIF and sticker grids. Your own sticker packs are files on the phone, so they always work |
+| Web and image search | search results, and the thumbnails an image grid loads |
+| Animated emoji | fetching the animated version of an emoji. The looping preview in the long-press popup waits for a yes; pressing **Send** is the yes |
+| Downloads | language data, dictionaries, emoji keyword packs, add-ons and the on-device speech and language models |
+| Cloud AI | chat and AI actions that run on a provider's servers. On-device models are never held, because reaching them costs nothing |
+
+## Where the old switches went
+
+Two settings used to say a smaller version of this, and both moved here:
+
+- **Ask before downloading on mobile data**, on the Languages screen, is now
+  the **Downloads** row set to *Ask each time*.
+- **Only download over Wi-Fi**, on the AI models screen, is the same row set
+  to *Turn off*.
+
+Whatever you had set carries over. The Languages screen keeps a row that
+points here so it's still findable from where it used to live.
+
+Add-ons keep their own **Refresh on Wi-Fi only** switch as well, on the
+Add-ons screen. Either one holding is enough to skip the automatic refresh.
+
+## Details & edge cases
+
+- **A yes lasts for the session, not forever.** Tapping **Use mobile data**
+  allows that one feature until the network changes underneath it or the
+  keyboard restarts. It's an answer about the connection you're on, so
+  carrying it into next month's roaming would be answering a question you
+  were never asked.
+- **One yes covers one feature.** Allowing the GIF grid doesn't allow
+  downloads.
+- **The settings app asks separately.** A download you start from the
+  settings screens shows its own confirmation, with the size, and that yes
+  doesn't carry into the keyboard either.
+- **Nothing is rewritten.** Data saver is a view of your settings, applied
+  on the way out. Turning it off can't lose your configuration, because it
+  never touched it.
+- **Power saving still applies on top.** If both are on, either one is
+  enough to hold a fetch back. See
+  [Power saving](/typing/power-saving/#what-gets-dropped).
+- **An unknown connection counts as free.** In the second before the first
+  network reading lands, nothing is held. It's better to fetch one photo too
+  many than to have every panel come up refusing to work on a cold start.
+- **Offline is not the same as metered.** With no connection at all, the
+  panels show their own offline errors. Data saver doesn't claim credit for
+  a fetch the radio was never going to make.
+
+See [Network policy](/privacy/network/) for the full list of what each
+feature fetches and where it goes.

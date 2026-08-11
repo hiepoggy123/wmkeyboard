@@ -797,6 +797,8 @@ private fun Resources.otherRows(): List<SettingsSearchEntry> {
     )
     fun privacy(@StringRes title: Int, @StringRes subtitle: Int) =
         entry(title, subtitle, R.string.home_privacy_title, "privacy")
+    fun dataSaver(@StringRes title: Int, @StringRes subtitle: Int) =
+        entry(title, subtitle, R.string.home_datasaver_title, "datasaver")
     fun permission(@StringRes title: Int, @StringRes subtitle: Int) = entry(
         title, subtitle, R.string.privacy_permissions_title, "permissions",
         screenParent = R.string.home_privacy_title,
@@ -854,6 +856,24 @@ private fun Resources.otherRows(): List<SettingsSearchEntry> {
         privacy(R.string.privacy_incognito_title, R.string.privacy_incognito_subtitle),
         privacy(R.string.privacy_auto_incognito_title, R.string.privacy_auto_incognito_subtitle),
         privacy(R.string.privacy_backup_title, R.string.privacy_backup_subtitle),
+        // Data saver. Every row, because each one is a feature someone will
+        // look for by name once it stops working on mobile data.
+        dataSaver(R.string.datasaver_manual_title, R.string.datasaver_manual_subtitle),
+        dataSaver(R.string.datasaver_trigger_title, R.string.datasaver_trigger_subtitle),
+        dataSaver(R.string.datasaver_link_previews_title, R.string.datasaver_link_previews_subtitle),
+        dataSaver(R.string.datasaver_dictionary_title, R.string.datasaver_dictionary_subtitle),
+        dataSaver(R.string.datasaver_photos_title, R.string.datasaver_photos_subtitle),
+        dataSaver(R.string.datasaver_weather_title, R.string.datasaver_weather_subtitle),
+        dataSaver(R.string.datasaver_rates_title, R.string.datasaver_rates_subtitle),
+        dataSaver(R.string.datasaver_addons_title, R.string.datasaver_addons_subtitle),
+        dataSaver(R.string.datasaver_media_title, R.string.datasaver_media_subtitle),
+        dataSaver(R.string.datasaver_search_title, R.string.datasaver_search_subtitle),
+        dataSaver(
+            R.string.datasaver_animated_emoji_title,
+            R.string.datasaver_animated_emoji_subtitle,
+        ),
+        dataSaver(R.string.datasaver_downloads_title, R.string.datasaver_downloads_subtitle),
+        dataSaver(R.string.datasaver_ai_title, R.string.datasaver_ai_subtitle),
         // The Permissions screen's rows. The version-gated Storage row is left
         // out: on most devices a result would land on a screen without it.
         permission(R.string.privacy_permissions_mic_title, R.string.privacy_permissions_mic_subtitle),
@@ -986,6 +1006,10 @@ private fun Resources.sectionRows(): List<SettingsSearchEntry> {
             "accessibility", R.string.search_kw_accessibility,
         ),
         home(R.string.home_privacy_title, R.string.home_privacy_subtitle, "privacy", R.string.search_kw_privacy),
+        home(
+            R.string.home_datasaver_title, R.string.home_datasaver_subtitle,
+            "datasaver", R.string.search_kw_datasaver,
+        ),
         home(R.string.home_backup_title, R.string.home_backup_subtitle, "backup", R.string.search_kw_backup),
         home(R.string.home_about_title, R.string.home_about_subtitle, "about", R.string.search_kw_about),
         under(

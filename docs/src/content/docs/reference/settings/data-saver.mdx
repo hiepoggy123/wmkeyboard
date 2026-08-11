@@ -1,0 +1,105 @@
+---
+title: "Data saver"
+description: "Every row on the Data saver screen: what arms it, and the three answers each network feature can have while the connection is metered."
+sidebar:
+  order: 18.7
+---
+
+import SettingsPath from '@components/SettingsPath.astro';
+
+The Data saver screen is three groups: what turns data saving on, the
+fetches the keyboard makes on its own, and the ones you start yourself. This
+page is the field reference. For what it's for and how the ask-first answer
+behaves in practice, start at [Data saver](/privacy/data-saver/).
+
+Every row in the last two groups is a choice, not a switch. The full set of
+answers is **Allow**, **Ask each time** and **Turn off**. The middle one is
+missing from the "Fetched on its own" group, because those happen with no
+panel on screen and nobody there to answer.
+
+## Options
+
+<SettingsPath path="Data saver" />
+
+### When to save data
+
+| Setting | Control | Default |
+|---|---|---|
+| Save data now | Toggle | Off |
+| Turn on by itself | Choice of 5 | **On mobile data or a metered network** |
+
+**Save data now** holds on any connection, Wi-Fi included, until you turn it
+off. It's the answer to a network Android thinks is free and you know isn't,
+such as a phone hotspot.
+
+**Turn on by itself** is one of: *Only when I turn it on*, *On mobile data or
+a metered network*, *Only while roaming*, *Android's Data Saver is on*, or
+*Any of these*. Roaming is the strictest: it needs the connection to be
+metered **and** roaming, so a roaming-flagged Wi-Fi bridge that costs
+nothing doesn't fire it.
+
+### Fetched on its own
+
+<SettingsPath path="Data saver / Fetched on its own" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Link previews | Allow / Turn off | **Turn off** |
+| Word look-ups | Allow / Turn off | **Turn off** |
+| Photo backgrounds | Allow / Turn off | **Turn off** |
+| Weather chip | Allow / Turn off | **Turn off** |
+| Exchange rates | Allow / Turn off | **Allow** |
+| Add-on updates | Allow / Turn off | **Turn off** |
+
+These are applied by hiding the matching setting while data saving is in
+force, so the feature's own screen still shows what you chose and gets it
+back the moment you're on Wi-Fi. **Link previews** covers both the clipboard
+and the QR scanner in one row. **Photo backgrounds** clears the **Use mobile
+data** switch in a theme's Online photos group, so one answer reaches both
+the rotation and the pool top-up. **Exchange rates** is the one allowed by
+default: a few hundred bytes, cached for hours, and a converter showing last
+week's rate is worse than the fetch.
+
+### Started by you
+
+<SettingsPath path="Data saver / Started by you" />
+
+| Setting | Control | Default |
+|---|---|---|
+| GIFs and stickers | Allow / Ask each time / Turn off | **Ask each time** |
+| Web and image search | Allow / Ask each time / Turn off | **Ask each time** |
+| Animated emoji | Allow / Ask each time / Turn off | **Ask each time** |
+| Downloads | Allow / Ask each time / Turn off | **Ask each time** |
+| Cloud AI | Allow / Ask each time / Turn off | **Ask each time** |
+
+At **Ask each time**, the panel says why it's empty and carries a **Use
+mobile data** button. Tapping it allows that one feature until the network
+changes or the keyboard restarts. At **Turn off**, nothing is offered.
+
+**GIFs and stickers** never touches your own sticker packs, which are files
+on the phone. **Web and image search** is one answer for both, since someone
+who doesn't want search on mobile data doesn't want half of it either.
+**Animated emoji** holds the looping preview in the long-press popup, and
+treats pressing **Send** as the yes. **Downloads** covers language data,
+dictionaries, emoji keyword packs, add-ons and the on-device speech and
+language models, and it's where the old **Ask before downloading on mobile
+data** and **Only download over Wi-Fi** switches went. **Cloud AI** never
+holds an on-device model, which costs nothing to reach.
+
+## Details & edge cases
+
+- **Any row you've changed grows a restore button.** Same as everywhere else
+  in Settings; see [Putting one setting back](/reference/settings/#putting-one-setting-back).
+- **The keyboard and the settings app ask separately.** A yes given to a
+  panel doesn't carry into a download you start from a settings screen, and
+  the other way round.
+- **Model downloads keep their size thresholds.** With **Downloads** set to
+  **Allow**, a Whisper model at about 150 MB or an on-device AI model at
+  about 500 MB still confirms on a metered connection. That prompt is older
+  than this screen and independent of it.
+- **Add-ons keep a switch of their own.** **Refresh on Wi-Fi only**, on the
+  Add-ons screen, is separate from the **Add-on updates** row here. Either
+  one holding is enough to skip the automatic refresh a visit would make.
+- **Nothing here is a permission.** Data saving decides whether a fetch is
+  worth its bytes, not whether the feature is allowed to exist. Turning a
+  tool off entirely is <SettingsPath path="Tools" />.
