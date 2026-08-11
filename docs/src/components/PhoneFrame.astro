@@ -78,6 +78,10 @@ const { caption } = Astro.props;
 	.phone-screen :global(video) {
 		display: block;
 		width: 100%;
+		/* Keep the intrinsic aspect ratio even inside `not-content` wrappers,
+		   where Starlight's own `img { height: auto }` doesn't reach and the
+		   width/height attributes would otherwise distort the image. */
+		height: auto;
 		border-radius: 0 !important;
 		margin: 0 !important;
 	}
