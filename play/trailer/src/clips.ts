@@ -14,4 +14,4 @@ export const AVAILABLE_CLIPS: string[] = [
 ];
 
 // Set to a filename in public/ (e.g. "music.mp3") to mix a soundtrack.
-export const MUSIC: string | null = "music.mp3";
+export const MUSIC: string | null = null;

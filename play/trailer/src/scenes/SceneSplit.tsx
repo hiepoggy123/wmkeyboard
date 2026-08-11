@@ -3,7 +3,6 @@ import { AbsoluteFill } from "remotion";
 import { Backdrop } from "../components/Backdrop";
 import { Chip } from "../components/Chip";
 import { GradientHeadline } from "../components/GradientHeadline";
-import { Sfx } from "../components/Sfx";
 import { INTER } from "../fonts";
 import { BODY } from "../theme";
 
@@ -18,9 +17,6 @@ export const SceneSplit: React.FC<{
 }> = ({ headline, sub, chips = [], accentA, accentB, children }) => {
   return (
     <Backdrop accentA={accentA} accentB={accentB}>
-      {chips.map((c, i) => (
-        <Sfx key={c.label} name="pop" at={22 + i * 7} volume={0.3} />
-      ))}
       <AbsoluteFill
         style={{
           flexDirection: "row",

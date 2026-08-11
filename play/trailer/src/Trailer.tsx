@@ -2,8 +2,9 @@ import React from "react";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { fade } from "@remotion/transitions/fade";
 import { slide } from "@remotion/transitions/slide";
-import { Audio, Sequence, interpolate, staticFile, useVideoConfig } from "remotion";
+import { Audio, interpolate, staticFile, useVideoConfig } from "remotion";
 import { MUSIC } from "./clips";
+import { Sfx } from "./components/Sfx";
 import { SceneAddons } from "./scenes/SceneAddons";
 import { SceneEmoji } from "./scenes/SceneEmoji";
 import { SceneGlide } from "./scenes/SceneGlide";
@@ -39,9 +40,7 @@ export const Trailer: React.FC = () => {
         />
       ) : null}
       {TRANSITION_STARTS.map((f) => (
-        <Sequence key={f} from={f - 3}>
-          <Audio src={staticFile("sfx/whoosh.wav")} volume={0.4} />
-        </Sequence>
+        <Sfx key={f} name="whoosh" at={f - 3} volume={0.4} />
       ))}
       <TransitionSeries>
         <TransitionSeries.Sequence durationInFrames={70} name="Intro">
