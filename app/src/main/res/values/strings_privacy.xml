@@ -75,7 +75,7 @@
 
     <string name="privacy_dict_shortcuts_title">Expand Android dictionary shortcuts</string>
     <string name="privacy_dict_shortcuts_subtitle">Type a shortcut from the Android personal dictionary to get its full phrase as a suggestion</string>
-    <string name="privacy_dict_shortcuts_info">Each entry in the Android personal dictionary can have a shortcut. It is the same list in System settings → Languages &amp; input → Dictionary. With this setting on, you type a shortcut, for example \"omw\", and its full phrase, \"on my way\", becomes the top suggestion. This setting is off at the start. The keyboard reads the list again when it next opens, so a shortcut that you just added shows after you change to a different app. This setting is not the snippets of the keyboard. A snippet belongs to the Snippets tool, has its own page on the Tools screen, and works whether this setting is on or off.</string>
+    <string name="privacy_dict_shortcuts_info">Each entry in the Android personal dictionary can have a shortcut. It is the same list in System settings → Languages &amp; input → Dictionary. With this setting on, you type a shortcut, for example \"omw\", and its full phrase, \"on my way\", becomes the top suggestion. This setting is on at the start. The keyboard reads the list again when it next opens, so a shortcut that you just added shows after you change to a different app. This setting is not the snippets of the keyboard. A snippet belongs to the Snippets tool, has its own page on the Tools screen, and works whether this setting is on or off.</string>
 
     <string name="privacy_incognito_title">Incognito mode</string>
     <string name="privacy_incognito_subtitle">Pause learning and clipboard capture</string>

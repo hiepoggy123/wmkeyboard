@@ -120,7 +120,7 @@ Tapping a swatch, or flipping **Dark theme**, reseeds every seed-derived color a
 | Crop image *(image set)* | Opens the [crop dialog](#cropping-an-image) | n/a |
 | Image opacity *(image set)* | Slider, 0–100% | 100% |
 | Image blur *(image set)* | Slider, 0–25 | 0 (off) |
-| Play animated image *(image set)* | Toggle | Off |
+| Play animated image *(image set)* | Toggle | On for a GIF or animated WebP, off otherwise |
 | Landscape background image | Opens **Select a background**, always shown | None |
 | Crop landscape image *(landscape image set)* | Opens the crop dialog | n/a |
 | Photo credit *(service photo set)* | Opens the photographer's page | n/a |
@@ -133,7 +133,7 @@ Applying a background zeroes the board color's alpha and drops fully opaque key 
 
 The landscape image row is independent: it's shown even with no portrait image set, falls back to the portrait image (or the plain background color) when empty, and lets a portrait photo and a wide crop each fit their own orientation instead of one being stretched into the other.
 
-**Play animated image** plays a GIF or animated WebP background instead of freezing it on frame one. It and the blur slider exclude each other. Turning the switch on zeroes the blur, and raising the blur turns the switch off, because blurring a running animation re-renders it every frame. The animation also holds still under reduce motion and power saving.
+**Play animated image** plays a GIF or animated WebP background instead of freezing it on frame one. Picking one turns the switch on for you, so a GIF from your gallery moves without your having to find this row; picking a still, or cropping the animation away, turns it back off. It and the blur slider exclude each other. Turning the switch on zeroes the blur, and raising the blur turns the switch off, because blurring a running animation re-renders it every frame. The animation also holds still under reduce motion and power saving.
 
 The last two rows stay hidden until you have started using photos, so a theme with one gallery picture never shows them. Full walkthroughs: [Image backgrounds](/themes/backgrounds/) and [Online photos and rotation](/themes/online-photos/).
 

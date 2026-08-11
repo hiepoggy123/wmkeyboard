@@ -147,4 +147,69 @@ class PhoneFormatsTest {
             .filter { it.kind == ClipEntityKind.PHONE }
         assertTrue(found.isEmpty())
     }
+
+    // ---- the mask a region starts with ----
+
+    /**
+     * Every entry in the table has to survive [PhoneFormats.parse], or the
+     * seeded mask is silently dropped and the user gets the empty list the seed
+     * exists to replace. Regions are read off the table's own keys, so a row
+     * added later is covered without touching this.
+     */
+    @Test fun everySeededMaskParsesAndNamesItsCountry() {
+        for (region in SEEDED_REGIONS) {
+            val raw = PhoneFormats.forRegion(region)
+            assertTrue("$region has no mask", raw != null)
+            val mask = PhoneFormats.parse(raw!!)
+            assertTrue("$region: '$raw' does not parse", mask != null)
+            assertTrue("$region: '$raw' has no dial code", mask!!.countryCode != null)
+            assertEquals("$region: '$raw' is not canonical", raw, PhoneFormats.canonical(raw))
+        }
+    }
+
+    @Test fun aSeededMaskKeepsItsOwnCountrysNumbers() {
+        val bd = masks(PhoneFormats.forRegion("BD")!!)
+        assertTrue(PhoneFormats.matches("01712-345678", bd))
+        assertTrue(PhoneFormats.matches("+8801712345678", bd))
+        assertTrue(PhoneFormats.matches("1712345678", bd))
+        // A number from somewhere else named its country, so it has to match one.
+        assertFalse(PhoneFormats.matches("+1 415 555 2671", bd))
+
+        val us = masks(PhoneFormats.forRegion("US")!!)
+        assertTrue(PhoneFormats.matches("(415) 555-2671", us))
+        assertTrue(PhoneFormats.matches("+1 415 555 2671", us))
+        assertFalse(PhoneFormats.matches("+8801712345678", us))
+    }
+
+    @Test fun anUnknownOrAbsentRegionSeedsNothing() {
+        assertNull(PhoneFormats.forRegion(null))
+        assertNull(PhoneFormats.forRegion(""))
+        assertNull(PhoneFormats.forRegion("ZZ"))
+        // Deliberately absent: their numbers have no one length.
+        assertNull(PhoneFormats.forRegion("DE"))
+        assertNull(PhoneFormats.forRegion("AT"))
+    }
+
+    @Test fun regionCodesMatchRegardlessOfCase() {
+        assertEquals(PhoneFormats.forRegion("BD"), PhoneFormats.forRegion("bd"))
+        assertEquals(PhoneFormats.forRegion("US"), PhoneFormats.forRegion("us"))
+    }
+
+    private companion object {
+        /** Every region [PhoneFormats.forRegion] answers for. */
+        val SEEDED_REGIONS = listOf(
+            "US", "CA", "AG", "AI", "BB", "BM", "BS", "DM", "DO", "GD", "JM",
+            "KN", "KY", "LC", "MS", "PR", "SX", "TC", "TT", "VC", "VG", "VI",
+            "BD", "IN", "PK", "NP", "LK", "BT", "MV", "AF",
+            "CN", "JP", "KR", "TW", "HK", "MO", "SG", "MY", "TH", "VN", "PH",
+            "KH", "MM",
+            "GB", "IE", "FR", "ES", "PT", "IT", "NL", "BE", "CH", "SE", "NO",
+            "DK", "FI", "PL", "CZ", "SK", "HU", "RO", "BG", "GR", "HR", "RS",
+            "UA", "RU", "KZ", "TR",
+            "SA", "AE", "QA", "KW", "BH", "OM", "JO", "LB", "IL", "IQ", "IR",
+            "EG", "NG", "KE", "TZ", "UG", "GH", "ZA", "MA", "DZ", "TN", "ET",
+            "BR", "MX", "AR", "CL", "CO", "PE", "VE", "EC", "UY", "PY", "BO",
+            "AU", "NZ",
+        )
+    }
 }

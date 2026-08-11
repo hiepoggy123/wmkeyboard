@@ -98,13 +98,13 @@ This screen's **Type native digits in** setting answers a different question: wh
 
 <SettingsPath path="Typing / Suggestions" />
 
-**Smart detection of key hits** (off by default) quietly widens a key's touch target toward whichever letter the dictionary expects next as you type a word. A tap that lands just inside a neighboring key can still commit the letter you meant, but only near the shared edge. A deliberate press in the middle of a key is never second-guessed. It applies to the letters layer only, and it needs [Suggestions](/smart/suggestions/) turned on to have anything to predict from. See [Autocorrect](/smart/autocorrect/#reducing-typos-before-they-happen) for how it sits alongside autocorrect as an earlier line of defense against typos.
+**Smart detection of key hits** (on by default) quietly widens a key's touch target toward whichever letter the dictionary expects next as you type a word. A tap that lands just inside a neighboring key can still commit the letter you meant, but only near the shared edge. A deliberate press in the middle of a key is never second-guessed. It applies to the letters layer only, and it needs [Suggestions](/smart/suggestions/) turned on to have anything to predict from. See [Autocorrect](/smart/autocorrect/#reducing-typos-before-they-happen) for how it sits alongside autocorrect as an earlier line of defense against typos.
 
 ## Multi-touch and key repeat
 
 Every finger on the keyboard is tracked on its own, so pressing a second key before you release the first works correctly. Both register, whether that's rollover typing across the letters or two fast taps on the very same key.
 
-On the default layout, <KeyCap>⌫</KeyCap> and <KeyCap>Space</KeyCap> are the two keys that auto-repeat on a hold. Repeating has its own wait, **Time before a key repeats** (300&nbsp;ms by default, adjustable 150–800&nbsp;ms), separate from the long-press delay above. The two used to be one number, which meant lengthening the wait before accent popups also slowed backspace down. Past that wait each key fires again on its own cadence, **Delete repeat interval** and **Space repeat interval** (both 50&nbsp;ms by default, adjustable 20–200&nbsp;ms), because a runaway row of spaces costs more to undo than a fast delete does. A held backspace stops on its own once there's nothing left to delete. A forward-delete key (<KeyCap>⌦</KeyCap>) repeats the same way if you add one to a [custom layout](/languages/custom-layouts/). No built-in layout places one, and a physical keyboard's Delete-forward key goes straight to the system rather than through this engine. Every other key long-presses into its popup or shortcut instead of repeating.
+On the default layout, <KeyCap>⌫</KeyCap> and <KeyCap>Space</KeyCap> are the two keys that auto-repeat on a hold. Repeating has its own wait, **Time before a key repeats** (300&nbsp;ms by default, adjustable 150–800&nbsp;ms), separate from the long-press delay above. The two used to be one number, which meant lengthening the wait before accent popups also slowed backspace down. Past that wait each key fires again on its own cadence, **Delete repeat interval** and **Space repeat interval** (50&nbsp;ms and 100&nbsp;ms by default, both adjustable 20–200&nbsp;ms), because a runaway row of spaces costs more to undo than a fast delete does. A held backspace stops on its own once there's nothing left to delete. A forward-delete key (<KeyCap>⌦</KeyCap>) repeats the same way if you add one to a [custom layout](/languages/custom-layouts/). No built-in layout places one, and a physical keyboard's Delete-forward key goes straight to the system rather than through this engine. Every other key long-presses into its popup or shortcut instead of repeating.
 
 <SettingsPath path="Accessibility / Touch" />
 
@@ -127,7 +127,7 @@ Backspace also has a drag-to-delete-whole-words gesture, on by default, separate
 | Press and hold delay | 300&nbsp;ms (150–700&nbsp;ms) |
 | Time before a key repeats | 300&nbsp;ms (150–800&nbsp;ms) |
 | Delete repeat interval | 50&nbsp;ms (20–200&nbsp;ms) |
-| Space repeat interval | 50&nbsp;ms (20–200&nbsp;ms) |
+| Space repeat interval | 100&nbsp;ms (20–200&nbsp;ms) |
 | Caps lock double press | 350&nbsp;ms (150–600&nbsp;ms) |
 | Press and hold hints | On |
 | All accents on press and hold | Off |
@@ -140,7 +140,7 @@ Open the **Key press** tile on the settings home grid, or search "Key press" in 
 A handful of related settings live elsewhere:
 
 - **Automatic capital letters** is on by default, under <SettingsPath path="Typing / Automatic corrections" />.
-- **Smart detection of key hits** (<SettingsPath path="Typing / Suggestions" />) and **Shift and Enter type a new line** (<SettingsPath path="Typing / Enter key" />) are both off by default.
+- **Smart detection of key hits** (<SettingsPath path="Typing / Suggestions" />) is on by default; **Shift and Enter type a new line** (<SettingsPath path="Typing / Enter key" />) is off.
 - **Swipe to delete words** is on by default, under <SettingsPath path="Typing / Backspace" />.
 - **Number row** (<SettingsPath path="Layout & size / Number row" />) is on, and the numeral commit scope (<SettingsPath path="Layout & size / Numerals" />) starts on "Text fields". Full breakdown at [Layout & size settings](/reference/settings/layout/).
 - **Numeral system per language** starts on Auto, under <SettingsPath path="Languages / (a language) / Numerals" />. See [Languages](/languages/overview/).

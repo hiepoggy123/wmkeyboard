@@ -111,7 +111,7 @@ There's no long-press gesture on a suggestion chip. Every chip in the strip resp
 | Space after a suggestion | On |
 | Block offensive words | On |
 | Context-aware suggestions | On |
-| Adapt to app tone | Off |
+| Adapt to app tone | On |
 | Suggestion blacklist | Empty |
 
 **Suggestions** is the master switch for the whole strip described on this page. Turn it off and completions, corrections and next-word prediction all stop. On an ordinary Latin layout it takes [autocorrect](/smart/autocorrect/) with it: with suggestions off the keyboard stops composing the word you're typing, so there's nothing for autocorrect to inspect when you press space. Autocorrect still has its own toggle, but leave Suggestions on if you want autocorrect to fire. **Number of suggestions** is how many word slots the strip splits itself into. Three suits a phone; a tablet or a landscape screen has the room for more, at the cost of each candidate getting narrower. **Suggestions in every field** overrides the handful of apps that ask the keyboard to hide suggestions on an ordinary text field. Password fields and structured keypads (number, phone, and similar) never show suggestions whatever this is set to. **Space after a suggestion** adds a trailing space when you tap a candidate, the same as finishing a word yourself would.
@@ -121,7 +121,7 @@ Four of the rows above aren't in the Suggestions group at all. They live under <
 - **Space after a suggestion** (on) is described above, and sits with the other spacing rules rather than with the strip.
 - **Block offensive words** (on, and only visible while autocorrect is on) uses the same filtering mechanism as the [suggestion blacklist](/smart/blacklist/) to keep a bundled list of profanity and slurs out of the strip, not only out of autocorrect.
 - **Context-aware suggestions** (on, also only visible while autocorrect is on) reorders the top eight candidates using the words you typed before them: your own learned word pairs and triples, a downloaded n-gram pack if you have one, common English pairs, and words already used in this conversation. It only reorders when there's real evidence to reorder on, so an unfamiliar context keeps the usual order. It never changes which word autocorrect would apply.
-- **Adapt to app tone** (off, and visible whatever autocorrect is set to) tilts ranking by where you're typing. Chat-speak like "lol" and "gonna" ranks a little higher in messaging apps and a little lower in email apps and email fields. It's ranking only: no word is ever hidden or blocked, and autocorrect doesn't change.
+- **Adapt to app tone** (on, and visible whatever autocorrect is set to) tilts ranking by where you're typing. Chat-speak like "lol" and "gonna" ranks a little higher in messaging apps and a little lower in email apps and email fields. It's ranking only: no word is ever hidden or blocked, and autocorrect doesn't change.
 
 A physical keyboard can also pick a strip candidate by number without touching the screen (see [Hardware keyboard](/typing/hardware-keyboard/) for how that's bound).
 

@@ -41,6 +41,7 @@ import com.wasimaster.wmkeyboard.core.tools.AltCalendar
 import com.wasimaster.wmkeyboard.core.tools.SolarTimes
 import com.wasimaster.wmkeyboard.core.tools.Weekend
 import com.wasimaster.wmkeyboard.core.tools.defaultAltCalendars
+import com.wasimaster.wmkeyboard.core.tools.isSouthernHemisphere
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.DeviceLocales
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
@@ -262,7 +263,12 @@ data class KeyPopupSettings(
 data class KeyRepeatSettings(
     /** Backspace and forward-delete, including the panel backspaces. */
     val deleteMs: Int = 50,
-    val spaceMs: Int = 50,
+    /**
+     * The spacebar, at half the cadence of backspace. A held space overshoots
+     * in a way a held backspace does not: the extra spaces are invisible until
+     * the word after them lands in the wrong place.
+     */
+    val spaceMs: Int = 100,
     /**
      * How long a key is held before it starts repeating.
      *
@@ -464,18 +470,27 @@ data class KeySoundSettings(
  * follow the system haptic-intensity setting. They fall back to a hardware
  * click when no attached view is available.
  *
- * [SYSTEM_TAP] asks for `KEYBOARD_TAP` and is the default: OEMs tune a
- * separate waveform for keyboards, and it is the one their own keyboard
- * plays. Measured on a Galaxy S25 Ultra (One UI 8), `KEYBOARD_TAP` and
- * `VIRTUAL_KEY` resolve to *different* Samsung effects — 50025 vs 50038 — at
- * near-identical durations (122 ms vs 132 ms). Samsung's Honeyboard and
- * Ridmik both play 50025; 50038 is the generic button press, and it reads as
- * duller. `KEYBOARD_TAP` also lands the vibration under
+ * [SYSTEM_TAP] asks for `KEYBOARD_TAP` and is the best of them where the
+ * vendor tuned one: OEMs give keyboards a separate waveform, and it is the one
+ * their own keyboard plays. Measured on a Galaxy S25 Ultra (One UI 8),
+ * `KEYBOARD_TAP` and `VIRTUAL_KEY` resolve to *different* Samsung effects —
+ * 50025 vs 50038 — at near-identical durations (122 ms vs 132 ms). Samsung's
+ * Honeyboard and Ridmik both play 50025; 50038 is the generic button press,
+ * and it reads as duller. `KEYBOARD_TAP` also lands the vibration under
  * `VibrationAttributes.USAGE_IME` rather than `USAGE_TOUCH`, which is the
  * bucket an OEM's keyboard-vibration setting governs.
  *
- * [SYSTEM_KEY] asks for `VIRTUAL_KEY` — kept for devices whose vendor never
- * tuned a keyboard-specific effect, where the two are the same waveform.
+ * [SYSTEM_KEY] asks for `VIRTUAL_KEY` — for devices whose vendor never tuned a
+ * keyboard-specific effect, where the two are the same waveform.
+ *
+ * It is [SYSTEM_TAP] that [KeyboardSettings.hapticStyle] declares, but almost
+ * nobody types on it: onboarding writes
+ * `HapticPlayer.bestSupportedStyle(context)` over the declared value, and that
+ * function only ever returns [SYSTEM_KEY] or [HEAVY_CLICK]. In practice
+ * [SYSTEM_TAP] ships only to someone who skipped onboarding or picked it from
+ * the styles list. The declared value is what a reset lands on, so it stays as
+ * it is; the shipped default is whatever `bestSupportedStyle` said on that
+ * device.
  *
  * The rest drive the vibrator directly: [CUSTOM] with the duration/amplitude
  * sliders; [CLICK]/[HEAVY_CLICK] with the device's predefined effects
@@ -1085,6 +1100,13 @@ data class KeyboardSettings(
     val hapticFeedback: Boolean = true,
     val hapticStrengthMs: Int = 15,
     val hapticAmplitude: Int = 255,
+    /**
+     * See [HapticStyle]. Onboarding overwrites this with
+     * `HapticPlayer.bestSupportedStyle(context)`, so on a phone that has been
+     * through the wizard the style is [HapticStyle.SYSTEM_KEY] or
+     * [HapticStyle.HEAVY_CLICK] and never this one. This value is what a reset
+     * goes back to.
+     */
     val hapticStyle: HapticStyle = HapticStyle.SYSTEM_TAP,
     val hapticOnLongPress: Boolean = true,
     val hapticOnLongPressRelease: Boolean = false,
@@ -1114,7 +1136,12 @@ data class KeyboardSettings(
      * preview bubble, press colour) is untouched — only motion is removed.
      */
     val reduceMotion: Boolean = false,
-    val screenReaderMode: ScreenReaderMode = ScreenReaderMode.LABELS,
+    /**
+     * See [ScreenReaderMode]. [ScreenReaderMode.EXPLORE] by default: it is what
+     * every other IME does under touch exploration, so a TalkBack user meets
+     * the gesture they already know rather than one this keyboard invented.
+     */
+    val screenReaderMode: ScreenReaderMode = ScreenReaderMode.EXPLORE,
     /**
      * Ignore a repeat press of the same key within this many milliseconds
      * (0 = off). The tremor/spasticity counterpart to a long-press delay:
@@ -1440,7 +1467,12 @@ data class KeyboardSettings(
     val levelShowAngles: Boolean = true,
     /** Redo sends Ctrl+Y instead of Ctrl+Shift+Z. */
     val redoUsesCtrlY: Boolean = false,
-    /** Mirrors the moon drawing for southern-hemisphere viewers. */
+    /**
+     * Mirrors the moon drawing for southern-hemisphere viewers. Starts from the
+     * device's region (see [isSouthernHemisphere]) rather than false, since
+     * which way a crescent faces is a fact about where you are and not a taste;
+     * left as it was, half the world is shown the wrong moon until it notices.
+     */
     val moonSouthernHemisphere: Boolean = false,
     val weatherFahrenheit: Boolean = false,
     val weatherLatitude: Float? = null,
@@ -2421,8 +2453,13 @@ data class CjkSettings(
     val pinyinDoublePinyin: DoublePinyinScheme = DoublePinyinScheme.OFF,
     /** Convert candidate output to Traditional characters (Taiwan, Hong Kong). */
     val traditionalOutput: Boolean = false,
-    /** Cantonese: match lazy-pronunciation mergers (n↔l, ng↔∅, -ng↔-n, -k↔-t). */
-    val jyutpingLazy: Boolean = false,
+    /**
+     * Cantonese: match lazy-pronunciation mergers (n↔l, ng↔∅, -ng↔-n, -k↔-t).
+     * On by default, because the mergers are how most speakers actually say the
+     * words: someone who says 你 as lei5 types `lei` and, without this, gets
+     * nothing back from a dictionary that files it under nei5.
+     */
+    val jyutpingLazy: Boolean = true,
     /** Which region's vocabulary Traditional output should prefer. */
     val hanRegion: HanVariant.HanRegion = HanVariant.HanRegion.GENERIC,
 )
@@ -2855,9 +2892,14 @@ data class ClipboardSettings(
     val detectEntities: Boolean = true,
     /**
      * The phone-number shapes to keep, as masks (`+880 1XXX-XXXXXX`). Empty
-     * means every number-shaped run counts, which is the only thing the
-     * detector can do before it is told which country the user lives in, and
-     * also where its false positives come from. See `PhoneFormats`.
+     * means every number-shaped run counts, which is where the detector's false
+     * positives come from — an invoice total and a tracking id have the shape
+     * of a phone number too.
+     *
+     * The list starts with one mask worked out from the device's region (see
+     * [PhoneFormats.forRegion]), not empty, so the detector knows which country
+     * the user lives in before being told. Empty is still reachable, by
+     * deleting that mask. See `PhoneFormats`.
      */
     val phoneFormats: Set<String> = emptySet(),
     /**
@@ -3152,10 +3194,10 @@ data class LayoutBehaviorSettings(
      * each letter is nudged toward the letters most likely to come next (from
      * the dictionary), so a tap that lands just inside a neighbour's cell still
      * commits the intended letter. Only biases boundary taps and only on the
-     * letters layer; deliberate presses well inside a key are untouched. Off by
+     * letters layer; deliberate presses well inside a key are untouched. On by
      * default.
      */
-    val smartHitDetection: Boolean = false,
+    val smartHitDetection: Boolean = true,
     /**
      * Which digit glyphs the number row and numpad draw, and (per
      * [numeralCommitScope]) type — chosen per language, keyed by
@@ -3267,8 +3309,9 @@ data class LayoutBehaviorSettings(
      * Turn Fancy Text off again when the keyboard closes, if the Fancy tool is
      * what turned it on. Fancy text is usually one nickname or one message, and
      * without this a user who forgets the tool types the next mail in Fraktur.
+     * On by default for exactly that reason.
      */
-    val fancyToolAutoOff: Boolean = false,
+    val fancyToolAutoOff: Boolean = true,
     /**
      * Go back to the letters after typing one of [symbolsReturnChars] on the
      * symbols layer, so a full stop from ?123 does not leave the user on ?123.
@@ -3449,11 +3492,13 @@ data class SuggestionStripSettings(
     /**
      * Expand shortcuts stored in Android's personal dictionary: if an entry has
      * a shortcut (e.g. "omw" → "on my way"), typing the shortcut offers the full
-     * phrase as a suggestion. Off by default and independent of mirroring words
-     * *into* that dictionary; reads the SHORTCUT column the platform dictionary
-     * UI fills in. See [com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary].
+     * phrase as a suggestion. On by default: a shortcut is only ever there
+     * because someone typed it into the platform dictionary UI meaning it to
+     * expand. Independent of mirroring words *into* that dictionary; reads the
+     * SHORTCUT column that UI fills in. See
+     * [com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary].
      */
-    val expandUserDictShortcuts: Boolean = false,
+    val expandUserDictShortcuts: Boolean = true,
     /**
      * Show the system's smart replies ("On my way!") beside the word
      * candidates. They arrive down the same inline-suggestions API as
@@ -3470,9 +3515,9 @@ data class SuggestionStripSettings(
      * Adapt suggestions to where you're typing: chat-speak ("lol", "gonna")
      * ranks a little higher in messaging apps and a little lower in email
      * fields and clients. Ranking only — nothing is ever hidden or blocked —
-     * and off by default.
+     * and on by default.
      */
-    val registerPriors: Boolean = false,
+    val registerPriors: Boolean = true,
     /**
      * How strongly the typing rhythm of a word sways autocorrect, 0 (off,
      * the default) to 1. Fast, sloppy bursts make autocorrect fire more
@@ -4829,7 +4874,7 @@ class SettingsRepository(private val context: Context) {
                 clearAfterPasswordPaste = p[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE]
                     ?: defaults.clipboard.clearAfterPasswordPaste,
                 detectEntities = p[CLIPBOARD_DETECT_ENTITIES] ?: defaults.clipboard.detectEntities,
-                phoneFormats = p[CLIPBOARD_PHONE_FORMATS] ?: defaults.clipboard.phoneFormats,
+                phoneFormats = p[CLIPBOARD_PHONE_FORMATS] ?: seededPhoneFormats(),
                 fullBleed = p[CLIPBOARD_FULL_BLEED] ?: defaults.clipboard.fullBleed,
             ),
             otp = OtpSettings(
@@ -5100,7 +5145,7 @@ class SettingsRepository(private val context: Context) {
             compassShowQibla = p[COMPASS_SHOW_QIBLA] ?: defaults.compassShowQibla,
             levelShowAngles = p[LEVEL_SHOW_ANGLES] ?: defaults.levelShowAngles,
             redoUsesCtrlY = p[REDO_USES_CTRL_Y] ?: defaults.redoUsesCtrlY,
-            moonSouthernHemisphere = p[MOON_SOUTHERN] ?: defaults.moonSouthernHemisphere,
+            moonSouthernHemisphere = p[MOON_SOUTHERN] ?: isSouthernHemisphere(deviceRegion),
             weatherFahrenheit = p[WEATHER_FAHRENHEIT] ?: defaults.weatherFahrenheit,
             weatherLatitude = p[WEATHER_LAT],
             weatherLongitude = p[WEATHER_LON],
@@ -5620,9 +5665,22 @@ class SettingsRepository(private val context: Context) {
      * Read once and kept: `mapPreferences` runs on every settings emission, and
      * the SIM is not going to change between two of them.
      */
-    private val deviceRegion: String? by lazy {
+    val deviceRegion: String? by lazy {
         DeviceLocales.read(context).regionCodes.firstOrNull()
     }
+
+    /**
+     * The clipboard's phone masks before the user has touched the list: the one
+     * shape their own country's numbers have, or nothing at all for a region
+     * [PhoneFormats.forRegion] does not know.
+     *
+     * Only ever the *starting* list. Adding or deleting a mask writes the key,
+     * and once written it wins — including when the user deletes the seeded one
+     * and leaves the list empty, which is the old behaviour of offering every
+     * number-shaped run and is a choice they are allowed to make.
+     */
+    private fun seededPhoneFormats(): Set<String> =
+        PhoneFormats.forRegion(deviceRegion)?.let { setOf(it) } ?: emptySet()
 
     /**
      * One of the two alternate-calendar slots.
@@ -8312,15 +8370,26 @@ class SettingsRepository(private val context: Context) {
     /**
      * Adds a phone-number mask. Invalid masks are dropped here rather than at
      * the detector, which has no way to tell the user about one.
+     *
+     * Both edits start from [seededPhoneFormats] and not from the empty set,
+     * because until one of them runs the key is absent and the list on screen
+     * is the seeded one. Reading it as empty would quietly drop the mask the
+     * user can see while they were adding a second country.
      */
     suspend fun addClipboardPhoneFormat(mask: String) {
         val normalized = PhoneFormats.canonical(mask) ?: return
-        editPrefs { it[CLIPBOARD_PHONE_FORMATS] = it[CLIPBOARD_PHONE_FORMATS].orEmpty() + normalized }
+        editPrefs {
+            it[CLIPBOARD_PHONE_FORMATS] =
+                (it[CLIPBOARD_PHONE_FORMATS] ?: seededPhoneFormats()) + normalized
+        }
     }
 
     /** Deletes a phone-number mask. Deleting the last one detects every number again. */
     suspend fun removeClipboardPhoneFormat(mask: String) =
-        editPrefs { it[CLIPBOARD_PHONE_FORMATS] = it[CLIPBOARD_PHONE_FORMATS].orEmpty() - mask }
+        editPrefs {
+            it[CLIPBOARD_PHONE_FORMATS] =
+                (it[CLIPBOARD_PHONE_FORMATS] ?: seededPhoneFormats()) - mask
+        }
 
     suspend fun setClipboardFullBleed(value: Boolean) =
         editPrefs { it[CLIPBOARD_FULL_BLEED] = value }

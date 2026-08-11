@@ -138,6 +138,7 @@ import com.wasimaster.wmkeyboard.core.theme.MAX_THEME_VARIANTS
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.keyTextureScaleOrDefault
 import com.wasimaster.wmkeyboard.core.theme.SeedSwatches
+import com.wasimaster.wmkeyboard.core.theme.isAnimatedImageFile
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
@@ -1408,6 +1409,11 @@ fun ThemeEditorScreen(
                         file.outputStream().use { input.copyTo(it) }
                     }
                     theme.backgroundImage?.let { File(it).delete() }
+                    // A GIF picked from the gallery plays, without the user
+                    // having to find the switch below and wonder why their
+                    // moving picture is a still. Blur is the other half of that
+                    // pair and has to go, since the two exclude each other.
+                    val animated = isAnimatedImageFile(file)
                     // Same treatment an online photo gets: the board goes
                     // see-through so the image shows, and the keys stop
                     // covering all of it. The user raises either back.
@@ -1416,6 +1422,9 @@ fun ThemeEditorScreen(
                             theme.copy(
                                 backgroundImage = file.absolutePath,
                                 backgroundPhoto = null,
+                                backgroundAnimated = animated,
+                                backgroundImageBlur =
+                                    if (animated) 0f else theme.backgroundImageBlur,
                                 boardBackground = theme.boardBackground and 0x00FFFFFFL,
                                 keyBackground = theme.keyBackground.softenedForPhoto(settings.photoBackground.keyOpacity),
                                 modifierKeyBackground = theme.modifierKeyBackground.softenedForPhoto(settings.photoBackground.keyOpacity),
@@ -1446,11 +1455,20 @@ fun ThemeEditorScreen(
                         file.outputStream().use { input.copyTo(it) }
                     }
                     theme.backgroundImageLandscape?.let { File(it).delete() }
+                    // Same as the portrait picker, except that the flag is one
+                    // per theme: a landscape GIF turns it on, and a still one
+                    // leaves whatever the portrait image asked for alone rather
+                    // than stopping an animation the user can still see.
+                    val animated = isAnimatedImageFile(file)
                     repository.upsertCustomTheme(
                         family.replacingMember(theme.id) {
                             theme.copy(
                                 backgroundImageLandscape = file.absolutePath,
                                 backgroundPhotoLandscape = null,
+                                backgroundAnimated =
+                                    theme.backgroundAnimated || animated,
+                                backgroundImageBlur =
+                                    if (animated) 0f else theme.backgroundImageBlur,
                             )
                         },
                     )
@@ -1912,8 +1930,19 @@ fun ThemeEditorScreen(
             onCropped = { newPath ->
                 scope.launch {
                     File(cropSource).delete()
+                    // The crop decodes one frame and writes it back, so an
+                    // animation does not survive it. Whether the theme still
+                    // animates is now down to the other orientation's image.
+                    val stillAnimated = withContext(Dispatchers.IO) {
+                        theme.backgroundImageLandscape?.let { isAnimatedImageFile(File(it)) } == true
+                    }
                     repository.upsertCustomTheme(
-                        family.replacingMember(theme.id) { theme.copy(backgroundImage = newPath) },
+                        family.replacingMember(theme.id) {
+                            theme.copy(
+                                backgroundImage = newPath,
+                                backgroundAnimated = stillAnimated,
+                            )
+                        },
                     )
                 }
                 cropOpen = false
@@ -1928,9 +1957,17 @@ fun ThemeEditorScreen(
             onCropped = { newPath ->
                 scope.launch {
                     File(cropLandscapeSource).delete()
+                    // As above: the cropped landscape image is a still now, so
+                    // only the portrait one can keep the flag on.
+                    val stillAnimated = withContext(Dispatchers.IO) {
+                        theme.backgroundImage?.let { isAnimatedImageFile(File(it)) } == true
+                    }
                     repository.upsertCustomTheme(
                         family.replacingMember(theme.id) {
-                            theme.copy(backgroundImageLandscape = newPath)
+                            theme.copy(
+                                backgroundImageLandscape = newPath,
+                                backgroundAnimated = stillAnimated,
+                            )
                         },
                     )
                 }

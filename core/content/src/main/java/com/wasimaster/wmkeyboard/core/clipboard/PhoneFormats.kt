@@ -233,6 +233,121 @@ object PhoneFormats {
         return true
     }
 
+    /**
+     * The mask a phone in [regionCode] starts out with, or null for a region
+     * this has nothing to say about.
+     *
+     * A mask is only worth having when it is the user's own country, so the
+     * first one is worked out from the device's region the same way the
+     * calendar tool picks its alternate calendars. It is a starting point and
+     * nothing else: the user can edit it, delete it, or add the second country
+     * they are always copying numbers from, and once they touch the list this
+     * never runs again.
+     *
+     * The table below is mobile numbers, because those are what people copy.
+     * A region whose landlines are shorter or longer than its mobiles will drop
+     * them, and a region whose numbers have no one length at all — Germany and
+     * Austria, where the subscriber part runs from three digits to nine — is
+     * left out entirely rather than given a mask that is wrong more often than
+     * right. Every one of those cases ends the same way: the user deletes the
+     * seeded mask and the detector goes back to offering every number it sees.
+     */
+    fun forRegion(regionCode: String?): String? = when (regionCode?.uppercase()) {
+        // North America. One plan, one shape, twenty-odd territories.
+        "US", "CA", "AG", "AI", "BB", "BM", "BS", "DM", "DO", "GD", "JM", "KN",
+        "KY", "LC", "MS", "PR", "SX", "TC", "TT", "VC", "VG", "VI",
+        -> "+1 XXX-XXX-XXXX"
+        // South Asia.
+        "BD" -> "+880 XXXX-XXXXXX"
+        "IN" -> "+91 XXXXX-XXXXX"
+        "PK" -> "+92 XXX-XXXXXXX"
+        "NP" -> "+977 XXX-XXXXXXX"
+        "LK" -> "+94 XX-XXXXXXX"
+        "BT" -> "+975 XX-XXXXXX"
+        "MV" -> "+960 XXX-XXXX"
+        "AF" -> "+93 XX-XXXXXXX"
+        // East and South-East Asia.
+        "CN" -> "+86 XXX-XXXX-XXXX"
+        "JP" -> "+81 XX-XXXX-XXXX"
+        "KR" -> "+82 XX-XXXX-XXXX"
+        "TW" -> "+886 XXX-XXX-XXX"
+        "HK" -> "+852 XXXX-XXXX"
+        "MO" -> "+853 XXXX-XXXX"
+        "SG" -> "+65 XXXX-XXXX"
+        "MY" -> "+60 XX-XXX-XXXX"
+        "TH" -> "+66 XX-XXX-XXXX"
+        "VN" -> "+84 XXX-XXX-XXX"
+        "PH" -> "+63 XXX-XXX-XXXX"
+        "KH" -> "+855 XX-XXX-XXX"
+        "MM" -> "+95 XX-XXX-XXXX"
+        // Europe.
+        "GB" -> "+44 XXXX-XXXXXX"
+        "IE" -> "+353 XX-XXX-XXXX"
+        "FR" -> "+33 X-XX-XX-XX-XX"
+        "ES" -> "+34 XXX-XX-XX-XX"
+        "PT" -> "+351 XXX-XXX-XXX"
+        "IT" -> "+39 XXX-XXX-XXXX"
+        "NL" -> "+31 X-XXXX-XXXX"
+        "BE" -> "+32 XXX-XX-XX-XX"
+        "CH" -> "+41 XX-XXX-XX-XX"
+        "SE" -> "+46 XX-XXX-XX-XX"
+        "NO" -> "+47 XXX-XX-XXX"
+        "DK" -> "+45 XX-XX-XX-XX"
+        "FI" -> "+358 XX-XXX-XXXX"
+        "PL" -> "+48 XXX-XXX-XXX"
+        "CZ" -> "+420 XXX-XXX-XXX"
+        "SK" -> "+421 XXX-XXX-XXX"
+        "HU" -> "+36 XX-XXX-XXXX"
+        "RO" -> "+40 XXX-XXX-XXX"
+        "BG" -> "+359 XXX-XXX-XXX"
+        "GR" -> "+30 XXX-XXX-XXXX"
+        "HR" -> "+385 XX-XXX-XXXX"
+        "RS" -> "+381 XX-XXX-XXXX"
+        "UA" -> "+380 XX-XXX-XX-XX"
+        "RU", "KZ" -> "+7 XXX-XXX-XX-XX"
+        "TR" -> "+90 XXX-XXX-XX-XX"
+        // Middle East.
+        "SA" -> "+966 XX-XXX-XXXX"
+        "AE" -> "+971 XX-XXX-XXXX"
+        "QA" -> "+974 XXXX-XXXX"
+        "KW" -> "+965 XXXX-XXXX"
+        "BH" -> "+973 XXXX-XXXX"
+        "OM" -> "+968 XXXX-XXXX"
+        "JO" -> "+962 X-XXXX-XXXX"
+        "LB" -> "+961 XX-XXX-XXX"
+        "IL" -> "+972 XX-XXX-XXXX"
+        "IQ" -> "+964 XXX-XXX-XXXX"
+        "IR" -> "+98 XXX-XXX-XXXX"
+        // Africa.
+        "EG" -> "+20 XX-XXXX-XXXX"
+        "NG" -> "+234 XXX-XXX-XXXX"
+        "KE" -> "+254 XXX-XXXXXX"
+        "TZ" -> "+255 XXX-XXX-XXX"
+        "UG" -> "+256 XXX-XXXXXX"
+        "GH" -> "+233 XX-XXX-XXXX"
+        "ZA" -> "+27 XX-XXX-XXXX"
+        "MA" -> "+212 XXX-XXXXXX"
+        "DZ" -> "+213 XXX-XX-XX-XX"
+        "TN" -> "+216 XX-XXX-XXX"
+        "ET" -> "+251 XX-XXX-XXXX"
+        // Latin America.
+        "BR" -> "+55 XX-XXXXX-XXXX"
+        "MX" -> "+52 XXX-XXX-XXXX"
+        "AR" -> "+54 XXX-XXX-XXXX"
+        "CL" -> "+56 X-XXXX-XXXX"
+        "CO" -> "+57 XXX-XXX-XXXX"
+        "PE" -> "+51 XXX-XXX-XXX"
+        "VE" -> "+58 XXX-XXX-XXXX"
+        "EC" -> "+593 XX-XXX-XXXX"
+        "UY" -> "+598 X-XXX-XXXX"
+        "PY" -> "+595 XXX-XXX-XXX"
+        "BO" -> "+591 X-XXX-XXXX"
+        // Oceania.
+        "AU" -> "+61 XXX-XXX-XXX"
+        "NZ" -> "+64 XX-XXX-XXXX"
+        else -> null
+    }
+
     /** How many of these digits are the dial code. See [TWO_DIGIT_CODES]. */
     private fun dialCodeLength(digits: String): Int {
         val first = digits.firstOrNull() ?: return 0

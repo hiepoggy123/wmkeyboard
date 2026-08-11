@@ -112,8 +112,8 @@
     <string name="photo_rotation_intro_title">A background that changes</string>
     <string name="photo_rotation_intro_body">The keyboard keeps some photos ready and changes the background on a schedule. Your saved themes do not change.</string>
     <string name="photo_rotation_start_action">Turn on the rotation</string>
-    <string name="photo_rotation_on_title">Change the background</string>
-    <string name="photo_rotation_on_subtitle">Show a different photo on a schedule</string>
+    <string name="photo_rotation_on_title">Rotate the background</string>
+    <string name="photo_rotation_on_subtitle">Turn it off to keep the photo that is up now</string>
     <string name="photo_rotation_schedule_section_title">Schedule</string>
     <string name="photo_rotation_interval_title">How frequently</string>
     <string name="photo_rotation_shuffle_title">Change the photo now</string>

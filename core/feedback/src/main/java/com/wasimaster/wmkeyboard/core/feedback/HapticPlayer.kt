@@ -65,6 +65,11 @@ object HapticPlayer {
      * exists. Below it the predefined effects are still the best guess, and an
      * older device is also the one most likely to have a mushy motor — so the
      * cut-off doubles as the version check.
+     *
+     * Never returns `HapticStyle.SYSTEM_TAP`, even though that is what
+     * `KeyboardSettings.hapticStyle` declares. Onboarding calls this and stores
+     * the answer, so a phone that has been through the wizard types on one of
+     * the two styles below and not on the declared default.
      */
     fun bestSupportedStyle(context: Context): HapticStyle {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return HapticStyle.HEAVY_CLICK

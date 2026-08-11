@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -202,6 +203,7 @@ import com.wasimaster.wmkeyboard.core.tools.leaderLabel
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -268,6 +270,7 @@ import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
 import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
 import com.wasimaster.wmkeyboard.core.tools.Weekend
+import com.wasimaster.wmkeyboard.core.tools.isSouthernHemisphere
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
@@ -2033,10 +2036,19 @@ internal fun NavRow(
             trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (value != null) {
+                        // Capped, or a long value takes the width it asks for
+                        // and the title is left wrapping one word per line.
+                        // ListItem hands the trailing slot whatever it wants
+                        // and gives the headline the remainder, so the limit
+                        // has to be here.
                         Text(
                             value,
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.End,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = NAV_ROW_VALUE_MAX_WIDTH),
                         )
                         Spacer(Modifier.width(4.dp))
                     }
@@ -2051,6 +2063,16 @@ internal fun NavRow(
         )
     }
 }
+
+/**
+ * How wide a [NavRow] value may get before it wraps and then ellipsizes.
+ *
+ * Roughly a third of a phone, which leaves the title the two thirds it needs to
+ * stay on one or two lines. A value longer than two lines at this width was
+ * never going to be read off a row anyway — it belongs in the screen the row
+ * opens.
+ */
+private val NAV_ROW_VALUE_MAX_WIDTH = 132.dp
 
 /** [ToggleSetting] for a row named by a string resource. */
 @Composable
@@ -10250,7 +10272,10 @@ private fun ToolDetailSettings(
                     R.string.tooldetail_moon_southern_title,
                     stringResource(R.string.tooldetail_moon_southern_subtitle),
                     settings.moonSouthernHemisphere,
-                    default = SettingsDefaults.moonSouthernHemisphere,
+                    // Not SettingsDefaults: this one starts from the device's
+                    // region, so reset has to land back on that and not on
+                    // the northern hemisphere the data class declares.
+                    default = isSouthernHemisphere(repository.deviceRegion),
                 ) { scope.launch { repository.setMoonSouthernHemisphere(it) } }
             }
         }

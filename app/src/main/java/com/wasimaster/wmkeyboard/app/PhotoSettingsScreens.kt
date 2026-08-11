@@ -168,6 +168,22 @@ fun PhotoRotationScreen(
             return@WmScreen
         }
 
+        // The master switch, first and on its own. It used to sit under
+        // "Schedule" and read "Change the background", four rows down a screen
+        // whose first section is about the photo already up — which reads as an
+        // action rather than as the switch that turns the feature off, so the
+        // only obvious control on the screen was the one that turned it on.
+        SettingsGroup {
+            item {
+                ToggleSetting(
+                    title = R.string.photo_rotation_on_title,
+                    subtitle = stringResource(R.string.photo_rotation_on_subtitle),
+                    checked = photos.rotateEnabled,
+                    default = SettingsDefaults.photoBackground.rotateEnabled,
+                ) { scope.launch { repository.setPhotoRotateEnabled(it) } }
+            }
+        }
+
         SettingsGroup(stringResource(R.string.photo_rotation_now_section_title)) {
             item {
                 when {
@@ -215,14 +231,6 @@ fun PhotoRotationScreen(
         }
 
         SettingsGroup(stringResource(R.string.photo_rotation_schedule_section_title)) {
-            item {
-                ToggleSetting(
-                    title = R.string.photo_rotation_on_title,
-                    subtitle = stringResource(R.string.photo_rotation_on_subtitle),
-                    checked = photos.rotateEnabled,
-                    default = SettingsDefaults.photoBackground.rotateEnabled,
-                ) { scope.launch { repository.setPhotoRotateEnabled(it) } }
-            }
             item {
                 // A dialog, not a row of chips: six choices with names this
                 // long do not fit across a phone.

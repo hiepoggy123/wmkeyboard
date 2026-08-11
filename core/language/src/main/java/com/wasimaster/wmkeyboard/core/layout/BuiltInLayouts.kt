@@ -319,9 +319,18 @@ object BuiltInLayouts {
         ),
     )
 
-    /** Matches the enabled modes a fresh install used to start with. */
-    val defaultEnabledIds: List<String> =
-        listOf(QWERTY_ID, AVRO_ID, PROBHAT_ID, JATIYA_ID)
+    /**
+     * What a fresh install starts with before onboarding or the language screen
+     * has said otherwise: one layout per language, English and Bengali.
+     *
+     * It used to be four — Probhat and Jatiya alongside Avro — because this list
+     * was inherited from the old `InputMode` enum, where a "mode" was a layout
+     * and every Bengali layout was therefore its own entry. That reads as three
+     * Bengali keyboards to switch between when the user only ever wanted one:
+     * whoever types Probhat picks it from the language screen, and Avro is what
+     * the rest of Bangladesh types on.
+     */
+    val defaultEnabledIds: List<String> = listOf(QWERTY_ID, AVRO_ID)
 }
 
 // ---------------------------------------------------------------------------

@@ -96,7 +96,13 @@ data class PhotoBackgroundSettings(
     val scope: RotationScope = RotationScope.CURRENT_THEME,
     /** Which themes rotate under [RotationScope.SELECTED_THEMES]. */
     val scopeThemeIds: Set<String> = emptySet(),
-    val sources: Set<RotationSourceKind> = setOf(RotationSourceKind.ONLINE),
+    /**
+     * Both on by default. The collection costs nothing while it is empty, and
+     * once it is not, a photo the user kept on purpose is the last thing a
+     * rotation should skip in favour of one the app picked for them.
+     */
+    val sources: Set<RotationSourceKind> =
+        setOf(RotationSourceKind.SAVED, RotationSourceKind.ONLINE),
     /** Provider topic slugs, never the translated labels shown on the chips. */
     val topics: List<String> = emptyList(),
     /** Search terms the pool is topped up from, alongside [topics]. */
