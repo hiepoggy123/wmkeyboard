@@ -3816,6 +3816,61 @@ private fun symbolSetName(set: SymbolSet): String =
     BuiltInSymbolSets.nameRes(set)?.let { stringResource(it) } ?: set.name
 
 /**
+ * Properties for the strip pickers' [DropdownMenu]s.
+ *
+ * A menu is its own window, and Material's default properties make that window
+ * focusable. Raised from an app that is only a window, that is harmless; raised
+ * from the IME it takes input focus away from the editor the keyboard is typing
+ * into. The app sees its field lose focus and hides the keyboard, then shows it
+ * again once focus comes back — and the restart tears the menu's composition
+ * down mid-flight, so the picker either flickers shut or comes back with the
+ * keyboard behind it gone. How visible that is depends on how the target window
+ * reacts to losing focus, which is why the row pickers look fine in most apps
+ * and misbehave in dialogs and in this app's own settings search.
+ *
+ * Every other popup the keyboard raises is non-focusable for this reason (see
+ * [LanguagePickerPopup], `GrammarDialectPicker`); these two menus were the
+ * outliers. Tapping outside still dismisses: Compose asks for outside touches
+ * whether or not the window is focusable.
+ */
+private val MenuPopupProperties = PopupProperties(focusable = false)
+
+/** Pins a popup to the keyboard window's own corner, whatever its anchor. */
+private object WindowOriginPositionProvider : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset = IntOffset.Zero
+}
+
+/**
+ * Swallows the tap that closes an open strip picker.
+ *
+ * A window that takes no focus also takes no touch grab, so the tap that
+ * dismisses the menu carries on to whatever is underneath — and under these
+ * strips is the key grid, which would type a character on the way out. This
+ * covers the keyboard with an invisible window that takes that tap instead.
+ * The menu's own window is added after this one and so sits above it.
+ */
+@Composable
+private fun StripMenuScrim(onDismiss: () -> Unit) {
+    Popup(
+        popupPositionProvider = WindowOriginPositionProvider,
+        properties = MenuPopupProperties,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                // On press, not on tap: a dismissing finger that then drags
+                // must not leave the menu open under it.
+                .pointerInput(Unit) { detectTapGestures(onPress = { onDismiss() }) },
+        )
+    }
+}
+
+/**
  * The dedicated symbol row: one symbol set's characters and snippets a tap
  * away, with a picker chip on the left switching between the enabled sets
  * (or the sets the active keyboard mode prescribes).
@@ -3870,7 +3925,12 @@ private fun SymbolRowStrip(
                     )
                 }
             }
-            DropdownMenu(expanded = pickerOpen, onDismissRequest = { pickerOpen = false }) {
+            if (pickerOpen) StripMenuScrim(onDismiss = { pickerOpen = false })
+            DropdownMenu(
+                expanded = pickerOpen,
+                onDismissRequest = { pickerOpen = false },
+                properties = MenuPopupProperties,
+            ) {
                 for (set in enabledSets) {
                     DropdownMenuItem(
                         text = { Text(symbolSetName(set)) },
@@ -4005,7 +4065,12 @@ private fun FancyStyleStrip(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                DropdownMenu(expanded = pickerOpen, onDismissRequest = { pickerOpen = false }) {
+                if (pickerOpen) StripMenuScrim(onDismiss = { pickerOpen = false })
+                DropdownMenu(
+                    expanded = pickerOpen,
+                    onDismissRequest = { pickerOpen = false },
+                    properties = MenuPopupProperties,
+                ) {
                     for (style in FancyStyles.all) {
                         DropdownMenuItem(
                             text = { Text(style.name) },
