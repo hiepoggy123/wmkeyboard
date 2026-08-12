@@ -9,6 +9,10 @@ function transformLink(href) {
     if (href.startsWith('#')) return href;
     let cleanHref = href.replace(/^\//, '').replace(/\/$/, '');
     if (cleanHref === '') cleanHref = 'Home';
+    else {
+        if (cleanHref.endsWith('/index')) cleanHref = cleanHref.slice(0, -6);
+        cleanHref = cleanHref.split('/').join('-');
+    }
     return `${wikiBase}${cleanHref}`;
 }
 
@@ -93,12 +97,20 @@ let pages = [];
 walkDir(inputDir, (filePath) => {
     if (filePath.endsWith('.mdx') || filePath.endsWith('.md')) {
         const relativePath = path.relative(inputDir, filePath);
+        let baseName = relativePath.replace(/\.mdx?$/, '');
         
-        let outPath = relativePath.replace(/\.mdx$/, '.md');
-        if (outPath === 'index.md') outPath = 'Home.md';
+        let flatName;
+        if (baseName === 'index') {
+            flatName = 'Home';
+        } else {
+            if (baseName.endsWith('/index')) {
+                baseName = baseName.slice(0, -6);
+            }
+            flatName = baseName.split(path.sep).join('-');
+        }
         
+        let outPath = flatName + '.md';
         const fullOutPath = path.join(outputDir, outPath);
-        fs.mkdirSync(path.dirname(fullOutPath), { recursive: true });
         
         const { content, title, order } = processFile(filePath);
         fs.writeFileSync(fullOutPath, content);
@@ -107,9 +119,8 @@ walkDir(inputDir, (filePath) => {
         const category = parts.length > 1 ? parts[0] : 'root';
         const displayTitle = title || path.basename(relativePath, path.extname(relativePath));
         
-        // Remove .md extension for linking, and use forward slash for URLs
-        let link = outPath.replace(/\.md$/, '').split(path.sep).join('/');
-        let absoluteLink = transformLink(link);
+        // Use transformLink so that _Sidebar.md gets the exact same links as internal content
+        let absoluteLink = transformLink('/' + (baseName === 'index' ? 'Home' : baseName));
         
         pages.push({
             title: displayTitle,
@@ -166,7 +177,7 @@ for (const cat of categories) {
 }
 
 // Add other root pages if any
-const rootPages = pages.filter(p => p.category === 'root' && p.link !== 'Home').sort((a, b) => a.order - b.order);
+const rootPages = pages.filter(p => p.category === 'root' && !p.link.endsWith('/Home')).sort((a, b) => a.order - b.order);
 for (const page of rootPages) {
     sidebarContent += `* [${page.title}](${page.link})\n`;
 }
