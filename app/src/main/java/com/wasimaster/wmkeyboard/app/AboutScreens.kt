@@ -268,6 +268,19 @@ private val bundledAttributions: List<Attribution> = buildList {
             "https://github.com/github/gemoji",
         ),
     )
+    // One row for 862 keyboards. Each carries its own MIT licence differing
+    // only in the holder line, so the asset states the shared text once and
+    // then names every holder; shipping 862 near-identical LICENSE.md files
+    // would be the same obligation met less readably.
+    add(
+        Attribution(
+            "Keyman keyboard layouts",
+            R.string.about_bundled_keyman_used,
+            "Copyright the individual keyboard authors, listed in the licence",
+            "MIT", "mit-keyman.txt",
+            "https://github.com/keymanapp/keyboards",
+        ),
+    )
     add(
         Attribution(
             "OpenCC",

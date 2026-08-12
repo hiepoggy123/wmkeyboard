@@ -1,0 +1,905 @@
+Keyman keyboard layouts
+=======================
+
+The on-screen key grids for 862 of this app's layouts were converted from
+the touch layouts in the Keyman keyboards repository. Each keyboard there
+carries its own MIT licence, differing only in the copyright holder; the
+shared licence text appears once below, followed by the holder for every
+keyboard used.
+
+Only the key grid was taken. The layouts were converted by this project's
+own code and are not the upstream files.
+
+Upstream: https://github.com/keymanapp/keyboards
+Commit:   ec743357fb22a74db1c7d780f3f63fa2715e5836
+Licence:  MIT, per keyboard
+
+Keyman is a product of SIL Global. This project is not affiliated with or
+endorsed by SIL Global or the Keyman project.
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+Keyboards
+---------
+
+adiga_danef — © 2022 Haroon Showgan
+afghan_turkmen — © Samar
+ahom_star — © HemantaGogoi Ngi Mon
+akan — Copyright © dcshci lab
+akha_lahu — Copyright © SIL Global
+aksarabali_panlex — (c) 2019-2023 The PanLex Project of The Long Now Foundation
+amazigh_latin — Copyright © SIL Global
+anglish — Copyright © 3ubaidUrRe7man
+anglish_dvorak — Copyright © 3ubaidUrRe7man
+anglo_furthorc_english — Copyright © Oscar Ewen
+anii — © 2015-2020 Martin Zaske
+arabic_flick — Copyright © 3ubaidUrRe7man
+arabic_izza — © 2017-2025 Prof. Abdelmalek Bouhadjera
+arabic_w_o_dots — Copyright © 3ubaidUrRe7man
+aramaic_hebrew — © SIL Global
+arbore — © SIL Global
+armenian_mnemonic — © Dotland
+armenian_mnemonic_r — © Dotland
+athinkra_vai — © Athinkra, LLC
+athinkra_vai_typewriter — © Athinkra, LLC
+ausephon — © Kym Barron &amp; Ben Hinton
+avestan_phonetic — Copyright © SIL Global
+balochi_inpage — © SIL Global
+balochi_latin — © 2020-2022 SIL International
+balochi_persian — © SIL Global
+balochi_phonetic — © SIL Global
+balochi_scientific — © 2017-2023 SIL International.
+balochi_urdu — © SIL Global
+bambara — Copyright © Sekou Goro
+bamum — Copyright © SIL International
+bangla_joy — © 2007-2020 Arun Sarkar
+bangla_munir — © 2007-2019 Arun Sarkar
+bangla_probhat — © 2007-2018 Arun Sarkar
+banne — Copyright © SIL
+basic_kbda1 — (c) 2009-2025 SIL Global
+basic_kbda2 — (c) 2009-2025 SIL Global
+basic_kbda3 — (c) 2009-2025 SIL Global
+basic_kbdadlm — © 2021 SIL International
+basic_kbdal — © 2008-2019 SIL International
+basic_kbdarme — (c) 2009-2019 SIL International
+basic_kbdarmph — (c) 2018 SIL International
+basic_kbdarmty — (c) 2018 SIL International
+basic_kbdarmw — (c) 2009-2019 SIL International
+basic_kbdaze — © 2009-2020 SIL International
+basic_kbdazel — (c) 2009-2019 SIL International
+basic_kbdazst — © 2019 SIL International
+basic_kbdbash — © 2009-2020 SIL International
+basic_kbdbe — © 2009-2020 SIL International
+basic_kbdbene — (c) 2009-2019 SIL International
+basic_kbdbgph — © 2009-2020 SIL International
+basic_kbdbgph1 — © 2019 SIL International
+basic_kbdbhc — © 2009-2020 SIL International
+basic_kbdblr — © 2009-2019 SIL International
+basic_kbdbr — © 2009-2019 SIL International
+basic_kbdbu — © 2009-2020 SIL International
+basic_kbdbug — (c) 2018 SIL International
+basic_kbdbulg — © 2009-2020 SIL International
+basic_kbdca — (c) 2009-2019 SIL International
+basic_kbdcan — © 2014-2022 SIL International
+basic_kbdcher — (c) 2018 SIL International
+basic_kbdcherp — (c) SIL International
+basic_kbdcr — © 2009-2019 SIL International
+basic_kbdcz — (c) 2009-2019 SIL International
+basic_kbdcz1 — (c) 2009-2022 SIL International
+basic_kbdcz2 — (c) 2009-2022 SIL International
+basic_kbdda — (c) 2009-2020 SIL International
+basic_kbddiv1 — (c) 2009-2019 SIL International
+basic_kbddiv2 — (c) 2009-2019 SIL International
+basic_kbddv — (c) 2009-2019 SIL International
+basic_kbddzo — © 2019-2023 SIL International
+basic_kbdes — (c) 2009-2020 SIL International
+basic_kbdest — (c) 2009-2020 SIL International
+basic_kbdfa — (c) SIL Global
+basic_kbdfar — © SIL Global
+basic_kbdfi — (c) 2009-2020 SIL International
+basic_kbdfi1 — © 2009-2019 SIL International
+basic_kbdfo — (c) 2009-2019 SIL International
+basic_kbdfr — (c) 2009-2019 SIL International
+basic_kbdfthrk — (c) 2018 SIL International
+basic_kbdgae — (c) 2009-2020 SIL International
+basic_kbdgeo — (c) 2009-2019 SIL International
+basic_kbdgeoer — (c) 2009-2020 SIL International
+basic_kbdgeome — © 2019 SIL International
+basic_kbdgeooa — © 2019 SIL International
+basic_kbdgeoqw — (c) 2009-2020 SIL International
+basic_kbdgkl — (c) 2009-2020 SIL International
+basic_kbdgn — © SIL Global
+basic_kbdgr — (c) 2009-2019 SIL International
+basic_kbdgr1 — (c) 2009-2020 SIL International
+basic_kbdgrlnd — (c) 2009-2020 SIL International
+basic_kbdgthc — © 2019 SIL International
+basic_kbdhau — © 2019 SIL International
+basic_kbdhaw — © 2019 SIL International
+basic_kbdhe — (c) 2009-2019 SIL International
+basic_kbdhe220 — (c) 2009-2019 SIL International
+basic_kbdhe319 — (c) 2009-2019 SIL International
+basic_kbdheb — (c) SIL Global
+basic_kbdhebl3 — © SIL Global
+basic_kbdhela2 — (c) 2009-2020 SIL International
+basic_kbdhela3 — (c) 2009-2020 SIL International
+basic_kbdhept — (c) 2009-2019 SIL International
+basic_kbdhu — (c) 2009-2020 SIL International
+basic_kbdhu1 — (c) 2009-2020 SIL International
+basic_kbdibo — © 2019 SIL International
+basic_kbdic — (c) 2009-2020 SIL International
+basic_kbdinasa — © 2009-2020 SIL International
+basic_kbdinbe2 — © 2009-2020 SIL International
+basic_kbdinben — © 2009-2020 SIL International
+basic_kbdindev — (c) 2009-2019 SIL International
+basic_kbdinen — (c) 2018 SIL International
+basic_kbdinguj — (c) 2009-2019 SIL International
+basic_kbdinhin — (c) 2009-2019 SIL International
+basic_kbdinkan — (c) 2009-2019 SIL International
+basic_kbdinmal — (c) 2009-2019 SIL International
+basic_kbdinmar — (c) 2009-2020 SIL International
+basic_kbdinori — (c) 2009-2019 SIL International
+basic_kbdinpun — (c) 2009-2019 SIL International
+basic_kbdintam — (c) 2009-2019 SIL International
+basic_kbdintel — (c) 2009-2019 SIL International
+basic_kbdinuk2 — (c) SIL International
+basic_kbdir — (c) 2009-2020 SIL International
+basic_kbdit — (c) 2009-2019 SIL International
+basic_kbdit142 — (c) 2009-2019 SIL International
+basic_kbdiulat — (c) SIL Global
+basic_kbdjav — © 2019 SIL International
+basic_kbdkaz — © 2009-2020 SIL International
+basic_kbdkhmr — (c) SIL Global
+basic_kbdkni — © SIL Global
+basic_kbdkurd — © SIL Global
+basic_kbdkyr — © 2009-2019 SIL International
+basic_kbdla — (c) 2009-2019 SIL International
+basic_kbdlao — (c) 2009-2019 SIL International
+basic_kbdlisub — © SIL Global
+basic_kbdlisus — (c) SIL Global
+basic_kbdlt — (c) 2009-2019 SIL International
+basic_kbdlt1 — © 2008-2019 SIL International
+basic_kbdlt2 — (c) SIL International
+basic_kbdlv — (c) 2009-2020 SIL International
+basic_kbdlv1 — (c) 2009-2020 SIL International
+basic_kbdlvst — © 2019-2022 SIL International
+basic_kbdmac — © 2009-2019 SIL International
+basic_kbdmacst — © 2009-2020 SIL International
+basic_kbdmaori — (c) 2009-2020 SIL International
+basic_kbdmlt47 — (c) 2009-2019 SIL International
+basic_kbdmlt48 — (c) 2009-2019 SIL International
+basic_kbdmon — © 2009-2020 SIL International
+basic_kbdmonmo — (c) 2009-2019 SIL International
+basic_kbdmonst — (c) 2018 SIL International
+basic_kbdmyan — © SIL Global
+basic_kbdne — (c) 2009-2020 SIL International
+basic_kbdnepr — (c) 2009-2020 SIL International
+basic_kbdnko — (c) 2018-2023 SIL International
+basic_kbdno — (c) 2009-2020 SIL International
+basic_kbdno1 — (c) 2009-2020 SIL International
+basic_kbdnso — © 2019 SIL International
+basic_kbdntl — (c) 2018 SIL International
+basic_kbdogham — © 2019 SIL International
+basic_kbdolch — © 2019 SIL International
+basic_kbdoldit — © SIL Global
+basic_kbdosa — © 2021 SIL International
+basic_kbdosm — © 2019 SIL International
+basic_kbdpash — (c) SIL Global
+basic_kbdphags — © 2019 SIL International
+basic_kbdpl — (c) 2009-2019 SIL International
+basic_kbdpl1 — (c) 2009-2020 SIL International
+basic_kbdpo — (c) 2009-2020 SIL International
+basic_kbdropr — (c) 2009-2020 SIL International
+basic_kbdrost — (c) 2009-2019 SIL International
+basic_kbdru — © 2009-2019 SIL International
+basic_kbdru1 — © 2009-2019 SIL International
+basic_kbdrum — © 2019-2021 SIL International
+basic_kbdsf — © 2009-2019 SIL International
+basic_kbdsg — (c) 2009-2020 SIL International
+basic_kbdsl — (c) 2009-2020 SIL International
+basic_kbdsl1 — (c) 2009-2020 SIL International
+basic_kbdsmsfi — (c) 2009-2020 SIL International
+basic_kbdsmsno — (c) 2009-2020 SIL International
+basic_kbdsn1 — (c) SIL International
+basic_kbdsora — (c) 2018 SIL International
+basic_kbdsorex — (c) 2009-2020 SIL International
+basic_kbdsors1 — © SIL International
+basic_kbdsp — (c) 2009-2020 SIL International
+basic_kbdsw — (c) 2009-2020 SIL International
+basic_kbdsw09 — (c) SIL International
+basic_kbdsyr1 — (c) 2009-2019 SIL International
+basic_kbdsyr2 — (c) 2009-2019 SIL International
+basic_kbdtaile — (c) 2018-2019 SIL International
+basic_kbdtajik — © 2009-2019 SIL International
+basic_kbdtam99 — © 2019 SIL International
+basic_kbdth0 — (c) 2009-2019 SIL International
+basic_kbdth1 — (c) 2009-2019 SIL International
+basic_kbdth2 — (c) 2009-2019 SIL International
+basic_kbdth3 — (c) 2009-2019 SIL International
+basic_kbdtifi — (c) SIL Global
+basic_kbdtifi2 — (c) SIL Global
+basic_kbdtiprd — (c) 2008-2019 SIL International
+basic_kbdtt102 — © 2009-2019 SIL International
+basic_kbdtuf — (c) 2009-2020 SIL International
+basic_kbdtuq — (c) 2009-2020 SIL International
+basic_kbdturme — © 2009-2020 SIL International
+basic_kbdtzm — (c) 2018-2022 SIL International
+basic_kbdughr — (c) 2018 SIL International
+basic_kbdughr1 — (c) SIL Global
+basic_kbduk — (c) 2009-2019 SIL International
+basic_kbdukx — (c) 2009-2020 SIL International
+basic_kbdur — © 2009-2019 SIL International
+basic_kbdur1 — © 2009-2020 SIL International
+basic_kbdurdu — © SIL Global
+basic_kbdus — © 2008-2020 SIL International
+basic_kbdusa — (c) 2009-2019 SIL International
+basic_kbdusl — (c) 2009-2019 SIL International
+basic_kbdusr — (c) 2009-2019 SIL International
+basic_kbdusx — (c) 2009-2020 SIL International
+basic_kbduzb — © 2009-2019 SIL International
+basic_kbdvntc — (c) 2009-2019 SIL International
+basic_kbdwol — (c) SIL International
+basic_kbdyak — (c) 2018 SIL International
+basic_kbdyba — (c) 2018-2022 SIL International
+basic_kbdycc — © 2009-2022 SIL International
+basic_kbdycl — (c) 2009-2020 SIL International
+bassa_vah — Copyright © SIL Global
+batak — © Benny Lin
+baybayin — © Ilham Nurwansah
+behdini_arab — © SIL Global
+belgian_typewriter — © SIL International
+bhaiksuki_inscript — © Joshua Wong
+bj_cree_east — Copyright © Bill Jancewicz
+bj_cree_east_latn — © 2001-2020 Bill Jancewicz
+bj_cree_west_latn — © 2005-2020 Bill Jancewicz
+bj_innu — (c) 2005-2020 Bill Jancewicz SIL/NDC
+bj_innu_phonemic — (c) 2005-2020 Bill Jancewicz SIL/NDC
+bj_naskapi_common — © Bill Jancewicz
+bj_oji_cree — Copyright © Bill Jancewicz
+br_nativo — (c) 2009-2024 SIL International
+brahmi_inscript — © Joshua Wong
+breton_chwerty — (c) 2024 SIL International
+btl_kenya — © 1994-2020 Bible Translation &amp; Literacy, SIL International
+budukh — ©SIL Global
+buhid — © 2021-2023 Ilham Nurwansah
+bukawa — © William Eckermann
+burushaski_girminas — Copyright © Quwat K. Sunny
+burushaski_girminas_perso_arabic — Copyright © Quwat K. Sunny
+cabecar — © 2020-2022 Victoria Quint
+camoes — (c) SIL International
+cantonese_telex — © cathaylab
+caucasian_albanian — © 2024 SIL International
+caunon — © JamonRott
+chechen_latin — © Vayfond
+chinuk_wawa — ©2022 Carisa Chang
+choctaw_modern — © SIL Global
+clavbur9 — © SIL Burkina Faso
+colchis_latin — © SIL Global
+common_devanagari — © 2021 WIn Publishing Trust
+coptic_greek — © Michael Everson, evertype.com.
+coptic_qwerty — © 2010-2019 Michael Everson, evertype.com.
+cymraeg_fodern — Copyright (c) Joseff Bailey-Wood
+cypriot — © SIL Global
+dagaare — Copyright © dcshci lab
+dagbani — ©2021-2022 SIL International
+dakota_smsc — Copyright © Shakopee Mdewakanton Sioux Community
+dazaga_gourane_karra — © Zacharias van Stek and Henri Schellberg
+dega — © 2021- 2025 MSFJ
+dene — (c) Jim Stauffer
+deseret — © 2008-2023 Samuel R Boylan Jr
+devanagari_kagapa_phonetic — Copyright © Abhishek Deshpande
+dine_bizaad — Copyright © Wycliffe Associates
+dives_akuru_inscript — Copyright © SIL Global
+dogra_inscript — © Joshua Wong
+dzardzongke — Copyright © Kitty Liu
+east_syriac_qwerty — Copyright © Esho Marcus
+eastern_pwo_karen — Copyright © Eastern Pwo Karen Unicode Team
+easy_chakma — © Bivuti Chakma
+ekwtamil99uni — © 2008, 2015, 2018-2023 thamizha.com and SIL International
+el_dari_clra — © Enabling Languages
+el_dinka — © 2015-2018 Enabling Languages
+el_nuer — © 2015-2018 Enabling Languages
+el_pan_sahelian — © Enabling Languages
+el_pasifika — © 2018 Enabling Languages
+elbasan — © 2024 SIL International
+embera_north — © Ethnos360
+enga — © Copyright 2019 Stanley Stanis Kaka, Marc Durdin
+enggano — © Mary Dalrymple
+english_shavian_igc — © Shavian.info
+english_shavian_jafl — © Shavian.info
+english_shavian_qwerty — © Shavian.info
+engram — © Arno Klein
+engram_en — © Arno Klein
+eo_plus — © 2023 Andrea Vaccari
+esperanto_sava_eujao — Kreis Johannes Ĝenberĝ
+esperuni — © Gyula Zsigri
+ewe — Copyright © dcshcilab
+farsi_phonetic — Copyright © SIL Global
+farsiman — © Yuichi Yoshimoto
+foochow — © cathaylab
+formosa — © SIL International
+french_zhjay — (c) SIL International
+fulfulde_ajami_qwerty — © SIL Global
+fulfulde_latin_qwerty — © 2021 SIL International
+fv_anicinapemi8in — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_anishinaabemowin — (c) 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_atikamekw — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_australian — © 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_blackfoot — © 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_bodewadminwen — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_cree_latin — (c) 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_dakelh — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_dakota_mb — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_dakota_sk — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_dane_zaa_zaage — © 2015-2024 FirstVoices, First Peoples' Cultural Foundation, SIL International
+fv_dene_dzage — (c) 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_dene_mb — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_dene_nt — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_dene_zhatie — (c) 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_denesuline — (c) 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_denesuline_epsilon — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_dexwlesucid — © 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_diitiidatx — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_dine_bizaad — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_eastern_canadian_inuktitut — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_gitsenimx — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_goyogohono — © 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_gwichin — (c) 2008-2021 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_hailzaqvla — © 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_haisla — © FirstVoices 2020-2024
+fv_halqemeylem — (c) 2008-2022 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_han — (c) 2008-2019 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_henqeminem — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_hlgaagilda_xaayda_kil — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_hulquminum — (c) 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_hulquminum_combine — (c) 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_ilnu_innu_aimun — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_inuvialuktun — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_isga_iabi — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_kanienkeha_e — (c) 2008-2023 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_kashogotine_yati — (c) 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_klahoose — © 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_ktunaxa — (c) 2008-2025 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_kwadacha_tsekene — © 2023-2024 FirstVoices, First Peoples' Cultural Council
+fv_kwakwala — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_kwakwala_liqwala — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_lakota — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_lekwungen — © 2024 FirstVoices, SIL International
+fv_lunaapeewi_huluniixsuwaakan — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_maori — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_migmaq — (c) 2008-2021 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_moose_cree — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_nakoda — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_naskapi — © 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_natwits — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_neeaandeg — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_neeaaneegn — (c) 2015-2018 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_nexwslayemucen — © 2015-2025 FirstVoices, SIL Global, 2015 First Peoples' Cultural Foundation
+fv_nisgaa — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_nlakapamuxcheen — © 2024 First Peoples' Cultural Foundation, FirstVoices
+fv_nlekepmxcin — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_nlha7kapmxtsin — (c) 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_northern_east_cree — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_northern_tutchone — (c) 2008-2019 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_nsilxcen — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_nuucaanul — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_nuxalk — (c) 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_ojibwa — © 2015-2025 FirstVoices, SIL Global, 2015 First Peoples' Cultural Foundation
+fv_ojibwa_ifinal — © FirstVoices, First Peoples' Cultural Council
+fv_ojibwa_ifinal_rdot — © FirstVoices, First Peoples' Cultural Council
+fv_ojibwa_rdot — © 2024 FirstVoices, First Peoples' Cultural Council
+fv_onayotaaka — © 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_onodagega_onondagega — © 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_onodowaga — © 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_plains_cree — (c) 2015-2025 FirstVoices, SIL Global, 2015 First Peoples' Cultural Foundation
+fv_sahugotine_yati — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_secwepemctsin — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_sencoten — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_severn_ojibwa — © 2015-2025 FirstVoices, SIL Global, 2015 First Peoples' Cultural Foundation
+fv_severn_ojibwa_rdot — © 2024 FirstVoices, First Peoples' Cultural Council
+fv_sguuxs — © 2024 First Peoples' Cultural Council
+fv_shashishalhem — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_shihgotine_yati — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_skaru_re — © 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_skicinuwatuwewakon — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_skwxwumesh_snichim — © 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_smalgyax — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_southern_carrier — (c) 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_southern_tutchone — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_statimcets — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_stlatlimxec — © 2008-2024 FirstVoices, SIL International. Portions © 2006 Chris Harvey
+fv_swampy_cree — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_tagizi_dene — (c) 2008-2024 FirstVoices, SIL International. Portions (c) 2006 Chris Harvey
+fv_taltan — © 2008-2024 FirstVoices, SIL International. Portions © 2006 Chris Harvey
+fv_tlicho_yatii — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_tlingit — © 2015-2024 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation, parts 2007 Chris Harvey
+fv_tlingityooxatangi — © 2015-2026 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation, parts 2007 Chris Harvey
+fv_tsekehne — © 2008-2024 FirstVoices, SIL International. Portions © 2006 Chris Harvey
+fv_tsilhqotin — © 2008-2024 FirstVoices, SIL International. Portions © 2006 Chris Harvey
+fv_tsuutina — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_uummarmiutun — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_uwikala — © 2008-2024 FirstVoices, SIL International. Portions © 2006 Chris Harvey
+fv_wendat — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_wobanakiodwawogan — (c) 2015-2023 FirstVoices, SIL International, 2015 First Peoples' Cultural Foundation
+fv_xaislakala — © 2008-2024 FirstVoices, SIL International. Portions © 2006 Chris Harvey
+ga — Copyright © DCS HCI-LAB
+galaxie_greek_positional — (c) Galaxie Software and SIL Global
+galaxie_hebrew_positional — (c) Galaxie Software and SIL Global
+gandhari — © Andrew Glass
+gautami_bangla_bengali — © Gautam Sengupta &lt;gsghyd@gmail.com&gt;
+gautami_devanagari — © Gautam Sengupta
+gautami_inditran — Copyright © Gautam Sengupta
+gautami_thamizh_tamil — Copyright © Gautam Sengupta
+geba_karen_latn — Copyright © SIL Global
+geba_karen_mymr — Copyright © SIL Global
+geezword_amharic — Copyright © 1982-2023 Phonetic Systems, 2023-2026 Geezsoft.
+geezword_tigrinya — Copyright © Geezsoft.
+german_enhanced — (c) Xaver Nitsch
+gff_amharic — © Geʾez Frontier Foundation, SIL International
+gff_amharic_classic — © Ge'ez Frontier Foundation
+gff_awngi_xamtanga — © Geʾez Frontier Foundation
+gff_blin — © Geʾez Frontier Foundation
+gff_ethiopic — © Geʾez Frontier Foundation
+gff_gurage — © Geʾez Frontier Foundation
+gff_gurage_legacy — © Geʾez Frontier Foundation
+gff_harari — © Geʾez Frontier Foundation
+gff_harege_fidelat — © Geʾez Frontier Foundation
+gff_mesobe_fidelat — © Geʾez Frontier Foundation
+gff_musnad — © 2020 Geez Frontier Foundation
+gff_tigre — (c) Geʾez Frontier Foundation
+gff_tigrinya_eritrea — (c) Geʾez Frontier Foundation
+gff_tigrinya_ethiopia — © Geʾez Frontier Foundation
+ghana — © 2017-2020 SIL International. This keyboard is distributed under The MIT License (MIT).
+gilaki — © SIL Global
+gilaki_phonetic — © SIL Global
+glagolitic_phonetic — Copyright © SIL International
+gondi_dev — © 2018-2023 SIL International
+gondi_gunjala — © SIL Global
+gondi_gunjala_inscript — © SIL International
+gondi_tel — © 2018-2023 SIL International
+grantha_inscript — Copyright © SIL International
+greek_tonizo — Copyright © Amaryllis Deliyanni
+greekclassical — © Manuel A. Lopez and SIL International
+hainam — © cathaylab
+hakka — Copyright © cathaylab
+halang — Copyright © HEAR the WORD
+hanifi_rohingya — Copyright © SIL International
+hanifi_rohingya_alternate — Copyright © Rohingyan
+hanunoo — © 2022-2023 Ilham Nurwansah
+haroi — © SIL Global
+hatran_inscript — © Joshua Wong
+hausa_ajami_qwerty — © 2022 SIL International
+hausa_kano — © 2017-2019 Hamza Sulayman
+hcesar — © 2022-2024 SIL International
+hieroglyphic — © 2010-2023 Christian Casey
+himyarit_musnad — © Riyadh Alfareh
+hindi_modular — © 2006-2020 Arun Sarkar
+ho_latin — © Mangu Purty
+holikachuk — Copyright © Chris Harvey
+horami — © SIL Global
+ibono_chwerty — Copyright © Rogers Katelem Edeh
+idoma — © Ajonye Ondulohi
+inddv — (c) 2024 SIL International
+indigenous_nt — (c) Rajiv Rawat
+indonesia — © Benny Lin
+indonesian_suku — © Benny Lin
+inscriptional_pahlavi_phonetic — Copyright © SIL Global
+inscriptional_parthian_phonetic — Copyright © SIL Global
+inuktitut_latin — © 2015-2019 Pirurvik Centre and SIL International
+inuktitut_naqittaut — © Pirurvik Center and SIL Global
+inuktitut_pirurvik — © 2015-2019 Pirurvik Centre and SIL International
+itrans_bengali — © sanskritdocuments.org
+itrans_devanagari_hindi — © sanskritdocuments.org
+itrans_devanagari_sanskrit_vedic — © sanskritdocuments.org
+itrans_gujarati — © sanskritdocuments.org
+itrans_gurmukhi — © sanskritdocuments.org
+itrans_odia — © sanskritdocuments.org
+itrans_roman — © sanskritdocuments.org
+jawa — © Benny Lin
+jorai — © Jorai Bible Association
+jumjum — Copyright © Development and Literacy Partners International
+kaithi_inscript — Copyright © SIL International
+karakalpak_cyrillic — © Shaǵala Lab
+karakalpak_latin — © Shaǵala Lab
+kawi_inscript — Copyright © SIL Global
+kayan — © SIL Global
+kazakh_arabic — Copyright © Murat Karibay
+kharoshthi_inscript — © Joshua Wong
+khmer_advanced — © SIL Global
+khmer_angkor — © SIL Global
+khmer_traditional — Copyright © MengHeng Hav
+khojki_inscript — © Joshua Wong
+khudawadi_inscript — Copyright © SIL Global
+kirat_rai_inscript — © SIL International
+knyaw — © sawblut
+koalibrere — copyright holder not stated
+komono_ci — Copyright © Kirk Rogers
+korean_rr — © 2010-2023 SIL International
+kreative_supercyrillic — © 2023-2024 Kreative Software
+kreative_superipa — © 2018-2024 Kreative Software
+kreative_superlatin — © Kreative Software
+kreative_superpet — © Kreative Software
+kreative_supersymbol — © 2014-2024 Kreative Software
+krung — © SIL Global
+ladino — © Julian Vargo
+lahu — © Bob Prouty
+lainong — Copyright (c) Lainong Literature and Culture Committee
+lamkaang — ©2021-2022 Lamkaang Community
+landuma — © Ethnos360
+lao_2008_basic — © John Durdin
+lao_on_thai_layout — Copyright © Samuel A. Mattix
+lao_pali — © 2021-2023 John Durdin
+lao_pali_us — © 2021-2023 Dr Khampha Sidavong, John Durdin
+lao_phonetic — © John Durdin
+latinized_urdu — Copyright © 3ubaidUrRe7man
+lavanya — Copyright © Prashanth
+laz — © Okan Dale
+lazuri — © 2017-2020 HERdilDER
+libtralo — © SIL Global
+linear_b — © SIL Global
+linear_b_full_syllabary — Copyright © Joshua Wang
+luri — © Mohsen
+luri_paprik — © Mohsen
+lycian — © SIL International
+lydian — © SIL International
+mahajani_inscript — Copyright © SIL Global
+makasar_inscript — © Joshua Wong
+malar_braille — © 2019-2020 Ramesh Kunnappully [MIT License]
+malar_malayalam — © 2019-2023 Ramesh Kunnappully
+malar_malayalam_inscript — 2019-2022 © Ramesh Kunnappully [MIT License]
+malar_tirhuta — © Ramesh Kunnappully
+malay_jawi — Copyright © writingtradition
+maltese — © Gyula Zsigri
+manchu — Copyright © cathaylab
+mandaic_phonetic — © 2020-2023 SIL International
+manichaean — Copyright © SIL International
+mara — Copyright © Laitei
+marchen_direct_input — Copyright © SIL Global
+masaram_gondi — © 2021-2023 Rajesh Kumar Dhuriya
+me_en — © Wycliffe Ethiopia
+medefaidrin — Copyright © SIL International
+meroitic_cursive — Copyright © SIL International
+meroitic_hieroglyphs — Copyright © SIL Global
+mingrelian_cyrillic — © Harindeveloper
+mising — Copyright © Vivian Pegu &amp; Smriti Saikia
+mitterhofer — © SIL International
+modi_inscript — © 2022-2023 Joshua Wong
+modi_kagapa_phonetic — Copyright © Abhishek Deshpande
+mon_anonta — © Anonta Mon
+mon_k_nemin — Copyright © Nemin
+mon_phonetic — © Anonta Mon
+mongolian_cyrillic_qwerty — © 2019 SIL International, Latam Asia 拉美亞太
+mro_phonetic — © SIL International
+multani_inscript — © 2022-2023 Joshua Wong
+myancode_san — © SIL International
+nabataean_inscript — © 2022-2023 Joshua Wong
+nag_mundari — Copyright © SIL International
+nailangs — © Adebunmi Adeniran
+nandinagari_inscript — Copyright © SIL Global
+nepali_romanized — (c) Santosh Pradhan
+nepali_traditional — (c) Santosh Pradhan
+netgkb — Copyright © Nilesh Bandhiya
+newa_romanized — Copyright © 2020-2023 Ananda K Maharjan
+newa_traditional — (c) 2020-2022Santosh Pradhan
+newa_traditional_extended — © Swornim Nakarmi
+nguphing — © 2024 cathaylab
+nias — © Sirus Laia
+nisenan — © 2022-2023 Shingle Springs Band of Miwok Indians
+nko — © 2012-2023 Michael Everson and SIL International
+nkonya — (c) 1993-2021 GILLBT
+nlci_bengali_winscript — © NLCI, Bangalore
+nlci_devanagari_winscript — © 2002-2022 NLCI, Bangalore
+nlci_gujarati_winscript — © NLCI, Bangalore
+nlci_gurmukhi_winscript — © NLCI, Bangalore
+nlci_kannada_winscript — © NLCI Bangalore
+nlci_malayalam_winscript — © NLCI Bangalore
+nlci_oriya_winscript — © NLCI, Bangalore
+nlci_tamil_winscript — © NLCI Bangalore
+nlci_telugu_winscript — © NLCI, Bangalore
+nobonob — © SIL International
+northern_chinook_jargon — Copyright © Juli Baumler
+northern_sierra_miwok — © Shingle Springs Band of Miwok Indians
+nrc_crk_cans — © 2019, 2020 National Research Council Canada
+nrc_makah — © National Research Council Canada
+ntl_onekey — © 2015-2019 SIL International
+numanggang — © SIL Global
+nw_iranian_latin — © 2017-2020 SIL International. This keyboard is distributed under The MIT License (MIT).
+nyiakeng_puachue_hmong — Copyright © SIL International
+nzema — Copyright © DCS HCI-LAB
+o_tissi — © 2020-2021 Indigenous Language Network
+obolo_chwerty — © Rogers Katelem Edeh
+obolo_qwerty — © Rogers Katelem Edeh
+old_hungarian — © 2021-2023 SIL International
+old_north_arabian_phonetic — Copyright © SIL Global
+old_permic — Copyright © SIL International
+old_persian — Copyright © SIL Global
+old_sogdian — © SIL Global
+old_turkic_udw21_qwerty — © Mehmet Oguz Derin and Takahiro Harada
+old_uyghur — Copyright © Kadir Garip
+optitrans_devanagari_sanskrit_pre_vedic — Sanskrit Coders
+orma — © Steve White
+osage_nation — © 2018-2023 Osage Nation
+osage_nation_new — © 2018-2023 Osage Nation
+otoe_missouria — © Christina F. Goodson
+pa_oh — Copyright © SIL Global and ThanLwinSoft.org
+pahawh_hmong_basic — Copyright © SIL International
+palmyrene — Copyright © SIL International
+pan_kachin — Copyright © SIL Global
+pashai — Copyright © SIL Global
+pau_cin_hau — Copyright © SIL International
+persian_phonetic — © SIL Global
+phaistos_disc — © 2024 SIL International
+phoenician — © SIL International
+pinyin_typer — Copyright © cathaylab
+poorna_malayalam_extended_inscript — © Mujeeb CPY
+poorna_malayalam_typewriter — © Mujeeb CPY
+postmodern_english_uk_dualstroke — © 2022 - 2023, The Postmodern English Project
+postmodern_english_uk_natural — © 2022 - 2023, The Postmodern English Project
+postmodern_english_us_dualstroke — © 2022 - 2023, The Postmodern English Project
+postmodern_english_us_natural — © 2022 - 2023, The Postmodern English Project
+psalter_pahlavi_phonetic — Copyright © SIL Global
+pt_azerty — (c) SIL International
+pt_pro — (c) 2024 SIL International
+pukapuka — © 2018 SIL International
+qom — © 2020 Latinoamérica Habla
+quinault — © 2016-2020 SIL International
+qwerty_farang — © 2021 Sebastian Restrepo &amp; LatamAsia
+rac_aer — © Rehmat Aziz Chitrali
+rac_arabic — © Rehmat Aziz Chitrali
+rac_balti — © Rehmat Aziz Chitrali
+rac_brahui — © Rehmat Aziz Chitrali
+rac_brahui_latin — © Rehmat Aziz Chitrali
+rac_burushaski — © Rehmat Aziz Chitrali
+rac_dameli — © Rehmat Aziz Chitrali
+rac_dhatki — © Rehmat Aziz Chitrali
+rac_dogri — © Rehmat Aziz Chitrali
+rac_gawar_bati — © Rehmat Aziz Chitrali
+rac_gawri — © Rehmat Aziz Chitrali
+rac_hazaragi — © Rehmat Aziz Chitrali
+rac_hindko — © Rehmat Aziz Chitrali
+rac_indus_kohistani — © Rehmat Aziz Chitrali
+rac_kalasha — © Rehmat Aziz Chitrali
+rac_kashmir_shina — © Rehmat Aziz Khan Chitrali
+rac_kashmiri — © Rehmat Aziz Chitrali
+rac_khowar — © Rehmat Aziz Chitrali
+rac_marwari — © Rehmat Aziz Chitrali
+rac_munji — © Rehmat Aziz Chitrali
+rac_oadki — © Rehmat Aziz Chitrali
+rac_ormuri — © Rehmat Aziz Chitrali
+rac_pahari — © Rehmat Aziz Chitrali
+rac_palula — © Rehmat Aziz Chitrali
+rac_parkari_koli — © Rehmat Aziz Chitrali
+rac_pashai — © Rehmat Aziz Chitrali
+rac_pashto — © Rehmat Aziz Chitrali
+rac_saraiki — © Rehmat Aziz Chitrali
+rac_shina — © Rehmat Aziz Chitrali
+rac_sindhi — © Rehmat Aziz Chitrali
+rac_torwali — © Rehmat Aziz Chitrali
+rac_urdu — © Rehmat Aziz Chitrali
+rac_ushojo — © Rehmat Aziz Chitrali
+rac_uyghur — © Rehmat Aziz Chitrali
+rac_wadiyara — © Rehmat Aziz Chitrali
+rac_wakhi — © Rehmat Aziz Chitrali
+rac_western_punjabi — © Rehmat Aziz Chitrali
+rac_yidgha — © Rehmat Aziz Chitrali
+rawang — © 2007-2021 R.James
+rejang — © Ilham Nurwansah
+remington_gail — © SIL Global
+rohingya_arab — © SIL Global
+romanian_popak — (c) SIL International
+russian_mnemonic_r — © Dotland
+sabdalipi_assamese — © TI Trade
+sahaptin_umatilla — © Confederated Tribes of the Umatilla Indian Reservation
+sahaptin_yakima — © 2019-2020 Keegan Livermore
+samaritan — Copyright © SIL International
+sanjha_punjabi — © Rana Zubair
+saraiki — © Parvez Qadir
+saurashtra_inscript — Copyright © SIL International
+sgaw_karen — © 2024 Jcturner12
+shahmukhi_phonetic — © SIL Global
+shan — © Sai Ai Wong
+shan_thailayout — Copyright © Ninenik
+sharada_inscript — Copyright © SIL Global
+siddham_inscript — © Joshua Wong
+sil_akebu — © 2023 SIL Cameroon
+sil_akha_act — © SIL International
+sil_arabic_phonetic — Copyright © SIL Global
+sil_areare — © 2017-2023 SIL International
+sil_bari — © SIL Global
+sil_bengali_phonetic — © 2006-2021 SIL International
+sil_bolivia — (c) 2022 SIL International
+sil_brao — © SIL Global
+sil_bru — © 2013-2021 SIL International
+sil_bunong — © SIL Global
+sil_busa — © SIL Global
+sil_bwe_karen — © SIL Global
+sil_cameroon_azerty — © SIL Cameroon
+sil_cameroon_qwerty — © SIL Cameroon
+sil_cham_phonetic — Copyright © SIL Global
+sil_cherokee_nation — © 2012-2020 SIL International
+sil_cheyenne — (c) 2014-2020 SIL International
+sil_colombia_venezuela — © SIL Global
+sil_devanagari_phonetic — 2002-2020 SIL International
+sil_devanagari_romanized — © SIL Global
+sil_devanagari_typewriter — © SIL Global
+sil_dzongkha — © SIL Global
+sil_eastern_congo — © SIL Global
+sil_euro_latin — Copyright (c) SIL Global
+sil_extended_urdu_np — (c) SIL Global
+sil_gawri — Copyright © SIL Global
+sil_greek_polytonic — (c) SIL Global
+sil_hawaiian — © SIL Global
+sil_hebr_grek_trans — Copyright © SIL Global
+sil_hebrew — Copyright © SIL Global
+sil_hebrew_legacy — Copyright © SIL Global
+sil_hmd_plrd — (c) SIL Global
+sil_hupdah — Copyright © SIL Global
+sil_indic_roman — © SIL Global
+sil_jarai — © SIL Global
+sil_kayah_kali — © SIL Global
+sil_kayah_latn — © SIL Global
+sil_kayah_mymr — © SIL Global
+sil_kcho — Copyright © SIL Global
+sil_khamti — (c) SIL Global
+sil_khmer — (c) SIL Global
+sil_khowar — © SIL Global
+sil_kmhmu — © SIL International
+sil_kvl_kayaw — © SIL Global
+sil_lepcha — © SIL Global
+sil_limbu_phonetic — © SIL International
+sil_limbu_typewriter — © SIL International
+sil_lisu_basic — © SIL Global
+sil_lisu_standard — © SIL Global
+sil_lpo_plrd — © SIL Global
+sil_madi — © SIL Global
+sil_madurese — Copyright © SIL Global
+sil_makuri — © 2020 SIL International
+sil_mali_qwerty — © SIL Mali
+sil_mende_kikakui — Copyright © SIL Global
+sil_moore — © SIL Global
+sil_myanmar_my3 — © SIL Global
+sil_myanmar_mywinext — (c) SIL Global
+sil_nko — © 2020-2023 SIL International
+sil_nubian — © 2008-2023 SIL International
+sil_sahu — (c) SIL Global
+sil_senegal_bda_azerty — © SIL Global
+sil_senegal_bqj_azerty — © SIL Global
+sil_senegal_bsc_azerty — © SIL International
+sil_senegal_cou_azerty — ©2021-2022 SIL International
+sil_senegal_cou_qwerty — ©2021-2023 SIL International
+sil_senegal_csk_azerty — Copyright © 2025 SIL Global
+sil_senegal_dyo_azerty — ©2021-2023 SIL International
+sil_senegal_gsl_azerty — ©2021-2023 SIL International
+sil_senegal_knf_azerty — © 2023 SIL International
+sil_senegal_krx_azerty — ©2020-2023 SIL International
+sil_senegal_krx_qwerty — ©2021-2023 SIL International
+sil_senegal_ndv_azerty — ©2021-2023 SIL International
+sil_senegal_sav_azerty — ©2022-2023 SIL International
+sil_senegal_snf_azerty — ©2021-2023 SIL International
+sil_senegal_srr_azerty — ©2021-2023 SIL International
+sil_senegal_wo_azerty — ©2020-2023 SIL International
+sil_sgaw_karen — © SIL Global
+sil_shan — (c) SIL Global
+sil_taang — Copyright © SIL Global
+sil_tagdal — © SIL Global
+sil_tai_dam — Copyright © SIL International
+sil_tai_dam_lao — © SIL International
+sil_tai_dam_latin — Copyright © SIL International
+sil_tai_dam_typewriter — Copyright © SIL International
+sil_tanguat — Copyright © SIL International
+sil_tawallammat — © SIL Global
+sil_tchad — © SIL Global
+sil_tchad_faux_azerty — © SIL Global
+sil_tchad_qwerty — © SIL Global
+sil_temiar — © SIL Malaysia
+sil_tepehuan — © SIL Mexico
+sil_torwali — © SIL Global
+sil_tunisian — © SIL Global
+sil_uganda_tanzania — 2004-2020 SIL International
+sil_wayuu — © SIL Global
+sil_ygp_plrd — © SIL Global
+sil_yi — © SIL Global
+sil_yna_plrd — (c) SIL Global
+sil_yoruba_bar — © 2012-2020 SIL International
+sil_yoruba_dot — © 2012-2020 SIL International
+sil_yupik_cyrillic — Copyright © SIL International
+sil_yupik_cyrillic_ru — © 2009-2022 SIL International
+sil_ywq_plrd — © SIL Global
+sisaali — Copyright © DCS HCI-LAB
+slaviature — © Rafał Brudziński, Michał Pierzchalski
+slp1_deva — © The Sanskrit Library
+slp1_roman — © The Sanskrit Library
+sogdian_phonetic — Copyright © SIL Global
+soqotri_arabic — (C) SIL Global
+sorani_behdini_arab_qwerty — © SIL Global
+soyombo — Copyright © SIL International
+srr_ajami_qwerty — © SIL Global
+sudest — © 2023-2024 Seed Company
+sundanese — © Ilham Nurwansah
+sundanese_latin — © Ilham Nurwansah
+swahili_ajami_qwerty — Copyright © SIL Global
+swanalekha_malayalam — © 2019-2023 Ramesh Kunnappully [MIT License]
+sxava — © Fetrigon
+sxava_eo — © 2023 Veotri
+sylheti_nagri — © 2019-2023 Sylheti Translation And Research
+symbolic_logic — © Christopher V. Mirus
+syriac_arabic — © SIL Global
+syriac_phonetic — © SIL Global
+tagbanwa_inscript — © Joshua Wong
+tai_tham_my — © 2023 Tai Lue Literacy Committee
+taichow — Copyright © cathaylab
+taigi_sdwxv — © 2024 cathaylab
+taigi_telex — © cathaylab
+taigi_viet_telex — Copyright © cathaylab
+tainua — © 2016-2023 Sai Ai Wong
+taiwan_austronesian — Copyright © cathaylab
+takri — (c) manik
+takri_inscript — Copyright © SIL International
+tawallammat_latin — © 2020 Christian Grandouiller
+tay_latn — Copyright © SIL Global
+tem_kdh — © SIL Global
+teochew — © cathaylab
+tfnalgonquin — Copyright Timiskaming First Nation
+thai_kedmanee_mattix — Copyright © Samuel A. Mattix
+thamizha_anjal_paangu — © thamizha.com and SIL Global
+thamizha_bamini — © thamizha.com and SIL Global
+thamizha_new_typewriter — © thamizha.com and SIL Global
+thamizha_tamil99_ext — © thamizha.com and SIL Global
+tibetan_direct_input — © 2003-2019 SIL International
+tibetan_ewts — © 2003-2019 SIL International
+tirhuta — © 2012-2023 Dinesharatna Prabhakara Siddhartha
+tlahuica — © Aldo R. V.
+todhri — © SIL Global
+tohono_oodham — © 2018-2019 James Wyly
+triqui_itunyoso — Copyright © Kayla Shames
+tuareg_tifinagh — © SIL Global
+turkmen_cyrl — © 2002-2020 David Gray
+txo_toto — © 2023 Toby Anderson
+udi_keyboard — © SIL Global (Eurasia)
+ugaritic — Copyright © SIL International
+ukwuani — © 2022 ULDECF
+urdu_dvorak — Copyright © 3ubaidUrRe7man
+urdu_phonetic — © 2007-2023 Zeeshan Hyder
+urdu_phonetic_crulp — © SIL Global
+venetia_et_histria — © 2007-2020 SIL International
+vietnam — Copyright © cathaylab
+vietnamese_telex — © Mike Vo
+vietnamese_telex_legacy — © 2022 Mike Vo
+vietnamese_vni — © Mike Vo
+vithkuqi — © 2024 SIL International
+vm_tamil_modular — © Visual Media and SIL Global
+vm_tamil_typewriter — © Visual Media and SIL Global
+wakhi — © Samar
+wakhi_anglicized — © 2020 Wakhi Tajik Cultural Association
+wali — Copyright © Zakaria
+warang_citi — © 2019-2023 Mangu Purty
+way — Copyright © SIL
+winchus — © SIL Global
+wolofal — © SIM
+xinaliq — © 2019-2021 Kenneth Keyes
+xpert — © SIL International
+yezidi — © Ezidi74
+yiddish_hebrew — © Gyula Zsigri
+yiddish_pasekh — (C) Gyula Zsigri
+yidgha — (c) Forum for Language Initiatives
+yo — © W3Techy Enterprise
+younger_futhark_short_twig — © Joshua Wong
+zanabazar_square — Copyright © SIL International
