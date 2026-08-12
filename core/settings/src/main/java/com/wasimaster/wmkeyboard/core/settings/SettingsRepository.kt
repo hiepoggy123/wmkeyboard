@@ -2796,6 +2796,15 @@ data class TextEditingSettings(
      */
     val toolboxRepeatTools: Set<ToolbarTool> = emptySet(),
     /**
+     * The text-editing panel's own grid, or null for the shipped arrangement
+     * ([DefaultTextEditLayout]).
+     *
+     * One layout, not one per language: the panel holds cursor moves and
+     * clipboard actions, and none of them is a letter. Stored whole, and repaired
+     * on read — see [TextEditLayoutCodec].
+     */
+    val layout: TextEditLayout? = null,
+    /**
      * Typing a bracket, brace or quote with text selected wraps the selection
      * in the pair (foo → (foo)) instead of replacing it.
      */
@@ -4099,6 +4108,7 @@ class SettingsRepository(private val context: Context) {
         private val AUTO_SPACE_AFTER_PUNCTUATION =
             booleanPreferencesKey("auto_space_after_punctuation")
         private val WRAP_SELECTION_WITH_PAIR = booleanPreferencesKey("wrap_selection_with_pair")
+        private val TEXT_EDIT_LAYOUT = stringPreferencesKey("text_edit_layout")
         private val RECAPITALIZE_SELECTION_WITH_SHIFT =
             booleanPreferencesKey("recapitalize_selection_with_shift")
         private val SUGGESTIONS = booleanPreferencesKey("suggestions")
@@ -5496,6 +5506,9 @@ class SettingsRepository(private val context: Context) {
                 toolboxRepeatTools = p[TOOLBOX_REPEAT_TOOLS]
                     ?.let { csv -> decodeToolNames(csv).filterTo(HashSet()) { it in HoldRepeatCursorTools } }
                     ?: defaults.textEditing.toolboxRepeatTools,
+                // Null when nothing is stored *or* when what is stored has no
+                // usable key left; both mean the shipped arrangement.
+                layout = TextEditLayoutCodec.decode(p[TEXT_EDIT_LAYOUT]),
                 wrapSelectionWithPair =
                     p[WRAP_SELECTION_WITH_PAIR] ?: defaults.textEditing.wrapSelectionWithPair,
                 recapitalizeSelectionWithShift = p[RECAPITALIZE_SELECTION_WITH_SHIFT]
@@ -8165,6 +8178,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setWrapSelectionWithPair(value: Boolean) =
         editPrefs { it[WRAP_SELECTION_WITH_PAIR] = value }
+
+    /**
+     * Stores the text-editing panel's grid. Null — or a layout with nothing left
+     * in it — clears the key, which puts the panel back to
+     * [DefaultTextEditLayout]; that is what the editor's Reset does.
+     */
+    suspend fun setTextEditLayout(value: TextEditLayout?) =
+        editPrefs { prefs ->
+            val repaired = value?.let(TextEditLayoutCodec::repair)
+            if (repaired == null) {
+                prefs.remove(TEXT_EDIT_LAYOUT)
+            } else {
+                prefs[TEXT_EDIT_LAYOUT] = TextEditLayoutCodec.encode(repaired)
+            }
+        }
 
     suspend fun setRecapitalizeSelectionWithShift(value: Boolean) =
         editPrefs { it[RECAPITALIZE_SELECTION_WITH_SHIFT] = value }

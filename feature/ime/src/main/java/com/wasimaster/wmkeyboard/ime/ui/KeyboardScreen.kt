@@ -366,7 +366,7 @@ import com.wasimaster.wmkeyboard.ime.VoiceBarAction
 import com.wasimaster.wmkeyboard.ime.voiceChipOnly
 import com.wasimaster.wmkeyboard.ime.SizingAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
-import com.wasimaster.wmkeyboard.ime.TextEditAction
+import com.wasimaster.wmkeyboard.core.settings.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
 import com.wasimaster.wmkeyboard.ime.SnippetOffer
 import com.wasimaster.wmkeyboard.ime.displayCaseForShift

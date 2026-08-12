@@ -50,6 +50,12 @@
     <string name="ime_textedit_select_desc">Turn the selection on or off</string>
     <string name="ime_textedit_home_desc">Move to the start of the line</string>
     <string name="ime_textedit_end_desc">Move to the end of the line</string>
+    <string name="ime_textedit_word_left_desc">Move one word left</string>
+    <string name="ime_textedit_word_right_desc">Move one word right</string>
+    <string name="ime_textedit_page_up_desc">Move to the start of the text</string>
+    <string name="ime_textedit_page_down_desc">Move to the end of the text</string>
+    <string name="ime_textedit_select_word_desc">Select the word</string>
+    <string name="ime_textedit_select_line_desc">Select the line</string>
 
     <!-- Password and passphrase generator tool panel. -->
     <string name="ime_password_length_label">Length</string>

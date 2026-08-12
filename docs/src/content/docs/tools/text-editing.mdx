@@ -111,6 +111,18 @@ You don't have to open a panel at all for the most common move: sliding the curs
 
 **Key repeat interval**: default **60 ms**, adjustable from 30–200 ms. It sets the pause between repeats while you hold an arrow key or Backspace in the panel, and while you hold one of the toolbar's cursor tools. Lower is faster. The delay before repeating starts isn't adjustable: 400 ms in the panel, and the system's own long-press timeout on the toolbar.
 
+### Panel layout
+
+<SettingsPath path="Tools / Text editing / Panel layout" />
+
+The panel's grid is yours to rearrange, in the same terms a [key layout](/languages/custom-layouts/) uses. The row reads **Standard** until you change something, then **Your own**.
+
+The screen opens on a live preview of the grid. Press a key in it and a sheet gives you four things: **what the key does** (one of seventeen actions — the four arrows, word left/right, start/end of line, start/end of text, Select, Select all, Select word, Select line, Copy, Paste, Delete), **press and hold**, a **width** in grid units, and **covers N rows** for a key that should be taller than its row. The sheet also deletes the key or moves it along its row. Under the preview, each row can gain a key, change height (×0.4–×2.5) or be deleted, and there's an **Add a row** button up to six rows and ten keys a row.
+
+**Press and hold only appears on keys that don't repeat.** The four arrows, word left/right, start/end of text and Delete all repeat while you hold them, and that's the point of holding them — so those keys say as much instead of offering a second action that could never fire. Everything else (Home, End, Select, the selects, Copy, Paste) has a hold going spare, and that's where a second action goes. Change a key from Home to Left and the hold it can no longer run is dropped for you. Binding a hold to the key's own action is refused, since that's a slow tap.
+
+Two of those pairings ship: **Home** and **End** hold to the start and end of the *text* rather than the line. Widths and spans mean exactly what they mean in a key layout, and the panel places them with the same geometry the keyboard draws its keys with, so the tall left and right arrows in the standard arrangement are simply a key three rows deep. **Reset** puts the shipped layout back.
+
 ### Hold a cursor tool to repeat
 
 <SettingsPath path="Tools / Cursor left / Options" />

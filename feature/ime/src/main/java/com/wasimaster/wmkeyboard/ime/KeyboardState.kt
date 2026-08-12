@@ -934,13 +934,6 @@ sealed interface DictionaryUi {
     data class Ready(val entries: List<com.wasimaster.wmkeyboard.core.tools.DictEntry>) : DictionaryUi
 }
 
-/** One button on the text-editing panel (cursor control, selection, clipboard). */
-enum class TextEditAction {
-    UP, DOWN, LEFT, RIGHT, HOME, END, PAGE_UP, PAGE_DOWN,
-    WORD_LEFT, WORD_RIGHT, SELECT_WORD, SELECT_LINE,
-    SELECT, SELECT_ALL, COPY, PASTE, BACKSPACE,
-}
-
 /**
  * What the enter key does in the focused field, from EditorInfo.imeOptions.
  *

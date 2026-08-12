@@ -836,6 +836,15 @@ private fun SettingsNavGraph(
                 )
             }
         }
+        composable(ROUTE_TEXT_EDIT_LAYOUT) {
+            SettingsScreen(
+                stringResource(R.string.textedit_layout_title),
+                { navController.popBackStack() },
+                route = ROUTE_TEXT_EDIT_LAYOUT,
+            ) {
+                TextEditLayoutScreen(repository)
+            }
+        }
         composable(ROUTE_TOOLBAR_HOLD) {
             SettingsScreen(
                 stringResource(R.string.appearance_toolbar_hold_title),
@@ -10611,6 +10620,21 @@ private fun ToolDetailSettings(
                     display = { msFormat.format(it.toInt()) },
                     default = SettingsDefaults.textEditing.repeatMs.toFloat(),
                 ) { scope.launch { repository.setTextEditRepeatMs(it.toInt()) } }
+            }
+            // The panel's own grid, edited on its own screen the way a key layout
+            // is: rows, widths, spans, and a second action per key.
+            item {
+                NavRow(
+                    title = R.string.textedit_layout_title,
+                    subtitle = stringResource(R.string.textedit_layout_subtitle),
+                    value = stringResource(
+                        if (settings.textEditing.layout == null) {
+                            R.string.textedit_layout_value_default
+                        } else {
+                            R.string.textedit_layout_value_custom
+                        },
+                    ),
+                ) { onNavigate(ROUTE_TEXT_EDIT_LAYOUT) }
             }
         }
         // The caret movers, which are the only tools a hold repeats. Home, End
