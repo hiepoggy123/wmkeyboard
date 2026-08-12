@@ -38,8 +38,11 @@ function processFile(filePath) {
     content = content.replace(/<LinkCard\s+title="([^"]+)"\s+description="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, '[$1]($3) - $2');
     content = content.replace(/<LinkButton\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/LinkButton>/g, '[$2]($1)');
     
-    // Strip layout tags but keep content
-    content = content.replace(/<\/?(?:PhoneFrame|Steps|CardGrid|FileTree|Flavor|Since|LayoutExplorer|ThemePreview|GestureDemo|FilterTable|Card|Fragment|FeatureRow)[^>]*>/g, '');
+    // Replace h2 tags with markdown headings
+    content = content.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/g, '## $1');
+
+    // Strip layout tags and HTML block tags but keep content
+    content = content.replace(/<\/?(?:PhoneFrame|Steps|CardGrid|FileTree|Flavor|Since|LayoutExplorer|ThemePreview|GestureDemo|FilterTable|Card|Fragment|FeatureRow|div|span|p)[^>]*>/g, '');
 
     // Remove completely generic self-closing components we missed
     content = content.replace(/<[A-Z][a-zA-Z0-9]*\s+[^>]*\/>/g, '');
@@ -102,14 +105,43 @@ walkDir(inputDir, (filePath) => {
     }
 });
 
+// Parse astro.config.mjs to get the correct category order and labels
+let categoryOrder = [];
+let categoryLabels = {};
+try {
+    const astroConfigPath = path.join(inputDir, '../../../astro.config.mjs');
+    const astroConfig = fs.readFileSync(astroConfigPath, 'utf8');
+    const blocks = astroConfig.split(/label:\s*'/).slice(1);
+    for (const block of blocks) {
+        const label = block.substring(0, block.indexOf("'"));
+        const dirMatch = block.substring(0, 200).match(/directory:\s*'([^']+)'/);
+        if (dirMatch) {
+            categoryOrder.push(dirMatch[1]);
+            categoryLabels[dirMatch[1]] = label;
+        }
+    }
+} catch (e) {
+    console.error("Could not parse astro.config.mjs for sidebar order", e);
+}
+
 // Generate _Sidebar.md
 let sidebarContent = `* [Home](Home)\n`;
 
 // Group by category, excluding root
-const categories = [...new Set(pages.map(p => p.category))].filter(c => c !== 'root').sort();
+let categories = [...new Set(pages.map(p => p.category))].filter(c => c !== 'root');
+
+// Sort categories based on astro.config.mjs order, with fallbacks at the end
+categories.sort((a, b) => {
+    const indexA = categoryOrder.indexOf(a);
+    const indexB = categoryOrder.indexOf(b);
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    return a.localeCompare(b);
+});
 
 for (const cat of categories) {
-    const catName = cat.charAt(0).toUpperCase() + cat.slice(1);
+    const catName = categoryLabels[cat] || (cat.charAt(0).toUpperCase() + cat.slice(1));
     sidebarContent += `* **${catName}**\n`;
     
     const catPages = pages.filter(p => p.category === cat).sort((a, b) => a.order - b.order);
