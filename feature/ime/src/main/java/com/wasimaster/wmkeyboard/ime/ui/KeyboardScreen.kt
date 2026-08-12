@@ -8307,6 +8307,15 @@ private fun KeyRows(
     // two half-spacebars into this one slot; the last one measured wins, which
     // covers the common (non-split) case and degrades to one half for split.
     val spaceRect = remember(layout) { mutableStateOf<Rect?>(null) }
+    // The pointer loops below are keyed on the gesture settings, not on the
+    // layout, so they outlive a layout change — and both the centres map and the
+    // grid they read are per-layout values. Captured bare, a loop started under
+    // the old layout keeps resolving letters against the map the old layout
+    // filled, so a swipe drawn on a layout the user has just switched to decodes
+    // against the previous layout's key positions: real words, none of them the
+    // one that was drawn. Read them through a State, the way `keyWidth` is.
+    val liveCenters = rememberUpdatedState(keyCenters)
+    val liveLayouts = rememberUpdatedState(state.layouts)
     var boxOrigin by remember { mutableStateOf(Offset.Zero) }
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
     // Rows narrower than the grid (e.g. the 9-key QWERTY home row) keep the
@@ -8592,7 +8601,7 @@ private fun KeyRows(
                         }
                         if (!isGesture && keyWidth.value > 0f &&
                             (change.position - down.position).getDistance() > slop * effectiveSlop &&
-                            nearLetterKey(down.position, keyCenters, keyWidth.value)
+                            nearLetterKey(down.position, liveCenters.value, keyWidth.value)
                         ) {
                             isGesture = true
                             stillAt = change.position
@@ -8602,8 +8611,8 @@ private fun KeyRows(
                             // the measured map alone: a key's shifted and
                             // long-pressed characters have no centre of their
                             // own and take the one their base label reported.
-                            keyList = state.layouts.glideKeys { char ->
-                                keyCenters[char]?.let { it.x to it.y }
+                            keyList = liveLayouts.value.glideKeys { char ->
+                                liveCenters.value[char]?.let { it.x to it.y }
                             }
                         }
                         if (isGesture) {
@@ -8728,7 +8737,7 @@ private fun KeyRows(
                     val dotWindow = dotCooldownMs > 0 && keyWidth.value > 0f &&
                         hwPendingInk.value &&
                         down.uptimeMillis - lastHwStrokeTime.longValue in 0 until dotCooldownMs.toLong() &&
-                        nearLetterKey(down.position, keyCenters, keyWidth.value)
+                        nearLetterKey(down.position, liveCenters.value, keyWidth.value)
                     var isStroke = dotWindow
                     // Whether the finger actually travelled — only a real drawn
                     // stroke reopens the dot window, so a dot-tap does not keep
@@ -8781,7 +8790,10 @@ private fun KeyRows(
                             when {
                                 change.changedToDownIgnoreConsumed() -> {
                                     val target = smartHitTarget(
-                                        change.position, keyCenters, keyWidth.value, nextBias.value,
+                                        change.position,
+                                        liveCenters.value,
+                                        keyWidth.value,
+                                        nextBias.value,
                                     )
                                     if (target != null) {
                                         hitRemap[change.id] = target
