@@ -1,0 +1,10 @@
+Keyman keyboards: 862 of them, and the 485 languages they add, so the app now
+types 843 languages across 1,274 layouts. Rules download per keyboard, and .kmp
+packages import.
+
+40 new layouts, Bengali and Assamese InScript among them, and 60 fixes to
+existing ones. Fingerprint lock over chosen settings. Data saver. A key that
+opens the system keyboard picker.
+
+Fixed: glide typing after a layout or language switch, floating keyboard drag,
+plugins, and the scalloped popup shape.

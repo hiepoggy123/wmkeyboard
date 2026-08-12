@@ -68,9 +68,26 @@ Builds:
       - core/intelligence/src/full/jniLibs
       - feature/llm/src/main/jniLibs
 
+  # Same build as 0.3.0 above, where the reasoning for each field is written
+  # out; only the version and the tag move. The Keyman corpus this release adds
+  # is data under assets, so it changes nothing about how the APK is built.
+  - versionName: 0.4.0
+    versionCode: 8
+    commit: v0.4.0
+    subdir: app
+    gradle:
+      - lite
+    gradleprops:
+      - wmkb.enablePlayStore=false
+      - wmkb.enableGms=false
+      - wmkb.enableFdroid=true
+    scandelete:
+      - core/intelligence/src/full/jniLibs
+      - feature/llm/src/main/jniLibs
+
 # Bump both of these with every release. Alternatively switch to
 # UpdateCheckMode: Tags once the tag pattern has a couple of releases behind it.
 AutoUpdateMode: None
 UpdateCheckMode: None
-CurrentVersion: 0.3.0
-CurrentVersionCode: 7
+CurrentVersion: 0.4.0
+CurrentVersionCode: 8
