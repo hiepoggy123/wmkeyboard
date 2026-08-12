@@ -166,8 +166,19 @@ for (let file of allFiles) {
     content = content.replace(/<LinkCard\s+title="([^"]+)"\s+description="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, (match, title, desc, href) => `[${title}](${getMappedLink(href)}) - ${desc}`);
     content = content.replace(/<LinkButton\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/LinkButton>/g, (match, href, text) => `[${text}](${getMappedLink(href)})`);
     
+    // Rewrite image links
+    content = content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, href) => {
+        let newHref = href;
+        if (href.startsWith('@assets/')) {
+            newHref = href.replace('@assets/', 'assets/');
+        } else if (href.includes('assets/')) {
+            newHref = href.substring(href.indexOf('assets/'));
+        }
+        return `![${alt}](${newHref})`;
+    });
+
     // Rewrite standard root-relative markdown links to wiki absolute paths
-    content = content.replace(/\[([^\]]+)\]\(\/([^)]+)\)/g, (match, text, href) => `[${text}](${getMappedLink('/' + href)})`);
+    content = content.replace(/(?<!!)\[([^\]]+)\]\(\/([^)]+)\)/g, (match, text, href) => `[${text}](${getMappedLink('/' + href)})`);
 
     // Parse admonitions into <details>
     content = content.replace(/^:::(\w+)(?:\[(.*?)\])?\s*\n([\s\S]*?)\n^:::/gm, (match, type, title, body) => {
@@ -219,3 +230,10 @@ for (const page of rootPages) {
 }
 
 fs.writeFileSync(path.join(outputDir, '_Sidebar.md'), sidebarContent);
+
+// Copy assets directory if it exists
+const assetsSrcDir = path.join(inputDir, '../../assets');
+const assetsDestDir = path.join(outputDir, 'assets');
+if (fs.existsSync(assetsSrcDir)) {
+    fs.cpSync(assetsSrcDir, assetsDestDir, { recursive: true });
+}
