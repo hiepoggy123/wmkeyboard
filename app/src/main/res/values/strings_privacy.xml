@@ -94,7 +94,7 @@
     <string name="privacy_delete_learned_words_action">Delete the learned words</string>
     <string name="privacy_delete_learned_words_title">Learned words</string>
     <string name="privacy_delete_learned_words_subtitle">Everything the keyboard picked up from your typing</string>
-    <string name="privacy_delete_learned_words_confirm">This deletes every word that the keyboard learned from you, your emoji history, the corrections that you undid, and your Chinese, Japanese and Cantonese picks. Your personal dictionary, your snippets and your imported word lists stay. This cannot be undone.</string>
+    <string name="privacy_delete_learned_words_confirm">This deletes every word that the keyboard learned from you, your emoji history, the corrections that you undid, and your Chinese, Japanese and Cantonese picks. The keyboard also deletes your personal dictionary. The words that you add by hand go into the same list. Your snippets and your imported word lists stay. This cannot be undone.</string>
 
     <!-- Caption at the end of the Privacy screen. -->
     <!--
