@@ -3883,15 +3883,6 @@ private fun TypingSettings(
     }
 }
 
-/**
- * The letter that opens each tool from a physical keyboard, plus the shortcut key
- * that arms them.
- *
- * The rows are every supported tool rather than a list the user builds, so there
- * is no "add" — a tool either has a letter or it does not, and the unbound ones
- * are still reachable through the toolbox.
- */
-@Composable
 /** Route of the toolbar press-and-hold screen, reached from Appearance. */
 internal const val ROUTE_TOOLBAR_HOLD = "toolbar_hold"
 
@@ -4044,6 +4035,14 @@ private fun ToolPickerDialog(
     )
 }
 
+/**
+ * The letter that opens each tool from a physical keyboard, plus the shortcut key
+ * that arms them.
+ *
+ * The rows are every supported tool rather than a list the user builds, so there
+ * is no "add" — a tool either has a letter or it does not, and the unbound ones
+ * are still reachable through the toolbox.
+ */
 @Composable
 private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
