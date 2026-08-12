@@ -4,8 +4,22 @@ const path = require('path');
 function processFile(filePath) {
     let content = fs.readFileSync(filePath, 'utf8');
 
-    // Remove frontmatter
-    content = content.replace(/^---\n[\s\S]*?\n---\n/, '');
+    let title = "";
+    let order = 999;
+    
+    // Extract frontmatter
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (frontmatterMatch) {
+        const frontmatter = frontmatterMatch[1];
+        const titleMatch = frontmatter.match(/^title:\s*(['"]?)(.*?)\1$/m);
+        if (titleMatch) title = titleMatch[2];
+        
+        const orderMatch = frontmatter.match(/^\s*order:\s*(\d+)/m);
+        if (orderMatch) order = parseInt(orderMatch[1], 10);
+        
+        // Remove frontmatter
+        content = content.replace(/^---\n[\s\S]*?\n---(\n|$)/, '');
+    }
 
     // Remove imports
     content = content.replace(/^import\s+.*?from\s+['"].*?['"];?\n/gm, '');
@@ -25,7 +39,7 @@ function processFile(filePath) {
     // Clean up empty lines created by tag removal
     content = content.replace(/\n{3,}/g, '\n\n');
 
-    return content;
+    return { content: content.trim() + '\n', title, order };
 }
 
 function walkDir(dir, callback) {
@@ -46,14 +60,57 @@ if (!inputDir || !outputDir) {
 
 fs.mkdirSync(outputDir, { recursive: true });
 
+let pages = [];
+
 walkDir(inputDir, (filePath) => {
     if (filePath.endsWith('.mdx') || filePath.endsWith('.md')) {
         const relativePath = path.relative(inputDir, filePath);
-        const outPath = path.join(outputDir, relativePath).replace(/\.mdx$/, '.md');
         
-        fs.mkdirSync(path.dirname(outPath), { recursive: true });
+        let outPath = relativePath.replace(/\.mdx$/, '.md');
+        if (outPath === 'index.md') outPath = 'Home.md';
         
-        const converted = processFile(filePath);
-        fs.writeFileSync(outPath, converted.trim() + '\n');
+        const fullOutPath = path.join(outputDir, outPath);
+        fs.mkdirSync(path.dirname(fullOutPath), { recursive: true });
+        
+        const { content, title, order } = processFile(filePath);
+        fs.writeFileSync(fullOutPath, content);
+        
+        const parts = relativePath.split(path.sep);
+        const category = parts.length > 1 ? parts[0] : 'root';
+        const displayTitle = title || path.basename(relativePath, path.extname(relativePath));
+        
+        // Remove .md extension for linking, and use forward slash for URLs
+        let link = outPath.replace(/\.md$/, '').split(path.sep).join('/');
+        
+        pages.push({
+            title: displayTitle,
+            order,
+            category,
+            link
+        });
     }
 });
+
+// Generate _Sidebar.md
+let sidebarContent = `* [Home](Home)\n`;
+
+// Group by category, excluding root
+const categories = [...new Set(pages.map(p => p.category))].filter(c => c !== 'root').sort();
+
+for (const cat of categories) {
+    const catName = cat.charAt(0).toUpperCase() + cat.slice(1);
+    sidebarContent += `* **${catName}**\n`;
+    
+    const catPages = pages.filter(p => p.category === cat).sort((a, b) => a.order - b.order);
+    for (const page of catPages) {
+        sidebarContent += `  * [${page.title}](${page.link})\n`;
+    }
+}
+
+// Add other root pages if any
+const rootPages = pages.filter(p => p.category === 'root' && p.link !== 'Home').sort((a, b) => a.order - b.order);
+for (const page of rootPages) {
+    sidebarContent += `* [${page.title}](${page.link})\n`;
+}
+
+fs.writeFileSync(path.join(outputDir, '_Sidebar.md'), sidebarContent);
