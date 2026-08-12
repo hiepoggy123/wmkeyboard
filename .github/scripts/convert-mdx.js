@@ -1,6 +1,17 @@
 const fs = require('fs');
 const path = require('path');
 
+const repo = process.env.GITHUB_REPOSITORY || 'wasi-master/wmkeyboard';
+const wikiBase = `/${repo}/wiki/`;
+function transformLink(href) {
+    if (href.startsWith('http')) return href;
+    if (href.startsWith('mailto:')) return href;
+    if (href.startsWith('#')) return href;
+    let cleanHref = href.replace(/^\//, '').replace(/\/$/, '');
+    if (cleanHref === '') cleanHref = 'Home';
+    return `${wikiBase}${cleanHref}`;
+}
+
 function processFile(filePath) {
     let content = fs.readFileSync(filePath, 'utf8');
 
@@ -34,10 +45,13 @@ function processFile(filePath) {
     // Replace specific known tags to readable text
     content = content.replace(/<SettingsPath\s+path="([^"]+)"\s*\/?>/g, '**$1**');
     content = content.replace(/<KeyCap\s+(?:key|letter)="([^"]+)"\s*\/?>/g, '`$1`');
-    content = content.replace(/<LinkCard\s+title="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, '[$1]($2)');
-    content = content.replace(/<LinkCard\s+title="([^"]+)"\s+description="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, '[$1]($3) - $2');
-    content = content.replace(/<LinkButton\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/LinkButton>/g, '[$2]($1)');
+    content = content.replace(/<LinkCard\s+title="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, (match, title, href) => `[${title}](${transformLink(href)})`);
+    content = content.replace(/<LinkCard\s+title="([^"]+)"\s+description="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, (match, title, desc, href) => `[${title}](${transformLink(href)}) - ${desc}`);
+    content = content.replace(/<LinkButton\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/LinkButton>/g, (match, href, text) => `[${text}](${transformLink(href)})`);
     
+    // Rewrite standard root-relative markdown links to wiki absolute paths
+    content = content.replace(/\[([^\]]+)\]\(\/([^)]+)\)/g, (match, text, href) => `[${text}](${transformLink(href)})`);
+
     // Replace h2 tags with markdown headings
     content = content.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/g, '## $1');
 
@@ -95,12 +109,13 @@ walkDir(inputDir, (filePath) => {
         
         // Remove .md extension for linking, and use forward slash for URLs
         let link = outPath.replace(/\.md$/, '').split(path.sep).join('/');
+        let absoluteLink = transformLink(link);
         
         pages.push({
             title: displayTitle,
             order,
             category,
-            link
+            link: absoluteLink
         });
     }
 });
@@ -125,7 +140,7 @@ try {
 }
 
 // Generate _Sidebar.md
-let sidebarContent = `* [Home](Home)\n`;
+let sidebarContent = `* [Home](${transformLink('Home')})\n`;
 
 // Group by category, excluding root
 let categories = [...new Set(pages.map(p => p.category))].filter(c => c !== 'root');
