@@ -21,7 +21,7 @@ package com.wasimaster.wmkeyboard.core.script
  * ## Why this is not in LanguageRegistry
  *
  * Two reasons, the first a hard limit. LanguageRegistry's list is one listOf in
- * one property initializer and a JVM method's bytecode caps at 64 KB; 359
+ * one property initializer and a JVM method's bytecode caps at 64 KB; 358
  * entries already sit there, and adding these to the same initializer risks
  * blowing it. Hence the chunking below, which costs nothing and removes the
  * ceiling.

@@ -3467,7 +3467,7 @@ data class SuggestionStripSettings(
      * The marks [punctuation] offers, in order, one per character.
      *
      * A list rather than a constant because the fixed `. , ? ! '` is an
-     * English answer on a keyboard that ships 352 languages: a Bengali typist
+     * English answer on a keyboard that ships 843 languages: a Bengali typist
      * wants the danda, a Spanish one the inverted marks, and neither could
      * reach them from here. Blank falls back to the shipped set, so emptying
      * the field cannot leave the row with nothing in it.

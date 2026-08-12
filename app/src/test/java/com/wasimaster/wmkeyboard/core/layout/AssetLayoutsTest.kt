@@ -59,7 +59,7 @@ class AssetLayoutsTest {
 
     /**
      * None of the shipped files carries the field, so all of them get the
-     * default. Pinned because flipping that default would opt 354 layouts out of
+     * default. Pinned because flipping that default would opt 1,256 layouts out of
      * the tablet grid in one edit, and nothing else would notice.
      */
     @Test

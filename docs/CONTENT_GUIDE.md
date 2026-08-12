@@ -125,9 +125,9 @@ roughly in order of value:
    framework needed).
 2. **Layout explorer**: render a keyboard layout as HTML from its data file so
    readers can hover keys to see long-press popups. Worth building once,
-   reusable for all 372 layouts + notation layouts.
+   reusable for all 1,274 layouts + notation layouts.
 3. **Theme preview**: swatch grid that live-recolours an HTML keyboard mockup.
-4. **Searchable tables**: the 333-wordlist list and 352-language matrix
+4. **Searchable tables**: the 333-wordlist list and 843-language matrix
    should be filterable (a `<script>` in the MDX is fine at this scale).
 5. Mermaid/diagram embeds for the developer section (addon install pipeline,
    IME lifecycle).

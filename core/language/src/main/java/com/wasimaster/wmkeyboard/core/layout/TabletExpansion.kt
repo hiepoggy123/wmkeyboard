@@ -7,10 +7,10 @@ import com.wasimaster.wmkeyboard.core.settings.DeviceForm
  *
  * ## Why a transform rather than tablet layouts
  *
- * The app ships 393 layouts — 18 built in, 354 as assets, plus whatever the user
- * has authored — and a [LayoutSpec] carries no device-shaped fields at all.
+ * The app ships 1,274 layouts — 18 built in, 1,256 as assets, plus whatever the
+ * user has authored — and a [LayoutSpec] carries no device-shaped fields at all.
  * Hand-authoring a tablet grid for each was never on the table, and adding a
- * per-layout tablet layer would leave 393 of them empty and the feature only
+ * per-layout tablet layer would leave 1,274 of them empty and the feature only
  * working on QWERTY. So this runs at resolve time over the compiled grid, the
  * way `splitKeys` runs over a row, and every eligible layout gets it for free.
  *

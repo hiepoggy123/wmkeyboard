@@ -30,7 +30,7 @@ class LayoutCodecTest {
 
     /**
      * A file written before `tabletExpand` existed has to mean "yes". Every one
-     * of the 354 shipped assets and every stored custom layout is such a file, so
+     * of the 1,256 shipped assets and every stored custom layout is such a file, so
      * the other default would silently opt the whole corpus out of the tablet
      * grid at once, with nothing to show for it but a keyboard that never widens.
      */

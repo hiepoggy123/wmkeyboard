@@ -8,7 +8,7 @@
     <string name="langemoji_lang_your_languages_title">Your languages</string>
     <string name="langemoji_lang_add_title">Add language</string>
     <!-- Subtitle of the "Add language" row. %1$d is the number of languages that
-         the keyboard knows, for example 352. -->
+         the keyboard knows, for example 843. -->
     <plurals name="langemoji_lang_add_subtitle">
         <item quantity="one">Type in %1$d language</item>
         <item quantity="other">Type in any of %1$d languages</item>

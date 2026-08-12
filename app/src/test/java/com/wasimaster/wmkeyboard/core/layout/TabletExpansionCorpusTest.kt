@@ -9,10 +9,10 @@ import org.junit.Test
 
 /**
  * The tablet expansion, run over every layout the app ships — 18 built in plus
- * 394 assets, on both tablet forms with the digit row on and off.
+ * 1,256 assets, on both tablet forms with the digit row on and off.
  *
  * `TabletExpansionTest` pins the arithmetic on grids it builds by hand; this
- * pins it against reality. The transform relocates keys by role across 393
+ * pins it against reality. The transform relocates keys by role across 1,274
  * genuinely different grids — Bengali and Devanagari rows twelve wide, Arabic
  * and Hebrew right-to-left, five-row Khmer, layouts whose top row already
  * overflows their own grid weight — and the only honest way to know it survives

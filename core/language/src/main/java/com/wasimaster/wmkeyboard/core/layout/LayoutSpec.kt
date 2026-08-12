@@ -116,7 +116,7 @@ data class LayoutSpec(
      *
      * True by default, and it has to be: the expansion is automatic, and a file
      * written before this field existed decodes without it, so any other default
-     * would silently opt out all 354 shipped layouts at once.
+     * would silently opt out all 1,256 shipped layouts at once.
      *
      * Off is for a grid the transform cannot help but would still accept — one
      * already laid out wide by hand, or a deliberately minimal board. The gate in
@@ -290,7 +290,7 @@ fun resolveLayouts(custom: List<LayoutSpec>): List<LayoutSpec> {
 /**
  * One-entry memo for [resolveLayouts].
  *
- * The list it builds is ~393 layouts long and building it costs four
+ * The list it builds is ~1,274 layouts long and building it costs four
  * collections of that size, and the whole thing is a pure function of the
  * user's custom layouts and the shipped set. Callers ask for it far more often
  * than either changes: the settings decode resolves layouts several times per
@@ -335,7 +335,7 @@ data class KeymanBinding(
  *
  * Answered by lookup rather than by resolving the whole catalogue and scanning
  * it: this is called once per enabled layout when a field is focused, and
- * building 393 layouts to pick one out is the sort of thing that shows up as a
+ * building 1,274 layouts to pick one out is the sort of thing that shows up as a
  * keyboard that is slow to appear. The branches mirror [resolveLayouts]
  * exactly — a custom layout sharing a shipped id is an edit of it and wins that
  * slot, a custom-only id resolves to itself, anything else is the default.
