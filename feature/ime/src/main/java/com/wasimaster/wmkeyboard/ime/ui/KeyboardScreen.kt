@@ -1429,10 +1429,25 @@ private fun FloatingKeyboardFrame(
         // of layout passes does not drag the keyboard through a recomposition
         // for each one.
         val panelSize = remember { mutableStateOf(IntSize.Zero) }
-        // Live drag position in px; null = follow the persisted fractions.
+        // Settled drag position in px; null = follow the persisted fractions.
         // Reset when the window size changes (rotation) so the fractions
         // re-anchor the panel.
         val dragOffset = remember(boxWidthPx, boxHeightPx) { mutableStateOf<Offset?>(null) }
+        // How far the finger has carried the panel away from [dragOffset] in
+        // the gesture running right now, folded back into it when the gesture
+        // ends. Read from the draw phase (the layer below), never from
+        // placement, so following the finger costs a redraw per frame and no
+        // window layout pass at all.
+        //
+        // Issue #6: driven from placement, every drag after the first left the
+        // panel sitting at its old spot for the whole gesture and then
+        // teleported it to where the finger had ended up. A placement-phase
+        // move needs the IME window to run a layout pass per frame, and an IME
+        // window can be left with its layout requests swallowed — after which
+        // the panel only catches up when something forces a pass by hand,
+        // which is exactly what publishing the settled bounds below does. The
+        // draw phase has no such dependency.
+        val dragShift = remember { mutableStateOf(Offset.Zero) }
         // Width is a layout input only, so it too is read from a measure
         // lambda rather than from composition: dragging the grip re-measures
         // the panel instead of recomposing the entire keyboard per frame.
@@ -1485,11 +1500,18 @@ private fun FloatingKeyboardFrame(
                     )
                     layout(placeable.width, placeable.height) { placeable.place(0, 0) }
                 }
-                // Invisible for the first frame, before the panel has been
-                // measured and placed from real sizes — avoids a flash at a
-                // wrong position. Draw-scope read, so first measure costs a
-                // redraw and not a recomposition.
-                .graphicsLayer { alpha = if (panelSize.value == IntSize.Zero) 0f else 1f }
+                // Draw-scope reads, both of them. The live drag rides here
+                // rather than on the offset above (see [dragShift]), and the
+                // panel is invisible for the first frame, before it has been
+                // measured and placed from real sizes — which avoids a flash
+                // at a wrong position, and costs a redraw rather than a
+                // recomposition.
+                .graphicsLayer {
+                    val shift = dragShift.value
+                    translationX = shift.x
+                    translationY = shift.y
+                    alpha = if (panelSize.value == IntSize.Zero) 0f else 1f
+                }
                 .onGloballyPositioned { coords ->
                     panelSize.value = coords.size
                     val position = coords.positionInWindow()
@@ -1514,18 +1536,50 @@ private fun FloatingKeyboardFrame(
                 Column {
                     FloatingHandleBar(
                         onDock = onDock,
-                        onDragStart = { gesture.active = true },
+                        onDragStart = {
+                            gesture.active = true
+                            // The panel's top-left is pinned in px for the whole
+                            // drag, as it is for a resize: the shift below is
+                            // measured from it, and the fractions it would
+                            // otherwise fall back to are a DataStore round trip
+                            // behind the finger.
+                            dragOffset.value = currentOffset()
+                            dragShift.value = Offset.Zero
+                        },
                         onDragBy = { delta ->
-                            val current = currentOffset()
-                            dragOffset.value = Offset(
-                                (current.x + delta.x).coerceIn(0f, slackX()),
-                                (current.y + delta.y).coerceIn(0f, slackY()),
+                            val base = dragOffset.value ?: return@FloatingHandleBar
+                            val shift = dragShift.value
+                            // Clamped as a whole position, then stored back as a
+                            // shift, so the panel stops at the window edge
+                            // instead of the finger walking a shift off-screen.
+                            dragShift.value = Offset(
+                                (base.x + shift.x + delta.x).coerceIn(0f, slackX()) - base.x,
+                                (base.y + shift.y + delta.y).coerceIn(0f, slackY()) - base.y,
                             )
                         },
                         onDragEnd = {
                             gesture.active = false
+                            val base = dragOffset.value ?: return@FloatingHandleBar
+                            val shift = dragShift.value
+                            val end = Offset(
+                                (base.x + shift.x).coerceIn(0f, slackX()),
+                                (base.y + shift.y).coerceIn(0f, slackY()),
+                            )
+                            // Hand the travel over to layout in one go: the
+                            // offset takes the panel's new home and the shift
+                            // returns to zero together, so both phases land in
+                            // the same frame and the panel never blinks back.
+                            dragOffset.value = end
+                            dragShift.value = Offset.Zero
+                            // The panel was never re-placed during the drag, so
+                            // the measured rectangle is a whole gesture behind:
+                            // move it by hand. Publishing it is also what forces
+                            // the window layout pass that lands the offset above.
+                            gesture.bounds = gesture.bounds?.translate(
+                                (end.x - base.x).roundToInt(),
+                                (end.y - base.y).roundToInt(),
+                            )
                             publishBounds()
-                            val end = dragOffset.value ?: return@FloatingHandleBar
                             onMoved(
                                 if (slackX() > 0f) end.x / slackX() else 0.5f,
                                 if (slackY() > 0f) end.y / slackY() else 0.5f,
