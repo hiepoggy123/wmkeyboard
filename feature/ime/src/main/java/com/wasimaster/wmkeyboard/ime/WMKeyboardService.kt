@@ -208,6 +208,7 @@ import com.wasimaster.wmkeyboard.core.stickers.StickerAddResult
 import com.wasimaster.wmkeyboard.core.support.Support
 import com.wasimaster.wmkeyboard.core.stickers.StickerImage
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
+import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.text.EmojiGraphemes
 import com.wasimaster.wmkeyboard.core.text.WordDelete
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
@@ -8331,11 +8332,72 @@ open class WMKeyboardService : InputMethodService() {
             recentWords = recentWords.toList(),
         )
         if (decoded.isEmpty()) return GlideReading.NONE
+        val words = decoded.map { restoreApostrophe(it.word) ?: it.word }
         return GlideReading(
-            words = decoded.map { restoreApostrophe(it.word) ?: it.word },
+            words = declareApostrophe(words, points, keys, keyWidthPx),
             ambiguous = _uiState.value.settings.gesture.ambiguityPicker &&
                 engine.glideIsAmbiguous(decoded),
         )
+    }
+
+    /**
+     * The other half of the apostrophe key: a stroke that went through it spells
+     * a contraction even when the word list holds only the plain form.
+     *
+     * With the key on the grid the decoder can read "it's" straight off the trie,
+     * and where the list has the entry that is what happens and this does
+     * nothing. Most word lists do not have it. So when the finger demonstrably
+     * passed over the apostrophe key and the best reading came back without one,
+     * the declared spelling is put in front — and the plain one is kept right
+     * behind it on the strip, because a rewrite the user can't undo in one tap is
+     * worse than no rewrite.
+     *
+     * English only, like [Apostrophes] itself. Every other language reaches the
+     * apostrophe the honest way, through its own word list.
+     */
+    private fun declareApostrophe(
+        words: List<String>,
+        points: List<GesturePoint>,
+        keys: List<KeyCenter>,
+        keyWidthPx: Float,
+    ): List<String> {
+        val state = _uiState.value
+        if (state.settings.gesture.apostropheKey == GlideApostropheKey.OFF) return words
+        if (!state.language.isEnglish) return words
+        val top = words.firstOrNull() ?: return words
+        if (top.contains('\'') || top.contains('’')) return words
+        if (!crossedApostrophe(points, keys, keyWidthPx)) return words
+        val declared = Apostrophes.fixExplicit(top) ?: return words
+        return buildList(words.size + 1) {
+            add(declared)
+            addAll(words.filterNot { it == declared })
+        }
+    }
+
+    /**
+     * Whether [points] passed over the key the glide grid has put the apostrophe
+     * on. Only asked once the setting is on, so the `'` entry in [keys] is that
+     * key and not the long-press alternate a layout may also hide one behind.
+     *
+     * A half-key radius, and never the first or last sample: a word starting or
+     * ending on the punctuation key is a stroke that merely began there, and the
+     * words this can rewrite are all drawn on the letter rows, well away from the
+     * bottom row the comma and full stop sit on.
+     */
+    private fun crossedApostrophe(
+        points: List<GesturePoint>,
+        keys: List<KeyCenter>,
+        keyWidthPx: Float,
+    ): Boolean {
+        if (keyWidthPx <= 0f || points.size < 3) return false
+        val center = keys.firstOrNull { it.char == '\'' } ?: return false
+        val reach = keyWidthPx * APOSTROPHE_CROSS_WIDTHS
+        for (i in 1 until points.size - 1) {
+            val dx = points[i].x - center.x
+            val dy = points[i].y - center.y
+            if (dx * dx + dy * dy <= reach * reach) return true
+        }
+        return false
     }
 
     /**
@@ -16399,6 +16461,16 @@ open class WMKeyboardService : InputMethodService() {
          * nobody is going to resolve by looking at a list.
          */
         private const val GLIDE_CHOICES = 3
+
+        /**
+         * How near the apostrophe key a glide has to pass, in key widths, for the
+         * stroke to count as having gone through it.
+         *
+         * Half a key: aimed at the key rather than merely near it. The contraction
+         * this can turn on ("its", "were", "lets") are all drawn on the letter
+         * rows, so a stroke that reaches the punctuation key went there on purpose.
+         */
+        private const val APOSTROPHE_CROSS_WIDTHS = 0.5f
 
         /**
          * Longest snippet expansion that arms backspace-to-restore.

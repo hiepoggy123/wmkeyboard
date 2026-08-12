@@ -567,6 +567,37 @@ enum class SpacebarDisplay { LANGUAGE, LAYOUT, BOTH }
  */
 enum class LetterSwipeAction { TYPE_WORDS, HANDWRITE }
 
+/**
+ * Which key a glide reads as an apostrophe, so a contraction can be *drawn*:
+ * `i → t → ' → s` spells "it's" rather than "its".
+ *
+ * The apostrophe is the one character a glide cannot reach on a normal layout,
+ * which is why "its" and "it's", "were" and "we're", "developers" and
+ * "developer's" all decode the same today and the spelling is decided by
+ * frequency. [GestureSettings.apostropheKey] hands that decision back to the
+ * finger.
+ *
+ * Exactly one key, never several. Two keys standing for the apostrophe at once
+ * measurably degrades every *other* word on the board, because both keys stop
+ * being the punctuation they are drawn as as far as the decoder is concerned.
+ * [OFF] is the default and changes nothing.
+ *
+ * [SPACE] is the one with a side effect: the spacebar already means "this word
+ * ends here" mid-stroke ([GestureSettings.spaceGlideMultiWord]), and one
+ * crossing cannot be read as both. Picking it suspends the multi-word split for
+ * as long as it is chosen.
+ */
+enum class GlideApostropheKey { OFF, COMMA, PERIOD, SPACE, APOSTROPHE }
+
+/** The character each [GlideApostropheKey] borrows, or null for [GlideApostropheKey.OFF]/SPACE. */
+val GlideApostropheKey.sourceChar: Char?
+    get() = when (this) {
+        GlideApostropheKey.COMMA -> ','
+        GlideApostropheKey.PERIOD -> '.'
+        GlideApostropheKey.APOSTROPHE -> '\''
+        GlideApostropheKey.OFF, GlideApostropheKey.SPACE -> null
+    }
+
 /** What the history tab of the emoji panel shows. */
 enum class EmojiTabMode { RECENTS, MOST_USED }
 
@@ -3182,6 +3213,17 @@ data class GestureSettings(
      */
     val ambiguityPicker: Boolean = true,
     /**
+     * Which key a glide reads as an apostrophe, so "it's" can be drawn as
+     * `i → t → ' → s` instead of being guessed from "its". [GlideApostropheKey.OFF]
+     * by default, which is exactly today's behaviour.
+     *
+     * Using the key is never required: the same word drawn without the detour
+     * still decodes, and "Fix missing apostrophes" still repairs the
+     * contractions it can repair on its own. This is for the ones it cannot,
+     * because both spellings are real words.
+     */
+    val apostropheKey: GlideApostropheKey = GlideApostropheKey.OFF,
+    /**
      * A glided word is followed by a space, so the next word — glided or tapped
      * — starts clean instead of running into it. On by default. The space is
      * the keyboard's, not the user's: punctuation typed straight after takes it
@@ -4008,6 +4050,7 @@ class SettingsRepository(private val context: Context) {
         private val LETTER_SWIPE_ACTION = stringPreferencesKey("letter_swipe_action")
         private val GESTURE_SPACE_MULTI_WORD = booleanPreferencesKey("gesture_space_multi_word")
         private val GESTURE_AMBIGUITY_PICKER = booleanPreferencesKey("gesture_ambiguity_picker")
+        private val GESTURE_APOSTROPHE_KEY = stringPreferencesKey("gesture_apostrophe_key")
         private val GESTURE_AUTO_SPACE = booleanPreferencesKey("gesture_auto_space")
         private val GESTURE_START_THRESHOLD_SLOP = floatPreferencesKey("gesture_start_threshold_slop")
         private val GESTURE_POST_TYPE_COOLDOWN_MS = intPreferencesKey("gesture_post_type_cooldown_ms")
@@ -4877,6 +4920,9 @@ class SettingsRepository(private val context: Context) {
             gesture = GestureSettings(
                 spaceGlideMultiWord = p[GESTURE_SPACE_MULTI_WORD] ?: defaults.gesture.spaceGlideMultiWord,
                 ambiguityPicker = p[GESTURE_AMBIGUITY_PICKER] ?: defaults.gesture.ambiguityPicker,
+                apostropheKey = p[GESTURE_APOSTROPHE_KEY]
+                    ?.let { runCatching { GlideApostropheKey.valueOf(it) }.getOrNull() }
+                    ?: defaults.gesture.apostropheKey,
                 autoSpaceAfterGlide = p[GESTURE_AUTO_SPACE] ?: defaults.gesture.autoSpaceAfterGlide,
                 startThresholdSlop = p[GESTURE_START_THRESHOLD_SLOP] ?: defaults.gesture.startThresholdSlop,
                 postTypeCooldownMs = p[GESTURE_POST_TYPE_COOLDOWN_MS] ?: defaults.gesture.postTypeCooldownMs,
@@ -8250,6 +8296,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureAmbiguityPicker(value: Boolean) =
         editPrefs { it[GESTURE_AMBIGUITY_PICKER] = value }
+
+    suspend fun setGestureApostropheKey(value: GlideApostropheKey) =
+        editPrefs { it[GESTURE_APOSTROPHE_KEY] = value.name }
 
     suspend fun setGestureAutoSpace(value: Boolean) =
         editPrefs { it[GESTURE_AUTO_SPACE] = value }

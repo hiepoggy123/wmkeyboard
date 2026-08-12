@@ -90,6 +90,7 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FontDownload
 import androidx.compose.material.icons.outlined.FormatBold
 import androidx.compose.material.icons.outlined.FormatColorFill
+import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.FormatUnderlined
 import androidx.compose.material.icons.outlined.Fullscreen
@@ -612,6 +613,7 @@ internal object SettingsRowIcons {
         put(R.string.typing_gesture_cooldown_title) { Icons.Outlined.Timer }
         put(R.string.typing_space_glide_multiword_title) { Icons.Outlined.SpaceBar }
         put(R.string.typing_space_after_glide_title) { Icons.Outlined.SpaceBar }
+        put(R.string.typing_glide_apostrophe_title) { Icons.Outlined.FormatQuote }
         put(R.string.typing_swipe_start_distance_title) { Icons.Outlined.Straighten }
         put(R.string.typing_trail_width_title) { Icons.Outlined.LineWeight }
         put(R.string.typing_trail_length_title) { Icons.Outlined.Timeline }

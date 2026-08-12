@@ -278,6 +278,7 @@ import com.wasimaster.wmkeyboard.core.tools.visibleAiActions
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
+import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
 import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
@@ -3451,6 +3452,30 @@ private fun TypingSettings(
                         info = stringResource(R.string.typing_space_after_glide_info),
                         default = SettingsDefaults.gesture.autoSpaceAfterGlide,
                     ) { scope.launch { repository.setGestureAutoSpace(it) } }
+                }
+                // Which key a glide reads as an apostrophe, so "it's" can be
+                // drawn rather than guessed at. One key, never several.
+                item {
+                    ChoiceSetting(
+                        title = R.string.typing_glide_apostrophe_title,
+                        subtitle = stringResource(R.string.typing_glide_apostrophe_subtitle),
+                        info = stringResource(R.string.typing_glide_apostrophe_info),
+                        options = listOf(
+                            GlideApostropheKey.OFF to
+                                stringResource(R.string.typing_glide_apostrophe_off_label),
+                            GlideApostropheKey.COMMA to
+                                stringResource(R.string.typing_glide_apostrophe_comma_label),
+                            GlideApostropheKey.PERIOD to
+                                stringResource(R.string.typing_glide_apostrophe_period_label),
+                            GlideApostropheKey.SPACE to
+                                stringResource(R.string.typing_glide_apostrophe_space_label),
+                            GlideApostropheKey.APOSTROPHE to
+                                stringResource(R.string.typing_glide_apostrophe_key_label),
+                        ),
+                        selected = settings.gesture.apostropheKey,
+                        onChange = { scope.launch { repository.setGestureApostropheKey(it) } },
+                        default = SettingsDefaults.gesture.apostropheKey,
+                    )
                 }
             }
             item {

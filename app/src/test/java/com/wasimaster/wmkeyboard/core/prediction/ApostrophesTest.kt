@@ -46,6 +46,43 @@ class ApostrophesTest {
         assertNull(Apostrophes.fix(""))
     }
 
+    /**
+     * The same words [leavesRealWordsAlone] protects, once the user has drawn the
+     * apostrophe through the glide key: the stroke said which word was meant, so
+     * the guess the automatic fix refuses to make is no longer a guess.
+     */
+    @Test
+    fun declaredApostropheReachesTheAmbiguousForms() {
+        assertEquals("it's", Apostrophes.fixExplicit("its"))
+        assertEquals("we're", Apostrophes.fixExplicit("were"))
+        assertEquals("we'll", Apostrophes.fixExplicit("well"))
+        assertEquals("I'll", Apostrophes.fixExplicit("ill"))
+        assertEquals("I'd", Apostrophes.fixExplicit("id"))
+        assertEquals("let's", Apostrophes.fixExplicit("lets"))
+        assertEquals("she'd", Apostrophes.fixExplicit("shed"))
+        assertEquals("Let's", Apostrophes.fixExplicit("Lets"))
+    }
+
+    /**
+     * A declared apostrophe also reaches the ordinary table, so the feature works
+     * with "Fix missing apostrophes" switched off — that setting is about
+     * guessing, and this stroke is not a guess.
+     */
+    @Test
+    fun declaredApostropheAlsoFixesTheUnambiguousForms() {
+        assertEquals("don't", Apostrophes.fixExplicit("dont"))
+        assertEquals("I'm", Apostrophes.fixExplicit("im"))
+    }
+
+    /** No table entry, no rewrite: a drawn apostrophe never invents a spelling. */
+    @Test
+    fun declaredApostropheLeavesUnknownWordsAlone() {
+        assertNull(Apostrophes.fixExplicit("hello"))
+        assertNull(Apostrophes.fixExplicit("developers"))
+        assertNull(Apostrophes.fixExplicit("it's"))
+        assertNull(Apostrophes.fixExplicit(""))
+    }
+
     @Test
     fun fixedWordsRoundTripToNull() {
         // Words already carrying their apostrophe are not in the table.

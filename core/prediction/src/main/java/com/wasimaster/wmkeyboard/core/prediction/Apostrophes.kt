@@ -96,12 +96,50 @@ object Apostrophes {
     )
 
     /**
+     * The forms [CONTRACTIONS] refuses, because each is also a real word: its,
+     * were, well, ill, id, hell, shell, wed, shed, lets, whore.
+     *
+     * Guessing at these is what [fix] must never do. Applying them when the user
+     * *drew the apostrophe* — a glide through the key that
+     * `GestureSettings.apostropheKey` names — is a different question with a
+     * different answer, because the stroke said which word was meant. Only
+     * [fixExplicit] reads this table.
+     */
+    private val DECLARED: Map<String, String> = mapOf(
+        "id" to "I'd",
+        "ill" to "I'll",
+        "its" to "it's",
+        "hell" to "he'll",
+        "lets" to "let's",
+        "shed" to "she'd",
+        "shell" to "she'll",
+        "wed" to "we'd",
+        "well" to "we'll",
+        "were" to "we're",
+    )
+
+    /**
      * The corrected word, or null when [word] needs no fixing. The typed
      * capitalization is preserved: Dont → Don't, ARENT → AREN'T; words the
      * fix itself capitalizes (im → I'm) stay capitalized regardless.
      */
-    fun fix(word: String): String? {
-        val fixed = CONTRACTIONS[word.lowercase()] ?: return null
+    fun fix(word: String): String? = fix(word, CONTRACTIONS)
+
+    /**
+     * The contraction [word] spells when the user has said an apostrophe belongs
+     * in it, or null when there is no such spelling.
+     *
+     * Reads [DECLARED] first and [CONTRACTIONS] second, so a declared
+     * apostrophe reaches both the ambiguous forms and the ordinary ones. That
+     * second half matters when "Fix missing apostrophes" is off: turning the
+     * automatic repair off is a statement about guessing, not about a stroke the
+     * user aimed through the apostrophe key.
+     */
+    fun fixExplicit(word: String): String? =
+        fix(word, DECLARED) ?: fix(word, CONTRACTIONS)
+
+    private fun fix(word: String, table: Map<String, String>): String? {
+        val fixed = table[word.lowercase()] ?: return null
         val result = when {
             word.length > 1 && word.all { !it.isLetter() || it.isUpperCase() } ->
                 fixed.uppercase()

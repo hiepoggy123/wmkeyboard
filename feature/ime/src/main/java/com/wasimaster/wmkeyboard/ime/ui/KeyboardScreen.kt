@@ -293,6 +293,8 @@ import com.wasimaster.wmkeyboard.core.settings.LatinAccents
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
+import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
+import com.wasimaster.wmkeyboard.core.settings.sourceChar
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
@@ -8761,7 +8763,14 @@ private fun KeyRows(
     val trailHeadWidth = gesture.trailWidthDp
     val startSlop = gesture.startThresholdSlop
     val cooldownMs = gesture.postTypeCooldownMs
-    val spaceGlide = gesture.spaceGlideMultiWord
+    // Which key a glide reads as an apostrophe. Read through a State because the
+    // grid is built inside the pointer loop, which outlives this composition.
+    val apostropheKey = rememberUpdatedState(gesture.apostropheKey)
+    // The spacebar cannot both end a word mid-stroke and stand for an
+    // apostrophe: one crossing, two readings. Choosing it as the apostrophe key
+    // stands the multi-word split down for as long as that choice holds.
+    val spaceGlide = gesture.spaceGlideMultiWord &&
+        gesture.apostropheKey != GlideApostropheKey.SPACE
     // Stamp of the last tap-typed key (uptime ms). A glide starting within
     // [cooldownMs] of it has to travel further before it takes over, so a stray
     // slide off a key during fast tapping is not misread as a swipe-word. Held
@@ -8905,7 +8914,14 @@ private fun KeyRows(
                             // the measured map alone: a key's shifted and
                             // long-pressed characters have no centre of their
                             // own and take the one their base label reported.
-                            keyList = liveLayouts.value.glideKeys { char ->
+                            keyList = liveLayouts.value.glideKeys(
+                                apostropheCenter = apostropheCenter(
+                                    apostropheKey.value,
+                                    liveCenters.value,
+                                    spaceRect.value,
+                                    boxOrigin,
+                                ),
+                            ) { char ->
                                 liveCenters.value[char]?.let { it.x to it.y }
                             }
                         }
@@ -9779,6 +9795,34 @@ internal fun splitKeys(keys: List<Key>): Pair<List<Key>, List<Key>> {
 /** True when [position] falls within roughly one key of a tracked letter key. */
 private fun nearLetterKey(position: Offset, centers: Map<Char, Offset>, keyWidth: Float): Boolean =
     centers.values.any { (it - position).getDistance() < keyWidth }
+
+/**
+ * Where the glide grid should put the apostrophe, in this box's space, or null
+ * when the feature is off or the chosen key is not on the current layer.
+ *
+ * The punctuation keys report their centres under their own character, the same
+ * way letters do, so three of the four choices are a map lookup. The spacebar is
+ * the exception: it reports a rect in *root* space (the multi-word split needs
+ * it there), so it is lifted back into box space here with the live origin.
+ *
+ * Null on a layout with no such key is the honest answer rather than a fallback
+ * to some other key: a stroke aimed at a key that is not there would otherwise
+ * spell an apostrophe the user never drew.
+ */
+private fun apostropheCenter(
+    choice: GlideApostropheKey,
+    centers: Map<Char, Offset>,
+    spaceRect: Rect?,
+    boxOrigin: Offset,
+): Pair<Float, Float>? = when (choice) {
+    GlideApostropheKey.OFF -> null
+    GlideApostropheKey.SPACE -> spaceRect?.let {
+        (it.center.x - boxOrigin.x) to (it.center.y - boxOrigin.y)
+    }
+    else -> choice.sourceChar
+        ?.let { centers[it] }
+        ?.let { it.x to it.y }
+}
 
 /** How hard a likely next letter pulls a boundary tap. Higher = wider steal. */
 private const val SMART_HIT_STRENGTH = 0.5f

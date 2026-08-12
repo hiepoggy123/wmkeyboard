@@ -236,14 +236,31 @@ data class LayoutSet(
      * claim on a character to whichever entry arrives first, so a character that
      * is one key's base label and another key's long-press alternate resolves to
      * the key that actually shows it.
+     *
+     * [apostropheCenter] is that rule put to work: the key the user picked to
+     * stand for the apostrophe (`GestureSettings.apostropheKey`) is emitted
+     * *before* every pass, so it takes the claim on `'` off whichever key holds
+     * the character as a long-press alternate — shipped QWERTY hides one behind
+     * `c`. Exactly one key on the board means an apostrophe, which is what makes
+     * the stroke through it readable; two would blur both of them. Null (the
+     * default) leaves the grid exactly as it was.
      */
-    fun glideKeys(centerOf: (Char) -> Pair<Float, Float>?): List<KeyCenter> {
+    fun glideKeys(
+        apostropheCenter: Pair<Float, Float>? = null,
+        centerOf: (Char) -> Pair<Float, Float>?,
+    ): List<KeyCenter> {
         val out = ArrayList<KeyCenter>(letters.rows.sumOf { it.size } * 2)
         fun emit(spelling: String?, x: Float, y: Float) {
             val label = spelling ?: return
             for (ch in keySpelling(label) ?: return) out.add(KeyCenter(ch, x, y))
             composedKeyChar(label)?.let { out.add(KeyCenter(it, x, y)) }
             decomposedKeyChars(label)?.forEach { out.add(KeyCenter(it, x, y)) }
+        }
+        apostropheCenter?.let { (x, y) ->
+            // Both spellings: a word list may hold either, and the two are the
+            // same keystroke as far as a finger is concerned.
+            out.add(KeyCenter('\'', x, y))
+            out.add(KeyCenter('’', x, y))
         }
         for (pass in 0 until PASSES) {
             for (row in letters.rows) {

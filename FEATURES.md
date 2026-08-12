@@ -292,6 +292,11 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Multi-word glide across the spacebar `uncommon` — One unbroken stroke crossing space commits several words; spacebar points anchor no letter and are dropped
     - Sequential context — Each segment decoded after the previous one is committed and learned, so word 2 sees word 1 as context
     - Toggleable — Off makes a spacebar-crossing stroke decode as one word
+  - Apostrophe in a glide `RARE` — One chosen key (comma, full stop, spacebar or a real apostrophe key) stands for `'` on the glide grid, so "it's" is drawn as i-t-'-s instead of guessed from "its"; off by default
+    - Exactly one key — Emitted before every other pass so it takes the claim on `'` off the long-press alternate a layout may hide one behind; two apostrophe keys measurably blur both
+    - Spacebar is exclusive — Picking it stands down the multi-word split, since one crossing cannot mean both "word ends" and "apostrophe"
+    - Declared spelling when the list has no entry — A stroke through the key rewrites the top reading through the ambiguous contraction table (its → it's, were → we're, lets → let's) that the automatic fix refuses to guess at, keeping the plain spelling next on the strip
+    - Never required — The same word drawn straight still decodes, and both `'` and `’` land on the chosen key
   - Mid-stroke ambiguity picker `RARE` — Hold still 250 ms while the decode is a close call and the top 3 words appear under the fingertip; slide onto one and lift
     - Drift-proof stillness — Measured against where the finger stopped, not the last sample, so slow drift never counts as a hold
     - Free to ignore — Lifting off a target commits the decoder's own first choice

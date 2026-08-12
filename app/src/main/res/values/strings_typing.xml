@@ -257,6 +257,16 @@
     <string name="typing_space_after_glide_subtitle">Add a space when you lift your finger at the end of a glide</string>
     <string name="typing_space_after_glide_info">This setting is on by default. The keyboard types a space after a glided word, so the next word does not join it. You can glide the next word, or type it on the keys. Type . , ? ! ; : or a closing bracket next, and the keyboard removes the space first. A press on the spacebar counts as the space that is already there. Backspace takes back the glided word and its space together. The keyboard adds no space in a password, an email address, a web address, a number pad or a phone pad.</string>
 
+    <!-- One-of-five choice: which key a glide reads as an apostrophe. -->
+    <string name="typing_glide_apostrophe_title">Apostrophe in a glide</string>
+    <string name="typing_glide_apostrophe_subtitle">Glide through one key to put an apostrophe in the word</string>
+    <string name="typing_glide_apostrophe_info">The letters have no apostrophe, so the keyboard cannot tell \"its\" from \"it\'s\" in a glide. Select a key here and that key means an apostrophe in a glide: swipe i, t, that key, then s, and you get \"it\'s\". The key still types its own character when you press it. Select one key only. Two keys make every word less accurate. This step is not necessary. A word you glide without it still works, and \"Fix missing apostrophes\" still repairs words such as \"dont\". The spacebar also ends a word in a glide, so \"Glide across the spacebar\" stops while you use the spacebar for the apostrophe.</string>
+    <string name="typing_glide_apostrophe_off_label">Off</string>
+    <string name="typing_glide_apostrophe_comma_label">Comma</string>
+    <string name="typing_glide_apostrophe_period_label">Full stop</string>
+    <string name="typing_glide_apostrophe_space_label">Spacebar</string>
+    <string name="typing_glide_apostrophe_key_label">Apostrophe key</string>
+
     <string name="typing_swipe_start_distance_title">Swipe start distance</string>
     <string name="typing_swipe_start_distance_subtitle">How far to move before a glide starts. A low value is more sensitive</string>
     <string name="typing_swipe_start_distance_info">This is the finger movement that changes a press into a glide. It is a multiple of the system touch slop. A low value starts the glide sooner and is more sensitive, but a still press can start a glide. A high value needs a more deliberate swipe.</string>
