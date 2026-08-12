@@ -3477,6 +3477,22 @@ private fun TypingSettings(
                         default = SettingsDefaults.gesture.apostropheKey,
                     )
                 }
+                // The possessive flick hangs off that key, and the spacebar
+                // cannot be its starting point, so the row appears only for the
+                // three choices it can actually work from.
+                if (settings.gesture.apostropheKey != GlideApostropheKey.OFF &&
+                    settings.gesture.apostropheKey != GlideApostropheKey.SPACE
+                ) {
+                    item {
+                        ToggleSetting(
+                            R.string.typing_glide_apostrophe_s_title,
+                            stringResource(R.string.typing_glide_apostrophe_s_subtitle),
+                            settings.gesture.apostropheS,
+                            info = stringResource(R.string.typing_glide_apostrophe_s_info),
+                            default = SettingsDefaults.gesture.apostropheS,
+                        ) { scope.launch { repository.setGestureApostropheS(it) } }
+                    }
+                }
             }
             item {
                 val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)

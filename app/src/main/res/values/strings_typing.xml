@@ -267,6 +267,13 @@
     <string name="typing_glide_apostrophe_space_label">Spacebar</string>
     <string name="typing_glide_apostrophe_key_label">Apostrophe key</string>
 
+    <!-- The 's is the English possessive ending, as in "the developer's keyboard". -->
+    <string name="typing_glide_apostrophe_s_title">Swipe to add \'s</string>
+    <string name="typing_glide_apostrophe_s_subtitle">Swipe from the apostrophe key to s to make the last word possessive</string>
+    <string name="typing_glide_apostrophe_s_info">Glide a word, then swipe from the apostrophe key to the s key. The keyboard adds \'s to that word, so \"developer\" becomes \"developer\'s\". Do this immediately after the glide. The keyboard adds nothing when you type or move the cursor first. Backspace deletes the whole word again in one press. This works with English only, and it needs a key for the apostrophe above. The spacebar cannot start this swipe.</string>
+
+
+
     <string name="typing_swipe_start_distance_title">Swipe start distance</string>
     <string name="typing_swipe_start_distance_subtitle">How far to move before a glide starts. A low value is more sensitive</string>
     <string name="typing_swipe_start_distance_info">This is the finger movement that changes a press into a glide. It is a multiple of the system touch slop. A low value starts the glide sooner and is more sensitive, but a still press can start a glide. A high value needs a more deliberate swipe.</string>

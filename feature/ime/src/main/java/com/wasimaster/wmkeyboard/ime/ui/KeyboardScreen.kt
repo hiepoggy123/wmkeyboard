@@ -8911,7 +8911,14 @@ private fun KeyRows(
                         }
                         if (!isGesture && keyWidth.value > 0f &&
                             (change.position - down.position).getDistance() > slop * effectiveSlop &&
-                            nearLetterKey(down.position, liveCenters.value, keyWidth.value)
+                            nearLetterKey(
+                                down.position,
+                                liveCenters.value,
+                                keyWidth.value,
+                                // The apostrophe key starts a stroke too, once it
+                                // has that job: the possessive flick begins there.
+                                allow = setOfNotNull(apostropheKey.value.sourceChar),
+                            )
                         ) {
                             isGesture = true
                             stillAt = change.position
@@ -9824,16 +9831,22 @@ private fun Key.glidePunctuationChar(): Char? =
 /**
  * True when [position] falls within roughly one key of a tracked letter key.
  *
- * Letters only, which is why the punctuation keys the centres map now also holds
- * are skipped: they are tracked for the apostrophe setting to find, and a slide
- * off the comma key must keep meaning exactly what it meant before.
+ * Letters only, which is why the punctuation keys the centres map also holds are
+ * skipped: they are tracked for the apostrophe setting to find, and a slide off
+ * the comma key must keep meaning exactly what it meant before.
+ *
+ * [allow] adds specific ones back. That is how the apostrophe key gets to start a
+ * stroke once the user has given it that job, which the possessive flick needs
+ * because it begins there rather than on a letter.
  */
 private fun nearLetterKey(
     position: Offset,
     centers: Map<Char, Offset>,
     keyWidth: Float,
+    allow: Set<Char> = emptySet(),
 ): Boolean = centers.any { (ch, center) ->
-    ch !in GlidePunctuationChars && (center - position).getDistance() < keyWidth
+    (ch !in GlidePunctuationChars || ch in allow) &&
+        (center - position).getDistance() < keyWidth
 }
 
 /**

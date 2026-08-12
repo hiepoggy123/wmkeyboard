@@ -297,6 +297,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Spacebar is exclusive — Picking it stands down the multi-word split, since one crossing cannot mean both "word ends" and "apostrophe"
     - Declared spelling when the list has no entry — A stroke through the key rewrites the top reading through the ambiguous contraction table (its → it's, were → we're, lets → let's) that the automatic fix refuses to guess at, keeping the plain spelling next on the strip
     - Never required — The same word drawn straight still decodes, and both `'` and `’` land on the chosen key
+  - Possessive flick `RARE` — A short straight swipe from the apostrophe key to `s`, drawn straight after a glide, appends `'s` to that word; on by default once an apostrophe key is chosen (never the spacebar)
+    - Detour test — Travel must stay within 1.6× the direct key-to-key distance, so a real word drawn between the same two keys still decodes as the word
+    - Takes the glide's own space back — The possessive lands inside it, and backspace still removes stem and ending in one press
+    - Learned — The possessive enters the personal dictionary, so the next one is glidable in a single stroke
   - Mid-stroke ambiguity picker `RARE` — Hold still 250 ms while the decode is a close call and the top 3 words appear under the fingertip; slide onto one and lift
     - Drift-proof stillness — Measured against where the finger stopped, not the last sample, so slow drift never counts as a hold
     - Free to ignore — Lifting off a target commits the decoder's own first choice

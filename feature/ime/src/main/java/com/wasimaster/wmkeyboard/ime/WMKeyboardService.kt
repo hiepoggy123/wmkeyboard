@@ -8418,6 +8418,72 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * `'s` on the end of the word just glided, drawn as a flick from the
+     * apostrophe key to `s`. True when this stroke was that flick and the
+     * possessive has been committed, so the caller skips the decode entirely.
+     *
+     * Nothing else in the gesture path can express this: a possessive is not a
+     * word a stroke can spell (the finger would have to draw the whole stem
+     * again), and the apostrophe key on its own puts an apostrophe *inside* a
+     * word rather than after one.
+     *
+     * Requires a word from the immediately preceding glide. [lastGestureWord] is
+     * exactly that flag — every manual edit, caret move and typed key clears it —
+     * so a flick with nothing behind it falls through and decodes as the two-key
+     * stroke it is.
+     */
+    private fun appendPossessive(
+        state: KeyboardUiState,
+        points: List<GesturePoint>,
+        keys: List<KeyCenter>,
+        keyWidthPx: Float,
+    ): Boolean {
+        val gesture = state.settings.gesture
+        if (!gesture.apostropheS) return false
+        // The spacebar is not a starting point: a stroke off it is how a glide is
+        // split, and OFF has no apostrophe key at all.
+        if (gesture.apostropheKey == GlideApostropheKey.OFF ||
+            gesture.apostropheKey == GlideApostropheKey.SPACE
+        ) {
+            return false
+        }
+        // `'s` is English. Every other language forms its possessive elsewhere.
+        if (!state.language.isEnglish) return false
+        val word = lastGestureWord ?: return false
+        if (word.endsWith("'s") || word.endsWith("’s")) return false
+        if (!isPossessiveFlick(points, keys, keyWidthPx)) return false
+        val ic = currentInputConnection ?: return false
+
+        // The glide's own trailing space belongs to the finished word, and the
+        // possessive goes inside it. Only the keyboard's own space is taken back:
+        // one the user typed is theirs.
+        if (pendingGestureSpace) {
+            val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
+            if (before == " ") ic.deleteSurroundingText(1, 0)
+            pendingGestureSpace = false
+        }
+        ic.commitText(POSSESSIVE, 1)
+        val possessive = word + POSSESSIVE
+        // Backspace still takes the whole thing back in one press, stem included,
+        // which is what the flick built.
+        lastGestureWord = possessive
+        learn(possessive)
+        commitGestureSpace(ic, state)
+        armRevertGuard()
+        return true
+    }
+
+    private fun isPossessiveFlick(
+        points: List<GesturePoint>,
+        keys: List<KeyCenter>,
+        keyWidthPx: Float,
+    ): Boolean {
+        val from = keys.firstOrNull { it.char == '\'' } ?: return false
+        val to = keys.firstOrNull { it.char == 's' } ?: return false
+        return possessiveFlick(points, from, to, keyWidthPx)
+    }
+
+    /**
      * What decides whether the active language and layout can be glided. A
      * value class rather than three fields so the watcher below is one
      * `distinctUntilChanged` rather than a hand-rolled comparison that would
@@ -8553,6 +8619,10 @@ open class WMKeyboardService : InputMethodService() {
         suggestionJob?.cancel()
         gestureJob?.cancel()
         _uiState.update { it.copy(glideWord = null, glideChoices = emptyList()) }
+        // A flick from the apostrophe key to s is not a word: it is `'s` for the
+        // word already committed. Answered before the decode rather than after,
+        // because there is nothing to decode and no candidate to override.
+        if (appendPossessive(state, points, keys, keyWidthPx)) return
         gestureJob = serviceScope.launch {
             val candidates = withContext(Dispatchers.Default) {
                 glideDecode(points, keys, keyWidthPx)
@@ -16471,6 +16541,9 @@ open class WMKeyboardService : InputMethodService() {
          * rows, so a stroke that reaches the punctuation key went there on purpose.
          */
         private const val APOSTROPHE_CROSS_WIDTHS = 0.5f
+
+        /** What the apostrophe-to-s flick appends. The shape test is in GlideSpace. */
+        private const val POSSESSIVE = "'s"
 
         /**
          * Longest snippet expansion that arms backspace-to-restore.

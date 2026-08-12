@@ -3224,6 +3224,17 @@ data class GestureSettings(
      */
     val apostropheKey: GlideApostropheKey = GlideApostropheKey.OFF,
     /**
+     * A short swipe from the apostrophe key to `s`, drawn straight after a glided
+     * word, appends `'s` to it: "developer" becomes "developer's" without a trip
+     * to the symbols layer.
+     *
+     * On by default and does nothing until [apostropheKey] names a key. Never the
+     * spacebar, whichever key is chosen for the apostrophe itself: a stroke that
+     * starts on the spacebar is how a glide is separated, so it cannot also be
+     * how one is extended.
+     */
+    val apostropheS: Boolean = true,
+    /**
      * A glided word is followed by a space, so the next word — glided or tapped
      * — starts clean instead of running into it. On by default. The space is
      * the keyboard's, not the user's: punctuation typed straight after takes it
@@ -4051,6 +4062,7 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_SPACE_MULTI_WORD = booleanPreferencesKey("gesture_space_multi_word")
         private val GESTURE_AMBIGUITY_PICKER = booleanPreferencesKey("gesture_ambiguity_picker")
         private val GESTURE_APOSTROPHE_KEY = stringPreferencesKey("gesture_apostrophe_key")
+        private val GESTURE_APOSTROPHE_S = booleanPreferencesKey("gesture_apostrophe_s")
         private val GESTURE_AUTO_SPACE = booleanPreferencesKey("gesture_auto_space")
         private val GESTURE_START_THRESHOLD_SLOP = floatPreferencesKey("gesture_start_threshold_slop")
         private val GESTURE_POST_TYPE_COOLDOWN_MS = intPreferencesKey("gesture_post_type_cooldown_ms")
@@ -4923,6 +4935,7 @@ class SettingsRepository(private val context: Context) {
                 apostropheKey = p[GESTURE_APOSTROPHE_KEY]
                     ?.let { runCatching { GlideApostropheKey.valueOf(it) }.getOrNull() }
                     ?: defaults.gesture.apostropheKey,
+                apostropheS = p[GESTURE_APOSTROPHE_S] ?: defaults.gesture.apostropheS,
                 autoSpaceAfterGlide = p[GESTURE_AUTO_SPACE] ?: defaults.gesture.autoSpaceAfterGlide,
                 startThresholdSlop = p[GESTURE_START_THRESHOLD_SLOP] ?: defaults.gesture.startThresholdSlop,
                 postTypeCooldownMs = p[GESTURE_POST_TYPE_COOLDOWN_MS] ?: defaults.gesture.postTypeCooldownMs,
@@ -8299,6 +8312,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureApostropheKey(value: GlideApostropheKey) =
         editPrefs { it[GESTURE_APOSTROPHE_KEY] = value.name }
+
+    suspend fun setGestureApostropheS(value: Boolean) =
+        editPrefs { it[GESTURE_APOSTROPHE_S] = value }
 
     suspend fun setGestureAutoSpace(value: Boolean) =
         editPrefs { it[GESTURE_AUTO_SPACE] = value }
