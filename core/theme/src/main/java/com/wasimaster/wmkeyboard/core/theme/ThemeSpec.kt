@@ -87,6 +87,42 @@ fun safeContainerKind(kind: KeyShapeKind): KeyShapeKind = when (kind) {
 }
 
 /**
+ * Whether a surface wearing [kind] may also cast a hardware elevation shadow.
+ *
+ * A shadow is tessellated from the outline, and Skia has two routines for it:
+ * a fast one for a convex path and `computeConcaveShadow`, which stitches an
+ * inner and an outer ring together. The concave one does not finish on a rim
+ * of scallop bumps — the RenderThread sits in `stitchConcaveRings` burning
+ * CPU, the main thread blocks in `DrawFrameTask::postAndWait` waiting for the
+ * frame, and the system kills the IME for not answering the touch that opened
+ * the popup within five seconds. Reported as issue #9: every popup crashed the
+ * keyboard until the shape was changed back.
+ *
+ * So the two concave outlines lose the shadow and keep the shape, which is the
+ * cheaper half to give up — the fill and the border still separate a popup
+ * from the keys behind it. Keys never hit this because a key has no elevation;
+ * it is only the raised surfaces (popup bubbles, menus, cards) that ask for a
+ * shadow at all.
+ *
+ * Exhaustive on purpose: a new shape has to be classified here rather than
+ * defaulting into the fast path and being found on somebody's phone.
+ */
+fun castsElevationShadow(kind: KeyShapeKind): Boolean = when (kind) {
+    KeyShapeKind.SCALLOP, KeyShapeKind.TICKET -> false
+    KeyShapeKind.ROUNDED,
+    KeyShapeKind.SHARP,
+    KeyShapeKind.PILL,
+    KeyShapeKind.CUT,
+    KeyShapeKind.SQUIRCLE,
+    KeyShapeKind.ARCH,
+    KeyShapeKind.LEAF,
+    KeyShapeKind.SLANT,
+    KeyShapeKind.HEXAGON,
+    KeyShapeKind.CIRCLE,
+    -> true
+}
+
+/**
  * Who took a background photo and where it came from, kept beside the image so
  * the credit survives an export, an import and going offline.
  *

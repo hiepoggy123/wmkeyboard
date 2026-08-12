@@ -5182,7 +5182,7 @@ private fun ToolCircle(
                     shape = kb.popupShape(),
                     color = kb.popup,
                     border = kb.popupSurfaceBorder(),
-                    shadowElevation = 6.dp,
+                    shadowElevation = elevationFor(kb.popupShapeKind, 6.dp),
                 ) {
                     Text(
                         longPressLabel,
@@ -8199,7 +8199,7 @@ private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKey
         shape = shape,
         color = preview.popupBackground ?: kb.popup,
         border = kb.popupSurfaceBorder(),
-        shadowElevation = 6.dp,
+        shadowElevation = elevationFor(kb.popupShapeKind, 6.dp),
     ) {
         Box(
             modifier = Modifier
@@ -9120,7 +9120,7 @@ private fun KeyRows(
                 color = theme.popup,
                 contentColor = theme.popupText,
                 shape = theme.popupShape(),
-                shadowElevation = 4.dp,
+                shadowElevation = elevationFor(theme.popupShapeKind, 4.dp),
             ) {
                 Text(
                     text = display,
@@ -9200,7 +9200,7 @@ private fun GlidePickerTargets(
                     color = if (hovered) theme.accent else theme.popup,
                     contentColor = if (hovered) theme.keyText else theme.popupText,
                     shape = theme.popupShape(),
-                    shadowElevation = if (hovered) 8.dp else 4.dp,
+                    shadowElevation = elevationFor(theme.popupShapeKind, if (hovered) 8.dp else 4.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
@@ -10423,7 +10423,7 @@ private fun KeyButton(
                     shape = kb.popupShape(),
                     color = kb.popup,
                     border = kb.popupSurfaceBorder(),
-                    shadowElevation = 8.dp,
+                    shadowElevation = elevationFor(kb.popupShapeKind, 8.dp),
                 ) {
                     Row(
                         modifier = Modifier.padding(4.dp),
@@ -10476,7 +10476,7 @@ private fun KeyButton(
                     shape = kb.popupShape(),
                     color = kb.popup,
                     border = kb.popupSurfaceBorder(),
-                    shadowElevation = 8.dp,
+                    shadowElevation = elevationFor(kb.popupShapeKind, 8.dp),
                 ) {
                     Row(
                         modifier = Modifier.padding(6.dp),
@@ -10699,7 +10699,7 @@ private fun LanguagePickerPopup(
             shape = kb.menuShape(),
             color = kb.popup,
             border = kb.popupSurfaceBorder(),
-            shadowElevation = 8.dp,
+            shadowElevation = elevationFor(kb.menuShapeKind, 8.dp),
         ) {
             Column(modifier = Modifier.widthIn(min = 160.dp, max = 240.dp)) {
                 Column(
@@ -12948,7 +12948,7 @@ private fun EmojiVariantPopup(
             shape = kb.popupShape(),
             color = kb.popup,
             border = kb.popupSurfaceBorder(),
-            shadowElevation = 8.dp,
+            shadowElevation = elevationFor(kb.popupShapeKind, 8.dp),
         ) {
             // Roomy by design: these rows are the only way to favourite or
             // forget an emoji, and at the old 26dp height they were easy to
@@ -13145,7 +13145,7 @@ private fun FavouritesReorderPopup(
                 shape = kb.menuShape(),
                 color = kb.popup,
                 border = kb.popupSurfaceBorder(),
-                shadowElevation = 8.dp,
+                shadowElevation = elevationFor(kb.menuShapeKind, 8.dp),
                 modifier = Modifier
                     .padding(16.dp)
                     .fillMaxWidth(0.92f)
@@ -13948,7 +13948,7 @@ private fun ClipEntitySourcePopup(entity: ClipEntity, onDismiss: () -> Unit) {
             shape = kb.menuShape(),
             color = kb.popup,
             border = kb.popupSurfaceBorder(),
-            shadowElevation = 6.dp,
+            shadowElevation = elevationFor(kb.menuShapeKind, 6.dp),
         ) {
             Column(
                 modifier = Modifier
@@ -14075,7 +14075,7 @@ private fun ClipInfoPopup(
             shape = kb.menuShape(),
             color = kb.popup,
             border = kb.popupSurfaceBorder(),
-            shadowElevation = 6.dp,
+            shadowElevation = elevationFor(kb.menuShapeKind, 6.dp),
         ) {
             Column(
                 modifier = Modifier

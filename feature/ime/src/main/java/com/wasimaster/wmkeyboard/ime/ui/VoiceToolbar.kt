@@ -374,7 +374,7 @@ private fun VoiceBarPill(
         // The theme paints the pill (colour + optional image); Surface just
         // supplies the shape, clip and shadow — same split as floating mode.
         color = Color.Transparent,
-        shadowElevation = 8.dp,
+        shadowElevation = elevationFor(kb.cardShapeKind, 8.dp),
     ) {
         Box(modifier = Modifier.clip(shape).popupBorder(LocalKbTheme.current, shape)) {
             BoardBackground(LocalKbTheme.current)

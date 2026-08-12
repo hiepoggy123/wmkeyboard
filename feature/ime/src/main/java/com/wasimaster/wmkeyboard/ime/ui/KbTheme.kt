@@ -56,6 +56,7 @@ import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.activeThemeSpec
 import com.wasimaster.wmkeyboard.core.settings.effectiveThemeId
 import com.wasimaster.wmkeyboard.core.tools.SolarCalculator
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.theme.ColorVision
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
@@ -71,6 +72,7 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeBackgroundImage
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.brush
+import com.wasimaster.wmkeyboard.core.theme.castsElevationShadow
 import com.wasimaster.wmkeyboard.core.theme.hueShift
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import com.wasimaster.wmkeyboard.core.theme.keyShapeKindOrNull
@@ -236,6 +238,16 @@ fun KbTheme.menuShape() = keyShapeFor(menuShapeKind, popupRadiusDp)
  * chip shape under the same safety rule as [menuShape].
  */
 fun KbTheme.cardShape() = keyShapeFor(cardShapeKind, chipRadiusDp)
+
+/**
+ * [elevation], or none when [kind] is an outline that cannot cast a shadow
+ * without hanging the RenderThread — see [castsElevationShadow], which is
+ * where the reasoning lives. Pass the shape kind the surface is drawing with,
+ * not the resolved [Shape]: the decision is about the outline's geometry and a
+ * Shape cannot be asked what it is.
+ */
+fun elevationFor(kind: KeyShapeKind, elevation: Dp): Dp =
+    if (castsElevationShadow(kind)) elevation else 0.dp
 
 /**
  * The popup outline a theme asked for, as a Surface border; null draws none.
