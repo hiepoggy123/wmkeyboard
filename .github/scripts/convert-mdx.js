@@ -56,6 +56,12 @@ function processFile(filePath) {
     // Rewrite standard root-relative markdown links to wiki absolute paths
     content = content.replace(/\[([^\]]+)\]\(\/([^)]+)\)/g, (match, text, href) => `[${text}](${transformLink(href)})`);
 
+    // Parse admonitions into <details>
+    content = content.replace(/^:::(\w+)(?:\[(.*?)\])?\s*\n([\s\S]*?)\n^:::/gm, (match, type, title, body) => {
+        const summaryTitle = title ? title : (type.charAt(0).toUpperCase() + type.slice(1));
+        return `<details>\n<summary><b>${summaryTitle}</b></summary>\n\n${body.trim()}\n\n</details>`;
+    });
+
     // Replace h2 tags with markdown headings
     content = content.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/g, '## $1');
 
