@@ -112,12 +112,16 @@ walkDir(inputDir, (filePath) => {
         let outPath = flatName + '.md';
         const fullOutPath = path.join(outputDir, outPath);
         
-        const { content, title, order } = processFile(filePath);
-        fs.writeFileSync(fullOutPath, content);
+        let { content, title, order } = processFile(filePath);
         
         const parts = relativePath.split(path.sep);
         const category = parts.length > 1 ? parts[0] : 'root';
         const displayTitle = title || path.basename(relativePath, path.extname(relativePath));
+        
+        // GitHub Wiki uses the first H1 as the display title, otherwise it falls back to the filename
+        content = `# ${displayTitle}\n\n` + content.trim();
+        
+        fs.writeFileSync(fullOutPath, content);
         
         // Use transformLink so that _Sidebar.md gets the exact same links as internal content
         let absoluteLink = transformLink('/' + (baseName === 'index' ? 'Home' : baseName));
