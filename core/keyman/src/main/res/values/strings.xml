@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+
+    <!--
+      Notes shown after converting a Keyman touch layout. Each states what did
+      not survive rather than whether anything did, because "converted with
+      warnings" tells the user nothing they can act on.
+    -->
+    <plurals name="core_keyman_multitap_dropped">
+        <item quantity="one">This keyboard has %1$d key you tap repeatedly to cycle through characters. This keyboard app has no such key, so only the first character is available.</item>
+        <item quantity="other">This keyboard has %1$d keys you tap repeatedly to cycle through characters. This keyboard app has no such keys, so only the first character of each is available.</item>
+    </plurals>
+
+    <plurals name="core_keyman_diagonal_flicks_dropped">
+        <item quantity="one">The app removed %1$d diagonal flick. This keyboard supports flicks up, down, left and right only.</item>
+        <item quantity="other">The app removed %1$d diagonal flicks. This keyboard supports flicks up, down, left and right only.</item>
+    </plurals>
+
+    <plurals name="core_keyman_special_keys_dropped">
+        <item quantity="one">The app removed %1$d key. This keyboard has no key that does the same thing.</item>
+        <item quantity="other">The app removed %1$d keys. This keyboard has no keys that do the same thing.</item>
+    </plurals>
+
+    <plurals name="core_keyman_keys_type_their_labels">
+        <item quantity="one">%1$d key types the character printed on it. The original keyboard used a rule to decide what it types.</item>
+        <item quantity="other">%1$d keys type the characters printed on them. The original keyboard used rules to decide what they type.</item>
+    </plurals>
+
+    <string name="core_keyman_shift_layer_folded">The app merged the shift layer into the keys. Hold Shift to reach those characters.</string>
+
+    <string name="core_keyman_shift_layer_separate">The shift layer has a different shape, so the app kept it as its own layer.</string>
+
+    <string name="core_keyman_rules_missing">This keyboard uses rules to decide what its keys type. The app does not have those rules, so each key types the character printed on it.</string>
+
+</resources>

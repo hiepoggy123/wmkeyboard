@@ -54,7 +54,15 @@ If you enable one of these and the output doesn't match the key caps, that's thi
 
 ## Undetermined languages
 
-Five keyboards in the upstream repository declare no language at all. Rather than invent one, WM Keyboard skips them unless the script by itself identifies the language, which is how one of the IPA keyboards gets in. Those five aren't available yet.
+Five keyboards in the upstream repository declare no language at all. Rather than invent one, WM Keyboard skips them unless the script by itself identifies the language, which is how one of the IPA keyboards gets in. You can still add any of the five by importing its file, and you pick the language yourself when you do.
+
+## Importing one yourself
+
+<SettingsPath path="Key layouts / Import from another keyboard" />
+
+Pick a `.keyman-touch-layout` file. The app reads the grid, then shows you what the conversion did and asks which language the layout belongs to. See [Importing from other keyboards](/reference/importing-other-keyboards/) for how that dialog works.
+
+This is for keyboards that aren't bundled, and for one you're writing yourself. Rules aren't read from the file, so the same key-caps limitation above applies. Full `.kmp` packages aren't supported yet.
 
 ## Reporting a bad layout
 

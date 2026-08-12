@@ -67,6 +67,7 @@
     <string name="layout_editor_foreign_confirm_title">Import <xliff:g id="layout_name" example="my grid">%1$s</xliff:g>?</string>
     <string name="layout_editor_foreign_from_json">The app read this file as a FlorisBoard or HeliBoard layout. The other keyboard draws its own bottom row, so the app adds the delete, space and enter keys.</string>
     <string name="layout_editor_foreign_from_text">The app read this file as a HeliBoard text layout. That format holds letters only, so the app adds the delete, space and enter keys.</string>
+    <string name="layout_editor_foreign_from_keyman">Read as a Keyman touch layout</string>
     <!-- The language a converted layout types in. The file does not say, so the
          app makes a guess from the letters on the keys. -->
     <string name="layout_editor_foreign_language_title">Language</string>

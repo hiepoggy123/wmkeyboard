@@ -56,6 +56,13 @@ enum class ForeignSource {
 
     /** The FlorisBoard `KeyData` JSON that HeliBoard also reads. */
     FLORIS_JSON,
+
+    /**
+     * A Keyman `.keyman-touch-layout` file. Read by `:core:keyman`, not here:
+     * that module depends on this one, so the converter cannot be called from
+     * inside it. The import screen dispatches on the file's shape instead.
+     */
+    KEYMAN_TOUCH_LAYOUT,
 }
 
 /** A foreign layout after conversion, with everything that was lost on the way. */

@@ -47,6 +47,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.SwapHoriz
 import com.wasimaster.wmkeyboard.core.layout.ConvertedLayout
+import com.wasimaster.wmkeyboard.core.keyman.KeymanImport
 import com.wasimaster.wmkeyboard.core.layout.ForeignLayouts
 import com.wasimaster.wmkeyboard.core.layout.ForeignSource
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
@@ -380,7 +381,15 @@ internal fun KeyLayoutsScreen(
                     if (bytes.size > MAX_FOREIGN_LAYOUT_BYTES) {
                         null
                     } else {
-                        ForeignLayouts.convert(bytes.decodeToString(), name)
+                        // Keyman first: its files are JSON too, and the
+                        // FlorisBoard reader would take one and return null
+                        // rather than deferring, so order is the dispatch.
+                        val text = bytes.decodeToString()
+                        if (KeymanImport.looksLikeTouchLayout(text)) {
+                            KeymanImport.convert(text, name)
+                        } else {
+                            ForeignLayouts.convert(text, name)
+                        }
                     }
                 }.getOrNull()
             }
@@ -649,6 +658,8 @@ internal fun KeyLayoutsScreen(
                             when (converted.source) {
                                 ForeignSource.FLORIS_JSON -> R.string.layout_editor_foreign_from_json
                                 ForeignSource.HELIBOARD_TEXT -> R.string.layout_editor_foreign_from_text
+                                ForeignSource.KEYMAN_TOUCH_LAYOUT ->
+                                    R.string.layout_editor_foreign_from_keyman
                             },
                         ),
                     )
