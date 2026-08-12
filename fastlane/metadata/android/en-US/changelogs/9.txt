@@ -1,0 +1,11 @@
+The toolbar's cursor tools do more. Hold one to repeat its move, and press shift
+first to extend the selection instead, the way shift+arrow does on a hardware
+keyboard.
+
+The layout editor sizes keys and rows with a slider or an exact typed value
+rather than in quarter steps, and can scale a row to fit the grid.
+
+Settings screens more than two deep draw a tappable path strip, so you can go
+back several levels at once.
+
+Fixed: plugins would not load in release builds.

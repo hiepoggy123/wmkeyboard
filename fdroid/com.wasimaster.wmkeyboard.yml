@@ -85,9 +85,27 @@ Builds:
       - core/intelligence/src/full/jniLibs
       - feature/llm/src/main/jniLibs
 
+  # Unchanged again. The one thing worth knowing about this build is that the
+  # R8 rules gained -keeppackagenames org.luaj.**, without which the plugin
+  # sandbox fails to start in a minified build; it is in the app's own
+  # proguard rules, so this recipe needs nothing for it.
+  - versionName: 0.4.1
+    versionCode: 9
+    commit: v0.4.1
+    subdir: app
+    gradle:
+      - lite
+    gradleprops:
+      - wmkb.enablePlayStore=false
+      - wmkb.enableGms=false
+      - wmkb.enableFdroid=true
+    scandelete:
+      - core/intelligence/src/full/jniLibs
+      - feature/llm/src/main/jniLibs
+
 # Bump both of these with every release. Alternatively switch to
 # UpdateCheckMode: Tags once the tag pattern has a couple of releases behind it.
 AutoUpdateMode: None
 UpdateCheckMode: None
-CurrentVersion: 0.4.0
-CurrentVersionCode: 8
+CurrentVersion: 0.4.1
+CurrentVersionCode: 9
