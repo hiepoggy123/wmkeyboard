@@ -178,6 +178,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -223,6 +224,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -589,6 +591,19 @@ private fun SettingsNavHost(
     pending: PendingNav? = null,
     onPendingHandled: () -> Unit = {},
 ) {
+    val navController = rememberNavController()
+    // The path strip's record of which screens the user walked through. Saved
+    // with the graph, because navigation composes only the screen on top: after
+    // a rotation or a process death a trail rebuilt from composition alone
+    // would come back one step long. Bound to the controller on every
+    // composition, so a pressed step pops against the live back stack.
+    val crumbs = rememberSaveable(saver = SettingsCrumbTrail.Saver) { SettingsCrumbTrail() }
+    SideEffect {
+        crumbs.bind(
+            topEntryId = { navController.currentBackStackEntry?.id },
+            pop = { navController.popBackStack() },
+        )
+    }
     // A section's icon and name fly from its home row to the heading of the
     // screen it opens, so the two read as one object being opened rather than
     // as a list and an unrelated page. Published for the whole graph here;
@@ -599,20 +614,21 @@ private fun SettingsNavHost(
             // A shared element is a motion and has no still version, so
             // reduced motion switches it off at the source.
             LocalSharedTransition provides if (settings.reduceMotion) null else this,
+            LocalSettingsCrumbTrail provides crumbs,
         ) {
-            SettingsNavGraph(repository, settings, pending, onPendingHandled)
+            SettingsNavGraph(navController, repository, settings, pending, onPendingHandled)
         }
     }
 }
 
 @Composable
 private fun SettingsNavGraph(
+    navController: NavHostController,
     repository: SettingsRepository,
     settings: KeyboardSettings,
     pending: PendingNav?,
     onPendingHandled: () -> Unit,
 ) {
-    val navController = rememberNavController()
     // A pack downloaded from these screens has to reach the running keyboard,
     // which holds its merged emoji catalogue in memory. Bumping the counter it
     // watches is that message. Collected here rather than on the screen that
@@ -1414,6 +1430,9 @@ private fun AnimatedVisibilityScope.HomeScreen(
             subtitleIconTint = ActiveGreen,
             badge = { AppIconBadge() },
             badgeInBar = true,
+            // The heading here is the app's name; in the path strip of the
+            // screens below, this one is where the settings start.
+            crumbTitle = stringResource(R.string.shell_breadcrumb_home),
             anim = this@HomeScreen,
             actions = {
                 IconButton(onClick = { onNavigate("search") }) {

@@ -263,17 +263,17 @@ internal fun AiChatScreen(
         if (listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
     }
 
+    // This screen builds its own bar rather than the house one, so it has to
+    // name itself in the path: the AI settings page opens from here, and its
+    // strip has to be able to come back through this chat.
+    val chatName = conversation?.title?.ifBlank { null }
+        ?: stringResource(R.string.home_screen_ai_chat_title)
+    RegisterSettingsCrumb(chatName)
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        conversation?.title?.ifBlank { null }
-                            ?: stringResource(R.string.home_screen_ai_chat_title),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
+                title = { Text(chatName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

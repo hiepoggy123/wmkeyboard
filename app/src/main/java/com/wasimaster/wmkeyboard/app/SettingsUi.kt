@@ -48,6 +48,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
@@ -744,6 +746,38 @@ private const val HeadingTintLight = 0.05f
 private const val BarTintDark = 0.18f
 private const val BarTintLight = 0.13f
 
+/**
+ * The two colours a section paints its chrome with: [expanded] across the
+ * heading at the top of the page, and [collapsed] on the strip a scrolled page
+ * leaves behind. The bar crossfades between them as it collapses; the path
+ * strip under it wears the second one throughout, so it reads as a band while
+ * the heading is open and merges with the bar once the page is scrolled.
+ */
+@Immutable
+internal data class BarTints(val expanded: Color, val collapsed: Color)
+
+/** [BarTints] for a destination, or for an explicit [barTint] that overrides it. */
+@Composable
+internal fun barTints(route: String?, barTint: Color? = null): BarTints {
+    val sectionTint = barTint ?: route?.let { SettingsRouteColors[it] }
+    val dark = isSystemInDarkTheme()
+    val surface = MaterialTheme.colorScheme.surface
+    val container = MaterialTheme.colorScheme.surfaceContainer
+    if (sectionTint == null) return BarTints(surface, container)
+    return BarTints(
+        expanded = androidx.compose.ui.graphics.lerp(
+            surface,
+            sectionTint,
+            if (dark) HeadingTintDark else HeadingTintLight,
+        ),
+        collapsed = androidx.compose.ui.graphics.lerp(
+            container,
+            sectionTint,
+            if (dark) BarTintDark else BarTintLight,
+        ),
+    )
+}
+
 /** How far above the expanded bar's bottom edge the title's centre line sits. */
 private val ExpandedTitleCenterFromBottom = 40.dp
 
@@ -1081,20 +1115,9 @@ internal fun WmCollapsingTopBar(
     // the top of the page, and a stronger one on the strip a scrolled page
     // leaves behind. The heading's is the quieter of the two — it is the page's
     // own top, not chrome, and at full strength it reads as a coloured block.
-    val sectionTint = barTint ?: route?.let { SettingsRouteColors[it] }
-    val dark = isSystemInDarkTheme()
-    val surface = MaterialTheme.colorScheme.surface
-    val container = MaterialTheme.colorScheme.surfaceContainer
-    val base = if (sectionTint == null) surface else androidx.compose.ui.graphics.lerp(
-        surface,
-        sectionTint,
-        if (dark) HeadingTintDark else HeadingTintLight,
-    )
-    val scrolled = if (sectionTint == null) container else androidx.compose.ui.graphics.lerp(
-        container,
-        sectionTint,
-        if (dark) BarTintDark else BarTintLight,
-    )
+    val tints = barTints(route, barTint)
+    val base = tints.expanded
+    val scrolled = tints.collapsed
     val titleColor = MaterialTheme.colorScheme.onSurface
 
     BoxWithConstraints(
@@ -1247,7 +1270,9 @@ internal fun WmCollapsingTopBar(
  * The frame every settings destination sits in: the moving-title bar over a
  * scrolling column. [onBack] is null on the home screen, which has no parent to
  * return to. [route], [centerTitle] and [subtitle] are the bar's, and mean what
- * they mean on [WmCollapsingTopBar].
+ * they mean on [WmCollapsingTopBar]. [crumbTitle] is what this screen is called
+ * in the path strip of the screens below it, for the one screen whose heading
+ * is not its name.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1267,6 +1292,7 @@ internal fun WmScreen(
     subtitleInBar: Boolean = false,
     badge: (@Composable () -> Unit)? = null,
     badgeInBar: Boolean = false,
+    crumbTitle: String? = null,
     anim: AnimatedVisibilityScope? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable () -> Unit,
@@ -1287,6 +1313,7 @@ internal fun WmScreen(
         subtitleInBar = subtitleInBar,
         badge = badge,
         badgeInBar = badgeInBar,
+        crumbTitle = crumbTitle,
         anim = anim,
         actions = actions,
     ) { padding ->
@@ -1379,6 +1406,7 @@ private fun WmScreenFrame(
     subtitleInBar: Boolean = false,
     badge: (@Composable () -> Unit)? = null,
     badgeInBar: Boolean = false,
+    crumbTitle: String? = null,
     anim: AnimatedVisibilityScope? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
@@ -1388,6 +1416,12 @@ private fun WmScreenFrame(
     // is whatever the row that navigated here left behind, and it has to stay
     // put for as long as this destination lives, including the way back.
     val origin = remember { FlightOrigin.pending }
+    // The path strip's two halves: the trail the graph keeps, and the back
+    // stack entry this screen is drawn for. Both are null when a house screen
+    // is drawn outside the graph, and then there is no strip.
+    val trail = LocalSettingsCrumbTrail.current
+    val entry = currentCrumbEntry()
+    RegisterSettingsCrumb(crumbTitle ?: title)
     // The destination's own animation scope, published for everything the
     // screen draws — the heading above, and any row below that flies somewhere.
     CompositionLocalProvider(
@@ -1398,25 +1432,39 @@ private fun WmScreenFrame(
         Scaffold(
             modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
-                WmCollapsingTopBar(
-                    title = title,
-                    scrollBehavior = scrollBehavior,
-                    onBack = onBack,
-                    route = route,
-                    icon = icon,
-                    accent = accent,
-                    iconTile = iconTile,
-                    iconInBar = iconInBar,
-                    barTint = barTint,
-                    centerTitle = centerTitle,
-                    subtitle = subtitle,
-                    subtitleIcon = subtitleIcon,
-                    subtitleIconTint = subtitleIconTint,
-                    subtitleInBar = subtitleInBar,
-                    badge = badge,
-                    badgeInBar = badgeInBar,
-                    actions = actions,
-                )
+                Column {
+                    WmCollapsingTopBar(
+                        title = title,
+                        scrollBehavior = scrollBehavior,
+                        onBack = onBack,
+                        route = route,
+                        icon = icon,
+                        accent = accent,
+                        iconTile = iconTile,
+                        iconInBar = iconInBar,
+                        barTint = barTint,
+                        centerTitle = centerTitle,
+                        subtitle = subtitle,
+                        subtitleIcon = subtitleIcon,
+                        subtitleIconTint = subtitleIconTint,
+                        subtitleInBar = subtitleInBar,
+                        badge = badge,
+                        badgeInBar = badgeInBar,
+                        actions = actions,
+                    )
+                    // Below the bar rather than inside it: the bar measures
+                    // itself to the collapse, and a second line in there would
+                    // have to be written into that arithmetic. The strip draws
+                    // nothing until the third level down, so most screens pay
+                    // an empty layout node for it and no height.
+                    if (trail != null && entry != null) {
+                        SettingsBreadcrumbBar(
+                            trail = trail,
+                            entryId = entry.id,
+                            tint = barTints(route, barTint).collapsed,
+                        )
+                    }
+                }
             },
             content = content,
         )
