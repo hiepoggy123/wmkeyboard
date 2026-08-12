@@ -159,18 +159,32 @@ for (let file of allFiles) {
         return `${wikiBase}${fallback}`;
     }
 
-    // Remove layout and wrapping tags
-    content = content.replace(/<\/?(?:CardGrid|FeatureRow|PhoneFrame|Fragment)[^>]*>/g, '');
-    
+    // For all Astro block components (e.g. FeatureRow, PhoneFrame, Fragment, CardGrid),
+    // strip the tags but preserve and unindent their body content so it doesn't render as a code block.
+    let previousContent;
+    do {
+        previousContent = content;
+        content = content.replace(/^[ \t]*<([A-Z][a-zA-Z0-9]*)[^>]*>\s*([\s\S]*?)\s*<\/\1>[ \t]*\n?/gm, (match, tag, body) => {
+            // Leave tags that we have specific replacements for
+            if (['Card', 'LinkCard', 'LinkButton', 'SettingsPath', 'KeyCap'].includes(tag)) {
+                return match;
+            }
+            return `${body.replace(/^[ \t]+/gm, '')}\n`;
+        });
+    } while (content !== previousContent);
+
     // Convert <Card> to headings
-    content = content.replace(/<Card\s+title="([^"]+)"[^>]*>\s*([\s\S]*?)\s*<\/Card>/g, (match, title, body) => `### ${title}\n\n${body}\n`);
+    content = content.replace(/<Card\s+title="([^"]+)"[^>]*>\s*([\s\S]*?)\s*<\/Card>/gm, (match, title, body) => `### ${title}\n\n${body.replace(/^[ \t]+/gm, '')}\n`);
 
     // Replace specific known tags to readable text
     content = content.replace(/<SettingsPath\s+path="([^"]+)"\s*\/?>/g, '**$1**');
     content = content.replace(/<KeyCap\s+(?:key|letter)="([^"]+)"\s*\/?>/g, '`$1`');
-    content = content.replace(/<LinkCard\s+title="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, (match, title, href) => `- [**${title}**](${getMappedLink(href)})`);
-    content = content.replace(/<LinkCard\s+title="([^"]+)"\s+description="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, (match, title, desc, href) => `- [**${title}**](${getMappedLink(href)})\n  ${desc}`);
-    content = content.replace(/<LinkButton\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/LinkButton>/g, (match, href, text) => `[**${text}**](${getMappedLink(href)})`);
+    content = content.replace(/<LinkCard\s+title="([^"]+)"\s+href="([^"]+)"\s*\/?>/gm, (match, title, href) => `- [**${title}**](${getMappedLink(href)})`);
+    content = content.replace(/<LinkCard\s+title="([^"]+)"\s+description="([^"]+)"\s+href="([^"]+)"\s*\/?>/gm, (match, title, desc, href) => `- [**${title}**](${getMappedLink(href)})\n  ${desc}`);
+    content = content.replace(/<LinkButton\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/LinkButton>/gm, (match, href, text) => `[**${text}**](${getMappedLink(href)})`);
+
+    // Remove any remaining self-closing or inline Astro components
+    content = content.replace(/<\/?([A-Z][a-zA-Z0-9]*)[^>]*>/g, '');
     
     // Rewrite image links
     content = content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, href) => {
