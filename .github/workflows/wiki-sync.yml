@@ -1,0 +1,32 @@
+name: Sync Wiki
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+  workflow_dispatch:
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Convert MDX to MD
+        run: |
+          node .github/scripts/convert-mdx.js docs/src/content/docs wiki-dist
+
+      - name: Sync docs to wiki
+        uses: Andrew-Chen-Wang/github-wiki-action@v4
+        with:
+          path: wiki-dist/
+          commit-message: "docs: Sync wiki from Astro docs"
