@@ -1,6 +1,9 @@
 package com.wasimaster.wmkeyboard.core.keyman
 
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
+import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
+import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import java.io.File
 import java.util.Locale
 import org.junit.Assert.assertTrue
@@ -93,6 +96,9 @@ class KeymanPipelineTest {
                 rows += SourceRow(
                     layoutId = spec.id,
                     keyboardId = id,
+                    langId = langId,
+                    script = dominantScript(langId, spec),
+                    languageName = meta.languageNames.firstOrNull().orEmpty(),
                     version = meta.version,
                     copyright = meta.copyright,
                     langTags = meta.languages.map(::canonicalTag),
@@ -125,6 +131,34 @@ class KeymanPipelineTest {
 
         File(out, "skipped.txt").writeText(skipped.joinToString("\n"))
 
+        // One row per language the corpus assigns, with the script its layouts
+        // actually type in. The script is measured from the converted keys
+        // rather than taken from the tag's script subtag, because most tags do
+        // not carry one and a wrong script is not cosmetic — it decides text
+        // direction, whether shift does anything, and which font the keys draw
+        // with.
+        val byLanguage = rows.groupBy { it.langId }.filterKeys { it.isNotEmpty() }
+        File(out, "keyman-languages.tsv").writeText(
+            buildString {
+                appendLine(listOf("lang_id", "script", "layout_ids", "confidence", "names").joinToString("\t"))
+                for ((langId, boards) in byLanguage.toSortedMap()) {
+                    val best = boards.mapNotNull { it.script }.maxByOrNull { it.second }
+                    val script = best?.first ?: "LATIN"
+                    val confidence = best?.second ?: 0
+                    appendLine(
+                        listOf(
+                            langId,
+                            script,
+                            boards.joinToString(" ") { it.layoutId },
+                            confidence,
+                            boards.mapNotNull { it.languageName.ifBlank { null } }.distinct()
+                                .joinToString(" | "),
+                        ).joinToString("\t"),
+                    )
+                }
+            },
+        )
+
         val tags = rows.flatMap { it.langTags }.map { it.substringBefore('-') }.filter { it.isNotEmpty() }
         println(
             "keymanc: ${rows.size} layouts, ${skipped.size} skipped, " +
@@ -136,6 +170,11 @@ class KeymanPipelineTest {
     private data class SourceRow(
         val layoutId: String,
         val keyboardId: String,
+        val langId: String,
+        /** [ScriptId] name and how confident the guess is, as a percentage. */
+        val script: Pair<String, Int>?,
+        /** The language name the keyboard author wrote in the .kps. */
+        val languageName: String,
         val version: String,
         val copyright: String,
         val langTags: List<String>,
@@ -149,6 +188,8 @@ class KeymanPipelineTest {
         val version: String = "",
         val copyright: String = "",
         val languages: List<String> = emptyList(),
+        /** The human name each `<Language>` element carries, index-aligned. */
+        val languageNames: List<String> = emptyList(),
     )
 
     /**
@@ -179,8 +220,9 @@ class KeymanPipelineTest {
             name = infoTag("Name"),
             version = infoTag("Version"),
             copyright = infoTag("Copyright"),
-            languages = Regex("""<Language\s+ID="([^"]+)"""")
-                .findAll(keyboards).map { it.groupValues[1] }.toList(),
+            languages = LANGUAGE_ELEMENT.findAll(keyboards).map { it.groupValues[1] }.toList(),
+            languageNames = LANGUAGE_ELEMENT.findAll(keyboards)
+                .map { it.groupValues[2].trim() }.toList(),
         )
     }
 
@@ -213,7 +255,89 @@ class KeymanPipelineTest {
         return (listOf(language) + rest).joinToString("-")
     }
 
+    /**
+     * The [ScriptId] a language's keyboards write in.
+     *
+     * The tag's own script subtag wins when it has one — `adi-Tibt` says
+     * Tibetan and means it. Otherwise the converted key caps are counted and the
+     * plain majority wins.
+     *
+     * An earlier version preferred any non-Latin script over Latin, to stop
+     * digits and punctuation from calling every keyboard Latin. It over-corrected
+     * badly: a handful of stray characters outvoted a 95% Latin grid, and an
+     * Albanian keyboard came out as Tamil. Excluding ASCII and combining marks
+     * from the count deals with the original problem without letting a minority
+     * win.
+     *
+     * This is still a guess, and it is wrong in one known way: a *mnemonic*
+     * keyboard has Latin key caps and types its own script through rules, so it
+     * measures as Latin. Nothing in the source states the script, and reading it
+     * out would mean running each keyboard's rules. [scriptConfidence] reports
+     * the winning share so the registry step can flag the weak ones.
+     */
+    private fun dominantScript(tag: String, spec: LayoutSpec): Pair<String, Int>? {
+        scriptFromTag(tag)?.let { return it to CONFIDENCE_FROM_TAG }
+
+        val counts = mutableMapOf<ScriptId, Int>()
+        var total = 0
+        for (layer in spec.layers.values) {
+            for (row in layer.rows) {
+                for (key in row) {
+                    for (ch in (key.output ?: key.label)) {
+                        if (!ch.isLetter()) continue
+                        if (ch.code < 0x80) {
+                            // ASCII letters are on nearly every grid as digits'
+                            // shifted forms and as the odd Latin label; counting
+                            // them makes everything Latin.
+                            counts.merge(ScriptId.LATIN, 1, Int::plus)
+                            total++
+                            continue
+                        }
+                        val script = ScriptRegistry.all.firstOrNull { ch.code in it.unicodeRange }
+                            ?: continue
+                        counts.merge(script.id, 1, Int::plus)
+                        total++
+                    }
+                }
+            }
+        }
+        if (total == 0) return null
+        val winner = counts.maxByOrNull { it.value } ?: return null
+        return winner.key.name to (winner.value * 100 / total)
+    }
+
+    /** `xx-Yyyy` to a [ScriptId] name, when the subtag names one we carry. */
+    private fun scriptFromTag(tag: String): String? {
+        val subtag = tag.split('-').firstOrNull { it.length == 4 } ?: return null
+        return ISO_15924[subtag]
+    }
+
     private companion object {
+        /** A script named by the tag itself is stated, not inferred. */
+        const val CONFIDENCE_FROM_TAG = 100
+
+        /** The ISO 15924 codes the corpus actually uses, to our ScriptIds. */
+        val ISO_15924 = mapOf(
+            "Latn" to "LATIN", "Cyrl" to "CYRILLIC", "Grek" to "GREEK",
+            "Arab" to "ARABIC", "Hebr" to "HEBREW", "Deva" to "DEVANAGARI",
+            "Beng" to "BENGALI", "Guru" to "GURMUKHI", "Gujr" to "GUJARATI",
+            "Orya" to "ORIYA", "Taml" to "TAMIL", "Telu" to "TELUGU",
+            "Knda" to "KANNADA", "Mlym" to "MALAYALAM", "Sinh" to "SINHALA",
+            "Thai" to "THAI", "Laoo" to "LAO", "Khmr" to "KHMER",
+            "Mymr" to "MYANMAR", "Ethi" to "ETHIOPIC", "Tibt" to "TIBETAN",
+            "Syrc" to "SYRIAC", "Thaa" to "THAANA", "Armn" to "ARMENIAN",
+            "Geor" to "GEORGIAN", "Cans" to "CANADIAN_ABORIGINAL_SYLLABICS",
+            "Cher" to "CHEROKEE", "Tfng" to "TIFINAGH", "Nkoo" to "NKO",
+            "Olck" to "OL_CHIKI", "Mtei" to "MEETEI_MAYEK", "Vaii" to "VAI",
+            "Osge" to "OSAGE", "Adlm" to "ADLAM", "Bali" to "BALINESE",
+            "Java" to "JAVANESE", "Mong" to "MONGOLIAN", "Plrd" to "MIAO",
+            "Lisu" to "LISU", "Newa" to "NEWA", "Runr" to "RUNIC",
+            "Copt" to "COPTIC", "Limb" to "LIMBU", "Cakm" to "CHAKMA",
+            "Rohg" to "HANIFI_ROHINGYA", "Bopo" to "BOPOMOFO", "Yiii" to "YI",
+        )
+
+        val LANGUAGE_ELEMENT = Regex("""<Language\s+ID="([^"]+)"\s*>(.*?)</Language>""")
+
         /** ISO 639-2/T codes the corpus uses where a 639-1 code exists. */
         val THREE_TO_TWO = mapOf(
             "bel" to "be", "bos" to "bs", "bul" to "bg", "ces" to "cs",
