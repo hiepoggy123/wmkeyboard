@@ -9,6 +9,26 @@ package com.wasimaster.wmkeyboard.core.keyman
  */
 data class ProcessorKey(val vkey: Int, val modifiers: Int)
 
+/**
+ * The modifier bits a [ProcessorKey] carries.
+ *
+ * Keyman's own values, exposed because the host has to build the mask and the
+ * on-disk format constants are internal to this module. They are deliberately
+ * not Android's `META_*`: the two mean similar things and share no values, so a
+ * host that passed `META_SHIFT_ON` straight through would set Keyman's
+ * left-control bit instead.
+ */
+object KmxModifiers {
+    const val LEFT_CTRL: Int = 0x0001
+    const val RIGHT_CTRL: Int = 0x0002
+    const val LEFT_ALT: Int = 0x0004
+    const val RIGHT_ALT: Int = 0x0008
+    const val SHIFT: Int = 0x0010
+    const val CTRL: Int = 0x0020
+    const val ALT: Int = 0x0040
+    const val CAPS: Int = 0x0100
+}
+
 /** What one keystroke did. Never partially applied. */
 sealed interface ProcessorResult {
 

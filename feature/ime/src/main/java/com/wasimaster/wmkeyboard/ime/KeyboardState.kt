@@ -1505,6 +1505,20 @@ data class KeyboardUiState(
         get() = panel == PanelMode.PLUGINS && pluginFocusedInput != null
 
     /**
+     * Whether some buffer inside the keyboard owns the keys, so nothing typed
+     * may reach the app behind it.
+     *
+     * The same set the typed-text path branches on, named once. Anything that
+     * bypasses that path — the Keyman rule engine writes to the field directly —
+     * has to ask this first, and asking a single property is the only way that
+     * question stays answered the same way in both places. The two existing
+     * copies of this list have already drifted apart once.
+     */
+    val keysTakenByKeyboard: Boolean
+        get() = typingTestActive || calcTypingActive || converterTypingActive ||
+            aiCustomInputActive || pluginTypingActive || emojiSearchActive
+
+    /**
      * The item a panel should ring in [region], or null when the ring is
      * elsewhere or absent. Lets a panel ask `state.focusedIndex() == i` without
      * unpacking [panelFocus] itself.

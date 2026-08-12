@@ -321,6 +321,9 @@ import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
+import com.wasimaster.wmkeyboard.core.keyman.KeymanRuleStore
+import com.wasimaster.wmkeyboard.core.keyman.ProcessorKey
+import com.wasimaster.wmkeyboard.core.keyman.ProcessorResult
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
@@ -813,6 +816,19 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var expectedSelStart = -1
     private var expectedSelEnd = -1
+
+    /** Where a converted Keyman layout's rules are read from. */
+    private val keymanRules by lazy { KeymanRuleStore(this) }
+
+    /**
+     * The rule engine for the active layout, or null when the layout is not a
+     * converted Keyman one or its rules are not on this device.
+     *
+     * Null is the common case and an ordinary one: the layout then types its own
+     * key caps, which is a usable keyboard and exactly what a device that never
+     * downloaded the rules gets.
+     */
+    private var keymanSession: KeymanSession? = null
 
     /** Rolling average of one suggestion computation, drives the debounce. */
     private var suggestionCostMs = 0L
@@ -1853,6 +1869,10 @@ open class WMKeyboardService : InputMethodService() {
                 val voiceBarInline = modeSettings.voiceBar.inline
                 val voiceBarSync = voiceBarPersisted != (voiceBarArmed to voiceBarInline)
                 voiceBarPersisted = voiceBarArmed to voiceBarInline
+                // Keeps the rule engine paired with the grid on screen: a
+                // language switch must not leave the old keyboard's rules
+                // running against the new grid.
+                syncKeymanSession(activeSpec)
                 _uiState.update {
                     it.copy(
                         settings = modeSettings,
@@ -3000,6 +3020,10 @@ open class WMKeyboardService : InputMethodService() {
         // digit-row answer the renderer draws with — on a tablet that row is
         // where backspace lives.
         val modeSettings = base?.applyMode(activeMode) ?: _uiState.value.settings
+        // Keeps the rule engine paired with the grid on screen: a
+        // language switch must not leave the old keyboard's rules
+        // running against the new grid.
+        syncKeymanSession(fieldSpec)
         _uiState.update {
             it.copy(
                 settings = modeSettings,
@@ -3138,6 +3162,10 @@ open class WMKeyboardService : InputMethodService() {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         expectedSelStart = newSelStart
         expectedSelEnd = newSelEnd
+        // Marks the engine's context stale unless this is the echo of its own
+        // edit. No text is read here: this runs on every keystroke, and a read
+        // would undo what the expected-selection cache exists to save.
+        keymanSession?.onSelectionReported(newSelStart, newSelEnd)
         // Immediate-revert states are only valid at the caret position their
         // commit left behind; see [revertAnchor]. The first update after
         // arming is the commit's own echo and records the anchor, anything
@@ -3948,10 +3976,123 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     private fun onTextKey(key: Key) {
+        val keyman = key.action as? KeyAction.KeymanKey
+        if (keyman != null && onKeymanKey(key, keyman)) return
         val output = keyOutput(key, _uiState.value)
-        processTypedText(output, applyDeadKeys = true)
+        // A converted Keyman layout owns its own dead keys, in its own context,
+        // where its rules can match them. Running ours as well would apply an
+        // accent twice.
+        processTypedText(output, applyDeadKeys = keymanSession == null)
         returnFromSymbolsAfter(output)
     }
+
+    /**
+     * Runs one key of a converted Keyman layout through its rule engine.
+     *
+     * Returns false when the engine did not handle it — no session, a keyboard
+     * buffer owns the keys, or the engine declined — and the caller then types
+     * the key the ordinary way.
+     */
+    private fun onKeymanKey(key: Key, keyman: KeyAction.KeymanKey): Boolean {
+        val session = keymanSession ?: return false
+        val state = _uiState.value
+        // While a search box or a typing test owns the keys, what the user types
+        // must not reach the app behind the keyboard, so the engine stays out of
+        // it and the text goes down the ordinary local-buffer path.
+        if (state.keysTakenByKeyboard) return false
+        val ic = currentInputConnection ?: return false
+
+        // One read per caret move, none per keystroke: the flag is set by
+        // onUpdateSelection and resolved here, lazily.
+        session.syncIfNeeded(expectedSelStart) {
+            ic.getTextBeforeCursor(KEYMAN_CONTEXT_UNITS, 0) ?: ""
+        }
+
+        val modifiers = keyman.modifiers or
+            KeymanSeam.modifiersFor(
+                shifted = state.shiftState != ShiftState.OFF,
+                capsLocked = state.shiftState == ShiftState.CAPS_LOCK,
+            )
+        val result = session.process(ProcessorKey(keyman.vkey, modifiers)) ?: return false
+
+        return when (result) {
+            is ProcessorResult.Declined -> false
+            is ProcessorResult.Failed -> false
+            is ProcessorResult.Edit -> {
+                applyKeymanEdit(ic, session, result)
+                keyman.nextLayer?.let { switchToNamedLayer(it) }
+                    ?: result.nextLayer?.let { switchToNamedLayer(it) }
+                true
+            }
+        }
+    }
+
+    /**
+     * Applies a rule engine edit as one editor transaction.
+     *
+     * Not through the composing region. `setComposingText` replaces the whole
+     * region and snaps the caret to its end, it underlines what it holds — and
+     * engine output is committed text, not a candidate — and every piece of
+     * machinery that hangs off "a region is open" (autocorrect, learning,
+     * snippet triggers, revert) is wrong for rule output. The delete count also
+     * routinely reaches text typed before this keyboard was even active, which
+     * no region could cover.
+     */
+    private fun applyKeymanEdit(
+        ic: InputConnection,
+        session: KeymanSession,
+        edit: ProcessorResult.Edit,
+    ) {
+        if (edit.isNoOp) {
+            // A pure dead key: the marker lives in the engine's context and
+            // nothing reaches the field. Issuing an empty transaction here makes
+            // some editors scroll.
+            session.onEdited(edit)
+            return
+        }
+        ic.beginBatchEdit()
+        if (edit.deleteBefore > 0) ic.deleteSurroundingText(edit.deleteBefore, 0)
+        if (edit.insert.isNotEmpty()) ic.commitText(edit.insert, 1)
+        ic.endBatchEdit()
+        session.onEdited(edit)
+    }
+
+    /** Shows a layer by name, for the layers a Keyman grid brought with it. */
+    private fun switchToNamedLayer(name: String) {
+        when (name) {
+            LayoutLayer.LETTERS.key -> _uiState.update {
+                it.copy(layoutMode = LayoutMode.LETTERS, fnLocked = false, fnReturn = null)
+            }
+            LayoutLayer.SYMBOLS.key, LayoutLayer.SYMBOLS_SHIFTED.key ->
+                _uiState.update { it.copy(layoutMode = LayoutMode.SYMBOLS) }
+            // A layer our grid has no slot for. Leaving the display alone beats
+            // switching to something arbitrary; the key still typed its output.
+            else -> Unit
+        }
+    }
+
+    /**
+     * Attaches or drops the rule engine when the active layout changes.
+     *
+     * Called wherever the layout is resolved, so a language switch cannot leave
+     * the previous keyboard's rules running against the new grid.
+     */
+    private fun syncKeymanSession(spec: LayoutSpec) {
+        val binding = spec.keyman
+        if (binding == null) {
+            keymanSession = null
+            return
+        }
+        if (keymanSession?.processor?.let { true } == true &&
+            activeKeymanKeyboardId == binding.keyboardId
+        ) {
+            return
+        }
+        activeKeymanKeyboardId = binding.keyboardId
+        keymanSession = keymanRules.processorFor(binding)?.let { KeymanSession(it) }
+    }
+
+    private var activeKeymanKeyboardId: String? = null
 
     /**
      * Springs ?123 back to the letters after one of the user's listed
@@ -5825,6 +5966,10 @@ open class WMKeyboardService : InputMethodService() {
         // Claimed before the state update, so a settings emission arriving
         // between here and the store catching up does not roll the pick back.
         pendingLayoutId = spec.id
+        // Keeps the rule engine paired with the grid on screen: a
+        // language switch must not leave the old keyboard's rules
+        // running against the new grid.
+        syncKeymanSession(spec)
         _uiState.update {
             it.copy(
                 language = spec.language(),
@@ -15610,6 +15755,10 @@ open class WMKeyboardService : InputMethodService() {
     private fun invalidateExpectedSelection() {
         expectedSelStart = -1
         expectedSelEnd = -1
+        // Every caller of this is a place the field changed under us, so the
+        // engine's context is suspect too. Folding it in here means a future
+        // caller cannot forget to say so.
+        keymanSession?.markStale()
     }
 
     /**

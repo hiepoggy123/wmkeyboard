@@ -1,0 +1,214 @@
+package com.wasimaster.wmkeyboard.ime
+
+import com.wasimaster.wmkeyboard.core.keyman.KeyProcessor
+import com.wasimaster.wmkeyboard.core.keyman.KeymanFault
+import com.wasimaster.wmkeyboard.core.keyman.KmxModifiers
+import com.wasimaster.wmkeyboard.core.keyman.ProcessorKey
+import com.wasimaster.wmkeyboard.core.keyman.ProcessorResult
+import com.wasimaster.wmkeyboard.core.keyman.SyncDecision
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * The seam's decisions, checked without an `InputConnection`.
+ *
+ * These are small and dull individually, and together they decide whether the
+ * engine deletes the right number of characters out of somebody's message. The
+ * anchor arithmetic in particular has no other guard: it is pure bookkeeping
+ * that only shows up as damage, in one app, some of the time.
+ */
+class KeymanSeamTest {
+
+    /** A processor whose answers the test dictates. */
+    private class FakeProcessor(
+        private var answer: ProcessorResult = ProcessorResult.Declined,
+    ) : KeyProcessor {
+        var resets = 0
+        var syncs = 0
+        var lastBefore: CharSequence? = null
+        var syncAnswer = SyncDecision.KEEP
+
+        fun answerWith(result: ProcessorResult) {
+            answer = result
+        }
+
+        override fun matches(vkey: Int, modifiers: Int) = true
+
+        override fun resetContext(before: CharSequence) {
+            resets++
+            lastBefore = before
+        }
+
+        override fun syncContext(before: CharSequence): SyncDecision {
+            syncs++
+            lastBefore = before
+            return syncAnswer
+        }
+
+        override fun process(key: ProcessorKey) = answer
+        override fun onNewContext(before: CharSequence): String? = null
+        override fun onPostKeystroke(): String? = null
+        override val deadKeyPending = false
+    }
+
+    private fun edit(delete: Int, insert: String) =
+        ProcessorResult.Edit(deleteBefore = delete, insert = insert)
+
+    // --- anchor arithmetic ---
+
+    @Test
+    fun `anchor advances by inserted minus deleted`() {
+        assertEquals(12, KeymanSeam.anchorAfter(10, edit(0, "ab")))
+        assertEquals(8, KeymanSeam.anchorAfter(10, edit(2, "")))
+        assertEquals(10, KeymanSeam.anchorAfter(10, edit(3, "xyz")))
+    }
+
+    /** A surrogate pair is two units, and the anchor counts units. */
+    @Test
+    fun `anchor counts utf-16 units, not code points`() {
+        val osage = "𐒰" // U+104B0, one code point, two units
+        assertEquals(1, osage.codePointCount(0, osage.length))
+        assertEquals(2, osage.length)
+        assertEquals(7, KeymanSeam.anchorAfter(5, edit(0, osage)))
+    }
+
+    /** An unknown anchor stays unknown rather than drifting from -1. */
+    @Test
+    fun `an unknown anchor is not advanced`() {
+        assertEquals(-1, KeymanSeam.anchorAfter(-1, edit(0, "abc")))
+    }
+
+    // --- echo detection ---
+
+    @Test
+    fun `a collapsed caret at the anchor is our own echo`() {
+        assertTrue(KeymanSeam.isOwnEcho(newSelStart = 7, newSelEnd = 7, anchor = 7))
+    }
+
+    @Test
+    fun `a moved caret is not our echo`() {
+        assertFalse(KeymanSeam.isOwnEcho(newSelStart = 6, newSelEnd = 6, anchor = 7))
+    }
+
+    /** A range selection is never an echo, even when it starts at the anchor. */
+    @Test
+    fun `a range selection is not our echo`() {
+        assertFalse(KeymanSeam.isOwnEcho(newSelStart = 7, newSelEnd = 9, anchor = 7))
+    }
+
+    @Test
+    fun `an unknown anchor is never an echo`() {
+        assertFalse(KeymanSeam.isOwnEcho(newSelStart = 0, newSelEnd = 0, anchor = -1))
+    }
+
+    // --- modifiers ---
+
+    @Test
+    fun `shift and caps map onto keyman's own bits`() {
+        assertEquals(0, KeymanSeam.modifiersFor(shifted = false, capsLocked = false))
+        assertEquals(KmxModifiers.SHIFT, KeymanSeam.modifiersFor(shifted = true, capsLocked = false))
+        assertEquals(
+            KmxModifiers.SHIFT or KmxModifiers.CAPS,
+            KeymanSeam.modifiersFor(shifted = false, capsLocked = true),
+        )
+    }
+
+    /**
+     * Android's `META_SHIFT_ON` is 1, which is Keyman's left-control bit. If
+     * these ever became the same number by accident, a rule written for ctrl
+     * would fire on a shifted letter.
+     */
+    @Test
+    fun `keyman shift is not android meta shift`() {
+        val androidMetaShiftOn = 1
+        assertTrue(KmxModifiers.SHIFT != androidMetaShiftOn)
+        assertEquals(androidMetaShiftOn, KmxModifiers.LEFT_CTRL)
+    }
+
+    // --- session ---
+
+    @Test
+    fun `a new session is stale until it syncs`() {
+        val session = KeymanSession(FakeProcessor())
+        assertTrue(session.stale)
+        assertEquals(-1, session.anchor)
+    }
+
+    @Test
+    fun `sync reads the field only while stale`() {
+        val fake = FakeProcessor()
+        val session = KeymanSession(fake)
+        var reads = 0
+        session.syncIfNeeded(4) { reads++; "abcd" }
+        assertEquals(1, reads)
+        assertEquals(4, session.anchor)
+        assertFalse(session.stale)
+
+        assertNull("a fresh context must not re-read", session.syncIfNeeded(4) { reads++; "abcd" })
+        assertEquals(1, reads)
+    }
+
+    @Test
+    fun `a foreign selection report marks the context stale`() {
+        val session = KeymanSession(FakeProcessor())
+        session.reset("abc", at = 3)
+        assertFalse(session.stale)
+
+        session.onSelectionReported(3, 3)
+        assertFalse("our own echo must not invalidate the context", session.stale)
+
+        session.onSelectionReported(1, 1)
+        assertTrue("a moved caret must invalidate the context", session.stale)
+    }
+
+    @Test
+    fun `an applied edit moves the anchor so the next report is an echo`() {
+        val fake = FakeProcessor()
+        val session = KeymanSession(fake)
+        session.reset("abc", at = 3)
+
+        val e = edit(delete = 1, insert = "XY")
+        session.onEdited(e)
+        assertEquals(4, session.anchor)
+
+        session.onSelectionReported(4, 4)
+        assertFalse(session.stale)
+    }
+
+    /**
+     * A blown budget is deterministic, so retrying it would stall every
+     * subsequent key. The session gives up for the rest of the field.
+     */
+    @Test
+    fun `a fault disables the session permanently`() {
+        val fake = FakeProcessor(ProcessorResult.Failed(KeymanFault.RULE_BUDGET))
+        val session = KeymanSession(fake)
+
+        assertNull(session.process(ProcessorKey(65, 0)))
+        assertTrue(session.disabled)
+
+        fake.answerWith(edit(0, "a"))
+        assertNull("a disabled session must stay disabled", session.process(ProcessorKey(65, 0)))
+    }
+
+    @Test
+    fun `a declined key is passed back for the ordinary path`() {
+        val session = KeymanSession(FakeProcessor(ProcessorResult.Declined))
+        assertEquals(ProcessorResult.Declined, session.process(ProcessorKey(65, 0)))
+        assertFalse(session.disabled)
+    }
+
+    // --- decline routing ---
+
+    @Test
+    fun `declined frame keys route to their own handlers`() {
+        assertEquals(KeymanFallback.Delete, KeymanSeam.declinedFallback(8))
+        assertEquals(KeymanFallback.Tab, KeymanSeam.declinedFallback(9))
+        assertEquals(KeymanFallback.Enter, KeymanSeam.declinedFallback(13))
+        assertEquals(KeymanFallback.Space, KeymanSeam.declinedFallback(32))
+        assertEquals(KeymanFallback.TypeKeyText, KeymanSeam.declinedFallback(65))
+    }
+}

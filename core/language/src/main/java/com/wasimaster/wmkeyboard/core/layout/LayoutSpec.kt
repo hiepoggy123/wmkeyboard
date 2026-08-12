@@ -128,6 +128,17 @@ data class LayoutSpec(
      * version of every asset and custom layout on read for nothing.
      */
     val tabletExpand: Boolean = true,
+    /**
+     * The Keyman keyboard whose rules decide what this layout's keys type, for
+     * a grid converted from one. Null for every layout of ours.
+     *
+     * Only the binding travels, never the rules: an exported layout stays a few
+     * kilobytes of JSON, and on a device that does not have the rules it
+     * resolves to nothing and the grid types its own key caps. That is the
+     * designed degradation rather than a failure — the keyboard is still a
+     * usable keyboard, it is just no longer the input method its author wrote.
+     */
+    val keyman: KeymanBinding? = null,
     /** Format revision, bumped by [LayoutCodec] migrations. */
     val version: Int = CurrentLayoutSpecVersion,
 ) {
@@ -301,6 +312,21 @@ private object ResolvedLayouts {
     @Volatile
     var cache: Entry? = null
 }
+
+/**
+ * Names the Keyman keyboard whose rules decide what a converted layout types.
+ *
+ * Lives here rather than in `:core:keyman` because [LayoutSpec] must not depend
+ * on the engine: a layout is data and has to decode on a build where the engine
+ * is absent. The engine looks the binding up, never the other way round.
+ */
+@Serializable
+data class KeymanBinding(
+    /** Keyboard id as the package names it, e.g. `khmer_angkor`. */
+    val keyboardId: String,
+    /** Keyboard version the grid was converted from, for a staleness check. */
+    val version: String = "",
+)
 
 /**
  * The layout [id] names, falling back to the default when it has been deleted
